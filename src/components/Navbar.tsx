@@ -1,8 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, Menu, X, Zap } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { LogOut, Menu, X, Zap, ShoppingCart } from "lucide-react";
 import { useState } from "react";
+import { CartDrawer } from "@/components/CartDrawer";
 
 const navLinks = [
   { to: "/", label: "Home" },
@@ -51,6 +54,7 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
+          <CartDrawer />
           {user ? (
             <>
               <Link to="/dashboard">
