@@ -54,6 +54,7 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
+          <CartDrawer />
           {user ? (
             <>
               <Link to="/dashboard">
