@@ -153,6 +153,13 @@ export function Navbar() {
           <div className="mt-3 flex flex-col gap-2">
             {user ? (
               <>
+                {isAdmin && (
+                  <Link to="/admin" onClick={() => setMenuOpen(false)}>
+                    <Button variant="outline" size="lg" className="w-full text-base">
+                      <ShieldCheck className="me-2 h-5 w-5 text-primary" /> Admin Panel
+                    </Button>
+                  </Link>
+                )}
                 <Link to="/dashboard" onClick={() => setMenuOpen(false)}>
                   <Button size="lg" className="w-full text-base font-semibold">
                     {t("nav.dashboard")}
