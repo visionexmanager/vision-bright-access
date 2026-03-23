@@ -121,17 +121,33 @@ export default function Marketplace() {
           <CartDrawer />
         </div>
 
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input
-            type="search"
-            placeholder="Search products…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-12 pl-12 text-base"
-            aria-label="Search products"
-          />
+        {/* Search & Sort */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              type="search"
+              placeholder="Search products…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-12 pl-12 text-base"
+              aria-label="Search products"
+            />
+          </div>
+          <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
+            <SelectTrigger className="h-12 w-full sm:w-[200px] text-base" aria-label="Sort products">
+              <ArrowUpDown className="mr-2 h-4 w-4" />
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default</SelectItem>
+              <SelectItem value="price-asc">Price: Low → High</SelectItem>
+              <SelectItem value="price-desc">Price: High → Low</SelectItem>
+              <SelectItem value="rating-desc">Top Rated</SelectItem>
+              <SelectItem value="points-desc">Most Points</SelectItem>
+              <SelectItem value="points-asc">Fewest Points</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Category filters */}
