@@ -41,6 +41,7 @@ const App = () => (
                 <Route path="/content" element={<Content />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/leaderboard" element={<Leaderboard />} />
+                <Route path="/profile" element={<Profile />} />
                 <Route path="/product/:id" element={<ProductDetail />} />
                 <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="*" element={<NotFound />} />
