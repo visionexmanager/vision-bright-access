@@ -25,6 +25,8 @@ const ProductDetail = lazy(() => import("./pages/ProductDetail"));
 const Wishlist = lazy(() => import("./pages/Wishlist"));
 const Games = lazy(() => import("./pages/Games"));
 const QuizChallenge = lazy(() => import("./pages/QuizChallenge"));
+const MemoryGame = lazy(() => import("./pages/MemoryGame"));
+const WordPuzzle = lazy(() => import("./pages/WordPuzzle"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Admin pages
