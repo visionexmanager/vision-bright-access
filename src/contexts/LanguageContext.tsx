@@ -191,6 +191,17 @@ const translations: Record<Lang, Record<string, string>> = {
     "cat.Tutorial": "Tutorial",
     "cat.Reference": "Reference",
     "cat.Article": "Article",
+
+    // Wishlist
+    "wishlist.title": "Wishlist",
+    "wishlist.subtitle": "Products you've saved for later",
+    "wishlist.empty": "Your wishlist is empty",
+    "wishlist.emptyDesc": "Browse the marketplace and tap the heart icon to save products.",
+    "wishlist.added": "{name} added to wishlist",
+    "wishlist.removed": "{name} removed from wishlist",
+    "wishlist.loginRequired": "Please log in to save products.",
+    "wishlist.browseMarketplace": "Browse Marketplace",
+    "nav.wishlist": "Wishlist",
   },
   ar: {
     // Nav
