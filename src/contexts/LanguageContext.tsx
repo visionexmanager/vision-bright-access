@@ -574,9 +574,10 @@ const translations: Record<Lang, Record<string, string>> = {
     "content.m3d": "دروس برمجة خطوة بخطوة مصممة لمستخدمي قارئ الشاشة.",
 
     // 404
-    "notFound.title": "404",
-    "notFound.message": "عذراً! الصفحة غير موجودة",
+    "notFound.title": "الصفحة غير موجودة",
+    "notFound.message": "عذراً! الصفحة التي تبحث عنها غير موجودة.",
     "notFound.link": "العودة للرئيسية",
+    "nav.back": "رجوع",
 
     // Categories
     "cat.All": "الكل",
