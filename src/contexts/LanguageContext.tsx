@@ -734,6 +734,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.hasAccount": "¿Ya tienes cuenta?",
     "auth.welcomeBack": "¡Bienvenido de vuelta!",
     "auth.accountCreated": "¡Cuenta creada! Revisa tu correo para confirmar, o inicia sesión ahora.",
+    "auth.orContinueWith": "o continuar con",
+    "auth.continueGoogle": "Continuar con Google",
+    "auth.continueApple": "Continuar con Apple",
 
     // Dashboard
     "dash.title": "Panel",
