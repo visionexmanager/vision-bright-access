@@ -559,6 +559,17 @@ const translations: Record<Lang, Record<string, string>> = {
     "cat.Tutorial": "Tutorial",
     "cat.Reference": "Referencia",
     "cat.Article": "Artículo",
+
+    // Wishlist
+    "wishlist.title": "Lista de deseos",
+    "wishlist.subtitle": "Productos que guardaste para después",
+    "wishlist.empty": "Tu lista de deseos está vacía",
+    "wishlist.emptyDesc": "Explora la tienda y toca el ícono de corazón para guardar productos.",
+    "wishlist.added": "{name} agregado a la lista de deseos",
+    "wishlist.removed": "{name} eliminado de la lista de deseos",
+    "wishlist.loginRequired": "Inicia sesión para guardar productos.",
+    "wishlist.browseMarketplace": "Explorar Tienda",
+    "nav.wishlist": "Lista de deseos",
   },
 };
 
