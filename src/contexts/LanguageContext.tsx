@@ -1013,6 +1013,16 @@ const translations: Record<Lang, Record<string, string>> = {
     "profile.saved": "¡Perfil actualizado!",
     "profile.error": "Error al actualizar el perfil",
     "profile.uploading": "Subiendo…",
+
+    // Games
+    "nav.games": "Juegos",
+    "games.title": "Juegos",
+    "games.subtitle": "¡Juega juegos divertidos y desafíate a ti mismo!",
+    "games.quiz.badge": "Quiz",
+    "games.quiz.title": "Desafío de 50 Preguntas",
+    "games.quiz.desc": "¡Demuestra tu velocidad y conocimiento para subir en el ranking de Visionex!",
+    "games.quiz.info": "20 preguntas • 3 segundos cada una • Gana tu rango",
+    "games.quiz.start": "Iniciar Desafío",
   },
 };
 

@@ -76,6 +76,8 @@ const App = () => (
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/product/:id" element={<ProductDetail />} />
                     <Route path="/wishlist" element={<Wishlist />} />
+                    <Route path="/games" element={<Games />} />
+                    <Route path="/games/quiz-challenge" element={<QuizChallenge />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
