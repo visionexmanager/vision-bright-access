@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import Marketplace from "./pages/Marketplace";
 import Services from "./pages/Services";
 import Content from "./pages/Content";
+import Contact from "./pages/Contact";
 import ProductDetail from "./pages/ProductDetail";
 import Wishlist from "./pages/Wishlist";
 import NotFound from "./pages/NotFound";
@@ -36,6 +37,7 @@ const App = () => (
                 <Route path="/marketplace" element={<Marketplace />} />
                 <Route path="/services" element={<Services />} />
                 <Route path="/content" element={<Content />} />
+                <Route path="/contact" element={<Contact />} />
                 <Route path="/product/:id" element={<ProductDetail />} />
                 <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="*" element={<NotFound />} />
