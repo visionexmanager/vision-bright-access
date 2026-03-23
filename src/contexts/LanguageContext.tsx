@@ -104,7 +104,15 @@ const translations: Record<Lang, Record<string, string>> = {
     "dash.spendPoints": "Spend Points",
     "dash.spendDesc": "Use your points for discounts in the Marketplace cart",
 
-    // Marketplace
+    // Leaderboard
+    "leader.title": "Leaderboard",
+    "leader.subtitle": "Top users by total points earned",
+    "leader.rank": "#",
+    "leader.user": "User",
+    "leader.points": "Points",
+    "leader.you": "(You)",
+    "leader.empty": "No rankings yet. Be the first to earn points!",
+    "nav.leaderboard": "Leaderboard",
     "market.title": "Marketplace",
     "market.subtitle": "Browse products or request something specific",
     "market.generalStore": "General Store",
