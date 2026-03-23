@@ -555,15 +555,18 @@ const translations: Record<Lang, Record<string, string>> = {
 
     // Services
     "services.title": "Servicios",
-    "services.subtitle": "Servicios profesionales de accesibilidad — gana puntos por cada interacción.",
-    "services.audit": "Auditoría de Accesibilidad",
-    "services.auditDesc": "Revisión completa de accesibilidad del sitio web",
-    "services.wcag": "Verificación WCAG",
-    "services.wcagDesc": "Asegura que tu producto cumple con WCAG 2.1 AA",
-    "services.testing": "Pruebas de Usuario",
-    "services.testingDesc": "Pruebas con usuarios de habilidades diversas",
-    "services.remediation": "Soporte de Remediación",
-    "services.remediationDesc": "Corrige problemas de accesibilidad con guía experta",
+    "services.subtitle": "Ofrecemos servicios profesionales para apoyar tus necesidades digitales.",
+    "services.webDesign": "Diseño Web",
+    "services.webDesignDesc": "Sitios web personalizados y accesibles con estándares modernos. Compatibles con móviles, rápidos y optimizados.",
+    "services.digitalMarketing": "Marketing Digital",
+    "services.digitalMarketingDesc": "Llega a tu audiencia con estrategias inclusivas, SEO, redes sociales y campañas publicitarias.",
+    "services.importPurchasing": "Servicios de Importación y Compras",
+    "services.importPurchasingDesc": "Buscamos e importamos productos de tecnología asistiva y artículos esenciales de proveedores globales confiables.",
+    "services.techConsulting": "Consultoría Técnica",
+    "services.techConsultingDesc": "Orientación experta en tecnología asistiva, lectores de pantalla, herramientas de accesibilidad y soluciones adaptativas.",
+    "services.training": "Capacitación y Configuración",
+    "services.trainingDesc": "Sesiones de capacitación personalizadas y ayuda práctica para configurar dispositivos, software y herramientas asistivas.",
+    "services.cta": "Comenzar",
     "services.earn": "Gana {points} pts",
 
     // Content

@@ -1,34 +1,49 @@
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Globe, Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Services() {
   const { t } = useLanguage();
 
   const services = [
-    { name: t("services.audit"), desc: t("services.auditDesc"), points: 75 },
-    { name: t("services.wcag"), desc: t("services.wcagDesc"), points: 60 },
-    { name: t("services.testing"), desc: t("services.testingDesc"), points: 100 },
-    { name: t("services.remediation"), desc: t("services.remediationDesc"), points: 90 },
+    { icon: MonitorSmartphone, name: t("services.webDesign"), desc: t("services.webDesignDesc"), points: 100 },
+    { icon: Megaphone, name: t("services.digitalMarketing"), desc: t("services.digitalMarketingDesc"), points: 80 },
+    { icon: Package, name: t("services.importPurchasing"), desc: t("services.importPurchasingDesc"), points: 60 },
+    { icon: Headphones, name: t("services.techConsulting"), desc: t("services.techConsultingDesc"), points: 120 },
+    { icon: GraduationCap, name: t("services.training"), desc: t("services.trainingDesc"), points: 90 },
   ];
+
+  const handleCta = (serviceName: string) => {
+    toast.success(`${serviceName} — request submitted!`);
+  };
 
   return (
     <Layout>
       <section className="mx-auto max-w-5xl px-4 py-10" aria-labelledby="services-heading">
         <h1 id="services-heading" className="mb-2 text-3xl font-bold">{t("services.title")}</h1>
         <p className="mb-8 text-lg text-muted-foreground">{t("services.subtitle")}</p>
-        <div className="grid gap-6 sm:grid-cols-2">
+
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
-            <Card key={s.name} className="transition-shadow hover:shadow-lg">
-              <CardContent className="flex flex-col gap-4 p-8">
+            <Card key={s.name} className="flex flex-col transition-shadow hover:shadow-lg">
+              <CardContent className="flex flex-1 flex-col gap-4 p-8">
                 <div className="rounded-xl bg-primary/10 p-3 w-fit">
-                  <Eye className="h-7 w-7 text-primary" aria-hidden="true" />
+                  <s.icon className="h-7 w-7 text-primary" aria-hidden="true" />
                 </div>
                 <h2 className="text-xl font-bold">{s.name}</h2>
-                <p className="text-muted-foreground">{s.desc}</p>
+                <p className="flex-1 text-muted-foreground leading-relaxed">{s.desc}</p>
                 <Badge className="w-fit text-sm">{t("services.earn").replace("{points}", String(s.points))}</Badge>
+                <Button
+                  size="lg"
+                  className="mt-2 w-full text-base font-semibold"
+                  onClick={() => handleCta(s.name)}
+                >
+                  {t("services.cta")} <ArrowRight className="ms-2 h-5 w-5" />
+                </Button>
               </CardContent>
             </Card>
           ))}
