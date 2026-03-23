@@ -80,6 +80,8 @@ const App = () => (
                     <Route path="/wishlist" element={<Wishlist />} />
                     <Route path="/games" element={<Games />} />
                     <Route path="/games/quiz-challenge" element={<QuizChallenge />} />
+                    <Route path="/games/memory" element={<MemoryGame />} />
+                    <Route path="/games/word-puzzle" element={<WordPuzzle />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
