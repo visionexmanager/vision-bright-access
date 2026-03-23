@@ -558,6 +558,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "contact.sOther": "أخرى",
     "nav.contact": "تواصل معنا",
   },
+  es: {
     // Nav
     "nav.home": "Inicio",
     "nav.marketplace": "Tienda",
