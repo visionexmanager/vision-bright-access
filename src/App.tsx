@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Marketplace from "./pages/Marketplace";
 import Services from "./pages/Services";
 import Content from "./pages/Content";
+import ProductDetail from "./pages/ProductDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
