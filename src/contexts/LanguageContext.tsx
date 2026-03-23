@@ -622,6 +622,19 @@ const translations: Record<Lang, Record<string, string>> = {
     "contact.sCustomProduct": "ابحث لي (منتج مخصص)",
     "contact.sOther": "أخرى",
     "nav.contact": "تواصل معنا",
+    "nav.profile": "الملف الشخصي",
+
+    // Profile
+    "profile.title": "ملفك الشخصي",
+    "profile.subtitle": "إدارة اسم العرض والصورة الرمزية",
+    "profile.displayName": "اسم العرض",
+    "profile.avatar": "الصورة الرمزية",
+    "profile.changeAvatar": "تغيير الصورة",
+    "profile.save": "حفظ التغييرات",
+    "profile.saving": "جارٍ الحفظ…",
+    "profile.saved": "تم تحديث الملف الشخصي!",
+    "profile.error": "فشل تحديث الملف الشخصي",
+    "profile.uploading": "جارٍ الرفع…",
   },
   es: {
     // Nav
