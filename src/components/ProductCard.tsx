@@ -26,7 +26,7 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
     <Card className="flex flex-col transition-shadow hover:shadow-lg">
       <CardContent className="flex flex-1 flex-col gap-3 p-6">
         <div className="flex items-start justify-between">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-3xl">
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-3xl" aria-hidden="true">
             {product.image}
           </div>
           <div className="flex items-center gap-1">

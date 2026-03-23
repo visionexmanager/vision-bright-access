@@ -165,14 +165,14 @@ export function CartDrawer() {
                     <h3 className="truncate text-base font-semibold">{product.name}</h3>
                     <p className="text-sm text-muted-foreground">${product.price.toFixed(2)}</p>
                     <div className="mt-2 flex items-center gap-2">
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, quantity - 1)} aria-label={`Decrease ${product.name}`}>
+                      <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => updateQuantity(product.id, quantity - 1)} aria-label={`Decrease ${product.name}`}>
                         <Minus className="h-4 w-4" />
                       </Button>
                       <span className="w-8 text-center text-base font-medium" aria-live="polite">{quantity}</span>
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, quantity + 1)} aria-label={`Increase ${product.name}`}>
+                      <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => updateQuantity(product.id, quantity + 1)} aria-label={`Increase ${product.name}`}>
                         <Plus className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="ms-auto h-8 w-8 text-destructive" onClick={() => removeFromCart(product.id)} aria-label={`Remove ${product.name}`}>
+                      <Button variant="ghost" size="icon" className="ms-auto h-10 w-10 text-destructive" onClick={() => removeFromCart(product.id)} aria-label={`Remove ${product.name}`}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
