@@ -202,6 +202,22 @@ const translations: Record<Lang, Record<string, string>> = {
     "wishlist.loginRequired": "Please log in to save products.",
     "wishlist.browseMarketplace": "Browse Marketplace",
     "nav.wishlist": "Wishlist",
+
+    // Redemption
+    "redeem.title": "Redeem Points",
+    "redeem.available": "You have {points} points",
+    "redeem.apply": "Apply",
+    "redeem.remove": "Remove",
+    "redeem.applied": "Discount applied! Saving ${amount}",
+    "redeem.removed": "Discount removed",
+    "redeem.notEnough": "You need at least {points} points",
+    "redeem.discount": "Points discount",
+    "redeem.loginToRedeem": "Log in to redeem points",
+    "redeem.tier1": "50 pts → $5 off",
+    "redeem.tier2": "100 pts → $12 off",
+    "redeem.tier3": "200 pts → $25 off",
+    "redeem.tier4": "500 pts → $75 off",
+    "cart.total": "Total",
   },
   ar: {
     // Nav
