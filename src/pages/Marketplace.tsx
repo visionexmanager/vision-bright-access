@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCart, Product } from "@/contexts/CartContext";
 import { products, categories, Category } from "@/data/products";
 import { CartDrawer } from "@/components/CartDrawer";
-import { ShoppingCart, Search, Star, Check } from "lucide-react";
+import { ShoppingCart, Search, Star, Check, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
+
+type SortOption = "default" | "price-asc" | "price-desc" | "rating-desc" | "points-desc" | "points-asc";
 
 function ProductCard({ product }: { product: Product }) {
   const { addToCart, items } = useCart();
@@ -80,15 +83,27 @@ function ProductCard({ product }: { product: Product }) {
 export default function Marketplace() {
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortOption>("default");
 
-  const filtered = products.filter((p) => {
-    const matchCategory = activeCategory === "All" || p.category === activeCategory;
-    const matchSearch =
-      search === "" ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.description.toLowerCase().includes(search.toLowerCase());
-    return matchCategory && matchSearch;
-  });
+  const filtered = useMemo(() => {
+    let result = products.filter((p) => {
+      const matchCategory = activeCategory === "All" || p.category === activeCategory;
+      const matchSearch =
+        search === "" ||
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.description.toLowerCase().includes(search.toLowerCase());
+      return matchCategory && matchSearch;
+    });
+
+    switch (sort) {
+      case "price-asc": return result.sort((a, b) => a.price - b.price);
+      case "price-desc": return result.sort((a, b) => b.price - a.price);
+      case "rating-desc": return result.sort((a, b) => b.rating - a.rating);
+      case "points-desc": return result.sort((a, b) => b.points - a.points);
+      case "points-asc": return result.sort((a, b) => a.points - b.points);
+      default: return result;
+    }
+  }, [activeCategory, search, sort]);
 
   return (
     <Layout>
@@ -106,17 +121,33 @@ export default function Marketplace() {
           <CartDrawer />
         </div>
 
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input
-            type="search"
-            placeholder="Search products…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-12 pl-12 text-base"
-            aria-label="Search products"
-          />
+        {/* Search & Sort */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              type="search"
+              placeholder="Search products…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-12 pl-12 text-base"
+              aria-label="Search products"
+            />
+          </div>
+          <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
+            <SelectTrigger className="h-12 w-full sm:w-[200px] text-base" aria-label="Sort products">
+              <ArrowUpDown className="mr-2 h-4 w-4" />
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default</SelectItem>
+              <SelectItem value="price-asc">Price: Low → High</SelectItem>
+              <SelectItem value="price-desc">Price: High → Low</SelectItem>
+              <SelectItem value="rating-desc">Top Rated</SelectItem>
+              <SelectItem value="points-desc">Most Points</SelectItem>
+              <SelectItem value="points-asc">Fewest Points</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Category filters */}
