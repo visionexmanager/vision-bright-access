@@ -18,6 +18,7 @@ import {
 import { CartDrawer } from "@/components/CartDrawer";
 import { ShoppingCart, Search, Star, Check, Eye, Package, HelpCircle, Send } from "lucide-react";
 import { toast } from "sonner";
+import { WishlistButton } from "@/components/WishlistButton";
 
 function ProductCard({ product }: { product: Product }) {
   const { addToCart, items } = useCart();
