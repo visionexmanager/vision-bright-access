@@ -252,6 +252,20 @@ export function CartDrawer() {
                 <Button size="lg" className="w-full text-base font-semibold" onClick={handleCheckout}>
                   {t("cart.checkout").replace("{points}", String(totalPoints))}
                 </Button>
+                {user && totalPrice > 0 && (
+                  <Button
+                    variant={canPayWithPointsOnly ? "secondary" : "ghost"}
+                    size="lg"
+                    className="w-full text-base"
+                    disabled={!canPayWithPointsOnly}
+                    onClick={handlePayWithPointsOnly}
+                  >
+                    <Coins className="me-2 h-5 w-5" aria-hidden="true" />
+                    {canPayWithPointsOnly
+                      ? `${t("cart.payWithPoints")} (${pointsCostForFullPurchase} pts)`
+                      : t("cart.notEnoughPoints").replace("{points}", String(pointsCostForFullPurchase))}
+                  </Button>
+                )}
                 <Button variant="outline" size="lg" className="w-full text-base" onClick={clearCart}>
                   {t("cart.clear")}
                 </Button>
