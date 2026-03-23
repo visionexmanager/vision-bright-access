@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function Navbar() {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useAdmin();
   const { t } = useLanguage();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
