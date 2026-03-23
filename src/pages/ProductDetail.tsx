@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { generalProducts, accessibilityProducts } from "@/data/products";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ShoppingCart, Star, Check, ArrowLeft, Truck, Shield, Award } from "lucide-react";
+import { WishlistButton } from "@/components/WishlistButton";
 import { toast } from "sonner";
 
 const allProducts = [...generalProducts, ...accessibilityProducts];
