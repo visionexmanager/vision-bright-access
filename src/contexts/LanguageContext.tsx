@@ -149,15 +149,18 @@ const translations: Record<Lang, Record<string, string>> = {
 
     // Services
     "services.title": "Services",
-    "services.subtitle": "Professional accessibility services — earn points for each engagement.",
-    "services.audit": "Accessibility Audit",
-    "services.auditDesc": "Full website accessibility review",
-    "services.wcag": "WCAG Compliance Check",
-    "services.wcagDesc": "Ensure your product meets WCAG 2.1 AA",
-    "services.testing": "User Testing",
-    "services.testingDesc": "Testing with users who have diverse abilities",
-    "services.remediation": "Remediation Support",
-    "services.remediationDesc": "Fix accessibility issues with expert guidance",
+    "services.subtitle": "We offer a range of professional services to support your digital needs.",
+    "services.webDesign": "Website Design",
+    "services.webDesignDesc": "Custom, accessible websites built with modern standards. Mobile-friendly, fast, and optimized for all users.",
+    "services.digitalMarketing": "Digital Marketing",
+    "services.digitalMarketingDesc": "Reach your audience with inclusive marketing strategies, SEO, social media management, and ad campaigns.",
+    "services.importPurchasing": "Import & Purchasing Services",
+    "services.importPurchasingDesc": "We source and import assistive technology products and daily essentials from trusted global suppliers.",
+    "services.techConsulting": "Technical Consulting",
+    "services.techConsultingDesc": "Expert guidance on assistive technology, screen readers, accessibility tools, and adaptive solutions for visually impaired users.",
+    "services.training": "Training & Device Setup",
+    "services.trainingDesc": "Personalized training sessions and hands-on help setting up devices, software, and assistive tools.",
+    "services.cta": "Get Started",
     "services.earn": "Earn {points} pts",
 
     // Content
