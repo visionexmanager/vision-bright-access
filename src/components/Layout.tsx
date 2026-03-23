@@ -1,17 +1,24 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export function Layout({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
+  const { pathname } = useLocation();
+
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [pathname]);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <a href="#main-content" className="skip-link">
         {t("nav.skipToContent")}
       </a>
       <Navbar />
-      <main id="main-content" tabIndex={-1}>
+      <main id="main-content" tabIndex={-1} className="flex-1 animate-page-in">
         {children}
       </main>
       <footer className="border-t bg-card py-8 text-center" role="contentinfo">
