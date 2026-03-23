@@ -37,9 +37,12 @@ function ProductCard({ product }: { product: Product }) {
           <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-3xl">
             {product.image}
           </div>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <Star className="h-4 w-4 fill-accent text-accent" aria-hidden="true" />
-            <span className="font-medium">{product.rating}</span>
+          <div className="flex items-center gap-1">
+            <WishlistButton productId={product.id} productName={product.name} />
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Star className="h-4 w-4 fill-accent text-accent" aria-hidden="true" />
+              <span className="font-medium">{product.rating}</span>
+            </div>
           </div>
         </div>
 
