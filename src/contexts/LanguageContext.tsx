@@ -801,8 +801,30 @@ const translations: Record<Lang, Record<string, string>> = {
     "redeem.tier3": "200 pts → $25 de descuento",
     "redeem.tier4": "500 pts → $75 de descuento",
     "cart.total": "Total",
+
+    // Contact / Service Request
+    "contact.title": "Solicitud de Servicio",
+    "contact.subtitle": "Cuéntanos qué necesitas — te responderemos pronto.",
+    "contact.fullName": "Nombre Completo",
+    "contact.email": "Correo Electrónico",
+    "contact.phone": "Teléfono (opcional)",
+    "contact.serviceType": "Tipo de Servicio",
+    "contact.message": "Tu Mensaje",
+    "contact.submit": "Enviar Solicitud",
+    "contact.sending": "Enviando…",
+    "contact.success": "¡Solicitud enviada con éxito!",
+    "contact.successDesc": "Revisaremos tu solicitud y te contactaremos pronto.",
+    "contact.error": "Algo salió mal. Inténtalo de nuevo.",
+    "contact.selectService": "Selecciona un servicio…",
+    "contact.sWebDesign": "Diseño Web",
+    "contact.sMarketing": "Marketing Digital",
+    "contact.sImport": "Importación y Compras",
+    "contact.sConsulting": "Consultoría Técnica",
+    "contact.sTraining": "Capacitación y Configuración",
+    "contact.sCustomProduct": "Encuéntralo Para Mí (Producto Personalizado)",
+    "contact.sOther": "Otro",
+    "nav.contact": "Contacto",
   },
-};
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
