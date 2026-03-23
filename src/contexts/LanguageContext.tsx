@@ -702,6 +702,13 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.quiz.desc": "أثبت سرعتك وثقافتك لترتقي في تصنيف Visionex!",
     "games.quiz.info": "20 سؤال • 3 ثوانٍ لكل سؤال • احصل على تصنيفك",
     "games.quiz.start": "ابدأ التحدي",
+    "games.quiz.pts": "نقطة",
+    "games.quiz.rewards": "مكافآت النقاط",
+    "games.quiz.yourPoints": "رصيدك: {pts} نقطة",
+    "games.quiz.pointsEarned": "اكتمل التحدي! +{pts} نقطة مكتسبة 🎉",
+    "games.quiz.loginToEarn": "لكسب نقاط من الألعاب",
+    "games.quiz.signupToEarn": "لكسب {pts} نقطة في المرة القادمة!",
+    "games.quiz.earned": "مكتسبة!",
   },
   es: {
     // Nav
