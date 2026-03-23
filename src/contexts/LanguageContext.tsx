@@ -359,6 +359,13 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.quiz.desc": "Test your speed and knowledge to rank up in Visionex!",
     "games.quiz.info": "20 questions • 3 seconds each • Earn your rank",
     "games.quiz.start": "Start Challenge",
+    "games.quiz.pts": "pts",
+    "games.quiz.rewards": "Points Rewards",
+    "games.quiz.yourPoints": "Your balance: {pts} pts",
+    "games.quiz.pointsEarned": "Quiz complete! +{pts} points earned 🎉",
+    "games.quiz.loginToEarn": "to earn points from games",
+    "games.quiz.signupToEarn": "to earn {pts} points next time!",
+    "games.quiz.earned": "earned!",
   },
   ar: {
     // Nav
