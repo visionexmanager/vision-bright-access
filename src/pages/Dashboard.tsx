@@ -1,19 +1,52 @@
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
+import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Navigate } from "react-router-dom";
-import { Star, TrendingUp, Gift } from "lucide-react";
+import { Navigate, Link } from "react-router-dom";
+import {
+  Star,
+  TrendingUp,
+  Gift,
+  Play,
+  CalendarCheck,
+  BookOpen,
+  Briefcase,
+  Crown,
+  ShoppingCart,
+  Sparkles,
+} from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "@/hooks/use-toast";
+
+const VIP_TIERS = [
+  { name: "rankBronze", min: 0, next: 200, color: "text-amber-700" },
+  { name: "rankSilver", min: 200, next: 500, color: "text-slate-400" },
+  { name: "rankGold", min: 500, next: 1000, color: "text-yellow-500" },
+  { name: "rankPlatinum", min: 1000, next: 2500, color: "text-cyan-400" },
+];
+
+function getTier(points: number) {
+  for (let i = VIP_TIERS.length - 1; i >= 0; i--) {
+    if (points >= VIP_TIERS[i].min) return { ...VIP_TIERS[i], index: i };
+  }
+  return { ...VIP_TIERS[0], index: 0 };
+}
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const { totalPoints, history, loadingTotal, loadingHistory } = usePoints();
+  const { earnPoints, checkDailyLogin } = useEarnPoints();
   const { t } = useLanguage();
+  const [adLoading, setAdLoading] = useState(false);
+  const [dailyLoading, setDailyLoading] = useState(false);
 
   if (authLoading) {
     return (
@@ -27,18 +60,51 @@ export default function Dashboard() {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  const rankLabel = totalPoints >= 500 ? t("dash.rankGold") : totalPoints >= 200 ? t("dash.rankSilver") : t("dash.rankBronze");
+  const tier = getTier(totalPoints);
+  const nextTier = VIP_TIERS[tier.index + 1];
+  const progressPct = nextTier
+    ? Math.min(100, ((totalPoints - tier.min) / (nextTier.min - tier.min)) * 100)
+    : 100;
+
+  const handleWatchAd = async () => {
+    setAdLoading(true);
+    // Simulate ad watch delay
+    await new Promise((r) => setTimeout(r, 2000));
+    const pts = 5;
+    const ok = await earnPoints(pts, "Watched an ad");
+    setAdLoading(false);
+    if (ok) {
+      toast({ title: t("dash.adWatched").replace("{pts}", String(pts)) });
+    }
+  };
+
+  const handleDailyLogin = async () => {
+    setDailyLoading(true);
+    const alreadyClaimed = await checkDailyLogin();
+    if (alreadyClaimed) {
+      setDailyLoading(false);
+      toast({ title: t("dash.alreadyClaimed"), variant: "destructive" });
+      return;
+    }
+    const pts = 10;
+    const ok = await earnPoints(pts, "Daily login bonus");
+    setDailyLoading(false);
+    if (ok) {
+      toast({ title: t("dash.dailyClaimed").replace("{pts}", String(pts)) });
+    }
+  };
 
   return (
     <Layout>
-      <div className="mx-auto max-w-4xl px-4 py-10">
+      <div className="mx-auto max-w-5xl px-4 py-10">
         <h1 className="mb-2 text-3xl font-bold">{t("dash.title")}</h1>
         <p className="mb-8 text-lg text-muted-foreground">
           {t("dash.welcome").replace("{name}", user.user_metadata?.display_name || user.email || "")}
         </p>
 
-        {/* Points cards */}
-        <div className="mb-10 grid gap-6 sm:grid-cols-3">
+        {/* Top stats */}
+        <div className="mb-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Total Points */}
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="flex items-center gap-4 p-6">
               <div className="rounded-xl bg-primary/10 p-3">
@@ -57,6 +123,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {/* Activities */}
           <Card>
             <CardContent className="flex items-center gap-4 p-6">
               <div className="rounded-xl bg-accent/10 p-3">
@@ -69,18 +136,122 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {/* VIP Tier */}
           <Card>
             <CardContent className="flex items-center gap-4 p-6">
               <div className="rounded-xl bg-primary/10 p-3">
-                <Gift className="h-8 w-8 text-primary" aria-hidden="true" />
+                <Crown className={`h-8 w-8 ${tier.color}`} aria-hidden="true" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-muted-foreground">{t("dash.vipTier")}</p>
+                <p className={`text-2xl font-bold ${tier.color}`}>{t(`dash.${tier.name}`)}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Spend Points */}
+          <Card>
+            <CardContent className="flex items-center gap-4 p-6">
+              <div className="rounded-xl bg-primary/10 p-3">
+                <ShoppingCart className="h-8 w-8 text-primary" aria-hidden="true" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{t("dash.rank")}</p>
-                <p className="text-3xl font-bold">{rankLabel}</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("dash.spendPoints")}</p>
+                <p className="text-sm text-muted-foreground">{t("dash.spendDesc")}</p>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* VIP Progress */}
+        <Card className="mb-8">
+          <CardContent className="p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className={`h-5 w-5 ${tier.color}`} aria-hidden="true" />
+                <span className="text-base font-semibold">{t(`dash.${tier.name}`)}</span>
+              </div>
+              {nextTier && (
+                <span className="text-sm text-muted-foreground">
+                  {t("dash.vipProgress")
+                    .replace("{current}", totalPoints.toLocaleString())
+                    .replace("{next}", nextTier.min.toLocaleString())}
+                </span>
+              )}
+            </div>
+            <Progress value={progressPct} className="h-3" />
+            {!nextTier && (
+              <p className="mt-2 text-sm text-muted-foreground">{t("dash.vipComingSoon")}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Earn Points section */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Gift className="h-6 w-6 text-primary" aria-hidden="true" />
+              {t("dash.earnPoints")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Watch Ad */}
+              <div className="flex items-center gap-4 rounded-lg border p-4">
+                <div className="rounded-xl bg-primary/10 p-3">
+                  <Play className="h-6 w-6 text-primary" aria-hidden="true" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-base font-semibold">{t("dash.watchAd")}</p>
+                  <p className="text-sm text-muted-foreground">{t("dash.watchAdDesc")}</p>
+                </div>
+                <Badge className="text-sm">+5 pts</Badge>
+                <Button onClick={handleWatchAd} disabled={adLoading} size="sm">
+                  {adLoading ? "..." : t("dash.watchAd")}
+                </Button>
+              </div>
+
+              {/* Daily Login */}
+              <div className="flex items-center gap-4 rounded-lg border p-4">
+                <div className="rounded-xl bg-primary/10 p-3">
+                  <CalendarCheck className="h-6 w-6 text-primary" aria-hidden="true" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-base font-semibold">{t("dash.dailyLogin")}</p>
+                  <p className="text-sm text-muted-foreground">{t("dash.dailyLoginDesc")}</p>
+                </div>
+                <Badge className="text-sm">+10 pts</Badge>
+                <Button onClick={handleDailyLogin} disabled={dailyLoading} size="sm">
+                  {dailyLoading ? "..." : t("dash.dailyLogin")}
+                </Button>
+              </div>
+
+              {/* Engage Content */}
+              <Link to="/content" className="flex items-center gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50">
+                <div className="rounded-xl bg-primary/10 p-3">
+                  <BookOpen className="h-6 w-6 text-primary" aria-hidden="true" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-base font-semibold">{t("dash.engageContent")}</p>
+                  <p className="text-sm text-muted-foreground">{t("dash.engageContentDesc")}</p>
+                </div>
+                <Badge className="text-sm">+10–50 pts</Badge>
+              </Link>
+
+              {/* Use Services */}
+              <Link to="/services" className="flex items-center gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50">
+                <div className="rounded-xl bg-primary/10 p-3">
+                  <Briefcase className="h-6 w-6 text-primary" aria-hidden="true" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-base font-semibold">{t("dash.useServices")}</p>
+                  <p className="text-sm text-muted-foreground">{t("dash.useServicesDesc")}</p>
+                </div>
+                <Badge className="text-sm">+60–120 pts</Badge>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Points history */}
         <Card>
