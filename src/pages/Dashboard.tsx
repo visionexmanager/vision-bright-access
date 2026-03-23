@@ -180,7 +180,7 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            <Progress value={progressPct} className="h-3" />
+            <Progress value={progressPct} className="h-3" aria-label={`VIP progress: ${totalPoints} of ${nextTier?.min ?? 'max'} points`} />
             {!nextTier && (
               <p className="mt-2 text-sm text-muted-foreground">{t("dash.vipComingSoon")}</p>
             )}
