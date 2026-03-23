@@ -22,6 +22,7 @@ import {
   Crown,
   ShoppingCart,
   Sparkles,
+  Trophy,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
