@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +40,9 @@ function ProductCard({ product }: { product: Product }) {
           </div>
         </div>
 
-        <h3 className="text-xl font-bold leading-tight">{product.name}</h3>
+        <Link to={`/product/${product.id}`} className="text-xl font-bold leading-tight hover:text-primary transition-colors underline-offset-4 hover:underline">
+          {product.name}
+        </Link>
         <p className="flex-1 text-sm leading-relaxed text-muted-foreground">
           {product.description}
         </p>
