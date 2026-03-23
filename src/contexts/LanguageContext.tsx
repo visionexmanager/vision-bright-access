@@ -254,9 +254,10 @@ const translations: Record<Lang, Record<string, string>> = {
     "content.m3d": "Step-by-step coding lessons designed for screen reader users.",
 
     // 404
-    "notFound.title": "404",
-    "notFound.message": "Oops! Page not found",
+    "notFound.title": "Page Not Found",
+    "notFound.message": "Oops! The page you're looking for doesn't exist.",
     "notFound.link": "Return to Home",
+    "nav.back": "Go Back",
 
     // Categories
     "cat.All": "All",
