@@ -401,7 +401,15 @@ const translations: Record<Lang, Record<string, string>> = {
     "dash.spendPoints": "إنفاق النقاط",
     "dash.spendDesc": "استخدم نقاطك للحصول على خصومات في سلة المتجر",
 
-    // Marketplace
+    // Leaderboard
+    "leader.title": "لوحة المتصدرين",
+    "leader.subtitle": "أفضل المستخدمين حسب إجمالي النقاط المكتسبة",
+    "leader.rank": "#",
+    "leader.user": "المستخدم",
+    "leader.points": "النقاط",
+    "leader.you": "(أنت)",
+    "leader.empty": "لا توجد تصنيفات بعد. كن أول من يكسب نقاط!",
+    "nav.leaderboard": "المتصدرين",
     "market.title": "المتجر",
     "market.subtitle": "تصفح المنتجات أو اطلب شيئاً محدداً",
     "market.generalStore": "المتجر العام",
