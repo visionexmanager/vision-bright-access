@@ -316,6 +316,19 @@ const translations: Record<Lang, Record<string, string>> = {
     "contact.sCustomProduct": "Find It For Me (Custom Product)",
     "contact.sOther": "Other",
     "nav.contact": "Contact",
+    "nav.profile": "Profile",
+
+    // Profile
+    "profile.title": "Your Profile",
+    "profile.subtitle": "Manage your display name and avatar",
+    "profile.displayName": "Display Name",
+    "profile.avatar": "Avatar",
+    "profile.changeAvatar": "Change Avatar",
+    "profile.save": "Save Changes",
+    "profile.saving": "Saving…",
+    "profile.saved": "Profile updated!",
+    "profile.error": "Failed to update profile",
+    "profile.uploading": "Uploading…",
   },
   ar: {
     // Nav
