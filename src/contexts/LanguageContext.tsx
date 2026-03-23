@@ -679,6 +679,16 @@ const translations: Record<Lang, Record<string, string>> = {
     "profile.saved": "تم تحديث الملف الشخصي!",
     "profile.error": "فشل تحديث الملف الشخصي",
     "profile.uploading": "جارٍ الرفع…",
+
+    // Games
+    "nav.games": "الألعاب",
+    "games.title": "الألعاب",
+    "games.subtitle": "العب ألعاب ممتعة وتحدَّ نفسك!",
+    "games.quiz.badge": "مسابقة",
+    "games.quiz.title": "تحدي الـ 50 سؤال",
+    "games.quiz.desc": "أثبت سرعتك وثقافتك لترتقي في تصنيف Visionex!",
+    "games.quiz.info": "20 سؤال • 3 ثوانٍ لكل سؤال • احصل على تصنيفك",
+    "games.quiz.start": "ابدأ التحدي",
   },
   es: {
     // Nav
