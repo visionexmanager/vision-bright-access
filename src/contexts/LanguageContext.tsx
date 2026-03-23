@@ -725,6 +725,11 @@ const translations: Record<Lang, Record<string, string>> = {
     "cat.Tutorial": "Tutorial",
     "cat.Reference": "Referencia",
     "cat.Article": "Artículo",
+    "cat.Course": "Curso",
+    "cat.Podcast": "Podcast",
+    "cat.Beginner": "Principiante",
+    "cat.Intermediate": "Intermedio",
+    "cat.Advanced": "Avanzado",
 
     // Wishlist
     "wishlist.title": "Lista de deseos",
