@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -6,21 +7,38 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import Dashboard from "./pages/Dashboard";
-import Marketplace from "./pages/Marketplace";
-import Services from "./pages/Services";
-import Content from "./pages/Content";
-import Contact from "./pages/Contact";
-import Leaderboard from "./pages/Leaderboard";
-import Profile from "./pages/Profile";
-import ProductDetail from "./pages/ProductDetail";
-import Wishlist from "./pages/Wishlist";
-import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Lazy-loaded pages for code splitting
+const Index = lazy(() => import("./pages/Index"));
+const Login = lazy(() => import("./pages/Login"));
+const Signup = lazy(() => import("./pages/Signup"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Marketplace = lazy(() => import("./pages/Marketplace"));
+const Services = lazy(() => import("./pages/Services"));
+const Content = lazy(() => import("./pages/Content"));
+const Contact = lazy(() => import("./pages/Contact"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const Profile = lazy(() => import("./pages/Profile"));
+const ProductDetail = lazy(() => import("./pages/ProductDetail"));
+const Wishlist = lazy(() => import("./pages/Wishlist"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000,   // 10 minutes
+    },
+  },
+});
+
+function PageLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center" role="status" aria-label="Loading page">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>
+  );
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -31,21 +49,23 @@ const App = () => (
         <LanguageProvider>
           <AuthProvider>
             <CartProvider>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/marketplace" element={<Marketplace />} />
-                <Route path="/services" element={<Services />} />
-                <Route path="/content" element={<Content />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/leaderboard" element={<Leaderboard />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/product/:id" element={<ProductDetail />} />
-                <Route path="/wishlist" element={<Wishlist />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/marketplace" element={<Marketplace />} />
+                  <Route path="/services" element={<Services />} />
+                  <Route path="/content" element={<Content />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/leaderboard" element={<Leaderboard />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/product/:id" element={<ProductDetail />} />
+                  <Route path="/wishlist" element={<Wishlist />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
             </CartProvider>
           </AuthProvider>
         </LanguageProvider>
