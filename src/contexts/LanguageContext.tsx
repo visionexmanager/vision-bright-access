@@ -83,6 +83,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.hasAccount": "Already have an account?",
     "auth.welcomeBack": "Welcome back!",
     "auth.accountCreated": "Account created! Check your email to confirm, or log in now.",
+    "auth.orContinueWith": "or continue with",
+    "auth.continueGoogle": "Continue with Google",
+    "auth.continueApple": "Continue with Apple",
 
     // Dashboard
     "dash.title": "Dashboard",
@@ -407,6 +410,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.hasAccount": "لديك حساب بالفعل؟",
     "auth.welcomeBack": "مرحباً بعودتك!",
     "auth.accountCreated": "تم إنشاء الحساب! تحقق من بريدك الإلكتروني للتأكيد، أو سجل الدخول الآن.",
+    "auth.orContinueWith": "أو تابع عبر",
+    "auth.continueGoogle": "المتابعة عبر Google",
+    "auth.continueApple": "المتابعة عبر Apple",
 
     // Dashboard
     "dash.title": "لوحة التحكم",
@@ -728,6 +734,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "auth.hasAccount": "¿Ya tienes cuenta?",
     "auth.welcomeBack": "¡Bienvenido de vuelta!",
     "auth.accountCreated": "¡Cuenta creada! Revisa tu correo para confirmar, o inicia sesión ahora.",
+    "auth.orContinueWith": "o continuar con",
+    "auth.continueGoogle": "Continuar con Google",
+    "auth.continueApple": "Continuar con Apple",
 
     // Dashboard
     "dash.title": "Panel",

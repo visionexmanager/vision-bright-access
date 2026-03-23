@@ -8,6 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { SocialAuthButtons } from "@/components/SocialAuthButtons";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -37,7 +38,8 @@ export default function Login() {
             <CardTitle className="text-3xl">{t("auth.loginTitle")}</CardTitle>
             <CardDescription className="text-base">{t("auth.loginSubtitle")}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-5">
+            <SocialAuthButtons />
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <Label htmlFor="email" className="text-base">{t("auth.email")}</Label>
@@ -51,7 +53,7 @@ export default function Login() {
                 {loading ? t("auth.signingIn") : t("auth.loggingIn")}
               </Button>
             </form>
-            <p className="mt-6 text-center text-base text-muted-foreground">
+            <p className="mt-2 text-center text-base text-muted-foreground">
               {t("auth.noAccount")}{" "}
               <Link to="/signup" className="font-semibold text-primary underline underline-offset-4">{t("nav.signup")}</Link>
             </p>
