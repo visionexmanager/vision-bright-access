@@ -2,22 +2,23 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Eye } from "lucide-react";
-
-const services = [
-  { name: "Accessibility Audit", desc: "Full website accessibility review", points: 75 },
-  { name: "WCAG Compliance Check", desc: "Ensure your product meets WCAG 2.1 AA", points: 60 },
-  { name: "User Testing", desc: "Testing with users who have diverse abilities", points: 100 },
-  { name: "Remediation Support", desc: "Fix accessibility issues with expert guidance", points: 90 },
-];
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function Services() {
+  const { t } = useLanguage();
+
+  const services = [
+    { name: t("services.audit"), desc: t("services.auditDesc"), points: 75 },
+    { name: t("services.wcag"), desc: t("services.wcagDesc"), points: 60 },
+    { name: t("services.testing"), desc: t("services.testingDesc"), points: 100 },
+    { name: t("services.remediation"), desc: t("services.remediationDesc"), points: 90 },
+  ];
+
   return (
     <Layout>
       <section className="mx-auto max-w-5xl px-4 py-10" aria-labelledby="services-heading">
-        <h1 id="services-heading" className="mb-2 text-3xl font-bold">Services</h1>
-        <p className="mb-8 text-lg text-muted-foreground">
-          Professional accessibility services — earn points for each engagement.
-        </p>
+        <h1 id="services-heading" className="mb-2 text-3xl font-bold">{t("services.title")}</h1>
+        <p className="mb-8 text-lg text-muted-foreground">{t("services.subtitle")}</p>
         <div className="grid gap-6 sm:grid-cols-2">
           {services.map((s) => (
             <Card key={s.name} className="transition-shadow hover:shadow-lg">
@@ -27,7 +28,7 @@ export default function Services() {
                 </div>
                 <h2 className="text-xl font-bold">{s.name}</h2>
                 <p className="text-muted-foreground">{s.desc}</p>
-                <Badge className="w-fit text-sm">Earn {s.points} pts</Badge>
+                <Badge className="w-fit text-sm">{t("services.earn").replace("{points}", String(s.points))}</Badge>
               </CardContent>
             </Card>
           ))}

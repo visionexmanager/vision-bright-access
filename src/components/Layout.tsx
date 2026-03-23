@@ -1,11 +1,14 @@
 import { ReactNode } from "react";
 import { Navbar } from "./Navbar";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function Layout({ children }: { children: ReactNode }) {
+  const { t } = useLanguage();
+
   return (
     <div className="min-h-screen">
       <a href="#main-content" className="skip-link">
-        Skip to main content
+        {t("nav.skipToContent")}
       </a>
       <Navbar />
       <main id="main-content" tabIndex={-1}>
@@ -13,7 +16,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </main>
       <footer className="border-t bg-card py-8 text-center" role="contentinfo">
         <p className="text-muted-foreground">
-          &copy; {new Date().getFullYear()} Visionex. Built for everyone.
+          {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
         </p>
       </footer>
     </div>

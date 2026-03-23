@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCart, Product } from "@/contexts/CartContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   generalProducts,
   accessibilityProducts,
@@ -20,11 +21,12 @@ import { toast } from "sonner";
 
 function ProductCard({ product }: { product: Product }) {
   const { addToCart, items } = useCart();
+  const { t } = useLanguage();
   const inCart = items.some((i) => i.product.id === product.id);
 
   const handleAdd = () => {
     addToCart(product);
-    toast.success(`${product.name} added to cart`);
+    toast.success(t("cart.added").replace("{name}", product.name));
   };
 
   return (
@@ -50,7 +52,7 @@ function ProductCard({ product }: { product: Product }) {
         <div className="flex items-center justify-between border-t border-border pt-3">
           <div>
             <p className="text-2xl font-bold">${product.price.toFixed(2)}</p>
-            <p className="text-sm font-medium text-primary">+{product.points} pts</p>
+            <p className="text-sm font-medium text-primary">{t("market.pts").replace("{points}", String(product.points))}</p>
           </div>
           <Button
             onClick={handleAdd}
@@ -59,21 +61,21 @@ function ProductCard({ product }: { product: Product }) {
             className="text-base"
             aria-label={
               !product.inStock
-                ? `${product.name} is out of stock`
+                ? `${product.name} ${t("market.outOfStock")}`
                 : inCart
-                ? `Add another ${product.name} to cart`
-                : `Add ${product.name} to cart`
+                ? `${t("market.addMore")} ${product.name}`
+                : `${t("market.addToCart")} ${product.name}`
             }
           >
             {!product.inStock ? (
-              "Out of stock"
+              t("market.outOfStock")
             ) : inCart ? (
               <>
-                <Check className="mr-1 h-4 w-4" /> Add more
+                <Check className="me-1 h-4 w-4" /> {t("market.addMore")}
               </>
             ) : (
               <>
-                <ShoppingCart className="mr-1 h-4 w-4" /> Add to cart
+                <ShoppingCart className="me-1 h-4 w-4" /> {t("market.addToCart")}
               </>
             )}
           </Button>
@@ -92,6 +94,7 @@ function StoreSection({
 }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
+  const { t } = useLanguage();
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
@@ -106,23 +109,21 @@ function StoreSection({
 
   return (
     <div>
-      {/* Search */}
       <div className="mb-6">
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Search className="absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
             type="search"
-            placeholder="Search products…"
+            placeholder={t("market.searchProducts")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-12 pl-12 text-base"
-            aria-label="Search products"
+            className="h-12 ps-12 text-base"
+            aria-label={t("market.searchLabel")}
           />
         </div>
       </div>
 
-      {/* Category filters */}
-      <div className="mb-8 flex flex-wrap gap-2" role="tablist" aria-label="Filter by category">
+      <div className="mb-8 flex flex-wrap gap-2" role="tablist" aria-label={t("market.searchLabel")}>
         {categories.map((cat) => (
           <Button
             key={cat}
@@ -132,9 +133,9 @@ function StoreSection({
             onClick={() => setActiveCategory(cat)}
             className="text-base"
           >
-            {cat}
+            {t(`cat.${cat}`)}
             {cat !== "All" && (
-              <Badge variant="secondary" className="ml-2 text-xs">
+              <Badge variant="secondary" className="ms-2 text-xs">
                 {products.filter((p) => p.category === cat).length}
               </Badge>
             )}
@@ -142,17 +143,15 @@ function StoreSection({
         ))}
       </div>
 
-      {/* Results count */}
       <p className="mb-4 text-lg text-muted-foreground">
-        {filtered.length} product{filtered.length !== 1 ? "s" : ""} found
+        {t("market.productsFound")
+          .replace("{count}", String(filtered.length))
+          .replace("{s}", filtered.length !== 1 ? "s" : "")}
       </p>
 
-      {/* Product grid */}
       {filtered.length === 0 ? (
         <div className="py-20 text-center">
-          <p className="text-xl text-muted-foreground">
-            No products found. Try a different search or category.
-          </p>
+          <p className="text-xl text-muted-foreground">{t("market.noProducts")}</p>
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" role="list">
@@ -171,15 +170,16 @@ function FindItForMe() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const { t } = useLanguage();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !description.trim()) {
-      toast.error("Please fill in both fields.");
+      toast.error(t("find.fillBoth"));
       return;
     }
     setSubmitted(true);
-    toast.success("Request submitted! We'll get back to you soon.");
+    toast.success(t("find.submitted"));
   };
 
   if (submitted) {
@@ -189,21 +189,15 @@ function FindItForMe() {
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-3xl">
             ✅
           </div>
-          <h3 className="text-2xl font-bold">Request Received!</h3>
-          <p className="text-lg text-muted-foreground">
-            We'll search for your product and notify you when we find it. Thank you for using Find It For Me.
-          </p>
+          <h3 className="text-2xl font-bold">{t("find.received")}</h3>
+          <p className="text-lg text-muted-foreground">{t("find.receivedDesc")}</p>
           <Button
-            onClick={() => {
-              setSubmitted(false);
-              setName("");
-              setDescription("");
-            }}
+            onClick={() => { setSubmitted(false); setName(""); setDescription(""); }}
             variant="outline"
             size="lg"
             className="mt-4 text-base"
           >
-            Submit another request
+            {t("find.submitAnother")}
           </Button>
         </CardContent>
       </Card>
@@ -218,43 +212,23 @@ function FindItForMe() {
             <HelpCircle className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h3 className="text-xl font-bold">Find It For Me</h3>
-            <p className="text-muted-foreground">
-              Can't find what you need? Tell us and we'll source it for you.
-            </p>
+            <h3 className="text-xl font-bold">{t("find.title")}</h3>
+            <p className="text-muted-foreground">{t("find.subtitle")}</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label htmlFor="product-name" className="mb-2 block text-base font-semibold">
-              Product Name
-            </label>
-            <Input
-              id="product-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Talking blood pressure monitor"
-              className="h-12 text-base"
-              required
-            />
+            <label htmlFor="product-name" className="mb-2 block text-base font-semibold">{t("find.productName")}</label>
+            <Input id="product-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("find.productNamePlaceholder")} className="h-12 text-base" required />
           </div>
           <div>
-            <label htmlFor="product-desc" className="mb-2 block text-base font-semibold">
-              Description & Details
-            </label>
-            <Textarea
-              id="product-desc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the product you're looking for, including any specific features or requirements…"
-              className="min-h-[120px] text-base"
-              required
-            />
+            <label htmlFor="product-desc" className="mb-2 block text-base font-semibold">{t("find.description")}</label>
+            <Textarea id="product-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("find.descriptionPlaceholder")} className="min-h-[120px] text-base" required />
           </div>
           <Button type="submit" size="lg" className="mt-2 text-base">
-            <Send className="mr-2 h-5 w-5" />
-            Submit Request
+            <Send className="me-2 h-5 w-5" />
+            {t("find.submit")}
           </Button>
         </form>
       </CardContent>
@@ -263,47 +237,41 @@ function FindItForMe() {
 }
 
 export default function Marketplace() {
+  const { t } = useLanguage();
+
   return (
     <Layout>
       <section className="mx-auto max-w-6xl px-4 py-10" aria-labelledby="marketplace-heading">
-        {/* Header */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 id="marketplace-heading" className="text-3xl font-bold">
-              Marketplace
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              Browse products or request something specific
-            </p>
+            <h1 id="marketplace-heading" className="text-3xl font-bold">{t("market.title")}</h1>
+            <p className="text-lg text-muted-foreground">{t("market.subtitle")}</p>
           </div>
           <CartDrawer />
         </div>
 
-        {/* Store Tabs */}
         <Tabs defaultValue="general" className="w-full">
           <TabsList className="mb-8 grid w-full grid-cols-3 h-auto">
             <TabsTrigger value="general" className="flex items-center gap-2 py-3 text-base">
               <Package className="h-5 w-5" />
-              <span>General Store</span>
+              <span>{t("market.generalStore")}</span>
             </TabsTrigger>
             <TabsTrigger value="accessibility" className="flex items-center gap-2 py-3 text-base">
               <Eye className="h-5 w-5" />
-              <span>Accessibility Store</span>
+              <span>{t("market.accessibilityStore")}</span>
             </TabsTrigger>
             <TabsTrigger value="find" className="flex items-center gap-2 py-3 text-base">
               <HelpCircle className="h-5 w-5" />
-              <span>Find It For Me</span>
+              <span>{t("market.findItForMe")}</span>
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="general">
             <StoreSection products={generalProducts} categories={generalCategories} />
           </TabsContent>
-
           <TabsContent value="accessibility">
             <StoreSection products={accessibilityProducts} categories={accessibilityCategories} />
           </TabsContent>
-
           <TabsContent value="find">
             <FindItForMe />
           </TabsContent>
