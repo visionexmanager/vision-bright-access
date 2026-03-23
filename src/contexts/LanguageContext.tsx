@@ -929,6 +929,19 @@ const translations: Record<Lang, Record<string, string>> = {
     "contact.sCustomProduct": "Encuéntralo Para Mí (Producto Personalizado)",
     "contact.sOther": "Otro",
     "nav.contact": "Contacto",
+    "nav.profile": "Perfil",
+
+    // Profile
+    "profile.title": "Tu Perfil",
+    "profile.subtitle": "Administra tu nombre y avatar",
+    "profile.displayName": "Nombre para Mostrar",
+    "profile.avatar": "Avatar",
+    "profile.changeAvatar": "Cambiar Avatar",
+    "profile.save": "Guardar Cambios",
+    "profile.saving": "Guardando…",
+    "profile.saved": "¡Perfil actualizado!",
+    "profile.error": "Error al actualizar el perfil",
+    "profile.uploading": "Subiendo…",
   },
 };
 
