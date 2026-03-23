@@ -58,6 +58,13 @@ export function Navbar() {
         <div className="hidden items-center gap-3 md:flex">
           <LanguageSwitcher />
           <CartDrawer />
+          {user && (
+            <Link to="/wishlist">
+              <Button variant="ghost" size="icon" aria-label={t("nav.wishlist")}>
+                <Heart className="h-5 w-5" />
+              </Button>
+            </Link>
+          )}
           {user ? (
             <>
               <Link to="/dashboard">
