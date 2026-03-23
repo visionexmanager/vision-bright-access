@@ -480,6 +480,11 @@ const translations: Record<Lang, Record<string, string>> = {
     "cat.Tutorial": "درس",
     "cat.Reference": "مرجع",
     "cat.Article": "مقال",
+    "cat.Course": "دورة",
+    "cat.Podcast": "بودكاست",
+    "cat.Beginner": "مبتدئ",
+    "cat.Intermediate": "متوسط",
+    "cat.Advanced": "متقدم",
 
     // Wishlist
     "wishlist.title": "قائمة الأمنيات",
