@@ -375,6 +375,17 @@ const translations: Record<Lang, Record<string, string>> = {
     "cat.Tutorial": "درس",
     "cat.Reference": "مرجع",
     "cat.Article": "مقال",
+
+    // Wishlist
+    "wishlist.title": "قائمة الأمنيات",
+    "wishlist.subtitle": "المنتجات التي حفظتها لوقت لاحق",
+    "wishlist.empty": "قائمة أمنياتك فارغة",
+    "wishlist.emptyDesc": "تصفح المتجر واضغط على أيقونة القلب لحفظ المنتجات.",
+    "wishlist.added": "تمت إضافة {name} إلى قائمة الأمنيات",
+    "wishlist.removed": "تمت إزالة {name} من قائمة الأمنيات",
+    "wishlist.loginRequired": "يرجى تسجيل الدخول لحفظ المنتجات.",
+    "wishlist.browseMarketplace": "تصفح المتجر",
+    "nav.wishlist": "قائمة الأمنيات",
   },
   es: {
     // Nav
