@@ -402,6 +402,22 @@ const translations: Record<Lang, Record<string, string>> = {
     "wishlist.loginRequired": "يرجى تسجيل الدخول لحفظ المنتجات.",
     "wishlist.browseMarketplace": "تصفح المتجر",
     "nav.wishlist": "قائمة الأمنيات",
+
+    // Redemption
+    "redeem.title": "استبدال النقاط",
+    "redeem.available": "لديك {points} نقطة",
+    "redeem.apply": "تطبيق",
+    "redeem.remove": "إزالة",
+    "redeem.applied": "تم تطبيق الخصم! توفير ${amount}",
+    "redeem.removed": "تمت إزالة الخصم",
+    "redeem.notEnough": "تحتاج إلى {points} نقطة على الأقل",
+    "redeem.discount": "خصم النقاط",
+    "redeem.loginToRedeem": "سجل الدخول لاستبدال النقاط",
+    "redeem.tier1": "50 نقطة → خصم $5",
+    "redeem.tier2": "100 نقطة → خصم $12",
+    "redeem.tier3": "200 نقطة → خصم $25",
+    "redeem.tier4": "500 نقطة → خصم $75",
+    "cart.total": "الإجمالي",
   },
   es: {
     // Nav
