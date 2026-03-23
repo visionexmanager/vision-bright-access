@@ -15,6 +15,8 @@ import {
   Play,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { toast } from "@/hooks/use-toast";
 
 type ContentItem = {
