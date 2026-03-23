@@ -15,6 +15,7 @@ import Services from "./pages/Services";
 import Content from "./pages/Content";
 import Contact from "./pages/Contact";
 import Leaderboard from "./pages/Leaderboard";
+import Profile from "./pages/Profile";
 import ProductDetail from "./pages/ProductDetail";
 import Wishlist from "./pages/Wishlist";
 import NotFound from "./pages/NotFound";
@@ -40,6 +41,7 @@ const App = () => (
                 <Route path="/content" element={<Content />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/leaderboard" element={<Leaderboard />} />
+                <Route path="/profile" element={<Profile />} />
                 <Route path="/product/:id" element={<ProductDetail />} />
                 <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="*" element={<NotFound />} />

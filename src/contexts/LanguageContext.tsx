@@ -316,6 +316,19 @@ const translations: Record<Lang, Record<string, string>> = {
     "contact.sCustomProduct": "Find It For Me (Custom Product)",
     "contact.sOther": "Other",
     "nav.contact": "Contact",
+    "nav.profile": "Profile",
+
+    // Profile
+    "profile.title": "Your Profile",
+    "profile.subtitle": "Manage your display name and avatar",
+    "profile.displayName": "Display Name",
+    "profile.avatar": "Avatar",
+    "profile.changeAvatar": "Change Avatar",
+    "profile.save": "Save Changes",
+    "profile.saving": "Saving…",
+    "profile.saved": "Profile updated!",
+    "profile.error": "Failed to update profile",
+    "profile.uploading": "Uploading…",
   },
   ar: {
     // Nav
@@ -609,6 +622,19 @@ const translations: Record<Lang, Record<string, string>> = {
     "contact.sCustomProduct": "ابحث لي (منتج مخصص)",
     "contact.sOther": "أخرى",
     "nav.contact": "تواصل معنا",
+    "nav.profile": "الملف الشخصي",
+
+    // Profile
+    "profile.title": "ملفك الشخصي",
+    "profile.subtitle": "إدارة اسم العرض والصورة الرمزية",
+    "profile.displayName": "اسم العرض",
+    "profile.avatar": "الصورة الرمزية",
+    "profile.changeAvatar": "تغيير الصورة",
+    "profile.save": "حفظ التغييرات",
+    "profile.saving": "جارٍ الحفظ…",
+    "profile.saved": "تم تحديث الملف الشخصي!",
+    "profile.error": "فشل تحديث الملف الشخصي",
+    "profile.uploading": "جارٍ الرفع…",
   },
   es: {
     // Nav
@@ -903,6 +929,19 @@ const translations: Record<Lang, Record<string, string>> = {
     "contact.sCustomProduct": "Encuéntralo Para Mí (Producto Personalizado)",
     "contact.sOther": "Otro",
     "nav.contact": "Contacto",
+    "nav.profile": "Perfil",
+
+    // Profile
+    "profile.title": "Tu Perfil",
+    "profile.subtitle": "Administra tu nombre y avatar",
+    "profile.displayName": "Nombre para Mostrar",
+    "profile.avatar": "Avatar",
+    "profile.changeAvatar": "Cambiar Avatar",
+    "profile.save": "Guardar Cambios",
+    "profile.saving": "Guardando…",
+    "profile.saved": "¡Perfil actualizado!",
+    "profile.error": "Error al actualizar el perfil",
+    "profile.uploading": "Subiendo…",
   },
 };
 
