@@ -602,6 +602,22 @@ const translations: Record<Lang, Record<string, string>> = {
     "wishlist.loginRequired": "Inicia sesión para guardar productos.",
     "wishlist.browseMarketplace": "Explorar Tienda",
     "nav.wishlist": "Lista de deseos",
+
+    // Redemption
+    "redeem.title": "Canjear puntos",
+    "redeem.available": "Tienes {points} puntos",
+    "redeem.apply": "Aplicar",
+    "redeem.remove": "Quitar",
+    "redeem.applied": "¡Descuento aplicado! Ahorrando ${amount}",
+    "redeem.removed": "Descuento eliminado",
+    "redeem.notEnough": "Necesitas al menos {points} puntos",
+    "redeem.discount": "Descuento por puntos",
+    "redeem.loginToRedeem": "Inicia sesión para canjear puntos",
+    "redeem.tier1": "50 pts → $5 de descuento",
+    "redeem.tier2": "100 pts → $12 de descuento",
+    "redeem.tier3": "200 pts → $25 de descuento",
+    "redeem.tier4": "500 pts → $75 de descuento",
+    "cart.total": "Total",
   },
 };
 
