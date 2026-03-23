@@ -32,6 +32,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "nav.openMenu": "Open menu",
     "nav.closeMenu": "Close menu",
     "nav.skipToContent": "Skip to main content",
+    "nav.lightMode": "Switch to light mode",
+    "nav.darkMode": "Switch to dark mode",
+    "nav.highContrastMode": "Switch to high contrast mode",
 
     // Footer
     "footer.text": "© {year} Visionex. Built for everyone.",
