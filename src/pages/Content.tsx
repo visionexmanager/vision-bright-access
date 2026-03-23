@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,39 +18,20 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 type ContentItem = {
-  key: string;
-  descKey: string;
+  id: string;
+  title: string;
+  description: string;
+  type: "course" | "article" | "podcast" | "media";
   category: string;
   level: string;
-  type: "course" | "article" | "podcast" | "media";
   points: number;
   duration: number;
-  extra?: string;
+  extra_label: string | null;
+  extra_value: number | null;
 };
-
-const contentItems: ContentItem[] = [
-  // Courses
-  { key: "content.c1", descKey: "content.c1d", category: "Course", level: "Beginner", type: "course", points: 50, duration: 120, extra: "content.lessons|8" },
-  { key: "content.c2", descKey: "content.c2d", category: "Course", level: "Intermediate", type: "course", points: 75, duration: 90, extra: "content.lessons|6" },
-  { key: "content.c3", descKey: "content.c3d", category: "Course", level: "Beginner", type: "course", points: 40, duration: 60, extra: "content.lessons|5" },
-  { key: "content.c4", descKey: "content.c4d", category: "Course", level: "Advanced", type: "course", points: 80, duration: 150, extra: "content.lessons|10" },
-  // Articles
-  { key: "content.a1", descKey: "content.a1d", category: "Article", level: "Beginner", type: "article", points: 10, duration: 5 },
-  { key: "content.a2", descKey: "content.a2d", category: "Guide", level: "Intermediate", type: "article", points: 15, duration: 8 },
-  { key: "content.a3", descKey: "content.a3d", category: "Tutorial", level: "Intermediate", type: "article", points: 12, duration: 7 },
-  { key: "content.a4", descKey: "content.a4d", category: "Guide", level: "Beginner", type: "article", points: 10, duration: 6 },
-  { key: "content.a5", descKey: "content.a5d", category: "Reference", level: "Advanced", type: "article", points: 20, duration: 10 },
-  // Podcasts
-  { key: "content.p1", descKey: "content.p1d", category: "Podcast", level: "Beginner", type: "podcast", points: 15, duration: 30, extra: "content.episodes|24" },
-  { key: "content.p2", descKey: "content.p2d", category: "Podcast", level: "Beginner", type: "podcast", points: 15, duration: 25, extra: "content.episodes|18" },
-  { key: "content.p3", descKey: "content.p3d", category: "Podcast", level: "Intermediate", type: "podcast", points: 20, duration: 35, extra: "content.episodes|12" },
-  // Media
-  { key: "content.m1", descKey: "content.m1d", category: "Media", level: "Beginner", type: "media", points: 20, duration: 45 },
-  { key: "content.m2", descKey: "content.m2d", category: "Media", level: "Beginner", type: "media", points: 25, duration: 30 },
-  { key: "content.m3", descKey: "content.m3d", category: "Media", level: "Intermediate", type: "media", points: 30, duration: 60 },
-];
 
 const typeIcons = {
   course: GraduationCap,
@@ -59,11 +40,11 @@ const typeIcons = {
   media: MonitorPlay,
 };
 
-const ctaKeys = {
-  course: "content.enroll",
-  article: "content.read",
-  podcast: "content.listen",
-  media: "content.watch",
+const ctaLabels: Record<string, string> = {
+  course: "Enroll Now",
+  article: "Read Article",
+  podcast: "Listen",
+  media: "Watch",
 };
 
 export default function Content() {
@@ -71,25 +52,41 @@ export default function Content() {
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
   const [tab, setTab] = useState("all");
+  const [items, setItems] = useState<ContentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("content_items").select("*").order("created_at");
+      if (data) setItems(data as ContentItem[]);
+      setLoading(false);
+    };
+    load();
+  }, []);
 
   const filtered = tab === "all"
-    ? contentItems
-    : contentItems.filter((i) =>
-        tab === "courses" ? i.type === "course"
-        : tab === "articles" ? i.type === "article"
-        : tab === "podcasts" ? i.type === "podcast"
-        : i.type === "media"
-      );
+    ? items
+    : items.filter((i) => i.type === (tab === "courses" ? "course" : tab === "articles" ? "article" : tab === "podcasts" ? "podcast" : "media"));
 
   const handleCta = async (item: ContentItem) => {
     if (user) {
-      await earnPoints(item.points, `Engaged: ${t(item.key)}`);
+      await earnPoints(item.points, `Engaged: ${item.title}`);
     }
     toast({
-      title: t(item.key),
+      title: item.title,
       description: `+${item.points} pts`,
     });
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -118,19 +115,18 @@ export default function Content() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Single content area for all tabs */}
           {["all", "courses", "articles", "podcasts", "media"].map((v) => (
             <TabsContent key={v} value={v}>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {(v === "all" ? contentItems : contentItems.filter((i) =>
+                {(v === "all" ? items : items.filter((i) =>
                   v === "courses" ? i.type === "course"
                   : v === "articles" ? i.type === "article"
                   : v === "podcasts" ? i.type === "podcast"
                   : i.type === "media"
                 )).map((item) => {
-                  const Icon = typeIcons[item.type];
+                  const Icon = typeIcons[item.type] ?? FileText;
                   return (
-                    <Card key={item.key} className="flex flex-col transition-shadow hover:shadow-lg">
+                    <Card key={item.id} className="flex flex-col transition-shadow hover:shadow-lg">
                       <CardContent className="flex flex-1 flex-col gap-3 p-6">
                         <div className="flex items-start justify-between">
                           <div className="rounded-xl bg-primary/10 p-3">
@@ -139,28 +135,25 @@ export default function Content() {
                           <Badge className="text-sm">+{item.points} pts</Badge>
                         </div>
 
-                        <h2 className="text-lg font-bold">{t(item.key)}</h2>
-                        <p className="text-sm text-muted-foreground line-clamp-2">{t(item.descKey)}</p>
+                        <h2 className="text-lg font-bold">{item.title}</h2>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
 
                         <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="secondary">{t(`cat.${item.category}`)}</Badge>
-                          <Badge variant="outline">{t(`cat.${item.level}`)}</Badge>
+                          <Badge variant="secondary">{item.category}</Badge>
+                          <Badge variant="outline">{item.level}</Badge>
                         </div>
 
                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Clock className="h-4 w-4" aria-hidden="true" />
-                            {t("content.duration").replace("{min}", String(item.duration))}
+                            {item.duration} min
                           </span>
-                          {item.extra && (() => {
-                            const [k, n] = item.extra.split("|");
-                            return (
-                              <span className="flex items-center gap-1">
-                                <BookOpen className="h-4 w-4" aria-hidden="true" />
-                                {t(k).replace("{n}", n)}
-                              </span>
-                            );
-                          })()}
+                          {item.extra_label && item.extra_value && (
+                            <span className="flex items-center gap-1">
+                              <BookOpen className="h-4 w-4" aria-hidden="true" />
+                              {item.extra_value} {item.extra_label}
+                            </span>
+                          )}
                         </div>
 
                         <div className="mt-auto pt-2">
@@ -170,7 +163,7 @@ export default function Content() {
                           >
                             {item.type === "podcast" && <Mic className="me-1 h-4 w-4" aria-hidden="true" />}
                             {item.type === "media" && <Play className="me-1 h-4 w-4" aria-hidden="true" />}
-                            {t(ctaKeys[item.type])}
+                            {ctaLabels[item.type] ?? "View"}
                           </Button>
                         </div>
                       </CardContent>

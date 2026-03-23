@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,30 +8,60 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCart, Product } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import {
-  generalProducts,
-  accessibilityProducts,
-  generalCategories,
-  accessibilityCategories,
-} from "@/data/products";
+import { supabase } from "@/integrations/supabase/client";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ProductCard } from "@/components/ProductCard";
 import { Search, Eye, Package, HelpCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 
+function useDbProducts() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("products").select("*").order("created_at");
+      if (data) {
+        setProducts(data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          price: Number(p.price),
+          points: p.points,
+          category: p.category,
+          image: p.image ?? "📦",
+          rating: Number(p.rating),
+          inStock: p.in_stock,
+        })));
+      }
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  return { products, loading };
+}
+
 function StoreSection({
   products,
-  categories,
+  storeType,
 }: {
   products: Product[];
-  categories: readonly string[];
+  storeType: string;
 }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
   const { t } = useLanguage();
 
+  const storeProducts = useMemo(() => products, [products]);
+
+  const categories = useMemo(() => {
+    const cats = new Set(storeProducts.map(p => p.category));
+    return ["All", ...Array.from(cats)];
+  }, [storeProducts]);
+
   const filtered = useMemo(() => {
-    return products.filter((p) => {
+    return storeProducts.filter((p) => {
       const matchCategory = activeCategory === "All" || p.category === activeCategory;
       const matchSearch =
         search === "" ||
@@ -39,7 +69,7 @@ function StoreSection({
         p.description.toLowerCase().includes(search.toLowerCase());
       return matchCategory && matchSearch;
     });
-  }, [products, activeCategory, search]);
+  }, [storeProducts, activeCategory, search]);
 
   return (
     <div>
@@ -70,7 +100,7 @@ function StoreSection({
             {t(`cat.${cat}`)}
             {cat !== "All" && (
               <Badge variant="secondary" className="ms-2 text-xs">
-                {products.filter((p) => p.category === cat).length}
+                {storeProducts.filter((p) => p.category === cat).length}
               </Badge>
             )}
           </Button>
@@ -172,6 +202,42 @@ function FindItForMe() {
 
 export default function Marketplace() {
   const { t } = useLanguage();
+  const { products, loading } = useDbProducts();
+
+  const generalProducts = products.filter(p => {
+    // products with store_type 'general' or legacy IDs starting with 'g'
+    return (p as any).id && products.find(pr => pr.id === p.id);
+  });
+
+  // Split by store_type - we need to check from DB data
+  const [dbProducts, setDbProducts] = useState<any[]>([]);
+  
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("products").select("id, store_type");
+      if (data) setDbProducts(data);
+    };
+    load();
+  }, []);
+
+  const storeMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    dbProducts.forEach(p => { map[p.id] = p.store_type; });
+    return map;
+  }, [dbProducts]);
+
+  const general = products.filter(p => storeMap[p.id] === "general");
+  const accessibility = products.filter(p => storeMap[p.id] === "accessibility");
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -201,10 +267,10 @@ export default function Marketplace() {
           </TabsList>
 
           <TabsContent value="general">
-            <StoreSection products={generalProducts} categories={generalCategories} />
+            <StoreSection products={general} storeType="general" />
           </TabsContent>
           <TabsContent value="accessibility">
-            <StoreSection products={accessibilityProducts} categories={accessibilityCategories} />
+            <StoreSection products={accessibility} storeType="accessibility" />
           </TabsContent>
           <TabsContent value="find">
             <FindItForMe />
