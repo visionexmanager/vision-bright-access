@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { generalProducts, accessibilityProducts } from "@/data/products";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ShoppingCart, Star, Check, ArrowLeft, Truck, Shield, Award } from "lucide-react";
+import { WishlistButton } from "@/components/WishlistButton";
 import { toast } from "sonner";
 
 const allProducts = [...generalProducts, ...accessibilityProducts];
@@ -111,7 +112,10 @@ export default function ProductDetail() {
           <div className="flex flex-col gap-4">
             <div className="flex items-start justify-between gap-4">
               <h1 id="product-heading" className="text-3xl font-bold leading-tight">{product.name}</h1>
-              <CartDrawer />
+              <div className="flex items-center gap-1">
+                <WishlistButton productId={product.id} productName={product.name} />
+                <CartDrawer />
+              </div>
             </div>
 
             <div className="flex items-center gap-3">

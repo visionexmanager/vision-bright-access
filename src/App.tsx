@@ -14,6 +14,7 @@ import Marketplace from "./pages/Marketplace";
 import Services from "./pages/Services";
 import Content from "./pages/Content";
 import ProductDetail from "./pages/ProductDetail";
+import Wishlist from "./pages/Wishlist";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
                 <Route path="/services" element={<Services />} />
                 <Route path="/content" element={<Content />} />
                 <Route path="/product/:id" element={<ProductDetail />} />
+                <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </CartProvider>

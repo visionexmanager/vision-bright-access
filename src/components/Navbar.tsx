@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Menu, X, Zap } from "lucide-react";
+import { LogOut, Menu, X, Zap, Heart } from "lucide-react";
 import { useState } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -58,6 +58,13 @@ export function Navbar() {
         <div className="hidden items-center gap-3 md:flex">
           <LanguageSwitcher />
           <CartDrawer />
+          {user && (
+            <Link to="/wishlist">
+              <Button variant="ghost" size="icon" aria-label={t("nav.wishlist")}>
+                <Heart className="h-5 w-5" />
+              </Button>
+            </Link>
+          )}
           {user ? (
             <>
               <Link to="/dashboard">

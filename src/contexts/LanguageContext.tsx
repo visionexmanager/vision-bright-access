@@ -191,6 +191,17 @@ const translations: Record<Lang, Record<string, string>> = {
     "cat.Tutorial": "Tutorial",
     "cat.Reference": "Reference",
     "cat.Article": "Article",
+
+    // Wishlist
+    "wishlist.title": "Wishlist",
+    "wishlist.subtitle": "Products you've saved for later",
+    "wishlist.empty": "Your wishlist is empty",
+    "wishlist.emptyDesc": "Browse the marketplace and tap the heart icon to save products.",
+    "wishlist.added": "{name} added to wishlist",
+    "wishlist.removed": "{name} removed from wishlist",
+    "wishlist.loginRequired": "Please log in to save products.",
+    "wishlist.browseMarketplace": "Browse Marketplace",
+    "nav.wishlist": "Wishlist",
   },
   ar: {
     // Nav
@@ -364,6 +375,17 @@ const translations: Record<Lang, Record<string, string>> = {
     "cat.Tutorial": "درس",
     "cat.Reference": "مرجع",
     "cat.Article": "مقال",
+
+    // Wishlist
+    "wishlist.title": "قائمة الأمنيات",
+    "wishlist.subtitle": "المنتجات التي حفظتها لوقت لاحق",
+    "wishlist.empty": "قائمة أمنياتك فارغة",
+    "wishlist.emptyDesc": "تصفح المتجر واضغط على أيقونة القلب لحفظ المنتجات.",
+    "wishlist.added": "تمت إضافة {name} إلى قائمة الأمنيات",
+    "wishlist.removed": "تمت إزالة {name} من قائمة الأمنيات",
+    "wishlist.loginRequired": "يرجى تسجيل الدخول لحفظ المنتجات.",
+    "wishlist.browseMarketplace": "تصفح المتجر",
+    "nav.wishlist": "قائمة الأمنيات",
   },
   es: {
     // Nav
@@ -537,6 +559,17 @@ const translations: Record<Lang, Record<string, string>> = {
     "cat.Tutorial": "Tutorial",
     "cat.Reference": "Referencia",
     "cat.Article": "Artículo",
+
+    // Wishlist
+    "wishlist.title": "Lista de deseos",
+    "wishlist.subtitle": "Productos que guardaste para después",
+    "wishlist.empty": "Tu lista de deseos está vacía",
+    "wishlist.emptyDesc": "Explora la tienda y toca el ícono de corazón para guardar productos.",
+    "wishlist.added": "{name} agregado a la lista de deseos",
+    "wishlist.removed": "{name} eliminado de la lista de deseos",
+    "wishlist.loginRequired": "Inicia sesión para guardar productos.",
+    "wishlist.browseMarketplace": "Explorar Tienda",
+    "nav.wishlist": "Lista de deseos",
   },
 };
 
