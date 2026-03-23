@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,9 +15,9 @@ import {
   accessibilityCategories,
 } from "@/data/products";
 import { CartDrawer } from "@/components/CartDrawer";
-import { ShoppingCart, Search, Star, Check, Eye, Package, HelpCircle, Send } from "lucide-react";
+import { ProductCard } from "@/components/ProductCard";
+import { Search, Eye, Package, HelpCircle, Send } from "lucide-react";
 import { toast } from "sonner";
-import { WishlistButton } from "@/components/WishlistButton";
 
 function ProductCard({ product }: { product: Product }) {
   const { addToCart, items } = useCart();
