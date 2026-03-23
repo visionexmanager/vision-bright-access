@@ -60,11 +60,18 @@ export function Navbar() {
           <LanguageSwitcher />
           <CartDrawer />
           {user && (
-            <Link to="/wishlist">
-              <Button variant="ghost" size="icon" aria-label={t("nav.wishlist")}>
-                <Heart className="h-5 w-5" />
-              </Button>
-            </Link>
+            <>
+              <Link to="/wishlist">
+                <Button variant="ghost" size="icon" aria-label={t("nav.wishlist")}>
+                  <Heart className="h-5 w-5" />
+                </Button>
+              </Link>
+              <Link to="/profile">
+                <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
+                  <User className="h-5 w-5" />
+                </Button>
+              </Link>
+            </>
           )}
           {user ? (
             <>
