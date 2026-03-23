@@ -709,6 +709,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "nav.openMenu": "Abrir menú",
     "nav.closeMenu": "Cerrar menú",
     "nav.skipToContent": "Saltar al contenido principal",
+    "nav.lightMode": "Cambiar a modo claro",
+    "nav.darkMode": "Cambiar a modo oscuro",
+    "nav.highContrastMode": "Cambiar a modo de alto contraste",
 
     // Footer
     "footer.text": "© {year} Visionex. Construido para todos.",
