@@ -352,15 +352,18 @@ const translations: Record<Lang, Record<string, string>> = {
 
     // Services
     "services.title": "الخدمات",
-    "services.subtitle": "خدمات إمكانية وصول احترافية — اكسب نقاطاً لكل تعامل.",
-    "services.audit": "تدقيق إمكانية الوصول",
-    "services.auditDesc": "مراجعة شاملة لإمكانية وصول الموقع",
-    "services.wcag": "فحص التوافق مع WCAG",
-    "services.wcagDesc": "تأكد من أن منتجك يلبي معايير WCAG 2.1 AA",
-    "services.testing": "اختبار المستخدمين",
-    "services.testingDesc": "اختبار مع مستخدمين ذوي قدرات متنوعة",
-    "services.remediation": "دعم الإصلاح",
-    "services.remediationDesc": "إصلاح مشاكل إمكانية الوصول بتوجيه من الخبراء",
+    "services.subtitle": "نقدم مجموعة من الخدمات الاحترافية لدعم احتياجاتك الرقمية.",
+    "services.webDesign": "تصميم المواقع",
+    "services.webDesignDesc": "مواقع مخصصة وسهلة الوصول مبنية بمعايير حديثة. متوافقة مع الجوال وسريعة ومحسّنة لجميع المستخدمين.",
+    "services.digitalMarketing": "التسويق الرقمي",
+    "services.digitalMarketingDesc": "اوصل لجمهورك باستراتيجيات تسويق شاملة، تحسين محركات البحث، إدارة وسائل التواصل، والحملات الإعلانية.",
+    "services.importPurchasing": "خدمات الاستيراد والشراء",
+    "services.importPurchasingDesc": "نوفر ونستورد منتجات التكنولوجيا المساعدة والمستلزمات اليومية من موردين عالميين موثوقين.",
+    "services.techConsulting": "الاستشارات التقنية",
+    "services.techConsultingDesc": "إرشاد متخصص حول التكنولوجيا المساعدة وقارئات الشاشة وأدوات إمكانية الوصول والحلول التكيفية للمكفوفين.",
+    "services.training": "التدريب وإعداد الأجهزة",
+    "services.trainingDesc": "جلسات تدريب شخصية ومساعدة عملية في إعداد الأجهزة والبرامج والأدوات المساعدة.",
+    "services.cta": "ابدأ الآن",
     "services.earn": "اكسب {points} نقطة",
 
     // Content
