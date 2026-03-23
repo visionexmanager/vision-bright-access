@@ -895,9 +895,10 @@ const translations: Record<Lang, Record<string, string>> = {
     "content.m3d": "Lecciones de programación paso a paso diseñadas para usuarios de lector de pantalla.",
 
     // 404
-    "notFound.title": "404",
-    "notFound.message": "¡Ups! Página no encontrada",
+    "notFound.title": "Página No Encontrada",
+    "notFound.message": "¡Ups! La página que buscas no existe.",
     "notFound.link": "Volver al inicio",
+    "nav.back": "Volver",
 
     // Categories
     "cat.All": "Todos",
