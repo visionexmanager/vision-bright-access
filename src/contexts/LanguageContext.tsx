@@ -254,9 +254,10 @@ const translations: Record<Lang, Record<string, string>> = {
     "content.m3d": "Step-by-step coding lessons designed for screen reader users.",
 
     // 404
-    "notFound.title": "404",
-    "notFound.message": "Oops! Page not found",
+    "notFound.title": "Page Not Found",
+    "notFound.message": "Oops! The page you're looking for doesn't exist.",
     "notFound.link": "Return to Home",
+    "nav.back": "Go Back",
 
     // Categories
     "cat.All": "All",
@@ -573,9 +574,10 @@ const translations: Record<Lang, Record<string, string>> = {
     "content.m3d": "دروس برمجة خطوة بخطوة مصممة لمستخدمي قارئ الشاشة.",
 
     // 404
-    "notFound.title": "404",
-    "notFound.message": "عذراً! الصفحة غير موجودة",
+    "notFound.title": "الصفحة غير موجودة",
+    "notFound.message": "عذراً! الصفحة التي تبحث عنها غير موجودة.",
     "notFound.link": "العودة للرئيسية",
+    "nav.back": "رجوع",
 
     // Categories
     "cat.All": "الكل",
@@ -893,9 +895,10 @@ const translations: Record<Lang, Record<string, string>> = {
     "content.m3d": "Lecciones de programación paso a paso diseñadas para usuarios de lector de pantalla.",
 
     // 404
-    "notFound.title": "404",
-    "notFound.message": "¡Ups! Página no encontrada",
+    "notFound.title": "Página No Encontrada",
+    "notFound.message": "¡Ups! La página que buscas no existe.",
     "notFound.link": "Volver al inicio",
+    "nav.back": "Volver",
 
     // Categories
     "cat.All": "Todos",

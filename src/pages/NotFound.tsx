@@ -17,7 +17,7 @@ const NotFound = () => {
     <Layout>
       <section className="flex min-h-[60vh] items-center justify-center section-padding">
         <div className="text-center section-narrow">
-          <p className="mb-2 text-6xl font-bold text-primary" aria-hidden="true">404</p>
+          <p className="mb-3 text-7xl font-bold text-primary" aria-hidden="true">404</p>
           <h1 className="mb-4 text-3xl font-bold">{t("notFound.title")}</h1>
           <p className="mb-8 text-lg text-muted-foreground">{t("notFound.message")}</p>
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
