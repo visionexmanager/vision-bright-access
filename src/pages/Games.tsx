@@ -2,11 +2,38 @@ import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Gamepad2 } from "lucide-react";
+import { Gamepad2, Grid3X3, Type } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Games() {
   const { t } = useLanguage();
+
+  const games = [
+    {
+      to: "/games/quiz-challenge",
+      icon: <Gamepad2 className="h-8 w-8 text-primary" aria-hidden="true" />,
+      badge: t("games.quiz.badge"),
+      title: t("games.quiz.title"),
+      desc: t("games.quiz.desc"),
+      info: t("games.quiz.info"),
+    },
+    {
+      to: "/games/memory",
+      icon: <Grid3X3 className="h-8 w-8 text-primary" aria-hidden="true" />,
+      badge: t("games.memory.badge"),
+      title: t("games.memory.title"),
+      desc: t("games.memory.desc"),
+      info: t("games.memory.info"),
+    },
+    {
+      to: "/games/word-puzzle",
+      icon: <Type className="h-8 w-8 text-primary" aria-hidden="true" />,
+      badge: t("games.word.badge"),
+      title: t("games.word.title"),
+      desc: t("games.word.desc"),
+      info: t("games.word.info"),
+    },
+  ];
 
   return (
     <Layout>
@@ -17,23 +44,25 @@ export default function Games() {
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Link to="/games/quiz-challenge" className="group">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <div className="mb-3 flex items-center gap-2">
-                  <Gamepad2 className="h-8 w-8 text-primary" aria-hidden="true" />
-                  <Badge variant="secondary">{t("games.quiz.badge")}</Badge>
-                </div>
-                <CardTitle className="text-xl group-hover:text-primary transition-colors">
-                  {t("games.quiz.title")}
-                </CardTitle>
-                <CardDescription>{t("games.quiz.desc")}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">{t("games.quiz.info")}</p>
-              </CardContent>
-            </Card>
-          </Link>
+          {games.map((game) => (
+            <Link key={game.to} to={game.to} className="group">
+              <Card className="h-full transition-shadow hover:shadow-lg">
+                <CardHeader>
+                  <div className="mb-3 flex items-center gap-2">
+                    {game.icon}
+                    <Badge variant="secondary">{game.badge}</Badge>
+                  </div>
+                  <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                    {game.title}
+                  </CardTitle>
+                  <CardDescription>{game.desc}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{game.info}</p>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
         </div>
       </section>
     </Layout>
