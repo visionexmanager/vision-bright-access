@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCart, Product } from "@/contexts/CartContext";
 import { products, categories, Category } from "@/data/products";
 import { CartDrawer } from "@/components/CartDrawer";
-import { ShoppingCart, Search, Star, Check } from "lucide-react";
+import { ShoppingCart, Search, Star, Check, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
+
+type SortOption = "default" | "price-asc" | "price-desc" | "rating-desc" | "points-desc" | "points-asc";
 
 function ProductCard({ product }: { product: Product }) {
   const { addToCart, items } = useCart();
