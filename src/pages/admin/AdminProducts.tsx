@@ -1,0 +1,184 @@
+import { useEffect, useState } from "react";
+import { Layout } from "@/components/Layout";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Plus, Pencil, Trash2, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
+
+type DbProduct = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  points: number;
+  category: string;
+  store_type: string;
+  image: string;
+  rating: number;
+  in_stock: boolean;
+};
+
+const emptyProduct: Omit<DbProduct, "id"> = {
+  name: "",
+  description: "",
+  price: 0,
+  points: 0,
+  category: "General",
+  store_type: "general",
+  image: "📦",
+  rating: 0,
+  in_stock: true,
+};
+
+export default function AdminProducts() {
+  const [products, setProducts] = useState<DbProduct[]>([]);
+  const [editing, setEditing] = useState<DbProduct | null>(null);
+  const [formData, setFormData] = useState(emptyProduct);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+    if (data) setProducts(data as DbProduct[]);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleSave = async () => {
+    setLoading(true);
+    if (editing) {
+      const { error } = await supabase.from("products").update(formData).eq("id", editing.id);
+      if (error) toast.error(error.message);
+      else toast.success("Product updated");
+    } else {
+      const { error } = await supabase.from("products").insert(formData);
+      if (error) toast.error(error.message);
+      else toast.success("Product created");
+    }
+    setLoading(false);
+    setDialogOpen(false);
+    setEditing(null);
+    setFormData(emptyProduct);
+    load();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this product?")) return;
+    const { error } = await supabase.from("products").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Deleted"); load(); }
+  };
+
+  const openEdit = (p: DbProduct) => {
+    setEditing(p);
+    setFormData({ name: p.name, description: p.description, price: p.price, points: p.points, category: p.category, store_type: p.store_type, image: p.image, rating: p.rating, in_stock: p.in_stock });
+    setDialogOpen(true);
+  };
+
+  const openNew = () => {
+    setEditing(null);
+    setFormData(emptyProduct);
+    setDialogOpen(true);
+  };
+
+  return (
+    <Layout>
+      <section className="mx-auto max-w-6xl px-4 py-10">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
+            <h1 className="text-3xl font-bold">Manage Products</h1>
+          </div>
+          <Button onClick={openNew}><Plus className="me-2 h-4 w-4" /> Add Product</Button>
+        </div>
+
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Image</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Points</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Store</TableHead>
+                  <TableHead>Stock</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {products.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="text-2xl">{p.image}</TableCell>
+                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell>${p.price}</TableCell>
+                    <TableCell>{p.points}</TableCell>
+                    <TableCell>{p.category}</TableCell>
+                    <TableCell>{p.store_type}</TableCell>
+                    <TableCell>{p.in_stock ? "✅" : "❌"}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editing ? "Edit Product" : "New Product"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div><Label>Name</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+              <div><Label>Description</Label><Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Price</Label><Input type="number" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} /></div>
+                <div><Label>Points</Label><Input type="number" value={formData.points} onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Category</Label><Input value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} /></div>
+                <div>
+                  <Label>Store Type</Label>
+                  <Select value={formData.store_type} onValueChange={(v) => setFormData({ ...formData, store_type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="general">General</SelectItem>
+                      <SelectItem value="accessibility">Accessibility</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Emoji Icon</Label><Input value={formData.image} onChange={(e) => setFormData({ ...formData, image: e.target.value })} /></div>
+                <div><Label>Rating (0-5)</Label><Input type="number" step="0.1" min="0" max="5" value={formData.rating} onChange={(e) => setFormData({ ...formData, rating: parseFloat(e.target.value) || 0 })} /></div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={formData.in_stock} onCheckedChange={(v) => setFormData({ ...formData, in_stock: v })} />
+                <Label>In Stock</Label>
+              </div>
+              <Button onClick={handleSave} disabled={loading || !formData.name} className="w-full">
+                {loading ? "Saving..." : editing ? "Update Product" : "Create Product"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </section>
+    </Layout>
+  );
+}
