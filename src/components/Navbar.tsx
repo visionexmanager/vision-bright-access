@@ -79,6 +79,13 @@ export function Navbar() {
           )}
           {user ? (
             <>
+              {isAdmin && (
+                <Link to="/admin">
+                  <Button variant="outline" size="icon" aria-label="Admin Panel">
+                    <ShieldCheck className="h-5 w-5 text-primary" />
+                  </Button>
+                </Link>
+              )}
               <Link to="/dashboard">
                 <Button size="lg" className="text-base font-semibold">
                   {t("nav.dashboard")}
