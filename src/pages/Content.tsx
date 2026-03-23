@@ -15,6 +15,8 @@ import {
   Play,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { toast } from "@/hooks/use-toast";
 
 type ContentItem = {
@@ -66,6 +68,8 @@ const ctaKeys = {
 
 export default function Content() {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const { earnPoints } = useEarnPoints();
   const [tab, setTab] = useState("all");
 
   const filtered = tab === "all"
@@ -77,7 +81,10 @@ export default function Content() {
         : i.type === "media"
       );
 
-  const handleCta = (item: ContentItem) => {
+  const handleCta = async (item: ContentItem) => {
+    if (user) {
+      await earnPoints(item.points, `Engaged: ${t(item.key)}`);
+    }
     toast({
       title: t(item.key),
       description: `+${item.points} pts`,
