@@ -1,9 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAdmin } from "@/hooks/useAdmin";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Menu, X, Zap, Heart, User } from "lucide-react";
+import { LogOut, Menu, X, Zap, Heart, User, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -11,6 +12,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function Navbar() {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useAdmin();
   const { t } = useLanguage();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -77,6 +79,13 @@ export function Navbar() {
           )}
           {user ? (
             <>
+              {isAdmin && (
+                <Link to="/admin">
+                  <Button variant="outline" size="icon" aria-label="Admin Panel">
+                    <ShieldCheck className="h-5 w-5 text-primary" />
+                  </Button>
+                </Link>
+              )}
               <Link to="/dashboard">
                 <Button size="lg" className="text-base font-semibold">
                   {t("nav.dashboard")}
@@ -144,6 +153,13 @@ export function Navbar() {
           <div className="mt-3 flex flex-col gap-2">
             {user ? (
               <>
+                {isAdmin && (
+                  <Link to="/admin" onClick={() => setMenuOpen(false)}>
+                    <Button variant="outline" size="lg" className="w-full text-base">
+                      <ShieldCheck className="me-2 h-5 w-5 text-primary" /> Admin Panel
+                    </Button>
+                  </Link>
+                )}
                 <Link to="/dashboard" onClick={() => setMenuOpen(false)}>
                   <Button size="lg" className="w-full text-base font-semibold">
                     {t("nav.dashboard")}

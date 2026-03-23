@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { AdminRoute } from "@/components/AdminRoute";
 
 // Lazy-loaded pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -23,6 +24,14 @@ const Profile = lazy(() => import("./pages/Profile"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
 const Wishlist = lazy(() => import("./pages/Wishlist"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+
+// Admin pages
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
+const AdminContent = lazy(() => import("./pages/admin/AdminContent"));
+const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
+const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
+const AdminRequests = lazy(() => import("./pages/admin/AdminRequests"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +74,13 @@ const App = () => (
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/product/:id" element={<ProductDetail />} />
                     <Route path="/wishlist" element={<Wishlist />} />
+                    {/* Admin routes */}
+                    <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                    <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
+                    <Route path="/admin/content" element={<AdminRoute><AdminContent /></AdminRoute>} />
+                    <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+                    <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
+                    <Route path="/admin/requests" element={<AdminRoute><AdminRequests /></AdminRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
