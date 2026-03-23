@@ -1,23 +1,25 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCart } from "@/contexts/CartContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Menu, X, Zap, ShoppingCart } from "lucide-react";
+import { LogOut, Menu, X, Zap } from "lucide-react";
 import { useState } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
-
-const navLinks = [
-  { to: "/", label: "Home" },
-  { to: "/marketplace", label: "Marketplace" },
-  { to: "/services", label: "Services" },
-  { to: "/content", label: "Content" },
-];
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export function Navbar() {
   const { user, signOut } = useAuth();
+  const { t } = useLanguage();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const navLinks = [
+    { to: "/", label: t("nav.home") },
+    { to: "/marketplace", label: t("nav.marketplace") },
+    { to: "/services", label: t("nav.services") },
+    { to: "/content", label: t("nav.content") },
+  ];
 
   return (
     <nav
@@ -54,19 +56,20 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
+          <LanguageSwitcher />
           <CartDrawer />
           {user ? (
             <>
               <Link to="/dashboard">
                 <Button size="lg" className="text-base font-semibold">
-                  Dashboard
+                  {t("nav.dashboard")}
                 </Button>
               </Link>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={signOut}
-                aria-label="Sign out"
+                aria-label={t("nav.signout")}
               >
                 <LogOut className="h-5 w-5" />
               </Button>
@@ -75,12 +78,12 @@ export function Navbar() {
             <>
               <Link to="/login">
                 <Button variant="outline" size="lg" className="text-base">
-                  Log in
+                  {t("nav.login")}
                 </Button>
               </Link>
               <Link to="/signup">
                 <Button size="lg" className="text-base font-semibold">
-                  Sign up
+                  {t("nav.signup")}
                 </Button>
               </Link>
             </>
@@ -88,16 +91,18 @@ export function Navbar() {
         </div>
 
         {/* Mobile toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-expanded={menuOpen}
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
-        >
-          {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </Button>
+        <div className="flex items-center gap-2 md:hidden">
+          <LanguageSwitcher />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
+          >
+            {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </Button>
+        </div>
       </div>
 
       {/* Mobile menu */}
@@ -123,7 +128,7 @@ export function Navbar() {
               <>
                 <Link to="/dashboard" onClick={() => setMenuOpen(false)}>
                   <Button size="lg" className="w-full text-base font-semibold">
-                    Dashboard
+                    {t("nav.dashboard")}
                   </Button>
                 </Link>
                 <Button
@@ -132,19 +137,19 @@ export function Navbar() {
                   onClick={() => { signOut(); setMenuOpen(false); }}
                   className="w-full text-base"
                 >
-                  <LogOut className="mr-2 h-5 w-5" /> Sign out
+                  <LogOut className="me-2 h-5 w-5" /> {t("nav.signout")}
                 </Button>
               </>
             ) : (
               <>
                 <Link to="/login" onClick={() => setMenuOpen(false)}>
                   <Button variant="outline" size="lg" className="w-full text-base">
-                    Log in
+                    {t("nav.login")}
                   </Button>
                 </Link>
                 <Link to="/signup" onClick={() => setMenuOpen(false)}>
                   <Button size="lg" className="w-full text-base font-semibold">
-                    Sign up
+                    {t("nav.signup")}
                   </Button>
                 </Link>
               </>

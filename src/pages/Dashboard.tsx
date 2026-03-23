@@ -1,6 +1,7 @@
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,6 +13,7 @@ import { format } from "date-fns";
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const { totalPoints, history, loadingTotal, loadingHistory } = usePoints();
+  const { t } = useLanguage();
 
   if (authLoading) {
     return (
@@ -25,12 +27,14 @@ export default function Dashboard() {
 
   if (!user) return <Navigate to="/login" replace />;
 
+  const rankLabel = totalPoints >= 500 ? t("dash.rankGold") : totalPoints >= 200 ? t("dash.rankSilver") : t("dash.rankBronze");
+
   return (
     <Layout>
       <div className="mx-auto max-w-4xl px-4 py-10">
-        <h1 className="mb-2 text-3xl font-bold">Dashboard</h1>
+        <h1 className="mb-2 text-3xl font-bold">{t("dash.title")}</h1>
         <p className="mb-8 text-lg text-muted-foreground">
-          Welcome back, {user.user_metadata?.display_name || user.email}
+          {t("dash.welcome").replace("{name}", user.user_metadata?.display_name || user.email || "")}
         </p>
 
         {/* Points cards */}
@@ -41,7 +45,7 @@ export default function Dashboard() {
                 <Star className="h-8 w-8 text-primary" aria-hidden="true" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Points</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("dash.totalPoints")}</p>
                 {loadingTotal ? (
                   <Skeleton className="mt-1 h-8 w-20" />
                 ) : (
@@ -59,7 +63,7 @@ export default function Dashboard() {
                 <TrendingUp className="h-8 w-8 text-accent" aria-hidden="true" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Activities</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("dash.activities")}</p>
                 <p className="text-3xl font-bold">{history.length}</p>
               </div>
             </CardContent>
@@ -71,10 +75,8 @@ export default function Dashboard() {
                 <Gift className="h-8 w-8 text-primary" aria-hidden="true" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Rank</p>
-                <p className="text-3xl font-bold">
-                  {totalPoints >= 500 ? "Gold" : totalPoints >= 200 ? "Silver" : "Bronze"}
-                </p>
+                <p className="text-sm font-medium text-muted-foreground">{t("dash.rank")}</p>
+                <p className="text-3xl font-bold">{rankLabel}</p>
               </div>
             </CardContent>
           </Card>
@@ -83,7 +85,7 @@ export default function Dashboard() {
         {/* Points history */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Points History</CardTitle>
+            <CardTitle className="text-xl">{t("dash.history")}</CardTitle>
           </CardHeader>
           <CardContent>
             {loadingHistory ? (
@@ -94,30 +96,24 @@ export default function Dashboard() {
               </div>
             ) : history.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">
-                No activity yet. Start exploring to earn points!
+                {t("dash.noActivity")}
               </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-base">Activity</TableHead>
-                    <TableHead className="text-base">Points</TableHead>
-                    <TableHead className="text-base">Date</TableHead>
+                    <TableHead className="text-base">{t("dash.activity")}</TableHead>
+                    <TableHead className="text-base">{t("dash.points")}</TableHead>
+                    <TableHead className="text-base">{t("dash.date")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {history.map((entry) => (
                     <TableRow key={entry.id}>
-                      <TableCell className="text-base font-medium">
-                        {entry.reason}
-                      </TableCell>
+                      <TableCell className="text-base font-medium">{entry.reason}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant={entry.points > 0 ? "default" : "destructive"}
-                          className="text-sm"
-                        >
-                          {entry.points > 0 ? "+" : ""}
-                          {entry.points}
+                        <Badge variant={entry.points > 0 ? "default" : "destructive"} className="text-sm">
+                          {entry.points > 0 ? "+" : ""}{entry.points}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-base text-muted-foreground">
