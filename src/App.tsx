@@ -15,6 +15,7 @@ import Services from "./pages/Services";
 import Content from "./pages/Content";
 import Contact from "./pages/Contact";
 import Leaderboard from "./pages/Leaderboard";
+import Profile from "./pages/Profile";
 import ProductDetail from "./pages/ProductDetail";
 import Wishlist from "./pages/Wishlist";
 import NotFound from "./pages/NotFound";
