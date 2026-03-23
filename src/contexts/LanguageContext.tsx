@@ -1046,6 +1046,13 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.quiz.desc": "¡Demuestra tu velocidad y conocimiento para subir en el ranking de Visionex!",
     "games.quiz.info": "20 preguntas • 3 segundos cada una • Gana tu rango",
     "games.quiz.start": "Iniciar Desafío",
+    "games.quiz.pts": "pts",
+    "games.quiz.rewards": "Recompensas de Puntos",
+    "games.quiz.yourPoints": "Tu saldo: {pts} pts",
+    "games.quiz.pointsEarned": "¡Quiz completado! +{pts} puntos ganados 🎉",
+    "games.quiz.loginToEarn": "para ganar puntos en los juegos",
+    "games.quiz.signupToEarn": "para ganar {pts} puntos la próxima vez!",
+    "games.quiz.earned": "¡ganados!",
   },
 };
 
