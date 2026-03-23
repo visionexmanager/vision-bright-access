@@ -109,6 +109,7 @@ export function Navbar() {
 
         {/* Mobile toggle */}
         <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
           <LanguageSwitcher />
           <Button
             variant="ghost"
