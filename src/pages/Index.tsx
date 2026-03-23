@@ -2,11 +2,13 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { ArrowRight, Eye, ShoppingBag, BookOpen, Sparkles } from "lucide-react";
+import { ArrowRight, Eye, ShoppingBag, BookOpen, Sparkles, UserPlus, Zap, Gift, TrendingUp } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Index() {
   const { t } = useLanguage();
+  const { user } = useAuth();
 
   const features = [
     {
@@ -29,6 +31,13 @@ export default function Index() {
     },
   ];
 
+  const steps = [
+    { icon: UserPlus, title: t("home.step1"), desc: t("home.step1d"), num: "1" },
+    { icon: Zap, title: t("home.step2"), desc: t("home.step2d"), num: "2" },
+    { icon: Gift, title: t("home.step3"), desc: t("home.step3d"), num: "3" },
+    { icon: TrendingUp, title: t("home.step4"), desc: t("home.step4d"), num: "4" },
+  ];
+
   return (
     <Layout>
       {/* Hero */}
@@ -49,11 +58,19 @@ export default function Index() {
             {t("home.subtitle")}
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link to="/signup">
-              <Button size="lg" className="text-lg px-8 py-6 font-semibold">
-                {t("home.getStarted")} <ArrowRight className="ms-2 h-5 w-5" />
-              </Button>
-            </Link>
+            {user ? (
+              <Link to="/dashboard">
+                <Button size="lg" className="text-lg px-8 py-6 font-semibold">
+                  {t("nav.dashboard")} <ArrowRight className="ms-2 h-5 w-5" />
+                </Button>
+              </Link>
+            ) : (
+              <Link to="/signup">
+                <Button size="lg" className="text-lg px-8 py-6 font-semibold">
+                  {t("home.getStarted")} <ArrowRight className="ms-2 h-5 w-5" />
+                </Button>
+              </Link>
+            )}
             <Link to="/marketplace">
               <Button variant="outline" size="lg" className="text-lg px-8 py-6">
                 {t("home.exploreMarketplace")}
@@ -63,8 +80,33 @@ export default function Index() {
         </div>
       </section>
 
+      {/* How It Works */}
+      <section className="bg-muted/50 px-4 py-16" aria-labelledby="how-heading">
+        <div className="mx-auto max-w-5xl">
+          <h2 id="how-heading" className="mb-12 text-center text-3xl font-bold">
+            {t("home.howTitle")}
+          </h2>
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {steps.map((s) => (
+              <div key={s.num} className="flex flex-col items-center text-center">
+                <div className="relative mb-4">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <s.icon className="h-7 w-7" aria-hidden="true" />
+                  </div>
+                  <span className="absolute -end-1 -top-1 flex h-7 w-7 items-center justify-center rounded-full bg-card text-sm font-bold shadow border">
+                    {s.num}
+                  </span>
+                </div>
+                <h3 className="mb-2 text-lg font-bold">{s.title}</h3>
+                <p className="text-sm text-muted-foreground">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
-      <section className="bg-muted/50 px-4 py-16" aria-labelledby="features-heading">
+      <section className="px-4 py-16" aria-labelledby="features-heading">
         <div className="mx-auto max-w-5xl">
           <h2 id="features-heading" className="mb-10 text-center text-3xl font-bold">
             {t("home.featuresTitle")}
@@ -88,7 +130,7 @@ export default function Index() {
       </section>
 
       {/* Points CTA */}
-      <section className="px-4 py-16 text-center" aria-labelledby="points-heading">
+      <section className="bg-muted/50 px-4 py-16 text-center" aria-labelledby="points-heading">
         <div className="mx-auto max-w-2xl">
           <h2 id="points-heading" className="mb-4 text-3xl font-bold">
             {t("home.pointsTitle")}
@@ -96,11 +138,19 @@ export default function Index() {
           <p className="mb-6 text-lg text-muted-foreground">
             {t("home.pointsDesc")}
           </p>
-          <Link to="/signup">
-            <Button size="lg" className="text-lg px-8 py-6 font-semibold">
-              {t("home.claimPoints")}
-            </Button>
-          </Link>
+          {user ? (
+            <Link to="/dashboard">
+              <Button size="lg" className="text-lg px-8 py-6 font-semibold">
+                {t("nav.dashboard")} <ArrowRight className="ms-2 h-5 w-5" />
+              </Button>
+            </Link>
+          ) : (
+            <Link to="/signup">
+              <Button size="lg" className="text-lg px-8 py-6 font-semibold">
+                {t("home.claimPoints")}
+              </Button>
+            </Link>
+          )}
         </div>
       </section>
     </Layout>

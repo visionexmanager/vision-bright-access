@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePoints } from "@/hooks/usePoints";
-import { ShoppingCart, Plus, Minus, Trash2, Star, Gift, X } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Star, Gift, X, Coins } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,8 @@ const REDEEM_TIERS = [
   { points: 500, discount: 75, labelKey: "redeem.tier4" },
 ];
 
+const POINTS_PER_DOLLAR = 10; // 10 points = $1
+
 export function CartDrawer() {
   const { items, totalItems, totalPrice, totalPoints, updateQuantity, removeFromCart, clearCart } = useCart();
   const { user } = useAuth();
@@ -29,6 +31,8 @@ export function CartDrawer() {
 
   const discountAmount = appliedTier ? Math.min(appliedTier.discount, totalPrice) : 0;
   const finalPrice = totalPrice - discountAmount;
+  const pointsCostForFullPurchase = Math.ceil(totalPrice * POINTS_PER_DOLLAR);
+  const canPayWithPointsOnly = user && userPoints >= pointsCostForFullPurchase && totalPrice > 0;
 
   const handleApplyTier = (tier: typeof REDEEM_TIERS[number]) => {
     if (!user) {
@@ -46,6 +50,35 @@ export function CartDrawer() {
   const handleRemoveTier = () => {
     setAppliedTier(null);
     toast.success(t("redeem.removed"));
+  };
+
+  const handlePayWithPointsOnly = async () => {
+    if (!user || !canPayWithPointsOnly) return;
+
+    // Deduct points for the full purchase price
+    const { error: deductError } = await supabase.from("user_points").insert({
+      user_id: user.id,
+      points: -pointsCostForFullPurchase,
+      reason: `Points purchase: ${items.map((i) => i.product.name).join(", ")}`,
+    });
+
+    if (deductError) {
+      toast.error(t("cart.checkoutFailed"));
+      return;
+    }
+
+    // Still earn bonus points from the purchase
+    const { error: earnError } = await supabase.from("user_points").insert({
+      user_id: user.id,
+      points: totalPoints,
+      reason: `Bonus from purchase: ${items.map((i) => i.product.name).join(", ")}`,
+    });
+
+    toast.success(t("cart.paidWithPoints").replace("{points}", String(pointsCostForFullPurchase)));
+    clearCart();
+    setAppliedTier(null);
+    queryClient.invalidateQueries({ queryKey: ["points-total"] });
+    queryClient.invalidateQueries({ queryKey: ["points-history"] });
   };
 
   const handleCheckout = async () => {
@@ -81,7 +114,6 @@ export function CartDrawer() {
       }
     }
 
-    const netEarned = totalPoints - (appliedTier?.points || 0);
     toast.success(
       appliedTier
         ? `${t("cart.orderPlaced").replace("{points}", String(totalPoints))} (-${appliedTier.points} redeemed)`
@@ -220,6 +252,20 @@ export function CartDrawer() {
                 <Button size="lg" className="w-full text-base font-semibold" onClick={handleCheckout}>
                   {t("cart.checkout").replace("{points}", String(totalPoints))}
                 </Button>
+                {user && totalPrice > 0 && (
+                  <Button
+                    variant={canPayWithPointsOnly ? "secondary" : "ghost"}
+                    size="lg"
+                    className="w-full text-base"
+                    disabled={!canPayWithPointsOnly}
+                    onClick={handlePayWithPointsOnly}
+                  >
+                    <Coins className="me-2 h-5 w-5" aria-hidden="true" />
+                    {canPayWithPointsOnly
+                      ? `${t("cart.payWithPoints")} (${pointsCostForFullPurchase} pts)`
+                      : t("cart.notEnoughPoints").replace("{points}", String(pointsCostForFullPurchase))}
+                  </Button>
+                )}
                 <Button variant="outline" size="lg" className="w-full text-base" onClick={clearCart}>
                   {t("cart.clear")}
                 </Button>
