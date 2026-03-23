@@ -32,6 +32,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "nav.openMenu": "Open menu",
     "nav.closeMenu": "Close menu",
     "nav.skipToContent": "Skip to main content",
+    "nav.lightMode": "Switch to light mode",
+    "nav.darkMode": "Switch to dark mode",
+    "nav.highContrastMode": "Switch to high contrast mode",
 
     // Footer
     "footer.text": "© {year} Visionex. Built for everyone.",
@@ -369,6 +372,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "nav.openMenu": "فتح القائمة",
     "nav.closeMenu": "إغلاق القائمة",
     "nav.skipToContent": "الانتقال إلى المحتوى الرئيسي",
+    "nav.lightMode": "التبديل إلى الوضع الفاتح",
+    "nav.darkMode": "التبديل إلى الوضع الداكن",
+    "nav.highContrastMode": "التبديل إلى وضع التباين العالي",
 
     // Footer
     "footer.text": "© {year} Visionex. مصمم للجميع.",
@@ -703,6 +709,9 @@ const translations: Record<Lang, Record<string, string>> = {
     "nav.openMenu": "Abrir menú",
     "nav.closeMenu": "Cerrar menú",
     "nav.skipToContent": "Saltar al contenido principal",
+    "nav.lightMode": "Cambiar a modo claro",
+    "nav.darkMode": "Cambiar a modo oscuro",
+    "nav.highContrastMode": "Cambiar a modo de alto contraste",
 
     // Footer
     "footer.text": "© {year} Visionex. Construido para todos.",
