@@ -346,6 +346,16 @@ const translations: Record<Lang, Record<string, string>> = {
     "profile.saved": "Profile updated!",
     "profile.error": "Failed to update profile",
     "profile.uploading": "Uploading…",
+
+    // Games
+    "nav.games": "Games",
+    "games.title": "Games",
+    "games.subtitle": "Play fun games and challenge yourself!",
+    "games.quiz.badge": "Quiz",
+    "games.quiz.title": "50 Question Challenge",
+    "games.quiz.desc": "Test your speed and knowledge to rank up in Visionex!",
+    "games.quiz.info": "20 questions • 3 seconds each • Earn your rank",
+    "games.quiz.start": "Start Challenge",
   },
   ar: {
     // Nav
@@ -669,6 +679,16 @@ const translations: Record<Lang, Record<string, string>> = {
     "profile.saved": "تم تحديث الملف الشخصي!",
     "profile.error": "فشل تحديث الملف الشخصي",
     "profile.uploading": "جارٍ الرفع…",
+
+    // Games
+    "nav.games": "الألعاب",
+    "games.title": "الألعاب",
+    "games.subtitle": "العب ألعاب ممتعة وتحدَّ نفسك!",
+    "games.quiz.badge": "مسابقة",
+    "games.quiz.title": "تحدي الـ 50 سؤال",
+    "games.quiz.desc": "أثبت سرعتك وثقافتك لترتقي في تصنيف Visionex!",
+    "games.quiz.info": "20 سؤال • 3 ثوانٍ لكل سؤال • احصل على تصنيفك",
+    "games.quiz.start": "ابدأ التحدي",
   },
   es: {
     // Nav
@@ -993,6 +1013,16 @@ const translations: Record<Lang, Record<string, string>> = {
     "profile.saved": "¡Perfil actualizado!",
     "profile.error": "Error al actualizar el perfil",
     "profile.uploading": "Subiendo…",
+
+    // Games
+    "nav.games": "Juegos",
+    "games.title": "Juegos",
+    "games.subtitle": "¡Juega juegos divertidos y desafíate a ti mismo!",
+    "games.quiz.badge": "Quiz",
+    "games.quiz.title": "Desafío de 50 Preguntas",
+    "games.quiz.desc": "¡Demuestra tu velocidad y conocimiento para subir en el ranking de Visionex!",
+    "games.quiz.info": "20 preguntas • 3 segundos cada una • Gana tu rango",
+    "games.quiz.start": "Iniciar Desafío",
   },
 };
 

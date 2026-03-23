@@ -23,6 +23,8 @@ const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
 const Wishlist = lazy(() => import("./pages/Wishlist"));
+const Games = lazy(() => import("./pages/Games"));
+const QuizChallenge = lazy(() => import("./pages/QuizChallenge"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Admin pages
@@ -74,6 +76,8 @@ const App = () => (
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/product/:id" element={<ProductDetail />} />
                     <Route path="/wishlist" element={<Wishlist />} />
+                    <Route path="/games" element={<Games />} />
+                    <Route path="/games/quiz-challenge" element={<QuizChallenge />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />

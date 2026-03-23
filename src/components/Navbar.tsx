@@ -22,6 +22,7 @@ export function Navbar() {
     { to: "/marketplace", label: t("nav.marketplace") },
     { to: "/services", label: t("nav.services") },
     { to: "/content", label: t("nav.content") },
+    { to: "/games", label: t("nav.games") },
     { to: "/contact", label: t("nav.contact") },
   ];
 
