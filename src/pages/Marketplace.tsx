@@ -83,15 +83,27 @@ function ProductCard({ product }: { product: Product }) {
 export default function Marketplace() {
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortOption>("default");
 
-  const filtered = products.filter((p) => {
-    const matchCategory = activeCategory === "All" || p.category === activeCategory;
-    const matchSearch =
-      search === "" ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.description.toLowerCase().includes(search.toLowerCase());
-    return matchCategory && matchSearch;
-  });
+  const filtered = useMemo(() => {
+    let result = products.filter((p) => {
+      const matchCategory = activeCategory === "All" || p.category === activeCategory;
+      const matchSearch =
+        search === "" ||
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.description.toLowerCase().includes(search.toLowerCase());
+      return matchCategory && matchSearch;
+    });
+
+    switch (sort) {
+      case "price-asc": return result.sort((a, b) => a.price - b.price);
+      case "price-desc": return result.sort((a, b) => b.price - a.price);
+      case "rating-desc": return result.sort((a, b) => b.rating - a.rating);
+      case "points-desc": return result.sort((a, b) => b.points - a.points);
+      case "points-asc": return result.sort((a, b) => a.points - b.points);
+      default: return result;
+    }
+  }, [activeCategory, search, sort]);
 
   return (
     <Layout>
