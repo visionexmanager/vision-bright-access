@@ -695,7 +695,15 @@ const translations: Record<Lang, Record<string, string>> = {
     "dash.spendPoints": "Gastar Puntos",
     "dash.spendDesc": "Usa tus puntos para descuentos en el carrito del Marketplace",
 
-    // Marketplace
+    // Leaderboard
+    "leader.title": "Tabla de Clasificación",
+    "leader.subtitle": "Mejores usuarios por total de puntos ganados",
+    "leader.rank": "#",
+    "leader.user": "Usuario",
+    "leader.points": "Puntos",
+    "leader.you": "(Tú)",
+    "leader.empty": "No hay clasificaciones aún. ¡Sé el primero en ganar puntos!",
+    "nav.leaderboard": "Clasificación",
     "market.title": "Tienda",
     "market.subtitle": "Explora productos o solicita algo específico",
     "market.generalStore": "Tienda General",
