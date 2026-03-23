@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import Marketplace from "./pages/Marketplace";
 import Services from "./pages/Services";
 import Content from "./pages/Content";
+import Contact from "./pages/Contact";
 import ProductDetail from "./pages/ProductDetail";
 import Wishlist from "./pages/Wishlist";
 import NotFound from "./pages/NotFound";
