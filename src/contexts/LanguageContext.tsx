@@ -291,8 +291,8 @@ const translations: Record<Lang, Record<string, string>> = {
     "contact.sOther": "Other",
     "nav.contact": "Contact",
   },
+  ar: {
     // Nav
-    "nav.home": "الرئيسية",
     "nav.marketplace": "المتجر",
     "nav.services": "الخدمات",
     "nav.content": "المحتوى",
