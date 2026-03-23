@@ -17,7 +17,7 @@ export function LanguageSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" aria-label="Change language" className="text-lg">
-          <Globe className="h-5 w-5" />
+          <span aria-hidden="true">{current?.flag}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
