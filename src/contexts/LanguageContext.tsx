@@ -359,6 +359,13 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.quiz.desc": "Test your speed and knowledge to rank up in Visionex!",
     "games.quiz.info": "20 questions • 3 seconds each • Earn your rank",
     "games.quiz.start": "Start Challenge",
+    "games.quiz.pts": "pts",
+    "games.quiz.rewards": "Points Rewards",
+    "games.quiz.yourPoints": "Your balance: {pts} pts",
+    "games.quiz.pointsEarned": "Quiz complete! +{pts} points earned 🎉",
+    "games.quiz.loginToEarn": "to earn points from games",
+    "games.quiz.signupToEarn": "to earn {pts} points next time!",
+    "games.quiz.earned": "earned!",
   },
   ar: {
     // Nav
@@ -695,6 +702,13 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.quiz.desc": "أثبت سرعتك وثقافتك لترتقي في تصنيف Visionex!",
     "games.quiz.info": "20 سؤال • 3 ثوانٍ لكل سؤال • احصل على تصنيفك",
     "games.quiz.start": "ابدأ التحدي",
+    "games.quiz.pts": "نقطة",
+    "games.quiz.rewards": "مكافآت النقاط",
+    "games.quiz.yourPoints": "رصيدك: {pts} نقطة",
+    "games.quiz.pointsEarned": "اكتمل التحدي! +{pts} نقطة مكتسبة 🎉",
+    "games.quiz.loginToEarn": "لكسب نقاط من الألعاب",
+    "games.quiz.signupToEarn": "لكسب {pts} نقطة في المرة القادمة!",
+    "games.quiz.earned": "مكتسبة!",
   },
   es: {
     // Nav
@@ -1032,6 +1046,13 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.quiz.desc": "¡Demuestra tu velocidad y conocimiento para subir en el ranking de Visionex!",
     "games.quiz.info": "20 preguntas • 3 segundos cada una • Gana tu rango",
     "games.quiz.start": "Iniciar Desafío",
+    "games.quiz.pts": "pts",
+    "games.quiz.rewards": "Recompensas de Puntos",
+    "games.quiz.yourPoints": "Tu saldo: {pts} pts",
+    "games.quiz.pointsEarned": "¡Quiz completado! +{pts} puntos ganados 🎉",
+    "games.quiz.loginToEarn": "para ganar puntos en los juegos",
+    "games.quiz.signupToEarn": "para ganar {pts} puntos la próxima vez!",
+    "games.quiz.earned": "¡ganados!",
   },
 };
 
