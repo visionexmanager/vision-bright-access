@@ -826,6 +826,7 @@ const translations: Record<Lang, Record<string, string>> = {
     "contact.sOther": "Otro",
     "nav.contact": "Contacto",
   },
+};
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
