@@ -104,7 +104,15 @@ const translations: Record<Lang, Record<string, string>> = {
     "dash.spendPoints": "Spend Points",
     "dash.spendDesc": "Use your points for discounts in the Marketplace cart",
 
-    // Marketplace
+    // Leaderboard
+    "leader.title": "Leaderboard",
+    "leader.subtitle": "Top users by total points earned",
+    "leader.rank": "#",
+    "leader.user": "User",
+    "leader.points": "Points",
+    "leader.you": "(You)",
+    "leader.empty": "No rankings yet. Be the first to earn points!",
+    "nav.leaderboard": "Leaderboard",
     "market.title": "Marketplace",
     "market.subtitle": "Browse products or request something specific",
     "market.generalStore": "General Store",
@@ -393,7 +401,15 @@ const translations: Record<Lang, Record<string, string>> = {
     "dash.spendPoints": "إنفاق النقاط",
     "dash.spendDesc": "استخدم نقاطك للحصول على خصومات في سلة المتجر",
 
-    // Marketplace
+    // Leaderboard
+    "leader.title": "لوحة المتصدرين",
+    "leader.subtitle": "أفضل المستخدمين حسب إجمالي النقاط المكتسبة",
+    "leader.rank": "#",
+    "leader.user": "المستخدم",
+    "leader.points": "النقاط",
+    "leader.you": "(أنت)",
+    "leader.empty": "لا توجد تصنيفات بعد. كن أول من يكسب نقاط!",
+    "nav.leaderboard": "المتصدرين",
     "market.title": "المتجر",
     "market.subtitle": "تصفح المنتجات أو اطلب شيئاً محدداً",
     "market.generalStore": "المتجر العام",
@@ -679,7 +695,15 @@ const translations: Record<Lang, Record<string, string>> = {
     "dash.spendPoints": "Gastar Puntos",
     "dash.spendDesc": "Usa tus puntos para descuentos en el carrito del Marketplace",
 
-    // Marketplace
+    // Leaderboard
+    "leader.title": "Tabla de Clasificación",
+    "leader.subtitle": "Mejores usuarios por total de puntos ganados",
+    "leader.rank": "#",
+    "leader.user": "Usuario",
+    "leader.points": "Puntos",
+    "leader.you": "(Tú)",
+    "leader.empty": "No hay clasificaciones aún. ¡Sé el primero en ganar puntos!",
+    "nav.leaderboard": "Clasificación",
     "market.title": "Tienda",
     "market.subtitle": "Explora productos o solicita algo específico",
     "market.generalStore": "Tienda General",

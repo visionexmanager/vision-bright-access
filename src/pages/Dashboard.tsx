@@ -22,6 +22,7 @@ import {
   Crown,
   ShoppingCart,
   Sparkles,
+  Trophy,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
@@ -185,6 +186,22 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Leaderboard link */}
+        <Link to="/leaderboard" className="mb-8 block">
+          <Card className="transition-shadow hover:shadow-lg">
+            <CardContent className="flex items-center gap-4 p-6">
+              <div className="rounded-xl bg-primary/10 p-3">
+                <Trophy className="h-7 w-7 text-primary" aria-hidden="true" />
+              </div>
+              <div className="flex-1">
+                <p className="text-lg font-bold">{t("leader.title")}</p>
+                <p className="text-sm text-muted-foreground">{t("leader.subtitle")}</p>
+              </div>
+              <Badge variant="secondary" className="text-base">{t(`dash.${tier.name}`)}</Badge>
+            </CardContent>
+          </Card>
+        </Link>
 
         {/* Earn Points section */}
         <Card className="mb-8">
