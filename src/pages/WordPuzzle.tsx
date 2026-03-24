@@ -2,13 +2,16 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { usePoints } from "@/hooks/usePoints";
-import { Trophy, RotateCcw, Play, Coins, Check, X } from "lucide-react";
+import { useGameAudio, useGameTTS } from "@/hooks/useGameAudio";
+import {
+  Trophy, RotateCcw, Play, Coins, Check, X,
+  Volume2, VolumeX, Mic, MicOff, Lightbulb, Ear
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -83,18 +86,24 @@ export default function WordPuzzle() {
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
   const { totalPoints } = usePoints();
+  const { playSound, setEnabled: setSoundEnabled, enabledRef: soundEnabledRef } = useGameAudio();
+  const { speak, setEnabled: setTTSEnabled, stop: stopTTS, enabledRef: ttsEnabledRef } = useGameTTS();
 
   const wordList = lang === "ar" ? WORDS_AR : lang === "es" ? WORDS_ES : WORDS_EN;
 
   const [gameWords, setGameWords] = useState<WordEntry[]>([]);
   const [round, setRound] = useState(0);
   const [score, setScore] = useState(0);
-  const [guess, setGuess] = useState("");
   const [scrambled, setScrambled] = useState("");
+  const [selectedLetters, setSelectedLetters] = useState<number[]>([]);
+  const [answer, setAnswer] = useState<string[]>([]);
+  const [scrambledArr, setScrambledArr] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [showHint, setShowHint] = useState(false);
   const [gameState, setGameState] = useState<GameState>("start");
   const [pointsAwarded, setPointsAwarded] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [soundOn, setSoundOn] = useState(true);
+  const [ttsOn, setTTSOn] = useState(true);
   const liveRef = useRef<HTMLDivElement>(null);
 
   const announce = useCallback((msg: string) => {
@@ -111,19 +120,27 @@ export default function WordPuzzle() {
     setGameWords(words);
     setRound(0);
     setScore(0);
-    setGuess("");
     setFeedback(null);
     setPointsAwarded(false);
-    setScrambled(scramble(words[0].word));
+    setShowHint(false);
+    setSelectedLetters([]);
+    setAnswer([]);
+    const s = scramble(words[0].word);
+    setScrambled(s);
+    setScrambledArr(s.split(""));
     setGameState("playing");
+    playSound("tick");
   };
 
   useEffect(() => {
     if (gameState === "playing" && gameWords[round]) {
-      setScrambled(scramble(gameWords[round].word));
-      setGuess("");
+      const s = scramble(gameWords[round].word);
+      setScrambled(s);
+      setScrambledArr(s.split(""));
+      setSelectedLetters([]);
+      setAnswer([]);
       setFeedback(null);
-      setTimeout(() => inputRef.current?.focus(), 100);
+      setShowHint(false);
     }
   }, [round, gameState, gameWords]);
 
@@ -142,33 +159,83 @@ export default function WordPuzzle() {
     }
   }, [gameState, pointsAwarded, score, user, earnPoints, t]);
 
-  const submitGuess = () => {
-    if (!guess.trim()) return;
-    const correct = guess.trim().toUpperCase() === gameWords[round].word.toUpperCase() ||
-                    guess.trim() === gameWords[round].word;
-    if (correct) {
-      setScore((p) => p + 1);
-      setFeedback("correct");
-      announce(t("games.word.correct"));
-    } else {
-      setFeedback("wrong");
-      announce(`${t("games.word.wrong")} ${gameWords[round].word}`);
-    }
+  const selectLetter = (index: number) => {
+    if (selectedLetters.includes(index) || feedback !== null) return;
+    playSound("select");
+    const letter = scrambledArr[index];
+    const newSelected = [...selectedLetters, index];
+    const newAnswer = [...answer, letter];
+    setSelectedLetters(newSelected);
+    setAnswer(newAnswer);
 
-    setTimeout(() => {
-      if (round + 1 < TOTAL_ROUNDS) {
-        setRound((p) => p + 1);
+    announce(`${t("games.word.letterPlaced")}: ${letter}`);
+    if (ttsOn) speak(letter, lang);
+
+    // Check if word is complete
+    if (newAnswer.length === gameWords[round].word.length) {
+      const guess = newAnswer.join("");
+      const correct = guess.toUpperCase() === gameWords[round].word.toUpperCase() || guess === gameWords[round].word;
+      
+      if (correct) {
+        setScore((p) => p + 1);
+        setFeedback("correct");
+        playSound("correct");
+        announce(t("games.word.correct"));
+        if (ttsOn) speak(t("games.word.correct"), lang);
       } else {
-        setGameState("end");
+        setFeedback("wrong");
+        playSound("wrong");
+        announce(`${t("games.word.wrong")} ${gameWords[round].word}`);
+        if (ttsOn) speak(`${t("games.word.wrong")} ${gameWords[round].word}`, lang);
       }
-    }, 1200);
+
+      setTimeout(() => {
+        if (round + 1 < TOTAL_ROUNDS) {
+          setRound((p) => p + 1);
+        } else {
+          setGameState("end");
+          playSound("complete");
+          if (ttsOn) speak(t("games.word.complete"), lang);
+        }
+      }, 1500);
+    } else {
+      playSound("place");
+    }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      submitGuess();
-    }
+  const removeLetter = (answerIndex: number) => {
+    if (feedback !== null) return;
+    playSound("tick");
+    const origIndex = selectedLetters[answerIndex];
+    setSelectedLetters((prev) => prev.filter((_, i) => i !== answerIndex));
+    setAnswer((prev) => prev.filter((_, i) => i !== answerIndex));
+    announce(`${t("games.word.letterRemoved")}`);
+  };
+
+  const handleHint = () => {
+    setShowHint(true);
+    playSound("hint");
+    if (ttsOn) speak(`${t("games.word.hintLabel")} ${gameWords[round].hint}`, lang);
+    announce(`${t("games.word.hintLabel")} ${gameWords[round].hint}`);
+  };
+
+  const handleReadWord = () => {
+    const letters = scrambledArr.join(", ");
+    speak(`${t("games.word.scrambledLetters")}: ${letters}`, lang);
+    announce(`${t("games.word.scrambledLetters")}: ${letters}`);
+  };
+
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundEnabled(next);
+  };
+
+  const toggleTTS = () => {
+    const next = !ttsOn;
+    setTTSOn(next);
+    setTTSEnabled(next);
+    if (!next) stopTTS();
   };
 
   const progress = gameState === "playing" ? ((round + 1) / TOTAL_ROUNDS) * 100 : 0;
@@ -180,6 +247,26 @@ export default function WordPuzzle() {
 
       <section className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 py-12">
         <Card className="w-full border-2 border-primary/30 p-6 sm:p-8 text-center">
+          {/* Audio controls */}
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <button
+              onClick={toggleSound}
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary"
+              aria-label={soundOn ? t("games.memory.soundOff") : t("games.memory.soundOn")}
+            >
+              {soundOn ? <Volume2 className="h-4 w-4 text-primary" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
+              <span className="hidden sm:inline">{soundOn ? t("games.memory.soundOn") : t("games.memory.soundOff")}</span>
+            </button>
+            <button
+              onClick={toggleTTS}
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary"
+              aria-label={ttsOn ? t("games.memory.ttsOff") : t("games.memory.ttsOn")}
+            >
+              {ttsOn ? <Mic className="h-4 w-4 text-primary" /> : <MicOff className="h-4 w-4 text-muted-foreground" />}
+              <span className="hidden sm:inline">{ttsOn ? t("games.memory.ttsOn") : t("games.memory.ttsOff")}</span>
+            </button>
+          </div>
+
           {gameState === "start" && (
             <div className="space-y-6">
               <Trophy className="mx-auto h-16 w-16 text-primary" aria-hidden="true" />
@@ -215,7 +302,7 @@ export default function WordPuzzle() {
           )}
 
           {gameState === "playing" && gameWords[round] && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-widest text-muted-foreground">
@@ -233,49 +320,98 @@ export default function WordPuzzle() {
 
               <Progress value={progress} className="h-2" aria-label="Game progress" />
 
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">{t("games.word.hintLabel")}</p>
-                <p className="text-lg font-semibold text-foreground" aria-live="polite">
-                  {gameWords[round].hint}
-                </p>
-              </div>
-
-              <div
-                className="text-4xl sm:text-5xl font-black tracking-[0.3em] text-primary py-4"
-                aria-label={`${t("games.word.scrambledLetters")}: ${scrambled.split("").join(", ")}`}
-              >
-                {scrambled}
-              </div>
-
-              <div className="flex gap-3">
-                <label htmlFor="word-guess" className="sr-only">
-                  {t("games.word.inputLabel")}
-                </label>
-                <Input
-                  ref={inputRef}
-                  id="word-guess"
-                  value={guess}
-                  onChange={(e) => setGuess(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={t("games.word.placeholder")}
-                  disabled={feedback !== null}
-                  className="text-center text-lg font-bold"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
+              {/* Hint area */}
+              <div className="flex items-center justify-center gap-2">
                 <Button
-                  onClick={submitGuess}
-                  disabled={!guess.trim() || feedback !== null}
-                  size="lg"
-                  aria-label={t("games.word.submit")}
+                  variant="outline"
+                  size="sm"
+                  onClick={handleHint}
+                  disabled={showHint}
+                  className="text-xs"
                 >
-                  <Check className="h-5 w-5" />
+                  <Lightbulb className="h-4 w-4 me-1" />
+                  {t("games.word.hintLabel")}
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReadWord}
+                  className="text-xs"
+                  aria-label={t("games.word.readAloud")}
+                >
+                  <Ear className="h-4 w-4 me-1" />
+                  {t("games.word.readAloud")}
+                </Button>
+              </div>
+
+              {showHint && (
+                <p className="text-lg font-semibold text-foreground animate-in fade-in" aria-live="polite">
+                  💡 {gameWords[round].hint}
+                </p>
+              )}
+
+              {/* Answer slots */}
+              <div
+                className="flex flex-wrap items-center justify-center gap-2 min-h-[56px] rounded-xl border-2 border-dashed border-primary/30 p-3 bg-muted/50"
+                aria-label={t("games.word.yourAnswer")}
+              >
+                {gameWords[round].word.split("").map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => answer[i] && removeLetter(i)}
+                    disabled={!answer[i] || feedback !== null}
+                    className={`
+                      flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg border-2 text-lg sm:text-xl font-black transition-all
+                      focus:outline-none focus:ring-2 focus:ring-primary
+                      ${answer[i]
+                        ? feedback === "correct"
+                          ? "border-primary bg-primary/20 text-primary"
+                          : feedback === "wrong"
+                          ? "border-destructive bg-destructive/20 text-destructive"
+                          : "border-primary bg-primary/10 text-foreground hover:bg-destructive/10 cursor-pointer"
+                        : "border-border bg-background text-muted-foreground"
+                      }
+                    `}
+                    aria-label={answer[i] ? `${answer[i]}, ${t("games.word.clickToRemove")}` : `${t("games.word.emptySlot")} ${i + 1}`}
+                  >
+                    {answer[i] || "·"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Scrambled letters */}
+              <div
+                className="flex flex-wrap items-center justify-center gap-2"
+                role="group"
+                aria-label={t("games.word.scrambledLetters")}
+              >
+                {scrambledArr.map((letter, i) => {
+                  const isUsed = selectedLetters.includes(i);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => selectLetter(i)}
+                      disabled={isUsed || feedback !== null}
+                      className={`
+                        flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl border-2 text-xl sm:text-2xl font-black
+                        transition-all duration-200 transform
+                        focus:outline-none focus:ring-4 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background
+                        ${isUsed
+                          ? "border-border bg-muted/30 text-muted-foreground/30 scale-90 cursor-default"
+                          : "border-primary/50 bg-card text-foreground hover:border-primary hover:bg-primary/10 hover:scale-110 active:scale-95 cursor-pointer shadow-sm"
+                        }
+                      `}
+                      aria-label={isUsed ? `${letter}, ${t("games.word.alreadyUsed")}` : letter}
+                    >
+                      {letter}
+                    </button>
+                  );
+                })}
               </div>
 
               {feedback && (
                 <div
-                  className={`flex items-center justify-center gap-2 rounded-lg p-3 font-semibold ${
+                  className={`flex items-center justify-center gap-2 rounded-lg p-3 font-semibold animate-in fade-in ${
                     feedback === "correct"
                       ? "bg-primary/10 text-primary"
                       : "bg-destructive/10 text-destructive"
