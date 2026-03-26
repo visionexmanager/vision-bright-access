@@ -1,12 +1,23 @@
 import { useLanguage, Lang } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Globe } from "lucide-react";
 
 const languages: { code: Lang; label: string; flag: string }[] = [
   { code: "en", label: "English", flag: "🇺🇸" },
   { code: "ar", label: "العربية", flag: "🇸🇦" },
   { code: "es", label: "Español", flag: "🇪🇸" },
+  { code: "de", label: "Deutsch", flag: "🇩🇪" },
+  { code: "pt", label: "Português", flag: "🇧🇷" },
+  { code: "zh", label: "中文", flag: "🇨🇳" },
+  { code: "tr", label: "Türkçe", flag: "🇹🇷" },
+  { code: "fr", label: "Français", flag: "🇫🇷" },
+  { code: "ru", label: "Русский", flag: "🇷🇺" },
 ];
 
 export function LanguageSwitcher() {
@@ -16,11 +27,17 @@ export function LanguageSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Change language" className="text-lg">
-          <span aria-hidden="true">{current?.flag}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Change language"
+          className="gap-1.5 text-sm px-2"
+        >
+          <span className="text-base" aria-hidden="true">{current?.flag}</span>
+          <span className="hidden sm:inline">{current?.label}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
         {languages.map((l) => (
           <DropdownMenuItem
             key={l.code}
