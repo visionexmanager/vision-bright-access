@@ -1218,6 +1218,21 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.word.clickToRemove": "clic para eliminar",
     "games.word.emptySlot": "Espacio vacío",
     "games.word.alreadyUsed": "ya usada",
+
+    // Visually Empaired Products
+    "nav.assistiveProducts": "Productos Asistivos",
+    "vep.title": "Productos para Discapacidad Visual",
+    "vep.subtitle": "Explore y seleccione productos asistivos para personas con discapacidad visual. Compare especificaciones y ordene a nivel mundial.",
+    "vep.storesCount": "{count} tiendas venden",
+    "vep.deliverTo": "Entregar en",
+    "vep.selectCountry": "Seleccionar país…",
+    "vep.aiConsultant": "Consultor de Productos con IA",
+    "vep.contactUs": "Contáctenos para más información",
+    "vep.noSelection": "Seleccione al menos un producto primero.",
+    "vep.aiLoading": "Abriendo comparación de productos con IA…",
+    "vep.selectedCount": "{count} producto(s) seleccionado(s)",
+    "vep.whatsappIntro": "Hola, estoy interesado en los siguientes productos asistivos:",
+    "vep.notSelected": "No seleccionado",
   },
 };
 
