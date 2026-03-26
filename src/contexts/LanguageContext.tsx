@@ -814,6 +814,21 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.word.clickToRemove": "اضغط للإزالة",
     "games.word.emptySlot": "خانة فارغة",
     "games.word.alreadyUsed": "مستخدم بالفعل",
+
+    // Visually Empaired Products
+    "nav.assistiveProducts": "المنتجات المساعدة",
+    "vep.title": "منتجات ضعاف البصر",
+    "vep.subtitle": "تصفح واختر المنتجات المساعدة لذوي الإعاقة البصرية. قارن المواصفات واطلب عالمياً.",
+    "vep.storesCount": "{count} متاجر تبيع",
+    "vep.deliverTo": "التوصيل إلى",
+    "vep.selectCountry": "اختر البلد…",
+    "vep.aiConsultant": "مستشار المنتجات بالذكاء الاصطناعي",
+    "vep.contactUs": "تواصل معنا لمزيد من المعلومات",
+    "vep.noSelection": "يرجى اختيار منتج واحد على الأقل أولاً.",
+    "vep.aiLoading": "جاري فتح مقارنة المنتجات بالذكاء الاصطناعي…",
+    "vep.selectedCount": "{count} منتج(ات) محددة",
+    "vep.whatsappIntro": "مرحباً، أنا مهتم بالمنتجات المساعدة التالية:",
+    "vep.notSelected": "غير محدد",
   },
   es: {
     // Nav
