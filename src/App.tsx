@@ -27,6 +27,7 @@ const Games = lazy(() => import("./pages/Games"));
 const QuizChallenge = lazy(() => import("./pages/QuizChallenge"));
 const MemoryGame = lazy(() => import("./pages/MemoryGame"));
 const WordPuzzle = lazy(() => import("./pages/WordPuzzle"));
+const AssistiveProducts = lazy(() => import("./pages/AssistiveProducts"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Admin pages
@@ -82,6 +83,7 @@ const App = () => (
                     <Route path="/games/quiz-challenge" element={<QuizChallenge />} />
                     <Route path="/games/memory" element={<MemoryGame />} />
                     <Route path="/games/word-puzzle" element={<WordPuzzle />} />
+                    <Route path="/assistive-products" element={<AssistiveProducts />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />

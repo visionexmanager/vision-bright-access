@@ -23,6 +23,7 @@ export function Navbar() {
     { to: "/services", label: t("nav.services") },
     { to: "/content", label: t("nav.content") },
     { to: "/games", label: t("nav.games") },
+    { to: "/assistive-products", label: t("nav.assistiveProducts") },
     { to: "/contact", label: t("nav.contact") },
   ];
 

@@ -411,6 +411,21 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.word.clickToRemove": "click to remove",
     "games.word.emptySlot": "Empty slot",
     "games.word.alreadyUsed": "already used",
+
+    // Visually Empaired Products
+    "nav.assistiveProducts": "Assistive Products",
+    "vep.title": "Visually Empaired Products",
+    "vep.subtitle": "Browse and select assistive products for visually impaired users. Compare specifications and order worldwide.",
+    "vep.storesCount": "{count} stores selling",
+    "vep.deliverTo": "Deliver to",
+    "vep.selectCountry": "Select country…",
+    "vep.aiConsultant": "Product AI Consultant",
+    "vep.contactUs": "Contact us for more information",
+    "vep.noSelection": "Please select at least one product first.",
+    "vep.aiLoading": "Opening AI product comparison…",
+    "vep.selectedCount": "{count} product(s) selected",
+    "vep.whatsappIntro": "Hello, I'm interested in the following assistive products:",
+    "vep.notSelected": "Not selected",
   },
   ar: {
     // Nav
@@ -799,6 +814,21 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.word.clickToRemove": "اضغط للإزالة",
     "games.word.emptySlot": "خانة فارغة",
     "games.word.alreadyUsed": "مستخدم بالفعل",
+
+    // Visually Empaired Products
+    "nav.assistiveProducts": "المنتجات المساعدة",
+    "vep.title": "منتجات ضعاف البصر",
+    "vep.subtitle": "تصفح واختر المنتجات المساعدة لذوي الإعاقة البصرية. قارن المواصفات واطلب عالمياً.",
+    "vep.storesCount": "{count} متاجر تبيع",
+    "vep.deliverTo": "التوصيل إلى",
+    "vep.selectCountry": "اختر البلد…",
+    "vep.aiConsultant": "مستشار المنتجات بالذكاء الاصطناعي",
+    "vep.contactUs": "تواصل معنا لمزيد من المعلومات",
+    "vep.noSelection": "يرجى اختيار منتج واحد على الأقل أولاً.",
+    "vep.aiLoading": "جاري فتح مقارنة المنتجات بالذكاء الاصطناعي…",
+    "vep.selectedCount": "{count} منتج(ات) محددة",
+    "vep.whatsappIntro": "مرحباً، أنا مهتم بالمنتجات المساعدة التالية:",
+    "vep.notSelected": "غير محدد",
   },
   es: {
     // Nav
@@ -1188,6 +1218,21 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.word.clickToRemove": "clic para eliminar",
     "games.word.emptySlot": "Espacio vacío",
     "games.word.alreadyUsed": "ya usada",
+
+    // Visually Empaired Products
+    "nav.assistiveProducts": "Productos Asistivos",
+    "vep.title": "Productos para Discapacidad Visual",
+    "vep.subtitle": "Explore y seleccione productos asistivos para personas con discapacidad visual. Compare especificaciones y ordene a nivel mundial.",
+    "vep.storesCount": "{count} tiendas venden",
+    "vep.deliverTo": "Entregar en",
+    "vep.selectCountry": "Seleccionar país…",
+    "vep.aiConsultant": "Consultor de Productos con IA",
+    "vep.contactUs": "Contáctenos para más información",
+    "vep.noSelection": "Seleccione al menos un producto primero.",
+    "vep.aiLoading": "Abriendo comparación de productos con IA…",
+    "vep.selectedCount": "{count} producto(s) seleccionado(s)",
+    "vep.whatsappIntro": "Hola, estoy interesado en los siguientes productos asistivos:",
+    "vep.notSelected": "No seleccionado",
   },
 };
 
