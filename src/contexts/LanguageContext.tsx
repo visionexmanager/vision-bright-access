@@ -411,6 +411,21 @@ const translations: Record<Lang, Record<string, string>> = {
     "games.word.clickToRemove": "click to remove",
     "games.word.emptySlot": "Empty slot",
     "games.word.alreadyUsed": "already used",
+
+    // Visually Empaired Products
+    "nav.assistiveProducts": "Assistive Products",
+    "vep.title": "Visually Empaired Products",
+    "vep.subtitle": "Browse and select assistive products for visually impaired users. Compare specifications and order worldwide.",
+    "vep.storesCount": "{count} stores selling",
+    "vep.deliverTo": "Deliver to",
+    "vep.selectCountry": "Select country…",
+    "vep.aiConsultant": "Product AI Consultant",
+    "vep.contactUs": "Contact us for more information",
+    "vep.noSelection": "Please select at least one product first.",
+    "vep.aiLoading": "Opening AI product comparison…",
+    "vep.selectedCount": "{count} product(s) selected",
+    "vep.whatsappIntro": "Hello, I'm interested in the following assistive products:",
+    "vep.notSelected": "Not selected",
   },
   ar: {
     // Nav
