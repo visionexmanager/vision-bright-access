@@ -83,6 +83,7 @@ const App = () => (
                     <Route path="/games/quiz-challenge" element={<QuizChallenge />} />
                     <Route path="/games/memory" element={<MemoryGame />} />
                     <Route path="/games/word-puzzle" element={<WordPuzzle />} />
+                    <Route path="/assistive-products" element={<AssistiveProducts />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
