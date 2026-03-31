@@ -376,7 +376,9 @@ const ar: Record<string, string> = {
   "ai.consultationPrompt": "أخبرني عن {product}. ما هي ميزاته الرئيسية، ولمن هو الأنسب، وما البدائل المتاحة؟",
   "ai.startListening": "بدء الإدخال الصوتي",
   "ai.stopListening": "إيقاف الإدخال الصوتي",
-  "ai.listeningPlaceholder": "جارٍ الاستماع…"
+  "ai.listeningPlaceholder": "جارٍ الاستماع…",
+  "ai.rateLimitTitle": "تم تجاوز الحد المسموح",
+  "ai.rateLimitDescription": "طلبات كثيرة جدًا. يرجى الانتظار قليلاً قبل المحاولة مرة أخرى.",
 };
 
 export default ar;

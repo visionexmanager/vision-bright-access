@@ -376,7 +376,9 @@ const de: Record<string, string> = {
   "ai.consultationPrompt": "Erzählen Sie mir über das {product}. Was sind die Hauptmerkmale, für wen ist es am besten geeignet und welche Alternativen gibt es?",
   "ai.startListening": "Spracheingabe starten",
   "ai.stopListening": "Spracheingabe stoppen",
-  "ai.listeningPlaceholder": "Hört zu…"
+  "ai.listeningPlaceholder": "Hört zu…",
+  "ai.rateLimitTitle": "Anfragelimit erreicht",
+  "ai.rateLimitDescription": "Zu viele Anfragen. Bitte warten Sie einen Moment, bevor Sie es erneut versuchen.",
 };
 
 export default de;

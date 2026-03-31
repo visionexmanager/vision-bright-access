@@ -376,7 +376,9 @@ const ru: Record<string, string> = {
   "ai.consultationPrompt": "Расскажите о {product}. Какие основные функции, кому подходит лучше всего и какие есть альтернативы?",
   "ai.startListening": "Начать голосовой ввод",
   "ai.stopListening": "Остановить голосовой ввод",
-  "ai.listeningPlaceholder": "Слушаю…"
+  "ai.listeningPlaceholder": "Слушаю…",
+  "ai.rateLimitTitle": "Превышен лимит запросов",
+  "ai.rateLimitDescription": "Слишком много запросов. Пожалуйста, подождите немного перед повторной попыткой.",
 };
 
 export default ru;

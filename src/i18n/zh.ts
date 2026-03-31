@@ -376,7 +376,9 @@ const zh: Record<string, string> = {
   "ai.consultationPrompt": "介绍一下{product}。它的主要功能是什么？最适合谁使用？有哪些替代产品？",
   "ai.startListening": "开始语音输入",
   "ai.stopListening": "停止语音输入",
-  "ai.listeningPlaceholder": "正在聆听…"
+  "ai.listeningPlaceholder": "正在聆听…",
+  "ai.rateLimitTitle": "请求次数已达上限",
+  "ai.rateLimitDescription": "请求过于频繁，请稍后再试。",
 };
 
 export default zh;
