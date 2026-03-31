@@ -101,9 +101,24 @@ export function AIChat() {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
+  // Show toast on rate limit
+  useEffect(() => {
+    if (rateLimitInfo.isRateLimited && !prevRateLimitedRef.current) {
+      toast({
+        title: t("ai.rateLimitTitle"),
+        description: t("ai.rateLimitDescription"),
+        variant: "destructive",
+      });
+    }
+    prevRateLimitedRef.current = rateLimitInfo.isRateLimited;
+  }, [rateLimitInfo.isRateLimited, t]);
+
+  const isCoolingDown = rateLimitInfo.isRateLimited;
+  const sendDisabled = !input.trim() || isCoolingDown;
+
   const handleSend = () => {
     const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || isCoolingDown) return;
     setInput("");
     sendMessage(trimmed);
   };
