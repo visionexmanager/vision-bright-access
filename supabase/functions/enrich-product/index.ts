@@ -83,13 +83,8 @@ Only return valid JSON, no markdown.`;
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const t = await response.text();
-      console.error("AI error:", response.status, t);
+      console.error("OpenAI error:", response.status, t);
       throw new Error("AI service error");
     }
 

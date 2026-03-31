@@ -102,12 +102,12 @@ serve(async (req) => {
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add funds." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      const text = await response.text();
+      console.error("OpenAI API error:", response.status, text);
+      return new Response(
+        JSON.stringify({ error: "AI service temporarily unavailable" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
       const text = await response.text();
       console.error("AI gateway error:", response.status, text);
       return new Response(
