@@ -82,9 +82,9 @@ serve(async (req) => {
     };
 
     // Generate AI insights
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ stats, insights: "AI insights unavailable — API key not configured." }), {
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      return new Response(JSON.stringify({ stats, insights: "AI insights unavailable — OpenAI API key not configured." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
