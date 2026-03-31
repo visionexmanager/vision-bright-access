@@ -9,6 +9,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AdminRoute } from "@/components/AdminRoute";
+import { PageTracker } from "@/components/PageTracker";
 
 // Lazy-loaded pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -37,6 +38,7 @@ const AdminContent = lazy(() => import("./pages/admin/AdminContent"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const AdminRequests = lazy(() => import("./pages/admin/AdminRequests"));
+const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +68,7 @@ const App = () => (
             <AuthProvider>
               <CartProvider>
                 <Suspense fallback={<PageLoader />}>
+                  <PageTracker />
                   <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/login" element={<Login />} />
@@ -91,6 +94,7 @@ const App = () => (
                     <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
                     <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
                     <Route path="/admin/requests" element={<AdminRoute><AdminRequests /></AdminRoute>} />
+                    <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

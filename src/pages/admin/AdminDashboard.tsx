@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, FileText, Users, Settings, ShieldCheck } from "lucide-react";
+import { Package, FileText, Users, Settings, ShieldCheck, BarChart3 } from "lucide-react";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({ products: 0, content: 0, users: 0, requests: 0 });
@@ -31,6 +31,7 @@ export default function AdminDashboard() {
     { title: "Products", count: stats.products, icon: Package, link: "/admin/products", color: "text-blue-500" },
     { title: "Content", count: stats.content, icon: FileText, link: "/admin/content", color: "text-green-500" },
     { title: "Users", count: stats.users, icon: Users, link: "/admin/users", color: "text-purple-500" },
+    { title: "Analytics", count: null, icon: BarChart3, link: "/admin/analytics", color: "text-cyan-500" },
     { title: "Site Settings", count: null, icon: Settings, link: "/admin/settings", color: "text-orange-500" },
   ];
 

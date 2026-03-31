@@ -60,9 +60,31 @@ export default function AdminProducts() {
       if (error) toast.error(error.message);
       else toast.success("Product updated");
     } else {
-      const { error } = await supabase.from("products").insert(formData);
-      if (error) toast.error(error.message);
-      else toast.success("Product created");
+      // Auto-enrich new products with AI
+      try {
+        toast.info("AI is enriching product data...");
+        const { data: enriched, error: enrichError } = await supabase.functions.invoke("enrich-product", {
+          body: { name: formData.name, category: formData.category, store_type: formData.store_type, description: formData.description },
+        });
+        if (!enrichError && enriched) {
+          const enrichedData = {
+            ...formData,
+            description: formData.description || enriched.description || formData.description,
+            category: enriched.category_suggestion || formData.category,
+          };
+          const { error } = await supabase.from("products").insert(enrichedData);
+          if (error) toast.error(error.message);
+          else toast.success("Product created with AI enrichment!");
+        } else {
+          const { error } = await supabase.from("products").insert(formData);
+          if (error) toast.error(error.message);
+          else toast.success("Product created (without AI enrichment)");
+        }
+      } catch {
+        const { error } = await supabase.from("products").insert(formData);
+        if (error) toast.error(error.message);
+        else toast.success("Product created");
+      }
     }
     setLoading(false);
     setDialogOpen(false);
