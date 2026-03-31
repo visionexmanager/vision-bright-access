@@ -68,6 +68,7 @@ const App = () => (
             <AuthProvider>
               <CartProvider>
                 <Suspense fallback={<PageLoader />}>
+                  <PageTracker />
                   <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/login" element={<Login />} />
