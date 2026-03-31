@@ -359,7 +359,19 @@ const ru: Record<string, string> = {
   "vep.aiLoading": "Открытие сравнения продуктов с ИИ…",
   "vep.selectedCount": "Выбрано {count} продукт(ов)",
   "vep.whatsappIntro": "Здравствуйте, меня интересуют следующие вспомогательные устройства:",
-  "vep.notSelected": "Не выбрано"
+  "vep.notSelected": "Не выбрано",
+  "ai.openChat": "Открыть ИИ-ассистент",
+  "ai.closeChat": "Закрыть ИИ-ассистент",
+  "ai.chatTitle": "ИИ-ассистент Visionex",
+  "ai.clearChat": "Очистить разговор",
+  "ai.placeholder": "Задайте мне вопрос…",
+  "ai.send": "Отправить сообщение",
+  "ai.stop": "Остановить генерацию",
+  "ai.welcomeTitle": "Чем могу помочь?",
+  "ai.welcomeSubtitle": "Я могу помочь с продуктами, доступностью, обучением и навигацией.",
+  "ai.suggestion1": "Какие вспомогательные устройства вы рекомендуете для студентов?",
+  "ai.suggestion2": "Помогите мне навигировать по платформе",
+  "ai.suggestion3": "Какие курсы доступны?"
 };
 
 export default ru;

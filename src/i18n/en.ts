@@ -359,7 +359,19 @@ const en: Record<string, string> = {
   "vep.aiLoading": "Opening AI product comparison…",
   "vep.selectedCount": "{count} product(s) selected",
   "vep.whatsappIntro": "Hello, I'm interested in the following assistive products:",
-  "vep.notSelected": "Not selected"
+  "vep.notSelected": "Not selected",
+  "ai.openChat": "Open AI Assistant",
+  "ai.closeChat": "Close AI Assistant",
+  "ai.chatTitle": "Visionex AI Assistant",
+  "ai.clearChat": "Clear conversation",
+  "ai.placeholder": "Ask me anything…",
+  "ai.send": "Send message",
+  "ai.stop": "Stop generating",
+  "ai.welcomeTitle": "How can I help you?",
+  "ai.welcomeSubtitle": "I can help with products, accessibility, learning, and navigation.",
+  "ai.suggestion1": "What assistive products do you recommend for students?",
+  "ai.suggestion2": "Help me navigate the platform",
+  "ai.suggestion3": "What courses are available?"
 };
 
 export default en;

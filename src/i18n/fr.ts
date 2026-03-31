@@ -359,7 +359,19 @@ const fr: Record<string, string> = {
   "vep.aiLoading": "Ouverture de la comparaison de produits AI...",
   "vep.selectedCount": "{count} produit(s) sélectionné(s)",
   "vep.whatsappIntro": "Bonjour, je suis intéressé par les produits d'assistance suivants :",
-  "vep.notSelected": "Non sélectionné"
+  "vep.notSelected": "Non sélectionné",
+  "ai.openChat": "Ouvrir l'assistant IA",
+  "ai.closeChat": "Fermer l'assistant IA",
+  "ai.chatTitle": "Assistant IA Visionex",
+  "ai.clearChat": "Effacer la conversation",
+  "ai.placeholder": "Posez-moi une question…",
+  "ai.send": "Envoyer le message",
+  "ai.stop": "Arrêter la génération",
+  "ai.welcomeTitle": "Comment puis-je vous aider ?",
+  "ai.welcomeSubtitle": "Je peux vous aider avec les produits, l'accessibilité, l'apprentissage et la navigation.",
+  "ai.suggestion1": "Quels produits d'assistance recommandez-vous pour les étudiants ?",
+  "ai.suggestion2": "Aidez-moi à naviguer sur la plateforme",
+  "ai.suggestion3": "Quels cours sont disponibles ?"
 };
 
 export default fr;

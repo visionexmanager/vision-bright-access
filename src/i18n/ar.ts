@@ -359,7 +359,19 @@ const ar: Record<string, string> = {
   "vep.aiLoading": "جاري فتح مقارنة المنتجات بالذكاء الاصطناعي…",
   "vep.selectedCount": "{count} منتج(ات) محددة",
   "vep.whatsappIntro": "مرحباً، أنا مهتم بالمنتجات المساعدة التالية:",
-  "vep.notSelected": "غير محدد"
+  "vep.notSelected": "غير محدد",
+  "ai.openChat": "فتح مساعد الذكاء الاصطناعي",
+  "ai.closeChat": "إغلاق مساعد الذكاء الاصطناعي",
+  "ai.chatTitle": "مساعد Visionex الذكي",
+  "ai.clearChat": "مسح المحادثة",
+  "ai.placeholder": "اسألني أي شيء…",
+  "ai.send": "إرسال الرسالة",
+  "ai.stop": "إيقاف التوليد",
+  "ai.welcomeTitle": "كيف يمكنني مساعدتك؟",
+  "ai.welcomeSubtitle": "يمكنني المساعدة في المنتجات وإمكانية الوصول والتعلم والتنقل.",
+  "ai.suggestion1": "ما المنتجات المساعدة التي توصي بها للطلاب؟",
+  "ai.suggestion2": "ساعدني في التنقل في المنصة",
+  "ai.suggestion3": "ما الدورات المتاحة؟"
 };
 
 export default ar;

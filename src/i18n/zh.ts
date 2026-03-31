@@ -359,7 +359,19 @@ const zh: Record<string, string> = {
   "vep.aiLoading": "正在打开AI产品比较……",
   "vep.selectedCount": "已选择 {count} 件产品",
   "vep.whatsappIntro": "您好，我对以下辅助产品感兴趣：",
-  "vep.notSelected": "未选中"
+  "vep.notSelected": "未选中",
+  "ai.openChat": "打开AI助手",
+  "ai.closeChat": "关闭AI助手",
+  "ai.chatTitle": "Visionex AI助手",
+  "ai.clearChat": "清除对话",
+  "ai.placeholder": "随便问我什么……",
+  "ai.send": "发送消息",
+  "ai.stop": "停止生成",
+  "ai.welcomeTitle": "我能帮您什么？",
+  "ai.welcomeSubtitle": "我可以帮助您了解产品、无障碍功能、学习和导航。",
+  "ai.suggestion1": "你推荐哪些适合学生的辅助产品？",
+  "ai.suggestion2": "帮我浏览平台",
+  "ai.suggestion3": "有哪些课程可用？"
 };
 
 export default zh;
