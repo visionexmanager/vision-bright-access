@@ -376,7 +376,9 @@ const pt: Record<string, string> = {
   "ai.consultationPrompt": "Conte-me sobre o {product}. Quais são suas principais características, para quem é mais indicado e quais alternativas existem?",
   "ai.startListening": "Iniciar entrada por voz",
   "ai.stopListening": "Parar entrada por voz",
-  "ai.listeningPlaceholder": "Ouvindo…"
+  "ai.listeningPlaceholder": "Ouvindo…",
+  "ai.rateLimitTitle": "Limite de requisições atingido",
+  "ai.rateLimitDescription": "Muitas requisições. Aguarde um momento antes de tentar novamente.",
 };
 
 export default pt;

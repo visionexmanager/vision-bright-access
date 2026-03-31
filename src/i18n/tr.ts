@@ -376,7 +376,9 @@ const tr: Record<string, string> = {
   "ai.consultationPrompt": "{product} hakkında bilgi verin. Temel özellikleri nelerdir, en çok kime uygundur ve hangi alternatifler mevcuttur?",
   "ai.startListening": "Sesli girişi başlat",
   "ai.stopListening": "Sesli girişi durdur",
-  "ai.listeningPlaceholder": "Dinleniyor…"
+  "ai.listeningPlaceholder": "Dinleniyor…",
+  "ai.rateLimitTitle": "İstek limiti aşıldı",
+  "ai.rateLimitDescription": "Çok fazla istek. Lütfen tekrar denemeden önce biraz bekleyin.",
 };
 
 export default tr;

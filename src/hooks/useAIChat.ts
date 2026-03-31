@@ -8,12 +8,19 @@ type Message = {
   content: string;
 };
 
+export type RateLimitInfo = {
+  isRateLimited: boolean;
+  cooldownSeconds: number;
+};
+
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
 export function useAIChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo>({ isRateLimited: false, cooldownSeconds: 0 });
   const abortRef = useRef<AbortController | null>(null);
+  const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { lang } = useLanguage();
   const { pathname } = useLocation();
 
@@ -59,7 +66,11 @@ export function useAIChat() {
 
         if (!resp.ok) {
           const errData = await resp.json().catch(() => ({}));
-          throw new Error(errData.error || `Request failed (${resp.status})`);
+          const isRateLimit = resp.status === 429;
+          throw Object.assign(
+            new Error(errData.error || `Request failed (${resp.status})`),
+            { isRateLimit }
+          );
         }
 
         if (!resp.body) throw new Error("No response body");
@@ -137,6 +148,25 @@ export function useAIChat() {
       } catch (e: any) {
         if (e.name === "AbortError") return;
         const errorMsg = e.message || "Something went wrong. Please try again.";
+        const isRateLimit = e.isRateLimit === true;
+
+        if (isRateLimit) {
+          const COOLDOWN = 30;
+          setRateLimitInfo({ isRateLimited: true, cooldownSeconds: COOLDOWN });
+          if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+          let remaining = COOLDOWN;
+          cooldownTimerRef.current = setInterval(() => {
+            remaining -= 1;
+            if (remaining <= 0) {
+              clearInterval(cooldownTimerRef.current!);
+              cooldownTimerRef.current = null;
+              setRateLimitInfo({ isRateLimited: false, cooldownSeconds: 0 });
+            } else {
+              setRateLimitInfo({ isRateLimited: true, cooldownSeconds: remaining });
+            }
+          }, 1000);
+        }
+
         setMessages((prev) => [
           ...prev,
           { id: assistantId, role: "assistant", content: `⚠️ ${errorMsg}` },
@@ -160,5 +190,5 @@ export function useAIChat() {
     setIsLoading(false);
   }, []);
 
-  return { messages, isLoading, sendMessage, clearMessages, stopGeneration };
+  return { messages, isLoading, rateLimitInfo, sendMessage, clearMessages, stopGeneration };
 }

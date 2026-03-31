@@ -2,8 +2,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAIChat } from "@/hooks/useAIChat";
-import { Bot, X, Send, Trash2, Square, Mic, MicOff } from "lucide-react";
+import { Bot, X, Send, Trash2, Square, Mic, MicOff, Timer } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { toast } from "@/hooks/use-toast";
 
 export type AIChatOpenEvent = CustomEvent<{ productName: string; prompt: string }>;
 
@@ -21,7 +22,8 @@ export function AIChat() {
   const { t, lang } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
-  const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useAIChat();
+  const { messages, isLoading, rateLimitInfo, sendMessage, clearMessages, stopGeneration } = useAIChat();
+  const prevRateLimitedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -99,9 +101,24 @@ export function AIChat() {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
+  // Show toast on rate limit
+  useEffect(() => {
+    if (rateLimitInfo.isRateLimited && !prevRateLimitedRef.current) {
+      toast({
+        title: t("ai.rateLimitTitle"),
+        description: t("ai.rateLimitDescription"),
+        variant: "destructive",
+      });
+    }
+    prevRateLimitedRef.current = rateLimitInfo.isRateLimited;
+  }, [rateLimitInfo.isRateLimited, t]);
+
+  const isCoolingDown = rateLimitInfo.isRateLimited;
+  const sendDisabled = !input.trim() || isCoolingDown;
+
   const handleSend = () => {
     const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || isCoolingDown) return;
     setInput("");
     sendMessage(trimmed);
   };
@@ -268,12 +285,23 @@ export function AIChat() {
                 >
                   <Square className="h-4 w-4" />
                 </Button>
+              ) : isCoolingDown ? (
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-10 w-10 shrink-0 relative text-xs font-bold text-destructive border-destructive/30"
+                  disabled
+                  aria-label={`${t("ai.rateLimitTitle")} ${rateLimitInfo.cooldownSeconds}s`}
+                >
+                  <Timer className="h-3.5 w-3.5 absolute top-1 left-1 opacity-50" />
+                  <span>{rateLimitInfo.cooldownSeconds}</span>
+                </Button>
               ) : (
                 <Button
                   size="icon"
                   className="h-10 w-10 shrink-0"
                   onClick={handleSend}
-                  disabled={!input.trim()}
+                  disabled={sendDisabled}
                   aria-label={t("ai.send")}
                 >
                   <Send className="h-4 w-4" />
