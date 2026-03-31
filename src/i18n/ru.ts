@@ -373,7 +373,10 @@ const ru: Record<string, string> = {
   "ai.suggestion2": "Помогите мне навигировать по платформе",
   "ai.suggestion3": "Какие курсы доступны?",
   "ai.consultation": "ИИ-консультация",
-  "ai.consultationPrompt": "Расскажите о {product}. Какие основные функции, кому подходит лучше всего и какие есть альтернативы?"
+  "ai.consultationPrompt": "Расскажите о {product}. Какие основные функции, кому подходит лучше всего и какие есть альтернативы?",
+  "ai.startListening": "Начать голосовой ввод",
+  "ai.stopListening": "Остановить голосовой ввод",
+  "ai.listeningPlaceholder": "Слушаю…"
 };
 
 export default ru;

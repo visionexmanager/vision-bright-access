@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAIChat } from "@/hooks/useAIChat";
-import { Bot, X, Send, Trash2, Square } from "lucide-react";
+import { Bot, X, Send, Trash2, Square, Mic, MicOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 export type AIChatOpenEvent = CustomEvent<{ productName: string; prompt: string }>;
@@ -24,7 +24,58 @@ export function AIChat() {
   const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useAIChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const [isListening, setIsListening] = useState(false);
   const isRTL = lang === "ar";
+
+  // Speech recognition language mapping
+  const speechLangMap: Record<string, string> = {
+    en: "en-US", ar: "ar-SA", es: "es-ES", fr: "fr-FR",
+    de: "de-DE", pt: "pt-BR", tr: "tr-TR", ru: "ru-RU", zh: "zh-CN",
+  };
+
+  const hasSpeechRecognition = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+
+  const toggleListening = useCallback(() => {
+    if (!hasSpeechRecognition) return;
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = speechLangMap[lang] || "en-US";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      if (transcript.trim()) {
+        setInput(transcript);
+        // Auto-send after a brief pause so user can see what was transcribed
+        setTimeout(() => {
+          sendMessage(transcript.trim());
+          setInput("");
+        }, 500);
+      }
+      setIsListening(false);
+    };
+
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [isListening, lang, hasSpeechRecognition, sendMessage]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { recognitionRef.current?.stop(); };
+  }, []);
 
   // Listen for external open-with-product events
   useEffect(() => {
@@ -185,12 +236,23 @@ export function AIChat() {
           {/* Input area */}
           <div className="border-t px-3 py-3 shrink-0">
             <div className="flex items-end gap-2">
+              {hasSpeechRecognition && (
+                <Button
+                  size="icon"
+                  variant={isListening ? "default" : "ghost"}
+                  className={`h-10 w-10 shrink-0 ${isListening ? "animate-pulse bg-destructive hover:bg-destructive/90" : ""}`}
+                  onClick={toggleListening}
+                  aria-label={isListening ? t("ai.stopListening") : t("ai.startListening")}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+              )}
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={t("ai.placeholder")}
+                placeholder={isListening ? t("ai.listeningPlaceholder") : t("ai.placeholder")}
                 rows={1}
                 className="flex-1 resize-none rounded-xl border bg-muted/50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[40px] max-h-[100px]"
                 aria-label={t("ai.placeholder")}
