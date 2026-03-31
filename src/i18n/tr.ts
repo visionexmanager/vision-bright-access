@@ -371,7 +371,9 @@ const tr: Record<string, string> = {
   "ai.welcomeSubtitle": "Ürünler, erişilebilirlik, öğrenme ve gezinme konularında yardımcı olabilirim.",
   "ai.suggestion1": "Öğrenciler için hangi yardımcı ürünleri önerirsiniz?",
   "ai.suggestion2": "Platformda gezinmeme yardım edin",
-  "ai.suggestion3": "Hangi kurslar mevcut?"
+  "ai.suggestion3": "Hangi kurslar mevcut?",
+  "ai.consultation": "Yapay Zeka Danışmanlığı",
+  "ai.consultationPrompt": "{product} hakkında bilgi verin. Temel özellikleri nelerdir, en çok kime uygundur ve hangi alternatifler mevcuttur?"
 };
 
 export default tr;
