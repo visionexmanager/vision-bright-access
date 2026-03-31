@@ -31,6 +31,7 @@ export default function AdminDashboard() {
     { title: "Products", count: stats.products, icon: Package, link: "/admin/products", color: "text-blue-500" },
     { title: "Content", count: stats.content, icon: FileText, link: "/admin/content", color: "text-green-500" },
     { title: "Users", count: stats.users, icon: Users, link: "/admin/users", color: "text-purple-500" },
+    { title: "Analytics", count: null, icon: BarChart3, link: "/admin/analytics", color: "text-cyan-500" },
     { title: "Site Settings", count: null, icon: Settings, link: "/admin/settings", color: "text-orange-500" },
   ];
 
