@@ -373,7 +373,10 @@ const es: Record<string, string> = {
   "ai.suggestion2": "Ayúdame a navegar la plataforma",
   "ai.suggestion3": "¿Qué cursos están disponibles?",
   "ai.consultation": "Consulta IA",
-  "ai.consultationPrompt": "Cuéntame sobre el {product}. ¿Cuáles son sus características principales, para quién es mejor y qué alternativas existen?"
+  "ai.consultationPrompt": "Cuéntame sobre el {product}. ¿Cuáles son sus características principales, para quién es mejor y qué alternativas existen?",
+  "ai.startListening": "Iniciar entrada de voz",
+  "ai.stopListening": "Detener entrada de voz",
+  "ai.listeningPlaceholder": "Escuchando…"
 };
 
 export default es;

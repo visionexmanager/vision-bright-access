@@ -373,7 +373,10 @@ const ar: Record<string, string> = {
   "ai.suggestion2": "ساعدني في التنقل في المنصة",
   "ai.suggestion3": "ما الدورات المتاحة؟",
   "ai.consultation": "استشارة ذكاء اصطناعي",
-  "ai.consultationPrompt": "أخبرني عن {product}. ما هي ميزاته الرئيسية، ولمن هو الأنسب، وما البدائل المتاحة؟"
+  "ai.consultationPrompt": "أخبرني عن {product}. ما هي ميزاته الرئيسية، ولمن هو الأنسب، وما البدائل المتاحة؟",
+  "ai.startListening": "بدء الإدخال الصوتي",
+  "ai.stopListening": "إيقاف الإدخال الصوتي",
+  "ai.listeningPlaceholder": "جارٍ الاستماع…"
 };
 
 export default ar;
