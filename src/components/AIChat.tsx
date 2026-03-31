@@ -22,7 +22,8 @@ export function AIChat() {
   const { t, lang } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
-  const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useAIChat();
+  const { messages, isLoading, rateLimitInfo, sendMessage, clearMessages, stopGeneration } = useAIChat();
+  const prevRateLimitedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
