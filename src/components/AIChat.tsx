@@ -236,12 +236,23 @@ export function AIChat() {
           {/* Input area */}
           <div className="border-t px-3 py-3 shrink-0">
             <div className="flex items-end gap-2">
+              {hasSpeechRecognition && (
+                <Button
+                  size="icon"
+                  variant={isListening ? "default" : "ghost"}
+                  className={`h-10 w-10 shrink-0 ${isListening ? "animate-pulse bg-destructive hover:bg-destructive/90" : ""}`}
+                  onClick={toggleListening}
+                  aria-label={isListening ? t("ai.stopListening") : t("ai.startListening")}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+              )}
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={t("ai.placeholder")}
+                placeholder={isListening ? t("ai.listeningPlaceholder") : t("ai.placeholder")}
                 rows={1}
                 className="flex-1 resize-none rounded-xl border bg-muted/50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary min-h-[40px] max-h-[100px]"
                 aria-label={t("ai.placeholder")}
