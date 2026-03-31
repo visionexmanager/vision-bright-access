@@ -376,7 +376,9 @@ const en: Record<string, string> = {
   "ai.consultationPrompt": "Tell me about the {product}. What are its key features, who is it best for, and what alternatives exist?",
   "ai.startListening": "Start voice input",
   "ai.stopListening": "Stop voice input",
-  "ai.listeningPlaceholder": "Listening…"
+  "ai.listeningPlaceholder": "Listening…",
+  "ai.rateLimitTitle": "Rate limit reached",
+  "ai.rateLimitDescription": "Too many requests. Please wait a moment before trying again.",
 };
 
 export default en;
