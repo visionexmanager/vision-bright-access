@@ -92,7 +92,11 @@ export function useGameTTS() {
     if (!enabledRef.current || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang === "ar" ? "ar-SA" : lang === "es" ? "es-ES" : "en-US";
+    const langMap: Record<string, string> = {
+      ar: "ar-SA", es: "es-ES", de: "de-DE", fr: "fr-FR",
+      pt: "pt-BR", tr: "tr-TR", ru: "ru-RU", zh: "zh-CN", en: "en-US",
+    };
+    utterance.lang = langMap[lang] || "en-US";
     utterance.rate = 0.9;
     utterance.volume = 0.8;
     window.speechSynthesis.speak(utterance);
