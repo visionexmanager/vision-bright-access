@@ -198,6 +198,24 @@ export default function AssistiveProducts() {
                                     </Select>
                                   </div>
                                 )}
+
+                                {/* AI Consultation button */}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="mt-3 gap-1.5 text-xs text-primary hover:text-primary"
+                                  onClick={() => {
+                                    const name = getProductName(product, lang);
+                                    const nameEn = product.nameEn;
+                                    openAIChatWithProduct(
+                                      nameEn,
+                                      `${t("ai.consultationPrompt").replace("{product}", name)}`
+                                    );
+                                  }}
+                                >
+                                  <Bot className="h-3.5 w-3.5" />
+                                  {t("ai.consultation")}
+                                </Button>
                               </div>
                             </div>
                           </CardContent>
