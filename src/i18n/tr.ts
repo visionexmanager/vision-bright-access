@@ -359,7 +359,19 @@ const tr: Record<string, string> = {
   "vep.aiLoading": "Yapay zeka ürün karşılaştırması açılıyor…",
   "vep.selectedCount": "{count} ürün seçildi",
   "vep.whatsappIntro": "Merhaba, aşağıdaki yardımcı ürünlerle ilgileniyorum:",
-  "vep.notSelected": "Seçilmedi"
+  "vep.notSelected": "Seçilmedi",
+  "ai.openChat": "Yapay Zeka Asistanını Aç",
+  "ai.closeChat": "Yapay Zeka Asistanını Kapat",
+  "ai.chatTitle": "Visionex Yapay Zeka Asistanı",
+  "ai.clearChat": "Sohbeti temizle",
+  "ai.placeholder": "Bana bir şey sorun…",
+  "ai.send": "Mesaj gönder",
+  "ai.stop": "Oluşturmayı durdur",
+  "ai.welcomeTitle": "Size nasıl yardımcı olabilirim?",
+  "ai.welcomeSubtitle": "Ürünler, erişilebilirlik, öğrenme ve gezinme konularında yardımcı olabilirim.",
+  "ai.suggestion1": "Öğrenciler için hangi yardımcı ürünleri önerirsiniz?",
+  "ai.suggestion2": "Platformda gezinmeme yardım edin",
+  "ai.suggestion3": "Hangi kurslar mevcut?"
 };
 
 export default tr;

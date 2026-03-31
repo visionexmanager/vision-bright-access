@@ -359,7 +359,19 @@ const de: Record<string, string> = {
   "vep.aiLoading": "AI-Produktvergleich wird geöffnet…",
   "vep.selectedCount": "{count} Produkt(e) ausgewählt",
   "vep.whatsappIntro": "Hallo, ich interessiere mich für die folgenden assistiven Produkte:",
-  "vep.notSelected": "Nicht ausgewählt"
+  "vep.notSelected": "Nicht ausgewählt",
+  "ai.openChat": "KI-Assistent öffnen",
+  "ai.closeChat": "KI-Assistent schließen",
+  "ai.chatTitle": "Visionex KI-Assistent",
+  "ai.clearChat": "Unterhaltung löschen",
+  "ai.placeholder": "Fragen Sie mich etwas…",
+  "ai.send": "Nachricht senden",
+  "ai.stop": "Generierung stoppen",
+  "ai.welcomeTitle": "Wie kann ich Ihnen helfen?",
+  "ai.welcomeSubtitle": "Ich kann bei Produkten, Barrierefreiheit, Lernen und Navigation helfen.",
+  "ai.suggestion1": "Welche Hilfsmittel empfehlen Sie für Studierende?",
+  "ai.suggestion2": "Helfen Sie mir bei der Navigation auf der Plattform",
+  "ai.suggestion3": "Welche Kurse sind verfügbar?"
 };
 
 export default de;
