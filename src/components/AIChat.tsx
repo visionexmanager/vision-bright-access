@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAIChat } from "@/hooks/useAIChat";
-import { Bot, X, Send, Trash2, Square } from "lucide-react";
+import { Bot, X, Send, Trash2, Square, Mic, MicOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 export type AIChatOpenEvent = CustomEvent<{ productName: string; prompt: string }>;
