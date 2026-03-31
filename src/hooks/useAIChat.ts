@@ -190,5 +190,5 @@ export function useAIChat() {
     setIsLoading(false);
   }, []);
 
-  return { messages, isLoading, sendMessage, clearMessages, stopGeneration };
+  return { messages, isLoading, rateLimitInfo, sendMessage, clearMessages, stopGeneration };
 }
