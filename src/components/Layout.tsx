@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
+import { AIChat } from "./AIChat";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -26,6 +27,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
         </p>
       </footer>
+      <AIChat />
     </div>
   );
 }
