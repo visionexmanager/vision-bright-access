@@ -66,7 +66,11 @@ export function useAIChat() {
 
         if (!resp.ok) {
           const errData = await resp.json().catch(() => ({}));
-          throw new Error(errData.error || `Request failed (${resp.status})`);
+          const isRateLimit = resp.status === 429;
+          throw Object.assign(
+            new Error(errData.error || `Request failed (${resp.status})`),
+            { isRateLimit }
+          );
         }
 
         if (!resp.body) throw new Error("No response body");
