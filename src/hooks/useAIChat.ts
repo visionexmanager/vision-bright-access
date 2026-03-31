@@ -8,6 +8,11 @@ type Message = {
   content: string;
 };
 
+export type RateLimitInfo = {
+  isRateLimited: boolean;
+  cooldownSeconds: number;
+};
+
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
 export function useAIChat() {
