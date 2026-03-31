@@ -20,6 +20,7 @@ import { useLanguage, Lang } from "@/contexts/LanguageContext";
 import { assistiveCategories, deliveryCountries, AssistiveProduct } from "@/data/assistiveProducts";
 import { Bot, MessageCircle, Store, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { openAIChatWithProduct } from "@/components/AIChat";
 
 function getProductName(p: AssistiveProduct, lang: Lang) {
   return lang === "ar" ? p.nameAr : lang === "es" ? p.nameEs : p.nameEn;
