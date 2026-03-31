@@ -18,7 +18,9 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 export function useAIChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo>({ isRateLimited: false, cooldownSeconds: 0 });
   const abortRef = useRef<AbortController | null>(null);
+  const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { lang } = useLanguage();
   const { pathname } = useLocation();
 
