@@ -1,9 +1,21 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAIChat } from "@/hooks/useAIChat";
 import { Bot, X, Send, Trash2, Square } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+
+export type AIChatOpenEvent = CustomEvent<{ productName: string; prompt: string }>;
+
+declare global {
+  interface WindowEventMap {
+    "ai-chat-open": AIChatOpenEvent;
+  }
+}
+
+export function openAIChatWithProduct(productName: string, prompt: string) {
+  window.dispatchEvent(new CustomEvent("ai-chat-open", { detail: { productName, prompt } }));
+}
 
 export function AIChat() {
   const { t, lang } = useLanguage();
@@ -13,6 +25,20 @@ export function AIChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isRTL = lang === "ar";
+
+  // Listen for external open-with-product events
+  useEffect(() => {
+    const handler = (e: AIChatOpenEvent) => {
+      clearMessages();
+      setIsOpen(true);
+      // Small delay so chat panel renders before sending
+      setTimeout(() => {
+        sendMessage(e.detail.prompt, { productName: e.detail.productName });
+      }, 100);
+    };
+    window.addEventListener("ai-chat-open", handler);
+    return () => window.removeEventListener("ai-chat-open", handler);
+  }, [clearMessages, sendMessage]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
