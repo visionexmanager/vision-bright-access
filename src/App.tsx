@@ -9,6 +9,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AdminRoute } from "@/components/AdminRoute";
+import { PageTracker } from "@/components/PageTracker";
 
 // Lazy-loaded pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
