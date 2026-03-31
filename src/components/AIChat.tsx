@@ -24,7 +24,58 @@ export function AIChat() {
   const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useAIChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const [isListening, setIsListening] = useState(false);
   const isRTL = lang === "ar";
+
+  // Speech recognition language mapping
+  const speechLangMap: Record<string, string> = {
+    en: "en-US", ar: "ar-SA", es: "es-ES", fr: "fr-FR",
+    de: "de-DE", pt: "pt-BR", tr: "tr-TR", ru: "ru-RU", zh: "zh-CN",
+  };
+
+  const hasSpeechRecognition = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+
+  const toggleListening = useCallback(() => {
+    if (!hasSpeechRecognition) return;
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = speechLangMap[lang] || "en-US";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      if (transcript.trim()) {
+        setInput(transcript);
+        // Auto-send after a brief pause so user can see what was transcribed
+        setTimeout(() => {
+          sendMessage(transcript.trim());
+          setInput("");
+        }, 500);
+      }
+      setIsListening(false);
+    };
+
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [isListening, lang, hasSpeechRecognition, sendMessage]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { recognitionRef.current?.stop(); };
+  }, []);
 
   // Listen for external open-with-product events
   useEffect(() => {
