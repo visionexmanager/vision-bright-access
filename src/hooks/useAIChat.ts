@@ -148,6 +148,25 @@ export function useAIChat() {
       } catch (e: any) {
         if (e.name === "AbortError") return;
         const errorMsg = e.message || "Something went wrong. Please try again.";
+        const isRateLimit = e.isRateLimit === true;
+
+        if (isRateLimit) {
+          const COOLDOWN = 30;
+          setRateLimitInfo({ isRateLimited: true, cooldownSeconds: COOLDOWN });
+          if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+          let remaining = COOLDOWN;
+          cooldownTimerRef.current = setInterval(() => {
+            remaining -= 1;
+            if (remaining <= 0) {
+              clearInterval(cooldownTimerRef.current!);
+              cooldownTimerRef.current = null;
+              setRateLimitInfo({ isRateLimited: false, cooldownSeconds: 0 });
+            } else {
+              setRateLimitInfo({ isRateLimited: true, cooldownSeconds: remaining });
+            }
+          }, 1000);
+        }
+
         setMessages((prev) => [
           ...prev,
           { id: assistantId, role: "assistant", content: `⚠️ ${errorMsg}` },
