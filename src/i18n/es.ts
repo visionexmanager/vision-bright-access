@@ -371,7 +371,9 @@ const es: Record<string, string> = {
   "ai.welcomeSubtitle": "Puedo ayudarte con productos, accesibilidad, aprendizaje y navegación.",
   "ai.suggestion1": "¿Qué productos asistivos recomiendas para estudiantes?",
   "ai.suggestion2": "Ayúdame a navegar la plataforma",
-  "ai.suggestion3": "¿Qué cursos están disponibles?"
+  "ai.suggestion3": "¿Qué cursos están disponibles?",
+  "ai.consultation": "Consulta IA",
+  "ai.consultationPrompt": "Cuéntame sobre el {product}. ¿Cuáles son sus características principales, para quién es mejor y qué alternativas existen?"
 };
 
 export default es;

@@ -371,7 +371,9 @@ const ar: Record<string, string> = {
   "ai.welcomeSubtitle": "يمكنني المساعدة في المنتجات وإمكانية الوصول والتعلم والتنقل.",
   "ai.suggestion1": "ما المنتجات المساعدة التي توصي بها للطلاب؟",
   "ai.suggestion2": "ساعدني في التنقل في المنصة",
-  "ai.suggestion3": "ما الدورات المتاحة؟"
+  "ai.suggestion3": "ما الدورات المتاحة؟",
+  "ai.consultation": "استشارة ذكاء اصطناعي",
+  "ai.consultationPrompt": "أخبرني عن {product}. ما هي ميزاته الرئيسية، ولمن هو الأنسب، وما البدائل المتاحة؟"
 };
 
 export default ar;

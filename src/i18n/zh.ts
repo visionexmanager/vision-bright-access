@@ -371,7 +371,9 @@ const zh: Record<string, string> = {
   "ai.welcomeSubtitle": "我可以帮助您了解产品、无障碍功能、学习和导航。",
   "ai.suggestion1": "你推荐哪些适合学生的辅助产品？",
   "ai.suggestion2": "帮我浏览平台",
-  "ai.suggestion3": "有哪些课程可用？"
+  "ai.suggestion3": "有哪些课程可用？",
+  "ai.consultation": "AI咨询",
+  "ai.consultationPrompt": "介绍一下{product}。它的主要功能是什么？最适合谁使用？有哪些替代产品？"
 };
 
 export default zh;

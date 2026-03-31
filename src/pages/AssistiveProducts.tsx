@@ -20,6 +20,7 @@ import { useLanguage, Lang } from "@/contexts/LanguageContext";
 import { assistiveCategories, deliveryCountries, AssistiveProduct } from "@/data/assistiveProducts";
 import { Bot, MessageCircle, Store, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { openAIChatWithProduct } from "@/components/AIChat";
 
 function getProductName(p: AssistiveProduct, lang: Lang) {
   return lang === "ar" ? p.nameAr : lang === "es" ? p.nameEs : p.nameEn;
@@ -197,6 +198,24 @@ export default function AssistiveProducts() {
                                     </Select>
                                   </div>
                                 )}
+
+                                {/* AI Consultation button */}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="mt-3 gap-1.5 text-xs text-primary hover:text-primary"
+                                  onClick={() => {
+                                    const name = getProductName(product, lang);
+                                    const nameEn = product.nameEn;
+                                    openAIChatWithProduct(
+                                      nameEn,
+                                      `${t("ai.consultationPrompt").replace("{product}", name)}`
+                                    );
+                                  }}
+                                >
+                                  <Bot className="h-3.5 w-3.5" />
+                                  {t("ai.consultation")}
+                                </Button>
                               </div>
                             </div>
                           </CardContent>
