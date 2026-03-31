@@ -285,12 +285,23 @@ export function AIChat() {
                 >
                   <Square className="h-4 w-4" />
                 </Button>
+              ) : isCoolingDown ? (
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-10 w-10 shrink-0 relative text-xs font-bold text-destructive border-destructive/30"
+                  disabled
+                  aria-label={`${t("ai.rateLimitTitle")} ${rateLimitInfo.cooldownSeconds}s`}
+                >
+                  <Timer className="h-3.5 w-3.5 absolute top-1 left-1 opacity-50" />
+                  <span>{rateLimitInfo.cooldownSeconds}</span>
+                </Button>
               ) : (
                 <Button
                   size="icon"
                   className="h-10 w-10 shrink-0"
                   onClick={handleSend}
-                  disabled={!input.trim()}
+                  disabled={sendDisabled}
                   aria-label={t("ai.send")}
                 >
                   <Send className="h-4 w-4" />
