@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, FileText, Users, Settings, ShieldCheck } from "lucide-react";
+import { Package, FileText, Users, Settings, ShieldCheck, BarChart3 } from "lucide-react";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({ products: 0, content: 0, users: 0, requests: 0 });
