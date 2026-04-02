@@ -956,6 +956,8 @@ const ar: Record<string, string> = {
   "sim.wood.close": "إغلاق",
   "sim.wood.allTasks": "خبير نجارة! أنجزت جميع المهام — نقاط إضافية!",
   "sim.wood.partialTasks": "جلسة جيدة! أكمل جميع المهام للحصول على مكافأة.",
+  "sim.progress.welcomeBack": "🔄 مرحباً بعودتك! تم استعادة تقدمك — النقاط: {score}",
+  "sim.progress.alreadyCompleted": "🔄 مرحباً بعودتك! لقد أكملت هذه المحاكاة سابقاً.",
 };
 
 export default ar;

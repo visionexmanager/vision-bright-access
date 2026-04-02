@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -12,6 +13,7 @@ interface SavedProgress {
 
 export function useSimulationProgress(simulationId?: string) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [savedProgress, setSavedProgress] = useState<SavedProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const toastShown = useRef(false);
@@ -34,9 +36,10 @@ export function useSimulationProgress(simulationId?: string) {
         if (!toastShown.current) {
           toastShown.current = true;
           const sp = data as SavedProgress;
-          toast.info("🔄 " + (sp.completed ? "مرحباً بعودتك! لقد أكملت هذه المحاكاة سابقاً." : `مرحباً بعودتك! تم استعادة تقدمك — النقاط: ${sp.score}`), {
-            duration: 4000,
-          });
+          const msg = sp.completed
+            ? t("sim.progress.alreadyCompleted")
+            : t("sim.progress.welcomeBack").replace("{score}", String(sp.score));
+          toast.info(msg, { duration: 4000 });
         }
       }
       setLoading(false);
