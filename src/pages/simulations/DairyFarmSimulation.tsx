@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Lock, Flame, Snowflake, Milk, Cheese, Package, RotateCcw, Thermometer } from "lucide-react";
+import { CheckCircle2, Lock, Flame, Snowflake, Milk, Package, RotateCcw, Thermometer, Circle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
