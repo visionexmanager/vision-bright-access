@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, Lock, Plane, Hotel, UtensilsCrossed, ShoppingBag, ArrowRight, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { toast } from "sonner";
 
 type Option = {
@@ -109,6 +110,7 @@ type Props = { simulationId?: string };
 export function EnglishJourneySimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { savedProgress } = useSimulationProgress(simulationId);
 
   const [proUnlocked, setProUnlocked] = useState(false);
   const [activeLocation, setActiveLocation] = useState<string | null>(null);
@@ -117,6 +119,16 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
   const [feedback, setFeedback] = useState<{ text: string; correct: boolean } | null>(null);
   const [completedLocations, setCompletedLocations] = useState<Set<string>>(new Set());
   const [answered, setAnswered] = useState(false);
+
+  // Restore saved progress
+  useEffect(() => {
+    if (!savedProgress) return;
+    const d = savedProgress.decisions as any;
+    if (Array.isArray(d)) {
+      setCompletedLocations(new Set(d));
+    }
+    setScore(savedProgress.score ?? 0);
+  }, [savedProgress]);
 
   const location = LOCATIONS.find((l) => l.id === activeLocation);
   const step = location?.steps[stepIdx];

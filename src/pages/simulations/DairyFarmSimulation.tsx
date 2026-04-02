@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { savedProgress } = useSimulationProgress(simulationId);
 
   const [temp, setTemp] = useState(20);
   const [phase, setPhase] = useState<Phase>("raw");
@@ -25,6 +27,15 @@ export function DairyFarmSimulation({ simulationId }: Props) {
   const [score, setScore] = useState(0);
   const [log, setLog] = useState<string[]>([t("sim.dairy.log.start")]);
   const [completed, setCompleted] = useState(false);
+
+  // Restore saved progress
+  useEffect(() => {
+    if (!savedProgress) return;
+    const d = savedProgress.decisions as any;
+    if (d?.phase) setPhase(d.phase);
+    setScore(savedProgress.score ?? 0);
+    setCompleted(savedProgress.completed ?? false);
+  }, [savedProgress]);
 
   const addLog = useCallback((msg: string) => {
     setLog((prev) => [...prev.slice(-4), msg]);

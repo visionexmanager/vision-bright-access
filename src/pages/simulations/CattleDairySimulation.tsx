@@ -3,6 +3,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { savedProgress } = useSimulationProgress(simulationId);
 
   const [proUnlocked, setProUnlocked] = useState(false);
   const [completed, setCompleted] = useState<TaskId[]>([]);
@@ -46,6 +48,16 @@ export function CattleDairySimulation({ simulationId }: Props) {
   const [done, setDone] = useState(false);
   const [score, setScore] = useState(0);
   const [justCompleted, setJustCompleted] = useState<TaskId | null>(null);
+
+  // Restore saved progress
+  useEffect(() => {
+    if (!savedProgress) return;
+    const d = savedProgress.decisions as any;
+    if (d?.completed) setCompleted(d.completed);
+    if (d?.proUnlocked) setProUnlocked(true);
+    setScore(savedProgress.score ?? 0);
+    setDone(savedProgress.completed ?? false);
+  }, [savedProgress]);
 
   // Vital stats
   const [milkYield, setMilkYield] = useState(25);

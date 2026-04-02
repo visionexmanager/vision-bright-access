@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ export function SolarEnergySimulation({ simulationId }: { simulationId?: string 
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
-
+  const { savedProgress } = useSimulationProgress(simulationId);
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS.map((t) => ({ ...t })));
   const [activeTask, setActiveTask] = useState<string | null>(null);
   const [proUnlocked, setProUnlocked] = useState(false);
@@ -41,6 +42,17 @@ export function SolarEnergySimulation({ simulationId }: { simulationId?: string 
   const [batteryCharge, setBatteryCharge] = useState(88);
   const [efficiency, setEfficiency] = useState(94);
   const [sunPulsing, setSunPulsing] = useState(false);
+
+  // Restore saved progress
+  useEffect(() => {
+    if (!savedProgress) return;
+    const d = savedProgress.decisions as any;
+    if (d?.completed) {
+      setTasks((prev) => prev.map((t) => d.completed.includes(t.id) ? { ...t, done: true } : t));
+    }
+    if (d?.proUnlocked) setProUnlocked(true);
+    setScore(savedProgress.score ?? 0);
+  }, [savedProgress]);
 
   const completed = tasks.filter((t) => t.done);
   const progress = Math.round((completed.length / tasks.length) * 100);

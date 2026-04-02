@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { supabase } from "@/integrations/supabase/client";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { toast } from "@/hooks/use-toast";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import {
@@ -140,6 +141,7 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   const { t } = useLanguage();
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
+  const { savedProgress } = useSimulationProgress(simulationId);
 
   const cases = buildHomeCase(t);
 
@@ -157,6 +159,13 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   const [actionsDone, setActionsDone] = useState<Set<number>>(new Set());
   const [feedback, setFeedback] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
+
+  // Restore saved progress
+  useEffect(() => {
+    if (!savedProgress) return;
+    setState((s) => ({ ...s, score: savedProgress.score ?? 0 }));
+    setCompleted(savedProgress.completed ?? false);
+  }, [savedProgress]);
 
   const currentStep = cases[state.step];
   const progressPct = ((state.step + 1) / cases.length) * 100;

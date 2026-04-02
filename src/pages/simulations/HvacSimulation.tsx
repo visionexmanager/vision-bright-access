@@ -9,6 +9,7 @@ import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Snowflake, Flame, Building2, Stethoscope, Wind, Lock, RotateCcw, Trophy, Thermometer } from "lucide-react";
 
@@ -28,6 +29,7 @@ export function HvacSimulation({ simulationId }: { simulationId?: string }) {
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
   const { playSound } = useGameAudio();
+  const { savedProgress } = useSimulationProgress(simulationId);
 
   const [completed, setCompleted] = useState<TaskId[]>([]);
   const [activeTask, setActiveTask] = useState<TaskId | null>(null);
@@ -53,25 +55,15 @@ export function HvacSimulation({ simulationId }: { simulationId?: string }) {
     return () => clearInterval(drift);
   }, []);
 
-  // Load saved progress
+  // Restore saved progress
   useEffect(() => {
-    if (!user || !simulationId) return;
-    (async () => {
-      const { data } = await supabase
-        .from("simulation_progress")
-        .select("*")
-        .eq("simulation_id", simulationId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (data) {
-        const d = data.decisions as any;
-        if (d?.completed) setCompleted(d.completed);
-        if (d?.proUnlocked) setProUnlocked(true);
-        setScore(data.score ?? 0);
-        setFinished(data.completed ?? false);
-      }
-    })();
-  }, [user, simulationId]);
+    if (!savedProgress) return;
+    const d = savedProgress.decisions as any;
+    if (d?.completed) setCompleted(d.completed);
+    if (d?.proUnlocked) setProUnlocked(true);
+    setScore(savedProgress.score ?? 0);
+    setFinished(savedProgress.completed ?? false);
+  }, [savedProgress]);
 
   const saveProgress = useCallback(
     async (c: TaskId[], s: number, done: boolean, pro: boolean) => {

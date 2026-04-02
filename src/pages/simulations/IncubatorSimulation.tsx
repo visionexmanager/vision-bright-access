@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { supabase } from "@/integrations/supabase/client";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { toast } from "@/hooks/use-toast";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import {
@@ -50,6 +51,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
   const { t } = useLanguage();
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
+  const { savedProgress } = useSimulationProgress(simulationId);
 
   const [state, setState] = useState<IncubatorState>({
     temp: IDEAL_TEMP,
@@ -66,6 +68,13 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
   });
 
   const [completed, setCompleted] = useState(false);
+
+  // Restore saved progress
+  useEffect(() => {
+    if (!savedProgress) return;
+    setState((s) => ({ ...s, score: savedProgress.score ?? s.score }));
+    setCompleted(savedProgress.completed ?? false);
+  }, [savedProgress]);
 
   // Malfunction chance each day
   const malfunctionChance = 0.2;
