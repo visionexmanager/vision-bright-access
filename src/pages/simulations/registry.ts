@@ -18,6 +18,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.PerfumeLabSimulation,
     }))
   ),
+  "english-journey": lazy(() =>
+    import("@/pages/simulations/EnglishJourneySimulation").then((m) => ({
+      default: m.EnglishJourneySimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {
