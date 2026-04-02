@@ -34,12 +34,29 @@ type Props = { simulationId?: string };
 export function PerfumeLabSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { savedProgress } = useSimulationProgress(simulationId);
 
   const [volume, setVolume] = useState(0);
   const [proUnlocked, setProUnlocked] = useState(false);
   const [added, setAdded] = useState<string[]>([]);
   const [score, setScore] = useState(0);
   const [completed, setCompleted] = useState(false);
+
+  // Restore saved progress
+  useEffect(() => {
+    if (!savedProgress) return;
+    const d = savedProgress.decisions as any;
+    if (Array.isArray(d)) {
+      setAdded(d);
+      const vol = d.reduce((sum: number, id: string) => {
+        const ing = INGREDIENTS.find((i) => i.id === id);
+        return sum + (ing?.amount ?? 0);
+      }, 0);
+      setVolume(vol);
+    }
+    setScore(savedProgress.score ?? 0);
+    setCompleted(savedProgress.completed ?? false);
+  }, [savedProgress]);
 
   const hasTop = added.some((id) => INGREDIENTS.find((i) => i.id === id)?.category === "top");
   const hasHeart = added.some((id) => INGREDIENTS.find((i) => i.id === id)?.category === "heart");
