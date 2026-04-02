@@ -833,6 +833,15 @@ const ru: Record<string, string> = {
   "sim.sheep.weather.sunny": "Солнечно — идеально для выпаса",
   "sim.sheep.weather.cloudy": "Облачно — мягкие условия",
   "sim.sheep.weather.rainy": "Дождливо — держите стадо в укрытии",
+  "summary.title": "Сводка симуляций",
+  "summary.subtitle": "Отслеживайте прогресс по всем бизнес-симуляциям",
+  "summary.overall": "Общий прогресс",
+  "summary.completed": "Завершено",
+  "summary.points": "Всего очков",
+  "summary.inProgress": "В процессе",
+  "summary.start": "Начать",
+  "summary.replay": "Повторить",
+  "summary.loginPrompt": "Войдите, чтобы отслеживать прогресс и зарабатывать очки.",
 };
 
 export default ru;

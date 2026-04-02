@@ -833,6 +833,15 @@ const tr: Record<string, string> = {
   "sim.sheep.weather.sunny": "Güneşli — otlatma için ideal",
   "sim.sheep.weather.cloudy": "Bulutlu — ılıman koşullar",
   "sim.sheep.weather.rainy": "Yağmurlu — sürüyü barınakta tutun",
+  "summary.title": "Simülasyon Özeti",
+  "summary.subtitle": "Tüm simülasyonlardaki ilerlemenizi takip edin",
+  "summary.overall": "Genel İlerleme",
+  "summary.completed": "Tamamlanan",
+  "summary.points": "Toplam Puan",
+  "summary.inProgress": "Devam Ediyor",
+  "summary.start": "Başla",
+  "summary.replay": "Tekrarla",
+  "summary.loginPrompt": "İlerlemenizi takip etmek ve puan kazanmak için giriş yapın.",
 };
 
 export default tr;
