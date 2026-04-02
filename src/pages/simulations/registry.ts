@@ -23,6 +23,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.EnglishJourneySimulation,
     }))
   ),
+  "board-surgeon": lazy(() =>
+    import("@/pages/simulations/BoardSurgeonSimulation").then((m) => ({
+      default: m.BoardSurgeonSimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {
