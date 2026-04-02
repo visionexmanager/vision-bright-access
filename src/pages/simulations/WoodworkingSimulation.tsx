@@ -43,6 +43,17 @@ export function WoodworkingSimulation({ simulationId }: { simulationId?: string 
   const [hardness, setHardness] = useState("Medium");
   const [sawAnimating, setSawAnimating] = useState(false);
 
+  // Restore saved progress
+  useEffect(() => {
+    if (!savedProgress) return;
+    const d = savedProgress.decisions as any;
+    if (d?.completed) {
+      setTasks((prev) => prev.map((t) => d.completed.includes(t.id) ? { ...t, done: true } : t));
+    }
+    if (d?.proUnlocked) setProUnlocked(true);
+    setScore(savedProgress.score ?? 0);
+  }, [savedProgress]);
+
   const completed = tasks.filter((t) => t.done);
   const progress = Math.round((completed.length / tasks.length) * 100);
 
