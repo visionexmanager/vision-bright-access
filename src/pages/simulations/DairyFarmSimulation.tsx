@@ -42,11 +42,13 @@ export function DairyFarmSimulation({ simulationId }: Props) {
       setPhase("heated");
       setScore((s) => s + 15);
       addLog(t("sim.dairy.heated"));
+      playSound("sizzle");
       toast.success(t("sim.dairy.heated"));
     } else {
+      playSound("cooking");
       addLog(`${t("sim.dairy.heating")} ${newTemp}°C`);
     }
-  }, [phase, temp, addLog, t]);
+  }, [phase, temp, addLog, t, playSound]);
 
   const cool = useCallback(() => {
     if (phase !== "heated") {
