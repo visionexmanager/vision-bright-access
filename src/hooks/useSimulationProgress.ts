@@ -24,13 +24,15 @@ export function useSimulationProgress(simulationId?: string) {
         setLoading(false);
         return;
       }
-      const { data } = await supabase
+      console.log("[SimProgress] Loading progress for", simulationId, "user", user.id);
+      const { data, error } = await supabase
         .from("simulation_progress")
         .select("decisions, score, completed, current_step")
         .eq("simulation_id", simulationId)
         .eq("user_id", user.id)
         .maybeSingle();
 
+      console.log("[SimProgress] Result:", { data, error });
       if (data) {
         setSavedProgress(data as SavedProgress);
         if (!toastShown.current) {
