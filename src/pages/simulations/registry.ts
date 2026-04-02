@@ -1,13 +1,16 @@
 import { lazy, ComponentType } from "react";
 
-// Registry mapping simulation slugs to their custom React components
-// Each component receives { simulationId?: string }
 type SimComponentProps = { simulationId?: string };
 
 const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<SimComponentProps>>> = {
   "egg-incubator": lazy(() =>
     import("@/pages/simulations/IncubatorSimulation").then((m) => ({
       default: m.IncubatorSimulation,
+    }))
+  ),
+  "network-noc": lazy(() =>
+    import("@/pages/simulations/NetworkNocSimulation").then((m) => ({
+      default: m.NetworkNocSimulation,
     }))
   ),
 };
