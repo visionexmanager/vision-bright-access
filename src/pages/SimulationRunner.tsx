@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { SimulationMentor } from "@/components/SimulationMentor";
+import { getSimulationComponent, hasCustomComponent } from "@/pages/simulations/registry";
 import {
   ArrowLeft,
   ArrowRight,
@@ -206,6 +207,24 @@ export default function SimulationRunner() {
             </Link>
           </Button>
         </div>
+      </Layout>
+    );
+  }
+
+  // Custom component simulation
+  if (slug && hasCustomComponent(slug)) {
+    const CustomSim = getSimulationComponent(slug)!;
+    return (
+      <Layout>
+        <section className="mx-auto max-w-4xl px-4 py-10">
+          <Suspense fallback={
+            <div className="flex min-h-[30vh] items-center justify-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          }>
+            <CustomSim simulationId={simulation.id} />
+          </Suspense>
+        </section>
       </Layout>
     );
   }
