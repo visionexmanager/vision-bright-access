@@ -203,6 +203,95 @@ export type Database = {
         }
         Relationships: []
       }
+      simulation_progress: {
+        Row: {
+          completed: boolean
+          created_at: string
+          current_step: number
+          decisions: Json
+          id: string
+          score: number
+          simulation_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          current_step?: number
+          decisions?: Json
+          id?: string
+          score?: number
+          simulation_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          current_step?: number
+          decisions?: Json
+          id?: string
+          score?: number
+          simulation_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "simulation_progress_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "simulations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      simulations: {
+        Row: {
+          created_at: string | null
+          description: string
+          difficulty: string
+          estimated_duration: number
+          id: string
+          points: number
+          published: boolean
+          slug: string
+          sort_order: number
+          subcategory: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string
+          difficulty?: string
+          estimated_duration?: number
+          id?: string
+          points?: number
+          published?: boolean
+          slug: string
+          sort_order?: number
+          subcategory?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          difficulty?: string
+          estimated_duration?: number
+          id?: string
+          points?: number
+          published?: boolean
+          slug?: string
+          sort_order?: number
+          subcategory?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           id: string
