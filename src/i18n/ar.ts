@@ -833,6 +833,15 @@ const ar: Record<string, string> = {
   "sim.sheep.weather.sunny": "صحو — مثالي للرعي",
   "sim.sheep.weather.cloudy": "غائم — ظروف معتدلة",
   "sim.sheep.weather.rainy": "ممطر — أبقِ القطيع في المأوى",
+  "summary.title": "ملخص المحاكاة",
+  "summary.subtitle": "تتبع تقدمك في جميع محاكاة الأعمال",
+  "summary.overall": "التقدم العام",
+  "summary.completed": "مكتملة",
+  "summary.points": "إجمالي النقاط",
+  "summary.inProgress": "قيد التنفيذ",
+  "summary.start": "ابدأ",
+  "summary.replay": "أعد التشغيل",
+  "summary.loginPrompt": "سجّل الدخول لتتبع تقدمك في المحاكاة وكسب النقاط.",
 };
 
 export default ar;
