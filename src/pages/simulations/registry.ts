@@ -63,6 +63,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.ChocolateFactorySimulation,
     }))
   ),
+  "cattle-dairy": lazy(() =>
+    import("@/pages/simulations/CattleDairySimulation").then((m) => ({
+      default: m.CattleDairySimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {
