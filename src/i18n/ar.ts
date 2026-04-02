@@ -174,6 +174,7 @@ const ar: Record<string, string> = {
   "content.tab.articles": "المقالات والمدونة",
   "content.tab.podcasts": "البودكاست",
   "content.tab.media": "الوسائط المتاحة",
+  "content.tab.simulations": "المحاكاة",
   "content.duration": "{min} دقيقة",
   "content.lessons": "{n} دروس",
   "content.episodes": "{n} حلقات",

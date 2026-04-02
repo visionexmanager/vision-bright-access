@@ -174,6 +174,7 @@ const ru: Record<string, string> = {
   "content.tab.articles": "Статьи и блог",
   "content.tab.podcasts": "Подкасты",
   "content.tab.media": "Доступные медиа",
+  "content.tab.simulations": "Симуляции",
   "content.duration": "{min} мин",
   "content.lessons": "{n} уроков",
   "content.episodes": "{n} эпизодов",

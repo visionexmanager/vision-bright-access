@@ -174,6 +174,7 @@ const zh: Record<string, string> = {
   "content.tab.articles": "文章与博客",
   "content.tab.podcasts": "播客",
   "content.tab.media": "无障碍媒体",
+  "content.tab.simulations": "模拟训练",
   "content.duration": "{min} 分钟",
   "content.lessons": "{n} 节课",
   "content.episodes": "{n} 集",
