@@ -76,6 +76,7 @@ export default function Content() {
   const [tab, setTab] = useState("all");
   const [items, setItems] = useState<ContentItem[]>([]);
   const [simulations, setSimulations] = useState<Simulation[]>([]);
+  const [simSubFilter, setSimSubFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
