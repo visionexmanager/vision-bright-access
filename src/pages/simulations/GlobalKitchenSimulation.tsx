@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGameAudio } from "@/hooks/useGameAudio";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ const RECIPES: Recipe[] = [
 export function GlobalKitchenSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { playSound } = useGameAudio();
 
   const [proUnlocked, setProUnlocked] = useState(false);
   const [completed, setCompleted] = useState<RecipeId[]>([]);
@@ -44,6 +46,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   const [showUnlock, setShowUnlock] = useState(false);
   const [done, setDone] = useState(false);
   const [score, setScore] = useState(0);
+  const [justCompleted, setJustCompleted] = useState<RecipeId | null>(null);
 
   // Cooking timer per step
   useEffect(() => {
@@ -51,26 +54,31 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
     const timer = setTimeout(() => {
       const recipe = RECIPES.find((r) => r.id === activeRecipe)!;
       if (currentStep + 1 >= recipe.steps) {
-        // Recipe complete
         setCompleted((prev) => [...prev, activeRecipe]);
         setScore((prev) => prev + recipe.points);
+        setJustCompleted(activeRecipe);
         setCooking(false);
         setActiveRecipe(null);
         setCurrentStep(0);
+        playSound("ding");
         toast.success(t("sim.kitchen.recipeDone"));
+        setTimeout(() => setJustCompleted(null), 600);
       } else {
         setCurrentStep((s) => s + 1);
+        playSound("cooking");
       }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [cooking, activeRecipe, currentStep, t]);
+  }, [cooking, activeRecipe, currentStep, t, playSound]);
 
   const startRecipe = (recipe: Recipe) => {
     if (cooking || completed.includes(recipe.id)) return;
     if (recipe.category === "premium" && !proUnlocked) {
+      playSound("wrong");
       setShowUnlock(true);
       return;
     }
+    playSound("sizzle");
     setActiveRecipe(recipe.id);
     setCurrentStep(0);
     setCooking(true);
@@ -79,6 +87,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   const unlockPro = () => {
     setProUnlocked(true);
     setShowUnlock(false);
+    playSound("unlock");
     toast.success(t("sim.kitchen.proUnlocked"));
   };
 
@@ -87,6 +96,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
     const allDone = completed.length === RECIPES.length;
     const finalScore = score + (allDone ? 30 : 0);
     setScore(finalScore);
+    playSound(allDone ? "levelUp" : "complete");
 
     if (user && simulationId) {
       const { data: existing } = await supabase
@@ -112,6 +122,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   };
 
   const restart = () => {
+    playSound("whoosh");
     setProUnlocked(false);
     setCompleted([]);
     setActiveRecipe(null);
@@ -125,13 +136,13 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   if (done) {
     const allDone = completed.length === RECIPES.length;
     return (
-      <Card className="max-w-lg mx-auto">
+      <Card className="max-w-lg mx-auto animate-fade-in-scale">
         <CardHeader className="text-center">
-          <Trophy className="mx-auto h-12 w-12 text-primary" />
-          <CardTitle>{t("sim.kitchen.complete")}</CardTitle>
+          <Trophy className="mx-auto h-12 w-12 text-primary animate-pop" />
+          <CardTitle className="animate-score-pop">{t("sim.kitchen.complete")}</CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          <p className="text-3xl font-bold">{score} {t("sim.kitchen.points")}</p>
+          <p className="text-3xl font-bold animate-score-pop">{score} {t("sim.kitchen.points")}</p>
           <p className="text-muted-foreground">
             {allDone ? t("sim.kitchen.allRecipes") : t("sim.kitchen.partialRecipes")}
           </p>
@@ -146,24 +157,24 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Cooking Station */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden animate-fade-in-up">
         <div className="relative h-48 bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center">
           {cooking && activeR ? (
-            <div className="text-center space-y-3">
-              <span className="text-5xl animate-bounce">{activeR.emoji}</span>
+            <div className="text-center space-y-3 animate-fade-in-scale">
+              <span className="text-5xl animate-bounce inline-block">{activeR.emoji}</span>
               <p className="font-semibold">{t(`sim.kitchen.recipe.${activeR.id}`)}</p>
               <div className="flex gap-1 justify-center">
                 {Array.from({ length: activeR.steps }).map((_, i) => (
                   <div
                     key={i}
-                    className={`w-8 h-2 rounded-full transition-colors ${i <= currentStep ? "bg-primary" : "bg-muted-foreground/30"}`}
+                    className={`w-8 h-2 rounded-full transition-all duration-500 ${i <= currentStep ? "bg-primary animate-glow-pulse" : "bg-muted-foreground/30"}`}
                   />
                 ))}
               </div>
               <p className="text-sm text-muted-foreground">
                 {t("sim.kitchen.step")} {currentStep + 1}/{activeR.steps}
               </p>
-              {cooking && <Flame className="mx-auto h-6 w-6 text-destructive animate-pulse" />}
+              <Flame className="mx-auto h-6 w-6 text-destructive animate-wiggle" />
             </div>
           ) : (
             <div className="text-center space-y-2">
@@ -176,23 +187,25 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
 
       {/* Recipes grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {RECIPES.map((recipe) => {
+        {RECIPES.map((recipe, index) => {
           const isDone = completed.includes(recipe.id);
           const locked = recipe.category === "premium" && !proUnlocked;
+          const isJustDone = justCompleted === recipe.id;
           return (
             <Card
               key={recipe.id}
-              className={`cursor-pointer transition-all hover:scale-[1.02] ${isDone ? "border-primary bg-primary/10" : ""} ${locked ? "opacity-60" : ""}`}
+              className={`cursor-pointer transition-all duration-300 hover:scale-[1.04] hover:shadow-lg ${isDone ? "border-primary bg-primary/10" : ""} ${locked ? "opacity-60" : ""} ${isJustDone ? "animate-pop" : ""}`}
+              style={{ animationDelay: `${index * 80}ms` }}
               onClick={() => startRecipe(recipe)}
             >
               <CardContent className="py-6 text-center space-y-2 relative">
                 {locked && <Lock className="absolute top-2 right-2 h-4 w-4 text-accent-foreground" />}
-                <span className="text-3xl">{recipe.emoji}</span>
+                <span className={`text-3xl inline-block transition-transform ${isDone ? "animate-wiggle" : ""}`}>{recipe.emoji}</span>
                 <p className="font-medium text-sm">{t(`sim.kitchen.recipe.${recipe.id}`)}</p>
                 <Badge variant={recipe.difficulty === "hard" ? "destructive" : recipe.difficulty === "medium" ? "secondary" : "outline"} className="text-xs">
                   {t(`sim.kitchen.diff.${recipe.difficulty}`)}
                 </Badge>
-                {isDone && <Star className="mx-auto h-4 w-4 text-primary" />}
+                {isDone && <Star className="mx-auto h-4 w-4 text-primary animate-pop" />}
                 {locked && <Badge variant="outline" className="text-xs border-accent-foreground text-accent-foreground">PREMIUM</Badge>}
               </CardContent>
             </Card>
@@ -202,13 +215,13 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
 
       {/* Unlock card */}
       {showUnlock && (
-        <Card className="border-accent">
+        <Card className="border-accent animate-slide-in-bottom">
           <CardContent className="py-6 text-center space-y-4">
-            <ChefHat className="mx-auto h-8 w-8 text-primary" />
+            <ChefHat className="mx-auto h-8 w-8 text-primary animate-wiggle" />
             <h3 className="text-lg font-bold">{t("sim.kitchen.unlockTitle")}</h3>
             <p className="text-muted-foreground text-sm">{t("sim.kitchen.unlockDesc")}</p>
             <div className="flex gap-3 justify-center">
-              <Button onClick={unlockPro}>{t("sim.kitchen.unlockBtn")}</Button>
+              <Button onClick={unlockPro} className="animate-glow-pulse">{t("sim.kitchen.unlockBtn")}</Button>
               <Button variant="ghost" onClick={() => setShowUnlock(false)}>{t("sim.kitchen.close")}</Button>
             </div>
           </CardContent>
@@ -217,13 +230,13 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
 
       {/* Finish */}
       {completed.length >= 3 && !cooking && (
-        <div className="flex gap-3 justify-center">
-          <Button size="lg" onClick={finish}>{t("sim.kitchen.finish")}</Button>
+        <div className="flex gap-3 justify-center animate-fade-in-up">
+          <Button size="lg" onClick={finish} className="animate-glow-pulse">{t("sim.kitchen.finish")}</Button>
           <Button size="lg" variant="outline" onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.kitchen.restart")}</Button>
         </div>
       )}
 
-      <p className="text-center text-muted-foreground">{t("sim.kitchen.score")}: {score}</p>
+      <p className="text-center text-muted-foreground">{t("sim.kitchen.score")}: <span className="font-bold text-foreground">{score}</span></p>
     </div>
   );
 }

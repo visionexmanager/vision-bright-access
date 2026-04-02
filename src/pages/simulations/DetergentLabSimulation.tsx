@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useGameAudio } from "@/hooks/useGameAudio";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,7 @@ type Props = { simulationId?: string };
 export function DetergentLabSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { playSound } = useGameAudio();
 
   const [volume, setVolume] = useState(0);
   const [proUnlocked, setProUnlocked] = useState(false);
@@ -47,10 +49,12 @@ export function DetergentLabSimulation({ simulationId }: Props) {
   const addIngredient = useCallback((ing: Ingredient) => {
     if (volume >= 100 || added.includes(ing.id) || completed) return;
     if (ing.premium && !proUnlocked) {
+      playSound("wrong");
       toast.info(t("sim.detergent.unlockHint"));
       return;
     }
 
+    playSound("pour");
     const newVol = Math.min(volume + ing.amount, 100);
     setVolume(newVol);
     setAdded((prev) => [...prev, ing.id]);
@@ -60,13 +64,14 @@ export function DetergentLabSimulation({ simulationId }: Props) {
     if (newVol >= 40 && !proUnlocked) {
       toast.info(t("sim.detergent.proHint"));
     }
-  }, [volume, added, proUnlocked, completed, t]);
+  }, [volume, added, proUnlocked, completed, t, playSound]);
 
   const unlockPro = useCallback(() => {
     setProUnlocked(true);
     setScore((s) => s + 20);
+    playSound("unlock");
     toast.success(t("sim.detergent.proUnlocked"));
-  }, [t]);
+  }, [t, playSound]);
 
   const finishMix = useCallback(async () => {
     if (completed) return;

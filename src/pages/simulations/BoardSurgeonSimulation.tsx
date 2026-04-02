@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useGameAudio } from "@/hooks/useGameAudio";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ type Props = { simulationId?: string };
 export function BoardSurgeonSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { playSound } = useGameAudio();
 
   const [proUnlocked, setProUnlocked] = useState(false);
   const [activeTool, setActiveTool] = useState<Tool>("hand");
@@ -60,6 +62,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
     if (activeTool !== comp.tool) {
       addLog(t("sim.board.wrongTool"));
       setStates((s) => ({ ...s, [comp.id]: "burned" }));
+      playSound("wrong");
       toast.error(t("sim.board.componentBurned"));
       return;
     }
@@ -67,8 +70,9 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
     setStates((s) => ({ ...s, [comp.id]: "installed" }));
     setScore((s) => s + (comp.premium ? 25 : 15));
     addLog(`${t(comp.nameKey)}: ${t("sim.board.fixed")}`);
+    playSound("correct");
     toast.success(`${t(comp.nameKey)} ✓`);
-  }, [proUnlocked, states, activeTool, addLog, t]);
+  }, [proUnlocked, states, activeTool, addLog, t, playSound]);
 
   const bootTest = useCallback(async () => {
     setBootTested(true);

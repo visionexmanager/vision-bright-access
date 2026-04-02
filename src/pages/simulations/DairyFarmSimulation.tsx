@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useGameAudio } from "@/hooks/useGameAudio";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ type Props = { simulationId?: string };
 export function DairyFarmSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { playSound } = useGameAudio();
 
   const [temp, setTemp] = useState(20);
   const [phase, setPhase] = useState<Phase>("raw");
@@ -40,11 +42,13 @@ export function DairyFarmSimulation({ simulationId }: Props) {
       setPhase("heated");
       setScore((s) => s + 15);
       addLog(t("sim.dairy.heated"));
+      playSound("sizzle");
       toast.success(t("sim.dairy.heated"));
     } else {
+      playSound("cooking");
       addLog(`${t("sim.dairy.heating")} ${newTemp}°C`);
     }
-  }, [phase, temp, addLog, t]);
+  }, [phase, temp, addLog, t, playSound]);
 
   const cool = useCallback(() => {
     if (phase !== "heated") {
@@ -55,8 +59,9 @@ export function DairyFarmSimulation({ simulationId }: Props) {
     setPhase("cooled");
     setScore((s) => s + 15);
     addLog(t("sim.dairy.cooled"));
+    playSound("ding");
     toast.success(t("sim.dairy.cooled"));
-  }, [phase, addLog, t]);
+  }, [phase, addLog, t, playSound]);
 
   const addStarter = useCallback(() => {
     if (phase !== "cooled") {
