@@ -226,7 +226,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
           disabled={(phase !== "fermented" || completed) && proUnlocked}
           className="gap-2 relative"
         >
-          <Cheese className="h-4 w-4" />
+          <Circle className="h-4 w-4" />
           {t("sim.dairy.btn.cheese")}
           {!proUnlocked && <Lock className="h-3 w-3 absolute top-1 right-1 text-muted-foreground" />}
         </Button>
