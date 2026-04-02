@@ -13,7 +13,10 @@ import {
   BookOpen,
   Mic,
   Play,
+  Briefcase,
+  ArrowRight,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
@@ -93,6 +96,21 @@ export default function Content() {
       <section className="mx-auto max-w-6xl px-4 py-10" aria-labelledby="content-heading">
         <h1 id="content-heading" className="mb-2 text-3xl font-bold">{t("content.title")}</h1>
         <p className="mb-8 text-lg text-muted-foreground">{t("content.subtitle")}</p>
+
+        {/* Business Simulator Banner */}
+        <Link
+          to="/business-simulator"
+          className="mb-8 flex items-center gap-4 rounded-xl border bg-gradient-to-r from-primary/10 to-primary/5 p-5 transition-shadow hover:shadow-lg group"
+        >
+          <div className="rounded-xl bg-primary/20 p-3 shrink-0">
+            <Briefcase className="h-7 w-7 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold">{t("bsim.title")}</h2>
+            <p className="text-sm text-muted-foreground">{t("bsim.bannerDesc")}</p>
+          </div>
+          <ArrowRight className="h-5 w-5 text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+        </Link>
 
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-8 flex flex-wrap gap-1">
