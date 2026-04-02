@@ -38,6 +38,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { savedProgress } = useSimulationProgress(simulationId);
 
   const [credits, setCredits] = useState(3);
   const [proUnlocked, setProUnlocked] = useState(false);
@@ -49,7 +50,15 @@ export function BarberSalonSimulation({ simulationId }: Props) {
   const [score, setScore] = useState(0);
   const [justCompleted, setJustCompleted] = useState<ServiceId | null>(null);
 
-  // Timer for active service
+  // Restore saved progress
+  useEffect(() => {
+    if (!savedProgress) return;
+    const d = savedProgress.decisions as any;
+    if (d?.completed) setCompleted(d.completed);
+    if (d?.proUnlocked) setProUnlocked(true);
+    setScore(savedProgress.score ?? 0);
+    setDone(savedProgress.completed ?? false);
+  }, [savedProgress]);
   useEffect(() => {
     if (!active) return;
     const svc = SERVICES.find((s) => s.id === active)!;

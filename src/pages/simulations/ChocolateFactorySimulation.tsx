@@ -38,6 +38,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { savedProgress } = useSimulationProgress(simulationId);
 
   const [proUnlocked, setProUnlocked] = useState(false);
   const [completed, setCompleted] = useState<StationId[]>([]);
@@ -47,6 +48,16 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
   const [done, setDone] = useState(false);
   const [score, setScore] = useState(0);
   const [justCompleted, setJustCompleted] = useState<StationId | null>(null);
+
+  // Restore saved progress
+  useEffect(() => {
+    if (!savedProgress) return;
+    const d = savedProgress.decisions as any;
+    if (d?.completed) setCompleted(d.completed);
+    if (d?.proUnlocked) setProUnlocked(true);
+    setScore(savedProgress.score ?? 0);
+    setDone(savedProgress.completed ?? false);
+  }, [savedProgress]);
   const [chocoTemp, setChocoTemp] = useState(20);
 
   // Progress timer
