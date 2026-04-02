@@ -93,6 +93,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.AluminumGlazingSimulation,
     }))
   ),
+  "solar-energy": lazy(() =>
+    import("@/pages/simulations/SolarEnergySimulation").then((m) => ({
+      default: m.SolarEnergySimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {
