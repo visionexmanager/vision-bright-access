@@ -59,8 +59,9 @@ export function DairyFarmSimulation({ simulationId }: Props) {
     setPhase("cooled");
     setScore((s) => s + 15);
     addLog(t("sim.dairy.cooled"));
+    playSound("ding");
     toast.success(t("sim.dairy.cooled"));
-  }, [phase, addLog, t]);
+  }, [phase, addLog, t, playSound]);
 
   const addStarter = useCallback(() => {
     if (phase !== "cooled") {
