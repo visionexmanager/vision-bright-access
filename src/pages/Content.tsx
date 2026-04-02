@@ -13,7 +13,10 @@ import {
   BookOpen,
   Mic,
   Play,
+  Briefcase,
+  ArrowRight,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
