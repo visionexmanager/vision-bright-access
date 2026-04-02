@@ -83,6 +83,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.LogisticsSimulation,
     }))
   ),
+  "hvac-systems": lazy(() =>
+    import("@/pages/simulations/HvacSimulation").then((m) => ({
+      default: m.HvacSimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {
