@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, Lock, Plane, Hotel, UtensilsCrossed, ShoppingBag, ArrowRight, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { toast } from "sonner";
 
 type Option = {
