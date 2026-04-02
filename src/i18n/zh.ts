@@ -956,6 +956,8 @@ const zh: Record<string, string> = {
   "sim.wood.close": "关闭",
   "sim.wood.allTasks": "木工大师！所有任务完成 — 额外积分！",
   "sim.wood.partialTasks": "不错的会话！完成所有任务获得奖励。",
+  "sim.progress.welcomeBack": "🔄 欢迎回来！您的进度已恢复 — 积分：{score}",
+  "sim.progress.alreadyCompleted": "🔄 欢迎回来！您已完成此模拟。",
 };
 
 export default zh;

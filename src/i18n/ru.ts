@@ -956,6 +956,8 @@ const ru: Record<string, string> = {
   "sim.wood.close": "Закрыть",
   "sim.wood.allTasks": "Мастер дерева! Все задачи выполнены — бонусные очки!",
   "sim.wood.partialTasks": "Хорошая сессия! Выполните все задачи для бонуса.",
+  "sim.progress.welcomeBack": "🔄 С возвращением! Ваш прогресс восстановлен — Очки: {score}",
+  "sim.progress.alreadyCompleted": "🔄 С возвращением! Вы уже завершили эту симуляцию.",
 };
 
 export default ru;

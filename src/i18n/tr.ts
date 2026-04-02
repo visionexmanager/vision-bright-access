@@ -956,6 +956,8 @@ const tr: Record<string, string> = {
   "sim.wood.close": "Kapat",
   "sim.wood.allTasks": "Ahşap Ustası! Tüm görevler tamamlandı — bonus puan!",
   "sim.wood.partialTasks": "İyi oturum! Bonus için tüm görevleri tamamlayın.",
+  "sim.progress.welcomeBack": "🔄 Tekrar hoş geldiniz! İlerlemeniz geri yüklendi — Puan: {score}",
+  "sim.progress.alreadyCompleted": "🔄 Tekrar hoş geldiniz! Bu simülasyonu zaten tamamladınız.",
 };
 
 export default tr;

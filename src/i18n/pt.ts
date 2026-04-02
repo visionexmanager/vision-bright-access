@@ -956,6 +956,8 @@ const pt: Record<string, string> = {
   "sim.wood.close": "Fechar",
   "sim.wood.allTasks": "Mestre da madeira! Todas as tarefas concluídas — pontos bônus!",
   "sim.wood.partialTasks": "Boa sessão! Complete todas as tarefas para um bônus.",
+  "sim.progress.welcomeBack": "🔄 Bem-vindo de volta! Seu progresso foi restaurado — Pontos: {score}",
+  "sim.progress.alreadyCompleted": "🔄 Bem-vindo de volta! Você já completou esta simulação.",
 };
 
 export default pt;
