@@ -13,6 +13,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.NetworkNocSimulation,
     }))
   ),
+  "perfume-lab": lazy(() =>
+    import("@/pages/simulations/PerfumeLabSimulation").then((m) => ({
+      default: m.PerfumeLabSimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {
