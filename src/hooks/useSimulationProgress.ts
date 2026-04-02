@@ -35,5 +35,5 @@ export function useSimulationProgress(simulationId?: string) {
     load();
   }, [user, simulationId]);
 
-  return { savedProgress, loading };
+  return { savedProgress, loading, wasRestored: !!savedProgress };
 }
