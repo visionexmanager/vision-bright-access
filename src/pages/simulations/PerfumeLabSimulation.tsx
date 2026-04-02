@@ -88,19 +88,19 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
       if (existing) {
         await supabase.from("simulation_progress").update({
           current_step: added.length,
-          decisions: added as unknown as Record<string, unknown>,
+          decisions: JSON.parse(JSON.stringify(added)),
           score: finalScore,
           completed: true,
         }).eq("id", existing.id);
       } else {
-        await supabase.from("simulation_progress").insert({
+        await supabase.from("simulation_progress").insert([{
           user_id: user.id,
           simulation_id: simulationId,
           current_step: added.length,
-          decisions: added as unknown as Record<string, unknown>,
+          decisions: JSON.parse(JSON.stringify(added)),
           score: finalScore,
           completed: true,
-        });
+        }]);
       }
     }
   }, [completed, balanced, score, user, simulationId, added, t]);
