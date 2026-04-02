@@ -17,6 +17,7 @@ type Props = { simulationId?: string };
 export function DairyFarmSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { playSound } = useGameAudio();
 
   const [temp, setTemp] = useState(20);
   const [phase, setPhase] = useState<Phase>("raw");
