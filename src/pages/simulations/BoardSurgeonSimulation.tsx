@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { savedProgress } = useSimulationProgress(simulationId);
 
   const [proUnlocked, setProUnlocked] = useState(false);
   const [activeTool, setActiveTool] = useState<Tool>("hand");
@@ -47,6 +49,18 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
   const [log, setLog] = useState<string[]>([`> ${t("sim.board.log.ready")}`]);
   const [score, setScore] = useState(0);
   const [bootTested, setBootTested] = useState(false);
+
+  // Restore saved progress
+  useEffect(() => {
+    if (!savedProgress) return;
+    const d = savedProgress.decisions as any;
+    if (Array.isArray(d)) {
+      const newStates = { ...Object.fromEntries(COMPONENTS.map((c) => [c.id, "pending" as ComponentState])) };
+      d.forEach((id: string) => { newStates[id] = "installed"; });
+      setStates(newStates);
+    }
+    setScore(savedProgress.score ?? 0);
+  }, [savedProgress]);
 
   const addLog = useCallback((msg: string) => {
     setLog((prev) => [...prev.slice(-6), `> ${msg}`]);
