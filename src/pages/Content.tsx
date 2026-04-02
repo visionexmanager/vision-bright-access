@@ -338,6 +338,9 @@ export default function Content() {
                 ))}
               </div>
             )}
+                </>
+              );
+            })()}
           </TabsContent>
         </Tabs>
       </section>
