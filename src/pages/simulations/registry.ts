@@ -98,6 +98,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.SolarEnergySimulation,
     }))
   ),
+  "woodworking": lazy(() =>
+    import("@/pages/simulations/WoodworkingSimulation").then((m) => ({
+      default: m.WoodworkingSimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {
