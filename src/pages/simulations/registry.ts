@@ -88,6 +88,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.HvacSimulation,
     }))
   ),
+  "aluminum-glazing": lazy(() =>
+    import("@/pages/simulations/AluminumGlazingSimulation").then((m) => ({
+      default: m.AluminumGlazingSimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {
