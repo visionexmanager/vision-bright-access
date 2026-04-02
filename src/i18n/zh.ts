@@ -833,6 +833,15 @@ const zh: Record<string, string> = {
   "sim.sheep.weather.sunny": "晴天——适合放牧",
   "sim.sheep.weather.cloudy": "多云——温和条件",
   "sim.sheep.weather.rainy": "雨天——让羊群待在棚内",
+  "summary.title": "模拟总览",
+  "summary.subtitle": "跟踪您在所有商业模拟中的进度",
+  "summary.overall": "总体进度",
+  "summary.completed": "已完成",
+  "summary.points": "总积分",
+  "summary.inProgress": "进行中",
+  "summary.start": "开始",
+  "summary.replay": "重玩",
+  "summary.loginPrompt": "登录以跟踪您的模拟进度并赚取积分。",
 };
 
 export default zh;

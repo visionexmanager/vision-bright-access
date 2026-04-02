@@ -833,6 +833,15 @@ const es: Record<string, string> = {
   "sim.sheep.weather.sunny": "Soleado — ideal para pastoreo",
   "sim.sheep.weather.cloudy": "Nublado — condiciones suaves",
   "sim.sheep.weather.rainy": "Lluvioso — mantén el rebaño resguardado",
+  "summary.title": "Resumen de Simulaciones",
+  "summary.subtitle": "Sigue tu progreso en todas las simulaciones",
+  "summary.overall": "Progreso General",
+  "summary.completed": "Completadas",
+  "summary.points": "Puntos Totales",
+  "summary.inProgress": "En Progreso",
+  "summary.start": "Iniciar",
+  "summary.replay": "Repetir",
+  "summary.loginPrompt": "Inicia sesión para seguir tu progreso y ganar puntos.",
 };
 
 export default es;
