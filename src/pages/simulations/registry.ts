@@ -43,6 +43,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.BarberSalonSimulation,
     }))
   ),
+  "global-kitchen": lazy(() =>
+    import("@/pages/simulations/GlobalKitchenSimulation").then((m) => ({
+      default: m.GlobalKitchenSimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {
