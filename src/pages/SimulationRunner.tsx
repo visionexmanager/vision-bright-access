@@ -211,6 +211,24 @@ export default function SimulationRunner() {
     );
   }
 
+  // Custom component simulation
+  if (slug && hasCustomComponent(slug)) {
+    const CustomSim = getSimulationComponent(slug)!;
+    return (
+      <Layout>
+        <section className="mx-auto max-w-4xl px-4 py-10">
+          <Suspense fallback={
+            <div className="flex min-h-[30vh] items-center justify-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          }>
+            <CustomSim simulationId={simulation.id} />
+          </Suspense>
+        </section>
+      </Layout>
+    );
+  }
+
   // No steps registered yet — show placeholder
   if (totalSteps === 0) {
     return (
