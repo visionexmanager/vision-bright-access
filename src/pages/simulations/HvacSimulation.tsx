@@ -9,6 +9,7 @@ import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Snowflake, Flame, Building2, Stethoscope, Wind, Lock, RotateCcw, Trophy, Thermometer } from "lucide-react";
 
