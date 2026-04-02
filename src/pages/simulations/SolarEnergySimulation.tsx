@@ -32,7 +32,7 @@ export function SolarEnergySimulation({ simulationId }: { simulationId?: string 
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
-
+  const { savedProgress } = useSimulationProgress(simulationId);
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS.map((t) => ({ ...t })));
   const [activeTask, setActiveTask] = useState<string | null>(null);
   const [proUnlocked, setProUnlocked] = useState(false);
