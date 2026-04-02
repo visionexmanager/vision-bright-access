@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface SavedProgress {
   decisions: any;
@@ -13,6 +14,7 @@ export function useSimulationProgress(simulationId?: string) {
   const { user } = useAuth();
   const [savedProgress, setSavedProgress] = useState<SavedProgress | null>(null);
   const [loading, setLoading] = useState(true);
+  const toastShown = useRef(false);
 
   useEffect(() => {
     const load = async () => {
@@ -29,6 +31,13 @@ export function useSimulationProgress(simulationId?: string) {
 
       if (data) {
         setSavedProgress(data as SavedProgress);
+        if (!toastShown.current) {
+          toastShown.current = true;
+          const sp = data as SavedProgress;
+          toast.info("🔄 " + (sp.completed ? "مرحباً بعودتك! لقد أكملت هذه المحاكاة سابقاً." : `مرحباً بعودتك! تم استعادة تقدمك — النقاط: ${sp.score}`), {
+            duration: 4000,
+          });
+        }
       }
       setLoading(false);
     };
