@@ -37,6 +37,7 @@ type Props = { simulationId?: string };
 export function BoardSurgeonSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { playSound } = useGameAudio();
 
   const [proUnlocked, setProUnlocked] = useState(false);
   const [activeTool, setActiveTool] = useState<Tool>("hand");
