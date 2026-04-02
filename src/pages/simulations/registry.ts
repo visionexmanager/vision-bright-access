@@ -68,6 +68,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.CattleDairySimulation,
     }))
   ),
+  "mobile-repair": lazy(() =>
+    import("@/pages/simulations/MobileRepairSimulation").then((m) => ({
+      default: m.MobileRepairSimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {
