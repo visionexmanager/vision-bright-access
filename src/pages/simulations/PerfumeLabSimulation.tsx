@@ -78,14 +78,30 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
     else toast.info(t("sim.perfume.unbalanced"));
 
     if (user && simulationId) {
-      await supabase.from("simulation_progress").upsert({
-        user_id: user.id,
-        simulation_id: simulationId,
-        current_step: added.length,
-        decisions: added as unknown as Record<string, unknown>,
-        score: finalScore,
-        completed: true,
-      }, { onConflict: "user_id,simulation_id" });
+      const { data: existing } = await supabase
+        .from("simulation_progress")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("simulation_id", simulationId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from("simulation_progress").update({
+          current_step: added.length,
+          decisions: added as unknown as Record<string, unknown>,
+          score: finalScore,
+          completed: true,
+        }).eq("id", existing.id);
+      } else {
+        await supabase.from("simulation_progress").insert({
+          user_id: user.id,
+          simulation_id: simulationId,
+          current_step: added.length,
+          decisions: added as unknown as Record<string, unknown>,
+          score: finalScore,
+          completed: true,
+        });
+      }
     }
   }, [completed, balanced, score, user, simulationId, added, t]);
 
