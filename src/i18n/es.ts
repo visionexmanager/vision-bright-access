@@ -174,6 +174,7 @@ const es: Record<string, string> = {
   "content.tab.articles": "Artículos y Blog",
   "content.tab.podcasts": "Podcasts",
   "content.tab.media": "Medios Accesibles",
+  "content.tab.simulations": "Simulaciones",
   "content.duration": "{min} min",
   "content.lessons": "{n} lecciones",
   "content.episodes": "{n} episodios",
