@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Lock, Unlock, FlaskConical, Droplets, Star, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { toast } from "sonner";
 
 type Ingredient = {
