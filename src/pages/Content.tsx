@@ -76,6 +76,7 @@ export default function Content() {
   const [tab, setTab] = useState("all");
   const [items, setItems] = useState<ContentItem[]>([]);
   const [simulations, setSimulations] = useState<Simulation[]>([]);
+  const [simSubFilter, setSimSubFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -248,14 +249,44 @@ export default function Content() {
               <p className="max-w-2xl text-muted-foreground leading-relaxed">{t("bsim.description")}</p>
             </div>
 
-            {simulations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <Rocket className="h-16 w-16 text-muted-foreground/30 mb-4" />
-                <p className="text-lg font-medium text-muted-foreground">{t("bsim.empty")}</p>
-              </div>
-            ) : (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {simulations.map((sim) => (
+            {/* Subcategory filter chips */}
+            {simulations.length > 0 && (() => {
+              const subcats = Array.from(new Set(simulations.map((s) => s.subcategory))).sort();
+              const filteredSims = simSubFilter === "all" ? simulations : simulations.filter((s) => s.subcategory === simSubFilter);
+              return (
+                <>
+                  {subcats.length > 1 && (
+                    <div className="mb-6 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant={simSubFilter === "all" ? "default" : "outline"}
+                        onClick={() => setSimSubFilter("all")}
+                        className="rounded-full"
+                      >
+                        {t("content.tab.all")} ({simulations.length})
+                      </Button>
+                      {subcats.map((sc) => (
+                        <Button
+                          key={sc}
+                          size="sm"
+                          variant={simSubFilter === sc ? "default" : "outline"}
+                          onClick={() => setSimSubFilter(sc)}
+                          className="rounded-full"
+                        >
+                          {sc} ({simulations.filter((s) => s.subcategory === sc).length})
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+
+                  {filteredSims.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                      <Rocket className="h-16 w-16 text-muted-foreground/30 mb-4" />
+                      <p className="text-lg font-medium text-muted-foreground">{t("bsim.empty")}</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                      {filteredSims.map((sim) => (
                   <Card
                     key={sim.id}
                     className="group flex flex-col overflow-hidden border-2 border-transparent transition-all hover:border-primary/20 hover:shadow-xl hover:-translate-y-1"
@@ -307,6 +338,9 @@ export default function Content() {
                 ))}
               </div>
             )}
+                </>
+              );
+            })()}
           </TabsContent>
         </Tabs>
       </section>
