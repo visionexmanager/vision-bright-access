@@ -1,37 +1,36 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Lock, RotateCcw, Trophy, Star, Thermometer, Heart, Calendar } from "lucide-react";
+import { RotateCcw, Trophy } from "lucide-react";
 
-interface Props {
-  simulationId?: string;
-}
+interface Props { simulationId?: string; }
 
-type TaskId = "heat" | "feed" | "water" | "vaccine" | "growth" | "market";
+const FLOCK_BREEDS = [
+  { id: "broiler", name: "🐔 Broiler", growthRate: 5, cost: 2, meatYield: 2.5 },
+  { id: "layer", name: "🥚 Layer Hen", growthRate: 3, cost: 3, eggYield: 280 },
+  { id: "dual", name: "🐓 Dual Purpose", growthRate: 4, cost: 2.5, meatYield: 2, eggYield: 180 },
+];
 
-interface FarmTask {
-  id: TaskId;
-  emoji: string;
-  category: "free" | "premium";
-  points: number;
-  duration: number; // ms
-}
+const FEED_TYPES = [
+  { id: "basic", name: "🌾 Basic Feed", cost: 0.3, nutrition: 2, growth: 1 },
+  { id: "premium", name: "🌽 Premium Mix", cost: 0.6, nutrition: 4, growth: 1.3 },
+  { id: "organic", name: "🌿 Organic", cost: 1.0, nutrition: 5, growth: 1.2 },
+];
 
-const TASKS: FarmTask[] = [
-  { id: "heat", emoji: "🔥", category: "free", points: 10, duration: 3000 },
-  { id: "feed", emoji: "🌾", category: "free", points: 10, duration: 3000 },
-  { id: "water", emoji: "💧", category: "free", points: 10, duration: 2500 },
-  { id: "vaccine", emoji: "💉", category: "premium", points: 25, duration: 4000 },
-  { id: "growth", emoji: "📈", category: "premium", points: 25, duration: 4500 },
-  { id: "market", emoji: "🏪", category: "premium", points: 20, duration: 4000 },
+const HOUSING_TYPES = [
+  { id: "open", name: "🏕️ Open Range", capacity: 200, cost: 500, mortality: 0.08 },
+  { id: "barn", name: "🏠 Barn Housing", capacity: 500, cost: 2000, mortality: 0.04 },
+  { id: "climate", name: "❄️ Climate Controlled", capacity: 1000, cost: 5000, mortality: 0.02 },
 ];
 
 export function PoultryFarmSimulation({ simulationId }: Props) {
@@ -40,254 +39,234 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
   const { playSound } = useGameAudio();
   const { savedProgress } = useSimulationProgress(simulationId);
 
-  const [proUnlocked, setProUnlocked] = useState(false);
-  const [completed, setCompleted] = useState<TaskId[]>([]);
-  const [activeTask, setActiveTask] = useState<TaskId | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [showUnlock, setShowUnlock] = useState(false);
-  const [done, setDone] = useState(false);
-  const [score, setScore] = useState(0);
-  const [justCompleted, setJustCompleted] = useState<TaskId | null>(null);
+  const [breed, setBreed] = useState(FLOCK_BREEDS[0]);
+  const [feed, setFeed] = useState(FEED_TYPES[0]);
+  const [housing, setHousing] = useState(HOUSING_TYPES[0]);
+  const [flockSize, setFlockSize] = useState(100);
+  const [temperature, setTemperature] = useState(25);
+  const [vaccination, setVaccination] = useState(false);
+  const [sellPrice, setSellPrice] = useState(5);
 
-  // Restore saved progress
+  const [week, setWeek] = useState(1);
+  const [totalWeeks] = useState(8);
+  const [revenue, setRevenue] = useState(0);
+  const [costs, setCosts] = useState(0);
+  const [alive, setAlive] = useState(100);
+  const [avgWeight, setAvgWeight] = useState(0.2);
+  const [simulating, setSimulating] = useState(false);
+  const [simProgress, setSimProgress] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [score, setScore] = useState(0);
+  const [weeklyLog, setWeeklyLog] = useState<{ week: number; alive: number; weight: number; cost: number }[]>([]);
+  const [started, setStarted] = useState(false);
+
   useEffect(() => {
     if (!savedProgress) return;
-    const d = savedProgress.decisions as any;
-    if (d?.completed) setCompleted(d.completed);
-    if (d?.proUnlocked) setProUnlocked(true);
     setScore(savedProgress.score ?? 0);
-    setDone(savedProgress.completed ?? false);
+    setFinished(savedProgress.completed ?? false);
   }, [savedProgress]);
 
-  // Stats
-  const [temp, setTemp] = useState(25);
-  const [age, setAge] = useState(1);
-  const [health, setHealth] = useState(100);
+  const saveProgress = useCallback(async (sc: number, done: boolean) => {
+    if (!user || !simulationId) return;
+    const payload = {
+      user_id: user.id, simulation_id: simulationId, current_step: week,
+      score: sc, completed: done, decisions: { revenue, costs, alive } as any,
+    };
+    const { data: existing } = await supabase
+      .from("simulation_progress").select("id")
+      .eq("user_id", user.id).eq("simulation_id", simulationId).maybeSingle();
+    if (existing) await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
+    else await supabase.from("simulation_progress").insert(payload);
+  }, [user, simulationId, week, revenue, costs, alive]);
 
-  // Progress timer
-  useEffect(() => {
-    if (!activeTask) return;
-    const task = TASKS.find((t) => t.id === activeTask)!;
-    const steps = 20;
-    const interval = task.duration / steps;
-    let step = 0;
+  const setupCost = breed.cost * flockSize + housing.cost + (vaccination ? flockSize * 0.5 : 0);
 
-    const timer = setInterval(() => {
-      step++;
-      setProgress(Math.min(100, (step / steps) * 100));
-      if (step % 5 === 0) playSound("tick");
-
-      if (step >= steps) {
-        clearInterval(timer);
-        setCompleted((prev) => [...prev, activeTask]);
-        setScore((prev) => prev + task.points);
-        setJustCompleted(activeTask);
-
-        // Update stats based on task
-        if (activeTask === "heat") setTemp(34);
-        if (activeTask === "feed") setAge((a) => Math.min(a + 7, 42));
-        if (activeTask === "water") setHealth((h) => Math.min(h, 100));
-        if (activeTask === "vaccine") setHealth(100);
-        if (activeTask === "growth") setAge((a) => Math.min(a + 14, 42));
-        if (activeTask === "market") setAge(42);
-
-        setActiveTask(null);
-        setProgress(0);
-        playSound("ding");
-        toast.success(t("sim.poultry.taskDone"));
-        setTimeout(() => setJustCompleted(null), 600);
-      }
-    }, interval);
-
-    return () => clearInterval(timer);
-  }, [activeTask, t, playSound]);
-
-  const startTask = useCallback((task: FarmTask) => {
-    if (activeTask || completed.includes(task.id)) return;
-    if (task.category === "premium" && !proUnlocked) {
-      playSound("wrong");
-      setShowUnlock(true);
-      return;
-    }
-    playSound("sizzle");
-    setActiveTask(task.id);
-    setProgress(0);
-  }, [activeTask, completed, proUnlocked, playSound]);
-
-  const unlockPro = () => {
-    setProUnlocked(true);
-    setShowUnlock(false);
-    playSound("unlock");
-    toast.success(t("sim.poultry.proUnlocked"));
+  const startFarm = () => {
+    setStarted(true);
+    setAlive(flockSize);
+    setCosts(setupCost);
+    playSound("scan");
+    toast.success(`🐔 Farm started! ${flockSize} ${breed.name} chicks`);
   };
 
-  const finish = async () => {
-    setDone(true);
-    const allDone = completed.length === TASKS.length;
-    const finalScore = score + (allDone ? 30 : 0);
-    setScore(finalScore);
-    playSound(allDone ? "levelUp" : "complete");
+  const simulateWeek = () => {
+    if (simulating) return;
+    setSimulating(true);
+    setSimProgress(0);
 
-    if (user && simulationId) {
-      const { data: existing } = await supabase
-        .from("simulation_progress")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("simulation_id", simulationId)
-        .maybeSingle();
+    let step = 0;
+    const total = 15;
+    const interval = setInterval(() => {
+      step++;
+      setSimProgress(Math.round((step / total) * 100));
+      if (step >= total) {
+        clearInterval(interval);
 
-      const payload = {
-        current_step: completed.length,
-        decisions: JSON.parse(JSON.stringify({ completed, proUnlocked })),
-        score: finalScore,
-        completed: true,
-      };
+        const tempStress = Math.abs(temperature - 25) > 8 ? 0.05 : Math.abs(temperature - 25) > 4 ? 0.02 : 0;
+        const mortalityRate = housing.mortality + tempStress - (vaccination ? 0.02 : 0);
+        const deaths = Math.max(0, Math.round(alive * mortalityRate * Math.random() * 2));
+        const newAlive = alive - deaths;
 
-      if (existing) {
-        await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
-      } else {
-        await supabase.from("simulation_progress").insert({ user_id: user.id, simulation_id: simulationId, ...payload });
+        const weightGain = breed.growthRate * 0.1 * feed.growth * (1 - tempStress);
+        const newWeight = Math.round((avgWeight + weightGain) * 100) / 100;
+
+        const weekFeedCost = Math.round(newAlive * feed.cost * 7);
+
+        setAlive(newAlive);
+        setAvgWeight(newWeight);
+        setCosts((c) => c + weekFeedCost);
+        setWeeklyLog((l) => [...l, { week, alive: newAlive, weight: newWeight, cost: weekFeedCost }]);
+
+        setSimulating(false);
+        playSound("ding");
+        if (deaths > 0) toast.error(`💀 ${deaths} birds lost this week`);
+        else toast.success(`✅ Week ${week}: All birds healthy! Weight: ${newWeight}kg`);
+
+        if (week >= totalWeeks) harvestAndSell();
+        else setWeek((w) => w + 1);
       }
-    }
+    }, 120);
+  };
+
+  const harvestAndSell = () => {
+    const totalMeat = Math.round(alive * avgWeight * (breed.meatYield ?? 1));
+    const saleRevenue = Math.round(totalMeat * sellPrice);
+    setRevenue(saleRevenue);
+    const finalScore = Math.max(0, Math.round((saleRevenue - costs) / 10) + Math.round((alive / flockSize) * 50));
+    setScore(finalScore);
+    setFinished(true);
+    playSound("complete");
+    saveProgress(finalScore, true);
+    toast.success(`🎉 Harvest! ${totalMeat}kg meat sold for $${saleRevenue}`);
   };
 
   const restart = () => {
-    playSound("whoosh");
-    setProUnlocked(false);
-    setCompleted([]);
-    setActiveTask(null);
-    setProgress(0);
-    setShowUnlock(false);
-    setDone(false);
-    setScore(0);
-    setTemp(25);
-    setAge(1);
-    setHealth(100);
+    setWeek(1); setRevenue(0); setCosts(0); setAlive(100); setAvgWeight(0.2);
+    setSimulating(false); setFinished(false); setScore(0); setWeeklyLog([]);
+    setStarted(false); setFlockSize(100);
   };
 
-  if (done) {
-    const allDone = completed.length === TASKS.length;
+  if (finished) {
     return (
-      <Card className="max-w-lg mx-auto animate-fade-in-scale">
-        <CardHeader className="text-center">
-          <Trophy className="mx-auto h-12 w-12 text-primary animate-pop" />
-          <CardTitle className="animate-score-pop">{t("sim.poultry.complete")}</CardTitle>
-        </CardHeader>
-        <CardContent className="text-center space-y-4">
-          <p className="text-3xl font-bold animate-score-pop">{score} {t("sim.poultry.points")}</p>
-          <p className="text-muted-foreground">
-            {allDone ? t("sim.poultry.allTasks") : t("sim.poultry.partialTasks")}
-          </p>
-          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.poultry.restart")}</Button>
+      <Card className="max-w-lg mx-auto animate-in fade-in">
+        <CardContent className="p-8 text-center space-y-4">
+          <Trophy className="mx-auto h-16 w-16 text-primary" />
+          <h2 className="text-2xl font-bold">🐔 Farm Report</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-green-500/10 p-3"><p className="text-2xl font-bold text-green-500">${revenue}</p><p className="text-xs text-muted-foreground">Revenue</p></div>
+            <div className="rounded-xl bg-red-500/10 p-3"><p className="text-2xl font-bold text-red-500">${costs}</p><p className="text-xs text-muted-foreground">Costs</p></div>
+            <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">{alive}/{flockSize}</p><p className="text-xs text-muted-foreground">Survived</p></div>
+            <div className="rounded-xl bg-yellow-500/10 p-3"><p className="text-2xl font-bold text-yellow-500">{score}</p><p className="text-xs text-muted-foreground">Score</p></div>
+          </div>
+          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />Play Again</Button>
         </CardContent>
       </Card>
     );
   }
 
-  const activeT = activeTask ? TASKS.find((t) => t.id === activeTask) : null;
-
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Brooder Environment */}
-      <Card className="overflow-hidden animate-fade-in-up">
-        <div className="relative h-52 bg-gradient-to-b from-amber-900/30 to-muted/50 flex items-center justify-center">
-          {/* Heat effect overlay */}
-          {(temp >= 33 || activeTask === "heat") && (
-            <div className="absolute inset-0 bg-gradient-radial from-destructive/20 to-transparent animate-glow-pulse pointer-events-none" />
-          )}
-
-          {activeTask && activeT ? (
-            <div className="text-center space-y-3 animate-fade-in-scale">
-              <span className="text-5xl animate-bounce inline-block">{activeT.emoji}</span>
-              <p className="font-semibold">{t(`sim.poultry.task.${activeT.id}`)}</p>
-              <Progress value={progress} className="w-48 mx-auto h-3" />
-              <p className="text-sm text-muted-foreground">{Math.round(progress)}%</p>
-            </div>
-          ) : (
-            <div className="text-center space-y-2">
-              <span className="text-5xl">🐣</span>
-              <p className="text-muted-foreground">{t("sim.poultry.selectTask")}</p>
-            </div>
-          )}
-        </div>
-      </Card>
-
-      {/* Vital Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-          <CardContent className="py-4 text-center space-y-1">
-            <Thermometer className="mx-auto h-5 w-5 text-destructive" />
-            <p className="text-lg font-bold">{temp}°C</p>
-            <p className="text-xs text-muted-foreground">{t("sim.poultry.temp")}</p>
-          </CardContent>
-        </Card>
-        <Card className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-          <CardContent className="py-4 text-center space-y-1">
-            <Calendar className="mx-auto h-5 w-5 text-primary" />
-            <p className="text-lg font-bold">{age} {t("sim.poultry.days")}</p>
-            <p className="text-xs text-muted-foreground">{t("sim.poultry.age")}</p>
-          </CardContent>
-        </Card>
-        <Card className="animate-fade-in-up" style={{ animationDelay: "300ms" }}>
-          <CardContent className="py-4 text-center space-y-1">
-            <Heart className="mx-auto h-5 w-5 text-green-500" />
-            <p className="text-lg font-bold">{health}%</p>
-            <p className="text-xs text-muted-foreground">{t("sim.poultry.health")}</p>
-          </CardContent>
-        </Card>
+    <div className="max-w-2xl mx-auto space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold">🐔 {started ? `Week ${week}/${totalWeeks}` : "Farm Setup"}</h2>
+        {started && <Badge variant="secondary">🐔 {alive} alive | {avgWeight}kg avg</Badge>}
       </div>
+      {started && <Progress value={(week / totalWeeks) * 100} className="h-2" />}
 
-      {/* Tasks grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {TASKS.map((task, index) => {
-          const isDone = completed.includes(task.id);
-          const locked = task.category === "premium" && !proUnlocked;
-          const isJustDone = justCompleted === task.id;
-          return (
-            <Card
-              key={task.id}
-              className={`cursor-pointer transition-all duration-300 hover:scale-[1.04] hover:shadow-lg ${isDone ? "border-primary bg-primary/10" : ""} ${locked ? "opacity-60" : ""} ${isJustDone ? "animate-pop" : ""}`}
-              style={{ animationDelay: `${index * 80}ms` }}
-              onClick={() => startTask(task)}
-            >
-              <CardContent className="py-6 text-center space-y-2 relative">
-                {locked && <Lock className="absolute top-2 right-2 h-4 w-4 text-accent-foreground" />}
-                <span className={`text-3xl inline-block transition-transform ${isDone ? "animate-wiggle" : ""}`}>{task.emoji}</span>
-                <p className="font-medium text-sm">{t(`sim.poultry.task.${task.id}`)}</p>
-                <Badge variant={task.category === "premium" ? "destructive" : "outline"} className="text-xs">
-                  {task.category === "premium" ? "PREMIUM" : t("sim.poultry.free")}
-                </Badge>
-                {isDone && <Star className="mx-auto h-4 w-4 text-primary animate-pop" />}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Unlock card */}
-      {showUnlock && (
-        <Card className="border-accent animate-slide-in-bottom">
-          <CardContent className="py-6 text-center space-y-4">
-            <span className="text-4xl animate-wiggle inline-block">🐔</span>
-            <h3 className="text-lg font-bold">{t("sim.poultry.unlockTitle")}</h3>
-            <p className="text-muted-foreground text-sm">{t("sim.poultry.unlockDesc")}</p>
-            <div className="flex gap-3 justify-center">
-              <Button onClick={unlockPro} className="animate-glow-pulse">{t("sim.poultry.unlockBtn")}</Button>
-              <Button variant="ghost" onClick={() => setShowUnlock(false)}>{t("sim.poultry.close")}</Button>
-            </div>
+      {simulating && (
+        <Card className="border-primary">
+          <CardContent className="p-6 text-center space-y-3">
+            <p className="text-lg font-semibold animate-pulse">🐔 Simulating week {week}...</p>
+            <Progress value={simProgress} className="h-3" />
           </CardContent>
         </Card>
       )}
 
-      {/* Finish */}
-      {completed.length >= 3 && !activeTask && (
-        <div className="flex gap-3 justify-center animate-fade-in-up">
-          <Button size="lg" onClick={finish} className="animate-glow-pulse">{t("sim.poultry.finish")}</Button>
-          <Button size="lg" variant="outline" onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.poultry.restart")}</Button>
-        </div>
+      {!started && (
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <h3 className="font-bold text-sm">🏗️ Farm Setup</h3>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Breed</label>
+              <Select value={breed.id} onValueChange={(v) => setBreed(FLOCK_BREEDS.find((b) => b.id === v)!)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FLOCK_BREEDS.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name} (${b.cost}/chick)</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Flock: {flockSize} birds</label>
+              <Slider value={[flockSize]} onValueChange={([v]) => setFlockSize(v)} min={50} max={Math.min(500, housing.capacity)} step={25} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Housing</label>
+              <Select value={housing.id} onValueChange={(v) => setHousing(HOUSING_TYPES.find((h) => h.id === v)!)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {HOUSING_TYPES.map((h) => (
+                    <SelectItem key={h.id} value={h.id}>{h.name} (cap: {h.capacity}, ${h.cost})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant={vaccination ? "default" : "outline"} onClick={() => setVaccination(!vaccination)} className="w-full">
+              💉 Vaccination {vaccination ? "✓" : ""} (${(flockSize * 0.5).toFixed(0)})
+            </Button>
+            <div className="p-3 rounded-lg bg-muted/50 text-xs">
+              <div className="flex justify-between font-bold"><span>Setup Cost:</span><span>${setupCost}</span></div>
+            </div>
+            <Button onClick={startFarm} className="w-full">🐔 Start Farm</Button>
+          </CardContent>
+        </Card>
       )}
 
-      <p className="text-center text-muted-foreground">{t("sim.poultry.score")}: <span className="font-bold text-foreground">{score}</span></p>
+      {started && !simulating && week <= totalWeeks && (
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div><p className="text-xs text-muted-foreground">Alive</p><p className="font-bold">{alive}</p></div>
+              <div><p className="text-xs text-muted-foreground">Weight</p><p className="font-bold">{avgWeight}kg</p></div>
+              <div><p className="text-xs text-muted-foreground">Costs</p><p className="font-bold text-red-500">${costs}</p></div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Feed Type</label>
+              <Select value={feed.id} onValueChange={(v) => setFeed(FEED_TYPES.find((f) => f.id === v)!)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FEED_TYPES.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.name} (${f.cost}/bird/day)</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Barn Temp: {temperature}°C (25°C ideal)</label>
+              <Slider value={[temperature]} onValueChange={([v]) => setTemperature(v)} min={10} max={40} step={1} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Target Sell Price: ${sellPrice}/kg</label>
+              <Slider value={[sellPrice]} onValueChange={([v]) => setSellPrice(v)} min={2} max={15} step={0.5} />
+            </div>
+            <Button onClick={simulateWeek} className="w-full">⏭️ Simulate Week {week}</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {weeklyLog.length > 0 && (
+        <Card>
+          <CardContent className="p-3">
+            <h3 className="font-bold text-xs mb-2">📊 Weekly Log</h3>
+            {weeklyLog.map((l) => (
+              <div key={l.week} className="flex justify-between text-xs py-1 border-b border-border last:border-0">
+                <span>Week {l.week}: {l.alive} birds, {l.weight}kg</span>
+                <span className="text-red-500">-${l.cost}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
