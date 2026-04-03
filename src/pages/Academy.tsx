@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
+import CareerAptitudeTest from "@/components/CareerAptitudeTest";
 import {
   User, Globe, GraduationCap, ArrowRight, Compass,
   Briefcase, Rocket, Star, MessageSquare, BrainCircuit,
@@ -53,6 +54,7 @@ export default function Academy() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showAptitudeTest, setShowAptitudeTest] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -316,7 +318,10 @@ export default function Academy() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Main Content */}
               <div className="lg:col-span-8 space-y-8">
-                {/* Career Guidance */}
+                {/* Career Aptitude Test or Guidance */}
+                {showAptitudeTest ? (
+                  <CareerAptitudeTest profile={profile} onClose={() => setShowAptitudeTest(false)} />
+                ) : (
                 <div className="bg-card p-8 rounded-3xl border border-border shadow-lg">
                   <div className="flex items-center gap-4 mb-10 border-b border-border pb-6">
                     <div className="p-4 bg-orange-500/10 text-orange-500 rounded-2xl"><Compass /></div>
@@ -325,11 +330,11 @@ export default function Academy() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div
                       className="p-8 bg-muted/50 rounded-3xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
-                      onClick={() => sendMessage("أريد أن أعمل اختبار ميول مهني لأكتشف شو المهنة المناسبة لي")}
+                      onClick={() => setShowAptitudeTest(true)}
                     >
                       <BrainCircuit className="w-12 h-12 text-primary mb-6 group-hover:scale-110 transition-transform" />
                       <h4 className="font-bold text-xl mb-3 text-foreground">اختبار الميول لعام 2026</h4>
-                      <p className="text-muted-foreground text-sm leading-relaxed">منير رح يحلل شخصيتك بمصلحة {profile.country} ليقلك شو هي المهنة اللي رح تعملك "غول" بمجالك.</p>
+                      <p className="text-muted-foreground text-sm leading-relaxed">اكتشف شخصيتك المهنية عبر 8 أسئلة تفاعلية ومنير يحلل نتائجك بالذكاء الاصطناعي!</p>
                     </div>
                     <div
                       className="p-8 bg-muted/50 rounded-3xl border-2 border-dashed border-border hover:border-orange-500 hover:bg-orange-500/5 transition-all cursor-pointer group"
@@ -341,6 +346,7 @@ export default function Academy() {
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Smart Assistant Chat - NOW FUNCTIONAL */}
                 <div className="bg-foreground rounded-3xl p-6 md:p-10 text-background relative shadow-2xl overflow-hidden">
