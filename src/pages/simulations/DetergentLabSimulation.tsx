@@ -168,9 +168,21 @@ export function DetergentLabSimulation({ simulationId }: Props) {
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Unit Cost</p><p className="text-lg font-bold">${costPerUnit}</p></div>
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Profit</p><p className={`text-lg font-bold ${totalProfit >= 0 ? "text-green-500" : "text-destructive"}`}>${totalProfit}</p></div>
             </div>
-            <Button onClick={reset} variant="outline" className="gap-2"><RotateCcw className="h-4 w-4" /> Try Again</Button>
           </CardContent>
         </Card>
+        <PerformanceRadar title="🧪 Product Quality Profile" data={[
+          { metric: "Cleaning", value: cleaningPower },
+          { metric: "Foam", value: foamLevel },
+          { metric: "Safety", value: safetyRating },
+          { metric: "Cost Efficiency", value: Math.min(100, Math.max(0, Math.round((1 - costPerUnit / pricePerUnit) * 100))) },
+          { metric: "Profitability", value: Math.min(100, Math.max(0, Math.round((totalProfit / Math.max(1, pricePerUnit * batchSize)) * 100))) },
+        ]} />
+        <FinancialBar title="📊 Batch Economics" data={[
+          { label: "Revenue", value: Math.round(pricePerUnit * batchSize), color: "hsl(142 71% 45%)" },
+          { label: "Cost", value: Math.round(costPerUnit * batchSize), color: "hsl(0 84% 60%)" },
+          { label: "Profit", value: Math.max(0, totalProfit), color: "hsl(var(--primary))" },
+        ]} />
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Try Again</Button>
       </div>
     );
   }

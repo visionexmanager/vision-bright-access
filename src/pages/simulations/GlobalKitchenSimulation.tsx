@@ -218,9 +218,21 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Reputation</p><p className="text-lg font-bold">{reputation}%</p></div>
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Satisfaction</p><p className="text-lg font-bold">{satRate}%</p></div>
             </div>
-            <Button onClick={reset} variant="outline" className="gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
           </CardContent>
         </Card>
+        <FinancialBar title="📊 Financial Overview" data={[
+          { label: "Revenue", value: totalRevenue, color: "hsl(142 71% 45%)" },
+          { label: "Costs", value: totalCosts, color: "hsl(0 84% 60%)" },
+          { label: "Profit", value: Math.max(0, profit), color: "hsl(var(--primary))" },
+        ]} />
+        <PerformanceRadar title="⭐ Performance Metrics" data={[
+          { metric: "Reputation", value: reputation },
+          { metric: "Satisfaction", value: satRate },
+          { metric: "Menu Variety", value: Math.min(100, menuSelection.length * 20) },
+          { metric: "Capacity", value: Math.min(100, chefCount * 12) },
+          { metric: "Profitability", value: Math.min(100, Math.max(0, Math.round((profit / Math.max(1, totalRevenue)) * 100))) },
+        ]} />
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
       </div>
     );
   }
