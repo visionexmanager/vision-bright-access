@@ -173,25 +173,12 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
     if (user) {
       await earnPoints(points, "Network NOC: Operations Management");
       if (simulationId) {
-        const { data: existing } = await supabase
-          .from("simulation_progress")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("simulation_id", simulationId)
-          .maybeSingle();
-
-        const payload = {
+        await saveSimulationProgress(user.id, simulationId, {
           current_step: INCIDENTS.length,
           decisions: { teamSize, monitoringLevel, redundancy, budget } as any,
           completed: true,
           score: finalScore,
-        };
-
-        if (existing) {
-          await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
-        } else {
-          await supabase.from("simulation_progress").insert([{ user_id: user.id, simulation_id: simulationId, ...payload }]);
-        }
+        });
       }
     }
   };

@@ -220,25 +220,12 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
 
   const saveAndFinish = async () => {
     if (user && simulationId) {
-      const { data: existing } = await supabase
-        .from("simulation_progress")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("simulation_id", simulationId)
-        .maybeSingle();
-
-      const payload = {
+      await saveSimulationProgress(user.id, simulationId, {
         current_step: completedScenarios.size,
         decisions: [...completedScenarios] as any,
         score,
         completed: true,
-      };
-
-      if (existing) {
-        await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
-      } else {
-        await supabase.from("simulation_progress").insert([{ user_id: user.id, simulation_id: simulationId, ...payload }]);
-      }
+      });
     }
     setStage("results");
     toast.success("Journey saved!");
