@@ -106,11 +106,24 @@ interface Props {
   onClose: () => void;
 }
 
+interface PastResult {
+  id: string;
+  analysis_text: string;
+  answers: Record<number, string>;
+  created_at: string;
+}
+
 export default function CareerAptitudeTest({ profile, onClose }: Props) {
+  const { user } = useAuth();
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [pastResults, setPastResults] = useState<PastResult[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const progress = result ? 100 : ((currentQ) / questions.length) * 100;
   const currentQuestion = questions[currentQ];
