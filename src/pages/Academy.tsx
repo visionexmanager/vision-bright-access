@@ -1,13 +1,18 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import ReactMarkdown from "react-markdown";
 import {
-  User, Globe, GraduationCap, Sparkles, ArrowRight, Compass,
+  User, Globe, GraduationCap, ArrowRight, Compass,
   Briefcase, Rocket, Star, MessageSquare, BrainCircuit,
-  Target, Zap, Lightbulb, Volume2, LayoutDashboard, Search
+  Zap, Lightbulb, Volume2, LayoutDashboard, Search,
+  Loader2, Send, Trash2
 } from "lucide-react";
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/academy-chat`;
 
 const speak = (text: string) => {
   if ("speechSynthesis" in window) {
@@ -19,17 +24,151 @@ const speak = (text: string) => {
   }
 };
 
+type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
+
+type StudentProfile = {
+  name: string;
+  gender: "male" | "female";
+  country: string;
+  level: string;
+};
+
 const countries = ["لبنان", "مصر", "السعودية", "تركيا", "أمريكا", "بلد آخر"];
 const levels = ["ابتدائي", "متوسط", "ثانوي / بكالوريا", "جامعي / دراسات"];
 
 export default function Academy() {
   const [step, setStep] = useState(1);
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<StudentProfile>({
     name: "",
-    gender: "male" as "male" | "female",
+    gender: "male",
     country: "",
     level: "",
   });
+
+  // Chat state
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = useCallback(async (input: string) => {
+    if (!input.trim() || isLoading) return;
+
+    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: input.trim() };
+    setMessages(prev => [...prev, userMsg]);
+    setChatInput("");
+    setIsLoading(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const assistantId = crypto.randomUUID();
+    let assistantSoFar = "";
+
+    const apiMessages = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
+
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: apiMessages,
+          studentProfile: profile,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.error || `خطأ (${resp.status})`);
+      }
+
+      if (!resp.body) throw new Error("No response body");
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let streamDone = false;
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") { streamDone = true; break; }
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantSoFar += content;
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.id === assistantId) {
+                  return prev.map(m => m.id === assistantId ? { ...m, content: assistantSoFar } : m);
+                }
+                return [...prev, { id: assistantId, role: "assistant", content: assistantSoFar }];
+              });
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Flush remaining
+      if (textBuffer.trim()) {
+        for (let raw of textBuffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (raw.startsWith(":") || raw.trim() === "") continue;
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantSoFar += content;
+              setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: assistantSoFar } : m));
+            }
+          } catch { /* ignore */ }
+        }
+      }
+    } catch (e: any) {
+      if (e.name === "AbortError") return;
+      setMessages(prev => [...prev, { id: assistantId, role: "assistant", content: `⚠️ ${e.message || "حدث خطأ، حاول مرة أخرى."}` }]);
+    } finally {
+      setIsLoading(false);
+      abortRef.current = null;
+    }
+  }, [messages, profile, isLoading]);
+
+  const clearChat = () => {
+    abortRef.current?.abort();
+    setMessages([]);
+    setIsLoading(false);
+  };
 
   const handleNext = () => {
     if (step === 1) {
@@ -184,12 +323,18 @@ export default function Academy() {
                     <h2 className="text-2xl font-black text-foreground tracking-tight">بوصلة المستقبل لـ {profile.name}</h2>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-8 bg-muted/50 rounded-3xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group">
+                    <div
+                      className="p-8 bg-muted/50 rounded-3xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
+                      onClick={() => sendMessage("أريد أن أعمل اختبار ميول مهني لأكتشف شو المهنة المناسبة لي")}
+                    >
                       <BrainCircuit className="w-12 h-12 text-primary mb-6 group-hover:scale-110 transition-transform" />
                       <h4 className="font-bold text-xl mb-3 text-foreground">اختبار الميول لعام 2026</h4>
                       <p className="text-muted-foreground text-sm leading-relaxed">منير رح يحلل شخصيتك بمصلحة {profile.country} ليقلك شو هي المهنة اللي رح تعملك "غول" بمجالك.</p>
                     </div>
-                    <div className="p-8 bg-muted/50 rounded-3xl border-2 border-dashed border-border hover:border-orange-500 hover:bg-orange-500/5 transition-all cursor-pointer group">
+                    <div
+                      className="p-8 bg-muted/50 rounded-3xl border-2 border-dashed border-border hover:border-orange-500 hover:bg-orange-500/5 transition-all cursor-pointer group"
+                      onClick={() => sendMessage(`شو هي الوظائف المطلوبة والرواتب في ${profile.country} لعام 2026؟`)}
+                    >
                       <Briefcase className="w-12 h-12 text-orange-500 mb-6 group-hover:scale-110 transition-transform" />
                       <h4 className="font-bold text-xl mb-3 text-foreground">سوق العمل العالمي</h4>
                       <p className="text-muted-foreground text-sm leading-relaxed">اكتشف شو هي الرواتب والوظائف المطلوبة بـ {profile.country} وبالعالم لهيدي السنة.</p>
@@ -197,29 +342,95 @@ export default function Academy() {
                   </div>
                 </div>
 
-                {/* Smart Assistant Chat */}
-                <div className="bg-foreground rounded-3xl p-10 text-background relative shadow-2xl overflow-hidden">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg"><Lightbulb className="w-8 h-8" /></div>
-                    <div>
-                      <h3 className="text-2xl font-black">مساعد {profile.level} الذكي</h3>
-                      <p className="text-primary text-xs font-bold uppercase tracking-widest">توجيه أكاديمي متفجر</p>
+                {/* Smart Assistant Chat - NOW FUNCTIONAL */}
+                <div className="bg-foreground rounded-3xl p-6 md:p-10 text-background relative shadow-2xl overflow-hidden">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg"><Lightbulb className="w-8 h-8" /></div>
+                      <div>
+                        <h3 className="text-2xl font-black">منير — مساعد {profile.level}</h3>
+                        <p className="text-primary text-xs font-bold uppercase tracking-widest">
+                          {isLoading ? "يكتب..." : "توجيه أكاديمي ذكي"}
+                        </p>
+                      </div>
                     </div>
+                    {messages.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-background/50 hover:text-background hover:bg-background/10 rounded-xl"
+                        onClick={clearChat}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </Button>
+                    )}
                   </div>
-                  <div className="bg-background/5 backdrop-blur-xl p-8 rounded-3xl border border-background/10 mb-8 min-h-[150px]">
-                    <p className="text-xl leading-relaxed font-medium">
-                      يا {profile.name}، أنا حللت منهاج {profile.level} ببلدك {profile.country}.. شو رأيك نبلش نلخص الدروس الصعبة ولا حابب نعمل جدول دراسي بيضمنلك التفوق؟
-                    </p>
+
+                  {/* Messages area */}
+                  <div
+                    ref={scrollRef}
+                    className="bg-background/5 backdrop-blur-xl rounded-3xl border border-background/10 mb-6 max-h-[400px] min-h-[180px] overflow-y-auto p-4 md:p-6 space-y-4"
+                  >
+                    {messages.length === 0 ? (
+                      <p className="text-lg md:text-xl leading-relaxed font-medium text-center py-8 text-background/70">
+                        يا {profile.name}، أنا منير 🧠 اسألني أي شي عن دروسك أو مستقبلك المهني وأنا بساعدك!
+                      </p>
+                    ) : (
+                      messages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`flex ${msg.role === "user" ? "justify-start" : "justify-end"}`}
+                        >
+                          <div
+                            className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm md:text-base ${
+                              msg.role === "user"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-background/10 text-background border border-background/10"
+                            }`}
+                          >
+                            {msg.role === "assistant" ? (
+                              <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                              </div>
+                            ) : (
+                              msg.content
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    {isLoading && messages[messages.length - 1]?.role === "user" && (
+                      <div className="flex justify-end">
+                        <div className="bg-background/10 rounded-2xl px-4 py-3 border border-background/10">
+                          <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="relative">
+
+                  {/* Input */}
+                  <form
+                    className="relative"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      sendMessage(chatInput);
+                    }}
+                  >
                     <input
-                      className="w-full p-6 bg-background/10 rounded-2xl outline-none focus:ring-4 focus:ring-primary/50 text-background placeholder:text-background/30 transition-all"
+                      className="w-full p-5 pe-16 bg-background/10 rounded-2xl outline-none focus:ring-4 focus:ring-primary/50 text-background placeholder:text-background/30 transition-all text-base"
                       placeholder="اسأل منير أي شي عن دروسك أو مستقبلك..."
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      disabled={isLoading}
                     />
-                    <button className="absolute left-3 top-3 bg-primary text-primary-foreground p-3 rounded-2xl hover:scale-110 transition-transform">
-                      <MessageSquare />
+                    <button
+                      type="submit"
+                      disabled={isLoading || !chatInput.trim()}
+                      className="absolute left-3 top-3 bg-primary text-primary-foreground p-3 rounded-2xl hover:scale-110 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                      {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                     </button>
-                  </div>
+                  </form>
                 </div>
               </div>
 
