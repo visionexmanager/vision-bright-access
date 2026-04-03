@@ -17,6 +17,7 @@ import {
   Wifi, AlertTriangle, CheckCircle2, Activity, Server, Shield, Gauge,
   RotateCcw, Trophy, Terminal, DollarSign, Users, Zap,
 } from "lucide-react";
+import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 
 type Stage = "setup" | "monitoring" | "incident" | "results";
 
@@ -223,13 +224,24 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
             <p className="text-4xl font-bold text-primary">{score} pts</p>
             <div className="grid grid-cols-2 gap-3 text-sm max-w-md mx-auto">
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Uptime</p><p className="text-lg font-bold">{uptime.toFixed(2)}%</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Incidents Resolved</p><p className="text-lg font-bold text-green-500">{totalResolved}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Resolved</p><p className="text-lg font-bold text-green-500">{totalResolved}</p></div>
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Missed</p><p className="text-lg font-bold text-destructive">{totalMissed}</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Budget Used</p><p className={`text-lg font-bold ${totalCost <= budget ? "text-green-500" : "text-destructive"}`}>${totalCost}/${budget}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Budget</p><p className={`text-lg font-bold ${totalCost <= budget ? "text-green-500" : "text-destructive"}`}>${totalCost}/${budget}</p></div>
             </div>
-            <Button onClick={reset} variant="outline" className="gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
           </CardContent>
         </Card>
+        <PerformanceRadar title="🖥️ NOC Performance" data={[
+          { metric: "Uptime", value: Math.round(uptime) },
+          { metric: "Resolution", value: Math.round((totalResolved / Math.max(1, totalResolved + totalMissed)) * 100) },
+          { metric: "Response Time", value: Math.max(0, 100 - mttr * 5) },
+          { metric: "Budget Mgmt", value: Math.min(100, Math.max(0, Math.round((1 - totalCost / Math.max(1, budget)) * 100))) },
+        ]} />
+        <FinancialBar title="📊 Budget Breakdown" data={[
+          { label: "Budget", value: budget, color: "hsl(217 91% 60%)" },
+          { label: "Spent", value: totalCost, color: totalCost <= budget ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)" },
+          { label: "Remaining", value: Math.max(0, budget - totalCost), color: "hsl(var(--primary))" },
+        ]} />
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
       </div>
     );
   }

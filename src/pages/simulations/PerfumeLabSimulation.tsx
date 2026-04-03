@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, RotateCcw, DollarSign, Star, FlaskConical, Sparkles, Heart } from "lucide-react";
+import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -204,9 +205,21 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Revenue</p><p className="text-lg font-bold text-green-500">${salesResult.revenue}</p></div>
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Profit</p><p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p></div>
             </div>
-            <Button onClick={reset} variant="outline" className="gap-2"><RotateCcw className="h-4 w-4" /> Create Again</Button>
           </CardContent>
         </Card>
+        <FinancialBar title="📊 Financial Breakdown" data={[
+          { label: "Revenue", value: salesResult.revenue, color: "hsl(142 71% 45%)" },
+          { label: "Cost", value: salesResult.cost, color: "hsl(0 84% 60%)" },
+          { label: "Profit", value: Math.max(0, profit), color: "hsl(var(--primary))" },
+        ]} />
+        <PerformanceRadar title="🧪 Fragrance Profile" data={[
+          { metric: "Complexity", value: p.complexity },
+          { metric: "Longevity", value: p.longevity },
+          { metric: "Sillage", value: p.sillage },
+          { metric: "Quality", value: p.overallQuality },
+          { metric: "Sales Rate", value: Math.round((salesResult.unitsSold / batchSize) * 100) },
+        ]} />
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Create Again</Button>
       </div>
     );
   }

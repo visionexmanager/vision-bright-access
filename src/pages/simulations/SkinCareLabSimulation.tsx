@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, RotateCcw, DollarSign, Star, Heart, Sparkles, ShieldCheck, Droplets } from "lucide-react";
+import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -220,12 +221,23 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Sales</p><p className="text-lg font-bold">{purchases}/{clients.length}</p></div>
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Revenue</p><p className="text-lg font-bold text-green-500">${totalRevenue}</p></div>
             </div>
-            {clientFeedback.map((f, i) => (
-              <p key={i} className="text-sm text-muted-foreground">{clients[i]?.name}: {f.comment}</p>
-            ))}
-            <Button onClick={reset} variant="outline" className="gap-2"><RotateCcw className="h-4 w-4" /> Try Again</Button>
           </CardContent>
         </Card>
+        <PerformanceRadar title="🧴 Product Performance" data={[
+          { metric: "Hydration", value: q.hydration },
+          { metric: "Brightening", value: q.brightening },
+          { metric: "Anti-aging", value: q.antiAging },
+          { metric: "Sun Protection", value: q.sunProtection },
+          { metric: "Satisfaction", value: avgSat },
+        ]} />
+        {clientFeedback.length > 0 && (
+          <FinancialBar title="😊 Client Satisfaction" data={clientFeedback.map((f, i) => ({
+            label: clients[i]?.name?.split(" ")[0] || `Client ${i+1}`,
+            value: f.satisfaction,
+            color: f.satisfaction >= 70 ? "hsl(142 71% 45%)" : f.satisfaction >= 50 ? "hsl(45 93% 47%)" : "hsl(0 84% 60%)",
+          }))} />
+        )}
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Try Again</Button>
       </div>
     );
   }

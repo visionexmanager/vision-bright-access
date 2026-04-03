@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, XCircle, Wrench, Flame, Cpu, Battery, MemoryStick, Fan, Monitor, Zap, RotateCcw, Thermometer, AlertTriangle } from "lucide-react";
+import { FinancialBar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -227,9 +228,14 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
                 <span>{r.device} — {r.fixed ? "Fixed" : "Incomplete"} — ${r.profit} profit</span>
               </div>
             ))}
-            <Button onClick={reset} variant="outline" className="gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
           </CardContent>
         </Card>
+        <FinancialBar title="📊 Profit Per Device" data={caseResults.map(r => ({
+          label: r.device.split(" ")[0],
+          value: Math.max(0, r.profit),
+          color: r.fixed ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)",
+        }))} />
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
       </div>
     );
   }

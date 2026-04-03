@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, RotateCcw, DollarSign, Heart, Droplets, Thermometer, Leaf, TrendingUp } from "lucide-react";
+import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -199,13 +200,21 @@ export function CattleDairySimulation({ simulationId }: Props) {
             <p className="text-4xl font-bold text-primary">{score} pts</p>
             <div className="grid grid-cols-2 gap-3 text-sm max-w-md mx-auto">
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Revenue</p><p className="text-lg font-bold text-green-500">${totalRevenue}</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Costs</p><p className="text-lg font-bold text-destructive">${totalCosts}</p></div>
               <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Profit</p><p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Herd Health</p><p className="text-lg font-bold">{herdHealth}%</p></div>
             </div>
-            <Button onClick={reset} variant="outline" className="gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
           </CardContent>
         </Card>
+        <FinancialBar title="📊 12-Week Financial Summary" data={[
+          { label: "Revenue", value: totalRevenue, color: "hsl(142 71% 45%)" },
+          { label: "Costs", value: totalCosts, color: "hsl(0 84% 60%)" },
+          { label: "Profit", value: Math.max(0, profit), color: "hsl(var(--primary))" },
+        ]} />
+        <PerformanceRadar title="🐄 Ranch Performance" data={[
+          { metric: "Herd Health", value: herdHealth },
+          { metric: "Production", value: Math.min(100, Math.round(milkProduction / 100)) },
+          { metric: "Profitability", value: Math.min(100, Math.max(0, Math.round((profit / Math.max(1, totalRevenue)) * 100))) },
+        ]} />
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
       </div>
     );
   }

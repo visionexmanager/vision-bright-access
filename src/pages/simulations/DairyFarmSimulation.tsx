@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, Milk, Thermometer, RotateCcw, TrendingUp, DollarSign, Heart, Droplets } from "lucide-react";
+import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -202,28 +203,23 @@ export function DairyFarmSimulation({ simulationId }: Props) {
             <h2 className="text-2xl font-bold">Dairy Farm Complete!</h2>
             <p className="text-4xl font-bold text-primary">{score} pts</p>
             <div className="grid grid-cols-2 gap-4 text-sm max-w-md mx-auto">
-              <div className="bg-background rounded-lg p-3">
-                <p className="text-muted-foreground">Revenue</p>
-                <p className="text-lg font-bold text-green-500">${revenue}</p>
-              </div>
-              <div className="bg-background rounded-lg p-3">
-                <p className="text-muted-foreground">Costs</p>
-                <p className="text-lg font-bold text-destructive">${costs}</p>
-              </div>
-              <div className="bg-background rounded-lg p-3">
-                <p className="text-muted-foreground">Profit</p>
-                <p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p>
-              </div>
-              <div className="bg-background rounded-lg p-3">
-                <p className="text-muted-foreground">Milk Quality</p>
-                <p className="text-lg font-bold">{milkQuality}%</p>
-              </div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Revenue</p><p className="text-lg font-bold text-green-500">${revenue}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Profit</p><p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p></div>
             </div>
-            <Button onClick={reset} variant="outline" className="gap-2">
-              <RotateCcw className="h-4 w-4" /> Play Again
-            </Button>
           </CardContent>
         </Card>
+        <FinancialBar title="📊 7-Day Financial Summary" data={[
+          { label: "Revenue", value: revenue, color: "hsl(142 71% 45%)" },
+          { label: "Costs", value: costs, color: "hsl(0 84% 60%)" },
+          { label: "Profit", value: Math.max(0, profit), color: "hsl(var(--primary))" },
+        ]} />
+        <PerformanceRadar title="🐄 Farm Performance" data={[
+          { metric: "Milk Quality", value: milkQuality },
+          { metric: "Cow Health", value: cowHealth },
+          { metric: "Yield", value: Math.min(100, Math.round(dailyYield / herdSize * 3)) },
+          { metric: "Profitability", value: Math.min(100, Math.max(0, Math.round((profit / Math.max(1, revenue)) * 100))) },
+        ]} />
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
       </div>
     );
   }
