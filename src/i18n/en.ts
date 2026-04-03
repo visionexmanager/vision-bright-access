@@ -959,6 +959,18 @@ const en: Record<string, string> = {
   "sim.wood.partialTasks": "Good session! Complete all tasks for a bonus.",
   "sim.progress.welcomeBack": "🔄 Welcome back! Your progress has been restored — Score: {score}",
   "sim.progress.alreadyCompleted": "🔄 Welcome back! You've already completed this simulation.",
+  "ach.title": "Achievements",
+  "ach.subtitle": "You completed {count} simulations so far",
+  "ach.firstSim": "First Steps",
+  "ach.firstSimDesc": "Complete your first simulation",
+  "ach.sim5": "Rising Star",
+  "ach.sim5Desc": "Complete 5 simulations",
+  "ach.sim10": "Champion",
+  "ach.sim10Desc": "Complete 10 simulations",
+  "ach.sim15": "Diamond Player",
+  "ach.sim15Desc": "Complete 15 simulations",
+  "ach.simAll": "Grand Master",
+  "ach.simAllDesc": "Complete all 20 simulations",
 };
 
 export default en;
