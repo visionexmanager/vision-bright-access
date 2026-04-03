@@ -285,7 +285,34 @@ ${summary}
       </div>
 
       <div className="p-6 md:p-8">
-        {/* Questions */}
+        {/* Past Results History */}
+        {showHistory && (
+          <div className="space-y-4 animate-in fade-in">
+            <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" /> نتائجك السابقة
+            </h3>
+            {loadingHistory ? (
+              <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" /></div>
+            ) : pastResults.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">لا توجد نتائج محفوظة بعد</p>
+            ) : (
+              pastResults.map(r => (
+                <div key={r.id} className="p-4 rounded-2xl border border-border bg-muted/30 flex justify-between items-center gap-3">
+                  <button className="flex-1 text-right" onClick={() => viewPastResult(r)}>
+                    <p className="font-medium text-foreground text-sm truncate">{r.analysis_text.slice(0, 80)}...</p>
+                    <p className="text-xs text-muted-foreground mt-1">{new Date(r.created_at).toLocaleDateString("ar")}</p>
+                  </button>
+                  <Button variant="ghost" size="icon" className="shrink-0 text-destructive hover:bg-destructive/10" onClick={() => deleteResult(r.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+            <Button variant="outline" className="w-full rounded-xl" onClick={() => setShowHistory(false)}>
+              إغلاق السجل
+            </Button>
+          </div>
+        )}
         {!result && !loading && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div className="flex items-start gap-3">
