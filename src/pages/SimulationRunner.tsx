@@ -63,6 +63,7 @@ export default function SimulationRunner() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
+  const { checkAndUnlock } = useAchievements();
 
   const [simulation, setSimulation] = useState<Simulation | null>(null);
   const [progress, setProgress] = useState<SimProgress | null>(null);
