@@ -161,25 +161,12 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
     playSound("levelUp");
 
     if (user && simulationId) {
-      const { data: existing } = await supabase
-        .from("simulation_progress")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("simulation_id", simulationId)
-        .maybeSingle();
-
-      const payload = {
+      await saveSimulationProgress(user.id, simulationId, {
         current_step: 6,
         decisions: { menuSelection, chefCount, priceMultiplier, ambiance, location } as any,
         score: finalScore,
         completed: true,
-      };
-
-      if (existing) {
-        await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
-      } else {
-        await supabase.from("simulation_progress").insert([{ user_id: user.id, simulation_id: simulationId, ...payload }]);
-      }
+      });
     }
   };
 
