@@ -12,6 +12,7 @@ import { CheckCircle2, XCircle, Wrench, Flame, Cpu, Battery, MemoryStick, Fan, M
 import { FinancialBar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
 
 type Stage = "diagnosis" | "repair" | "testing" | "results";

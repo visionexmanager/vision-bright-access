@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckCircle2, XCircle, Plane, Hotel, UtensilsCrossed, ShoppingBag, RotateCcw, Star, ArrowRight, MessageCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
 
 type Stage = "map" | "scenario" | "dialogue" | "results";
