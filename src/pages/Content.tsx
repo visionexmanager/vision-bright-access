@@ -90,10 +90,22 @@ export default function Content() {
       ]);
       if (contentRes.data) setItems(contentRes.data as ContentItem[]);
       if (simRes.data) setSimulations(simRes.data as Simulation[]);
+
+      if (user) {
+        const { data: prog } = await supabase
+          .from("simulation_progress")
+          .select("simulation_id, completed, score")
+          .eq("user_id", user.id);
+        if (prog) {
+          const map: Record<string, { completed: boolean; score: number }> = {};
+          prog.forEach((p: any) => (map[p.simulation_id] = { completed: p.completed, score: p.score }));
+          setProgressMap(map);
+        }
+      }
       setLoading(false);
     };
     load();
-  }, []);
+  }, [user]);
 
   const handleCta = async (item: ContentItem) => {
     if (user) {
