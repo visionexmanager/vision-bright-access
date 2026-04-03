@@ -443,17 +443,7 @@ export default function Academy() {
 
               {/* Sidebar */}
               <div className="lg:col-span-4 space-y-8">
-                {/* Focus Timer */}
-                <div className="bg-card p-10 rounded-3xl shadow-lg border border-border flex flex-col items-center text-center">
-                  <h3 className="text-lg font-bold text-muted-foreground mb-6 uppercase tracking-widest flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-orange-500" /> وضع التركيز العميق
-                  </h3>
-                  <div className="text-6xl font-black text-foreground mb-6 tracking-tighter">25:00</div>
-                  <Button className="w-full py-6 h-auto rounded-2xl font-black text-lg bg-orange-500 hover:bg-orange-600 text-white">
-                    ابدأ المذاكرة الآن
-                  </Button>
-                  <p className="mt-4 text-xs text-muted-foreground italic">"الدراسة بتركيز بتخلص بنص الوقت"</p>
-                </div>
+                <PomodoroTimer />
 
                 {/* XP Card */}
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-10 rounded-3xl text-white shadow-2xl relative overflow-hidden">
