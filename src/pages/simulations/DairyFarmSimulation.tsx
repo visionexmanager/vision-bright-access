@@ -12,6 +12,7 @@ import { CheckCircle2, Milk, Thermometer, RotateCcw, TrendingUp, DollarSign, Hea
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
 
 type Stage = "setup" | "production" | "results";

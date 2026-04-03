@@ -13,6 +13,7 @@ import { CheckCircle2, RotateCcw, DollarSign, Star, FlaskConical, Sparkles, Hear
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
 
 type Stage = "creation" | "market" | "results";
