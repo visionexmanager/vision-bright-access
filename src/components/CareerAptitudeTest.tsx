@@ -250,6 +250,7 @@ ${summary}
     setCurrentQ(0);
     setAnswers({});
     setResult(null);
+    setSaved(false);
   };
 
   return (
