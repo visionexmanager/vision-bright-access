@@ -17,6 +17,7 @@ import {
   Wifi, AlertTriangle, CheckCircle2, Activity, Server, Shield, Gauge,
   RotateCcw, Trophy, Terminal, DollarSign, Users, Zap,
 } from "lucide-react";
+import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 
 type Stage = "setup" | "monitoring" | "incident" | "results";
 
