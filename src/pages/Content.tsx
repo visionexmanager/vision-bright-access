@@ -79,6 +79,7 @@ export default function Content() {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [simSubFilter, setSimSubFilter] = useState("all");
+  const [progressMap, setProgressMap] = useState<Record<string, { completed: boolean; score: number }>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
