@@ -115,7 +115,15 @@ export default function SimulationRunner() {
     load();
   }, [slug, user]);
 
-  // Save progress to DB
+  // Listen for simulation-completed events from custom components
+  useEffect(() => {
+    const handler = () => {
+      checkAndUnlock();
+    };
+    window.addEventListener("simulation-completed", handler);
+    return () => window.removeEventListener("simulation-completed", handler);
+  }, [checkAndUnlock]);
+
   const saveProgress = useCallback(
     async (step: number, decs: any[], sc: number, done: boolean) => {
       if (!user || !simulation) return;
