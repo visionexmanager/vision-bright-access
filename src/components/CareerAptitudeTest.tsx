@@ -7,7 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
   BrainCircuit, ArrowRight, ArrowLeft, Loader2, RotateCcw,
-  Sparkles, CheckCircle2, Target, History, Trash2, Save, Clock
+  Sparkles, CheckCircle2, Target, History, Trash2, Save, Clock,
+  Share2, Copy, Twitter, Facebook, Link2
 } from "lucide-react";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/academy-chat`;
@@ -124,6 +125,7 @@ export default function CareerAptitudeTest({ profile, onClose }: Props) {
   const [pastResults, setPastResults] = useState<PastResult[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
   const progress = result ? 100 : ((currentQ) / questions.length) * 100;
   const currentQuestion = questions[currentQ];
@@ -170,6 +172,60 @@ export default function CareerAptitudeTest({ profile, onClose }: Props) {
     setAnswers(r.answers);
     setSaved(true);
     setShowHistory(false);
+  };
+
+  const getShareText = () => {
+    if (!result) return "";
+    const firstLine = result.split("\n").find(l => l.trim()) || "";
+    return `🎯 أكملت اختبار الميول المهني في VisionEx Academy!\n${firstLine.slice(0, 100)}\n\nجرّب الاختبار: ${window.location.origin}/academy`;
+  };
+
+  const copyResultAsText = async () => {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(result);
+      toast.success("تم نسخ النتائج! 📋");
+    } catch {
+      toast.error("فشل النسخ");
+    }
+  };
+
+  const shareToTwitter = () => {
+    const text = encodeURIComponent(getShareText());
+    window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
+  };
+
+  const shareToFacebook = () => {
+    const url = encodeURIComponent(`${window.location.origin}/academy`);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank");
+  };
+
+  const shareToWhatsApp = () => {
+    const text = encodeURIComponent(getShareText());
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/academy`);
+      toast.success("تم نسخ الرابط! 🔗");
+    } catch {
+      toast.error("فشل النسخ");
+    }
+  };
+
+  const nativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "اختبار الميول المهني - VisionEx Academy",
+          text: getShareText(),
+          url: `${window.location.origin}/academy`,
+        });
+      } catch { /* user cancelled */ }
+    } else {
+      setShowShareMenu(true);
+    }
   };
 
   const selectAnswer = (value: string) => {
@@ -402,6 +458,36 @@ ${summary}
             <div className="prose prose-sm max-w-none dark:prose-invert text-foreground [&>*:first-child]:mt-0">
               <ReactMarkdown>{result}</ReactMarkdown>
             </div>
+
+            {/* Share Section */}
+            <div className="p-4 rounded-2xl bg-muted/50 border border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Share2 className="w-4 h-4" /> شارك نتائجك
+                </span>
+                <Button variant="ghost" size="sm" className="rounded-xl gap-1" onClick={nativeShare}>
+                  <Share2 className="w-4 h-4" /> مشاركة
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs" onClick={shareToTwitter}>
+                  <Twitter className="w-3.5 h-3.5" /> X / تويتر
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs" onClick={shareToFacebook}>
+                  <Facebook className="w-3.5 h-3.5" /> فيسبوك
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs" onClick={shareToWhatsApp}>
+                  💬 واتساب
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs" onClick={copyResultAsText}>
+                  <Copy className="w-3.5 h-3.5" /> نسخ النص
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs" onClick={copyLink}>
+                  <Link2 className="w-3.5 h-3.5" /> نسخ الرابط
+                </Button>
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-3 pt-4 border-t border-border">
               <Button variant="outline" className="rounded-xl gap-2" onClick={restart}>
                 <RotateCcw className="w-4 h-4" /> إعادة الاختبار
