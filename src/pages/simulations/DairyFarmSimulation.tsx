@@ -12,6 +12,7 @@ import { CheckCircle2, Milk, Thermometer, RotateCcw, TrendingUp, DollarSign, Hea
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
 
 type Stage = "setup" | "production" | "results";
@@ -153,25 +154,12 @@ export function DairyFarmSimulation({ simulationId }: Props) {
     toast.success(`Dairy farm complete! Score: ${finalScore}`);
 
     if (user && simulationId) {
-      const { data: existing } = await supabase
-        .from("simulation_progress")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("simulation_id", simulationId)
-        .maybeSingle();
-
-      const payload = {
+      await saveSimulationProgress(user.id, simulationId, {
         current_step: 7,
         decisions: { herdSize, feedQuality, pasteurizationTemp, coolingTarget, productType } as any,
         score: finalScore,
         completed: true,
-      };
-
-      if (existing) {
-        await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
-      } else {
-        await supabase.from("simulation_progress").insert([{ user_id: user.id, simulation_id: simulationId, ...payload }]);
-      }
+      });
     }
   };
 

@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { supabase } from "@/integrations/supabase/client";
+import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { toast } from "@/hooks/use-toast";
 import { SimulationMentor } from "@/components/SimulationMentor";
@@ -205,17 +206,12 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
       const points = Math.round(state.score * 0.5) + state.hatched * 10;
       earnPoints(points, `Incubator Simulation: ${state.hatched}/${TOTAL_EGGS} hatched`);
       
-      supabase
-        .from("simulation_progress")
-        .upsert({
-          user_id: user.id,
-          simulation_id: simulationId,
+      saveSimulationProgress(user.id, simulationId, {
           current_step: TOTAL_DAYS,
           decisions: state.log as any,
           completed: true,
           score: state.score,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id,simulation_id" });
+        });
 
       toast({
         title: t("bsim.completed"),

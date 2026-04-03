@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
+import { useAchievements } from "@/hooks/useAchievements";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { SimulationMentor } from "@/components/SimulationMentor";
@@ -62,6 +63,7 @@ export default function SimulationRunner() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
+  const { checkAndUnlock } = useAchievements();
 
   const [simulation, setSimulation] = useState<Simulation | null>(null);
   const [progress, setProgress] = useState<SimProgress | null>(null);
@@ -113,7 +115,15 @@ export default function SimulationRunner() {
     load();
   }, [slug, user]);
 
-  // Save progress to DB
+  // Listen for simulation-completed events from custom components
+  useEffect(() => {
+    const handler = () => {
+      checkAndUnlock();
+    };
+    window.addEventListener("simulation-completed", handler);
+    return () => window.removeEventListener("simulation-completed", handler);
+  }, [checkAndUnlock]);
+
   const saveProgress = useCallback(
     async (step: number, decs: any[], sc: number, done: boolean) => {
       if (!user || !simulation) return;
@@ -160,6 +170,7 @@ export default function SimulationRunner() {
           title: t("bsim.completed"),
           description: `+${simulation.points} pts`,
         });
+        await checkAndUnlock();
       }
     } else {
       await saveProgress(currentStep, newDecisions, newScore, false);

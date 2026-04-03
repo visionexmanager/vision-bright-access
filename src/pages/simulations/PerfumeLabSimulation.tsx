@@ -13,6 +13,7 @@ import { CheckCircle2, RotateCcw, DollarSign, Star, FlaskConical, Sparkles, Hear
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
 
 type Stage = "creation" | "market" | "results";
@@ -153,25 +154,12 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
     playSound("levelUp");
 
     if (user && simulationId) {
-      const { data: existing } = await supabase
-        .from("simulation_progress")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("simulation_id", simulationId)
-        .maybeSingle();
-
-      const payload = {
+      await saveSimulationProgress(user.id, simulationId, {
         current_step: Object.keys(selectedNotes).length,
         decisions: { selectedNotes, concentration, bottleSize, retailPrice, targetAudience } as any,
         score: finalScore,
         completed: true,
-      };
-
-      if (existing) {
-        await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
-      } else {
-        await supabase.from("simulation_progress").insert([{ user_id: user.id, simulation_id: simulationId, ...payload }]);
-      }
+      });
     }
   };
 
