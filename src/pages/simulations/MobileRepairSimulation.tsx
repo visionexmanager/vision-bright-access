@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
+import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
