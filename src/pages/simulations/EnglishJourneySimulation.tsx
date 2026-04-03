@@ -193,9 +193,12 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
 
   const nextDialogue = () => {
     if (!scenario) return;
-    const next = dialogueIndex + 1;
     setFeedback(null);
     setAnswered(false);
+
+    // If current line is NPC, we showed choices from next line, so advance by 2
+    const step = currentLine?.speaker === "npc" ? 2 : 1;
+    const next = dialogueIndex + step;
 
     if (next >= scenario.dialogues.length) {
       setCompletedScenarios(prev => new Set(prev).add(scenario.id));
@@ -206,20 +209,12 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
       return;
     }
 
-    // If next line is NPC, add to log and advance
+    // Add NPC line to conversation log if next is NPC
     const nextLine = scenario.dialogues[next];
     if (nextLine.speaker === "npc") {
       setConversationLog(prev => [...prev, { speaker: "NPC", text: nextLine.text }]);
-      setDialogueIndex(next + 1 < scenario.dialogues.length ? next + 1 : next);
-      if (next + 1 >= scenario.dialogues.length) {
-        setCompletedScenarios(prev => new Set(prev).add(scenario.id));
-        setStage("map");
-        setActiveScenario(null);
-        playSound("levelUp");
-      }
-    } else {
-      setDialogueIndex(next);
     }
+    setDialogueIndex(next);
   };
 
   const saveAndFinish = async () => {
@@ -275,6 +270,12 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
     );
   }
 
+  // Determine which choices to show: if current line is NPC, look at the next line for player choices
+  const playerLine = currentLine?.speaker === "npc" && scenario
+    ? scenario.dialogues[dialogueIndex + 1]
+    : currentLine;
+  const activeChoices = playerLine?.choices;
+
   if (stage === "dialogue" && scenario && currentLine) {
     return (
       <div className="space-y-6">
@@ -299,24 +300,24 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
           ))}
         </div>
 
-        {/* Current NPC or player turn */}
-        {currentLine.speaker === "npc" ? (
+        {/* Current NPC message */}
+        {currentLine.speaker === "npc" && (
           <Card className="border-primary/30">
             <CardContent className="pt-4">
               <p className="text-xs font-bold text-primary mb-1">🗣️ NPC</p>
               <p className="text-base">{currentLine.text}</p>
             </CardContent>
           </Card>
-        ) : null}
+        )}
 
-        {currentLine.choices && (
+        {/* Player choices */}
+        {activeChoices && !answered && (
           <div className="space-y-2">
             <p className="text-sm font-medium">Your response:</p>
-            {currentLine.choices.map((choice, i) => (
+            {activeChoices.map((choice, i) => (
               <Button
                 key={i}
-                variant={answered ? (choice.correct ? "default" : "outline") : "outline"}
-                disabled={answered}
+                variant="outline"
                 onClick={() => handleChoice(choice)}
                 className="w-full h-auto py-3 text-left justify-start whitespace-normal"
               >
