@@ -271,6 +271,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
+        {/* Achievements */}
+        <div className="mb-8">
+          <AchievementsPanel />
+        </div>
+
         {/* Points history */}
         <Card>
           <CardHeader>
