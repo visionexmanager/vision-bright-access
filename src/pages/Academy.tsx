@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import CareerAptitudeTest from "@/components/CareerAptitudeTest";
+import PomodoroTimer from "@/components/PomodoroTimer";
 import {
   User, Globe, GraduationCap, ArrowRight, Compass,
   Briefcase, Rocket, Star, MessageSquare, BrainCircuit,
