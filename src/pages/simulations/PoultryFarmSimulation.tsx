@@ -69,15 +69,10 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
 
   const saveProgress = useCallback(async (sc: number, done: boolean) => {
     if (!user || !simulationId) return;
-    const payload = {
-      user_id: user.id, simulation_id: simulationId, current_step: week,
-      score: sc, completed: done, decisions: { revenue, costs, alive } as any,
-    };
-    const { data: existing } = await supabase
-      .from("simulation_progress").select("id")
-      .eq("user_id", user.id).eq("simulation_id", simulationId).maybeSingle();
-    if (existing) await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
-    else await supabase.from("simulation_progress").insert(payload);
+    await saveSimulationProgress(user.id, simulationId, {
+      current_step: week, score: sc, completed: done,
+      decisions: { revenue, costs, alive } as any,
+    });
   }, [user, simulationId, week, revenue, costs, alive]);
 
   const setupCost = breed.cost * flockSize + housing.cost + (vaccination ? flockSize * 0.5 : 0);

@@ -59,16 +59,10 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
 
   const saveProgress = useCallback(async (sc: number, done: boolean) => {
     if (!user || !simulationId) return;
-    const payload = {
-      user_id: user.id, simulation_id: simulationId,
+    await saveSimulationProgress(user.id, simulationId, {
       current_step: batch, score: sc, completed: done,
       decisions: { revenue, costs, batches } as any,
-    };
-    const { data: existing } = await supabase
-      .from("simulation_progress").select("id")
-      .eq("user_id", user.id).eq("simulation_id", simulationId).maybeSingle();
-    if (existing) await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
-    else await supabase.from("simulation_progress").insert(payload);
+    });
   }, [user, simulationId, batch, revenue, costs, batches]);
 
   const packagingCost = packaging === "luxury" ? 3 : packaging === "premium" ? 1.5 : 0.5;
