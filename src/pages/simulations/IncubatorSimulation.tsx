@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { supabase } from "@/integrations/supabase/client";
+import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { toast } from "@/hooks/use-toast";
 import { SimulationMentor } from "@/components/SimulationMentor";
