@@ -54,6 +54,7 @@ export default function Academy() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showAptitudeTest, setShowAptitudeTest] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
