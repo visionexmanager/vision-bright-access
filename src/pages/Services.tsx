@@ -49,6 +49,15 @@ export default function Services() {
             </Card>
           ))}
         </div>
+
+        {/* Academy CTA */}
+        <div className="mt-12 text-center">
+          <Link to="/academy">
+            <Button size="lg" className="text-lg px-8 py-6 font-semibold">
+              🎓 أكاديمية VisionEx العالمية <ArrowRight className="ms-2 h-5 w-5" />
+            </Button>
+          </Link>
+        </div>
       </section>
     </Layout>
   );
