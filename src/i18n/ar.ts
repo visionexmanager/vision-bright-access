@@ -381,6 +381,7 @@ const ar: Record<string, string> = {
   "ai.rateLimitTitle": "تم تجاوز الحد المسموح",
   "ai.rateLimitDescription": "طلبات كثيرة جدًا. يرجى الانتظار قليلاً قبل المحاولة مرة أخرى.",
   "bsim.badge": "تعلم تفاعلي",
+  "bsim.progress": "التقدم العام",
   "bsim.title": "محاكي الأعمال",
   "bsim.description": "تعلّم الأعمال باللعب. ادخل محاكاة أعمال واقعية حيث يبدو التعلم كلعبة.",
   "bsim.bannerDesc": "تعلم ريادة الأعمال من خلال محاكاة أعمال تفاعلية",

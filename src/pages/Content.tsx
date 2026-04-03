@@ -264,6 +264,26 @@ export default function Content() {
               <p className="max-w-2xl text-muted-foreground leading-relaxed">{t("bsim.description")}</p>
             </div>
 
+            {/* Overall progress indicator */}
+            {simulations.length > 0 && (() => {
+              const completedCount = simulations.filter((s) => progressMap[s.id]?.completed).length;
+              const pct = Math.round((completedCount / simulations.length) * 100);
+              return (
+                <div className="mb-8 rounded-xl border bg-card p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-primary" />
+                      <span className="font-semibold">{t("bsim.progress")}</span>
+                    </div>
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {completedCount} / {simulations.length} ({pct}%)
+                    </span>
+                  </div>
+                  <Progress value={pct} className="h-3" />
+                </div>
+              );
+            })()}
+
             {/* Subcategory filter chips */}
             {simulations.length > 0 && (() => {
               const subcats = Array.from(new Set(simulations.map((s) => s.subcategory))).sort();
