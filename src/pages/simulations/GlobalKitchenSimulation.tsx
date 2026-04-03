@@ -1,38 +1,35 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { CheckCircle2, RotateCcw, DollarSign, Star, ChefHat, Users, TrendingUp, Flame } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ChefHat, Flame, Lock, RotateCcw, Trophy, Star } from "lucide-react";
 
-interface Props {
-  simulationId?: string;
-}
+type Stage = "setup" | "service" | "results";
 
-type RecipeId = "omelette" | "pancakes" | "salad" | "sushi" | "macarons" | "wagyu";
+type MenuItem = { name: string; emoji: string; prepTime: number; cost: number; basePrice: number; difficulty: number };
 
-interface Recipe {
-  id: RecipeId;
-  emoji: string;
-  category: "free" | "premium";
-  difficulty: "easy" | "medium" | "hard";
-  points: number;
-  steps: number;
-}
-
-const RECIPES: Recipe[] = [
-  { id: "omelette", emoji: "🍳", category: "free", difficulty: "easy", points: 10, steps: 3 },
-  { id: "pancakes", emoji: "🥞", category: "free", difficulty: "easy", points: 10, steps: 3 },
-  { id: "salad", emoji: "🥗", category: "free", difficulty: "easy", points: 10, steps: 2 },
-  { id: "sushi", emoji: "🍣", category: "premium", difficulty: "hard", points: 25, steps: 5 },
-  { id: "macarons", emoji: "🧁", category: "premium", difficulty: "hard", points: 25, steps: 5 },
-  { id: "wagyu", emoji: "🥩", category: "premium", difficulty: "medium", points: 20, steps: 4 },
+const MENU_OPTIONS: MenuItem[] = [
+  { name: "French Omelette", emoji: "🍳", prepTime: 5, cost: 3, basePrice: 12, difficulty: 2 },
+  { name: "Japanese Ramen", emoji: "🍜", prepTime: 15, cost: 6, basePrice: 18, difficulty: 5 },
+  { name: "Italian Pasta", emoji: "🍝", prepTime: 10, cost: 4, basePrice: 15, difficulty: 3 },
+  { name: "Mexican Tacos", emoji: "🌮", prepTime: 8, cost: 3, basePrice: 11, difficulty: 2 },
+  { name: "Indian Curry", emoji: "🍛", prepTime: 12, cost: 5, basePrice: 16, difficulty: 4 },
+  { name: "Wagyu Steak", emoji: "🥩", prepTime: 20, cost: 25, basePrice: 55, difficulty: 7 },
+  { name: "Sushi Platter", emoji: "🍣", prepTime: 18, cost: 15, basePrice: 40, difficulty: 8 },
+  { name: "French Macarons", emoji: "🧁", prepTime: 25, cost: 8, basePrice: 22, difficulty: 9 },
 ];
+
+type Props = { simulationId?: string };
 
 export function GlobalKitchenSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
@@ -40,75 +37,127 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   const { playSound } = useGameAudio();
   const { savedProgress } = useSimulationProgress(simulationId);
 
-  const [proUnlocked, setProUnlocked] = useState(false);
-  const [completed, setCompleted] = useState<RecipeId[]>([]);
-  const [activeRecipe, setActiveRecipe] = useState<RecipeId | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [cooking, setCooking] = useState(false);
-  const [showUnlock, setShowUnlock] = useState(false);
-  const [done, setDone] = useState(false);
+  const [stage, setStage] = useState<Stage>("setup");
   const [score, setScore] = useState(0);
-  const [justCompleted, setJustCompleted] = useState<RecipeId | null>(null);
 
-  // Restore saved progress
+  // Setup
+  const [restaurantName, setRestaurantName] = useState("");
+  const [chefCount, setChefCount] = useState(3);
+  const [menuSelection, setMenuSelection] = useState<string[]>([]);
+  const [priceMultiplier, setPriceMultiplier] = useState(1.0);
+  const [ambiance, setAmbiance] = useState<"casual" | "fine" | "street">("casual");
+  const [location, setLocation] = useState<"downtown" | "suburb" | "tourist">("downtown");
+
+  // Service
+  const [round, setRound] = useState(1);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalCosts, setTotalCosts] = useState(0);
+  const [customersSatisfied, setCustomersSatisfied] = useState(0);
+  const [customersLost, setCustomersLost] = useState(0);
+  const [reputation, setReputation] = useState(70);
+  const [events, setEvents] = useState<string[]>([]);
+
   useEffect(() => {
     if (!savedProgress) return;
-    const d = savedProgress.decisions as any;
-    if (d?.completed) setCompleted(d.completed);
-    if (d?.proUnlocked) setProUnlocked(true);
     setScore(savedProgress.score ?? 0);
-    setDone(savedProgress.completed ?? false);
+    if (savedProgress.completed) setStage("results");
   }, [savedProgress]);
 
-  // Cooking timer per step
-  useEffect(() => {
-    if (!cooking || !activeRecipe) return;
-    const timer = setTimeout(() => {
-      const recipe = RECIPES.find((r) => r.id === activeRecipe)!;
-      if (currentStep + 1 >= recipe.steps) {
-        setCompleted((prev) => [...prev, activeRecipe]);
-        setScore((prev) => prev + recipe.points);
-        setJustCompleted(activeRecipe);
-        setCooking(false);
-        setActiveRecipe(null);
-        setCurrentStep(0);
-        playSound("ding");
-        toast.success(t("sim.kitchen.recipeDone"));
-        setTimeout(() => setJustCompleted(null), 600);
-      } else {
-        setCurrentStep((s) => s + 1);
-        playSound("cooking");
-      }
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [cooking, activeRecipe, currentStep, t, playSound]);
+  const toggleMenuItem = (name: string) => {
+    setMenuSelection(prev =>
+      prev.includes(name) ? prev.filter(n => n !== name) : prev.length < 5 ? [...prev, name] : prev
+    );
+  };
 
-  const startRecipe = (recipe: Recipe) => {
-    if (cooking || completed.includes(recipe.id)) return;
-    if (recipe.category === "premium" && !proUnlocked) {
-      playSound("wrong");
-      setShowUnlock(true);
+  const selectedItems = MENU_OPTIONS.filter(m => menuSelection.includes(m.name));
+
+  const locationTraffic = location === "downtown" ? 25 : location === "tourist" ? 30 : 15;
+  const ambianceMultiplier = ambiance === "fine" ? 1.5 : ambiance === "casual" ? 1.0 : 0.7;
+  const ambianceCost = ambiance === "fine" ? 200 : ambiance === "casual" ? 80 : 30;
+
+  const startService = () => {
+    if (menuSelection.length < 2) {
+      toast.error("Select at least 2 menu items!");
       return;
     }
-    playSound("sizzle");
-    setActiveRecipe(recipe.id);
-    setCurrentStep(0);
-    setCooking(true);
+    playSound("correct");
+    setStage("service");
+    setRound(1);
+    setEvents(["🔓 Kitchen is open! First customers arriving..."]);
   };
 
-  const unlockPro = () => {
-    setProUnlocked(true);
-    setShowUnlock(false);
-    playSound("unlock");
-    toast.success(t("sim.kitchen.proUnlocked"));
+  const serveRound = () => {
+    const newRound = round + 1;
+    setRound(newRound);
+    playSound("tick");
+
+    // Customers per round
+    const baseCustomers = locationTraffic + Math.round(reputation / 10);
+    const menuVariety = Math.min(1.2, selectedItems.length * 0.2 + 0.4);
+    const customers = Math.round(baseCustomers * menuVariety);
+
+    // Each customer orders random item
+    const avgMenuCost = selectedItems.reduce((s, i) => s + i.cost, 0) / selectedItems.length;
+    const avgMenuPrice = selectedItems.reduce((s, i) => s + i.basePrice, 0) / selectedItems.length * priceMultiplier * ambianceMultiplier;
+    const avgDifficulty = selectedItems.reduce((s, i) => s + i.difficulty, 0) / selectedItems.length;
+
+    // Quality depends on chef capacity
+    const maxCapacity = chefCount * 8; // 8 orders per chef
+    const ordersServed = Math.min(customers, maxCapacity);
+    const overworked = customers > maxCapacity;
+    const qualityPenalty = overworked ? 15 : 0;
+    const quality = Math.max(30, 100 - avgDifficulty * 5 - qualityPenalty + (chefCount * 3));
+
+    // Satisfaction
+    const satisfaction = quality >= 80 ? ordersServed : Math.round(ordersServed * (quality / 100));
+    const lost = customers - ordersServed;
+
+    const roundRevenue = Math.round(ordersServed * avgMenuPrice);
+    const roundCosts = Math.round(ordersServed * avgMenuCost + chefCount * 50 + ambianceCost / 6);
+
+    // Random events
+    const rand = Math.random();
+    let eventMsg = "";
+    let repMod = 0;
+    let revMod = 0;
+
+    if (rand < 0.12) {
+      eventMsg = `Round ${newRound}: 🌟 Food critic visit — reputation ${quality >= 70 ? "+10" : "-10"}`;
+      repMod = quality >= 70 ? 10 : -10;
+    } else if (rand < 0.2) {
+      eventMsg = `Round ${newRound}: 📱 Viral social media post — +30% traffic`;
+      revMod = Math.round(roundRevenue * 0.3);
+    } else if (rand < 0.28) {
+      eventMsg = `Round ${newRound}: ⚠️ Supply chain issue — costs +20%`;
+      revMod = -Math.round(roundCosts * 0.2);
+    } else if (overworked) {
+      eventMsg = `Round ${newRound}: 😤 Kitchen overwhelmed! ${lost} customers left. Consider hiring more chefs.`;
+      repMod = -5;
+    } else {
+      eventMsg = `Round ${newRound}: Served ${ordersServed} customers — ${satisfaction >= ordersServed * 0.8 ? "great service!" : "some complaints."}`;
+    }
+
+    setTotalRevenue(prev => prev + roundRevenue + Math.max(0, revMod));
+    setTotalCosts(prev => prev + roundCosts + Math.max(0, -revMod));
+    setCustomersSatisfied(prev => prev + satisfaction);
+    setCustomersLost(prev => prev + lost);
+    setReputation(prev => Math.min(100, Math.max(20, prev + repMod + (satisfaction >= ordersServed * 0.8 ? 2 : -2))));
+    setEvents(prev => [eventMsg, ...prev.slice(0, 5)]);
+
+    if (newRound >= 6) finishSim();
   };
 
-  const finish = async () => {
-    setDone(true);
-    const allDone = completed.length === RECIPES.length;
-    const finalScore = score + (allDone ? 30 : 0);
+  const finishSim = async () => {
+    const profit = totalRevenue - totalCosts;
+    const repBonus = reputation >= 80 ? 20 : reputation >= 60 ? 10 : 0;
+    const profitBonus = profit > 0 ? Math.min(25, Math.round(profit / 100)) : 0;
+    const satisfactionRate = customersSatisfied / Math.max(1, customersSatisfied + customersLost);
+    const satBonus = satisfactionRate >= 0.8 ? 15 : satisfactionRate >= 0.6 ? 8 : 0;
+    const finalScore = 10 + repBonus + profitBonus + satBonus;
+
     setScore(finalScore);
-    playSound(allDone ? "levelUp" : "complete");
+    setStage("results");
+    playSound("levelUp");
 
     if (user && simulationId) {
       const { data: existing } = await supabase
@@ -119,8 +168,8 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
         .maybeSingle();
 
       const payload = {
-        current_step: completed.length,
-        decisions: JSON.parse(JSON.stringify({ completed, proUnlocked })),
+        current_step: 6,
+        decisions: { menuSelection, chefCount, priceMultiplier, ambiance, location } as any,
         score: finalScore,
         completed: true,
       };
@@ -128,127 +177,169 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
       if (existing) {
         await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
       } else {
-        await supabase.from("simulation_progress").insert({ user_id: user.id, simulation_id: simulationId, ...payload });
+        await supabase.from("simulation_progress").insert([{ user_id: user.id, simulation_id: simulationId, ...payload }]);
       }
     }
   };
 
-  const restart = () => {
-    playSound("whoosh");
-    setProUnlocked(false);
-    setCompleted([]);
-    setActiveRecipe(null);
-    setCurrentStep(0);
-    setCooking(false);
-    setShowUnlock(false);
-    setDone(false);
+  const reset = () => {
+    setStage("setup");
     setScore(0);
+    setRestaurantName("");
+    setChefCount(3);
+    setMenuSelection([]);
+    setPriceMultiplier(1.0);
+    setAmbiance("casual");
+    setLocation("downtown");
+    setRound(1);
+    setTotalRevenue(0);
+    setTotalCosts(0);
+    setCustomersSatisfied(0);
+    setCustomersLost(0);
+    setReputation(70);
+    setEvents([]);
   };
 
-  if (done) {
-    const allDone = completed.length === RECIPES.length;
+  const profit = totalRevenue - totalCosts;
+
+  if (stage === "results") {
+    const satRate = Math.round((customersSatisfied / Math.max(1, customersSatisfied + customersLost)) * 100);
     return (
-      <Card className="max-w-lg mx-auto animate-fade-in-scale">
-        <CardHeader className="text-center">
-          <Trophy className="mx-auto h-12 w-12 text-primary animate-pop" />
-          <CardTitle className="animate-score-pop">{t("sim.kitchen.complete")}</CardTitle>
-        </CardHeader>
-        <CardContent className="text-center space-y-4">
-          <p className="text-3xl font-bold animate-score-pop">{score} {t("sim.kitchen.points")}</p>
-          <p className="text-muted-foreground">
-            {allDone ? t("sim.kitchen.allRecipes") : t("sim.kitchen.partialRecipes")}
-          </p>
-          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.kitchen.restart")}</Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <Card className="border-green-500/40 bg-green-500/10">
+          <CardContent className="pt-6 text-center space-y-4">
+            <ChefHat className="h-12 w-12 mx-auto text-primary" />
+            <h2 className="text-2xl font-bold">{restaurantName || "Your Restaurant"} — Complete!</h2>
+            <p className="text-4xl font-bold text-primary">{score} pts</p>
+            <div className="grid grid-cols-2 gap-3 text-sm max-w-md mx-auto">
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Revenue</p><p className="text-lg font-bold text-green-500">${totalRevenue}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Profit</p><p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Reputation</p><p className="text-lg font-bold">{reputation}%</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Satisfaction</p><p className="text-lg font-bold">{satRate}%</p></div>
+            </div>
+            <Button onClick={reset} variant="outline" className="gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
-  const activeR = activeRecipe ? RECIPES.find((r) => r.id === activeRecipe) : null;
-
-  return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Cooking Station */}
-      <Card className="overflow-hidden animate-fade-in-up">
-        <div className="relative h-48 bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center">
-          {cooking && activeR ? (
-            <div className="text-center space-y-3 animate-fade-in-scale">
-              <span className="text-5xl animate-bounce inline-block">{activeR.emoji}</span>
-              <p className="font-semibold">{t(`sim.kitchen.recipe.${activeR.id}`)}</p>
-              <div className="flex gap-1 justify-center">
-                {Array.from({ length: activeR.steps }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-8 h-2 rounded-full transition-all duration-500 ${i <= currentStep ? "bg-primary animate-glow-pulse" : "bg-muted-foreground/30"}`}
-                  />
-                ))}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {t("sim.kitchen.step")} {currentStep + 1}/{activeR.steps}
-              </p>
-              <Flame className="mx-auto h-6 w-6 text-destructive animate-wiggle" />
-            </div>
-          ) : (
-            <div className="text-center space-y-2">
-              <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
-              <p className="text-muted-foreground">{t("sim.kitchen.selectRecipe")}</p>
-            </div>
-          )}
+  if (stage === "service") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold flex items-center gap-2"><Flame className="h-6 w-6 text-primary" /> Round {round}/6</h2>
+          <Badge variant="secondary">⭐ {reputation}</Badge>
         </div>
-      </Card>
+        <Progress value={(round / 6) * 100} className="h-3" />
 
-      {/* Recipes grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {RECIPES.map((recipe, index) => {
-          const isDone = completed.includes(recipe.id);
-          const locked = recipe.category === "premium" && !proUnlocked;
-          const isJustDone = justCompleted === recipe.id;
-          return (
-            <Card
-              key={recipe.id}
-              className={`cursor-pointer transition-all duration-300 hover:scale-[1.04] hover:shadow-lg ${isDone ? "border-primary bg-primary/10" : ""} ${locked ? "opacity-60" : ""} ${isJustDone ? "animate-pop" : ""}`}
-              style={{ animationDelay: `${index * 80}ms` }}
-              onClick={() => startRecipe(recipe)}
-            >
-              <CardContent className="py-6 text-center space-y-2 relative">
-                {locked && <Lock className="absolute top-2 right-2 h-4 w-4 text-accent-foreground" />}
-                <span className={`text-3xl inline-block transition-transform ${isDone ? "animate-wiggle" : ""}`}>{recipe.emoji}</span>
-                <p className="font-medium text-sm">{t(`sim.kitchen.recipe.${recipe.id}`)}</p>
-                <Badge variant={recipe.difficulty === "hard" ? "destructive" : recipe.difficulty === "medium" ? "secondary" : "outline"} className="text-xs">
-                  {t(`sim.kitchen.diff.${recipe.difficulty}`)}
-                </Badge>
-                {isDone && <Star className="mx-auto h-4 w-4 text-primary animate-pop" />}
-                {locked && <Badge variant="outline" className="text-xs border-accent-foreground text-accent-foreground">PREMIUM</Badge>}
-              </CardContent>
-            </Card>
-          );
-        })}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card><CardContent className="pt-4 text-center">
+            <DollarSign className="h-5 w-5 mx-auto text-green-500" />
+            <p className="text-lg font-bold text-green-500">${totalRevenue}</p>
+            <p className="text-xs text-muted-foreground">Revenue</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4 text-center">
+            <TrendingUp className="h-5 w-5 mx-auto text-destructive" />
+            <p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p>
+            <p className="text-xs text-muted-foreground">Profit</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4 text-center">
+            <Users className="h-5 w-5 mx-auto text-blue-500" />
+            <p className="text-lg font-bold">{customersSatisfied}</p>
+            <p className="text-xs text-muted-foreground">Satisfied</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4 text-center">
+            <Star className="h-5 w-5 mx-auto text-amber-500" />
+            <p className="text-lg font-bold">{reputation}%</p>
+            <p className="text-xs text-muted-foreground">Reputation</p>
+          </CardContent></Card>
+        </div>
+
+        <Card className="bg-card border-muted"><CardContent className="pt-4">
+          <div className="text-sm space-y-1 text-muted-foreground max-h-28 overflow-y-auto">
+            {events.map((e, i) => <p key={i}>{e}</p>)}
+          </div>
+        </CardContent></Card>
+
+        <Button onClick={serveRound} className="w-full" size="lg" disabled={round >= 6}>
+          {round < 6 ? `Serve Round ${round + 1}` : "Finishing..."}
+        </Button>
       </div>
+    );
+  }
 
-      {/* Unlock card */}
-      {showUnlock && (
-        <Card className="border-accent animate-slide-in-bottom">
-          <CardContent className="py-6 text-center space-y-4">
-            <ChefHat className="mx-auto h-8 w-8 text-primary animate-wiggle" />
-            <h3 className="text-lg font-bold">{t("sim.kitchen.unlockTitle")}</h3>
-            <p className="text-muted-foreground text-sm">{t("sim.kitchen.unlockDesc")}</p>
-            <div className="flex gap-3 justify-center">
-              <Button onClick={unlockPro} className="animate-glow-pulse">{t("sim.kitchen.unlockBtn")}</Button>
-              <Button variant="ghost" onClick={() => setShowUnlock(false)}>{t("sim.kitchen.close")}</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+  // Setup
+  return (
+    <div className="space-y-6">
+      <h2 className="text-xl font-bold flex items-center gap-2"><ChefHat className="h-6 w-6 text-primary" /> Global Kitchen</h2>
+      <p className="text-sm text-muted-foreground">Open your restaurant! Choose menu items, hire chefs, set prices, and serve 6 rounds of customers.</p>
 
-      {/* Finish */}
-      {completed.length >= 3 && !cooking && (
-        <div className="flex gap-3 justify-center animate-fade-in-up">
-          <Button size="lg" onClick={finish} className="animate-glow-pulse">{t("sim.kitchen.finish")}</Button>
-          <Button size="lg" variant="outline" onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.kitchen.restart")}</Button>
+      <Card><CardContent className="pt-6 space-y-2">
+        <span className="font-medium">🏪 Restaurant Name</span>
+        <Input value={restaurantName} onChange={(e) => setRestaurantName(e.target.value)} placeholder="e.g., Fusion Bistro" />
+      </CardContent></Card>
+
+      <Card><CardContent className="pt-6 space-y-3">
+        <span className="font-medium">📍 Location</span>
+        <Select value={location} onValueChange={(v: any) => setLocation(v)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="downtown">Downtown — Medium traffic, medium rent</SelectItem>
+            <SelectItem value="tourist">Tourist Area — High traffic, high rent</SelectItem>
+            <SelectItem value="suburb">Suburb — Low traffic, low rent</SelectItem>
+          </SelectContent>
+        </Select>
+      </CardContent></Card>
+
+      <Card><CardContent className="pt-6 space-y-3">
+        <span className="font-medium">🎨 Ambiance</span>
+        <Select value={ambiance} onValueChange={(v: any) => setAmbiance(v)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="street">Street Food — Low cost, x0.7 prices</SelectItem>
+            <SelectItem value="casual">Casual Dining — Medium cost, standard prices</SelectItem>
+            <SelectItem value="fine">Fine Dining — High cost, x1.5 prices</SelectItem>
+          </SelectContent>
+        </Select>
+      </CardContent></Card>
+
+      <Card><CardContent className="pt-6 space-y-3">
+        <div className="flex justify-between"><span className="font-medium">👨‍🍳 Chefs</span><Badge variant="outline">{chefCount}</Badge></div>
+        <Slider value={[chefCount]} onValueChange={([v]) => setChefCount(v)} min={1} max={8} step={1} />
+        <p className="text-xs text-muted-foreground">Each chef handles ~8 orders/round. More chefs = higher capacity but higher labor costs ($50/chef/round).</p>
+      </CardContent></Card>
+
+      <Card><CardContent className="pt-6 space-y-3">
+        <span className="font-medium">📋 Menu (select 2-5 items)</span>
+        <div className="grid grid-cols-2 gap-2">
+          {MENU_OPTIONS.map(item => {
+            const selected = menuSelection.includes(item.name);
+            return (
+              <Button
+                key={item.name}
+                variant={selected ? "default" : "outline"}
+                size="sm"
+                onClick={() => toggleMenuItem(item.name)}
+                className="h-auto py-2 flex flex-col text-xs"
+              >
+                <span>{item.emoji} {item.name}</span>
+                <span className="opacity-70">${item.basePrice} · ⭐{item.difficulty}/10</span>
+              </Button>
+            );
+          })}
         </div>
-      )}
+      </CardContent></Card>
 
-      <p className="text-center text-muted-foreground">{t("sim.kitchen.score")}: <span className="font-bold text-foreground">{score}</span></p>
+      <Card><CardContent className="pt-6 space-y-3">
+        <div className="flex justify-between"><span className="font-medium">💰 Price Multiplier</span><Badge variant="outline">x{priceMultiplier.toFixed(1)}</Badge></div>
+        <Slider value={[priceMultiplier * 10]} onValueChange={([v]) => setPriceMultiplier(v / 10)} min={5} max={20} step={1} />
+        <p className="text-xs text-muted-foreground">Higher prices = more revenue per customer but may reduce demand</p>
+      </CardContent></Card>
+
+      <Button onClick={startService} className="w-full text-base" size="lg" disabled={menuSelection.length < 2}>
+        🍽️ Open Restaurant — Serve 6 Rounds
+      </Button>
     </div>
   );
 }
