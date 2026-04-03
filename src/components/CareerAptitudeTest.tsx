@@ -270,6 +270,16 @@ ${summary}
           <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/20" onClick={onClose}>
             ✕
           </Button>
+          {user && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-primary-foreground hover:bg-primary-foreground/20 gap-1"
+              onClick={() => { setShowHistory(!showHistory); if (!showHistory) loadPastResults(); }}
+            >
+              <History className="w-4 h-4" /> السجل
+            </Button>
+          )}
         </div>
         <Progress value={progress} className="mt-4 h-2 bg-primary-foreground/20" />
       </div>
