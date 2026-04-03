@@ -18,6 +18,7 @@ const Signup = lazy(() => import("./pages/Signup"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
 const Services = lazy(() => import("./pages/Services"));
+const Academy = lazy(() => import("./pages/Academy"));
 const Content = lazy(() => import("./pages/Content"));
 const Contact = lazy(() => import("./pages/Contact"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
@@ -79,6 +80,7 @@ const App = () => (
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/marketplace" element={<Marketplace />} />
                     <Route path="/services" element={<Services />} />
+                    <Route path="/academy" element={<Academy />} />
                     <Route path="/content" element={<Content />} />
                     <Route path="/contact" element={<Contact />} />
                     <Route path="/leaderboard" element={<Leaderboard />} />
