@@ -1,37 +1,26 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Lock, RotateCcw, Trophy, Star, Thermometer } from "lucide-react";
+import { RotateCcw, Trophy, Thermometer, Flame } from "lucide-react";
 
-interface Props {
-  simulationId?: string;
-}
+interface Props { simulationId?: string; }
 
-type StationId = "temper" | "mold" | "fill" | "package" | "truffle" | "brand";
-
-interface Station {
-  id: StationId;
-  emoji: string;
-  category: "free" | "premium";
-  points: number;
-  duration: number;
-}
-
-const STATIONS: Station[] = [
-  { id: "temper", emoji: "🌡️", category: "free", points: 10, duration: 3000 },
-  { id: "mold", emoji: "🍫", category: "free", points: 10, duration: 3000 },
-  { id: "fill", emoji: "🍯", category: "premium", points: 25, duration: 4000 },
-  { id: "package", emoji: "🎁", category: "premium", points: 25, duration: 4500 },
-  { id: "truffle", emoji: "🟤", category: "premium", points: 20, duration: 4000 },
-  { id: "brand", emoji: "✨", category: "free", points: 15, duration: 3500 },
+const RECIPES = [
+  { id: "dark", name: "🍫 Dark Chocolate", cocoa: 70, sugar: 15, milk: 5, sellPrice: 8, idealTemp: 32 },
+  { id: "milk", name: "🥛 Milk Chocolate", cocoa: 40, sugar: 25, milk: 25, sellPrice: 6, idealTemp: 30 },
+  { id: "white", name: "🤍 White Chocolate", cocoa: 0, sugar: 30, milk: 40, sellPrice: 7, idealTemp: 28 },
+  { id: "truffle", name: "🟤 Truffle Deluxe", cocoa: 60, sugar: 10, milk: 15, sellPrice: 15, idealTemp: 31 },
+  { id: "hazelnut", name: "🌰 Hazelnut Praline", cocoa: 50, sugar: 20, milk: 10, sellPrice: 12, idealTemp: 29 },
 ];
 
 export function ChocolateFactorySimulation({ simulationId }: Props) {
@@ -40,239 +29,290 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
   const { playSound } = useGameAudio();
   const { savedProgress } = useSimulationProgress(simulationId);
 
-  const [proUnlocked, setProUnlocked] = useState(false);
-  const [completed, setCompleted] = useState<StationId[]>([]);
-  const [activeStation, setActiveStation] = useState<StationId | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [showUnlock, setShowUnlock] = useState(false);
-  const [done, setDone] = useState(false);
-  const [score, setScore] = useState(0);
-  const [justCompleted, setJustCompleted] = useState<StationId | null>(null);
+  // Business decisions
+  const [selectedRecipe, setSelectedRecipe] = useState(RECIPES[0]);
+  const [batchSize, setBatchSize] = useState(50);
+  const [temperature, setTemperature] = useState(30);
+  const [mixTime, setMixTime] = useState(5);
+  const [packaging, setPackaging] = useState<"basic" | "premium" | "luxury">("basic");
 
-  // Restore saved progress
+  // Game state
+  const [batch, setBatch] = useState(1);
+  const [totalBatches] = useState(5);
+  const [revenue, setRevenue] = useState(0);
+  const [costs, setCosts] = useState(0);
+  const [qualityScore, setQualityScore] = useState(0);
+  const [wastedBars, setWastedBars] = useState(0);
+  const [producing, setProducing] = useState(false);
+  const [prodProgress, setProdProgress] = useState(0);
+  const [prodStage, setProdStage] = useState("");
+  const [finished, setFinished] = useState(false);
+  const [score, setScore] = useState(0);
+  const [batches, setBatches] = useState<{ recipe: string; quality: number; profit: number }[]>([]);
+
   useEffect(() => {
     if (!savedProgress) return;
-    const d = savedProgress.decisions as any;
-    if (d?.completed) setCompleted(d.completed);
-    if (d?.proUnlocked) setProUnlocked(true);
     setScore(savedProgress.score ?? 0);
-    setDone(savedProgress.completed ?? false);
+    setFinished(savedProgress.completed ?? false);
   }, [savedProgress]);
-  const [chocoTemp, setChocoTemp] = useState(20);
 
-  // Progress timer
-  useEffect(() => {
-    if (!activeStation) return;
-    const station = STATIONS.find((s) => s.id === activeStation)!;
-    const steps = 20;
-    const interval = station.duration / steps;
-    let step = 0;
+  const saveProgress = useCallback(async (sc: number, done: boolean) => {
+    if (!user || !simulationId) return;
+    const payload = {
+      user_id: user.id, simulation_id: simulationId,
+      current_step: batch, score: sc, completed: done,
+      decisions: { revenue, costs, batches } as any,
+    };
+    const { data: existing } = await supabase
+      .from("simulation_progress").select("id")
+      .eq("user_id", user.id).eq("simulation_id", simulationId).maybeSingle();
+    if (existing) await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
+    else await supabase.from("simulation_progress").insert(payload);
+  }, [user, simulationId, batch, revenue, costs, batches]);
 
-    const timer = setInterval(() => {
-      step++;
-      setProgress(Math.min(100, (step / steps) * 100));
-      if (step % 5 === 0) playSound("tick");
+  const packagingCost = packaging === "luxury" ? 3 : packaging === "premium" ? 1.5 : 0.5;
+  const ingredientCost = (selectedRecipe.cocoa * 0.1 + selectedRecipe.sugar * 0.05 + selectedRecipe.milk * 0.08) * (batchSize / 50);
 
-      // Simulate tempering temperature
-      if (activeStation === "temper" && step <= 15) {
-        setChocoTemp(20 + Math.round((step / 15) * 11));
-      }
+  const calculateQuality = () => {
+    const tempDiff = Math.abs(temperature - selectedRecipe.idealTemp);
+    let q = 100;
+    if (tempDiff > 5) q -= 40;
+    else if (tempDiff > 3) q -= 20;
+    else if (tempDiff > 1) q -= 5;
 
-      if (step >= steps) {
-        clearInterval(timer);
-        setCompleted((prev) => [...prev, activeStation]);
-        setScore((prev) => prev + station.points);
-        setJustCompleted(activeStation);
-        setActiveStation(null);
-        setProgress(0);
-        playSound("ding");
-        toast.success(t("sim.choco.stationDone"));
-        setTimeout(() => setJustCompleted(null), 600);
-      }
-    }, interval);
+    if (mixTime < 3) q -= 25;
+    else if (mixTime > 8) q -= 15;
+    else if (mixTime >= 4 && mixTime <= 6) q += 5;
 
-    return () => clearInterval(timer);
-  }, [activeStation, t, playSound]);
-
-  const startStation = useCallback((station: Station) => {
-    if (activeStation || completed.includes(station.id)) return;
-    if (station.category === "premium" && !proUnlocked) {
-      playSound("wrong");
-      setShowUnlock(true);
-      return;
-    }
-    playSound("sizzle");
-    setActiveStation(station.id);
-    setProgress(0);
-  }, [activeStation, completed, proUnlocked, playSound]);
-
-  const unlockPro = () => {
-    setProUnlocked(true);
-    setShowUnlock(false);
-    playSound("unlock");
-    toast.success(t("sim.choco.proUnlocked"));
+    return Math.max(0, Math.min(100, q));
   };
 
-  const finish = async () => {
-    setDone(true);
-    const allDone = completed.length === STATIONS.length;
-    const finalScore = score + (allDone ? 30 : 0);
-    setScore(finalScore);
-    playSound(allDone ? "levelUp" : "complete");
+  const startProduction = () => {
+    if (producing) return;
+    setProducing(true);
+    setProdProgress(0);
+    playSound("scan");
 
-    if (user && simulationId) {
-      const { data: existing } = await supabase
-        .from("simulation_progress")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("simulation_id", simulationId)
-        .maybeSingle();
+    const stages = ["Melting cocoa...", "Mixing ingredients...", "Tempering...", "Molding...", "Cooling...", "Packaging..."];
+    let step = 0;
+    const totalSteps = 30;
 
-      const payload = {
-        current_step: completed.length,
-        decisions: JSON.parse(JSON.stringify({ completed, proUnlocked })),
-        score: finalScore,
-        completed: true,
-      };
+    const interval = setInterval(() => {
+      step++;
+      setProdProgress(Math.round((step / totalSteps) * 100));
+      setProdStage(stages[Math.min(Math.floor((step / totalSteps) * stages.length), stages.length - 1)]);
 
-      if (existing) {
-        await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
-      } else {
-        await supabase.from("simulation_progress").insert({ user_id: user.id, simulation_id: simulationId, ...payload });
+      if (step >= totalSteps) {
+        clearInterval(interval);
+        const quality = calculateQuality();
+        const yieldRate = quality > 70 ? 0.95 : quality > 40 ? 0.75 : 0.5;
+        const goodBars = Math.round(batchSize * yieldRate);
+        const waste = batchSize - goodBars;
+        const batchRevenue = goodBars * (selectedRecipe.sellPrice * (quality / 80));
+        const batchCost = ingredientCost + packagingCost * batchSize;
+
+        setRevenue((r) => r + Math.round(batchRevenue));
+        setCosts((c) => c + Math.round(batchCost));
+        setWastedBars((w) => w + waste);
+        setQualityScore((q) => Math.round((q * (batch - 1) + quality) / batch));
+        setBatches((b) => [...b, { recipe: selectedRecipe.id, quality, profit: Math.round(batchRevenue - batchCost) }]);
+
+        setProducing(false);
+        setProdProgress(0);
+        playSound("ding");
+        toast.success(`🍫 Batch ${batch} done! Quality: ${quality}% | ${goodBars}/${batchSize} good bars`);
+
+        if (batch >= totalBatches) {
+          finishGame(quality);
+        } else {
+          setBatch((b) => b + 1);
+        }
       }
-    }
+    }, 150);
+  };
+
+  const finishGame = (lastQuality?: number) => {
+    const avgQ = lastQuality ? Math.round((qualityScore * (batch - 1) + lastQuality) / batch) : qualityScore;
+    const finalScore = Math.max(0, Math.round((revenue - costs) / 5) + avgQ - wastedBars);
+    setScore(finalScore);
+    setFinished(true);
+    playSound("complete");
+    saveProgress(finalScore, true);
   };
 
   const restart = () => {
-    playSound("whoosh");
-    setProUnlocked(false);
-    setCompleted([]);
-    setActiveStation(null);
-    setProgress(0);
-    setShowUnlock(false);
-    setDone(false);
+    setBatch(1);
+    setRevenue(0);
+    setCosts(0);
+    setQualityScore(0);
+    setWastedBars(0);
+    setProducing(false);
+    setFinished(false);
     setScore(0);
-    setChocoTemp(20);
+    setBatches([]);
+    setTemperature(30);
+    setMixTime(5);
+    setBatchSize(50);
+    setPackaging("basic");
   };
 
-  if (done) {
-    const allDone = completed.length === STATIONS.length;
+  if (finished) {
     return (
-      <Card className="max-w-lg mx-auto animate-fade-in-scale">
-        <CardHeader className="text-center">
-          <Trophy className="mx-auto h-12 w-12 text-primary animate-pop" />
-          <CardTitle className="animate-score-pop">{t("sim.choco.complete")}</CardTitle>
-        </CardHeader>
-        <CardContent className="text-center space-y-4">
-          <p className="text-3xl font-bold animate-score-pop">{score} {t("sim.choco.points")}</p>
-          <p className="text-muted-foreground">
-            {allDone ? t("sim.choco.allStations") : t("sim.choco.partialStations")}
-          </p>
-          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.choco.restart")}</Button>
+      <Card className="max-w-lg mx-auto animate-in fade-in">
+        <CardContent className="p-8 text-center space-y-4">
+          <Trophy className="mx-auto h-16 w-16 text-primary" />
+          <h2 className="text-2xl font-bold">🏭 Factory Report</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-green-500/10 p-3">
+              <p className="text-2xl font-bold text-green-500">${revenue}</p>
+              <p className="text-xs text-muted-foreground">Revenue</p>
+            </div>
+            <div className="rounded-xl bg-red-500/10 p-3">
+              <p className="text-2xl font-bold text-red-500">${costs}</p>
+              <p className="text-xs text-muted-foreground">Costs</p>
+            </div>
+            <div className="rounded-xl bg-primary/10 p-3">
+              <p className="text-2xl font-bold text-primary">{qualityScore}%</p>
+              <p className="text-xs text-muted-foreground">Avg Quality</p>
+            </div>
+            <div className="rounded-xl bg-yellow-500/10 p-3">
+              <p className="text-2xl font-bold text-yellow-500">{score}</p>
+              <p className="text-xs text-muted-foreground">Score</p>
+            </div>
+          </div>
+          <div className="text-left space-y-1">
+            {batches.map((b, i) => (
+              <div key={i} className="flex justify-between text-sm p-1 rounded bg-muted/30">
+                <span>Batch {i + 1}: {b.recipe}</span>
+                <span className={b.profit > 0 ? "text-green-500" : "text-red-500"}>
+                  Q:{b.quality}% | ${b.profit}
+                </span>
+              </div>
+            ))}
+          </div>
+          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />Play Again</Button>
         </CardContent>
       </Card>
     );
   }
 
-  const activeS = activeStation ? STATIONS.find((s) => s.id === activeStation) : null;
-
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Factory Production Line */}
-      <Card className="overflow-hidden animate-fade-in-up">
-        <div className="relative h-56 bg-gradient-to-b from-amber-950/40 to-muted/50 flex items-center justify-center">
-          {/* Chocolate flow effect */}
-          {activeStation === "temper" && (
-            <div className="absolute bottom-0 w-full h-5 bg-amber-800 animate-shimmer opacity-60" />
-          )}
-
-          {activeStation && activeS ? (
-            <div className="text-center space-y-3 animate-fade-in-scale">
-              <span className="text-5xl animate-bounce inline-block">{activeS.emoji}</span>
-              <p className="font-semibold">{t(`sim.choco.station.${activeS.id}`)}</p>
-              <Progress value={progress} className="w-48 mx-auto h-3" />
-              <p className="text-sm text-muted-foreground">{Math.round(progress)}%</p>
-              {activeStation === "temper" && (
-                <div className="flex items-center justify-center gap-2 text-sm">
-                  <Thermometer className="h-4 w-4 text-destructive animate-wiggle" />
-                  <span>{chocoTemp}°C</span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center space-y-2">
-              <span className="text-5xl">🏭</span>
-              <p className="text-muted-foreground">{t("sim.choco.selectStation")}</p>
-            </div>
-          )}
+    <div className="max-w-2xl mx-auto space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold">🏭 Batch {batch}/{totalBatches}</h2>
+        <div className="flex gap-2">
+          <Badge variant="secondary">${revenue - costs} profit</Badge>
+          <Badge variant="outline">Q: {qualityScore}%</Badge>
         </div>
-      </Card>
-
-      {/* Status bar */}
-      <Card className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-        <CardContent className="py-3 flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{t("sim.choco.lineStatus")}</span>
-          <div className="flex items-center gap-2">
-            <Thermometer className="h-4 w-4 text-destructive" />
-            <span className="text-sm font-bold">{chocoTemp}°C</span>
-            <Badge variant={chocoTemp >= 30 ? "default" : "secondary"} className="text-xs">
-              {chocoTemp >= 30 ? t("sim.choco.tempReady") : t("sim.choco.tempLow")}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Stations grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {STATIONS.map((station, index) => {
-          const isDone = completed.includes(station.id);
-          const locked = station.category === "premium" && !proUnlocked;
-          const isJustDone = justCompleted === station.id;
-          return (
-            <Card
-              key={station.id}
-              className={`cursor-pointer transition-all duration-300 hover:scale-[1.04] hover:shadow-lg ${isDone ? "border-primary bg-primary/10" : ""} ${locked ? "opacity-60" : ""} ${isJustDone ? "animate-pop" : ""}`}
-              style={{ animationDelay: `${index * 80}ms` }}
-              onClick={() => startStation(station)}
-            >
-              <CardContent className="py-6 text-center space-y-2 relative">
-                {locked && <Lock className="absolute top-2 right-2 h-4 w-4 text-accent-foreground" />}
-                <span className={`text-3xl inline-block transition-transform ${isDone ? "animate-wiggle" : ""}`}>{station.emoji}</span>
-                <p className="font-medium text-sm">{t(`sim.choco.station.${station.id}`)}</p>
-                <Badge variant={station.category === "premium" ? "destructive" : "outline"} className="text-xs">
-                  {station.category === "premium" ? "PREMIUM" : t("sim.choco.free")}
-                </Badge>
-                {isDone && <Star className="mx-auto h-4 w-4 text-primary animate-pop" />}
-              </CardContent>
-            </Card>
-          );
-        })}
       </div>
+      <Progress value={(batch / totalBatches) * 100} className="h-2" />
 
-      {/* Unlock card */}
-      {showUnlock && (
-        <Card className="border-accent animate-slide-in-bottom">
-          <CardContent className="py-6 text-center space-y-4">
-            <span className="text-4xl animate-wiggle inline-block">🍫</span>
-            <h3 className="text-lg font-bold">{t("sim.choco.unlockTitle")}</h3>
-            <p className="text-muted-foreground text-sm">{t("sim.choco.unlockDesc")}</p>
-            <div className="flex gap-3 justify-center">
-              <Button onClick={unlockPro} className="animate-glow-pulse">{t("sim.choco.unlockBtn")}</Button>
-              <Button variant="ghost" onClick={() => setShowUnlock(false)}>{t("sim.choco.close")}</Button>
-            </div>
+      {/* Production in progress */}
+      {producing && (
+        <Card className="border-primary">
+          <CardContent className="p-6 text-center space-y-3">
+            <Flame className="mx-auto h-8 w-8 text-orange-500 animate-pulse" />
+            <p className="font-semibold">{prodStage}</p>
+            <Progress value={prodProgress} className="h-3" />
+            <p className="text-sm text-muted-foreground">{prodProgress}%</p>
           </CardContent>
         </Card>
       )}
 
-      {/* Finish */}
-      {completed.length >= 3 && !activeStation && (
-        <div className="flex gap-3 justify-center animate-fade-in-up">
-          <Button size="lg" onClick={finish} className="animate-glow-pulse">{t("sim.choco.finish")}</Button>
-          <Button size="lg" variant="outline" onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.choco.restart")}</Button>
-        </div>
+      {/* Controls */}
+      {!producing && (
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <h3 className="font-bold text-sm">🍫 Production Controls</h3>
+
+            {/* Recipe */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Recipe</label>
+              <Select value={selectedRecipe.id} onValueChange={(v) => setSelectedRecipe(RECIPES.find((r) => r.id === v)!)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {RECIPES.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name} (sells @${r.sellPrice})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Batch Size */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                Batch Size: {batchSize} bars (cost: ${Math.round(ingredientCost)})
+              </label>
+              <Slider value={[batchSize]} onValueChange={([v]) => setBatchSize(v)} min={20} max={200} step={10} />
+            </div>
+
+            {/* Temperature */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                <Thermometer className="h-3 w-3" />
+                Temperature: {temperature}°C
+                <span className={`text-xs ml-1 ${Math.abs(temperature - selectedRecipe.idealTemp) <= 1 ? "text-green-500" : Math.abs(temperature - selectedRecipe.idealTemp) <= 3 ? "text-yellow-500" : "text-red-500"}`}>
+                  (ideal: {selectedRecipe.idealTemp}°C)
+                </span>
+              </label>
+              <Slider value={[temperature]} onValueChange={([v]) => setTemperature(v)} min={20} max={45} step={0.5} />
+            </div>
+
+            {/* Mix Time */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                Mix Time: {mixTime} min (sweet spot: 4-6 min)
+              </label>
+              <Slider value={[mixTime]} onValueChange={([v]) => setMixTime(v)} min={1} max={12} step={1} />
+            </div>
+
+            {/* Packaging */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Packaging (${ packagingCost}/bar)</label>
+              <Select value={packaging} onValueChange={(v: any) => setPackaging(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="basic">📦 Basic ($0.50)</SelectItem>
+                  <SelectItem value="premium">🎁 Premium ($1.50)</SelectItem>
+                  <SelectItem value="luxury">✨ Luxury ($3.00)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Cost preview */}
+            <div className="p-3 rounded-lg bg-muted/50 text-xs space-y-1">
+              <div className="flex justify-between"><span>Ingredients:</span><span>${Math.round(ingredientCost)}</span></div>
+              <div className="flex justify-between"><span>Packaging:</span><span>${Math.round(packagingCost * batchSize)}</span></div>
+              <div className="flex justify-between font-bold border-t border-border pt-1">
+                <span>Total Cost:</span><span>${Math.round(ingredientCost + packagingCost * batchSize)}</span>
+              </div>
+              <div className="flex justify-between text-green-500">
+                <span>Max Revenue (100% quality):</span><span>${Math.round(batchSize * selectedRecipe.sellPrice)}</span>
+              </div>
+            </div>
+
+            <Button onClick={startProduction} className="w-full">🔥 Start Production</Button>
+          </CardContent>
+        </Card>
       )}
 
-      <p className="text-center text-muted-foreground">{t("sim.choco.score")}: <span className="font-bold text-foreground">{score}</span></p>
+      {/* Batch History */}
+      {batches.length > 0 && (
+        <Card>
+          <CardContent className="p-3">
+            <h3 className="font-bold text-xs mb-2">📊 Batch History</h3>
+            {batches.map((b, i) => (
+              <div key={i} className="flex justify-between text-xs py-1 border-b border-border last:border-0">
+                <span>#{i + 1} {b.recipe}</span>
+                <span className={b.profit > 0 ? "text-green-500" : "text-red-500"}>
+                  Q:{b.quality}% | {b.profit > 0 ? "+" : ""}${b.profit}
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
