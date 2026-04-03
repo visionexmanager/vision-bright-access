@@ -129,6 +129,49 @@ export default function CareerAptitudeTest({ profile, onClose }: Props) {
   const currentQuestion = questions[currentQ];
   const allAnswered = Object.keys(answers).length === questions.length;
 
+  const loadPastResults = useCallback(async () => {
+    if (!user) return;
+    setLoadingHistory(true);
+    const { data } = await supabase
+      .from("aptitude_results")
+      .select("id, analysis_text, answers, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    setPastResults((data as unknown as PastResult[]) || []);
+    setLoadingHistory(false);
+  }, [user]);
+
+  const saveResult = useCallback(async () => {
+    if (!user || !result) return;
+    setSaving(true);
+    const { error } = await supabase.from("aptitude_results").insert({
+      user_id: user.id,
+      answers: answers as any,
+      analysis_text: result,
+      student_profile: profile as any,
+    });
+    setSaving(false);
+    if (error) {
+      toast.error("فشل حفظ النتائج");
+    } else {
+      setSaved(true);
+      toast.success("تم حفظ النتائج بنجاح! ✅");
+    }
+  }, [user, result, answers, profile]);
+
+  const deleteResult = async (id: string) => {
+    await supabase.from("aptitude_results").delete().eq("id", id);
+    setPastResults(prev => prev.filter(r => r.id !== id));
+    toast.success("تم حذف النتيجة");
+  };
+
+  const viewPastResult = (r: PastResult) => {
+    setResult(r.analysis_text);
+    setAnswers(r.answers);
+    setSaved(true);
+    setShowHistory(false);
+  };
+
   const selectAnswer = (value: string) => {
     setAnswers(prev => ({ ...prev, [currentQuestion.id]: value }));
     if (currentQ < questions.length - 1) {
