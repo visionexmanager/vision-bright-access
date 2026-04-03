@@ -458,6 +458,36 @@ ${summary}
             <div className="prose prose-sm max-w-none dark:prose-invert text-foreground [&>*:first-child]:mt-0">
               <ReactMarkdown>{result}</ReactMarkdown>
             </div>
+
+            {/* Share Section */}
+            <div className="p-4 rounded-2xl bg-muted/50 border border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Share2 className="w-4 h-4" /> شارك نتائجك
+                </span>
+                <Button variant="ghost" size="sm" className="rounded-xl gap-1" onClick={nativeShare}>
+                  <Share2 className="w-4 h-4" /> مشاركة
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs" onClick={shareToTwitter}>
+                  <Twitter className="w-3.5 h-3.5" /> X / تويتر
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs" onClick={shareToFacebook}>
+                  <Facebook className="w-3.5 h-3.5" /> فيسبوك
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs" onClick={shareToWhatsApp}>
+                  💬 واتساب
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs" onClick={copyResultAsText}>
+                  <Copy className="w-3.5 h-3.5" /> نسخ النص
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs" onClick={copyLink}>
+                  <Link2 className="w-3.5 h-3.5" /> نسخ الرابط
+                </Button>
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-3 pt-4 border-t border-border">
               <Button variant="outline" className="rounded-xl gap-2" onClick={restart}>
                 <RotateCcw className="w-4 h-4" /> إعادة الاختبار
