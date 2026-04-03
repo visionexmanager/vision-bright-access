@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
+import { AchievementsPanel } from "@/components/AchievementsPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
