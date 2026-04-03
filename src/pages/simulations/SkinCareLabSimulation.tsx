@@ -225,9 +225,9 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
         </Card>
         <PerformanceRadar title="🧴 Product Performance" data={[
           { metric: "Hydration", value: q.hydration },
-          { metric: "Brightness", value: q.brightness },
+          { metric: "Brightening", value: q.brightening },
           { metric: "Anti-aging", value: q.antiAging },
-          { metric: "Protection", value: q.protection },
+          { metric: "Sun Protection", value: q.sunProtection },
           { metric: "Satisfaction", value: avgSat },
         ]} />
         {clientFeedback.length > 0 && (
