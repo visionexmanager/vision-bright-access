@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import {
@@ -14,6 +15,7 @@ import {
   ArrowRight,
   Gamepad2,
   BarChart3,
+  CheckCircle,
 } from "lucide-react";
 
 type Simulation = {
@@ -29,7 +31,9 @@ type Simulation = {
 
 export default function BusinessSimulator() {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [simulations, setSimulations] = useState<Simulation[]>([]);
+  const [progressMap, setProgressMap] = useState<Record<string, { completed: boolean; score: number }>>({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
 
@@ -41,10 +45,22 @@ export default function BusinessSimulator() {
         .eq("published", true)
         .order("sort_order");
       if (data) setSimulations(data as Simulation[]);
+
+      if (user) {
+        const { data: prog } = await supabase
+          .from("simulation_progress")
+          .select("simulation_id, completed, score")
+          .eq("user_id", user.id);
+        if (prog) {
+          const map: Record<string, { completed: boolean; score: number }> = {};
+          prog.forEach((p: any) => (map[p.simulation_id] = { completed: p.completed, score: p.score }));
+          setProgressMap(map);
+        }
+      }
       setLoading(false);
     };
     load();
-  }, []);
+  }, [user]);
 
   // Derive subcategories from data
   const subcategories = Array.from(new Set(simulations.map((s) => s.subcategory))).sort();
