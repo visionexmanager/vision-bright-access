@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      aptitude_results: {
+        Row: {
+          analysis_text: string
+          answers: Json
+          created_at: string
+          id: string
+          student_profile: Json
+          user_id: string
+        }
+        Insert: {
+          analysis_text?: string
+          answers?: Json
+          created_at?: string
+          id?: string
+          student_profile?: Json
+          user_id: string
+        }
+        Update: {
+          analysis_text?: string
+          answers?: Json
+          created_at?: string
+          id?: string
+          student_profile?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       content_items: {
         Row: {
           category: string

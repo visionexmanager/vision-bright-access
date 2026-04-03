@@ -1,10 +1,13 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import ReactMarkdown from "react-markdown";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import {
   BrainCircuit, ArrowRight, ArrowLeft, Loader2, RotateCcw,
-  Sparkles, CheckCircle2, Target
+  Sparkles, CheckCircle2, Target, History, Trash2, Save, Clock
 } from "lucide-react";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/academy-chat`;
@@ -103,15 +106,71 @@ interface Props {
   onClose: () => void;
 }
 
+interface PastResult {
+  id: string;
+  analysis_text: string;
+  answers: Record<number, string>;
+  created_at: string;
+}
+
 export default function CareerAptitudeTest({ profile, onClose }: Props) {
+  const { user } = useAuth();
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [pastResults, setPastResults] = useState<PastResult[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const progress = result ? 100 : ((currentQ) / questions.length) * 100;
   const currentQuestion = questions[currentQ];
   const allAnswered = Object.keys(answers).length === questions.length;
+
+  const loadPastResults = useCallback(async () => {
+    if (!user) return;
+    setLoadingHistory(true);
+    const { data } = await supabase
+      .from("aptitude_results")
+      .select("id, analysis_text, answers, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    setPastResults((data as unknown as PastResult[]) || []);
+    setLoadingHistory(false);
+  }, [user]);
+
+  const saveResult = useCallback(async () => {
+    if (!user || !result) return;
+    setSaving(true);
+    const { error } = await supabase.from("aptitude_results").insert({
+      user_id: user.id,
+      answers: answers as any,
+      analysis_text: result,
+      student_profile: profile as any,
+    });
+    setSaving(false);
+    if (error) {
+      toast.error("فشل حفظ النتائج");
+    } else {
+      setSaved(true);
+      toast.success("تم حفظ النتائج بنجاح! ✅");
+    }
+  }, [user, result, answers, profile]);
+
+  const deleteResult = async (id: string) => {
+    await supabase.from("aptitude_results").delete().eq("id", id);
+    setPastResults(prev => prev.filter(r => r.id !== id));
+    toast.success("تم حذف النتيجة");
+  };
+
+  const viewPastResult = (r: PastResult) => {
+    setResult(r.analysis_text);
+    setAnswers(r.answers);
+    setSaved(true);
+    setShowHistory(false);
+  };
 
   const selectAnswer = (value: string) => {
     setAnswers(prev => ({ ...prev, [currentQuestion.id]: value }));
@@ -191,6 +250,7 @@ ${summary}
     setCurrentQ(0);
     setAnswers({});
     setResult(null);
+    setSaved(false);
   };
 
   return (
@@ -210,13 +270,50 @@ ${summary}
           <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/20" onClick={onClose}>
             ✕
           </Button>
+          {user && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-primary-foreground hover:bg-primary-foreground/20 gap-1"
+              onClick={() => { setShowHistory(!showHistory); if (!showHistory) loadPastResults(); }}
+            >
+              <History className="w-4 h-4" /> السجل
+            </Button>
+          )}
         </div>
         <Progress value={progress} className="mt-4 h-2 bg-primary-foreground/20" />
       </div>
 
       <div className="p-6 md:p-8">
-        {/* Questions */}
-        {!result && !loading && (
+        {/* Past Results History */}
+        {showHistory && (
+          <div className="space-y-4 animate-in fade-in">
+            <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" /> نتائجك السابقة
+            </h3>
+            {loadingHistory ? (
+              <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" /></div>
+            ) : pastResults.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">لا توجد نتائج محفوظة بعد</p>
+            ) : (
+              pastResults.map(r => (
+                <div key={r.id} className="p-4 rounded-2xl border border-border bg-muted/30 flex justify-between items-center gap-3">
+                  <button className="flex-1 text-right" onClick={() => viewPastResult(r)}>
+                    <p className="font-medium text-foreground text-sm truncate">{r.analysis_text.slice(0, 80)}...</p>
+                    <p className="text-xs text-muted-foreground mt-1">{new Date(r.created_at).toLocaleDateString("ar")}</p>
+                  </button>
+                  <Button variant="ghost" size="icon" className="shrink-0 text-destructive hover:bg-destructive/10" onClick={() => deleteResult(r.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+            <Button variant="outline" className="w-full rounded-xl" onClick={() => setShowHistory(false)}>
+              إغلاق السجل
+            </Button>
+          </div>
+        )}
+        {!showHistory && !result && !loading && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div className="flex items-start gap-3">
               <Target className="w-6 h-6 text-primary mt-1 shrink-0" />
@@ -300,16 +397,31 @@ ${summary}
         )}
 
         {/* Results */}
-        {result && !loading && (
+        {!showHistory && result && !loading && (
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="prose prose-sm max-w-none dark:prose-invert text-foreground [&>*:first-child]:mt-0">
               <ReactMarkdown>{result}</ReactMarkdown>
             </div>
-            <div className="flex gap-3 pt-4 border-t border-border">
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-border">
               <Button variant="outline" className="rounded-xl gap-2" onClick={restart}>
                 <RotateCcw className="w-4 h-4" /> إعادة الاختبار
               </Button>
-              <Button className="rounded-xl gap-2" onClick={onClose}>
+              {user && !saved && (
+                <Button
+                  className="rounded-xl gap-2 bg-emerald-500 hover:bg-emerald-600 text-white"
+                  onClick={saveResult}
+                  disabled={saving}
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  حفظ النتائج
+                </Button>
+              )}
+              {saved && (
+                <span className="flex items-center gap-1 text-sm text-emerald-600 font-medium px-3">
+                  <CheckCircle2 className="w-4 h-4" /> تم الحفظ
+                </span>
+              )}
+              <Button variant="outline" className="rounded-xl gap-2" onClick={onClose}>
                 العودة للوحة التحكم
               </Button>
             </div>
