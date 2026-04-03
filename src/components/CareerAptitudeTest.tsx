@@ -174,6 +174,60 @@ export default function CareerAptitudeTest({ profile, onClose }: Props) {
     setShowHistory(false);
   };
 
+  const getShareText = () => {
+    if (!result) return "";
+    const firstLine = result.split("\n").find(l => l.trim()) || "";
+    return `🎯 أكملت اختبار الميول المهني في VisionEx Academy!\n${firstLine.slice(0, 100)}\n\nجرّب الاختبار: ${window.location.origin}/academy`;
+  };
+
+  const copyResultAsText = async () => {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(result);
+      toast.success("تم نسخ النتائج! 📋");
+    } catch {
+      toast.error("فشل النسخ");
+    }
+  };
+
+  const shareToTwitter = () => {
+    const text = encodeURIComponent(getShareText());
+    window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
+  };
+
+  const shareToFacebook = () => {
+    const url = encodeURIComponent(`${window.location.origin}/academy`);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank");
+  };
+
+  const shareToWhatsApp = () => {
+    const text = encodeURIComponent(getShareText());
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/academy`);
+      toast.success("تم نسخ الرابط! 🔗");
+    } catch {
+      toast.error("فشل النسخ");
+    }
+  };
+
+  const nativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "اختبار الميول المهني - VisionEx Academy",
+          text: getShareText(),
+          url: `${window.location.origin}/academy`,
+        });
+      } catch { /* user cancelled */ }
+    } else {
+      setShowShareMenu(true);
+    }
+  };
+
   const selectAnswer = (value: string) => {
     setAnswers(prev => ({ ...prev, [currentQuestion.id]: value }));
     if (currentQ < questions.length - 1) {
