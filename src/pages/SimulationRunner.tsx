@@ -170,6 +170,7 @@ export default function SimulationRunner() {
           title: t("bsim.completed"),
           description: `+${simulation.points} pts`,
         });
+        await checkAndUnlock();
       }
     } else {
       await saveProgress(currentStep, newDecisions, newScore, false);
