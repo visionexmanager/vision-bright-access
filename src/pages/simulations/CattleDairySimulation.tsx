@@ -1,38 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle2, RotateCcw, DollarSign, Heart, Droplets, Thermometer, Leaf, TrendingUp } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Lock, RotateCcw, Trophy, Star, Thermometer, Droplets, Leaf } from "lucide-react";
 
-interface Props {
-  simulationId?: string;
-}
+type Stage = "setup" | "management" | "results";
+type Season = "spring" | "summer" | "autumn" | "winter";
 
-type TaskId = "feed" | "scan" | "water" | "milk" | "breed" | "market";
-
-interface FarmTask {
-  id: TaskId;
-  emoji: string;
-  category: "free" | "premium";
-  points: number;
-  duration: number;
-}
-
-const TASKS: FarmTask[] = [
-  { id: "feed", emoji: "🌾", category: "free", points: 10, duration: 3000 },
-  { id: "scan", emoji: "🔍", category: "free", points: 10, duration: 3500 },
-  { id: "water", emoji: "💧", category: "free", points: 10, duration: 2500 },
-  { id: "milk", emoji: "🥛", category: "premium", points: 25, duration: 4500 },
-  { id: "breed", emoji: "🧬", category: "premium", points: 25, duration: 5000 },
-  { id: "market", emoji: "🏪", category: "premium", points: 20, duration: 4000 },
-];
+type Props = { simulationId?: string };
 
 export function CattleDairySimulation({ simulationId }: Props) {
   const { t } = useLanguage();
@@ -40,96 +24,128 @@ export function CattleDairySimulation({ simulationId }: Props) {
   const { playSound } = useGameAudio();
   const { savedProgress } = useSimulationProgress(simulationId);
 
-  const [proUnlocked, setProUnlocked] = useState(false);
-  const [completed, setCompleted] = useState<TaskId[]>([]);
-  const [activeTask, setActiveTask] = useState<TaskId | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [showUnlock, setShowUnlock] = useState(false);
-  const [done, setDone] = useState(false);
+  const [stage, setStage] = useState<Stage>("setup");
   const [score, setScore] = useState(0);
-  const [justCompleted, setJustCompleted] = useState<TaskId | null>(null);
 
-  // Restore saved progress
+  // Setup
+  const [herdSize, setHerdSize] = useState(30);
+  const [breedType, setBreedType] = useState<"holstein" | "jersey" | "brown-swiss">("holstein");
+  const [grazingAcres, setGrazingAcres] = useState(50);
+  const [feedStrategy, setFeedStrategy] = useState<"pasture" | "mixed" | "grain">("mixed");
+  const [vetBudget, setVetBudget] = useState(3);
+
+  // Management
+  const [season, setSeason] = useState<Season>("spring");
+  const [week, setWeek] = useState(1);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalCosts, setTotalCosts] = useState(0);
+  const [herdHealth, setHerdHealth] = useState(80);
+  const [milkProduction, setMilkProduction] = useState(0);
+  const [reproductionRate, setReproductionRate] = useState(70);
+  const [events, setEvents] = useState<string[]>([]);
+
   useEffect(() => {
     if (!savedProgress) return;
-    const d = savedProgress.decisions as any;
-    if (d?.completed) setCompleted(d.completed);
-    if (d?.proUnlocked) setProUnlocked(true);
     setScore(savedProgress.score ?? 0);
-    setDone(savedProgress.completed ?? false);
+    if (savedProgress.completed) setStage("results");
   }, [savedProgress]);
 
-  // Vital stats
-  const [milkYield, setMilkYield] = useState(25);
-  const [cowTemp, setCowTemp] = useState(38.5);
-  const [feedGrade, setFeedGrade] = useState("B+");
-  const [scanning, setScanning] = useState(false);
+  const breedYield = breedType === "holstein" ? 35 : breedType === "jersey" ? 22 : 28;
+  const breedFat = breedType === "holstein" ? 3.5 : breedType === "jersey" ? 5.0 : 4.0;
 
-  useEffect(() => {
-    if (!activeTask) return;
-    const task = TASKS.find((t) => t.id === activeTask)!;
-    const steps = 20;
-    const interval = task.duration / steps;
-    let step = 0;
+  const seasonMultiplier = season === "spring" ? 1.1 : season === "summer" ? 0.85 : season === "autumn" ? 1.0 : 0.9;
+  const feedCost = feedStrategy === "pasture" ? 5 : feedStrategy === "mixed" ? 8 : 12;
 
-    // scanning overlay
-    if (activeTask === "scan") setScanning(true);
+  const calcWeekMetrics = useCallback(() => {
+    const dailyYield = Math.round(breedYield * herdSize * seasonMultiplier * (herdHealth / 100));
+    const weeklyYield = dailyYield * 7;
 
-    const timer = setInterval(() => {
-      step++;
-      setProgress(Math.min(100, (step / steps) * 100));
-      if (step % 5 === 0) playSound("tick");
+    // Revenue: price per liter depends on fat content
+    const pricePerLiter = 0.8 + breedFat * 0.15;
+    const weeklyRevenue = Math.round(weeklyYield * pricePerLiter);
 
-      if (step >= steps) {
-        clearInterval(timer);
-        setCompleted((prev) => [...prev, activeTask]);
-        setScore((prev) => prev + task.points);
-        setJustCompleted(activeTask);
+    // Costs
+    const feedCosts = Math.round(herdSize * feedCost * 7);
+    const laborCosts = Math.round(herdSize * 2 * 7);
+    const vetCosts = Math.round(vetBudget * herdSize);
+    const landCosts = Math.round(grazingAcres * 1.5);
+    const weeklyCosts = feedCosts + laborCosts + vetCosts + landCosts;
 
-        // Update stats
-        if (activeTask === "feed") setFeedGrade("A+");
-        if (activeTask === "scan") { setCowTemp(38.5); setScanning(false); }
-        if (activeTask === "water") setMilkYield((m) => m + 3);
-        if (activeTask === "milk") setMilkYield((m) => m + 10);
-        if (activeTask === "breed") setCowTemp(38.2);
-        if (activeTask === "market") setMilkYield((m) => m + 5);
+    // Health effects
+    const healthDelta = vetBudget >= 4 ? 2 : vetBudget >= 2 ? 0 : -3;
+    const feedHealth = feedStrategy === "grain" ? -1 : feedStrategy === "mixed" ? 1 : 2;
+    const crowding = herdSize > grazingAcres ? -3 : 0;
 
-        setActiveTask(null);
-        setProgress(0);
-        playSound("ding");
-        toast.success(t("sim.cattle.taskDone"));
-        setTimeout(() => setJustCompleted(null), 600);
-      }
-    }, interval);
+    return { dailyYield, weeklyYield, weeklyRevenue, weeklyCosts, healthDelta: healthDelta + feedHealth + crowding };
+  }, [breedYield, breedFat, herdSize, seasonMultiplier, herdHealth, feedCost, feedStrategy, vetBudget, grazingAcres]);
 
-    return () => { clearInterval(timer); setScanning(false); };
-  }, [activeTask, t, playSound]);
-
-  const startTask = useCallback((task: FarmTask) => {
-    if (activeTask || completed.includes(task.id)) return;
-    if (task.category === "premium" && !proUnlocked) {
-      playSound("wrong");
-      setShowUnlock(true);
-      return;
-    }
-    playSound("sizzle");
-    setActiveTask(task.id);
-    setProgress(0);
-  }, [activeTask, completed, proUnlocked, playSound]);
-
-  const unlockPro = () => {
-    setProUnlocked(true);
-    setShowUnlock(false);
-    playSound("unlock");
-    toast.success(t("sim.cattle.proUnlocked"));
+  const startManagement = () => {
+    playSound("correct");
+    setStage("management");
+    setSeason("spring");
+    setWeek(1);
+    const m = calcWeekMetrics();
+    setMilkProduction(m.dailyYield);
+    setEvents(["🌱 Spring — Season started. Your herd is ready!"]);
   };
 
-  const finish = async () => {
-    setDone(true);
-    const allDone = completed.length === TASKS.length;
-    const finalScore = score + (allDone ? 30 : 0);
+  const advanceWeek = () => {
+    const newWeek = week + 1;
+    const seasons: Season[] = ["spring", "summer", "autumn", "winter"];
+    const newSeason = seasons[Math.floor((newWeek - 1) / 3) % 4];
+    if (newSeason !== season) {
+      toast(`Season changed to ${newSeason}!`);
+    }
+
+    setWeek(newWeek);
+    setSeason(newSeason);
+    playSound("tick");
+
+    const m = calcWeekMetrics();
+
+    // Random events
+    const rand = Math.random();
+    let eventMsg = "";
+    let healthMod = 0;
+    let costMod = 0;
+    let revMod = 0;
+
+    if (rand < 0.1) {
+      eventMsg = `Week ${newWeek}: 🦠 Disease outbreak! -15% health`;
+      healthMod = -15;
+      costMod = herdSize * 5;
+    } else if (rand < 0.2) {
+      eventMsg = `Week ${newWeek}: 📈 Milk prices surged +20%`;
+      revMod = Math.round(m.weeklyRevenue * 0.2);
+    } else if (rand < 0.28) {
+      eventMsg = `Week ${newWeek}: 🐄 New calf born! Herd +1`;
+      setHerdSize(prev => prev + 1);
+    } else if (rand < 0.35) {
+      eventMsg = `Week ${newWeek}: 🌧️ Heavy rain — grazing limited`;
+      healthMod = -3;
+    } else {
+      eventMsg = `Week ${newWeek}: Normal operations (${newSeason})`;
+    }
+
+    setHerdHealth(prev => Math.min(100, Math.max(20, prev + m.healthDelta + healthMod)));
+    setMilkProduction(m.dailyYield);
+    setTotalRevenue(prev => prev + m.weeklyRevenue + revMod);
+    setTotalCosts(prev => prev + m.weeklyCosts + costMod);
+    setEvents(prev => [eventMsg, ...prev.slice(0, 5)]);
+
+    if (newWeek >= 12) finishSim();
+  };
+
+  const finishSim = async () => {
+    const profit = totalRevenue - totalCosts;
+    const healthBonus = herdHealth >= 80 ? 20 : herdHealth >= 60 ? 10 : 0;
+    const profitBonus = profit > 0 ? Math.min(30, Math.round(profit / 100)) : 0;
+    const productionBonus = milkProduction > herdSize * 25 ? 15 : 0;
+    const finalScore = 15 + healthBonus + profitBonus + productionBonus;
+
     setScore(finalScore);
-    playSound(allDone ? "levelUp" : "complete");
+    setStage("results");
+    playSound("levelUp");
 
     if (user && simulationId) {
       const { data: existing } = await supabase
@@ -140,8 +156,8 @@ export function CattleDairySimulation({ simulationId }: Props) {
         .maybeSingle();
 
       const payload = {
-        current_step: completed.length,
-        decisions: JSON.parse(JSON.stringify({ completed, proUnlocked })),
+        current_step: 12,
+        decisions: { herdSize, breedType, grazingAcres, feedStrategy, vetBudget } as any,
         score: finalScore,
         completed: true,
       };
@@ -149,148 +165,164 @@ export function CattleDairySimulation({ simulationId }: Props) {
       if (existing) {
         await supabase.from("simulation_progress").update(payload).eq("id", existing.id);
       } else {
-        await supabase.from("simulation_progress").insert({ user_id: user.id, simulation_id: simulationId, ...payload });
+        await supabase.from("simulation_progress").insert([{ user_id: user.id, simulation_id: simulationId, ...payload }]);
       }
     }
   };
 
-  const restart = () => {
-    playSound("whoosh");
-    setProUnlocked(false);
-    setCompleted([]);
-    setActiveTask(null);
-    setProgress(0);
-    setShowUnlock(false);
-    setDone(false);
+  const reset = () => {
+    setStage("setup");
     setScore(0);
-    setMilkYield(25);
-    setCowTemp(38.5);
-    setFeedGrade("B+");
+    setHerdSize(30);
+    setBreedType("holstein");
+    setGrazingAcres(50);
+    setFeedStrategy("mixed");
+    setVetBudget(3);
+    setWeek(1);
+    setSeason("spring");
+    setTotalRevenue(0);
+    setTotalCosts(0);
+    setHerdHealth(80);
+    setMilkProduction(0);
+    setEvents([]);
   };
 
-  if (done) {
-    const allDone = completed.length === TASKS.length;
+  const profit = totalRevenue - totalCosts;
+
+  if (stage === "results") {
     return (
-      <Card className="max-w-lg mx-auto animate-fade-in-scale">
-        <CardHeader className="text-center">
-          <Trophy className="mx-auto h-12 w-12 text-primary animate-pop" />
-          <CardTitle className="animate-score-pop">{t("sim.cattle.complete")}</CardTitle>
-        </CardHeader>
-        <CardContent className="text-center space-y-4">
-          <p className="text-3xl font-bold animate-score-pop">{score} {t("sim.cattle.points")}</p>
-          <p className="text-muted-foreground">
-            {allDone ? t("sim.cattle.allTasks") : t("sim.cattle.partialTasks")}
-          </p>
-          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.cattle.restart")}</Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <Card className="border-green-500/40 bg-green-500/10">
+          <CardContent className="pt-6 text-center space-y-4">
+            <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
+            <h2 className="text-2xl font-bold">Cattle Ranch — Season Complete!</h2>
+            <p className="text-4xl font-bold text-primary">{score} pts</p>
+            <div className="grid grid-cols-2 gap-3 text-sm max-w-md mx-auto">
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Revenue</p><p className="text-lg font-bold text-green-500">${totalRevenue}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Costs</p><p className="text-lg font-bold text-destructive">${totalCosts}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Profit</p><p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Herd Health</p><p className="text-lg font-bold">{herdHealth}%</p></div>
+            </div>
+            <Button onClick={reset} variant="outline" className="gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
-  const activeT = activeTask ? TASKS.find((t) => t.id === activeTask) : null;
+  if (stage === "management") {
+    const seasonEmoji = { spring: "🌱", summer: "☀️", autumn: "🍂", winter: "❄️" };
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold">🐄 Week {week}/12 — {seasonEmoji[season]} {season}</h2>
+          <Badge variant="secondary">Herd: {herdSize}</Badge>
+        </div>
+        <Progress value={(week / 12) * 100} className="h-3" />
 
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card><CardContent className="pt-4 text-center">
+            <DollarSign className="h-5 w-5 mx-auto text-green-500" />
+            <p className="text-lg font-bold text-green-500">${totalRevenue}</p>
+            <p className="text-xs text-muted-foreground">Revenue</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4 text-center">
+            <TrendingUp className="h-5 w-5 mx-auto text-destructive" />
+            <p className="text-lg font-bold text-destructive">${totalCosts}</p>
+            <p className="text-xs text-muted-foreground">Costs</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4 text-center">
+            <Droplets className="h-5 w-5 mx-auto text-blue-500" />
+            <p className="text-lg font-bold">{milkProduction}L/day</p>
+            <p className="text-xs text-muted-foreground">Production</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4 text-center">
+            <Heart className="h-5 w-5 mx-auto text-pink-500" />
+            <p className="text-lg font-bold">{herdHealth}%</p>
+            <p className="text-xs text-muted-foreground">Herd Health</p>
+          </CardContent></Card>
+        </div>
+
+        <Card className="border-muted"><CardContent className="pt-4">
+          <p className={`text-sm font-medium ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>Profit: ${profit}</p>
+        </CardContent></Card>
+
+        <Card className="bg-card border-muted"><CardContent className="pt-4">
+          <div className="text-sm space-y-1 text-muted-foreground max-h-28 overflow-y-auto">
+            {events.map((e, i) => <p key={i}>{e}</p>)}
+          </div>
+        </CardContent></Card>
+
+        <Button onClick={advanceWeek} className="w-full" size="lg" disabled={week >= 12}>
+          {week < 12 ? `Advance to Week ${week + 1}` : "Finishing..."}
+        </Button>
+      </div>
+    );
+  }
+
+  // Setup
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Barn View */}
-      <Card className="overflow-hidden animate-fade-in-up">
-        <div className="relative h-56 bg-gradient-to-b from-green-950/30 to-muted/50 flex items-center justify-center">
-          {/* Scanning overlay */}
-          {scanning && (
-            <div className="absolute inset-0 border-2 border-blue-400/40 bg-blue-500/10 animate-glow-pulse pointer-events-none" />
-          )}
+    <div className="space-y-6">
+      <h2 className="text-xl font-bold">🐄 Cattle Ranch Setup</h2>
+      <p className="text-sm text-muted-foreground">Build your cattle ranch and manage it through 12 weeks (4 seasons). Balance breeding, feeding, health, and finances.</p>
 
-          {activeTask && activeT ? (
-            <div className="text-center space-y-3 animate-fade-in-scale">
-              <span className="text-5xl animate-bounce inline-block">{activeT.emoji}</span>
-              <p className="font-semibold">{t(`sim.cattle.task.${activeT.id}`)}</p>
-              <Progress value={progress} className="w-48 mx-auto h-3" />
-              <p className="text-sm text-muted-foreground">{Math.round(progress)}%</p>
-            </div>
-          ) : (
-            <div className="text-center space-y-2">
-              <span className="text-5xl">🐄</span>
-              <p className="text-muted-foreground">{t("sim.cattle.selectTask")}</p>
-            </div>
-          )}
-        </div>
-      </Card>
+      <Card><CardContent className="pt-6 space-y-3">
+        <div className="flex justify-between"><span className="font-medium">🐄 Herd Size</span><Badge variant="outline">{herdSize} cattle</Badge></div>
+        <Slider value={[herdSize]} onValueChange={([v]) => setHerdSize(v)} min={15} max={80} step={5} />
+      </CardContent></Card>
 
-      {/* Vital Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-          <CardContent className="py-4 text-center space-y-1">
-            <Droplets className="mx-auto h-5 w-5 text-primary" />
-            <p className="text-lg font-bold">{milkYield}L</p>
-            <p className="text-xs text-muted-foreground">{t("sim.cattle.milkYield")}</p>
-          </CardContent>
-        </Card>
-        <Card className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-          <CardContent className="py-4 text-center space-y-1">
-            <Thermometer className="mx-auto h-5 w-5 text-destructive" />
-            <p className="text-lg font-bold">{cowTemp}°C</p>
-            <p className="text-xs text-muted-foreground">{t("sim.cattle.temp")}</p>
-          </CardContent>
-        </Card>
-        <Card className="animate-fade-in-up" style={{ animationDelay: "300ms" }}>
-          <CardContent className="py-4 text-center space-y-1">
-            <Leaf className="mx-auto h-5 w-5 text-green-500" />
-            <p className="text-lg font-bold">{feedGrade}</p>
-            <p className="text-xs text-muted-foreground">{t("sim.cattle.feedGrade")}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card><CardContent className="pt-6 space-y-3">
+        <span className="font-medium">🧬 Breed</span>
+        <Select value={breedType} onValueChange={(v: any) => setBreedType(v)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="holstein">Holstein — High yield (35L), 3.5% fat</SelectItem>
+            <SelectItem value="jersey">Jersey — Low yield (22L), 5.0% fat (premium price)</SelectItem>
+            <SelectItem value="brown-swiss">Brown Swiss — Medium (28L), 4.0% fat</SelectItem>
+          </SelectContent>
+        </Select>
+      </CardContent></Card>
 
-      {/* Tasks grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {TASKS.map((task, index) => {
-          const isDone = completed.includes(task.id);
-          const locked = task.category === "premium" && !proUnlocked;
-          const isJustDone = justCompleted === task.id;
+      <Card><CardContent className="pt-6 space-y-3">
+        <div className="flex justify-between"><span className="font-medium">🌿 Grazing Acres</span><Badge variant="outline">{grazingAcres} acres</Badge></div>
+        <Slider value={[grazingAcres]} onValueChange={([v]) => setGrazingAcres(v)} min={20} max={150} step={10} />
+        <p className="text-xs text-muted-foreground">Too many cattle per acre reduces health</p>
+      </CardContent></Card>
+
+      <Card><CardContent className="pt-6 space-y-3">
+        <span className="font-medium">🌾 Feed Strategy</span>
+        <Select value={feedStrategy} onValueChange={(v: any) => setFeedStrategy(v)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pasture">Pasture Only — Low cost, +health</SelectItem>
+            <SelectItem value="mixed">Mixed — Balanced</SelectItem>
+            <SelectItem value="grain">Grain-fed — High cost, -health but higher yield</SelectItem>
+          </SelectContent>
+        </Select>
+      </CardContent></Card>
+
+      <Card><CardContent className="pt-6 space-y-3">
+        <div className="flex justify-between"><span className="font-medium">🏥 Vet Budget (per head/week)</span><Badge variant="outline">${vetBudget}</Badge></div>
+        <Slider value={[vetBudget]} onValueChange={([v]) => setVetBudget(v)} min={1} max={8} step={1} />
+        <p className="text-xs text-muted-foreground">Higher budget improves health but increases costs</p>
+      </CardContent></Card>
+
+      <Card className="border-primary/30 bg-primary/5"><CardContent className="pt-4">
+        <p className="text-sm font-medium mb-2">📊 Estimated Weekly:</p>
+        {(() => {
+          const m = calcWeekMetrics();
           return (
-            <Card
-              key={task.id}
-              className={`cursor-pointer transition-all duration-300 hover:scale-[1.04] hover:shadow-lg ${isDone ? "border-primary bg-primary/10" : ""} ${locked ? "opacity-60" : ""} ${isJustDone ? "animate-pop" : ""}`}
-              style={{ animationDelay: `${index * 80}ms` }}
-              onClick={() => startTask(task)}
-            >
-              <CardContent className="py-6 text-center space-y-2 relative">
-                {locked && <Lock className="absolute top-2 right-2 h-4 w-4 text-accent-foreground" />}
-                <span className={`text-3xl inline-block transition-transform ${isDone ? "animate-wiggle" : ""}`}>{task.emoji}</span>
-                <p className="font-medium text-sm">{t(`sim.cattle.task.${task.id}`)}</p>
-                <Badge variant={task.category === "premium" ? "destructive" : "outline"} className="text-xs">
-                  {task.category === "premium" ? "PREMIUM" : t("sim.cattle.free")}
-                </Badge>
-                {isDone && <Star className="mx-auto h-4 w-4 text-primary animate-pop" />}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Unlock card */}
-      {showUnlock && (
-        <Card className="border-accent animate-slide-in-bottom">
-          <CardContent className="py-6 text-center space-y-4">
-            <span className="text-4xl animate-wiggle inline-block">🐄</span>
-            <h3 className="text-lg font-bold">{t("sim.cattle.unlockTitle")}</h3>
-            <p className="text-muted-foreground text-sm">{t("sim.cattle.unlockDesc")}</p>
-            <div className="flex gap-3 justify-center">
-              <Button onClick={unlockPro} className="animate-glow-pulse">{t("sim.cattle.unlockBtn")}</Button>
-              <Button variant="ghost" onClick={() => setShowUnlock(false)}>{t("sim.cattle.close")}</Button>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <span>Daily Yield: <strong>{m.dailyYield}L</strong></span>
+              <span>Weekly Revenue: <strong className="text-green-500">${m.weeklyRevenue}</strong></span>
+              <span>Weekly Costs: <strong className="text-destructive">${m.weeklyCosts}</strong></span>
+              <span>Health Trend: <strong className={m.healthDelta >= 0 ? "text-green-500" : "text-destructive"}>{m.healthDelta >= 0 ? "+" : ""}{m.healthDelta}/week</strong></span>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          );
+        })()}
+      </CardContent></Card>
 
-      {/* Finish */}
-      {completed.length >= 3 && !activeTask && (
-        <div className="flex gap-3 justify-center animate-fade-in-up">
-          <Button size="lg" onClick={finish} className="animate-glow-pulse">{t("sim.cattle.finish")}</Button>
-          <Button size="lg" variant="outline" onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.cattle.restart")}</Button>
-        </div>
-      )}
-
-      <p className="text-center text-muted-foreground">{t("sim.cattle.score")}: <span className="font-bold text-foreground">{score}</span></p>
+      <Button onClick={startManagement} className="w-full text-base" size="lg">🚀 Start 12-Week Season</Button>
     </div>
   );
 }

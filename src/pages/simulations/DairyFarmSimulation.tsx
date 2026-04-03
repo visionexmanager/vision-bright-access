@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Lock, Flame, Snowflake, Milk, Package, RotateCcw, Thermometer, Circle } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle2, Milk, Thermometer, RotateCcw, TrendingUp, DollarSign, Heart, Droplets } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-type Phase = "raw" | "heated" | "cooled" | "fermented" | "cheese" | "packaged";
+type Stage = "setup" | "production" | "results";
 
 type Props = { simulationId?: string };
 
@@ -21,103 +23,135 @@ export function DairyFarmSimulation({ simulationId }: Props) {
   const { playSound } = useGameAudio();
   const { savedProgress } = useSimulationProgress(simulationId);
 
-  const [temp, setTemp] = useState(20);
-  const [phase, setPhase] = useState<Phase>("raw");
-  const [proUnlocked, setProUnlocked] = useState(false);
+  const [stage, setStage] = useState<Stage>("setup");
+  const [day, setDay] = useState(1);
   const [score, setScore] = useState(0);
-  const [log, setLog] = useState<string[]>([t("sim.dairy.log.start")]);
-  const [completed, setCompleted] = useState(false);
 
-  // Restore saved progress
+  // Setup decisions
+  const [herdSize, setHerdSize] = useState(20);
+  const [feedQuality, setFeedQuality] = useState<"economy" | "standard" | "premium">("standard");
+  const [pasteurizationTemp, setPasteurizationTemp] = useState(72);
+  const [coolingTarget, setCoolingTarget] = useState(4);
+  const [productType, setProductType] = useState<"milk" | "yogurt" | "cheese">("milk");
+
+  // Production metrics
+  const [revenue, setRevenue] = useState(0);
+  const [costs, setCosts] = useState(0);
+  const [milkQuality, setMilkQuality] = useState(80);
+  const [cowHealth, setCowHealth] = useState(85);
+  const [dailyYield, setDailyYield] = useState(0);
+  const [events, setEvents] = useState<string[]>([]);
+
   useEffect(() => {
     if (!savedProgress) return;
-    const d = savedProgress.decisions as any;
-    if (d?.phase) setPhase(d.phase);
     setScore(savedProgress.score ?? 0);
-    setCompleted(savedProgress.completed ?? false);
+    if (savedProgress.completed) setStage("results");
   }, [savedProgress]);
 
-  const addLog = useCallback((msg: string) => {
-    setLog((prev) => [...prev.slice(-4), msg]);
-  }, []);
+  const feedCostMultiplier = feedQuality === "economy" ? 0.6 : feedQuality === "standard" ? 1.0 : 1.5;
+  const feedQualityBonus = feedQuality === "economy" ? -15 : feedQuality === "standard" ? 0 : 20;
 
-  const heat = useCallback(() => {
-    if (phase !== "raw") {
-      addLog(t("sim.dairy.already"));
-      return;
-    }
-    const newTemp = Math.min(temp + 20, 85);
-    setTemp(newTemp);
+  const calcMetrics = useCallback(() => {
+    // Pasteurization accuracy (72°C is ideal)
+    const tempDiff = Math.abs(pasteurizationTemp - 72);
+    const pastScore = tempDiff === 0 ? 100 : Math.max(0, 100 - tempDiff * 5);
 
-    if (newTemp >= 72) {
-      setPhase("heated");
-      setScore((s) => s + 15);
-      addLog(t("sim.dairy.heated"));
-      playSound("sizzle");
-      toast.success(t("sim.dairy.heated"));
+    // Cooling efficiency (4°C is ideal)
+    const coolDiff = Math.abs(coolingTarget - 4);
+    const coolScore = coolDiff === 0 ? 100 : Math.max(0, 100 - coolDiff * 10);
+
+    // Base yield per cow per day (liters)
+    const baseYield = feedQuality === "economy" ? 18 : feedQuality === "standard" ? 25 : 32;
+    const yield_ = Math.round(baseYield * herdSize * (pastScore / 100));
+
+    // Quality
+    const quality = Math.min(100, Math.round((pastScore * 0.4 + coolScore * 0.3 + feedQualityBonus + 50) * 0.8));
+
+    // Health
+    const health = Math.min(100, Math.round(70 + feedQualityBonus + (coolingTarget <= 6 ? 10 : -5)));
+
+    // Revenue per liter depends on product type
+    const pricePerLiter = productType === "milk" ? 1.2 : productType === "yogurt" ? 2.5 : 4.0;
+    const conversionRate = productType === "milk" ? 1.0 : productType === "yogurt" ? 0.8 : 0.3;
+    const dailyRevenue = Math.round(yield_ * conversionRate * pricePerLiter);
+
+    // Costs
+    const feedCost = Math.round(herdSize * 8 * feedCostMultiplier);
+    const laborCost = Math.round(herdSize * 3);
+    const processingCost = productType === "milk" ? 50 : productType === "yogurt" ? 120 : 200;
+    const dailyCost = feedCost + laborCost + processingCost;
+
+    return { yield_, quality, health, dailyRevenue, dailyCost };
+  }, [herdSize, feedQuality, pasteurizationTemp, coolingTarget, productType, feedCostMultiplier, feedQualityBonus]);
+
+  const startProduction = () => {
+    playSound("correct");
+    setStage("production");
+    setDay(1);
+    const m = calcMetrics();
+    setDailyYield(m.yield_);
+    setMilkQuality(m.quality);
+    setCowHealth(m.health);
+    setRevenue(m.dailyRevenue);
+    setCosts(m.dailyCost);
+    setEvents([`Day 1: Production started with ${herdSize} cows`]);
+  };
+
+  const advanceDay = () => {
+    const newDay = day + 1;
+    setDay(newDay);
+    playSound("tick");
+
+    const m = calcMetrics();
+    // Random events
+    const rand = Math.random();
+    let eventMsg = "";
+    let revenueBonus = 0;
+    let costBonus = 0;
+
+    if (rand < 0.15) {
+      eventMsg = `Day ${newDay}: 🌡️ Heat wave — milk yield dropped 10%`;
+      m.yield_ = Math.round(m.yield_ * 0.9);
+      m.health = Math.max(40, m.health - 10);
+    } else if (rand < 0.25) {
+      eventMsg = `Day ${newDay}: 📈 Market demand surge — prices up 20%`;
+      revenueBonus = Math.round(m.dailyRevenue * 0.2);
+    } else if (rand < 0.35) {
+      eventMsg = `Day ${newDay}: 🔧 Equipment maintenance needed`;
+      costBonus = 80;
+    } else if (rand < 0.45) {
+      eventMsg = `Day ${newDay}: 🏆 Quality inspection passed — bonus $50`;
+      revenueBonus = 50;
     } else {
-      playSound("cooking");
-      addLog(`${t("sim.dairy.heating")} ${newTemp}°C`);
+      eventMsg = `Day ${newDay}: Normal operations`;
     }
-  }, [phase, temp, addLog, t, playSound]);
 
-  const cool = useCallback(() => {
-    if (phase !== "heated") {
-      addLog(t("sim.dairy.coolFirst"));
-      return;
-    }
-    setTemp(38);
-    setPhase("cooled");
-    setScore((s) => s + 15);
-    addLog(t("sim.dairy.cooled"));
-    playSound("ding");
-    toast.success(t("sim.dairy.cooled"));
-  }, [phase, addLog, t, playSound]);
+    setDailyYield(m.yield_);
+    setMilkQuality(m.quality);
+    setCowHealth(m.health);
+    setRevenue(prev => prev + m.dailyRevenue + revenueBonus);
+    setCosts(prev => prev + m.dailyCost + costBonus);
+    setEvents(prev => [eventMsg, ...prev.slice(0, 5)]);
 
-  const addStarter = useCallback(() => {
-    if (phase !== "cooled") {
-      addLog(t("sim.dairy.starterFirst"));
-      return;
+    if (newDay >= 7) {
+      finishSim(m);
     }
-    setPhase("fermented");
-    setScore((s) => s + 20);
-    addLog(t("sim.dairy.fermented"));
-    toast.success(t("sim.dairy.fermented"));
-  }, [phase, addLog, t]);
+  };
 
-  const makeCheese = useCallback(() => {
-    if (!proUnlocked) {
-      toast.info(t("sim.dairy.unlockHint"));
-      return;
-    }
-    if (phase !== "fermented") {
-      addLog(t("sim.dairy.fermentFirst"));
-      return;
-    }
-    setPhase("cheese");
-    setScore((s) => s + 25);
-    addLog(t("sim.dairy.cheeseMade"));
-    toast.success(t("sim.dairy.cheeseMade"));
-  }, [proUnlocked, phase, addLog, t]);
+  const finishSim = async (m?: ReturnType<typeof calcMetrics>) => {
+    const metrics = m || calcMetrics();
+    const profit = revenue - costs;
+    const qualityBonus = milkQuality >= 80 ? 20 : 0;
+    const healthBonus = cowHealth >= 80 ? 15 : 0;
+    const profitBonus = profit > 0 ? Math.min(30, Math.round(profit / 50)) : 0;
+    const finalScore = 20 + qualityBonus + healthBonus + profitBonus;
 
-  const packageProduct = useCallback(async () => {
-    if (!proUnlocked) {
-      toast.info(t("sim.dairy.unlockHint"));
-      return;
-    }
-    if (phase !== "cheese" && phase !== "fermented") {
-      addLog(t("sim.dairy.packageFirst"));
-      return;
-    }
-    setPhase("packaged");
-    const bonus = 20;
-    setScore((s) => s + bonus);
-    setCompleted(true);
-    addLog(t("sim.dairy.packaged"));
-    toast.success(t("sim.dairy.complete"));
+    setScore(finalScore);
+    setStage("results");
+    playSound("levelUp");
+    toast.success(`Dairy farm complete! Score: ${finalScore}`);
 
     if (user && simulationId) {
-      const finalScore = score + bonus;
       const { data: existing } = await supabase
         .from("simulation_progress")
         .select("id")
@@ -126,8 +160,8 @@ export function DairyFarmSimulation({ simulationId }: Props) {
         .maybeSingle();
 
       const payload = {
-        current_step: 6,
-        decisions: JSON.parse(JSON.stringify({ phase: "packaged", temp })),
+        current_step: 7,
+        decisions: { herdSize, feedQuality, pasteurizationTemp, coolingTarget, productType } as any,
         score: finalScore,
         completed: true,
       };
@@ -138,162 +172,238 @@ export function DairyFarmSimulation({ simulationId }: Props) {
         await supabase.from("simulation_progress").insert([{ user_id: user.id, simulation_id: simulationId, ...payload }]);
       }
     }
-  }, [proUnlocked, phase, score, temp, user, simulationId, addLog, t]);
-
-  const unlockPro = useCallback(() => {
-    setProUnlocked(true);
-    setScore((s) => s + 20);
-    toast.success(t("sim.dairy.proUnlocked"));
-    addLog(t("sim.dairy.proUnlocked"));
-  }, [addLog, t]);
-
-  const reset = () => {
-    setTemp(20);
-    setPhase("raw");
-    setProUnlocked(false);
-    setScore(0);
-    setLog([t("sim.dairy.log.start")]);
-    setCompleted(false);
   };
 
-  const phaseIndex = ["raw", "heated", "cooled", "fermented", "cheese", "packaged"].indexOf(phase);
-  const progressPct = Math.round((phaseIndex / 5) * 100);
-  const isSteaming = temp >= 60;
+  const reset = () => {
+    setStage("setup");
+    setDay(1);
+    setScore(0);
+    setHerdSize(20);
+    setFeedQuality("standard");
+    setPasteurizationTemp(72);
+    setCoolingTarget(4);
+    setProductType("milk");
+    setRevenue(0);
+    setCosts(0);
+    setMilkQuality(80);
+    setCowHealth(85);
+    setDailyYield(0);
+    setEvents([]);
+  };
 
-  // Pot fill color based on phase
-  const fillClass =
-    phase === "fermented" || phase === "cheese"
-      ? "bg-amber-200"
-      : phase === "packaged"
-      ? "bg-green-200"
-      : "bg-white";
+  const profit = revenue - costs;
 
+  if (stage === "results") {
+    return (
+      <div className="space-y-6">
+        <Card className="border-green-500/40 bg-green-500/10">
+          <CardContent className="pt-6 text-center space-y-4">
+            <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
+            <h2 className="text-2xl font-bold">Dairy Farm Complete!</h2>
+            <p className="text-4xl font-bold text-primary">{score} pts</p>
+            <div className="grid grid-cols-2 gap-4 text-sm max-w-md mx-auto">
+              <div className="bg-background rounded-lg p-3">
+                <p className="text-muted-foreground">Revenue</p>
+                <p className="text-lg font-bold text-green-500">${revenue}</p>
+              </div>
+              <div className="bg-background rounded-lg p-3">
+                <p className="text-muted-foreground">Costs</p>
+                <p className="text-lg font-bold text-destructive">${costs}</p>
+              </div>
+              <div className="bg-background rounded-lg p-3">
+                <p className="text-muted-foreground">Profit</p>
+                <p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p>
+              </div>
+              <div className="bg-background rounded-lg p-3">
+                <p className="text-muted-foreground">Milk Quality</p>
+                <p className="text-lg font-bold">{milkQuality}%</p>
+              </div>
+            </div>
+            <Button onClick={reset} variant="outline" className="gap-2">
+              <RotateCcw className="h-4 w-4" /> Play Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (stage === "production") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Milk className="h-6 w-6 text-primary" /> Day {day}/7
+          </h2>
+          <Badge variant="secondary">Score: {score}</Badge>
+        </div>
+
+        <Progress value={(day / 7) * 100} className="h-3" />
+
+        {/* Live Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card>
+            <CardContent className="pt-4 text-center">
+              <DollarSign className="h-5 w-5 mx-auto text-green-500" />
+              <p className="text-lg font-bold text-green-500">${revenue}</p>
+              <p className="text-xs text-muted-foreground">Revenue</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 text-center">
+              <TrendingUp className="h-5 w-5 mx-auto text-destructive" />
+              <p className="text-lg font-bold text-destructive">${costs}</p>
+              <p className="text-xs text-muted-foreground">Costs</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 text-center">
+              <Droplets className="h-5 w-5 mx-auto text-blue-500" />
+              <p className="text-lg font-bold">{dailyYield}L</p>
+              <p className="text-xs text-muted-foreground">Daily Yield</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 text-center">
+              <Heart className="h-5 w-5 mx-auto text-pink-500" />
+              <p className="text-lg font-bold">{cowHealth}%</p>
+              <p className="text-xs text-muted-foreground">Cow Health</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Quality bar */}
+        <Card>
+          <CardContent className="pt-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Milk Quality</span>
+              <span className="font-bold">{milkQuality}%</span>
+            </div>
+            <Progress value={milkQuality} className="h-2" />
+            <div className="flex justify-between text-sm">
+              <span>Profit</span>
+              <span className={`font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Event log */}
+        <Card className="bg-card border-muted">
+          <CardContent className="pt-4">
+            <div className="text-sm space-y-1 text-muted-foreground max-h-28 overflow-y-auto">
+              {events.map((e, i) => (
+                <p key={i}>{e}</p>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Button onClick={advanceDay} className="w-full text-base" size="lg" disabled={day >= 7}>
+          {day < 7 ? `Advance to Day ${day + 1}` : "Finishing..."}
+        </Button>
+      </div>
+    );
+  }
+
+  // Setup stage
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Milk className="h-6 w-6 text-primary" />
-          <h2 className="text-xl font-bold">{t("sim.dairy.title")}</h2>
-        </div>
-        <Badge variant="secondary">{t("sim.dairy.score")}: {score}</Badge>
+        <h2 className="text-xl font-bold flex items-center gap-2">
+          <Milk className="h-6 w-6 text-primary" /> Dairy Farm Setup
+        </h2>
       </div>
+      <p className="text-sm text-muted-foreground">Configure your dairy farm. Your decisions will affect milk yield, quality, costs, and profit over 7 days.</p>
 
-      <p className="text-sm text-muted-foreground">{t("sim.dairy.desc")}</p>
-
-      {/* Pot visualization */}
-      <Card className="border-muted">
-        <CardContent className="pt-6 flex flex-col items-center gap-3">
-          <div className="relative w-40 h-32 bg-muted rounded-b-[2rem] border-4 border-muted-foreground/30 overflow-hidden">
-            {isSteaming && (
-              <div className="absolute -top-6 w-full text-center text-2xl animate-bounce opacity-60">
-                💨
-              </div>
-            )}
-            <div
-              className={`absolute bottom-0 w-full transition-all duration-700 ${fillClass}`}
-              style={{ height: "80%" }}
-            />
+      {/* Herd Size */}
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <div className="flex justify-between">
+            <span className="font-medium">🐄 Herd Size</span>
+            <Badge variant="outline">{herdSize} cows</Badge>
           </div>
-
-          <div className="flex items-center gap-2">
-            <Thermometer className="h-5 w-5 text-destructive" />
-            <span className="text-2xl font-bold font-mono">{temp}°C</span>
-          </div>
-
-          <Progress value={progressPct} className="w-full max-w-xs" />
-          <p className="text-xs text-muted-foreground">
-            {t(`sim.dairy.phase.${phase}`)}
-          </p>
+          <Slider value={[herdSize]} onValueChange={([v]) => setHerdSize(v)} min={10} max={50} step={5} />
+          <p className="text-xs text-muted-foreground">More cows = more yield but higher feed & labor costs</p>
         </CardContent>
       </Card>
 
-      {/* Action buttons */}
-      <div className="grid grid-cols-2 gap-3">
-        <Button
-          variant="outline"
-          onClick={heat}
-          disabled={phase !== "raw" || completed}
-          className="gap-2"
-        >
-          <Flame className="h-4 w-4" />
-          {t("sim.dairy.btn.heat")}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={cool}
-          disabled={phase !== "heated" || completed}
-          className="gap-2"
-        >
-          <Snowflake className="h-4 w-4" />
-          {t("sim.dairy.btn.cool")}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={addStarter}
-          disabled={phase !== "cooled" || completed}
-          className="gap-2"
-        >
-          🥣 {t("sim.dairy.btn.starter")}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={makeCheese}
-          disabled={(phase !== "fermented" || completed) && proUnlocked}
-          className="gap-2 relative"
-        >
-          <Circle className="h-4 w-4" />
-          {t("sim.dairy.btn.cheese")}
-          {!proUnlocked && <Lock className="h-3 w-3 absolute top-1 right-1 text-muted-foreground" />}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={packageProduct}
-          disabled={completed}
-          className="gap-2 relative"
-        >
-          <Package className="h-4 w-4" />
-          {t("sim.dairy.btn.package")}
-          {!proUnlocked && <Lock className="h-3 w-3 absolute top-1 right-1 text-muted-foreground" />}
-        </Button>
-        <Button variant="outline" onClick={reset} className="gap-2">
-          <RotateCcw className="h-4 w-4" />
-          {t("sim.dairy.btn.reset")}
-        </Button>
-      </div>
+      {/* Feed Quality */}
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <span className="font-medium">🌾 Feed Quality</span>
+          <Select value={feedQuality} onValueChange={(v: any) => setFeedQuality(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="economy">Economy — Low cost, lower yield</SelectItem>
+              <SelectItem value="standard">Standard — Balanced</SelectItem>
+              <SelectItem value="premium">Premium — High yield, high cost</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
-      {/* Unlock PRO */}
-      {!proUnlocked && phaseIndex >= 2 && (
-        <Card className="border-primary bg-primary/10">
-          <CardContent className="pt-4 text-center space-y-3">
-            <p className="font-semibold">{t("sim.dairy.unlockTitle")}</p>
-            <p className="text-sm text-muted-foreground">{t("sim.dairy.unlockDesc")}</p>
-            <Button onClick={unlockPro}>{t("sim.dairy.unlockBtn")}</Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Pasteurization Temperature */}
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <div className="flex justify-between">
+            <span className="font-medium flex items-center gap-1">
+              <Thermometer className="h-4 w-4 text-destructive" /> Pasteurization Temp
+            </span>
+            <Badge variant={pasteurizationTemp === 72 ? "default" : "outline"}>{pasteurizationTemp}°C</Badge>
+          </div>
+          <Slider value={[pasteurizationTemp]} onValueChange={([v]) => setPasteurizationTemp(v)} min={60} max={90} step={1} />
+          <p className="text-xs text-muted-foreground">72°C is ideal. Too low = bacteria risk. Too high = nutrient loss.</p>
+        </CardContent>
+      </Card>
 
-      {/* Log */}
-      <Card className="bg-card border-muted">
+      {/* Cooling Target */}
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <div className="flex justify-between">
+            <span className="font-medium">❄️ Cooling Target</span>
+            <Badge variant={coolingTarget === 4 ? "default" : "outline"}>{coolingTarget}°C</Badge>
+          </div>
+          <Slider value={[coolingTarget]} onValueChange={([v]) => setCoolingTarget(v)} min={1} max={10} step={1} />
+          <p className="text-xs text-muted-foreground">4°C is ideal for safe storage</p>
+        </CardContent>
+      </Card>
+
+      {/* Product Type */}
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <span className="font-medium">🧀 Product Type</span>
+          <Select value={productType} onValueChange={(v: any) => setProductType(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="milk">Fresh Milk — $1.2/L, easy processing</SelectItem>
+              <SelectItem value="yogurt">Yogurt — $2.5/L, medium processing</SelectItem>
+              <SelectItem value="cheese">Cheese — $4.0/L, high processing cost</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      {/* Preview metrics */}
+      <Card className="border-primary/30 bg-primary/5">
         <CardContent className="pt-4">
-          <div className="text-sm space-y-1 text-muted-foreground italic">
-            {log.map((line, i) => (
-              <p key={i}>🧑‍🍳 {line}</p>
-            ))}
-          </div>
+          <p className="text-sm font-medium mb-2">📊 Estimated Daily Metrics:</p>
+          {(() => {
+            const m = calcMetrics();
+            return (
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <span>Yield: <strong>{m.yield_}L/day</strong></span>
+                <span>Quality: <strong>{m.quality}%</strong></span>
+                <span>Revenue: <strong className="text-green-500">${m.dailyRevenue}/day</strong></span>
+                <span>Costs: <strong className="text-destructive">${m.dailyCost}/day</strong></span>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
-      {/* Completed */}
-      {completed && (
-        <Card className="border-green-500/40 bg-green-500/10">
-          <CardContent className="pt-4 text-center space-y-2">
-            <CheckCircle2 className="h-8 w-8 mx-auto text-green-500" />
-            <p className="font-semibold">{t("sim.dairy.complete")}</p>
-            <p className="text-sm text-muted-foreground">{t("sim.dairy.finalScore")}: {score}</p>
-          </CardContent>
-        </Card>
-      )}
+      <Button onClick={startProduction} className="w-full text-base" size="lg">
+        🚀 Start 7-Day Production
+      </Button>
     </div>
   );
 }
