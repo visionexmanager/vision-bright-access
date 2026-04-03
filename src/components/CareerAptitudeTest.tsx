@@ -7,7 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
   BrainCircuit, ArrowRight, ArrowLeft, Loader2, RotateCcw,
-  Sparkles, CheckCircle2, Target, History, Trash2, Save, Clock
+  Sparkles, CheckCircle2, Target, History, Trash2, Save, Clock,
+  Share2, Copy, Twitter, Facebook, Link2
 } from "lucide-react";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/academy-chat`;
