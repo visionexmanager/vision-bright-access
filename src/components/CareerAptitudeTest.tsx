@@ -397,16 +397,31 @@ ${summary}
         )}
 
         {/* Results */}
-        {result && !loading && (
+        {!showHistory && result && !loading && (
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="prose prose-sm max-w-none dark:prose-invert text-foreground [&>*:first-child]:mt-0">
               <ReactMarkdown>{result}</ReactMarkdown>
             </div>
-            <div className="flex gap-3 pt-4 border-t border-border">
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-border">
               <Button variant="outline" className="rounded-xl gap-2" onClick={restart}>
                 <RotateCcw className="w-4 h-4" /> إعادة الاختبار
               </Button>
-              <Button className="rounded-xl gap-2" onClick={onClose}>
+              {user && !saved && (
+                <Button
+                  className="rounded-xl gap-2 bg-emerald-500 hover:bg-emerald-600 text-white"
+                  onClick={saveResult}
+                  disabled={saving}
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  حفظ النتائج
+                </Button>
+              )}
+              {saved && (
+                <span className="flex items-center gap-1 text-sm text-emerald-600 font-medium px-3">
+                  <CheckCircle2 className="w-4 h-4" /> تم الحفظ
+                </span>
+              )}
+              <Button variant="outline" className="rounded-xl gap-2" onClick={onClose}>
                 العودة للوحة التحكم
               </Button>
             </div>
