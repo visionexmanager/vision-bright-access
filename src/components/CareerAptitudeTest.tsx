@@ -125,6 +125,7 @@ export default function CareerAptitudeTest({ profile, onClose }: Props) {
   const [pastResults, setPastResults] = useState<PastResult[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
   const progress = result ? 100 : ((currentQ) / questions.length) * 100;
   const currentQuestion = questions[currentQ];
