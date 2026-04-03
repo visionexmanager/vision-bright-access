@@ -381,6 +381,7 @@ const en: Record<string, string> = {
   "ai.rateLimitTitle": "Rate limit reached",
   "ai.rateLimitDescription": "Too many requests. Please wait a moment before trying again.",
   "bsim.badge": "Interactive Learning",
+  "bsim.progress": "Overall Progress",
   "bsim.title": "Business Simulator",
   "bsim.description": "Learn Business by Playing. Step into realistic business simulations where learning feels like a game. Build and run projects step by step, make decisions, and see the results instantly. By the end, you won't just understand the theory — you'll have practiced the full journey of building and managing a project.",
   "bsim.bannerDesc": "Learn entrepreneurship through interactive business simulations",
