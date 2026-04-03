@@ -313,7 +313,7 @@ ${summary}
             </Button>
           </div>
         )}
-        {!result && !loading && (
+        {!showHistory && !result && !loading && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div className="flex items-start gap-3">
               <Target className="w-6 h-6 text-primary mt-1 shrink-0" />
