@@ -193,9 +193,12 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
 
   const nextDialogue = () => {
     if (!scenario) return;
-    const next = dialogueIndex + 1;
     setFeedback(null);
     setAnswered(false);
+
+    // If current line is NPC, we showed choices from next line, so advance by 2
+    const step = currentLine?.speaker === "npc" ? 2 : 1;
+    const next = dialogueIndex + step;
 
     if (next >= scenario.dialogues.length) {
       setCompletedScenarios(prev => new Set(prev).add(scenario.id));
@@ -206,20 +209,12 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
       return;
     }
 
-    // If next line is NPC, add to log and advance
+    // Add NPC line to conversation log if next is NPC
     const nextLine = scenario.dialogues[next];
     if (nextLine.speaker === "npc") {
       setConversationLog(prev => [...prev, { speaker: "NPC", text: nextLine.text }]);
-      setDialogueIndex(next + 1 < scenario.dialogues.length ? next + 1 : next);
-      if (next + 1 >= scenario.dialogues.length) {
-        setCompletedScenarios(prev => new Set(prev).add(scenario.id));
-        setStage("map");
-        setActiveScenario(null);
-        playSound("levelUp");
-      }
-    } else {
-      setDialogueIndex(next);
     }
+    setDialogueIndex(next);
   };
 
   const saveAndFinish = async () => {
