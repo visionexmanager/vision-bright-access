@@ -302,20 +302,37 @@ export default function Content() {
                   ) : (
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {filteredSims.map((sim) => (
+                  (() => {
+                    const prog = progressMap[sim.id];
+                    const done = prog?.completed;
+                    const inProgress = prog && !done;
+                    return (
                   <Card
                     key={sim.id}
-                    className="group flex flex-col overflow-hidden border-2 border-transparent transition-all hover:border-primary/20 hover:shadow-xl hover:-translate-y-1"
+                    className={`group flex flex-col overflow-hidden border-2 transition-all hover:shadow-xl hover:-translate-y-1 ${done ? "border-green-500/30 bg-green-500/5" : inProgress ? "border-yellow-500/30 bg-yellow-500/5" : "border-transparent hover:border-primary/20"}`}
                   >
                     {/* Colored top accent bar */}
-                    <div className="h-1.5 bg-gradient-to-r from-primary via-accent to-primary/60" />
+                    <div className={`h-1.5 ${done ? "bg-gradient-to-r from-green-500 to-green-400" : inProgress ? "bg-gradient-to-r from-yellow-500 to-yellow-400" : "bg-gradient-to-r from-primary via-accent to-primary/60"}`} />
                     <CardContent className="flex flex-1 flex-col gap-4 p-6">
                       <div className="flex items-start justify-between">
-                        <div className="rounded-xl bg-gradient-to-br from-primary/20 to-accent/10 p-3">
-                          <BarChart3 className="h-7 w-7 text-primary" />
+                        <div className={`rounded-xl p-3 ${done ? "bg-green-500/20" : "bg-gradient-to-br from-primary/20 to-accent/10"}`}>
+                          {done ? <CheckCircle className="h-7 w-7 text-green-500" /> : <BarChart3 className="h-7 w-7 text-primary" />}
                         </div>
-                        <Badge className="text-sm font-bold bg-primary/10 text-primary border-primary/20">
-                          +{sim.points} pts
-                        </Badge>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge className="text-sm font-bold bg-primary/10 text-primary border-primary/20">
+                            +{sim.points} pts
+                          </Badge>
+                          {done && (
+                            <Badge variant="outline" className="border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400 text-xs">
+                              ✅ {prog.score} pts
+                            </Badge>
+                          )}
+                          {inProgress && (
+                            <Badge variant="outline" className="border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 text-xs">
+                              ⏳ {prog.score} pts
+                            </Badge>
+                          )}
+                        </div>
                       </div>
 
                       <h3 className="text-lg font-bold leading-tight">{sim.title}</h3>
@@ -339,17 +356,20 @@ export default function Content() {
                       <div className="mt-auto pt-2">
                         <Button
                           asChild
+                          variant={done ? "outline" : "default"}
                           className="w-full text-base font-semibold group-hover:gap-3 transition-all"
                         >
                           <Link to={`/business-simulator/${sim.slug}`}>
                             <Rocket className="h-4 w-4" />
-                            {t("bsim.start")}
+                            {done ? t("summary.replay") : inProgress ? t("summary.continue") ?? t("bsim.start") : t("bsim.start")}
                             <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </Link>
                         </Button>
                       </div>
                     </CardContent>
                   </Card>
+                    );
+                  })()
                 ))}
               </div>
             )}
