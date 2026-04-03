@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
+import { AchievementsPanel } from "@/components/AchievementsPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
@@ -269,6 +270,11 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Achievements */}
+        <div className="mb-8">
+          <AchievementsPanel />
+        </div>
 
         {/* Points history */}
         <Card>

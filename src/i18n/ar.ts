@@ -959,6 +959,18 @@ const ar: Record<string, string> = {
   "sim.wood.partialTasks": "جلسة جيدة! أكمل جميع المهام للحصول على مكافأة.",
   "sim.progress.welcomeBack": "🔄 مرحباً بعودتك! تم استعادة تقدمك — النقاط: {score}",
   "sim.progress.alreadyCompleted": "🔄 مرحباً بعودتك! لقد أكملت هذه المحاكاة سابقاً.",
+  "ach.title": "الإنجازات",
+  "ach.subtitle": "أكملت {count} محاكاة حتى الآن",
+  "ach.firstSim": "الخطوة الأولى",
+  "ach.firstSimDesc": "أكمل أول محاكاة",
+  "ach.sim5": "نجم صاعد",
+  "ach.sim5Desc": "أكمل 5 محاكاة",
+  "ach.sim10": "البطل",
+  "ach.sim10Desc": "أكمل 10 محاكاة",
+  "ach.sim15": "لاعب ماسي",
+  "ach.sim15Desc": "أكمل 15 محاكاة",
+  "ach.simAll": "الأسطورة",
+  "ach.simAllDesc": "أكمل جميع المحاكاة العشرين",
 };
 
 export default ar;
