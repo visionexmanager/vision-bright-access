@@ -1221,6 +1221,9 @@ const ar: Record<string, string> = {
   "econ.idea4": "تطبيق طب عن بُعد",
   "econ.idea5": "حلول الطاقة الشمسية",
   "econ.idea6": "متجر إلكتروني",
+  "econ.exportPdf": "تصدير كملف PDF",
+  "econ.pdfExported": "تم تصدير التقرير بنجاح!",
+  "econ.feasibilityReport": "تقرير دراسة الجدوى",
 };
 
 export default ar;

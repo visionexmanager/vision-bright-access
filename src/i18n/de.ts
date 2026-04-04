@@ -1156,6 +1156,7 @@ const de: Record<string, string> = {
   "econ.healthSector": "Gesundheit", "econ.energySector": "Energie", "econ.retailSector": "Einzelhandel",
   "econ.idea1": "KI-gestützte SaaS-Plattform", "econ.idea2": "Smarte Cloud-Küche", "econ.idea3": "Online-Lernakademie",
   "econ.idea4": "Telemedizin-App", "econ.idea5": "Solarenergie-Lösungen", "econ.idea6": "E-Commerce-Marktplatz",
+  "econ.exportPdf": "Als PDF exportieren", "econ.pdfExported": "Bericht erfolgreich exportiert!", "econ.feasibilityReport": "Machbarkeitsstudie-Bericht",
 };
 
 export default de;

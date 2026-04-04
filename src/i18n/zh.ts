@@ -1156,6 +1156,7 @@ const zh: Record<string, string> = {
   "econ.healthSector": "医疗", "econ.energySector": "能源", "econ.retailSector": "零售",
   "econ.idea1": "AI驱动的SaaS平台", "econ.idea2": "智能云厨房", "econ.idea3": "在线学习学院",
   "econ.idea4": "远程医疗应用", "econ.idea5": "太阳能解决方案", "econ.idea6": "电商平台",
+  "econ.exportPdf": "导出为PDF", "econ.pdfExported": "报告导出成功！", "econ.feasibilityReport": "可行性研究报告",
 };
 
 export default zh;
