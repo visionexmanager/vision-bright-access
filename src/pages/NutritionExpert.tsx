@@ -354,6 +354,71 @@ export default function NutritionExpert() {
                     </Button>
                   </CardContent>
                 </Card>
+
+                {/* Daily calorie tracker */}
+                <Card className="rounded-[30px] shadow-xl">
+                  <CardContent className="p-6 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Flame className="h-5 w-5 text-orange-500" />
+                      <h3 className="text-lg font-black text-foreground">{t("nutrition.dailyLog")}</h3>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm font-bold">
+                        <span className="text-muted-foreground">{totalCalories} / {calorieGoal} {t("nutrition.kcal")}</span>
+                        <span className="text-emerald-600">{Math.round(calorieProgress)}%</span>
+                      </div>
+                      <Progress value={calorieProgress} className="h-3 rounded-full" />
+                    </div>
+
+                    {/* Quick add */}
+                    {user && (
+                      <div className="space-y-2 pt-2 border-t">
+                        <Input
+                          value={manualMeal.name}
+                          onChange={(e) => setManualMeal({ ...manualMeal, name: e.target.value })}
+                          placeholder={t("nutrition.mealNamePlaceholder")}
+                          className="rounded-xl text-sm h-9"
+                        />
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            value={manualMeal.calories}
+                            onChange={(e) => setManualMeal({ ...manualMeal, calories: e.target.value })}
+                            placeholder={t("nutrition.kcal")}
+                            className="rounded-xl text-sm h-9 w-24"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={addManualMeal}
+                            disabled={savingLog}
+                            className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1 flex-1"
+                          >
+                            <Plus className="h-4 w-4" /> {t("nutrition.addMeal")}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Log list */}
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {mealLogs.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-2">{t("nutrition.noMealsYet")}</p>
+                      )}
+                      {mealLogs.map((log) => (
+                        <div key={log.id} className="flex items-center justify-between bg-muted/50 p-2 rounded-xl text-sm">
+                          <div>
+                            <p className="font-bold text-foreground">{log.meal_name}</p>
+                            <p className="text-xs text-muted-foreground">{log.calories} {t("nutrition.kcal")}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteMealLog(log.id)}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Main - Diet plan + photo analysis */}
