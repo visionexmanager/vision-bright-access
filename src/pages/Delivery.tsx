@@ -277,7 +277,7 @@ export default function Delivery() {
                       </div>
                     </div>
 
-                      onClick={startService}
+                      <Button
                       disabled={!location.from || !location.to}
                       className="w-full py-6 h-auto rounded-[30px] font-black text-2xl shadow-2xl flex items-center justify-center gap-4"
                       size="lg"
