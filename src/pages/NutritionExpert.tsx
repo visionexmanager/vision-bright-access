@@ -217,6 +217,18 @@ export default function NutritionExpert() {
   return (
     <Layout>
       <div className="min-h-screen pb-20">
+        {/* Header */}
+        <header className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 text-white shadow-2xl sticky top-0 z-40 rounded-b-[40px]">
+          <div className="max-w-6xl mx-auto flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-white/20 rounded-2xl">
+                <Heart size={28} />
+              </div>
+              <h1 className="text-2xl font-black italic tracking-tighter">
+                VISIONEX <span className="text-emerald-200 text-sm">HEALTH</span>
+              </h1>
+            </div>
+            <Button
               variant="ghost"
               size="icon"
               className="text-white hover:bg-white/20 rounded-2xl h-12 w-12"
