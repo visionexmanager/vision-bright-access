@@ -23,7 +23,7 @@ const speak = (text: string, lang: string) => {
 };
 
 type ServiceType = "ride" | "package";
-type Status = "idle" | "searching" | "tracking";
+type Status = "idle" | "searching" | "tracking" | "completed";
 type SelectionStep = "pickup" | "destination";
 
 export default function Delivery() {
