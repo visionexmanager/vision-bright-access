@@ -838,6 +838,9 @@ export default function NutritionExpert() {
                   </CardContent>
                 </Card>
 
+                {/* Meal Reminders */}
+                <MealReminders />
+
                 {/* Weekly Report */}
                 <WeeklyCalorieReport calorieGoal={calorieGoal} />
               </div>
