@@ -110,6 +110,13 @@ export default function Delivery() {
                 {t("delivery.packageService")}
               </button>
             </div>
+            <Link
+              to="/services/trip-history"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
+            >
+              <History className="w-4 h-4" />
+              {t("delivery.tripHistory")}
+            </Link>
           </div>
         </header>
 
