@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
+import WeeklyCalorieReport from "@/components/WeeklyCalorieReport";
 
 const speak = (text: string, lang: string) => {
   if ("speechSynthesis" in window) {
