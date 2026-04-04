@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Zap, Play, Pause, RotateCcw, Coffee, Settings2 } from "lucide-react";
+import { Zap, Play, Pause, RotateCcw, Coffee, Settings2, Bell, BellOff } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 type Mode = "focus" | "shortBreak" | "longBreak";
@@ -56,6 +56,17 @@ function playAlarm() {
   } catch { /* silent fallback */ }
 }
 
+function getNotificationPermission(): boolean {
+  return typeof Notification !== "undefined" && Notification.permission === "granted";
+}
+
+function sendNotification(title: string, body: string) {
+  if (!getNotificationPermission()) return;
+  try {
+    new Notification(title, { body, icon: "/placeholder.svg" });
+  } catch { /* silent */ }
+}
+
 export default function PomodoroTimer() {
   const { t } = useLanguage();
   const [durations, setDurations] = useState<Record<Mode, number>>(loadCustomDurations);
@@ -65,6 +76,9 @@ export default function PomodoroTimer() {
   const [sessions, setSessions] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [tempDurations, setTempDurations] = useState({ ...durations });
+  const [notifEnabled, setNotifEnabled] = useState(getNotificationPermission);
+  const notifEnabledRef = useRef(notifEnabled);
+  notifEnabledRef.current = notifEnabled;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const totalSeconds = durations[mode] * 60;
@@ -88,6 +102,10 @@ export default function PomodoroTimer() {
           clearInterval(intervalRef.current!);
           setRunning(false);
           playAlarm();
+          const label = mode === "focus" ? t("pomodoro.focus") : mode === "shortBreak" ? t("pomodoro.shortBreak") : t("pomodoro.longBreak");
+          if (notifEnabledRef.current) {
+            sendNotification(t("pomodoro.notifTitle"), t("pomodoro.notifBody").replace("{mode}", label));
+          }
           if (mode === "focus") {
             setSessions(s => s + 1);
           }
@@ -123,6 +141,18 @@ export default function PomodoroTimer() {
     setTempDurations({ ...DEFAULT_DURATIONS });
   };
 
+  const toggleNotifications = async () => {
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "granted") {
+      setNotifEnabled(prev => !prev);
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    setNotifEnabled(perm === "granted");
+  };
+
+  const notifSupported = typeof Notification !== "undefined";
+
   return (
     <div className="bg-card p-8 rounded-3xl shadow-lg border border-border flex flex-col items-center text-center">
       <div className="flex items-center justify-between w-full mb-4">
@@ -130,13 +160,25 @@ export default function PomodoroTimer() {
           {isFocus ? <Zap className="w-4 h-4 text-orange-500" /> : <Coffee className="w-4 h-4 text-emerald-500" />}
           {t(LABEL_KEYS[mode])}
         </h3>
-        <button
-          onClick={() => { setShowSettings(!showSettings); setTempDurations({ ...durations }); }}
-          className={`p-1.5 rounded-lg transition-colors ${showSettings ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
-          aria-label={t("pomodoro.settings")}
-        >
-          <Settings2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {notifSupported && (
+            <button
+              onClick={toggleNotifications}
+              className={`p-1.5 rounded-lg transition-colors ${notifEnabled ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+              aria-label={t("pomodoro.notifToggle")}
+              title={notifEnabled ? t("pomodoro.notifOn") : t("pomodoro.notifOff")}
+            >
+              {notifEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+            </button>
+          )}
+          <button
+            onClick={() => { setShowSettings(!showSettings); setTempDurations({ ...durations }); }}
+            className={`p-1.5 rounded-lg transition-colors ${showSettings ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+            aria-label={t("pomodoro.settings")}
+          >
+            <Settings2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Settings Panel */}

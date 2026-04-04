@@ -1046,6 +1046,11 @@ const ru: Record<string, string> = {
   "pomodoro.min": "мин",
   "pomodoro.apply": "Применить",
   "pomodoro.defaults": "По умолчанию",
+  "pomodoro.notifTitle": "⏰ Таймер Помодоро",
+  "pomodoro.notifBody": "{mode} завершён!",
+  "pomodoro.notifToggle": "Вкл/выкл уведомления",
+  "pomodoro.notifOn": "Уведомления включены",
+  "pomodoro.notifOff": "Уведомления отключены",
 };
 
 export default ru;

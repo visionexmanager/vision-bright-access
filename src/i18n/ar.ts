@@ -1061,6 +1061,11 @@ const ar: Record<string, string> = {
   "pomodoro.min": "د",
   "pomodoro.apply": "تطبيق",
   "pomodoro.defaults": "الافتراضي",
+  "pomodoro.notifTitle": "⏰ مؤقت البومودورو",
+  "pomodoro.notifBody": "انتهى {mode}!",
+  "pomodoro.notifToggle": "تفعيل/إيقاف الإشعارات",
+  "pomodoro.notifOn": "الإشعارات مفعلة",
+  "pomodoro.notifOff": "الإشعارات معطلة",
 };
 
 export default ar;
