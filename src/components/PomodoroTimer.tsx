@@ -137,6 +137,18 @@ export default function PomodoroTimer() {
     setTempDurations({ ...DEFAULT_DURATIONS });
   };
 
+  const toggleNotifications = async () => {
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "granted") {
+      setNotifEnabled(prev => !prev);
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    setNotifEnabled(perm === "granted");
+  };
+
+  const notifSupported = typeof Notification !== "undefined";
+
   return (
     <div className="bg-card p-8 rounded-3xl shadow-lg border border-border flex flex-col items-center text-center">
       <div className="flex items-center justify-between w-full mb-4">
