@@ -1271,6 +1271,11 @@ const en: Record<string, string> = {
   "nutrition.analysisResult": "This meal contains approximately 450 calories and is well balanced.",
   "nutrition.serviceTitle": "Nutrition Expert",
   "nutrition.serviceDesc": "AI-powered nutrition clinic — personalized diet plans and instant meal analysis",
+  "nutrition.invalidImage": "Please select a valid image file",
+  "nutrition.imageTooLarge": "Image must be less than 5MB",
+  "nutrition.analysisError": "Failed to analyze the meal. Please try again.",
+  "nutrition.ingredientsLabel": "Ingredients",
+  "nutrition.healthTip": "Health Tip",
 };
 
 export default en;
