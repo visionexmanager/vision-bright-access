@@ -620,6 +620,9 @@ export default function NutritionExpert() {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Weekly Report */}
+                <WeeklyCalorieReport calorieGoal={calorieGoal} />
               </div>
             </div>
           )}
