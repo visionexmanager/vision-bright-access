@@ -1282,6 +1282,10 @@ const ar: Record<string, string> = {
   "nutrition.noMealsYet": "لا توجد وجبات مسجلة اليوم",
   "nutrition.mealSaved": "تم حفظ الوجبة في السجل!",
   "nutrition.saveToLog": "حفظ في السجل اليومي",
+  "nutrition.generatePlan": "إنشاء خطة بالذكاء الاصطناعي",
+  "nutrition.generating": "جاري الإنشاء...",
+  "nutrition.planGenerated": "خطتك الغذائية المخصصة جاهزة!",
+  "nutrition.totalCalories": "إجمالي السعرات",
 };
 
 export default ar;
