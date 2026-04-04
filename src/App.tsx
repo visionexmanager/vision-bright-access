@@ -37,6 +37,7 @@ const Delivery = lazy(() => import("./pages/Delivery"));
 const TripHistory = lazy(() => import("./pages/TripHistory"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const SharedTrip = lazy(() => import("./pages/SharedTrip"));
+const BusinessEconomy = lazy(() => import("./pages/BusinessEconomy"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
