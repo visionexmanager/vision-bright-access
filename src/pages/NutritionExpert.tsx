@@ -16,7 +16,7 @@ import {
   Utensils, Apple, Scale, Activity, Calculator,
   Camera, Volume2, UserPlus, ArrowLeft, Heart,
   Salad, Beef, Egg, Loader2, Star, Plus, Trash2,
-  BookOpen, Flame
+  BookOpen, Flame, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
