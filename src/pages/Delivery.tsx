@@ -37,6 +37,7 @@ export default function Delivery() {
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
   const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
   const [selectionStep, setSelectionStep] = useState<SelectionStep>("pickup");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
 
   // Haversine distance in km
   const tripInfo = useMemo(() => {
