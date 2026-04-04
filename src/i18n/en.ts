@@ -1121,6 +1121,9 @@ const en: Record<string, string> = {
   "tripHistory.bookNow": "Book a Trip",
   "tripHistory.newTrip": "New Trip",
   "tripHistory.loginRequired": "Please log in to view your trip history",
+  "delivery.distance": "Distance",
+  "delivery.baseFare": "Base fare",
+  "delivery.perKm": "Per km",
 };
 
 export default en;

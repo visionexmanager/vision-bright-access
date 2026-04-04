@@ -1121,6 +1121,9 @@ const ar: Record<string, string> = {
   "tripHistory.bookNow": "احجز رحلة",
   "tripHistory.newTrip": "رحلة جديدة",
   "tripHistory.loginRequired": "يرجى تسجيل الدخول لعرض سجل رحلاتك",
+  "delivery.distance": "المسافة",
+  "delivery.baseFare": "الأجرة الأساسية",
+  "delivery.perKm": "لكل كم",
 };
 
 export default ar;

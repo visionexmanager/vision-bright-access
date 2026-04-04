@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,24 @@ export default function Delivery() {
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
   const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
   const [selectionStep, setSelectionStep] = useState<SelectionStep>("pickup");
+
+  // Haversine distance in km
+  const tripInfo = useMemo(() => {
+    if (!pickupCoords || !destCoords) return null;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const [lat1, lon1] = pickupCoords;
+    const [lat2, lon2] = destCoords;
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const baseFare = serviceType === "ride" ? 2.0 : 3.0;
+    const perKm = serviceType === "ride" ? 1.5 : 2.0;
+    const price = Math.max(baseFare + dist * perKm, baseFare);
+    const minutes = Math.max(Math.round(dist * 3), 5); // ~3 min/km avg
+    return { distance: dist, price, minutes };
+  }, [pickupCoords, destCoords, serviceType]);
 
   const startService = () => {
     setStatus("searching");
@@ -193,12 +211,28 @@ export default function Delivery() {
                       </div>
                     </div>
 
-                    <div className="bg-primary/10 p-6 rounded-3xl flex justify-between items-center border border-primary/20">
-                      <div className="flex items-center gap-4 text-foreground">
-                        <Clock className="text-primary" />
-                        <span className="font-black">{t("delivery.estimatedTime")}: 25 {t("delivery.minutes")}</span>
+                    <div className="bg-primary/10 p-6 rounded-3xl border border-primary/20 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4 text-foreground">
+                          <Clock className="text-primary" />
+                          <span className="font-black">
+                            {t("delivery.estimatedTime")}: {tripInfo ? tripInfo.minutes : "--"} {t("delivery.minutes")}
+                          </span>
+                        </div>
+                        <div className="text-2xl font-black text-foreground tracking-tighter">
+                          {tripInfo ? `${tripInfo.price.toFixed(2)} $` : "-- $"}
+                        </div>
                       </div>
-                      <div className="text-2xl font-black text-foreground tracking-tighter">12.00 $</div>
+                      {tripInfo && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <MapPin className="h-4 w-4 text-primary" />
+                          <span>{t("delivery.distance")}: {tripInfo.distance.toFixed(1)} km</span>
+                          <span className="mx-1">•</span>
+                          <span>{t("delivery.baseFare")}: {serviceType === "ride" ? "2.00" : "3.00"} $</span>
+                          <span className="mx-1">•</span>
+                          <span>{t("delivery.perKm")}: {serviceType === "ride" ? "1.50" : "2.00"} $/km</span>
+                        </div>
+                      )}
                     </div>
 
                     <Button

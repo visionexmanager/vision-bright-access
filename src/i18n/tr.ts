@@ -1106,6 +1106,9 @@ const tr: Record<string, string> = {
   "tripHistory.bookNow": "Yolculuk Ayırt",
   "tripHistory.newTrip": "Yeni Yolculuk",
   "tripHistory.loginRequired": "Yolculuk geçmişinizi görmek için giriş yapın",
+  "delivery.distance": "Mesafe",
+  "delivery.baseFare": "Temel ücret",
+  "delivery.perKm": "Km başına",
 };
 
 export default tr;
