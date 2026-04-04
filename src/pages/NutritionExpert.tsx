@@ -311,17 +311,68 @@ export default function NutritionExpert() {
                 {/* Photo analysis */}
                 <Card className="rounded-[30px] shadow-xl border-dashed border-2 border-emerald-300 dark:border-emerald-700">
                   <CardContent className="p-8 text-center space-y-4">
-                    <Camera className="h-12 w-12 text-emerald-500 mx-auto" />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleFileSelect}
+                    />
+
+                    {previewUrl && (
+                      <img
+                        src={previewUrl}
+                        alt="Meal preview"
+                        className="w-full max-w-xs mx-auto rounded-2xl object-cover aspect-square border-2 border-emerald-300"
+                      />
+                    )}
+
+                    {!previewUrl && <Camera className="h-12 w-12 text-emerald-500 mx-auto" />}
+
                     <h3 className="text-xl font-black text-foreground">{t("nutrition.photoTitle")}</h3>
                     <p className="text-muted-foreground">{t("nutrition.photoDesc")}</p>
+
                     <Button
-                      onClick={analyzePhoto}
+                      onClick={() => fileInputRef.current?.click()}
                       disabled={isAnalyzing}
                       className="rounded-2xl font-black py-5 h-auto px-8 bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
                     >
-                      <Camera className="h-5 w-5" />
-                      {isAnalyzing ? t("nutrition.analyzing") : t("nutrition.uploadPhoto")}
+                      {isAnalyzing ? (
+                        <><Loader2 className="h-5 w-5 animate-spin" /> {t("nutrition.analyzing")}</>
+                      ) : (
+                        <><Camera className="h-5 w-5" /> {t("nutrition.uploadPhoto")}</>
+                      )}
                     </Button>
+
+                    {/* Analysis result */}
+                    {mealResult && (
+                      <div className="text-start space-y-4 mt-4 p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-lg font-black text-foreground">{mealResult.name}</h4>
+                          <div className="flex items-center gap-1 text-sm font-bold text-orange-500 bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-lg">
+                            <Star className="h-4 w-4" fill="currentColor" />
+                            {mealResult.rating}/10
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-card p-3 rounded-xl">
+                            <p className="text-xs font-black text-muted-foreground uppercase">{t("nutrition.caloriesLabel")}</p>
+                            <p className="text-xl font-black text-emerald-600">{mealResult.calories} <span className="text-sm">{t("nutrition.kcal")}</span></p>
+                          </div>
+                          <div className="bg-card p-3 rounded-xl">
+                            <p className="text-xs font-black text-muted-foreground uppercase">{t("nutrition.ingredientsLabel")}</p>
+                            <p className="text-sm font-bold text-foreground">{mealResult.ingredients.join("، ")}</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-card p-3 rounded-xl">
+                          <p className="text-xs font-black text-muted-foreground uppercase">{t("nutrition.healthTip")}</p>
+                          <p className="text-sm text-foreground mt-1">{mealResult.tip}</p>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
