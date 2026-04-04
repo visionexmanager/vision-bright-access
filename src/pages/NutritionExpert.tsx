@@ -571,15 +571,28 @@ export default function NutritionExpert() {
                           </p>
                         </div>
                       </div>
-                      <Button
-                        onClick={generateDietPlan}
-                        disabled={generatingPlan}
-                        size="sm"
-                        className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
-                      >
-                        {generatingPlan ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                        {generatingPlan ? t("nutrition.generating") : t("nutrition.generatePlan")}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          onClick={generateDietPlan}
+                          disabled={generatingPlan}
+                          size="sm"
+                          className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                        >
+                          {generatingPlan ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                          {generatingPlan ? t("nutrition.generating") : t("nutrition.generatePlan")}
+                        </Button>
+                        {dietPlan && (
+                          <Button
+                            onClick={exportPlanAsPdf}
+                            size="sm"
+                            variant="outline"
+                            className="rounded-xl gap-1"
+                          >
+                            <Download className="h-4 w-4" />
+                            PDF
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     {/* AI-generated plan */}
