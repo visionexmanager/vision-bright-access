@@ -1305,6 +1305,7 @@ const ar: Record<string, string> = {
   "nutrition.thu": "خمي",
   "nutrition.fri": "جمع",
   "nutrition.sat": "سبت",
+  "nutrition.pdfExported": "تم تصدير الخطة الغذائية كملف PDF!",
 };
 
 export default ar;

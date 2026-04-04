@@ -1164,6 +1164,7 @@ const zh: Record<string, string> = {
   "nutrition.generatePlan": "AI生成计划", "nutrition.generating": "生成中...", "nutrition.planGenerated": "你的个性化计划已就绪！", "nutrition.totalCalories": "总热量",
   "nutrition.weeklyReport": "每周热量报告", "nutrition.weeklyReportDesc": "追踪过去7天的热量摄入", "nutrition.totalWeekCal": "周总计", "nutrition.dailyAvg": "日均", "nutrition.trend": "趋势", "nutrition.onTarget": "达标", "nutrition.goalLine": "每日目标", "nutrition.totalMeals": "总餐数", "nutrition.withinGoal": "达标", "nutrition.overGoal": "超标", "nutrition.noData": "无数据", "nutrition.loading": "加载中...",
   "nutrition.sun": "日", "nutrition.mon": "一", "nutrition.tue": "二", "nutrition.wed": "三", "nutrition.thu": "四", "nutrition.fri": "五", "nutrition.sat": "六",
+  "nutrition.pdfExported": "饮食计划已导出为PDF！",
 };
 
 export default zh;

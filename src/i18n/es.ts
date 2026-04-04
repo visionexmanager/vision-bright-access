@@ -1164,6 +1164,7 @@ const es: Record<string, string> = {
   "nutrition.generatePlan": "Generar plan IA", "nutrition.generating": "Generando...", "nutrition.planGenerated": "¡Tu plan personalizado está listo!", "nutrition.totalCalories": "Calorías totales",
   "nutrition.weeklyReport": "Informe semanal de calorías", "nutrition.weeklyReportDesc": "Seguimiento de calorías de los últimos 7 días", "nutrition.totalWeekCal": "Total semanal", "nutrition.dailyAvg": "Promedio diario", "nutrition.trend": "Tendencia", "nutrition.onTarget": "En meta", "nutrition.goalLine": "Meta diaria", "nutrition.totalMeals": "Total comidas", "nutrition.withinGoal": "Dentro de meta", "nutrition.overGoal": "Sobre meta", "nutrition.noData": "Sin datos", "nutrition.loading": "Cargando...",
   "nutrition.sun": "Dom", "nutrition.mon": "Lun", "nutrition.tue": "Mar", "nutrition.wed": "Mié", "nutrition.thu": "Jue", "nutrition.fri": "Vie", "nutrition.sat": "Sáb",
+  "nutrition.pdfExported": "¡Plan exportado como PDF!",
 };
 
 export default es;
