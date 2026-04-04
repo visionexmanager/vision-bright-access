@@ -1157,6 +1157,7 @@ const es: Record<string, string> = {
   "econ.idea1": "Plataforma SaaS con IA", "econ.idea2": "Cocina cloud inteligente", "econ.idea3": "Academia de aprendizaje en línea",
   "econ.idea4": "App de telemedicina", "econ.idea5": "Soluciones de energía solar", "econ.idea6": "Marketplace e-commerce",
   "econ.exportPdf": "Exportar como PDF", "econ.pdfExported": "¡Informe exportado con éxito!", "econ.feasibilityReport": "Informe de estudio de viabilidad",
+  "delivery.schedule.title": "Horario del viaje", "delivery.schedule.now": "Ahora", "delivery.schedule.later": "Programar", "delivery.schedule.pickDate": "Elegir fecha", "delivery.schedule.confirm": "Programar viaje", "delivery.schedule.confirmed": "¡Viaje programado con éxito!",
 };
 
 export default es;

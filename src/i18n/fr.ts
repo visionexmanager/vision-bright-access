@@ -1209,6 +1209,12 @@ const fr: Record<string, string> = {
   "econ.exportPdf": "Exporter en PDF",
   "econ.pdfExported": "Rapport exporté avec succès !",
   "econ.feasibilityReport": "Rapport d'étude de faisabilité",
+  "delivery.schedule.title": "Horaire du trajet",
+  "delivery.schedule.now": "Maintenant",
+  "delivery.schedule.later": "Planifier",
+  "delivery.schedule.pickDate": "Choisir une date",
+  "delivery.schedule.confirm": "Planifier le trajet",
+  "delivery.schedule.confirmed": "Trajet planifié avec succès !",
 };
 
 export default fr;

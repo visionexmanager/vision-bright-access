@@ -1157,6 +1157,7 @@ const ru: Record<string, string> = {
   "econ.idea1": "SaaS-платформа на базе ИИ", "econ.idea2": "Умная облачная кухня", "econ.idea3": "Онлайн-академия обучения",
   "econ.idea4": "Приложение телемедицины", "econ.idea5": "Решения солнечной энергии", "econ.idea6": "E-Commerce маркетплейс",
   "econ.exportPdf": "Экспорт в PDF", "econ.pdfExported": "Отчёт успешно экспортирован!", "econ.feasibilityReport": "Отчёт о технико-экономическом обосновании",
+  "delivery.schedule.title": "Время поездки", "delivery.schedule.now": "Сейчас", "delivery.schedule.later": "Запланировать", "delivery.schedule.pickDate": "Выберите дату", "delivery.schedule.confirm": "Запланировать поездку", "delivery.schedule.confirmed": "Поездка успешно запланирована!",
 };
 
 export default ru;
