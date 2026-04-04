@@ -23,8 +23,24 @@ export default function WeeklyCalorieReport({ calorieGoal }: WeeklyCalorieReport
   const [loading, setLoading] = useState(true);
 
   const fetchWeekData = useCallback(async () => {
-    if (!user) return;
     setLoading(true);
+    if (!user) {
+      // Build empty week data for non-logged-in users
+      const now = new Date();
+      const dayNames = [
+        t("nutrition.sun"), t("nutrition.mon"), t("nutrition.tue"),
+        t("nutrition.wed"), t("nutrition.thu"), t("nutrition.fri"), t("nutrition.sat"),
+      ];
+      const days: DayData[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        days.push({ day: dayNames[d.getDay()], calories: 0, meals: 0 });
+      }
+      setWeekData(days);
+      setLoading(false);
+      return;
+    }
 
     const now = new Date();
     const startOfWeek = new Date(now);
@@ -80,8 +96,6 @@ export default function WeeklyCalorieReport({ calorieGoal }: WeeklyCalorieReport
   const trend = weekData.length >= 2
     ? weekData[weekData.length - 1].calories - weekData[0].calories
     : 0;
-
-  if (!user) return null;
 
   return (
     <Card className="rounded-[30px] shadow-xl overflow-hidden">
