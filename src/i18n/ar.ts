@@ -1127,6 +1127,11 @@ const ar: Record<string, string> = {
   "delivery.paymentMethod": "طريقة الدفع",
   "delivery.cash": "نقداً",
   "delivery.card": "بطاقة ائتمان",
+  "sharedTrip.title": "تتبع الرحلة مباشرة",
+  "sharedTrip.subtitle": "شخص ما يشارك رحلته معك",
+  "sharedTrip.poweredBy": "مدعوم من VisionEx Express",
+  "sharedTrip.share": "مشاركة الرحلة",
+  "sharedTrip.linkCopied": "تم نسخ رابط الرحلة",
 };
 
 export default ar;

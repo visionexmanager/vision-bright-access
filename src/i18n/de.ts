@@ -1112,6 +1112,11 @@ const de: Record<string, string> = {
   "delivery.paymentMethod": "Zahlungsmethode",
   "delivery.cash": "Bargeld",
   "delivery.card": "Kreditkarte",
+  "sharedTrip.title": "Live-Verfolgung",
+  "sharedTrip.subtitle": "Jemand teilt seine Fahrt mit dir",
+  "sharedTrip.poweredBy": "Bereitgestellt von VisionEx Express",
+  "sharedTrip.share": "Fahrt teilen",
+  "sharedTrip.linkCopied": "Link in die Zwischenablage kopiert",
 };
 
 export default de;

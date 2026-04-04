@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import {
   Truck, Car, Bike, ArrowLeftRight, Clock,
   ShieldCheck, Bell, PhoneCall, Star, MapPin, History,
-  Banknote, CreditCard
+  Banknote, CreditCard, Share2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -347,13 +347,32 @@ export default function Delivery() {
                 {t("delivery.completeTrip")}
               </Button>
 
-              <Button
-                variant="outline"
-                onClick={() => setStatus("idle")}
-                className="w-full py-4 h-auto rounded-2xl font-black text-destructive border-destructive/30 hover:bg-destructive hover:text-white transition-all"
-              >
-                {t("delivery.cancelOrder")}
-              </Button>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={() => {
+                    const shareUrl = `${window.location.origin}/services/shared-trip?from=${encodeURIComponent(location.from)}&to=${encodeURIComponent(location.to)}&service=${serviceType}&eta=4`;
+                    if (navigator.share) {
+                      navigator.share({ title: t("sharedTrip.title"), url: shareUrl });
+                    } else {
+                      navigator.clipboard.writeText(shareUrl);
+                      speak(t("sharedTrip.linkCopied"), lang);
+                    }
+                  }}
+                  variant="outline"
+                  className="py-4 h-auto rounded-2xl font-black text-lg gap-2"
+                >
+                  <Share2 className="w-5 h-5" />
+                  {t("sharedTrip.share")}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => setStatus("idle")}
+                  className="py-4 h-auto rounded-2xl font-black text-lg text-destructive border-destructive/30 hover:bg-destructive hover:text-white transition-all"
+                >
+                  {t("delivery.cancelOrder")}
+                </Button>
+              </div>
             </div>
           )}
 

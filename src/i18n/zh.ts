@@ -1112,6 +1112,11 @@ const zh: Record<string, string> = {
   "delivery.paymentMethod": "支付方式",
   "delivery.cash": "现金",
   "delivery.card": "信用卡",
+  "sharedTrip.title": "实时行程追踪",
+  "sharedTrip.subtitle": "有人正在与你分享他们的行程",
+  "sharedTrip.poweredBy": "由 VisionEx Express 提供支持",
+  "sharedTrip.share": "分享行程",
+  "sharedTrip.linkCopied": "链接已复制到剪贴板",
 };
 
 export default zh;
