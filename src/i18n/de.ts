@@ -1165,6 +1165,7 @@ const de: Record<string, string> = {
   "nutrition.weeklyReport": "Wöchentlicher Kalorienbericht", "nutrition.weeklyReportDesc": "Kalorienaufnahme der letzten 7 Tage", "nutrition.totalWeekCal": "Wochensumme", "nutrition.dailyAvg": "Tagesdurchschnitt", "nutrition.trend": "Trend", "nutrition.onTarget": "Im Ziel", "nutrition.goalLine": "Tagesziel", "nutrition.totalMeals": "Mahlzeiten", "nutrition.withinGoal": "Im Ziel", "nutrition.overGoal": "Über Ziel", "nutrition.noData": "Keine Daten", "nutrition.loading": "Laden...",
   "nutrition.sun": "So", "nutrition.mon": "Mo", "nutrition.tue": "Di", "nutrition.wed": "Mi", "nutrition.thu": "Do", "nutrition.fri": "Fr", "nutrition.sat": "Sa",
   "nutrition.pdfExported": "Ernährungsplan als PDF exportiert!",
+  "nutrition.savePlan": "Speichern", "nutrition.myPlans": "Meine Pläne", "nutrition.savedPlans": "Gespeicherte Pläne", "nutrition.noSavedPlans": "Keine gespeicherten Pläne", "nutrition.planSaved": "Plan gespeichert!", "nutrition.planLoaded": "Plan geladen!", "nutrition.planDeleted": "Plan gelöscht", "nutrition.loginToSave": "Bitte anmelden",
 };
 
 export default de;
