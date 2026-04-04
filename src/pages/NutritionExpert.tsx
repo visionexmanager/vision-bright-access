@@ -537,7 +537,7 @@ export default function NutritionExpert() {
                           </div>
                         ))}
                       </div>
-                    }
+                    )}
                   </CardContent>
                 </Card>
 
