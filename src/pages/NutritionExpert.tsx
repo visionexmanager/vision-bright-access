@@ -145,21 +145,78 @@ export default function NutritionExpert() {
     }
   };
 
+  // Fetch today's meal logs
+  const fetchMealLogs = useCallback(async () => {
+    if (!user) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const { data } = await supabase
+      .from("meal_logs")
+      .select("id, meal_name, calories, meal_type, rating, logged_at")
+      .eq("user_id", user.id)
+      .gte("logged_at", today.toISOString())
+      .order("logged_at", { ascending: false });
+    if (data) setMealLogs(data as MealLog[]);
+  }, [user]);
+
+  useEffect(() => {
+    if (step === "clinic") fetchMealLogs();
+  }, [step, fetchMealLogs]);
+
+  const totalCalories = mealLogs.reduce((sum, m) => sum + m.calories, 0);
+  const calorieGoal = calories || 2000;
+  const calorieProgress = Math.min((totalCalories / calorieGoal) * 100, 100);
+
+  const saveAnalysisToLog = async () => {
+    if (!user || !mealResult) return;
+    setSavingLog(true);
+    try {
+      const { error } = await supabase.from("meal_logs").insert({
+        user_id: user.id,
+        meal_name: mealResult.name,
+        calories: mealResult.calories,
+        ingredients: mealResult.ingredients,
+        rating: mealResult.rating,
+        meal_type: "analyzed",
+      } as any);
+      if (error) throw error;
+      toast.success(t("nutrition.mealSaved"));
+      fetchMealLogs();
+    } catch { toast.error(t("nutrition.analysisError")); }
+    finally { setSavingLog(false); }
+  };
+
+  const addManualMeal = async () => {
+    if (!user || !manualMeal.name || !manualMeal.calories) {
+      toast.error(t("nutrition.fillAll"));
+      return;
+    }
+    setSavingLog(true);
+    try {
+      const { error } = await supabase.from("meal_logs").insert({
+        user_id: user.id,
+        meal_name: manualMeal.name,
+        calories: parseInt(manualMeal.calories),
+        meal_type: manualMeal.type,
+        ingredients: [],
+        rating: 5,
+      } as any);
+      if (error) throw error;
+      toast.success(t("nutrition.mealSaved"));
+      setManualMeal({ name: "", calories: "", type: "other" });
+      fetchMealLogs();
+    } catch { toast.error(t("nutrition.analysisError")); }
+    finally { setSavingLog(false); }
+  };
+
+  const deleteMealLog = async (id: string) => {
+    await supabase.from("meal_logs").delete().eq("id", id);
+    fetchMealLogs();
+  };
+
   return (
     <Layout>
       <div className="min-h-screen pb-20">
-        {/* Header */}
-        <header className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 text-white shadow-2xl sticky top-0 z-40 rounded-b-[40px]">
-          <div className="max-w-6xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-white/20 rounded-2xl">
-                <Heart size={28} />
-              </div>
-              <h1 className="text-2xl font-black italic tracking-tighter">
-                VISIONEX <span className="text-emerald-200 text-sm">HEALTH</span>
-              </h1>
-            </div>
-            <Button
               variant="ghost"
               size="icon"
               className="text-white hover:bg-white/20 rounded-2xl h-12 w-12"
