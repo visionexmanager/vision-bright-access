@@ -1164,6 +1164,7 @@ const ru: Record<string, string> = {
   "nutrition.generatePlan": "ИИ-план", "nutrition.generating": "Генерация...", "nutrition.planGenerated": "Ваш план готов!", "nutrition.totalCalories": "Всего калорий",
   "nutrition.weeklyReport": "Недельный отчёт калорий", "nutrition.weeklyReportDesc": "Отслеживание калорий за последние 7 дней", "nutrition.totalWeekCal": "За неделю", "nutrition.dailyAvg": "Среднее/день", "nutrition.trend": "Тренд", "nutrition.onTarget": "В цели", "nutrition.goalLine": "Дневная цель", "nutrition.totalMeals": "Всего приёмов", "nutrition.withinGoal": "В рамках цели", "nutrition.overGoal": "Выше цели", "nutrition.noData": "Нет данных", "nutrition.loading": "Загрузка...",
   "nutrition.sun": "Вс", "nutrition.mon": "Пн", "nutrition.tue": "Вт", "nutrition.wed": "Ср", "nutrition.thu": "Чт", "nutrition.fri": "Пт", "nutrition.sat": "Сб",
+  "nutrition.pdfExported": "План экспортирован в PDF!",
 };
 
 export default ru;
