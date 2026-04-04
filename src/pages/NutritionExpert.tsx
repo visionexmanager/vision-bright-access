@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,10 +15,12 @@ import {
 import {
   Utensils, Apple, Scale, Activity, Calculator,
   Camera, Volume2, UserPlus, ArrowLeft, Heart,
-  Salad, Beef, Egg, Loader2, Star
+  Salad, Beef, Egg, Loader2, Star, Plus, Trash2,
+  BookOpen, Flame
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Progress } from "@/components/ui/progress";
 
 const speak = (text: string, lang: string) => {
   if ("speechSynthesis" in window) {
@@ -39,14 +42,27 @@ interface MealAnalysis {
   rating: number;
 }
 
+interface MealLog {
+  id: string;
+  meal_name: string;
+  calories: number;
+  meal_type: string;
+  rating: number;
+  logged_at: string;
+}
+
 export default function NutritionExpert() {
   const { t, lang } = useLanguage();
+  const { user } = useAuth();
   const [step, setStep] = useState<Step>("reception");
   const [userData, setUserData] = useState({ name: "", weight: "", height: "", goal: "" });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [mealResult, setMealResult] = useState<MealAnalysis | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mealLogs, setMealLogs] = useState<MealLog[]>([]);
+  const [savingLog, setSavingLog] = useState(false);
+  const [manualMeal, setManualMeal] = useState({ name: "", calories: "", type: "other" });
 
   const bmi = userData.weight && userData.height
     ? (parseFloat(userData.weight) / ((parseFloat(userData.height) / 100) ** 2)).toFixed(1)
