@@ -37,9 +37,10 @@ totalCalories (رقم), tips (مصفوفة نصية 3 نصائح), waterIntake (
       : `You are a professional nutritionist. Create a personalized daily meal plan.
 User data: Name: ${name}, Weight: ${weight}kg, Height: ${height}cm, BMI: ${bmi}, Goal: ${goal}, Daily calories: ${dailyCal}.
 Provide a detailed plan with 5 meals (breakfast, morning snack, lunch, afternoon snack, dinner).
+IMPORTANT: Use only plain English text with ASCII characters. Do NOT include any non-ASCII characters, emojis, or special Unicode symbols in any field.
 Reply in JSON only with fields:
-meals (array of: name, time, calories, ingredients (string array), description),
-totalCalories (number), tips (array of 3 string tips), waterIntake (string)`;
+meals (array of: name, time like "08:00 AM", calories, ingredients (string array), description),
+totalCalories (number), tips (array of 3 string tips), waterIntake (string like "3.5 Liters per day")`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
