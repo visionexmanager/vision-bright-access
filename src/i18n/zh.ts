@@ -1157,6 +1157,7 @@ const zh: Record<string, string> = {
   "econ.idea1": "AI驱动的SaaS平台", "econ.idea2": "智能云厨房", "econ.idea3": "在线学习学院",
   "econ.idea4": "远程医疗应用", "econ.idea5": "太阳能解决方案", "econ.idea6": "电商平台",
   "econ.exportPdf": "导出为PDF", "econ.pdfExported": "报告导出成功！", "econ.feasibilityReport": "可行性研究报告",
+  "delivery.schedule.title": "出行时间", "delivery.schedule.now": "现在", "delivery.schedule.later": "预约", "delivery.schedule.pickDate": "选择日期", "delivery.schedule.confirm": "预约行程", "delivery.schedule.confirmed": "行程预约成功！",
 };
 
 export default zh;

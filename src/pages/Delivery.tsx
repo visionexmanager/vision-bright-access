@@ -3,10 +3,14 @@ import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 import {
   Truck, Car, Bike, ArrowLeftRight, Clock,
   ShieldCheck, Bell, PhoneCall, Star, MapPin, History,
-  Banknote, CreditCard, Share2
+  Banknote, CreditCard, Share2, CalendarIcon
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -39,6 +43,9 @@ export default function Delivery() {
   const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
   const [selectionStep, setSelectionStep] = useState<SelectionStep>("pickup");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
+  const [scheduledTime, setScheduledTime] = useState("09:00");
 
   const prevStatusRef = useRef<Status>(status);
   useEffect(() => {
@@ -77,6 +84,17 @@ export default function Delivery() {
   }, [pickupCoords, destCoords, serviceType]);
 
   const startService = () => {
+    if (isScheduled && scheduledDate) {
+      const dateStr = format(scheduledDate, "yyyy-MM-dd");
+      toast.success(t("delivery.schedule.confirmed"), {
+        description: `${dateStr} — ${scheduledTime}`,
+        icon: "📅",
+      });
+      speak(t("delivery.schedule.confirmed"), lang);
+      setIsScheduled(false);
+      setScheduledDate(undefined);
+      return;
+    }
     setStatus("searching");
     speak(t("delivery.searching").replace("{from}", location.from), lang);
     setTimeout(() => {
@@ -266,6 +284,72 @@ export default function Delivery() {
                     </div>
 
                     {/* Payment method */}
+                    {/* Schedule trip */}
+                    <div className="space-y-3">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                        {t("delivery.schedule.title")}
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => setIsScheduled(false)}
+                          className={`flex items-center gap-3 p-4 rounded-2xl border-2 font-bold transition-all ${
+                            !isScheduled
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-muted text-muted-foreground hover:border-primary/40"
+                          }`}
+                        >
+                          <Clock className="w-5 h-5" />
+                          {t("delivery.schedule.now")}
+                        </button>
+                        <button
+                          onClick={() => setIsScheduled(true)}
+                          className={`flex items-center gap-3 p-4 rounded-2xl border-2 font-bold transition-all ${
+                            isScheduled
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-muted text-muted-foreground hover:border-primary/40"
+                          }`}
+                        >
+                          <CalendarIcon className="w-5 h-5" />
+                          {t("delivery.schedule.later")}
+                        </button>
+                      </div>
+
+                      {isScheduled && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "justify-start text-left font-bold rounded-2xl h-auto p-4",
+                                  !scheduledDate && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {scheduledDate ? format(scheduledDate, "PPP") : t("delivery.schedule.pickDate")}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={scheduledDate}
+                                onSelect={setScheduledDate}
+                                disabled={(date) => date < new Date()}
+                                initialFocus
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <Input
+                            type="time"
+                            value={scheduledTime}
+                            onChange={(e) => setScheduledTime(e.target.value)}
+                            className="bg-muted p-4 rounded-2xl font-bold text-lg h-auto"
+                          />
+                        </div>
+                      )}
+                    </div>
+
                     <div className="space-y-3">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                         {t("delivery.paymentMethod")}
@@ -297,12 +381,15 @@ export default function Delivery() {
                     </div>
 
                       <Button
-                      disabled={!location.from || !location.to}
+                      disabled={!location.from || !location.to || (isScheduled && !scheduledDate)}
+                      onClick={startService}
                       className="w-full py-6 h-auto rounded-[30px] font-black text-2xl shadow-2xl flex items-center justify-center gap-4"
                       size="lg"
                     >
-                      {serviceType === "ride" ? t("delivery.requestRide") : t("delivery.confirmDelivery")}
-                      <ArrowLeftRight className="rotate-180" />
+                      {isScheduled
+                        ? t("delivery.schedule.confirm")
+                        : serviceType === "ride" ? t("delivery.requestRide") : t("delivery.confirmDelivery")}
+                      {isScheduled ? <CalendarIcon /> : <ArrowLeftRight className="rotate-180" />}
                     </Button>
                   </div>
                 </div>

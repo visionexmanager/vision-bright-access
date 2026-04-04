@@ -1224,6 +1224,12 @@ const ar: Record<string, string> = {
   "econ.exportPdf": "تصدير كملف PDF",
   "econ.pdfExported": "تم تصدير التقرير بنجاح!",
   "econ.feasibilityReport": "تقرير دراسة الجدوى",
+  "delivery.schedule.title": "توقيت الرحلة",
+  "delivery.schedule.now": "الآن",
+  "delivery.schedule.later": "جدولة لاحقاً",
+  "delivery.schedule.pickDate": "اختر تاريخاً",
+  "delivery.schedule.confirm": "جدولة الرحلة",
+  "delivery.schedule.confirmed": "تمت جدولة الرحلة بنجاح!",
 };
 
 export default ar;

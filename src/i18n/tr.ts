@@ -1157,6 +1157,7 @@ const tr: Record<string, string> = {
   "econ.idea1": "Yapay zeka destekli SaaS", "econ.idea2": "Akıllı bulut mutfak", "econ.idea3": "Çevrimiçi öğrenme akademisi",
   "econ.idea4": "Teletıp uygulaması", "econ.idea5": "Güneş enerjisi çözümleri", "econ.idea6": "E-ticaret pazaryeri",
   "econ.exportPdf": "PDF olarak dışa aktar", "econ.pdfExported": "Rapor başarıyla dışa aktarıldı!", "econ.feasibilityReport": "Fizibilite çalışması raporu",
+  "delivery.schedule.title": "Yolculuk zamanı", "delivery.schedule.now": "Şimdi", "delivery.schedule.later": "Planla", "delivery.schedule.pickDate": "Tarih seçin", "delivery.schedule.confirm": "Yolculuğu planla", "delivery.schedule.confirmed": "Yolculuk başarıyla planlandı!",
 };
 
 export default tr;
