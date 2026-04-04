@@ -1282,6 +1282,10 @@ const en: Record<string, string> = {
   "nutrition.noMealsYet": "No meals logged today",
   "nutrition.mealSaved": "Meal saved to log!",
   "nutrition.saveToLog": "Save to Daily Log",
+  "nutrition.generatePlan": "Generate AI Plan",
+  "nutrition.generating": "Generating...",
+  "nutrition.planGenerated": "Your personalized diet plan is ready!",
+  "nutrition.totalCalories": "Total Calories",
 };
 
 export default en;

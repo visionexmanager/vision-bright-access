@@ -16,7 +16,7 @@ import {
   Utensils, Apple, Scale, Activity, Calculator,
   Camera, Volume2, UserPlus, ArrowLeft, Heart,
   Salad, Beef, Egg, Loader2, Star, Plus, Trash2,
-  BookOpen, Flame
+  BookOpen, Flame, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +51,21 @@ interface MealLog {
   logged_at: string;
 }
 
+interface DietMeal {
+  name: string;
+  time: string;
+  calories: number;
+  ingredients: string[];
+  description: string;
+}
+
+interface DietPlan {
+  meals: DietMeal[];
+  totalCalories: number;
+  tips: string[];
+  waterIntake: string;
+}
+
 export default function NutritionExpert() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
@@ -63,6 +78,8 @@ export default function NutritionExpert() {
   const [mealLogs, setMealLogs] = useState<MealLog[]>([]);
   const [savingLog, setSavingLog] = useState(false);
   const [manualMeal, setManualMeal] = useState({ name: "", calories: "", type: "other" });
+  const [dietPlan, setDietPlan] = useState<DietPlan | null>(null);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
 
   const bmi = userData.weight && userData.height
     ? (parseFloat(userData.weight) / ((parseFloat(userData.height) / 100) ** 2)).toFixed(1)
@@ -79,6 +96,24 @@ export default function NutritionExpert() {
     return t("nutrition.obese");
   }, [t]);
 
+  const generateDietPlan = async () => {
+    setGeneratingPlan(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-diet-plan", {
+        body: { name: userData.name, weight: userData.weight, height: userData.height, goal: userData.goal, lang },
+      });
+      if (error) throw error;
+      if (data?.error) { toast.error(data.error); return; }
+      setDietPlan(data.plan as DietPlan);
+      toast.success(t("nutrition.planGenerated"));
+    } catch (err) {
+      console.error("Diet plan error:", err);
+      toast.error(t("nutrition.analysisError"));
+    } finally {
+      setGeneratingPlan(false);
+    }
+  };
+
   const enterClinic = () => {
     if (!userData.name || !userData.weight || !userData.height || !userData.goal) {
       toast.error(t("nutrition.fillAll"));
@@ -86,6 +121,7 @@ export default function NutritionExpert() {
     }
     speak(t("nutrition.welcomeVoice").replace("{name}", userData.name), lang);
     setStep("clinic");
+    setDietPlan(null);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -423,38 +459,85 @@ export default function NutritionExpert() {
 
               {/* Main - Diet plan + photo analysis */}
               <div className="lg:col-span-8 space-y-6">
-                {/* Diet plan */}
+                {/* AI Diet plan */}
                 <Card className="rounded-[30px] shadow-xl overflow-hidden">
                   <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-500" />
                   <CardContent className="p-8 space-y-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center">
-                        <Utensils className="h-7 w-7 text-emerald-600" />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center">
+                          <Utensils className="h-7 w-7 text-emerald-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-black text-foreground">{t("nutrition.dietPlan")}</h3>
+                          <p className="text-muted-foreground text-sm">
+                            {t("nutrition.dietIntro").replace("{name}", userData.name).replace("{goal}", t(`nutrition.goal${userData.goal === "weight-loss" ? "WeightLoss" : userData.goal === "muscle-gain" ? "Muscle" : "Healthy"}`))}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-xl font-black text-foreground">{t("nutrition.dietPlan")}</h3>
-                        <p className="text-muted-foreground text-sm">
-                          {t("nutrition.dietIntro").replace("{name}", userData.name).replace("{goal}", t(`nutrition.goal${userData.goal === "weight-loss" ? "WeightLoss" : userData.goal === "muscle-gain" ? "Muscle" : "Healthy"}`))}
-                        </p>
-                      </div>
+                      <Button
+                        onClick={generateDietPlan}
+                        disabled={generatingPlan}
+                        size="sm"
+                        className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                      >
+                        {generatingPlan ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        {generatingPlan ? t("nutrition.generating") : t("nutrition.generatePlan")}
+                      </Button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {[
-                        { icon: Egg, meal: t("nutrition.breakfast"), desc: t("nutrition.breakfastDesc"), color: "text-orange-500 bg-orange-50 dark:bg-orange-900/20" },
-                        { icon: Beef, meal: t("nutrition.lunch"), desc: t("nutrition.lunchDesc"), color: "text-red-500 bg-red-50 dark:bg-red-900/20" },
-                        { icon: Salad, meal: t("nutrition.dinner"), desc: t("nutrition.dinnerDesc"), color: "text-green-500 bg-green-50 dark:bg-green-900/20" },
-                        { icon: Apple, meal: t("nutrition.snack"), desc: t("nutrition.snackDesc"), color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
-                      ].map((item) => (
-                        <div key={item.meal} className={`p-4 rounded-2xl ${item.color.split(" ").slice(1).join(" ")}`}>
-                          <div className="flex items-center gap-2 mb-1">
-                            <item.icon className={`h-5 w-5 ${item.color.split(" ")[0]}`} />
-                            <span className="font-black text-foreground">{item.meal}</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{item.desc}</p>
+                    {/* AI-generated plan */}
+                    {dietPlan ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-bold text-muted-foreground">{t("nutrition.totalCalories")}: <span className="text-emerald-600 font-black">{dietPlan.totalCalories} {t("nutrition.kcal")}</span></span>
+                          <span className="font-bold text-blue-500">💧 {dietPlan.waterIntake}</span>
                         </div>
-                      ))}
-                    </div>
+
+                        <div className="space-y-3">
+                          {dietPlan.meals.map((meal, i) => (
+                            <div key={i} className="bg-muted/50 p-4 rounded-2xl space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-black text-foreground">{meal.name}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">{meal.time}</span>
+                                  <span className="text-xs font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 rounded-lg">{meal.calories} {t("nutrition.kcal")}</span>
+                                </div>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{meal.description}</p>
+                              <p className="text-xs text-muted-foreground/70">{meal.ingredients.join(" • ")}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {dietPlan.tips.length > 0 && (
+                          <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl space-y-2">
+                            <p className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase">{t("nutrition.healthTip")}</p>
+                            {dietPlan.tips.map((tip, i) => (
+                              <p key={i} className="text-sm text-foreground">• {tip}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Default static plan */
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {[
+                          { icon: Egg, meal: t("nutrition.breakfast"), desc: t("nutrition.breakfastDesc"), color: "text-orange-500 bg-orange-50 dark:bg-orange-900/20" },
+                          { icon: Beef, meal: t("nutrition.lunch"), desc: t("nutrition.lunchDesc"), color: "text-red-500 bg-red-50 dark:bg-red-900/20" },
+                          { icon: Salad, meal: t("nutrition.dinner"), desc: t("nutrition.dinnerDesc"), color: "text-green-500 bg-green-50 dark:bg-green-900/20" },
+                          { icon: Apple, meal: t("nutrition.snack"), desc: t("nutrition.snackDesc"), color: "text-purple-500 bg-purple-50 dark:bg-purple-900/20" },
+                        ].map((item) => (
+                          <div key={item.meal} className={`p-4 rounded-2xl ${item.color.split(" ").slice(1).join(" ")}`}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <item.icon className={`h-5 w-5 ${item.color.split(" ")[0]}`} />
+                              <span className="font-black text-foreground">{item.meal}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{item.desc}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
