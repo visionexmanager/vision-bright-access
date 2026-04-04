@@ -160,13 +160,25 @@ export default function PomodoroTimer() {
           {isFocus ? <Zap className="w-4 h-4 text-orange-500" /> : <Coffee className="w-4 h-4 text-emerald-500" />}
           {t(LABEL_KEYS[mode])}
         </h3>
-        <button
-          onClick={() => { setShowSettings(!showSettings); setTempDurations({ ...durations }); }}
-          className={`p-1.5 rounded-lg transition-colors ${showSettings ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
-          aria-label={t("pomodoro.settings")}
-        >
-          <Settings2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {notifSupported && (
+            <button
+              onClick={toggleNotifications}
+              className={`p-1.5 rounded-lg transition-colors ${notifEnabled ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+              aria-label={t("pomodoro.notifToggle")}
+              title={notifEnabled ? t("pomodoro.notifOn") : t("pomodoro.notifOff")}
+            >
+              {notifEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+            </button>
+          )}
+          <button
+            onClick={() => { setShowSettings(!showSettings); setTempDurations({ ...durations }); }}
+            className={`p-1.5 rounded-lg transition-colors ${showSettings ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+            aria-label={t("pomodoro.settings")}
+          >
+            <Settings2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Settings Panel */}
