@@ -9,6 +9,7 @@ import {
   Banknote, CreditCard, Share2
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const DeliveryMap = lazy(() => import("@/components/DeliveryMap"));
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
