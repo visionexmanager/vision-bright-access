@@ -1101,6 +1101,11 @@ const tr: Record<string, string> = {
   "delivery.clickPickup": "Alış noktasını ayarlamak için haritaya tıklayın",
   "delivery.clickDestination": "Varış noktasını ayarlamak için haritaya tıklayın",
   "delivery.helpVoice": "Sürücüyü haritada gerçek zamanlı takip edebilirsiniz. Yardıma ihtiyacınız olursa VisionEx acil merkezine ulaşın.",
+  "tripHistory.title": "Yolculuk Geçmişi",
+  "tripHistory.empty": "Henüz yolculuk yok. İlk yolculuğunuzu ayırtın!",
+  "tripHistory.bookNow": "Yolculuk Ayırt",
+  "tripHistory.newTrip": "Yeni Yolculuk",
+  "tripHistory.loginRequired": "Yolculuk geçmişinizi görmek için giriş yapın",
 };
 
 export default tr;

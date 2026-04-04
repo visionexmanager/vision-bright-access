@@ -1101,6 +1101,11 @@ const ru: Record<string, string> = {
   "delivery.clickPickup": "Нажмите на карту, чтобы указать точку отправления",
   "delivery.clickDestination": "Нажмите на карту, чтобы указать пункт назначения",
   "delivery.helpVoice": "Вы можете отслеживать водителя на карте в реальном времени. Если нужна помощь, свяжитесь с центром экстренной помощи VisionEx.",
+  "tripHistory.title": "История поездок",
+  "tripHistory.empty": "Поездок пока нет. Закажите первую!",
+  "tripHistory.bookNow": "Заказать поездку",
+  "tripHistory.newTrip": "Новая поездка",
+  "tripHistory.loginRequired": "Войдите, чтобы увидеть историю поездок",
 };
 
 export default ru;
