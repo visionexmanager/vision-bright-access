@@ -1165,6 +1165,7 @@ const tr: Record<string, string> = {
   "nutrition.weeklyReport": "Haftalık kalori raporu", "nutrition.weeklyReportDesc": "Son 7 günün kalori takibi", "nutrition.totalWeekCal": "Hafta toplamı", "nutrition.dailyAvg": "Günlük ort.", "nutrition.trend": "Eğilim", "nutrition.onTarget": "Hedefte", "nutrition.goalLine": "Günlük hedef", "nutrition.totalMeals": "Toplam öğün", "nutrition.withinGoal": "Hedefte", "nutrition.overGoal": "Hedef üstü", "nutrition.noData": "Veri yok", "nutrition.loading": "Yükleniyor...",
   "nutrition.sun": "Paz", "nutrition.mon": "Pzt", "nutrition.tue": "Sal", "nutrition.wed": "Çar", "nutrition.thu": "Per", "nutrition.fri": "Cum", "nutrition.sat": "Cmt",
   "nutrition.pdfExported": "Plan PDF olarak dışa aktarıldı!",
+  "nutrition.savePlan": "Kaydet", "nutrition.myPlans": "Planlarım", "nutrition.savedPlans": "Kayıtlı Planlar", "nutrition.noSavedPlans": "Kayıtlı plan yok", "nutrition.planSaved": "Plan kaydedildi!", "nutrition.planLoaded": "Plan yüklendi!", "nutrition.planDeleted": "Plan silindi", "nutrition.loginToSave": "Giriş yapın",
 };
 
 export default tr;

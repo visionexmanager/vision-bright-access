@@ -89,6 +89,36 @@ export type Database = {
         }
         Relationships: []
       }
+      diet_plans: {
+        Row: {
+          calorie_goal: number
+          created_at: string
+          id: string
+          plan: Json
+          plan_name: string
+          user_data: Json
+          user_id: string
+        }
+        Insert: {
+          calorie_goal?: number
+          created_at?: string
+          id?: string
+          plan?: Json
+          plan_name?: string
+          user_data?: Json
+          user_id: string
+        }
+        Update: {
+          calorie_goal?: number
+          created_at?: string
+          id?: string
+          plan?: Json
+          plan_name?: string
+          user_data?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       driver_ratings: {
         Row: {
           comment: string | null

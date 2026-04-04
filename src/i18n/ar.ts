@@ -1306,6 +1306,14 @@ const ar: Record<string, string> = {
   "nutrition.fri": "جمع",
   "nutrition.sat": "سبت",
   "nutrition.pdfExported": "تم تصدير الخطة الغذائية كملف PDF!",
+  "nutrition.savePlan": "حفظ",
+  "nutrition.myPlans": "خططي",
+  "nutrition.savedPlans": "الخطط الغذائية المحفوظة",
+  "nutrition.noSavedPlans": "لا توجد خطط محفوظة بعد",
+  "nutrition.planSaved": "تم حفظ الخطة بنجاح!",
+  "nutrition.planLoaded": "تم تحميل الخطة!",
+  "nutrition.planDeleted": "تم حذف الخطة",
+  "nutrition.loginToSave": "يرجى تسجيل الدخول لحفظ الخطط",
 };
 
 export default ar;

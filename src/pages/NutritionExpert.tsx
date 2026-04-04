@@ -16,7 +16,7 @@ import {
   Utensils, Apple, Scale, Activity, Calculator,
   Camera, Volume2, UserPlus, ArrowLeft, Heart,
   Salad, Beef, Egg, Loader2, Star, Plus, Trash2,
-  BookOpen, Flame, Sparkles, Download
+  BookOpen, Flame, Sparkles, Download, Save, FolderOpen, Clock, X
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -82,6 +82,9 @@ export default function NutritionExpert() {
   const [manualMeal, setManualMeal] = useState({ name: "", calories: "", type: "other" });
   const [dietPlan, setDietPlan] = useState<DietPlan | null>(null);
   const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [savedPlans, setSavedPlans] = useState<Array<{ id: string; plan_name: string; plan: DietPlan; created_at: string }>>([]);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [showSavedPlans, setShowSavedPlans] = useState(false);
 
   const bmi = userData.weight && userData.height
     ? (parseFloat(userData.weight) / ((parseFloat(userData.height) / 100) ** 2)).toFixed(1)
@@ -115,6 +118,56 @@ export default function NutritionExpert() {
       setGeneratingPlan(false);
     }
   };
+
+  const saveDietPlan = async () => {
+    if (!user || !dietPlan) { toast.error(t("nutrition.loginToSave")); return; }
+    setSavingPlan(true);
+    try {
+      const planName = `${userData.goal} - ${new Date().toLocaleDateString()}`;
+      const { error } = await supabase.from("diet_plans").insert({
+        user_id: user.id,
+        plan_name: planName,
+        user_data: userData as any,
+        plan: dietPlan as any,
+        calorie_goal: calories || 0,
+      });
+      if (error) throw error;
+      toast.success(t("nutrition.planSaved"));
+      fetchSavedPlans();
+    } catch (err) {
+      console.error("Save plan error:", err);
+      toast.error(t("nutrition.analysisError"));
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  const fetchSavedPlans = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("diet_plans")
+      .select("id, plan_name, plan, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (data) {
+      setSavedPlans(data.map(d => ({ ...d, plan: d.plan as unknown as DietPlan })));
+    }
+  }, [user]);
+
+  const loadDietPlan = (plan: DietPlan) => {
+    setDietPlan(plan);
+    setShowSavedPlans(false);
+    toast.success(t("nutrition.planLoaded"));
+  };
+
+  const deleteSavedPlan = async (id: string) => {
+    await supabase.from("diet_plans").delete().eq("id", id);
+    toast.success(t("nutrition.planDeleted"));
+    fetchSavedPlans();
+  };
+
+  useEffect(() => { if (user && step === "clinic") fetchSavedPlans(); }, [user, step, fetchSavedPlans]);
 
   const enterClinic = () => {
     if (!userData.name || !userData.weight || !userData.height || !userData.goal) {
@@ -582,18 +635,73 @@ export default function NutritionExpert() {
                           {generatingPlan ? t("nutrition.generating") : t("nutrition.generatePlan")}
                         </Button>
                         {dietPlan && (
+                          <>
+                            <Button
+                              onClick={exportPlanAsPdf}
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl gap-1"
+                            >
+                              <Download className="h-4 w-4" />
+                              PDF
+                            </Button>
+                            {user && (
+                              <Button
+                                onClick={saveDietPlan}
+                                disabled={savingPlan}
+                                size="sm"
+                                variant="outline"
+                                className="rounded-xl gap-1"
+                              >
+                                {savingPlan ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                {t("nutrition.savePlan")}
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {user && (
                           <Button
-                            onClick={exportPlanAsPdf}
+                            onClick={() => setShowSavedPlans(!showSavedPlans)}
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
                             className="rounded-xl gap-1"
                           >
-                            <Download className="h-4 w-4" />
-                            PDF
+                            <FolderOpen className="h-4 w-4" />
+                            {t("nutrition.myPlans")}
                           </Button>
                         )}
                       </div>
                     </div>
+
+                    {/* Saved plans drawer */}
+                    {showSavedPlans && (
+                      <div className="bg-muted/50 p-4 rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-black text-foreground text-sm">{t("nutrition.savedPlans")}</h4>
+                          <Button size="sm" variant="ghost" onClick={() => setShowSavedPlans(false)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {savedPlans.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">{t("nutrition.noSavedPlans")}</p>
+                        ) : (
+                          savedPlans.map((sp) => (
+                            <div key={sp.id} className="flex items-center justify-between bg-background p-3 rounded-xl">
+                              <button onClick={() => loadDietPlan(sp.plan)} className="flex items-center gap-3 text-left flex-1">
+                                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <div>
+                                  <p className="text-sm font-bold text-foreground">{sp.plan_name}</p>
+                                  <p className="text-xs text-muted-foreground">{new Date(sp.created_at).toLocaleDateString()}</p>
+                                </div>
+                              </button>
+                              <Button size="sm" variant="ghost" onClick={() => deleteSavedPlan(sp.id)} className="text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
 
                     {/* AI-generated plan */}
                     {dietPlan ? (
