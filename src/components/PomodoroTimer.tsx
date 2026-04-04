@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Zap, Play, Pause, RotateCcw, Coffee, Settings2 } from "lucide-react";
+import { Zap, Play, Pause, RotateCcw, Coffee, Settings2, Bell, BellOff } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 type Mode = "focus" | "shortBreak" | "longBreak";
