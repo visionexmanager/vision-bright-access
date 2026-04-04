@@ -635,18 +635,73 @@ export default function NutritionExpert() {
                           {generatingPlan ? t("nutrition.generating") : t("nutrition.generatePlan")}
                         </Button>
                         {dietPlan && (
+                          <>
+                            <Button
+                              onClick={exportPlanAsPdf}
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl gap-1"
+                            >
+                              <Download className="h-4 w-4" />
+                              PDF
+                            </Button>
+                            {user && (
+                              <Button
+                                onClick={saveDietPlan}
+                                disabled={savingPlan}
+                                size="sm"
+                                variant="outline"
+                                className="rounded-xl gap-1"
+                              >
+                                {savingPlan ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                {t("nutrition.savePlan")}
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {user && (
                           <Button
-                            onClick={exportPlanAsPdf}
+                            onClick={() => setShowSavedPlans(!showSavedPlans)}
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
                             className="rounded-xl gap-1"
                           >
-                            <Download className="h-4 w-4" />
-                            PDF
+                            <FolderOpen className="h-4 w-4" />
+                            {t("nutrition.myPlans")}
                           </Button>
                         )}
                       </div>
                     </div>
+
+                    {/* Saved plans drawer */}
+                    {showSavedPlans && (
+                      <div className="bg-muted/50 p-4 rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-black text-foreground text-sm">{t("nutrition.savedPlans")}</h4>
+                          <Button size="sm" variant="ghost" onClick={() => setShowSavedPlans(false)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {savedPlans.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">{t("nutrition.noSavedPlans")}</p>
+                        ) : (
+                          savedPlans.map((sp) => (
+                            <div key={sp.id} className="flex items-center justify-between bg-background p-3 rounded-xl">
+                              <button onClick={() => loadDietPlan(sp.plan)} className="flex items-center gap-3 text-left flex-1">
+                                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <div>
+                                  <p className="text-sm font-bold text-foreground">{sp.plan_name}</p>
+                                  <p className="text-xs text-muted-foreground">{new Date(sp.created_at).toLocaleDateString()}</p>
+                                </div>
+                              </button>
+                              <Button size="sm" variant="ghost" onClick={() => deleteSavedPlan(sp.id)} className="text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
 
                     {/* AI-generated plan */}
                     {dietPlan ? (
