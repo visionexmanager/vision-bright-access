@@ -1305,6 +1305,7 @@ const en: Record<string, string> = {
   "nutrition.thu": "Thu",
   "nutrition.fri": "Fri",
   "nutrition.sat": "Sat",
+  "nutrition.pdfExported": "Diet plan exported as PDF!",
 };
 
 export default en;
