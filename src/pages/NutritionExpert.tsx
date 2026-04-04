@@ -51,6 +51,21 @@ interface MealLog {
   logged_at: string;
 }
 
+interface DietMeal {
+  name: string;
+  time: string;
+  calories: number;
+  ingredients: string[];
+  description: string;
+}
+
+interface DietPlan {
+  meals: DietMeal[];
+  totalCalories: number;
+  tips: string[];
+  waterIntake: string;
+}
+
 export default function NutritionExpert() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
@@ -63,6 +78,8 @@ export default function NutritionExpert() {
   const [mealLogs, setMealLogs] = useState<MealLog[]>([]);
   const [savingLog, setSavingLog] = useState(false);
   const [manualMeal, setManualMeal] = useState({ name: "", calories: "", type: "other" });
+  const [dietPlan, setDietPlan] = useState<DietPlan | null>(null);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
 
   const bmi = userData.weight && userData.height
     ? (parseFloat(userData.weight) / ((parseFloat(userData.height) / 100) ** 2)).toFixed(1)
