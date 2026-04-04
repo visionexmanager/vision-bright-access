@@ -1082,6 +1082,8 @@ const es: Record<string, string> = {
   "delivery.sendMessage": "Enviar Mensaje",
   "delivery.callingDriver": "Llamando al capitán",
   "delivery.cancelOrder": "Cancelar Pedido",
+  "delivery.clickPickup": "Haz clic en el mapa para fijar el punto de recogida",
+  "delivery.clickDestination": "Haz clic en el mapa para fijar el destino",
   "delivery.helpVoice": "Puedes seguir al conductor en el mapa en tiempo real. Si necesitas ayuda, contacta al centro de emergencias VisionEx.",
 };
 

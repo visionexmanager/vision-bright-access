@@ -1097,6 +1097,8 @@ const ar: Record<string, string> = {
   "delivery.sendMessage": "إرسال رسالة",
   "delivery.callingDriver": "جاري الاتصال بالكابتن",
   "delivery.cancelOrder": "إلغاء الطلب",
+  "delivery.clickPickup": "انقر على الخريطة لتحديد نقطة الانطلاق",
+  "delivery.clickDestination": "انقر على الخريطة لتحديد الوجهة",
   "delivery.helpVoice": "فيك تتابع السائق عالخريطة وتشوف موقعه بالثانية. وإذا احتجت مساعدة اتصل بمركز الطوارئ فيجن إكس.",
 };
 

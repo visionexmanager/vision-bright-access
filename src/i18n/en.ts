@@ -1097,6 +1097,8 @@ const en: Record<string, string> = {
   "delivery.sendMessage": "Send Message",
   "delivery.callingDriver": "Calling the captain",
   "delivery.cancelOrder": "Cancel Order",
+  "delivery.clickPickup": "Click on the map to set pickup point",
+  "delivery.clickDestination": "Click on the map to set destination",
   "delivery.helpVoice": "You can track the driver on the map and see their location in real-time. If you need help, contact VisionEx emergency center.",
 };
 

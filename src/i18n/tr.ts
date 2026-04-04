@@ -1082,6 +1082,8 @@ const tr: Record<string, string> = {
   "delivery.sendMessage": "Mesaj Gönder",
   "delivery.callingDriver": "Kaptan aranıyor",
   "delivery.cancelOrder": "Siparişi İptal Et",
+  "delivery.clickPickup": "Alış noktasını ayarlamak için haritaya tıklayın",
+  "delivery.clickDestination": "Varış noktasını ayarlamak için haritaya tıklayın",
   "delivery.helpVoice": "Sürücüyü haritada gerçek zamanlı takip edebilirsiniz. Yardıma ihtiyacınız olursa VisionEx acil merkezine ulaşın.",
 };
 

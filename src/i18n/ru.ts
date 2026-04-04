@@ -1082,6 +1082,8 @@ const ru: Record<string, string> = {
   "delivery.sendMessage": "Отправить Сообщение",
   "delivery.callingDriver": "Звоним капитану",
   "delivery.cancelOrder": "Отменить Заказ",
+  "delivery.clickPickup": "Нажмите на карту, чтобы указать точку отправления",
+  "delivery.clickDestination": "Нажмите на карту, чтобы указать пункт назначения",
   "delivery.helpVoice": "Вы можете отслеживать водителя на карте в реальном времени. Если нужна помощь, свяжитесь с центром экстренной помощи VisionEx.",
 };
 
