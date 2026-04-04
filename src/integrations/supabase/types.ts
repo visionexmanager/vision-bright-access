@@ -89,6 +89,42 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_ratings: {
+        Row: {
+          comment: string | null
+          created_at: string
+          destination_location: string | null
+          driver_name: string
+          id: string
+          pickup_location: string | null
+          rating: number
+          service_type: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          destination_location?: string | null
+          driver_name?: string
+          id?: string
+          pickup_location?: string | null
+          rating: number
+          service_type?: string
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          destination_location?: string | null
+          driver_name?: string
+          id?: string
+          pickup_location?: string | null
+          rating?: number
+          service_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       page_events: {
         Row: {
           created_at: string
