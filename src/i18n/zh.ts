@@ -1042,6 +1042,10 @@ const zh: Record<string, string> = {
   "pomodoro.break15": "休息15分钟",
   "pomodoro.sessions": "🔥 完成了 {count} 次专注",
   "pomodoro.quote": "\"专注学习，事半功倍\"",
+  "pomodoro.settings": "设置",
+  "pomodoro.min": "分钟",
+  "pomodoro.apply": "应用",
+  "pomodoro.defaults": "默认",
 };
 
 export default zh;

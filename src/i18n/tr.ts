@@ -1042,6 +1042,10 @@ const tr: Record<string, string> = {
   "pomodoro.break15": "Mola 15dk",
   "pomodoro.sessions": "🔥 {count} odak oturumu tamamlandı",
   "pomodoro.quote": "\"Odaklanarak çalışmak yarı zamanda biter\"",
+  "pomodoro.settings": "Ayarlar",
+  "pomodoro.min": "dk",
+  "pomodoro.apply": "Uygula",
+  "pomodoro.defaults": "Varsayılan",
 };
 
 export default tr;
