@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Truck, Car, Bike, ArrowLeftRight, Clock,
-  ShieldCheck, Bell, PhoneCall, Star
+  ShieldCheck, Bell, PhoneCall, Star, MapPin
 } from "lucide-react";
 
 const DeliveryMap = lazy(() => import("@/components/DeliveryMap"));
+const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
 
 const speak = (text: string, lang: string) => {
   if ("speechSynthesis" in window) {
@@ -22,21 +23,35 @@ const speak = (text: string, lang: string) => {
 
 type ServiceType = "ride" | "package";
 type Status = "idle" | "searching" | "tracking";
+type SelectionStep = "pickup" | "destination";
 
 export default function Delivery() {
   const { t, lang } = useLanguage();
   const [serviceType, setServiceType] = useState<ServiceType>("ride");
   const [status, setStatus] = useState<Status>("idle");
   const [location, setLocation] = useState({ from: "", to: "" });
+  const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
+  const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
+  const [selectionStep, setSelectionStep] = useState<SelectionStep>("pickup");
 
   const startService = () => {
     setStatus("searching");
     speak(t("delivery.searching").replace("{from}", location.from), lang);
-
     setTimeout(() => {
       setStatus("tracking");
       speak(t("delivery.confirmed"), lang);
     }, 3000);
+  };
+
+  const handlePickupSet = (coords: [number, number], label: string) => {
+    setPickupCoords(coords);
+    setLocation((prev) => ({ ...prev, from: label }));
+    setSelectionStep("destination");
+  };
+
+  const handleDestinationSet = (coords: [number, number], label: string) => {
+    setDestCoords(coords);
+    setLocation((prev) => ({ ...prev, to: label }));
   };
 
   return (
@@ -80,86 +95,121 @@ export default function Delivery() {
 
         <main className="max-w-6xl mx-auto p-4 md:p-10">
           {status === "idle" && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in zoom-in duration-700">
-              {/* Service selector */}
-              <div className="lg:col-span-4 space-y-4">
-                <h2 className="text-3xl font-black text-foreground mb-6 italic">
-                  {t("delivery.whereToday")}
-                </h2>
-                <div
-                  onClick={() => setServiceType("ride")}
-                  className={`p-6 rounded-[35px] border-4 transition-all cursor-pointer shadow-xl ${
-                    serviceType === "ride"
-                      ? "border-primary bg-card"
-                      : "border-transparent bg-muted opacity-60"
-                  }`}
-                >
-                  <Car size={40} className="text-primary mb-4" />
-                  <h4 className="font-black text-xl text-foreground">{t("delivery.rideTitle")}</h4>
-                  <p className="text-muted-foreground text-sm mt-2">{t("delivery.rideDesc")}</p>
-                </div>
-                <div
-                  onClick={() => setServiceType("package")}
-                  className={`p-6 rounded-[35px] border-4 transition-all cursor-pointer shadow-xl ${
-                    serviceType === "package"
-                      ? "border-emerald-600 bg-card"
-                      : "border-transparent bg-muted opacity-60"
-                  }`}
-                >
-                  <Bike size={40} className="text-emerald-600 mb-4" />
-                  <h4 className="font-black text-xl text-foreground">{t("delivery.packageTitle")}</h4>
-                  <p className="text-muted-foreground text-sm mt-2">{t("delivery.packageDesc")}</p>
-                </div>
-              </div>
+            <div className="space-y-8 animate-in fade-in zoom-in duration-700">
+              {/* Map picker */}
+              <Suspense fallback={<div className="w-full h-64 md:h-80 bg-muted rounded-3xl animate-pulse" />}>
+                <LocationPickerMap
+                  pickupCoords={pickupCoords}
+                  destinationCoords={destCoords}
+                  selectionStep={selectionStep}
+                  onPickupSet={handlePickupSet}
+                  onDestinationSet={handleDestinationSet}
+                />
+              </Suspense>
 
-              {/* Trip details */}
-              <div className="lg:col-span-8 bg-card p-10 rounded-[55px] shadow-2xl border border-border relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary to-emerald-600" />
-                <div className="space-y-8">
-                  <div className="relative border-r-4 border-dashed border-border pr-8 space-y-10 py-2 mr-4">
-                    <div className="relative">
-                      <div className="absolute -right-11 top-1 w-6 h-6 bg-primary rounded-full border-4 border-card shadow-lg" />
-                      <label className="text-xs font-black text-muted-foreground uppercase tracking-widest block mb-2">
-                        {t("delivery.from")}
-                      </label>
-                      <Input
-                        value={location.from}
-                        onChange={(e) => setLocation({ ...location, from: e.target.value })}
-                        placeholder={t("delivery.fromPlaceholder")}
-                        className="bg-muted p-5 rounded-2xl font-bold text-lg h-auto"
-                      />
-                    </div>
-                    <div className="relative">
-                      <div className="absolute -right-11 top-1 w-6 h-6 bg-destructive rounded-full border-4 border-card shadow-lg" />
-                      <label className="text-xs font-black text-muted-foreground uppercase tracking-widest block mb-2">
-                        {t("delivery.to")}
-                      </label>
-                      <Input
-                        value={location.to}
-                        onChange={(e) => setLocation({ ...location, to: e.target.value })}
-                        placeholder={t("delivery.toPlaceholder")}
-                        className="bg-muted p-5 rounded-2xl font-bold text-lg h-auto"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-primary/10 p-6 rounded-3xl flex justify-between items-center border border-primary/20">
-                    <div className="flex items-center gap-4 text-foreground">
-                      <Clock className="text-primary" />
-                      <span className="font-black">{t("delivery.estimatedTime")}: 25 {t("delivery.minutes")}</span>
-                    </div>
-                    <div className="text-2xl font-black text-foreground tracking-tighter">12.00 $</div>
-                  </div>
-
-                  <Button
-                    onClick={startService}
-                    disabled={!location.from || !location.to}
-                    className="w-full py-6 h-auto rounded-[30px] font-black text-2xl shadow-2xl flex items-center justify-center gap-4"
-                    size="lg"
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Service selector */}
+                <div className="lg:col-span-4 space-y-4">
+                  <h2 className="text-3xl font-black text-foreground mb-6 italic">
+                    {t("delivery.whereToday")}
+                  </h2>
+                  <div
+                    onClick={() => setServiceType("ride")}
+                    className={`p-6 rounded-[35px] border-4 transition-all cursor-pointer shadow-xl ${
+                      serviceType === "ride"
+                        ? "border-primary bg-card"
+                        : "border-transparent bg-muted opacity-60"
+                    }`}
                   >
-                    {serviceType === "ride" ? t("delivery.requestRide") : t("delivery.confirmDelivery")}
-                    <ArrowLeftRight className="rotate-180" />
-                  </Button>
+                    <Car size={40} className="text-primary mb-4" />
+                    <h4 className="font-black text-xl text-foreground">{t("delivery.rideTitle")}</h4>
+                    <p className="text-muted-foreground text-sm mt-2">{t("delivery.rideDesc")}</p>
+                  </div>
+                  <div
+                    onClick={() => setServiceType("package")}
+                    className={`p-6 rounded-[35px] border-4 transition-all cursor-pointer shadow-xl ${
+                      serviceType === "package"
+                        ? "border-emerald-600 bg-card"
+                        : "border-transparent bg-muted opacity-60"
+                    }`}
+                  >
+                    <Bike size={40} className="text-emerald-600 mb-4" />
+                    <h4 className="font-black text-xl text-foreground">{t("delivery.packageTitle")}</h4>
+                    <p className="text-muted-foreground text-sm mt-2">{t("delivery.packageDesc")}</p>
+                  </div>
+                </div>
+
+                {/* Trip details */}
+                <div className="lg:col-span-8 bg-card p-10 rounded-[55px] shadow-2xl border border-border relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary to-emerald-600" />
+                  <div className="space-y-8">
+                    <div className="relative border-r-4 border-dashed border-border pr-8 space-y-10 py-2 mr-4">
+                      <div className="relative">
+                        <div className="absolute -right-11 top-1 w-6 h-6 bg-primary rounded-full border-4 border-card shadow-lg" />
+                        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest block mb-2">
+                          {t("delivery.from")}
+                        </label>
+                        <div className="flex gap-2">
+                          <Input
+                            value={location.from}
+                            onChange={(e) => setLocation({ ...location, from: e.target.value })}
+                            placeholder={t("delivery.fromPlaceholder")}
+                            className="bg-muted p-5 rounded-2xl font-bold text-lg h-auto flex-1"
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className={`h-auto w-14 rounded-2xl shrink-0 ${selectionStep === "pickup" ? "border-primary text-primary" : ""}`}
+                            onClick={() => setSelectionStep("pickup")}
+                            title={t("delivery.clickPickup")}
+                          >
+                            <MapPin size={20} />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <div className="absolute -right-11 top-1 w-6 h-6 bg-destructive rounded-full border-4 border-card shadow-lg" />
+                        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest block mb-2">
+                          {t("delivery.to")}
+                        </label>
+                        <div className="flex gap-2">
+                          <Input
+                            value={location.to}
+                            onChange={(e) => setLocation({ ...location, to: e.target.value })}
+                            placeholder={t("delivery.toPlaceholder")}
+                            className="bg-muted p-5 rounded-2xl font-bold text-lg h-auto flex-1"
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className={`h-auto w-14 rounded-2xl shrink-0 ${selectionStep === "destination" ? "border-destructive text-destructive" : ""}`}
+                            onClick={() => setSelectionStep("destination")}
+                            title={t("delivery.clickDestination")}
+                          >
+                            <MapPin size={20} />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-primary/10 p-6 rounded-3xl flex justify-between items-center border border-primary/20">
+                      <div className="flex items-center gap-4 text-foreground">
+                        <Clock className="text-primary" />
+                        <span className="font-black">{t("delivery.estimatedTime")}: 25 {t("delivery.minutes")}</span>
+                      </div>
+                      <div className="text-2xl font-black text-foreground tracking-tighter">12.00 $</div>
+                    </div>
+
+                    <Button
+                      onClick={startService}
+                      disabled={!location.from || !location.to}
+                      className="w-full py-6 h-auto rounded-[30px] font-black text-2xl shadow-2xl flex items-center justify-center gap-4"
+                      size="lg"
+                    >
+                      {serviceType === "ride" ? t("delivery.requestRide") : t("delivery.confirmDelivery")}
+                      <ArrowLeftRight className="rotate-180" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -183,7 +233,6 @@ export default function Delivery() {
                 <DeliveryMap isTracking={true} />
               </Suspense>
 
-              {/* Driver info */}
               <div className="bg-card p-8 rounded-[50px] shadow-2xl border border-border flex flex-col md:flex-row items-center gap-8">
                 <div className="w-24 h-24 bg-muted rounded-[35px] overflow-hidden border-4 border-primary/10 flex items-center justify-center">
                   <Car size={40} className="text-primary" />
@@ -226,7 +275,6 @@ export default function Delivery() {
           )}
         </main>
 
-        {/* Footer buttons */}
         <footer className="fixed bottom-6 w-full px-6 flex justify-between items-center pointer-events-none z-50">
           <button className="p-5 bg-card text-primary rounded-full shadow-2xl border border-border pointer-events-auto hover:scale-110 active:rotate-12 transition-all">
             <ShieldCheck size={32} />
