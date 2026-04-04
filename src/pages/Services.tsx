@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Globe, Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight } from "lucide-react";
+import { Globe, Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
@@ -50,11 +50,29 @@ export default function Services() {
           ))}
         </div>
 
+        {/* Delivery CTA */}
+        <div className="mt-8">
+          <Link to="/services/delivery">
+            <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
+              <CardContent className="flex items-center gap-6 p-8">
+                <div className="rounded-xl bg-primary/10 p-4">
+                  <Truck className="h-10 w-10 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-black text-foreground">{t("delivery.serviceTitle")}</h2>
+                  <p className="text-muted-foreground mt-1">{t("delivery.serviceDesc")}</p>
+                </div>
+                <ArrowRight className="h-8 w-8 text-primary" />
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+
         {/* Academy CTA */}
-        <div className="mt-12 text-center">
+        <div className="mt-8 text-center">
           <Link to="/academy">
             <Button size="lg" className="text-lg px-8 py-6 font-semibold">
-              🎓 أكاديمية VisionEx العالمية <ArrowRight className="ms-2 h-5 w-5" />
+              🎓 {t("services.academy")} <ArrowRight className="ms-2 h-5 w-5" />
             </Button>
           </Link>
         </div>
