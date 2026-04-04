@@ -27,6 +27,7 @@ const speak = (text: string, lang: string) => {
 type ServiceType = "ride" | "package";
 type Status = "idle" | "searching" | "tracking" | "completed";
 type SelectionStep = "pickup" | "destination";
+type PaymentMethod = "cash" | "card";
 
 export default function Delivery() {
   const { t, lang } = useLanguage();
