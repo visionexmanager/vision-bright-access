@@ -77,6 +77,8 @@ export default function PomodoroTimer() {
   const [showSettings, setShowSettings] = useState(false);
   const [tempDurations, setTempDurations] = useState({ ...durations });
   const [notifEnabled, setNotifEnabled] = useState(getNotificationPermission);
+  const notifEnabledRef = useRef(notifEnabled);
+  notifEnabledRef.current = notifEnabled;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const totalSeconds = durations[mode] * 60;
