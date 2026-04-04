@@ -1271,6 +1271,11 @@ const ar: Record<string, string> = {
   "nutrition.analysisResult": "هذه الوجبة تحتوي على 450 سعرة حرارية تقريباً، وهي متوازنة جداً.",
   "nutrition.serviceTitle": "أخصائي التغذية",
   "nutrition.serviceDesc": "عيادة تغذية ذكية — خطط غذائية مخصصة وتحليل فوري للوجبات",
+  "nutrition.invalidImage": "يرجى اختيار صورة صالحة",
+  "nutrition.imageTooLarge": "حجم الصورة يجب أن لا يتجاوز 5 ميغابايت",
+  "nutrition.analysisError": "فشل تحليل الوجبة. حاول مرة أخرى.",
+  "nutrition.ingredientsLabel": "المكونات",
+  "nutrition.healthTip": "نصيحة صحية",
 };
 
 export default ar;
