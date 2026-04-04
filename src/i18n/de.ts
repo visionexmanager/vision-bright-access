@@ -1082,6 +1082,8 @@ const de: Record<string, string> = {
   "delivery.sendMessage": "Nachricht senden",
   "delivery.callingDriver": "Kapitän wird angerufen",
   "delivery.cancelOrder": "Bestellung stornieren",
+  "delivery.clickPickup": "Klicken Sie auf die Karte, um den Abholpunkt festzulegen",
+  "delivery.clickDestination": "Klicken Sie auf die Karte, um das Ziel festzulegen",
   "delivery.helpVoice": "Du kannst den Fahrer auf der Karte in Echtzeit verfolgen. Bei Hilfe kontaktiere die VisionEx Notfallzentrale.",
 };
 

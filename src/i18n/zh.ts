@@ -1082,6 +1082,8 @@ const zh: Record<string, string> = {
   "delivery.sendMessage": "发送消息",
   "delivery.callingDriver": "正在呼叫队长",
   "delivery.cancelOrder": "取消订单",
+  "delivery.clickPickup": "点击地图设置上车点",
+  "delivery.clickDestination": "点击地图设置目的地",
   "delivery.helpVoice": "您可以在地图上实时追踪司机。如需帮助，请联系VisionEx紧急中心。",
 };
 
