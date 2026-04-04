@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 import { Progress } from "@/components/ui/progress";
 import WeeklyCalorieReport from "@/components/WeeklyCalorieReport";
+import MealReminders from "@/components/MealReminders";
 
 const speak = (text: string, lang: string) => {
   if ("speechSynthesis" in window) {
