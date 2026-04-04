@@ -96,6 +96,24 @@ export default function NutritionExpert() {
     return t("nutrition.obese");
   }, [t]);
 
+  const generateDietPlan = async () => {
+    setGeneratingPlan(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-diet-plan", {
+        body: { name: userData.name, weight: userData.weight, height: userData.height, goal: userData.goal, lang },
+      });
+      if (error) throw error;
+      if (data?.error) { toast.error(data.error); return; }
+      setDietPlan(data.plan as DietPlan);
+      toast.success(t("nutrition.planGenerated"));
+    } catch (err) {
+      console.error("Diet plan error:", err);
+      toast.error(t("nutrition.analysisError"));
+    } finally {
+      setGeneratingPlan(false);
+    }
+  };
+
   const enterClinic = () => {
     if (!userData.name || !userData.weight || !userData.height || !userData.goal) {
       toast.error(t("nutrition.fillAll"));
@@ -103,6 +121,7 @@ export default function NutritionExpert() {
     }
     speak(t("nutrition.welcomeVoice").replace("{name}", userData.name), lang);
     setStep("clinic");
+    setDietPlan(null);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
