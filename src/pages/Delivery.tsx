@@ -43,6 +43,9 @@ export default function Delivery() {
   const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
   const [selectionStep, setSelectionStep] = useState<SelectionStep>("pickup");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
+  const [scheduledTime, setScheduledTime] = useState("09:00");
 
   const prevStatusRef = useRef<Status>(status);
   useEffect(() => {
