@@ -1106,6 +1106,9 @@ const de: Record<string, string> = {
   "tripHistory.bookNow": "Fahrt buchen",
   "tripHistory.newTrip": "Neue Fahrt",
   "tripHistory.loginRequired": "Bitte melde dich an, um deinen Fahrtenverlauf zu sehen",
+  "delivery.distance": "Entfernung",
+  "delivery.baseFare": "Grundpreis",
+  "delivery.perKm": "Pro km",
 };
 
 export default de;

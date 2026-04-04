@@ -1106,6 +1106,9 @@ const ru: Record<string, string> = {
   "tripHistory.bookNow": "Заказать поездку",
   "tripHistory.newTrip": "Новая поездка",
   "tripHistory.loginRequired": "Войдите, чтобы увидеть историю поездок",
+  "delivery.distance": "Расстояние",
+  "delivery.baseFare": "Базовый тариф",
+  "delivery.perKm": "За км",
 };
 
 export default ru;

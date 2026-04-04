@@ -1106,6 +1106,9 @@ const zh: Record<string, string> = {
   "tripHistory.bookNow": "预订行程",
   "tripHistory.newTrip": "新行程",
   "tripHistory.loginRequired": "请登录查看您的行程记录",
+  "delivery.distance": "距离",
+  "delivery.baseFare": "起步价",
+  "delivery.perKm": "每公里",
 };
 
 export default zh;
