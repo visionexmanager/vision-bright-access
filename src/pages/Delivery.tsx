@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,8 @@ import {
   Truck, Car, Bike, ArrowLeftRight, Clock,
   ShieldCheck, Bell, PhoneCall, Star
 } from "lucide-react";
+
+const DeliveryMap = lazy(() => import("@/components/DeliveryMap"));
 
 const speak = (text: string, lang: string) => {
   if ("speechSynthesis" in window) {
