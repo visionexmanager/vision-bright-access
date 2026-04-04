@@ -266,12 +266,34 @@ export default function Delivery() {
               </div>
 
               <Button
+                onClick={() => setStatus("completed")}
+                className="w-full py-4 h-auto rounded-2xl font-black text-lg gap-2"
+              >
+                {t("delivery.completeTrip")}
+              </Button>
+
+              <Button
                 variant="outline"
                 onClick={() => setStatus("idle")}
                 className="w-full py-4 h-auto rounded-2xl font-black text-destructive border-destructive/30 hover:bg-destructive hover:text-white transition-all"
               >
                 {t("delivery.cancelOrder")}
               </Button>
+            </div>
+          )}
+
+          {/* Rating */}
+          {status === "completed" && (
+            <div className="py-10 animate-in fade-in">
+              <Suspense fallback={<div className="w-full h-40 bg-muted rounded-3xl animate-pulse" />}>
+                <DriverRating
+                  driverName={t("delivery.driverName")}
+                  pickupLocation={location.from}
+                  destinationLocation={location.to}
+                  serviceType={serviceType}
+                  onComplete={() => setStatus("idle")}
+                />
+              </Suspense>
             </div>
           )}
         </main>
