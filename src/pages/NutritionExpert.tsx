@@ -82,6 +82,9 @@ export default function NutritionExpert() {
   const [manualMeal, setManualMeal] = useState({ name: "", calories: "", type: "other" });
   const [dietPlan, setDietPlan] = useState<DietPlan | null>(null);
   const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [savedPlans, setSavedPlans] = useState<Array<{ id: string; plan_name: string; plan: DietPlan; created_at: string }>>([]);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [showSavedPlans, setShowSavedPlans] = useState(false);
 
   const bmi = userData.weight && userData.height
     ? (parseFloat(userData.weight) / ((parseFloat(userData.height) / 100) ** 2)).toFixed(1)
