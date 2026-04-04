@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Truck, Car, Bike, ArrowLeftRight, Clock,
-  ShieldCheck, Bell, PhoneCall, Star, MapPin
+  ShieldCheck, Bell, PhoneCall, Star, MapPin, History
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const DeliveryMap = lazy(() => import("@/components/DeliveryMap"));
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
