@@ -1117,6 +1117,16 @@ const zh: Record<string, string> = {
   "sharedTrip.poweredBy": "由 VisionEx Express 提供支持",
   "sharedTrip.share": "分享行程",
   "sharedTrip.linkCopied": "链接已复制到剪贴板",
+  "delivery.notif.searching": "正在寻找司机...",
+  "delivery.notif.searchingDesc": "请稍候，我们正在为您寻找最近的司机",
+  "delivery.notif.driverFound": "已找到司机！",
+  "delivery.notif.driverFoundDesc": "司机正在前往接您的路上",
+  "delivery.notif.arriving": "司机快到了！",
+  "delivery.notif.arrivingDesc": "司机大约2分钟后到达",
+  "delivery.notif.completed": "行程已完成！",
+  "delivery.notif.completedDesc": "感谢使用 VisionEx Express",
+  "delivery.notif.cancelled": "行程已取消",
+  "delivery.notif.cancelledDesc": "您的行程已被取消",
 };
 
 export default zh;

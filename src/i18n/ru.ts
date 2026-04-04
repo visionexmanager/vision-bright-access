@@ -1117,6 +1117,16 @@ const ru: Record<string, string> = {
   "sharedTrip.poweredBy": "Работает на VisionEx Express",
   "sharedTrip.share": "Поделиться поездкой",
   "sharedTrip.linkCopied": "Ссылка скопирована в буфер обмена",
+  "delivery.notif.searching": "Ищем водителя...",
+  "delivery.notif.searchingDesc": "Подождите, пока мы найдём лучшего водителя поблизости",
+  "delivery.notif.driverFound": "Водитель найден!",
+  "delivery.notif.driverFoundDesc": "Ваш водитель уже в пути",
+  "delivery.notif.arriving": "Водитель рядом!",
+  "delivery.notif.arrivingDesc": "Ваш водитель прибудет примерно через 2 минуты",
+  "delivery.notif.completed": "Поездка завершена!",
+  "delivery.notif.completedDesc": "Спасибо за использование VisionEx Express",
+  "delivery.notif.cancelled": "Поездка отменена",
+  "delivery.notif.cancelledDesc": "Ваша поездка была отменена",
 };
 
 export default ru;

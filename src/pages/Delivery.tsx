@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, useMemo, lazy, Suspense, useEffect, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import {
   Banknote, CreditCard, Share2
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const DeliveryMap = lazy(() => import("@/components/DeliveryMap"));
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
@@ -39,7 +40,25 @@ export default function Delivery() {
   const [selectionStep, setSelectionStep] = useState<SelectionStep>("pickup");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
 
-  // Haversine distance in km
+  const prevStatusRef = useRef<Status>(status);
+  useEffect(() => {
+    if (prevStatusRef.current === status) return;
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = status;
+
+    if (status === "searching") {
+      toast(t("delivery.notif.searching"), { icon: "🔍", description: t("delivery.notif.searchingDesc") });
+    } else if (status === "tracking") {
+      toast.success(t("delivery.notif.driverFound"), { description: t("delivery.notif.driverFoundDesc") });
+      // Simulate mid-trip notifications
+      setTimeout(() => toast(t("delivery.notif.arriving"), { icon: "📍", description: t("delivery.notif.arrivingDesc") }), 8000);
+    } else if (status === "completed") {
+      toast.success(t("delivery.notif.completed"), { description: t("delivery.notif.completedDesc") });
+    } else if (status === "idle" && prev === "tracking") {
+      toast.error(t("delivery.notif.cancelled"), { description: t("delivery.notif.cancelledDesc") });
+    }
+  }, [status, t]);
+
   const tripInfo = useMemo(() => {
     if (!pickupCoords || !destCoords) return null;
     const toRad = (d: number) => (d * Math.PI) / 180;
