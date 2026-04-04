@@ -1306,6 +1306,14 @@ const en: Record<string, string> = {
   "nutrition.fri": "Fri",
   "nutrition.sat": "Sat",
   "nutrition.pdfExported": "Diet plan exported as PDF!",
+  "nutrition.savePlan": "Save",
+  "nutrition.myPlans": "My Plans",
+  "nutrition.savedPlans": "Saved Diet Plans",
+  "nutrition.noSavedPlans": "No saved plans yet",
+  "nutrition.planSaved": "Plan saved successfully!",
+  "nutrition.planLoaded": "Plan loaded!",
+  "nutrition.planDeleted": "Plan deleted",
+  "nutrition.loginToSave": "Please log in to save plans",
 };
 
 export default en;
