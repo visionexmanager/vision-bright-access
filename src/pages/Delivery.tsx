@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Truck, Car, Bike, ArrowLeftRight, Clock,
-  ShieldCheck, Bell, PhoneCall, Star, MapPin, History
+  ShieldCheck, Bell, PhoneCall, Star, MapPin, History,
+  Banknote, CreditCard
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -26,6 +27,7 @@ const speak = (text: string, lang: string) => {
 type ServiceType = "ride" | "package";
 type Status = "idle" | "searching" | "tracking" | "completed";
 type SelectionStep = "pickup" | "destination";
+type PaymentMethod = "cash" | "card";
 
 export default function Delivery() {
   const { t, lang } = useLanguage();
@@ -35,6 +37,7 @@ export default function Delivery() {
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
   const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
   const [selectionStep, setSelectionStep] = useState<SelectionStep>("pickup");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
 
   // Haversine distance in km
   const tripInfo = useMemo(() => {
@@ -243,8 +246,38 @@ export default function Delivery() {
                       )}
                     </div>
 
-                    <Button
-                      onClick={startService}
+                    {/* Payment method */}
+                    <div className="space-y-3">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                        {t("delivery.paymentMethod")}
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => setPaymentMethod("cash")}
+                          className={`flex items-center gap-3 p-4 rounded-2xl border-2 font-bold transition-all ${
+                            paymentMethod === "cash"
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-muted text-muted-foreground hover:border-primary/40"
+                          }`}
+                        >
+                          <Banknote className="w-5 h-5" />
+                          {t("delivery.cash")}
+                        </button>
+                        <button
+                          onClick={() => setPaymentMethod("card")}
+                          className={`flex items-center gap-3 p-4 rounded-2xl border-2 font-bold transition-all ${
+                            paymentMethod === "card"
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-muted text-muted-foreground hover:border-primary/40"
+                          }`}
+                        >
+                          <CreditCard className="w-5 h-5" />
+                          {t("delivery.card")}
+                        </button>
+                      </div>
+                    </div>
+
+                      <Button
                       disabled={!location.from || !location.to}
                       className="w-full py-6 h-auto rounded-[30px] font-black text-2xl shadow-2xl flex items-center justify-center gap-4"
                       size="lg"

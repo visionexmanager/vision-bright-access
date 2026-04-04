@@ -1124,6 +1124,9 @@ const ar: Record<string, string> = {
   "delivery.distance": "المسافة",
   "delivery.baseFare": "الأجرة الأساسية",
   "delivery.perKm": "لكل كم",
+  "delivery.paymentMethod": "طريقة الدفع",
+  "delivery.cash": "نقداً",
+  "delivery.card": "بطاقة ائتمان",
 };
 
 export default ar;
