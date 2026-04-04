@@ -1162,6 +1162,8 @@ const pt: Record<string, string> = {
   "nutrition.invalidImage": "Selecione uma imagem válida", "nutrition.imageTooLarge": "A imagem deve ter menos de 5MB", "nutrition.analysisError": "Falha na análise. Tente novamente.", "nutrition.ingredientsLabel": "Ingredientes", "nutrition.healthTip": "Dica de saúde",
   "nutrition.dailyLog": "Registro de hoje", "nutrition.mealNamePlaceholder": "Nome da refeição...", "nutrition.addMeal": "Adicionar", "nutrition.noMealsYet": "Sem refeições hoje", "nutrition.mealSaved": "Refeição salva!", "nutrition.saveToLog": "Salvar no registro",
   "nutrition.generatePlan": "Gerar plano IA", "nutrition.generating": "Gerando...", "nutrition.planGenerated": "Seu plano está pronto!", "nutrition.totalCalories": "Calorias totais",
+  "nutrition.weeklyReport": "Relatório semanal de calorias", "nutrition.weeklyReportDesc": "Acompanhe suas calorias nos últimos 7 dias", "nutrition.totalWeekCal": "Total semanal", "nutrition.dailyAvg": "Média diária", "nutrition.trend": "Tendência", "nutrition.onTarget": "No alvo", "nutrition.goalLine": "Meta diária", "nutrition.totalMeals": "Total refeições", "nutrition.withinGoal": "Dentro da meta", "nutrition.overGoal": "Acima da meta", "nutrition.noData": "Sem dados", "nutrition.loading": "Carregando...",
+  "nutrition.sun": "Dom", "nutrition.mon": "Seg", "nutrition.tue": "Ter", "nutrition.wed": "Qua", "nutrition.thu": "Qui", "nutrition.fri": "Sex", "nutrition.sat": "Sáb",
 };
 
 export default pt;

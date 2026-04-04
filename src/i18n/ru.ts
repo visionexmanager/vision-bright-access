@@ -1162,6 +1162,8 @@ const ru: Record<string, string> = {
   "nutrition.invalidImage": "Выберите корректное изображение", "nutrition.imageTooLarge": "Изображение должно быть менее 5 МБ", "nutrition.analysisError": "Ошибка анализа. Попробуйте снова.", "nutrition.ingredientsLabel": "Ингредиенты", "nutrition.healthTip": "Совет по здоровью",
   "nutrition.dailyLog": "Журнал за сегодня", "nutrition.mealNamePlaceholder": "Название блюда...", "nutrition.addMeal": "Добавить", "nutrition.noMealsYet": "Нет записей сегодня", "nutrition.mealSaved": "Блюдо сохранено!", "nutrition.saveToLog": "Сохранить в журнал",
   "nutrition.generatePlan": "ИИ-план", "nutrition.generating": "Генерация...", "nutrition.planGenerated": "Ваш план готов!", "nutrition.totalCalories": "Всего калорий",
+  "nutrition.weeklyReport": "Недельный отчёт калорий", "nutrition.weeklyReportDesc": "Отслеживание калорий за последние 7 дней", "nutrition.totalWeekCal": "За неделю", "nutrition.dailyAvg": "Среднее/день", "nutrition.trend": "Тренд", "nutrition.onTarget": "В цели", "nutrition.goalLine": "Дневная цель", "nutrition.totalMeals": "Всего приёмов", "nutrition.withinGoal": "В рамках цели", "nutrition.overGoal": "Выше цели", "nutrition.noData": "Нет данных", "nutrition.loading": "Загрузка...",
+  "nutrition.sun": "Вс", "nutrition.mon": "Пн", "nutrition.tue": "Вт", "nutrition.wed": "Ср", "nutrition.thu": "Чт", "nutrition.fri": "Пт", "nutrition.sat": "Сб",
 };
 
 export default ru;

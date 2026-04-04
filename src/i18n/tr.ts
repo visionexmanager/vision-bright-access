@@ -1162,6 +1162,8 @@ const tr: Record<string, string> = {
   "nutrition.invalidImage": "Geçerli bir resim seçin", "nutrition.imageTooLarge": "Resim 5MB'dan küçük olmalı", "nutrition.analysisError": "Analiz başarısız. Tekrar deneyin.", "nutrition.ingredientsLabel": "İçindekiler", "nutrition.healthTip": "Sağlık ipucu",
   "nutrition.dailyLog": "Bugünün kaydı", "nutrition.mealNamePlaceholder": "Öğün adı...", "nutrition.addMeal": "Ekle", "nutrition.noMealsYet": "Bugün kayıt yok", "nutrition.mealSaved": "Öğün kaydedildi!", "nutrition.saveToLog": "Kayda ekle",
   "nutrition.generatePlan": "Yapay zeka planı", "nutrition.generating": "Oluşturuluyor...", "nutrition.planGenerated": "Planınız hazır!", "nutrition.totalCalories": "Toplam kalori",
+  "nutrition.weeklyReport": "Haftalık kalori raporu", "nutrition.weeklyReportDesc": "Son 7 günün kalori takibi", "nutrition.totalWeekCal": "Hafta toplamı", "nutrition.dailyAvg": "Günlük ort.", "nutrition.trend": "Eğilim", "nutrition.onTarget": "Hedefte", "nutrition.goalLine": "Günlük hedef", "nutrition.totalMeals": "Toplam öğün", "nutrition.withinGoal": "Hedefte", "nutrition.overGoal": "Hedef üstü", "nutrition.noData": "Veri yok", "nutrition.loading": "Yükleniyor...",
+  "nutrition.sun": "Paz", "nutrition.mon": "Pzt", "nutrition.tue": "Sal", "nutrition.wed": "Çar", "nutrition.thu": "Per", "nutrition.fri": "Cum", "nutrition.sat": "Cmt",
 };
 
 export default tr;
