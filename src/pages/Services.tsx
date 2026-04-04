@@ -68,6 +68,24 @@ export default function Services() {
           </Link>
         </div>
 
+        {/* Economy CTA */}
+        <div className="mt-4">
+          <Link to="/services/economy">
+            <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
+              <CardContent className="flex items-center gap-6 p-8">
+                <div className="rounded-xl bg-primary/10 p-4">
+                  <BarChart3 className="h-10 w-10 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-black text-foreground">{t("econ.title")}</h2>
+                  <p className="text-muted-foreground mt-1">{t("econ.subtitle")}</p>
+                </div>
+                <ArrowRight className="h-8 w-8 text-primary" />
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+
         {/* Academy CTA */}
         <div className="mt-8 text-center">
           <Link to="/academy">
