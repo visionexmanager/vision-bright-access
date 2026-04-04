@@ -346,6 +346,7 @@ export default function NutritionExpert() {
     toast.success(t("nutrition.pdfExported"));
   };
 
+  return (
     <Layout>
       <div className="min-h-screen pb-20">
         {/* Header */}
