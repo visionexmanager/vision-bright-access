@@ -37,6 +37,7 @@ const Delivery = lazy(() => import("./pages/Delivery"));
 const TripHistory = lazy(() => import("./pages/TripHistory"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const SharedTrip = lazy(() => import("./pages/SharedTrip"));
+const BusinessEconomy = lazy(() => import("./pages/BusinessEconomy"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -99,6 +100,7 @@ const App = () => (
                     <Route path="/business-simulator/:slug" element={<SimulationRunner />} />
                     <Route path="/simulations-summary" element={<SimulationsSummary />} />
                     <Route path="/services/delivery" element={<Delivery />} />
+                    <Route path="/services/economy" element={<BusinessEconomy />} />
                     <Route path="/services/shared-trip" element={<SharedTrip />} />
                     <Route path="/services/trip-history" element={<TripHistory />} />
                     {/* Admin routes */}
