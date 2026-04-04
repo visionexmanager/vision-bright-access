@@ -1112,6 +1112,7 @@ const ar: Record<string, string> = {
   "delivery.ratingSuccess": "شكراً لتقييمك!",
   "delivery.ratingError": "فشل إرسال التقييم",
   "delivery.ratingLoginRequired": "يرجى تسجيل الدخول للتقييم",
+  "delivery.locateMe": "استخدم موقعي الحالي",
   "delivery.clickPickup": "انقر على الخريطة لتحديد نقطة الانطلاق",
   "delivery.clickDestination": "انقر على الخريطة لتحديد الوجهة",
   "delivery.helpVoice": "فيك تتابع السائق عالخريطة وتشوف موقعه بالثانية. وإذا احتجت مساعدة اتصل بمركز الطوارئ فيجن إكس.",

@@ -1097,6 +1097,7 @@ const pt: Record<string, string> = {
   "delivery.ratingSuccess": "Obrigado pela avaliação!",
   "delivery.ratingError": "Erro ao enviar avaliação",
   "delivery.ratingLoginRequired": "Faça login para avaliar",
+  "delivery.locateMe": "Usar minha localização atual",
   "delivery.clickPickup": "Clique no mapa para definir o ponto de partida",
   "delivery.clickDestination": "Clique no mapa para definir o destino",
   "delivery.helpVoice": "Você pode acompanhar o motorista no mapa em tempo real. Se precisar de ajuda, entre em contato com o centro de emergência VisionEx.",

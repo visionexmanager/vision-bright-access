@@ -1097,6 +1097,7 @@ const zh: Record<string, string> = {
   "delivery.ratingSuccess": "感谢您的评价！",
   "delivery.ratingError": "提交评价失败",
   "delivery.ratingLoginRequired": "请登录后评价",
+  "delivery.locateMe": "使用我的当前位置",
   "delivery.clickPickup": "点击地图设置上车点",
   "delivery.clickDestination": "点击地图设置目的地",
   "delivery.helpVoice": "您可以在地图上实时追踪司机。如需帮助，请联系VisionEx紧急中心。",

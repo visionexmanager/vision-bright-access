@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -106,6 +106,30 @@ export default function LocationPickerMap({
     }
   }, [pickupCoords, destinationCoords]);
 
+  const [locating, setLocating] = useState(false);
+
+  const handleLocateMe = useCallback(async () => {
+    if (!("geolocation" in navigator) || !mapRef.current) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const map = mapRef.current!;
+        map.setView([lat, lng], 15, { animate: true });
+
+        const label = await reverseGeocode(lat, lng);
+
+        if (pickupMarkerRef.current) map.removeLayer(pickupMarkerRef.current);
+        const icon = L.divIcon({ html: pickupIconHtml, className: "", iconSize: [20, 20], iconAnchor: [10, 10] });
+        pickupMarkerRef.current = L.marker([lat, lng], { icon }).addTo(map).bindPopup(label).openPopup();
+        onPickupSet([lat, lng], label);
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [onPickupSet, reverseGeocode]);
+
   return (
     <div className="relative w-full h-64 md:h-80 rounded-3xl overflow-hidden border-2 border-border shadow-lg">
       <div ref={containerRef} className="w-full h-full z-0" />
@@ -120,6 +144,22 @@ export default function LocationPickerMap({
           ? t("delivery.clickPickup")
           : t("delivery.clickDestination")}
       </div>
+      {/* GPS locate button */}
+      <button
+        onClick={handleLocateMe}
+        disabled={locating}
+        className="absolute bottom-3 right-3 z-[1000] bg-card/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-border text-primary hover:bg-primary hover:text-primary-foreground transition-all disabled:opacity-50"
+        title={t("delivery.locateMe")}
+      >
+        {locating ? (
+          <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+          </svg>
+        )}
+      </button>
     </div>
   );
 }
