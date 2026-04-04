@@ -521,6 +521,17 @@ export default function NutritionExpert() {
                           <p className="text-xs font-black text-muted-foreground uppercase">{t("nutrition.healthTip")}</p>
                           <p className="text-sm text-foreground mt-1">{mealResult.tip}</p>
                         </div>
+
+                        {user && (
+                          <Button
+                            onClick={saveAnalysisToLog}
+                            disabled={savingLog}
+                            className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2"
+                          >
+                            {savingLog ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+                            {t("nutrition.saveToLog")}
+                          </Button>
+                        )}
                       </div>
                     )}
                   </CardContent>
