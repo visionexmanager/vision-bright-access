@@ -1221,6 +1221,9 @@ const en: Record<string, string> = {
   "econ.idea4": "Telemedicine App",
   "econ.idea5": "Solar Energy Solutions",
   "econ.idea6": "E-Commerce Marketplace",
+  "econ.exportPdf": "Export as PDF",
+  "econ.pdfExported": "Report exported successfully!",
+  "econ.feasibilityReport": "Feasibility Study Report",
 };
 
 export default en;

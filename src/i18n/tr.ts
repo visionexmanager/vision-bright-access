@@ -1156,6 +1156,7 @@ const tr: Record<string, string> = {
   "econ.healthSector": "Sağlık", "econ.energySector": "Enerji", "econ.retailSector": "Perakende",
   "econ.idea1": "Yapay zeka destekli SaaS", "econ.idea2": "Akıllı bulut mutfak", "econ.idea3": "Çevrimiçi öğrenme akademisi",
   "econ.idea4": "Teletıp uygulaması", "econ.idea5": "Güneş enerjisi çözümleri", "econ.idea6": "E-ticaret pazaryeri",
+  "econ.exportPdf": "PDF olarak dışa aktar", "econ.pdfExported": "Rapor başarıyla dışa aktarıldı!", "econ.feasibilityReport": "Fizibilite çalışması raporu",
 };
 
 export default tr;

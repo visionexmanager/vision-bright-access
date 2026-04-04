@@ -1156,6 +1156,7 @@ const ru: Record<string, string> = {
   "econ.healthSector": "Здравоохранение", "econ.energySector": "Энергетика", "econ.retailSector": "Розничная торговля",
   "econ.idea1": "SaaS-платформа на базе ИИ", "econ.idea2": "Умная облачная кухня", "econ.idea3": "Онлайн-академия обучения",
   "econ.idea4": "Приложение телемедицины", "econ.idea5": "Решения солнечной энергии", "econ.idea6": "E-Commerce маркетплейс",
+  "econ.exportPdf": "Экспорт в PDF", "econ.pdfExported": "Отчёт успешно экспортирован!", "econ.feasibilityReport": "Отчёт о технико-экономическом обосновании",
 };
 
 export default ru;
