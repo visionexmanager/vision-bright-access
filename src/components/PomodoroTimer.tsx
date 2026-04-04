@@ -56,6 +56,17 @@ function playAlarm() {
   } catch { /* silent fallback */ }
 }
 
+function getNotificationPermission(): boolean {
+  return typeof Notification !== "undefined" && Notification.permission === "granted";
+}
+
+function sendNotification(title: string, body: string) {
+  if (!getNotificationPermission()) return;
+  try {
+    new Notification(title, { body, icon: "/placeholder.svg" });
+  } catch { /* silent */ }
+}
+
 export default function PomodoroTimer() {
   const { t } = useLanguage();
   const [durations, setDurations] = useState<Record<Mode, number>>(loadCustomDurations);
@@ -65,6 +76,7 @@ export default function PomodoroTimer() {
   const [sessions, setSessions] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [tempDurations, setTempDurations] = useState({ ...durations });
+  const [notifEnabled, setNotifEnabled] = useState(getNotificationPermission);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const totalSeconds = durations[mode] * 60;
