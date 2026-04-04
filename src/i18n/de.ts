@@ -1109,6 +1109,9 @@ const de: Record<string, string> = {
   "delivery.distance": "Entfernung",
   "delivery.baseFare": "Grundpreis",
   "delivery.perKm": "Pro km",
+  "delivery.paymentMethod": "Zahlungsmethode",
+  "delivery.cash": "Bargeld",
+  "delivery.card": "Kreditkarte",
 };
 
 export default de;

@@ -1109,6 +1109,9 @@ const tr: Record<string, string> = {
   "delivery.distance": "Mesafe",
   "delivery.baseFare": "Temel ücret",
   "delivery.perKm": "Km başına",
+  "delivery.paymentMethod": "Ödeme Yöntemi",
+  "delivery.cash": "Nakit",
+  "delivery.card": "Kredi Kartı",
 };
 
 export default tr;

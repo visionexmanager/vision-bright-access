@@ -1109,6 +1109,9 @@ const zh: Record<string, string> = {
   "delivery.distance": "距离",
   "delivery.baseFare": "起步价",
   "delivery.perKm": "每公里",
+  "delivery.paymentMethod": "支付方式",
+  "delivery.cash": "现金",
+  "delivery.card": "信用卡",
 };
 
 export default zh;

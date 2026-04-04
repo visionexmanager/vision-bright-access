@@ -1109,6 +1109,9 @@ const ru: Record<string, string> = {
   "delivery.distance": "Расстояние",
   "delivery.baseFare": "Базовый тариф",
   "delivery.perKm": "За км",
+  "delivery.paymentMethod": "Способ оплаты",
+  "delivery.cash": "Наличные",
+  "delivery.card": "Кредитная карта",
 };
 
 export default ru;
