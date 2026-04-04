@@ -1101,6 +1101,11 @@ const fr: Record<string, string> = {
   "delivery.clickPickup": "Cliquez sur la carte pour définir le point de départ",
   "delivery.clickDestination": "Cliquez sur la carte pour définir la destination",
   "delivery.helpVoice": "Vous pouvez suivre le chauffeur sur la carte en temps réel. Si vous avez besoin d'aide, contactez le centre d'urgence VisionEx.",
+  "tripHistory.title": "Historique des trajets",
+  "tripHistory.empty": "Aucun trajet pour le moment. Réservez votre premier !",
+  "tripHistory.bookNow": "Réserver un trajet",
+  "tripHistory.newTrip": "Nouveau trajet",
+  "tripHistory.loginRequired": "Connectez-vous pour voir votre historique",
 };
 
 export default fr;

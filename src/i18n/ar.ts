@@ -1116,6 +1116,11 @@ const ar: Record<string, string> = {
   "delivery.clickPickup": "انقر على الخريطة لتحديد نقطة الانطلاق",
   "delivery.clickDestination": "انقر على الخريطة لتحديد الوجهة",
   "delivery.helpVoice": "فيك تتابع السائق عالخريطة وتشوف موقعه بالثانية. وإذا احتجت مساعدة اتصل بمركز الطوارئ فيجن إكس.",
+  "tripHistory.title": "سجل الرحلات",
+  "tripHistory.empty": "لا توجد رحلات بعد. احجز أول رحلة لك!",
+  "tripHistory.bookNow": "احجز رحلة",
+  "tripHistory.newTrip": "رحلة جديدة",
+  "tripHistory.loginRequired": "يرجى تسجيل الدخول لعرض سجل رحلاتك",
 };
 
 export default ar;

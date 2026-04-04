@@ -1101,6 +1101,11 @@ const zh: Record<string, string> = {
   "delivery.clickPickup": "点击地图设置上车点",
   "delivery.clickDestination": "点击地图设置目的地",
   "delivery.helpVoice": "您可以在地图上实时追踪司机。如需帮助，请联系VisionEx紧急中心。",
+  "tripHistory.title": "行程记录",
+  "tripHistory.empty": "暂无行程。预订您的第一次出行！",
+  "tripHistory.bookNow": "预订行程",
+  "tripHistory.newTrip": "新行程",
+  "tripHistory.loginRequired": "请登录查看您的行程记录",
 };
 
 export default zh;

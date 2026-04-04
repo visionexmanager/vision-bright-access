@@ -1101,6 +1101,11 @@ const de: Record<string, string> = {
   "delivery.clickPickup": "Klicken Sie auf die Karte, um den Abholpunkt festzulegen",
   "delivery.clickDestination": "Klicken Sie auf die Karte, um das Ziel festzulegen",
   "delivery.helpVoice": "Du kannst den Fahrer auf der Karte in Echtzeit verfolgen. Bei Hilfe kontaktiere die VisionEx Notfallzentrale.",
+  "tripHistory.title": "Fahrtenverlauf",
+  "tripHistory.empty": "Noch keine Fahrten. Buche deine erste!",
+  "tripHistory.bookNow": "Fahrt buchen",
+  "tripHistory.newTrip": "Neue Fahrt",
+  "tripHistory.loginRequired": "Bitte melde dich an, um deinen Fahrtenverlauf zu sehen",
 };
 
 export default de;

@@ -34,6 +34,7 @@ const BusinessSimulator = lazy(() => import("./pages/BusinessSimulator"));
 const SimulationRunner = lazy(() => import("./pages/SimulationRunner"));
 const SimulationsSummary = lazy(() => import("./pages/SimulationsSummary"));
 const Delivery = lazy(() => import("./pages/Delivery"));
+const TripHistory = lazy(() => import("./pages/TripHistory"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Admin pages
@@ -97,6 +98,7 @@ const App = () => (
                     <Route path="/business-simulator/:slug" element={<SimulationRunner />} />
                     <Route path="/simulations-summary" element={<SimulationsSummary />} />
                     <Route path="/services/delivery" element={<Delivery />} />
+                    <Route path="/services/trip-history" element={<TripHistory />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />

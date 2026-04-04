@@ -1116,6 +1116,11 @@ const en: Record<string, string> = {
   "delivery.clickPickup": "Click on the map to set pickup point",
   "delivery.clickDestination": "Click on the map to set destination",
   "delivery.helpVoice": "You can track the driver on the map and see their location in real-time. If you need help, contact VisionEx emergency center.",
+  "tripHistory.title": "Trip History",
+  "tripHistory.empty": "No trips yet. Book your first ride!",
+  "tripHistory.bookNow": "Book a Trip",
+  "tripHistory.newTrip": "New Trip",
+  "tripHistory.loginRequired": "Please log in to view your trip history",
 };
 
 export default en;

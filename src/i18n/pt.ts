@@ -1101,6 +1101,11 @@ const pt: Record<string, string> = {
   "delivery.clickPickup": "Clique no mapa para definir o ponto de partida",
   "delivery.clickDestination": "Clique no mapa para definir o destino",
   "delivery.helpVoice": "Você pode acompanhar o motorista no mapa em tempo real. Se precisar de ajuda, entre em contato com o centro de emergência VisionEx.",
+  "tripHistory.title": "Histórico de viagens",
+  "tripHistory.empty": "Nenhuma viagem ainda. Reserve sua primeira!",
+  "tripHistory.bookNow": "Reservar viagem",
+  "tripHistory.newTrip": "Nova viagem",
+  "tripHistory.loginRequired": "Faça login para ver seu histórico de viagens",
 };
 
 export default pt;
