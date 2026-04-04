@@ -1162,6 +1162,8 @@ const de: Record<string, string> = {
   "nutrition.invalidImage": "Bitte ein gültiges Bild auswählen", "nutrition.imageTooLarge": "Bild darf max. 5MB sein", "nutrition.analysisError": "Analyse fehlgeschlagen. Bitte erneut versuchen.", "nutrition.ingredientsLabel": "Zutaten", "nutrition.healthTip": "Gesundheitstipp",
   "nutrition.dailyLog": "Heutiges Protokoll", "nutrition.mealNamePlaceholder": "Mahlzeit...", "nutrition.addMeal": "Hinzufügen", "nutrition.noMealsYet": "Keine Mahlzeiten heute", "nutrition.mealSaved": "Mahlzeit gespeichert!", "nutrition.saveToLog": "Im Protokoll speichern",
   "nutrition.generatePlan": "KI-Plan erstellen", "nutrition.generating": "Wird erstellt...", "nutrition.planGenerated": "Dein Plan ist fertig!", "nutrition.totalCalories": "Gesamtkalorien",
+  "nutrition.weeklyReport": "Wöchentlicher Kalorienbericht", "nutrition.weeklyReportDesc": "Kalorienaufnahme der letzten 7 Tage", "nutrition.totalWeekCal": "Wochensumme", "nutrition.dailyAvg": "Tagesdurchschnitt", "nutrition.trend": "Trend", "nutrition.onTarget": "Im Ziel", "nutrition.goalLine": "Tagesziel", "nutrition.totalMeals": "Mahlzeiten", "nutrition.withinGoal": "Im Ziel", "nutrition.overGoal": "Über Ziel", "nutrition.noData": "Keine Daten", "nutrition.loading": "Laden...",
+  "nutrition.sun": "So", "nutrition.mon": "Mo", "nutrition.tue": "Di", "nutrition.wed": "Mi", "nutrition.thu": "Do", "nutrition.fri": "Fr", "nutrition.sat": "Sa",
 };
 
 export default de;

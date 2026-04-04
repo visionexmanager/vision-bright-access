@@ -1219,6 +1219,8 @@ const fr: Record<string, string> = {
   "nutrition.invalidImage": "Veuillez sélectionner une image valide", "nutrition.imageTooLarge": "L'image doit faire moins de 5 Mo", "nutrition.analysisError": "Échec de l'analyse. Réessayez.", "nutrition.ingredientsLabel": "Ingrédients", "nutrition.healthTip": "Conseil santé",
   "nutrition.dailyLog": "Journal du jour", "nutrition.mealNamePlaceholder": "Nom du repas...", "nutrition.addMeal": "Ajouter", "nutrition.noMealsYet": "Aucun repas aujourd'hui", "nutrition.mealSaved": "Repas enregistré !", "nutrition.saveToLog": "Enregistrer au journal",
   "nutrition.generatePlan": "Plan IA", "nutrition.generating": "Génération...", "nutrition.planGenerated": "Votre plan est prêt !", "nutrition.totalCalories": "Calories totales",
+  "nutrition.weeklyReport": "Rapport hebdomadaire des calories", "nutrition.weeklyReportDesc": "Suivi des calories sur les 7 derniers jours", "nutrition.totalWeekCal": "Total semaine", "nutrition.dailyAvg": "Moy. quotidienne", "nutrition.trend": "Tendance", "nutrition.onTarget": "Dans l'objectif", "nutrition.goalLine": "Objectif quotidien", "nutrition.totalMeals": "Total repas", "nutrition.withinGoal": "Dans l'objectif", "nutrition.overGoal": "Au-dessus", "nutrition.noData": "Aucune donnée", "nutrition.loading": "Chargement...",
+  "nutrition.sun": "Dim", "nutrition.mon": "Lun", "nutrition.tue": "Mar", "nutrition.wed": "Mer", "nutrition.thu": "Jeu", "nutrition.fri": "Ven", "nutrition.sat": "Sam",
 };
 
 export default fr;

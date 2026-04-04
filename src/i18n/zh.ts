@@ -1162,6 +1162,8 @@ const zh: Record<string, string> = {
   "nutrition.invalidImage": "请选择有效的图片", "nutrition.imageTooLarge": "图片不能超过5MB", "nutrition.analysisError": "分析失败，请重试", "nutrition.ingredientsLabel": "食材", "nutrition.healthTip": "健康提示",
   "nutrition.dailyLog": "今日记录", "nutrition.mealNamePlaceholder": "餐名...", "nutrition.addMeal": "添加", "nutrition.noMealsYet": "今天还没有记录", "nutrition.mealSaved": "已保存！", "nutrition.saveToLog": "保存到日志",
   "nutrition.generatePlan": "AI生成计划", "nutrition.generating": "生成中...", "nutrition.planGenerated": "你的个性化计划已就绪！", "nutrition.totalCalories": "总热量",
+  "nutrition.weeklyReport": "每周热量报告", "nutrition.weeklyReportDesc": "追踪过去7天的热量摄入", "nutrition.totalWeekCal": "周总计", "nutrition.dailyAvg": "日均", "nutrition.trend": "趋势", "nutrition.onTarget": "达标", "nutrition.goalLine": "每日目标", "nutrition.totalMeals": "总餐数", "nutrition.withinGoal": "达标", "nutrition.overGoal": "超标", "nutrition.noData": "无数据", "nutrition.loading": "加载中...",
+  "nutrition.sun": "日", "nutrition.mon": "一", "nutrition.tue": "二", "nutrition.wed": "三", "nutrition.thu": "四", "nutrition.fri": "五", "nutrition.sat": "六",
 };
 
 export default zh;
