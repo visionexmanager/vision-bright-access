@@ -265,7 +265,16 @@ export default function BusinessEconomy() {
                         placeholder="$"
                         className="mt-1 rounded-xl"
                       />
-                    </div>
+                        </div>
+
+                        <Button
+                          onClick={exportPDF}
+                          variant="outline"
+                          className="w-full rounded-2xl font-bold gap-2 border-primary/30 hover:bg-primary/10"
+                        >
+                          <Download className="w-4 h-4" />
+                          {t("econ.exportPdf")}
+                        </Button>
                     <div>
                       <label className="text-xs font-bold text-muted-foreground uppercase">{t("econ.monthlyRevenue")}</label>
                       <Input
