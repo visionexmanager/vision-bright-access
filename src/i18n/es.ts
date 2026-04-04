@@ -1097,6 +1097,7 @@ const es: Record<string, string> = {
   "delivery.ratingSuccess": "¡Gracias por tu calificación!",
   "delivery.ratingError": "Error al enviar calificación",
   "delivery.ratingLoginRequired": "Inicia sesión para calificar",
+  "delivery.locateMe": "Usar mi ubicación actual",
   "delivery.clickPickup": "Haz clic en el mapa para fijar el punto de recogida",
   "delivery.clickDestination": "Haz clic en el mapa para fijar el destino",
   "delivery.helpVoice": "Puedes seguir al conductor en el mapa en tiempo real. Si necesitas ayuda, contacta al centro de emergencias VisionEx.",

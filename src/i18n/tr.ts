@@ -1097,6 +1097,7 @@ const tr: Record<string, string> = {
   "delivery.ratingSuccess": "Değerlendirmeniz için teşekkürler!",
   "delivery.ratingError": "Değerlendirme gönderilemedi",
   "delivery.ratingLoginRequired": "Değerlendirmek için giriş yapın",
+  "delivery.locateMe": "Mevcut konumumu kullan",
   "delivery.clickPickup": "Alış noktasını ayarlamak için haritaya tıklayın",
   "delivery.clickDestination": "Varış noktasını ayarlamak için haritaya tıklayın",
   "delivery.helpVoice": "Sürücüyü haritada gerçek zamanlı takip edebilirsiniz. Yardıma ihtiyacınız olursa VisionEx acil merkezine ulaşın.",

@@ -1097,6 +1097,7 @@ const ru: Record<string, string> = {
   "delivery.ratingSuccess": "Спасибо за вашу оценку!",
   "delivery.ratingError": "Ошибка при отправке оценки",
   "delivery.ratingLoginRequired": "Войдите, чтобы оценить",
+  "delivery.locateMe": "Использовать моё местоположение",
   "delivery.clickPickup": "Нажмите на карту, чтобы указать точку отправления",
   "delivery.clickDestination": "Нажмите на карту, чтобы указать пункт назначения",
   "delivery.helpVoice": "Вы можете отслеживать водителя на карте в реальном времени. Если нужна помощь, свяжитесь с центром экстренной помощи VisionEx.",

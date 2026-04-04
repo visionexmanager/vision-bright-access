@@ -1112,6 +1112,7 @@ const en: Record<string, string> = {
   "delivery.ratingSuccess": "Thank you for your rating!",
   "delivery.ratingError": "Failed to submit rating",
   "delivery.ratingLoginRequired": "Please log in to rate",
+  "delivery.locateMe": "Use my current location",
   "delivery.clickPickup": "Click on the map to set pickup point",
   "delivery.clickDestination": "Click on the map to set destination",
   "delivery.helpVoice": "You can track the driver on the map and see their location in real-time. If you need help, contact VisionEx emergency center.",
