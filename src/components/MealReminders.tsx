@@ -62,8 +62,8 @@ function getLabels(lang: string) {
 }
 
 export default function MealReminders() {
-  const { language } = useLanguage();
-  const l = getLabels(language);
+  const { lang } = useLanguage();
+  const l = getLabels(lang);
   const [reminders, setReminders] = useState<MealReminder[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
