@@ -84,6 +84,17 @@ export default function Delivery() {
   }, [pickupCoords, destCoords, serviceType]);
 
   const startService = () => {
+    if (isScheduled && scheduledDate) {
+      const dateStr = format(scheduledDate, "yyyy-MM-dd");
+      toast.success(t("delivery.schedule.confirmed"), {
+        description: `${dateStr} — ${scheduledTime}`,
+        icon: "📅",
+      });
+      speak(t("delivery.schedule.confirmed"), lang);
+      setIsScheduled(false);
+      setScheduledDate(undefined);
+      return;
+    }
     setStatus("searching");
     speak(t("delivery.searching").replace("{from}", location.from), lang);
     setTimeout(() => {
