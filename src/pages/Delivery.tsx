@@ -211,12 +211,28 @@ export default function Delivery() {
                       </div>
                     </div>
 
-                    <div className="bg-primary/10 p-6 rounded-3xl flex justify-between items-center border border-primary/20">
-                      <div className="flex items-center gap-4 text-foreground">
-                        <Clock className="text-primary" />
-                        <span className="font-black">{t("delivery.estimatedTime")}: 25 {t("delivery.minutes")}</span>
+                    <div className="bg-primary/10 p-6 rounded-3xl border border-primary/20 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4 text-foreground">
+                          <Clock className="text-primary" />
+                          <span className="font-black">
+                            {t("delivery.estimatedTime")}: {tripInfo ? tripInfo.minutes : "--"} {t("delivery.minutes")}
+                          </span>
+                        </div>
+                        <div className="text-2xl font-black text-foreground tracking-tighter">
+                          {tripInfo ? `${tripInfo.price.toFixed(2)} $` : "-- $"}
+                        </div>
                       </div>
-                      <div className="text-2xl font-black text-foreground tracking-tighter">12.00 $</div>
+                      {tripInfo && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <MapPin className="h-4 w-4 text-primary" />
+                          <span>{t("delivery.distance")}: {tripInfo.distance.toFixed(1)} km</span>
+                          <span className="mx-1">•</span>
+                          <span>{t("delivery.baseFare")}: {serviceType === "ride" ? "2.00" : "3.00"} $</span>
+                          <span className="mx-1">•</span>
+                          <span>{t("delivery.perKm")}: {serviceType === "ride" ? "1.50" : "2.00"} $/km</span>
+                        </div>
+                      )}
                     </div>
 
                     <Button
