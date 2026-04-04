@@ -391,7 +391,6 @@ export default function Delivery() {
                         : serviceType === "ride" ? t("delivery.requestRide") : t("delivery.confirmDelivery")}
                       {isScheduled ? <CalendarIcon /> : <ArrowLeftRight className="rotate-180" />}
                     </Button>
-                    </Button>
                   </div>
                 </div>
               </div>
