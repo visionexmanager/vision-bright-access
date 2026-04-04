@@ -179,20 +179,9 @@ export default function Delivery() {
           {/* Live Tracking */}
           {status === "tracking" && (
             <div className="max-w-4xl mx-auto space-y-6 animate-in slide-in-from-bottom-20 duration-1000">
-              {/* Mock map */}
-              <div className="w-full h-80 bg-muted rounded-[50px] shadow-inner relative overflow-hidden border-8 border-card">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <div className="relative">
-                    <Car size={48} className="text-primary animate-bounce transition-all duration-1000" />
-                    <div className="absolute -bottom-2 w-12 h-2 bg-foreground/10 rounded-full blur-sm animate-pulse" />
-                  </div>
-                </div>
-                <div className="absolute top-4 right-4 bg-card/80 backdrop-blur-md px-4 py-2 rounded-full font-black text-xs shadow-sm flex items-center gap-2 text-foreground">
-                  <div className="w-2 h-2 bg-destructive rounded-full animate-ping" />
-                  {t("delivery.liveTracking")}
-                </div>
-              </div>
+              <Suspense fallback={<div className="w-full h-80 bg-muted rounded-[30px] animate-pulse" />}>
+                <DeliveryMap isTracking={true} />
+              </Suspense>
 
               {/* Driver info */}
               <div className="bg-card p-8 rounded-[50px] shadow-2xl border border-border flex flex-col md:flex-row items-center gap-8">
