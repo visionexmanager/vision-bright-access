@@ -38,6 +38,7 @@ const TripHistory = lazy(() => import("./pages/TripHistory"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const SharedTrip = lazy(() => import("./pages/SharedTrip"));
 const BusinessEconomy = lazy(() => import("./pages/BusinessEconomy"));
+const NutritionExpert = lazy(() => import("./pages/NutritionExpert"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -102,6 +103,7 @@ const App = () => (
                     <Route path="/services/delivery" element={<Delivery />} />
                     <Route path="/services/economy" element={<BusinessEconomy />} />
                     <Route path="/services/shared-trip" element={<SharedTrip />} />
+                    <Route path="/services/nutrition" element={<NutritionExpert />} />
                     <Route path="/services/trip-history" element={<TripHistory />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
