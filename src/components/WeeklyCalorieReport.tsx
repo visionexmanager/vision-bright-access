@@ -81,8 +81,6 @@ export default function WeeklyCalorieReport({ calorieGoal }: WeeklyCalorieReport
     ? weekData[weekData.length - 1].calories - weekData[0].calories
     : 0;
 
-  if (!user) return null;
-
   return (
     <Card className="rounded-[30px] shadow-xl overflow-hidden">
       <div className="h-2 bg-gradient-to-r from-orange-500 to-amber-500" />
