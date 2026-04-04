@@ -381,12 +381,16 @@ export default function Delivery() {
                     </div>
 
                       <Button
-                      disabled={!location.from || !location.to}
+                      disabled={!location.from || !location.to || (isScheduled && !scheduledDate)}
+                      onClick={startService}
                       className="w-full py-6 h-auto rounded-[30px] font-black text-2xl shadow-2xl flex items-center justify-center gap-4"
                       size="lg"
                     >
-                      {serviceType === "ride" ? t("delivery.requestRide") : t("delivery.confirmDelivery")}
-                      <ArrowLeftRight className="rotate-180" />
+                      {isScheduled
+                        ? t("delivery.schedule.confirm")
+                        : serviceType === "ride" ? t("delivery.requestRide") : t("delivery.confirmDelivery")}
+                      {isScheduled ? <CalendarIcon /> : <ArrowLeftRight className="rotate-180" />}
+                    </Button>
                     </Button>
                   </div>
                 </div>
