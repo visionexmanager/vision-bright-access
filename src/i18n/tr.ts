@@ -1112,6 +1112,11 @@ const tr: Record<string, string> = {
   "delivery.paymentMethod": "Ödeme Yöntemi",
   "delivery.cash": "Nakit",
   "delivery.card": "Kredi Kartı",
+  "sharedTrip.title": "Canlı Takip",
+  "sharedTrip.subtitle": "Birisi yolculuğunu seninle paylaşıyor",
+  "sharedTrip.poweredBy": "VisionEx Express tarafından desteklenmektedir",
+  "sharedTrip.share": "Yolculuğu paylaş",
+  "sharedTrip.linkCopied": "Bağlantı panoya kopyalandı",
 };
 
 export default tr;

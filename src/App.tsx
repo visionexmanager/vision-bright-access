@@ -99,6 +99,7 @@ const App = () => (
                     <Route path="/business-simulator/:slug" element={<SimulationRunner />} />
                     <Route path="/simulations-summary" element={<SimulationsSummary />} />
                     <Route path="/services/delivery" element={<Delivery />} />
+                    <Route path="/services/shared-trip" element={<SharedTrip />} />
                     <Route path="/services/trip-history" element={<TripHistory />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

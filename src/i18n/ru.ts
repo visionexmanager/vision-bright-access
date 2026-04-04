@@ -1112,6 +1112,11 @@ const ru: Record<string, string> = {
   "delivery.paymentMethod": "Способ оплаты",
   "delivery.cash": "Наличные",
   "delivery.card": "Кредитная карта",
+  "sharedTrip.title": "Отслеживание в реальном времени",
+  "sharedTrip.subtitle": "Кто-то делится с вами своей поездкой",
+  "sharedTrip.poweredBy": "Работает на VisionEx Express",
+  "sharedTrip.share": "Поделиться поездкой",
+  "sharedTrip.linkCopied": "Ссылка скопирована в буфер обмена",
 };
 
 export default ru;
