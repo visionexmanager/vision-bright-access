@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,10 @@ import {
   BarChart3, PieChart, LineChart, BadgeDollarSign, Target,
   Lightbulb, TrendingUp, Calculator, DollarSign, Building2,
   Users, Globe, ChevronRight, Sparkles, ArrowUpRight, ArrowDownRight,
-  Briefcase, ShieldCheck
+  Briefcase, ShieldCheck, Download
 } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
 
 const speak = (text: string, lang: string) => {
   if ("speechSynthesis" in window) {
