@@ -1117,6 +1117,16 @@ const pt: Record<string, string> = {
   "sharedTrip.poweredBy": "Desenvolvido por VisionEx Express",
   "sharedTrip.share": "Compartilhar viagem",
   "sharedTrip.linkCopied": "Link copiado para a área de transferência",
+  "delivery.notif.searching": "Procurando motorista...",
+  "delivery.notif.searchingDesc": "Aguarde enquanto encontramos o melhor motorista",
+  "delivery.notif.driverFound": "Motorista encontrado!",
+  "delivery.notif.driverFoundDesc": "Seu motorista está a caminho",
+  "delivery.notif.arriving": "Motorista está perto!",
+  "delivery.notif.arrivingDesc": "Seu motorista chegará em cerca de 2 minutos",
+  "delivery.notif.completed": "Viagem concluída!",
+  "delivery.notif.completedDesc": "Obrigado por usar o VisionEx Express",
+  "delivery.notif.cancelled": "Viagem cancelada",
+  "delivery.notif.cancelledDesc": "Sua viagem foi cancelada",
 };
 
 export default pt;

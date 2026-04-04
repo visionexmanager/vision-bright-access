@@ -1117,6 +1117,16 @@ const tr: Record<string, string> = {
   "sharedTrip.poweredBy": "VisionEx Express tarafından desteklenmektedir",
   "sharedTrip.share": "Yolculuğu paylaş",
   "sharedTrip.linkCopied": "Bağlantı panoya kopyalandı",
+  "delivery.notif.searching": "Sürücü aranıyor...",
+  "delivery.notif.searchingDesc": "Size en yakın sürücüyü buluyoruz",
+  "delivery.notif.driverFound": "Sürücü bulundu!",
+  "delivery.notif.driverFoundDesc": "Sürücünüz yolda",
+  "delivery.notif.arriving": "Sürücü yakın!",
+  "delivery.notif.arrivingDesc": "Sürücünüz yaklaşık 2 dakika içinde gelecek",
+  "delivery.notif.completed": "Yolculuk tamamlandı!",
+  "delivery.notif.completedDesc": "VisionEx Express'i kullandığınız için teşekkürler",
+  "delivery.notif.cancelled": "Yolculuk iptal edildi",
+  "delivery.notif.cancelledDesc": "Yolculuğunuz iptal edildi",
 };
 
 export default tr;
