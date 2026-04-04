@@ -1046,6 +1046,11 @@ const tr: Record<string, string> = {
   "pomodoro.min": "dk",
   "pomodoro.apply": "Uygula",
   "pomodoro.defaults": "Varsayılan",
+  "pomodoro.notifTitle": "⏰ Pomodoro Zamanlayıcı",
+  "pomodoro.notifBody": "{mode} bitti!",
+  "pomodoro.notifToggle": "Bildirimleri aç/kapat",
+  "pomodoro.notifOn": "Bildirimler açık",
+  "pomodoro.notifOff": "Bildirimler kapalı",
 };
 
 export default tr;

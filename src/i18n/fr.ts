@@ -1046,6 +1046,11 @@ const fr: Record<string, string> = {
   "pomodoro.min": "min",
   "pomodoro.apply": "Appliquer",
   "pomodoro.defaults": "Par défaut",
+  "pomodoro.notifTitle": "⏰ Minuteur Pomodoro",
+  "pomodoro.notifBody": "{mode} est terminé !",
+  "pomodoro.notifToggle": "Activer/désactiver les notifications",
+  "pomodoro.notifOn": "Notifications activées",
+  "pomodoro.notifOff": "Notifications désactivées",
 };
 
 export default fr;

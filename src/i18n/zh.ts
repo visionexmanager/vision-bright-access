@@ -1046,6 +1046,11 @@ const zh: Record<string, string> = {
   "pomodoro.min": "分钟",
   "pomodoro.apply": "应用",
   "pomodoro.defaults": "默认",
+  "pomodoro.notifTitle": "⏰ 番茄钟",
+  "pomodoro.notifBody": "{mode} 已结束！",
+  "pomodoro.notifToggle": "开关通知",
+  "pomodoro.notifOn": "通知已开启",
+  "pomodoro.notifOff": "通知已关闭",
 };
 
 export default zh;
