@@ -1276,6 +1276,12 @@ const en: Record<string, string> = {
   "nutrition.analysisError": "Failed to analyze the meal. Please try again.",
   "nutrition.ingredientsLabel": "Ingredients",
   "nutrition.healthTip": "Health Tip",
+  "nutrition.dailyLog": "Today's Meal Log",
+  "nutrition.mealNamePlaceholder": "Meal name...",
+  "nutrition.addMeal": "Add",
+  "nutrition.noMealsYet": "No meals logged today",
+  "nutrition.mealSaved": "Meal saved to log!",
+  "nutrition.saveToLog": "Save to Daily Log",
 };
 
 export default en;

@@ -125,6 +125,42 @@ export type Database = {
         }
         Relationships: []
       }
+      meal_logs: {
+        Row: {
+          calories: number
+          created_at: string
+          id: string
+          ingredients: string[] | null
+          logged_at: string
+          meal_name: string
+          meal_type: string
+          rating: number | null
+          user_id: string
+        }
+        Insert: {
+          calories?: number
+          created_at?: string
+          id?: string
+          ingredients?: string[] | null
+          logged_at?: string
+          meal_name: string
+          meal_type?: string
+          rating?: number | null
+          user_id: string
+        }
+        Update: {
+          calories?: number
+          created_at?: string
+          id?: string
+          ingredients?: string[] | null
+          logged_at?: string
+          meal_name?: string
+          meal_type?: string
+          rating?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       page_events: {
         Row: {
           created_at: string

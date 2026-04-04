@@ -1276,6 +1276,12 @@ const ar: Record<string, string> = {
   "nutrition.analysisError": "فشل تحليل الوجبة. حاول مرة أخرى.",
   "nutrition.ingredientsLabel": "المكونات",
   "nutrition.healthTip": "نصيحة صحية",
+  "nutrition.dailyLog": "سجل وجبات اليوم",
+  "nutrition.mealNamePlaceholder": "اسم الوجبة...",
+  "nutrition.addMeal": "إضافة",
+  "nutrition.noMealsYet": "لا توجد وجبات مسجلة اليوم",
+  "nutrition.mealSaved": "تم حفظ الوجبة في السجل!",
+  "nutrition.saveToLog": "حفظ في السجل اليومي",
 };
 
 export default ar;
