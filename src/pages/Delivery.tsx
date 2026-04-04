@@ -10,6 +10,7 @@ import {
 
 const DeliveryMap = lazy(() => import("@/components/DeliveryMap"));
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
+const DriverRating = lazy(() => import("@/components/DriverRating"));
 
 const speak = (text: string, lang: string) => {
   if ("speechSynthesis" in window) {
