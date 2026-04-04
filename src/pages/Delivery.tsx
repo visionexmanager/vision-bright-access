@@ -1,0 +1,253 @@
+import { useState } from "react";
+import { Layout } from "@/components/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Truck, Car, Bike, ArrowLeftRight, Clock,
+  ShieldCheck, Bell, PhoneCall, Star
+} from "lucide-react";
+
+const speak = (text: string, lang: string) => {
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === "ar" ? "ar-SA" : lang;
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  }
+};
+
+type ServiceType = "ride" | "package";
+type Status = "idle" | "searching" | "tracking";
+
+export default function Delivery() {
+  const { t, lang } = useLanguage();
+  const [serviceType, setServiceType] = useState<ServiceType>("ride");
+  const [status, setStatus] = useState<Status>("idle");
+  const [location, setLocation] = useState({ from: "", to: "" });
+
+  const startService = () => {
+    setStatus("searching");
+    speak(t("delivery.searching").replace("{from}", location.from), lang);
+
+    setTimeout(() => {
+      setStatus("tracking");
+      speak(t("delivery.confirmed"), lang);
+    }, 3000);
+  };
+
+  return (
+    <Layout>
+      <div className="min-h-screen pb-20">
+        {/* Header */}
+        <header className="bg-foreground p-6 text-background shadow-2xl sticky top-0 z-40 rounded-b-[40px]">
+          <div className="max-w-6xl mx-auto flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-primary rounded-2xl animate-pulse">
+                <Truck size={28} />
+              </div>
+              <h1 className="text-2xl font-black italic tracking-tighter">
+                Vision Ex <span className="text-primary text-sm">Express</span>
+              </h1>
+            </div>
+            <div className="hidden md:flex gap-4 bg-background/10 p-2 rounded-2xl border border-background/10">
+              <button
+                onClick={() => setServiceType("ride")}
+                className={`px-6 py-2 rounded-xl font-black text-sm transition-all ${
+                  serviceType === "ride"
+                    ? "bg-background text-foreground shadow-lg"
+                    : "text-background/60"
+                }`}
+              >
+                {t("delivery.rideService")}
+              </button>
+              <button
+                onClick={() => setServiceType("package")}
+                className={`px-6 py-2 rounded-xl font-black text-sm transition-all ${
+                  serviceType === "package"
+                    ? "bg-background text-foreground shadow-lg"
+                    : "text-background/60"
+                }`}
+              >
+                {t("delivery.packageService")}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-6xl mx-auto p-4 md:p-10">
+          {status === "idle" && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in zoom-in duration-700">
+              {/* Service selector */}
+              <div className="lg:col-span-4 space-y-4">
+                <h2 className="text-3xl font-black text-foreground mb-6 italic">
+                  {t("delivery.whereToday")}
+                </h2>
+                <div
+                  onClick={() => setServiceType("ride")}
+                  className={`p-6 rounded-[35px] border-4 transition-all cursor-pointer shadow-xl ${
+                    serviceType === "ride"
+                      ? "border-primary bg-card"
+                      : "border-transparent bg-muted opacity-60"
+                  }`}
+                >
+                  <Car size={40} className="text-primary mb-4" />
+                  <h4 className="font-black text-xl text-foreground">{t("delivery.rideTitle")}</h4>
+                  <p className="text-muted-foreground text-sm mt-2">{t("delivery.rideDesc")}</p>
+                </div>
+                <div
+                  onClick={() => setServiceType("package")}
+                  className={`p-6 rounded-[35px] border-4 transition-all cursor-pointer shadow-xl ${
+                    serviceType === "package"
+                      ? "border-emerald-600 bg-card"
+                      : "border-transparent bg-muted opacity-60"
+                  }`}
+                >
+                  <Bike size={40} className="text-emerald-600 mb-4" />
+                  <h4 className="font-black text-xl text-foreground">{t("delivery.packageTitle")}</h4>
+                  <p className="text-muted-foreground text-sm mt-2">{t("delivery.packageDesc")}</p>
+                </div>
+              </div>
+
+              {/* Trip details */}
+              <div className="lg:col-span-8 bg-card p-10 rounded-[55px] shadow-2xl border border-border relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary to-emerald-600" />
+                <div className="space-y-8">
+                  <div className="relative border-r-4 border-dashed border-border pr-8 space-y-10 py-2 mr-4">
+                    <div className="relative">
+                      <div className="absolute -right-11 top-1 w-6 h-6 bg-primary rounded-full border-4 border-card shadow-lg" />
+                      <label className="text-xs font-black text-muted-foreground uppercase tracking-widest block mb-2">
+                        {t("delivery.from")}
+                      </label>
+                      <Input
+                        value={location.from}
+                        onChange={(e) => setLocation({ ...location, from: e.target.value })}
+                        placeholder={t("delivery.fromPlaceholder")}
+                        className="bg-muted p-5 rounded-2xl font-bold text-lg h-auto"
+                      />
+                    </div>
+                    <div className="relative">
+                      <div className="absolute -right-11 top-1 w-6 h-6 bg-destructive rounded-full border-4 border-card shadow-lg" />
+                      <label className="text-xs font-black text-muted-foreground uppercase tracking-widest block mb-2">
+                        {t("delivery.to")}
+                      </label>
+                      <Input
+                        value={location.to}
+                        onChange={(e) => setLocation({ ...location, to: e.target.value })}
+                        placeholder={t("delivery.toPlaceholder")}
+                        className="bg-muted p-5 rounded-2xl font-bold text-lg h-auto"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-primary/10 p-6 rounded-3xl flex justify-between items-center border border-primary/20">
+                    <div className="flex items-center gap-4 text-foreground">
+                      <Clock className="text-primary" />
+                      <span className="font-black">{t("delivery.estimatedTime")}: 25 {t("delivery.minutes")}</span>
+                    </div>
+                    <div className="text-2xl font-black text-foreground tracking-tighter">12.00 $</div>
+                  </div>
+
+                  <Button
+                    onClick={startService}
+                    disabled={!location.from || !location.to}
+                    className="w-full py-6 h-auto rounded-[30px] font-black text-2xl shadow-2xl flex items-center justify-center gap-4"
+                    size="lg"
+                  >
+                    {serviceType === "ride" ? t("delivery.requestRide") : t("delivery.confirmDelivery")}
+                    <ArrowLeftRight className="rotate-180" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Searching */}
+          {status === "searching" && (
+            <div className="flex flex-col items-center justify-center py-24 gap-6 animate-in fade-in">
+              <div className="p-6 bg-primary/10 rounded-full animate-pulse">
+                <Truck size={48} className="text-primary animate-bounce" />
+              </div>
+              <h2 className="text-2xl font-black text-foreground">{t("delivery.searchingTitle")}</h2>
+              <p className="text-muted-foreground">{t("delivery.searchingDesc")}</p>
+            </div>
+          )}
+
+          {/* Live Tracking */}
+          {status === "tracking" && (
+            <div className="max-w-4xl mx-auto space-y-6 animate-in slide-in-from-bottom-20 duration-1000">
+              {/* Mock map */}
+              <div className="w-full h-80 bg-muted rounded-[50px] shadow-inner relative overflow-hidden border-8 border-card">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <div className="relative">
+                    <Car size={48} className="text-primary animate-bounce transition-all duration-1000" />
+                    <div className="absolute -bottom-2 w-12 h-2 bg-foreground/10 rounded-full blur-sm animate-pulse" />
+                  </div>
+                </div>
+                <div className="absolute top-4 right-4 bg-card/80 backdrop-blur-md px-4 py-2 rounded-full font-black text-xs shadow-sm flex items-center gap-2 text-foreground">
+                  <div className="w-2 h-2 bg-destructive rounded-full animate-ping" />
+                  {t("delivery.liveTracking")}
+                </div>
+              </div>
+
+              {/* Driver info */}
+              <div className="bg-card p-8 rounded-[50px] shadow-2xl border border-border flex flex-col md:flex-row items-center gap-8">
+                <div className="w-24 h-24 bg-muted rounded-[35px] overflow-hidden border-4 border-primary/10 flex items-center justify-center">
+                  <Car size={40} className="text-primary" />
+                </div>
+                <div className="flex-1 text-center md:text-right">
+                  <div className="flex items-center gap-3 justify-center md:justify-start">
+                    <h3 className="text-2xl font-black text-foreground">{t("delivery.driverName")}</h3>
+                    <div className="flex items-center text-orange-500 font-bold text-sm bg-orange-500/10 px-2 py-1 rounded-lg">
+                      <Star size={14} fill="currentColor" /> 4.9
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground font-bold mt-1">{t("delivery.driverCar")}</p>
+                  <div className="mt-4 flex gap-3 justify-center md:justify-start">
+                    <button
+                      onClick={() => speak(t("delivery.callingDriver"), lang)}
+                      className="p-4 bg-emerald-500/10 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all"
+                    >
+                      <PhoneCall />
+                    </button>
+                    <Button variant="outline" className="rounded-2xl font-black px-6 py-4 h-auto">
+                      {t("delivery.sendMessage")}
+                    </Button>
+                  </div>
+                </div>
+                <div className="text-center p-6 bg-primary/10 rounded-[40px] border border-primary/20 min-w-[150px]">
+                  <p className="text-xs font-black text-primary uppercase mb-1">{t("delivery.arrivingIn")}</p>
+                  <span className="text-4xl font-black text-foreground italic tracking-tighter">04</span>
+                  <span className="text-lg font-black text-foreground italic mr-1"> {t("delivery.minutes")}</span>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={() => setStatus("idle")}
+                className="w-full py-4 h-auto rounded-2xl font-black text-destructive border-destructive/30 hover:bg-destructive hover:text-white transition-all"
+              >
+                {t("delivery.cancelOrder")}
+              </Button>
+            </div>
+          )}
+        </main>
+
+        {/* Footer buttons */}
+        <footer className="fixed bottom-6 w-full px-6 flex justify-between items-center pointer-events-none z-50">
+          <button className="p-5 bg-card text-primary rounded-full shadow-2xl border border-border pointer-events-auto hover:scale-110 active:rotate-12 transition-all">
+            <ShieldCheck size={32} />
+          </button>
+          <button
+            onClick={() => speak(t("delivery.helpVoice"), lang)}
+            className="p-5 bg-foreground text-background rounded-full shadow-2xl pointer-events-auto hover:scale-110 transition-all"
+          >
+            <Bell size={32} />
+          </button>
+        </footer>
+      </div>
+    </Layout>
+  );
+}
