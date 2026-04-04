@@ -116,7 +116,7 @@ export default function MealReminders() {
           // Voice
           if ("speechSynthesis" in window) {
             const u = new SpeechSynthesisUtterance(`${l.reminderFired} ${label}`);
-            u.lang = language === "ar" ? "ar-SA" : language;
+            u.lang = lang === "ar" ? "ar-SA" : lang;
             u.rate = 0.9;
             window.speechSynthesis.speak(u);
           }
