@@ -1042,6 +1042,10 @@ const ru: Record<string, string> = {
   "pomodoro.break15": "Перерыв 15м",
   "pomodoro.sessions": "🔥 Завершено {count} сессий фокуса",
   "pomodoro.quote": "\"Сосредоточенная учёба заканчивается вдвое быстрее\"",
+  "pomodoro.settings": "Настройки",
+  "pomodoro.min": "мин",
+  "pomodoro.apply": "Применить",
+  "pomodoro.defaults": "По умолчанию",
 };
 
 export default ru;

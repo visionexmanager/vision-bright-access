@@ -1042,6 +1042,10 @@ const pt: Record<string, string> = {
   "pomodoro.break15": "Pausa 15m",
   "pomodoro.sessions": "🔥 {count} sessões de foco concluídas",
   "pomodoro.quote": "\"Estudar com foco termina na metade do tempo\"",
+  "pomodoro.settings": "Configurações",
+  "pomodoro.min": "min",
+  "pomodoro.apply": "Aplicar",
+  "pomodoro.defaults": "Padrão",
 };
 
 export default pt;

@@ -1057,6 +1057,10 @@ const ar: Record<string, string> = {
   "pomodoro.break15": "استراحة ١٥د",
   "pomodoro.sessions": "🔥 أنجزت {count} جلسة تركيز",
   "pomodoro.quote": "\"الدراسة بتركيز بتخلص بنص الوقت\"",
+  "pomodoro.settings": "الإعدادات",
+  "pomodoro.min": "د",
+  "pomodoro.apply": "تطبيق",
+  "pomodoro.defaults": "الافتراضي",
 };
 
 export default ar;
