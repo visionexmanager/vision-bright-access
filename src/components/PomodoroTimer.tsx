@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Zap, Play, Pause, RotateCcw, Coffee } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Mode = "focus" | "shortBreak" | "longBreak";
 
@@ -10,10 +11,10 @@ const DURATIONS: Record<Mode, number> = {
   longBreak: 15 * 60,
 };
 
-const LABELS: Record<Mode, string> = {
-  focus: "وقت التركيز",
-  shortBreak: "استراحة قصيرة",
-  longBreak: "استراحة طويلة",
+const LABEL_KEYS: Record<Mode, string> = {
+  focus: "pomodoro.focus",
+  shortBreak: "pomodoro.shortBreak",
+  longBreak: "pomodoro.longBreak",
 };
 
 function playAlarm() {
@@ -38,6 +39,7 @@ function playAlarm() {
 }
 
 export default function PomodoroTimer() {
+  const { t } = useLanguage();
   const [mode, setMode] = useState<Mode>("focus");
   const [timeLeft, setTimeLeft] = useState(DURATIONS.focus);
   const [running, setRunning] = useState(false);
@@ -80,11 +82,17 @@ export default function PomodoroTimer() {
 
   const isFocus = mode === "focus";
 
+  const getButtonLabel = () => {
+    if (running) return t("pomodoro.stop");
+    if (timeLeft === 0 || timeLeft === DURATIONS[mode]) return t("pomodoro.start");
+    return t("pomodoro.continue");
+  };
+
   return (
     <div className="bg-card p-8 rounded-3xl shadow-lg border border-border flex flex-col items-center text-center">
       <h3 className="text-sm font-bold text-muted-foreground mb-4 uppercase tracking-widest flex items-center gap-2">
         {isFocus ? <Zap className="w-4 h-4 text-orange-500" /> : <Coffee className="w-4 h-4 text-emerald-500" />}
-        {LABELS[mode]}
+        {t(LABEL_KEYS[mode])}
       </h3>
 
       {/* Circular progress */}
@@ -115,7 +123,7 @@ export default function PomodoroTimer() {
               : "bg-emerald-500 hover:bg-emerald-600 text-white"
           }`}
         >
-          {running ? <><Pause className="w-5 h-5" /> إيقاف</> : <><Play className="w-5 h-5" /> {timeLeft === 0 ? "ابدأ" : timeLeft === DURATIONS[mode] ? "ابدأ" : "أكمل"}</>}
+          {running ? <><Pause className="w-5 h-5" /> {t("pomodoro.stop")}</> : <><Play className="w-5 h-5" /> {getButtonLabel()}</>}
         </Button>
         <Button variant="outline" size="icon" className="h-auto w-14 rounded-2xl" onClick={() => reset()}>
           <RotateCcw className="w-5 h-5" />
@@ -128,26 +136,26 @@ export default function PomodoroTimer() {
           onClick={() => reset("focus")}
           className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${mode === "focus" ? "bg-orange-500/15 text-orange-600 border border-orange-500/30" : "text-muted-foreground hover:bg-muted"}`}
         >
-          تركيز
+          {t("pomodoro.focusBtn")}
         </button>
         <button
           onClick={() => reset("shortBreak")}
           className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${mode === "shortBreak" ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30" : "text-muted-foreground hover:bg-muted"}`}
         >
-          استراحة ٥د
+          {t("pomodoro.break5")}
         </button>
         <button
           onClick={() => reset("longBreak")}
           className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${mode === "longBreak" ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30" : "text-muted-foreground hover:bg-muted"}`}
         >
-          استراحة ١٥د
+          {t("pomodoro.break15")}
         </button>
       </div>
 
       {sessions > 0 && (
-        <p className="mt-3 text-xs text-muted-foreground">🔥 أنجزت {sessions} جلسة تركيز</p>
+        <p className="mt-3 text-xs text-muted-foreground">{t("pomodoro.sessions").replace("{count}", String(sessions))}</p>
       )}
-      <p className="mt-2 text-xs text-muted-foreground italic">"الدراسة بتركيز بتخلص بنص الوقت"</p>
+      <p className="mt-2 text-xs text-muted-foreground italic">{t("pomodoro.quote")}</p>
     </div>
   );
 }
