@@ -33,6 +33,7 @@ const AssistiveProducts = lazy(() => import("./pages/AssistiveProducts"));
 const BusinessSimulator = lazy(() => import("./pages/BusinessSimulator"));
 const SimulationRunner = lazy(() => import("./pages/SimulationRunner"));
 const SimulationsSummary = lazy(() => import("./pages/SimulationsSummary"));
+const Delivery = lazy(() => import("./pages/Delivery"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Admin pages
