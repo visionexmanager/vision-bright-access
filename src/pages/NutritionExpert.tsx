@@ -119,6 +119,56 @@ export default function NutritionExpert() {
     }
   };
 
+  const saveDietPlan = async () => {
+    if (!user || !dietPlan) { toast.error(t("nutrition.loginToSave")); return; }
+    setSavingPlan(true);
+    try {
+      const planName = `${userData.goal} - ${new Date().toLocaleDateString()}`;
+      const { error } = await supabase.from("diet_plans").insert({
+        user_id: user.id,
+        plan_name: planName,
+        user_data: userData as any,
+        plan: dietPlan as any,
+        calorie_goal: calories || 0,
+      });
+      if (error) throw error;
+      toast.success(t("nutrition.planSaved"));
+      fetchSavedPlans();
+    } catch (err) {
+      console.error("Save plan error:", err);
+      toast.error(t("nutrition.analysisError"));
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  const fetchSavedPlans = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("diet_plans")
+      .select("id, plan_name, plan, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (data) {
+      setSavedPlans(data.map(d => ({ ...d, plan: d.plan as unknown as DietPlan })));
+    }
+  }, [user]);
+
+  const loadDietPlan = (plan: DietPlan) => {
+    setDietPlan(plan);
+    setShowSavedPlans(false);
+    toast.success(t("nutrition.planLoaded"));
+  };
+
+  const deleteSavedPlan = async (id: string) => {
+    await supabase.from("diet_plans").delete().eq("id", id);
+    toast.success(t("nutrition.planDeleted"));
+    fetchSavedPlans();
+  };
+
+  useEffect(() => { if (user && step === "clinic") fetchSavedPlans(); }, [user, step, fetchSavedPlans]);
+
   const enterClinic = () => {
     if (!userData.name || !userData.weight || !userData.height || !userData.goal) {
       toast.error(t("nutrition.fillAll"));
