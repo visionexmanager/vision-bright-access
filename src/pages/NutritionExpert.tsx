@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 import { Progress } from "@/components/ui/progress";
 import WeeklyCalorieReport from "@/components/WeeklyCalorieReport";
+import MealReminders from "@/components/MealReminders";
 
 const speak = (text: string, lang: string) => {
   if ("speechSynthesis" in window) {
@@ -836,6 +837,9 @@ export default function NutritionExpert() {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Meal Reminders */}
+                <MealReminders />
 
                 {/* Weekly Report */}
                 <WeeklyCalorieReport calorieGoal={calorieGoal} />
