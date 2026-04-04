@@ -127,7 +127,7 @@ export default function MealReminders() {
     check();
     const interval = setInterval(check, 30000);
     return () => clearInterval(interval);
-  }, [reminders, notifPermission, language, l]);
+  }, [reminders, notifPermission, lang, l]);
 
   // Reset fired set at midnight
   useEffect(() => {
