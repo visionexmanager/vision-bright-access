@@ -120,12 +120,12 @@ export default function Games() {
             {filtered.map((game) => (
               <StaggerItem key={game.to}>
                 <Link to={game.to} className="group" onClick={() => playSound("start")}>
-                  <Card className="h-full overflow-hidden transition-shadow hover:shadow-lg">
+                  <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
                     <div className="relative h-36 w-full overflow-hidden">
                       <img
                         src={game.img}
                         alt=""
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                         width={768}
                         height={512}
                         loading="lazy"
