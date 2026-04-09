@@ -81,7 +81,7 @@ const App = () => (
         <BrowserRouter>
           <LanguageProvider>
             <AuthProvider>
-              <CartProvider>
+              <SoundProvider>
                 <Suspense fallback={<PageLoader />}>
                   <PageTracker />
                   <Routes>
@@ -127,6 +127,7 @@ const App = () => (
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
+                </SoundProvider>
               </CartProvider>
             </AuthProvider>
           </LanguageProvider>
