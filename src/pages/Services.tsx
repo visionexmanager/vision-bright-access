@@ -3,12 +3,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSound } from "@/contexts/SoundContext";
 import { Globe, Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight, Truck, BarChart3, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import servicesImg from "@/assets/services-illustration.jpg";
 
 export default function Services() {
   const { t } = useLanguage();
+  const { playSound } = useSound();
 
   const services = [
     { icon: MonitorSmartphone, name: t("services.webDesign"), desc: t("services.webDesignDesc"), points: 100 },
@@ -19,14 +22,29 @@ export default function Services() {
   ];
 
   const handleCta = (serviceName: string) => {
+    playSound("success");
     toast.success(`${serviceName} — request submitted!`);
   };
 
   return (
     <Layout>
       <section className="mx-auto max-w-5xl px-4 py-10" aria-labelledby="services-heading">
-        <h1 id="services-heading" className="mb-2 text-3xl font-bold">{t("services.title")}</h1>
-        <p className="mb-8 text-lg text-muted-foreground">{t("services.subtitle")}</p>
+        {/* Hero banner */}
+        <div className="relative mb-10 overflow-hidden rounded-2xl">
+          <img
+            src={servicesImg}
+            alt=""
+            className="h-48 w-full object-cover sm:h-56"
+            width={800}
+            height={512}
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+          <div className="absolute bottom-6 left-6 right-6">
+            <h1 id="services-heading" className="text-3xl font-bold text-foreground">{t("services.title")}</h1>
+            <p className="mt-1 text-lg text-muted-foreground">{t("services.subtitle")}</p>
+          </div>
+        </div>
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
@@ -52,7 +70,7 @@ export default function Services() {
 
         {/* Delivery CTA */}
         <div className="mt-8">
-          <Link to="/services/delivery">
+          <Link to="/services/delivery" onClick={() => playSound("navigate")}>
             <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
               <CardContent className="flex items-center gap-6 p-8">
                 <div className="rounded-xl bg-primary/10 p-4">
@@ -70,7 +88,7 @@ export default function Services() {
 
         {/* Economy CTA */}
         <div className="mt-4">
-          <Link to="/services/economy">
+          <Link to="/services/economy" onClick={() => playSound("navigate")}>
             <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
               <CardContent className="flex items-center gap-6 p-8">
                 <div className="rounded-xl bg-primary/10 p-4">
@@ -88,7 +106,7 @@ export default function Services() {
 
         {/* Nutrition CTA */}
         <div className="mt-4">
-          <Link to="/services/nutrition">
+          <Link to="/services/nutrition" onClick={() => playSound("navigate")}>
             <Card className="transition-shadow hover:shadow-lg border-emerald-500/20 bg-emerald-500/5">
               <CardContent className="flex items-center gap-6 p-8">
                 <div className="rounded-xl bg-emerald-500/10 p-4">
@@ -107,7 +125,7 @@ export default function Services() {
         {/* Academy CTA */}
         <div className="mt-8 text-center">
           <Link to="/academy">
-            <Button size="lg" className="text-lg px-8 py-6 font-semibold">
+            <Button size="lg" className="text-lg px-8 py-6 font-semibold" onClick={() => playSound("navigate")}>
               🎓 {t("services.academy")} <ArrowRight className="ms-2 h-5 w-5" />
             </Button>
           </Link>

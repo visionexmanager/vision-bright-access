@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSound } from "@/contexts/SoundContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import { DEFAULT_ROOMS, VOICE_ROOM_CONFIGS } from "@/systems/voiceRoomSystem";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import communityImg from "@/assets/community-illustration.jpg";
 
 type VoiceRoom = {
   id: string;
@@ -28,6 +30,7 @@ type RoomMyMembership = Record<string, boolean>;
 export default function Community() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
+  const { playSound } = useSound();
   const isAr = lang === "ar";
 
   const [rooms, setRooms] = useState<VoiceRoom[]>([]);
@@ -82,7 +85,6 @@ export default function Community() {
     fetchMyMemberships();
   }, [fetchRooms, fetchMemberCounts, fetchMyMemberships]);
 
-  // Realtime subscription for live member updates
   useEffect(() => {
     const channel = supabase
       .channel("voice-room-members-live")
@@ -109,9 +111,11 @@ export default function Community() {
       if (error.code === "23505") {
         toast({ title: t("community.alreadyJoined") });
       } else {
+        playSound("error");
         toast({ title: t("community.errorTitle"), description: error.message, variant: "destructive" });
       }
     } else {
+      playSound("success");
       toast({ title: t("community.joinedRoom") });
     }
     setJoiningRoom(null);
@@ -125,6 +129,7 @@ export default function Community() {
       .delete()
       .eq("room_id", roomId)
       .eq("user_id", user.id);
+    playSound("close");
     toast({ title: t("community.leftRoom") });
     setJoiningRoom(null);
   };
@@ -141,8 +146,10 @@ export default function Community() {
       is_active: true,
     });
     if (error) {
+      playSound("error");
       toast({ title: t("community.errorTitle"), description: error.message, variant: "destructive" });
     } else {
+      playSound("success");
       toast({ title: t("community.roomCreated") });
       fetchRooms();
     }
@@ -151,6 +158,7 @@ export default function Community() {
 
   const deleteRoom = async (id: string) => {
     await supabase.from("voice_rooms").delete().eq("id", id);
+    playSound("delete");
     toast({ title: t("community.roomDeleted") });
     fetchRooms();
   };
@@ -205,9 +213,21 @@ export default function Community() {
   return (
     <Layout>
       <section className="mx-auto max-w-5xl px-4 py-12">
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-bold tracking-tight">{t("community.title")}</h1>
-          <p className="mt-2 text-lg text-muted-foreground">{t("community.subtitle")}</p>
+        {/* Hero banner */}
+        <div className="relative mb-10 overflow-hidden rounded-2xl">
+          <img
+            src={communityImg}
+            alt=""
+            className="h-48 w-full object-cover sm:h-56"
+            width={800}
+            height={512}
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+          <div className="absolute bottom-6 left-6 right-6 text-center">
+            <h1 className="text-4xl font-bold tracking-tight">{t("community.title")}</h1>
+            <p className="mt-2 text-lg text-muted-foreground">{t("community.subtitle")}</p>
+          </div>
         </div>
 
         {/* Default public rooms */}

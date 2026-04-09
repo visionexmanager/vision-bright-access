@@ -3,6 +3,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Newspaper, Cpu, Accessibility, Brain, Globe } from "lucide-react";
+import newsImg from "@/assets/news-illustration.jpg";
 
 const NEWS_ITEMS = [
   {
@@ -41,10 +42,22 @@ export default function News() {
   return (
     <Layout>
       <section className="mx-auto max-w-4xl px-4 py-12">
-        <div className="mb-10 text-center">
-          <Newspaper className="mx-auto mb-3 h-12 w-12 text-primary" />
-          <h1 className="text-4xl font-bold tracking-tight">{t("news.title")}</h1>
-          <p className="mt-2 text-lg text-muted-foreground">{t("news.subtitle")}</p>
+        {/* Hero banner */}
+        <div className="relative mb-10 overflow-hidden rounded-2xl">
+          <img
+            src={newsImg}
+            alt=""
+            className="h-44 w-full object-cover sm:h-52"
+            width={800}
+            height={512}
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+          <div className="absolute bottom-6 left-6 right-6 text-center">
+            <Newspaper className="mx-auto mb-2 h-10 w-10 text-primary" />
+            <h1 className="text-4xl font-bold tracking-tight">{t("news.title")}</h1>
+            <p className="mt-1 text-lg text-muted-foreground">{t("news.subtitle")}</p>
+          </div>
         </div>
 
         <div className="grid gap-6">
