@@ -188,6 +188,11 @@ export function Navbar() {
                     {t("nav.dashboard")}
                   </Button>
                 </Link>
+                <Link to="/settings" onClick={() => setMenuOpen(false)}>
+                  <Button variant="outline" size="lg" className="w-full text-base">
+                    <Settings className="me-2 h-5 w-5" /> {t("nav.settings")}
+                  </Button>
+                </Link>
                 <Button
                   variant="outline"
                   size="lg"
