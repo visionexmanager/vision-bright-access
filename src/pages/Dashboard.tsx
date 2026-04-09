@@ -120,7 +120,7 @@ export default function Dashboard() {
         </AnimatedSection>
 
         {/* Top stats */}
-        <div className="mb-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <StaggerGrid className="mb-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {/* Total Points */}
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="flex items-center gap-4 p-6">
