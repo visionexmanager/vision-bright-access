@@ -8,17 +8,22 @@ import { Globe, Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import servicesImg from "@/assets/services-illustration.jpg";
+import webDesignImg from "@/assets/service-web-design.jpg";
+import digitalMarketingImg from "@/assets/service-digital-marketing.jpg";
+import importImg from "@/assets/service-import.jpg";
+import consultingImg from "@/assets/service-consulting.jpg";
+import trainingImg from "@/assets/service-training.jpg";
 
 export default function Services() {
   const { t } = useLanguage();
   const { playSound } = useSound();
 
   const services = [
-    { icon: MonitorSmartphone, name: t("services.webDesign"), desc: t("services.webDesignDesc"), points: 100 },
-    { icon: Megaphone, name: t("services.digitalMarketing"), desc: t("services.digitalMarketingDesc"), points: 80 },
-    { icon: Package, name: t("services.importPurchasing"), desc: t("services.importPurchasingDesc"), points: 60 },
-    { icon: Headphones, name: t("services.techConsulting"), desc: t("services.techConsultingDesc"), points: 120 },
-    { icon: GraduationCap, name: t("services.training"), desc: t("services.trainingDesc"), points: 90 },
+    { icon: MonitorSmartphone, name: t("services.webDesign"), desc: t("services.webDesignDesc"), points: 100, img: webDesignImg },
+    { icon: Megaphone, name: t("services.digitalMarketing"), desc: t("services.digitalMarketingDesc"), points: 80, img: digitalMarketingImg },
+    { icon: Package, name: t("services.importPurchasing"), desc: t("services.importPurchasingDesc"), points: 60, img: importImg },
+    { icon: Headphones, name: t("services.techConsulting"), desc: t("services.techConsultingDesc"), points: 120, img: consultingImg },
+    { icon: GraduationCap, name: t("services.training"), desc: t("services.trainingDesc"), points: 90, img: trainingImg },
   ];
 
   const handleCta = (serviceName: string) => {
@@ -48,8 +53,19 @@ export default function Services() {
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
-            <Card key={s.name} className="flex flex-col transition-shadow hover:shadow-lg">
-              <CardContent className="flex flex-1 flex-col gap-4 p-8">
+            <Card key={s.name} className="flex flex-col overflow-hidden transition-shadow hover:shadow-lg">
+              <div className="relative h-36 w-full overflow-hidden">
+                <img
+                  src={s.img}
+                  alt=""
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  width={640}
+                  height={512}
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-card to-transparent" />
+              </div>
+              <CardContent className="flex flex-1 flex-col gap-4 p-6">
                 <div className="rounded-xl bg-primary/10 p-3 w-fit">
                   <s.icon className="h-7 w-7 text-primary" aria-hidden="true" />
                 </div>
