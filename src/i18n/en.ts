@@ -1330,6 +1330,10 @@ const en: Record<string, string> = {
   "community.unlimited": "Unlimited",
   "community.create": "Create",
   "community.loginPrompt": "Log in to create private voice rooms and join the community.",
+  "community.userRooms": "Community Rooms",
+  "community.roomCreated": "Voice room created!",
+  "community.roomDeleted": "Room deleted",
+  "community.errorTitle": "Error",
 
   // Coins Store
   "coins.title": "VX Coins Store",
