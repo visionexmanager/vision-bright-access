@@ -305,6 +305,7 @@ const ar: Record<string, string> = {
   "nav.games": "الألعاب",
   "games.title": "الألعاب",
   "games.subtitle": "العب ألعاب ممتعة وتحدَّ نفسك!",
+  "games.searchPlaceholder": "ابحث عن لعبة...",
   "games.quiz.badge": "مسابقة",
   "games.quiz.title": "تحدي الـ 50 سؤال",
   "games.quiz.desc": "أثبت سرعتك وثقافتك لترتقي في تصنيف Visionex!",
