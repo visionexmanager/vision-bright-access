@@ -49,6 +49,7 @@ export default function Dashboard() {
   const { totalPoints, history, loadingTotal, loadingHistory } = usePoints();
   const { earnPoints, checkDailyLogin } = useEarnPoints();
   const { t } = useLanguage();
+  const { playSound } = useSound();
   const [adLoading, setAdLoading] = useState(false);
   const [dailyLoading, setDailyLoading] = useState(false);
 
@@ -78,6 +79,7 @@ export default function Dashboard() {
     const ok = await earnPoints(pts, "Watched an ad");
     setAdLoading(false);
     if (ok) {
+      playSound("points");
       toast({ title: t("dash.adWatched").replace("{pts}", String(pts)) });
     }
   };
@@ -94,6 +96,7 @@ export default function Dashboard() {
     const ok = await earnPoints(pts, "Daily login bonus");
     setDailyLoading(false);
     if (ok) {
+      playSound("points");
       toast({ title: t("dash.dailyClaimed").replace("{pts}", String(pts)) });
     }
   };
