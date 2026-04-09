@@ -1,5 +1,4 @@
 import { Layout } from "@/components/Layout";
-import { NewsletterSubscribe } from "@/components/NewsletterSubscribe";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -54,9 +53,6 @@ export default function News() {
           ))}
         </StaggerGrid>
 
-        <div className="mt-10">
-          <NewsletterSubscribe />
-        </div>
       </section>
     </Layout>
   );
