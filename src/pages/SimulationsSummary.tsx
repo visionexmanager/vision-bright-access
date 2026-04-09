@@ -197,6 +197,12 @@ export default function SimulationsSummary() {
         </div>
 
         {/* Grouped simulations */}
+        {filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Search className="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <p className="text-lg font-medium text-muted-foreground">{t("simulations.noResults")}</p>
+          </div>
+        )}
         {Object.entries(groups).map(([category, sims]) => (
           <div key={category} className="mb-10">
             <h2 className="mb-4 text-xl font-semibold text-foreground">{category}</h2>
