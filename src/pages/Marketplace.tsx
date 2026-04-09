@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { AnimatedSection, StaggerGrid, StaggerItem } from "@/components/AnimatedSection";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -118,13 +119,15 @@ function StoreSection({
           <p className="text-xl text-muted-foreground">{t("market.noProducts")}</p>
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" role="list">
+        <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((product) => (
-            <div key={product.id} role="listitem">
-              <ProductCard product={product} />
-            </div>
+            <StaggerItem key={product.id}>
+              <div role="listitem">
+                <ProductCard product={product} />
+              </div>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerGrid>
       )}
     </div>
   );
@@ -242,13 +245,15 @@ export default function Marketplace() {
   return (
     <Layout>
       <section className="mx-auto max-w-6xl px-4 py-10" aria-labelledby="marketplace-heading">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 id="marketplace-heading" className="text-3xl font-bold">{t("market.title")}</h1>
-            <p className="text-lg text-muted-foreground">{t("market.subtitle")}</p>
+        <AnimatedSection>
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 id="marketplace-heading" className="text-3xl font-bold">{t("market.title")}</h1>
+              <p className="text-lg text-muted-foreground">{t("market.subtitle")}</p>
+            </div>
+            <CartDrawer />
           </div>
-          <CartDrawer />
-        </div>
+        </AnimatedSection>
 
         <Tabs defaultValue="general" className="w-full">
           <TabsList className="mb-8 grid w-full grid-cols-3 h-auto">

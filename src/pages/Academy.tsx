@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
+import { scaleFade, staggerContainer, fadeUp } from "@/components/AnimatedSection";
 import { Layout } from "@/components/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -286,7 +288,7 @@ export default function Academy() {
         {step >= 4 && (
           <div className="p-4 md:p-8 max-w-7xl mx-auto animate-in fade-in duration-1000">
             {/* Header */}
-            <header className="bg-card p-8 rounded-3xl shadow-sm border border-border mb-10 flex flex-col md:flex-row justify-between items-center gap-6">
+            <motion.header variants={scaleFade} initial="hidden" animate="show" className="bg-card p-8 rounded-3xl shadow-sm border border-border mb-10 flex flex-col md:flex-row justify-between items-center gap-6">
               <div className="flex items-center gap-6">
                 <div className="w-20 h-20 bg-gradient-to-tr from-primary to-primary/80 rounded-3xl flex items-center justify-center text-primary-foreground shadow-2xl">
                   <User className="w-10 h-10" />
@@ -314,7 +316,7 @@ export default function Academy() {
                   <LayoutDashboard className="w-5 h-5 me-2" /> غرفتي الدراسية
                 </Button>
               </div>
-            </header>
+            </motion.header>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Main Content */}
@@ -328,7 +330,7 @@ export default function Academy() {
                     <div className="p-4 bg-orange-500/10 text-orange-500 rounded-2xl"><Compass /></div>
                     <h2 className="text-2xl font-black text-foreground tracking-tight">بوصلة المستقبل لـ {profile.name}</h2>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div
                       className="p-8 bg-muted/50 rounded-3xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
                       onClick={() => setShowAptitudeTest(true)}
@@ -345,7 +347,7 @@ export default function Academy() {
                       <h4 className="font-bold text-xl mb-3 text-foreground">سوق العمل العالمي</h4>
                       <p className="text-muted-foreground text-sm leading-relaxed">اكتشف شو هي الرواتب والوظائف المطلوبة بـ {profile.country} وبالعالم لهيدي السنة.</p>
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
                 )}
 
