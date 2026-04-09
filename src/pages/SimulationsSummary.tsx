@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3 } from "lucide-react";
+import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3, Search, Filter } from "lucide-react";
 import { simulationImages } from "@/data/simulationImages";
 
 interface SimRow {
