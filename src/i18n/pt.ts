@@ -1484,6 +1484,11 @@ const pt: Record<string, string> = {
   "newsletter.error": "Erro ao inscrever",
   "newsletter.thankYou": "Obrigado!",
   "newsletter.confirmMsg": "Você receberá nossas últimas novidades",
+  "simulations.sortBy": "Ordenar por",
+  "simulations.sortDefault": "Padrão",
+  "simulations.sortPoints": "Pontos",
+  "simulations.sortDuration": "Duração",
+  "simulations.sortNewest": "Mais recente",
 };
 
 export default pt;

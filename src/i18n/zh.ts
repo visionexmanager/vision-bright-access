@@ -1484,6 +1484,11 @@ const zh: Record<string, string> = {
   "newsletter.error": "订阅失败",
   "newsletter.thankYou": "谢谢！",
   "newsletter.confirmMsg": "您将收到我们的最新消息",
+  "simulations.sortBy": "排序方式",
+  "simulations.sortDefault": "默认",
+  "simulations.sortPoints": "积分",
+  "simulations.sortDuration": "时长",
+  "simulations.sortNewest": "最新",
 };
 
 export default zh;

@@ -1484,6 +1484,11 @@ const tr: Record<string, string> = {
   "newsletter.error": "Abone olma hatası",
   "newsletter.thankYou": "Teşekkürler!",
   "newsletter.confirmMsg": "En son haberlerimizi alacaksınız",
+  "simulations.sortBy": "Sırala",
+  "simulations.sortDefault": "Varsayılan",
+  "simulations.sortPoints": "Puanlar",
+  "simulations.sortDuration": "Süre",
+  "simulations.sortNewest": "En yeni",
 };
 
 export default tr;
