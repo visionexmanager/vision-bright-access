@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
+import { NewsletterSubscribe } from "./NewsletterSubscribe";
 import { AIChat } from "./AIChat";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMessageNotifications } from "@/hooks/useMessageNotifications";
@@ -24,10 +25,13 @@ export function Layout({ children }: { children: ReactNode }) {
       <main id="main-content" tabIndex={-1} className="flex-1 animate-page-in">
         {children}
       </main>
-      <footer className="border-t bg-card py-8 text-center" role="contentinfo">
-        <p className="text-muted-foreground">
-          {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
-        </p>
+      <footer className="border-t bg-card py-10" role="contentinfo">
+        <div className="mx-auto max-w-5xl px-4">
+          <NewsletterSubscribe />
+          <p className="mt-8 text-center text-muted-foreground">
+            {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
+          </p>
+        </div>
       </footer>
       <AIChat />
     </div>
