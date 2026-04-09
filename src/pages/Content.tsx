@@ -199,8 +199,11 @@ export default function Content() {
                 </div>
               )}
 
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {filterItems(v).map((item) => {
+                  const Icon = typeIcons[item.type] ?? FileText;
+                  return (
+                    <StaggerItem key={item.id}>
                   const Icon = typeIcons[item.type] ?? FileText;
                   return (
                     <Card key={item.id} className="flex flex-col transition-shadow hover:shadow-lg">
