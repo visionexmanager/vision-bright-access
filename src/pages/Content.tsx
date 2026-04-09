@@ -394,8 +394,7 @@ export default function Content() {
                         );
                       })}
                     </StaggerGrid>
-              </div>
-            )}
+                  )}
                 </>
               );
             })()}
