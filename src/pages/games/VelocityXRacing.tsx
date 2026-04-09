@@ -60,11 +60,12 @@ export default function VelocityXRacing() {
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
           <div className="absolute bottom-4 left-4 right-4 text-center">
             <h1 className="text-3xl font-bold">🏎️ {t("velocity.title")}</h1>
-          <p className="text-muted-foreground">{track}</p>
-          <div className="flex justify-center gap-4 mt-3">
-            <Badge>{t("velocity.lap")}: {Math.min(lap, totalLaps)}/{totalLaps}</Badge>
-            <Badge variant="secondary">🏎️ {speed} km/h</Badge>
-            <Badge variant={fuel < 20 ? "destructive" : "outline"}>⛽ {Math.round(fuel)}%</Badge>
+            <p className="text-muted-foreground">{track}</p>
+            <div className="flex justify-center gap-4 mt-2">
+              <Badge>{t("velocity.lap")}: {Math.min(lap, totalLaps)}/{totalLaps}</Badge>
+              <Badge variant="secondary">🏎️ {speed} km/h</Badge>
+              <Badge variant={fuel < 20 ? "destructive" : "outline"}>⛽ {Math.round(fuel)}%</Badge>
+            </div>
           </div>
         </div>
         {!racing && !finished ? (
