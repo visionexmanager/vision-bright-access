@@ -113,9 +113,9 @@ export default function BusinessSimulator() {
           <p className="max-w-3xl text-lg text-muted-foreground leading-relaxed">
             {t("bsim.description")}
           </p>
+          </div>
         </div>
         </AnimatedSection>
-        </div>
 
         {/* Tabs for subcategories */}
         {subcategories.length > 1 && (
