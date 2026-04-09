@@ -52,11 +52,15 @@ export function useAchievements() {
     );
 
     if (toUnlock.length > 0) {
-      const rows = toUnlock.map((a) => ({
-        user_id: user.id,
-        achievement_key: a.key,
-      }));
-      await supabase.from("user_achievements").insert(rows);
+      // Use SECURITY DEFINER RPC to validate achievements server-side
+      for (const a of toUnlock) {
+        const { error } = await supabase.rpc("award_achievement", {
+          _achievement_key: a.key,
+        });
+        if (error) {
+          console.error("award_achievement error:", error.message);
+        }
+      }
 
       setUnlocked((prev) => {
         const next = new Set(prev);
