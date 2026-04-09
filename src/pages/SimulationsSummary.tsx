@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3, Search, Filter } from "lucide-react";
 import { simulationImages } from "@/data/simulationImages";
+import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 
 interface SimRow {
   id: string;
@@ -110,16 +111,19 @@ export default function SimulationsSummary() {
   return (
     <Layout>
       <section className="container mx-auto max-w-5xl px-4 py-10">
+        <AnimatedSection variants={scaleFade}>
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-foreground md:text-4xl">
             {t("summary.title")}
           </h1>
           <p className="mt-2 text-muted-foreground">{t("summary.subtitle")}</p>
         </div>
+        </AnimatedSection>
 
         {/* Overview cards */}
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Card className="border-primary/20">
+        <StaggerGrid className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StaggerItem>
+          <Card className="border-primary/20 transition-transform duration-200 hover:scale-105">
             <CardContent className="flex items-center gap-4 p-5">
               <BarChart3 className="h-8 w-8 text-primary" />
               <div>
@@ -128,7 +132,9 @@ export default function SimulationsSummary() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-primary/20">
+          </StaggerItem>
+          <StaggerItem>
+          <Card className="border-primary/20 transition-transform duration-200 hover:scale-105">
             <CardContent className="flex items-center gap-4 p-5">
               <CheckCircle className="h-8 w-8 text-green-500" />
               <div>
@@ -139,7 +145,9 @@ export default function SimulationsSummary() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-primary/20">
+          </StaggerItem>
+          <StaggerItem>
+          <Card className="border-primary/20 transition-transform duration-200 hover:scale-105">
             <CardContent className="flex items-center gap-4 p-5">
               <Trophy className="h-8 w-8 text-yellow-500" />
               <div>
@@ -148,12 +156,15 @@ export default function SimulationsSummary() {
               </div>
             </CardContent>
           </Card>
-        </div>
+          </StaggerItem>
+        </StaggerGrid>
 
         {/* Progress bar */}
+        <AnimatedSection>
         <div className="mb-10">
           <Progress value={overallProgress} className="h-3" />
         </div>
+        </AnimatedSection>
 
         {/* Search & Filters */}
         <div className="mb-8 space-y-4">
@@ -204,23 +215,23 @@ export default function SimulationsSummary() {
           </div>
         )}
         {Object.entries(groups).map(([category, sims]) => (
-          <div key={category} className="mb-10">
+          <AnimatedSection key={category} className="mb-10">
             <h2 className="mb-4 text-xl font-semibold text-foreground">{category}</h2>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <StaggerGrid className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {sims.map((sim) => {
                 const prog = progressMap[sim.id];
                 const done = prog?.completed;
                 return (
+                  <StaggerItem key={sim.id}>
                   <Card
-                    key={sim.id}
-                    className={`overflow-hidden transition-all hover:shadow-md ${done ? "border-green-500/40 bg-green-500/5" : ""}`}
+                    className={`group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${done ? "border-green-500/40 bg-green-500/5" : ""}`}
                   >
                     {simulationImages[sim.slug] && (
                       <div className="relative h-32 w-full overflow-hidden">
                         <img
                           src={simulationImages[sim.slug]}
                           alt=""
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                           width={768}
                           height={512}
                           loading="lazy"
@@ -257,19 +268,20 @@ export default function SimulationsSummary() {
                         )}
                       </div>
                       <div className="mt-3">
-                        <Button asChild size="sm" variant={done ? "outline" : "default"}>
+                        <Button asChild size="sm" variant={done ? "outline" : "default"} className="group-hover:gap-3 transition-all">
                           <Link to={`/business-simulator/${sim.slug}`}>
                             {done ? t("summary.replay") : t("summary.start")}
-                            <ArrowRight className="ml-1 h-4 w-4" />
+                            <ArrowRight className="ml-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </Link>
                         </Button>
                       </div>
                     </CardContent>
                   </Card>
+                  </StaggerItem>
                 );
               })}
-            </div>
-          </div>
+            </StaggerGrid>
+          </AnimatedSection>
         ))}
 
         {!user && (
