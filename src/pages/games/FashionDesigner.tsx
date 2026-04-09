@@ -30,9 +30,13 @@ export default function FashionDesigner() {
   return (
     <Layout>
       <section className="mx-auto max-w-3xl px-4 py-10">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold">👗 {t("fashion.title")}</h1>
-          <Badge className="mt-2">{t("fashion.designs")}: {designs.length}</Badge>
+        <div className="relative mb-6 overflow-hidden rounded-2xl">
+          <img src={heroImg} alt="" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4 text-center">
+            <h1 className="text-3xl font-bold">👗 {t("fashion.title")}</h1>
+            <Badge className="mt-2">{t("fashion.designs")}: {designs.length}</Badge>
+          </div>
         </div>
         <div className="grid gap-6 sm:grid-cols-3 mb-6">
           <Card>
