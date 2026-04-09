@@ -255,6 +255,7 @@ export default function Content() {
 
           {/* Simulations tab */}
           <TabsContent value="simulations">
+            <AnimatedSection variants={scaleFade}>
             {/* Hero banner */}
             <div className="mb-8 rounded-2xl bg-gradient-to-br from-primary/15 via-accent/10 to-transparent p-6 md:p-10 border border-primary/10">
               <div className="flex items-center gap-3 mb-3">
@@ -268,6 +269,7 @@ export default function Content() {
               <h2 className="mb-2 text-2xl font-bold md:text-3xl">{t("bsim.title")}</h2>
               <p className="max-w-2xl text-muted-foreground leading-relaxed">{t("bsim.description")}</p>
             </div>
+            </AnimatedSection>
 
             {/* Overall progress indicator */}
             {simulations.length > 0 && (() => {
