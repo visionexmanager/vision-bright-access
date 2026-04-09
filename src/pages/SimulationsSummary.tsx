@@ -36,6 +36,9 @@ export default function SimulationsSummary() {
   const [simulations, setSimulations] = useState<SimRow[]>([]);
   const [progressMap, setProgressMap] = useState<Record<string, ProgressRow>>({});
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeDifficulty, setActiveDifficulty] = useState("all");
 
   useEffect(() => {
     async function load() {
@@ -65,13 +68,25 @@ export default function SimulationsSummary() {
     load();
   }, [user]);
 
+  const subcategories = useMemo(() => Array.from(new Set(simulations.map((s) => s.subcategory))).sort(), [simulations]);
+  const difficulties = useMemo(() => Array.from(new Set(simulations.map((s) => s.difficulty))), [simulations]);
+
+  const filtered = useMemo(() => {
+    return simulations.filter((s) => {
+      const matchSearch = !search || s.title.toLowerCase().includes(search.toLowerCase()) || s.description.toLowerCase().includes(search.toLowerCase());
+      const matchCat = activeCategory === "all" || s.subcategory === activeCategory;
+      const matchDiff = activeDifficulty === "all" || s.difficulty === activeDifficulty;
+      return matchSearch && matchCat && matchDiff;
+    });
+  }, [simulations, search, activeCategory, activeDifficulty]);
+
   const completedCount = Object.values(progressMap).filter((p) => p.completed).length;
   const totalPoints = Object.values(progressMap).reduce((s, p) => s + p.score, 0);
   const overallProgress = simulations.length ? Math.round((completedCount / simulations.length) * 100) : 0;
 
-  // Group by subcategory
+  // Group filtered by subcategory
   const groups: Record<string, SimRow[]> = {};
-  simulations.forEach((s) => {
+  filtered.forEach((s) => {
     if (!groups[s.subcategory]) groups[s.subcategory] = [];
     groups[s.subcategory].push(s);
   });
