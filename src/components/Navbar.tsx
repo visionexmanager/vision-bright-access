@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogOut, Menu, X, Zap, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX } from "lucide-react";
 import { useUnreadCount } from "@/hooks/useMessages";
+import { usePoints } from "@/hooks/usePoints";
 import { useState } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -21,6 +22,7 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const unreadMessages = useUnreadCount();
   const { enabled: soundEnabled, setEnabled: setSoundEnabled, playSound } = useSound();
+  const { totalPoints } = usePoints();
 
   const navLinks = [
     { to: "/", label: t("nav.home") },
@@ -81,6 +83,12 @@ export function Navbar() {
           <LanguageSwitcher />
           <CartDrawer />
           {user && <NotificationBell />}
+          {user && (
+            <Link to="/coins-store" className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors">
+              <Coins className="h-4 w-4" />
+              <span>{totalPoints.toLocaleString()} VX</span>
+            </Link>
+          )}
           {user && (
             <>
               <Link to="/messages">

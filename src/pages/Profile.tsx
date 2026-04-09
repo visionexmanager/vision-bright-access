@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Navigate } from "react-router-dom";
 import {
   Camera, Save, Trophy, Star, Flame, Target,
-  Gamepad2, BookOpen, Users, TrendingUp, Award,
+  Gamepad2, BookOpen, Users, TrendingUp, Award, Coins,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { usePoints } from "@/hooks/usePoints";
@@ -207,6 +207,12 @@ export default function Profile() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   {t("profile.memberSince")} {memberSince}
                 </p>
+
+                {/* Coins Balance */}
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+                  <Coins className="h-4 w-4" />
+                  {totalPoints.toLocaleString()} VX
+                </div>
 
                 {/* XP Progress */}
                 <div className="mt-3 max-w-sm">
