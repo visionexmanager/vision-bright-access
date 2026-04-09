@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
+import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -142,8 +143,10 @@ export default function Content() {
   return (
     <Layout>
       <section className="mx-auto max-w-6xl px-4 py-10" aria-labelledby="content-heading">
-        <h1 id="content-heading" className="mb-2 text-3xl font-bold">{t("content.title")}</h1>
-        <p className="mb-8 text-lg text-muted-foreground">{t("content.subtitle")}</p>
+        <AnimatedSection variants={scaleFade}>
+          <h1 id="content-heading" className="mb-2 text-3xl font-bold">{t("content.title")}</h1>
+          <p className="mb-8 text-lg text-muted-foreground">{t("content.subtitle")}</p>
+        </AnimatedSection>
 
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-8 flex flex-wrap gap-1">
@@ -196,11 +199,12 @@ export default function Content() {
                 </div>
               )}
 
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {filterItems(v).map((item) => {
                   const Icon = typeIcons[item.type] ?? FileText;
                   return (
-                    <Card key={item.id} className="flex flex-col transition-shadow hover:shadow-lg">
+                    <StaggerItem key={item.id}>
+                    <Card className="flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
                       <CardContent className="flex flex-1 flex-col gap-3 p-6">
                         <div className="flex items-start justify-between">
                           <div className="rounded-xl bg-primary/10 p-3">
@@ -242,14 +246,16 @@ export default function Content() {
                         </div>
                       </CardContent>
                     </Card>
+                    </StaggerItem>
                   );
                 })}
-              </div>
+              </StaggerGrid>
             </TabsContent>
           ))}
 
           {/* Simulations tab */}
           <TabsContent value="simulations">
+            <AnimatedSection variants={scaleFade}>
             {/* Hero banner */}
             <div className="mb-8 rounded-2xl bg-gradient-to-br from-primary/15 via-accent/10 to-transparent p-6 md:p-10 border border-primary/10">
               <div className="flex items-center gap-3 mb-3">
@@ -263,6 +269,7 @@ export default function Content() {
               <h2 className="mb-2 text-2xl font-bold md:text-3xl">{t("bsim.title")}</h2>
               <p className="max-w-2xl text-muted-foreground leading-relaxed">{t("bsim.description")}</p>
             </div>
+            </AnimatedSection>
 
             {/* Overall progress indicator */}
             {simulations.length > 0 && (() => {
@@ -320,79 +327,74 @@ export default function Content() {
                       <p className="text-lg font-medium text-muted-foreground">{t("bsim.empty")}</p>
                     </div>
                   ) : (
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                      {filteredSims.map((sim) => (
-                  (() => {
-                    const prog = progressMap[sim.id];
-                    const done = prog?.completed;
-                    const inProgress = prog && !done;
-                    return (
-                  <Card
-                    key={sim.id}
-                    className={`group flex flex-col overflow-hidden border-2 transition-all hover:shadow-xl hover:-translate-y-1 ${done ? "border-green-500/30 bg-green-500/5" : inProgress ? "border-yellow-500/30 bg-yellow-500/5" : "border-transparent hover:border-primary/20"}`}
-                  >
-                    {/* Colored top accent bar */}
-                    <div className={`h-1.5 ${done ? "bg-gradient-to-r from-green-500 to-green-400" : inProgress ? "bg-gradient-to-r from-yellow-500 to-yellow-400" : "bg-gradient-to-r from-primary via-accent to-primary/60"}`} />
-                    <CardContent className="flex flex-1 flex-col gap-4 p-6">
-                      <div className="flex items-start justify-between">
-                        <div className={`rounded-xl p-3 ${done ? "bg-green-500/20" : "bg-gradient-to-br from-primary/20 to-accent/10"}`}>
-                          {done ? <CheckCircle className="h-7 w-7 text-green-500" /> : <BarChart3 className="h-7 w-7 text-primary" />}
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <Badge className="text-sm font-bold bg-primary/10 text-primary border-primary/20">
-                            +{sim.points} pts
-                          </Badge>
-                          {done && (
-                            <Badge variant="outline" className="border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400 text-xs">
-                              ✅ {prog.score} pts
-                            </Badge>
-                          )}
-                          {inProgress && (
-                            <Badge variant="outline" className="border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 text-xs">
-                              ⏳ {prog.score} pts
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
+                    <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                      {filteredSims.map((sim) => {
+                        const prog = progressMap[sim.id];
+                        const done = prog?.completed;
+                        const inProgress = prog && !done;
+                        return (
+                          <StaggerItem key={sim.id}>
+                          <Card
+                            className={`group flex flex-col overflow-hidden border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${done ? "border-green-500/30 bg-green-500/5" : inProgress ? "border-yellow-500/30 bg-yellow-500/5" : "border-transparent hover:border-primary/20"}`}
+                          >
+                            <div className={`h-1.5 ${done ? "bg-gradient-to-r from-green-500 to-green-400" : inProgress ? "bg-gradient-to-r from-yellow-500 to-yellow-400" : "bg-gradient-to-r from-primary via-accent to-primary/60"}`} />
+                            <CardContent className="flex flex-1 flex-col gap-4 p-6">
+                              <div className="flex items-start justify-between">
+                                <div className={`rounded-xl p-3 ${done ? "bg-green-500/20" : "bg-gradient-to-br from-primary/20 to-accent/10"}`}>
+                                  {done ? <CheckCircle className="h-7 w-7 text-green-500" /> : <BarChart3 className="h-7 w-7 text-primary" />}
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  <Badge className="text-sm font-bold bg-primary/10 text-primary border-primary/20">
+                                    +{sim.points} pts
+                                  </Badge>
+                                  {done && (
+                                    <Badge variant="outline" className="border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400 text-xs">
+                                      ✅ {prog.score} pts
+                                    </Badge>
+                                  )}
+                                  {inProgress && (
+                                    <Badge variant="outline" className="border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 text-xs">
+                                      ⏳ {prog.score} pts
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
 
-                      <h3 className="text-lg font-bold leading-tight">{sim.title}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-3">{sim.description}</p>
+                              <h3 className="text-lg font-bold leading-tight">{sim.title}</h3>
+                              <p className="text-sm text-muted-foreground line-clamp-3">{sim.description}</p>
 
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary" className="font-medium">{sim.subcategory}</Badge>
-                        <Badge
-                          variant="outline"
-                          className={difficultyStyle[sim.difficulty] || ""}
-                        >
-                          {sim.difficulty}
-                        </Badge>
-                      </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="secondary" className="font-medium">{sim.subcategory}</Badge>
+                                <Badge variant="outline" className={difficultyStyle[sim.difficulty] || ""}>
+                                  {sim.difficulty}
+                                </Badge>
+                              </div>
 
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        <span>~{sim.estimated_duration} min</span>
-                      </div>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Clock className="h-4 w-4" />
+                                <span>~{sim.estimated_duration} min</span>
+                              </div>
 
-                      <div className="mt-auto pt-2">
-                        <Button
-                          asChild
-                          variant={done ? "outline" : "default"}
-                          className="w-full text-base font-semibold group-hover:gap-3 transition-all"
-                        >
-                          <Link to={`/business-simulator/${sim.slug}`}>
-                            <Rocket className="h-4 w-4" />
-                            {done ? t("summary.replay") : inProgress ? t("summary.continue") ?? t("bsim.start") : t("bsim.start")}
-                            <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                    );
-                  })()
-                ))}
-              </div>
-            )}
+                              <div className="mt-auto pt-2">
+                                <Button
+                                  asChild
+                                  variant={done ? "outline" : "default"}
+                                  className="w-full text-base font-semibold group-hover:gap-3 transition-all"
+                                >
+                                  <Link to={`/business-simulator/${sim.slug}`}>
+                                    <Rocket className="h-4 w-4" />
+                                    {done ? t("summary.replay") : inProgress ? t("summary.continue") ?? t("bsim.start") : t("bsim.start")}
+                                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </Link>
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          </StaggerItem>
+                        );
+                      })}
+                    </StaggerGrid>
+                  )}
                 </>
               );
             })()}
