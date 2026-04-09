@@ -1334,6 +1334,11 @@ const en: Record<string, string> = {
   "community.roomCreated": "Voice room created!",
   "community.roomDeleted": "Room deleted",
   "community.errorTitle": "Error",
+  "community.joinedRoom": "Joined the room!",
+  "community.leftRoom": "Left the room",
+  "community.leaveRoom": "Leave",
+  "community.roomFull": "Room Full",
+  "community.alreadyJoined": "You are already in this room",
 
   // Coins Store
   "coins.title": "VX Coins Store",
