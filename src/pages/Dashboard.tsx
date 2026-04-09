@@ -106,6 +106,7 @@ export default function Dashboard() {
     <Layout>
       <div className="mx-auto max-w-5xl px-4 py-10">
         {/* Dashboard banner */}
+        <AnimatedSection variants={scaleFade}>
         <div className="relative mb-8 overflow-hidden rounded-2xl">
           <img src={dashboardImg} alt="" className="h-36 w-full object-cover sm:h-44" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
@@ -116,6 +117,7 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
+        </AnimatedSection>
 
         {/* Top stats */}
         <div className="mb-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
