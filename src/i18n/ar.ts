@@ -1457,6 +1457,23 @@ const ar: Record<string, string> = {
   "studio.graphicDesign": "التصميم الجرافيكي", "studio.graphicDesc": "شعارات ومواد دعائية وتصميم مطبوعات",
   "studio.branding": "هوية بصرية كاملة", "studio.brandingDesc": "تطوير هوية العلامة التجارية الكاملة",
   "studio.requestService": "اطلب الخدمة", "studio.requested": "تم إرسال الطلب!",
+  "newsletter.title": "اشترك في تحديثات Visionex",
+  "newsletter.subtitle": "ابقَ على اطلاع بآخر الأخبار والمنتجات والميزات.",
+  "newsletter.emailPlaceholder": "أدخل بريدك الإلكتروني",
+  "newsletter.selectInterests": "اختر اهتماماتك",
+  "newsletter.topic.products": "المنتجات",
+  "newsletter.topic.services": "الخدمات",
+  "newsletter.topic.courses": "الدورات",
+  "newsletter.topic.games": "الألعاب",
+  "newsletter.topic.techNews": "أخبار التقنية",
+  "newsletter.topic.globalNews": "أخبار عالمية",
+  "newsletter.subscribe": "اشترك",
+  "newsletter.subscribing": "جاري الاشتراك…",
+  "newsletter.success": "تم الاشتراك بنجاح! 🎉",
+  "newsletter.alreadySubscribed": "هذا البريد مشترك بالفعل.",
+  "newsletter.error": "فشل الاشتراك. حاول مرة أخرى.",
+  "newsletter.thankYou": "شكراً لاشتراكك!",
+  "newsletter.confirmMsg": "ستتلقى التحديثات بناءً على اهتماماتك المختارة.",
 };
 
 export default ar;
