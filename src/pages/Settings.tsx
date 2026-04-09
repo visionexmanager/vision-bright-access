@@ -24,7 +24,7 @@ const LANGUAGES = [
 
 export default function Settings() {
   const { t, lang, setLang } = useLanguage();
-  const { theme, toggleTheme } = useThemeToggle();
+  const { theme, setTheme } = useThemeToggle();
 
   const [notifEnabled, setNotifEnabled] = useState(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -55,15 +55,7 @@ export default function Settings() {
   };
 
   const handleThemeChange = (value: string) => {
-    const themes: Theme[] = ["light", "dark", "high-contrast"];
-    const target = value as Theme;
-    // Toggle until we reach the target theme
-    let current = theme;
-    while (current !== target) {
-      toggleTheme();
-      const idx = themes.indexOf(current);
-      current = themes[(idx + 1) % themes.length];
-    }
+    setTheme(value as Theme);
   };
 
   return (
