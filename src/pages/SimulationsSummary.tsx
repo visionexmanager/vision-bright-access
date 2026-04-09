@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3 } from "lucide-react";
+import { simulationImages } from "@/data/simulationImages";
 
 interface SimRow {
   id: string;
