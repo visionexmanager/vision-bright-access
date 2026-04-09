@@ -51,10 +51,6 @@ export default function Settings() {
     }
   };
 
-  const handleSoundToggle = (checked: boolean) => {
-    setSoundEnabled(checked);
-    localStorage.setItem("visionex-sound", String(checked));
-  };
 
   const handleThemeChange = (value: string) => {
     setTheme(value as Theme);
