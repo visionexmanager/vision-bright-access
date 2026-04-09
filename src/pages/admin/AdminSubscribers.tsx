@@ -56,7 +56,17 @@ export default function AdminSubscribers() {
           </Link>
           <Mail className="h-7 w-7 text-primary" />
           <h1 className="text-2xl font-bold">Newsletter Subscribers</h1>
-          <Badge variant="secondary" className="ml-auto text-sm">{subscribers.length} total</Badge>
+          <Badge variant="secondary" className="text-sm">{subscribers.length} total</Badge>
+          <Button variant="outline" size="sm" className="ml-auto" onClick={() => {
+            const header = "Email,Topics,Subscribed At\n";
+            const rows = filtered.map(s => `"${s.email}","${s.topics.join("; ")}","${new Date(s.subscribed_at).toLocaleDateString()}"`).join("\n");
+            const blob = new Blob([header + rows], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = url; a.download = "subscribers.csv"; a.click();
+            URL.revokeObjectURL(url);
+          }}>
+            <Download className="mr-1 h-4 w-4" /> Export CSV
+          </Button>
         </div>
 
         {/* Topic filter chips */}
