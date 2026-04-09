@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
-import { Globe, Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight, Truck, BarChart3, Heart } from "lucide-react";
+import { Globe, Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
@@ -114,6 +114,54 @@ export default function Services() {
                   <p className="text-muted-foreground mt-1">{t("nutrition.serviceDesc")}</p>
                 </div>
                 <ArrowRight className="h-8 w-8 text-emerald-600" />
+              </CardContent>
+            </Card>
+          </Link>
+        </AnimatedSection>
+
+        {/* Career Hub CTA */}
+        <AnimatedSection className="mt-4">
+          <Link to="/services/career-hub" onClick={() => playSound("navigate")}>
+            <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
+              <CardContent className="flex items-center gap-6 p-8">
+                <div className="rounded-xl bg-primary/10 p-4"><Briefcase className="h-10 w-10 text-primary" /></div>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-black text-foreground">{t("career.title")}</h2>
+                  <p className="text-muted-foreground mt-1">{t("career.subtitle")}</p>
+                </div>
+                <ArrowRight className="h-8 w-8 text-primary" />
+              </CardContent>
+            </Card>
+          </Link>
+        </AnimatedSection>
+
+        {/* Music Conservatory CTA */}
+        <AnimatedSection className="mt-4">
+          <Link to="/services/music-conservatory" onClick={() => playSound("navigate")}>
+            <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
+              <CardContent className="flex items-center gap-6 p-8">
+                <div className="rounded-xl bg-primary/10 p-4"><Music className="h-10 w-10 text-primary" /></div>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-black text-foreground">{t("music.title")}</h2>
+                  <p className="text-muted-foreground mt-1">{t("music.subtitle")}</p>
+                </div>
+                <ArrowRight className="h-8 w-8 text-primary" />
+              </CardContent>
+            </Card>
+          </Link>
+        </AnimatedSection>
+
+        {/* Global Studio CTA */}
+        <AnimatedSection className="mt-4">
+          <Link to="/services/global-studio" onClick={() => playSound("navigate")}>
+            <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
+              <CardContent className="flex items-center gap-6 p-8">
+                <div className="rounded-xl bg-primary/10 p-4"><Video className="h-10 w-10 text-primary" /></div>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-black text-foreground">{t("studio.title")}</h2>
+                  <p className="text-muted-foreground mt-1">{t("studio.subtitle")}</p>
+                </div>
+                <ArrowRight className="h-8 w-8 text-primary" />
               </CardContent>
             </Card>
           </Link>

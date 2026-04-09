@@ -46,6 +46,30 @@ const News = lazy(() => import("./pages/News"));
 const Messages = lazy(() => import("./pages/Messages"));
 const Settings = lazy(() => import("./pages/Settings"));
 
+// New service pages
+const CareerHub = lazy(() => import("./pages/services/CareerHub"));
+const MusicConservatory = lazy(() => import("./pages/services/MusicConservatory"));
+const GlobalStudio = lazy(() => import("./pages/services/GlobalStudio"));
+
+// New game pages
+const Hangman = lazy(() => import("./pages/games/Hangman"));
+const Dominoes = lazy(() => import("./pages/games/Dominoes"));
+const FarkleGame = lazy(() => import("./pages/games/FarkleGame"));
+const JungleSurvival = lazy(() => import("./pages/games/JungleSurvival"));
+const StarChef = lazy(() => import("./pages/games/StarChef"));
+const UnoUltra = lazy(() => import("./pages/games/UnoUltra"));
+const NeonBreach = lazy(() => import("./pages/games/NeonBreach"));
+const LogiQuest = lazy(() => import("./pages/games/LogiQuest"));
+const TradeTycoon = lazy(() => import("./pages/games/TradeTycoon"));
+const TacticalStrike = lazy(() => import("./pages/games/TacticalStrike"));
+const Briscola = lazy(() => import("./pages/games/Briscola"));
+const Card99 = lazy(() => import("./pages/games/Card99"));
+const DreamHome = lazy(() => import("./pages/games/DreamHome"));
+const LaptopTechMaster = lazy(() => import("./pages/games/LaptopTechMaster"));
+const MusicEarMaster = lazy(() => import("./pages/games/MusicEarMaster"));
+const FashionDesigner = lazy(() => import("./pages/games/FashionDesigner"));
+const VelocityXRacing = lazy(() => import("./pages/games/VelocityXRacing"));
+
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
@@ -112,6 +136,26 @@ const App = () => (
                     <Route path="/services/shared-trip" element={<SharedTrip />} />
                     <Route path="/services/nutrition" element={<NutritionExpert />} />
                     <Route path="/services/trip-history" element={<TripHistory />} />
+                    <Route path="/services/career-hub" element={<CareerHub />} />
+                    <Route path="/services/music-conservatory" element={<MusicConservatory />} />
+                    <Route path="/services/global-studio" element={<GlobalStudio />} />
+                    <Route path="/games/hangman" element={<Hangman />} />
+                    <Route path="/games/dominoes" element={<Dominoes />} />
+                    <Route path="/games/farkle" element={<FarkleGame />} />
+                    <Route path="/games/jungle-survival" element={<JungleSurvival />} />
+                    <Route path="/games/star-chef" element={<StarChef />} />
+                    <Route path="/games/uno-ultra" element={<UnoUltra />} />
+                    <Route path="/games/neon-breach" element={<NeonBreach />} />
+                    <Route path="/games/logiquest" element={<LogiQuest />} />
+                    <Route path="/games/trade-tycoon" element={<TradeTycoon />} />
+                    <Route path="/games/tactical-strike" element={<TacticalStrike />} />
+                    <Route path="/games/briscola" element={<Briscola />} />
+                    <Route path="/games/card-99" element={<Card99 />} />
+                    <Route path="/games/dream-home" element={<DreamHome />} />
+                    <Route path="/games/laptop-tech" element={<LaptopTechMaster />} />
+                    <Route path="/games/music-ear" element={<MusicEarMaster />} />
+                    <Route path="/games/fashion-designer" element={<FashionDesigner />} />
+                    <Route path="/games/velocity-racing" element={<VelocityXRacing />} />
                     <Route path="/community" element={<Community />} />
                     <Route path="/coins-store" element={<CoinsStore />} />
                     <Route path="/news" element={<News />} />

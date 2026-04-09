@@ -103,6 +103,21 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.WoodworkingSimulation,
     }))
   ),
+  "trade-tycoon": lazy(() =>
+    import("@/pages/simulations/TradeTycoonSimulation").then((m) => ({
+      default: m.TradeTycoonSimulation,
+    }))
+  ),
+  "laptop-repair": lazy(() =>
+    import("@/pages/simulations/LaptopRepairSimulation").then((m) => ({
+      default: m.LaptopRepairSimulation,
+    }))
+  ),
+  "music-training": lazy(() =>
+    import("@/pages/simulations/MusicTrainingSimulation").then((m) => ({
+      default: m.MusicTrainingSimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {
