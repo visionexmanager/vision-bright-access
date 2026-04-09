@@ -145,13 +145,13 @@ export default function BusinessSimulator() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((sim) => {
               const prog = progressMap[sim.id];
               const done = prog?.completed;
               const inProgress = prog && !done;
               return (
-              <Card
+              <StaggerItem key={sim.id}>
                 key={sim.id}
                 className={`group flex flex-col transition-all hover:shadow-lg hover:-translate-y-1 ${done ? "border-green-500/30 bg-green-500/5" : inProgress ? "border-yellow-500/30 bg-yellow-500/5" : ""}`}
               >
