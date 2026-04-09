@@ -155,6 +155,47 @@ export default function SimulationsSummary() {
           <Progress value={overallProgress} className="h-3" />
         </div>
 
+        {/* Search & Filters */}
+        <div className="mb-8 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={t("simulations.searchPlaceholder")}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mr-1">
+              <Filter className="h-3.5 w-3.5" />
+              {t("simulations.category")}:
+            </div>
+            <Button size="sm" variant={activeCategory === "all" ? "default" : "outline"} onClick={() => setActiveCategory("all")}>
+              {t("content.tab.all")}
+            </Button>
+            {subcategories.map((cat) => (
+              <Button key={cat} size="sm" variant={activeCategory === cat ? "default" : "outline"} onClick={() => setActiveCategory(cat)}>
+                {cat} ({simulations.filter((s) => s.subcategory === cat).length})
+              </Button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mr-1">
+              <Filter className="h-3.5 w-3.5" />
+              {t("simulations.difficulty")}:
+            </div>
+            <Button size="sm" variant={activeDifficulty === "all" ? "default" : "outline"} onClick={() => setActiveDifficulty("all")}>
+              {t("content.tab.all")}
+            </Button>
+            {difficulties.map((diff) => (
+              <Button key={diff} size="sm" variant={activeDifficulty === diff ? "default" : "outline"} onClick={() => setActiveDifficulty(diff)}>
+                {diff} ({simulations.filter((s) => s.difficulty === diff).length})
+              </Button>
+            ))}
+          </div>
+        </div>
+
         {/* Grouped simulations */}
         {Object.entries(groups).map(([category, sims]) => (
           <div key={category} className="mb-10">
