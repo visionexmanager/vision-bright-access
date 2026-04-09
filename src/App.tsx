@@ -43,6 +43,7 @@ const Community = lazy(() => import("./pages/Community"));
 const CoinsStore = lazy(() => import("./pages/CoinsStore"));
 const News = lazy(() => import("./pages/News"));
 const Messages = lazy(() => import("./pages/Messages"));
+const Settings = lazy(() => import("./pages/Settings"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -113,6 +114,7 @@ const App = () => (
                     <Route path="/coins-store" element={<CoinsStore />} />
                     <Route path="/news" element={<News />} />
                     <Route path="/messages" element={<Messages />} />
+                    <Route path="/settings" element={<Settings />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />

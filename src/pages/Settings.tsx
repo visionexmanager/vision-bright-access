@@ -23,7 +23,7 @@ const LANGUAGES = [
 ];
 
 export default function Settings() {
-  const { t, language, setLanguage } = useLanguage();
+  const { t, lang, setLang } = useLanguage();
   const { theme, toggleTheme } = useThemeToggle();
 
   const [notifEnabled, setNotifEnabled] = useState(() => {
@@ -111,7 +111,7 @@ export default function Settings() {
             </CardHeader>
             <CardContent>
               <Label className="mb-2 block text-base font-medium">{t("settings.selectLang")}</Label>
-              <Select value={language} onValueChange={(v) => setLanguage(v as any)}>
+              <Select value={lang} onValueChange={(v) => setLang(v as any)}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
