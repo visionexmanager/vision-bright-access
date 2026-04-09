@@ -505,6 +505,35 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_room_members: {
+        Row: {
+          id: string
+          joined_at: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_room_members_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "voice_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voice_rooms: {
         Row: {
           cost_vx: number

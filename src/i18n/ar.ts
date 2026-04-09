@@ -1334,6 +1334,11 @@ const ar: Record<string, string> = {
   "community.roomCreated": "تم إنشاء الغرفة الصوتية!",
   "community.roomDeleted": "تم حذف الغرفة",
   "community.errorTitle": "خطأ",
+  "community.joinedRoom": "تم الانضمام للغرفة!",
+  "community.leftRoom": "تم مغادرة الغرفة",
+  "community.leaveRoom": "مغادرة",
+  "community.roomFull": "الغرفة ممتلئة",
+  "community.alreadyJoined": "أنت بالفعل في هذه الغرفة",
 
   // Coins Store
   "coins.title": "متجر عملات VX",
