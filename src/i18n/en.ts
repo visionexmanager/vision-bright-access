@@ -1457,6 +1457,23 @@ const en: Record<string, string> = {
   "studio.graphicDesign": "Graphic Design", "studio.graphicDesc": "Logos, branding materials, and print design",
   "studio.branding": "Full Branding", "studio.brandingDesc": "Complete brand identity development",
   "studio.requestService": "Request Service", "studio.requested": "Request submitted!",
+  "newsletter.title": "Subscribe to Visionex Updates",
+  "newsletter.subtitle": "Stay informed with the latest news, products, and features.",
+  "newsletter.emailPlaceholder": "Enter your email address",
+  "newsletter.selectInterests": "Select your interests",
+  "newsletter.topic.products": "Products",
+  "newsletter.topic.services": "Services",
+  "newsletter.topic.courses": "Courses",
+  "newsletter.topic.games": "Games",
+  "newsletter.topic.techNews": "Tech News",
+  "newsletter.topic.globalNews": "Global News",
+  "newsletter.subscribe": "Subscribe",
+  "newsletter.subscribing": "Subscribing…",
+  "newsletter.success": "You're subscribed! 🎉",
+  "newsletter.alreadySubscribed": "This email is already subscribed.",
+  "newsletter.error": "Subscription failed. Please try again.",
+  "newsletter.thankYou": "Thank you for subscribing!",
+  "newsletter.confirmMsg": "You'll receive updates based on your selected interests.",
 };
 
 export default en;
