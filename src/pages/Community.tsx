@@ -214,22 +214,16 @@ export default function Community() {
   return (
     <Layout>
       <section className="mx-auto max-w-5xl px-4 py-12">
-        {/* Hero banner */}
+        <AnimatedSection variants={scaleFade}>
         <div className="relative mb-10 overflow-hidden rounded-2xl">
-          <img
-            src={communityImg}
-            alt=""
-            className="h-48 w-full object-cover sm:h-56"
-            width={800}
-            height={512}
-            loading="lazy"
-          />
+          <img src={communityImg} alt="" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
           <div className="absolute bottom-6 left-6 right-6 text-center">
             <h1 className="text-4xl font-bold tracking-tight">{t("community.title")}</h1>
             <p className="mt-2 text-lg text-muted-foreground">{t("community.subtitle")}</p>
           </div>
         </div>
+        </AnimatedSection>
 
         {/* Default public rooms */}
         <div className="mb-12">
@@ -237,9 +231,10 @@ export default function Community() {
             <Radio className="h-6 w-6 text-primary" />
             {t("community.voiceRooms")}
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {DEFAULT_ROOMS.map((room) => (
-              <Card key={room.id} className="transition-shadow hover:shadow-lg">
+            <StaggerItem key={room.id}>
+              <Card className="transition-shadow hover:shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Mic className="h-5 w-5 text-primary" />
@@ -254,8 +249,9 @@ export default function Community() {
                   {renderJoinButton(room.id, 999)}
                 </CardContent>
               </Card>
+            </StaggerItem>
             ))}
-          </div>
+          </StaggerGrid>
         </div>
 
         {/* User-created rooms from DB */}
