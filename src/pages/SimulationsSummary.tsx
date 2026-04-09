@@ -150,8 +150,21 @@ export default function SimulationsSummary() {
                 return (
                   <Card
                     key={sim.id}
-                    className={`transition-all hover:shadow-md ${done ? "border-green-500/40 bg-green-500/5" : ""}`}
+                    className={`overflow-hidden transition-all hover:shadow-md ${done ? "border-green-500/40 bg-green-500/5" : ""}`}
                   >
+                    {simulationImages[sim.slug] && (
+                      <div className="relative h-32 w-full overflow-hidden">
+                        <img
+                          src={simulationImages[sim.slug]}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          width={768}
+                          height={512}
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-card to-transparent" />
+                      </div>
+                    )}
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
