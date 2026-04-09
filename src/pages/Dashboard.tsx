@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSound } from "@/contexts/SoundContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
+import dashboardImg from "@/assets/dashboard-illustration.jpg";
 
 const VIP_TIERS = [
   { name: "rankBronze", min: 0, next: 200, color: "text-amber-700" },
