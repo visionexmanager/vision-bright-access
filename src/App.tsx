@@ -42,6 +42,7 @@ const NutritionExpert = lazy(() => import("./pages/NutritionExpert"));
 const Community = lazy(() => import("./pages/Community"));
 const CoinsStore = lazy(() => import("./pages/CoinsStore"));
 const News = lazy(() => import("./pages/News"));
+const Messages = lazy(() => import("./pages/Messages"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -111,6 +112,7 @@ const App = () => (
                     <Route path="/community" element={<Community />} />
                     <Route path="/coins-store" element={<CoinsStore />} />
                     <Route path="/news" element={<News />} />
+                    <Route path="/messages" element={<Messages />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />

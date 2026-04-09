@@ -1371,6 +1371,21 @@ const en: Record<string, string> = {
   "news.item3.desc": "Google's latest AI model excels at combining text, image, and code understanding in a single conversation.",
   "news.item4.title": "Visionex Community Reaches 10K Members",
   "news.item4.desc": "Our growing community continues to expand with new voice rooms, games, and collaborative features.",
+  // Messages
+  "msg.title": "Messages",
+  "msg.conversations": "Conversations",
+  "msg.noConversations": "No conversations yet. Start a new one!",
+  "msg.selectConversation": "Select a conversation to start chatting",
+  "msg.chat": "Chat",
+  "msg.startConversation": "Say hello! Send the first message.",
+  "msg.typePlaceholder": "Type a message...",
+  "msg.newMessage": "New Message",
+  "msg.newConversation": "New Conversation",
+  "msg.searchUsers": "Search users by name...",
+  "msg.searchPrompt": "Search for a user to start a conversation",
+  "msg.noMessages": "No messages yet",
+  "msg.unknownUser": "Unknown User",
+  "msg.errorCreating": "Could not create conversation",
 };
 
 export default en;
