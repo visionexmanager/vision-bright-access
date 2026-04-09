@@ -80,7 +80,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <LanguageProvider>
-            <AuthProvider>
+             <AuthProvider>
+              <CartProvider>
               <SoundProvider>
                 <Suspense fallback={<PageLoader />}>
                   <PageTracker />
@@ -127,7 +128,7 @@ const App = () => (
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
-                </SoundProvider>
+              </SoundProvider>
               </CartProvider>
             </AuthProvider>
           </LanguageProvider>
