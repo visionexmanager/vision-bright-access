@@ -347,7 +347,7 @@ export default function Academy() {
                       <h4 className="font-bold text-xl mb-3 text-foreground">سوق العمل العالمي</h4>
                       <p className="text-muted-foreground text-sm leading-relaxed">اكتشف شو هي الرواتب والوظائف المطلوبة بـ {profile.country} وبالعالم لهيدي السنة.</p>
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
                 )}
 
