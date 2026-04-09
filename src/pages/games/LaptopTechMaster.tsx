@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useState } from "react";
+import heroImg from "@/assets/game-laptoptech.jpg";
 
 const ISSUES = [
   { symptom: "Screen flickering", fix: "Replace LCD cable", wrong: "Change RAM", points: 100 },
@@ -37,11 +38,15 @@ export default function LaptopTechMaster() {
   return (
     <Layout>
       <section className="mx-auto max-w-2xl px-4 py-10">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold">💻 {t("laptoptech.title")}</h1>
-          <div className="flex justify-center gap-4 mt-3">
-            <Badge>⭐ {score}</Badge>
-            <Badge variant="secondary">{current + 1}/{ISSUES.length}</Badge>
+        <div className="relative mb-6 overflow-hidden rounded-2xl">
+          <img src={heroImg} alt="" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4 text-center">
+            <h1 className="text-3xl font-bold">💻 {t("laptoptech.title")}</h1>
+            <div className="flex justify-center gap-4 mt-2">
+              <Badge>⭐ {score}</Badge>
+              <Badge variant="secondary">{current + 1}/{ISSUES.length}</Badge>
+            </div>
           </div>
         </div>
         {done ? (

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useState, useCallback } from "react";
+import heroImg from "@/assets/game-earmaster.jpg";
 
 const NOTES_FREQ: Record<string, number> = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392, A4: 440, B4: 493.88 };
 const NOTE_NAMES = Object.keys(NOTES_FREQ);

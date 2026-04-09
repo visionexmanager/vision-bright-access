@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useState } from "react";
+import heroImg from "@/assets/game-fashion.jpg";
 
 const FABRICS = ["🧵 Silk", "👖 Denim", "🧶 Wool", "🪡 Cotton", "✨ Satin"];
 const COLORS_LIST = ["❤️ Red", "💙 Blue", "💚 Green", "🖤 Black", "🤍 White", "💛 Gold"];
