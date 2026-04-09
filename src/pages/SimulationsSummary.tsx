@@ -40,6 +40,7 @@ export default function SimulationsSummary() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeDifficulty, setActiveDifficulty] = useState("all");
+  const [sortBy, setSortBy] = useState<"default" | "points" | "duration" | "newest">("default");
 
   useEffect(() => {
     async function load() {
@@ -73,13 +74,17 @@ export default function SimulationsSummary() {
   const difficulties = useMemo(() => Array.from(new Set(simulations.map((s) => s.difficulty))), [simulations]);
 
   const filtered = useMemo(() => {
-    return simulations.filter((s) => {
+    let result = simulations.filter((s) => {
       const matchSearch = !search || s.title.toLowerCase().includes(search.toLowerCase()) || s.description.toLowerCase().includes(search.toLowerCase());
       const matchCat = activeCategory === "all" || s.subcategory === activeCategory;
       const matchDiff = activeDifficulty === "all" || s.difficulty === activeDifficulty;
       return matchSearch && matchCat && matchDiff;
     });
-  }, [simulations, search, activeCategory, activeDifficulty]);
+    if (sortBy === "points") result = [...result].sort((a, b) => b.points - a.points);
+    else if (sortBy === "duration") result = [...result].sort((a, b) => a.estimated_duration - b.estimated_duration);
+    else if (sortBy === "newest") result = [...result].sort((a, b) => (b.id > a.id ? 1 : -1));
+    return result;
+  }, [simulations, search, activeCategory, activeDifficulty, sortBy]);
 
   const completedCount = Object.values(progressMap).filter((p) => p.completed).length;
   const totalPoints = Object.values(progressMap).reduce((s, p) => s + p.score, 0);
