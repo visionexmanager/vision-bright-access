@@ -2,9 +2,10 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useSound } from "@/contexts/SoundContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Menu, X, Zap, Heart, User, ShieldCheck, Coins, MessageCircle, Settings } from "lucide-react";
+import { LogOut, Menu, X, Zap, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX } from "lucide-react";
 import { useUnreadCount } from "@/hooks/useMessages";
 import { useState } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
@@ -19,6 +20,7 @@ export function Navbar() {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const unreadMessages = useUnreadCount();
+  const { enabled: soundEnabled, setEnabled: setSoundEnabled, playSound } = useSound();
 
   const navLinks = [
     { to: "/", label: t("nav.home") },
@@ -67,6 +69,14 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-2 md:flex">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => { setSoundEnabled(!soundEnabled); }}
+            aria-label={soundEnabled ? "Mute sounds" : "Unmute sounds"}
+          >
+            {soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5 text-muted-foreground" />}
+          </Button>
           <ThemeToggle />
           <LanguageSwitcher />
           <CartDrawer />

@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSound } from "@/contexts/SoundContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
+import simulatorsImg from "@/assets/simulators-illustration.jpg";
 import {
   Briefcase,
   Clock,
@@ -32,6 +34,7 @@ type Simulation = {
 export default function BusinessSimulator() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { playSound } = useSound();
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [progressMap, setProgressMap] = useState<Record<string, { completed: boolean; score: number }>>({});
   const [loading, setLoading] = useState(true);
@@ -88,8 +91,11 @@ export default function BusinessSimulator() {
   return (
     <Layout>
       <section className="mx-auto max-w-6xl px-4 py-10" aria-labelledby="bsim-heading">
-        {/* Hero */}
-        <div className="mb-10 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-8 md:p-12">
+        {/* Hero with illustration */}
+        <div className="relative mb-10 overflow-hidden rounded-2xl">
+          <img src={simulatorsImg} alt="" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+          <div className="absolute bottom-6 left-6 right-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="rounded-xl bg-primary/20 p-3">
               <Briefcase className="h-8 w-8 text-primary" />
@@ -105,6 +111,7 @@ export default function BusinessSimulator() {
           <p className="max-w-3xl text-lg text-muted-foreground leading-relaxed">
             {t("bsim.description")}
           </p>
+          </div>
         </div>
 
         {/* Tabs for subcategories */}

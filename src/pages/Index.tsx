@@ -5,10 +5,13 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Eye, ShoppingBag, BookOpen, Sparkles, UserPlus, Zap, Gift, TrendingUp } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSound } from "@/contexts/SoundContext";
+import heroImg from "@/assets/hero-illustration.jpg";
 
 export default function Index() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { playSound } = useSound();
 
   const features = [
     {
@@ -41,8 +44,18 @@ export default function Index() {
   return (
     <Layout>
       {/* Hero */}
-      <section className="px-4 py-20 text-center" aria-labelledby="hero-heading">
-        <div className="mx-auto max-w-3xl">
+      <section className="relative px-4 py-20 text-center overflow-hidden" aria-labelledby="hero-heading">
+        <div className="absolute inset-0 z-0">
+          <img
+            src={heroImg}
+            alt=""
+            className="h-full w-full object-cover opacity-15 dark:opacity-10"
+            width={1280}
+            height={720}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/80 to-background" />
+        </div>
+        <div className="relative z-10 mx-auto max-w-3xl">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-primary">
             <Sparkles className="h-5 w-5" aria-hidden="true" />
             <span className="text-base font-semibold">{t("home.badge")}</span>
@@ -60,19 +73,19 @@ export default function Index() {
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             {user ? (
               <Link to="/dashboard">
-                <Button size="lg" className="text-lg px-8 py-6 font-semibold">
+                <Button size="lg" className="text-lg px-8 py-6 font-semibold" onClick={() => playSound("navigate")}>
                   {t("nav.dashboard")} <ArrowRight className="ms-2 h-5 w-5" />
                 </Button>
               </Link>
             ) : (
               <Link to="/signup">
-                <Button size="lg" className="text-lg px-8 py-6 font-semibold">
+                <Button size="lg" className="text-lg px-8 py-6 font-semibold" onClick={() => playSound("navigate")}>
                   {t("home.getStarted")} <ArrowRight className="ms-2 h-5 w-5" />
                 </Button>
               </Link>
             )}
             <Link to="/marketplace">
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6">
+              <Button variant="outline" size="lg" className="text-lg px-8 py-6" onClick={() => playSound("navigate")}>
                 {t("home.exploreMarketplace")}
               </Button>
             </Link>
@@ -113,7 +126,7 @@ export default function Index() {
           </h2>
           <div className="grid gap-6 sm:grid-cols-3">
             {features.map((f) => (
-              <Link to={f.to} key={f.title} className="group">
+              <Link to={f.to} key={f.title} className="group" onClick={() => playSound("navigate")}>
                 <Card className="h-full transition-shadow hover:shadow-lg group-focus-visible:ring-4 group-focus-visible:ring-ring">
                   <CardContent className="flex flex-col items-start gap-4 p-8">
                     <div className="rounded-xl bg-primary/10 p-3">
@@ -140,13 +153,13 @@ export default function Index() {
           </p>
           {user ? (
             <Link to="/dashboard">
-              <Button size="lg" className="text-lg px-8 py-6 font-semibold">
+              <Button size="lg" className="text-lg px-8 py-6 font-semibold" onClick={() => playSound("navigate")}>
                 {t("nav.dashboard")} <ArrowRight className="ms-2 h-5 w-5" />
               </Button>
             </Link>
           ) : (
             <Link to="/signup">
-              <Button size="lg" className="text-lg px-8 py-6 font-semibold">
+              <Button size="lg" className="text-lg px-8 py-6 font-semibold" onClick={() => playSound("navigate")}>
                 {t("home.claimPoints")}
               </Button>
             </Link>
