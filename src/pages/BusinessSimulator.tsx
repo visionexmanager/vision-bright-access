@@ -152,7 +152,7 @@ export default function BusinessSimulator() {
               const inProgress = prog && !done;
               return (
               <StaggerItem key={sim.id}>
-                key={sim.id}
+              <Card
                 className={`group flex flex-col transition-all hover:shadow-lg hover:-translate-y-1 ${done ? "border-green-500/30 bg-green-500/5" : inProgress ? "border-yellow-500/30 bg-yellow-500/5" : ""}`}
               >
                 <CardContent className="flex flex-1 flex-col gap-4 p-6">
@@ -176,18 +176,11 @@ export default function BusinessSimulator() {
                   </div>
 
                   <h2 className="text-lg font-bold leading-tight">{sim.title}</h2>
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {sim.description}
-                  </p>
+                  <p className="text-sm text-muted-foreground line-clamp-3">{sim.description}</p>
 
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{sim.subcategory}</Badge>
-                    <Badge
-                      variant="outline"
-                      className={difficultyColor[sim.difficulty] || ""}
-                    >
-                      {sim.difficulty}
-                    </Badge>
+                    <Badge variant="outline" className={difficultyColor[sim.difficulty] || ""}>{sim.difficulty}</Badge>
                   </div>
 
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -206,9 +199,10 @@ export default function BusinessSimulator() {
                   </div>
                 </CardContent>
               </Card>
+              </StaggerItem>
               );
             })}
-          </div>
+          </StaggerGrid>
         )}
       </section>
     </Layout>
