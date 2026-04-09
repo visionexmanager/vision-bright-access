@@ -4,7 +4,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Menu, X, Zap, Heart, User, ShieldCheck, Coins } from "lucide-react";
+import { LogOut, Menu, X, Zap, Heart, User, ShieldCheck, Coins, MessageCircle } from "lucide-react";
+import { useUnreadCount } from "@/hooks/useMessages";
 import { useState } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -17,6 +18,7 @@ export function Navbar() {
   const { t } = useLanguage();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const unreadMessages = useUnreadCount();
 
   const navLinks = [
     { to: "/", label: t("nav.home") },
@@ -71,6 +73,16 @@ export function Navbar() {
           {user && <NotificationBell />}
           {user && (
             <>
+              <Link to="/messages">
+                <Button variant="ghost" size="icon" className="relative" aria-label={t("msg.title")}>
+                  <MessageCircle className="h-5 w-5" />
+                  {unreadMessages > 0 && (
+                    <Badge variant="destructive" className="absolute -right-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]">
+                      {unreadMessages}
+                    </Badge>
+                  )}
+                </Button>
+              </Link>
               <Link to="/wishlist">
                 <Button variant="ghost" size="icon" aria-label={t("nav.wishlist")}>
                   <Heart className="h-5 w-5" />

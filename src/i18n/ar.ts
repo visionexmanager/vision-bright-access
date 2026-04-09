@@ -1371,6 +1371,21 @@ const ar: Record<string, string> = {
   "news.item3.desc": "أحدث نموذج ذكاء اصطناعي من Google يتفوق في الجمع بين فهم النص والصورة والكود.",
   "news.item4.title": "مجتمع Visionex يصل إلى 10 آلاف عضو",
   "news.item4.desc": "مجتمعنا المتنامي يستمر في التوسع مع غرف صوتية وألعاب وميزات تعاونية جديدة.",
+  // Messages
+  "msg.title": "الرسائل",
+  "msg.conversations": "المحادثات",
+  "msg.noConversations": "لا توجد محادثات بعد. ابدأ محادثة جديدة!",
+  "msg.selectConversation": "اختر محادثة لبدء الدردشة",
+  "msg.chat": "الدردشة",
+  "msg.startConversation": "قل مرحباً! أرسل أول رسالة.",
+  "msg.typePlaceholder": "اكتب رسالة...",
+  "msg.newMessage": "رسالة جديدة",
+  "msg.newConversation": "محادثة جديدة",
+  "msg.searchUsers": "ابحث عن مستخدم بالاسم...",
+  "msg.searchPrompt": "ابحث عن مستخدم لبدء محادثة",
+  "msg.noMessages": "لا توجد رسائل بعد",
+  "msg.unknownUser": "مستخدم غير معروف",
+  "msg.errorCreating": "تعذر إنشاء المحادثة",
 };
 
 export default ar;
