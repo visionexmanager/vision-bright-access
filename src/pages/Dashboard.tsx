@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { Layout } from "@/components/Layout";
 import { AchievementsPanel } from "@/components/AchievementsPanel";
 import { useAuth } from "@/contexts/AuthContext";
@@ -105,6 +106,7 @@ export default function Dashboard() {
     <Layout>
       <div className="mx-auto max-w-5xl px-4 py-10">
         {/* Dashboard banner */}
+        <AnimatedSection variants={scaleFade}>
         <div className="relative mb-8 overflow-hidden rounded-2xl">
           <img src={dashboardImg} alt="" className="h-36 w-full object-cover sm:h-44" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
@@ -115,9 +117,10 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
+        </AnimatedSection>
 
         {/* Top stats */}
-        <div className="mb-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <StaggerGrid className="mb-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {/* Total Points */}
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="flex items-center gap-4 p-6">
@@ -175,7 +178,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </StaggerGrid>
 
         {/* VIP Progress */}
         <Card className="mb-8">

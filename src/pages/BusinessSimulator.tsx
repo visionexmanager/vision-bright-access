@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSound } from "@/contexts/SoundContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
+import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import simulatorsImg from "@/assets/simulators-illustration.jpg";
 import {
   Briefcase,
@@ -92,6 +93,7 @@ export default function BusinessSimulator() {
     <Layout>
       <section className="mx-auto max-w-6xl px-4 py-10" aria-labelledby="bsim-heading">
         {/* Hero with illustration */}
+        <AnimatedSection variants={scaleFade}>
         <div className="relative mb-10 overflow-hidden rounded-2xl">
           <img src={simulatorsImg} alt="" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
@@ -113,6 +115,7 @@ export default function BusinessSimulator() {
           </p>
           </div>
         </div>
+        </AnimatedSection>
 
         {/* Tabs for subcategories */}
         {subcategories.length > 1 && (
@@ -142,14 +145,14 @@ export default function BusinessSimulator() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((sim) => {
               const prog = progressMap[sim.id];
               const done = prog?.completed;
               const inProgress = prog && !done;
               return (
+              <StaggerItem key={sim.id}>
               <Card
-                key={sim.id}
                 className={`group flex flex-col transition-all hover:shadow-lg hover:-translate-y-1 ${done ? "border-green-500/30 bg-green-500/5" : inProgress ? "border-yellow-500/30 bg-yellow-500/5" : ""}`}
               >
                 <CardContent className="flex flex-1 flex-col gap-4 p-6">
@@ -173,18 +176,11 @@ export default function BusinessSimulator() {
                   </div>
 
                   <h2 className="text-lg font-bold leading-tight">{sim.title}</h2>
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {sim.description}
-                  </p>
+                  <p className="text-sm text-muted-foreground line-clamp-3">{sim.description}</p>
 
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{sim.subcategory}</Badge>
-                    <Badge
-                      variant="outline"
-                      className={difficultyColor[sim.difficulty] || ""}
-                    >
-                      {sim.difficulty}
-                    </Badge>
+                    <Badge variant="outline" className={difficultyColor[sim.difficulty] || ""}>{sim.difficulty}</Badge>
                   </div>
 
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -203,9 +199,10 @@ export default function BusinessSimulator() {
                   </div>
                 </CardContent>
               </Card>
+              </StaggerItem>
               );
             })}
-          </div>
+          </StaggerGrid>
         )}
       </section>
     </Layout>
