@@ -34,6 +34,7 @@ type Simulation = {
 export default function BusinessSimulator() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { playSound } = useSound();
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [progressMap, setProgressMap] = useState<Record<string, { completed: boolean; score: number }>>({});
   const [loading, setLoading] = useState(true);
