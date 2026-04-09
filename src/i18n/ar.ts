@@ -1386,6 +1386,20 @@ const ar: Record<string, string> = {
   "msg.noMessages": "لا توجد رسائل بعد",
   "msg.unknownUser": "مستخدم غير معروف",
   "msg.errorCreating": "تعذر إنشاء المحادثة",
+  "nav.settings": "الإعدادات",
+  "settings.title": "الإعدادات",
+  "settings.notifications": "الإشعارات",
+  "settings.browserNotif": "إشعارات المتصفح",
+  "settings.browserNotifDesc": "تلقي تنبيهات سطح المكتب للرسائل الجديدة",
+  "settings.sounds": "المؤثرات الصوتية",
+  "settings.soundsDesc": "تشغيل أصوات للتفاعلات والتنبيهات",
+  "settings.language": "اللغة",
+  "settings.selectLang": "اختر لغتك",
+  "settings.appearance": "المظهر",
+  "settings.selectTheme": "اختر المظهر",
+  "settings.themeLight": "فاتح",
+  "settings.themeDark": "داكن",
+  "settings.themeHighContrast": "تباين عالٍ",
 };
 
 export default ar;

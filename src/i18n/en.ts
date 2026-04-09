@@ -1386,6 +1386,20 @@ const en: Record<string, string> = {
   "msg.noMessages": "No messages yet",
   "msg.unknownUser": "Unknown User",
   "msg.errorCreating": "Could not create conversation",
+  "nav.settings": "Settings",
+  "settings.title": "Settings",
+  "settings.notifications": "Notifications",
+  "settings.browserNotif": "Browser Notifications",
+  "settings.browserNotifDesc": "Get desktop alerts for new messages",
+  "settings.sounds": "Sound Effects",
+  "settings.soundsDesc": "Play sounds for interactions and alerts",
+  "settings.language": "Language",
+  "settings.selectLang": "Choose your language",
+  "settings.appearance": "Appearance",
+  "settings.selectTheme": "Choose your theme",
+  "settings.themeLight": "Light",
+  "settings.themeDark": "Dark",
+  "settings.themeHighContrast": "High Contrast",
 };
 
 export default en;
