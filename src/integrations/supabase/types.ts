@@ -567,6 +567,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      award_points: {
+        Args: { _points: number; _reason: string }
+        Returns: undefined
+      }
       get_leaderboard: {
         Args: { result_limit?: number }
         Returns: {
