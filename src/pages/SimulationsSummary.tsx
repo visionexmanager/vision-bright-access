@@ -118,10 +118,12 @@ export default function SimulationsSummary() {
           </h1>
           <p className="mt-2 text-muted-foreground">{t("summary.subtitle")}</p>
         </div>
+        </AnimatedSection>
 
         {/* Overview cards */}
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Card className="border-primary/20">
+        <StaggerGrid className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StaggerItem>
+          <Card className="border-primary/20 transition-transform duration-200 hover:scale-105">
             <CardContent className="flex items-center gap-4 p-5">
               <BarChart3 className="h-8 w-8 text-primary" />
               <div>
@@ -130,7 +132,9 @@ export default function SimulationsSummary() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-primary/20">
+          </StaggerItem>
+          <StaggerItem>
+          <Card className="border-primary/20 transition-transform duration-200 hover:scale-105">
             <CardContent className="flex items-center gap-4 p-5">
               <CheckCircle className="h-8 w-8 text-green-500" />
               <div>
@@ -141,7 +145,9 @@ export default function SimulationsSummary() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-primary/20">
+          </StaggerItem>
+          <StaggerItem>
+          <Card className="border-primary/20 transition-transform duration-200 hover:scale-105">
             <CardContent className="flex items-center gap-4 p-5">
               <Trophy className="h-8 w-8 text-yellow-500" />
               <div>
@@ -150,12 +156,15 @@ export default function SimulationsSummary() {
               </div>
             </CardContent>
           </Card>
-        </div>
+          </StaggerItem>
+        </StaggerGrid>
 
         {/* Progress bar */}
+        <AnimatedSection>
         <div className="mb-10">
           <Progress value={overallProgress} className="h-3" />
         </div>
+        </AnimatedSection>
 
         {/* Search & Filters */}
         <div className="mb-8 space-y-4">
