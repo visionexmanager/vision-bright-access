@@ -1314,6 +1314,44 @@ const ar: Record<string, string> = {
   "nutrition.planLoaded": "تم تحميل الخطة!",
   "nutrition.planDeleted": "تم حذف الخطة",
   "nutrition.loginToSave": "يرجى تسجيل الدخول لحفظ الخطط",
+
+  // Community
+  "nav.community": "المجتمع",
+  "nav.news": "الأخبار",
+  "nav.coins": "متجر العملات",
+  "community.title": "مجتمع Visionex",
+  "community.subtitle": "انضم إلى الغرف الصوتية وتواصل مع الآخرين وتعاون في الوقت الفعلي.",
+  "community.voiceRooms": "الغرف الصوتية",
+  "community.open": "مفتوحة",
+  "community.joinRoom": "انضم للغرفة",
+  "community.loginToJoin": "سجل دخول للانضمام",
+  "community.createRoom": "إنشاء غرفة خاصة",
+  "community.users": "مستخدمين",
+  "community.unlimited": "غير محدود",
+  "community.create": "إنشاء",
+  "community.loginPrompt": "سجل دخول لإنشاء غرف صوتية خاصة والانضمام للمجتمع.",
+
+  // Coins Store
+  "coins.title": "متجر عملات VX",
+  "coins.subtitle": "اشترِ عملات VX لفتح الميزات المميزة وإنشاء غرف صوتية والمزيد.",
+  "coins.loginPrompt": "سجل دخول لشراء العملات.",
+  "coins.fee": "رسوم المنصة (5%)",
+  "coins.total": "الإجمالي",
+  "coins.buy": "شراء",
+  "coins.purchaseTitle": "قريباً",
+  "coins.purchaseDesc": "شراء {coins} عملة VX سيكون متاحاً قريباً!",
+
+  // News Hub
+  "news.title": "مركز الأخبار",
+  "news.subtitle": "آخر التحديثات حول التكنولوجيا وإمكانية الوصول والذكاء الاصطناعي والمجتمع.",
+  "news.item1.title": "أدوات الوصول المدعومة بالذكاء الاصطناعي تكتسب زخماً",
+  "news.item1.desc": "أدوات ذكاء اصطناعي جديدة تجعل المحتوى الرقمي أكثر سهولة في الوصول مع ترجمة فورية ووصف الصور.",
+  "news.item2.title": "إصدار مسودة WCAG 3.0",
+  "news.item2.desc": "نشرت W3C مسودة عمل جديدة لـ WCAG 3.0 تقدم طرق اختبار وتقييم أكثر مرونة.",
+  "news.item3.title": "Gemini 2.5 يجلب الاستدلال متعدد الوسائط",
+  "news.item3.desc": "أحدث نموذج ذكاء اصطناعي من Google يتفوق في الجمع بين فهم النص والصورة والكود.",
+  "news.item4.title": "مجتمع Visionex يصل إلى 10 آلاف عضو",
+  "news.item4.desc": "مجتمعنا المتنامي يستمر في التوسع مع غرف صوتية وألعاب وميزات تعاونية جديدة.",
 };
 
 export default ar;

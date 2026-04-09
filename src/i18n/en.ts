@@ -1314,6 +1314,44 @@ const en: Record<string, string> = {
   "nutrition.planLoaded": "Plan loaded!",
   "nutrition.planDeleted": "Plan deleted",
   "nutrition.loginToSave": "Please log in to save plans",
+
+  // Community
+  "nav.community": "Community",
+  "nav.news": "News",
+  "nav.coins": "Coins Store",
+  "community.title": "Visionex Community",
+  "community.subtitle": "Join voice rooms, connect with others, and collaborate in real time.",
+  "community.voiceRooms": "Voice Rooms",
+  "community.open": "Open",
+  "community.joinRoom": "Join Room",
+  "community.loginToJoin": "Log in to join",
+  "community.createRoom": "Create Private Room",
+  "community.users": "users",
+  "community.unlimited": "Unlimited",
+  "community.create": "Create",
+  "community.loginPrompt": "Log in to create private voice rooms and join the community.",
+
+  // Coins Store
+  "coins.title": "VX Coins Store",
+  "coins.subtitle": "Purchase VX coins to unlock premium features, create voice rooms, and more.",
+  "coins.loginPrompt": "Log in to purchase coins.",
+  "coins.fee": "Platform fee (5%)",
+  "coins.total": "Total",
+  "coins.buy": "Purchase",
+  "coins.purchaseTitle": "Coming Soon",
+  "coins.purchaseDesc": "Purchase of {coins} VX coins will be available soon!",
+
+  // News Hub
+  "news.title": "News Hub",
+  "news.subtitle": "Latest updates on technology, accessibility, AI, and community.",
+  "news.item1.title": "AI-Powered Accessibility Tools Gain Momentum",
+  "news.item1.desc": "New AI tools are making digital content more accessible than ever before, with real-time captioning and image descriptions.",
+  "news.item2.title": "WCAG 3.0 Draft Released",
+  "news.item2.desc": "The W3C has published a new working draft of WCAG 3.0, introducing more flexible testing and scoring methods.",
+  "news.item3.title": "Gemini 2.5 Brings Multimodal Reasoning",
+  "news.item3.desc": "Google's latest AI model excels at combining text, image, and code understanding in a single conversation.",
+  "news.item4.title": "Visionex Community Reaches 10K Members",
+  "news.item4.desc": "Our growing community continues to expand with new voice rooms, games, and collaborative features.",
 };
 
 export default en;

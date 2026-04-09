@@ -1,0 +1,72 @@
+import { Layout } from "@/components/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Newspaper, Cpu, Accessibility, Brain, Globe } from "lucide-react";
+
+const NEWS_ITEMS = [
+  {
+    icon: <Cpu className="h-6 w-6 text-primary" />,
+    titleKey: "news.item1.title",
+    descKey: "news.item1.desc",
+    category: "Technology",
+    date: "2026-04-08",
+  },
+  {
+    icon: <Accessibility className="h-6 w-6 text-primary" />,
+    titleKey: "news.item2.title",
+    descKey: "news.item2.desc",
+    category: "Accessibility",
+    date: "2026-04-07",
+  },
+  {
+    icon: <Brain className="h-6 w-6 text-primary" />,
+    titleKey: "news.item3.title",
+    descKey: "news.item3.desc",
+    category: "AI",
+    date: "2026-04-05",
+  },
+  {
+    icon: <Globe className="h-6 w-6 text-primary" />,
+    titleKey: "news.item4.title",
+    descKey: "news.item4.desc",
+    category: "Community",
+    date: "2026-04-03",
+  },
+];
+
+export default function News() {
+  const { t } = useLanguage();
+
+  return (
+    <Layout>
+      <section className="mx-auto max-w-4xl px-4 py-12">
+        <div className="mb-10 text-center">
+          <Newspaper className="mx-auto mb-3 h-12 w-12 text-primary" />
+          <h1 className="text-4xl font-bold tracking-tight">{t("news.title")}</h1>
+          <p className="mt-2 text-lg text-muted-foreground">{t("news.subtitle")}</p>
+        </div>
+
+        <div className="grid gap-6">
+          {NEWS_ITEMS.map((item, i) => (
+            <Card key={i} className="transition-shadow hover:shadow-lg">
+              <CardHeader className="flex-row items-center gap-4">
+                {item.icon}
+                <div className="flex-1">
+                  <CardTitle className="text-lg">{t(item.titleKey)}</CardTitle>
+                  <CardDescription className="flex items-center gap-2">
+                    <Badge variant="outline">{item.category}</Badge>
+                    <span>{item.date}</span>
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">{t(item.descKey)}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+    </Layout>
+  );
+}

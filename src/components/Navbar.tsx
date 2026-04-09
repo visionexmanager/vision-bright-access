@@ -4,11 +4,12 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Menu, X, Zap, Heart, User, ShieldCheck } from "lucide-react";
+import { LogOut, Menu, X, Zap, Heart, User, ShieldCheck, Coins } from "lucide-react";
 import { useState } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export function Navbar() {
   const { user, signOut } = useAuth();
@@ -25,6 +26,8 @@ export function Navbar() {
     { to: "/games", label: t("nav.games") },
     { to: "/assistive-products", label: t("nav.assistiveProducts") },
     { to: "/contact", label: t("nav.contact") },
+    { to: "/community", label: t("nav.community") },
+    { to: "/news", label: t("nav.news") },
   ];
 
   return (
@@ -65,6 +68,7 @@ export function Navbar() {
           <ThemeToggle />
           <LanguageSwitcher />
           <CartDrawer />
+          {user && <NotificationBell />}
           {user && (
             <>
               <Link to="/wishlist">
