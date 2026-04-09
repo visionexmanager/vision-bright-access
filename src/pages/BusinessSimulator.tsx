@@ -19,14 +19,6 @@ import {
   BarChart3,
   CheckCircle,
 } from "lucide-react";
-  Briefcase,
-  Clock,
-  Rocket,
-  ArrowRight,
-  Gamepad2,
-  BarChart3,
-  CheckCircle,
-} from "lucide-react";
 
 type Simulation = {
   id: string;
