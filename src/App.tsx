@@ -39,6 +39,9 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const SharedTrip = lazy(() => import("./pages/SharedTrip"));
 const BusinessEconomy = lazy(() => import("./pages/BusinessEconomy"));
 const NutritionExpert = lazy(() => import("./pages/NutritionExpert"));
+const Community = lazy(() => import("./pages/Community"));
+const CoinsStore = lazy(() => import("./pages/CoinsStore"));
+const News = lazy(() => import("./pages/News"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -105,6 +108,9 @@ const App = () => (
                     <Route path="/services/shared-trip" element={<SharedTrip />} />
                     <Route path="/services/nutrition" element={<NutritionExpert />} />
                     <Route path="/services/trip-history" element={<TripHistory />} />
+                    <Route path="/community" element={<Community />} />
+                    <Route path="/coins-store" element={<CoinsStore />} />
+                    <Route path="/news" element={<News />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
