@@ -93,6 +93,7 @@ export default function BusinessSimulator() {
     <Layout>
       <section className="mx-auto max-w-6xl px-4 py-10" aria-labelledby="bsim-heading">
         {/* Hero with illustration */}
+        <AnimatedSection variants={scaleFade}>
         <div className="relative mb-10 overflow-hidden rounded-2xl">
           <img src={simulatorsImg} alt="" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
@@ -112,7 +113,8 @@ export default function BusinessSimulator() {
           <p className="max-w-3xl text-lg text-muted-foreground leading-relaxed">
             {t("bsim.description")}
           </p>
-          </div>
+        </div>
+        </AnimatedSection>
         </div>
 
         {/* Tabs for subcategories */}
