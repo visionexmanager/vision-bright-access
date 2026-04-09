@@ -10,10 +10,14 @@ export function useEarnPoints() {
   const earnPoints = useCallback(
     async (points: number, reason: string) => {
       if (!user) return false;
-      const { error } = await supabase
-        .from("user_points")
-        .insert({ user_id: user.id, points, reason });
-      if (error) return false;
+      const { error } = await supabase.rpc("award_points", {
+        _points: points,
+        _reason: reason,
+      });
+      if (error) {
+        console.error("award_points error:", error.message);
+        return false;
+      }
       queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
       queryClient.invalidateQueries({ queryKey: ["points-history", user.id] });
       return true;
