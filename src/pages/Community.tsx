@@ -11,6 +11,7 @@ import { DEFAULT_ROOMS, VOICE_ROOM_CONFIGS } from "@/systems/voiceRoomSystem";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import communityImg from "@/assets/community-illustration.jpg";
 
 type VoiceRoom = {
