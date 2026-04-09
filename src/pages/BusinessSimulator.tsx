@@ -18,8 +18,7 @@ import {
   Gamepad2,
   BarChart3,
   CheckCircle,
-};
-import {
+} from "lucide-react";
   Briefcase,
   Clock,
   Rocket,
