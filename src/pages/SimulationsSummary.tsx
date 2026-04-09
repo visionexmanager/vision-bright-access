@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3, Search, Filter } from "lucide-react";
 import { simulationImages } from "@/data/simulationImages";
+import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 
 interface SimRow {
   id: string;
