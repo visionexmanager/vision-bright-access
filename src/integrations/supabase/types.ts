@@ -505,6 +505,42 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_rooms: {
+        Row: {
+          cost_vx: number
+          created_at: string
+          id: string
+          is_active: boolean
+          max_users: number
+          owner_id: string
+          room_name: string
+          room_type: string
+          updated_at: string
+        }
+        Insert: {
+          cost_vx?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_users?: number
+          owner_id: string
+          room_name?: string
+          room_type?: string
+          updated_at?: string
+        }
+        Update: {
+          cost_vx?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_users?: number
+          owner_id?: string
+          room_name?: string
+          room_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       wishlists: {
         Row: {
           created_at: string
