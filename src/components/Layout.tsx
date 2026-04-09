@@ -8,6 +8,7 @@ import { useMessageNotifications } from "@/hooks/useMessageNotifications";
 export function Layout({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
   const { pathname } = useLocation();
+  useMessageNotifications();
 
   // Scroll to top on route change
   useEffect(() => {
