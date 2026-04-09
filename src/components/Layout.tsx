@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { AIChat } from "./AIChat";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useMessageNotifications } from "@/hooks/useMessageNotifications";
 
 export function Layout({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
