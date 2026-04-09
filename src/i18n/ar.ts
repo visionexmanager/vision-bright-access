@@ -1479,6 +1479,11 @@ const ar: Record<string, string> = {
   "newsletter.error": "فشل الاشتراك. حاول مرة أخرى.",
   "newsletter.thankYou": "شكراً لاشتراكك!",
   "newsletter.confirmMsg": "ستتلقى التحديثات بناءً على اهتماماتك المختارة.",
+  "simulations.sortBy": "ترتيب حسب",
+  "simulations.sortDefault": "الافتراضي",
+  "simulations.sortPoints": "النقاط",
+  "simulations.sortDuration": "المدة",
+  "simulations.sortNewest": "الأحدث",
 };
 
 export default ar;

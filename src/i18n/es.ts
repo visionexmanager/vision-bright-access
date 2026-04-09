@@ -1484,6 +1484,11 @@ const es: Record<string, string> = {
   "newsletter.error": "Error al suscribirse",
   "newsletter.thankYou": "¡Gracias!",
   "newsletter.confirmMsg": "Recibirás nuestras últimas novedades",
+  "simulations.sortBy": "Ordenar por",
+  "simulations.sortDefault": "Predeterminado",
+  "simulations.sortPoints": "Puntos",
+  "simulations.sortDuration": "Duración",
+  "simulations.sortNewest": "Más reciente",
 };
 
 export default es;

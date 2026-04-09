@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3, Search, Filter } from "lucide-react";
+import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3, Search, Filter, ArrowUpDown } from "lucide-react";
 import { simulationImages } from "@/data/simulationImages";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 
@@ -40,6 +40,7 @@ export default function SimulationsSummary() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeDifficulty, setActiveDifficulty] = useState("all");
+  const [sortBy, setSortBy] = useState<"default" | "points" | "duration" | "newest">("default");
 
   useEffect(() => {
     async function load() {
@@ -73,13 +74,17 @@ export default function SimulationsSummary() {
   const difficulties = useMemo(() => Array.from(new Set(simulations.map((s) => s.difficulty))), [simulations]);
 
   const filtered = useMemo(() => {
-    return simulations.filter((s) => {
+    let result = simulations.filter((s) => {
       const matchSearch = !search || s.title.toLowerCase().includes(search.toLowerCase()) || s.description.toLowerCase().includes(search.toLowerCase());
       const matchCat = activeCategory === "all" || s.subcategory === activeCategory;
       const matchDiff = activeDifficulty === "all" || s.difficulty === activeDifficulty;
       return matchSearch && matchCat && matchDiff;
     });
-  }, [simulations, search, activeCategory, activeDifficulty]);
+    if (sortBy === "points") result = [...result].sort((a, b) => b.points - a.points);
+    else if (sortBy === "duration") result = [...result].sort((a, b) => a.estimated_duration - b.estimated_duration);
+    else if (sortBy === "newest") result = [...result].sort((a, b) => (b.id > a.id ? 1 : -1));
+    return result;
+  }, [simulations, search, activeCategory, activeDifficulty, sortBy]);
 
   const completedCount = Object.values(progressMap).filter((p) => p.completed).length;
   const totalPoints = Object.values(progressMap).reduce((s, p) => s + p.score, 0);
@@ -204,6 +209,24 @@ export default function SimulationsSummary() {
                 {diff} ({simulations.filter((s) => s.difficulty === diff).length})
               </Button>
             ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mr-1">
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              {t("simulations.sortBy")}:
+            </div>
+            <Button size="sm" variant={sortBy === "default" ? "default" : "outline"} onClick={() => setSortBy("default")}>
+              {t("simulations.sortDefault")}
+            </Button>
+            <Button size="sm" variant={sortBy === "points" ? "default" : "outline"} onClick={() => setSortBy("points")}>
+              {t("simulations.sortPoints")}
+            </Button>
+            <Button size="sm" variant={sortBy === "duration" ? "default" : "outline"} onClick={() => setSortBy("duration")}>
+              {t("simulations.sortDuration")}
+            </Button>
+            <Button size="sm" variant={sortBy === "newest" ? "default" : "outline"} onClick={() => setSortBy("newest")}>
+              {t("simulations.sortNewest")}
+            </Button>
           </div>
         </div>
 

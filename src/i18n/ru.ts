@@ -1484,6 +1484,11 @@ const ru: Record<string, string> = {
   "newsletter.error": "Ошибка подписки",
   "newsletter.thankYou": "Спасибо!",
   "newsletter.confirmMsg": "Вы будете получать наши последние новости",
+  "simulations.sortBy": "Сортировка",
+  "simulations.sortDefault": "По умолчанию",
+  "simulations.sortPoints": "Баллы",
+  "simulations.sortDuration": "Длительность",
+  "simulations.sortNewest": "Новейшие",
 };
 
 export default ru;
