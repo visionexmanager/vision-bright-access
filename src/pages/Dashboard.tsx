@@ -178,7 +178,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </StaggerGrid>
 
         {/* VIP Progress */}
         <Card className="mb-8">
