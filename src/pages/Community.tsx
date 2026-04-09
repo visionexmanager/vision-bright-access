@@ -37,11 +37,14 @@ export default function Community() {
   const [myMemberships, setMyMemberships] = useState<RoomMyMembership>({});
   const [joiningRoom, setJoiningRoom] = useState<string | null>(null);
 
+  const defaultRoomIds = DEFAULT_ROOMS.map((r) => r.id);
+
   const fetchRooms = useCallback(async () => {
     const { data } = await supabase
       .from("voice_rooms")
       .select("*")
       .eq("is_active", true)
+      .not("id", "in", `(${defaultRoomIds.join(",")})`)
       .order("created_at", { ascending: false });
     setRooms((data as VoiceRoom[]) || []);
     setLoading(false);

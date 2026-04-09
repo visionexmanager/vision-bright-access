@@ -23,7 +23,7 @@ export const VOICE_ROOM_CONFIGS: VoiceRoomConfig[] = [
 export const EVENT_HOURLY_COST = 5000;
 
 export const DEFAULT_ROOMS = [
-  { id: "main", name: "Main Hall", nameAr: "الديوانية العامة" },
-  { id: "support", name: "Tech Support", nameAr: "الدعم الفني" },
-  { id: "trade", name: "Trade & Commerce", nameAr: "قسم البيع والشراء" },
+  { id: "00000000-0000-4000-a000-000000000001", name: "Main Hall", nameAr: "الديوانية العامة" },
+  { id: "00000000-0000-4000-a000-000000000002", name: "Tech Support", nameAr: "الدعم الفني" },
+  { id: "00000000-0000-4000-a000-000000000003", name: "Trade & Commerce", nameAr: "قسم البيع والشراء" },
 ];
