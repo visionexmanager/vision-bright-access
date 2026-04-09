@@ -1,13 +1,14 @@
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useThemeToggle, Theme } from "@/contexts/ThemeContext";
+import { useSound } from "@/contexts/SoundContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Bell, Globe, Palette, Settings as SettingsIcon } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { requestNotificationPermission } from "@/hooks/useMessageNotifications";
 
 const LANGUAGES = [
@@ -25,6 +26,7 @@ const LANGUAGES = [
 export default function Settings() {
   const { t, lang, setLang } = useLanguage();
   const { theme, setTheme } = useThemeToggle();
+  const { enabled: soundEnabled, setEnabled: setSoundEnabled, playSound } = useSound();
 
   const [notifEnabled, setNotifEnabled] = useState(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -33,10 +35,10 @@ export default function Settings() {
     return false;
   });
 
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    return localStorage.getItem("visionex-sound") !== "false";
-  });
-
+  const handleSoundToggle = (checked: boolean) => {
+    setSoundEnabled(checked);
+    if (checked) playSound("toggle");
+  };
   const handleNotifToggle = async (checked: boolean) => {
     if (checked) {
       if ("Notification" in window) {
