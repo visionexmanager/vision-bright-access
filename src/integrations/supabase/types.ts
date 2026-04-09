@@ -253,6 +253,27 @@ export type Database = {
         }
         Relationships: []
       }
+      newsletter_subscribers: {
+        Row: {
+          email: string
+          id: string
+          subscribed_at: string
+          topics: string[]
+        }
+        Insert: {
+          email: string
+          id?: string
+          subscribed_at?: string
+          topics?: string[]
+        }
+        Update: {
+          email?: string
+          id?: string
+          subscribed_at?: string
+          topics?: string[]
+        }
+        Relationships: []
+      }
       page_events: {
         Row: {
           created_at: string
