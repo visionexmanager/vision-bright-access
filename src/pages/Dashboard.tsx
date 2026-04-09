@@ -104,9 +104,17 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="mx-auto max-w-5xl px-4 py-10">
-        <h1 className="mb-2 text-3xl font-bold">{t("dash.title")}</h1>
-        <p className="mb-8 text-lg text-muted-foreground">
-          {t("dash.welcome").replace("{name}", user.user_metadata?.display_name || user.email || "")}
+        {/* Dashboard banner */}
+        <div className="relative mb-8 overflow-hidden rounded-2xl">
+          <img src={dashboardImg} alt="" className="h-36 w-full object-cover sm:h-44" width={800} height={512} loading="lazy" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+          <div className="absolute bottom-4 left-6 right-6">
+            <h1 className="text-3xl font-bold">{t("dash.title")}</h1>
+            <p className="text-lg text-muted-foreground">
+              {t("dash.welcome").replace("{name}", user.user_metadata?.display_name || user.email || "")}
+            </p>
+          </div>
+        </div>
         </p>
 
         {/* Top stats */}
