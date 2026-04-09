@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { Layout } from "@/components/Layout";
 import { AchievementsPanel } from "@/components/AchievementsPanel";
 import { useAuth } from "@/contexts/AuthContext";
