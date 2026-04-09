@@ -119,7 +119,7 @@ function StoreSection({
           <p className="text-xl text-muted-foreground">{t("market.noProducts")}</p>
         </div>
       ) : (
-        <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" role="list">
+        <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((product) => (
             <StaggerItem key={product.id}>
               <div role="listitem">
