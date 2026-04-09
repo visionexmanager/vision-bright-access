@@ -1330,6 +1330,10 @@ const ar: Record<string, string> = {
   "community.unlimited": "غير محدود",
   "community.create": "إنشاء",
   "community.loginPrompt": "سجل دخول لإنشاء غرف صوتية خاصة والانضمام للمجتمع.",
+  "community.userRooms": "غرف المجتمع",
+  "community.roomCreated": "تم إنشاء الغرفة الصوتية!",
+  "community.roomDeleted": "تم حذف الغرفة",
+  "community.errorTitle": "خطأ",
 
   // Coins Store
   "coins.title": "متجر عملات VX",
