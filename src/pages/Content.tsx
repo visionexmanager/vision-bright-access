@@ -204,9 +204,7 @@ export default function Content() {
                   const Icon = typeIcons[item.type] ?? FileText;
                   return (
                     <StaggerItem key={item.id}>
-                  const Icon = typeIcons[item.type] ?? FileText;
-                  return (
-                    <Card key={item.id} className="flex flex-col transition-shadow hover:shadow-lg">
+                    <Card className="flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
                       <CardContent className="flex flex-1 flex-col gap-3 p-6">
                         <div className="flex items-start justify-between">
                           <div className="rounded-xl bg-primary/10 p-3">
@@ -248,9 +246,10 @@ export default function Content() {
                         </div>
                       </CardContent>
                     </Card>
+                    </StaggerItem>
                   );
                 })}
-              </div>
+              </StaggerGrid>
             </TabsContent>
           ))}
 
