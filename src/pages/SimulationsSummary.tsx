@@ -209,6 +209,23 @@ export default function SimulationsSummary() {
                 {diff} ({simulations.filter((s) => s.difficulty === diff).length})
               </Button>
             ))}
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mr-1">
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              {t("simulations.sortBy")}:
+            </div>
+            <Button size="sm" variant={sortBy === "default" ? "default" : "outline"} onClick={() => setSortBy("default")}>
+              {t("simulations.sortDefault")}
+            </Button>
+            <Button size="sm" variant={sortBy === "points" ? "default" : "outline"} onClick={() => setSortBy("points")}>
+              {t("simulations.sortPoints")}
+            </Button>
+            <Button size="sm" variant={sortBy === "duration" ? "default" : "outline"} onClick={() => setSortBy("duration")}>
+              {t("simulations.sortDuration")}
+            </Button>
+            <Button size="sm" variant={sortBy === "newest" ? "default" : "outline"} onClick={() => setSortBy("newest")}>
+              {t("simulations.sortNewest")}
+            </Button>
           </div>
         </div>
 
