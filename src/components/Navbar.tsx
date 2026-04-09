@@ -4,7 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Menu, X, Zap, Heart, User, ShieldCheck, Coins, MessageCircle } from "lucide-react";
+import { LogOut, Menu, X, Zap, Heart, User, ShieldCheck, Coins, MessageCircle, Settings } from "lucide-react";
 import { useUnreadCount } from "@/hooks/useMessages";
 import { useState } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
@@ -91,6 +91,11 @@ export function Navbar() {
               <Link to="/profile">
                 <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
                   <User className="h-5 w-5" />
+                </Button>
+              </Link>
+              <Link to="/settings">
+                <Button variant="ghost" size="icon" aria-label={t("nav.settings")}>
+                  <Settings className="h-5 w-5" />
                 </Button>
               </Link>
             </>
