@@ -56,10 +56,9 @@ export function CartDrawer() {
     if (!user || !canPayWithPointsOnly) return;
 
     // Deduct points for the full purchase price
-    const { error: deductError } = await supabase.from("user_points").insert({
-      user_id: user.id,
-      points: -pointsCostForFullPurchase,
-      reason: `Points purchase: ${items.map((i) => i.product.name).join(", ")}`,
+    const { error: deductError } = await supabase.rpc("award_points", {
+      _points: -pointsCostForFullPurchase,
+      _reason: `Pay with points: ${items.map((i) => i.product.name).join(", ")}`,
     });
 
     if (deductError) {
@@ -68,10 +67,9 @@ export function CartDrawer() {
     }
 
     // Still earn bonus points from the purchase
-    const { error: earnError } = await supabase.from("user_points").insert({
-      user_id: user.id,
-      points: totalPoints,
-      reason: `Bonus from purchase: ${items.map((i) => i.product.name).join(", ")}`,
+    const { error: earnError } = await supabase.rpc("award_points", {
+      _points: totalPoints,
+      _reason: `Purchase: ${items.map((i) => i.product.name).join(", ")}`,
     });
 
     toast.success(t("cart.paidWithPoints").replace("{points}", String(pointsCostForFullPurchase)));
@@ -89,10 +87,9 @@ export function CartDrawer() {
     if (items.length === 0) return;
 
     // Insert earned points
-    const { error: earnError } = await supabase.from("user_points").insert({
-      user_id: user.id,
-      points: totalPoints,
-      reason: `Marketplace purchase: ${items.map((i) => i.product.name).join(", ")}`,
+    const { error: earnError } = await supabase.rpc("award_points", {
+      _points: totalPoints,
+      _reason: `Purchase: ${items.map((i) => i.product.name).join(", ")}`,
     });
 
     if (earnError) {
@@ -102,10 +99,9 @@ export function CartDrawer() {
 
     // Deduct redeemed points if a tier was applied
     if (appliedTier) {
-      const { error: redeemError } = await supabase.from("user_points").insert({
-        user_id: user.id,
-        points: -appliedTier.points,
-        reason: `Redeemed ${appliedTier.points} pts for $${discountAmount.toFixed(2)} discount`,
+      const { error: redeemError } = await supabase.rpc("award_points", {
+        _points: -appliedTier.points,
+        _reason: `Redeemed ${appliedTier.points} pts for $${discountAmount.toFixed(2)} discount`,
       });
 
       if (redeemError) {
