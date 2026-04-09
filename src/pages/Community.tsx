@@ -5,8 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mic, Users, Radio, Globe, Trash2, Loader2 } from "lucide-react";
-import { DEFAULT_ROOMS, VOICE_ROOM_CONFIGS, type VoiceRoomType } from "@/systems/voiceRoomSystem";
+import { Mic, Users, Radio, Globe, Trash2, Loader2, LogIn, LogOut } from "lucide-react";
+import { DEFAULT_ROOMS, VOICE_ROOM_CONFIGS } from "@/systems/voiceRoomSystem";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
@@ -22,6 +22,9 @@ type VoiceRoom = {
   created_at: string;
 };
 
+type RoomMemberCount = Record<string, number>;
+type RoomMyMembership = Record<string, boolean>;
+
 export default function Community() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
@@ -30,6 +33,9 @@ export default function Community() {
   const [rooms, setRooms] = useState<VoiceRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState<string | null>(null);
+  const [memberCounts, setMemberCounts] = useState<RoomMemberCount>({});
+  const [myMemberships, setMyMemberships] = useState<RoomMyMembership>({});
+  const [joiningRoom, setJoiningRoom] = useState<string | null>(null);
 
   const fetchRooms = useCallback(async () => {
     const { data } = await supabase
@@ -41,9 +47,84 @@ export default function Community() {
     setLoading(false);
   }, []);
 
+  const fetchMemberCounts = useCallback(async () => {
+    const { data } = await supabase
+      .from("voice_room_members")
+      .select("room_id");
+    if (data) {
+      const counts: RoomMemberCount = {};
+      data.forEach((m: { room_id: string }) => {
+        counts[m.room_id] = (counts[m.room_id] || 0) + 1;
+      });
+      setMemberCounts(counts);
+    }
+  }, []);
+
+  const fetchMyMemberships = useCallback(async () => {
+    if (!user) { setMyMemberships({}); return; }
+    const { data } = await supabase
+      .from("voice_room_members")
+      .select("room_id")
+      .eq("user_id", user.id);
+    if (data) {
+      const map: RoomMyMembership = {};
+      data.forEach((m: { room_id: string }) => { map[m.room_id] = true; });
+      setMyMemberships(map);
+    }
+  }, [user]);
+
   useEffect(() => {
     fetchRooms();
-  }, [fetchRooms]);
+    fetchMemberCounts();
+    fetchMyMemberships();
+  }, [fetchRooms, fetchMemberCounts, fetchMyMemberships]);
+
+  // Realtime subscription for live member updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("voice-room-members-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "voice_room_members" },
+        () => {
+          fetchMemberCounts();
+          fetchMyMemberships();
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchMemberCounts, fetchMyMemberships]);
+
+  const joinRoom = async (roomId: string) => {
+    if (!user) return;
+    setJoiningRoom(roomId);
+    const { error } = await supabase.from("voice_room_members").insert({
+      room_id: roomId,
+      user_id: user.id,
+    });
+    if (error) {
+      if (error.code === "23505") {
+        toast({ title: t("community.alreadyJoined") });
+      } else {
+        toast({ title: t("community.errorTitle"), description: error.message, variant: "destructive" });
+      }
+    } else {
+      toast({ title: t("community.joinedRoom") });
+    }
+    setJoiningRoom(null);
+  };
+
+  const leaveRoom = async (roomId: string) => {
+    if (!user) return;
+    setJoiningRoom(roomId);
+    await supabase
+      .from("voice_room_members")
+      .delete()
+      .eq("room_id", roomId)
+      .eq("user_id", user.id);
+    toast({ title: t("community.leftRoom") });
+    setJoiningRoom(null);
+  };
 
   const createRoom = async (cfg: (typeof VOICE_ROOM_CONFIGS)[number]) => {
     if (!user) return;
@@ -71,6 +152,53 @@ export default function Community() {
     fetchRooms();
   };
 
+  const renderJoinButton = (roomId: string, maxUsers: number) => {
+    const count = memberCounts[roomId] || 0;
+    const isMember = myMemberships[roomId];
+    const isFull = maxUsers < 999 && count >= maxUsers;
+    const isProcessing = joiningRoom === roomId;
+
+    if (!user) {
+      return (
+        <Button className="flex-1" disabled>
+          {t("community.loginToJoin")}
+        </Button>
+      );
+    }
+
+    if (isMember) {
+      return (
+        <Button
+          variant="outline"
+          className="flex-1 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+          disabled={isProcessing}
+          onClick={() => leaveRoom(roomId)}
+        >
+          {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
+          {t("community.leaveRoom")}
+        </Button>
+      );
+    }
+
+    return (
+      <Button className="flex-1" disabled={isFull || isProcessing} onClick={() => joinRoom(roomId)}>
+        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
+        {isFull ? t("community.roomFull") : t("community.joinRoom")}
+      </Button>
+    );
+  };
+
+  const renderMemberBadge = (roomId: string, maxUsers?: number) => {
+    const count = memberCounts[roomId] || 0;
+    return (
+      <Badge variant={count > 0 ? "default" : "outline"} className="gap-1">
+        <Users className="h-3 w-3" />
+        <span className="font-semibold">{count}</span>
+        {maxUsers && maxUsers < 999 && <span className="text-xs">/ {maxUsers}</span>}
+      </Badge>
+    );
+  };
+
   return (
     <Layout>
       <section className="mx-auto max-w-5xl px-4 py-12">
@@ -93,16 +221,13 @@ export default function Community() {
                     <Mic className="h-5 w-5 text-primary" />
                     {isAr ? room.nameAr : room.name}
                   </CardTitle>
-                  <CardDescription>
-                    <Badge variant="outline">
-                      <Users className="mr-1 h-3 w-3" /> {t("community.open")}
-                    </Badge>
+                  <CardDescription className="flex items-center gap-2">
+                    {renderMemberBadge(room.id)}
+                    <Badge variant="outline">{t("community.open")}</Badge>
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button className="w-full" disabled={!user}>
-                    {user ? t("community.joinRoom") : t("community.loginToJoin")}
-                  </Button>
+                  {renderJoinButton(room.id, 999)}
                 </CardContent>
               </Card>
             ))}
@@ -128,16 +253,11 @@ export default function Community() {
                       </CardTitle>
                       <CardDescription className="flex items-center gap-2">
                         <Badge variant="outline">{room.room_type}</Badge>
-                        <Badge variant="secondary">
-                          <Users className="mr-1 h-3 w-3" />
-                          {room.max_users >= 999 ? "∞" : room.max_users}
-                        </Badge>
+                        {renderMemberBadge(room.id, room.max_users)}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="flex gap-2">
-                      <Button className="flex-1" disabled={!user}>
-                        {t("community.joinRoom")}
-                      </Button>
+                      {renderJoinButton(room.id, room.max_users)}
                       {user?.id === room.owner_id && (
                         <Button variant="destructive" size="icon" onClick={() => deleteRoom(room.id)}>
                           <Trash2 className="h-4 w-4" />
