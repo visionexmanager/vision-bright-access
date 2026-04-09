@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useState, useCallback } from "react";
+import heroImg from "@/assets/game-earmaster.jpg";
 
 const NOTES_FREQ: Record<string, number> = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392, A4: 440, B4: 493.88 };
 const NOTE_NAMES = Object.keys(NOTES_FREQ);
@@ -55,11 +56,15 @@ export default function MusicEarMaster() {
   return (
     <Layout>
       <section className="mx-auto max-w-2xl px-4 py-10">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold">🎵 {t("earmaster.title")}</h1>
-          <div className="flex justify-center gap-4 mt-3">
-            <Badge>⭐ {score}</Badge>
-            <Badge variant="secondary">{t("earmaster.round")}: {round}</Badge>
+        <div className="relative mb-6 overflow-hidden rounded-2xl">
+          <img src={heroImg} alt="" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4 text-center">
+            <h1 className="text-3xl font-bold">🎵 {t("earmaster.title")}</h1>
+            <div className="flex justify-center gap-4 mt-2">
+              <Badge>⭐ {score}</Badge>
+              <Badge variant="secondary">{t("earmaster.round")}: {round}</Badge>
+            </div>
           </div>
         </div>
         <Card>
