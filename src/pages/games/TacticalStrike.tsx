@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useState, useEffect, useCallback } from "react";
+import heroImg from "@/assets/game-tactical.jpg";
 
 const TARGETS = ["🎯", "💣", "⭐", "🎯", "💣", "⭐", "🎯", "💣"];
 
@@ -45,11 +46,15 @@ export default function TacticalStrike() {
   return (
     <Layout>
       <section className="mx-auto max-w-2xl px-4 py-10">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold">🎯 {t("tactical.title")}</h1>
-          <div className="flex justify-center gap-4 mt-3">
-            <Badge>⭐ {score}</Badge>
-            <Badge variant={timeLeft < 5 ? "destructive" : "secondary"}>⏱️ {timeLeft}s</Badge>
+        <div className="relative mb-6 overflow-hidden rounded-2xl">
+          <img src={heroImg} alt="" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4 text-center">
+            <h1 className="text-3xl font-bold">🎯 {t("tactical.title")}</h1>
+            <div className="flex justify-center gap-4 mt-2">
+              <Badge>⭐ {score}</Badge>
+              <Badge variant={timeLeft < 5 ? "destructive" : "secondary"}>⏱️ {timeLeft}s</Badge>
+            </div>
           </div>
         </div>
         {!active && timeLeft === 20 ? (
