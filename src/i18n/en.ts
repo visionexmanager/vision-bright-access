@@ -305,6 +305,7 @@ const en: Record<string, string> = {
   "nav.games": "Games",
   "games.title": "Games",
   "games.subtitle": "Play fun games and challenge yourself!",
+  "games.searchPlaceholder": "Search games...",
   "games.quiz.badge": "Quiz",
   "games.quiz.title": "50 Question Challenge",
   "games.quiz.desc": "Test your speed and knowledge to rank up in Visionex!",
