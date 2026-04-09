@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { Mail, Search, Filter, ArrowLeft } from "lucide-react";
+import { Mail, Search, Filter, ArrowLeft, Download } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface Subscriber {
