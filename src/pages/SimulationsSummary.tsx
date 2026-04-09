@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3 } from "lucide-react";
+import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3, Search, Filter } from "lucide-react";
 import { simulationImages } from "@/data/simulationImages";
 
 interface SimRow {
@@ -35,6 +36,9 @@ export default function SimulationsSummary() {
   const [simulations, setSimulations] = useState<SimRow[]>([]);
   const [progressMap, setProgressMap] = useState<Record<string, ProgressRow>>({});
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeDifficulty, setActiveDifficulty] = useState("all");
 
   useEffect(() => {
     async function load() {
@@ -64,13 +68,25 @@ export default function SimulationsSummary() {
     load();
   }, [user]);
 
+  const subcategories = useMemo(() => Array.from(new Set(simulations.map((s) => s.subcategory))).sort(), [simulations]);
+  const difficulties = useMemo(() => Array.from(new Set(simulations.map((s) => s.difficulty))), [simulations]);
+
+  const filtered = useMemo(() => {
+    return simulations.filter((s) => {
+      const matchSearch = !search || s.title.toLowerCase().includes(search.toLowerCase()) || s.description.toLowerCase().includes(search.toLowerCase());
+      const matchCat = activeCategory === "all" || s.subcategory === activeCategory;
+      const matchDiff = activeDifficulty === "all" || s.difficulty === activeDifficulty;
+      return matchSearch && matchCat && matchDiff;
+    });
+  }, [simulations, search, activeCategory, activeDifficulty]);
+
   const completedCount = Object.values(progressMap).filter((p) => p.completed).length;
   const totalPoints = Object.values(progressMap).reduce((s, p) => s + p.score, 0);
   const overallProgress = simulations.length ? Math.round((completedCount / simulations.length) * 100) : 0;
 
-  // Group by subcategory
+  // Group filtered by subcategory
   const groups: Record<string, SimRow[]> = {};
-  simulations.forEach((s) => {
+  filtered.forEach((s) => {
     if (!groups[s.subcategory]) groups[s.subcategory] = [];
     groups[s.subcategory].push(s);
   });
@@ -139,7 +155,54 @@ export default function SimulationsSummary() {
           <Progress value={overallProgress} className="h-3" />
         </div>
 
+        {/* Search & Filters */}
+        <div className="mb-8 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={t("simulations.searchPlaceholder")}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mr-1">
+              <Filter className="h-3.5 w-3.5" />
+              {t("simulations.category")}:
+            </div>
+            <Button size="sm" variant={activeCategory === "all" ? "default" : "outline"} onClick={() => setActiveCategory("all")}>
+              {t("content.tab.all")}
+            </Button>
+            {subcategories.map((cat) => (
+              <Button key={cat} size="sm" variant={activeCategory === cat ? "default" : "outline"} onClick={() => setActiveCategory(cat)}>
+                {cat} ({simulations.filter((s) => s.subcategory === cat).length})
+              </Button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mr-1">
+              <Filter className="h-3.5 w-3.5" />
+              {t("simulations.difficulty")}:
+            </div>
+            <Button size="sm" variant={activeDifficulty === "all" ? "default" : "outline"} onClick={() => setActiveDifficulty("all")}>
+              {t("content.tab.all")}
+            </Button>
+            {difficulties.map((diff) => (
+              <Button key={diff} size="sm" variant={activeDifficulty === diff ? "default" : "outline"} onClick={() => setActiveDifficulty(diff)}>
+                {diff} ({simulations.filter((s) => s.difficulty === diff).length})
+              </Button>
+            ))}
+          </div>
+        </div>
+
         {/* Grouped simulations */}
+        {filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Search className="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <p className="text-lg font-medium text-muted-foreground">{t("simulations.noResults")}</p>
+          </div>
+        )}
         {Object.entries(groups).map(([category, sims]) => (
           <div key={category} className="mb-10">
             <h2 className="mb-4 text-xl font-semibold text-foreground">{category}</h2>
