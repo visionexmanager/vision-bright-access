@@ -87,9 +87,7 @@ export function CartDrawer() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="truncate text-base font-semibold">{product.name}</h3>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Coins className="h-3.5 w-3.5 text-primary" />{formatVX(product.price)}
-                    </p>
+                    <VXPrice amount={product.price} size="sm" />
                     <div className="mt-2 flex items-center gap-2">
                       <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => updateQuantity(product.id, quantity - 1)} aria-label={`Decrease ${product.name}`}>
                         <Minus className="h-4 w-4" />
