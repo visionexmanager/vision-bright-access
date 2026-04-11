@@ -355,6 +355,10 @@ export default function Content() {
                                   <Badge className="text-sm font-bold bg-primary/10 text-primary border-primary/20">
                                     +{sim.points} pts
                                   </Badge>
+                                  <span className="flex items-center gap-1 text-xs font-semibold text-primary">
+                                    <Coins className="h-3.5 w-3.5" />
+                                    {formatVX(SIMULATION_PRICES.singleSession)}
+                                  </span>
                                   {done && (
                                     <Badge variant="outline" className="border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400 text-xs">
                                       ✅ {prog.score} pts
