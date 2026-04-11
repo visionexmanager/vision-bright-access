@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { ACADEMY_PRICES, SIMULATION_PRICES, formatVX } from "@/systems/pricingSystem";
+import { useVXWallet } from "@/hooks/useVXWallet";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -78,6 +79,7 @@ export default function Content() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
+  const { spendVX } = useVXWallet();
   const [tab, setTab] = useState("all");
   const [items, setItems] = useState<ContentItem[]>([]);
   const [simulations, setSimulations] = useState<Simulation[]>([]);
@@ -111,12 +113,15 @@ export default function Content() {
   }, [user]);
 
   const handleCta = async (item: ContentItem) => {
+    const price = item.type === "course" ? ACADEMY_PRICES.miniCourse : 500;
     if (user) {
+      const ok = await spendVX(price, item.type, item.title, item.id);
+      if (!ok) return;
       await earnPoints(item.points, `Engaged: ${item.title}`);
     }
     toast({
       title: item.title,
-      description: `+${item.points} pts`,
+      description: user ? `✅ -${price.toLocaleString()} VX · +${item.points} pts` : `+${item.points} pts`,
     });
   };
 
