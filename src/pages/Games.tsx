@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, Coins } from "lucide-react";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
+import { GAMING_PRICES, formatVX } from "@/systems/pricingSystem";
 import gamesImg from "@/assets/games-illustration.jpg";
 import quizImg from "@/assets/game-quiz.jpg";
 import memoryImg from "@/assets/game-memory.jpg";
@@ -142,6 +143,10 @@ export default function Games() {
                       <CardDescription className="mt-1 text-xs line-clamp-2">
                         {game.desc}
                       </CardDescription>
+                      <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary">
+                        <Coins className="h-3.5 w-3.5" />
+                        {formatVX(GAMING_PRICES.singlePlay)}
+                      </div>
                     </div>
                   </Card>
                 </Link>

@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3, Search, Filter, ArrowUpDown } from "lucide-react";
+import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3, Search, Filter, ArrowUpDown, Coins } from "lucide-react";
 import { simulationImages } from "@/data/simulationImages";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
+import { SIMULATION_PRICES, formatVX } from "@/systems/pricingSystem";
 
 interface SimRow {
   id: string;
@@ -283,6 +284,9 @@ export default function SimulationsSummary() {
                         </span>
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Trophy className="h-3 w-3" /> {sim.points} pts
+                        </span>
+                        <span className="flex items-center gap-1 text-xs font-semibold text-primary">
+                          <Coins className="h-3 w-3" /> {formatVX(SIMULATION_PRICES.singleSession)}
                         </span>
                         {prog && !done && (
                           <Badge variant="secondary" className="text-xs">
