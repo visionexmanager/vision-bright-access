@@ -69,6 +69,7 @@ export default function Services() {
                       {formatVX(s.vx)}
                     </span>
                   </div>
+                  <Button size="lg" className="mt-2 w-full text-base font-semibold" onClick={() => handleCta(s.name)}>
                     {t("services.cta")} <ArrowRight className="ms-2 h-5 w-5" />
                   </Button>
                 </CardContent>
