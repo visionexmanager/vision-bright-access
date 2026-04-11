@@ -40,6 +40,9 @@ type Category = "All" | "Quiz" | "Memory" | "Word" | "Adventure" | "Cooking" | "
 export default function Games() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { balance, spendVX } = useVXWallet();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
 
@@ -123,7 +126,22 @@ export default function Games() {
           <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((game) => (
               <StaggerItem key={game.to}>
-                <Link to={game.to} className="group" onClick={() => playSound("start")}>
+                <div
+                  className="group cursor-pointer"
+                  onClick={async () => {
+                    if (!user) {
+                      toast({ title: t("vx.loginRequired"), variant: "destructive" });
+                      navigate("/login");
+                      return;
+                    }
+                    const ok = await spendVX(GAMING_PRICES.singlePlay, "game", game.title, game.to);
+                    if (ok) {
+                      playSound("start");
+                      toast({ title: t("vx.purchaseSuccess"), description: t("vx.deducted").replace("{amount}", GAMING_PRICES.singlePlay.toLocaleString()) });
+                      navigate(game.to);
+                    }
+                  }}
+                >
                   <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
                     <div className="relative h-36 w-full overflow-hidden">
                       <img
@@ -152,7 +170,7 @@ export default function Games() {
                       </div>
                     </div>
                   </Card>
-                </Link>
+                </div>
               </StaggerItem>
             ))}
           </StaggerGrid>
