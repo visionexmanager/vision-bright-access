@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { useCart, Product } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { WishlistButton } from "@/components/WishlistButton";
-import { ShoppingCart, Star, Check, Coins } from "lucide-react";
+import { VXPrice } from "@/components/VXPrice";
+import { ShoppingCart, Star, Check } from "lucide-react";
 import { toast } from "sonner";
-import { formatVX } from "@/systems/pricingSystem";
 
 interface ProductCardProps {
   product: Product;
@@ -47,10 +47,7 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
         </p>
 
         <div className="flex items-center justify-between border-t border-border pt-3">
-          <div>
-            <p className="text-xl font-bold flex items-center gap-1"><Coins className="h-4 w-4 text-primary" />{formatVX(product.price)}</p>
-            <p className="text-sm font-medium text-primary">{t("market.pts").replace("{points}", String(product.points))}</p>
-          </div>
+          <VXPrice amount={product.price} size="lg" />
           <Button
             onClick={handleAdd}
             disabled={!product.inStock}

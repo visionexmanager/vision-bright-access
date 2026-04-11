@@ -9,6 +9,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SoundProvider } from "@/contexts/SoundContext";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { AdminRoute } from "@/components/AdminRoute";
 import { PageTracker } from "@/components/PageTracker";
 
@@ -108,6 +109,7 @@ const App = () => (
           <LanguageProvider>
              <AuthProvider>
               <CartProvider>
+              <CurrencyProvider>
               <SoundProvider>
                 <Suspense fallback={<PageLoader />}>
                   <PageTracker />
@@ -177,6 +179,7 @@ const App = () => (
                   </Routes>
                 </Suspense>
               </SoundProvider>
+              </CurrencyProvider>
               </CartProvider>
             </AuthProvider>
           </LanguageProvider>

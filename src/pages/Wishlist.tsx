@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { generalProducts, accessibilityProducts } from "@/data/products";
 import { Navigate, Link } from "react-router-dom";
-import { formatVX } from "@/systems/pricingSystem";
+import { VXPrice } from "@/components/VXPrice";
 import { Heart, ShoppingCart, Star, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -102,7 +102,7 @@ export default function Wishlist() {
 
                     <div className="flex items-center justify-between border-t border-border pt-3">
                       <div>
-                        <p className="text-2xl font-bold">{formatVX(product.price)}</p>
+                        <VXPrice amount={product.price} size="lg" />
                         <p className="text-sm font-medium text-primary">+{product.points} pts</p>
                       </div>
                       <Button

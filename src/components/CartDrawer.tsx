@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatVX } from "@/systems/pricingSystem";
+import { VXPrice } from "@/components/VXPrice";
 
 export function CartDrawer() {
   const { items, totalItems, totalPrice, totalPoints, updateQuantity, removeFromCart, clearCart } = useCart();
@@ -86,9 +87,7 @@ export function CartDrawer() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="truncate text-base font-semibold">{product.name}</h3>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Coins className="h-3.5 w-3.5 text-primary" />{formatVX(product.price)}
-                    </p>
+                    <VXPrice amount={product.price} size="sm" />
                     <div className="mt-2 flex items-center gap-2">
                       <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => updateQuantity(product.id, quantity - 1)} aria-label={`Decrease ${product.name}`}>
                         <Minus className="h-4 w-4" />
@@ -120,9 +119,9 @@ export function CartDrawer() {
                 <span className="font-bold text-primary">+{totalPoints}</span>
               </div>
               <Separator />
-              <div className="flex justify-between text-lg font-bold">
+              <div className="flex justify-between items-center text-lg font-bold">
                 <span>{t("cart.total")}</span>
-                <span className="flex items-center gap-1"><Coins className="h-5 w-5 text-primary" />{formatVX(totalPrice)}</span>
+                <VXPrice amount={totalPrice} size="lg" />
               </div>
               <SheetFooter className="flex-col gap-2 sm:flex-col">
                 <Button

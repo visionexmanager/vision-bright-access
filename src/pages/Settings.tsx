@@ -2,12 +2,13 @@ import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useThemeToggle, Theme } from "@/contexts/ThemeContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useCurrency, CURRENCIES } from "@/contexts/CurrencyContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Bell, Globe, Palette, Settings as SettingsIcon } from "lucide-react";
+import { Bell, Globe, Palette, Settings as SettingsIcon, Coins } from "lucide-react";
 import { useState } from "react";
 import { requestNotificationPermission } from "@/hooks/useMessageNotifications";
 
@@ -27,6 +28,7 @@ export default function Settings() {
   const { t, lang, setLang } = useLanguage();
   const { theme, setTheme } = useThemeToggle();
   const { enabled: soundEnabled, setEnabled: setSoundEnabled, playSound } = useSound();
+  const { currency, setCurrency } = useCurrency();
 
   const [notifEnabled, setNotifEnabled] = useState(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -114,6 +116,35 @@ export default function Settings() {
                   ))}
                 </SelectContent>
               </Select>
+            </CardContent>
+          </Card>
+
+          {/* Currency */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Coins className="h-5 w-5 text-primary" />
+                {t("settings.currency") || "Currency"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Label className="mb-2 block text-base font-medium">{t("settings.selectCurrency") || "Display prices in your local currency"}</Label>
+              <Select value={currency.code} onValueChange={setCurrency}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      <span className="me-2">{c.flag}</span>
+                      {c.symbol} {c.name} ({c.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {t("settings.currencyNote") || "VX is always the main currency. Local currency is shown as an approximation."}
+              </p>
             </CardContent>
           </Card>
 
