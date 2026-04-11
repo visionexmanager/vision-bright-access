@@ -119,9 +119,9 @@ export function CartDrawer() {
                 <span className="font-bold text-primary">+{totalPoints}</span>
               </div>
               <Separator />
-              <div className="flex justify-between text-lg font-bold">
+              <div className="flex justify-between items-center text-lg font-bold">
                 <span>{t("cart.total")}</span>
-                <span className="flex items-center gap-1"><Coins className="h-5 w-5 text-primary" />{formatVX(totalPrice)}</span>
+                <VXPrice amount={totalPrice} size="lg" />
               </div>
               <SheetFooter className="flex-col gap-2 sm:flex-col">
                 <Button
