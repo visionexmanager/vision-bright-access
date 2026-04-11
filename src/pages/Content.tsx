@@ -212,7 +212,13 @@ export default function Content() {
                           <div className="rounded-xl bg-primary/10 p-3">
                             <Icon className="h-7 w-7 text-primary" aria-hidden="true" />
                           </div>
-                          <Badge className="text-sm">+{item.points} pts</Badge>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge className="text-sm">+{item.points} pts</Badge>
+                            <span className="flex items-center gap-1 text-xs font-semibold text-primary">
+                              <Coins className="h-3.5 w-3.5" />
+                              {formatVX(item.type === "course" ? ACADEMY_PRICES.miniCourse : 500)}
+                            </span>
+                          </div>
                         </div>
 
                         <h2 className="text-lg font-bold">{item.title}</h2>
