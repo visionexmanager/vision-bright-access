@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatVX } from "@/systems/pricingSystem";
+import { VXPrice } from "@/components/VXPrice";
 
 export function CartDrawer() {
   const { items, totalItems, totalPrice, totalPoints, updateQuantity, removeFromCart, clearCart } = useCart();
