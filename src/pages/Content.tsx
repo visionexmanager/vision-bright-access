@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
+import { ACADEMY_PRICES, SIMULATION_PRICES, formatVX } from "@/systems/pricingSystem";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ import {
   BarChart3,
   Rocket,
   CheckCircle,
+  Coins,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -210,7 +212,13 @@ export default function Content() {
                           <div className="rounded-xl bg-primary/10 p-3">
                             <Icon className="h-7 w-7 text-primary" aria-hidden="true" />
                           </div>
-                          <Badge className="text-sm">+{item.points} pts</Badge>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge className="text-sm">+{item.points} pts</Badge>
+                            <span className="flex items-center gap-1 text-xs font-semibold text-primary">
+                              <Coins className="h-3.5 w-3.5" />
+                              {formatVX(item.type === "course" ? ACADEMY_PRICES.miniCourse : 500)}
+                            </span>
+                          </div>
                         </div>
 
                         <h2 className="text-lg font-bold">{item.title}</h2>
@@ -347,6 +355,10 @@ export default function Content() {
                                   <Badge className="text-sm font-bold bg-primary/10 text-primary border-primary/20">
                                     +{sim.points} pts
                                   </Badge>
+                                  <span className="flex items-center gap-1 text-xs font-semibold text-primary">
+                                    <Coins className="h-3.5 w-3.5" />
+                                    {formatVX(SIMULATION_PRICES.singleSession)}
+                                  </span>
                                   {done && (
                                     <Badge variant="outline" className="border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400 text-xs">
                                       ✅ {prog.score} pts

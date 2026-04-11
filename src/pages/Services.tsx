@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
-import { Globe, Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video } from "lucide-react";
+import { Globe, Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video, Coins } from "lucide-react";
+import { TECH_SERVICE_PRICES, formatVX } from "@/systems/pricingSystem";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
@@ -20,11 +21,11 @@ export default function Services() {
   const { playSound } = useSound();
 
   const services = [
-    { icon: MonitorSmartphone, name: t("services.webDesign"), desc: t("services.webDesignDesc"), points: 100, img: webDesignImg },
-    { icon: Megaphone, name: t("services.digitalMarketing"), desc: t("services.digitalMarketingDesc"), points: 80, img: digitalMarketingImg },
-    { icon: Package, name: t("services.importPurchasing"), desc: t("services.importPurchasingDesc"), points: 60, img: importImg },
-    { icon: Headphones, name: t("services.techConsulting"), desc: t("services.techConsultingDesc"), points: 120, img: consultingImg },
-    { icon: GraduationCap, name: t("services.training"), desc: t("services.trainingDesc"), points: 90, img: trainingImg },
+    { icon: MonitorSmartphone, name: t("services.webDesign"), desc: t("services.webDesignDesc"), points: 100, img: webDesignImg, vx: TECH_SERVICE_PRICES.remoteSupport },
+    { icon: Megaphone, name: t("services.digitalMarketing"), desc: t("services.digitalMarketingDesc"), points: 80, img: digitalMarketingImg, vx: TECH_SERVICE_PRICES.techConsultation },
+    { icon: Package, name: t("services.importPurchasing"), desc: t("services.importPurchasingDesc"), points: 60, img: importImg, vx: TECH_SERVICE_PRICES.techConsultation },
+    { icon: Headphones, name: t("services.techConsulting"), desc: t("services.techConsultingDesc"), points: 120, img: consultingImg, vx: TECH_SERVICE_PRICES.techConsultation },
+    { icon: GraduationCap, name: t("services.training"), desc: t("services.trainingDesc"), points: 90, img: trainingImg, vx: TECH_SERVICE_PRICES.remoteSupport },
   ];
 
   const handleCta = (serviceName: string) => {
@@ -61,7 +62,13 @@ export default function Services() {
                   </div>
                   <h2 className="text-xl font-bold">{s.name}</h2>
                   <p className="flex-1 text-muted-foreground leading-relaxed">{s.desc}</p>
-                  <Badge className="w-fit text-sm">{t("services.earn").replace("{points}", String(s.points))}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className="w-fit text-sm">{t("services.earn").replace("{points}", String(s.points))}</Badge>
+                    <span className="flex items-center gap-1 text-xs font-semibold text-primary">
+                      <Coins className="h-3.5 w-3.5" />
+                      {formatVX(s.vx)}
+                    </span>
+                  </div>
                   <Button size="lg" className="mt-2 w-full text-base font-semibold" onClick={() => handleCta(s.name)}>
                     {t("services.cta")} <ArrowRight className="ms-2 h-5 w-5" />
                   </Button>
