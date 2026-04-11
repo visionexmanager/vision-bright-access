@@ -45,6 +45,7 @@ const CoinsStore = lazy(() => import("./pages/CoinsStore"));
 const News = lazy(() => import("./pages/News"));
 const Messages = lazy(() => import("./pages/Messages"));
 const Settings = lazy(() => import("./pages/Settings"));
+const PurchaseHistory = lazy(() => import("./pages/PurchaseHistory"));
 
 // New service pages
 const CareerHub = lazy(() => import("./pages/services/CareerHub"));
@@ -162,6 +163,7 @@ const App = () => (
                     <Route path="/news" element={<News />} />
                     <Route path="/messages" element={<Messages />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/purchase-history" element={<PurchaseHistory />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
