@@ -9,9 +9,10 @@ import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { generalProducts, accessibilityProducts } from "@/data/products";
 import { CartDrawer } from "@/components/CartDrawer";
-import { ShoppingCart, Star, Check, ArrowLeft, Truck, Shield, Award } from "lucide-react";
+import { ShoppingCart, Star, Check, ArrowLeft, Truck, Shield, Award, Coins } from "lucide-react";
 import { WishlistButton } from "@/components/WishlistButton";
 import { toast } from "sonner";
+import { formatVX } from "@/systems/pricingSystem";
 
 const allProducts = [...generalProducts, ...accessibilityProducts];
 
@@ -133,7 +134,7 @@ export default function ProductDetail() {
 
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-4xl font-bold">${product.price.toFixed(2)}</p>
+                <p className="text-4xl font-bold flex items-center gap-2"><Coins className="h-6 w-6 text-primary" />{formatVX(product.price)}</p>
                 <p className="text-base font-semibold text-primary">{t("product.earn").replace("{points}", String(product.points))}</p>
               </div>
               <Badge variant={product.inStock ? "default" : "destructive"} className="text-sm px-3 py-1">
@@ -201,7 +202,7 @@ export default function ProductDetail() {
                       <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-3xl">{rp.image}</div>
                       <div className="min-w-0 flex-1">
                         <h3 className="truncate text-lg font-bold group-hover:text-primary transition-colors">{rp.name}</h3>
-                        <p className="text-base font-semibold">${rp.price.toFixed(2)}</p>
+                        <p className="text-base font-semibold flex items-center gap-1"><Coins className="h-3.5 w-3.5 text-primary" />{formatVX(rp.price)}</p>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Star className="h-3.5 w-3.5 fill-accent text-accent" aria-hidden="true" />
                           {rp.rating}

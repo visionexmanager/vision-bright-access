@@ -143,7 +143,7 @@ export default function AdminProducts() {
                   <TableRow key={p.id}>
                     <TableCell className="text-2xl">{p.image}</TableCell>
                     <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell>${p.price}</TableCell>
+                    <TableCell>{p.price.toLocaleString()} VX</TableCell>
                     <TableCell>{p.points}</TableCell>
                     <TableCell>{p.category}</TableCell>
                     <TableCell>{p.store_type}</TableCell>
