@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { EARNING_RATES } from "@/systems/pricingSystem";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
