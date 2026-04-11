@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import Layout from "@/components/Layout";
+import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +11,8 @@ import { formatVX } from "@/systems/pricingSystem";
 
 export default function PurchaseHistory() {
   const { user } = useAuth();
-  const { t, language } = useLanguage();
-  const isRTL = language === "ar";
+  const { t, lang } = useLanguage();
+  const isRTL = lang === "ar";
 
   const { data: purchases = [], isLoading } = useQuery({
     queryKey: ["vx-purchases", user?.id],
