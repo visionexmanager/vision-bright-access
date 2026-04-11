@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,8 @@ import { CheckCircle, Clock, Trophy, ArrowRight, BarChart3, Search, Filter, Arro
 import { simulationImages } from "@/data/simulationImages";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { SIMULATION_PRICES, formatVX } from "@/systems/pricingSystem";
+import { useVXWallet } from "@/hooks/useVXWallet";
+import { toast } from "@/hooks/use-toast";
 
 interface SimRow {
   id: string;
@@ -35,6 +37,8 @@ interface ProgressRow {
 export default function SimulationsSummary() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const { spendVX } = useVXWallet();
   const [simulations, setSimulations] = useState<SimRow[]>([]);
   const [progressMap, setProgressMap] = useState<Record<string, ProgressRow>>({});
   const [loading, setLoading] = useState(true);
@@ -295,11 +299,25 @@ export default function SimulationsSummary() {
                         )}
                       </div>
                       <div className="mt-3">
-                        <Button asChild size="sm" variant={done ? "outline" : "default"} className="group-hover:gap-3 transition-all">
-                          <Link to={`/business-simulator/${sim.slug}`}>
-                            {done ? t("summary.replay") : t("summary.start")}
-                            <ArrowRight className="ml-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </Link>
+                        <Button
+                          size="sm"
+                          variant={done ? "outline" : "default"}
+                          className="group-hover:gap-3 transition-all"
+                          onClick={async () => {
+                            if (!user) {
+                              navigate("/login");
+                              return;
+                            }
+                            if (!done) {
+                              const ok = await spendVX(SIMULATION_PRICES.singleSession, "simulation", sim.title, sim.id);
+                              if (!ok) return;
+                              toast({ title: t("vx.purchaseSuccess"), description: t("vx.deducted").replace("{amount}", SIMULATION_PRICES.singleSession.toLocaleString()) });
+                            }
+                            navigate(`/business-simulator/${sim.slug}`);
+                          }}
+                        >
+                          {done ? t("summary.replay") : t("summary.start")}
+                          <ArrowRight className="ml-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </Button>
                       </div>
                     </CardContent>

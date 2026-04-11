@@ -1513,6 +1513,14 @@ const ar: Record<string, string> = {
   "pricing.earnRefer": "دعوة صديق",
   "pricing.earnLogin": "تسجيل دخول يومي",
   "pricing.perAction": "لكل إجراء",
+  "vx.purchaseSuccess": "تمت عملية الشراء بنجاح!",
+  "vx.deducted": "تم خصم {amount} VX من رصيدك",
+  "vx.insufficientBalance": "رصيد VX غير كافٍ",
+  "vx.needMore": "تحتاج {amount} VX. اشحن رصيدك من متجر VX.",
+  "vx.loginRequired": "يرجى تسجيل الدخول لإتمام الشراء",
+  "vx.buyToPlay": "ادفع {amount} VX للعب",
+  "vx.buyToEnroll": "ادفع {amount} VX للتسجيل",
+  "vx.buyToStart": "ادفع {amount} VX للبدء",
 };
 
 export default ar;

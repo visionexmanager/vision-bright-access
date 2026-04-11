@@ -1513,6 +1513,14 @@ const en: Record<string, string> = {
   "pricing.earnRefer": "Refer a Friend",
   "pricing.earnLogin": "Daily Login",
   "pricing.perAction": "per action",
+  "vx.purchaseSuccess": "Purchase successful!",
+  "vx.deducted": "{amount} VX deducted from your balance",
+  "vx.insufficientBalance": "Insufficient VX balance",
+  "vx.needMore": "You need {amount} VX. Top up in the VX Store.",
+  "vx.loginRequired": "Please log in to make purchases",
+  "vx.buyToPlay": "Pay {amount} VX to play",
+  "vx.buyToEnroll": "Pay {amount} VX to enroll",
+  "vx.buyToStart": "Pay {amount} VX to start",
 };
 
 export default en;

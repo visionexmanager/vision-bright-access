@@ -653,6 +653,36 @@ export type Database = {
         }
         Relationships: []
       }
+      vx_purchases: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          item_id: string | null
+          item_name: string
+          item_type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          item_name?: string
+          item_type?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          item_name?: string
+          item_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wishlists: {
         Row: {
           created_at: string
@@ -701,6 +731,15 @@ export type Database = {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
+        }
+        Returns: boolean
+      }
+      spend_vx: {
+        Args: {
+          _amount: number
+          _item_id?: string
+          _item_name?: string
+          _item_type: string
         }
         Returns: boolean
       }
