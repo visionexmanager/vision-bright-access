@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
-import { Globe, Video, Image, Palette, PenTool, ArrowRight } from "lucide-react";
+import { Globe, Video, Image, Palette, PenTool, ArrowRight, Coins } from "lucide-react";
 import { toast } from "sonner";
+import { TECH_SERVICE_PRICES, formatVX } from "@/systems/pricingSystem";
 import heroImg from "@/assets/service-studio.jpg";
 
 export default function GlobalStudio() {
@@ -14,10 +15,10 @@ export default function GlobalStudio() {
   const { playSound } = useSound();
 
   const studioServices = [
-    { icon: Video, title: t("studio.videoProduction"), desc: t("studio.videoDesc"), price: "$299" },
-    { icon: Image, title: t("studio.photography"), desc: t("studio.photoDesc"), price: "$149" },
-    { icon: Palette, title: t("studio.graphicDesign"), desc: t("studio.graphicDesc"), price: "$199" },
-    { icon: PenTool, title: t("studio.branding"), desc: t("studio.brandingDesc"), price: "$499" },
+    { icon: Video, title: t("studio.videoProduction"), desc: t("studio.videoDesc"), vx: TECH_SERVICE_PRICES.remoteSupport },
+    { icon: Image, title: t("studio.photography"), desc: t("studio.photoDesc"), vx: TECH_SERVICE_PRICES.techConsultation },
+    { icon: Palette, title: t("studio.graphicDesign"), desc: t("studio.graphicDesc"), vx: TECH_SERVICE_PRICES.techConsultation },
+    { icon: PenTool, title: t("studio.branding"), desc: t("studio.brandingDesc"), vx: TECH_SERVICE_PRICES.remoteSupport },
   ];
 
   return (
@@ -46,7 +47,10 @@ export default function GlobalStudio() {
                     </div>
                     <div>
                       <CardTitle className="text-xl">{s.title}</CardTitle>
-                      <Badge variant="outline" className="mt-1">{s.price}</Badge>
+                      <Badge variant="outline" className="mt-1 flex items-center gap-1">
+                        <Coins className="h-3.5 w-3.5" />
+                        {formatVX(s.vx)}
+                      </Badge>
                     </div>
                   </div>
                 </CardHeader>
