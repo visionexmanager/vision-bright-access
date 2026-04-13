@@ -5,7 +5,8 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useSound } from "@/contexts/SoundContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Menu, X, Zap, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX } from "lucide-react";
+import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { useUnreadCount } from "@/hooks/useMessages";
 import { usePoints } from "@/hooks/usePoints";
 import { useState } from "react";
@@ -42,14 +43,14 @@ export function Navbar() {
       role="navigation"
       aria-label="Main navigation"
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <Link
           to="/"
-          className="flex items-center gap-2 text-2xl font-bold tracking-tight"
-          aria-label="Visionex home"
+          className="flex items-center gap-2 text-2xl font-bold tracking-tight rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label="VisionEx home"
         >
-          <Zap className="h-7 w-7 text-primary" aria-hidden="true" />
-          <span>Visionex</span>
+          <img src={logo} alt="VisionEx logo" className="h-10 w-auto object-contain" />
+          <span>VisionEx</span>
         </Link>
 
         {/* Desktop nav */}
