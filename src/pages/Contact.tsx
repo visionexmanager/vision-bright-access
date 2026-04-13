@@ -86,7 +86,7 @@ export default function Contact() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-2xl px-4 py-10" aria-labelledby="contact-heading">
+      <section className="section-container py-10" aria-labelledby="contact-heading">
         <h1 id="contact-heading" className="mb-2 text-3xl font-bold">
           {t("contact.title")}
         </h1>

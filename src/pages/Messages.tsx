@@ -53,7 +53,7 @@ export default function Messages() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-4xl px-4 py-8">
+      <section className="section-container py-8">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <MessageCircle className="h-7 w-7 text-primary" />

@@ -209,7 +209,7 @@ export default function SimulationRunner() {
   if (!simulation) {
     return (
       <Layout>
-        <div className="mx-auto max-w-2xl px-4 py-20 text-center">
+        <div className="section-container py-20 text-center">
           <h1 className="text-2xl font-bold mb-4">{t("bsim.notFound")}</h1>
           <Button asChild>
             <Link to="/business-simulator">
@@ -227,7 +227,7 @@ export default function SimulationRunner() {
     const CustomSim = getSimulationComponent(slug)!;
     return (
       <Layout>
-        <section className="mx-auto max-w-4xl px-4 py-10">
+        <section className="section-container py-10">
           <Suspense fallback={
             <div className="flex min-h-[30vh] items-center justify-center">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -244,7 +244,7 @@ export default function SimulationRunner() {
   if (totalSteps === 0) {
     return (
       <Layout>
-        <section className="mx-auto max-w-3xl px-4 py-10">
+        <section className="section-container py-10">
           <Button asChild variant="ghost" className="mb-4">
             <Link to="/business-simulator">
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -270,7 +270,7 @@ export default function SimulationRunner() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-3xl px-4 py-10">
+      <section className="section-container py-10">
         <Button asChild variant="ghost" className="mb-4">
           <Link to="/business-simulator">
             <ArrowLeft className="mr-2 h-4 w-4" />

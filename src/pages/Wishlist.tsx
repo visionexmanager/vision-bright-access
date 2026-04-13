@@ -47,7 +47,7 @@ export default function Wishlist() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-5xl px-4 py-10" aria-labelledby="wishlist-heading">
+      <section className="section-container py-10" aria-labelledby="wishlist-heading">
         <h1 id="wishlist-heading" className="mb-2 text-3xl font-bold">{t("wishlist.title")}</h1>
         <p className="mb-8 text-lg text-muted-foreground">{t("wishlist.subtitle")}</p>
 

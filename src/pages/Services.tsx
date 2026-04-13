@@ -35,7 +35,7 @@ export default function Services() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-5xl px-4 py-10" aria-labelledby="services-heading">
+      <section className="section-container py-10" aria-labelledby="services-heading">
         {/* Hero banner */}
         <AnimatedSection variants={scaleFade}>
           <div className="relative mb-10 overflow-hidden rounded-2xl">

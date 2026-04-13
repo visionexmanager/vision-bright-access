@@ -22,7 +22,7 @@ export default function CoinsStore() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-5xl px-4 py-12">
+      <section className="section-container py-12">
         <div className="mb-10 text-center">
           <Coins className="mx-auto mb-3 h-12 w-12 text-primary" />
           <h1 className="text-4xl font-bold tracking-tight">{t("coins.title")}</h1>

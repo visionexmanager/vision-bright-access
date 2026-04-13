@@ -53,7 +53,7 @@ export default function TripHistory() {
 
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto py-8 px-4 space-y-6">
+      <div className="section-container py-8 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl md:text-3xl font-black text-foreground">
             {t("tripHistory.title")}

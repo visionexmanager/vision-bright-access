@@ -60,7 +60,7 @@ export default function Settings() {
 
   return (
     <Layout>
-      <div className="mx-auto max-w-2xl px-4 py-10">
+      <div className="section-container py-10">
         <div className="mb-8 flex items-center gap-3">
           <SettingsIcon className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold">{t("settings.title")}</h1>

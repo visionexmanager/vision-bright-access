@@ -41,7 +41,7 @@ export default function Leaderboard() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-3xl px-4 py-10" aria-labelledby="leader-heading">
+      <section className="section-container py-10" aria-labelledby="leader-heading">
         <h1 id="leader-heading" className="mb-2 text-3xl font-bold">{t("leader.title")}</h1>
         <p className="mb-8 text-lg text-muted-foreground">{t("leader.subtitle")}</p>
 

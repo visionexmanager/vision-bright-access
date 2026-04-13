@@ -149,7 +149,7 @@ export default function Content() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-6xl px-4 py-10" aria-labelledby="content-heading">
+      <section className="section-container py-10" aria-labelledby="content-heading">
         <AnimatedSection variants={scaleFade}>
           <h1 id="content-heading" className="mb-2 text-3xl font-bold">{t("content.title")}</h1>
           <p className="mb-8 text-lg text-muted-foreground">{t("content.subtitle")}</p>
