@@ -40,7 +40,7 @@ export default function PurchaseHistory() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 max-w-4xl" dir={isRTL ? "rtl" : "ltr"}>
+      <div className="section-container py-8" dir={isRTL ? "rtl" : "ltr"}>
         <div className="flex items-center gap-3 mb-6">
           <ShoppingBag className="h-7 w-7 text-primary" />
           <h1 className="text-2xl font-bold">{isRTL ? "سجل المشتريات" : "Purchase History"}</h1>

@@ -101,8 +101,7 @@ export default function AssistiveProducts() {
 
   return (
     <Layout>
-      <section className="px-4 py-12" aria-labelledby="vep-heading">
-        <div className="mx-auto max-w-4xl">
+      <section className="section-container py-12" aria-labelledby="vep-heading">
           {/* Header */}
           <div className="mb-10 text-center">
             <h1 id="vep-heading" className="mb-3 text-3xl font-bold sm:text-4xl">
@@ -255,7 +254,6 @@ export default function AssistiveProducts() {
               {t("vep.contactUs")}
             </Button>
           </div>
-        </div>
       </section>
     </Layout>
   );

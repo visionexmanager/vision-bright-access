@@ -66,7 +66,7 @@ export default function ProductDetail() {
   if (!product) {
     return (
       <Layout>
-        <section className="mx-auto max-w-4xl px-4 py-20 text-center">
+        <section className="section-container py-20 text-center">
           <h1 className="mb-4 text-3xl font-bold">{t("product.notFound")}</h1>
           <p className="mb-8 text-lg text-muted-foreground">{t("product.notFoundDesc")}</p>
           <Button asChild size="lg" className="text-base">
@@ -92,7 +92,7 @@ export default function ProductDetail() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-5xl px-4 py-8" aria-labelledby="product-heading">
+      <section className="section-container py-8" aria-labelledby="product-heading">
         <nav className="mb-6 flex items-center gap-2 text-base" aria-label="Breadcrumb">
           <Link to="/marketplace" className="text-primary underline-offset-4 hover:underline font-medium">
             {t("market.title")}

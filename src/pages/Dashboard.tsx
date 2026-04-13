@@ -104,7 +104,7 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="mx-auto max-w-5xl px-4 py-10">
+      <div className="section-container py-10">
         {/* Dashboard banner */}
         <AnimatedSection variants={scaleFade}>
         <div className="relative mb-8 overflow-hidden rounded-2xl">

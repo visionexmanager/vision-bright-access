@@ -18,7 +18,7 @@ export default function News() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-4xl px-4 py-12">
+      <section className="section-container py-12">
         <AnimatedSection variants={scaleFade}>
           <div className="relative mb-10 overflow-hidden rounded-2xl">
             <img src={newsImg} alt="" className="h-44 w-full object-cover sm:h-52" width={800} height={512} loading="lazy" />
