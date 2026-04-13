@@ -254,7 +254,6 @@ export default function AssistiveProducts() {
               {t("vep.contactUs")}
             </Button>
           </div>
-        </div>
       </section>
     </Layout>
   );
