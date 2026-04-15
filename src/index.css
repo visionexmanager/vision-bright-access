@@ -172,15 +172,12 @@
     @apply px-4 py-16 sm:px-6 lg:px-8;
   }
   .section-narrow {
-    @apply mx-auto max-w-4xl;
+    @apply mx-auto max-w-5xl;
   }
   .section-wide {
-    @apply mx-auto max-w-7xl;
+    @apply mx-auto max-w-[1600px];
   }
   .section-container {
     @apply mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-10 xl:px-16;
-  }
-  .section-wide {
-    @apply mx-auto max-w-5xl;
   }
 }
