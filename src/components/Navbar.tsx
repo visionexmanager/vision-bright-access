@@ -35,6 +35,7 @@ export function Navbar() {
     { to: "/contact", label: t("nav.contact") },
     { to: "/community", label: t("nav.community") },
     { to: "/news", label: t("nav.news") },
+    { to: "/professional-tools", label: "Professional Tools" },
   ];
 
   return (
