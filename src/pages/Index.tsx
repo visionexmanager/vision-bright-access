@@ -35,7 +35,7 @@ export default function Index() {
           <img src={heroImg} alt="" className="h-full w-full object-cover opacity-15 dark:opacity-10" width={1280} height={720} />
           <div className="absolute inset-0 bg-gradient-to-b from-background/80 to-background" />
         </div>
-        <AnimatedSection variants={scaleFade} className="relative z-10 mx-auto max-w-3xl">
+        <AnimatedSection variants={scaleFade} className="relative z-10 mx-auto max-w-4xl">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-primary">
             <Sparkles className="h-5 w-5" aria-hidden="true" />
             <span className="text-base font-semibold">{t("home.badge")}</span>

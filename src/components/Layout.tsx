@@ -26,7 +26,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <footer className="border-t bg-card py-10" role="contentinfo">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="section-container">
           <NewsletterSubscribe />
           <p className="mt-8 text-center text-muted-foreground">
             {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
