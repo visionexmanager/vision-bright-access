@@ -167,6 +167,7 @@ const App = () => (
                     <Route path="/messages" element={<Messages />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/purchase-history" element={<PurchaseHistory />} />
+                    <Route path="/professional-tools" element={<ProfessionalTools />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
