@@ -49,6 +49,11 @@ export default function Login() {
                 <Label htmlFor="password" className="text-base">{t("auth.password")}</Label>
                 <Input id="password" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-12 text-base" aria-required="true" />
               </div>
+              <div className="flex justify-end">
+                <Link to="/forgot-password" className="text-sm text-primary underline underline-offset-4">
+                  {t("auth.forgotPassword") || "Forgot Password?"}
+                </Link>
+              </div>
               <Button type="submit" size="lg" className="w-full text-base font-semibold" disabled={loading}>
                 {loading ? t("auth.signingIn") : t("auth.loggingIn")}
               </Button>
