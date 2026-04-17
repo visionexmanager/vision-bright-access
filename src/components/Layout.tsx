@@ -11,9 +11,10 @@ export function Layout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   useMessageNotifications();
 
-  // Scroll to top on route change
+  // Scroll to top and move focus to main content on route change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    document.getElementById("main-content")?.focus();
   }, [pathname]);
 
   return (

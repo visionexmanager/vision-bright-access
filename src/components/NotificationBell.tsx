@@ -49,7 +49,7 @@ export function NotificationBell() {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
-        <div className="border-b px-4 py-3 font-semibold">Notifications</div>
+        <h2 className="border-b px-4 py-3 text-sm font-semibold">Notifications</h2>
         <ScrollArea className="max-h-72">
           {notifications.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">No notifications yet.</p>

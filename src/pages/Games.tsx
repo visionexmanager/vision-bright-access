@@ -96,24 +96,27 @@ export default function Games() {
         {/* Search & Filter */}
         <div className="mb-6 space-y-4">
           <div className="relative w-full max-w-lg">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
+              type="search"
+              aria-label={t("games.searchPlaceholder") || "Search games"}
               placeholder={t("games.searchPlaceholder") || "Search games..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by category">
             {categories.map((cat) => (
               <Button
                 key={cat}
                 size="sm"
                 variant={activeCategory === cat ? "default" : "outline"}
+                aria-pressed={activeCategory === cat}
                 onClick={() => setActiveCategory(cat)}
                 className="text-xs"
               >
-                {cat === "All" && <Filter className="mr-1 h-3.5 w-3.5" />}
+                {cat === "All" && <Filter className="mr-1 h-3.5 w-3.5" aria-hidden="true" />}
                 {cat} {cat !== "All" && `(${games.filter(g => g.category === cat).length})`}
               </Button>
             ))}
@@ -126,8 +129,10 @@ export default function Games() {
           <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((game) => (
               <StaggerItem key={game.to}>
-                <div
-                  className="group cursor-pointer"
+                <button
+                  type="button"
+                  className="group w-full text-start"
+                  aria-label={`${game.title} — ${formatVX(GAMING_PRICES.singlePlay)}`}
                   onClick={async () => {
                     if (!user) {
                       toast({ title: t("vx.loginRequired"), variant: "destructive" });
@@ -142,11 +147,12 @@ export default function Games() {
                     }
                   }}
                 >
-                  <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                  <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 focus-within:ring-2 focus-within:ring-ring">
                     <div className="relative h-36 w-full overflow-hidden">
                       <img
                         src={game.img}
                         alt=""
+                        aria-hidden="true"
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                         width={768}
                         height={512}
@@ -164,13 +170,13 @@ export default function Games() {
                       <CardDescription className="mt-1 text-xs line-clamp-2">
                         {game.desc}
                       </CardDescription>
-                      <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary">
+                      <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary" aria-hidden="true">
                         <Coins className="h-3.5 w-3.5" />
                         {formatVX(GAMING_PRICES.singlePlay)}
                       </div>
                     </div>
                   </Card>
-                </div>
+                </button>
               </StaggerItem>
             ))}
           </StaggerGrid>

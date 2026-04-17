@@ -108,14 +108,14 @@ function StoreSection({
         ))}
       </div>
 
-      <p className="mb-4 text-lg text-muted-foreground">
+      <p className="mb-4 text-lg text-muted-foreground" aria-live="polite" aria-atomic="true">
         {t("market.productsFound")
           .replace("{count}", String(filtered.length))
           .replace("{s}", filtered.length !== 1 ? "s" : "")}
       </p>
 
       {filtered.length === 0 ? (
-        <div className="py-20 text-center">
+        <div className="py-20 text-center" role="status">
           <p className="text-xl text-muted-foreground">{t("market.noProducts")}</p>
         </div>
       ) : (

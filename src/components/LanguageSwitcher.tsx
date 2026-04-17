@@ -44,7 +44,7 @@ export function LanguageSwitcher() {
             onClick={() => setLang(l.code)}
             className={`text-base gap-2 ${lang === l.code ? "bg-primary/10 font-semibold" : ""}`}
           >
-            <span>{l.flag}</span>
+            <span aria-hidden="true">{l.flag}</span>
             <span>{l.label}</span>
           </DropdownMenuItem>
         ))}
