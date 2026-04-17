@@ -55,13 +55,13 @@ export function Navbar() {
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden items-center gap-1 md:flex" role="menubar">
+        <div className="hidden items-center gap-0.5 lg:flex" role="menubar">
           {navLinks.map((link) => (
             <Link
               key={link.to}
               to={link.to}
               role="menuitem"
-              className={`rounded-lg px-4 py-2 text-base font-medium transition-colors hover:bg-muted focus-visible:ring-2 ${
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 xl:px-4 xl:text-base ${
                 location.pathname === link.to
                   ? "bg-primary/10 text-primary"
                   : "text-foreground"
@@ -72,12 +72,13 @@ export function Navbar() {
           ))}
         </div>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-1 lg:flex">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => { setSoundEnabled(!soundEnabled); }}
             aria-label={soundEnabled ? "Mute sounds" : "Unmute sounds"}
+            className="hidden xl:inline-flex"
           >
             {soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5 text-muted-foreground" />}
           </Button>
@@ -86,7 +87,7 @@ export function Navbar() {
           <CartDrawer />
           {user && <NotificationBell />}
           {user && (
-            <Link to="/coins-store" className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors">
+            <Link to="/coins-store" className="hidden items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors xl:flex">
               <Coins className="h-4 w-4" />
               <span>{totalPoints.toLocaleString()} VX</span>
             </Link>
@@ -103,7 +104,7 @@ export function Navbar() {
                   )}
                 </Button>
               </Link>
-              <Link to="/wishlist">
+              <Link to="/wishlist" className="hidden xl:inline-flex">
                 <Button variant="ghost" size="icon" aria-label={t("nav.wishlist")}>
                   <Heart className="h-5 w-5" />
                 </Button>
@@ -113,7 +114,7 @@ export function Navbar() {
                   <User className="h-5 w-5" />
                 </Button>
               </Link>
-              <Link to="/settings">
+              <Link to="/settings" className="hidden xl:inline-flex">
                 <Button variant="ghost" size="icon" aria-label={t("nav.settings")}>
                   <Settings className="h-5 w-5" />
                 </Button>
@@ -160,7 +161,7 @@ export function Navbar() {
         </div>
 
         {/* Mobile toggle */}
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="flex items-center gap-2 lg:hidden">
           <ThemeToggle />
           <LanguageSwitcher />
           <Button
@@ -177,7 +178,7 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="border-t bg-card px-4 pb-4 pt-2 md:hidden" role="menu">
+        <div className="border-t bg-card px-4 pb-4 pt-2 lg:hidden" role="menu">
           {navLinks.map((link) => (
             <Link
               key={link.to}

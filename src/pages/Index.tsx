@@ -93,7 +93,7 @@ export default function Index() {
           <AnimatedSection>
             <h2 id="features-heading" className="mb-10 text-center text-3xl font-bold">{t("home.featuresTitle")}</h2>
           </AnimatedSection>
-          <StaggerGrid className="grid gap-6 sm:grid-cols-3">
+          <StaggerGrid className="grid gap-6 sm:grid-cols-3 xl:grid-cols-4">
             {features.map((f) => (
               <StaggerItem key={f.title}>
                 <Link to={f.to} className="group" onClick={() => playSound("navigate")}>

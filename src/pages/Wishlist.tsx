@@ -52,7 +52,7 @@ export default function Wishlist() {
         <p className="mb-8 text-lg text-muted-foreground">{t("wishlist.subtitle")}</p>
 
         {isLoading ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-64 w-full rounded-lg" />
             ))}
@@ -69,7 +69,7 @@ export default function Wishlist() {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {wishlistProducts.map((product) => {
               const inCart = items.some((i) => i.product.id === product.id);
               return (

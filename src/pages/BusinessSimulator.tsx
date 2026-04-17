@@ -91,7 +91,7 @@ export default function BusinessSimulator() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-6xl px-4 py-10" aria-labelledby="bsim-heading">
+      <section className="section-container px-4 py-10" aria-labelledby="bsim-heading">
         {/* Hero with illustration */}
         <AnimatedSection variants={scaleFade}>
         <div className="relative mb-10 overflow-hidden rounded-2xl">
@@ -145,7 +145,7 @@ export default function BusinessSimulator() {
             </p>
           </div>
         ) : (
-          <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((sim) => {
               const prog = progressMap[sim.id];
               const done = prog?.completed;

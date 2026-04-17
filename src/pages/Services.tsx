@@ -48,7 +48,7 @@ export default function Services() {
           </div>
         </AnimatedSection>
 
-        <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {services.map((s) => (
             <StaggerItem key={s.name}>
               <Card className="flex flex-col overflow-hidden transition-shadow hover:shadow-lg">

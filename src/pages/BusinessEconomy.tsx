@@ -176,7 +176,7 @@ export default function BusinessEconomy() {
       <div className="min-h-screen pb-20">
         {/* Header */}
         <header className="bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground p-8 md:p-12">
-          <div className="max-w-6xl mx-auto text-center space-y-4">
+          <div className="section-container text-center space-y-4">
             <div className="flex items-center justify-center gap-3">
               <div className="p-3 bg-primary-foreground/10 rounded-2xl backdrop-blur-sm">
                 <BarChart3 className="w-8 h-8" />
@@ -192,7 +192,7 @@ export default function BusinessEconomy() {
         </header>
 
         {/* Navigation Tabs */}
-        <div className="max-w-6xl mx-auto px-4 -mt-6">
+        <div className="section-container px-4 -mt-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {tabs.map((tab) => (
               <button
@@ -214,7 +214,7 @@ export default function BusinessEconomy() {
           </div>
         </div>
 
-        <main className="max-w-6xl mx-auto p-4 md:p-8 space-y-8">
+        <main className="section-container p-4 md:p-8 space-y-8">
           {/* =================== FEASIBILITY =================== */}
           {activeTab === "feasibility" && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-500">

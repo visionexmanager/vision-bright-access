@@ -119,7 +119,7 @@ export default function Delivery() {
       <div className="min-h-screen pb-20">
         {/* Header */}
         <header className="bg-foreground p-6 text-background shadow-2xl sticky top-0 z-40 rounded-b-[40px]">
-          <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <div className="section-container flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-primary rounded-2xl animate-pulse">
                 <Truck size={28} />
@@ -160,7 +160,7 @@ export default function Delivery() {
           </div>
         </header>
 
-        <main className="max-w-6xl mx-auto p-4 md:p-10">
+        <main className="section-container p-4 md:p-10">
           {status === "idle" && (
             <div className="space-y-8 animate-in fade-in zoom-in duration-700">
               {/* Map picker */}

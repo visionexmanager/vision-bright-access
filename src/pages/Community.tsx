@@ -231,7 +231,7 @@ export default function Community() {
             <Radio className="h-6 w-6 text-primary" />
             {t("community.voiceRooms")}
           </h2>
-          <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {DEFAULT_ROOMS.map((room) => (
             <StaggerItem key={room.id}>
               <Card className="transition-shadow hover:shadow-lg">
@@ -261,7 +261,7 @@ export default function Community() {
               <Users className="h-6 w-6 text-primary" />
               {t("community.userRooms")}
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {rooms.map((room) => {
                 const cfg = VOICE_ROOM_CONFIGS.find((c) => c.type === room.room_type);
                 return (

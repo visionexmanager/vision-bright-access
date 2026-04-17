@@ -191,7 +191,7 @@ export default function ProductDetail() {
         {related.length > 0 && (
           <div className="mt-12">
             <h2 className="mb-6 text-2xl font-bold">{t("product.relatedProducts")}</h2>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {related.map((rp) => (
                 <Link key={rp.id} to={`/product/${rp.id}`} className="group">
                   <Card className="transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">

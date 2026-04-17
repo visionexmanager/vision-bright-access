@@ -206,7 +206,7 @@ export default function Content() {
                 </div>
               )}
 
-              <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filterItems(v).map((item) => {
                   const Icon = typeIcons[item.type] ?? FileText;
                   return (
@@ -340,7 +340,7 @@ export default function Content() {
                       <p className="text-lg font-medium text-muted-foreground">{t("bsim.empty")}</p>
                     </div>
                   ) : (
-                    <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {filteredSims.map((sim) => {
                         const prog = progressMap[sim.id];
                         const done = prog?.completed;
