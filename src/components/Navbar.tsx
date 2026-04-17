@@ -50,7 +50,7 @@ export function Navbar() {
           className="flex items-center gap-2 text-2xl font-bold tracking-tight rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="VisionEx home"
         >
-          <img src={logo} alt="VisionEx logo" className="h-10 w-auto object-contain" />
+          <img src={logo} alt="VisionEx logo" className="h-10 w-auto object-contain" width={240} height={160} />
           <span>VisionEx</span>
         </Link>
 
