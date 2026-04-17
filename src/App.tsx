@@ -75,6 +75,14 @@ const MusicEarMaster = lazy(() => import("./pages/games/MusicEarMaster"));
 const FashionDesigner = lazy(() => import("./pages/games/FashionDesigner"));
 const VelocityXRacing = lazy(() => import("./pages/games/VelocityXRacing"));
 
+// Legal pages
+const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
+const TermsOfUse = lazy(() => import("./pages/legal/TermsOfUse"));
+const MarketplacePolicy = lazy(() => import("./pages/legal/MarketplacePolicy"));
+const CommunityGuidelines = lazy(() => import("./pages/legal/CommunityGuidelines"));
+const AccessibilityStatement = lazy(() => import("./pages/legal/AccessibilityStatement"));
+const LegalDisclaimer = lazy(() => import("./pages/legal/LegalDisclaimer"));
+
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
@@ -172,6 +180,13 @@ const App = () => (
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/purchase-history" element={<PurchaseHistory />} />
                     <Route path="/professional-tools" element={<ProfessionalTools />} />
+                    {/* Legal pages */}
+                    <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                    <Route path="/terms-of-use" element={<TermsOfUse />} />
+                    <Route path="/marketplace-policy" element={<MarketplacePolicy />} />
+                    <Route path="/community-guidelines" element={<CommunityGuidelines />} />
+                    <Route path="/accessibility" element={<AccessibilityStatement />} />
+                    <Route path="/legal-disclaimer" element={<LegalDisclaimer />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
