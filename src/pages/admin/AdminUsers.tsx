@@ -4,6 +4,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, ShieldCheck, ShieldOff } from "lucide-react";
@@ -22,13 +32,14 @@ type UserProfile = {
 export default function AdminUsers() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [pendingProfile, setPendingProfile] = useState<UserProfile | null>(null);
 
   const load = async () => {
     const { data: profiles } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
     const { data: roles } = await supabase.from("user_roles").select("user_id, role");
-    
+
     const adminIds = new Set((roles ?? []).filter(r => r.role === "admin").map(r => r.user_id));
-    
+
     setUsers((profiles ?? []).map(p => ({
       ...p,
       isAdmin: adminIds.has(p.user_id),
@@ -37,11 +48,18 @@ export default function AdminUsers() {
 
   useEffect(() => { load(); }, []);
 
-  const toggleAdmin = async (profile: UserProfile) => {
+  const confirmToggle = (profile: UserProfile) => {
     if (profile.user_id === currentUser?.id) {
       toast.error("You cannot remove your own admin role");
       return;
     }
+    setPendingProfile(profile);
+  };
+
+  const executeToggle = async () => {
+    if (!pendingProfile) return;
+    const profile = pendingProfile;
+    setPendingProfile(null);
 
     if (profile.isAdmin) {
       const { error } = await supabase.from("user_roles").delete().eq("user_id", profile.user_id).eq("role", "admin");
@@ -88,7 +106,7 @@ export default function AdminUsers() {
                       <Button
                         variant={u.isAdmin ? "destructive" : "default"}
                         size="sm"
-                        onClick={() => toggleAdmin(u)}
+                        onClick={() => confirmToggle(u)}
                         disabled={u.user_id === currentUser?.id}
                       >
                         {u.isAdmin ? <><ShieldOff className="me-1 h-4 w-4" /> Remove Admin</> : <><ShieldCheck className="me-1 h-4 w-4" /> Make Admin</>}
@@ -101,6 +119,30 @@ export default function AdminUsers() {
           </CardContent>
         </Card>
       </section>
+
+      <AlertDialog open={!!pendingProfile} onOpenChange={(open) => { if (!open) setPendingProfile(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingProfile?.isAdmin ? "Remove Admin Role" : "Grant Admin Role"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingProfile?.isAdmin
+                ? `Remove admin privileges from "${pendingProfile?.display_name || pendingProfile?.user_id}"? They will lose access to the admin panel.`
+                : `Grant admin privileges to "${pendingProfile?.display_name || pendingProfile?.user_id}"? They will have full access to the admin panel.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeToggle}
+              className={pendingProfile?.isAdmin ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+            >
+              {pendingProfile?.isAdmin ? "Remove Admin" : "Grant Admin"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

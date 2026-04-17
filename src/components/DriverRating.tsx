@@ -39,7 +39,7 @@ export default function DriverRating({
       return;
     }
 
-    const { error } = await supabase.from("driver_ratings" as any).insert({
+    const { error } = await supabase.from("driver_ratings").insert({
       user_id: user.id,
       driver_name: driverName,
       rating,
@@ -47,7 +47,7 @@ export default function DriverRating({
       pickup_location: pickupLocation,
       destination_location: destinationLocation,
       service_type: serviceType,
-    } as any);
+    });
 
     if (error) {
       toast({ title: t("delivery.ratingError"), variant: "destructive" });

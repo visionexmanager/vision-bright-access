@@ -14,21 +14,36 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [invalid, setInvalid] = useState(false);
   const navigate = useNavigate();
   const { t } = useLanguage();
 
   useEffect(() => {
-    // Listen for the PASSWORD_RECOVERY event
+    // Check hash immediately (covers PKCE flow where token is in URL)
+    const hash = window.location.hash;
+    if (
+      hash.includes("type=recovery") ||
+      hash.includes("access_token=") ||
+      new URLSearchParams(window.location.search).get("type") === "recovery"
+    ) {
+      setReady(true);
+      return;
+    }
+
+    // Listen for the PASSWORD_RECOVERY auth event
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
         setReady(true);
       }
     });
-    // Also check hash for type=recovery
-    if (window.location.hash.includes("type=recovery")) {
-      setReady(true);
-    }
-    return () => subscription.unsubscribe();
+
+    // If nothing triggers within 5 seconds, the link is invalid/expired
+    const timeout = setTimeout(() => setInvalid(true), 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,11 +72,24 @@ export default function ResetPassword() {
       <Layout>
         <div className="flex min-h-[70vh] items-center justify-center px-4 py-12">
           <Card className="w-full max-w-md">
-            <CardContent className="py-12 text-center">
-              <div className="h-10 w-10 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent mb-4" />
-              <p className="text-base text-muted-foreground">
-                {t("auth.verifyingLink") || "Verifying reset link..."}
-              </p>
+            <CardContent className="py-12 text-center space-y-4">
+              {invalid ? (
+                <>
+                  <p className="text-base font-semibold text-destructive">
+                    {t("auth.invalidResetLink") || "This reset link is invalid or has expired."}
+                  </p>
+                  <Button variant="outline" onClick={() => navigate("/forgot-password")}>
+                    {t("auth.requestNewLink") || "Request a new link"}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="h-10 w-10 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                  <p className="text-base text-muted-foreground">
+                    {t("auth.verifyingLink") || "Verifying reset link..."}
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

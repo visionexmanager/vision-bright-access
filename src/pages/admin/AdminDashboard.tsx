@@ -12,10 +12,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     const load = async () => {
       const [p, c, u, r] = await Promise.all([
-        supabase.from("products").select("id", { count: "exact", head: true }),
-        supabase.from("content_items").select("id", { count: "exact", head: true }),
-        supabase.from("profiles").select("id", { count: "exact", head: true }),
-        supabase.from("service_requests").select("id", { count: "exact", head: true }),
+        supabase.from("products").select("id", { count: "exact", head: true }).catch(() => ({ count: null })),
+        supabase.from("content_items").select("id", { count: "exact", head: true }).catch(() => ({ count: null })),
+        supabase.from("profiles").select("id", { count: "exact", head: true }).catch(() => ({ count: null })),
+        supabase.from("service_requests").select("id", { count: "exact", head: true }).catch(() => ({ count: null })),
       ]);
       setStats({
         products: p.count ?? 0,

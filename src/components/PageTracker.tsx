@@ -16,7 +16,7 @@ export function PageTracker() {
       sessionStorage.setItem("vx_session_id", sid);
     }
 
-    supabase.from("page_events" as any).insert({
+    supabase.from("page_events").insert({
       event_type: "page_view",
       page_path: location.pathname,
       page_title: document.title,
