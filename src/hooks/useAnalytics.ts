@@ -27,15 +27,15 @@ export function usePageTracking() {
       page_title: document.title,
       user_id: user?.id ?? null,
       session_id: getSessionId(),
-    } as any).then(() => {});
+    }).then(() => {});
   }, [location.pathname, user?.id]);
 }
 
-export function trackEvent(eventType: string, pagePath: string, metadata?: Record<string, any>) {
+export function trackEvent(eventType: string, pagePath: string, metadata?: Record<string, unknown>) {
   supabase.from("page_events").insert({
     event_type: eventType,
     page_path: pagePath,
     metadata: metadata ?? {},
     session_id: getSessionId(),
-  } as any).then(() => {});
+  }).then(() => {});
 }

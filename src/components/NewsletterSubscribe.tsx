@@ -39,13 +39,13 @@ export function NewsletterSubscribe() {
 
     setLoading(true);
     const { error } = await supabase
-      .from("newsletter_subscribers" as any)
-      .insert({ email: email.trim().toLowerCase(), topics } as any);
+      .from("newsletter_subscribers")
+      .insert({ email: email.trim().toLowerCase(), topics });
 
     setLoading(false);
 
     if (error) {
-      if (error.code === "23505") {
+      if ((error as { code?: string }).code === "23505") {
         toast({ title: t("newsletter.alreadySubscribed"), variant: "default" });
       } else {
         toast({ title: t("newsletter.error"), variant: "destructive" });

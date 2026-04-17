@@ -61,14 +61,14 @@ export default function Contact() {
     }
 
     setLoading(true);
-    const { error } = await supabase.from("service_requests" as any).insert({
+    const { error } = await supabase.from("service_requests").insert({
       user_id: user?.id ?? null,
       full_name: parsed.data.fullName,
       email: parsed.data.email,
       phone: parsed.data.phone || null,
       service_type: parsed.data.serviceType,
       message: parsed.data.message,
-    } as any);
+    });
 
     setLoading(false);
 

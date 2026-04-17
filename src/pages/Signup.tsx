@@ -20,13 +20,21 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password.length < 6) {
+      toast.error(t("auth.passwordTooShort") || "Password must be at least 6 characters");
+      return;
+    }
+    if (!displayName.trim()) {
+      toast.error(t("auth.nameRequired") || "Display name is required");
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { display_name: displayName },
-        emailRedirectTo: window.location.origin,
+        data: { display_name: displayName.trim() },
+        emailRedirectTo: `${window.location.origin}/dashboard`,
       },
     });
     setLoading(false);
