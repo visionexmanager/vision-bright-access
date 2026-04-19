@@ -6,11 +6,11 @@ import { useSound } from "@/contexts/SoundContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mic, Users, Radio, Globe, Trash2, Loader2, LogIn, LogOut } from "lucide-react";
+import { Mic, Users, Radio, Globe, Trash2, Loader2, LogIn } from "lucide-react";
 import { DEFAULT_ROOMS, VOICE_ROOM_CONFIGS } from "@/systems/voiceRoomSystem";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import communityImg from "@/assets/community-illustration.jpg";
 
@@ -32,6 +32,7 @@ export default function Community() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useSound();
+  const navigate = useNavigate();
   const isAr = lang === "ar";
 
   const [rooms, setRooms] = useState<VoiceRoom[]>([]);
@@ -39,7 +40,6 @@ export default function Community() {
   const [creating, setCreating] = useState<string | null>(null);
   const [memberCounts, setMemberCounts] = useState<RoomMemberCount>({});
   const [myMemberships, setMyMemberships] = useState<RoomMyMembership>({});
-  const [joiningRoom, setJoiningRoom] = useState<string | null>(null);
 
   const defaultRoomIds = DEFAULT_ROOMS.map((r) => r.id);
 
@@ -101,25 +101,10 @@ export default function Community() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchMemberCounts, fetchMyMemberships]);
 
-  const joinRoom = async (roomId: string) => {
+  const joinRoom = (roomId: string) => {
     if (!user) return;
-    setJoiningRoom(roomId);
-    const { error } = await supabase.from("voice_room_members").insert({
-      room_id: roomId,
-      user_id: user.id,
-    });
-    if (error) {
-      if (error.code === "23505") {
-        toast({ title: t("community.alreadyJoined") });
-      } else {
-        playSound("error");
-        toast({ title: t("community.errorTitle"), description: error.message, variant: "destructive" });
-      }
-    } else {
-      playSound("success");
-      toast({ title: t("community.joinedRoom") });
-    }
-    setJoiningRoom(null);
+    playSound("navigate");
+    navigate(`/community/room/${roomId}`);
   };
 
   const leaveRoom = async (roomId: string) => {
@@ -166,35 +151,15 @@ export default function Community() {
 
   const renderJoinButton = (roomId: string, maxUsers: number) => {
     const count = memberCounts[roomId] || 0;
-    const isMember = myMemberships[roomId];
     const isFull = maxUsers < 999 && count >= maxUsers;
-    const isProcessing = joiningRoom === roomId;
 
     if (!user) {
-      return (
-        <Button className="flex-1" disabled>
-          {t("community.loginToJoin")}
-        </Button>
-      );
-    }
-
-    if (isMember) {
-      return (
-        <Button
-          variant="outline"
-          className="flex-1 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-          disabled={isProcessing}
-          onClick={() => leaveRoom(roomId)}
-        >
-          {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
-          {t("community.leaveRoom")}
-        </Button>
-      );
+      return <Button className="flex-1" disabled>{t("community.loginToJoin")}</Button>;
     }
 
     return (
-      <Button className="flex-1" disabled={isFull || isProcessing} onClick={() => joinRoom(roomId)}>
-        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
+      <Button className="flex-1" disabled={isFull} onClick={() => joinRoom(roomId)}>
+        <LogIn className="mr-2 h-4 w-4" />
         {isFull ? t("community.roomFull") : t("community.joinRoom")}
       </Button>
     );
