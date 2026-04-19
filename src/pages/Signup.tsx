@@ -3,6 +3,7 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,9 +15,11 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const isAr = lang === "ar";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +29,10 @@ export default function Signup() {
     }
     if (!displayName.trim()) {
       toast.error(t("auth.nameRequired") || "Display name is required");
+      return;
+    }
+    if (!agreed) {
+      toast.error(isAr ? "يجب الموافقة على شروط الاستخدام وسياسة الخصوصية" : "You must agree to the Terms of Use and Privacy Policy");
       return;
     }
     setLoading(true);
@@ -69,7 +76,35 @@ export default function Signup() {
                 <Label htmlFor="password" className="text-base">{t("auth.password")}</Label>
                 <Input id="password" type="password" required minLength={6} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-12 text-base" aria-required="true" />
               </div>
-              <Button type="submit" size="lg" className="w-full text-base font-semibold" disabled={loading}>
+              {/* Consent */}
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="agree"
+                  checked={agreed}
+                  onCheckedChange={(v) => setAgreed(!!v)}
+                  className="mt-0.5 shrink-0"
+                  aria-required="true"
+                />
+                <Label htmlFor="agree" className="text-sm font-normal leading-relaxed cursor-pointer">
+                  {isAr ? (
+                    <>
+                      أوافق على{" "}
+                      <Link to="/terms-of-use" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">شروط الاستخدام</Link>
+                      {" "}و{" "}
+                      <Link to="/privacy-policy" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">سياسة الخصوصية</Link>
+                    </>
+                  ) : (
+                    <>
+                      I agree to the{" "}
+                      <Link to="/terms-of-use" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">Terms of Use</Link>
+                      {" "}and{" "}
+                      <Link to="/privacy-policy" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">Privacy Policy</Link>
+                    </>
+                  )}
+                </Label>
+              </div>
+
+              <Button type="submit" size="lg" className="w-full text-base font-semibold" disabled={loading || !agreed}>
                 {loading ? t("auth.creatingAccount") : t("auth.createAccount")}
               </Button>
             </form>

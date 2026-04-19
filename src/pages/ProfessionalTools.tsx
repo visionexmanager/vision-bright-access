@@ -40,10 +40,10 @@ const ICON_BG: Record<string, string> = {
 export default function ProfessionalTools() {
   const { user } = useAuth();
   const { balance, spendVX } = useVXWallet();
-  const { language } = useLanguage();
+  const { lang } = useLanguage();
   const { playSound } = useSound();
   const queryClient = useQueryClient();
-  const isAr = language === "ar";
+  const isAr = lang === "ar";
 
   const [activeCategory, setActiveCategory] = useState("all");
   const [buying, setBuying] = useState<string | null>(null);
