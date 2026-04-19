@@ -1,17 +1,45 @@
 import { ReactNode, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { NewsletterSubscribe } from "./NewsletterSubscribe";
 import { AIChat } from "./AIChat";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMessageNotifications } from "@/hooks/useMessageNotifications";
+import logo from "@/assets/logo.png";
+
+const FOOTER_LINKS = {
+  pages: [
+    { to: "/", labelAr: "الرئيسية",        labelEn: "Home" },
+    { to: "/marketplace", labelAr: "المتجر", labelEn: "Marketplace" },
+    { to: "/services",    labelAr: "الخدمات", labelEn: "Services" },
+    { to: "/content",     labelAr: "المحتوى", labelEn: "Content" },
+    { to: "/games",       labelAr: "الألعاب", labelEn: "Games" },
+    { to: "/news",        labelAr: "الأخبار", labelEn: "News" },
+    { to: "/contact",     labelAr: "تواصل معنا", labelEn: "Contact" },
+  ],
+  more: [
+    { to: "/professional-tools", labelAr: "الأدوات الاحترافية", labelEn: "Professional Tools" },
+    { to: "/academy",            labelAr: "الأكاديمية",          labelEn: "Academy" },
+    { to: "/community",          labelAr: "المجتمع",             labelEn: "Community" },
+    { to: "/leaderboard",        labelAr: "المتصدرين",           labelEn: "Leaderboard" },
+    { to: "/assistive-products", labelAr: "المنتجات المساعدة",   labelEn: "Assistive Products" },
+  ],
+  legal: [
+    { to: "/privacy-policy",      labelAr: "سياسة الخصوصية",       labelEn: "Privacy Policy" },
+    { to: "/terms-of-use",        labelAr: "شروط الاستخدام",        labelEn: "Terms of Use" },
+    { to: "/community-guidelines",labelAr: "إرشادات المجتمع",       labelEn: "Community Guidelines" },
+    { to: "/marketplace-policy",  labelAr: "سياسة المتجر",          labelEn: "Marketplace Policy" },
+    { to: "/accessibility",       labelAr: "إمكانية الوصول",        labelEn: "Accessibility" },
+    { to: "/legal-disclaimer",    labelAr: "إخلاء المسؤولية",       labelEn: "Legal Disclaimer" },
+  ],
+};
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { pathname } = useLocation();
+  const isAr = lang === "ar";
   useMessageNotifications();
 
-  // Scroll to top and move focus to main content on route change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     document.getElementById("main-content")?.focus();
@@ -26,14 +54,77 @@ export function Layout({ children }: { children: ReactNode }) {
       <main id="main-content" tabIndex={-1} className="flex-1 animate-page-in">
         {children}
       </main>
-      <footer className="border-t bg-card py-10" role="contentinfo">
-        <div className="section-container">
+
+      <footer className="border-t bg-card" role="contentinfo">
+        <div className="section-container py-8">
           <NewsletterSubscribe />
-          <p className="mt-8 text-center text-muted-foreground">
+
+          {/* Sitemap columns */}
+          <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Brand */}
+            <div>
+              <img
+                src={logo}
+                alt="VisionEx logo"
+                className="h-9 w-auto object-contain mb-3"
+                width={240}
+                height={160}
+              />
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {isAr ? "منصة مصممة للجميع — سهلة الوصول من البداية." : "A platform built for everyone — accessible by design."}
+              </p>
+            </div>
+
+            {/* Main pages */}
+            <div>
+              <h3 className="text-sm font-semibold mb-3">{isAr ? "الصفحات" : "Pages"}</h3>
+              <ul className="space-y-2">
+                {FOOTER_LINKS.pages.map((l) => (
+                  <li key={l.to}>
+                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      {isAr ? l.labelAr : l.labelEn}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* More */}
+            <div>
+              <h3 className="text-sm font-semibold mb-3">{isAr ? "المزيد" : "More"}</h3>
+              <ul className="space-y-2">
+                {FOOTER_LINKS.more.map((l) => (
+                  <li key={l.to}>
+                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      {isAr ? l.labelAr : l.labelEn}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h3 className="text-sm font-semibold mb-3">{isAr ? "قانوني" : "Legal"}</h3>
+              <ul className="space-y-2">
+                {FOOTER_LINKS.legal.map((l) => (
+                  <li key={l.to}>
+                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      {isAr ? l.labelAr : l.labelEn}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Copyright */}
+          <div className="mt-8 border-t pt-5 text-center text-sm text-muted-foreground">
             {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
-          </p>
+          </div>
         </div>
       </footer>
+
       <AIChat />
     </div>
   );
