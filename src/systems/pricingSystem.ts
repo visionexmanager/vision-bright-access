@@ -27,6 +27,11 @@ export const SIMULATION_PRICES = {
   lifetimeAccess: 25000,
 } as const;
 
+// ── Professional Tools (Windows .bat) ──
+export const PRO_TOOL_PRICES = {
+  singleTool: 1000,
+} as const;
+
 // ── Technical Services ──
 export const TECH_SERVICE_PRICES = {
   fileDownload: 500,
