@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
-import { Globe, Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video, Coins } from "lucide-react";
+import { Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video, Coins } from "lucide-react";
 import { TECH_SERVICE_PRICES, formatVX } from "@/systems/pricingSystem";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -78,100 +78,93 @@ export default function Services() {
           ))}
         </StaggerGrid>
 
-        {/* Delivery CTA */}
+        {/* More Services */}
         <AnimatedSection className="mt-8">
-          <Link to="/services/delivery" onClick={() => playSound("navigate")}>
-            <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
-              <CardContent className="flex items-center gap-6 p-8">
-                <div className="rounded-xl bg-primary/10 p-4"><Truck className="h-10 w-10 text-primary" /></div>
-                <div className="flex-1">
-                  <h2 className="text-2xl font-black text-foreground">{t("delivery.serviceTitle")}</h2>
-                  <p className="text-muted-foreground mt-1">{t("delivery.serviceDesc")}</p>
-                </div>
-                <ArrowRight className="h-8 w-8 text-primary" />
-              </CardContent>
-            </Card>
-          </Link>
-        </AnimatedSection>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Link to="/services/delivery" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-sky-500/10 p-3 shrink-0">
+                    <Truck className="h-6 w-6 text-sky-600 dark:text-sky-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">{t("delivery.serviceTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("delivery.serviceDesc")}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
-        {/* Economy CTA */}
-        <AnimatedSection className="mt-4">
-          <Link to="/services/economy" onClick={() => playSound("navigate")}>
-            <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
-              <CardContent className="flex items-center gap-6 p-8">
-                <div className="rounded-xl bg-primary/10 p-4"><BarChart3 className="h-10 w-10 text-primary" /></div>
-                <div className="flex-1">
-                  <h2 className="text-2xl font-black text-foreground">{t("econ.title")}</h2>
-                  <p className="text-muted-foreground mt-1">{t("econ.subtitle")}</p>
-                </div>
-                <ArrowRight className="h-8 w-8 text-primary" />
-              </CardContent>
-            </Card>
-          </Link>
-        </AnimatedSection>
+            <Link to="/services/economy" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-indigo-500/10 p-3 shrink-0">
+                    <BarChart3 className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">{t("econ.title")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("econ.subtitle")}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
-        {/* Nutrition CTA */}
-        <AnimatedSection className="mt-4">
-          <Link to="/services/nutrition" onClick={() => playSound("navigate")}>
-            <Card className="transition-shadow hover:shadow-lg border-emerald-500/20 bg-emerald-500/5">
-              <CardContent className="flex items-center gap-6 p-8">
-                <div className="rounded-xl bg-emerald-500/10 p-4"><Heart className="h-10 w-10 text-emerald-600" /></div>
-                <div className="flex-1">
-                  <h2 className="text-2xl font-black text-foreground">{t("nutrition.serviceTitle")}</h2>
-                  <p className="text-muted-foreground mt-1">{t("nutrition.serviceDesc")}</p>
-                </div>
-                <ArrowRight className="h-8 w-8 text-emerald-600" />
-              </CardContent>
-            </Card>
-          </Link>
-        </AnimatedSection>
+            <Link to="/services/nutrition" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-emerald-500/10 p-3 shrink-0">
+                    <Heart className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">{t("nutrition.serviceTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("nutrition.serviceDesc")}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
-        {/* Career Hub CTA */}
-        <AnimatedSection className="mt-4">
-          <Link to="/services/career-hub" onClick={() => playSound("navigate")}>
-            <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
-              <CardContent className="flex items-center gap-6 p-8">
-                <div className="rounded-xl bg-primary/10 p-4"><Briefcase className="h-10 w-10 text-primary" /></div>
-                <div className="flex-1">
-                  <h2 className="text-2xl font-black text-foreground">{t("career.title")}</h2>
-                  <p className="text-muted-foreground mt-1">{t("career.subtitle")}</p>
-                </div>
-                <ArrowRight className="h-8 w-8 text-primary" />
-              </CardContent>
-            </Card>
-          </Link>
-        </AnimatedSection>
+            <Link to="/services/career-hub" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-amber-500/10 p-3 shrink-0">
+                    <Briefcase className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">{t("career.title")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("career.subtitle")}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
-        {/* Music Conservatory CTA */}
-        <AnimatedSection className="mt-4">
-          <Link to="/services/music-conservatory" onClick={() => playSound("navigate")}>
-            <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
-              <CardContent className="flex items-center gap-6 p-8">
-                <div className="rounded-xl bg-primary/10 p-4"><Music className="h-10 w-10 text-primary" /></div>
-                <div className="flex-1">
-                  <h2 className="text-2xl font-black text-foreground">{t("music.title")}</h2>
-                  <p className="text-muted-foreground mt-1">{t("music.subtitle")}</p>
-                </div>
-                <ArrowRight className="h-8 w-8 text-primary" />
-              </CardContent>
-            </Card>
-          </Link>
-        </AnimatedSection>
+            <Link to="/services/music-conservatory" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-purple-500/10 p-3 shrink-0">
+                    <Music className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">{t("music.title")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("music.subtitle")}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
-        {/* Global Studio CTA */}
-        <AnimatedSection className="mt-4">
-          <Link to="/services/global-studio" onClick={() => playSound("navigate")}>
-            <Card className="transition-shadow hover:shadow-lg border-primary/20 bg-primary/5">
-              <CardContent className="flex items-center gap-6 p-8">
-                <div className="rounded-xl bg-primary/10 p-4"><Video className="h-10 w-10 text-primary" /></div>
-                <div className="flex-1">
-                  <h2 className="text-2xl font-black text-foreground">{t("studio.title")}</h2>
-                  <p className="text-muted-foreground mt-1">{t("studio.subtitle")}</p>
-                </div>
-                <ArrowRight className="h-8 w-8 text-primary" />
-              </CardContent>
-            </Card>
-          </Link>
+            <Link to="/services/global-studio" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-rose-500/10 p-3 shrink-0">
+                    <Video className="h-6 w-6 text-rose-600 dark:text-rose-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">{t("studio.title")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("studio.subtitle")}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
         </AnimatedSection>
 
         {/* Academy CTA */}
