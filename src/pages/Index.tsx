@@ -72,11 +72,9 @@ export default function Index() {
             {steps.map((s) => (
               <StaggerItem key={s.num}>
                 <div className="flex flex-col items-center text-center">
-                  <div className="relative mb-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                      <s.icon className="h-7 w-7" aria-hidden="true" />
-                    </div>
-                    <span className="absolute -end-1 -top-1 flex h-7 w-7 items-center justify-center rounded-full bg-card text-sm font-bold shadow border">{s.num}</span>
+                  <span className="mb-1 text-5xl font-black text-primary/15 leading-none select-none">{s.num}</span>
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                    <s.icon className="h-6 w-6" aria-hidden="true" />
                   </div>
                   <h3 className="mb-2 text-lg font-bold">{s.title}</h3>
                   <p className="text-sm text-muted-foreground">{s.desc}</p>
@@ -93,22 +91,25 @@ export default function Index() {
           <AnimatedSection>
             <h2 id="features-heading" className="mb-10 text-center text-3xl font-bold">{t("home.featuresTitle")}</h2>
           </AnimatedSection>
-          <StaggerGrid className="grid gap-6 sm:grid-cols-3 xl:grid-cols-4">
-            {features.map((f) => (
-              <StaggerItem key={f.title}>
-                <Link to={f.to} className="group" onClick={() => playSound("navigate")}>
-                  <Card className="h-full transition-shadow hover:shadow-lg group-focus-visible:ring-4 group-focus-visible:ring-ring">
-                    <CardContent className="flex flex-col items-start gap-4 p-8">
-                      <div className="rounded-xl bg-primary/10 p-3">
-                        <f.icon className="h-8 w-8 text-primary" aria-hidden="true" />
-                      </div>
-                      <h3 className="text-xl font-bold">{f.title}</h3>
-                      <p className="text-muted-foreground">{f.desc}</p>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </StaggerItem>
-            ))}
+          <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map((f, i) => {
+              const Icon = f.icon;
+              return (
+                <StaggerItem key={f.title} className={i === 0 ? "sm:col-span-2 lg:col-span-1" : ""}>
+                  <Link to={f.to} className="group" onClick={() => playSound("navigate")}>
+                    <Card className={`h-full transition-shadow hover:shadow-lg group-focus-visible:ring-4 group-focus-visible:ring-ring ${i === 0 ? "bg-primary/5 border-primary/20" : ""}`}>
+                      <CardContent className={`flex flex-col items-start gap-4 ${i === 0 ? "p-10" : "p-8"}`}>
+                        <div className={`rounded-xl ${i === 0 ? "bg-primary/15 p-4" : "bg-primary/10 p-3"}`}>
+                          <Icon className={`text-primary ${i === 0 ? "h-10 w-10" : "h-8 w-8"}`} aria-hidden="true" />
+                        </div>
+                        <h3 className={`font-bold ${i === 0 ? "text-2xl" : "text-xl"}`}>{f.title}</h3>
+                        <p className="text-muted-foreground">{f.desc}</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </StaggerItem>
+              );
+            })}
           </StaggerGrid>
         </div>
       </section>
