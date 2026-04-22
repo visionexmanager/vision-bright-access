@@ -51,6 +51,7 @@ const Messages = lazy(() => import("./pages/Messages"));
 const Settings = lazy(() => import("./pages/Settings"));
 const PurchaseHistory = lazy(() => import("./pages/PurchaseHistory"));
 const ProfessionalTools = lazy(() => import("./pages/ProfessionalTools"));
+const ToolDetail = lazy(() => import("./pages/ToolDetail"));
 
 // New service pages
 const CareerHub = lazy(() => import("./pages/services/CareerHub"));
@@ -188,6 +189,7 @@ const App = () => (
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/purchase-history" element={<PurchaseHistory />} />
                     <Route path="/professional-tools" element={<ProfessionalTools />} />
+                    <Route path="/professional-tools/:toolId" element={<ToolDetail />} />
                     {/* Legal pages */}
                     <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                     <Route path="/terms-of-use" element={<TermsOfUse />} />

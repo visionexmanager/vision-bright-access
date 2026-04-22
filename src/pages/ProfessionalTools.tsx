@@ -6,14 +6,12 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useSound } from "@/contexts/SoundContext";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 import { AnimatedSection, StaggerGrid, StaggerItem } from "@/components/AnimatedSection";
 import { PROFESSIONAL_TOOLS, TOOL_CATEGORIES, TOOL_PRICE } from "@/data/professionalTools";
 import { Link } from "react-router-dom";
-import { Coins, Download, ShieldCheck, CheckCircle2, Lock, Terminal } from "lucide-react";
+import { Coins, CheckCircle2, Lock, Terminal, ArrowRight } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -39,14 +37,11 @@ const ICON_BG: Record<string, string> = {
 
 export default function ProfessionalTools() {
   const { user } = useAuth();
-  const { balance, spendVX } = useVXWallet();
+  const { balance } = useVXWallet();
   const { lang } = useLanguage();
-  const { playSound } = useSound();
-  const queryClient = useQueryClient();
   const isAr = lang === "ar";
 
   const [activeCategory, setActiveCategory] = useState("all");
-  const [buying, setBuying] = useState<string | null>(null);
 
   // Load user's purchased tools
   const { data: purchasedIds = [] } = useQuery({
@@ -64,55 +59,6 @@ export default function ProfessionalTools() {
   const filtered = activeCategory === "all"
     ? PROFESSIONAL_TOOLS
     : PROFESSIONAL_TOOLS.filter((t) => t.category === activeCategory);
-
-  const handleBuyAndDownload = async (toolId: string, filename: string, name: string) => {
-    if (!user) {
-      toast({ title: "Login required", description: "Please log in to purchase tools.", variant: "destructive" });
-      return;
-    }
-
-    // Already purchased — just download
-    if (purchasedIds.includes(toolId)) {
-      triggerDownload(filename);
-      return;
-    }
-
-    setBuying(toolId);
-    const ok = await spendVX(TOOL_PRICE, "pro_tool", name, toolId);
-    if (!ok) { setBuying(null); return; }
-
-    // Record purchase
-    const { error } = await supabase
-      .from("tool_purchases")
-      .insert({ user_id: user.id, tool_id: toolId, points_spent: TOOL_PRICE });
-
-    if (error) {
-      toast({ title: "Purchase record failed", description: error.message, variant: "destructive" });
-      setBuying(null);
-      return;
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["tool-purchases", user.id] });
-    playSound("success");
-    toast({
-      title: isAr ? "تم الشراء!" : "Purchase successful!",
-      description: isAr
-        ? `تم خصم ${TOOL_PRICE.toLocaleString()} VX — جاري التحميل…`
-        : `${TOOL_PRICE.toLocaleString()} VX deducted — downloading…`,
-    });
-
-    triggerDownload(filename);
-    setBuying(null);
-  };
-
-  const triggerDownload = (filename: string) => {
-    const a = document.createElement("a");
-    a.href = `/tools/${filename}`;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
 
   return (
     <Layout>
@@ -182,90 +128,65 @@ export default function ProfessionalTools() {
           {filtered.map((tool) => {
             const Icon = tool.icon;
             const purchased = purchasedIds.includes(tool.id);
-            const isBuying = buying === tool.id;
 
             return (
               <StaggerItem key={tool.id}>
-                <Card className="flex h-full flex-col overflow-hidden transition-shadow hover:shadow-md">
-                  <CardContent className="flex flex-1 flex-col gap-4 p-6">
+                <Link to={`/professional-tools/${tool.id}`} className="block h-full">
+                  <Card className="flex h-full flex-col overflow-hidden transition-all hover:shadow-lg hover:scale-[1.02] cursor-pointer">
+                    <CardContent className="flex flex-1 flex-col gap-4 p-6">
 
-                    {/* Icon + category */}
-                    <div className="flex items-start justify-between">
-                      <div className={`rounded-xl p-3 ${ICON_BG[tool.category]}`}>
-                        <Icon className={`h-7 w-7 ${ICON_COLORS[tool.category]}`} aria-hidden="true" />
+                      {/* Icon + category */}
+                      <div className="flex items-start justify-between">
+                        <div className={`rounded-xl p-3 ${ICON_BG[tool.category]}`}>
+                          <Icon className={`h-7 w-7 ${ICON_COLORS[tool.category]}`} aria-hidden="true" />
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge className={`text-xs font-medium border-0 ${CATEGORY_COLORS[tool.category]}`}>
+                            {isAr ? tool.categoryAr : tool.category}
+                          </Badge>
+                          {purchased && (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-xs">
+                              <CheckCircle2 className="h-3 w-3 me-1" />
+                              {isAr ? "مشترى" : "Owned"}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                      <Badge className={`text-xs font-medium border-0 ${CATEGORY_COLORS[tool.category]}`}>
-                        {isAr ? tool.categoryAr : tool.category}
-                      </Badge>
-                    </div>
 
-                    {/* Name + description */}
-                    <div className="flex-1">
-                      <h2 className="text-lg font-bold mb-1.5">
-                        {isAr ? tool.nameAr : tool.name}
-                      </h2>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {isAr ? tool.descriptionAr : tool.description}
-                      </p>
-                    </div>
-
-                    {/* Features */}
-                    <ul className="grid grid-cols-2 gap-1">
-                      {(isAr ? tool.featuresAr : tool.features).map((f) => (
-                        <li key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-
-                    {/* Admin badge */}
-                    {tool.requiresAdmin && (
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-                        {isAr ? "يحتاج صلاحيات المسؤول" : "Requires admin privileges"}
+                      {/* Name + description */}
+                      <div className="flex-1">
+                        <h2 className="text-lg font-bold mb-1.5">
+                          {isAr ? tool.nameAr : tool.name}
+                        </h2>
+                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                          {isAr ? tool.descriptionAr : tool.description}
+                        </p>
                       </div>
-                    )}
 
-                    {/* Price + CTA */}
-                    <div className="mt-auto pt-2 border-t flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-1.5">
-                        {purchased ? (
-                          <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                            <CheckCircle2 className="h-4 w-4" />
-                            {isAr ? "مشترى" : "Purchased"}
-                          </span>
-                        ) : (
-                          <>
-                            <Coins className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-bold text-primary">{formatVX(tool.price)}</span>
-                          </>
-                        )}
+                      {/* Features preview */}
+                      <ul className="grid grid-cols-2 gap-1">
+                        {(isAr ? tool.featuresAr : tool.features).slice(0, 4).map((f) => (
+                          <li key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+                            {f}
+                          </li>
+                        ))}
+                      </ul>
+
+                      {/* Price + CTA */}
+                      <div className="mt-auto pt-3 border-t flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <Coins className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-bold text-primary">{formatVX(tool.price)}</span>
+                        </div>
+                        <span className="flex items-center gap-1 text-sm font-semibold text-primary">
+                          {isAr ? "عرض التفاصيل" : "View Details"}
+                          <ArrowRight className="h-4 w-4" />
+                        </span>
                       </div>
-                      <Button
-                        size="sm"
-                        variant={purchased ? "outline" : "default"}
-                        className="gap-1.5 font-semibold"
-                        disabled={isBuying || (!purchased && !user)}
-                        onClick={() => handleBuyAndDownload(tool.id, tool.filename, tool.name)}
-                      >
-                        {isBuying ? (
-                          <span className="flex items-center gap-1.5">
-                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                            {isAr ? "جاري…" : "Processing…"}
-                          </span>
-                        ) : (
-                          <>
-                            <Download className="h-4 w-4" />
-                            {purchased
-                              ? (isAr ? "تحميل" : "Download")
-                              : (isAr ? "اشترِ وحمّل" : "Buy & Download")}
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
               </StaggerItem>
             );
           })}
