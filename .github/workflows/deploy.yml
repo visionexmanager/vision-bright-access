@@ -28,7 +28,32 @@ jobs:
             # Build
             npm run build
 
-            # Reload nginx (no restart needed)
-            sudo systemctl reload nginx
+            # Configure nginx to serve the dist folder
+            cat > /etc/nginx/sites-available/vision-bright-access << 'EOF'
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    root ${{ secrets.SERVER_PATH }}/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+}
+EOF
+
+            # Enable the site
+            ln -sf /etc/nginx/sites-available/vision-bright-access /etc/nginx/sites-enabled/vision-bright-access
+
+            # Remove default site if exists
+            rm -f /etc/nginx/sites-enabled/default
+
+            # Test and reload nginx
+            nginx -t && systemctl reload nginx
 
             echo "✅ Deployed successfully"
