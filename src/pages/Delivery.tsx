@@ -321,7 +321,7 @@ export default function Delivery() {
                               <Button
                                 variant="outline"
                                 className={cn(
-                                  "justify-start text-left font-bold rounded-2xl h-auto p-4",
+                                  "justify-start text-start font-bold rounded-2xl h-auto p-4",
                                   !scheduledDate && "text-muted-foreground"
                                 )}
                               >
@@ -419,7 +419,7 @@ export default function Delivery() {
                 <div className="w-24 h-24 bg-muted rounded-[35px] overflow-hidden border-4 border-primary/10 flex items-center justify-center">
                   <Car size={40} className="text-primary" />
                 </div>
-                <div className="flex-1 text-center md:text-right">
+                <div className="flex-1 text-center md:text-end">
                   <div className="flex items-center gap-3 justify-center md:justify-start">
                     <h3 className="text-2xl font-black text-foreground">{t("delivery.driverName")}</h3>
                     <div className="flex items-center text-orange-500 font-bold text-sm bg-orange-500/10 px-2 py-1 rounded-lg">

@@ -75,6 +75,7 @@ const LaptopTechMaster = lazy(() => import("./pages/games/LaptopTechMaster"));
 const MusicEarMaster = lazy(() => import("./pages/games/MusicEarMaster"));
 const FashionDesigner = lazy(() => import("./pages/games/FashionDesigner"));
 const VelocityXRacing = lazy(() => import("./pages/games/VelocityXRacing"));
+const Akinator = lazy(() => import("./pages/games/Akinator"));
 
 // Legal pages
 const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
@@ -174,6 +175,7 @@ const App = () => (
                     <Route path="/games/music-ear" element={<MusicEarMaster />} />
                     <Route path="/games/fashion-designer" element={<FashionDesigner />} />
                     <Route path="/games/velocity-racing" element={<VelocityXRacing />} />
+                    <Route path="/games/akinator" element={<Akinator />} />
                     <Route path="/community" element={<Community />} />
                     <Route path="/community/room/:roomId" element={<VoiceRoom />} />
                     <Route path="/coins-store" element={<CoinsStore />} />

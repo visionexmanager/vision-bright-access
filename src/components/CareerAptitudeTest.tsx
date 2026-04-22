@@ -353,7 +353,7 @@ ${summary}
             ) : (
               pastResults.map(r => (
                 <div key={r.id} className="p-4 rounded-2xl border border-border bg-muted/30 flex justify-between items-center gap-3">
-                  <button className="flex-1 text-right" onClick={() => viewPastResult(r)}>
+                  <button className="flex-1 text-start" onClick={() => viewPastResult(r)}>
                     <p className="font-medium text-foreground text-sm truncate">{r.analysis_text.slice(0, 80)}...</p>
                     <p className="text-xs text-muted-foreground mt-1">{new Date(r.created_at).toLocaleDateString(lang)}</p>
                   </button>
@@ -382,7 +382,7 @@ ${summary}
                   <button
                     key={opt.value}
                     onClick={() => selectAnswer(opt.value)}
-                    className={`p-5 rounded-2xl text-right border-2 flex justify-between items-center transition-all text-base font-medium ${
+                    className={`p-5 rounded-2xl text-start border-2 flex justify-between items-center transition-all text-base font-medium ${
                       selected
                         ? "border-primary bg-primary/10 text-primary scale-[1.01]"
                         : "border-border hover:border-primary/40 hover:bg-muted/50 text-foreground"

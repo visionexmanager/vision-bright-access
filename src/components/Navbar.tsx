@@ -5,7 +5,13 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useSound } from "@/contexts/SoundContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX, ChevronDown } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useUnreadCount } from "@/hooks/useMessages";
 import { usePoints } from "@/hooks/usePoints";
@@ -25,18 +31,23 @@ export function Navbar() {
   const { enabled: soundEnabled, setEnabled: setSoundEnabled, playSound } = useSound();
   const { totalPoints } = usePoints();
 
-  const navLinks = [
+  const primaryNavLinks = [
     { to: "/", label: t("nav.home") },
     { to: "/marketplace", label: t("nav.marketplace") },
     { to: "/services", label: t("nav.services") },
     { to: "/content", label: t("nav.content") },
     { to: "/games", label: t("nav.games") },
-    { to: "/assistive-products", label: t("nav.assistiveProducts") },
-    { to: "/contact", label: t("nav.contact") },
     { to: "/community", label: t("nav.community") },
+  ];
+
+  const secondaryNavLinks = [
+    { to: "/assistive-products", label: t("nav.assistiveProducts") },
     { to: "/news", label: t("nav.news") },
+    { to: "/contact", label: t("nav.contact") },
     { to: "/professional-tools", label: "Professional Tools" },
   ];
+
+  const navLinks = [...primaryNavLinks, ...secondaryNavLinks];
 
   return (
     <nav
@@ -56,12 +67,12 @@ export function Navbar() {
 
         {/* Desktop nav */}
         <div className="hidden items-center gap-0.5 lg:flex" role="menubar">
-          {navLinks.map((link) => (
+          {primaryNavLinks.map((link) => (
             <Link
               key={link.to}
               to={link.to}
               role="menuitem"
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 xl:px-4 xl:text-base ${
+              className={`rounded-lg px-2.5 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 xl:px-3.5 xl:text-base ${
                 location.pathname === link.to
                   ? "bg-primary/10 text-primary"
                   : "text-foreground"
@@ -70,6 +81,36 @@ export function Navbar() {
               {link.label}
             </Link>
           ))}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`rounded-lg px-2.5 py-2 text-sm font-medium xl:px-3.5 xl:text-base gap-1 ${
+                  secondaryNavLinks.some((l) => location.pathname === l.to)
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground"
+                }`}
+              >
+                {t("nav.more") || "More"}
+                <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              {secondaryNavLinks.map((link) => (
+                <DropdownMenuItem key={link.to} asChild>
+                  <Link
+                    to={link.to}
+                    className={`w-full cursor-pointer ${
+                      location.pathname === link.to ? "text-primary font-medium" : ""
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="hidden items-center gap-1 lg:flex">
@@ -98,7 +139,7 @@ export function Navbar() {
                 <Button variant="ghost" size="icon" className="relative" aria-label={t("msg.title")}>
                   <MessageCircle className="h-5 w-5" />
                   {unreadMessages > 0 && (
-                    <Badge variant="destructive" className="absolute -right-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]">
+                    <Badge variant="destructive" className="absolute -end-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]">
                       {unreadMessages}
                     </Badge>
                   )}

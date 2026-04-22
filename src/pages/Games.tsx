@@ -35,7 +35,9 @@ import earmasterImg from "@/assets/game-earmaster.jpg";
 import fashionImg from "@/assets/game-fashion.jpg";
 import velocityImg from "@/assets/game-velocity.jpg";
 
-type Category = "All" | "Quiz" | "Memory" | "Word" | "Adventure" | "Cooking" | "Cards" | "Cyber" | "Logic" | "Trading" | "Action" | "Classic" | "Dice" | "Tech" | "Music" | "Creative" | "Racing" | "Design";
+import akinatorImg from "@/assets/game-logiquest.jpg";
+
+type Category = "All" | "Quiz" | "Memory" | "Word" | "Adventure" | "Cooking" | "Cards" | "Cyber" | "Logic" | "Trading" | "Action" | "Classic" | "Dice" | "Tech" | "Music" | "Creative" | "Racing" | "Design" | "Mystery";
 
 export default function Games() {
   const { t } = useLanguage();
@@ -67,6 +69,7 @@ export default function Games() {
     { to: "/games/music-ear", img: earmasterImg, title: t("games.earmaster.title"), desc: t("games.earmaster.desc"), badge: t("games.earmaster.badge"), category: "Music" as Category },
     { to: "/games/fashion-designer", img: fashionImg, title: t("games.fashion.title"), desc: t("games.fashion.desc"), badge: t("games.fashion.badge"), category: "Creative" as Category },
     { to: "/games/velocity-racing", img: velocityImg, title: t("games.velocity.title"), desc: t("games.velocity.desc"), badge: t("games.velocity.badge"), category: "Racing" as Category },
+    { to: "/games/akinator",        img: akinatorImg, title: t("games.akinator.title"), desc: t("games.akinator.desc"), badge: t("games.akinator.badge"), category: "Mystery" as Category },
   ], [t]);
 
   const categories: Category[] = ["All", ...Array.from(new Set(games.map(g => g.category))).sort() as Category[]];
@@ -96,14 +99,14 @@ export default function Games() {
         {/* Search & Filter */}
         <div className="mb-6 space-y-4">
           <div className="relative w-full max-w-lg">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               type="search"
               aria-label={t("games.searchPlaceholder") || "Search games"}
               placeholder={t("games.searchPlaceholder") || "Search games..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
+              className="ps-9"
             />
           </div>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by category">

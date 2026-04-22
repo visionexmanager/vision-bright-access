@@ -297,7 +297,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
                     step={1}
                     className="flex-1"
                   />
-                  <span className="text-sm font-bold w-10 text-right">${prices[svc.id]}</span>
+                  <span className="text-sm font-bold w-10 text-end">${prices[svc.id]}</span>
                 </div>
               ))}
             </div>

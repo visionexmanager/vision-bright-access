@@ -307,9 +307,9 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
                 key={i}
                 variant="outline"
                 onClick={() => handleChoice(choice)}
-                className="w-full h-auto py-3 text-left justify-start whitespace-normal"
+                className="w-full h-auto py-3 text-start justify-start whitespace-normal"
               >
-                <MessageCircle className="h-4 w-4 mr-2 shrink-0" />
+                <MessageCircle className="h-4 w-4 me-2 shrink-0" />
                 {choice.text}
               </Button>
             ))}

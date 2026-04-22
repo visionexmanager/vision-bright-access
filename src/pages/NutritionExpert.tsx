@@ -688,7 +688,7 @@ export default function NutritionExpert() {
                         ) : (
                           savedPlans.map((sp) => (
                             <div key={sp.id} className="flex items-center justify-between bg-background p-3 rounded-xl">
-                              <button onClick={() => loadDietPlan(sp.plan)} className="flex items-center gap-3 text-left flex-1">
+                              <button onClick={() => loadDietPlan(sp.plan)} className="flex items-center gap-3 text-start flex-1">
                                 <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
                                 <div>
                                   <p className="text-sm font-bold text-foreground">{sp.plan_name}</p>

@@ -195,7 +195,7 @@ export default function Academy() {
 
   return (
     <Layout>
-      <div className="font-sans overflow-x-hidden text-right" dir="rtl">
+      <div className="font-sans overflow-x-hidden text-start">
         {/* Onboarding */}
         {step < 4 && (
           <div className="flex items-center justify-center min-h-[80vh] p-6 bg-gradient-to-br from-background to-muted/40">
@@ -261,7 +261,7 @@ export default function Academy() {
                       <Button
                         key={l}
                         variant={profile.level === l ? "default" : "outline"}
-                        className="p-5 h-auto rounded-2xl text-right flex justify-between items-center text-lg"
+                        className="p-5 h-auto rounded-2xl text-start flex justify-between items-center text-lg"
                         onClick={() => setProfile({ ...profile, level: l })}
                       >
                         <span className="font-bold">{l}</span>
