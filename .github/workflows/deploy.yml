@@ -31,9 +31,9 @@ jobs:
             # Configure nginx to serve the dist folder
             cat > /etc/nginx/sites-available/vision-bright-access << 'EOF'
 server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
+    listen 80;
+    listen [::]:80;
+    server_name visionex.app www.visionex.app;
 
     root ${{ secrets.SERVER_PATH }}/dist;
     index index.html;
