@@ -94,6 +94,10 @@ const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const AdminRequests = lazy(() => import("./pages/admin/AdminRequests"));
 const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
 const AdminSubscribers = lazy(() => import("./pages/admin/AdminSubscribers"));
+const AdminModeration = lazy(() => import("./pages/admin/AdminModeration"));
+const AdminEmails = lazy(() => import("./pages/admin/AdminEmails"));
+const AdminDatabase = lazy(() => import("./pages/admin/AdminDatabase"));
+const AdminLogs = lazy(() => import("./pages/admin/AdminLogs"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -200,6 +204,10 @@ const App = () => (
                     <Route path="/admin/requests" element={<AdminRoute><AdminRequests /></AdminRoute>} />
                     <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
                     <Route path="/admin/subscribers" element={<AdminRoute><AdminSubscribers /></AdminRoute>} />
+                    <Route path="/admin/moderation" element={<AdminRoute><AdminModeration /></AdminRoute>} />
+                    <Route path="/admin/emails" element={<AdminRoute><AdminEmails /></AdminRoute>} />
+                    <Route path="/admin/database" element={<AdminRoute><AdminDatabase /></AdminRoute>} />
+                    <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
