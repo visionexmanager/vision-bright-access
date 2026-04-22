@@ -59,8 +59,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="section-container py-8">
           <NewsletterSubscribe />
 
-          {/* Sitemap columns */}
-          <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Sitemap columns: 3 columns (Brand + Pages + More) */}
+          <div className="mt-8 grid gap-8 sm:grid-cols-3">
             {/* Brand */}
             <div>
               <img
@@ -102,25 +102,26 @@ export function Layout({ children }: { children: ReactNode }) {
                 ))}
               </ul>
             </div>
-
-            {/* Legal */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">{isAr ? "قانوني" : "Legal"}</h3>
-              <ul className="space-y-2">
-                {FOOTER_LINKS.legal.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                      {isAr ? l.labelAr : l.labelEn}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
 
-          {/* Copyright */}
-          <div className="mt-8 border-t pt-5 text-center text-sm text-muted-foreground">
-            {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
+          {/* Copyright + Legal links strip */}
+          <div className="mt-8 border-t pt-5">
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
+              </p>
+              <nav aria-label={isAr ? "روابط قانونية" : "Legal links"} className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+                {FOOTER_LINKS.legal.map((l) => (
+                  <Link
+                    key={l.to}
+                    to={l.to}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
+                  >
+                    {isAr ? l.labelAr : l.labelEn}
+                  </Link>
+                ))}
+              </nav>
+            </div>
           </div>
         </div>
       </footer>

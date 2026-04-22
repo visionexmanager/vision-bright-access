@@ -175,7 +175,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
               <p className="text-xs text-muted-foreground">Score</p>
             </div>
           </div>
-          <div className="text-left space-y-1">
+          <div className="text-start space-y-1">
             {batches.map((b, i) => (
               <div key={i} className="flex justify-between text-sm p-1 rounded bg-muted/30">
                 <span>Batch {i + 1}: {b.recipe}</span>

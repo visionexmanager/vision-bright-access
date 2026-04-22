@@ -330,7 +330,7 @@ export default function SimulationRunner() {
                     <Button
                       key={i}
                       variant="outline"
-                      className="justify-start text-left h-auto py-3 px-4 whitespace-normal"
+                      className="justify-start text-start h-auto py-3 px-4 whitespace-normal"
                       onClick={() => handleChoice(choice)}
                     >
                       <span className="font-semibold mr-2 shrink-0">

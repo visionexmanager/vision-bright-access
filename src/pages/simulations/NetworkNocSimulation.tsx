@@ -261,7 +261,7 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
             <Button
               key={i}
               variant="outline"
-              className="w-full h-auto py-4 text-left justify-start"
+              className="w-full h-auto py-4 text-start justify-start"
               onClick={() => handleResponse(choice)}
             >
               <div>

@@ -312,7 +312,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
                   variant={isSelected ? "default" : "outline"}
                   size="sm"
                   onClick={() => toggleRepair(action.id)}
-                  className="h-auto py-2 flex flex-col text-xs text-left"
+                  className="h-auto py-2 flex flex-col text-xs text-start"
                 >
                   <span>{action.name}</span>
                   <span className="opacity-70">${action.cost} · {action.time}min · {action.tool}</span>

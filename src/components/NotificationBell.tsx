@@ -41,7 +41,7 @@ export function NotificationBell() {
           {unread > 0 && (
             <Badge
               variant="destructive"
-              className="absolute -right-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]"
+              className="absolute -end-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]"
             >
               {unread}
             </Badge>
