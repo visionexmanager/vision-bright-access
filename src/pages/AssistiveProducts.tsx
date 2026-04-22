@@ -92,11 +92,12 @@ export default function AssistiveProducts() {
       toast.error(t("vep.noSelection"));
       return;
     }
-    toast.info(t("vep.aiLoading"));
 
     const productNames = selectedProducts.map((p) => getProductName(p, "en")).join(", ");
-    const query = encodeURIComponent(`Compare assistive products for visually impaired: ${productNames}. Show features, specifications, prices, and similar alternatives from online stores.`);
-    window.open(`https://www.google.com/search?q=${query}`, "_blank");
+    openAIChatWithProduct(
+      productNames,
+      `Compare these assistive products and help me choose the best one for my needs: ${productNames}. Please explain the key differences, features, and who each product is best suited for.`
+    );
   };
 
   return (

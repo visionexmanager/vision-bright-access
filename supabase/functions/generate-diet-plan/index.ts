@@ -12,8 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
     const { name, weight, height, goal, lang } = await req.json();
 
@@ -42,14 +42,14 @@ Reply in JSON only with fields:
 meals (array of: name, time like "08:00 AM", calories, ingredients (string array), description),
 totalCalories (number), tips (array of 3 string tips), waterIntake (string like "3.5 Liters per day")`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: lang === "ar" ? "أنشئ خطتي الغذائية" : "Generate my diet plan" },
@@ -97,9 +97,9 @@ totalCalories (number), tips (array of 3 string tips), waterIntake (string like 
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (response.status === 401) {
+        return new Response(JSON.stringify({ error: "Invalid OpenAI API key." }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const errText = await response.text();
       console.error("AI gateway error:", response.status, errText);
