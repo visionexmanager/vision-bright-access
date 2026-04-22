@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAIChat } from "@/hooks/useAIChat";
-import { Bot, X, Send, Trash2, Square, Mic, MicOff, Timer } from "lucide-react";
+import { Bot, X, Send, Trash2, Square, Mic, MicOff, Timer, Phone } from "lucide-react";
+import { VoiceChat } from "@/components/VoiceChat";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
 
@@ -21,6 +22,7 @@ export function openAIChatWithProduct(productName: string, prompt: string) {
 export function AIChat() {
   const { t, lang } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
   const [input, setInput] = useState("");
   const { messages, isLoading, rateLimitInfo, sendMessage, clearMessages, stopGeneration } = useAIChat();
   const prevRateLimitedRef = useRef(false);
@@ -167,7 +169,17 @@ export function AIChat() {
               <span className="font-semibold text-sm">{t("ai.chatTitle")}</span>
             </div>
             <div className="flex items-center gap-1">
-              {messages.length > 0 && (
+              <Button
+                variant={voiceMode ? "default" : "ghost"}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setVoiceMode(v => !v)}
+                aria-label="Voice mode"
+                title="محادثة صوتية"
+              >
+                <Phone className="h-4 w-4" />
+              </Button>
+              {messages.length > 0 && !voiceMode && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -190,8 +202,17 @@ export function AIChat() {
             </div>
           </div>
 
-          {/* Messages area */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" aria-live="polite">
+          {/* Voice mode */}
+          {voiceMode && (
+            <VoiceChat
+              assistant="visionex"
+              assistantName="Visionex AI"
+              className="flex-1 rounded-none border-0 shadow-none"
+            />
+          )}
+
+          {/* Messages area — hidden in voice mode */}
+          <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${voiceMode ? "hidden" : ""}`} aria-live="polite">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
                 <Bot className="h-12 w-12 text-muted-foreground/40" />
@@ -250,8 +271,8 @@ export function AIChat() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input area */}
-          <div className="border-t px-3 py-3 shrink-0">
+          {/* Input area — hidden in voice mode */}
+          <div className={`border-t px-3 py-3 shrink-0 ${voiceMode ? "hidden" : ""}`}>
             <div className="flex items-end gap-2">
               {hasSpeechRecognition && (
                 <Button

@@ -13,8 +13,9 @@ import {
   User, Globe, GraduationCap, ArrowRight, Compass,
   Briefcase, Rocket, Star, MessageSquare, BrainCircuit,
   Zap, Lightbulb, Volume2, LayoutDashboard, Search,
-  Loader2, Send, Trash2
+  Loader2, Send, Trash2, Phone
 } from "lucide-react";
+import { VoiceChat } from "@/components/VoiceChat";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/academy-chat`;
 
@@ -46,6 +47,7 @@ const levels = ["ابتدائي", "متوسط", "ثانوي / بكالوريا",
 
 export default function Academy() {
   const [step, setStep] = useState(1);
+  const [voiceMode, setVoiceMode] = useState(false);
   const [profile, setProfile] = useState<StudentProfile>({
     name: "",
     gender: "male",
@@ -312,11 +314,29 @@ export default function Academy() {
                 >
                   <Volume2 className="w-6 h-6" />
                 </Button>
+                <Button
+                  variant={voiceMode ? "default" : "outline"}
+                  className="px-6 py-4 h-auto rounded-2xl font-bold"
+                  onClick={() => setVoiceMode(v => !v)}
+                >
+                  <Phone className="w-5 h-5 me-2" /> {voiceMode ? "وضع النص" : "تحدث مع منير"}
+                </Button>
                 <Button className="px-8 py-4 h-auto rounded-2xl font-bold">
                   <LayoutDashboard className="w-5 h-5 me-2" /> غرفتي الدراسية
                 </Button>
               </div>
             </motion.header>
+
+            {/* Voice mode panel */}
+            {voiceMode && (
+              <div className="mb-6">
+                <VoiceChat
+                  assistant="munir"
+                  assistantName='منير — المساعد الأكاديمي'
+                  className="max-w-lg mx-auto"
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Main Content */}
