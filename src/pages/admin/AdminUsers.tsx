@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDebounce } from "@/hooks/useDebounce";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -55,6 +56,7 @@ export default function AdminUsers() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
   const [selected, setSelected] = useState<UserProfile | null>(null);
   const [dialog, setDialog] = useState<DialogType>(null);
   const [loading, setLoading] = useState(false);
@@ -207,8 +209,8 @@ export default function AdminUsers() {
   };
 
   const filtered = users.filter(u =>
-    !search || (u.display_name || "").toLowerCase().includes(search.toLowerCase()) ||
-    u.user_id.includes(search)
+    !debouncedSearch || (u.display_name || "").toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    u.user_id.includes(debouncedSearch)
   );
 
   return (

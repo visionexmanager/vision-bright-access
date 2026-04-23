@@ -53,16 +53,26 @@ export default function AdminProducts() {
 
   useEffect(() => { load(); }, []);
 
+  const validate = (): string | null => {
+    if (!formData.name.trim()) return "اسم المنتج مطلوب";
+    if (formData.price < 0) return "السعر لا يمكن أن يكون سالباً";
+    if (formData.points < 0) return "النقاط لا يمكن أن تكون سالبة";
+    if (formData.rating < 0 || formData.rating > 5) return "التقييم يجب أن يكون بين 0 و 5";
+    return null;
+  };
+
   const handleSave = async () => {
+    const err = validate();
+    if (err) { toast.error(err); return; }
     setLoading(true);
     if (editing) {
       const { error } = await supabase.from("products").update(formData).eq("id", editing.id);
       if (error) toast.error(error.message);
-      else toast.success("Product updated");
+      else toast.success("تم تحديث المنتج");
     } else {
       // Auto-enrich new products with AI
       try {
-        toast.info("AI is enriching product data...");
+        toast.info("الذكاء الاصطناعي يُحسّن بيانات المنتج...");
         const { data: enriched, error: enrichError } = await supabase.functions.invoke("enrich-product", {
           body: { name: formData.name, category: formData.category, store_type: formData.store_type, description: formData.description },
         });
@@ -74,16 +84,16 @@ export default function AdminProducts() {
           };
           const { error } = await supabase.from("products").insert(enrichedData);
           if (error) toast.error(error.message);
-          else toast.success("Product created with AI enrichment!");
+          else toast.success("تم إنشاء المنتج مع تحسينات الذكاء الاصطناعي!");
         } else {
           const { error } = await supabase.from("products").insert(formData);
           if (error) toast.error(error.message);
-          else toast.success("Product created (without AI enrichment)");
+          else toast.success("تم إنشاء المنتج");
         }
       } catch {
         const { error } = await supabase.from("products").insert(formData);
         if (error) toast.error(error.message);
-        else toast.success("Product created");
+        else toast.success("تم إنشاء المنتج");
       }
     }
     setLoading(false);
@@ -94,10 +104,10 @@ export default function AdminProducts() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this product?")) return;
+    if (!confirm("هل أنت متأكد من حذف هذا المنتج؟")) return;
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) toast.error(error.message);
-    else { toast.success("Deleted"); load(); }
+    else { toast.success("تم الحذف"); load(); }
   };
 
   const openEdit = (p: DbProduct) => {
@@ -118,9 +128,9 @@ export default function AdminProducts() {
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
-            <h1 className="text-3xl font-bold">Manage Products</h1>
+            <h1 className="text-3xl font-bold">إدارة المنتجات</h1>
           </div>
-          <Button onClick={openNew}><Plus className="me-2 h-4 w-4" /> Add Product</Button>
+          <Button onClick={openNew}><Plus className="me-2 h-4 w-4" /> إضافة منتج</Button>
         </div>
 
         <Card>
@@ -128,14 +138,14 @@ export default function AdminProducts() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Image</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Points</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Store</TableHead>
-                  <TableHead>Stock</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead>الأيقونة</TableHead>
+                  <TableHead>الاسم</TableHead>
+                  <TableHead>السعر</TableHead>
+                  <TableHead>النقاط</TableHead>
+                  <TableHead>الفئة</TableHead>
+                  <TableHead>المتجر</TableHead>
+                  <TableHead>المخزون</TableHead>
+                  <TableHead>الإجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -164,38 +174,38 @@ export default function AdminProducts() {
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>{editing ? "Edit Product" : "New Product"}</DialogTitle>
+              <DialogTitle>{editing ? "تعديل المنتج" : "منتج جديد"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div><Label>Name</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
-              <div><Label>Description</Label><Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
+              <div><Label>الاسم *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="اسم المنتج..." /></div>
+              <div><Label>الوصف</Label><Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="وصف المنتج..." /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Price</Label><Input type="number" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} /></div>
-                <div><Label>Points</Label><Input type="number" value={formData.points} onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} /></div>
+                <div><Label>السعر (VX)</Label><Input type="number" step="0.01" min="0" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} /></div>
+                <div><Label>النقاط</Label><Input type="number" min="0" value={formData.points} onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Category</Label><Input value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} /></div>
+                <div><Label>الفئة</Label><Input value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} /></div>
                 <div>
-                  <Label>Store Type</Label>
+                  <Label>نوع المتجر</Label>
                   <Select value={formData.store_type} onValueChange={(v) => setFormData({ ...formData, store_type: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="general">General</SelectItem>
-                      <SelectItem value="accessibility">Accessibility</SelectItem>
+                      <SelectItem value="general">عام</SelectItem>
+                      <SelectItem value="accessibility">إمكانية وصول</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Emoji Icon</Label><Input value={formData.image} onChange={(e) => setFormData({ ...formData, image: e.target.value })} /></div>
-                <div><Label>Rating (0-5)</Label><Input type="number" step="0.1" min="0" max="5" value={formData.rating} onChange={(e) => setFormData({ ...formData, rating: parseFloat(e.target.value) || 0 })} /></div>
+                <div><Label>الأيقونة (إيموجي)</Label><Input value={formData.image} onChange={(e) => setFormData({ ...formData, image: e.target.value })} /></div>
+                <div><Label>التقييم (0-5)</Label><Input type="number" step="0.1" min="0" max="5" value={formData.rating} onChange={(e) => setFormData({ ...formData, rating: parseFloat(e.target.value) || 0 })} /></div>
               </div>
               <div className="flex items-center gap-2">
                 <Switch checked={formData.in_stock} onCheckedChange={(v) => setFormData({ ...formData, in_stock: v })} />
-                <Label>In Stock</Label>
+                <Label>متوفر في المخزون</Label>
               </div>
-              <Button onClick={handleSave} disabled={loading || !formData.name} className="w-full">
-                {loading ? "Saving..." : editing ? "Update Product" : "Create Product"}
+              <Button onClick={handleSave} disabled={loading || !formData.name.trim()} className="w-full">
+                {loading ? "جاري الحفظ..." : editing ? "تحديث المنتج" : "إنشاء المنتج"}
               </Button>
             </div>
           </DialogContent>

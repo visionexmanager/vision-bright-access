@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, ScrollText, Search, RefreshCw } from "lucide-react";
+import { ArrowLeft, ScrollText, Search, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useDebounce } from "@/hooks/useDebounce";
+
+const PAGE_SIZE = 50;
 
 type Log = {
   id: string;
@@ -43,23 +46,34 @@ const ACTION_LABELS: Record<string, string> = {
 export default function AdminLogs() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
   const [filterAction, setFilterAction] = useState("all");
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
 
-  const load = async () => {
+  const load = async (p = page) => {
     setLoading(true);
-    let query = supabase.from("admin_logs").select("*").order("created_at", { ascending: false }).limit(200);
+    let query = supabase
+      .from("admin_logs")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(p * PAGE_SIZE, p * PAGE_SIZE + PAGE_SIZE - 1);
     if (filterAction !== "all") query = query.eq("action", filterAction);
-    const { data } = await query;
+    const { data, count } = await query;
     setLogs((data as unknown as Log[]) ?? []);
+    setTotal(count || 0);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [filterAction]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(0); load(0); }, [filterAction]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [page]);
 
-  const filtered = search
-    ? logs.filter(l => l.action.includes(search) || l.target_id?.includes(search) ||
-        JSON.stringify(l.details || {}).includes(search))
+  const filtered = debouncedSearch
+    ? logs.filter(l => l.action.includes(debouncedSearch) || l.target_id?.includes(debouncedSearch) ||
+        JSON.stringify(l.details || {}).includes(debouncedSearch))
     : logs;
 
   return (
@@ -68,8 +82,8 @@ export default function AdminLogs() {
         <div className="mb-6 flex items-center gap-3">
           <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
           <h1 className="text-3xl font-bold">سجل العمليات</h1>
-          <Button variant="ghost" size="icon" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
-          <Badge variant="secondary">{logs.length} عملية</Badge>
+          <Button variant="ghost" size="icon" onClick={() => load()}><RefreshCw className="h-4 w-4" /></Button>
+          <Badge variant="secondary">{total} عملية</Badge>
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -92,6 +106,7 @@ export default function AdminLogs() {
           <CardContent className="p-0">
             <Table>
               <TableHeader>
+
                 <TableRow>
                   <TableHead>العملية</TableHead>
                   <TableHead>الهدف</TableHead>
@@ -133,6 +148,23 @@ export default function AdminLogs() {
             </Table>
           </CardContent>
         </Card>
+
+        {/* Pagination */}
+        {total > PAGE_SIZE && (
+          <div className="flex items-center justify-between mt-4">
+            <span className="text-sm text-muted-foreground">
+              صفحة {page + 1} من {Math.ceil(total / PAGE_SIZE)} — إجمالي {total} سجل
+            </span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)} disabled={page === 0}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(total / PAGE_SIZE) - 1}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </section>
     </Layout>
   );

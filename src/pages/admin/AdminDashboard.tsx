@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Package, FileText, Users, Settings, ShieldCheck, BarChart3,
-  Mail, ShieldAlert, Database, ScrollText, Flag, Coins, Bell
+  Mail, ShieldAlert, Database, ScrollText, Flag, Coins, Bell, AlertTriangle
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -86,6 +86,11 @@ export default function AdminDashboard() {
                 <ShieldAlert className="me-1 h-3 w-3" /> {stats.requests} طلب خدمة
               </Badge>
             </Link>
+          )}
+          {import.meta.env.VITE_LIVEKIT_URL?.includes("YOUR_PROJECT") && (
+            <Badge className="bg-yellow-500 text-black px-3 py-1.5 text-sm">
+              <AlertTriangle className="me-1 h-3 w-3" /> LiveKit URL غير مُعد — غرف الصوت معطلة
+            </Badge>
           )}
         </div>
 

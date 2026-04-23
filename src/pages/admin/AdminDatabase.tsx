@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, Database, RefreshCw, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useDebounce } from "@/hooks/useDebounce";
 
 const TABLES = [
   { name: "profiles", label: "المستخدمون" },
@@ -33,6 +34,12 @@ const TABLES = [
 
 const PAGE_SIZE = 20;
 
+const PII_COLUMNS = new Set([
+  "email", "phone", "password", "encrypted_password",
+  "raw_user_meta_data", "raw_app_meta_data", "confirmation_token",
+  "recovery_token", "email_change_token_new", "email_change_token_current",
+]);
+
 export default function AdminDatabase() {
   const [selectedTable, setSelectedTable] = useState(TABLES[0].name);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
@@ -41,6 +48,7 @@ export default function AdminDatabase() {
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
   const [loading, setLoading] = useState(false);
 
   const loadCounts = async () => {
@@ -71,13 +79,14 @@ export default function AdminDatabase() {
   useEffect(() => { setPage(0); setSearch(""); }, [selectedTable]);
   useEffect(() => { loadTable(); }, [selectedTable, page]);
 
-  const filteredRows = search
-    ? rows.filter(r => JSON.stringify(r).toLowerCase().includes(search.toLowerCase()))
+  const filteredRows = debouncedSearch
+    ? rows.filter(r => JSON.stringify(r).toLowerCase().includes(debouncedSearch.toLowerCase()))
     : rows;
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const formatCell = (val: unknown): string => {
+  const formatCell = (col: string, val: unknown): string => {
+    if (PII_COLUMNS.has(col)) return "••••••••";
     if (val === null || val === undefined) return "—";
     if (typeof val === "boolean") return val ? "✓" : "✗";
     if (typeof val === "object") return JSON.stringify(val).slice(0, 80) + (JSON.stringify(val).length > 80 ? "…" : "");
@@ -156,7 +165,7 @@ export default function AdminDatabase() {
                           <TableRow key={i}>
                             {columns.map(col => (
                               <TableCell key={col} className="text-xs font-mono max-w-[200px] truncate">
-                                {formatCell(row[col])}
+                                {formatCell(col, row[col])}
                               </TableCell>
                             ))}
                           </TableRow>
