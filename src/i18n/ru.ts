@@ -1076,6 +1076,7 @@ const ru: Record<string, string> = {
   "delivery.serviceDesc": "Быстрая доставка людей и посылок с отслеживанием в реальном времени.",
   "delivery.rideService": "Поездки",
   "delivery.packageService": "Доставка Посылок",
+  "delivery.tripHistory": "История Поездок",
   "delivery.whereToday": "Куда сегодня?",
   "delivery.rideTitle": "Поездка (Такси)",
   "delivery.rideDesc": "Современные, комфортные автомобили для всех ваших поездок.",

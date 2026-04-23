@@ -1107,6 +1107,7 @@ const ar: Record<string, string> = {
   "delivery.serviceDesc": "توصيل سريع للأشخاص والأغراض مع تتبع مباشر وإرشاد صوتي.",
   "delivery.rideService": "توصيل أشخاص",
   "delivery.packageService": "دليفري أغراض",
+  "delivery.tripHistory": "سجل الرحلات",
   "delivery.whereToday": "لوين المشوار اليوم؟",
   "delivery.rideTitle": "توصيل أشخاص (تكسي)",
   "delivery.rideDesc": "سيارات حديثة ومريحة لكل مشاويرك.",

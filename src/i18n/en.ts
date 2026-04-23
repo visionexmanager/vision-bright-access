@@ -1107,6 +1107,7 @@ const en: Record<string, string> = {
   "delivery.serviceDesc": "Fast delivery for people and packages with live tracking and voice guidance.",
   "delivery.rideService": "Ride Service",
   "delivery.packageService": "Package Delivery",
+  "delivery.tripHistory": "Trip History",
   "delivery.whereToday": "Where to today?",
   "delivery.rideTitle": "Ride (Taxi)",
   "delivery.rideDesc": "Modern, comfortable cars for all your trips.",

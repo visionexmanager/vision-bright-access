@@ -1076,6 +1076,7 @@ const zh: Record<string, string> = {
   "delivery.serviceDesc": "快速配送人员和包裹，支持实时追踪和语音引导。",
   "delivery.rideService": "出行服务",
   "delivery.packageService": "包裹配送",
+  "delivery.tripHistory": "行程历史",
   "delivery.whereToday": "今天去哪里？",
   "delivery.rideTitle": "出行（出租车）",
   "delivery.rideDesc": "现代舒适的车辆满足您所有出行需求。",

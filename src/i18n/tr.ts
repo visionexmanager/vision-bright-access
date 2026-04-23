@@ -1076,6 +1076,7 @@ const tr: Record<string, string> = {
   "delivery.serviceDesc": "Kişiler ve paketler için canlı takipli hızlı teslimat.",
   "delivery.rideService": "Yolculuk Hizmeti",
   "delivery.packageService": "Paket Teslimatı",
+  "delivery.tripHistory": "Yolculuk Geçmişi",
   "delivery.whereToday": "Bugün nereye gidiyoruz?",
   "delivery.rideTitle": "Yolculuk (Taksi)",
   "delivery.rideDesc": "Tüm yolculuklarınız için modern, konforlu araçlar.",
