@@ -1539,6 +1539,7 @@ const ru: Record<string, string> = {
   "simulations.sortDuration": "Длительность",
   "simulations.sortNewest": "Новейшие",
   "nav.more": "Ещё",
+  "nav.explore": "Исследовать",
   "pricing.title": "Цены VX",
   "pricing.subtitle": "Курс: 1 000 VX = 1 $ США",
   "pricing.gaming": "Игровая Зона",

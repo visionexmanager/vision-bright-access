@@ -1,6 +1,7 @@
 const en: Record<string, string> = {
   "nav.home": "Home",
   "nav.more": "More",
+  "nav.explore": "Explore",
   "nav.marketplace": "Marketplace",
   "nav.services": "Services",
   "nav.content": "Content",

@@ -1539,6 +1539,7 @@ const pt: Record<string, string> = {
   "simulations.sortDuration": "Duração",
   "simulations.sortNewest": "Mais recente",
   "nav.more": "Mais",
+  "nav.explore": "Explorar",
   "pricing.title": "Preços VX",
   "pricing.subtitle": "Taxa: 1.000 VX = $1 USD",
   "pricing.gaming": "Zona de Jogos",

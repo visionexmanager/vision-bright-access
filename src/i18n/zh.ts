@@ -1539,6 +1539,7 @@ const zh: Record<string, string> = {
   "simulations.sortDuration": "时长",
   "simulations.sortNewest": "最新",
   "nav.more": "更多",
+  "nav.explore": "探索",
   "pricing.title": "VX 定价",
   "pricing.subtitle": "汇率：1,000 VX = 1 美元",
   "pricing.gaming": "游戏区",

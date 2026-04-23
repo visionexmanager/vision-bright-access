@@ -1539,6 +1539,7 @@ const tr: Record<string, string> = {
   "simulations.sortDuration": "Süre",
   "simulations.sortNewest": "En yeni",
   "nav.more": "Daha Fazla",
+  "nav.explore": "Keşfet",
   "pricing.title": "VX Fiyatlandırması",
   "pricing.subtitle": "Kur: 1.000 VX = 1 $ USD",
   "pricing.gaming": "Oyun Bölgesi",
