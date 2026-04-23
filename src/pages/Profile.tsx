@@ -142,8 +142,15 @@ export default function Profile() {
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ display_name: displayName.trim(), avatar_url: avatarUrl })
-      .eq("user_id", user.id);
+      .upsert(
+        {
+          ...(profile?.id ? { id: profile.id } : {}),
+          user_id: user.id,
+          display_name: displayName.trim() || null,
+          avatar_url: avatarUrl,
+        },
+        { onConflict: "user_id" }
+      );
     setSaving(false);
     if (error) {
       toast({ title: t("profile.error"), variant: "destructive" });
