@@ -42,6 +42,8 @@ export function Navbar() {
     { to: "/contact", label: t("nav.contact") },
   ];
 
+  const navLinks = [...primaryNavLinks, ...secondaryNavLinks];
+
   // Grouped structure for mobile menu with visual separators
   const mobileNavGroups = [
     {
