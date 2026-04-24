@@ -61,13 +61,15 @@ export default function Contact() {
     }
 
     setLoading(true);
-    const { error } = await supabase.from("service_requests").insert({
-      user_id: user?.id ?? null,
-      full_name: parsed.data.fullName,
-      email: parsed.data.email,
-      phone: parsed.data.phone || null,
-      service_type: parsed.data.serviceType,
-      message: parsed.data.message,
+    const { error } = await supabase.functions.invoke("contact-form", {
+      body: {
+        user_id: user?.id ?? null,
+        full_name: parsed.data.fullName,
+        email: parsed.data.email,
+        phone: parsed.data.phone || null,
+        service_type: t(parsed.data.serviceType),
+        message: parsed.data.message,
+      },
     });
 
     setLoading(false);

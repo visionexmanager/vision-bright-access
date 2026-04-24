@@ -35,19 +35,46 @@ export function Navbar() {
     { to: "/", label: t("nav.home") },
     { to: "/marketplace", label: t("nav.marketplace") },
     { to: "/services", label: t("nav.services") },
+    { to: "/assistive-products", label: t("nav.assistiveProducts") },
     { to: "/content", label: t("nav.content") },
     { to: "/games", label: t("nav.games") },
-    { to: "/community", label: t("nav.community") },
   ];
 
   const secondaryNavLinks = [
-    { to: "/assistive-products", label: t("nav.assistiveProducts") },
+    { to: "/community", label: t("nav.community") },
+    { to: "/professional-tools", label: "Professional Tools" },
     { to: "/news", label: t("nav.news") },
     { to: "/contact", label: t("nav.contact") },
-    { to: "/professional-tools", label: "Professional Tools" },
   ];
 
-  const navLinks = [...primaryNavLinks, ...secondaryNavLinks];
+  // Grouped structure for mobile menu with visual separators
+  const mobileNavGroups = [
+    {
+      label: null,
+      links: [
+        { to: "/", label: t("nav.home") },
+        { to: "/marketplace", label: t("nav.marketplace") },
+        { to: "/services", label: t("nav.services") },
+        { to: "/assistive-products", label: t("nav.assistiveProducts") },
+      ],
+    },
+    {
+      label: t("nav.explore") || "Explore",
+      links: [
+        { to: "/content", label: t("nav.content") },
+        { to: "/games", label: t("nav.games") },
+        { to: "/community", label: t("nav.community") },
+      ],
+    },
+    {
+      label: t("nav.more") || "More",
+      links: [
+        { to: "/professional-tools", label: "Professional Tools" },
+        { to: "/news", label: t("nav.news") },
+        { to: "/contact", label: t("nav.contact") },
+      ],
+    },
+  ];
 
   return (
     <nav
@@ -220,20 +247,32 @@ export function Navbar() {
       {/* Mobile menu */}
       {menuOpen && (
         <div className="border-t bg-card px-4 pb-4 pt-2 lg:hidden" role="menu">
-          {navLinks.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              role="menuitem"
-              onClick={() => setMenuOpen(false)}
-              className={`block rounded-lg px-4 py-3 text-lg font-medium transition-colors hover:bg-muted ${
-                location.pathname === link.to
-                  ? "bg-primary/10 text-primary"
-                  : "text-foreground"
-              }`}
-            >
-              {link.label}
-            </Link>
+          {mobileNavGroups.map((group, groupIdx) => (
+            <div key={groupIdx}>
+              {groupIdx > 0 && (
+                <div className="my-2 border-t border-border" />
+              )}
+              {group.label && (
+                <p className="mb-1 px-4 pt-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  {group.label}
+                </p>
+              )}
+              {group.links.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  role="menuitem"
+                  onClick={() => setMenuOpen(false)}
+                  className={`block rounded-lg px-4 py-3 text-lg font-medium transition-colors hover:bg-muted ${
+                    location.pathname === link.to
+                      ? "bg-primary/10 text-primary"
+                      : "text-foreground"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
           ))}
           <div className="mt-3 flex flex-col gap-2">
             {user ? (

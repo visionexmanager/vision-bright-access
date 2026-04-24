@@ -32,10 +32,10 @@ import { toast } from "@/hooks/use-toast";
 import dashboardImg from "@/assets/dashboard-illustration.jpg";
 
 const VIP_TIERS = [
-  { name: "rankBronze", min: 0, next: 200, color: "text-amber-700 dark:text-amber-500" },
-  { name: "rankSilver", min: 200, next: 500, color: "text-slate-600 dark:text-slate-300" },
-  { name: "rankGold", min: 500, next: 1000, color: "text-yellow-700 dark:text-yellow-400" },
-  { name: "rankPlatinum", min: 1000, next: 2500, color: "text-cyan-700 dark:text-cyan-400" },
+  { name: "rankBronze", min: 0, next: 10000, color: "text-amber-700 dark:text-amber-500" },
+  { name: "rankSilver", min: 10000, next: 50000, color: "text-slate-600 dark:text-slate-300" },
+  { name: "rankGold", min: 50000, next: 100000, color: "text-yellow-700 dark:text-yellow-400" },
+  { name: "rankPlatinum", min: 100000, next: 200000, color: "text-cyan-700 dark:text-cyan-400" },
 ];
 
 function getTier(points: number) {
