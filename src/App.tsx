@@ -57,6 +57,11 @@ const ToolDetail = lazy(() => import("./pages/ToolDetail"));
 const CareerHub = lazy(() => import("./pages/services/CareerHub"));
 const MusicConservatory = lazy(() => import("./pages/services/MusicConservatory"));
 const GlobalStudio = lazy(() => import("./pages/services/GlobalStudio"));
+const WebDesign = lazy(() => import("./pages/services/WebDesign"));
+const DigitalMarketing = lazy(() => import("./pages/services/DigitalMarketing"));
+const ImportPurchasing = lazy(() => import("./pages/services/ImportPurchasing"));
+const TechConsulting = lazy(() => import("./pages/services/TechConsulting"));
+const TrainingService = lazy(() => import("./pages/services/Training"));
 
 // New game pages
 const Hangman = lazy(() => import("./pages/games/Hangman"));
@@ -164,6 +169,11 @@ const App = () => (
                     <Route path="/services/career-hub" element={<CareerHub />} />
                     <Route path="/services/music-conservatory" element={<MusicConservatory />} />
                     <Route path="/services/global-studio" element={<GlobalStudio />} />
+                    <Route path="/services/web-design" element={<WebDesign />} />
+                    <Route path="/services/digital-marketing" element={<DigitalMarketing />} />
+                    <Route path="/services/import-purchasing" element={<ImportPurchasing />} />
+                    <Route path="/services/tech-consulting" element={<TechConsulting />} />
+                    <Route path="/services/training" element={<TrainingService />} />
                     <Route path="/games/hangman" element={<Hangman />} />
                     <Route path="/games/dominoes" element={<Dominoes />} />
                     <Route path="/games/farkle" element={<FarkleGame />} />

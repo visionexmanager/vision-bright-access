@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video, Coins } from "lucide-react";
-import { TECH_SERVICE_PRICES, formatVX } from "@/systems/pricingSystem";
-import { toast } from "sonner";
+import { formatVX } from "@/systems/pricingSystem";
 import { Link } from "react-router-dom";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import servicesImg from "@/assets/services-illustration.jpg";
@@ -21,17 +20,12 @@ export default function Services() {
   const { playSound } = useSound();
 
   const services = [
-    { icon: MonitorSmartphone, name: t("services.webDesign"), desc: t("services.webDesignDesc"), points: 100, img: webDesignImg, vx: TECH_SERVICE_PRICES.remoteSupport },
-    { icon: Megaphone, name: t("services.digitalMarketing"), desc: t("services.digitalMarketingDesc"), points: 80, img: digitalMarketingImg, vx: TECH_SERVICE_PRICES.techConsultation },
-    { icon: Package, name: t("services.importPurchasing"), desc: t("services.importPurchasingDesc"), points: 60, img: importImg, vx: TECH_SERVICE_PRICES.techConsultation },
-    { icon: Headphones, name: t("services.techConsulting"), desc: t("services.techConsultingDesc"), points: 120, img: consultingImg, vx: TECH_SERVICE_PRICES.techConsultation },
-    { icon: GraduationCap, name: t("services.training"), desc: t("services.trainingDesc"), points: 90, img: trainingImg, vx: TECH_SERVICE_PRICES.remoteSupport },
+    { icon: MonitorSmartphone, name: t("services.webDesign"), desc: t("services.webDesignDesc"), points: 100, img: webDesignImg, vx: 150_000, to: "/services/web-design" },
+    { icon: Megaphone, name: t("services.digitalMarketing"), desc: t("services.digitalMarketingDesc"), points: 80, img: digitalMarketingImg, vx: 120_000, to: "/services/digital-marketing" },
+    { icon: Package, name: t("services.importPurchasing"), desc: t("services.importPurchasingDesc"), points: 60, img: importImg, vx: 80_000, to: "/services/import-purchasing" },
+    { icon: Headphones, name: t("services.techConsulting"), desc: t("services.techConsultingDesc"), points: 120, img: consultingImg, vx: 60_000, to: "/services/tech-consulting" },
+    { icon: GraduationCap, name: t("services.training"), desc: t("services.trainingDesc"), points: 90, img: trainingImg, vx: 100_000, to: "/services/training" },
   ];
-
-  const handleCta = (serviceName: string) => {
-    playSound("success");
-    toast.success(`${serviceName} — request submitted!`);
-  };
 
   return (
     <Layout>
@@ -69,9 +63,11 @@ export default function Services() {
                       {formatVX(s.vx)}
                     </span>
                   </div>
-                  <Button size="lg" className="mt-2 w-full text-base font-semibold" onClick={() => handleCta(s.name)}>
-                    {t("services.cta")} <ArrowRight className="ms-2 h-5 w-5" />
-                  </Button>
+                  <Link to={s.to} onClick={() => playSound("navigate")} className="mt-2 block">
+                    <Button size="lg" className="w-full text-base font-semibold">
+                      {t("services.cta")} <ArrowRight className="ms-2 h-5 w-5" />
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </StaggerItem>
