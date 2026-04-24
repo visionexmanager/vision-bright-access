@@ -5,13 +5,8 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useSound } from "@/contexts/SoundContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX, ChevronDown } from "lucide-react";
+
+import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useUnreadCount } from "@/hooks/useMessages";
 import { usePoints } from "@/hooks/usePoints";
@@ -49,6 +44,7 @@ export function Navbar() {
 
   const navLinks = [...primaryNavLinks, ...secondaryNavLinks];
 
+
   return (
     <nav
       className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
@@ -67,7 +63,7 @@ export function Navbar() {
 
         {/* Desktop nav */}
         <div className="hidden items-center gap-0.5 lg:flex" role="menubar">
-          {primaryNavLinks.map((link) => (
+          {navLinks.map((link) => (
             <Link
               key={link.to}
               to={link.to}
@@ -81,36 +77,6 @@ export function Navbar() {
               {link.label}
             </Link>
           ))}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`rounded-lg px-2.5 py-2 text-sm font-medium xl:px-3.5 xl:text-base gap-1 ${
-                  secondaryNavLinks.some((l) => location.pathname === l.to)
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground"
-                }`}
-              >
-                {t("nav.more") || "More"}
-                <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
-              {secondaryNavLinks.map((link) => (
-                <DropdownMenuItem key={link.to} asChild>
-                  <Link
-                    to={link.to}
-                    className={`w-full cursor-pointer ${
-                      location.pathname === link.to ? "text-primary font-medium" : ""
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
         <div className="hidden items-center gap-1 lg:flex">
