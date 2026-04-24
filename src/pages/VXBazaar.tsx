@@ -46,10 +46,10 @@ interface ChatMessage {
 
 // ── Tier config ────────────────────────────────────────────────────────────
 const TIERS: Record<Tier, { label: string; maxProducts: number; setupCost: number; rentCost: number; color: string; icon: string }> = {
-  kiosk:    { label: "Kiosk",    maxProducts: 10,  setupCost: 500,   rentCost: 50,   color: "#6b7280", icon: "🏪" },
-  boutique: { label: "Boutique", maxProducts: 50,  setupCost: 2000,  rentCost: 200,  color: "#8b5cf6", icon: "🛍️" },
-  store:    { label: "Store",    maxProducts: 200, setupCost: 8000,  rentCost: 800,  color: "#3b82f6", icon: "🏬" },
-  flagship: { label: "Flagship", maxProducts: Infinity, setupCost: 25000, rentCost: 2500, color: "#f59e0b", icon: "👑" },
+  kiosk:    { label: "Kiosk",    maxProducts: 10,  setupCost: 5000,   rentCost: 1000,  color: "#6b7280", icon: "🏪" },
+  boutique: { label: "Boutique", maxProducts: 50,  setupCost: 20000,  rentCost: 3000,  color: "#8b5cf6", icon: "🛍️" },
+  store:    { label: "Store",    maxProducts: 200, setupCost: 60000,  rentCost: 8000,  color: "#3b82f6", icon: "🏬" },
+  flagship: { label: "Flagship", maxProducts: Infinity, setupCost: 150000, rentCost: 20000, color: "#f59e0b", icon: "👑" },
 };
 
 const SIGN_STYLES: Record<string, string> = {
