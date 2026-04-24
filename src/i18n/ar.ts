@@ -1180,7 +1180,7 @@ const ar: Record<string, string> = {
   "delivery.notif.completedDesc": "شكراً لاستخدامك VisionEx Express",
   "delivery.notif.cancelled": "تم إلغاء الرحلة",
   "delivery.notif.cancelledDesc": "تم إلغاء رحلتك",
-  "econ.title": "Visionex Economy",
+  "econ.title": "اقتصاد Visionex",
   "econ.subtitle": "إدارة المشاريع والاقتصاد بذكاء احترافي",
   "econ.feasibility": "دراسة جدوى",
   "econ.management": "إدارة مشاريع",
