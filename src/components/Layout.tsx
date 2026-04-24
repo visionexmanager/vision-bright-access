@@ -47,11 +47,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <a href="#main-content" className="skip-link">
+      <a href="#main-content" className="skip-link" aria-label={t("nav.skipToContent")}>
         {t("nav.skipToContent")}
       </a>
       <Navbar />
-      <main id="main-content" tabIndex={-1} className="flex-1 animate-page-in">
+      <main id="main-content" tabIndex={-1} aria-label={t("nav.mainContent") || "Main content"} className="flex-1 animate-page-in">
         {children}
       </main>
 

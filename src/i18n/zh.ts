@@ -9,6 +9,7 @@ const zh: Record<string, string> = {
   "nav.signout": "退出",
   "nav.openMenu": "打开菜单",
   "nav.closeMenu": "关闭菜单",
+  "nav.mainContent": "Main content",
   "nav.skipToContent": "跳到主要内容",
   "nav.lightMode": "切换到浅色模式",
   "nav.darkMode": "切换到深色模式",

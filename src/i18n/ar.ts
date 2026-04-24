@@ -11,6 +11,7 @@ const ar: Record<string, string> = {
   "nav.openMenu": "فتح القائمة",
   "nav.closeMenu": "إغلاق القائمة",
   "nav.skipToContent": "الانتقال إلى المحتوى الرئيسي",
+  "nav.mainContent": "المحتوى الرئيسي",
   "nav.lightMode": "التبديل إلى الوضع الفاتح",
   "nav.darkMode": "التبديل إلى الوضع الداكن",
   "nav.highContrastMode": "التبديل إلى وضع التباين العالي",
