@@ -9,6 +9,7 @@ const fr: Record<string, string> = {
   "nav.signout": "Se déconnecter",
   "nav.openMenu": "Ouvrir le menu",
   "nav.closeMenu": "Fermer le menu",
+  "nav.mainContent": "Main content",
   "nav.skipToContent": "Passer au contenu principal",
   "nav.lightMode": "Passer au mode clair",
   "nav.darkMode": "Passer au mode sombre",

@@ -9,6 +9,7 @@ const tr: Record<string, string> = {
   "nav.signout": "Çıkış yap",
   "nav.openMenu": "Menüyü aç",
   "nav.closeMenu": "Menüyü kapat",
+  "nav.mainContent": "Main content",
   "nav.skipToContent": "Ana içeriğe atla",
   "nav.lightMode": "Açık moda geç",
   "nav.darkMode": "Koyu moda geç",
