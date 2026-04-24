@@ -28,7 +28,7 @@ export function Navbar() {
 
   const primaryNavLinks = [
     { to: "/", label: t("nav.home") },
-    { to: "/marketplace", label: t("nav.marketplace") },
+    { to: "/bazaar", label: "VXBazaar" },
     { to: "/services", label: t("nav.services") },
     { to: "/content", label: t("nav.content") },
     { to: "/community", label: t("nav.community") },
@@ -48,7 +48,7 @@ export function Navbar() {
       label: null,
       links: [
         { to: "/", label: t("nav.home") },
-        { to: "/marketplace", label: t("nav.marketplace") },
+        { to: "/bazaar", label: "VXBazaar" },
         { to: "/services", label: t("nav.services") },
         { to: "/assistive-products", label: t("nav.assistiveProducts") },
       ],

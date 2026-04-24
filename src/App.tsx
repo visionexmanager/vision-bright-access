@@ -20,7 +20,7 @@ const Signup = lazy(() => import("./pages/Signup"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Marketplace = lazy(() => import("./pages/Marketplace"));
+const VXBazaar = lazy(() => import("./pages/VXBazaar"));
 const Services = lazy(() => import("./pages/Services"));
 const Academy = lazy(() => import("./pages/Academy"));
 const Content = lazy(() => import("./pages/Content"));
@@ -138,7 +138,8 @@ const App = () => (
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/marketplace" element={<Marketplace />} />
+                    <Route path="/bazaar" element={<VXBazaar />} />
+                    <Route path="/marketplace" element={<VXBazaar />} />
                     <Route path="/services" element={<Services />} />
                     <Route path="/academy" element={<Academy />} />
                     <Route path="/content" element={<Content />} />

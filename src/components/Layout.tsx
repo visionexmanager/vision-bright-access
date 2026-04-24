@@ -10,7 +10,7 @@ import logo from "@/assets/logo.png";
 const FOOTER_LINKS = {
   pages: [
     { to: "/", labelAr: "الرئيسية",        labelEn: "Home" },
-    { to: "/marketplace", labelAr: "المتجر", labelEn: "Marketplace" },
+    { to: "/bazaar", labelAr: "VXBazaar", labelEn: "VXBazaar" },
     { to: "/services",    labelAr: "الخدمات", labelEn: "Services" },
     { to: "/content",     labelAr: "المحتوى", labelEn: "Content" },
     { to: "/games",       labelAr: "الألعاب", labelEn: "Games" },
