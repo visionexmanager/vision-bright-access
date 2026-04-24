@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send } from "lucide-react";
+import { Send, Mail } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -92,7 +92,17 @@ export default function Contact() {
         <h1 id="contact-heading" className="mb-2 text-3xl font-bold">
           {t("contact.title")}
         </h1>
-        <p className="mb-8 text-lg text-muted-foreground">{t("contact.subtitle")}</p>
+        <p className="mb-6 text-lg text-muted-foreground">{t("contact.subtitle")}</p>
+
+        <div className="mb-8 flex items-center gap-3 rounded-lg border bg-muted/50 px-5 py-4">
+          <Mail className="h-5 w-5 shrink-0 text-primary" />
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">{t("contact.emailUs") || "Email us directly"}</p>
+            <a href="mailto:hello@visionex.app" className="text-base font-semibold text-primary hover:underline">
+              hello@visionex.app
+            </a>
+          </div>
+        </div>
 
         <Card>
           <CardContent className="p-6">

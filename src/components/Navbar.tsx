@@ -30,17 +30,15 @@ export function Navbar() {
     { to: "/", label: t("nav.home") },
     { to: "/marketplace", label: t("nav.marketplace") },
     { to: "/services", label: t("nav.services") },
-    { to: "/assistive-products", label: t("nav.assistiveProducts") },
     { to: "/content", label: t("nav.content") },
-    { to: "/games", label: t("nav.games") },
-  ];
-
-  const secondaryNavLinks = [
     { to: "/community", label: t("nav.community") },
+    { to: "/games", label: t("nav.games") },
+    { to: "/assistive-products", label: t("nav.assistiveProducts") },
     { to: "/professional-tools", label: "Professional Tools" },
     { to: "/news", label: t("nav.news") },
-    { to: "/contact", label: t("nav.contact") },
   ];
+
+  const secondaryNavLinks: { to: string; label: string }[] = [];
 
   const navLinks = [...primaryNavLinks, ...secondaryNavLinks];
 

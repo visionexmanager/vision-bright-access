@@ -282,6 +282,7 @@ const ar: Record<string, string> = {
   "redeem.tier4": "500 نقطة → خصم $75",
   "cart.total": "الإجمالي",
   "contact.title": "طلب خدمة",
+  "contact.emailUs": "راسلنا مباشرة",
   "contact.subtitle": "أخبرنا بما تحتاج — سنتواصل معك قريباً.",
   "contact.fullName": "الاسم الكامل",
   "contact.email": "البريد الإلكتروني",

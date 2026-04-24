@@ -282,6 +282,7 @@ const en: Record<string, string> = {
   "redeem.tier4": "500 pts → $75 off",
   "cart.total": "Total",
   "contact.title": "Service Request",
+  "contact.emailUs": "Email us directly",
   "contact.subtitle": "Tell us what you need — we'll get back to you shortly.",
   "contact.fullName": "Full Name",
   "contact.email": "Email Address",
