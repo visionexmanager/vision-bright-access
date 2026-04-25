@@ -9,7 +9,7 @@ import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settin
 import logo from "@/assets/logo.png";
 import { useUnreadCount } from "@/hooks/useMessages";
 import { usePoints } from "@/hooks/usePoints";
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -24,6 +24,51 @@ export function Navbar() {
   const unreadMessages = useUnreadCount();
   const { enabled: soundEnabled, setEnabled: setSoundEnabled, playSound } = useSound();
   const { totalPoints } = usePoints();
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const menubarRef = useRef<HTMLDivElement>(null);
+
+  // Close mobile menu on route change
+  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
+
+  // Focus first menu item when mobile menu opens
+  useEffect(() => {
+    if (menuOpen) {
+      const first = mobileMenuRef.current?.querySelector<HTMLElement>("a, button");
+      first?.focus();
+    }
+  }, [menuOpen]);
+
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+    toggleRef.current?.focus();
+  }, []);
+
+  const handleMobileMenuKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeMenu();
+    }
+  }, [closeMenu]);
+
+  const handleMenubarKeyDown = useCallback((e: React.KeyboardEvent<HTMLAnchorElement>, index: number) => {
+    const items = menubarRef.current?.querySelectorAll<HTMLElement>("[role='menuitem']");
+    if (!items) return;
+    const count = items.length;
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      items[(index + 1) % count]?.focus();
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      items[(index - 1 + count) % count]?.focus();
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      items[0]?.focus();
+    } else if (e.key === "End") {
+      e.preventDefault();
+      items[count - 1]?.focus();
+    }
+  }, []);
 
   const navLinks = [
     { to: "/", label: t("nav.home") },
@@ -55,12 +100,15 @@ export function Navbar() {
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden items-center gap-0.5 lg:flex" role="menubar">
-          {navLinks.map((link) => (
+        <div ref={menubarRef} className="hidden items-center gap-0.5 lg:flex" role="menubar">
+          {navLinks.map((link, index) => (
             <Link
               key={link.to}
               to={link.to}
               role="menuitem"
+              aria-current={location.pathname === link.to ? "page" : undefined}
+              tabIndex={0}
+              onKeyDown={(e) => handleMenubarKeyDown(e, index)}
               className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 xl:px-4 xl:text-base ${
                 location.pathname === link.to
                   ? "bg-primary/10 text-primary"
@@ -165,10 +213,12 @@ export function Navbar() {
           <ThemeToggle />
           <LanguageSwitcher />
           <Button
+            ref={toggleRef}
             variant="ghost"
             size="icon"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-expanded={menuOpen}
+            aria-controls="mobile-nav"
             aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
           >
             {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -178,12 +228,19 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="border-t bg-card px-4 pb-4 pt-2 lg:hidden" role="menu">
+        <div
+          id="mobile-nav"
+          ref={mobileMenuRef}
+          className="border-t bg-card px-4 pb-4 pt-2 lg:hidden"
+          role="menu"
+          onKeyDown={handleMobileMenuKeyDown}
+        >
           {navLinks.map((link) => (
             <Link
               key={link.to}
               to={link.to}
               role="menuitem"
+              aria-current={location.pathname === link.to ? "page" : undefined}
               onClick={() => setMenuOpen(false)}
               className={`block rounded-lg px-4 py-3 text-lg font-medium transition-colors hover:bg-muted ${
                 location.pathname === link.to

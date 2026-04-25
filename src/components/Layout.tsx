@@ -1,5 +1,5 @@
 import { ReactNode, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { NewsletterSubscribe } from "./NewsletterSubscribe";
 import { AIChat } from "./AIChat";
@@ -29,7 +29,15 @@ export function Layout({ children }: { children: ReactNode }) {
       <footer className="border-t bg-card py-10" role="contentinfo">
         <div className="section-container">
           <NewsletterSubscribe />
-          <p className="mt-8 text-center text-muted-foreground">
+          <nav aria-label="Legal links" className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2">
+            <Link to="/privacy-policy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link>
+            <Link to="/terms-of-use" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Terms of Use</Link>
+            <Link to="/marketplace-policy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Marketplace Policy</Link>
+            <Link to="/community-guidelines" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Community Guidelines</Link>
+            <Link to="/accessibility" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Accessibility</Link>
+            <Link to="/legal-disclaimer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Legal Disclaimer</Link>
+          </nav>
+          <p className="mt-4 text-center text-sm text-muted-foreground">
             {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
           </p>
         </div>
