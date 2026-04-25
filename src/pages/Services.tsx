@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
-import { Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video, Coins } from "lucide-react";
+import { Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone, ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video, Coins, Scissors, Scale, Stethoscope, Brain, Sparkles, Users, Dumbbell, Plane, ScanLine, Globe } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
 import { Link } from "react-router-dom";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
@@ -156,6 +156,160 @@ export default function Services() {
                   <div className="min-w-0">
                     <p className="font-semibold">{t("studio.title")}</p>
                     <p className="text-sm text-muted-foreground line-clamp-2">{t("studio.subtitle")}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/services/hair-care" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-pink-500/10 p-3 shrink-0">
+                    <Scissors className="h-6 w-6 text-pink-600 dark:text-pink-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Hair Care Specialist</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">Professional hair analysis, treatments & transformation</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/services/skin-care" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-orange-500/10 p-3 shrink-0">
+                    <Sparkles className="h-6 w-6 text-orange-500 dark:text-orange-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Skin Care Expert</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">Personalised dermatology care for radiant skin</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/services/medical-support" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-red-500/10 p-3 shrink-0">
+                    <Stethoscope className="h-6 w-6 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Medical Support</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">Licensed doctors & specialists — wherever you are</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/services/psychology" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-violet-500/10 p-3 shrink-0">
+                    <Brain className="h-6 w-6 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Psychology & Mental Health</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">Compassionate therapy and mental wellness support</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/services/legal-advisor" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-slate-500/10 p-3 shrink-0">
+                    <Scale className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Legal Advisor</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">Expert legal counsel across commercial, civil & family law</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/services/social-guide" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-teal-500/10 p-3 shrink-0">
+                    <Users className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Social Guide</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">Navigate life's challenges with professional support</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/services/sports-coach" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-lime-500/10 p-3 shrink-0">
+                    <Dumbbell className="h-6 w-6 text-lime-600 dark:text-lime-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Sports & Fitness Coach</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">Expert personal training to achieve your fitness goals</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/services/educational-empire" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-yellow-500/10 p-3 shrink-0">
+                    <Globe className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Global Educational Empire</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">Build & manage your own academy — from classroom to worldwide network</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/services/empathy-oasis" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-violet-500/10 p-3 shrink-0">
+                    <Heart className="h-6 w-6 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Universal Empathy Oasis</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">Breathe, relax & reset — calming tools for mind & body</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/services/radar-ai" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-primary/10 p-3 shrink-0">
+                    <ScanLine className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Radar AI</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">Smart vision for the blind — describe any scene instantly</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/services/travel-agency" onClick={() => playSound("navigate")} className="group">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="rounded-lg bg-cyan-500/10 p-3 shrink-0">
+                    <Plane className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Travel Agency</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">From first thought to safe return — every detail handled</p>
                   </div>
                 </CardContent>
               </Card>

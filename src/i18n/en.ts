@@ -1619,6 +1619,34 @@ const en: Record<string, string> = {
   "vx.buyToPlay": "Pay {amount} VX to play",
   "vx.buyToEnroll": "Pay {amount} VX to enroll",
   "vx.buyToStart": "Pay {amount} VX to start",
+
+  "radar.serviceTitle": "Radar AI", "radar.serviceDesc": "Smart vision for the blind — describe any scene instantly",
+  "radar.title": "Radar AI", "radar.subtitle": "Smart vision for a barrier-free world — describe any scene instantly for the blind",
+  "radar.upload": "Upload Photo", "radar.camera": "Open Camera", "radar.capture": "Capture", "radar.closeCamera": "Close Camera",
+  "radar.analyzing": "Analysing…", "radar.analyzeBtn": "Analyse Image", "radar.reset": "New Image",
+  "radar.listenAll": "Listen to Full Report", "radar.stop": "Stop",
+  "radar.overview": "Overview", "radar.objects": "Detected Objects", "radar.textDetected": "Text Detected",
+  "radar.people": "People", "radar.environment": "Environment", "radar.safety": "Safety Notes", "radar.tip": "Accessibility Tip",
+  "radar.noText": "No text detected", "radar.cameraErr": "Camera access denied",
+  "radar.dragHint": "or drag & drop an image here", "radar.readyHint": "Upload a photo or use the camera to begin",
+  "radar.analyzeDetail": "GPT-4o is analysing the image at high detail…",
+
+  "oasis.serviceTitle": "Universal Empathy Oasis", "oasis.serviceDesc": "Breathe, relax & reset — calming tools for mind & body",
+  "oasis.title": "Universal Empathy Oasis", "oasis.subtitle": "A calm, safe space to restore your balance — breathe, relax, and listen.",
+  "oasis.breathing.title": "4-7-8 Breathing Exercise", "oasis.breathing.start": "Start", "oasis.breathing.startBtn": "Start Breathing",
+  "oasis.breathing.stopSave": "Stop & Save", "oasis.breathing.reset": "Reset", "oasis.breathing.cycle": "Cycle {n}",
+  "oasis.breathing.hint": "Inhale 4s → Hold 7s → Exhale slowly 8s. A scientifically-backed technique to calm your nervous system.",
+  "oasis.breathing.inhale": "Inhale", "oasis.breathing.hold": "Hold", "oasis.breathing.exhale": "Exhale",
+  "oasis.sounds.title": "Calming Tones", "oasis.sounds.playing": "Playing…", "oasis.sounds.stopSave": "Stop & Save Session",
+  "oasis.sounds.hint": "Pure sine tones tuned for relaxation and focus. Use headphones for the best experience.",
+  "oasis.sounds.calm": "Calm (432 Hz)", "oasis.sounds.focus": "Focus (528 Hz)", "oasis.sounds.ground": "Grounding (174 Hz)",
+  "oasis.affirmations.title": "Positive Affirmations", "oasis.affirmations.listen": "Listen",
+  "oasis.affirmations.speaking": "Speaking…", "oasis.affirmations.next": "Next Affirmation",
+  "oasis.support.title": "Need Professional Support?",
+  "oasis.support.desc": "Our mental wellness and accessibility specialists are available around the clock.",
+  "oasis.support.psychology": "Book a Psychology Session", "oasis.support.social": "Social Guide Support",
+
+  "empire.serviceTitle": "Global Educational Empire", "empire.serviceDesc": "Build & manage your own academy — from classroom to worldwide network",
 };
 
 export default en;

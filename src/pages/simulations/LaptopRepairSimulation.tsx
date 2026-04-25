@@ -1,81 +1,259 @@
-import { useState } from "react";
-import { Layout } from "@/components/Layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useGameAudio } from "@/hooks/useGameAudio";
+import { useSimulationProgress } from "@/hooks/useSimulationProgress";
+import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { useSound } from "@/contexts/SoundContext";
-import { FinancialBar } from "@/components/SimulationCharts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { RotateCcw, Trophy, Wrench, AlertCircle } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 
-export function LaptopRepairSimulation({ simulationId }: { simulationId?: string }) {
-  const { playSound } = useSound();
-  const [step, setStep] = useState(0);
+interface Props { simulationId?: string; }
+
+const FAULT_TYPES = [
+  { id: "screen",    name: "🖥️ Broken Screen",       correctFix: "replace_screen",   points: 30, difficulty: 1 },
+  { id: "battery",   name: "🔋 Battery Drain",         correctFix: "replace_battery",  points: 25, difficulty: 1 },
+  { id: "keyboard",  name: "⌨️ Keyboard Failure",       correctFix: "replace_keyboard", points: 20, difficulty: 1 },
+  { id: "hdd",       name: "💾 HDD / SSD Failure",      correctFix: "replace_storage",  points: 35, difficulty: 2 },
+  { id: "ram",       name: "🧠 Random Crashes (RAM)",   correctFix: "replace_ram",      points: 40, difficulty: 2 },
+  { id: "bios",      name: "⚙️ BIOS / Boot Failure",    correctFix: "flash_bios",       points: 50, difficulty: 3 },
+  { id: "mobo",      name: "🔌 No Power (Motherboard)", correctFix: "replace_mobo",     points: 60, difficulty: 3 },
+];
+
+const FIX_OPTIONS: { id: string; label: string }[] = [
+  { id: "replace_screen",   label: "Replace screen assembly" },
+  { id: "replace_battery",  label: "Replace battery" },
+  { id: "replace_keyboard", label: "Replace keyboard" },
+  { id: "replace_storage",  label: "Replace HDD/SSD" },
+  { id: "replace_ram",      label: "Reseat / replace RAM" },
+  { id: "flash_bios",       label: "Flash BIOS firmware" },
+  { id: "replace_mobo",     label: "Replace motherboard" },
+  { id: "clean_thermal",    label: "Clean thermal paste" },
+  { id: "reinstall_os",     label: "Reinstall OS" },
+  { id: "run_diagnostics",  label: "Run full diagnostics" },
+];
+
+const JOBS = 8;
+
+function pickFault() {
+  return FAULT_TYPES[Math.floor(Math.random() * FAULT_TYPES.length)];
+}
+
+export function LaptopRepairSimulation({ simulationId }: Props) {
+  const { user } = useAuth();
+  const { playSound } = useGameAudio();
+  const { savedProgress } = useSimulationProgress(simulationId);
+
   const [tools, setTools] = useState(5000);
-  const [pricing, setPricing] = useState(50);
-  const [training, setTraining] = useState(30);
   const [warranty, setWarranty] = useState(6);
-  const [results, setResults] = useState<any>(null);
+  const [jobIndex, setJobIndex] = useState(0);
+  const [fault, setFault] = useState<typeof FAULT_TYPES[0] | null>(null);
+  const [selectedFix, setSelectedFix] = useState("");
+  const [score, setScore] = useState(0);
+  const [correct, setCorrect] = useState(0);
+  const [wrong, setWrong] = useState(0);
+  const [resolving, setResolving] = useState(false);
+  const [resolveProgress, setResolveProgress] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const steps = [
-    { title: "Tool Investment", desc: "How much to invest in repair tools and equipment?" },
-    { title: "Service Pricing", desc: "Set your average repair price ($)" },
-    { title: "Training Hours", desc: "Monthly hours spent on technician training" },
-    { title: "Warranty Period", desc: "How many months warranty on repairs?" },
-  ];
+  useEffect(() => {
+    if (!savedProgress) return;
+    setScore(savedProgress.score ?? 0);
+    setFinished(savedProgress.completed ?? false);
+  }, [savedProgress]);
 
-  const handleNext = () => {
-    if (step < steps.length - 1) { setStep(step + 1); playSound("navigate"); }
-    else {
-      const customers = Math.round(100 + training * 2 - pricing * 0.5 + warranty * 3);
-      const revenue = customers * pricing;
-      const costs = tools * 0.1 + training * 50 + warranty * 200;
-      const profit = revenue - costs;
-      const satisfaction = Math.min(100, 50 + training + warranty * 5 - pricing * 0.3);
-      const score = Math.round(profit / 50 + satisfaction);
-      setResults({ revenue: Math.round(revenue), costs: Math.round(costs), profit: Math.round(profit), satisfaction: Math.round(satisfaction), customers, score });
-      playSound("success");
-      toast.success(`Simulation complete! Score: ${score}`);
-    }
+  const saveProgress = useCallback(async (sc: number, done: boolean) => {
+    if (!user || !simulationId) return;
+    await saveSimulationProgress(user.id, simulationId, {
+      current_step: jobIndex, score: sc, completed: done,
+      decisions: { correct, wrong } as any,
+    });
+  }, [user, simulationId, jobIndex, correct, wrong]);
+
+  const startGame = () => {
+    setJobIndex(0);
+    setScore(0);
+    setCorrect(0);
+    setWrong(0);
+    setFault(pickFault());
+    setSelectedFix("");
+    setFeedback(null);
+    setStarted(true);
+    playSound("scan");
+    toast.success("🔧 Workshop opened! First laptop incoming…");
   };
 
-  if (results) {
+  const applyFix = () => {
+    if (!fault || !selectedFix) return;
+    setResolving(true);
+    setResolveProgress(0);
+
+    let step = 0;
+    const total = 12;
+    const interval = setInterval(() => {
+      step++;
+      setResolveProgress(Math.round((step / total) * 100));
+      if (step >= total) {
+        clearInterval(interval);
+
+        const isCorrect = selectedFix === fault.correctFix;
+        const pts = isCorrect ? fault.points + Math.round(warranty * 2) : Math.max(0, fault.points - 15);
+        const newScore = score + pts;
+        const newCorrect = correct + (isCorrect ? 1 : 0);
+        const newWrong = wrong + (isCorrect ? 0 : 1);
+
+        setScore(newScore);
+        setCorrect(newCorrect);
+        setWrong(newWrong);
+        setFeedback({
+          ok: isCorrect,
+          msg: isCorrect
+            ? `✅ Correct! ${fault.name} fixed. +${pts} pts`
+            : `❌ Wrong fix for ${fault.name}. Correct: ${FIX_OPTIONS.find((f) => f.id === fault.correctFix)?.label}`,
+        });
+        setResolving(false);
+
+        if (isCorrect) playSound("ding"); else playSound("wrong");
+
+        if (jobIndex + 1 >= JOBS) {
+          const final = newScore + Math.round((newCorrect / JOBS) * 50);
+          setScore(final);
+          setFinished(true);
+          playSound("complete");
+          saveProgress(final, true);
+        }
+      }
+    }, 120);
+  };
+
+  const nextJob = () => {
+    setJobIndex((j) => j + 1);
+    setFault(pickFault());
+    setSelectedFix("");
+    setFeedback(null);
+    playSound("select");
+  };
+
+  const restart = () => {
+    setJobIndex(0); setScore(0); setCorrect(0); setWrong(0);
+    setFault(null); setSelectedFix(""); setFeedback(null);
+    setResolving(false); setFinished(false); setStarted(false);
+  };
+
+  if (finished) {
+    const accuracy = Math.round((correct / JOBS) * 100);
     return (
-      <Layout>
-        <section className="mx-auto max-w-3xl px-4 py-10">
-          <h1 className="text-3xl font-bold text-center mb-6">🔧 Laptop Repair Lab — Results</h1>
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <Card><CardContent className="pt-4 text-center"><p className="text-sm text-muted-foreground">Customers</p><p className="text-2xl font-bold text-primary">{results.customers}</p></CardContent></Card>
-            <Card><CardContent className="pt-4 text-center"><p className="text-sm text-muted-foreground">Revenue</p><p className="text-2xl font-bold text-primary">${results.revenue.toLocaleString()}</p></CardContent></Card>
-            <Card><CardContent className="pt-4 text-center"><p className="text-sm text-muted-foreground">Satisfaction</p><p className="text-2xl font-bold">{results.satisfaction}%</p></CardContent></Card>
-            <Card><CardContent className="pt-4 text-center"><p className="text-sm text-muted-foreground">Score</p><p className="text-2xl font-bold">{results.score}</p></CardContent></Card>
-          </div>
-          <FinancialBar title="Financial Overview" data={[
-            { label: "Revenue", value: results.revenue },
-            { label: "Costs", value: results.costs },
-            { label: "Profit", value: results.profit },
-          ]} />
-        </section>
-      </Layout>
+      <div className="max-w-lg mx-auto animate-in fade-in space-y-4">
+        <Card>
+          <CardContent className="p-8 text-center space-y-4">
+            <Trophy className="mx-auto h-16 w-16 text-primary" />
+            <h2 className="text-2xl font-bold">🔧 Repair Report</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-green-500/10 p-3"><p className="text-2xl font-bold text-green-500">{correct}/{JOBS}</p><p className="text-xs text-muted-foreground">Correct</p></div>
+              <div className="rounded-xl bg-red-500/10 p-3"><p className="text-2xl font-bold text-red-500">{wrong}</p><p className="text-xs text-muted-foreground">Wrong</p></div>
+              <div className="rounded-xl bg-blue-500/10 p-3"><p className="text-2xl font-bold text-blue-500">{accuracy}%</p><p className="text-xs text-muted-foreground">Accuracy</p></div>
+              <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">{score}</p><p className="text-xs text-muted-foreground">Score</p></div>
+            </div>
+            <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />Play Again</Button>
+          </CardContent>
+        </Card>
+        <SimulationMentor simulationTitle="Laptop Repair Workshop" currentStepTitle="Results" />
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <section className="mx-auto max-w-2xl px-4 py-10">
-        <h1 className="text-3xl font-bold text-center mb-2">🔧 Laptop Repair Lab</h1>
-        <p className="text-center text-muted-foreground mb-8">Step {step + 1} of {steps.length}</p>
-        <Card>
-          <CardHeader><CardTitle>{steps[step].title}</CardTitle></CardHeader>
-          <CardContent className="space-y-6">
-            <p className="text-muted-foreground">{steps[step].desc}</p>
-            {step === 0 && <div><p className="mb-2 font-medium">Tools: ${tools.toLocaleString()}</p><Slider value={[tools]} onValueChange={([v]) => setTools(v)} min={1000} max={20000} step={500} /></div>}
-            {step === 1 && <div><p className="mb-2 font-medium">Price: ${pricing}</p><Slider value={[pricing]} onValueChange={([v]) => setPricing(v)} min={20} max={200} /></div>}
-            {step === 2 && <div><p className="mb-2 font-medium">Training: {training}h/month</p><Slider value={[training]} onValueChange={([v]) => setTraining(v)} min={0} max={80} /></div>}
-            {step === 3 && <div><p className="mb-2 font-medium">Warranty: {warranty} months</p><Slider value={[warranty]} onValueChange={([v]) => setWarranty(v)} min={1} max={24} /></div>}
-            <Button className="w-full" size="lg" onClick={handleNext}>{step < steps.length - 1 ? "Next →" : "Run Simulation 🚀"}</Button>
+    <div className="max-w-2xl mx-auto space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold flex items-center gap-2">
+          <Wrench className="h-5 w-5 text-primary" />
+          {started ? `Job ${jobIndex + 1} / ${JOBS}` : "Workshop Setup"}
+        </h2>
+        {started && (
+          <div className="flex gap-2">
+            <Badge variant="secondary">✅ {correct}</Badge>
+            <Badge variant="destructive">❌ {wrong}</Badge>
+          </div>
+        )}
+      </div>
+      {started && <Progress value={(jobIndex / JOBS) * 100} className="h-2" />}
+
+      {resolving && (
+        <Card className="border-primary">
+          <CardContent className="p-6 text-center space-y-3">
+            <Wrench className="mx-auto h-8 w-8 text-primary animate-spin" />
+            <p className="font-semibold">Applying fix…</p>
+            <Progress value={resolveProgress} className="h-3" />
           </CardContent>
         </Card>
-      </section>
-    </Layout>
+      )}
+
+      {!started && (
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <h3 className="font-bold text-sm">🏪 Workshop Setup</h3>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Tool Investment: ${tools.toLocaleString()}</label>
+              <Slider value={[tools]} onValueChange={([v]) => setTools(v)} min={1000} max={20000} step={500} />
+              <p className="text-xs text-muted-foreground mt-1">Higher investment → access to more advanced repair tools</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Warranty Offered: {warranty} months</label>
+              <Slider value={[warranty]} onValueChange={([v]) => setWarranty(v)} min={1} max={24} step={1} />
+              <p className="text-xs text-muted-foreground mt-1">Longer warranty → bonus points per correct fix</p>
+            </div>
+            <Button onClick={startGame} className="w-full">🔧 Open Workshop ({JOBS} Jobs)</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {started && !resolving && fault && (
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">{fault.name}</p>
+                <p className="text-xs text-muted-foreground">Difficulty: {"⭐".repeat(fault.difficulty)} | Reward: {fault.points} pts base</p>
+              </div>
+            </div>
+
+            {feedback ? (
+              <div className={`p-3 rounded-lg ${feedback.ok ? "bg-green-500/10 border border-green-500/20" : "bg-red-500/10 border border-red-500/20"}`}>
+                <p className="text-sm font-medium">{feedback.msg}</p>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Select your fix</label>
+                  <Select value={selectedFix} onValueChange={setSelectedFix}>
+                    <SelectTrigger><SelectValue placeholder="Choose a repair action…" /></SelectTrigger>
+                    <SelectContent>
+                      {FIX_OPTIONS.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>{f.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={applyFix} disabled={!selectedFix} className="w-full">🔧 Apply Fix</Button>
+              </>
+            )}
+
+            {feedback && jobIndex + 1 < JOBS && (
+              <Button onClick={nextJob} className="w-full">Next Job →</Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {started && <SimulationMentor simulationTitle="Laptop Repair Workshop" currentStepTitle={fault?.name ?? ""} />}
+    </div>
   );
 }

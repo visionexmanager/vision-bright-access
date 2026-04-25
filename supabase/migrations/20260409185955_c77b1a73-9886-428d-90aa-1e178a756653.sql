@@ -1,5 +1,5 @@
 
-CREATE TABLE public.newsletter_subscribers (
+CREATE TABLE IF NOT EXISTS public.newsletter_subscribers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT NOT NULL,
   topics TEXT[] NOT NULL DEFAULT '{}',
@@ -10,13 +10,17 @@ CREATE TABLE public.newsletter_subscribers (
 ALTER TABLE public.newsletter_subscribers ENABLE ROW LEVEL SECURITY;
 
 -- Anyone can subscribe (public insert)
-CREATE POLICY "Anyone can subscribe to newsletter"
-  ON public.newsletter_subscribers FOR INSERT
-  TO anon, authenticated
-  WITH CHECK (true);
+DO $$ BEGIN
+  CREATE POLICY "Anyone can subscribe to newsletter"
+    ON public.newsletter_subscribers FOR INSERT
+    TO anon, authenticated
+    WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Only admins can view subscribers
-CREATE POLICY "Admins can view subscribers"
-  ON public.newsletter_subscribers FOR SELECT
-  TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'));
+DO $$ BEGIN
+  CREATE POLICY "Admins can view subscribers"
+    ON public.newsletter_subscribers FOR SELECT
+    TO authenticated
+    USING (public.has_role(auth.uid(), 'admin'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
