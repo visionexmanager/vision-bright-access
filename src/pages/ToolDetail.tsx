@@ -43,14 +43,14 @@ export default function ToolDetail() {
   const { toolId } = useParams<{ toolId: string }>();
   const { user } = useAuth();
   const { balance, spendVX } = useVXWallet();
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const { playSound } = useSound();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const isAr = lang === "ar";
   const [buying, setBuying] = useState(false);
 
-  const tool = PROFESSIONAL_TOOLS.find(t => t.id === toolId);
+  const tool = PROFESSIONAL_TOOLS.find(tl => tl.id === toolId);
 
   const { data: purchasedIds = [] } = useQuery({
     queryKey: ["tool-purchases", user?.id],
@@ -65,9 +65,9 @@ export default function ToolDetail() {
     return (
       <Layout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <p className="text-muted-foreground">الأداة غير موجودة</p>
+          <p className="text-muted-foreground">{t("ptool.pageTitle")}</p>
           <Button onClick={() => navigate("/professional-tools")}>
-            <ArrowLeft className="me-2 h-4 w-4" /> العودة للأدوات
+            <ArrowLeft className="me-2 h-4 w-4" /> {t("ptool.pageTitle")}
           </Button>
         </div>
       </Layout>
@@ -88,7 +88,7 @@ export default function ToolDetail() {
 
   const handleBuy = async () => {
     if (!user) {
-      toast({ title: isAr ? "يجب تسجيل الدخول" : "Login required", variant: "destructive" });
+      toast({ title: t("tool.loginRequired"), variant: "destructive" });
       return;
     }
     if (purchased) { triggerDownload(); return; }
@@ -109,15 +109,15 @@ export default function ToolDetail() {
     queryClient.invalidateQueries({ queryKey: ["tool-purchases", user.id] });
     playSound("success");
     toast({
-      title: isAr ? "تم الشراء!" : "Purchased!",
-      description: isAr ? `تم خصم ${TOOL_PRICE.toLocaleString()} VX` : `${TOOL_PRICE.toLocaleString()} VX deducted`,
+      title: t("tool.purchased"),
+      description: t("tool.vxDeducted").replace("{vx}", TOOL_PRICE.toLocaleString()),
     });
     triggerDownload();
     setBuying(false);
   };
 
   // Related tools (same category, excluding current)
-  const related = PROFESSIONAL_TOOLS.filter(t => t.category === tool.category && t.id !== tool.id).slice(0, 3);
+  const related = PROFESSIONAL_TOOLS.filter(tl => tl.category === tool.category && tl.id !== tool.id).slice(0, 3);
 
   return (
     <Layout>
@@ -127,7 +127,7 @@ export default function ToolDetail() {
         <nav className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
           <Link to="/professional-tools" className="hover:text-foreground flex items-center gap-1">
             <Terminal className="h-3.5 w-3.5" />
-            {isAr ? "الأدوات الاحترافية" : "Professional Tools"}
+            {t("ptool.pageTitle")}
           </Link>
           <ChevronRight className="h-3.5 w-3.5" />
           <span className="text-foreground font-medium">{isAr ? tool.nameAr : tool.name}</span>
@@ -156,7 +156,7 @@ export default function ToolDetail() {
             {/* Features */}
             <Card>
               <CardContent className="p-5">
-                <h2 className="font-semibold mb-4">{isAr ? "المميزات" : "Features"}</h2>
+                <h2 className="font-semibold mb-4">{t("tool.features")}</h2>
                 <ul className="grid sm:grid-cols-2 gap-3">
                   {(isAr ? tool.featuresAr : tool.features).map(f => (
                     <li key={f} className="flex items-center gap-2 text-sm">
@@ -171,13 +171,13 @@ export default function ToolDetail() {
             {/* How to use */}
             <Card>
               <CardContent className="p-5">
-                <h2 className="font-semibold mb-4">{isAr ? "كيفية الاستخدام" : "How to Use"}</h2>
+                <h2 className="font-semibold mb-4">{t("tool.howToUse")}</h2>
                 <ol className="space-y-3">
                   {[
-                    isAr ? "اشترِ الأداة بالنقر على زر الشراء" : "Purchase the tool by clicking the buy button",
-                    isAr ? "سيتم تحميل ملف .bat تلقائياً" : "A .bat file will be downloaded automatically",
-                    isAr ? `${tool.requiresAdmin ? "شغّل الملف كمسؤول (Run as Administrator)" : "شغّل الملف بالضغط عليه مرتين"}` : `${tool.requiresAdmin ? "Run the file as Administrator (right-click → Run as Admin)" : "Double-click the file to run it"}`,
-                    isAr ? "انتظر حتى تكتمل العملية" : "Wait for the operation to complete",
+                    t("tool.step1"),
+                    t("tool.step2"),
+                    tool.requiresAdmin ? t("tool.step3Admin") : t("tool.step3"),
+                    t("tool.step4"),
                   ].map((step, i) => (
                     <li key={i} className="flex items-start gap-3 text-sm">
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
@@ -193,9 +193,7 @@ export default function ToolDetail() {
             {tool.requiresAdmin && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground rounded-lg border bg-muted/30 px-4 py-3">
                 <ShieldCheck className="h-4 w-4 shrink-0 text-amber-500" />
-                {isAr
-                  ? "هذه الأداة تحتاج تشغيلها كمسؤول (Run as Administrator)"
-                  : "This tool requires Administrator privileges to run"}
+                {t("tool.step3Admin")}
               </div>
             )}
           </div>
@@ -208,7 +206,7 @@ export default function ToolDetail() {
                   {purchased ? (
                     <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold">
                       <CheckCircle2 className="h-5 w-5" />
-                      {isAr ? "مشترى بالفعل" : "Already purchased"}
+                      {t("tool.alreadyPurchased")}
                     </div>
                   ) : (
                     <>
@@ -216,14 +214,14 @@ export default function ToolDetail() {
                         <Coins className="h-5 w-5 text-primary" />
                         <span className="text-2xl font-bold text-primary">{formatVX(tool.price)}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">{isAr ? "شراء مرة واحدة" : "One-time purchase"}</p>
+                      <p className="text-xs text-muted-foreground">{t("tool.oneTimePurchase")}</p>
                     </>
                   )}
                 </div>
 
                 {user && !purchased && (
                   <div className="text-xs text-muted-foreground text-center">
-                    {isAr ? "رصيدك:" : "Balance:"}{" "}
+                    {t("tool.balance")}{" "}
                     <span className="font-semibold text-foreground">{balance.toLocaleString()} VX</span>
                   </div>
                 )}
@@ -237,28 +235,28 @@ export default function ToolDetail() {
                     variant={purchased ? "outline" : "default"}
                   >
                     {buying ? (
-                      <><span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />{isAr ? "جاري…" : "Processing…"}</>
+                      <><span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />{t("tool.processing")}</>
                     ) : (
-                      <><Download className="h-4 w-4" />{purchased ? (isAr ? "تحميل مجاناً" : "Download Free") : (isAr ? "اشترِ وحمّل" : "Buy & Download")}</>
+                      <><Download className="h-4 w-4" />{purchased ? t("tool.downloadFree") : t("tool.buyDownload")}</>
                     )}
                   </Button>
                 ) : (
                   <Button asChild className="w-full" size="lg">
                     <Link to="/login">
                       <Lock className="me-2 h-4 w-4" />
-                      {isAr ? "سجّل دخولك للشراء" : "Login to Purchase"}
+                      {t("tool.loginToPurchase")}
                     </Link>
                   </Button>
                 )}
 
                 {!purchased && balance < TOOL_PRICE && user && (
                   <p className="text-xs text-center text-destructive">
-                    {isAr ? `تحتاج ${(TOOL_PRICE - balance).toLocaleString()} VX إضافية` : `Need ${(TOOL_PRICE - balance).toLocaleString()} more VX`}
+                    {t("tool.needMoreVX").replace("{vx}", (TOOL_PRICE - balance).toLocaleString())}
                   </p>
                 )}
 
                 <p className="text-xs text-center text-muted-foreground border-t pt-3">
-                  {isAr ? "بعد الشراء يمكنك التحميل في أي وقت" : "Re-download anytime after purchase"}
+                  {t("tool.redownloadNote")}
                 </p>
               </CardContent>
             </Card>
@@ -266,17 +264,17 @@ export default function ToolDetail() {
             {/* Related tools */}
             {related.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold mb-3">{isAr ? "أدوات مشابهة" : "Related Tools"}</h3>
+                <h3 className="text-sm font-semibold mb-3">{t("tool.relatedTools")}</h3>
                 <div className="space-y-2">
-                  {related.map(t => {
-                    const RelIcon = t.icon;
+                  {related.map(tl => {
+                    const RelIcon = tl.icon;
                     return (
-                      <Link key={t.id} to={`/professional-tools/${t.id}`}>
+                      <Link key={tl.id} to={`/professional-tools/${tl.id}`}>
                         <div className="flex items-center gap-3 rounded-lg border px-3 py-2.5 hover:bg-muted transition-colors">
-                          <div className={`rounded-lg p-1.5 ${ICON_BG[t.category]}`}>
-                            <RelIcon className={`h-4 w-4 ${ICON_COLORS[t.category]}`} />
+                          <div className={`rounded-lg p-1.5 ${ICON_BG[tl.category]}`}>
+                            <RelIcon className={`h-4 w-4 ${ICON_COLORS[tl.category]}`} />
                           </div>
-                          <span className="text-sm font-medium flex-1">{isAr ? t.nameAr : t.name}</span>
+                          <span className="text-sm font-medium flex-1">{isAr ? tl.nameAr : tl.name}</span>
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </div>
                       </Link>

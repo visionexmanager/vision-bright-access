@@ -52,7 +52,7 @@ function ParticipantTile({ participant }: { participant: ReturnType<typeof usePa
 }
 
 // ── Room inner content (inside LiveKitRoom context) ────────────────
-function RoomContent({ onLeave, isAr }: { onLeave: () => void; isAr: boolean }) {
+function RoomContent({ onLeave, t }: { onLeave: () => void; t: (key: string) => string }) {
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const [muted, setMuted] = useState(false);
@@ -69,7 +69,7 @@ function RoomContent({ onLeave, isAr }: { onLeave: () => void; isAr: boolean }) 
         <div className="mb-3 flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium text-muted-foreground">
-            {participants.length} {isAr ? "مشارك" : "participant(s)"}
+            {participants.length} {t("vroom.participants")}
           </span>
         </div>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
@@ -86,7 +86,7 @@ function RoomContent({ onLeave, isAr }: { onLeave: () => void; isAr: boolean }) 
           variant={muted ? "destructive" : "outline"}
           className="h-14 w-14 rounded-full p-0"
           onClick={toggleMic}
-          aria-label={muted ? (isAr ? "تشغيل الميكروفون" : "Unmute") : (isAr ? "كتم الميكروفون" : "Mute")}
+          aria-label={muted ? t("vroom.unmute") : t("vroom.mute")}
         >
           {muted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
         </Button>
@@ -96,14 +96,14 @@ function RoomContent({ onLeave, isAr }: { onLeave: () => void; isAr: boolean }) 
           variant="destructive"
           className="h-14 w-14 rounded-full p-0"
           onClick={onLeave}
-          aria-label={isAr ? "مغادرة الغرفة" : "Leave room"}
+          aria-label={t("vroom.leaveRoom")}
         >
           <PhoneOff className="h-6 w-6" />
         </Button>
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        {isAr ? "انقر على الميكروفون للكتم / الرفع • انقر الهاتف للمغادرة" : "Tap mic to mute/unmute • Tap phone to leave"}
+        {t("vroom.hint")}
       </p>
     </div>
   );
@@ -114,7 +114,7 @@ export default function VoiceRoom() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const isAr = lang === "ar";
 
   const [token, setToken] = useState<string | null>(null);
@@ -168,7 +168,7 @@ export default function VoiceRoom() {
       });
 
       if (fnErr || !data?.token) {
-        setError(fnErr?.message || (isAr ? "فشل الحصول على رمز الغرفة" : "Failed to get room token"));
+        setError(fnErr?.message || t("vroom.tokenError"));
       } else {
         setToken(data.token);
       }
@@ -192,9 +192,7 @@ export default function VoiceRoom() {
       <Layout>
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-muted-foreground">
-            {isAr ? "جاري الاتصال بالغرفة…" : "Connecting to room…"}
-          </p>
+          <p className="text-muted-foreground">{t("vroom.connecting")}</p>
         </div>
       </Layout>
     );
@@ -207,15 +205,13 @@ export default function VoiceRoom() {
         <div className="section-container py-16 text-center">
           <div className="mx-auto max-w-md space-y-4">
             <p className="text-lg font-semibold text-destructive">
-              {error || (isAr ? "الغرف الصوتية غير مفعّلة بعد" : "Voice rooms not configured yet")}
+              {error || t("vroom.notConfigured")}
             </p>
             <p className="text-sm text-muted-foreground">
-              {isAr
-                ? "يحتاج المدير إلى ضبط VITE_LIVEKIT_URL وإعداد Edge Function لتفعيل هذه الميزة."
-                : "The admin needs to configure VITE_LIVEKIT_URL and deploy the Edge Function to enable this feature."}
+              {t("vroom.configDesc")}
             </p>
             <Button onClick={() => navigate("/community")}>
-              {isAr ? "العودة للمجتمع" : "Back to Community"}
+              {t("vroom.backToCommunity")}
             </Button>
           </div>
         </div>
@@ -237,12 +233,12 @@ export default function VoiceRoom() {
               <h1 className="text-xl font-bold">{roomName}</h1>
               <Badge variant="outline" className="mt-0.5 gap-1 text-xs text-emerald-600 border-emerald-500/40">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                {isAr ? "مباشر" : "Live"}
+                {t("vroom.live")}
               </Badge>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={handleLeave}>
-            {isAr ? "مغادرة" : "Leave"}
+            {t("vroom.leave")}
           </Button>
         </div>
 
@@ -256,11 +252,11 @@ export default function VoiceRoom() {
               video={false}
               onDisconnected={handleLeave}
               onError={(err) => {
-                toast({ title: isAr ? "خطأ في الاتصال" : "Connection error", description: err.message, variant: "destructive" });
+                toast({ title: t("vroom.connectionError"), description: err.message, variant: "destructive" });
               }}
             >
               <RoomAudioRenderer />
-              <RoomContent onLeave={handleLeave} isAr={isAr} />
+              <RoomContent onLeave={handleLeave} t={t} />
             </LiveKitRoom>
           </CardContent>
         </Card>

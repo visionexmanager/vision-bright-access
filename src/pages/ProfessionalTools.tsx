@@ -38,7 +38,7 @@ const ICON_BG: Record<string, string> = {
 export default function ProfessionalTools() {
   const { user } = useAuth();
   const { balance } = useVXWallet();
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const isAr = lang === "ar";
 
   const [activeCategory, setActiveCategory] = useState("all");
@@ -72,7 +72,7 @@ export default function ProfessionalTools() {
             </div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">
-                {isAr ? "الأدوات الاحترافية" : "Professional Tools"}
+                {t("ptool.pageTitle")}
               </h1>
               <p className="mt-1 text-muted-foreground">
                 {isAr
@@ -87,19 +87,19 @@ export default function ProfessionalTools() {
             <div className="mb-6 flex items-center gap-2 rounded-xl border bg-muted/40 px-5 py-3 w-fit">
               <Coins className="h-5 w-5 text-primary" />
               <span className="text-sm font-semibold">
-                {isAr ? "رصيدك:" : "Your balance:"} {balance.toLocaleString()} VX
+                {t("ptool.balance")} {balance.toLocaleString()} VX
               </span>
               <span className="text-xs text-muted-foreground">
-                ({isAr ? "يكفي لـ" : "enough for"} {Math.floor(balance / TOOL_PRICE)} {isAr ? "أداة" : "tools"})
+                ({t("ptool.enoughFor")} {Math.floor(balance / TOOL_PRICE)} {t("ptool.tools")})
               </span>
             </div>
           ) : (
             <div className="mb-6 flex items-center gap-3 rounded-xl border border-dashed bg-muted/30 px-5 py-3 w-fit">
               <Lock className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                {isAr ? "سجّل دخولك للشراء" : "Log in to purchase"}{" "}
+                {t("ptool.loginPrompt")}{" "}
                 <Link to="/login" className="text-primary font-semibold underline">
-                  {isAr ? "تسجيل الدخول" : "Login"}
+                  {t("ptool.login")}
                 </Link>
               </span>
             </div>
@@ -147,7 +147,7 @@ export default function ProfessionalTools() {
                           {purchased && (
                             <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-xs">
                               <CheckCircle2 className="h-3 w-3 me-1" />
-                              {isAr ? "مشترى" : "Owned"}
+                              {t("ptool.owned")}
                             </Badge>
                           )}
                         </div>
@@ -180,7 +180,7 @@ export default function ProfessionalTools() {
                           <span className="text-sm font-bold text-primary">{formatVX(tool.price)}</span>
                         </div>
                         <span className="flex items-center gap-1 text-sm font-semibold text-primary">
-                          {isAr ? "عرض التفاصيل" : "View Details"}
+                          {t("ptool.viewDetails")}
                           <ArrowRight className="h-4 w-4" />
                         </span>
                       </div>
@@ -196,13 +196,9 @@ export default function ProfessionalTools() {
         <AnimatedSection className="mt-10">
           <div className="rounded-xl border bg-muted/30 p-5 text-sm text-muted-foreground">
             <p className="font-semibold text-foreground mb-1">
-              {isAr ? "ملاحظة" : "Note"}
+              {t("ptool.note")}
             </p>
-            <p>
-              {isAr
-                ? "جميع الأدوات مُصمّمة لـ Windows وتعمل كملفات .bat. بعض الأدوات تحتاج تشغيلها كمسؤول (Run as Administrator). بمجرد الشراء يمكنك تحميل الأداة في أي وقت."
-                : "All tools are designed for Windows and run as .bat files. Some tools require running as Administrator. Once purchased, you can re-download the tool anytime."}
-            </p>
+            <p>{t("ptool.noteDesc")}</p>
           </div>
         </AnimatedSection>
 

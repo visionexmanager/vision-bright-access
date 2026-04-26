@@ -56,11 +56,11 @@ export default function RadarAI() {
 
   const processFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      toast.error(isAr ? "يرجى اختيار ملف صورة" : "Please select an image file");
+      toast.error(t("radar.errSelectImage"));
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      toast.error(isAr ? "حجم الصورة يتجاوز 10 ميغابايت" : "Image exceeds 10 MB");
+      toast.error(t("radar.errFileSize"));
       return;
     }
 
@@ -89,11 +89,11 @@ export default function RadarAI() {
       speak(data.analysis.overview, lang);
     } catch (err) {
       console.error(err);
-      toast.error(isAr ? "فشل التحليل. حاول مجدداً." : "Analysis failed. Please try again.");
+      toast.error(t("radar.errAnalysis"));
     } finally {
       setAnalyzing(false);
     }
-  }, [lang, isAr]);
+  }, [lang, t]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -149,12 +149,12 @@ export default function RadarAI() {
     if (!result) return;
     const full = [
       result.overview,
-      isAr ? `الأشياء: ${result.objects.join("، ")}` : `Objects: ${result.objects.join(", ")}`,
-      isAr ? `النصوص: ${result.text_detected}` : `Text: ${result.text_detected}`,
-      isAr ? `الأشخاص: ${result.people}` : `People: ${result.people}`,
-      isAr ? `البيئة: ${result.environment}` : `Environment: ${result.environment}`,
-      isAr ? `السلامة: ${result.safety_notes}` : `Safety: ${result.safety_notes}`,
-      isAr ? `نصيحة: ${result.accessibility_tip}` : `Tip: ${result.accessibility_tip}`,
+      `${t("radar.speechObjects")} ${result.objects.join(isAr ? "، " : ", ")}`,
+      `${t("radar.speechText")} ${result.text_detected}`,
+      `${t("radar.speechPeople")} ${result.people}`,
+      `${t("radar.speechEnvironment")} ${result.environment}`,
+      `${t("radar.speechSafety")} ${result.safety_notes}`,
+      `${t("radar.speechTip")} ${result.accessibility_tip}`,
     ].join(". ");
     setIsSpeaking(true);
     speak(full, lang);
@@ -187,9 +187,9 @@ export default function RadarAI() {
           <p className="mt-2 text-lg text-muted-foreground max-w-2xl mx-auto">{t("radar.subtitle")}</p>
           <div className="flex justify-center gap-2 mt-3 flex-wrap">
             <Badge variant="secondary">🤖 GPT-4o Vision</Badge>
-            <Badge variant="secondary">🔊 {isAr ? "تحليل صوتي" : "Audio Description"}</Badge>
-            <Badge variant="secondary">📷 {isAr ? "كاميرا مباشرة" : "Live Camera"}</Badge>
-            <Badge variant="secondary">♿ {isAr ? "إمكانية الوصول" : "Accessible"}</Badge>
+            <Badge variant="secondary">🔊 {t("radar.badgeAudio")}</Badge>
+            <Badge variant="secondary">📷 {t("radar.badgeCamera")}</Badge>
+            <Badge variant="secondary">♿ {t("radar.badgeAccessible")}</Badge>
           </div>
         </AnimatedSection>
 
@@ -204,7 +204,7 @@ export default function RadarAI() {
                   playsInline
                   muted
                   className="w-full max-h-80 object-cover bg-black"
-                  aria-label={isAr ? "بث الكاميرا المباشر" : "Live camera feed"}
+                  aria-label={t("radar.ariaCamera")}
                 />
                 <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-3">
                   <Button onClick={capturePhoto} size="lg" className="gap-2 shadow-lg">
@@ -233,7 +233,7 @@ export default function RadarAI() {
               onClick={() => fileRef.current?.click()}
               role="button"
               tabIndex={0}
-              aria-label={isAr ? "منطقة رفع الصورة" : "Image upload area"}
+              aria-label={t("radar.ariaUpload")}
               onKeyDown={(e) => e.key === "Enter" && fileRef.current?.click()}
             >
               <Eye className="h-14 w-14 mx-auto mb-4 text-muted-foreground/50" />

@@ -28,7 +28,7 @@ export default function Signup() {
       return;
     }
     if (!displayName.trim()) {
-      toast.error(t("auth.nameRequired") || "Display name is required");
+      toast.error(t("auth.nameRequired"));
       return;
     }
     if (!agreed) {

@@ -366,9 +366,9 @@ export default function EmpathyOasis() {
               </div>
 
               <p className="mt-4 text-xs text-muted-foreground text-center">
-                {isAr
-                  ? `${affIdx + 1} / ${affirmations.length} — اضغط استمع لتسمع الجملة بصوت عالٍ.`
-                  : `${affIdx + 1} / ${affirmations.length} — tap Listen to hear it read aloud.`}
+                {t("oasis.affirmations.hint")
+                  .replace("{idx}", String(affIdx + 1))
+                  .replace("{total}", String(affirmations.length))}
               </p>
             </CardContent>
           </Card>
