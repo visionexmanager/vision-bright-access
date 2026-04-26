@@ -181,7 +181,7 @@ export default function Community() {
       <section className="section-container py-12">
         <AnimatedSection variants={scaleFade}>
         <div className="relative mb-10 overflow-hidden rounded-2xl">
-          <img src={communityImg} alt="" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
+          <img src={communityImg} alt="" role="presentation" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
           <div className="absolute bottom-6 left-6 right-6 text-center">
             <h1 className="text-4xl font-bold tracking-tight">{t("community.title")}</h1>

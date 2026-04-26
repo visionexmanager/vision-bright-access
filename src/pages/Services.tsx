@@ -33,7 +33,7 @@ export default function Services() {
         {/* Hero banner */}
         <AnimatedSection variants={scaleFade}>
           <div className="relative mb-10 overflow-hidden rounded-2xl">
-            <img src={servicesImg} alt="" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
+            <img src={servicesImg} alt="" role="presentation" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6">
               <h1 id="services-heading" className="text-3xl font-bold text-foreground">{t("services.title")}</h1>
@@ -47,7 +47,7 @@ export default function Services() {
             <StaggerItem key={s.name}>
               <Card className="flex flex-col overflow-hidden transition-shadow hover:shadow-lg">
                 <div className="relative h-36 w-full overflow-hidden">
-                  <img src={s.img} alt="" className="h-full w-full object-cover transition-transform duration-300 hover:scale-105" width={640} height={512} loading="lazy" />
+                  <img src={s.img} alt="" role="presentation" className="h-full w-full object-cover transition-transform duration-300 hover:scale-105" width={640} height={512} loading="lazy" />
                   <div className="absolute inset-0 bg-gradient-to-t from-card to-transparent" />
                 </div>
                 <CardContent className="flex flex-1 flex-col gap-4 p-6">

@@ -95,7 +95,7 @@ export default function BusinessSimulator() {
         {/* Hero with illustration */}
         <AnimatedSection variants={scaleFade}>
         <div className="relative mb-10 overflow-hidden rounded-2xl">
-          <img src={simulatorsImg} alt="" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
+          <img src={simulatorsImg} alt="" role="presentation" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
           <div className="absolute bottom-6 left-6 right-6">
           <div className="flex items-center gap-3 mb-4">

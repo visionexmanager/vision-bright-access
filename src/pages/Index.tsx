@@ -32,7 +32,7 @@ export default function Index() {
       {/* Hero */}
       <section className="relative px-4 py-20 text-center overflow-hidden" aria-labelledby="hero-heading">
         <div className="absolute inset-0 z-0">
-          <img src={heroImg} alt="" className="h-full w-full object-cover opacity-15 dark:opacity-10" width={1280} height={720} />
+          <img src={heroImg} alt="" role="presentation" className="h-full w-full object-cover opacity-15 dark:opacity-10" width={1280} height={720} />
           <div className="absolute inset-0 bg-gradient-to-b from-background/80 to-background" />
         </div>
         <AnimatedSection variants={scaleFade} className="relative z-10 mx-auto max-w-4xl">

@@ -258,7 +258,7 @@ export default function SimulationsSummary() {
                       <div className="relative h-32 w-full overflow-hidden">
                         <img
                           src={simulationImages[sim.slug]}
-                          alt=""
+                          alt="" role="presentation"
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                           width={768}
                           height={512}

@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
-import { Briefcase, Target, FileText, Users, ArrowRight, Sparkles } from "lucide-react";
+import { Briefcase, Target, FileText, Users, ArrowRight, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import heroImg from "@/assets/service-career.jpg";
 import { useState } from "react";
@@ -26,6 +26,7 @@ export default function CareerHub() {
   const [interest, setInterest] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [pointsAwarded, setPointsAwarded] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const tools = [
     { icon: Target, title: t("career.toolAptitude"), desc: t("career.toolAptitudeDesc"), color: "text-blue-500" },
@@ -36,7 +37,10 @@ export default function CareerHub() {
 
   const handleAnalyze = async () => {
     if (!skills.trim()) { toast.error(t("career.enterSkills")); return; }
+    setAnalyzing(true);
     playSound("success");
+    // Simulate analysis delay
+    await new Promise((r) => setTimeout(r, 1200));
     const careers = [
       "Software Developer", "UI/UX Designer", "Data Analyst", "Project Manager",
       "Digital Marketing Specialist", "Cybersecurity Analyst", "Product Manager",
@@ -44,6 +48,7 @@ export default function CareerHub() {
     ];
     const picked = careers.sort(() => Math.random() - 0.5).slice(0, 3);
     setResult(picked.join(" • "));
+    setAnalyzing(false);
     toast.success(t("career.analysisComplete"));
 
     // Award points once per session if user is logged in
@@ -59,6 +64,7 @@ export default function CareerHub() {
         toast.success(`+${CAREER_POINTS} VX earned!`);
       }
     }
+    setAnalyzing(false);
   };
 
   return (
@@ -66,7 +72,7 @@ export default function CareerHub() {
       <section className="mx-auto max-w-5xl px-4 py-10">
         <AnimatedSection variants={scaleFade}>
           <div className="relative mb-10 overflow-hidden rounded-2xl">
-            <img src={heroImg} alt="" className="h-44 w-full object-cover sm:h-52" width={800} height={512} loading="lazy" />
+            <img src={heroImg} alt="" role="presentation" className="h-44 w-full object-cover sm:h-52" width={800} height={512} loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 text-center">
               <Briefcase className="mx-auto mb-2 h-10 w-10 text-primary" />
@@ -112,8 +118,12 @@ export default function CareerHub() {
                 onChange={(e) => setInterest(e.target.value)}
                 rows={3}
               />
-              <Button size="lg" className="w-full" onClick={handleAnalyze}>
-                {t("career.analyze")} <ArrowRight className="ms-2 h-5 w-5" />
+              <Button size="lg" className="w-full" onClick={handleAnalyze} disabled={analyzing}>
+                {analyzing ? (
+                  <><Loader2 className="me-2 h-5 w-5 animate-spin" />{t("career.analyze")}…</>
+                ) : (
+                  <>{t("career.analyze")} <ArrowRight className="ms-2 h-5 w-5" /></>
+                )}
               </Button>
               {result && (
                 <div className="rounded-xl bg-primary/5 border border-primary/20 p-6 mt-4">

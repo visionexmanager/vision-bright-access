@@ -472,7 +472,7 @@ export default function VXBazaar() {
           {view === "inside" && activeShop && (
             <motion.div key="inside" initial={{ scale: 1.04, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }} className="relative min-h-screen">
               <div className="absolute inset-0">
-                <img src={activeShop.bg_image ?? DEFAULT_BG} className="h-full w-full object-cover" alt="" />
+                <img src={activeShop.bg_image ?? DEFAULT_BG} className="h-full w-full object-cover" alt="" role="presentation" />
                 <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
               </div>
 

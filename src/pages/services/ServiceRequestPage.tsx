@@ -120,7 +120,7 @@ export default function ServiceRequestPage({
         {/* Hero */}
         <AnimatedSection variants={scaleFade}>
           <div className="relative mb-10 overflow-hidden rounded-2xl">
-            <img src={heroImage} alt="" className="h-52 w-full object-cover sm:h-64" loading="lazy" />
+            <img src={heroImage} alt="" role="presentation" className="h-52 w-full object-cover sm:h-64" loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20 mb-3">

@@ -87,7 +87,7 @@ export default function Games() {
       <section className="section-container py-12">
         <AnimatedSection variants={scaleFade}>
           <div className="relative mb-10 overflow-hidden rounded-2xl">
-            <img src={gamesImg} alt="" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
+            <img src={gamesImg} alt="" role="presentation" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 text-center">
               <h1 className="text-4xl font-bold tracking-tight">{t("games.title")}</h1>
@@ -154,7 +154,7 @@ export default function Games() {
                     <div className="relative h-36 w-full overflow-hidden">
                       <img
                         src={game.img}
-                        alt=""
+                        alt="" role="presentation"
                         aria-hidden="true"
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                         width={768}

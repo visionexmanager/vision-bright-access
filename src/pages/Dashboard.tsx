@@ -108,7 +108,7 @@ export default function Dashboard() {
         {/* Dashboard banner */}
         <AnimatedSection variants={scaleFade}>
         <div className="relative mb-8 overflow-hidden rounded-2xl">
-          <img src={dashboardImg} alt="" className="h-36 w-full object-cover sm:h-44" width={800} height={512} loading="lazy" />
+          <img src={dashboardImg} alt="" role="presentation" className="h-36 w-full object-cover sm:h-44" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
           <div className="absolute bottom-4 left-6 right-6">
             <h1 className="text-3xl font-bold">{t("dash.title")}</h1>
