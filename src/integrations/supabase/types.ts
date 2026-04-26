@@ -672,6 +672,150 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_purchases: {
+        Row: {
+          id: string
+          user_id: string
+          tool_id: string
+          points_spent: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          tool_id: string
+          points_spent: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          tool_id?: string
+          points_spent?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          body: string
+          type: string
+          is_read: boolean
+          sent_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          body: string
+          type?: string
+          is_read?: boolean
+          sent_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          body?: string
+          type?: string
+          is_read?: boolean
+          sent_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      content_reports: {
+        Row: {
+          id: string
+          reporter_id: string | null
+          content_type: string
+          content_id: string
+          reason: string
+          status: string
+          reviewed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          reporter_id?: string | null
+          content_type: string
+          content_id: string
+          reason: string
+          status?: string
+          reviewed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          reporter_id?: string | null
+          content_type?: string
+          content_id?: string
+          reason?: string
+          status?: string
+          reviewed_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      admin_logs: {
+        Row: {
+          id: string
+          admin_id: string | null
+          action: string
+          target_type: string | null
+          target_id: string | null
+          details: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          admin_id?: string | null
+          action: string
+          target_type?: string | null
+          target_id?: string | null
+          details?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          admin_id?: string | null
+          action?: string
+          target_type?: string | null
+          target_id?: string | null
+          details?: Json | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      user_features: {
+        Row: {
+          id: string
+          user_id: string
+          feature_key: string
+          enabled: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          feature_key: string
+          enabled?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          feature_key?: string
+          enabled?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
