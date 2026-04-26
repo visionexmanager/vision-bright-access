@@ -62,6 +62,17 @@ const DigitalMarketing = lazy(() => import("./pages/services/DigitalMarketing"))
 const ImportPurchasing = lazy(() => import("./pages/services/ImportPurchasing"));
 const TechConsulting = lazy(() => import("./pages/services/TechConsulting"));
 const TrainingService = lazy(() => import("./pages/services/Training"));
+const HairCare = lazy(() => import("./pages/services/HairCare"));
+const LegalAdvisor = lazy(() => import("./pages/services/LegalAdvisor"));
+const MedicalSupport = lazy(() => import("./pages/services/MedicalSupport"));
+const Psychology = lazy(() => import("./pages/services/Psychology"));
+const SkinCareExpert = lazy(() => import("./pages/services/SkinCareExpert"));
+const SocialGuide = lazy(() => import("./pages/services/SocialGuide"));
+const SportsCoach = lazy(() => import("./pages/services/SportsCoach"));
+const TravelAgency = lazy(() => import("./pages/services/TravelAgency"));
+const RadarAI = lazy(() => import("./pages/services/RadarAI"));
+const EducationalEmpire = lazy(() => import("./pages/services/EducationalEmpire"));
+const EmpathyOasis = lazy(() => import("./pages/services/EmpathyOasis"));
 
 // New game pages
 const Hangman = lazy(() => import("./pages/games/Hangman"));
@@ -174,6 +185,17 @@ const App = () => (
                     <Route path="/services/import-purchasing" element={<ImportPurchasing />} />
                     <Route path="/services/tech-consulting" element={<TechConsulting />} />
                     <Route path="/services/training" element={<TrainingService />} />
+                    <Route path="/services/hair-care" element={<HairCare />} />
+                    <Route path="/services/legal-advisor" element={<LegalAdvisor />} />
+                    <Route path="/services/medical-support" element={<MedicalSupport />} />
+                    <Route path="/services/psychology" element={<Psychology />} />
+                    <Route path="/services/skin-care" element={<SkinCareExpert />} />
+                    <Route path="/services/social-guide" element={<SocialGuide />} />
+                    <Route path="/services/sports-coach" element={<SportsCoach />} />
+                    <Route path="/services/travel-agency" element={<TravelAgency />} />
+                    <Route path="/services/radar-ai" element={<RadarAI />} />
+                    <Route path="/services/educational-empire" element={<EducationalEmpire />} />
+                    <Route path="/services/empathy-oasis" element={<EmpathyOasis />} />
                     <Route path="/games/hangman" element={<Hangman />} />
                     <Route path="/games/dominoes" element={<Dominoes />} />
                     <Route path="/games/farkle" element={<FarkleGame />} />

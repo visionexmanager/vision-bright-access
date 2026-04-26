@@ -10,10 +10,14 @@ create table if not exists tool_purchases (
 
 alter table tool_purchases enable row level security;
 
-create policy "Users can view their own tool purchases"
-  on tool_purchases for select
-  using (auth.uid() = user_id);
+do $$ begin
+  create policy "Users can view their own tool purchases"
+    on tool_purchases for select
+    using (auth.uid() = user_id);
+exception when duplicate_object then null; end $$;
 
-create policy "Users can insert their own tool purchases"
-  on tool_purchases for insert
-  with check (auth.uid() = user_id);
+do $$ begin
+  create policy "Users can insert their own tool purchases"
+    on tool_purchases for insert
+    with check (auth.uid() = user_id);
+exception when duplicate_object then null; end $$;
