@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { Briefcase, Target, FileText, Users, ArrowRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -11,13 +12,20 @@ import heroImg from "@/assets/service-career.jpg";
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+
+const CAREER_POINTS = 50;
 
 export default function CareerHub() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [skills, setSkills] = useState("");
   const [interest, setInterest] = useState("");
   const [result, setResult] = useState<string | null>(null);
+  const [pointsAwarded, setPointsAwarded] = useState(false);
 
   const tools = [
     { icon: Target, title: t("career.toolAptitude"), desc: t("career.toolAptitudeDesc"), color: "text-blue-500" },
@@ -26,7 +34,7 @@ export default function CareerHub() {
     { icon: Sparkles, title: t("career.toolMentor"), desc: t("career.toolMentorDesc"), color: "text-amber-500" },
   ];
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!skills.trim()) { toast.error(t("career.enterSkills")); return; }
     playSound("success");
     const careers = [
@@ -37,6 +45,20 @@ export default function CareerHub() {
     const picked = careers.sort(() => Math.random() - 0.5).slice(0, 3);
     setResult(picked.join(" • "));
     toast.success(t("career.analysisComplete"));
+
+    // Award points once per session if user is logged in
+    if (user && !pointsAwarded) {
+      const { error } = await supabase.from("user_points").insert({
+        user_id: user.id,
+        points: CAREER_POINTS,
+        reason: "Career Hub analysis completed",
+      });
+      if (!error) {
+        setPointsAwarded(true);
+        queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
+        toast.success(`+${CAREER_POINTS} VX earned!`);
+      }
+    }
   };
 
   return (
@@ -97,7 +119,9 @@ export default function CareerHub() {
                 <div className="rounded-xl bg-primary/5 border border-primary/20 p-6 mt-4">
                   <h3 className="font-bold text-lg mb-2">{t("career.suggestedCareers")}</h3>
                   <p className="text-xl font-semibold text-primary">{result}</p>
-                  <Badge className="mt-3">{t("career.earnPoints")}</Badge>
+                  <Badge className="mt-3" variant={pointsAwarded ? "default" : "secondary"}>
+                    {pointsAwarded ? `✓ +${CAREER_POINTS} VX ${t("career.earned") || "earned"}` : t("career.earnPoints")}
+                  </Badge>
                 </div>
               )}
             </CardContent>

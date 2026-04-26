@@ -68,6 +68,7 @@ export default function ServiceRequestPage({
       if (deductErr) throw deductErr;
 
       const { error: reqErr } = await supabase.from("service_requests").insert({
+        user_id: user.id,
         full_name: form.name,
         email: form.email,
         phone: form.phone || null,

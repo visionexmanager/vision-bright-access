@@ -168,8 +168,8 @@ export default function Services() {
                     <Scissors className="h-6 w-6 text-pink-600 dark:text-pink-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold">Hair Care Specialist</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">Professional hair analysis, treatments & transformation</p>
+                    <p className="font-semibold">{t("svc.hairTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("svc.hairDesc")}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -182,8 +182,8 @@ export default function Services() {
                     <Sparkles className="h-6 w-6 text-orange-500 dark:text-orange-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold">Skin Care Expert</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">Personalised dermatology care for radiant skin</p>
+                    <p className="font-semibold">{t("svc.skinTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("svc.skinDesc")}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -196,8 +196,8 @@ export default function Services() {
                     <Stethoscope className="h-6 w-6 text-red-600 dark:text-red-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold">Medical Support</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">Licensed doctors & specialists — wherever you are</p>
+                    <p className="font-semibold">{t("svc.medicalTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("svc.medicalDesc")}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -210,8 +210,8 @@ export default function Services() {
                     <Brain className="h-6 w-6 text-violet-600 dark:text-violet-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold">Psychology & Mental Health</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">Compassionate therapy and mental wellness support</p>
+                    <p className="font-semibold">{t("svc.psychTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("svc.psychDesc")}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -224,8 +224,8 @@ export default function Services() {
                     <Scale className="h-6 w-6 text-slate-600 dark:text-slate-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold">Legal Advisor</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">Expert legal counsel across commercial, civil & family law</p>
+                    <p className="font-semibold">{t("svc.legalTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("svc.legalDesc")}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -238,8 +238,8 @@ export default function Services() {
                     <Users className="h-6 w-6 text-teal-600 dark:text-teal-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold">Social Guide</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">Navigate life's challenges with professional support</p>
+                    <p className="font-semibold">{t("svc.socialTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("svc.socialDesc")}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -252,8 +252,8 @@ export default function Services() {
                     <Dumbbell className="h-6 w-6 text-lime-600 dark:text-lime-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold">Sports & Fitness Coach</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">Expert personal training to achieve your fitness goals</p>
+                    <p className="font-semibold">{t("svc.sportsTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("svc.sportsDesc")}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -266,8 +266,8 @@ export default function Services() {
                     <Globe className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold">Global Educational Empire</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">Build & manage your own academy — from classroom to worldwide network</p>
+                    <p className="font-semibold">{t("empire.serviceTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("empire.serviceDesc")}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -280,8 +280,8 @@ export default function Services() {
                     <Heart className="h-6 w-6 text-violet-600 dark:text-violet-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold">Universal Empathy Oasis</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">Breathe, relax & reset — calming tools for mind & body</p>
+                    <p className="font-semibold">{t("oasis.serviceTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("oasis.serviceDesc")}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -294,8 +294,8 @@ export default function Services() {
                     <ScanLine className="h-6 w-6 text-primary" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold">Radar AI</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">Smart vision for the blind — describe any scene instantly</p>
+                    <p className="font-semibold">{t("radar.serviceTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("radar.serviceDesc")}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -308,8 +308,8 @@ export default function Services() {
                     <Plane className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold">Travel Agency</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">From first thought to safe return — every detail handled</p>
+                    <p className="font-semibold">{t("svc.travelTitle")}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{t("svc.travelDesc")}</p>
                   </div>
                 </CardContent>
               </Card>

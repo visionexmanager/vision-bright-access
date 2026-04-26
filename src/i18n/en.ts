@@ -1387,6 +1387,17 @@ const en: Record<string, string> = {
   "coins.buy": "Purchase",
   "coins.purchaseTitle": "Coming Soon",
   "coins.purchaseDesc": "Purchase of {coins} VX coins will be available soon!",
+  "coins.comingSoonDesc": "Online purchasing is coming soon. Contact us to top up your VX balance manually.",
+
+  // Service cards
+  "svc.hairTitle": "Hair Care Specialist", "svc.hairDesc": "Professional hair analysis, treatments & transformation",
+  "svc.skinTitle": "Skin Care Expert", "svc.skinDesc": "Personalised dermatology care for radiant skin",
+  "svc.medicalTitle": "Medical Support", "svc.medicalDesc": "Licensed doctors & specialists — wherever you are",
+  "svc.psychTitle": "Psychology & Mental Health", "svc.psychDesc": "Compassionate therapy and mental wellness support",
+  "svc.legalTitle": "Legal Advisor", "svc.legalDesc": "Expert legal counsel across commercial, civil & family law",
+  "svc.socialTitle": "Social Guide", "svc.socialDesc": "Navigate life's challenges with professional support",
+  "svc.sportsTitle": "Sports & Fitness Coach", "svc.sportsDesc": "Expert personal training to achieve your fitness goals",
+  "svc.travelTitle": "Travel Agency", "svc.travelDesc": "From first thought to safe return — every detail handled",
 
   // News Hub
   "news.title": "News Hub",
@@ -1549,7 +1560,7 @@ const en: Record<string, string> = {
   "career.toolMentor": "AI Career Mentor", "career.toolMentorDesc": "Get personalized career advice",
   "career.quickAnalysis": "Quick Career Analysis", "career.skillsPlaceholder": "Enter your skills (e.g. Python, Design, Marketing)",
   "career.interestPlaceholder": "What industries interest you?", "career.analyze": "Analyze My Career Path",
-  "career.suggestedCareers": "Suggested Careers", "career.earnPoints": "Earn 50 points", "career.analysisComplete": "Analysis complete!", "career.enterSkills": "Please enter your skills",
+  "career.suggestedCareers": "Suggested Careers", "career.earnPoints": "Earn 50 points", "career.earned": "earned", "career.analysisComplete": "Analysis complete!", "career.enterSkills": "Please enter your skills",
   "music.title": "Music Conservatory", "music.subtitle": "Learn, practice, and master music",
   "music.coursePiano": "Piano", "music.courseVocal": "Vocal Training", "music.courseProduction": "Music Production", "music.courseTheory": "Music Theory",
   "music.beginner": "Beginner", "music.intermediate": "Intermediate", "music.advanced": "Advanced",

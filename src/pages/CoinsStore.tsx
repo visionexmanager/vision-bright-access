@@ -4,21 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Coins, ShieldCheck } from "lucide-react";
+import { Coins, Clock } from "lucide-react";
 import { COIN_PACKAGES, calculatePackageTotal } from "@/systems/coinsSystem";
 import { Link } from "react-router-dom";
-import { toast } from "@/hooks/use-toast";
 
 export default function CoinsStore() {
   const { t } = useLanguage();
   const { user } = useAuth();
-
-  const handleBuy = (coins: number) => {
-    toast({
-      title: t("coins.purchaseTitle"),
-      description: t("coins.purchaseDesc").replace("{coins}", coins.toLocaleString()),
-    });
-  };
 
   return (
     <Layout>
@@ -27,6 +19,15 @@ export default function CoinsStore() {
           <Coins className="mx-auto mb-3 h-12 w-12 text-primary" />
           <h1 className="text-4xl font-bold tracking-tight">{t("coins.title")}</h1>
           <p className="mt-2 text-lg text-muted-foreground">{t("coins.subtitle")}</p>
+        </div>
+
+        {/* Coming Soon Banner */}
+        <div className="mb-8 rounded-xl border-2 border-primary/30 bg-primary/5 p-6 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Clock className="h-5 w-5 text-primary" />
+            <span className="text-lg font-bold text-primary">{t("coins.purchaseTitle")}</span>
+          </div>
+          <p className="text-muted-foreground">{t("coins.comingSoonDesc")}</p>
         </div>
 
         {!user && (
@@ -42,7 +43,12 @@ export default function CoinsStore() {
           {COIN_PACKAGES.map((pkg) => {
             const { fee, total } = calculatePackageTotal(pkg.price);
             return (
-              <Card key={pkg.coins} className="transition-shadow hover:shadow-lg">
+              <Card key={pkg.coins} className="relative transition-shadow hover:shadow-lg opacity-75">
+                <div className="absolute top-3 end-3">
+                  <Badge variant="secondary" className="text-xs">
+                    {t("coins.purchaseTitle")}
+                  </Badge>
+                </div>
                 <CardHeader className="text-center">
                   <CardTitle className="text-3xl font-extrabold text-primary">
                     {pkg.coins.toLocaleString()} VX
@@ -60,13 +66,9 @@ export default function CoinsStore() {
                     <span>{t("coins.total")}</span>
                     <span>${total}</span>
                   </div>
-                  <Button
-                    className="w-full"
-                    disabled={!user}
-                    onClick={() => handleBuy(pkg.coins)}
-                  >
-                    <ShieldCheck className="mr-2 h-4 w-4" />
-                    {t("coins.buy")}
+                  <Button className="w-full" disabled>
+                    <Clock className="mr-2 h-4 w-4" />
+                    {t("coins.purchaseTitle")}
                   </Button>
                 </CardContent>
               </Card>
