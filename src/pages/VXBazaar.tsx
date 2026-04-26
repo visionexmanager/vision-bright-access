@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageSquare, Send, Store, ShoppingCart, X, Plus, ArrowLeft,
-  Coins, Crown, Package, Settings, Trash2, ImagePlus,
+  Coins, Crown, Package, Settings, Trash2, ImagePlus, CheckCircle2,
 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { usePoints } from "@/hooks/usePoints";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useCart } from "@/contexts/CartContext";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tier = "kiosk" | "boutique" | "store" | "flagship";
@@ -72,6 +73,7 @@ export default function VXBazaar() {
   const { totalPoints } = usePoints();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
+  const { addToCart } = useCart();
 
   const [view, setView] = useState<View>("street");
   const [activeShop, setActiveShop] = useState<Shop | null>(null);
@@ -507,7 +509,22 @@ export default function VXBazaar() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                      {activeProducts.filter(p => p.in_stock).map(item => (
+                      {activeProducts.filter(p => p.in_stock).map(item => {
+                        const handleAddToCart = () => {
+                          addToCart({
+                            id: item.id,
+                            name: item.name,
+                            description: item.description ?? "",
+                            price: Number(item.price),
+                            category: "bazaar",
+                            points: 0,
+                            image: item.image ?? "",
+                            rating: 0,
+                            inStock: item.in_stock,
+                          });
+                          toast({ title: t("market.addedToCart") || `${item.name} added to cart` });
+                        };
+                        return (
                         <motion.div
                           key={item.id}
                           whileHover={{ scale: 1.04 }}
@@ -526,11 +543,15 @@ export default function VXBazaar() {
                           {item.shelf_position && (
                             <p className="mt-0.5 text-[10px] uppercase text-stone-500 italic">{item.shelf_position}</p>
                           )}
-                          <button className="mt-3 w-full rounded-full bg-amber-500 py-1.5 text-xs font-bold text-black hover:bg-amber-400 transition-colors flex items-center justify-center gap-1">
-                            <ShoppingCart className="h-3.5 w-3.5" /> Add to Cart
+                          <button
+                            onClick={handleAddToCart}
+                            className="mt-3 w-full rounded-full bg-amber-500 py-1.5 text-xs font-bold text-black hover:bg-amber-400 active:scale-95 transition-all flex items-center justify-center gap-1"
+                          >
+                            <ShoppingCart className="h-3.5 w-3.5" /> {t("market.addToCart") || "Add to Cart"}
                           </button>
                         </motion.div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

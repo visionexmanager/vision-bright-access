@@ -98,7 +98,7 @@ export default function EmpathyOasis() {
 
   const handleStopBreathing = useCallback(() => {
     if (user && sessionSecRef.current > 0) {
-      supabase.from("oasis_sessions" as any).insert({
+      supabase.from("oasis_sessions").insert({
         user_id: user.id, session_type: "breathing",
         duration_seconds: sessionSecRef.current,
       });
@@ -126,7 +126,7 @@ export default function EmpathyOasis() {
       setTimeout(() => { oscRef.current?.stop(); audioCtxRef.current?.close(); oscRef.current = null; audioCtxRef.current = null; }, 900);
     }
     if (user && toneSec.current > 0) {
-      supabase.from("oasis_sessions" as any).insert({
+      supabase.from("oasis_sessions").insert({
         user_id: user.id, session_type: "sound",
         duration_seconds: toneSec.current,
       });
@@ -167,7 +167,7 @@ export default function EmpathyOasis() {
     utter.onend   = () => {
       setSpeaking(false);
       if (user) {
-        supabase.from("oasis_sessions" as any).insert({
+        supabase.from("oasis_sessions").insert({
           user_id: user.id, session_type: "affirmation", duration_seconds: 5,
         });
       }

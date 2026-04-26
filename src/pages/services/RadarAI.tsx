@@ -38,7 +38,7 @@ function stopSpeak() {
 }
 
 export default function RadarAI() {
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -53,31 +53,6 @@ export default function RadarAI() {
   const streamRef = useRef<MediaStream | null>(null);
 
   const isAr = lang === "ar";
-
-  const t = {
-    title:       isAr ? "رادار الذكاء الاصطناعي" : "Radar AI",
-    subtitle:    isAr ? "رؤية ذكية لعالمٍ بلا حواجز — صِف الصور بدقة للمكفوفين وضعاف البصر" : "Smart vision for a barrier-free world — describe any scene instantly for the blind",
-    uploadPhoto: isAr ? "رفع صورة" : "Upload Photo",
-    openCamera:  isAr ? "فتح الكاميرا" : "Open Camera",
-    capture:     isAr ? "التقاط الصورة" : "Capture",
-    closeCamera: isAr ? "إغلاق الكاميرا" : "Close Camera",
-    analyzing:   isAr ? "جاري التحليل…" : "Analysing…",
-    analyzeBtn:  isAr ? "حلّل الصورة" : "Analyse Image",
-    reset:       isAr ? "صورة جديدة" : "New Image",
-    listenAll:   isAr ? "استمع للتقرير كاملاً" : "Listen to Full Report",
-    stop:        isAr ? "إيقاف" : "Stop",
-    overview:    isAr ? "نظرة عامة" : "Overview",
-    objects:     isAr ? "الأشياء المكتشفة" : "Detected Objects",
-    text:        isAr ? "النصوص المكتوبة" : "Text Detected",
-    people:      isAr ? "الأشخاص" : "People",
-    environment: isAr ? "البيئة المحيطة" : "Environment",
-    safety:      isAr ? "ملاحظات السلامة" : "Safety Notes",
-    tip:         isAr ? "نصيحة الوصول" : "Accessibility Tip",
-    noText:      isAr ? "لا يوجد نص مكتشف" : "No text detected",
-    cameraErr:   isAr ? "تعذّر الوصول للكاميرا" : "Camera access denied",
-    dragHint:    isAr ? "أو اسحب وأفلت صورة هنا" : "or drag & drop an image here",
-    readyHint:   isAr ? "ارفع صورة أو استخدم الكاميرا للبدء" : "Upload a photo or use the camera to begin",
-  };
 
   const processFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -143,12 +118,12 @@ export default function RadarAI() {
       setCameraActive(true);
     } catch {
       setCameraError(true);
-      toast.error(t.cameraErr);
+      toast.error(t("radar.cameraErr"));
     }
   };
 
   const closeCamera = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     setCameraActive(false);
   };
@@ -208,8 +183,8 @@ export default function RadarAI() {
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-4">
             <ScanLine className="h-9 w-9 text-primary" />
           </div>
-          <h1 className="text-4xl font-bold">{t.title}</h1>
-          <p className="mt-2 text-lg text-muted-foreground max-w-2xl mx-auto">{t.subtitle}</p>
+          <h1 className="text-4xl font-bold">{t("radar.title")}</h1>
+          <p className="mt-2 text-lg text-muted-foreground max-w-2xl mx-auto">{t("radar.subtitle")}</p>
           <div className="flex justify-center gap-2 mt-3 flex-wrap">
             <Badge variant="secondary">🤖 GPT-4o Vision</Badge>
             <Badge variant="secondary">🔊 {isAr ? "تحليل صوتي" : "Audio Description"}</Badge>
@@ -234,11 +209,11 @@ export default function RadarAI() {
                 <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-3">
                   <Button onClick={capturePhoto} size="lg" className="gap-2 shadow-lg">
                     <Camera className="h-5 w-5" />
-                    {t.capture}
+                    {t("radar.capture")}
                   </Button>
                   <Button onClick={closeCamera} variant="outline" size="lg" className="shadow-lg bg-background/90">
                     <RotateCcw className="h-4 w-4 mr-1" />
-                    {t.closeCamera}
+                    {t("radar.closeCamera")}
                   </Button>
                 </div>
               </CardContent>
@@ -262,18 +237,18 @@ export default function RadarAI() {
               onKeyDown={(e) => e.key === "Enter" && fileRef.current?.click()}
             >
               <Eye className="h-14 w-14 mx-auto mb-4 text-muted-foreground/50" />
-              <p className="text-lg font-semibold mb-1">{t.readyHint}</p>
-              <p className="text-sm text-muted-foreground">{t.dragHint}</p>
+              <p className="text-lg font-semibold mb-1">{t("radar.readyHint")}</p>
+              <p className="text-sm text-muted-foreground">{t("radar.dragHint")}</p>
             </div>
 
             <div className="flex gap-3 mt-4 justify-center flex-wrap">
               <Button size="lg" onClick={() => fileRef.current?.click()} className="gap-2">
                 <Upload className="h-5 w-5" />
-                {t.uploadPhoto}
+                {t("radar.upload")}
               </Button>
               <Button size="lg" variant="outline" onClick={openCamera} className="gap-2">
                 <Camera className="h-5 w-5" />
-                {t.openCamera}
+                {t("radar.camera")}
               </Button>
             </div>
 
@@ -292,11 +267,11 @@ export default function RadarAI() {
             <div className="flex gap-3 mt-4 justify-center">
               <Button size="lg" onClick={() => processFile(dataURLtoFile(previewUrl, "image.jpg"))} className="gap-2">
                 <ScanLine className="h-5 w-5" />
-                {t.analyzeBtn}
+                {t("radar.analyzeBtn")}
               </Button>
               <Button size="lg" variant="outline" onClick={reset} className="gap-2">
                 <RefreshCw className="h-4 w-4" />
-                {t.reset}
+                {t("radar.reset")}
               </Button>
             </div>
           </AnimatedSection>
@@ -311,9 +286,9 @@ export default function RadarAI() {
             <Card className="border-primary">
               <CardContent className="p-8 text-center space-y-3">
                 <Loader2 className="h-10 w-10 mx-auto text-primary animate-spin" />
-                <p className="font-semibold text-lg">{t.analyzing}</p>
+                <p className="font-semibold text-lg">{t("radar.analyzing")}</p>
                 <p className="text-sm text-muted-foreground">
-                  {isAr ? "GPT-4o يحلل الصورة بدقة عالية…" : "GPT-4o is analysing the image at high detail…"}
+                  {t("radar.analyzeDetail")}
                 </p>
               </CardContent>
             </Card>
@@ -332,15 +307,15 @@ export default function RadarAI() {
                   <div className="flex gap-2 shrink-0">
                     {isSpeaking ? (
                       <Button size="sm" variant="secondary" onClick={handleStopSpeak} className="gap-1">
-                        <VolumeX className="h-4 w-4" />{t.stop}
+                        <VolumeX className="h-4 w-4" />{t("radar.stop")}
                       </Button>
                     ) : (
                       <Button size="sm" onClick={speakAll} className="gap-1">
-                        <Volume2 className="h-4 w-4" />{t.listenAll}
+                        <Volume2 className="h-4 w-4" />{t("radar.listenAll")}
                       </Button>
                     )}
                     <Button size="sm" variant="outline" onClick={reset} className="gap-1 bg-background/80">
-                      <RefreshCw className="h-3.5 w-3.5" />{t.reset}
+                      <RefreshCw className="h-3.5 w-3.5" />{t("radar.reset")}
                     </Button>
                   </div>
                 </div>
@@ -351,7 +326,7 @@ export default function RadarAI() {
             <Card>
               <CardContent className="p-5">
                 <h3 className="font-bold flex items-center gap-2 mb-3">
-                  <Eye className="h-5 w-5 text-primary" />{t.objects}
+                  <Eye className="h-5 w-5 text-primary" />{t("radar.objects")}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {result.objects.map((obj, i) => (
@@ -365,10 +340,10 @@ export default function RadarAI() {
             <Card>
               <CardContent className="p-5">
                 <h3 className="font-bold flex items-center gap-2 mb-2">
-                  <FileText className="h-5 w-5 text-blue-500" />{t.text}
+                  <FileText className="h-5 w-5 text-blue-500" />{t("radar.textDetected")}
                 </h3>
                 <p className="text-sm leading-relaxed">
-                  {result.text_detected || t.noText}
+                  {result.text_detected || t("radar.noText")}
                 </p>
               </CardContent>
             </Card>
@@ -378,7 +353,7 @@ export default function RadarAI() {
               <Card>
                 <CardContent className="p-5">
                   <h3 className="font-bold flex items-center gap-2 mb-2">
-                    <Users className="h-5 w-5 text-green-500" />{t.people}
+                    <Users className="h-5 w-5 text-green-500" />{t("radar.people")}
                   </h3>
                   <p className="text-sm leading-relaxed">{result.people}</p>
                 </CardContent>
@@ -386,7 +361,7 @@ export default function RadarAI() {
               <Card>
                 <CardContent className="p-5">
                   <h3 className="font-bold flex items-center gap-2 mb-2">
-                    <MapPin className="h-5 w-5 text-orange-500" />{t.environment}
+                    <MapPin className="h-5 w-5 text-orange-500" />{t("radar.environment")}
                   </h3>
                   <p className="text-sm leading-relaxed">{result.environment}</p>
                 </CardContent>
@@ -398,7 +373,7 @@ export default function RadarAI() {
               <Card className="border-amber-500/30 bg-amber-500/5">
                 <CardContent className="p-5">
                   <h3 className="font-bold flex items-center gap-2 mb-2 text-amber-600 dark:text-amber-400">
-                    <AlertTriangle className="h-5 w-5" />{t.safety}
+                    <AlertTriangle className="h-5 w-5" />{t("radar.safety")}
                   </h3>
                   <p className="text-sm leading-relaxed">{result.safety_notes}</p>
                 </CardContent>
@@ -409,7 +384,7 @@ export default function RadarAI() {
             <Card className="border-primary/30 bg-primary/5">
               <CardContent className="p-5">
                 <h3 className="font-bold flex items-center gap-2 mb-2 text-primary">
-                  <Lightbulb className="h-5 w-5" />{t.tip}
+                  <Lightbulb className="h-5 w-5" />{t("radar.tip")}
                 </h3>
                 <p className="text-sm leading-relaxed">{result.accessibility_tip}</p>
               </CardContent>
@@ -422,7 +397,7 @@ export default function RadarAI() {
                   ["overview",    result.overview],
                   ["safety",      result.safety_notes],
                   ["tip",         result.accessibility_tip],
-                ] as [keyof typeof t, string][]
+                ] as [string, string][]
               ).map(([key, val]) => (
                 <Button
                   key={key}

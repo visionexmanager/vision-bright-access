@@ -379,6 +379,108 @@ export type Database = {
         }
         Relationships: []
       }
+      bazaar_shops: {
+        Row: {
+          id: string
+          owner_id: string
+          name: string
+          tier: string
+          description: string | null
+          theme_color: string | null
+          bg_image: string | null
+          sign_style: string | null
+          is_active: boolean
+          last_rent_paid: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id: string
+          name: string
+          tier: string
+          description?: string | null
+          theme_color?: string | null
+          bg_image?: string | null
+          sign_style?: string | null
+          is_active?: boolean
+          last_rent_paid?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          name?: string
+          tier?: string
+          description?: string | null
+          theme_color?: string | null
+          bg_image?: string | null
+          sign_style?: string | null
+          is_active?: boolean
+          last_rent_paid?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      bazaar_products: {
+        Row: {
+          id: string
+          shop_id: string
+          name: string
+          description: string | null
+          price: number
+          image: string | null
+          shelf_position: string | null
+          in_stock: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          shop_id: string
+          name: string
+          description?: string | null
+          price: number
+          image?: string | null
+          shelf_position?: string | null
+          in_stock?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          shop_id?: string
+          name?: string
+          description?: string | null
+          price?: number
+          image?: string | null
+          shelf_position?: string | null
+          in_stock?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      oasis_sessions: {
+        Row: {
+          id: string
+          user_id: string
+          session_type: string
+          duration_seconds: number
+          completed_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          session_type: string
+          duration_seconds?: number
+          completed_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          session_type?: string
+          duration_seconds?: number
+          completed_at?: string
+        }
+        Relationships: []
+      }
       service_requests: {
         Row: {
           created_at: string
