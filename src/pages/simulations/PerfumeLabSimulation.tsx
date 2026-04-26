@@ -156,7 +156,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
     if (user && simulationId) {
       await saveSimulationProgress(user.id, simulationId, {
         current_step: Object.keys(selectedNotes).length,
-        decisions: { selectedNotes, concentration, bottleSize, retailPrice, targetAudience } as any,
+        decisions: { selectedNotes, concentration, bottleSize, retailPrice, targetAudience } as Record<string, unknown>,
         score: finalScore,
         completed: true,
       });

@@ -65,7 +65,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
     if (!user || !simulationId) return;
     await saveSimulationProgress(user.id, simulationId, {
       current_step: month, score: sc, completed: done,
-      decisions: { revenue, costs, alive, woolHarvest } as any,
+      decisions: { revenue, costs, alive, woolHarvest } as Record<string, unknown>,
     });
   }, [user, simulationId, month, revenue, costs, alive, woolHarvest]);
 

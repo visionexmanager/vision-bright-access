@@ -120,7 +120,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
     if (user && simulationId) {
       await saveSimulationProgress(user.id, simulationId, {
         current_step: 4,
-        decisions: { surfactantPct, waterPct, fragrancePct, additiveType, mixTemp, mixDuration, pricePerUnit, batchSize } as any,
+        decisions: { surfactantPct, waterPct, fragrancePct, additiveType, mixTemp, mixDuration, pricePerUnit, batchSize } as Record<string, unknown>,
         score: finalScore,
         completed: true,
       });

@@ -167,7 +167,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
     if (user && simulationId) {
       await saveSimulationProgress(user.id, simulationId, {
         current_step: clients.length,
-        decisions: { skinTarget, hyaluronicAcid, vitaminC, niacinamide, retinol, spf, pricePoint, packageType } as any,
+        decisions: { skinTarget, hyaluronicAcid, vitaminC, niacinamide, retinol, spf, pricePoint, packageType } as Record<string, unknown>,
         score: finalScore,
         completed: true,
       });

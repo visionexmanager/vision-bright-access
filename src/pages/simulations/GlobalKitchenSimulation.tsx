@@ -164,7 +164,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
     if (user && simulationId) {
       await saveSimulationProgress(user.id, simulationId, {
         current_step: 6,
-        decisions: { menuSelection, chefCount, priceMultiplier, ambiance, location } as any,
+        decisions: { menuSelection, chefCount, priceMultiplier, ambiance, location } as Record<string, unknown>,
         score: finalScore,
         completed: true,
       });

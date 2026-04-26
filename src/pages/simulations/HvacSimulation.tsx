@@ -66,7 +66,7 @@ export function HvacSimulation({ simulationId }: Props) {
     if (!user || !simulationId) return;
     await saveSimulationProgress(user.id, simulationId, {
       current_step: hour, score: sc, completed: done,
-      decisions: { energyUsed, comfortScore, totalCost } as any,
+      decisions: { energyUsed, comfortScore, totalCost } as Record<string, unknown>,
     });
   }, [user, simulationId, hour, energyUsed, comfortScore, totalCost]);
 

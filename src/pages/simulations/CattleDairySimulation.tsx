@@ -152,7 +152,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
     if (user && simulationId) {
       await saveSimulationProgress(user.id, simulationId, {
         current_step: 12,
-        decisions: { herdSize, breedType, grazingAcres, feedStrategy, vetBudget } as any,
+        decisions: { herdSize, breedType, grazingAcres, feedStrategy, vetBudget } as Record<string, unknown>,
         score: finalScore,
         completed: true,
       });

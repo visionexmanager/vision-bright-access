@@ -176,7 +176,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
     if (user && simulationId) {
       await saveSimulationProgress(user.id, simulationId, {
         current_step: CASES.length,
-        decisions: { caseResults } as any,
+        decisions: { caseResults } as Record<string, unknown>,
         score: finalScore,
         completed: true,
       });

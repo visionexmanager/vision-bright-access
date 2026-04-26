@@ -90,7 +90,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
     if (!user || !simulationId) return;
     await saveSimulationProgress(user.id, simulationId, {
       current_step: day,
-      decisions: { prices, staffCount, salonTier, revenue, costs, customersServed } as any,
+      decisions: { prices, staffCount, salonTier, revenue, costs, customersServed } as Record<string, unknown>,
       score: sc,
       completed: done,
     });

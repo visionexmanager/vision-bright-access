@@ -75,7 +75,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
     if (!user || !simulationId) return;
     await saveSimulationProgress(user.id, simulationId, {
       current_step: round, score: sc, completed: done,
-      decisions: { revenue, costs, results } as any,
+      decisions: { revenue, costs, results } as Record<string, unknown>,
     });
   }, [user, simulationId, round, revenue, costs, results]);
 

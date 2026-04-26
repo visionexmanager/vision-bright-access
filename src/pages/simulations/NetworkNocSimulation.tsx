@@ -175,7 +175,7 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
       if (simulationId) {
         await saveSimulationProgress(user.id, simulationId, {
           current_step: INCIDENTS.length,
-          decisions: { teamSize, monitoringLevel, redundancy, budget } as any,
+          decisions: { teamSize, monitoringLevel, redundancy, budget } as Record<string, unknown>,
           completed: true,
           score: finalScore,
         });

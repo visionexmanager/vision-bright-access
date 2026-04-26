@@ -73,7 +73,7 @@ export function LaptopRepairSimulation({ simulationId }: Props) {
     if (!user || !simulationId) return;
     await saveSimulationProgress(user.id, simulationId, {
       current_step: jobIndex, score: sc, completed: done,
-      decisions: { correct, wrong } as any,
+      decisions: { correct, wrong } as Record<string, unknown>,
     });
   }, [user, simulationId, jobIndex, correct, wrong]);
 

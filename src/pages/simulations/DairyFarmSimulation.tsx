@@ -156,7 +156,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
     if (user && simulationId) {
       await saveSimulationProgress(user.id, simulationId, {
         current_step: 7,
-        decisions: { herdSize, feedQuality, pasteurizationTemp, coolingTarget, productType } as any,
+        decisions: { herdSize, feedQuality, pasteurizationTemp, coolingTarget, productType } as Record<string, unknown>,
         score: finalScore,
         completed: true,
       });

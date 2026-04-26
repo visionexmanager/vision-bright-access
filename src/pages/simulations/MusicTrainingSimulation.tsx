@@ -63,7 +63,7 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
     if (!user || !simulationId) return;
     await saveSimulationProgress(user.id, simulationId, {
       current_step: week, score: sc, completed: done,
-      decisions: { revenue, costs, students, skill } as any,
+      decisions: { revenue, costs, students, skill } as Record<string, unknown>,
     });
   }, [user, simulationId, week, revenue, costs, students, skill]);
 

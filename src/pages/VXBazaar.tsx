@@ -505,7 +505,7 @@ export default function VXBazaar() {
                   {activeProducts.filter(p => p.in_stock).length === 0 ? (
                     <div className="flex flex-col items-center gap-3 py-16 text-center text-stone-400">
                       <Package className="h-12 w-12 opacity-30" />
-                      <p>{isOwner ? "Your shop has no products yet. Add some below!" : "No products in stock yet."}</p>
+                      <p>{isOwner ? t("bazaar.noProductsOwner") : t("bazaar.noProductsVisitor")}</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -559,11 +559,11 @@ export default function VXBazaar() {
                 {/* Action buttons */}
                 <div className="mt-8 flex flex-wrap justify-center gap-3">
                   <Button onClick={() => setView("chat")} className="rounded-full bg-blue-600 hover:bg-blue-500 px-7">
-                    <MessageSquare className="me-2 h-4 w-4" /> Talk to Seller
+                    <MessageSquare className="me-2 h-4 w-4" /> {t("bazaar.talkToSeller")}
                   </Button>
                   {isOwner && (
                     <Button onClick={() => setView("manage")} className="rounded-full bg-emerald-600 hover:bg-emerald-500 px-7">
-                      <Settings className="me-2 h-4 w-4" /> Manage Shop
+                      <Settings className="me-2 h-4 w-4" /> {t("bazaar.manageShop")}
                     </Button>
                   )}
                 </div>

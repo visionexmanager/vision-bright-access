@@ -71,7 +71,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
     if (!user || !simulationId) return;
     await saveSimulationProgress(user.id, simulationId, {
       current_step: week, score: sc, completed: done,
-      decisions: { revenue, costs, alive } as any,
+      decisions: { revenue, costs, alive } as Record<string, unknown>,
     });
   }, [user, simulationId, week, revenue, costs, alive]);
 

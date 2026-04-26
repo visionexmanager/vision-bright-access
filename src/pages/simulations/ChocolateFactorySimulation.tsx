@@ -61,7 +61,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
     if (!user || !simulationId) return;
     await saveSimulationProgress(user.id, simulationId, {
       current_step: batch, score: sc, completed: done,
-      decisions: { revenue, costs, batches } as any,
+      decisions: { revenue, costs, batches } as Record<string, unknown>,
     });
   }, [user, simulationId, batch, revenue, costs, batches]);
 

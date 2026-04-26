@@ -55,7 +55,7 @@ type ToneKey = keyof typeof TONES;
 
 export default function EmpathyOasis() {
   const { user } = useAuth();
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const isAr = lang === "ar";
 
   // ── Breathing ──────────────────────────────────────────────────
@@ -194,12 +194,10 @@ export default function EmpathyOasis() {
               </div>
             </div>
             <h1 className="text-3xl font-bold sm:text-4xl">
-              {isAr ? "واحة التعاطف الشاملة" : "Universal Empathy Oasis"}
+              {t("oasis.title")}
             </h1>
             <p className="mt-2 max-w-xl mx-auto text-lg text-muted-foreground">
-              {isAr
-                ? "مساحة هادئة وآمنة لاستعادة توازنك — تنفس، استرخِ، واستمع."
-                : "A calm, safe space to restore your balance — breathe, relax, and listen."}
+              {t("oasis.subtitle")}
             </p>
           </div>
         </AnimatedSection>
@@ -211,7 +209,7 @@ export default function EmpathyOasis() {
               <div className="mb-6 flex items-center gap-3">
                 <Wind className="h-6 w-6 text-primary" />
                 <h2 className="text-xl font-bold">
-                  {isAr ? "تمرين التنفس ٤-٧-٨" : "4-7-8 Breathing Exercise"}
+                  {t("oasis.breathing.title")}
                 </h2>
               </div>
 
@@ -238,7 +236,7 @@ export default function EmpathyOasis() {
                     <p className="text-2xl font-bold text-primary">
                       {breathActive
                         ? (isAr ? currentPhase.ar : currentPhase.en)
-                        : (isAr ? "ابدأ" : "Start")}
+                        : t("oasis.breathing.start")}
                     </p>
                     {breathActive && (
                       <p className="text-sm text-muted-foreground">
@@ -250,7 +248,7 @@ export default function EmpathyOasis() {
 
                 {breathActive && (
                   <p className="text-sm text-muted-foreground">
-                    {isAr ? `دورة ${cycles + 1}` : `Cycle ${cycles + 1}`}
+                    {t("oasis.breathing.cycle").replace("{n}", String(cycles + 1))}
                   </p>
                 )}
 
@@ -258,24 +256,22 @@ export default function EmpathyOasis() {
                   {!breathActive ? (
                     <Button size="lg" onClick={startBreathing}>
                       <Play className="me-2 h-4 w-4" />
-                      {isAr ? "ابدأ التنفس" : "Start Breathing"}
+                      {t("oasis.breathing.startBtn")}
                     </Button>
                   ) : (
                     <Button size="lg" variant="outline" onClick={handleStopBreathing}>
                       <Pause className="me-2 h-4 w-4" />
-                      {isAr ? "إيقاف وحفظ" : "Stop & Save"}
+                      {t("oasis.breathing.stopSave")}
                     </Button>
                   )}
                   <Button size="lg" variant="ghost" onClick={stopBreathing}>
                     <RotateCcw className="me-2 h-4 w-4" />
-                    {isAr ? "إعادة" : "Reset"}
+                    {t("oasis.breathing.reset")}
                   </Button>
                 </div>
 
                 <p className="text-xs text-muted-foreground text-center max-w-sm">
-                  {isAr
-                    ? "استنشق ٤ ثوانٍ ← أمسك ٧ ثوانٍ ← أخرج ببطء ٨ ثوانٍ. تقنية علمية لتهدئة الجهاز العصبي."
-                    : "Inhale 4s → Hold 7s → Exhale slowly 8s. A scientifically-backed technique to calm your nervous system."}
+                  {t("oasis.breathing.hint")}
                 </p>
               </div>
             </CardContent>
@@ -289,7 +285,7 @@ export default function EmpathyOasis() {
               <div className="mb-6 flex items-center gap-3">
                 <Volume2 className="h-6 w-6 text-primary" />
                 <h2 className="text-xl font-bold">
-                  {isAr ? "أصوات التهدئة" : "Calming Tones"}
+                  {t("oasis.sounds.title")}
                 </h2>
               </div>
 
@@ -313,7 +309,7 @@ export default function EmpathyOasis() {
                       </p>
                       {active && (
                         <Badge className="mt-1 text-xs">
-                          {isAr ? "يعزف…" : "Playing…"}
+                          {t("oasis.sounds.playing")}
                         </Badge>
                       )}
                     </button>
@@ -325,15 +321,13 @@ export default function EmpathyOasis() {
                 <div className="flex justify-center">
                   <Button variant="outline" onClick={stopTone}>
                     <VolumeX className="me-2 h-4 w-4" />
-                    {isAr ? "إيقاف الصوت وحفظ الجلسة" : "Stop & Save Session"}
+                    {t("oasis.sounds.stopSave")}
                   </Button>
                 </div>
               )}
 
               <p className="mt-4 text-xs text-muted-foreground text-center">
-                {isAr
-                  ? "ترددات سينية نقية تساعد على الاسترخاء والتركيز. استخدم سماعات للحصول على أفضل تجربة."
-                  : "Pure sine tones tuned for relaxation and focus. Use headphones for the best experience."}
+                {t("oasis.sounds.hint")}
               </p>
             </CardContent>
           </Card>
@@ -346,7 +340,7 @@ export default function EmpathyOasis() {
               <div className="mb-6 flex items-center gap-3">
                 <Sparkles className="h-6 w-6 text-primary" />
                 <h2 className="text-xl font-bold">
-                  {isAr ? "التأكيدات الإيجابية" : "Positive Affirmations"}
+                  {t("oasis.affirmations.title")}
                 </h2>
               </div>
 
@@ -363,12 +357,10 @@ export default function EmpathyOasis() {
                   disabled={speaking}
                 >
                   <Volume2 className="me-2 h-4 w-4" />
-                  {speaking
-                    ? (isAr ? "يتكلم…" : "Speaking…")
-                    : (isAr ? "استمع" : "Listen")}
+                  {speaking ? t("oasis.affirmations.speaking") : t("oasis.affirmations.listen")}
                 </Button>
                 <Button onClick={nextAffirmation}>
-                  {isAr ? "التأكيد التالي" : "Next Affirmation"}
+                  {t("oasis.affirmations.next")}
                   <ChevronRight className="ms-2 h-4 w-4" />
                 </Button>
               </div>
@@ -387,23 +379,21 @@ export default function EmpathyOasis() {
           <div className="rounded-2xl border bg-card p-6 text-center">
             <Heart className="mx-auto mb-3 h-8 w-8 text-primary" />
             <h2 className="text-xl font-bold mb-2">
-              {isAr ? "هل تحتاج دعماً متخصصاً؟" : "Need Professional Support?"}
+              {t("oasis.support.title")}
             </h2>
             <p className="mb-5 text-muted-foreground max-w-md mx-auto">
-              {isAr
-                ? "فريقنا من المتخصصين في الصحة النفسية وذوي الإعاقة في خدمتك على مدار الساعة."
-                : "Our mental wellness and accessibility specialists are available around the clock."}
+              {t("oasis.support.desc")}
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Button asChild>
                 <Link to="/services/psychology">
-                  {isAr ? "احجز جلسة نفسية" : "Book a Psychology Session"}
+                  {t("oasis.support.psychology")}
                   <ChevronRight className="ms-2 h-4 w-4" />
                 </Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link to="/services/social-guide">
-                  {isAr ? "دعم الوصول الاجتماعي" : "Social Guide Support"}
+                  {t("oasis.support.social")}
                 </Link>
               </Button>
             </div>

@@ -72,7 +72,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
     if (!user || !simulationId) return;
     await saveSimulationProgress(user.id, simulationId, {
       current_step: month, score: sc, completed: done,
-      decisions: { totalRevenue, totalCost, totalEnergy } as any,
+      decisions: { totalRevenue, totalCost, totalEnergy } as Record<string, unknown>,
     });
   }, [user, simulationId, month, totalRevenue, totalCost, totalEnergy]);
 

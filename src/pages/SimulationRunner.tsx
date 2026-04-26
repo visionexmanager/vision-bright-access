@@ -131,7 +131,7 @@ export default function SimulationRunner() {
         user_id: user.id,
         simulation_id: simulation.id,
         current_step: step,
-        decisions: decs as any,
+        decisions: decs as Record<string, unknown>,
         score: sc,
         completed: done,
         updated_at: new Date().toISOString(),
@@ -191,7 +191,7 @@ export default function SimulationRunner() {
     if (progress) {
       await supabase
         .from("simulation_progress")
-        .update({ current_step: 0, decisions: [] as any, score: 0, completed: false })
+        .update({ current_step: 0, decisions: [] as Record<string, unknown>, score: 0, completed: false })
         .eq("id", progress.id);
     }
   };

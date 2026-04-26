@@ -96,7 +96,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
     if (!user || !simulationId) return;
     await saveSimulationProgress(user.id, simulationId, {
       current_step: round, score: sc, completed: done,
-      decisions: { revenue, costs, history } as any,
+      decisions: { revenue, costs, history } as Record<string, unknown>,
     });
   }, [user, simulationId, round, revenue, costs, history]);
 

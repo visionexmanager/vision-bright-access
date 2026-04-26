@@ -222,7 +222,7 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
     if (user && simulationId) {
       await saveSimulationProgress(user.id, simulationId, {
         current_step: completedScenarios.size,
-        decisions: [...completedScenarios] as any,
+        decisions: [...completedScenarios] as Record<string, unknown>,
         score,
         completed: true,
       });

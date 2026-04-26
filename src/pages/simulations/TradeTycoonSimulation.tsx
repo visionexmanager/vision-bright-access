@@ -58,7 +58,7 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
     if (!user || !simulationId) return;
     await saveSimulationProgress(user.id, simulationId, {
       current_step: round, score: sc, completed: done,
-      decisions: { cash, inventory, totalRevenue, totalCosts, reputation } as any,
+      decisions: { cash, inventory, totalRevenue, totalCosts, reputation } as Record<string, unknown>,
     });
   }, [user, simulationId, round, cash, inventory, totalRevenue, totalCosts, reputation]);
 
