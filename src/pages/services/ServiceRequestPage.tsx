@@ -12,6 +12,7 @@ import { usePoints } from "@/hooks/usePoints";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSound } from "@/contexts/SoundContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { CheckCircle2, Coins, ArrowRight, LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -40,6 +41,7 @@ export default function ServiceRequestPage({
   const { totalPoints } = usePoints();
   const queryClient = useQueryClient();
   const { playSound } = useSound();
+  const { t } = useLanguage();
 
   const [selectedPkg, setSelectedPkg] = useState<ServicePackage | null>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
@@ -48,25 +50,23 @@ export default function ServiceRequestPage({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) { toast.error("Please log in to request a service."); return; }
-    if (!selectedPkg) { toast.error("Please select a package first."); return; }
-    if (!form.name || !form.email || !form.message) { toast.error("Please fill all required fields."); return; }
+    if (!user) { toast.error(t("svcReq.errLogin")); return; }
+    if (!selectedPkg) { toast.error(t("svcReq.errSelectPkg")); return; }
+    if (!form.name || !form.email || !form.message) { toast.error(t("svcReq.errFillFields")); return; }
     if (totalPoints < selectedPkg.vx) {
-      toast.error(`Insufficient VX balance. You need ${selectedPkg.vx.toLocaleString()} VX.`);
+      toast.error(t("svcReq.errInsufficientVX").replace("{vx}", selectedPkg.vx.toLocaleString()));
       return;
     }
 
     setSubmitting(true);
     try {
-      // Deduct VX
       const { error: deductErr } = await supabase.from("user_points").insert({
         user_id: user.id,
         points: -selectedPkg.vx,
-        activity: `Service: ${serviceType} — ${selectedPkg.name}`,
+        reason: `Service: ${serviceType} — ${selectedPkg.name}`,
       });
       if (deductErr) throw deductErr;
 
-      // Save request
       const { error: reqErr } = await supabase.from("service_requests").insert({
         full_name: form.name,
         email: form.email,
@@ -80,9 +80,9 @@ export default function ServiceRequestPage({
       queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
       playSound("success");
       setSubmitted(true);
-      toast.success("Request submitted successfully!");
+      toast.success(t("svcReq.successToast"));
     } catch {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(t("svcReq.errGeneric"));
     } finally {
       setSubmitting(false);
     }
@@ -95,17 +95,18 @@ export default function ServiceRequestPage({
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-500/10 mb-6">
             <CheckCircle2 className="h-10 w-10 text-green-500" />
           </div>
-          <h1 className="text-3xl font-bold mb-2">Request Submitted!</h1>
+          <h1 className="text-3xl font-bold mb-2">{t("svcReq.successTitle")}</h1>
           <p className="text-muted-foreground max-w-md mb-2">
-            Your request for <strong>{selectedPkg?.name}</strong> has been received.
-            Our team will contact you at <strong>{form.email}</strong> within 24 hours.
+            {t("svcReq.successDesc")
+              .replace("{name}", selectedPkg?.name ?? "")
+              .replace("{email}", form.email)}
           </p>
           <p className="text-sm text-primary font-semibold mb-8">
-            {selectedPkg?.vx.toLocaleString()} VX has been deducted from your balance.
+            {t("svcReq.vxDeducted").replace("{vx}", (selectedPkg?.vx ?? 0).toLocaleString())}
           </p>
           <div className="flex gap-3">
-            <Link to="/services"><Button variant="outline">Back to Services</Button></Link>
-            <Link to="/dashboard"><Button>View Dashboard</Button></Link>
+            <Link to="/services"><Button variant="outline">{t("svcReq.backToServices")}</Button></Link>
+            <Link to="/dashboard"><Button>{t("svcReq.viewDashboard")}</Button></Link>
           </div>
         </div>
       </Layout>
@@ -149,7 +150,7 @@ export default function ServiceRequestPage({
 
         {/* Packages */}
         <AnimatedSection>
-          <h2 className="mb-5 text-2xl font-bold">Choose a Package</h2>
+          <h2 className="mb-5 text-2xl font-bold">{t("svcReq.choosePackage")}</h2>
         </AnimatedSection>
         <StaggerGrid className="mb-10 grid gap-5 sm:grid-cols-3">
           {packages.map((pkg) => {
@@ -194,7 +195,7 @@ export default function ServiceRequestPage({
                     ≈ ${(pkg.vx / 1000).toLocaleString()} USD
                   </p>
                   {user && !affordable && (
-                    <p className="mt-2 text-xs text-destructive font-medium">Insufficient balance</p>
+                    <p className="mt-2 text-xs text-destructive font-medium">{t("svcReq.insufficientBalance")}</p>
                   )}
                 </button>
               </StaggerItem>
@@ -206,34 +207,34 @@ export default function ServiceRequestPage({
         <AnimatedSection>
           <Card className="shadow-sm">
             <CardContent className="p-6 sm:p-8">
-              <h2 className="mb-1 text-xl font-bold">Submit Your Request</h2>
+              <h2 className="mb-1 text-xl font-bold">{t("svcReq.submitRequest")}</h2>
               <p className="mb-6 text-sm text-muted-foreground">
                 {selectedPkg
-                  ? `Selected: ${selectedPkg.name} — ${selectedPkg.vx.toLocaleString()} VX`
-                  : "Select a package above to continue."}
+                  ? t("svcReq.selectedPkg").replace("{name}", selectedPkg.name).replace("{vx}", selectedPkg.vx.toLocaleString())
+                  : t("svcReq.selectPackagePrompt")}
               </p>
 
               {!user ? (
                 <div className="rounded-xl border bg-muted/50 p-6 text-center">
-                  <p className="mb-4 text-muted-foreground">You need to be logged in to request a service.</p>
+                  <p className="mb-4 text-muted-foreground">{t("svcReq.loginPrompt")}</p>
                   <Link to="/login">
-                    <Button size="lg">Log In to Continue <ArrowRight className="ms-2 h-4 w-4" /></Button>
+                    <Button size="lg">{t("svcReq.loginBtn")} <ArrowRight className="ms-2 h-4 w-4" /></Button>
                   </Link>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium">Full Name *</label>
+                      <label className="text-sm font-medium">{t("svcReq.fullName")}</label>
                       <Input
-                        placeholder="Your full name"
+                        placeholder={t("svcReq.fullNamePlaceholder")}
                         value={form.name}
                         onChange={(e) => setForm({ ...form, name: e.target.value })}
                         required
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium">Email *</label>
+                      <label className="text-sm font-medium">{t("svcReq.email")}</label>
                       <Input
                         type="email"
                         placeholder="your@email.com"
@@ -244,7 +245,7 @@ export default function ServiceRequestPage({
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Phone (optional)</label>
+                    <label className="text-sm font-medium">{t("svcReq.phone")}</label>
                     <Input
                       type="tel"
                       placeholder="+1 234 567 8900"
@@ -253,9 +254,9 @@ export default function ServiceRequestPage({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Project Requirements *</label>
+                    <label className="text-sm font-medium">{t("svcReq.requirements")}</label>
                     <Textarea
-                      placeholder="Describe what you need in detail — the more specific, the better."
+                      placeholder={t("svcReq.requirementsPlaceholder")}
                       className="min-h-[120px]"
                       value={form.message}
                       onChange={(e) => setForm({ ...form, message: e.target.value })}
@@ -268,10 +269,10 @@ export default function ServiceRequestPage({
                       <div>
                         <p className="font-semibold">{selectedPkg.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          Your balance: {totalPoints.toLocaleString()} VX
+                          {t("svcReq.balance").replace("{vx}", totalPoints.toLocaleString())}
                           {totalPoints < selectedPkg.vx && (
                             <span className="text-destructive ms-2 font-medium">
-                              (need {(selectedPkg.vx - totalPoints).toLocaleString()} more)
+                              {t("svcReq.needMore").replace("{amount}", (selectedPkg.vx - totalPoints).toLocaleString())}
                             </span>
                           )}
                         </p>
@@ -289,7 +290,9 @@ export default function ServiceRequestPage({
                     className="w-full text-base font-semibold"
                     disabled={submitting || !selectedPkg || (!!selectedPkg && totalPoints < selectedPkg.vx)}
                   >
-                    {submitting ? "Submitting…" : `Request Service — ${selectedPkg?.vx.toLocaleString() ?? "Select package"} VX`}
+                    {submitting
+                      ? t("svcReq.submitting")
+                      : t("svcReq.requestBtn").replace("{vx}", selectedPkg?.vx.toLocaleString() ?? t("svcReq.selectPkgPlaceholder"))}
                     {!submitting && <ArrowRight className="ms-2 h-5 w-5" />}
                   </Button>
                 </form>
