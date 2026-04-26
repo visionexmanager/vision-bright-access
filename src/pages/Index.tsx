@@ -63,7 +63,7 @@ export default function Index() {
       </section>
 
       {/* How It Works */}
-      <section className="bg-muted/50 px-4 py-16" aria-labelledby="how-heading">
+      <section className="bg-muted/50 py-16" aria-labelledby="how-heading">
         <div className="section-container">
           <AnimatedSection>
             <h2 id="how-heading" className="mb-12 text-center text-3xl font-bold">{t("home.howTitle")}</h2>
@@ -86,7 +86,7 @@ export default function Index() {
       </section>
 
       {/* Features */}
-      <section className="px-4 py-16" aria-labelledby="features-heading">
+      <section className="py-16" aria-labelledby="features-heading">
         <div className="section-container">
           <AnimatedSection>
             <h2 id="features-heading" className="mb-10 text-center text-3xl font-bold">{t("home.featuresTitle")}</h2>
