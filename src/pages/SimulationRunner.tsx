@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { useAchievements } from "@/hooks/useAchievements";
+import { useAmbientSound, getSimulationAmbient } from "@/hooks/useAmbientSound";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { SimulationMentor } from "@/components/SimulationMentor";
@@ -64,6 +65,7 @@ export default function SimulationRunner() {
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
   const { checkAndUnlock } = useAchievements();
+  useAmbientSound(completed ? null : getSimulationAmbient(slug));
 
   const [simulation, setSimulation] = useState<Simulation | null>(null);
   const [progress, setProgress] = useState<SimProgress | null>(null);

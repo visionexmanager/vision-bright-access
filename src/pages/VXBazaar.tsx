@@ -16,6 +16,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
+import { useSound } from "@/contexts/SoundContext";
+import { useAmbientSound } from "@/hooks/useAmbientSound";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tier = "kiosk" | "boutique" | "store" | "flagship";
@@ -74,6 +76,8 @@ export default function VXBazaar() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
   const { addToCart } = useCart();
+  const { playSound } = useSound();
+  useAmbientSound("marketplace");
 
   const [view, setView] = useState<View>("street");
   const [activeShop, setActiveShop] = useState<Shop | null>(null);
@@ -140,6 +144,7 @@ export default function VXBazaar() {
       queryClient.invalidateQueries({ queryKey: ["bazaar-shops"] });
       queryClient.invalidateQueries({ queryKey: ["points-total"] });
       toast({ title: "Shop opened! Welcome to VXBazaar 🎉" });
+      playSound("success");
       setView("street");
     },
     onError: (e: Error) => {
@@ -173,6 +178,7 @@ export default function VXBazaar() {
       refetchProducts();
       setProductForm({ name: "", description: "", price: "", image: "", shelf_position: "Front Window" });
       toast({ title: "Product added! 🛒" });
+      playSound("click");
     },
     onError: (e: Error) => {
       if (e.message === "max_products")
@@ -194,6 +200,7 @@ export default function VXBazaar() {
     setActiveShop(shop);
     setMessages([{ text: `Welcome to ${shop.name}! How can I help you today?`, sender: "seller" }]);
     setView("inside");
+    playSound("open");
     if ("speechSynthesis" in window) {
       const msg = new SpeechSynthesisUtterance(`Welcome to ${shop.name}`);
       window.speechSynthesis.speak(msg);
@@ -205,6 +212,7 @@ export default function VXBazaar() {
     if (!chatInput.trim() || chatLoading) return;
     const userMsg = chatInput.trim();
     setChatInput("");
+    playSound("send");
     setMessages(prev => [...prev, { text: userMsg, sender: "user" }]);
     setChatLoading(true);
 
@@ -492,7 +500,7 @@ export default function VXBazaar() {
                     <p className="mt-1 text-xs text-stone-500">{activeProducts.filter(p => p.in_stock).length} items in stock</p>
                   </div>
                   <button
-                    onClick={() => { setView("street"); setActiveShop(null); }}
+                    onClick={() => { setView("street"); setActiveShop(null); playSound("close"); }}
                     className="rounded-full bg-white/10 p-2.5 hover:bg-white/20 transition-colors"
                     aria-label="Leave shop"
                   >
@@ -523,6 +531,7 @@ export default function VXBazaar() {
                             inStock: item.in_stock,
                           });
                           toast({ title: t("market.addedToCart") || `${item.name} added to cart` });
+                          playSound("points");
                         };
                         return (
                         <motion.div
