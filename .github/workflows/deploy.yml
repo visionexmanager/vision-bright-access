@@ -29,23 +29,20 @@ jobs:
             npm run build
 
             # Configure nginx to serve the dist folder
-            cat > /etc/nginx/sites-available/vision-bright-access << 'EOF'
-server {
-    listen 80;
-    listen [::]:80;
-    server_name visionex.app www.visionex.app;
-
-    root ${{ secrets.SERVER_PATH }}/dist;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
-}
-EOF
+            {
+              echo 'server {'
+              echo '    listen 80;'
+              echo '    listen [::]:80;'
+              echo '    server_name visionex.app www.visionex.app;'
+              echo "    root ${{ secrets.SERVER_PATH }}/dist;"
+              echo '    index index.html;'
+              echo '    location / {'
+              echo '        try_files $uri $uri/ /index.html;'
+              echo '    }'
+              echo '    gzip on;'
+              echo '    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;'
+              echo '}'
+            } > /etc/nginx/sites-available/vision-bright-access
 
             # Enable the site
             ln -sf /etc/nginx/sites-available/vision-bright-access /etc/nginx/sites-enabled/vision-bright-access
@@ -56,4 +53,4 @@ EOF
             # Test and reload nginx
             nginx -t && systemctl reload nginx
 
-            echo "✅ Deployed successfully"
+            echo "Deployed successfully"
