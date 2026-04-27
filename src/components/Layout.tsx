@@ -107,9 +107,9 @@ export function Layout({ children }: { children: ReactNode }) {
           {/* Copyright + Legal links strip */}
           <div className="mt-8 border-t pt-5">
             <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-              <p className="text-sm text-muted-foreground">
+              <small className="text-sm text-muted-foreground">
                 {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
-              </p>
+              </small>
               <nav aria-label={isAr ? "روابط قانونية" : "Legal links"} className="flex flex-wrap justify-center gap-x-4 gap-y-1">
                 {FOOTER_LINKS.legal.map((l) => (
                   <Link

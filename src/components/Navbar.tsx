@@ -53,7 +53,7 @@ export function Navbar() {
   }, [closeMenu]);
 
   const handleMenubarKeyDown = useCallback((e: React.KeyboardEvent<HTMLAnchorElement>, index: number) => {
-    const items = menubarRef.current?.querySelectorAll<HTMLElement>("[role='menuitem']");
+    const items = menubarRef.current?.querySelectorAll<HTMLElement>("a");
     if (!items) return;
     const count = items.length;
     if (e.key === "ArrowRight") {
@@ -134,18 +134,18 @@ export function Navbar() {
         </Link>
 
         {/* Desktop nav */}
-        <div ref={menubarRef} className="hidden items-center gap-0.5 lg:flex" role="menubar">
+        <div ref={menubarRef} className="hidden items-center gap-0.5 lg:flex">
           {navLinks.map((link, index) => (
             <Link
               key={link.to}
               to={link.to}
-              role="menuitem"
               aria-current={location.pathname === link.to ? "page" : undefined}
               className={`rounded-lg px-2.5 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 xl:px-3.5 xl:text-base ${
                 location.pathname === link.to
                   ? "bg-primary/10 text-primary"
                   : "text-foreground"
               }`}
+              onKeyDown={(e) => handleMenubarKeyDown(e, index)}
             >
               {link.label}
             </Link>
@@ -260,14 +260,14 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="border-t bg-card px-4 pb-4 pt-2 lg:hidden" role="menu">
+        <div className="border-t bg-card px-4 pb-4 pt-2 lg:hidden">
           {mobileNavGroups.map((group, groupIdx) => (
-            <div key={groupIdx}>
+            <div key={groupIdx} role="none">
               {groupIdx > 0 && (
-                <div className="my-2 border-t border-border" />
+                <hr className="my-2 border-border" />
               )}
               {group.label && (
-                <p className="mb-1 px-4 pt-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                <p className="mb-1 px-4 pt-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground" aria-hidden="true">
                   {group.label}
                 </p>
               )}
@@ -275,7 +275,6 @@ export function Navbar() {
                 <Link
                   key={link.to}
                   to={link.to}
-                  role="menuitem"
                   aria-current={location.pathname === link.to ? "page" : undefined}
                   onClick={() => setMenuOpen(false)}
                   className={`block rounded-lg px-4 py-3 text-lg font-medium transition-colors hover:bg-muted ${
