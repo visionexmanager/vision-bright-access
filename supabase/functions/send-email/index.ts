@@ -139,6 +139,7 @@ Deno.serve(async (req) => {
           to: batch,
           subject,
           html,
+          reply_to: "hello@visionex.app",
         }),
       });
 
