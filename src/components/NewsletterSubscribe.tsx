@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,13 +20,34 @@ const INTERESTS = [
   { key: "global-news", labelKey: "newsletter.topic.globalNews", emoji: "🌍" },
 ] as const;
 
+const LS_KEY = "vx_newsletter_subscribed";
+
 export function NewsletterSubscribe() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { user } = useAuth();
   const [email, setEmail] = useState("");
   const [topics, setTopics] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [subscribed, setSubscribed] = useState(false);
+  const [subscribed, setSubscribed] = useState(
+    () => localStorage.getItem(LS_KEY) === "true"
+  );
+
+  // For logged-in users: check DB on mount
+  useEffect(() => {
+    if (!user?.email || subscribed) return;
+    supabase
+      .from("newsletter_subscribers")
+      .select("email")
+      .eq("email", user.email.toLowerCase())
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          localStorage.setItem(LS_KEY, "true");
+          setSubscribed(true);
+        }
+      });
+  }, [user, subscribed]);
 
   function toggleTopic(topic: string) {
     setTopics((prev) =>
@@ -46,7 +68,8 @@ export function NewsletterSubscribe() {
 
     if (error) {
       if ((error as { code?: string }).code === "23505") {
-        toast({ title: t("newsletter.alreadySubscribed"), variant: "default" });
+        localStorage.setItem(LS_KEY, "true");
+        setSubscribed(true);
       } else {
         toast({ title: t("newsletter.error"), variant: "destructive" });
       }
@@ -54,6 +77,7 @@ export function NewsletterSubscribe() {
     }
 
     playSound("success");
+    localStorage.setItem(LS_KEY, "true");
     setSubscribed(true);
     toast({ title: t("newsletter.success") });
   }
