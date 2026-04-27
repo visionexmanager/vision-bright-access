@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     }
 
     // ── 2. Parse request ──────────────────────────────────────────
-    const { type, subject, html, to, topic } = await req.json();
+    const { type, subject, html, to, topic, from } = await req.json();
 
     if (!subject || !html) {
       return new Response(
@@ -108,7 +108,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    const FROM = Deno.env.get("RESEND_FROM") || "Visionex <onboarding@resend.dev>";
+    // Allowed sender addresses (all on verified domain visionex.app)
+    const ALLOWED_SENDERS: Record<string, string> = {
+      "hello":   "Visionex <hello@visionex.app>",
+      "news":    "Visionex News <news@visionex.app>",
+      "legal":   "Visionex Legal <legal@visionex.app>",
+      "support": "Visionex Support <support@visionex.app>",
+      "noreply": "Visionex <no-reply@visionex.app>",
+    };
+
+    const DEFAULT_FROM = Deno.env.get("RESEND_FROM") || "Visionex <hello@visionex.app>";
+    const FROM = (from && ALLOWED_SENDERS[from]) ? ALLOWED_SENDERS[from] : DEFAULT_FROM;
 
     // Resend supports up to 50 recipients per request — batch if more
     const BATCH_SIZE = 50;

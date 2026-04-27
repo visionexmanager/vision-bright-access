@@ -13,6 +13,14 @@ import { toast } from "sonner";
 import { ArrowLeft, Send, Mail, Users, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
+const SENDERS = [
+  { value: "hello",   label: "hello@visionex.app",    desc: "التواصل العام" },
+  { value: "news",    label: "news@visionex.app",     desc: "النشرة البريدية" },
+  { value: "legal",   label: "legal@visionex.app",    desc: "الشؤون القانونية" },
+  { value: "support", label: "support@visionex.app",  desc: "الدعم الفني" },
+  { value: "noreply", label: "no-reply@visionex.app", desc: "إيميلات تلقائية" },
+];
+
 const TOPICS = [
   { value: "all", label: "كل المشتركين" },
   { value: "products", label: "المنتجات" },
@@ -65,6 +73,7 @@ export default function AdminEmails() {
   const [singleEmail, setSingleEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [sender, setSender] = useState("hello");
 
   const applyTemplate = (name: string) => {
     const t = EMAIL_TEMPLATES.find(t => t.name === name);
@@ -89,6 +98,7 @@ export default function AdminEmails() {
           type: tab === "newsletter" ? "newsletter" : "single",
           subject,
           html,
+          from: sender,
           to: tab === "single" ? [singleEmail] : undefined,
           topic: tab === "newsletter" ? topic : undefined,
         }),
@@ -163,6 +173,23 @@ export default function AdminEmails() {
                 </div>
               </TabsContent>
             </Tabs>
+
+            <div>
+              <Label>المرسِل</Label>
+              <Select value={sender} onValueChange={setSender}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SENDERS.map(s => (
+                    <SelectItem key={s.value} value={s.value}>
+                      <span className="font-mono text-sm">{s.label}</span>
+                      <span className="ms-2 text-xs text-muted-foreground">— {s.desc}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div>
               <Label>عنوان الإيميل</Label>
