@@ -115,6 +115,7 @@ const AdminModeration = lazy(() => import("./pages/admin/AdminModeration"));
 const AdminEmails = lazy(() => import("./pages/admin/AdminEmails"));
 const AdminDatabase = lazy(() => import("./pages/admin/AdminDatabase"));
 const AdminLogs = lazy(() => import("./pages/admin/AdminLogs"));
+const AdminVX   = lazy(() => import("./pages/admin/AdminVX"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -242,6 +243,7 @@ const App = () => (
                     <Route path="/admin/moderation" element={<AdminRoute><AdminModeration /></AdminRoute>} />
                     <Route path="/admin/emails" element={<AdminRoute><AdminEmails /></AdminRoute>} />
                     <Route path="/admin/database" element={<AdminRoute><AdminDatabase /></AdminRoute>} />
+                    <Route path="/admin/vx" element={<AdminRoute><AdminVX /></AdminRoute>} />
                     <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

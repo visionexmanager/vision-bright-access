@@ -26,6 +26,7 @@ const ADMIN_CARDS = [
   { title: "سجل العمليات", key: "logs" as const, icon: ScrollText, link: "/admin/logs", color: "text-amber-500", desc: "تتبع عمليات الأدمن" },
   { title: "طلبات الخدمة", key: "requests" as const, icon: ShieldAlert, link: "/admin/requests", color: "text-orange-500", desc: "طلبات المستخدمين" },
   { title: "إعدادات الموقع", key: null, icon: Settings, link: "/admin/settings", color: "text-gray-500", desc: "تخصيص الواجهة" },
+  { title: "إدارة VX", key: null, icon: Coins, link: "/admin/vx", color: "text-yellow-500", desc: "منح وسحب VX بالإيميل" },
 ];
 
 export default function AdminDashboard() {
