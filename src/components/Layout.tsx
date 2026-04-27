@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { NewsletterSubscribe } from "./NewsletterSubscribe";
 import { AIChat } from "./AIChat";
+import { CookieBanner } from "./CookieBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMessageNotifications } from "@/hooks/useMessageNotifications";
 import logo from "@/assets/logo.png";
@@ -127,6 +128,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </footer>
 
       <AIChat />
+      <CookieBanner />
     </div>
   );
 }

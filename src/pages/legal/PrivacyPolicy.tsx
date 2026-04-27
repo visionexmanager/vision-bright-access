@@ -32,7 +32,15 @@ const DATA_COLLECTED = [
   },
   {
     heading: "Newsletter Subscriptions",
-    text: "If you subscribe to our newsletter, we store your email address solely for the purpose of sending platform updates and announcements.",
+    text: "If you subscribe to our newsletter, we store your email address solely for the purpose of sending platform updates and announcements. Your email is processed through Resend for delivery. You may unsubscribe at any time.",
+  },
+  {
+    heading: "Professional Tools & Purchases",
+    text: "When you purchase Professional Tools using VX Coins, we record the tool ID, VX Coins deducted, purchase timestamp, and your user ID. This data is used to manage access to purchased tools and prevent duplicate charges.",
+  },
+  {
+    heading: "Image Analysis (Radar AI)",
+    text: "When you use the Radar AI feature, images you upload or capture via camera are sent to OpenAI's Vision API for analysis. Images are not stored permanently on our servers and are not used to train AI models.",
   },
 ];
 
@@ -68,6 +76,11 @@ const THIRD_PARTIES = [
     name: "LiveKit",
     purpose: "Real-time voice communication in community rooms",
     link: "https://livekit.io/privacy",
+  },
+  {
+    name: "Resend",
+    purpose: "Transactional and newsletter email delivery — your email address is shared with Resend solely to send platform communications you have requested",
+    link: "https://resend.com/legal/privacy-policy",
   },
 ];
 

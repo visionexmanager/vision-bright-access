@@ -27,6 +27,10 @@ const sections = [
     body: "VX Coins are a platform-only virtual reward currency. They have no real-world monetary value and cannot be exchanged for cash, transferred to other platforms, or refunded. Coins may be earned through platform activities, purchased, or received as rewards. Visionex reserves the right to adjust, reset, or discontinue the VX Coins system at any time. Abuse of the coins system (e.g., farming exploits, fraudulent activities) will result in account suspension.",
   },
   {
+    title: "Professional Tools",
+    body: "Visionex offers downloadable Professional Tools available for purchase using VX Coins. Each tool has a fixed VX Coin price displayed on its detail page. Purchases are final and non-refundable once the download is initiated. Purchased tools are tied to your account and may be re-downloaded at any time from your account. Visionex reserves the right to update, modify, or discontinue any tool without prior notice; previously purchased tools remain accessible where technically feasible.",
+  },
+  {
     title: "AI-Powered Features",
     body: "Visionex integrates AI services including conversational assistants, product enrichment tools, nutrition analysis, and marketplace chat. AI responses are generated automatically and may not always be accurate. Do not rely on AI responses for medical, legal, financial, or safety-critical decisions. Visionex is not liable for outcomes resulting from AI-generated content. By using AI features, you agree that your messages may be processed by third-party AI providers (such as OpenAI) under their respective privacy policies.",
   },
@@ -44,7 +48,7 @@ const sections = [
   },
   {
     title: "Third-Party Services",
-    body: "Visionex integrates third-party services including Supabase (database & authentication), OpenAI (AI features), Google AdSense (advertising), and LiveKit (voice communication). Visionex is not responsible for the practices or policies of these third-party providers. Your use of features powered by third-party services is also subject to their respective terms.",
+    body: "Visionex integrates third-party services including Supabase (database & authentication), OpenAI (AI features), Google AdSense (advertising), LiveKit (voice communication), and Resend (email delivery). Visionex is not responsible for the practices or policies of these third-party providers. Your use of features powered by third-party services is also subject to their respective terms.",
   },
   {
     title: "Advertising",
