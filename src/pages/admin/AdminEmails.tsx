@@ -42,7 +42,7 @@ const EMAIL_TEMPLATES = [
   {
     name: "🪙 منحة VX للمستخدم",
     subject: "🎁 تم إضافة [XXX] عملة VX إلى رصيدك!",
-    sender: "hello",
+    sender: "noreply",
     html: `<div dir="rtl" style="${BASE}">
   <div style="${HDR}">
     <div style="font-size:48px">🪙</div>
