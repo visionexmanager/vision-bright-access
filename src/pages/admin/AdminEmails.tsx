@@ -31,36 +31,293 @@ const TOPICS = [
   { value: "global-news", label: "أخبار عالمية" },
 ];
 
+const BASE = `font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:0;background:#ffffff`;
+const HDR  = `background:linear-gradient(135deg,#6d28d9,#4f46e5);padding:32px 24px;text-align:center;border-radius:12px 12px 0 0`;
+const BOD  = `padding:28px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px`;
+const BTN  = `background:#6d28d9;color:#ffffff;padding:13px 28px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:bold;font-size:15px;margin-top:20px`;
+const FOT  = `margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:11px;text-align:center`;
+
 const EMAIL_TEMPLATES = [
+  // ── 1. VX منحة ──────────────────────────────────────────────────────────
   {
-    name: "ترحيب بمستخدم جديد",
-    subject: "مرحباً بك في Visionex!",
-    html: `<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px">
-<h1 style="color:#6d28d9">مرحباً بك في Visionex! 🎉</h1>
-<p>نسعد بانضمامك إلى مجتمعنا. Visionex هي منصتك الشاملة للوصولية والتكنولوجيا المساعدة.</p>
-<p>يمكنك الآن:</p>
-<ul><li>تصفح المنتجات المساعدة</li><li>الوصول إلى محتوى تعليمي متميز</li><li>التواصل مع مجتمع الوصولية</li></ul>
-<a href="https://visionex.app" style="background:#6d28d9;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:16px">ابدأ الاستكشاف</a>
-<p style="color:#666;margin-top:24px;font-size:12px">فريق Visionex</p>
+    name: "🪙 منحة VX للمستخدم",
+    subject: "🎁 تم إضافة [XXX] عملة VX إلى رصيدك!",
+    sender: "hello",
+    html: `<div dir="rtl" style="${BASE}">
+  <div style="${HDR}">
+    <div style="font-size:48px">🪙</div>
+    <h1 style="color:#fff;margin:12px 0 4px;font-size:24px">تم إضافة عملات VX!</h1>
+    <p style="color:#c4b5fd;margin:0;font-size:14px">مكافأة خاصة من Visionex</p>
+  </div>
+  <div style="${BOD}">
+    <p style="font-size:16px;color:#374151">أهلاً،</p>
+    <p style="color:#4b5563;line-height:1.7">
+      يسعدنا إعلامك بأنه تم إضافة
+      <span style="color:#6d28d9;font-weight:bold;font-size:20px"> [XXX] عملة VX </span>
+      إلى رصيدك على منصة Visionex.
+    </p>
+    <div style="background:#f5f3ff;border-radius:10px;padding:16px 20px;margin:20px 0;border-right:4px solid #6d28d9">
+      <p style="margin:0;color:#5b21b6;font-size:14px">💡 <strong>ماذا تفعل بعملات VX؟</strong></p>
+      <ul style="color:#6b7280;font-size:13px;margin:8px 0 0;padding-right:16px;line-height:1.8">
+        <li>شراء أدوات احترافية</li>
+        <li>فتح متجر في VXBazaar</li>
+        <li>الوصول لمحتوى حصري</li>
+      </ul>
+    </div>
+    <p style="color:#4b5563;font-size:14px">[سبب المنحة — اكتب هنا]</p>
+    <a href="https://visionex.app/coins-store" style="${BTN}">عرض رصيدي</a>
+    <div style="${FOT}">
+      <p>© 2026 Visionex · <a href="https://visionex.app" style="color:#6d28d9">visionex.app</a></p>
+    </div>
+  </div>
 </div>`,
   },
+
+  // ── 2. النشرة الأولى ─────────────────────────────────────────────────────
   {
-    name: "نشرة أخبار المنتجات",
-    subject: "منتجات جديدة في Visionex 🛒",
-    html: `<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px">
-<h1 style="color:#6d28d9">منتجات جديدة وصلت!</h1>
-<p>اكتشف أحدث المنتجات المساعدة المتاحة على منصة Visionex.</p>
-<a href="https://visionex.app/assistive-products" style="background:#6d28d9;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:16px">تصفح المنتجات</a>
-<p style="color:#666;margin-top:24px;font-size:12px">لإلغاء الاشتراك في النشرة، تواصل معنا عبر البريد الإلكتروني.</p>
+    name: "📬 النشرة الأولى — الإطلاق",
+    subject: "🚀 Visionex انطلقت — إليك ما ينتظرك!",
+    sender: "news",
+    html: `<div dir="rtl" style="${BASE}">
+  <div style="${HDR}">
+    <div style="font-size:48px">🚀</div>
+    <h1 style="color:#fff;margin:12px 0 4px;font-size:24px">مرحباً بك في Visionex!</h1>
+    <p style="color:#c4b5fd;margin:0;font-size:14px">النشرة البريدية الرسمية — العدد الأول</p>
+  </div>
+  <div style="${BOD}">
+    <p style="color:#4b5563;line-height:1.7">
+      سعداء بانضمامك إلى مجتمع Visionex — المنصة المبنية للجميع، بمعايير وصولية عالية.
+    </p>
+
+    <h2 style="color:#6d28d9;font-size:16px;margin-top:24px">✨ ما يمكنك فعله الآن</h2>
+    <table style="width:100%;border-collapse:collapse">
+      <tr>
+        <td style="padding:10px;background:#f9fafb;border-radius:8px;margin-bottom:8px">
+          🛍️ <strong>VXBazaar</strong> — سوق رقمي لفتح متجرك وبيع منتجاتك
+        </td>
+      </tr>
+      <tr><td style="padding:4px"></td></tr>
+      <tr>
+        <td style="padding:10px;background:#f9fafb;border-radius:8px">
+          🤖 <strong>خدمات AI</strong> — مساعد ذكي، تحليل صور، خبير تغذية والمزيد
+        </td>
+      </tr>
+      <tr><td style="padding:4px"></td></tr>
+      <tr>
+        <td style="padding:10px;background:#f9fafb;border-radius:8px">
+          🎮 <strong>ألعاب وتحديات</strong> — العب واربح عملات VX
+        </td>
+      </tr>
+      <tr><td style="padding:4px"></td></tr>
+      <tr>
+        <td style="padding:10px;background:#f9fafb;border-radius:8px">
+          📚 <strong>الأكاديمية</strong> — كورسات ومحاكاة تدريبية
+        </td>
+      </tr>
+    </table>
+
+    <a href="https://visionex.app" style="${BTN}">اكتشف المنصة</a>
+
+    <div style="${FOT}">
+      <p>وصلك هذا الإيميل لاشتراكك في النشرة البريدية لـ Visionex.</p>
+      <p>© 2026 Visionex · <a href="https://visionex.app" style="color:#6d28d9">visionex.app</a></p>
+    </div>
+  </div>
 </div>`,
   },
+
+  // ── 3. نشرة أخبار دورية ──────────────────────────────────────────────────
   {
-    name: "إشعار مخصص",
+    name: "📰 نشرة أخبار دورية",
+    subject: "📰 أخبار Visionex — [الشهر واالسنة]",
+    sender: "news",
+    html: `<div dir="rtl" style="${BASE}">
+  <div style="${HDR}">
+    <p style="color:#c4b5fd;margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:2px">النشرة الدورية</p>
+    <h1 style="color:#fff;margin:0;font-size:22px">أخبار Visionex</h1>
+    <p style="color:#c4b5fd;margin:8px 0 0;font-size:13px">[الشهر واالسنة]</p>
+  </div>
+  <div style="${BOD}">
+
+    <h2 style="color:#6d28d9;font-size:15px;border-bottom:2px solid #ede9fe;padding-bottom:8px">🆕 الجديد هذا الشهر</h2>
+    <p style="color:#4b5563;line-height:1.7">[اكتب هنا أبرز التحديثات والميزات الجديدة]</p>
+
+    <h2 style="color:#6d28d9;font-size:15px;border-bottom:2px solid #ede9fe;padding-bottom:8px;margin-top:24px">📊 أرقام المجتمع</h2>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:120px;background:#f5f3ff;border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:24px;font-weight:bold;color:#6d28d9">[XXX]</div>
+        <div style="font-size:12px;color:#6b7280">مستخدم نشط</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:#f0fdf4;border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:24px;font-weight:bold;color:#16a34a">[XXX]</div>
+        <div style="font-size:12px;color:#6b7280">متجر في VXBazaar</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:#fff7ed;border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:24px;font-weight:bold;color:#ea580c">[XXX]</div>
+        <div style="font-size:12px;color:#6b7280">مليون VX موزّعة</div>
+      </div>
+    </div>
+
+    <h2 style="color:#6d28d9;font-size:15px;border-bottom:2px solid #ede9fe;padding-bottom:8px;margin-top:24px">💡 نصيحة الشهر</h2>
+    <p style="color:#4b5563;line-height:1.7">[اكتب نصيحة أو ميزة مخفية تريد إبرازها]</p>
+
+    <a href="https://visionex.app" style="${BTN}">زيارة المنصة</a>
+
+    <div style="${FOT}">
+      <p>وصلك هذا الإيميل لاشتراكك في النشرة البريدية لـ Visionex.</p>
+      <p>© 2026 Visionex · <a href="https://visionex.app" style="color:#6d28d9">visionex.app</a></p>
+    </div>
+  </div>
+</div>`,
+  },
+
+  // ── 4. إطلاق ميزة جديدة ─────────────────────────────────────────────────
+  {
+    name: "✨ إطلاق ميزة جديدة",
+    subject: "✨ ميزة جديدة في Visionex — [اسم الميزة]",
+    sender: "hello",
+    html: `<div dir="rtl" style="${BASE}">
+  <div style="${HDR}">
+    <div style="font-size:48px">✨</div>
+    <h1 style="color:#fff;margin:12px 0 4px;font-size:24px">[اسم الميزة]</h1>
+    <p style="color:#c4b5fd;margin:0;font-size:14px">أحدث إضافة لمنصة Visionex</p>
+  </div>
+  <div style="${BOD}">
+    <p style="color:#4b5563;line-height:1.7">
+      يسعدنا الإعلان عن إطلاق <strong>[اسم الميزة]</strong> — [وصف مختصر جداً في جملة].
+    </p>
+
+    <div style="background:#f5f3ff;border-radius:12px;padding:20px;margin:20px 0">
+      <h3 style="color:#5b21b6;margin:0 0 12px;font-size:15px">ماذا تقدم هذه الميزة؟</h3>
+      <ul style="color:#6b7280;font-size:14px;margin:0;padding-right:16px;line-height:2">
+        <li>[فائدة ١]</li>
+        <li>[فائدة ٢]</li>
+        <li>[فائدة ٣]</li>
+      </ul>
+    </div>
+
+    <a href="https://visionex.app/[رابط-الميزة]" style="${BTN}">جرّبها الآن</a>
+
+    <div style="${FOT}">
+      <p>© 2026 Visionex · <a href="https://visionex.app" style="color:#6d28d9">visionex.app</a></p>
+    </div>
+  </div>
+</div>`,
+  },
+
+  // ── 5. عرض خاص / مكافأة ─────────────────────────────────────────────────
+  {
+    name: "🎉 عرض خاص أو مكافأة",
+    subject: "🎉 عرض حصري لك من Visionex!",
+    sender: "hello",
+    html: `<div dir="rtl" style="${BASE}">
+  <div style="background:linear-gradient(135deg,#f59e0b,#ef4444);padding:32px 24px;text-align:center;border-radius:12px 12px 0 0">
+    <div style="font-size:48px">🎁</div>
+    <h1 style="color:#fff;margin:12px 0 4px;font-size:24px">عرض حصري لك!</h1>
+    <p style="color:#fef3c7;margin:0;font-size:14px">لفترة محدودة</p>
+  </div>
+  <div style="${BOD}">
+    <p style="color:#4b5563;line-height:1.7">أهلاً،</p>
+    <p style="color:#4b5563;line-height:1.7">
+      [وصف العرض أو المكافأة — مثلاً: احصل على XXX عملة VX مجاناً عند إتمام أول عملية شراء هذا الأسبوع]
+    </p>
+
+    <div style="background:#fffbeb;border:2px dashed #f59e0b;border-radius:10px;padding:16px;text-align:center;margin:20px 0">
+      <p style="margin:0;color:#92400e;font-size:13px">ينتهي العرض في</p>
+      <p style="margin:6px 0 0;color:#b45309;font-weight:bold;font-size:18px">[التاريخ]</p>
+    </div>
+
+    <a href="https://visionex.app" style="background:#f59e0b;color:#ffffff;padding:13px 28px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:bold;font-size:15px;margin-top:4px">استفد من العرض</a>
+
+    <div style="${FOT}">
+      <p>© 2026 Visionex · <a href="https://visionex.app" style="color:#6d28d9">visionex.app</a></p>
+    </div>
+  </div>
+</div>`,
+  },
+
+  // ── 6. دعوة للعودة ──────────────────────────────────────────────────────
+  {
+    name: "💌 دعوة للعودة",
+    subject: "💌 نفتقدك في Visionex!",
+    sender: "hello",
+    html: `<div dir="rtl" style="${BASE}">
+  <div style="${HDR}">
+    <div style="font-size:48px">💌</div>
+    <h1 style="color:#fff;margin:12px 0 4px;font-size:24px">نفتقدك!</h1>
+    <p style="color:#c4b5fd;margin:0;font-size:14px">لم نرك منذ فترة</p>
+  </div>
+  <div style="${BOD}">
+    <p style="color:#4b5563;line-height:1.7">أهلاً،</p>
+    <p style="color:#4b5563;line-height:1.7">
+      لاحظنا أنك لم تزر Visionex مؤخراً — لا بأس! نحن هنا دائماً، وعندنا جديد ينتظرك:
+    </p>
+
+    <ul style="color:#4b5563;font-size:14px;line-height:2;padding-right:16px">
+      <li>🆕 [جديد ١ — مثلاً: ميزات جديدة في VXBazaar]</li>
+      <li>🎮 [جديد ٢ — مثلاً: ألعاب ومسابقات جديدة]</li>
+      <li>🪙 [جديد ٣ — مثلاً: طرق جديدة لكسب VX]</li>
+    </ul>
+
+    <a href="https://visionex.app" style="${BTN}">عودة للمنصة</a>
+
+    <div style="${FOT}">
+      <p>© 2026 Visionex · <a href="https://visionex.app" style="color:#6d28d9">visionex.app</a></p>
+    </div>
+  </div>
+</div>`,
+  },
+
+  // ── 7. تحديث مهم / صيانة ────────────────────────────────────────────────
+  {
+    name: "⚙️ إشعار تحديث أو صيانة",
+    subject: "⚙️ تحديث مهم على منصة Visionex",
+    sender: "noreply",
+    html: `<div dir="rtl" style="${BASE}">
+  <div style="background:#1e293b;padding:32px 24px;text-align:center;border-radius:12px 12px 0 0">
+    <div style="font-size:48px">⚙️</div>
+    <h1 style="color:#f1f5f9;margin:12px 0 4px;font-size:22px">إشعار تحديث</h1>
+    <p style="color:#94a3b8;margin:0;font-size:14px">معلومة مهمة من فريق Visionex</p>
+  </div>
+  <div style="${BOD}">
+    <p style="color:#4b5563;line-height:1.7">
+      نودّ إعلامك بأننا سنجري <strong>[تحديثاً / صيانة مجدولة]</strong> على المنصة.
+    </p>
+
+    <div style="background:#f8fafc;border-radius:10px;padding:16px 20px;margin:16px 0;border-right:4px solid #64748b">
+      <p style="margin:0 0 8px;color:#475569;font-size:14px"><strong>📅 الموعد:</strong> [التاريخ والوقت]</p>
+      <p style="margin:0 0 8px;color:#475569;font-size:14px"><strong>⏱ المدة المتوقعة:</strong> [مثلاً: ساعة واحدة]</p>
+      <p style="margin:0;color:#475569;font-size:14px"><strong>📌 التأثير:</strong> [ما الذي سيتأثر]</p>
+    </div>
+
+    <p style="color:#6b7280;font-size:14px;line-height:1.7">
+      نعتذر عن أي إزعاج. نعمل باستمرار على تحسين تجربتك.
+    </p>
+
+    <div style="${FOT}">
+      <p>هذا إشعار تلقائي — لا ترد على هذا الإيميل.</p>
+      <p>© 2026 Visionex · <a href="https://visionex.app" style="color:#6d28d9">visionex.app</a></p>
+    </div>
+  </div>
+</div>`,
+  },
+
+  // ── 8. مخصص فارغ ────────────────────────────────────────────────────────
+  {
+    name: "✏️ إيميل مخصص",
     subject: "",
-    html: `<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px">
-<h1 style="color:#6d28d9"></h1>
-<p></p>
-<p style="color:#666;margin-top:24px;font-size:12px">فريق Visionex</p>
+    sender: "hello",
+    html: `<div dir="rtl" style="${BASE}">
+  <div style="${HDR}">
+    <h1 style="color:#fff;margin:0;font-size:24px">[العنوان]</h1>
+  </div>
+  <div style="${BOD}">
+    <p style="color:#4b5563;line-height:1.7">[المحتوى]</p>
+    <a href="https://visionex.app" style="${BTN}">[نص الزر]</a>
+    <div style="${FOT}">
+      <p>© 2026 Visionex · <a href="https://visionex.app" style="color:#6d28d9">visionex.app</a></p>
+    </div>
+  </div>
 </div>`,
   },
 ];
@@ -77,7 +334,7 @@ export default function AdminEmails() {
 
   const applyTemplate = (name: string) => {
     const t = EMAIL_TEMPLATES.find(t => t.name === name);
-    if (t) { setSubject(t.subject); setHtml(t.html); setSelectedTemplate(name); }
+    if (t) { setSubject(t.subject); setHtml(t.html); setSelectedTemplate(name); setSender(t.sender || "hello"); }
   };
 
   const sendEmail = async () => {
