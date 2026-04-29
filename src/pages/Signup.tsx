@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SocialAuthButtons } from "@/components/SocialAuthButtons";
+import { useDeviceId } from "@/hooks/useDeviceId";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
@@ -20,6 +21,7 @@ export default function Signup() {
   const navigate = useNavigate();
   const { t, lang } = useLanguage();
   const isAr = lang === "ar";
+  const deviceId = useDeviceId();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +38,22 @@ export default function Signup() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+
+    // Device ban check (best-effort — don't block signup if RPC fails)
+    if (deviceId) {
+      const { data: isBanned } = await supabase.rpc("is_device_banned", { _device_id: deviceId });
+      if (isBanned) {
+        setLoading(false);
+        toast.error(
+          isAr
+            ? "تم حظر هذا الجهاز. تواصل مع الدعم."
+            : "This device has been banned. Please contact support."
+        );
+        return;
+      }
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -48,6 +65,19 @@ export default function Signup() {
     if (error) {
       toast.error(error.message);
     } else {
+      // Record device fingerprint and enforce one-trial-per-device rule
+      if (deviceId && data.user) {
+        const uid = data.user.id;
+        await supabase.rpc("record_device_fingerprint", {
+          _device_id: deviceId,
+          _user_id: uid,
+          _user_agent: navigator.userAgent,
+        });
+        await supabase.rpc("maybe_revoke_trial", {
+          _user_id: uid,
+          _device_id: deviceId,
+        });
+      }
       toast.success(t("auth.accountCreated"));
       navigate("/dashboard");
     }

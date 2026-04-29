@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   ArrowLeft, ShieldCheck, ShieldOff, Ban, Clock, CheckCircle,
-  Coins, Star, Search, ChevronDown, BadgeCheck, Bell, Eye
+  Coins, Star, Search, ChevronDown, BadgeCheck, Bell, Eye, Fingerprint
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,9 +48,10 @@ type UserProfile = {
   isAdmin?: boolean;
   points?: number;
   features?: Record<string, boolean>;
+  device_ids?: string[];
 };
 
-type DialogType = "ban" | "suspend" | "points" | "features" | "notify" | "detail" | null;
+type DialogType = "ban" | "suspend" | "points" | "features" | "notify" | "detail" | "device_ban" | null;
 
 export default function AdminUsers() {
   const { user: currentUser } = useAuth();
@@ -63,6 +64,7 @@ export default function AdminUsers() {
 
   // Form states
   const [banReason, setBanReason] = useState("");
+  const [deviceBanReason, setDeviceBanReason] = useState("");
   const [suspendDays, setSuspendDays] = useState("3");
   const [suspendReason, setSuspendReason] = useState("");
   const [pointsAmount, setPointsAmount] = useState("100");
@@ -73,11 +75,12 @@ export default function AdminUsers() {
   const [userFeatures, setUserFeatures] = useState<Record<string, boolean>>({});
 
   const load = async () => {
-    const [{ data: profiles }, { data: roles }, { data: pointsData }, { data: featuresData }] = await Promise.all([
+    const [{ data: profiles }, { data: roles }, { data: pointsData }, { data: featuresData }, { data: deviceData }] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("user_roles").select("user_id, role"),
       supabase.from("user_points").select("user_id, points"),
       supabase.from("user_features").select("user_id, feature_key, enabled"),
+      supabase.from("device_fingerprints").select("user_id, device_id"),
     ]);
 
     const adminIds = new Set((roles ?? []).filter(r => r.role === "admin").map(r => r.user_id));
@@ -93,6 +96,12 @@ export default function AdminUsers() {
       featuresMap[f.user_id][f.feature_key] = f.enabled;
     }
 
+    const deviceMap: Record<string, string[]> = {};
+    for (const d of deviceData ?? []) {
+      if (!deviceMap[d.user_id]) deviceMap[d.user_id] = [];
+      deviceMap[d.user_id].push(d.device_id);
+    }
+
     setUsers((profiles ?? []).map(p => ({
       ...p,
       status: p.status || "active",
@@ -100,6 +109,7 @@ export default function AdminUsers() {
       isAdmin: adminIds.has(p.user_id),
       points: pointsMap[p.user_id] || 0,
       features: featuresMap[p.user_id] || {},
+      device_ids: deviceMap[p.user_id] || [],
     })));
   };
 
@@ -109,7 +119,7 @@ export default function AdminUsers() {
     setSelected(user);
     setDialog(type);
     if (type === "features") setUserFeatures(user.features || {});
-    setBanReason(""); setSuspendReason(""); setPointsAmount("100");
+    setBanReason(""); setDeviceBanReason(""); setSuspendReason(""); setPointsAmount("100");
     setPointsReason(""); setNotifyTitle(""); setNotifyBody("");
   };
 
@@ -152,6 +162,28 @@ export default function AdminUsers() {
     const { error } = await supabase.rpc("unban_user", { _user_id: u.user_id });
     if (error) toast.error(error.message);
     else { toast.success("تم رفع الحظر"); load(); }
+  };
+
+  const banDevice = async () => {
+    if (!selected || !deviceBanReason) return;
+    const did = selected.device_ids?.[0];
+    if (!did) { toast.error("لا يوجد معرّف جهاز لهذا المستخدم"); return; }
+    setLoading(true);
+    const { error } = await supabase.rpc("ban_device", {
+      _device_id: did,
+      _reason: deviceBanReason,
+    });
+    setLoading(false);
+    if (error) toast.error(error.message);
+    else { toast.success("تم حظر الجهاز وجميع الحسابات المرتبطة به"); closeDialog(); load(); }
+  };
+
+  const unbanDevice = async (u: UserProfile) => {
+    const did = u.device_ids?.[0];
+    if (!did) { toast.error("لا يوجد معرّف جهاز"); return; }
+    const { error } = await supabase.rpc("unban_device", { _device_id: did });
+    if (error) toast.error(error.message);
+    else { toast.success("تم رفع حظر الجهاز"); load(); }
   };
 
   const grantPoints = async () => {
@@ -237,6 +269,7 @@ export default function AdminUsers() {
                     <TableHead>الحالة</TableHead>
                     <TableHead>الدور</TableHead>
                     <TableHead>النقاط</TableHead>
+                    <TableHead>الجهاز</TableHead>
                     <TableHead>موثق</TableHead>
                     <TableHead>انضم</TableHead>
                     <TableHead>الإجراءات</TableHead>
@@ -264,6 +297,19 @@ export default function AdminUsers() {
                         <span className="flex items-center gap-1 font-mono text-sm">
                           <Coins className="h-3 w-3 text-yellow-500" />{u.points}
                         </span>
+                      </TableCell>
+                      <TableCell>
+                        {u.device_ids && u.device_ids.length > 0 ? (
+                          <span
+                            className="flex items-center gap-1 font-mono text-xs text-muted-foreground"
+                            title={u.device_ids.join(", ")}
+                          >
+                            <Fingerprint className="h-3 w-3 shrink-0" />
+                            {u.device_ids[0].slice(0, 8)}…
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Switch checked={u.is_verified} onCheckedChange={() => toggleVerified(u)} />
@@ -309,6 +355,17 @@ export default function AdminUsers() {
                                 <CheckCircle className="me-2 h-4 w-4" /> رفع الحظر
                               </DropdownMenuItem>
                             )}
+                            {u.device_ids && u.device_ids.length > 0 && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openDialog(u, "device_ban")} className="text-red-700">
+                                  <Fingerprint className="me-2 h-4 w-4" /> حظر الجهاز
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => unbanDevice(u)} className="text-green-700">
+                                  <CheckCircle className="me-2 h-4 w-4" /> رفع حظر الجهاز
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -331,6 +388,37 @@ export default function AdminUsers() {
             <Button variant="ghost" onClick={closeDialog}>إلغاء</Button>
             <Button variant="destructive" onClick={banUser} disabled={loading || !banReason}>
               {loading ? "جاري الحظر..." : "تأكيد الحظر"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Device Ban Dialog */}
+      <Dialog open={dialog === "device_ban"} onOpenChange={closeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-700 flex items-center gap-2">
+              <Fingerprint className="h-5 w-5" />
+              حظر الجهاز: {selected?.display_name}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            سيتم حظر جميع الحسابات المرتبطة بنفس الجهاز ومنع إنشاء حسابات جديدة منه.
+          </p>
+          {selected?.device_ids && selected.device_ids.length > 0 && (
+            <div className="rounded-lg bg-muted p-3">
+              <p className="text-xs font-medium text-muted-foreground mb-1">معرّفات الجهاز:</p>
+              {selected.device_ids.map(d => (
+                <p key={d} className="font-mono text-xs break-all">{d}</p>
+              ))}
+            </div>
+          )}
+          <Label>سبب الحظر</Label>
+          <Textarea value={deviceBanReason} onChange={e => setDeviceBanReason(e.target.value)} placeholder="اكتب سبب حظر الجهاز..." />
+          <DialogFooter>
+            <Button variant="ghost" onClick={closeDialog}>إلغاء</Button>
+            <Button variant="destructive" onClick={banDevice} disabled={loading || !deviceBanReason}>
+              {loading ? "جاري الحظر..." : "حظر الجهاز"}
             </Button>
           </DialogFooter>
         </DialogContent>
