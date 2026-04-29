@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
+import { useTrial } from "@/hooks/useTrial";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -32,6 +33,7 @@ interface Shop {
   theme_color: string;
   bg_image: string | null;
   sign_style: string;
+  country: string | null;
   is_active: boolean;
 }
 
@@ -69,10 +71,58 @@ const SIGN_STYLES: Record<string, string> = {
 const SHELF_POSITIONS = ["Front Window", "Center Shelf", "Back Wall", "Display Stand", "Clearance Rack"];
 const DEFAULT_BG = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=1200";
 
+const COUNTRIES: { code: string; name: string; flag: string }[] = [
+  { code: "SA", name: "Saudi Arabia",     flag: "🇸🇦" },
+  { code: "AE", name: "UAE",              flag: "🇦🇪" },
+  { code: "KW", name: "Kuwait",           flag: "🇰🇼" },
+  { code: "QA", name: "Qatar",            flag: "🇶🇦" },
+  { code: "BH", name: "Bahrain",          flag: "🇧🇭" },
+  { code: "OM", name: "Oman",             flag: "🇴🇲" },
+  { code: "EG", name: "Egypt",            flag: "🇪🇬" },
+  { code: "JO", name: "Jordan",           flag: "🇯🇴" },
+  { code: "LB", name: "Lebanon",          flag: "🇱🇧" },
+  { code: "IQ", name: "Iraq",             flag: "🇮🇶" },
+  { code: "SY", name: "Syria",            flag: "🇸🇾" },
+  { code: "YE", name: "Yemen",            flag: "🇾🇪" },
+  { code: "MA", name: "Morocco",          flag: "🇲🇦" },
+  { code: "TN", name: "Tunisia",          flag: "🇹🇳" },
+  { code: "DZ", name: "Algeria",          flag: "🇩🇿" },
+  { code: "LY", name: "Libya",            flag: "🇱🇾" },
+  { code: "SD", name: "Sudan",            flag: "🇸🇩" },
+  { code: "US", name: "United States",    flag: "🇺🇸" },
+  { code: "GB", name: "United Kingdom",   flag: "🇬🇧" },
+  { code: "DE", name: "Germany",          flag: "🇩🇪" },
+  { code: "FR", name: "France",           flag: "🇫🇷" },
+  { code: "ES", name: "Spain",            flag: "🇪🇸" },
+  { code: "IT", name: "Italy",            flag: "🇮🇹" },
+  { code: "TR", name: "Turkey",           flag: "🇹🇷" },
+  { code: "PK", name: "Pakistan",         flag: "🇵🇰" },
+  { code: "IN", name: "India",            flag: "🇮🇳" },
+  { code: "PH", name: "Philippines",      flag: "🇵🇭" },
+  { code: "NG", name: "Nigeria",          flag: "🇳🇬" },
+  { code: "ZA", name: "South Africa",     flag: "🇿🇦" },
+  { code: "BR", name: "Brazil",           flag: "🇧🇷" },
+  { code: "CA", name: "Canada",           flag: "🇨🇦" },
+  { code: "AU", name: "Australia",        flag: "🇦🇺" },
+  { code: "JP", name: "Japan",            flag: "🇯🇵" },
+  { code: "CN", name: "China",            flag: "🇨🇳" },
+  { code: "KR", name: "South Korea",      flag: "🇰🇷" },
+  { code: "RU", name: "Russia",           flag: "🇷🇺" },
+  { code: "NL", name: "Netherlands",      flag: "🇳🇱" },
+  { code: "SE", name: "Sweden",           flag: "🇸🇪" },
+  { code: "PL", name: "Poland",           flag: "🇵🇱" },
+  { code: "MX", name: "Mexico",           flag: "🇲🇽" },
+];
+
+function getCountry(code: string | null) {
+  return COUNTRIES.find(c => c.code === code) ?? null;
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function VXBazaar() {
   const { user } = useAuth();
   const { totalPoints } = usePoints();
+  const { isOnTrial } = useTrial();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
   const { addToCart } = useCart();
@@ -86,7 +136,7 @@ export default function VXBazaar() {
   const [chatLoading, setChatLoading] = useState(false);
   const [createForm, setCreateForm] = useState({
     name: "", tier: "kiosk" as Tier, description: "",
-    theme_color: "#f59e0b", sign_style: "neon",
+    theme_color: "#f59e0b", sign_style: "neon", country: "",
   });
   const [productForm, setProductForm] = useState({
     name: "", description: "", price: "", image: "", shelf_position: "Front Window",
@@ -121,7 +171,7 @@ export default function VXBazaar() {
   const createShopMutation = useMutation({
     mutationFn: async () => {
       const tierCfg = TIER_CONFIG[createForm.tier];
-      if (totalPoints < tierCfg.setupCost) throw new Error("insufficient_points");
+      if (!isOnTrial && totalPoints < tierCfg.setupCost) throw new Error("insufficient_points");
 
       const { error: shopError } = await supabase.from("bazaar_shops").insert({
         owner_id: user!.id,
@@ -130,15 +180,18 @@ export default function VXBazaar() {
         description: createForm.description.trim() || null,
         theme_color: createForm.theme_color,
         sign_style: createForm.sign_style,
+        country: createForm.country || null,
         is_active: true,
       });
       if (shopError) throw shopError;
 
-      await supabase.from("user_points").insert({
-        user_id: user!.id,
-        points: -tierCfg.setupCost,
-        reason: `VXBazaar: Open ${tierCfg.label} — ${createForm.name.trim()}`,
-      });
+      if (!isOnTrial) {
+        await supabase.from("user_points").insert({
+          user_id: user!.id,
+          points: -tierCfg.setupCost,
+          reason: `VXBazaar: Open ${tierCfg.label} — ${createForm.name.trim()}`,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bazaar-shops"] });
@@ -429,6 +482,12 @@ export default function VXBazaar() {
                                 {shop.description && (
                                   <p className="mt-0.5 text-[10px] opacity-70 line-clamp-1">{shop.description}</p>
                                 )}
+                                {shop.country && (() => {
+                                  const c = getCountry(shop.country);
+                                  return c ? (
+                                    <p className="mt-1 text-[10px] opacity-60">{c.flag} {c.name}</p>
+                                  ) : null;
+                                })()}
                               </div>
 
                               {/* Door */}
@@ -780,6 +839,21 @@ export default function VXBazaar() {
                   />
                 </div>
 
+                {/* Country */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-stone-300">Shop Country</label>
+                  <select
+                    value={createForm.country}
+                    onChange={e => setCreateForm(p => ({ ...p, country: e.target.value }))}
+                    className="w-full rounded-md border border-white/20 bg-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 [&>option]:bg-stone-900 [&>option]:text-white"
+                  >
+                    <option value="">— No country —</option>
+                    {COUNTRIES.map(c => (
+                      <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Tier selection */}
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-stone-300">Choose Your Tier</label>
@@ -841,31 +915,39 @@ export default function VXBazaar() {
                 </div>
 
                 {/* Cost summary */}
-                <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-stone-400">Your balance</span>
-                    <span className="font-bold text-amber-400">{totalPoints.toLocaleString()} VX</span>
+                {isOnTrial ? (
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
+                    <p className="text-sm font-bold text-emerald-400">🎁 Free during your trial — no VX deducted</p>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-stone-400">Setup cost</span>
-                    <span className="font-bold text-red-400">−{TIER_CONFIG[createForm.tier].setupCost.toLocaleString()} VX</span>
+                ) : (
+                  <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-1.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-stone-400">Your balance</span>
+                      <span className="font-bold text-amber-400">{totalPoints.toLocaleString()} VX</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-stone-400">Setup cost</span>
+                      <span className="font-bold text-red-400">−{TIER_CONFIG[createForm.tier].setupCost.toLocaleString()} VX</span>
+                    </div>
+                    <div className="flex justify-between border-t border-white/10 pt-2 font-bold">
+                      <span>After opening</span>
+                      <span className={totalPoints - TIER_CONFIG[createForm.tier].setupCost >= 0 ? "text-green-400" : "text-red-400"}>
+                        {(totalPoints - TIER_CONFIG[createForm.tier].setupCost).toLocaleString()} VX
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between border-t border-white/10 pt-2 font-bold">
-                    <span>After opening</span>
-                    <span className={totalPoints - TIER_CONFIG[createForm.tier].setupCost >= 0 ? "text-green-400" : "text-red-400"}>
-                      {(totalPoints - TIER_CONFIG[createForm.tier].setupCost).toLocaleString()} VX
-                    </span>
-                  </div>
-                </div>
+                )}
 
                 <Button
                   onClick={() => createShopMutation.mutate()}
-                  disabled={!createForm.name.trim() || createShopMutation.isPending || totalPoints < TIER_CONFIG[createForm.tier].setupCost}
+                  disabled={!createForm.name.trim() || createShopMutation.isPending || (!isOnTrial && totalPoints < TIER_CONFIG[createForm.tier].setupCost)}
                   className="w-full bg-amber-500 text-black hover:bg-amber-400 font-black py-5 text-base"
                 >
                   {createShopMutation.isPending
                     ? "Opening…"
-                    : `Open ${TIER_CONFIG[createForm.tier].label} — ${TIER_CONFIG[createForm.tier].setupCost.toLocaleString()} VX`}
+                    : isOnTrial
+                      ? `Open ${TIER_CONFIG[createForm.tier].label} — Free Trial`
+                      : `Open ${TIER_CONFIG[createForm.tier].label} — ${TIER_CONFIG[createForm.tier].setupCost.toLocaleString()} VX`}
                 </Button>
 
                 {!user && <p className="text-center text-xs text-stone-500">You must be logged in to open a shop</p>}

@@ -9,6 +9,7 @@ import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/componen
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
+import { useTrial } from "@/hooks/useTrial";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSound } from "@/contexts/SoundContext";
@@ -39,6 +40,7 @@ export default function ServiceRequestPage({
 }: Props) {
   const { user } = useAuth();
   const { totalPoints } = usePoints();
+  const { isOnTrial } = useTrial();
   const queryClient = useQueryClient();
   const { playSound } = useSound();
   const { t } = useLanguage();
@@ -53,19 +55,21 @@ export default function ServiceRequestPage({
     if (!user) { toast.error(t("svcReq.errLogin")); return; }
     if (!selectedPkg) { toast.error(t("svcReq.errSelectPkg")); return; }
     if (!form.name || !form.email || !form.message) { toast.error(t("svcReq.errFillFields")); return; }
-    if (totalPoints < selectedPkg.vx) {
+    if (!isOnTrial && totalPoints < selectedPkg.vx) {
       toast.error(t("svcReq.errInsufficientVX").replace("{vx}", selectedPkg.vx.toLocaleString()));
       return;
     }
 
     setSubmitting(true);
     try {
-      const { error: deductErr } = await supabase.from("user_points").insert({
-        user_id: user.id,
-        points: -selectedPkg.vx,
-        reason: `Service: ${serviceType} — ${selectedPkg.name}`,
-      });
-      if (deductErr) throw deductErr;
+      if (!isOnTrial) {
+        const { error: deductErr } = await supabase.from("user_points").insert({
+          user_id: user.id,
+          points: -selectedPkg.vx,
+          reason: `Service: ${serviceType} — ${selectedPkg.name}`,
+        });
+        if (deductErr) throw deductErr;
+      }
 
       const { error: reqErr } = await supabase.from("service_requests").insert({
         user_id: user.id,

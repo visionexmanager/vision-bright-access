@@ -15,7 +15,7 @@ export default function Index() {
   const { playSound } = useSound();
 
   const features = [
-    { icon: ShoppingBag, title: t("home.feature.marketplace"), desc: t("home.feature.marketplaceDesc"), to: "/marketplace" },
+    { icon: ShoppingBag, title: t("home.feature.marketplace"), desc: t("home.feature.marketplaceDesc"), to: "/bazaar" },
     { icon: Eye, title: t("home.feature.services"), desc: t("home.feature.servicesDesc"), to: "/services" },
     { icon: BookOpen, title: t("home.feature.content"), desc: t("home.feature.contentDesc"), to: "/content" },
   ];
@@ -55,7 +55,7 @@ export default function Index() {
                 <Button size="lg" className="text-lg px-8 py-6 font-semibold" onClick={() => playSound("navigate")}>{t("home.getStarted")} <ArrowRight className="ms-2 h-5 w-5" /></Button>
               </Link>
             )}
-            <Link to="/marketplace">
+            <Link to="/bazaar">
               <Button variant="outline" size="lg" className="text-lg px-8 py-6" onClick={() => playSound("navigate")}>{t("home.exploreMarketplace")}</Button>
             </Link>
           </div>

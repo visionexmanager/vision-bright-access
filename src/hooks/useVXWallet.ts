@@ -2,10 +2,12 @@ import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrial } from "@/hooks/useTrial";
 import { toast } from "@/hooks/use-toast";
 
 export function useVXWallet() {
   const { user } = useAuth();
+  const { isOnTrial } = useTrial();
   const queryClient = useQueryClient();
 
   const { data: balance = 0, isLoading } = useQuery({
@@ -26,6 +28,12 @@ export function useVXWallet() {
       if (!user) {
         toast({ title: "Login required", description: "Please log in to make purchases.", variant: "destructive" });
         return false;
+      }
+
+      // Free trial — bypass all charges
+      if (isOnTrial) {
+        toast({ title: "Free trial active ✓", description: `${itemName} is free during your trial period.` });
+        return true;
       }
 
       if (balance < amount) {
