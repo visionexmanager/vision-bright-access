@@ -452,7 +452,7 @@ export default function VXBazaar() {
                           role="button"
                           aria-label={`Enter ${shop.name}`}
                           tabIndex={0}
-                          onKeyDown={e => e.key === "Enter" && enterShop(shop)}
+                          onKeyDown={e => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), enterShop(shop))}
                         >
                           {/* Shop building */}
                           <div
@@ -658,38 +658,57 @@ export default function VXBazaar() {
               <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
                 <h3 className="mb-4 font-bold text-white flex items-center gap-2"><Plus className="h-4 w-4 text-emerald-400" /> Add New Product</h3>
                 <div className="space-y-3">
-                  <Input
-                    value={productForm.name}
-                    onChange={e => setProductForm(p => ({ ...p, name: e.target.value }))}
-                    placeholder="Product name *"
-                    className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
-                    maxLength={80}
-                  />
-                  <Textarea
-                    value={productForm.description}
-                    onChange={e => setProductForm(p => ({ ...p, description: e.target.value }))}
-                    placeholder="Description (optional)"
-                    className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
-                    rows={2}
-                    maxLength={300}
-                  />
-                  <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="product-name" className="sr-only">Product name (required)</label>
                     <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={productForm.price}
-                      onChange={e => setProductForm(p => ({ ...p, price: e.target.value }))}
-                      placeholder="Price ($) *"
+                      id="product-name"
+                      value={productForm.name}
+                      onChange={e => setProductForm(p => ({ ...p, name: e.target.value }))}
+                      placeholder="Product name *"
+                      aria-required="true"
                       className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
+                      maxLength={80}
                     />
-                    <select
-                      value={productForm.shelf_position}
-                      onChange={e => setProductForm(p => ({ ...p, shelf_position: e.target.value }))}
-                      className="rounded-md border border-white/20 bg-stone-900 text-white text-sm px-3 py-2"
-                    >
-                      {SHELF_POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
-                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="product-description" className="sr-only">Description (optional)</label>
+                    <Textarea
+                      id="product-description"
+                      value={productForm.description}
+                      onChange={e => setProductForm(p => ({ ...p, description: e.target.value }))}
+                      placeholder="Description (optional)"
+                      className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
+                      rows={2}
+                      maxLength={300}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="product-price" className="sr-only">Price in dollars (required)</label>
+                      <Input
+                        id="product-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={productForm.price}
+                        onChange={e => setProductForm(p => ({ ...p, price: e.target.value }))}
+                        placeholder="Price ($) *"
+                        aria-required="true"
+                        className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="product-shelf" className="sr-only">Shelf position</label>
+                      <select
+                        id="product-shelf"
+                        value={productForm.shelf_position}
+                        onChange={e => setProductForm(p => ({ ...p, shelf_position: e.target.value }))}
+                        className="rounded-md border border-white/20 bg-stone-900 text-white text-sm px-3 py-2 w-full"
+                        aria-label="Shelf position"
+                      >
+                        {SHELF_POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                      </select>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <ImagePlus className="h-4 w-4 text-stone-400 shrink-0" />
@@ -753,21 +772,30 @@ export default function VXBazaar() {
           {view === "chat" && activeShop && (
             <motion.div
               key="chat"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="chat-dialog-title"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               className="fixed inset-0 z-50 flex flex-col bg-white text-slate-900 md:inset-x-auto md:bottom-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[500px] md:h-[75vh] md:rounded-t-3xl shadow-2xl"
             >
               <div className="flex items-center justify-between border-b px-6 py-4">
-                <h3 className="font-black flex items-center gap-2 text-lg">
-                  <Store className="h-5 w-5 text-amber-500" /> {activeShop.name}
+                <h3 id="chat-dialog-title" className="font-black flex items-center gap-2 text-lg">
+                  <Store className="h-5 w-5 text-amber-500" aria-hidden="true" /> {activeShop.name}
                 </h3>
                 <button onClick={() => setView("inside")} className="text-slate-400 hover:text-slate-600" aria-label="Back to shop">
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto space-y-3 p-5">
+              <div
+                className="flex-1 overflow-y-auto space-y-3 p-5"
+                role="log"
+                aria-label={`Chat with ${activeShop.name}`}
+                aria-live="polite"
+                aria-relevant="additions"
+              >
                 {messages.map((m, i) => (
                   <div key={i} className={`flex ${m.sender === "user" ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[80%] rounded-2xl p-3.5 text-sm leading-relaxed ${

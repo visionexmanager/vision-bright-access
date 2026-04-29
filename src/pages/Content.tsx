@@ -95,8 +95,8 @@ export default function Content() {
   if (loading) {
     return (
       <Layout>
-        <div className="flex min-h-[50vh] items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div role="status" aria-label={t("content.loading") || "Loading content"} className="flex min-h-[50vh] items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" aria-hidden="true" />
         </div>
       </Layout>
     );
@@ -148,41 +148,47 @@ export default function Content() {
             <TabsContent key={v} value={v}>
               {/* Business Simulations banner → links to Services page */}
               {v === "all" && (
-                <Link to="/services?cat=simulations" className="group mb-6 block rounded-xl border bg-gradient-to-r from-primary/10 to-primary/5 p-5 transition-shadow hover:shadow-lg">
+                <Link
+                  to="/services?cat=simulations"
+                  aria-label={`${t("bsim.title")} — ${t("bsim.bannerDesc")}`}
+                  className="group mb-6 block rounded-xl border bg-gradient-to-r from-primary/10 to-primary/5 p-5 transition-shadow hover:shadow-lg"
+                >
                   <div className="flex items-center gap-4">
-                    <div className="rounded-xl bg-primary/20 p-3 shrink-0">
-                      <Cpu className="h-7 w-7 text-primary" />
+                    <div className="rounded-xl bg-primary/20 p-3 shrink-0" aria-hidden="true">
+                      <Cpu className="h-7 w-7 text-primary" aria-hidden="true" />
                     </div>
                     <div className="flex-1">
-                      <h2 className="text-lg font-bold">{t("bsim.title")}</h2>
+                      <p className="text-lg font-bold">{t("bsim.title")}</p>
                       <p className="text-sm text-muted-foreground">{t("bsim.bannerDesc")}</p>
                     </div>
-                    <ArrowRight className="h-5 w-5 text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    <ArrowRight className="h-5 w-5 text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0" aria-hidden="true" />
                   </div>
                 </Link>
               )}
 
-              <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" role="list">
                 {filterItems(v).map((item) => {
                   const Icon = typeIcons[item.type] ?? FileText;
+                  const price = item.type === "course" ? ACADEMY_PRICES.miniCourse : 500;
                   return (
-                    <StaggerItem key={item.id}>
+                    <StaggerItem key={item.id} role="listitem">
                     <Card className="flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
                       <CardContent className="flex flex-1 flex-col gap-3 p-6">
                         <div className="flex items-start justify-between">
-                          <div className="rounded-xl bg-primary/10 p-3">
+                          <div className="rounded-xl bg-primary/10 p-3" aria-hidden="true">
                             <Icon className="h-7 w-7 text-primary" aria-hidden="true" />
                           </div>
                           <div className="flex flex-col items-end gap-1">
-                            <Badge className="text-sm">+{item.points} pts</Badge>
+                            <Badge className="text-sm" aria-label={`Earn ${item.points} points`}>+{item.points} pts</Badge>
                             <span className="flex items-center gap-1 text-xs font-semibold text-primary">
-                              <Coins className="h-3.5 w-3.5" />
-                              {formatVX(item.type === "course" ? ACADEMY_PRICES.miniCourse : 500)}
+                              <Coins className="h-3.5 w-3.5" aria-hidden="true" />
+                              <span className="sr-only">Cost:</span>
+                              {formatVX(price)}
                             </span>
                           </div>
                         </div>
 
-                        <h2 className="text-lg font-bold">{item.title}</h2>
+                        <h3 className="text-lg font-bold">{item.title}</h3>
                         <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
 
                         <div className="flex flex-wrap items-center gap-2">
@@ -193,6 +199,7 @@ export default function Content() {
                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Clock className="h-4 w-4" aria-hidden="true" />
+                            <span className="sr-only">Duration:</span>
                             {item.duration} min
                           </span>
                           {item.extra_label && item.extra_value && (
@@ -207,6 +214,7 @@ export default function Content() {
                           <Button
                             className="w-full text-base font-semibold"
                             onClick={() => handleCta(item)}
+                            aria-label={`${ctaLabels[item.type] ?? "View"}: ${item.title}`}
                           >
                             {item.type === "podcast" && <Mic className="me-1 h-4 w-4" aria-hidden="true" />}
                             {item.type === "media" && <Play className="me-1 h-4 w-4" aria-hidden="true" />}
