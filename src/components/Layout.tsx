@@ -4,6 +4,7 @@ import { Navbar } from "./Navbar";
 import { NewsletterSubscribe } from "./NewsletterSubscribe";
 import { AIChat } from "./AIChat";
 import { CookieBanner } from "./CookieBanner";
+import { TrialBanner } from "./TrialBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMessageNotifications } from "@/hooks/useMessageNotifications";
 import logo from "@/assets/logo.png";
@@ -52,6 +53,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {t("nav.skipToContent")}
       </a>
       <Navbar />
+      <TrialBanner />
       <main id="main-content" tabIndex={-1} aria-label={t("nav.mainContent") || "Main content"} className="flex-1 animate-page-in">
         {children}
       </main>

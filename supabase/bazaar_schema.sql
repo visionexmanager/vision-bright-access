@@ -8,6 +8,7 @@ create table if not exists public.bazaar_shops (
   theme_color text default '#f59e0b',
   bg_image text,
   sign_style text default 'neon',
+  country text,
   is_active boolean default true,
   last_rent_paid timestamptz default now(),
   created_at timestamptz default now()

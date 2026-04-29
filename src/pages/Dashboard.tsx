@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { RewardedAdModal } from "@/components/RewardedAdModal";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { Layout } from "@/components/Layout";
 import { AchievementsPanel } from "@/components/AchievementsPanel";
@@ -51,7 +52,7 @@ export default function Dashboard() {
   const { earnPoints, checkDailyLogin } = useEarnPoints();
   const { t } = useLanguage();
   const { playSound } = useSound();
-  const [adLoading, setAdLoading] = useState(false);
+  const [showAd, setShowAd] = useState(false);
   const [dailyLoading, setDailyLoading] = useState(false);
 
   if (authLoading) {
@@ -72,18 +73,14 @@ export default function Dashboard() {
     ? Math.min(100, ((totalPoints - tier.min) / (nextTier.min - tier.min)) * 100)
     : 100;
 
-  const handleWatchAd = async () => {
-    setAdLoading(true);
-    // Simulate ad watch delay
-    await new Promise((r) => setTimeout(r, 2000));
+  const handleAdRewarded = useCallback(async () => {
     const pts = 5;
     const ok = await earnPoints(pts, "Watched an ad");
-    setAdLoading(false);
     if (ok) {
       playSound("points");
       toast({ title: t("dash.adWatched").replace("{pts}", String(pts)) });
     }
-  };
+  }, [earnPoints, playSound, t]);
 
   const handleDailyLogin = async () => {
     setDailyLoading(true);
@@ -238,9 +235,9 @@ export default function Dashboard() {
                   <p className="text-base font-semibold">{t("dash.watchAd")}</p>
                   <p className="text-sm text-muted-foreground">{t("dash.watchAdDesc")}</p>
                 </div>
-                <Badge className="text-sm">+5 pts</Badge>
-                <Button onClick={handleWatchAd} disabled={adLoading} size="sm">
-                  {adLoading ? "..." : t("dash.watchAd")}
+                <Badge className="text-sm">+5 VX</Badge>
+                <Button onClick={() => setShowAd(true)} size="sm">
+                  {t("dash.watchAd")}
                 </Button>
               </div>
 
@@ -336,6 +333,13 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {showAd && (
+        <RewardedAdModal
+          onRewarded={handleAdRewarded}
+          onClose={() => setShowAd(false)}
+        />
+      )}
     </Layout>
   );
 }
