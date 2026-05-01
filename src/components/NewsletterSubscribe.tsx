@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Mail, Send, CheckCircle2 } from "lucide-react";
+import { Mail, Send, CheckCircle2, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const INTERESTS = [
@@ -21,6 +21,7 @@ const INTERESTS = [
 ] as const;
 
 const LS_KEY = "vx_newsletter_subscribed";
+const LS_DISMISSED_KEY = "vx_newsletter_thankyou_dismissed";
 
 export function NewsletterSubscribe() {
   const { t } = useLanguage();
@@ -32,6 +33,14 @@ export function NewsletterSubscribe() {
   const [subscribed, setSubscribed] = useState(
     () => localStorage.getItem(LS_KEY) === "true"
   );
+  const [dismissed, setDismissed] = useState(
+    () => localStorage.getItem(LS_DISMISSED_KEY) === "true"
+  );
+
+  const handleDismiss = () => {
+    localStorage.setItem(LS_DISMISSED_KEY, "true");
+    setDismissed(true);
+  };
 
   // For logged-in users: check DB on mount
   useEffect(() => {
@@ -82,11 +91,22 @@ export function NewsletterSubscribe() {
     toast({ title: t("newsletter.success") });
   }
 
+  // Already subscribed & dismissed → hide entirely
+  if (subscribed && dismissed) return null;
+
+  // Just subscribed (or subscribed before but not yet dismissed) → show thank you once
   if (subscribed) {
     return (
       <Card className="border-primary/30 bg-primary/5">
-        <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-          <CheckCircle2 className="h-12 w-12 text-primary" />
+        <CardContent className="relative flex flex-col items-center gap-3 py-10 text-center">
+          <button
+            onClick={handleDismiss}
+            className="absolute end-3 top-3 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label={t("newsletter.dismiss")}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <CheckCircle2 className="h-12 w-12 text-primary" aria-hidden="true" />
           <h3 className="text-xl font-bold">{t("newsletter.thankYou")}</h3>
           <p className="text-muted-foreground">{t("newsletter.confirmMsg")}</p>
         </CardContent>

@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Mic, Users, Radio, Globe, Trash2, Loader2, LogIn } from "lucide-react";
-import { DEFAULT_ROOMS, VOICE_ROOM_CONFIGS } from "@/systems/voiceRoomSystem";
+import { DEFAULT_ROOMS, VOICE_ROOM_CONFIGS, PUBLIC_ROOM_JOIN_COST } from "@/systems/voiceRoomSystem";
+import { useVXWallet } from "@/hooks/useVXWallet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
@@ -32,6 +33,7 @@ export default function Community() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useSound();
+  const { balance, spendVX } = useVXWallet();
   const navigate = useNavigate();
   const isAr = lang === "ar";
 
@@ -102,8 +104,13 @@ export default function Community() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchMemberCounts, fetchMyMemberships]);
 
-  const joinRoom = (roomId: string) => {
+  const joinRoom = async (roomId: string, roomName: string) => {
     if (!user) return;
+    const isPublic = DEFAULT_ROOMS.some((r) => r.id === roomId);
+    if (isPublic) {
+      const ok = await spendVX(PUBLIC_ROOM_JOIN_COST, "voice_room_join", roomName, roomId);
+      if (!ok) return;
+    }
     playSound("navigate");
     navigate(`/community/room/${roomId}`);
   };
@@ -123,10 +130,15 @@ export default function Community() {
 
   const createRoom = async (cfg: (typeof VOICE_ROOM_CONFIGS)[number]) => {
     if (!user) return;
+    const cfgLabel = isAr ? cfg.labelAr : cfg.label;
+    // Check & deduct VX before creating
+    const paid = await spendVX(cfg.costVX, "voice_room_create", cfgLabel);
+    if (!paid) return;
+
     setCreating(cfg.type);
     const { error } = await supabase.from("voice_rooms").insert({
       owner_id: user.id,
-      room_name: isAr ? cfg.labelAr : cfg.label,
+      room_name: cfgLabel,
       room_type: cfg.type,
       max_users: cfg.maxUsers ?? 999,
       cost_vx: cfg.costVX,
@@ -150,7 +162,7 @@ export default function Community() {
     fetchRooms();
   };
 
-  const renderJoinButton = (roomId: string, maxUsers: number) => {
+  const renderJoinButton = (roomId: string, maxUsers: number, roomName?: string, isPublic = false) => {
     const count = memberCounts[roomId] || 0;
     const isFull = maxUsers < 999 && count >= maxUsers;
 
@@ -159,9 +171,14 @@ export default function Community() {
     }
 
     return (
-      <Button className="flex-1" disabled={isFull} onClick={() => joinRoom(roomId)}>
-        <LogIn className="mr-2 h-4 w-4" />
-        {isFull ? t("community.roomFull") : t("community.joinRoom")}
+      <Button className="flex-1" disabled={isFull} onClick={() => joinRoom(roomId, roomName ?? roomId)}>
+        <LogIn className="me-2 h-4 w-4" aria-hidden="true" />
+        {isFull ? t("community.roomFull") : (
+          <span className="flex items-center gap-1.5">
+            {t("community.joinRoom")}
+            {isPublic && <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-xs font-semibold text-primary">{PUBLIC_ROOM_JOIN_COST} VX</span>}
+          </span>
+        )}
       </Button>
     );
   };
@@ -212,7 +229,7 @@ export default function Community() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {renderJoinButton(room.id, 999)}
+                  {renderJoinButton(room.id, 999, isAr ? room.nameAr : room.name, true)}
                 </CardContent>
               </Card>
             </StaggerItem>
@@ -243,7 +260,7 @@ export default function Community() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="flex gap-2">
-                      {renderJoinButton(room.id, room.max_users)}
+                      {renderJoinButton(room.id, room.max_users, room.room_name, false)}
                       {user?.id === room.owner_id && (
                         <Button
                           variant="destructive"

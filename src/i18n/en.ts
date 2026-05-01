@@ -1612,6 +1612,7 @@ const en: Record<string, string> = {
   "newsletter.alreadySubscribed": "This email is already subscribed.",
   "newsletter.error": "Subscription failed. Please try again.",
   "newsletter.thankYou": "Thank you for subscribing!",
+  "newsletter.dismiss": "Dismiss",
   "newsletter.confirmMsg": "You'll receive updates based on your selected interests.",
   "simulations.sortBy": "Sort by",
   "simulations.sortDefault": "Default",

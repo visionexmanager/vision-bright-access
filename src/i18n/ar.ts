@@ -1680,6 +1680,7 @@ const ar: Record<string, string> = {
   "newsletter.alreadySubscribed": "هذا البريد مشترك بالفعل.",
   "newsletter.error": "فشل الاشتراك. حاول مرة أخرى.",
   "newsletter.thankYou": "شكراً لاشتراكك!",
+  "newsletter.dismiss": "إغلاق",
   "newsletter.confirmMsg": "ستتلقى التحديثات بناءً على اهتماماتك المختارة.",
   "simulations.sortBy": "ترتيب حسب",
   "simulations.sortDefault": "الافتراضي",
