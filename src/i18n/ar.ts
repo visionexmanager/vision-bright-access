@@ -1400,6 +1400,7 @@ const ar: Record<string, string> = {
   "community.leftRoom": "تم مغادرة الغرفة",
   "community.leaveRoom": "مغادرة",
   "community.roomFull": "الغرفة ممتلئة",
+  "community.deleteRoom": "حذف الغرفة",
   "community.alreadyJoined": "أنت بالفعل في هذه الغرفة",
 
   // Coins Store

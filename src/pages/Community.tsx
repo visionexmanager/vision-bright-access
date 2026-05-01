@@ -38,6 +38,7 @@ export default function Community() {
   const [rooms, setRooms] = useState<VoiceRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState<string | null>(null);
+  const [joiningRoom, setJoiningRoom] = useState<string | null>(null);
   const [memberCounts, setMemberCounts] = useState<RoomMemberCount>({});
   const [myMemberships, setMyMemberships] = useState<RoomMyMembership>({});
 
@@ -125,7 +126,7 @@ export default function Community() {
     setCreating(cfg.type);
     const { error } = await supabase.from("voice_rooms").insert({
       owner_id: user.id,
-      room_name: cfg.label,
+      room_name: isAr ? cfg.labelAr : cfg.label,
       room_type: cfg.type,
       max_users: cfg.maxUsers ?? 999,
       cost_vx: cfg.costVX,
@@ -244,8 +245,13 @@ export default function Community() {
                     <CardContent className="flex gap-2">
                       {renderJoinButton(room.id, room.max_users)}
                       {user?.id === room.owner_id && (
-                        <Button variant="destructive" size="icon" onClick={() => deleteRoom(room.id)}>
-                          <Trash2 className="h-4 w-4" />
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => deleteRoom(room.id)}
+                          aria-label={t("community.deleteRoom")}
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
                         </Button>
                       )}
                     </CardContent>
@@ -270,11 +276,13 @@ export default function Community() {
               {t("community.createRoom")}
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {VOICE_ROOM_CONFIGS.map((cfg) => (
+              {VOICE_ROOM_CONFIGS.map((cfg) => {
+                const cfgLabel = isAr ? cfg.labelAr : cfg.label;
+                return (
                 <Card key={cfg.type} className="text-center">
                   <CardHeader>
-                    <div className="mx-auto text-4xl">{cfg.icon}</div>
-                    <CardTitle className="text-lg">{cfg.label}</CardTitle>
+                    <div className="mx-auto text-4xl" aria-hidden="true">{cfg.icon}</div>
+                    <CardTitle className="text-lg">{cfgLabel}</CardTitle>
                     <CardDescription>
                       {cfg.maxUsers ? `${cfg.maxUsers} ${t("community.users")}` : t("community.unlimited")}
                     </CardDescription>
@@ -286,15 +294,17 @@ export default function Community() {
                       className="w-full"
                       disabled={creating === cfg.type}
                       onClick={() => createRoom(cfg)}
+                      aria-label={`${t("community.create")} ${cfgLabel} — ${cfg.costVX} VX`}
                     >
                       {creating === cfg.type ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                       ) : null}
                       {t("community.create")}
                     </Button>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

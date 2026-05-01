@@ -1400,6 +1400,7 @@ const en: Record<string, string> = {
   "community.leftRoom": "Left the room",
   "community.leaveRoom": "Leave",
   "community.roomFull": "Room Full",
+  "community.deleteRoom": "Delete room",
   "community.alreadyJoined": "You are already in this room",
 
   // Coins Store
