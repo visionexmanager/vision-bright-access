@@ -8,8 +8,10 @@ import zh from "@/i18n/zh";
 import tr from "@/i18n/tr";
 import fr from "@/i18n/fr";
 import ru from "@/i18n/ru";
+import ur from "@/i18n/ur";
+import hi from "@/i18n/hi";
 
-export const supportedLangs = ["en", "ar", "es", "de", "pt", "zh", "tr", "fr", "ru"] as const;
+export const supportedLangs = ["en", "ar", "es", "de", "pt", "zh", "tr", "fr", "ru", "ur", "hi"] as const;
 export type Lang = (typeof supportedLangs)[number];
 
 interface LanguageContextType {
@@ -38,9 +40,11 @@ const translations: Record<Lang, Record<string, string>> = {
   tr,
   fr,
   ru,
+  ur,
+  hi,
 };
 
-const rtlLangs: Lang[] = ["ar"];
+const rtlLangs: Lang[] = ["ar", "ur"];
 
 function detectBrowserLang(): Lang {
   try {

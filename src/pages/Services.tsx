@@ -10,7 +10,7 @@ import {
   Megaphone, Package, Headphones, GraduationCap, MonitorSmartphone,
   ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video,
   Coins, Scissors, Scale, Stethoscope, Brain, Sparkles, Users,
-  Dumbbell, Plane, ScanLine, Globe, Cpu, CheckCircle, Clock, Trophy,
+  Dumbbell, Plane, ScanLine, Globe, Cpu, CheckCircle, Clock, Trophy, FileText,
 } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
 import { Link, useNavigate } from "react-router-dom";
@@ -73,6 +73,7 @@ const LEARNING_SERVICES = [
   { icon: Globe,       name: "empire.serviceTitle",    desc: "empire.serviceDesc",    vx: 90_000, to: "/services/educational-empire",  color: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" },
   { icon: Heart,       name: "oasis.serviceTitle",     desc: "oasis.serviceDesc",     vx: 45_000, to: "/services/empathy-oasis",       color: "bg-rose-500/10 text-rose-600 dark:text-rose-400" },
   { icon: ScanLine,    name: "radar.serviceTitle",     desc: "radar.serviceDesc",     vx: 80_000, to: "/services/radar-ai",            color: "bg-primary/10 text-primary" },
+  { icon: FileText,    name: "ocr.serviceTitle",       desc: "ocr.serviceDesc",       vx: 50,     to: "/services/ocr-scan",            color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
   { icon: Plane,       name: "svc.travelTitle",        desc: "svc.travelDesc",        vx: 55_000, to: "/services/travel-agency",       color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" },
 ] as const;
 
