@@ -122,7 +122,8 @@ export default function VoiceRoom() {
   const [error, setError] = useState<string | null>(null);
   const [roomName, setRoomName] = useState("");
 
-  const livekitUrl = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
+  const livekitUrl = (import.meta.env.VITE_LIVEKIT_URL as string | undefined)
+    ?? "wss://visionex-hn3vb5hz.livekit.cloud";
 
   const cleanup = useCallback(async () => {
     if (user && roomId) {
