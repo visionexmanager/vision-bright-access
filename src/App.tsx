@@ -73,6 +73,7 @@ const TravelAgency = lazy(() => import("./pages/services/TravelAgency"));
 const RadarAI = lazy(() => import("./pages/services/RadarAI"));
 const EducationalEmpire = lazy(() => import("./pages/services/EducationalEmpire"));
 const EmpathyOasis = lazy(() => import("./pages/services/EmpathyOasis"));
+const OCRScan = lazy(() => import("./pages/services/OCRScan"));
 
 // New game pages
 const Hangman = lazy(() => import("./pages/games/Hangman"));
@@ -195,6 +196,7 @@ const App = () => (
                     <Route path="/services/sports-coach" element={<SportsCoach />} />
                     <Route path="/services/travel-agency" element={<TravelAgency />} />
                     <Route path="/services/radar-ai" element={<RadarAI />} />
+                    <Route path="/services/ocr-scan" element={<OCRScan />} />
                     <Route path="/services/educational-empire" element={<EducationalEmpire />} />
                     <Route path="/services/empathy-oasis" element={<EmpathyOasis />} />
                     <Route path="/games/hangman" element={<Hangman />} />

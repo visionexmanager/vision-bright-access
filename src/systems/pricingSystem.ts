@@ -46,6 +46,14 @@ export const ACCOUNT_PRICES = {
   removeAds: 5000,
 } as const;
 
+// ── OCR / Document Scanner ──
+export const OCR_PRICES = {
+  singleScan:      50,   // text extraction only
+  singleScanAudio: 100,  // text + TTS audio
+  pdfDocument:     300,  // PDF up to 5 pages
+  bundleTen:       400,  // 10 scans bundle
+} as const;
+
 // ── Earning System ──
 export const EARNING_RATES = {
   watchAd: 2,
