@@ -11,6 +11,10 @@ import { usePoints } from "@/hooks/usePoints";
 import { Trophy, RotateCcw, Play, Coins, LogIn } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useMultiplayer } from "@/hooks/useMultiplayer";
+import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
+import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
+import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 
 const questions = [
   { id: 1, q: "ما هو أسرع حيوان بري في العالم؟", options: ["الأسد", "الفهد", "الغزال"], correct: 1 },
@@ -52,7 +56,108 @@ function getPointsReward(gameScore: number): number {
   return 0;
 }
 
+// ─── Multiplayer competitive quiz ────────────────────────────────────────────
+function QuizMulti() {
+  const { user } = useAuth();
+  const mp = useMultiplayer("quiz");
+  const [currentQ, setCurrentQ] = useState(0);
+  const [myScore, setMyScore]   = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(3);
+
+  const gs      = mp.session?.game_state as Record<string, unknown> | null;
+  const opp     = mp.opponents[0];
+  const oppScore = mp.session?.players.find((p) => p.id !== user?.id)?.score ?? 0;
+  const bothDone = gs && user && opp
+    ? gs[`fin_${user.id}`] === true && gs[`fin_${opp.id}`] === true
+    : false;
+
+  // Timer per question
+  useEffect(() => {
+    if (finished || mp.status !== "playing") return;
+    if (timeLeft <= 0) { advance(); return; }
+    const t = setTimeout(() => setTimeLeft((v) => v - 1), 1000);
+    return () => clearTimeout(t);
+  }, [timeLeft, finished, mp.status]);
+
+  // When both done → end game
+  useEffect(() => {
+    if (bothDone && mp.status === "playing") {
+      const allPlayers = mp.session!.players;
+      const sorted = [...allPlayers].sort((a, b) => b.score - a.score);
+      const winnerId = sorted[0].score !== sorted[1]?.score ? sorted[0].id : undefined;
+      mp.endGame(winnerId);
+    }
+  }, [bothDone, mp]);
+
+  const advance = useCallback(() => {
+    const next = currentQ + 1;
+    if (next >= questions.length) {
+      setFinished(true);
+      mp.updateMyScore(myScore, true);
+    } else {
+      setCurrentQ(next);
+      setTimeLeft(3);
+    }
+  }, [currentQ, myScore, mp]);
+
+  const handleAnswer = (idx: number) => {
+    const correct = idx === questions[currentQ].correct;
+    const newScore = correct ? myScore + 10 : myScore;
+    setMyScore(newScore);
+    mp.updateMyScore(newScore, false);
+    advance();
+  };
+
+  if (mp.status === "idle")
+    return <MultiplayerLobby gameType="quiz" loading={mp.loading} onCreateRoom={mp.createRoom} onJoinRoom={mp.joinRoom} />;
+  if (mp.status === "waiting")
+    return <WaitingRoom session={mp.session!} isHost={mp.isHost} onStart={() => mp.startGame({ started: true })} onLeave={mp.leaveRoom} />;
+  if (mp.status === "finished")
+    return <FinishBanner winnerId={mp.session!.winner_id} myId={user?.id ?? ""} players={mp.session!.players} onRematch={mp.leaveRoom} />;
+
+  const q = questions[currentQ];
+  const progress = ((currentQ + 1) / questions.length) * 100;
+
+  return (
+    <Card className="w-full border-2 border-primary/30 p-6 space-y-4">
+      {/* Live scores */}
+      <div className="flex justify-between items-center text-sm">
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground">You</p>
+          <p className="text-2xl font-bold text-primary">{myScore}</p>
+        </div>
+        <Badge variant="outline">Q {currentQ + 1}/{questions.length}</Badge>
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground">{opp?.name ?? "Opponent"}</p>
+          <p className="text-2xl font-bold">{oppScore}</p>
+        </div>
+      </div>
+      <Progress value={progress} className="h-2" />
+      {finished ? (
+        <div className="text-center py-6 space-y-2">
+          <p className="text-xl font-bold">Done! ✅ Waiting for opponent…</p>
+          <p className="text-muted-foreground">Your score: {myScore}</p>
+        </div>
+      ) : (
+        <div className="space-y-4" dir="rtl">
+          <div className={`flex h-12 w-12 mx-auto items-center justify-center rounded-full border-4 text-xl font-black ${timeLeft <= 1 ? "border-destructive text-destructive animate-pulse" : "border-primary text-primary"}`}>{timeLeft}</div>
+          <h2 className="text-xl font-bold text-center" aria-live="polite">{q.q}</h2>
+          <div className="grid gap-3">
+            {q.options.map((opt, i) => (
+              <Button key={i} variant="outline" className="justify-start py-4 text-lg" onClick={() => handleAnswer(i)}>
+                <Badge variant="secondary" className="me-3">{i + 1}</Badge>{opt}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export default function QuizChallenge() {
+  const [mode, setMode] = useState<"solo" | "multi">("solo");
   const { t } = useLanguage();
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
@@ -131,6 +236,13 @@ export default function QuizChallenge() {
   return (
     <Layout>
       <section className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 py-12">
+        <div className="w-full space-y-4">
+        {/* Mode toggle */}
+        <div className="flex rounded-lg overflow-hidden border">
+          <button onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
+          <button onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
+        </div>
+        {mode === "multi" ? <QuizMulti /> : (
         <Card className="w-full border-2 border-primary/30 p-6 sm:p-8 text-center">
           {gameState === "start" && (
             <div className="space-y-6">
@@ -246,6 +358,8 @@ export default function QuizChallenge() {
             </div>
           )}
         </Card>
+        )}
+        </div>
       </section>
     </Layout>
   );
