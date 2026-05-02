@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { AdBanner } from "@/components/AdBanner";
 import { AnimatedSection, StaggerGrid, StaggerItem } from "@/components/AnimatedSection";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -281,6 +282,9 @@ export default function Marketplace() {
             <FindItForMe />
           </TabsContent>
         </Tabs>
+
+        {/* AdSense banner */}
+        <AdBanner slot="3569383992" format="horizontal" className="mt-8" />
       </section>
     </Layout>
   );

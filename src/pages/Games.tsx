@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Layout } from "@/components/Layout";
+import { AdBanner } from "@/components/AdBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -184,6 +185,9 @@ export default function Games() {
             ))}
           </StaggerGrid>
         )}
+
+        {/* AdSense banner — bottom of games list */}
+        <AdBanner slot="3569383992" format="horizontal" className="mt-10" />
       </section>
     </Layout>
   );

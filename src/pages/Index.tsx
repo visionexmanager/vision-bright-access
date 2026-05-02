@@ -1,4 +1,5 @@
 import { Layout } from "@/components/Layout";
+import { AdBanner } from "@/components/AdBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
@@ -129,6 +130,9 @@ export default function Index() {
             </Link>
           )}
         </AnimatedSection>
+
+        {/* AdSense — bottom of home page */}
+        <AdBanner slot="3569383992" format="horizontal" className="mt-8 px-4" />
       </section>
     </Layout>
   );
