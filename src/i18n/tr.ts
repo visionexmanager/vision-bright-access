@@ -2018,6 +2018,13 @@ const tr: Record<string, string> = {
   "ocr.errFileType": "Desteklenmeyen dosya türü. JPG, PNG, WEBP veya PDF kullanın",
   "ocr.errFileSize": "Dosya çok büyük. Maksimum boyut 20 MB",
   "ocr.errScanFailed": "Tarama başarısız. Lütfen tekrar deneyin.",
+  "career.earned": "{points} puan kazandın",
+  "content.loading": "İçerik yükleniyor...",
+  "leader.loading": "Liderlik tablosu yükleniyor...",
+  "simulations.start": "Simülasyonu başlat",
+  "simulations.replay": "Simülasyonu tekrar oyna",
+  "games.akinator.badge": "Tahmin oyunu",
+  "games.akinator.desc": "Bir şey düşün ve yapay zeka tahmin etmeye çalışırken soruları yanıtla.",
 };
 
 export default tr;

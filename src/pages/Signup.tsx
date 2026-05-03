@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SocialAuthButtons } from "@/components/SocialAuthButtons";
 import { useDeviceId } from "@/hooks/useDeviceId";
+import { useAuth } from "@/contexts/AuthContext";
+import { Navigate } from "react-router-dom";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
@@ -22,6 +24,9 @@ export default function Signup() {
   const { t, lang } = useLanguage();
   const isAr = lang === "ar";
   const deviceId = useDeviceId();
+  const { user, loading: authLoading } = useAuth();
+
+  if (!authLoading && user) return <Navigate to="/dashboard" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,10 +77,6 @@ export default function Signup() {
           _device_id: deviceId,
           _user_id: uid,
           _user_agent: navigator.userAgent,
-        });
-        await supabase.rpc("maybe_revoke_trial", {
-          _user_id: uid,
-          _device_id: deviceId,
         });
       }
       toast.success(t("auth.accountCreated"));

@@ -2018,6 +2018,13 @@ const zh: Record<string, string> = {
   "ocr.errFileType": "不支持的文件类型。请使用 JPG, PNG, WEBP 或 PDF",
   "ocr.errFileSize": "文件太大。最大20 MB",
   "ocr.errScanFailed": "扫描失败。请重试。",
+  "career.earned": "你获得了 {points} 点",
+  "content.loading": "正在加载内容...",
+  "leader.loading": "正在加载排行榜...",
+  "simulations.start": "开始模拟",
+  "simulations.replay": "重新进行模拟",
+  "games.akinator.badge": "猜谜游戏",
+  "games.akinator.desc": "想一个东西并回答问题，让 AI 尝试猜出来。",
 };
 
 export default zh;

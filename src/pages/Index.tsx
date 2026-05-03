@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 import { AdBanner } from "@/components/AdBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { ArrowRight, Eye, ShoppingBag, BookOpen, Sparkles, UserPlus, Zap, Gift, TrendingUp } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,8 +12,10 @@ import heroImg from "@/assets/hero-illustration.jpg";
 
 export default function Index() {
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { playSound } = useSound();
+
+  if (!loading && user) return <Navigate to="/dashboard" replace />;
 
   const features = [
     { icon: ShoppingBag, title: t("home.feature.marketplace"), desc: t("home.feature.marketplaceDesc"), to: "/bazaar" },

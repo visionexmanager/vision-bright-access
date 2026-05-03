@@ -2018,6 +2018,13 @@ const ru: Record<string, string> = {
   "ocr.errFileType": "Тип файла не поддерживается. Используйте JPG, PNG, WEBP или PDF",
   "ocr.errFileSize": "Файл слишком большой. Максимальный размер 20 МБ",
   "ocr.errScanFailed": "Сканирование не удалось. Попробуйте снова.",
+  "career.earned": "Вы заработали {points} очков",
+  "content.loading": "Загрузка контента...",
+  "leader.loading": "Загрузка таблицы лидеров...",
+  "simulations.start": "Начать симуляцию",
+  "simulations.replay": "Повторить симуляцию",
+  "games.akinator.badge": "Игра на угадывание",
+  "games.akinator.desc": "Задумайте что-нибудь и отвечайте на вопросы, пока ИИ пытается угадать.",
 };
 
 export default ru;

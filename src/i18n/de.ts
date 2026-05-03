@@ -2093,6 +2093,13 @@ const de: Record<string, string> = {
   "ocr.errFileType": "Dateityp nicht unterstützt. JPG, PNG, WEBP oder PDF verwenden",
   "ocr.errFileSize": "Datei zu groß. Maximale Größe 20 MB",
   "ocr.errScanFailed": "Scan fehlgeschlagen. Bitte erneut versuchen.",
+  "career.earned": "Du hast {points} Punkte verdient",
+  "content.loading": "Inhalt wird geladen...",
+  "leader.loading": "Bestenliste wird geladen...",
+  "simulations.start": "Simulation starten",
+  "simulations.replay": "Simulation erneut spielen",
+  "games.akinator.badge": "Ratespiel",
+  "games.akinator.desc": "Denk an etwas und beantworte Fragen, während die KI versucht, es zu erraten.",
 };
 
 export default de;

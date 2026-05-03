@@ -30,7 +30,7 @@ export function useVXWallet() {
         return false;
       }
 
-      // Free trial — bypass all charges
+      // Free trial bypasses usage charges while users can still earn VX for later upgrades.
       if (isOnTrial) {
         toast({ title: "Free trial active ✓", description: `${itemName} is free during your trial period.` });
         return true;
@@ -60,7 +60,7 @@ export function useVXWallet() {
 
       return true;
     },
-    [user, balance, queryClient]
+    [user, isOnTrial, balance, queryClient]
   );
 
   return { balance, isLoading, spendVX };

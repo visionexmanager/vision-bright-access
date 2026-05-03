@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SocialAuthButtons } from "@/components/SocialAuthButtons";
+import { useAuth } from "@/contexts/AuthContext";
+import { Navigate } from "react-router-dom";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -16,6 +18,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user, loading: authLoading } = useAuth();
+
+  if (!authLoading && user) return <Navigate to="/dashboard" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

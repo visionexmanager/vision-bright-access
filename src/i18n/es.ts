@@ -2022,6 +2022,13 @@ const es: Record<string, string> = {
   "ocr.errFileType": "Tipo de archivo no compatible. Usa JPG, PNG, WEBP o PDF",
   "ocr.errFileSize": "El archivo es demasiado grande. Tamaño máximo 20 MB",
   "ocr.errScanFailed": "Escaneo fallido. Por favor inténtalo de nuevo.",
+  "career.earned": "Has ganado {points} puntos",
+  "content.loading": "Cargando contenido...",
+  "leader.loading": "Cargando clasificación...",
+  "simulations.start": "Iniciar simulación",
+  "simulations.replay": "Repetir simulación",
+  "games.akinator.badge": "Juego de adivinanzas",
+  "games.akinator.desc": "Piensa en algo y responde preguntas mientras la IA intenta adivinarlo.",
 };
 
 export default es;

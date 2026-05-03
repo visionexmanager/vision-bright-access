@@ -2018,6 +2018,13 @@ const pt: Record<string, string> = {
   "ocr.errFileType": "Tipo de arquivo não suportado. Use JPG, PNG, WEBP ou PDF",
   "ocr.errFileSize": "Arquivo muito grande. Tamanho máximo 20 MB",
   "ocr.errScanFailed": "Digitalização falhou. Tente novamente.",
+  "career.earned": "Você ganhou {points} pontos",
+  "content.loading": "Carregando conteúdo...",
+  "leader.loading": "Carregando ranking...",
+  "simulations.start": "Iniciar simulação",
+  "simulations.replay": "Repetir simulação",
+  "games.akinator.badge": "Jogo de adivinhação",
+  "games.akinator.desc": "Pense em algo e responda às perguntas enquanto a IA tenta adivinhar.",
 };
 
 export default pt;

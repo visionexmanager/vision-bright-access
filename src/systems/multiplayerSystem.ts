@@ -3,7 +3,9 @@
 
 export type GameType =
   | "farkle" | "card99" | "briscola" | "uno"
-  | "dominoes" | "quiz" | "neonbreach" | "logiquest" | "hangman";
+  | "dominoes" | "quiz" | "neonbreach" | "logiquest" | "hangman"
+  | "starchef" | "velocity" | "tradetycoon" | "earmaster"
+  | "tactical" | "laptoptech" | "jungle";
 
 export interface MPPlayer {
   id: string;
@@ -38,6 +40,13 @@ export const GAME_LABELS: Record<GameType, string> = {
   neonbreach: "💻 Neon Breach",
   logiquest:  "🧩 LogiQuest",
   hangman:    "🔤 Hangman",
+  starchef:   "👨‍🍳 Star Chef",
+  velocity:   "🏎️ Velocity X Racing",
+  tradetycoon:"📈 Trade Tycoon",
+  earmaster:  "🎵 Music Ear Master",
+  tactical:   "🎯 Tactical Strike",
+  laptoptech: "💻 Laptop Tech Master",
+  jungle:     "🌴 Jungle Survival",
 };
 
 /** Generates a 6-character uppercase room code (no ambiguous chars). */
