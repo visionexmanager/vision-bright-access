@@ -5,9 +5,11 @@ import {
   GameSession, GameType, MPPlayer, generateRoomCode,
 } from "@/systems/multiplayerSystem";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function useMultiplayer(gameType: GameType) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [session, setSession] = useState<GameSession | null>(null);
   const [loading, setLoading] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -31,7 +33,7 @@ export function useMultiplayer(gameType: GameType) {
         (payload) => {
           if (payload.eventType === "DELETE") {
             setSession(null);
-            toast.info("The room was closed.");
+            toast.info(t("mp.roomClosed"));
           } else {
             setSession(payload.new as GameSession);
           }
@@ -40,7 +42,7 @@ export function useMultiplayer(gameType: GameType) {
       .subscribe();
     channelRef.current = ch;
     return () => { supabase.removeChannel(ch); };
-  }, [session?.id]);
+  }, [session?.id, t]);
 
   // ── Build my MPPlayer entry ───────────────────────────────────────────────
   const meEntry = useCallback((): MPPlayer => ({
@@ -53,7 +55,7 @@ export function useMultiplayer(gameType: GameType) {
 
   // ── Create room ───────────────────────────────────────────────────────────
   const createRoom = useCallback(async (): Promise<string | null> => {
-    if (!user) { toast.error("Login required"); return null; }
+    if (!user) { toast.error(t("mp.loginRequiredShort")); return null; }
     setLoading(true);
     const code = generateRoomCode();
     const { data, error } = await supabase
@@ -69,24 +71,24 @@ export function useMultiplayer(gameType: GameType) {
       .select()
       .single();
     setLoading(false);
-    if (error) { toast.error("Failed to create room"); return null; }
+    if (error) { toast.error(t("mp.createRoomFailed")); return null; }
     setSession(data as unknown as GameSession);
     return code;
-  }, [user, gameType, meEntry]);
+  }, [user, gameType, meEntry, t]);
 
   // ── Join room ─────────────────────────────────────────────────────────────
   const joinRoom = useCallback(async (code: string): Promise<boolean> => {
-    if (!user) { toast.error("Login required"); return false; }
+    if (!user) { toast.error(t("mp.loginRequiredShort")); return false; }
     setLoading(true);
     const { data: existing, error: fe } = await supabase
       .from("game_sessions")
       .select("*")
       .eq("id", code.toUpperCase().trim())
       .single();
-    if (fe || !existing) { toast.error("Room not found"); setLoading(false); return false; }
+    if (fe || !existing) { toast.error(t("mp.roomNotFound")); setLoading(false); return false; }
     const s = existing as unknown as GameSession;
-    if (s.status !== "waiting") { toast.error("Game already started"); setLoading(false); return false; }
-    if (s.players.length >= s.max_players) { toast.error("Room is full"); setLoading(false); return false; }
+    if (s.status !== "waiting") { toast.error(t("mp.gameAlreadyStarted")); setLoading(false); return false; }
+    if (s.players.length >= s.max_players) { toast.error(t("mp.roomFull")); setLoading(false); return false; }
     if (s.players.find((p) => p.id === user.id)) { setSession(s); setLoading(false); return true; }
     const { data, error } = await supabase
       .from("game_sessions")
@@ -95,10 +97,10 @@ export function useMultiplayer(gameType: GameType) {
       .select()
       .single();
     setLoading(false);
-    if (error) { toast.error("Failed to join room"); return false; }
+    if (error) { toast.error(t("mp.joinRoomFailed")); return false; }
     setSession(data as unknown as GameSession);
     return true;
-  }, [user, meEntry]);
+  }, [user, meEntry, t]);
 
   // ── Start game (host only) ────────────────────────────────────────────────
   const startGame = useCallback(async (initialState: Record<string, unknown>) => {

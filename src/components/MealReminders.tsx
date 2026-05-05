@@ -24,46 +24,12 @@ const DEFAULT_REMINDERS: MealReminder[] = [
   { id: "snack2", label: "snack2", time: "16:00", enabled: false },
 ];
 
-const LABELS: Record<string, Record<string, string>> = {
-  ar: {
-    title: "تنبيهات الوجبات",
-    subtitle: "تذكير بمواعيد وجباتك اليومية",
-    breakfast: "الفطور",
-    lunch: "الغداء",
-    dinner: "العشاء",
-    snack: "وجبة خفيفة ١",
-    snack2: "وجبة خفيفة ٢",
-    enable: "تفعيل التنبيهات",
-    permissionNeeded: "يجب السماح بالإشعارات في المتصفح",
-    reminderFired: "حان موعد",
-    addReminder: "إضافة تنبيه",
-    custom: "تنبيه مخصص",
-    notifyBody: "لا تنسَ تناول وجبتك للحفاظ على نظامك الغذائي! 🍽️",
-  },
-  en: {
-    title: "Meal Reminders",
-    subtitle: "Daily reminders for your meals",
-    breakfast: "Breakfast",
-    lunch: "Lunch",
-    dinner: "Dinner",
-    snack: "Snack 1",
-    snack2: "Snack 2",
-    enable: "Enable Reminders",
-    permissionNeeded: "Please allow notifications in your browser",
-    reminderFired: "Time for",
-    addReminder: "Add Reminder",
-    custom: "Custom Reminder",
-    notifyBody: "Don't forget your meal to stay on track! 🍽️",
-  },
-};
-
-function getLabels(lang: string) {
-  return LABELS[lang] || LABELS["en"];
-}
-
 export default function MealReminders() {
-  const { lang } = useLanguage();
-  const l = getLabels(lang);
+  const { lang, t } = useLanguage();
+  const labelFor = useCallback((label: string) => {
+    if (label.startsWith("custom_")) return label;
+    return t(`mealReminders.${label}`);
+  }, [t]);
   const [reminders, setReminders] = useState<MealReminder[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -87,8 +53,8 @@ export default function MealReminders() {
     if (typeof Notification === "undefined") return;
     const perm = await Notification.requestPermission();
     setNotifPermission(perm);
-    if (perm === "denied") toast.error(l.permissionNeeded);
-  }, [l]);
+    if (perm === "denied") toast.error(t("mealReminders.permissionNeeded"));
+  }, [t]);
 
   // Check reminders every 30s
   useEffect(() => {
@@ -101,13 +67,13 @@ export default function MealReminders() {
         const fireKey = `${todayKey}_${r.id}`;
         if (r.enabled && r.time === hhmm && !firedRef.current.has(fireKey)) {
           firedRef.current.add(fireKey);
-          const label = l[r.label] || r.label;
-          toast.info(`${l.reminderFired} ${label}! 🔔`, { duration: 10000 });
+          const label = labelFor(r.label);
+          toast.info(t("mealReminders.reminderToast").replace("{label}", label), { duration: 10000 });
 
           if (notifPermission === "granted") {
             try {
-              new Notification(`${l.reminderFired} ${label}`, {
-                body: l.notifyBody,
+              new Notification(t("mealReminders.reminderTitle").replace("{label}", label), {
+                body: t("mealReminders.notifyBody"),
                 icon: "/placeholder.svg",
               });
             } catch {}
@@ -115,7 +81,7 @@ export default function MealReminders() {
 
           // Voice
           if ("speechSynthesis" in window) {
-            const u = new SpeechSynthesisUtterance(`${l.reminderFired} ${label}`);
+            const u = new SpeechSynthesisUtterance(t("mealReminders.reminderTitle").replace("{label}", label));
             u.lang = lang === "ar" ? "ar-SA" : lang;
             u.rate = 0.9;
             window.speechSynthesis.speak(u);
@@ -127,7 +93,7 @@ export default function MealReminders() {
     check();
     const interval = setInterval(check, 30000);
     return () => clearInterval(interval);
-  }, [reminders, notifPermission, lang, l]);
+  }, [reminders, notifPermission, lang, t, labelFor]);
 
   // Reset fired set at midnight
   useEffect(() => {
@@ -157,7 +123,7 @@ export default function MealReminders() {
     const id = `custom_${Date.now()}`;
     setReminders((prev) => [
       ...prev,
-      { id, label: l.custom, time: "15:00", enabled: true },
+      { id, label: "custom", time: "15:00", enabled: true },
     ]);
   };
 
@@ -167,7 +133,7 @@ export default function MealReminders() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BellRing className="h-5 w-5 text-amber-500" />
-            <h3 className="text-lg font-black text-foreground">{l.title}</h3>
+            <h3 className="text-lg font-black text-foreground">{t("mealReminders.title")}</h3>
           </div>
           {notifPermission !== "granted" && (
             <Button
@@ -177,15 +143,15 @@ export default function MealReminders() {
               className="rounded-xl text-xs gap-1"
             >
               <Bell className="h-3 w-3" />
-              {l.enable}
+              {t("mealReminders.enable")}
             </Button>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">{l.subtitle}</p>
+        <p className="text-sm text-muted-foreground">{t("mealReminders.subtitle")}</p>
 
         <div className="space-y-3">
           {reminders.map((r) => {
-            const label = l[r.label] || r.label;
+            const label = labelFor(r.label);
             return (
               <div
                 key={r.id}
@@ -236,7 +202,7 @@ export default function MealReminders() {
           className="w-full rounded-xl gap-2 border-dashed border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
         >
           <Plus className="h-4 w-4" />
-          {l.addReminder}
+          {t("mealReminders.addReminder")}
         </Button>
       </CardContent>
     </Card>

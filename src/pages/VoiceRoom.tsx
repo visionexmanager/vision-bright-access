@@ -20,6 +20,19 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Mic, MicOff, PhoneOff, Users, Volume2 } from "lucide-react";
 import { DEFAULT_ROOMS } from "@/systems/voiceRoomSystem";
 
+const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
+
+function resolveLiveKitUrl() {
+  const configuredUrl = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
+  const url = configuredUrl?.trim().replace(/^["']|["']$/g, "");
+
+  if (!url || url.includes("YOUR_PROJECT") || !url.startsWith("wss://")) {
+    return FALLBACK_LIVEKIT_URL;
+  }
+
+  return url;
+}
+
 // ── Participant tile ──────────────────────────────────────────────
 function ParticipantTile({ participant }: { participant: ReturnType<typeof useParticipants>[number] }) {
   const tracks = useTracks(
@@ -114,16 +127,14 @@ export default function VoiceRoom() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { lang, t } = useLanguage();
-  const isAr = lang === "ar";
+  const { t } = useLanguage();
 
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roomName, setRoomName] = useState("");
 
-  const livekitUrl = (import.meta.env.VITE_LIVEKIT_URL as string | undefined)
-    ?? "wss://visionex-hn3vb5hz.livekit.cloud";
+  const livekitUrl = resolveLiveKitUrl();
 
   const cleanup = useCallback(async () => {
     if (user && roomId) {
@@ -142,7 +153,7 @@ export default function VoiceRoom() {
     // Resolve room name
     const def = DEFAULT_ROOMS.find((r) => r.id === roomId);
     if (def) {
-      setRoomName(isAr ? def.nameAr : def.name);
+      setRoomName(t(def.nameKey));
     } else {
       supabase
         .from("voice_rooms")
@@ -152,14 +163,18 @@ export default function VoiceRoom() {
         .then(({ data }) => { if (data) setRoomName(data.room_name); });
     }
 
-    // Register membership
-    supabase.from("voice_room_members").upsert(
-      { room_id: roomId, user_id: user.id },
-      { onConflict: "room_id,user_id" }
-    );
-
-    // Get LiveKit token via Edge Function
     const getToken = async () => {
+      const { error: membershipError } = await supabase.from("voice_room_members").upsert(
+        { room_id: roomId, user_id: user.id },
+        { onConflict: "room_id,user_id", ignoreDuplicates: true }
+      );
+
+      if (membershipError) {
+        setError(membershipError.message);
+        setLoading(false);
+        return;
+      }
+
       const { data, error: fnErr } = await supabase.functions.invoke("livekit-token", {
         body: {
           roomId,
@@ -180,7 +195,7 @@ export default function VoiceRoom() {
 
     // Cleanup on unmount
     return () => { cleanup(); };
-  }, [user, roomId, navigate, isAr, cleanup]);
+  }, [user, roomId, navigate, t, cleanup]);
 
   const handleLeave = async () => {
     await cleanup();
@@ -251,8 +266,9 @@ export default function VoiceRoom() {
               connect
               audio
               video={false}
-              onDisconnected={handleLeave}
+              onDisconnected={() => { void cleanup(); }}
               onError={(err) => {
+                setError(err.message);
                 toast({ title: t("vroom.connectionError"), description: err.message, variant: "destructive" });
               }}
             >

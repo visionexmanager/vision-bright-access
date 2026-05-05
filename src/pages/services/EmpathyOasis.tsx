@@ -15,48 +15,23 @@ import { Link } from "react-router-dom";
 
 // 4-7-8 breathing technique
 const PHASES = [
-  { en: "Inhale",  ar: "استنشق", duration: 4, expand: true  },
-  { en: "Hold",    ar: "أمسك",   duration: 7, expand: true  },
-  { en: "Exhale",  ar: "أخرج",  duration: 8, expand: false },
+  { key: "oasis.phase.inhale", duration: 4, expand: true  },
+  { key: "oasis.phase.hold",   duration: 7, expand: true  },
+  { key: "oasis.phase.exhale", duration: 8, expand: false },
 ];
 
-const AFFIRMATIONS_EN = [
-  "You are capable of amazing things.",
-  "Every challenge makes you stronger.",
-  "You deserve peace and happiness.",
-  "Your presence matters to the world.",
-  "Take one breath at a time — you've got this.",
-  "You are seen, valued, and loved.",
-  "Progress, not perfection.",
-  "Your journey is uniquely yours.",
-  "Rest is part of the process.",
-  "You have overcome so much already.",
-];
-
-const AFFIRMATIONS_AR = [
-  "أنت قادر على أشياء رائعة.",
-  "كل تحدٍّ يجعلك أقوى.",
-  "تستحق السلام والسعادة.",
-  "وجودك مهم لهذا العالم.",
-  "خطوة واحدة في كل مرة — أنت قادر.",
-  "أنت مرئي ومُقدَّر ومحبوب.",
-  "التقدم، لا الكمال.",
-  "رحلتك فريدة من نوعها.",
-  "الراحة جزء من العملية.",
-  "لقد تجاوزت الكثير بالفعل.",
-];
+const AFFIRMATION_KEYS = Array.from({ length: 10 }, (_, i) => `oasis.affirmation.${i + 1}`);
 
 const TONES = {
-  calm:    { freq: 432, emoji: "🌊", en: "Calm (432 Hz)",       ar: "هدوء ٤٣٢ هرتز"    },
-  focus:   { freq: 528, emoji: "🎯", en: "Focus (528 Hz)",      ar: "تركيز ٥٢٨ هرتز"   },
-  ground:  { freq: 174, emoji: "🌿", en: "Grounding (174 Hz)",  ar: "تأريض ١٧٤ هرتز"   },
+  calm:    { freq: 432, emoji: "🌊", key: "oasis.tone.calm" },
+  focus:   { freq: 528, emoji: "🎯", key: "oasis.tone.focus" },
+  ground:  { freq: 174, emoji: "🌿", key: "oasis.tone.ground" },
 } as const;
 type ToneKey = keyof typeof TONES;
 
 export default function EmpathyOasis() {
   const { user } = useAuth();
   const { lang, t } = useLanguage();
-  const isAr = lang === "ar";
 
   // ── Breathing ──────────────────────────────────────────────────
   const [breathActive, setBreathActive] = useState(false);
@@ -154,14 +129,14 @@ export default function EmpathyOasis() {
   useEffect(() => () => { oscRef.current?.stop(); audioCtxRef.current?.close(); }, []);
 
   // ── Affirmations (TTS) ─────────────────────────────────────────
-  const affirmations = isAr ? AFFIRMATIONS_AR : AFFIRMATIONS_EN;
+  const affirmations = AFFIRMATION_KEYS.map((key) => t(key));
   const [affIdx, setAffIdx]   = useState(0);
   const [speaking, setSpeaking] = useState(false);
 
   const speak = useCallback((text: string) => {
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
-    utter.lang  = isAr ? "ar-SA" : "en-US";
+    utter.lang  = lang === "ar" ? "ar-SA" : lang;
     utter.rate  = 0.85;
     utter.onstart = () => setSpeaking(true);
     utter.onend   = () => {
@@ -173,7 +148,7 @@ export default function EmpathyOasis() {
       }
     };
     window.speechSynthesis.speak(utter);
-  }, [isAr, user]);
+  }, [lang, user]);
 
   const nextAffirmation = useCallback(() => {
     const next = (affIdx + 1) % affirmations.length;
@@ -235,7 +210,7 @@ export default function EmpathyOasis() {
                   <div className="relative z-10 text-center">
                     <p className="text-2xl font-bold text-primary">
                       {breathActive
-                        ? (isAr ? currentPhase.ar : currentPhase.en)
+                        ? t(currentPhase.key)
                         : t("oasis.breathing.start")}
                     </p>
                     {breathActive && (
@@ -305,7 +280,7 @@ export default function EmpathyOasis() {
                         {tone.emoji}
                       </div>
                       <p className="text-sm font-semibold">
-                        {isAr ? tone.ar : tone.en}
+                        {t(tone.key)}
                       </p>
                       {active && (
                         <Badge className="mt-1 text-xs">

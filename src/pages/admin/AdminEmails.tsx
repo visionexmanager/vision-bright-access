@@ -12,24 +12,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, Send, Mail, Users, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const SENDERS = [
-  { value: "hello",   label: "hello@visionex.app",    desc: "التواصل العام" },
-  { value: "news",    label: "news@visionex.app",     desc: "النشرة البريدية" },
-  { value: "legal",   label: "legal@visionex.app",    desc: "الشؤون القانونية" },
-  { value: "support", label: "support@visionex.app",  desc: "الدعم الفني" },
-  { value: "noreply", label: "no-reply@visionex.app", desc: "إيميلات تلقائية" },
+  { value: "hello",   label: "hello@visionex.app",    descKey: "hello" },
+  { value: "news",    label: "news@visionex.app",     descKey: "news" },
+  { value: "legal",   label: "legal@visionex.app",    descKey: "legal" },
+  { value: "support", label: "support@visionex.app",  descKey: "support" },
+  { value: "noreply", label: "no-reply@visionex.app", descKey: "noreply" },
 ];
 
-const TOPICS = [
-  { value: "all", label: "كل المشتركين" },
-  { value: "products", label: "المنتجات" },
-  { value: "services", label: "الخدمات" },
-  { value: "courses", label: "الكورسات" },
-  { value: "games", label: "الألعاب" },
-  { value: "tech-news", label: "أخبار التقنية" },
-  { value: "global-news", label: "أخبار عالمية" },
-];
+const TOPICS = ["all", "products", "services", "courses", "games", "tech-news", "global-news"];
 
 const BASE = `font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:0;background:#ffffff`;
 const HDR  = `background:linear-gradient(135deg,#6d28d9,#4f46e5);padding:32px 24px;text-align:center;border-radius:12px 12px 0 0`;
@@ -40,7 +33,7 @@ const FOT  = `margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;colo
 const EMAIL_TEMPLATES = [
   // ── 1. VX منحة ──────────────────────────────────────────────────────────
   {
-    name: "🪙 منحة VX للمستخدم",
+    nameKey: "vxGrant",
     subject: "🎁 تم إضافة [XXX] عملة VX إلى رصيدك!",
     sender: "noreply",
     html: `<div dir="rtl" style="${BASE}">
@@ -75,7 +68,7 @@ const EMAIL_TEMPLATES = [
 
   // ── 2. النشرة الأولى ─────────────────────────────────────────────────────
   {
-    name: "📬 النشرة الأولى — الإطلاق",
+    nameKey: "launch",
     subject: "🚀 Visionex انطلقت — إليك ما ينتظرك!",
     sender: "news",
     html: `<div dir="rtl" style="${BASE}">
@@ -128,7 +121,7 @@ const EMAIL_TEMPLATES = [
 
   // ── 3. نشرة أخبار دورية ──────────────────────────────────────────────────
   {
-    name: "📰 نشرة أخبار دورية",
+    nameKey: "news",
     subject: "📰 أخبار Visionex — [الشهر واالسنة]",
     sender: "news",
     html: `<div dir="rtl" style="${BASE}">
@@ -173,7 +166,7 @@ const EMAIL_TEMPLATES = [
 
   // ── 4. إطلاق ميزة جديدة ─────────────────────────────────────────────────
   {
-    name: "✨ إطلاق ميزة جديدة",
+    nameKey: "feature",
     subject: "✨ ميزة جديدة في Visionex — [اسم الميزة]",
     sender: "hello",
     html: `<div dir="rtl" style="${BASE}">
@@ -207,7 +200,7 @@ const EMAIL_TEMPLATES = [
 
   // ── 5. عرض خاص / مكافأة ─────────────────────────────────────────────────
   {
-    name: "🎉 عرض خاص أو مكافأة",
+    nameKey: "offer",
     subject: "🎉 عرض حصري لك من Visionex!",
     sender: "hello",
     html: `<div dir="rtl" style="${BASE}">
@@ -238,7 +231,7 @@ const EMAIL_TEMPLATES = [
 
   // ── 6. دعوة للعودة ──────────────────────────────────────────────────────
   {
-    name: "💌 دعوة للعودة",
+    nameKey: "return",
     subject: "💌 نفتقدك في Visionex!",
     sender: "hello",
     html: `<div dir="rtl" style="${BASE}">
@@ -270,7 +263,7 @@ const EMAIL_TEMPLATES = [
 
   // ── 7. تحديث مهم / صيانة ────────────────────────────────────────────────
   {
-    name: "⚙️ إشعار تحديث أو صيانة",
+    nameKey: "maintenance",
     subject: "⚙️ تحديث مهم على منصة Visionex",
     sender: "noreply",
     html: `<div dir="rtl" style="${BASE}">
@@ -304,7 +297,7 @@ const EMAIL_TEMPLATES = [
 
   // ── 8. مخصص فارغ ────────────────────────────────────────────────────────
   {
-    name: "✏️ إيميل مخصص",
+    nameKey: "custom",
     subject: "",
     sender: "hello",
     html: `<div dir="rtl" style="${BASE}">
@@ -323,6 +316,7 @@ const EMAIL_TEMPLATES = [
 ];
 
 export default function AdminEmails() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState("newsletter");
   const [subject, setSubject] = useState("");
   const [html, setHtml] = useState("");
@@ -338,8 +332,8 @@ export default function AdminEmails() {
   };
 
   const sendEmail = async () => {
-    if (!subject || !html) { toast.error("العنوان والمحتوى مطلوبان"); return; }
-    if (tab === "single" && !singleEmail) { toast.error("البريد الإلكتروني مطلوب"); return; }
+    if (!subject || !html) { toast.error(t("admin.emails.subjectContentRequired")); return; }
+    if (tab === "single" && !singleEmail) { toast.error(t("admin.emails.emailRequired")); return; }
 
     setSending(true);
     try {
@@ -362,11 +356,11 @@ export default function AdminEmails() {
       });
 
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "فشل الإرسال");
-      toast.success(`تم إرسال ${result.sent} إيميل بنجاح`);
+      if (!res.ok) throw new Error(result.error || t("admin.emails.sendFailed"));
+      toast.success(t("admin.emails.sentSuccess").replace("{count}", String(result.sent)));
       if (result.failed > 0) toast.warning(`فشل إرسال ${result.failed} إيميل`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "حدث خطأ");
+      toast.error(e instanceof Error ? e.message : t("admin.vx.genericError"));
     } finally {
       setSending(false);
     }
@@ -377,23 +371,23 @@ export default function AdminEmails() {
       <section className="mx-auto max-w-4xl px-4 py-10">
         <div className="mb-6 flex items-center gap-3">
           <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
-          <h1 className="text-3xl font-bold">إدارة الإيميلات</h1>
+          <h1 className="text-3xl font-bold">{t("admin.emails.title")}</h1>
         </div>
 
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950 dark:text-yellow-200">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          لإرسال الإيميلات، تأكد من إضافة <code className="mx-1 rounded bg-yellow-100 px-1 dark:bg-yellow-900">RESEND_API_KEY</code> في Supabase Secrets.
+          {t("admin.emails.resendNoticeBefore")} <code className="mx-1 rounded bg-yellow-100 px-1 dark:bg-yellow-900">RESEND_API_KEY</code> {t("admin.emails.resendNoticeAfter")}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-1 space-y-4">
             <Card>
-              <CardHeader><CardTitle className="text-base">القوالب الجاهزة</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">{t("admin.emails.templates")}</CardTitle></CardHeader>
               <CardContent className="space-y-2">
-                {EMAIL_TEMPLATES.map(t => (
-                  <Button key={t.name} variant={selectedTemplate === t.name ? "default" : "outline"}
-                    className="w-full justify-start text-sm" onClick={() => applyTemplate(t.name)}>
-                    <Mail className="me-2 h-4 w-4" />{t.name}
+                {EMAIL_TEMPLATES.map(template => (
+                  <Button key={template.nameKey} variant={selectedTemplate === template.nameKey ? "default" : "outline"}
+                    className="w-full justify-start text-sm" onClick={() => applyTemplate(template.nameKey)}>
+                    <Mail className="me-2 h-4 w-4" />{templateName(template.nameKey)}
                   </Button>
                 ))}
               </CardContent>
@@ -404,20 +398,20 @@ export default function AdminEmails() {
             <Tabs value={tab} onValueChange={setTab}>
               <TabsList className="w-full">
                 <TabsTrigger value="newsletter" className="flex-1">
-                  <Users className="me-2 h-4 w-4" /> نشرة بريدية
+                  <Users className="me-2 h-4 w-4" /> {t("admin.emails.newsletter") }
                 </TabsTrigger>
                 <TabsTrigger value="single" className="flex-1">
-                  <Mail className="me-2 h-4 w-4" /> إيميل مفرد
+                  <Mail className="me-2 h-4 w-4" /> {t("admin.emails.singleEmail") }
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="newsletter" className="space-y-4">
                 <div>
-                  <Label>الموضوع (فئة المشتركين)</Label>
+                  <Label>{t("admin.emails.topicLabel")}</Label>
                   <Select value={topic} onValueChange={setTopic}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {TOPICS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                      {TOPICS.map(topic => <SelectItem key={topic} value={topic}>{t(`admin.emails.topic.${topic.replace(/-/g, "_")}`)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -425,14 +419,14 @@ export default function AdminEmails() {
 
               <TabsContent value="single" className="space-y-4">
                 <div>
-                  <Label>البريد الإلكتروني</Label>
+                  <Label>{t("admin.requests.email")}</Label>
                   <Input type="email" value={singleEmail} onChange={e => setSingleEmail(e.target.value)} placeholder="example@email.com" />
                 </div>
               </TabsContent>
             </Tabs>
 
             <div>
-              <Label>المرسِل</Label>
+              <Label>{t("admin.emails.sender")}</Label>
               <Select value={sender} onValueChange={setSender}>
                 <SelectTrigger>
                   <SelectValue />
@@ -441,7 +435,7 @@ export default function AdminEmails() {
                   {SENDERS.map(s => (
                     <SelectItem key={s.value} value={s.value}>
                       <span className="font-mono text-sm">{s.label}</span>
-                      <span className="ms-2 text-xs text-muted-foreground">— {s.desc}</span>
+                      <span className="ms-2 text-xs text-muted-foreground">- {t(`admin.emails.sender.${s.descKey}`)}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -449,23 +443,23 @@ export default function AdminEmails() {
             </div>
 
             <div>
-              <Label>عنوان الإيميل</Label>
-              <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="عنوان الإيميل..." />
+              <Label>{t("admin.emails.subject")}</Label>
+              <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder={t("admin.emails.subjectPlaceholder")} />
             </div>
 
             <div>
-              <Label>محتوى HTML</Label>
+              <Label>{t("admin.emails.htmlContent")}</Label>
               <Textarea
                 value={html}
                 onChange={e => setHtml(e.target.value)}
-                placeholder="<div>محتوى الإيميل بصيغة HTML...</div>"
+                placeholder={t("admin.emails.htmlPlaceholder")}
                 className="font-mono text-sm min-h-[200px]"
               />
             </div>
 
             {html && (
               <Card>
-                <CardHeader><CardTitle className="text-sm">معاينة</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm">{t("admin.emails.preview")}</CardTitle></CardHeader>
                 <CardContent>
                   <div className="rounded border p-4 text-sm" dangerouslySetInnerHTML={{ __html: html }} />
                 </CardContent>
@@ -474,7 +468,7 @@ export default function AdminEmails() {
 
             <Button onClick={sendEmail} disabled={sending} className="w-full" size="lg">
               <Send className="me-2 h-4 w-4" />
-              {sending ? "جاري الإرسال..." : "إرسال الإيميل"}
+              {sending ? t("admin.users.sending") : t("admin.emails.sendEmail")}
             </Button>
           </div>
         </div>

@@ -7,8 +7,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const COOKIE_KEY = "vx_cookie_consent";
 
 export function CookieBanner() {
-  const { lang } = useLanguage();
-  const isAr = lang === "ar";
+  const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -34,7 +33,7 @@ export function CookieBanner() {
   return (
     <div
       role="dialog"
-      aria-label={isAr ? "إشعار الكوكيز" : "Cookie consent"}
+      aria-label={t("cookie.label")}
       aria-live="polite"
       className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-2xl rounded-2xl border bg-card shadow-xl animate-in slide-in-from-bottom-4 duration-300"
     >
@@ -45,26 +44,24 @@ export function CookieBanner() {
 
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground mb-1">
-            {isAr ? "نستخدم ملفات تعريف الارتباط" : "We use cookies"}
+            {t("cookie.title")}
           </p>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            {isAr
-              ? "نستخدم كوكيز لتذكّر تفضيلاتك وتشغيل الإعلانات عبر Google AdSense. بالمتابعة فأنت توافق على "
-              : "We use cookies to remember your preferences and serve ads via Google AdSense. By continuing, you agree to our "}
+            {t("cookie.description")}{" "}
             <Link
               to="/privacy-policy"
               className="text-primary underline underline-offset-2 hover:no-underline"
               onClick={accept}
             >
-              {isAr ? "سياسة الخصوصية" : "Privacy Policy"}
+              {t("cookie.privacy")}
             </Link>
-            {isAr ? "." : "."}
+            .
           </p>
         </div>
 
         <button
           onClick={decline}
-          aria-label={isAr ? "إغلاق" : "Close"}
+          aria-label={t("cookie.close")}
           className="shrink-0 rounded-lg p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="h-4 w-4" aria-hidden="true" />
@@ -78,7 +75,7 @@ export function CookieBanner() {
           className="flex-1 text-xs"
         >
           <Check className="me-1.5 h-3.5 w-3.5" aria-hidden="true" />
-          {isAr ? "قبول الكل" : "Accept all"}
+          {t("cookie.acceptAll")}
         </Button>
         <Button
           size="sm"
@@ -86,7 +83,7 @@ export function CookieBanner() {
           onClick={decline}
           className="flex-1 text-xs"
         >
-          {isAr ? "الضروري فقط" : "Essential only"}
+          {t("cookie.essentialOnly")}
         </Button>
       </div>
     </div>

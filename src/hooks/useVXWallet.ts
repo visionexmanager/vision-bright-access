@@ -4,10 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrial } from "@/hooks/useTrial";
 import { toast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function useVXWallet() {
   const { user } = useAuth();
   const { isOnTrial } = useTrial();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
 
   const { data: balance = 0, isLoading } = useQuery({
@@ -26,18 +28,18 @@ export function useVXWallet() {
   const spendVX = useCallback(
     async (amount: number, itemType: string, itemName: string, itemId?: string) => {
       if (!user) {
-        toast({ title: "Login required", description: "Please log in to make purchases.", variant: "destructive" });
+        toast({ title: t("vxWallet.loginRequired"), description: t("vxWallet.loginRequiredDesc"), variant: "destructive" });
         return false;
       }
 
       // Free trial bypasses usage charges while users can still earn VX for later upgrades.
       if (isOnTrial) {
-        toast({ title: "Free trial active ✓", description: `${itemName} is free during your trial period.` });
+        toast({ title: t("vxWallet.freeTrialActive"), description: t("vxWallet.freeTrialDesc").replace("{item}", itemName) });
         return true;
       }
 
       if (balance < amount) {
-        toast({ title: "Insufficient VX", description: `You need ${amount.toLocaleString()} VX but only have ${balance.toLocaleString()} VX.`, variant: "destructive" });
+        toast({ title: t("vxWallet.insufficientVX"), description: t("vxWallet.insufficientVXDesc").replace("{needed}", amount.toLocaleString()).replace("{balance}", balance.toLocaleString()), variant: "destructive" });
         return false;
       }
 
@@ -49,7 +51,7 @@ export function useVXWallet() {
       });
 
       if (error) {
-        toast({ title: "Purchase failed", description: error.message, variant: "destructive" });
+        toast({ title: t("vxWallet.purchaseFailed"), description: error.message, variant: "destructive" });
         return false;
       }
 
@@ -60,7 +62,7 @@ export function useVXWallet() {
 
       return true;
     },
-    [user, isOnTrial, balance, queryClient]
+    [user, isOnTrial, balance, queryClient, t]
   );
 
   return { balance, isLoading, spendVX };

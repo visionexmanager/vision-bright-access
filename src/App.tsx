@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
-import { LanguageProvider } from "@/contexts/LanguageContext";
+import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SoundProvider } from "@/contexts/SoundContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
@@ -128,8 +128,9 @@ const queryClient = new QueryClient({
 });
 
 function PageLoader() {
+  const { t } = useLanguage();
   return (
-    <div className="flex min-h-screen items-center justify-center" role="status" aria-label="Loading page">
+    <div className="flex min-h-screen items-center justify-center" role="status" aria-label={t("app.loadingPage")}>
       <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
     </div>
   );

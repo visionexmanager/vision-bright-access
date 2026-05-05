@@ -59,6 +59,7 @@ function getPointsReward(gameScore: number): number {
 // ─── Multiplayer competitive quiz ────────────────────────────────────────────
 function QuizMulti() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const mp = useMultiplayer("quiz");
   const [currentQ, setCurrentQ] = useState(0);
   const [myScore, setMyScore]   = useState(0);
@@ -124,20 +125,20 @@ function QuizMulti() {
       {/* Live scores */}
       <div className="flex justify-between items-center text-sm">
         <div className="text-center">
-          <p className="text-xs text-muted-foreground">You</p>
+          <p className="text-xs text-muted-foreground">{t("quiz.you")}</p>
           <p className="text-2xl font-bold text-primary">{myScore}</p>
         </div>
-        <Badge variant="outline">Q {currentQ + 1}/{questions.length}</Badge>
+        <Badge variant="outline">{t("quiz.questionShort")} {currentQ + 1}/{questions.length}</Badge>
         <div className="text-center">
-          <p className="text-xs text-muted-foreground">{opp?.name ?? "Opponent"}</p>
+          <p className="text-xs text-muted-foreground">{opp?.name ?? t("quiz.opponent")}</p>
           <p className="text-2xl font-bold">{oppScore}</p>
         </div>
       </div>
       <Progress value={progress} className="h-2" />
       {finished ? (
         <div className="text-center py-6 space-y-2">
-          <p className="text-xl font-bold">Done! ✅ Waiting for opponent…</p>
-          <p className="text-muted-foreground">Your score: {myScore}</p>
+          <p className="text-xl font-bold">{t("quiz.doneWaiting")}</p>
+          <p className="text-muted-foreground">{t("quiz.yourScore").replace("{score}", String(myScore))}</p>
         </div>
       ) : (
         <div className="space-y-4" dir="rtl">
@@ -248,10 +249,10 @@ export default function QuizChallenge() {
             <div className="space-y-6">
               <Trophy className="mx-auto h-16 w-16 text-primary" aria-hidden="true" />
               <h1 className="text-3xl font-black sm:text-4xl" dir="rtl">
-                تحدي الـ {questions.length} سؤال
+                {t("quiz.titleWithCount").replace("{count}", String(questions.length))}
               </h1>
               <p className="text-lg text-muted-foreground" dir="rtl">
-                أثبت سرعتك وثقافتك لترتقي في تصنيف Visionex!
+                {t("quiz.subtitle")}
               </p>
 
               {user && (
@@ -286,7 +287,7 @@ export default function QuizChallenge() {
             <div className="space-y-6" dir="rtl">
               <div className="flex items-center justify-between">
                 <div className="text-start">
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">النقاط</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">{t("quiz.pointsLabel")}</p>
                   <p className="text-2xl font-bold text-primary">{score}</p>
                 </div>
                 <div
@@ -296,19 +297,19 @@ export default function QuizChallenge() {
                       : "border-primary text-primary"
                   }`}
                   role="timer"
-                  aria-label={`${timeLeft} seconds remaining`}
+                  aria-label={t("quiz.secondsRemaining").replace("{seconds}", String(timeLeft))}
                 >
                   {timeLeft}
                 </div>
                 <div className="text-end">
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">السؤال</p>
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground">{t("quiz.questionLabel")}</p>
                   <p className="text-xl font-bold">
                     {currentQuestion + 1}/{questions.length}
                   </p>
                 </div>
               </div>
 
-              <Progress value={progress} className="h-2" aria-label="Quiz progress" />
+              <Progress value={progress} className="h-2" aria-label={t("quiz.progress")} />
 
               <h2 className="min-h-[80px] text-xl font-bold sm:text-2xl" aria-live="polite">
                 {questions[currentQuestion].q}
@@ -334,9 +335,9 @@ export default function QuizChallenge() {
 
           {gameState === "end" && (
             <div className="space-y-6" dir="rtl">
-              <h2 className="text-2xl font-bold">النتيجة النهائية</h2>
+              <h2 className="text-2xl font-bold">{t("quiz.finalScore")}</h2>
               <div className="text-6xl font-black text-primary">{score}</div>
-              <p className="text-xl">تصنيفك الحالي:</p>
+              <p className="text-xl">{t("quiz.currentRank")}</p>
               <p className="text-3xl font-black text-primary">{rank.title}</p>
 
               {user && reward > 0 && (
@@ -353,7 +354,7 @@ export default function QuizChallenge() {
               )}
 
               <Button size="lg" onClick={restart} className="text-lg font-bold">
-                <RotateCcw className="me-2 h-5 w-5" /> حاول مرة أخرى
+                <RotateCcw className="me-2 h-5 w-5" /> {t("quiz.tryAgain")}
               </Button>
             </div>
           )}

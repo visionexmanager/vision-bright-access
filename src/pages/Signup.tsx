@@ -21,8 +21,7 @@ export default function Signup() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { t, lang } = useLanguage();
-  const isAr = lang === "ar";
+  const { t } = useLanguage();
   const deviceId = useDeviceId();
   const { user, loading: authLoading } = useAuth();
 
@@ -39,7 +38,7 @@ export default function Signup() {
       return;
     }
     if (!agreed) {
-      toast.error(isAr ? "يجب الموافقة على شروط الاستخدام وسياسة الخصوصية" : "You must agree to the Terms of Use and Privacy Policy");
+      toast.error(t("signup.mustAgree"));
       return;
     }
     setLoading(true);
@@ -49,11 +48,7 @@ export default function Signup() {
       const { data: isBanned } = await supabase.rpc("is_device_banned", { _device_id: deviceId });
       if (isBanned) {
         setLoading(false);
-        toast.error(
-          isAr
-            ? "تم حظر هذا الجهاز. تواصل مع الدعم."
-            : "This device has been banned. Please contact support."
-        );
+        toast.error(t("signup.deviceBanned"));
         return;
       }
     }
@@ -117,21 +112,10 @@ export default function Signup() {
                   aria-required="true"
                 />
                 <Label htmlFor="agree" className="text-sm font-normal leading-relaxed cursor-pointer">
-                  {isAr ? (
-                    <>
-                      أوافق على{" "}
-                      <Link to="/terms-of-use" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">شروط الاستخدام</Link>
-                      {" "}و{" "}
-                      <Link to="/privacy-policy" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">سياسة الخصوصية</Link>
-                    </>
-                  ) : (
-                    <>
-                      I agree to the{" "}
-                      <Link to="/terms-of-use" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">Terms of Use</Link>
-                      {" "}and{" "}
-                      <Link to="/privacy-policy" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">Privacy Policy</Link>
-                    </>
-                  )}
+                  {t("signup.agreePrefix")}{" "}
+                  <Link to="/terms-of-use" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">{t("signup.terms")}</Link>
+                  {" "}{t("signup.agreeAnd")}{" "}
+                  <Link to="/privacy-policy" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">{t("signup.privacy")}</Link>
                 </Label>
               </div>
 

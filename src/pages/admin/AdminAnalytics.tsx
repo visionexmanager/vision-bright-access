@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, BarChart3, Eye, Users, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type AnalyticsData = {
   stats: {
@@ -21,6 +22,7 @@ type AnalyticsData = {
 };
 
 export default function AdminAnalytics() {
+  const { t } = useLanguage();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +33,7 @@ export default function AdminAnalytics() {
       if (error) throw error;
       setData(result as AnalyticsData);
     } catch (e: any) {
-      toast.error(e.message || "Failed to load analytics");
+      toast.error(e.message || t("admin.analytics.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -45,10 +47,10 @@ export default function AdminAnalytics() {
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
-            <h1 className="text-3xl font-bold">Analytics & Insights</h1>
+            <h1 className="text-3xl font-bold">{t("admin.analytics.title")}</h1>
           </div>
           <Button variant="outline" onClick={load} disabled={loading}>
-            <RefreshCw className={`me-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+            <RefreshCw className={`me-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> {t("admin.analytics.refresh")}
           </Button>
         </div>
 
@@ -62,28 +64,28 @@ export default function AdminAnalytics() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">Page Views (30d)</CardTitle>
+                  <CardTitle className="text-sm text-muted-foreground">{t("admin.analytics.pageViews30d")}</CardTitle>
                   <Eye className="h-5 w-5 text-blue-500" />
                 </CardHeader>
                 <CardContent><p className="text-3xl font-bold">{data.stats.totalPageViews}</p></CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">Unique Sessions</CardTitle>
+                  <CardTitle className="text-sm text-muted-foreground">{t("admin.analytics.uniqueSessions")}</CardTitle>
                   <Users className="h-5 w-5 text-green-500" />
                 </CardHeader>
                 <CardContent><p className="text-3xl font-bold">{data.stats.uniqueSessions}</p></CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">Products</CardTitle>
+                  <CardTitle className="text-sm text-muted-foreground">{t("admin.analytics.products")}</CardTitle>
                   <BarChart3 className="h-5 w-5 text-purple-500" />
                 </CardHeader>
                 <CardContent><p className="text-3xl font-bold">{data.stats.totalProducts}</p></CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">Content Items</CardTitle>
+                  <CardTitle className="text-sm text-muted-foreground">{t("admin.analytics.contentItems")}</CardTitle>
                   <BarChart3 className="h-5 w-5 text-orange-500" />
                 </CardHeader>
                 <CardContent><p className="text-3xl font-bold">{data.stats.totalContent}</p></CardContent>
@@ -92,7 +94,7 @@ export default function AdminAnalytics() {
 
             {/* Top pages */}
             <Card>
-              <CardHeader><CardTitle>Top Pages</CardTitle></CardHeader>
+              <CardHeader><CardTitle>{t("admin.analytics.topPages")}</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {data.stats.topPages.map((page, i) => (
@@ -101,11 +103,11 @@ export default function AdminAnalytics() {
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">{i + 1}</span>
                         <span className="font-mono text-sm">{page.path}</span>
                       </div>
-                      <span className="text-sm font-medium text-muted-foreground">{page.views} views</span>
+                      <span className="text-sm font-medium text-muted-foreground">{t("admin.analytics.views").replace("{count}", String(page.views))}</span>
                     </div>
                   ))}
                   {data.stats.topPages.length === 0 && (
-                    <p className="text-muted-foreground">No page view data yet. Data will appear as users visit pages.</p>
+                    <p className="text-muted-foreground">{t("admin.analytics.noPageViews")}</p>
                   )}
                 </div>
               </CardContent>
@@ -113,7 +115,7 @@ export default function AdminAnalytics() {
 
             {/* AI Insights */}
             <Card>
-              <CardHeader><CardTitle>AI-Generated Insights</CardTitle></CardHeader>
+              <CardHeader><CardTitle>{t("admin.analytics.aiInsights")}</CardTitle></CardHeader>
               <CardContent>
                 <div className="prose prose-sm max-w-none dark:prose-invert">
                   <ReactMarkdown>{data.insights}</ReactMarkdown>
@@ -122,7 +124,7 @@ export default function AdminAnalytics() {
             </Card>
           </div>
         ) : (
-          <p className="text-muted-foreground">Failed to load analytics data.</p>
+          <p className="text-muted-foreground">{t("admin.analytics.loadFailed")}</p>
         )}
       </section>
     </Layout>

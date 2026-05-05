@@ -33,10 +33,10 @@ export default function Leaderboard() {
   });
 
   const rankIcon = (rank: number) => {
-    if (rank === 1) return <><Trophy className="h-6 w-6 text-yellow-500" aria-hidden="true" /><span className="sr-only">1st place</span></>;
-    if (rank === 2) return <><Medal className="h-6 w-6 text-slate-400" aria-hidden="true" /><span className="sr-only">2nd place</span></>;
-    if (rank === 3) return <><Award className="h-6 w-6 text-amber-700" aria-hidden="true" /><span className="sr-only">3rd place</span></>;
-    return <span className="text-lg font-bold text-muted-foreground" aria-label={`Rank ${rank}`}>{rank}</span>;
+    if (rank === 1) return <><Trophy className="h-6 w-6 text-yellow-500" aria-hidden="true" /><span className="sr-only">{t("leader.rankFirst")}</span></>;
+    if (rank === 2) return <><Medal className="h-6 w-6 text-slate-400" aria-hidden="true" /><span className="sr-only">{t("leader.rankSecond")}</span></>;
+    if (rank === 3) return <><Award className="h-6 w-6 text-amber-700" aria-hidden="true" /><span className="sr-only">{t("leader.rankThird")}</span></>;
+    return <span className="text-lg font-bold text-muted-foreground" aria-label={t("leader.rankLabel").replace("{rank}", String(rank))}>{rank}</span>;
   };
 
   return (
@@ -48,8 +48,8 @@ export default function Leaderboard() {
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
-              <div role="status" aria-label={t("leader.loading") || "Loading leaderboard"} className="space-y-3 p-6">
-                <span className="sr-only">{t("leader.loading") || "Loading leaderboard"}</span>
+              <div role="status" aria-label={t("leader.loading")} className="space-y-3 p-6">
+                <span className="sr-only">{t("leader.loading")}</span>
                 {[1, 2, 3, 4, 5].map((i) => (
                   <Skeleton key={i} className="h-16 w-full" aria-hidden="true" />
                 ))}

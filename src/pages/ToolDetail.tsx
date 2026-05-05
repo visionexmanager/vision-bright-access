@@ -43,11 +43,10 @@ export default function ToolDetail() {
   const { toolId } = useParams<{ toolId: string }>();
   const { user } = useAuth();
   const { balance, spendVX } = useVXWallet();
-  const { lang, t } = useLanguage();
+  const { t } = useLanguage();
   const { playSound } = useSound();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const isAr = lang === "ar";
   const [buying, setBuying] = useState(false);
 
   const tool = PROFESSIONAL_TOOLS.find(tl => tl.id === toolId);
@@ -76,6 +75,11 @@ export default function ToolDetail() {
 
   const Icon = tool.icon;
   const purchased = purchasedIds.includes(tool.id);
+  const toolName = t(`ptool.tool.${tool.id}.name`);
+  const toolDesc = t(`ptool.tool.${tool.id}.desc`);
+  const toolFeatures = [1, 2, 3, 4, 5]
+    .map((i) => t(`ptool.tool.${tool.id}.feature${i}`))
+    .filter((feature) => !feature.startsWith("ptool.tool."));
 
   const triggerDownload = () => {
     const a = document.createElement("a");
@@ -94,7 +98,7 @@ export default function ToolDetail() {
     if (purchased) { triggerDownload(); return; }
 
     setBuying(true);
-    const ok = await spendVX(TOOL_PRICE, "pro_tool", tool.name, tool.id);
+    const ok = await spendVX(TOOL_PRICE, "pro_tool", toolName, tool.id);
     if (!ok) { setBuying(false); return; }
 
     const { error } = await supabase.from("tool_purchases")
@@ -130,7 +134,7 @@ export default function ToolDetail() {
             {t("ptool.pageTitle")}
           </Link>
           <ChevronRight className="h-3.5 w-3.5" />
-          <span className="text-foreground font-medium">{isAr ? tool.nameAr : tool.name}</span>
+          <span className="text-foreground font-medium">{toolName}</span>
         </nav>
 
         <div className="grid gap-8 lg:grid-cols-3">
@@ -144,11 +148,11 @@ export default function ToolDetail() {
               </div>
               <div>
                 <Badge className={`mb-2 border-0 ${CATEGORY_COLORS[tool.category]}`}>
-                  {isAr ? tool.categoryAr : tool.category}
+                  {t(`ptool.cat.${tool.category}`)}
                 </Badge>
-                <h1 className="text-2xl font-bold">{isAr ? tool.nameAr : tool.name}</h1>
+                <h1 className="text-2xl font-bold">{toolName}</h1>
                 <p className="mt-1 text-muted-foreground leading-relaxed">
-                  {isAr ? tool.descriptionAr : tool.description}
+                  {toolDesc}
                 </p>
               </div>
             </div>
@@ -158,7 +162,7 @@ export default function ToolDetail() {
               <CardContent className="p-5">
                 <h2 className="font-semibold mb-4">{t("tool.features")}</h2>
                 <ul className="grid sm:grid-cols-2 gap-3">
-                  {(isAr ? tool.featuresAr : tool.features).map(f => (
+                  {toolFeatures.map(f => (
                     <li key={f} className="flex items-center gap-2 text-sm">
                       <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                       {f}
@@ -274,7 +278,7 @@ export default function ToolDetail() {
                           <div className={`rounded-lg p-1.5 ${ICON_BG[tl.category]}`}>
                             <RelIcon className={`h-4 w-4 ${ICON_COLORS[tl.category]}`} />
                           </div>
-                          <span className="text-sm font-medium flex-1">{isAr ? tl.nameAr : tl.name}</span>
+                          <span className="text-sm font-medium flex-1">{t(`ptool.tool.${tl.id}.name`)}</span>
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </div>
                       </Link>

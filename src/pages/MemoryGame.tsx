@@ -19,14 +19,14 @@ import { toast } from "sonner";
 
 // Card data with icons
 const CARD_DATA = [
-  { emoji: "🍎", label: "Apple", labelAr: "تفاحة", labelEs: "Manzana", Icon: Apple, color: "text-red-500" },
-  { emoji: "⭐", label: "Star", labelAr: "نجمة", labelEs: "Estrella", Icon: Star, color: "text-yellow-500" },
-  { emoji: "🎵", label: "Music", labelAr: "موسيقى", labelEs: "Música", Icon: Music, color: "text-blue-500" },
-  { emoji: "🐱", label: "Cat", labelAr: "قطة", labelEs: "Gato", Icon: Cat, color: "text-orange-500" },
-  { emoji: "🌈", label: "Rainbow", labelAr: "قوس قزح", labelEs: "Arcoíris", Icon: Rainbow, color: "text-purple-500" },
-  { emoji: "🔔", label: "Bell", labelAr: "جرس", labelEs: "Campana", Icon: Bell, color: "text-amber-500" },
-  { emoji: "🎯", label: "Target", labelAr: "هدف", labelEs: "Diana", Icon: Target, color: "text-red-600" },
-  { emoji: "💎", label: "Diamond", labelAr: "ألماس", labelEs: "Diamante", Icon: Diamond, color: "text-cyan-500" },
+  { emoji: "🍎", labelKey: "memory.card.apple", Icon: Apple, color: "text-red-500" },
+  { emoji: "⭐", labelKey: "memory.card.star", Icon: Star, color: "text-yellow-500" },
+  { emoji: "🎵", labelKey: "memory.card.music", Icon: Music, color: "text-blue-500" },
+  { emoji: "🐱", labelKey: "memory.card.cat", Icon: Cat, color: "text-orange-500" },
+  { emoji: "🌈", labelKey: "memory.card.rainbow", Icon: Rainbow, color: "text-purple-500" },
+  { emoji: "🔔", labelKey: "memory.card.bell", Icon: Bell, color: "text-amber-500" },
+  { emoji: "🎯", labelKey: "memory.card.target", Icon: Target, color: "text-red-600" },
+  { emoji: "💎", labelKey: "memory.card.diamond", Icon: Diamond, color: "text-cyan-500" },
 ];
 
 interface MemCard {
@@ -78,8 +78,8 @@ export default function MemoryGame() {
 
   const getCardLabel = useCallback((dataIndex: number) => {
     const data = CARD_DATA[dataIndex];
-    return lang === "ar" ? data.labelAr : lang === "es" ? data.labelEs : data.label;
-  }, [lang]);
+    return t(data.labelKey);
+  }, [t]);
 
   const announce = useCallback((msg: string) => {
     if (liveRef.current) liveRef.current.textContent = msg;

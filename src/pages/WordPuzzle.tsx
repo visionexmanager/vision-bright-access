@@ -16,47 +16,21 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 interface WordEntry {
-  word: string;
-  hint: string;
+  wordKey: string;
+  hintKey: string;
 }
 
-const WORDS_EN: WordEntry[] = [
-  { word: "KEYBOARD", hint: "You type with this" },
-  { word: "CONTRAST", hint: "Light vs dark difference" },
-  { word: "BRAILLE", hint: "Tactile reading system" },
-  { word: "WEBSITE", hint: "Pages on the internet" },
-  { word: "DESIGN", hint: "Creating visual layouts" },
-  { word: "SCREEN", hint: "Display you look at" },
-  { word: "SPEECH", hint: "Talking output from a device" },
-  { word: "ACCESS", hint: "Ability to reach or use" },
-  { word: "VISION", hint: "Sense of sight" },
-  { word: "CURSOR", hint: "Pointer on screen" },
-];
-
-const WORDS_AR: WordEntry[] = [
-  { word: "لوحة", hint: "تكتب عليها" },
-  { word: "تباين", hint: "الفرق بين الفاتح والداكن" },
-  { word: "برايل", hint: "نظام قراءة باللمس" },
-  { word: "موقع", hint: "صفحات على الإنترنت" },
-  { word: "تصميم", hint: "إنشاء تخطيطات بصرية" },
-  { word: "شاشة", hint: "العرض الذي تنظر إليه" },
-  { word: "صوت", hint: "مخرج ناطق من الجهاز" },
-  { word: "وصول", hint: "القدرة على الوصول أو الاستخدام" },
-  { word: "رؤية", hint: "حاسة البصر" },
-  { word: "مؤشر", hint: "السهم على الشاشة" },
-];
-
-const WORDS_ES: WordEntry[] = [
-  { word: "TECLADO", hint: "Escribes con esto" },
-  { word: "CONTRAS", hint: "Diferencia claro vs oscuro" },
-  { word: "BRAILLE", hint: "Sistema de lectura táctil" },
-  { word: "PAGINA", hint: "Páginas en internet" },
-  { word: "DISEÑO", hint: "Crear diseños visuales" },
-  { word: "PANTAL", hint: "Display que miras" },
-  { word: "HABLAR", hint: "Salida de voz del dispositivo" },
-  { word: "ACCESO", hint: "Capacidad de alcanzar o usar" },
-  { word: "VISION", hint: "Sentido de la vista" },
-  { word: "CURSOR", hint: "Puntero en pantalla" },
+const WORDS: WordEntry[] = [
+  { wordKey: "word.entry.keyboard.word", hintKey: "word.entry.keyboard.hint" },
+  { wordKey: "word.entry.contrast.word", hintKey: "word.entry.contrast.hint" },
+  { wordKey: "word.entry.braille.word", hintKey: "word.entry.braille.hint" },
+  { wordKey: "word.entry.website.word", hintKey: "word.entry.website.hint" },
+  { wordKey: "word.entry.design.word", hintKey: "word.entry.design.hint" },
+  { wordKey: "word.entry.screen.word", hintKey: "word.entry.screen.hint" },
+  { wordKey: "word.entry.speech.word", hintKey: "word.entry.speech.hint" },
+  { wordKey: "word.entry.access.word", hintKey: "word.entry.access.hint" },
+  { wordKey: "word.entry.vision.word", hintKey: "word.entry.vision.hint" },
+  { wordKey: "word.entry.cursor.word", hintKey: "word.entry.cursor.hint" },
 ];
 
 function scramble(word: string): string {
@@ -89,8 +63,6 @@ export default function WordPuzzle() {
   const { playSound, setEnabled: setSoundEnabled, enabledRef: soundEnabledRef } = useGameAudio();
   const { speak, setEnabled: setTTSEnabled, stop: stopTTS, enabledRef: ttsEnabledRef } = useGameTTS();
 
-  const wordList = lang === "ar" ? WORDS_AR : lang === "es" ? WORDS_ES : WORDS_EN;
-
   const [gameWords, setGameWords] = useState<WordEntry[]>([]);
   const [round, setRound] = useState(0);
   const [score, setScore] = useState(0);
@@ -111,9 +83,9 @@ export default function WordPuzzle() {
   }, []);
 
   const pickWords = useCallback(() => {
-    const shuffled = [...wordList].sort(() => Math.random() - 0.5);
+    const shuffled = [...WORDS].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, TOTAL_ROUNDS);
-  }, [wordList]);
+  }, []);
 
   const startGame = () => {
     const words = pickWords();
@@ -125,7 +97,7 @@ export default function WordPuzzle() {
     setShowHint(false);
     setSelectedLetters([]);
     setAnswer([]);
-    const s = scramble(words[0].word);
+    const s = scramble(t(words[0].wordKey));
     setScrambled(s);
     setScrambledArr(s.split(""));
     setGameState("playing");
@@ -134,7 +106,7 @@ export default function WordPuzzle() {
 
   useEffect(() => {
     if (gameState === "playing" && gameWords[round]) {
-      const s = scramble(gameWords[round].word);
+      const s = scramble(t(gameWords[round].wordKey));
       setScrambled(s);
       setScrambledArr(s.split(""));
       setSelectedLetters([]);
@@ -142,7 +114,7 @@ export default function WordPuzzle() {
       setFeedback(null);
       setShowHint(false);
     }
-  }, [round, gameState, gameWords]);
+  }, [round, gameState, gameWords, t]);
 
   // Award points
   useEffect(() => {
@@ -172,9 +144,10 @@ export default function WordPuzzle() {
     if (ttsOn) speak(letter, lang);
 
     // Check if word is complete
-    if (newAnswer.length === gameWords[round].word.length) {
+    const currentWord = t(gameWords[round].wordKey);
+    if (newAnswer.length === currentWord.length) {
       const guess = newAnswer.join("");
-      const correct = guess.toUpperCase() === gameWords[round].word.toUpperCase() || guess === gameWords[round].word;
+      const correct = guess.toUpperCase() === currentWord.toUpperCase() || guess === currentWord;
       
       if (correct) {
         setScore((p) => p + 1);
@@ -185,8 +158,8 @@ export default function WordPuzzle() {
       } else {
         setFeedback("wrong");
         playSound("wrong");
-        announce(`${t("games.word.wrong")} ${gameWords[round].word}`);
-        if (ttsOn) speak(`${t("games.word.wrong")} ${gameWords[round].word}`, lang);
+        announce(`${t("games.word.wrong")} ${currentWord}`);
+        if (ttsOn) speak(`${t("games.word.wrong")} ${currentWord}`, lang);
       }
 
       setTimeout(() => {
@@ -215,8 +188,9 @@ export default function WordPuzzle() {
   const handleHint = () => {
     setShowHint(true);
     playSound("hint");
-    if (ttsOn) speak(`${t("games.word.hintLabel")} ${gameWords[round].hint}`, lang);
-    announce(`${t("games.word.hintLabel")} ${gameWords[round].hint}`);
+    const hint = t(gameWords[round].hintKey);
+    if (ttsOn) speak(`${t("games.word.hintLabel")} ${hint}`, lang);
+    announce(`${t("games.word.hintLabel")} ${hint}`);
   };
 
   const handleReadWord = () => {
@@ -346,7 +320,7 @@ export default function WordPuzzle() {
 
               {showHint && (
                 <p className="text-lg font-semibold text-foreground animate-in fade-in" aria-live="polite">
-                  💡 {gameWords[round].hint}
+                  💡 {t(gameWords[round].hintKey)}
                 </p>
               )}
 
@@ -355,7 +329,7 @@ export default function WordPuzzle() {
                 className="flex flex-wrap items-center justify-center gap-2 min-h-[56px] rounded-xl border-2 border-dashed border-primary/30 p-3 bg-muted/50"
                 aria-label={t("games.word.yourAnswer")}
               >
-                {gameWords[round].word.split("").map((_, i) => (
+                {t(gameWords[round].wordKey).split("").map((_, i) => (
                   <button
                     key={i}
                     onClick={() => answer[i] && removeLetter(i)}
@@ -426,7 +400,7 @@ export default function WordPuzzle() {
                   ) : (
                     <>
                       <X className="h-5 w-5" />
-                      {t("games.word.wrong")} {gameWords[round].word}
+                      {t("games.word.wrong")} {t(gameWords[round].wordKey)}
                     </>
                   )}
                 </div>

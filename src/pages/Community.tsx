@@ -35,7 +35,6 @@ export default function Community() {
   const { playSound } = useSound();
   const { balance, spendVX } = useVXWallet();
   const navigate = useNavigate();
-  const isAr = lang === "ar";
 
   const [rooms, setRooms] = useState<VoiceRoom[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,20 +129,20 @@ export default function Community() {
 
   const createRoom = async (cfg: (typeof VOICE_ROOM_CONFIGS)[number]) => {
     if (!user) return;
-    const cfgLabel = isAr ? cfg.labelAr : cfg.label;
+    const cfgLabel = t(cfg.labelKey);
     // Check & deduct VX before creating
     const paid = await spendVX(cfg.costVX, "voice_room_create", cfgLabel);
     if (!paid) return;
 
     setCreating(cfg.type);
-    const { error } = await supabase.from("voice_rooms").insert({
+    const { data, error } = await supabase.from("voice_rooms").insert({
       owner_id: user.id,
       room_name: cfgLabel,
       room_type: cfg.type,
       max_users: cfg.maxUsers ?? 999,
       cost_vx: cfg.costVX,
       is_active: true,
-    });
+    }).select("id").single();
     if (error) {
       playSound("error");
       toast({ title: t("community.errorTitle"), description: error.message, variant: "destructive" });
@@ -151,6 +150,9 @@ export default function Community() {
       playSound("success");
       toast({ title: t("community.roomCreated") });
       fetchRooms();
+      if (data?.id) {
+        navigate(`/community/room/${data.id}`);
+      }
     }
     setCreating(null);
   };
@@ -221,7 +223,7 @@ export default function Community() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Mic className="h-5 w-5 text-primary" />
-                    {isAr ? room.nameAr : room.name}
+                    {t(room.nameKey)}
                   </CardTitle>
                   <CardDescription className="flex items-center gap-2">
                     {renderMemberBadge(room.id)}
@@ -229,7 +231,7 @@ export default function Community() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {renderJoinButton(room.id, 999, isAr ? room.nameAr : room.name, true)}
+                  {renderJoinButton(room.id, 999, t(room.nameKey), true)}
                 </CardContent>
               </Card>
             </StaggerItem>
@@ -294,7 +296,7 @@ export default function Community() {
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {VOICE_ROOM_CONFIGS.map((cfg) => {
-                const cfgLabel = isAr ? cfg.labelAr : cfg.label;
+                const cfgLabel = t(cfg.labelKey);
                 return (
                 <Card key={cfg.type} className="text-center">
                   <CardHeader>

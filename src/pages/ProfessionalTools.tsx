@@ -38,8 +38,7 @@ const ICON_BG: Record<string, string> = {
 export default function ProfessionalTools() {
   const { user } = useAuth();
   const { balance } = useVXWallet();
-  const { lang, t } = useLanguage();
-  const isAr = lang === "ar";
+  const { t } = useLanguage();
 
   const [activeCategory, setActiveCategory] = useState("all");
 
@@ -59,6 +58,11 @@ export default function ProfessionalTools() {
   const filtered = activeCategory === "all"
     ? PROFESSIONAL_TOOLS
     : PROFESSIONAL_TOOLS.filter((t) => t.category === activeCategory);
+
+  const getToolFeatures = (tool: (typeof PROFESSIONAL_TOOLS)[number]) =>
+    [1, 2, 3, 4, 5]
+      .map((i) => t(`ptool.tool.${tool.id}.feature${i}`))
+      .filter((feature) => !feature.startsWith("ptool.tool."));
 
   return (
     <Layout>
@@ -118,7 +122,7 @@ export default function ProfessionalTools() {
                   : "bg-background text-foreground border-border hover:bg-muted"
               }`}
             >
-              {isAr ? cat.labelAr : cat.label}
+              {t(`ptool.cat.${cat.id}`)}
             </button>
           ))}
         </AnimatedSection>
@@ -142,7 +146,7 @@ export default function ProfessionalTools() {
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           <Badge className={`text-xs font-medium border-0 ${CATEGORY_COLORS[tool.category]}`}>
-                            {isAr ? tool.categoryAr : tool.category}
+                            {t(`ptool.cat.${tool.category}`)}
                           </Badge>
                           {purchased && (
                             <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-xs">
@@ -156,16 +160,16 @@ export default function ProfessionalTools() {
                       {/* Name + description */}
                       <div className="flex-1">
                         <h2 className="text-lg font-bold mb-1.5">
-                          {isAr ? tool.nameAr : tool.name}
+                          {t(`ptool.tool.${tool.id}.name`)}
                         </h2>
                         <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-                          {isAr ? tool.descriptionAr : tool.description}
+                          {t(`ptool.tool.${tool.id}.desc`)}
                         </p>
                       </div>
 
                       {/* Features preview */}
                       <ul className="grid grid-cols-2 gap-1">
-                        {(isAr ? tool.featuresAr : tool.features).slice(0, 4).map((f) => (
+                        {getToolFeatures(tool).slice(0, 4).map((f) => (
                           <li key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
                             {f}

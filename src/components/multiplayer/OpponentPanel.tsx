@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { MPPlayer } from "@/systems/multiplayerSystem";
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function OpponentPanel({ opponent, isOpponentTurn, label = "Opponent", extraInfo }: Props) {
+  const { t } = useLanguage();
   if (!opponent) return null;
   return (
     <Card className={`transition-all ${isOpponentTurn ? "border-primary shadow-md" : "opacity-80"}`}>
@@ -17,11 +19,11 @@ export function OpponentPanel({ opponent, isOpponentTurn, label = "Opponent", ex
         <span className="text-2xl">🎮</span>
         <div className="flex-1">
           <p className="font-semibold text-sm">{opponent.name}</p>
-          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-xs text-muted-foreground">{label === "Opponent" ? t("mp.opponent") : label}</p>
         </div>
         <div className="text-right space-y-1">
           <Badge variant="secondary">⭐ {opponent.score}</Badge>
-          {isOpponentTurn && <Badge className="block text-xs">Their turn</Badge>}
+          {isOpponentTurn && <Badge className="block text-xs">{t("mp.theirTurn")}</Badge>}
           {extraInfo}
         </div>
       </CardContent>
@@ -37,6 +39,7 @@ interface FinishBannerProps {
 }
 
 export function FinishBanner({ winnerId, myId, players, onRematch }: FinishBannerProps) {
+  const { t } = useLanguage();
   const winner = players.find((p) => p.id === winnerId);
   const iWon  = winnerId === myId;
   const isDraw = winnerId === null;
@@ -46,7 +49,11 @@ export function FinishBanner({ winnerId, myId, players, onRematch }: FinishBanne
       <CardContent className="pt-6 text-center space-y-3">
         <p className="text-5xl">{isDraw ? "🤝" : iWon ? "🏆" : "😞"}</p>
         <p className="text-2xl font-bold">
-          {isDraw ? "It's a draw!" : iWon ? "You won!" : `${winner?.name ?? "Opponent"} won!`}
+          {isDraw
+            ? t("mp.draw")
+            : iWon
+              ? t("mp.youWon")
+              : t("mp.opponentWon").replace("{name}", winner?.name ?? t("mp.opponent"))}
         </p>
         <div className="flex justify-center gap-4 flex-wrap">
           {players.map((p) => (
@@ -60,7 +67,7 @@ export function FinishBanner({ winnerId, myId, players, onRematch }: FinishBanne
             onClick={onRematch}
             className="mt-2 text-sm text-primary underline underline-offset-2"
           >
-            Back to lobby
+            {t("mp.backToLobby")}
           </button>
         )}
       </CardContent>

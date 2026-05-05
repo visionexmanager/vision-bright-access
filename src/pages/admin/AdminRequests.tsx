@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type ServiceRequest = {
   id: string;
@@ -20,6 +21,7 @@ type ServiceRequest = {
 };
 
 export default function AdminRequests() {
+  const { t } = useLanguage();
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
 
   useEffect(() => {
@@ -35,7 +37,7 @@ export default function AdminRequests() {
       <section className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-6 flex items-center gap-3">
           <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
-          <h1 className="text-3xl font-bold">Service Requests</h1>
+          <h1 className="text-3xl font-bold">{t("admin.requests.title")}</h1>
         </div>
 
         <Card>
@@ -43,12 +45,12 @@ export default function AdminRequests() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Message</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead>{t("admin.requests.name")}</TableHead>
+                  <TableHead>{t("admin.requests.email")}</TableHead>
+                  <TableHead>{t("admin.requests.service")}</TableHead>
+                  <TableHead>{t("admin.requests.message")}</TableHead>
+                  <TableHead>{t("admin.requests.status")}</TableHead>
+                  <TableHead>{t("admin.requests.date")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

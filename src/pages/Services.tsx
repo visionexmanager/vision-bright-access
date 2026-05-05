@@ -129,7 +129,7 @@ export default function Services() {
   const completedCount = Object.values(progressMap).filter((p) => p.completed).length;
 
   const handleStartSim = async (sim: SimRow) => {
-    if (!user) { toast({ title: "Login required", variant: "destructive" }); return; }
+    if (!user) { toast({ title: t("services.loginRequired"), variant: "destructive" }); return; }
     const ok = await spendVX(SIMULATION_PRICES.singleSession, "simulation", sim.title, sim.id);
     if (ok) navigate(`/business-simulator/${sim.slug}`);
   };

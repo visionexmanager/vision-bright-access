@@ -19,20 +19,21 @@ import {
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 const FEATURES = [
-  { key: "marketplace_access", label: "الوصول للسوق" },
-  { key: "voice_rooms", label: "غرف الصوت" },
-  { key: "ai_chat_unlimited", label: "دردشة AI بلا حدود" },
-  { key: "academy_access", label: "الأكاديمية" },
-  { key: "nutrition_expert", label: "خبير التغذية" },
-  { key: "pro_tools", label: "الأدوات الاحترافية" },
-  { key: "games_access", label: "الألعاب" },
-  { key: "simulation_access", label: "المحاكاة" },
+  "marketplace_access",
+  "voice_rooms",
+  "ai_chat_unlimited",
+  "academy_access",
+  "nutrition_expert",
+  "pro_tools",
+  "games_access",
+  "simulation_access",
 ];
 
 type UserProfile = {
@@ -55,6 +56,7 @@ type DialogType = "ban" | "suspend" | "points" | "features" | "notify" | "detail
 
 export default function AdminUsers() {
   const { user: currentUser } = useAuth();
+  const { t } = useLanguage();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
@@ -126,13 +128,13 @@ export default function AdminUsers() {
   const closeDialog = () => { setDialog(null); setSelected(null); };
 
   const toggleAdmin = async (u: UserProfile) => {
-    if (u.user_id === currentUser?.id) { toast.error("لا يمكنك تغيير صلاحيتك"); return; }
+    if (u.user_id === currentUser?.id) { toast.error(t("admin.users.cannotChangeSelf")); return; }
     if (u.isAdmin) {
       const { error } = await supabase.from("user_roles").delete().eq("user_id", u.user_id).eq("role", "admin");
-      if (error) toast.error(error.message); else toast.success("تمت إزالة صلاحية الأدمن");
+      if (error) toast.error(error.message); else toast.success(t("admin.users.adminRemoved"));
     } else {
       const { error } = await supabase.from("user_roles").insert({ user_id: u.user_id, role: "admin" });
-      if (error) toast.error(error.message); else toast.success("تمت إضافة صلاحية الأدمن");
+      if (error) toast.error(error.message); else toast.success(t("admin.users.adminAdded"));
     }
     load();
   };
@@ -143,7 +145,7 @@ export default function AdminUsers() {
     const { error } = await supabase.rpc("ban_user", { _user_id: selected.user_id, _reason: banReason });
     setLoading(false);
     if (error) toast.error(error.message);
-    else { toast.success("تم حظر المستخدم"); closeDialog(); load(); }
+    else { toast.success(t("admin.users.userBanned")); closeDialog(); load(); }
   };
 
   const suspendUser = async () => {
@@ -151,23 +153,23 @@ export default function AdminUsers() {
     setLoading(true);
     const until = new Date(Date.now() + parseInt(suspendDays) * 86400000).toISOString();
     const { error } = await supabase.rpc("suspend_user", {
-      _user_id: selected.user_id, _until: until, _reason: suspendReason || `تعليق ${suspendDays} أيام`,
+      _user_id: selected.user_id, _until: until, _reason: suspendReason || t("admin.users.suspendDefaultReason").replace("{days}", suspendDays),
     });
     setLoading(false);
     if (error) toast.error(error.message);
-    else { toast.success(`تم تعليق المستخدم لمدة ${suspendDays} أيام`); closeDialog(); load(); }
+    else { toast.success(t("admin.users.userSuspended").replace("{days}", suspendDays)); closeDialog(); load(); }
   };
 
   const unbanUser = async (u: UserProfile) => {
     const { error } = await supabase.rpc("unban_user", { _user_id: u.user_id });
     if (error) toast.error(error.message);
-    else { toast.success("تم رفع الحظر"); load(); }
+    else { toast.success(t("admin.users.unbanned")); load(); }
   };
 
   const banDevice = async () => {
     if (!selected || !deviceBanReason) return;
     const did = selected.device_ids?.[0];
-    if (!did) { toast.error("لا يوجد معرّف جهاز لهذا المستخدم"); return; }
+    if (!did) { toast.error(t("admin.users.noDeviceForUser")); return; }
     setLoading(true);
     const { error } = await supabase.rpc("ban_device", {
       _device_id: did,
@@ -175,15 +177,15 @@ export default function AdminUsers() {
     });
     setLoading(false);
     if (error) toast.error(error.message);
-    else { toast.success("تم حظر الجهاز وجميع الحسابات المرتبطة به"); closeDialog(); load(); }
+    else { toast.success(t("admin.users.deviceBanned")); closeDialog(); load(); }
   };
 
   const unbanDevice = async (u: UserProfile) => {
     const did = u.device_ids?.[0];
-    if (!did) { toast.error("لا يوجد معرّف جهاز"); return; }
+    if (!did) { toast.error(t("admin.users.noDevice")); return; }
     const { error } = await supabase.rpc("unban_device", { _device_id: did });
     if (error) toast.error(error.message);
-    else { toast.success("تم رفع حظر الجهاز"); load(); }
+    else { toast.success(t("admin.users.deviceUnbanned")); load(); }
   };
 
   const grantPoints = async () => {
@@ -192,11 +194,11 @@ export default function AdminUsers() {
     const { error } = await supabase.rpc("admin_grant_points", {
       _user_id: selected.user_id,
       _points: parseInt(pointsAmount),
-      _reason: pointsReason || "منحة من الأدمن",
+      _reason: pointsReason || t("admin.users.defaultGrantReason"),
     });
     setLoading(false);
     if (error) toast.error(error.message);
-    else { toast.success(`تم منح ${pointsAmount} نقطة`); closeDialog(); load(); }
+    else { toast.success(t("admin.users.pointsGranted").replace("{points}", pointsAmount)); closeDialog(); load(); }
   };
 
   const saveFeatures = async () => {
@@ -208,7 +210,7 @@ export default function AdminUsers() {
       });
     }
     setLoading(false);
-    toast.success("تم حفظ الميزات");
+    toast.success(t("admin.users.featuresSaved"));
     closeDialog(); load();
   };
 
@@ -224,20 +226,20 @@ export default function AdminUsers() {
     });
     setLoading(false);
     if (error) toast.error(error.message);
-    else { toast.success("تم إرسال الإشعار"); closeDialog(); }
+    else { toast.success(t("admin.users.notificationSent")); closeDialog(); }
   };
 
   const toggleVerified = async (u: UserProfile) => {
     const { error } = await supabase.from("profiles")
       .update({ is_verified: !u.is_verified }).eq("user_id", u.user_id);
     if (error) toast.error(error.message);
-    else { toast.success(u.is_verified ? "تمت إزالة التحقق" : "تم التحقق"); load(); }
+    else { toast.success(u.is_verified ? t("admin.users.verificationRemoved") : t("admin.users.verified")); load(); }
   };
 
   const statusBadge = (u: UserProfile) => {
-    if (u.status === "banned") return <Badge className="bg-red-600">محظور</Badge>;
-    if (u.status === "suspended") return <Badge className="bg-orange-500">معلق</Badge>;
-    return <Badge className="bg-green-600">نشط</Badge>;
+    if (u.status === "banned") return <Badge className="bg-red-600">{t("admin.users.status.banned")}</Badge>;
+    if (u.status === "suspended") return <Badge className="bg-orange-500">{t("admin.users.status.suspended")}</Badge>;
+    return <Badge className="bg-green-600">{t("admin.users.status.active")}</Badge>;
   };
 
   const filtered = users.filter(u =>
@@ -250,13 +252,13 @@ export default function AdminUsers() {
       <section className="mx-auto max-w-7xl px-4 py-10">
         <div className="mb-6 flex items-center gap-3">
           <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
-          <h1 className="text-3xl font-bold">إدارة المستخدمين</h1>
-          <Badge variant="secondary">{users.length} مستخدم</Badge>
+          <h1 className="text-3xl font-bold">{t("admin.users.title")}</h1>
+          <Badge variant="secondary">{t("admin.users.total").replace("{count}", String(users.length))}</Badge>
         </div>
 
         <div className="mb-4 flex items-center gap-2">
           <Search className="h-4 w-4 text-muted-foreground" />
-          <Input placeholder="بحث بالاسم أو الـ ID..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs" />
+          <Input placeholder={t("admin.users.searchPlaceholder")} value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs" />
         </div>
 
         <Card>
@@ -265,14 +267,14 @@ export default function AdminUsers() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>المستخدم</TableHead>
-                    <TableHead>الحالة</TableHead>
-                    <TableHead>الدور</TableHead>
-                    <TableHead>النقاط</TableHead>
-                    <TableHead>الجهاز</TableHead>
-                    <TableHead>موثق</TableHead>
-                    <TableHead>انضم</TableHead>
-                    <TableHead>الإجراءات</TableHead>
+                    <TableHead>{t("admin.users.user")}</TableHead>
+                    <TableHead>{t("admin.requests.status")}</TableHead>
+                    <TableHead>{t("admin.users.role")}</TableHead>
+                    <TableHead>{t("admin.content.field.points")}</TableHead>
+                    <TableHead>{t("admin.users.device")}</TableHead>
+                    <TableHead>{t("admin.users.verifiedColumn")}</TableHead>
+                    <TableHead>{t("admin.users.joined")}</TableHead>
+                    <TableHead>{t("admin.common.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -291,7 +293,7 @@ export default function AdminUsers() {
                       </TableCell>
                       <TableCell>{statusBadge(u)}</TableCell>
                       <TableCell>
-                        {u.isAdmin ? <Badge className="bg-primary">أدمن</Badge> : <Badge variant="secondary">مستخدم</Badge>}
+                        {u.isAdmin ? <Badge className="bg-primary">{t("admin.users.admin")}</Badge> : <Badge variant="secondary">{t("admin.users.regularUser")}</Badge>}
                       </TableCell>
                       <TableCell>
                         <span className="flex items-center gap-1 font-mono text-sm">
@@ -321,48 +323,48 @@ export default function AdminUsers() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm">
-                              إجراء <ChevronDown className="ms-1 h-3 w-3" />
+                              {t("admin.moderation.action")} <ChevronDown className="ms-1 h-3 w-3" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openDialog(u, "points")}>
-                              <Coins className="me-2 h-4 w-4 text-yellow-500" /> منح نقاط
+                              <Coins className="me-2 h-4 w-4 text-yellow-500" /> {t("admin.users.grantPoints")}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openDialog(u, "features")}>
-                              <Star className="me-2 h-4 w-4 text-purple-500" /> إدارة الميزات
+                              <Star className="me-2 h-4 w-4 text-purple-500" /> {t("admin.users.manageFeatures")}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openDialog(u, "notify")}>
-                              <Bell className="me-2 h-4 w-4 text-blue-500" /> إرسال إشعار
+                              <Bell className="me-2 h-4 w-4 text-blue-500" /> {t("admin.users.sendNotification")}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => toggleAdmin(u)} disabled={u.user_id === currentUser?.id}>
                               {u.isAdmin
-                                ? <><ShieldOff className="me-2 h-4 w-4 text-red-500" /> إزالة أدمن</>
-                                : <><ShieldCheck className="me-2 h-4 w-4 text-green-500" /> منح أدمن</>}
+                                ? <><ShieldOff className="me-2 h-4 w-4 text-red-500" /> {t("admin.users.removeAdmin")}</>
+                                : <><ShieldCheck className="me-2 h-4 w-4 text-green-500" /> {t("admin.users.makeAdmin")}</>}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {u.status === "active" ? (
                               <>
                                 <DropdownMenuItem onClick={() => openDialog(u, "suspend")} className="text-orange-600">
-                                  <Clock className="me-2 h-4 w-4" /> تعليق مؤقت
+                                  <Clock className="me-2 h-4 w-4" /> {t("admin.users.suspendTemp")}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openDialog(u, "ban")} className="text-red-600">
-                                  <Ban className="me-2 h-4 w-4" /> حظر دائم
+                                  <Ban className="me-2 h-4 w-4" /> {t("admin.users.permanentBan")}
                                 </DropdownMenuItem>
                               </>
                             ) : (
                               <DropdownMenuItem onClick={() => unbanUser(u)} className="text-green-600">
-                                <CheckCircle className="me-2 h-4 w-4" /> رفع الحظر
+                                <CheckCircle className="me-2 h-4 w-4" /> {t("admin.users.unban")}
                               </DropdownMenuItem>
                             )}
                             {u.device_ids && u.device_ids.length > 0 && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openDialog(u, "device_ban")} className="text-red-700">
-                                  <Fingerprint className="me-2 h-4 w-4" /> حظر الجهاز
+                                  <Fingerprint className="me-2 h-4 w-4" /> {t("admin.users.banDevice")}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => unbanDevice(u)} className="text-green-700">
-                                  <CheckCircle className="me-2 h-4 w-4" /> رفع حظر الجهاز
+                                  <CheckCircle className="me-2 h-4 w-4" /> {t("admin.users.unbanDevice")}
                                 </DropdownMenuItem>
                               </>
                             )}
@@ -381,13 +383,13 @@ export default function AdminUsers() {
       {/* Ban Dialog */}
       <Dialog open={dialog === "ban"} onOpenChange={closeDialog}>
         <DialogContent>
-          <DialogHeader><DialogTitle className="text-red-600">حظر المستخدم: {selected?.display_name}</DialogTitle></DialogHeader>
-          <Label>سبب الحظر</Label>
-          <Textarea value={banReason} onChange={e => setBanReason(e.target.value)} placeholder="اكتب سبب الحظر..." />
+          <DialogHeader><DialogTitle className="text-red-600">{t("admin.users.banUserTitle").replace("{name}", selected?.display_name || "")}</DialogTitle></DialogHeader>
+          <Label>{t("admin.users.banReason")}</Label>
+          <Textarea value={banReason} onChange={e => setBanReason(e.target.value)} placeholder={t("admin.users.banReasonPlaceholder")} />
           <DialogFooter>
-            <Button variant="ghost" onClick={closeDialog}>إلغاء</Button>
+            <Button variant="ghost" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button variant="destructive" onClick={banUser} disabled={loading || !banReason}>
-              {loading ? "جاري الحظر..." : "تأكيد الحظر"}
+              {loading ? t("admin.users.banning") : t("admin.users.confirmBan")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -399,26 +401,26 @@ export default function AdminUsers() {
           <DialogHeader>
             <DialogTitle className="text-red-700 flex items-center gap-2">
               <Fingerprint className="h-5 w-5" />
-              حظر الجهاز: {selected?.display_name}
+              {t("admin.users.banDeviceTitle").replace("{name}", selected?.display_name || "")}
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            سيتم حظر جميع الحسابات المرتبطة بنفس الجهاز ومنع إنشاء حسابات جديدة منه.
+            {t("admin.users.banDeviceDesc")}
           </p>
           {selected?.device_ids && selected.device_ids.length > 0 && (
             <div className="rounded-lg bg-muted p-3">
-              <p className="text-xs font-medium text-muted-foreground mb-1">معرّفات الجهاز:</p>
+              <p className="text-xs font-medium text-muted-foreground mb-1">{t("admin.users.deviceIds")}</p>
               {selected.device_ids.map(d => (
                 <p key={d} className="font-mono text-xs break-all">{d}</p>
               ))}
             </div>
           )}
-          <Label>سبب الحظر</Label>
-          <Textarea value={deviceBanReason} onChange={e => setDeviceBanReason(e.target.value)} placeholder="اكتب سبب حظر الجهاز..." />
+          <Label>{t("admin.users.banReason")}</Label>
+          <Textarea value={deviceBanReason} onChange={e => setDeviceBanReason(e.target.value)} placeholder={t("admin.users.deviceBanPlaceholder")} />
           <DialogFooter>
-            <Button variant="ghost" onClick={closeDialog}>إلغاء</Button>
+            <Button variant="ghost" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button variant="destructive" onClick={banDevice} disabled={loading || !deviceBanReason}>
-              {loading ? "جاري الحظر..." : "حظر الجهاز"}
+              {loading ? t("admin.users.banning") : t("admin.users.banDevice")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -427,30 +429,30 @@ export default function AdminUsers() {
       {/* Suspend Dialog */}
       <Dialog open={dialog === "suspend"} onOpenChange={closeDialog}>
         <DialogContent>
-          <DialogHeader><DialogTitle className="text-orange-600">تعليق مؤقت: {selected?.display_name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-orange-600">{t("admin.users.suspendTitle").replace("{name}", selected?.display_name || "")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>مدة التعليق</Label>
+              <Label>{t("admin.users.suspendDuration")}</Label>
               <Select value={suspendDays} onValueChange={setSuspendDays}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">يوم واحد</SelectItem>
-                  <SelectItem value="3">3 أيام</SelectItem>
-                  <SelectItem value="7">أسبوع</SelectItem>
-                  <SelectItem value="14">أسبوعان</SelectItem>
-                  <SelectItem value="30">شهر</SelectItem>
+                  <SelectItem value="1">{t("admin.users.duration.oneDay")}</SelectItem>
+                  <SelectItem value="3">{t("admin.users.duration.threeDays")}</SelectItem>
+                  <SelectItem value="7">{t("admin.users.duration.week")}</SelectItem>
+                  <SelectItem value="14">{t("admin.users.duration.twoWeeks")}</SelectItem>
+                  <SelectItem value="30">{t("admin.users.duration.month")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>السبب (اختياري)</Label>
-              <Textarea value={suspendReason} onChange={e => setSuspendReason(e.target.value)} placeholder="سبب التعليق..." />
+              <Label>{t("admin.vx.reason")} {t("admin.vx.optional")}</Label>
+              <Textarea value={suspendReason} onChange={e => setSuspendReason(e.target.value)} placeholder={t("admin.users.suspendReasonPlaceholder")} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={closeDialog}>إلغاء</Button>
+            <Button variant="ghost" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button className="bg-orange-600 hover:bg-orange-700" onClick={suspendUser} disabled={loading}>
-              {loading ? "جاري التعليق..." : "تأكيد التعليق"}
+              {loading ? t("admin.users.suspending") : t("admin.users.confirmSuspend")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -459,22 +461,22 @@ export default function AdminUsers() {
       {/* Points Dialog */}
       <Dialog open={dialog === "points"} onOpenChange={closeDialog}>
         <DialogContent>
-          <DialogHeader><DialogTitle>منح نقاط: {selected?.display_name}</DialogTitle></DialogHeader>
-          <div className="text-sm text-muted-foreground">الرصيد الحالي: <span className="font-bold text-yellow-500">{selected?.points} نقطة</span></div>
+          <DialogHeader><DialogTitle>{t("admin.users.grantPointsTitle").replace("{name}", selected?.display_name || "")}</DialogTitle></DialogHeader>
+          <div className="text-sm text-muted-foreground">{t("admin.users.currentBalance")} <span className="font-bold text-yellow-500">{t("admin.users.pointsCount").replace("{points}", String(selected?.points ?? 0))}</span></div>
           <div className="space-y-4">
             <div>
-              <Label>عدد النقاط</Label>
+              <Label>{t("admin.users.pointsAmount")}</Label>
               <Input type="number" value={pointsAmount} onChange={e => setPointsAmount(e.target.value)} min="1" />
             </div>
             <div>
-              <Label>السبب</Label>
-              <Input value={pointsReason} onChange={e => setPointsReason(e.target.value)} placeholder="سبب المنح..." />
+              <Label>{t("admin.vx.reason")}</Label>
+              <Input value={pointsReason} onChange={e => setPointsReason(e.target.value)} placeholder={t("admin.users.pointsReasonPlaceholder")} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={closeDialog}>إلغاء</Button>
+            <Button variant="ghost" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button onClick={grantPoints} disabled={loading || !pointsAmount}>
-              {loading ? "جاري المنح..." : "منح النقاط"}
+              {loading ? t("admin.users.granting") : t("admin.users.grantPoints")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -483,11 +485,11 @@ export default function AdminUsers() {
       {/* Features Dialog */}
       <Dialog open={dialog === "features"} onOpenChange={closeDialog}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>إدارة ميزات: {selected?.display_name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("admin.users.manageFeaturesTitle").replace("{name}", selected?.display_name || "")}</DialogTitle></DialogHeader>
           <div className="space-y-3 max-h-80 overflow-y-auto">
             {FEATURES.map(f => (
               <div key={f.key} className="flex items-center justify-between rounded-lg border p-3">
-                <span className="text-sm font-medium">{f.label}</span>
+                <span className="text-sm font-medium">{t(`admin.users.feature.${f}`)}</span>
                 <Switch
                   checked={userFeatures[f.key] ?? false}
                   onCheckedChange={v => setUserFeatures(prev => ({ ...prev, [f.key]: v }))}
@@ -496,9 +498,9 @@ export default function AdminUsers() {
             ))}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={closeDialog}>إلغاء</Button>
+            <Button variant="ghost" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button onClick={saveFeatures} disabled={loading}>
-              {loading ? "جاري الحفظ..." : "حفظ الميزات"}
+              {loading ? t("admin.settings.saving") : t("admin.users.saveFeatures")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -507,33 +509,33 @@ export default function AdminUsers() {
       {/* Notification Dialog */}
       <Dialog open={dialog === "notify"} onOpenChange={closeDialog}>
         <DialogContent>
-          <DialogHeader><DialogTitle>إرسال إشعار: {selected?.display_name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("admin.users.sendNotificationTitle").replace("{name}", selected?.display_name || "")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>نوع الإشعار</Label>
+              <Label>{t("admin.users.notificationType")}</Label>
               <Select value={notifyType} onValueChange={setNotifyType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="info">معلومات</SelectItem>
-                  <SelectItem value="success">نجاح</SelectItem>
-                  <SelectItem value="warning">تحذير</SelectItem>
-                  <SelectItem value="error">خطأ</SelectItem>
+                  <SelectItem value="info">{t("admin.users.notify.info")}</SelectItem>
+                  <SelectItem value="success">{t("admin.users.notify.success")}</SelectItem>
+                  <SelectItem value="warning">{t("admin.users.notify.warning")}</SelectItem>
+                  <SelectItem value="error">{t("admin.users.notify.error")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>العنوان</Label>
-              <Input value={notifyTitle} onChange={e => setNotifyTitle(e.target.value)} placeholder="عنوان الإشعار..." />
+              <Label>{t("admin.content.field.title")}</Label>
+              <Input value={notifyTitle} onChange={e => setNotifyTitle(e.target.value)} placeholder={t("admin.users.notificationTitlePlaceholder")} />
             </div>
             <div>
-              <Label>الرسالة</Label>
-              <Textarea value={notifyBody} onChange={e => setNotifyBody(e.target.value)} placeholder="نص الإشعار..." />
+              <Label>{t("admin.requests.message")}</Label>
+              <Textarea value={notifyBody} onChange={e => setNotifyBody(e.target.value)} placeholder={t("admin.users.notificationBodyPlaceholder")} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={closeDialog}>إلغاء</Button>
+            <Button variant="ghost" onClick={closeDialog}>{t("common.cancel")}</Button>
             <Button onClick={sendNotification} disabled={loading || !notifyTitle || !notifyBody}>
-              {loading ? "جاري الإرسال..." : "إرسال الإشعار"}
+              {loading ? t("admin.users.sending") : t("admin.users.sendNotification")}
             </Button>
           </DialogFooter>
         </DialogContent>

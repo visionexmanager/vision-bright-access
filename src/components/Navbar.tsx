@@ -79,7 +79,7 @@ export function Navbar() {
     { to: "/community", label: t("nav.community") },
     { to: "/games", label: t("nav.games") },
     { to: "/assistive-products", label: t("nav.assistiveProducts") },
-    { to: "/professional-tools", label: "Professional Tools" },
+    { to: "/professional-tools", label: t("nav.professionalTools") },
     { to: "/news", label: t("nav.news") },
   ];
 
@@ -99,7 +99,7 @@ export function Navbar() {
       ],
     },
     {
-      label: t("nav.explore") || "Explore",
+      label: t("nav.explore"),
       links: [
         { to: "/content", label: t("nav.content") },
         { to: "/games", label: t("nav.games") },
@@ -107,9 +107,9 @@ export function Navbar() {
       ],
     },
     {
-      label: t("nav.more") || "More",
+      label: t("nav.more"),
       links: [
-        { to: "/professional-tools", label: "Professional Tools" },
+        { to: "/professional-tools", label: t("nav.professionalTools") },
         { to: "/news", label: t("nav.news") },
         { to: "/contact", label: t("nav.contact") },
       ],
@@ -121,13 +121,13 @@ export function Navbar() {
     <nav
       className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
       role="navigation"
-      aria-label="Main navigation"
+      aria-label={t("nav.mainNavigation")}
     >
       <div className="section-container flex items-center justify-between py-3">
         <Link
           to="/"
           className="flex items-center gap-2 text-2xl font-bold tracking-tight rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          aria-label="VisionEx home"
+          aria-label={t("nav.visionexHome")}
         >
           <img src={logo} alt="VisionEx logo" className="h-10 w-auto object-contain" width={240} height={160} />
           <span>VisionEx</span>
@@ -157,7 +157,7 @@ export function Navbar() {
             variant="ghost"
             size="icon"
             onClick={() => { setSoundEnabled(!soundEnabled); }}
-            aria-label={soundEnabled ? "Mute sounds" : "Unmute sounds"}
+            aria-label={soundEnabled ? t("nav.muteSounds") : t("nav.unmuteSounds")}
             className="hidden xl:inline-flex"
           >
             {soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5 text-muted-foreground" />}
@@ -205,7 +205,7 @@ export function Navbar() {
             <>
               {isAdmin && (
                 <Link to="/admin">
-                  <Button variant="outline" size="icon" aria-label="Admin Panel">
+                  <Button variant="outline" size="icon" aria-label={t("nav.adminPanel")}>
                     <ShieldCheck className="h-5 w-5 text-primary" />
                   </Button>
                 </Link>
@@ -294,7 +294,7 @@ export function Navbar() {
                 {isAdmin && (
                   <Link to="/admin" onClick={() => setMenuOpen(false)}>
                     <Button variant="outline" size="lg" className="w-full text-base">
-                      <ShieldCheck className="me-2 h-5 w-5 text-primary" /> Admin Panel
+                      <ShieldCheck className="me-2 h-5 w-5 text-primary" /> {t("nav.adminPanel")}
                     </Button>
                   </Link>
                 )}

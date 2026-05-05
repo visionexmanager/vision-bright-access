@@ -8,6 +8,7 @@ import {
   Mail, ShieldAlert, Database, ScrollText, Flag, Coins, Bell, AlertTriangle
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Stats = {
   products: number; content: number; users: number; requests: number;
@@ -15,21 +16,22 @@ type Stats = {
 };
 
 const ADMIN_CARDS = [
-  { title: "المستخدمون", key: "users" as const, icon: Users, link: "/admin/users", color: "text-purple-500", desc: "إدارة، حظر، نقاط، ميزات" },
-  { title: "المنتجات", key: "products" as const, icon: Package, link: "/admin/products", color: "text-blue-500", desc: "إضافة وتعديل المنتجات" },
-  { title: "المحتوى", key: "content" as const, icon: FileText, link: "/admin/content", color: "text-green-500", desc: "كورسات، مقالات، بودكاست" },
-  { title: "الإشراف", key: "reports" as const, icon: Flag, link: "/admin/moderation", color: "text-red-500", desc: "مراجعة البلاغات" },
-  { title: "الإيميلات", key: null, icon: Mail, link: "/admin/emails", color: "text-pink-500", desc: "نشرات بريدية وإيميلات" },
-  { title: "المشتركون", key: "subscribers" as const, icon: Bell, link: "/admin/subscribers", color: "text-indigo-500", desc: "إدارة النشرة البريدية" },
-  { title: "التحليلات", key: null, icon: BarChart3, link: "/admin/analytics", color: "text-cyan-500", desc: "تقارير وإحصائيات AI" },
-  { title: "قاعدة البيانات", key: null, icon: Database, link: "/admin/database", color: "text-teal-500", desc: "عرض وإدارة البيانات" },
-  { title: "سجل العمليات", key: "logs" as const, icon: ScrollText, link: "/admin/logs", color: "text-amber-500", desc: "تتبع عمليات الأدمن" },
-  { title: "طلبات الخدمة", key: "requests" as const, icon: ShieldAlert, link: "/admin/requests", color: "text-orange-500", desc: "طلبات المستخدمين" },
-  { title: "إعدادات الموقع", key: null, icon: Settings, link: "/admin/settings", color: "text-gray-500", desc: "تخصيص الواجهة" },
-  { title: "إدارة VX", key: null, icon: Coins, link: "/admin/vx", color: "text-yellow-500", desc: "منح وسحب VX بالإيميل" },
+  { id: "users", key: "users" as const, icon: Users, link: "/admin/users", color: "text-purple-500" },
+  { id: "products", key: "products" as const, icon: Package, link: "/admin/products", color: "text-blue-500" },
+  { id: "content", key: "content" as const, icon: FileText, link: "/admin/content", color: "text-green-500" },
+  { id: "moderation", key: "reports" as const, icon: Flag, link: "/admin/moderation", color: "text-red-500" },
+  { id: "emails", key: null, icon: Mail, link: "/admin/emails", color: "text-pink-500" },
+  { id: "subscribers", key: "subscribers" as const, icon: Bell, link: "/admin/subscribers", color: "text-indigo-500" },
+  { id: "analytics", key: null, icon: BarChart3, link: "/admin/analytics", color: "text-cyan-500" },
+  { id: "database", key: null, icon: Database, link: "/admin/database", color: "text-teal-500" },
+  { id: "logs", key: "logs" as const, icon: ScrollText, link: "/admin/logs", color: "text-amber-500" },
+  { id: "requests", key: "requests" as const, icon: ShieldAlert, link: "/admin/requests", color: "text-orange-500" },
+  { id: "settings", key: null, icon: Settings, link: "/admin/settings", color: "text-gray-500" },
+  { id: "vx", key: null, icon: Coins, link: "/admin/vx", color: "text-yellow-500" },
 ];
 
 export default function AdminDashboard() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState<Stats>({
     products: 0, content: 0, users: 0, requests: 0,
     reports: 0, subscribers: 0, logs: 0, notifications: 0,
@@ -67,30 +69,29 @@ export default function AdminDashboard() {
         <div className="mb-8 flex items-center gap-3">
           <ShieldCheck className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-3xl font-bold">لوحة الأدمن</h1>
-            <p className="text-muted-foreground text-sm">تحكم كامل بالموقع</p>
+            <h1 className="text-3xl font-bold">{t("admin.dashboard.title")}</h1>
+            <p className="text-muted-foreground text-sm">{t("admin.dashboard.subtitle")}</p>
           </div>
         </div>
 
-        {/* Quick alerts */}
         <div className="mb-6 flex flex-wrap gap-3">
           {stats.reports > 0 && (
             <Link to="/admin/moderation">
               <Badge className="bg-red-600 cursor-pointer hover:bg-red-700 px-3 py-1.5 text-sm">
-                <Flag className="me-1 h-3 w-3" /> {stats.reports} بلاغ بانتظار المراجعة
+                <Flag className="me-1 h-3 w-3" /> {t("admin.dashboard.pendingReports").replace("{count}", String(stats.reports))}
               </Badge>
             </Link>
           )}
           {stats.requests > 0 && (
             <Link to="/admin/requests">
               <Badge className="bg-orange-500 cursor-pointer hover:bg-orange-600 px-3 py-1.5 text-sm">
-                <ShieldAlert className="me-1 h-3 w-3" /> {stats.requests} طلب خدمة
+                <ShieldAlert className="me-1 h-3 w-3" /> {t("admin.dashboard.serviceRequests").replace("{count}", String(stats.requests))}
               </Badge>
             </Link>
           )}
           {import.meta.env.VITE_LIVEKIT_URL?.includes("YOUR_PROJECT") && (
             <Badge className="bg-yellow-500 text-black px-3 py-1.5 text-sm">
-              <AlertTriangle className="me-1 h-3 w-3" /> LiveKit URL غير مُعد — غرف الصوت معطلة
+              <AlertTriangle className="me-1 h-3 w-3" /> {t("admin.dashboard.livekitWarning")}
             </Badge>
           )}
         </div>
@@ -99,19 +100,15 @@ export default function AdminDashboard() {
           {ADMIN_CARDS.map((card) => {
             const count = card.key ? stats[card.key] : null;
             return (
-              <Link key={card.title} to={card.link}>
+              <Link key={card.id} to={card.link}>
                 <Card className="transition-all hover:shadow-lg hover:scale-[1.02] cursor-pointer h-full">
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{t(`admin.dashboard.card.${card.id}.title`)}</CardTitle>
                     <card.icon className={`h-5 w-5 ${card.color}`} />
                   </CardHeader>
                   <CardContent>
-                    {count !== null ? (
-                      <p className="text-3xl font-bold">{count}</p>
-                    ) : (
-                      <p className="text-lg font-medium">إدارة</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">{card.desc}</p>
+                    {count !== null ? <p className="text-3xl font-bold">{count}</p> : <p className="text-lg font-medium">{t("admin.dashboard.manage")}</p>}
+                    <p className="text-xs text-muted-foreground mt-1">{t(`admin.dashboard.card.${card.id}.desc`)}</p>
                   </CardContent>
                 </Card>
               </Link>

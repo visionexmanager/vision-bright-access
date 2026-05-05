@@ -69,6 +69,13 @@ const SIGN_STYLES: Record<string, string> = {
 };
 
 const SHELF_POSITIONS = ["Front Window", "Center Shelf", "Back Wall", "Display Stand", "Clearance Rack"];
+const SHELF_KEY: Record<string, string> = {
+  "Front Window": "frontWindow",
+  "Center Shelf": "centerShelf",
+  "Back Wall": "backWall",
+  "Display Stand": "displayStand",
+  "Clearance Rack": "clearanceRack",
+};
 const DEFAULT_BG = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=1200";
 
 const COUNTRIES: { code: string; name: string; flag: string }[] = [
@@ -141,6 +148,13 @@ export default function VXBazaar() {
   const [productForm, setProductForm] = useState({
     name: "", description: "", price: "", image: "", shelf_position: "Front Window",
   });
+  const tierLabel = (tier: Tier) => t(`bazaar.tier.${tier}`);
+  const shelfLabel = (position: string | null) => position ? t(`bazaar.shelf.${SHELF_KEY[position] ?? "frontWindow"}`) : "";
+  const signStyleLabel = (style: string) => t(`bazaar.sign.${style}`);
+  const countryLabel = (code: string | null) => {
+    const country = getCountry(code);
+    return country ? `${country.flag} ${t(`vep.country.${country.code}`)}` : "";
+  };
 
   // ── Data fetching ──────────────────────────────────────────────────────
   const { data: shops = [], isLoading: shopsLoading } = useQuery({
@@ -196,15 +210,15 @@ export default function VXBazaar() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bazaar-shops"] });
       queryClient.invalidateQueries({ queryKey: ["points-total"] });
-      toast({ title: "Shop opened! Welcome to VXBazaar 🎉" });
+      toast({ title: t("bazaar.shopOpened") });
       playSound("success");
       setView("street");
     },
     onError: (e: Error) => {
       if (e.message === "insufficient_points")
-        toast({ title: "Not enough VX coins", variant: "destructive" });
+        toast({ title: t("bazaar.notEnoughVX"), variant: "destructive" });
       else
-        toast({ title: "Failed to create shop", variant: "destructive" });
+        toast({ title: t("bazaar.createFailed"), variant: "destructive" });
     },
   });
 
@@ -230,14 +244,14 @@ export default function VXBazaar() {
     onSuccess: () => {
       refetchProducts();
       setProductForm({ name: "", description: "", price: "", image: "", shelf_position: "Front Window" });
-      toast({ title: "Product added! 🛒" });
+      toast({ title: t("bazaar.productAdded") });
       playSound("click");
     },
     onError: (e: Error) => {
       if (e.message === "max_products")
-        toast({ title: `Max products reached for this tier`, variant: "destructive" });
+        toast({ title: t("bazaar.maxProductsReached"), variant: "destructive" });
       else
-        toast({ title: "Failed to add product", variant: "destructive" });
+        toast({ title: t("bazaar.addProductFailed"), variant: "destructive" });
     },
   });
 
@@ -245,20 +259,20 @@ export default function VXBazaar() {
   const deleteProduct = async (id: string) => {
     await supabase.from("bazaar_products").delete().eq("id", id);
     refetchProducts();
-    toast({ title: "Product removed" });
+    toast({ title: t("bazaar.productRemoved") });
   };
 
   // ── Enter shop ────────────────────────────────────────────────────────
   const enterShop = useCallback((shop: Shop) => {
     setActiveShop(shop);
-    setMessages([{ text: `Welcome to ${shop.name}! How can I help you today?`, sender: "seller" }]);
+    setMessages([{ text: t("bazaar.chatWelcome").replace("{shop}", shop.name), sender: "seller" }]);
     setView("inside");
     playSound("open");
     if ("speechSynthesis" in window) {
-      const msg = new SpeechSynthesisUtterance(`Welcome to ${shop.name}`);
+      const msg = new SpeechSynthesisUtterance(t("bazaar.speechWelcome").replace("{shop}", shop.name));
       window.speechSynthesis.speak(msg);
     }
-  }, []);
+  }, [playSound, t]);
 
   // ── AI Chat ───────────────────────────────────────────────────────────
   const sendMessage = async () => {
@@ -284,7 +298,7 @@ export default function VXBazaar() {
         }
       );
 
-      let reply = "Sorry, I'm unavailable right now. Please try again later.";
+      let reply = t("bazaar.chatUnavailable");
       if (resp.ok && resp.body) {
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
@@ -311,7 +325,7 @@ export default function VXBazaar() {
       }
       setMessages(prev => [...prev, { text: reply, sender: "seller" }]);
     } catch {
-      setMessages(prev => [...prev, { text: "Connection error. Please try again.", sender: "seller" }]);
+      setMessages(prev => [...prev, { text: t("bazaar.chatConnectionError"), sender: "seller" }]);
     } finally {
       setChatLoading(false);
     }
@@ -350,13 +364,13 @@ export default function VXBazaar() {
               {/* Header */}
               <div className="relative z-10 px-4 pt-10 pb-4 text-center">
                 <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1 text-xs text-amber-400 mb-3">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" /> OPEN FOR BUSINESS
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" /> {t("bazaar.openForBusiness")}
                 </div>
                 <h1 className="text-5xl font-black tracking-widest uppercase text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-amber-600 md:text-6xl"
                   style={{ textShadow: "0 0 40px rgba(245,158,11,0.4)" }}>
                   VXBazaar
                 </h1>
-                <p className="mt-1 text-stone-400">The marketplace built by you, for everyone</p>
+                <p className="mt-1 text-stone-400">{t("bazaar.subtitle")}</p>
 
                 {user && (
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
@@ -365,11 +379,11 @@ export default function VXBazaar() {
                     </span>
                     {myShop ? (
                       <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10" onClick={() => enterShop(myShop)}>
-                        <Store className="me-1.5 h-4 w-4" /> My Shop
+                        <Store className="me-1.5 h-4 w-4" /> {t("bazaar.myShop")}
                       </Button>
                     ) : (
                       <Button size="sm" className="bg-amber-500 text-black hover:bg-amber-400 font-bold" onClick={() => setView("create")}>
-                        <Plus className="me-1.5 h-4 w-4" /> Open a Shop
+                        <Plus className="me-1.5 h-4 w-4" /> {t("bazaar.openAShop")}
                       </Button>
                     )}
                   </div>
@@ -388,14 +402,14 @@ export default function VXBazaar() {
 
               {/* Shops street */}
               {shopsLoading ? (
-                <div className="flex justify-center py-20 text-stone-500">Loading shops...</div>
+                  <div className="flex justify-center py-20 text-stone-500">{t("bazaar.loadingShops")}</div>
               ) : shops.length === 0 ? (
                 <div className="relative z-10 flex flex-col items-center gap-4 py-20 text-center text-stone-500">
                   <Store className="h-16 w-16 opacity-20" />
-                  <p className="text-lg text-stone-400">No shops yet — be the first to open one!</p>
+                  <p className="text-lg text-stone-400">{t("bazaar.noShops")}</p>
                   {user && (
                     <Button className="bg-amber-500 text-black hover:bg-amber-400 font-bold" onClick={() => setView("create")}>
-                      <Plus className="me-2 h-4 w-4" /> Open a Shop
+                      <Plus className="me-2 h-4 w-4" /> {t("bazaar.openAShop")}
                     </Button>
                   )}
                 </div>
@@ -430,7 +444,7 @@ export default function VXBazaar() {
                           {/* Tier label on building */}
                           <div className="flex justify-end pr-2">
                             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" style={{ color: cfg.color, backgroundColor: cfg.color + "22" }}>
-                              {cfg.icon} {cfg.label}
+                              {cfg.icon} {tierLabel(shop.tier)}
                             </span>
                           </div>
                         </div>
@@ -450,7 +464,7 @@ export default function VXBazaar() {
                           className="relative min-w-[300px] h-[400px] snap-center flex-shrink-0 cursor-pointer md:min-w-[360px]"
                           onClick={() => enterShop(shop)}
                           role="button"
-                          aria-label={`Enter ${shop.name}`}
+                          aria-label={t("bazaar.enterShop").replace("{shop}", shop.name)}
                           tabIndex={0}
                           onKeyDown={e => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), enterShop(shop))}
                         >
@@ -485,7 +499,7 @@ export default function VXBazaar() {
                                 {shop.country && (() => {
                                   const c = getCountry(shop.country);
                                   return c ? (
-                                    <p className="mt-1 text-[10px] opacity-60">{c.flag} {c.name}</p>
+                                    <p className="mt-1 text-[10px] opacity-60">{countryLabel(shop.country)}</p>
                                   ) : null;
                                 })()}
                               </div>
@@ -501,7 +515,7 @@ export default function VXBazaar() {
                                   style={{ backgroundColor: shop.theme_color }}
                                   onClick={e => { e.stopPropagation(); enterShop(shop); }}
                                 >
-                                  Step Inside →
+                                  {t("bazaar.stepInside")}
                                 </button>
                               </div>
                             </div>
@@ -527,7 +541,7 @@ export default function VXBazaar() {
               {/* Login prompt */}
               {!user && (
                 <div className="relative z-10 mt-8 text-center text-stone-500 pb-10">
-                  <p className="text-sm">Log in to open your own shop or chat with sellers</p>
+                  <p className="text-sm">{t("bazaar.loginPrompt")}</p>
                 </div>
               )}
             </motion.div>
@@ -551,17 +565,19 @@ export default function VXBazaar() {
                       <h2 className="text-2xl font-black md:text-3xl">{activeShop.name}</h2>
                       {activeTierCfg && (
                         <Badge className="text-xs" style={{ backgroundColor: activeTierCfg.color + "33", color: activeTierCfg.color, border: `1px solid ${activeTierCfg.color}55` }}>
-                          {activeTierCfg.icon} {activeTierCfg.label}
+                          {activeTierCfg.icon} {tierLabel(activeShop.tier)}
                         </Badge>
                       )}
                     </div>
                     {activeShop.description && <p className="mt-1 text-sm text-stone-300">{activeShop.description}</p>}
-                    <p className="mt-1 text-xs text-stone-500">{activeProducts.filter(p => p.in_stock).length} items in stock</p>
+                      <p className="mt-1 text-xs text-stone-500">
+                        {t("bazaar.itemsInStock").replace("{count}", String(activeProducts.filter(p => p.in_stock).length))}
+                      </p>
                   </div>
                   <button
                     onClick={() => { setView("street"); setActiveShop(null); playSound("close"); }}
                     className="rounded-full bg-white/10 p-2.5 hover:bg-white/20 transition-colors"
-                    aria-label="Leave shop"
+                    aria-label={t("bazaar.leaveShop")}
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -589,7 +605,7 @@ export default function VXBazaar() {
                             rating: 0,
                             inStock: item.in_stock,
                           });
-                          toast({ title: t("market.addedToCart") || `${item.name} added to cart` });
+                          toast({ title: t("market.addedToCart") });
                           playSound("points");
                         };
                         return (
@@ -609,13 +625,13 @@ export default function VXBazaar() {
                           {item.description && <p className="mt-1 text-[11px] text-stone-400 line-clamp-2">{item.description}</p>}
                           <p className="mt-2 font-black text-amber-400">${item.price}</p>
                           {item.shelf_position && (
-                            <p className="mt-0.5 text-[10px] uppercase text-stone-500 italic">{item.shelf_position}</p>
+                            <p className="mt-0.5 text-[10px] uppercase text-stone-500 italic">{shelfLabel(item.shelf_position)}</p>
                           )}
                           <button
                             onClick={handleAddToCart}
                             className="mt-3 w-full rounded-full bg-amber-500 py-1.5 text-xs font-bold text-black hover:bg-amber-400 active:scale-95 transition-all flex items-center justify-center gap-1"
                           >
-                            <ShoppingCart className="h-3.5 w-3.5" /> {t("market.addToCart") || "Add to Cart"}
+                            <ShoppingCart className="h-3.5 w-3.5" /> {t("market.addToCart")}
                           </button>
                         </motion.div>
                         );
@@ -649,34 +665,34 @@ export default function VXBazaar() {
                   <ArrowLeft className="h-5 w-5" />
                 </button>
                 <div>
-                  <h2 className="text-2xl font-black text-emerald-400">Manage Shop</h2>
-                  <p className="text-sm text-stone-400">{activeShop.name} · {activeProducts.length} / {activeTierCfg?.maxProducts === Infinity ? "∞" : activeTierCfg?.maxProducts} products</p>
+                  <h2 className="text-2xl font-black text-emerald-400">{t("bazaar.manageShop")}</h2>
+                  <p className="text-sm text-stone-400">{t("bazaar.productCapacity").replace("{shop}", activeShop.name).replace("{count}", String(activeProducts.length)).replace("{max}", activeTierCfg?.maxProducts === Infinity ? "∞" : String(activeTierCfg?.maxProducts ?? 0))}</p>
                 </div>
               </div>
 
               {/* Add product form */}
               <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
-                <h3 className="mb-4 font-bold text-white flex items-center gap-2"><Plus className="h-4 w-4 text-emerald-400" /> Add New Product</h3>
+                  <h3 className="mb-4 font-bold text-white flex items-center gap-2"><Plus className="h-4 w-4 text-emerald-400" /> {t("bazaar.addProduct")}</h3>
                 <div className="space-y-3">
                   <div>
-                    <label htmlFor="product-name" className="sr-only">Product name (required)</label>
+                    <label htmlFor="product-name" className="sr-only">{t("bazaar.productNameRequired")}</label>
                     <Input
                       id="product-name"
                       value={productForm.name}
                       onChange={e => setProductForm(p => ({ ...p, name: e.target.value }))}
-                      placeholder="Product name *"
+                        placeholder={t("bazaar.productNamePlaceholder")}
                       aria-required="true"
                       className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
                       maxLength={80}
                     />
                   </div>
                   <div>
-                    <label htmlFor="product-description" className="sr-only">Description (optional)</label>
+                    <label htmlFor="product-description" className="sr-only">{t("bazaar.descriptionOptional")}</label>
                     <Textarea
                       id="product-description"
                       value={productForm.description}
                       onChange={e => setProductForm(p => ({ ...p, description: e.target.value }))}
-                      placeholder="Description (optional)"
+                      placeholder={t("bazaar.descriptionOptional")}
                       className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
                       rows={2}
                       maxLength={300}
@@ -684,7 +700,7 @@ export default function VXBazaar() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label htmlFor="product-price" className="sr-only">Price in dollars (required)</label>
+                      <label htmlFor="product-price" className="sr-only">{t("bazaar.priceRequired")}</label>
                       <Input
                         id="product-price"
                         type="number"
@@ -692,21 +708,21 @@ export default function VXBazaar() {
                         step="0.01"
                         value={productForm.price}
                         onChange={e => setProductForm(p => ({ ...p, price: e.target.value }))}
-                        placeholder="Price ($) *"
+                        placeholder={t("bazaar.pricePlaceholder")}
                         aria-required="true"
                         className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
                       />
                     </div>
                     <div>
-                      <label htmlFor="product-shelf" className="sr-only">Shelf position</label>
+                      <label htmlFor="product-shelf" className="sr-only">{t("bazaar.shelfPosition")}</label>
                       <select
                         id="product-shelf"
                         value={productForm.shelf_position}
                         onChange={e => setProductForm(p => ({ ...p, shelf_position: e.target.value }))}
                         className="rounded-md border border-white/20 bg-stone-900 text-white text-sm px-3 py-2 w-full"
-                        aria-label="Shelf position"
+                        aria-label={t("bazaar.shelfPosition")}
                       >
-                        {SHELF_POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                        {SHELF_POSITIONS.map(pos => <option key={pos} value={pos}>{shelfLabel(pos)}</option>)}
                       </select>
                     </div>
                   </div>
@@ -715,7 +731,7 @@ export default function VXBazaar() {
                     <Input
                       value={productForm.image}
                       onChange={e => setProductForm(p => ({ ...p, image: e.target.value }))}
-                      placeholder="Image URL (optional)"
+                      placeholder={t("bazaar.imageUrlOptional")}
                       className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
                     />
                   </div>
@@ -724,16 +740,16 @@ export default function VXBazaar() {
                     disabled={!productForm.name.trim() || !productForm.price || addProductMutation.isPending}
                     className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
                   >
-                    {addProductMutation.isPending ? "Adding..." : "Add Product"}
+                    {addProductMutation.isPending ? t("bazaar.adding") : t("bazaar.addProduct")}
                   </Button>
                 </div>
               </div>
 
               {/* Existing products list */}
               <div>
-                <h3 className="mb-3 font-bold text-stone-300">Your Products ({activeProducts.length})</h3>
+                  <h3 className="mb-3 font-bold text-stone-300">{t("bazaar.yourProducts")} ({activeProducts.length})</h3>
                 {activeProducts.length === 0 ? (
-                  <p className="text-stone-500 text-sm">No products yet.</p>
+                  <p className="text-stone-500 text-sm">{t("bazaar.noProductsYet")}</p>
                 ) : (
                   <div className="space-y-2">
                     {activeProducts.map(item => (
@@ -748,13 +764,13 @@ export default function VXBazaar() {
                           )}
                           <div>
                             <p className="font-semibold text-sm text-white">{item.name}</p>
-                            <p className="text-xs text-stone-400">${item.price} · {item.shelf_position}</p>
+                            <p className="text-xs text-stone-400">${item.price} · {shelfLabel(item.shelf_position)}</p>
                           </div>
                         </div>
                         <button
                           onClick={() => deleteProduct(item.id)}
                           className="rounded-full p-1.5 text-stone-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"
-                          aria-label={`Delete ${item.name}`}
+                          aria-label={t("bazaar.deleteProduct").replace("{name}", item.name)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -784,7 +800,7 @@ export default function VXBazaar() {
                 <h3 id="chat-dialog-title" className="font-black flex items-center gap-2 text-lg">
                   <Store className="h-5 w-5 text-amber-500" aria-hidden="true" /> {activeShop.name}
                 </h3>
-                <button onClick={() => setView("inside")} className="text-slate-400 hover:text-slate-600" aria-label="Back to shop">
+                <button onClick={() => setView("inside")} className="text-slate-400 hover:text-slate-600" aria-label={t("bazaar.backToShop")}>
                   <ArrowLeft className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
@@ -792,7 +808,7 @@ export default function VXBazaar() {
               <div
                 className="flex-1 overflow-y-auto space-y-3 p-5"
                 role="log"
-                aria-label={`Chat with ${activeShop.name}`}
+                aria-label={t("bazaar.chatWithShop").replace("{shop}", activeShop.name)}
                 aria-live="polite"
                 aria-relevant="additions"
               >
@@ -810,7 +826,7 @@ export default function VXBazaar() {
                 {chatLoading && (
                   <div className="flex justify-start">
                     <div className="bg-slate-100 rounded-2xl rounded-bl-none px-4 py-3 text-slate-400 text-sm animate-pulse">
-                      Typing…
+                      {t("bazaar.typing")}
                     </div>
                   </div>
                 )}
@@ -821,7 +837,7 @@ export default function VXBazaar() {
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && sendMessage()}
-                  placeholder="Ask about a product…"
+                  placeholder={t("bazaar.askProductPlaceholder")}
                   className="rounded-xl"
                 />
                 <Button onClick={sendMessage} disabled={chatLoading} className="rounded-xl bg-amber-500 text-black hover:bg-amber-400 px-4">
@@ -840,27 +856,27 @@ export default function VXBazaar() {
                 <button onClick={() => setView("street")} className="rounded-full bg-white/10 p-2 hover:bg-white/20">
                   <ArrowLeft className="h-5 w-5" />
                 </button>
-                <h2 className="text-2xl font-black text-amber-500">Open Your Shop</h2>
+                <h2 className="text-2xl font-black text-amber-500">{t("bazaar.openShop")}</h2>
               </div>
 
               <div className="space-y-5 rounded-2xl border border-white/10 bg-white/5 p-6">
                 <div>
-                  <label className="mb-1.5 block text-sm font-semibold text-stone-300">Shop Name *</label>
+                  <label className="mb-1.5 block text-sm font-semibold text-stone-300">{t("bazaar.shopName")}</label>
                   <Input
                     value={createForm.name}
                     onChange={e => setCreateForm(p => ({ ...p, name: e.target.value }))}
-                    placeholder="My Amazing Shop"
+                    placeholder={t("bazaar.shopNamePlaceholder")}
                     className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
                     maxLength={60}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-semibold text-stone-300">Description</label>
+                  <label className="mb-1.5 block text-sm font-semibold text-stone-300">{t("bazaar.description")}</label>
                   <Textarea
                     value={createForm.description}
                     onChange={e => setCreateForm(p => ({ ...p, description: e.target.value }))}
-                    placeholder="What do you sell?"
+                    placeholder={t("bazaar.shopDescriptionPlaceholder")}
                     className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
                     rows={2}
                     maxLength={200}
@@ -869,22 +885,22 @@ export default function VXBazaar() {
 
                 {/* Country */}
                 <div>
-                  <label className="mb-1.5 block text-sm font-semibold text-stone-300">Shop Country</label>
+                  <label className="mb-1.5 block text-sm font-semibold text-stone-300">{t("bazaar.shopCountry")}</label>
                   <select
                     value={createForm.country}
                     onChange={e => setCreateForm(p => ({ ...p, country: e.target.value }))}
                     className="w-full rounded-md border border-white/20 bg-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 [&>option]:bg-stone-900 [&>option]:text-white"
                   >
-                    <option value="">— No country —</option>
+                    <option value="">{t("bazaar.noCountry")}</option>
                     {COUNTRIES.map(c => (
-                      <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+                      <option key={c.code} value={c.code}>{c.flag} {t(`vep.country.${c.code}`)}</option>
                     ))}
                   </select>
                 </div>
 
                 {/* Tier selection */}
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-stone-300">Choose Your Tier</label>
+                  <label className="mb-2 block text-sm font-semibold text-stone-300">{t("bazaar.chooseTier")}</label>
                   <div className="grid grid-cols-2 gap-3">
                     {(Object.entries(TIER_CONFIG) as [Tier, typeof TIER_CONFIG.kiosk][]).map(([key, cfg]) => (
                       <button
@@ -900,10 +916,10 @@ export default function VXBazaar() {
                           <span className="text-lg">{cfg.icon}</span>
                           {createForm.tier === key && <Crown className="h-4 w-4 text-amber-400" />}
                         </div>
-                        <p className="mt-1 font-bold">{cfg.label}</p>
-                        <p className="text-xs text-stone-400">Up to {cfg.maxProducts === Infinity ? "∞" : cfg.maxProducts} products</p>
-                        <p className="mt-2 text-xs font-bold text-amber-400">{cfg.setupCost.toLocaleString()} VX setup</p>
-                        <p className="text-xs text-stone-500">{cfg.rentCost.toLocaleString()} VX/month</p>
+                        <p className="mt-1 font-bold">{tierLabel(key)}</p>
+                        <p className="text-xs text-stone-400">{t("bazaar.upToProducts").replace("{max}", cfg.maxProducts === Infinity ? "∞" : String(cfg.maxProducts))}</p>
+                        <p className="mt-2 text-xs font-bold text-amber-400">{t("bazaar.vxSetup").replace("{amount}", cfg.setupCost.toLocaleString())}</p>
+                        <p className="text-xs text-stone-500">{t("bazaar.vxPerMonth").replace("{amount}", cfg.rentCost.toLocaleString())}</p>
                       </button>
                     ))}
                   </div>
@@ -911,7 +927,7 @@ export default function VXBazaar() {
 
                 {/* Sign style */}
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-stone-300">Sign Style</label>
+                  <label className="mb-2 block text-sm font-semibold text-stone-300">{t("bazaar.signStyle")}</label>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(SIGN_STYLES).map(([style, cls]) => (
                       <button
@@ -924,7 +940,7 @@ export default function VXBazaar() {
                         }`}
                       >
                         <span className={`inline-block w-2 h-2 rounded-full me-1.5 ${cls.includes("amber") ? "bg-amber-400" : cls.includes("purple") ? "bg-purple-400" : cls.includes("blue") ? "bg-blue-400" : "bg-white"}`} />
-                        {style}
+                        {signStyleLabel(style)}
                       </button>
                     ))}
                   </div>
@@ -932,33 +948,33 @@ export default function VXBazaar() {
 
                 {/* Theme color */}
                 <div className="flex items-center gap-3">
-                  <label className="text-sm font-semibold text-stone-300">Theme Color</label>
+                  <label className="text-sm font-semibold text-stone-300">{t("bazaar.themeColor")}</label>
                   <input
                     type="color"
                     value={createForm.theme_color}
                     onChange={e => setCreateForm(p => ({ ...p, theme_color: e.target.value }))}
                     className="h-9 w-16 cursor-pointer rounded-lg border border-white/20 bg-transparent"
                   />
-                  <span className="text-xs text-stone-500">Used for borders & accents</span>
+                  <span className="text-xs text-stone-500">{t("bazaar.themeColorHint")}</span>
                 </div>
 
                 {/* Cost summary */}
                 {isOnTrial ? (
                   <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-                    <p className="text-sm font-bold text-emerald-400">🎁 Free during your trial — no VX deducted</p>
+                    <p className="text-sm font-bold text-emerald-400">🎁 {t("bazaar.freeDuringTrial")}</p>
                   </div>
                 ) : (
                   <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-1.5">
                     <div className="flex justify-between text-sm">
-                      <span className="text-stone-400">Your balance</span>
+                      <span className="text-stone-400">{t("bazaar.yourBalance")}</span>
                       <span className="font-bold text-amber-400">{totalPoints.toLocaleString()} VX</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-stone-400">Setup cost</span>
+                      <span className="text-stone-400">{t("bazaar.setupCost")}</span>
                       <span className="font-bold text-red-400">−{TIER_CONFIG[createForm.tier].setupCost.toLocaleString()} VX</span>
                     </div>
                     <div className="flex justify-between border-t border-white/10 pt-2 font-bold">
-                      <span>After opening</span>
+                      <span>{t("bazaar.afterOpening")}</span>
                       <span className={totalPoints - TIER_CONFIG[createForm.tier].setupCost >= 0 ? "text-green-400" : "text-red-400"}>
                         {(totalPoints - TIER_CONFIG[createForm.tier].setupCost).toLocaleString()} VX
                       </span>
@@ -972,13 +988,13 @@ export default function VXBazaar() {
                   className="w-full bg-amber-500 text-black hover:bg-amber-400 font-black py-5 text-base"
                 >
                   {createShopMutation.isPending
-                    ? "Opening…"
+                    ? t("bazaar.opening")
                     : isOnTrial
-                      ? `Open ${TIER_CONFIG[createForm.tier].label} — Free Trial`
-                      : `Open ${TIER_CONFIG[createForm.tier].label} — ${TIER_CONFIG[createForm.tier].setupCost.toLocaleString()} VX`}
+                      ? t("bazaar.openTierFree").replace("{tier}", tierLabel(createForm.tier))
+                      : t("bazaar.openTierCost").replace("{tier}", tierLabel(createForm.tier)).replace("{amount}", TIER_CONFIG[createForm.tier].setupCost.toLocaleString())}
                 </Button>
 
-                {!user && <p className="text-center text-xs text-stone-500">You must be logged in to open a shop</p>}
+                {!user && <p className="text-center text-xs text-stone-500">{t("bazaar.loginToOpen")}</p>}
               </div>
             </motion.div>
           )}

@@ -69,7 +69,7 @@ export function RewardedAdModal({ onRewarded, onClose }: Props) {
             </span>
           </div>
           {rewarded && (
-            <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close">
+            <Button size="sm" variant="ghost" onClick={onClose} aria-label={t("vx.close")}>
               <X className="h-4 w-4" />
             </Button>
           )}
@@ -104,14 +104,14 @@ export function RewardedAdModal({ onRewarded, onClose }: Props) {
                 🎉 {t("dash.adWatched").replace("{pts}", String(VX_REWARD))}
               </p>
               <Button onClick={onClose} className="w-full">
-                {t("vx.close") || "Close"}
+                {t("vx.close")}
               </Button>
             </div>
           ) : (
             <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
               <Clock className="h-3.5 w-3.5" aria-hidden="true" />
               <span aria-live="polite" aria-atomic="true">
-                {t("dash.adSecondsLeft")?.replace("{s}", String(secondsLeft)) || `${secondsLeft}s remaining`}
+                {t("dash.adSecondsLeft").replace("{s}", String(secondsLeft))}
               </span>
             </p>
           )}

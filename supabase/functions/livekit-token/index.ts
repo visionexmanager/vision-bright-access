@@ -1,14 +1,33 @@
 import { AccessToken } from "npm:livekit-server-sdk@2";
 
-const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
+const DEFAULT_ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
+
+function getAllowedOrigins() {
+  const configured = Deno.env.get("ALLOWED_ORIGINS");
+  if (!configured) return DEFAULT_ALLOWED_ORIGINS;
+
+  return configured
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function isAllowedOrigin(origin: string) {
+  if (!origin) return false;
+  if (origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1")) return true;
+  if (origin.endsWith(".lovable.app") || origin.endsWith(".lovableproject.com")) return true;
+  return getAllowedOrigins().includes(origin);
+}
 
 function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") || "";
-  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost")
+  const allowedOrigins = getAllowedOrigins();
+  const allowed = isAllowedOrigin(origin)
     ? origin
-    : ALLOWED_ORIGINS[0];
+    : allowedOrigins[0] || DEFAULT_ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   };
 }

@@ -174,8 +174,8 @@ export function AIChat() {
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => setVoiceMode(v => !v)}
-                aria-label="Voice mode"
-                title="محادثة صوتية"
+                aria-label={t("ai.voiceMode")}
+                title={t("ai.voiceMode")}
               >
                 <Phone className="h-4 w-4" />
               </Button>

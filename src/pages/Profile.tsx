@@ -119,7 +119,7 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "File too large (max 2MB)", variant: "destructive" });
+      toast({ title: t("profile.fileTooLarge"), variant: "destructive" });
       return;
     }
     setUploading(true);

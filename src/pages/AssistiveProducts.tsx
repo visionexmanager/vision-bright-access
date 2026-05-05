@@ -16,30 +16,22 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { useLanguage, Lang } from "@/contexts/LanguageContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { assistiveCategories, deliveryCountries, AssistiveProduct } from "@/data/assistiveProducts";
 import { Bot, MessageCircle, Store, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { openAIChatWithProduct } from "@/components/AIChat";
 
-function getProductName(p: AssistiveProduct, lang: Lang) {
-  return lang === "ar" ? p.nameAr : lang === "es" ? p.nameEs : p.nameEn;
-}
-
-function getCategoryName(c: typeof assistiveCategories[0], lang: Lang) {
-  return lang === "ar" ? c.nameAr : lang === "es" ? c.nameEs : c.nameEn;
-}
-
-function getCountryName(c: typeof deliveryCountries[0], lang: Lang) {
-  return lang === "ar" ? c.ar : lang === "es" ? c.es : c.en;
-}
-
-function getSpecs(p: AssistiveProduct, lang: Lang) {
-  return lang === "ar" ? p.specs.ar : lang === "es" ? p.specs.es : p.specs.en;
-}
-
 export default function AssistiveProducts() {
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
+
+  const getProductName = (p: AssistiveProduct) => t(`vep.product.${p.id}.name`);
+  const getCategoryName = (c: typeof assistiveCategories[0]) => t(`vep.cat.${c.id}.name`);
+  const getCountryName = (c: typeof deliveryCountries[0]) => t(`vep.country.${c.code}`);
+  const getSpecs = (p: AssistiveProduct) =>
+    [1, 2, 3, 4, 5]
+      .map((i) => t(`vep.product.${p.id}.spec${i}`))
+      .filter((spec) => !spec.startsWith("vep.product."));
 
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [deliveryChoices, setDeliveryChoices] = useState<Record<string, string>>({});
@@ -72,11 +64,10 @@ export default function AssistiveProducts() {
     }
 
     const lines = selectedProducts.map((p) => {
-      const name = getProductName(p, lang);
+      const name = getProductName(p);
       const country = deliveryChoices[p.id]
         ? getCountryName(
-            deliveryCountries.find((c) => c.code === deliveryChoices[p.id])!,
-            lang
+            deliveryCountries.find((c) => c.code === deliveryChoices[p.id])!
           )
         : t("vep.notSelected");
       return `• ${name} → ${t("vep.deliverTo")}: ${country}`;
@@ -93,7 +84,7 @@ export default function AssistiveProducts() {
       return;
     }
 
-    const productNames = selectedProducts.map((p) => getProductName(p, "en")).join(", ");
+    const productNames = selectedProducts.map((p) => p.nameEn).join(", ");
     openAIChatWithProduct(
       productNames,
       `Compare these assistive products and help me choose the best one for my needs: ${productNames}. Please explain the key differences, features, and who each product is best suited for.`
@@ -122,7 +113,7 @@ export default function AssistiveProducts() {
                 <AccordionTrigger className="px-5 py-4 text-lg font-bold hover:no-underline [&[data-state=open]>svg]:rotate-180">
                   <span className="flex items-center gap-3">
                     <span className="text-2xl" aria-hidden="true">{category.icon}</span>
-                    {getCategoryName(category, lang)}
+                    {getCategoryName(category)}
                     <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
                       {category.products.length}
                     </span>
@@ -145,14 +136,14 @@ export default function AssistiveProducts() {
                                 checked={isSelected}
                                 onCheckedChange={() => toggleProduct(product.id)}
                                 className="mt-1 h-5 w-5"
-                                aria-label={getProductName(product, lang)}
+                                aria-label={getProductName(product)}
                               />
                               <div className="flex-1 min-w-0">
                                 <label
                                   htmlFor={`product-${product.id}`}
                                   className="cursor-pointer text-base font-semibold leading-tight sm:text-lg"
                                 >
-                                  {getProductName(product, lang)}
+                                  {getProductName(product)}
                                 </label>
 
                                 {/* Stores info */}
@@ -165,7 +156,7 @@ export default function AssistiveProducts() {
 
                                 {/* Specs */}
                                 <ul className="mt-2 space-y-1">
-                                  {getSpecs(product, lang).map((spec, i) => (
+                                  {getSpecs(product).map((spec, i) => (
                                     <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
                                       <ChevronRight className="mt-0.5 h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
                                       {spec}
@@ -191,7 +182,7 @@ export default function AssistiveProducts() {
                                       <SelectContent>
                                         {deliveryCountries.map((country) => (
                                           <SelectItem key={country.code} value={country.code}>
-                                            {getCountryName(country, lang)}
+                                            {getCountryName(country)}
                                           </SelectItem>
                                         ))}
                                       </SelectContent>
@@ -205,7 +196,7 @@ export default function AssistiveProducts() {
                                   size="sm"
                                   className="mt-3 gap-1.5 text-xs text-primary hover:text-primary"
                                   onClick={() => {
-                                    const name = getProductName(product, lang);
+                                    const name = getProductName(product);
                                     const nameEn = product.nameEn;
                                     openAIChatWithProduct(
                                       nameEn,

@@ -82,7 +82,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback(
     (key: string): string => {
-      return translations[lang]?.[key] || translations.en[key] || key;
+      const current = translations[lang]?.[key];
+      if (current) return current;
+      return lang === "en" ? translations.en[key] || key : key;
     },
     [lang]
   );

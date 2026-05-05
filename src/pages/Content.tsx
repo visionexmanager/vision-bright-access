@@ -179,10 +179,10 @@ export default function Content() {
                             <Icon className="h-7 w-7 text-primary" aria-hidden="true" />
                           </div>
                           <div className="flex flex-col items-end gap-1">
-                            <Badge className="text-sm" aria-label={`Earn ${item.points} points`}>+{item.points} pts</Badge>
+                            <Badge className="text-sm" aria-label={t("content.earnPoints").replace("{points}", String(item.points))}>+{item.points} {t("points.short")}</Badge>
                             <span className="flex items-center gap-1 text-xs font-semibold text-primary">
                               <Coins className="h-3.5 w-3.5" aria-hidden="true" />
-                              <span className="sr-only">Cost:</span>
+                              <span className="sr-only">{t("services.cost")}</span>
                               {formatVX(price)}
                             </span>
                           </div>
@@ -199,8 +199,8 @@ export default function Content() {
                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Clock className="h-4 w-4" aria-hidden="true" />
-                            <span className="sr-only">Duration:</span>
-                            {item.duration} min
+                            <span className="sr-only">{t("services.duration")}</span>
+                            {t("content.durationMinutes").replace("{minutes}", String(item.duration))}
                           </span>
                           {item.extra_label && item.extra_value && (
                             <span className="flex items-center gap-1">
