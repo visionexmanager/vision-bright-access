@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 
+/** Maximum rewarded-ad watches per user per calendar day */
+export const DAILY_AD_LIMIT = 10;
+
 export function useEarnPoints() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -39,5 +42,22 @@ export function useEarnPoints() {
     return (data?.length ?? 0) > 0;
   }, [user]);
 
-  return { earnPoints, checkDailyLogin };
+  /**
+   * Returns how many rewarded ads the user has already watched today.
+   * Cap is DAILY_AD_LIMIT (10).
+   */
+  const getTodayAdCount = useCallback(async (): Promise<number> => {
+    if (!user) return DAILY_AD_LIMIT; // treat as maxed if not logged in
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabase
+      .from("user_points")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("reason", "Watched an ad")
+      .gte("created_at", `${today}T00:00:00`)
+      .lte("created_at", `${today}T23:59:59`);
+    return data?.length ?? 0;
+  }, [user]);
+
+  return { earnPoints, checkDailyLogin, getTodayAdCount };
 }

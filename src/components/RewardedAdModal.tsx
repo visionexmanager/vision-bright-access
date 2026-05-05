@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Coins, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const AD_CLIENT = "ca-pub-6897088904832302";
 const AD_SLOT   = "3569383992";
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function RewardedAdModal({ onRewarded, onClose }: Props) {
+  const { t } = useLanguage();
   const adRef = useRef<HTMLModElement>(null);
   const [secondsLeft, setSecondsLeft] = useState(WATCH_SECONDS);
   const [rewarded, setRewarded] = useState(false);
@@ -51,7 +53,7 @@ export function RewardedAdModal({ onRewarded, onClose }: Props) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Watch ad to earn VX coins"
+      aria-label={t("dash.watchAd")}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
     >
       <div className="relative w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
@@ -62,8 +64,8 @@ export function RewardedAdModal({ onRewarded, onClose }: Props) {
             <Coins className="h-5 w-5 text-amber-500" aria-hidden="true" />
             <span className="font-bold text-base">
               {rewarded
-                ? `+${VX_REWARD} VX earned!`
-                : `Watch ${secondsLeft}s to earn ${VX_REWARD} VX`}
+                ? t("dash.adWatched").replace("{pts}", String(VX_REWARD))
+                : `${secondsLeft}s — +${VX_REWARD} VX`}
             </span>
           </div>
           {rewarded && (
@@ -99,17 +101,17 @@ export function RewardedAdModal({ onRewarded, onClose }: Props) {
           {rewarded ? (
             <div className="space-y-3">
               <p className="text-sm font-semibold text-amber-500">
-                🎉 {VX_REWARD} VX coins added to your balance!
+                🎉 {t("dash.adWatched").replace("{pts}", String(VX_REWARD))}
               </p>
               <Button onClick={onClose} className="w-full">
-                Close
+                {t("vx.close") || "Close"}
               </Button>
             </div>
           ) : (
             <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
               <Clock className="h-3.5 w-3.5" aria-hidden="true" />
               <span aria-live="polite" aria-atomic="true">
-                {secondsLeft} seconds remaining — please keep this open
+                {t("dash.adSecondsLeft")?.replace("{s}", String(secondsLeft)) || `${secondsLeft}s remaining`}
               </span>
             </p>
           )}

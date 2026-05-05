@@ -48,33 +48,35 @@ interface ProgressRow {
 }
 
 // ── Service data ───────────────────────────────────────────────────────
+// 1000 VX = $1 USD
 const PROFESSIONAL_SERVICES = [
-  { icon: MonitorSmartphone, name: "services.webDesign",        desc: "services.webDesignDesc",        vx: 150_000, img: webDesignImg,        to: "/services/web-design",       color: "bg-sky-500/10 text-sky-600 dark:text-sky-400" },
-  { icon: Megaphone,         name: "services.digitalMarketing", desc: "services.digitalMarketingDesc", vx: 120_000, img: digitalMarketingImg, to: "/services/digital-marketing", color: "bg-rose-500/10 text-rose-600 dark:text-rose-400" },
-  { icon: Package,           name: "services.importPurchasing", desc: "services.importPurchasingDesc", vx: 80_000,  img: importImg,           to: "/services/import-purchasing", color: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },
-  { icon: Headphones,        name: "services.techConsulting",   desc: "services.techConsultingDesc",   vx: 60_000,  img: consultingImg,       to: "/services/tech-consulting",   color: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" },
-  { icon: GraduationCap,     name: "services.training",         desc: "services.trainingDesc",         vx: 100_000, img: trainingImg,         to: "/services/training",          color: "bg-primary/10 text-primary" },
+  { icon: Headphones,       name: "services.techConsulting",   desc: "services.techConsultingDesc",   vx: 20_000,  img: consultingImg,       to: "/services/tech-consulting",   color: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" }, // $20
+  { icon: GraduationCap,    name: "services.training",         desc: "services.trainingDesc",         vx: 40_000,  img: trainingImg,         to: "/services/training",          color: "bg-primary/10 text-primary" },                              // $40
+  { icon: Package,          name: "services.importPurchasing", desc: "services.importPurchasingDesc", vx: 60_000,  img: importImg,           to: "/services/import-purchasing", color: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },      // $60
+  { icon: Megaphone,        name: "services.digitalMarketing", desc: "services.digitalMarketingDesc", vx: 90_000,  img: digitalMarketingImg, to: "/services/digital-marketing", color: "bg-rose-500/10 text-rose-600 dark:text-rose-400" },         // $90
+  { icon: MonitorSmartphone,name: "services.webDesign",        desc: "services.webDesignDesc",        vx: 130_000, img: webDesignImg,        to: "/services/web-design",        color: "bg-sky-500/10 text-sky-600 dark:text-sky-400" },            // $130
 ] as const;
 
+// 1000 VX = $1 USD  |  entry starts at 10 VX ($0.01), scales up meaningfully
 const LEARNING_SERVICES = [
-  { icon: Truck,       name: "delivery.serviceTitle",  desc: "delivery.serviceDesc",  vx: 30_000, to: "/services/delivery",            color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" },
-  { icon: BarChart3,   name: "econ.title",             desc: "econ.subtitle",         vx: 50_000, to: "/services/economy",             color: "bg-violet-500/10 text-violet-600 dark:text-violet-400" },
-  { icon: Heart,       name: "nutrition.serviceTitle", desc: "nutrition.serviceDesc", vx: 40_000, to: "/services/nutrition",           color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
-  { icon: Briefcase,   name: "career.title",           desc: "career.subtitle",       vx: 70_000, to: "/services/career-hub",          color: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },
-  { icon: Music,       name: "music.title",            desc: "music.subtitle",        vx: 60_000, to: "/services/music-conservatory",  color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },
-  { icon: Video,       name: "studio.title",           desc: "studio.subtitle",       vx: 60_000, to: "/services/global-studio",       color: "bg-pink-500/10 text-pink-600 dark:text-pink-400" },
-  { icon: Scissors,    name: "svc.hairTitle",          desc: "svc.hairDesc",          vx: 20_000, to: "/services/hair-care",           color: "bg-pink-500/10 text-pink-600 dark:text-pink-400" },
-  { icon: Sparkles,    name: "svc.skinTitle",          desc: "svc.skinDesc",          vx: 25_000, to: "/services/skin-care",           color: "bg-orange-500/10 text-orange-600 dark:text-orange-400" },
-  { icon: Stethoscope, name: "svc.medicalTitle",       desc: "svc.medicalDesc",       vx: 50_000, to: "/services/medical-support",     color: "bg-red-500/10 text-red-600 dark:text-red-400" },
-  { icon: Brain,       name: "svc.psychTitle",         desc: "svc.psychDesc",         vx: 55_000, to: "/services/psychology",          color: "bg-violet-500/10 text-violet-600 dark:text-violet-400" },
-  { icon: Scale,       name: "svc.legalTitle",         desc: "svc.legalDesc",         vx: 70_000, to: "/services/legal-advisor",       color: "bg-slate-500/10 text-slate-600 dark:text-slate-400" },
-  { icon: Users,       name: "svc.socialTitle",        desc: "svc.socialDesc",        vx: 35_000, to: "/services/social-guide",        color: "bg-teal-500/10 text-teal-600 dark:text-teal-400" },
-  { icon: Dumbbell,    name: "svc.sportsTitle",        desc: "svc.sportsDesc",        vx: 40_000, to: "/services/sports-coach",        color: "bg-lime-500/10 text-lime-600 dark:text-lime-400" },
-  { icon: Globe,       name: "empire.serviceTitle",    desc: "empire.serviceDesc",    vx: 90_000, to: "/services/educational-empire",  color: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" },
-  { icon: Heart,       name: "oasis.serviceTitle",     desc: "oasis.serviceDesc",     vx: 45_000, to: "/services/empathy-oasis",       color: "bg-rose-500/10 text-rose-600 dark:text-rose-400" },
-  { icon: ScanLine,    name: "radar.serviceTitle",     desc: "radar.serviceDesc",     vx: 80_000, to: "/services/radar-ai",            color: "bg-primary/10 text-primary" },
-  { icon: FileText,    name: "ocr.serviceTitle",       desc: "ocr.serviceDesc",       vx: 50,     to: "/services/ocr-scan",            color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
-  { icon: Plane,       name: "svc.travelTitle",        desc: "svc.travelDesc",        vx: 55_000, to: "/services/travel-agency",       color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" },
+  { icon: FileText,    name: "ocr.serviceTitle",       desc: "ocr.serviceDesc",       vx: 10,      to: "/services/ocr-scan",            color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" }, // $0.01
+  { icon: Scissors,    name: "svc.hairTitle",          desc: "svc.hairDesc",          vx: 500,     to: "/services/hair-care",           color: "bg-pink-500/10 text-pink-600 dark:text-pink-400" },          // $0.50
+  { icon: Sparkles,    name: "svc.skinTitle",          desc: "svc.skinDesc",          vx: 800,     to: "/services/skin-care",           color: "bg-orange-500/10 text-orange-600 dark:text-orange-400" },    // $0.80
+  { icon: Users,       name: "svc.socialTitle",        desc: "svc.socialDesc",        vx: 1_000,   to: "/services/social-guide",        color: "bg-teal-500/10 text-teal-600 dark:text-teal-400" },          // $1
+  { icon: Truck,       name: "delivery.serviceTitle",  desc: "delivery.serviceDesc",  vx: 1_500,   to: "/services/delivery",            color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" },          // $1.50
+  { icon: Dumbbell,    name: "svc.sportsTitle",        desc: "svc.sportsDesc",        vx: 2_000,   to: "/services/sports-coach",        color: "bg-lime-500/10 text-lime-600 dark:text-lime-400" },          // $2
+  { icon: Heart,       name: "oasis.serviceTitle",     desc: "oasis.serviceDesc",     vx: 3_000,   to: "/services/empathy-oasis",       color: "bg-rose-500/10 text-rose-600 dark:text-rose-400" },          // $3
+  { icon: Heart,       name: "nutrition.serviceTitle", desc: "nutrition.serviceDesc", vx: 4_000,   to: "/services/nutrition",           color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" }, // $4
+  { icon: Stethoscope, name: "svc.medicalTitle",       desc: "svc.medicalDesc",       vx: 6_000,   to: "/services/medical-support",     color: "bg-red-500/10 text-red-600 dark:text-red-400" },             // $6
+  { icon: Brain,       name: "svc.psychTitle",         desc: "svc.psychDesc",         vx: 8_000,   to: "/services/psychology",          color: "bg-violet-500/10 text-violet-600 dark:text-violet-400" },    // $8
+  { icon: Plane,       name: "svc.travelTitle",        desc: "svc.travelDesc",        vx: 10_000,  to: "/services/travel-agency",       color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" },          // $10
+  { icon: Music,       name: "music.title",            desc: "music.subtitle",        vx: 12_000,  to: "/services/music-conservatory",  color: "bg-purple-500/10 text-purple-600 dark:text-purple-400" },    // $12
+  { icon: Video,       name: "studio.title",           desc: "studio.subtitle",       vx: 15_000,  to: "/services/global-studio",       color: "bg-pink-500/10 text-pink-600 dark:text-pink-400" },          // $15
+  { icon: Scale,       name: "svc.legalTitle",         desc: "svc.legalDesc",         vx: 20_000,  to: "/services/legal-advisor",       color: "bg-slate-500/10 text-slate-600 dark:text-slate-400" },       // $20
+  { icon: ScanLine,    name: "radar.serviceTitle",     desc: "radar.serviceDesc",     vx: 25_000,  to: "/services/radar-ai",            color: "bg-primary/10 text-primary" },                               // $25
+  { icon: BarChart3,   name: "econ.title",             desc: "econ.subtitle",         vx: 30_000,  to: "/services/economy",             color: "bg-violet-500/10 text-violet-600 dark:text-violet-400" },    // $30
+  { icon: Briefcase,   name: "career.title",           desc: "career.subtitle",       vx: 40_000,  to: "/services/career-hub",          color: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },       // $40
+  { icon: Globe,       name: "empire.serviceTitle",    desc: "empire.serviceDesc",    vx: 60_000,  to: "/services/educational-empire",  color: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" },    // $60
 ] as const;
 
 const DIFFICULTY_COLOR: Record<string, string> = {

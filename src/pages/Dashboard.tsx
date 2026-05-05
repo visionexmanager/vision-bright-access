@@ -1,11 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef, useLayoutEffect } from "react";
 import { RewardedAdModal } from "@/components/RewardedAdModal";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { Layout } from "@/components/Layout";
 import { AchievementsPanel } from "@/components/AchievementsPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
-import { useEarnPoints } from "@/hooks/useEarnPoints";
+import { useEarnPoints, DAILY_AD_LIMIT } from "@/hooks/useEarnPoints";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,6 @@ import {
   TrendingUp,
   Gift,
   Play,
-  CalendarCheck,
   BookOpen,
   Briefcase,
   Crown,
@@ -49,11 +48,35 @@ function getTier(points: number) {
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const { totalPoints, history, loadingTotal, loadingHistory } = usePoints();
-  const { earnPoints, checkDailyLogin } = useEarnPoints();
+  const { earnPoints, checkDailyLogin, getTodayAdCount } = useEarnPoints();
   const { t } = useLanguage();
   const { playSound } = useSound();
   const [showAd, setShowAd] = useState(false);
-  const [dailyLoading, setDailyLoading] = useState(false);
+  const [todayAdCount, setTodayAdCount] = useState<number>(0);
+  const dailyClaimedRef = useRef(false);
+
+  // Auto daily-login bonus — fires once when a user session is confirmed
+  useEffect(() => {
+    if (!user || dailyClaimedRef.current) return;
+    dailyClaimedRef.current = true;
+    checkDailyLogin().then((alreadyClaimed) => {
+      if (alreadyClaimed) return;
+      earnPoints(10, "Daily login bonus").then((ok) => {
+        if (ok) {
+          playSound("points");
+          toast({ title: t("dash.dailyClaimed").replace("{pts}", "10") });
+        }
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Load today's ad watch count
+  useEffect(() => {
+    if (!user) return;
+    getTodayAdCount().then(setTodayAdCount);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   if (authLoading) {
     return (
@@ -74,30 +97,21 @@ export default function Dashboard() {
     : 100;
 
   const handleAdRewarded = useCallback(async () => {
+    // Re-check count server-side before awarding (prevents race conditions)
+    const count = await getTodayAdCount();
+    if (count >= DAILY_AD_LIMIT) {
+      toast({ title: t("dash.adLimitReached"), variant: "destructive" });
+      setTodayAdCount(DAILY_AD_LIMIT);
+      return;
+    }
     const pts = 5;
     const ok = await earnPoints(pts, "Watched an ad");
     if (ok) {
       playSound("points");
+      setTodayAdCount((c) => c + 1);
       toast({ title: t("dash.adWatched").replace("{pts}", String(pts)) });
     }
-  }, [earnPoints, playSound, t]);
-
-  const handleDailyLogin = async () => {
-    setDailyLoading(true);
-    const alreadyClaimed = await checkDailyLogin();
-    if (alreadyClaimed) {
-      setDailyLoading(false);
-      toast({ title: t("dash.alreadyClaimed"), variant: "destructive" });
-      return;
-    }
-    const pts = 10;
-    const ok = await earnPoints(pts, "Daily login bonus");
-    setDailyLoading(false);
-    if (ok) {
-      playSound("points");
-      toast({ title: t("dash.dailyClaimed").replace("{pts}", String(pts)) });
-    }
-  };
+  }, [earnPoints, getTodayAdCount, playSound, t]);
 
   return (
     <Layout>
@@ -234,27 +248,23 @@ export default function Dashboard() {
                 <div className="flex-1">
                   <p className="text-base font-semibold">{t("dash.watchAd")}</p>
                   <p className="text-sm text-muted-foreground">{t("dash.watchAdDesc")}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground" aria-live="polite">
+                    {todayAdCount >= DAILY_AD_LIMIT
+                      ? t("dash.adLimitReached")
+                      : `${todayAdCount} / ${DAILY_AD_LIMIT} ${t("dash.adsToday")}`}
+                  </p>
                 </div>
                 <Badge className="text-sm">+5 VX</Badge>
-                <Button onClick={() => setShowAd(true)} size="sm">
+                <Button
+                  onClick={() => setShowAd(true)}
+                  disabled={todayAdCount >= DAILY_AD_LIMIT}
+                  size="sm"
+                  aria-label={`${t("dash.watchAd")} — ${todayAdCount}/${DAILY_AD_LIMIT}`}
+                >
                   {t("dash.watchAd")}
                 </Button>
               </div>
 
-              {/* Daily Login */}
-              <div className="flex items-center gap-4 rounded-lg border p-4">
-                <div className="rounded-xl bg-primary/10 p-3">
-                  <CalendarCheck className="h-6 w-6 text-primary" aria-hidden="true" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-base font-semibold">{t("dash.dailyLogin")}</p>
-                  <p className="text-sm text-muted-foreground">{t("dash.dailyLoginDesc")}</p>
-                </div>
-                <Badge className="text-sm">+10 pts</Badge>
-                <Button onClick={handleDailyLogin} disabled={dailyLoading} size="sm">
-                  {dailyLoading ? "..." : t("dash.dailyLogin")}
-                </Button>
-              </div>
 
               {/* Engage Content */}
               <Link to="/content" className="flex items-center gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50">

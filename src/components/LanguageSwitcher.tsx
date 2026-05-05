@@ -23,7 +23,7 @@ const languages: { code: Lang; label: string; flag: string }[] = [
 ];
 
 export function LanguageSwitcher() {
-  const { lang, setLang } = useLanguage();
+  const { lang, setLang, t } = useLanguage();
   const current = languages.find((l) => l.code === lang);
 
   return (
@@ -32,7 +32,7 @@ export function LanguageSwitcher() {
         <Button
           variant="ghost"
           size="sm"
-          aria-label="Change language"
+          aria-label={t("settings.selectLang")}
           className="gap-1.5 text-sm px-2"
         >
           <span className="text-base" aria-hidden="true">{current?.flag}</span>
