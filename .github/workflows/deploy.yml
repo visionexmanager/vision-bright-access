@@ -19,8 +19,9 @@ jobs:
             set -e
             cd ${{ secrets.SERVER_PATH }}
 
-            # Pull latest code
-            git pull origin main
+            # Pull latest code (discard any local changes first)
+            git fetch origin main
+            git reset --hard origin/main
 
             # Install dependencies
             npm ci
