@@ -5,6 +5,7 @@ import { Copy, Check, Play, LogOut, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { GameSession, GAME_LABELS } from "@/systems/multiplayerSystem";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Props {
   session: GameSession;
@@ -15,6 +16,7 @@ interface Props {
 
 export function WaitingRoom({ session, isHost, onStart, onLeave }: Props) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
 
   const copy = () => {
@@ -29,18 +31,18 @@ export function WaitingRoom({ session, isHost, onStart, onLeave }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="text-center text-xl">
-          {GAME_LABELS[session.game_type as keyof typeof GAME_LABELS]} — Waiting Room
+          {GAME_LABELS[session.game_type as keyof typeof GAME_LABELS]} — {t("mp.waitingRoom")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Room code */}
         <div className="text-center space-y-1">
-          <p className="text-sm text-muted-foreground">Room Code — share with a friend</p>
+          <p className="text-sm text-muted-foreground">{t("mp.roomCodeShare")}</p>
           <div className="flex items-center justify-center gap-2">
             <span className="font-mono text-4xl font-bold tracking-[0.3em] text-primary">
               {session.id}
             </span>
-            <Button size="icon" variant="ghost" onClick={copy} aria-label="Copy code">
+            <Button size="icon" variant="ghost" onClick={copy} aria-label={t("mp.copyCode")}>
               {copied ? <Check className="h-5 w-5 text-green-500" /> : <Copy className="h-5 w-5" />}
             </Button>
           </div>
@@ -52,16 +54,16 @@ export function WaitingRoom({ session, isHost, onStart, onLeave }: Props) {
             <div key={p.id} className="flex items-center gap-3 rounded-lg border px-4 py-3">
               <span className="text-2xl">{p.avatar ? "🧑" : "🎮"}</span>
               <span className="font-medium flex-1">{p.name}</span>
-              {p.id === session.host_id && <Badge variant="secondary">Host</Badge>}
-              {p.id === user?.id && <Badge>You</Badge>}
-              <span className="text-green-500 text-sm">● Connected</span>
+              {p.id === session.host_id && <Badge variant="secondary">{t("mp.host")}</Badge>}
+              {p.id === user?.id && <Badge>{t("mp.you")}</Badge>}
+              <span className="text-green-500 text-sm">● {t("mp.connected")}</span>
             </div>
           ))}
 
           {session.players.length < session.max_players && (
             <div className="flex items-center gap-3 rounded-lg border border-dashed px-4 py-3 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
-              <span>Waiting for opponent…</span>
+              <span>{t("mp.waitingForOpponent")}</span>
             </div>
           )}
         </div>
@@ -69,17 +71,17 @@ export function WaitingRoom({ session, isHost, onStart, onLeave }: Props) {
         {/* Actions */}
         <div className="flex gap-3">
           <Button variant="outline" className="flex-1" onClick={onLeave}>
-            <LogOut className="h-4 w-4 mr-2" /> Leave
+            <LogOut className="h-4 w-4 mr-2" /> {t("mp.leave")}
           </Button>
           {isHost && (
             <Button className="flex-1" onClick={onStart} disabled={!canStart}>
               <Play className="h-4 w-4 mr-2" />
-              {canStart ? "Start Game" : "Need 2 players"}
+              {canStart ? t("mp.startGame") : t("mp.need2Players")}
             </Button>
           )}
           {!isHost && (
             <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-              Waiting for host to start…
+              {t("mp.waitingForHost")}
             </div>
           )}
         </div>

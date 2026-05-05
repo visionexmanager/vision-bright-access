@@ -7,9 +7,9 @@ import { useSound } from "@/contexts/SoundContext";
 import { useState } from "react";
 import heroImg from "@/assets/game-fashion.jpg";
 
-const FABRICS = ["🧵 Silk", "👖 Denim", "🧶 Wool", "🪡 Cotton", "✨ Satin"];
-const COLORS_LIST = ["❤️ Red", "💙 Blue", "💚 Green", "🖤 Black", "🤍 White", "💛 Gold"];
-const STYLES = ["👗 Dress", "👔 Suit", "👕 Casual", "🧥 Coat", "👘 Traditional"];
+const FABRIC_KEYS = ["silk", "denim", "wool", "cotton", "satin"] as const;
+const COLOR_KEYS = ["red", "blue", "green", "black", "white", "gold"] as const;
+const STYLE_KEYS = ["dress", "suit", "casual", "coat", "traditional"] as const;
 
 export default function FashionDesigner() {
   const { t } = useLanguage();
@@ -21,7 +21,10 @@ export default function FashionDesigner() {
 
   const create = () => {
     if (!fabric || !color || !style) return;
-    const design = `${style} in ${color} ${fabric}`;
+    const design = t("fashion.designLabel")
+      .replace("{style}", t(`fashion.style.${style}`))
+      .replace("{color}", t(`fashion.color.${color}`))
+      .replace("{fabric}", t(`fashion.fabric.${fabric}`));
     setDesigns([design, ...designs]);
     setFabric(null); setColor(null); setStyle(null);
     playSound("success");
@@ -43,7 +46,7 @@ export default function FashionDesigner() {
             <CardContent className="pt-4">
               <p className="font-bold mb-2 text-center">{t("fashion.fabric")}</p>
               <div className="flex flex-col gap-1">
-                {FABRICS.map((f) => <Button key={f} size="sm" variant={fabric === f ? "default" : "outline"} onClick={() => setFabric(f)}>{f}</Button>)}
+                {FABRIC_KEYS.map((f) => <Button key={f} size="sm" variant={fabric === f ? "default" : "outline"} onClick={() => setFabric(f)}>{t(`fashion.fabric.${f}`)}</Button>)}
               </div>
             </CardContent>
           </Card>
@@ -51,7 +54,7 @@ export default function FashionDesigner() {
             <CardContent className="pt-4">
               <p className="font-bold mb-2 text-center">{t("fashion.color")}</p>
               <div className="flex flex-col gap-1">
-                {COLORS_LIST.map((c) => <Button key={c} size="sm" variant={color === c ? "default" : "outline"} onClick={() => setColor(c)}>{c}</Button>)}
+                {COLOR_KEYS.map((c) => <Button key={c} size="sm" variant={color === c ? "default" : "outline"} onClick={() => setColor(c)}>{t(`fashion.color.${c}`)}</Button>)}
               </div>
             </CardContent>
           </Card>
@@ -59,7 +62,7 @@ export default function FashionDesigner() {
             <CardContent className="pt-4">
               <p className="font-bold mb-2 text-center">{t("fashion.style")}</p>
               <div className="flex flex-col gap-1">
-                {STYLES.map((s) => <Button key={s} size="sm" variant={style === s ? "default" : "outline"} onClick={() => setStyle(s)}>{s}</Button>)}
+                {STYLE_KEYS.map((s) => <Button key={s} size="sm" variant={style === s ? "default" : "outline"} onClick={() => setStyle(s)}>{t(`fashion.style.${s}`)}</Button>)}
               </div>
             </CardContent>
           </Card>

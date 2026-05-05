@@ -1,14 +1,24 @@
 import { useTrial } from "@/hooks/useTrial";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Gift, AlertTriangle } from "lucide-react";
 
 export function TrialBanner() {
   const { user } = useAuth();
   const { isOnTrial, trialDaysLeft } = useTrial();
+  const { t } = useLanguage();
 
   if (!user || !isOnTrial) return null;
 
   const isWarning = trialDaysLeft <= 7;
+
+  const warningText = t("trial.endingSoon")
+    .replace("{days}", String(trialDaysLeft))
+    || `Free trial ends in ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} — collect VX coins to keep using all features`;
+
+  const activeText = t("trial.active")
+    .replace("{days}", String(trialDaysLeft))
+    || `Free trial active — ${trialDaysLeft} days remaining, all features unlocked`;
 
   return (
     <div
@@ -23,9 +33,7 @@ export function TrialBanner() {
       ) : (
         <Gift className="h-3.5 w-3.5 shrink-0" />
       )}
-      {isWarning
-        ? `Free trial ends in ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} — collect VX coins to keep using all features`
-        : `Free trial active — ${trialDaysLeft} days remaining, all features unlocked`}
+      {isWarning ? warningText : activeText}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Bell, Globe, Palette, Settings as SettingsIcon, Coins } from "lucide-react";
+import { Bell, Globe, Palette, Settings as SettingsIcon, Coins, Info } from "lucide-react";
 import { useState } from "react";
 import { requestNotificationPermission } from "@/hooks/useMessageNotifications";
 
@@ -22,6 +22,8 @@ const LANGUAGES = [
   { code: "zh", label: "中文", flag: "🇨🇳" },
   { code: "tr", label: "Türkçe", flag: "🇹🇷" },
   { code: "ru", label: "Русский", flag: "🇷🇺" },
+  { code: "hi", label: "हिन्दी", flag: "🇮🇳" },
+  { code: "ur", label: "اردو", flag: "🇵🇰" },
 ];
 
 export default function Settings() {
@@ -36,6 +38,7 @@ export default function Settings() {
     }
     return false;
   });
+  const [notifRevokeTip, setNotifRevokeTip] = useState(false);
 
   const handleSoundToggle = (checked: boolean) => {
     setSoundEnabled(checked);
@@ -46,9 +49,12 @@ export default function Settings() {
       if ("Notification" in window) {
         const perm = await Notification.requestPermission();
         setNotifEnabled(perm === "granted");
+        setNotifRevokeTip(false);
         if (perm === "granted") requestNotificationPermission();
       }
     } else {
+      // Browsers don't allow revoking notification permission via JS — show guidance
+      setNotifRevokeTip(true);
       setNotifEnabled(false);
     }
   };
@@ -76,12 +82,20 @@ export default function Settings() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-base font-medium">{t("settings.browserNotif")}</Label>
-                  <p className="text-sm text-muted-foreground">{t("settings.browserNotifDesc")}</p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base font-medium">{t("settings.browserNotif")}</Label>
+                    <p className="text-sm text-muted-foreground">{t("settings.browserNotifDesc")}</p>
+                  </div>
+                  <Switch checked={notifEnabled} onCheckedChange={handleNotifToggle} />
                 </div>
-                <Switch checked={notifEnabled} onCheckedChange={handleNotifToggle} />
+                {notifRevokeTip && (
+                  <div className="flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                    <span>{t("settings.notifRevokeHint") || "To fully disable notifications, open your browser's site settings and set Notifications to \"Block\" for this site."}</span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <div>

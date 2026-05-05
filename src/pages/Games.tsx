@@ -110,7 +110,7 @@ export default function Games() {
               className="ps-9"
             />
           </div>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by category">
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t("games.filterByCategory")}>
             {categories.map((cat) => (
               <Button
                 key={cat}
@@ -121,14 +121,14 @@ export default function Games() {
                 className="text-xs"
               >
                 {cat === "All" && <Filter className="mr-1 h-3.5 w-3.5" aria-hidden="true" />}
-                {cat} {cat !== "All" && `(${games.filter(g => g.category === cat).length})`}
+                {cat === "All" ? t("cat.All") : t(`games.cat.${cat}`)} {cat !== "All" && `(${games.filter(g => g.category === cat).length})`}
               </Button>
             ))}
           </div>
         </div>
 
         {filtered.length === 0 ? (
-          <p className="py-16 text-center text-muted-foreground">No games found matching your search.</p>
+          <p className="py-16 text-center text-muted-foreground">{t("games.noResults")}</p>
         ) : (
           <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((game) => (

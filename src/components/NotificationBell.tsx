@@ -10,8 +10,10 @@ import {
   getUnreadCount,
   type AppNotification,
 } from "@/systems/notificationSystem";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function NotificationBell() {
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
 
@@ -36,7 +38,7 @@ export function NotificationBell() {
   return (
     <Popover onOpenChange={handleOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
+        <Button variant="ghost" size="icon" className="relative" aria-label={t("notif.title")}>
           <Bell className="h-5 w-5" />
           {unread > 0 && (
             <Badge
@@ -49,10 +51,10 @@ export function NotificationBell() {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
-        <h2 className="border-b px-4 py-3 text-sm font-semibold">Notifications</h2>
+        <h2 className="border-b px-4 py-3 text-sm font-semibold">{t("notif.title")}</h2>
         <ScrollArea className="max-h-72">
           {notifications.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">No notifications yet.</p>
+            <p className="p-4 text-sm text-muted-foreground">{t("notif.empty")}</p>
           ) : (
             notifications.slice(0, 20).map((n) => (
               <div
