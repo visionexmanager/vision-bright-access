@@ -6,25 +6,26 @@
 export const VX_RATE = 1000; // VX per USD
 
 // ── Gaming Zone ──
+// 1000 VX = $1 USD
 export const GAMING_PRICES = {
-  singlePlay: 200,
-  fullGameUnlock: 2000,
-  weeklyPass: 5000,
+  singlePlay:     2,      // $0.002 — entry, nearly free
+  fullGameUnlock: 500,    // $0.50  — unlock one game forever
+  weeklyPass:     2_000,  // $2.00  — unlimited play for a week
 } as const;
 
 // ── Academy (Courses) ──
 export const ACADEMY_PRICES = {
-  miniCourse: 4000,
-  intermediateCourse: 12000,
-  professionalMasterclass: 35000,
-  digitalCertificate: 3000,
+  miniCourse:               2_000,   // $2
+  intermediateCourse:       8_000,   // $8
+  professionalMasterclass:  25_000,  // $25
+  digitalCertificate:       1_500,   // $1.50
 } as const;
 
 // ── Simulators ──
 export const SIMULATION_PRICES = {
-  singleSession: 1000,
-  monthlyPass: 15000,
-  lifetimeAccess: 25000,
+  singleSession:  10,      // $0.01  — entry, try it out
+  monthlyPass:    8_000,   // $8.00  — unlimited sessions for a month
+  lifetimeAccess: 50_000,  // $50.00 — lifetime unlimited access
 } as const;
 
 // ── Professional Tools (Windows .bat) ──
