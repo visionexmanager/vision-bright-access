@@ -1,5 +1,4 @@
--- Auto-delete user-created voice rooms when they become empty.
--- Default rooms (fixed UUIDs) are never deleted by this trigger.
+-- Auto-delete voice rooms when they become empty.
 
 CREATE OR REPLACE FUNCTION public.delete_empty_voice_room()
 RETURNS trigger
@@ -7,18 +6,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  default_ids uuid[] := ARRAY[
-    '00000000-0000-4000-a000-000000000001'::uuid,
-    '00000000-0000-4000-a000-000000000002'::uuid,
-    '00000000-0000-4000-a000-000000000003'::uuid
-  ];
   remaining_members integer;
 BEGIN
-  -- Skip default rooms
-  IF OLD.room_id = ANY(default_ids) THEN
-    RETURN OLD;
-  END IF;
-
   SELECT COUNT(*) INTO remaining_members
   FROM public.voice_room_members
   WHERE room_id = OLD.room_id;

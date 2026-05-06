@@ -6,13 +6,13 @@ import { useSound } from "@/contexts/SoundContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mic, Users, Radio, Globe, Trash2, Loader2, LogIn, Lock, Share2 } from "lucide-react";
-import { DEFAULT_ROOMS, VOICE_ROOM_CONFIGS, PUBLIC_ROOM_JOIN_COST } from "@/systems/voiceRoomSystem";
+import { Mic, Users, Globe, Trash2, Loader2, LogIn, Lock, Share2 } from "lucide-react";
+import { VOICE_ROOM_CONFIGS } from "@/systems/voiceRoomSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
-import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
+import { AnimatedSection, scaleFade } from "@/components/AnimatedSection";
 import communityImg from "@/assets/community-illustration.jpg";
 
 type VoiceRoom = {
@@ -46,14 +46,11 @@ export default function Community() {
   const [myMemberships, setMyMemberships] = useState<RoomMyMembership>({});
   const [makePrivate, setMakePrivate] = useState(false);
 
-  const defaultRoomIds = DEFAULT_ROOMS.map((r) => r.id);
-
   const fetchRooms = useCallback(async () => {
     let query = supabase
       .from("voice_rooms")
       .select("*")
-      .eq("is_active", true)
-      .not("id", "in", `(${defaultRoomIds.join(",")})`);
+      .eq("is_active", true);
 
     if (user) {
       query = query.or(`is_private.eq.false,owner_id.eq.${user.id}`);
@@ -222,38 +219,6 @@ export default function Community() {
           </div>
         </div>
         </AnimatedSection>
-
-        {/* Default public rooms */}
-        <div className="mb-12">
-          <h2 className="mb-4 text-2xl font-bold flex items-center gap-2">
-            <Radio className="h-6 w-6 text-primary" />
-            {t("community.voiceRooms")}
-          </h2>
-          <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {DEFAULT_ROOMS.map((room) => (
-            <StaggerItem key={room.id}>
-              <Card className="transition-shadow hover:shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Mic className="h-5 w-5 text-primary" />
-                    {t(room.nameKey)}
-                  </CardTitle>
-                  <CardDescription className="flex items-center gap-2">
-                    {renderMemberBadge(room.id)}
-                    <Badge variant="outline">{t("community.open")}</Badge>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex gap-2">
-                  {renderJoinButton(room.id, 999, t(room.nameKey), PUBLIC_ROOM_JOIN_COST)}
-                  <Button size="icon" variant="outline" onClick={() => shareRoom(room.id)} aria-label={t("vroom.shareRoom")}>
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            </StaggerItem>
-            ))}
-          </StaggerGrid>
-        </div>
 
         {/* User-created rooms from DB */}
         {rooms.length > 0 && (

@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Loader2, Lock, Mic, MicOff, PhoneOff, Users, Volume2 } from "lucide-react";
-import { DEFAULT_ROOMS, PUBLIC_ROOM_JOIN_COST } from "@/systems/voiceRoomSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
 
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
@@ -197,17 +196,12 @@ export default function VoiceRoom() {
     if (!roomId) { navigate("/community"); return; }
 
     // Resolve room name
-    const def = DEFAULT_ROOMS.find((r) => r.id === roomId);
-    if (def) {
-      setRoomName(t(def.nameKey));
-    } else {
-      supabase
-        .from("voice_rooms")
-        .select("room_name")
-        .eq("id", roomId)
-        .single()
-        .then(({ data }) => { if (data) setRoomName(data.room_name); });
-    }
+    supabase
+      .from("voice_rooms")
+      .select("room_name")
+      .eq("id", roomId)
+      .single()
+      .then(({ data }) => { if (data) setRoomName(data.room_name); });
 
     const getToken = async () => {
       // Check if already a member to avoid double-charging
@@ -219,22 +213,16 @@ export default function VoiceRoom() {
         .maybeSingle();
 
       if (!existingMember) {
-        const isDefault = DEFAULT_ROOMS.some((r) => r.id === roomId);
-        if (isDefault) {
-          const ok = await spendVX(PUBLIC_ROOM_JOIN_COST, "voice_room_join", roomId, roomId);
-          if (!ok) { navigate("/community"); return; }
-        } else {
-          const { data: room } = await supabase
-            .from("voice_rooms")
-            .select("join_cost_vx, is_private, owner_id")
-            .eq("id", roomId)
-            .single();
-          if (room) {
-            setIsPrivate(room.is_private);
-            if (room.owner_id !== user.id && room.join_cost_vx > 0) {
-              const ok = await spendVX(room.join_cost_vx, "voice_room_join", roomId, roomId);
-              if (!ok) { navigate("/community"); return; }
-            }
+        const { data: room } = await supabase
+          .from("voice_rooms")
+          .select("join_cost_vx, is_private, owner_id")
+          .eq("id", roomId)
+          .single();
+        if (room) {
+          setIsPrivate(room.is_private);
+          if (room.owner_id !== user.id && room.join_cost_vx > 0) {
+            const ok = await spendVX(room.join_cost_vx, "voice_room_join", roomId, roomId);
+            if (!ok) { navigate("/community"); return; }
           }
         }
       }

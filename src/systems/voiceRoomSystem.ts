@@ -22,12 +22,3 @@ export const VOICE_ROOM_CONFIGS: VoiceRoomConfig[] = [
 ];
 
 export const EVENT_HOURLY_COST = 5000;
-
-/** VX deducted every time a user joins a default public room */
-export const PUBLIC_ROOM_JOIN_COST = 5;
-
-export const DEFAULT_ROOMS = [
-  { id: "00000000-0000-4000-a000-000000000001", nameKey: "vroom.default.mainHall" },
-  { id: "00000000-0000-4000-a000-000000000002", nameKey: "vroom.default.techSupport" },
-  { id: "00000000-0000-4000-a000-000000000003", nameKey: "vroom.default.tradeCommerce" },
-];
