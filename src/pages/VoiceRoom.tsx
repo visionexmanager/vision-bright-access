@@ -1,14 +1,15 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
   useParticipants,
   useLocalParticipant,
+  useRoomContext,
   useTracks,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track } from "livekit-client";
+import { ConnectionQuality, RoomEvent, Track } from "livekit-client";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -69,7 +70,49 @@ function ParticipantTile({ participant }: { participant: ReturnType<typeof usePa
 function RoomContent({ onLeave, t }: { onLeave: () => void; t: (key: string) => string }) {
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
+  const room = useRoomContext();
   const [muted, setMuted] = useState(false);
+  const unstableToastShownRef = useRef(false);
+
+  useEffect(() => {
+    const onParticipantDisconnected = (participant: { name?: string; identity: string }) => {
+      const name = participant.name || participant.identity;
+      toast({ title: t("vroom.participantLeft").replace("{name}", name) });
+    };
+
+    const onConnectionQualityChanged = (quality: ConnectionQuality, participant: { isLocal?: boolean }) => {
+      if (!participant.isLocal) return;
+      if (quality === ConnectionQuality.Poor || quality === ConnectionQuality.Lost) {
+        if (!unstableToastShownRef.current) {
+          unstableToastShownRef.current = true;
+          toast({ title: t("vroom.connectionUnstable"), variant: "destructive" });
+        }
+      } else {
+        unstableToastShownRef.current = false;
+      }
+    };
+
+    const onReconnecting = () => {
+      toast({ title: t("vroom.reconnecting"), variant: "destructive" });
+    };
+
+    const onReconnected = () => {
+      unstableToastShownRef.current = false;
+      toast({ title: t("vroom.reconnected") });
+    };
+
+    room.on(RoomEvent.ParticipantDisconnected, onParticipantDisconnected);
+    room.on(RoomEvent.ConnectionQualityChanged, onConnectionQualityChanged);
+    room.on(RoomEvent.Reconnecting, onReconnecting);
+    room.on(RoomEvent.Reconnected, onReconnected);
+
+    return () => {
+      room.off(RoomEvent.ParticipantDisconnected, onParticipantDisconnected);
+      room.off(RoomEvent.ConnectionQualityChanged, onConnectionQualityChanged);
+      room.off(RoomEvent.Reconnecting, onReconnecting);
+      room.off(RoomEvent.Reconnected, onReconnected);
+    };
+  }, [room, t]);
 
   const toggleMic = async () => {
     await localParticipant.setMicrophoneEnabled(muted);
