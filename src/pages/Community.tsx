@@ -6,7 +6,7 @@ import { useSound } from "@/contexts/SoundContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mic, Users, Radio, Globe, Trash2, Loader2, LogIn } from "lucide-react";
+import { Mic, Users, Radio, Globe, Trash2, Loader2, LogIn, Lock, Share2 } from "lucide-react";
 import { DEFAULT_ROOMS, VOICE_ROOM_CONFIGS, PUBLIC_ROOM_JOIN_COST } from "@/systems/voiceRoomSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,8 @@ type VoiceRoom = {
   room_type: string;
   max_users: number;
   cost_vx: number;
+  join_cost_vx: number;
+  is_private: boolean;
   is_active: boolean;
   created_at: string;
 };
@@ -42,19 +44,27 @@ export default function Community() {
   const [joiningRoom, setJoiningRoom] = useState<string | null>(null);
   const [memberCounts, setMemberCounts] = useState<RoomMemberCount>({});
   const [myMemberships, setMyMemberships] = useState<RoomMyMembership>({});
+  const [makePrivate, setMakePrivate] = useState(false);
 
   const defaultRoomIds = DEFAULT_ROOMS.map((r) => r.id);
 
   const fetchRooms = useCallback(async () => {
-    const { data } = await supabase
+    let query = supabase
       .from("voice_rooms")
       .select("*")
       .eq("is_active", true)
-      .not("id", "in", `(${defaultRoomIds.join(",")})`)
-      .order("created_at", { ascending: false });
+      .not("id", "in", `(${defaultRoomIds.join(",")})`);
+
+    if (user) {
+      query = query.or(`is_private.eq.false,owner_id.eq.${user.id}`);
+    } else {
+      query = query.eq("is_private", false);
+    }
+
+    const { data } = await query.order("created_at", { ascending: false });
     setRooms((data as VoiceRoom[]) || []);
     setLoading(false);
-  }, []);
+  }, [user]);
 
   const fetchMemberCounts = useCallback(async () => {
     const { data } = await supabase
@@ -105,13 +115,14 @@ export default function Community() {
 
   const joinRoom = async (roomId: string, roomName: string) => {
     if (!user) return;
-    const isPublic = DEFAULT_ROOMS.some((r) => r.id === roomId);
-    if (isPublic) {
-      const ok = await spendVX(PUBLIC_ROOM_JOIN_COST, "voice_room_join", roomName, roomId);
-      if (!ok) return;
-    }
     playSound("navigate");
     navigate(`/community/room/${roomId}`);
+  };
+
+  const shareRoom = (roomId: string) => {
+    const url = `${window.location.origin}/community/room/${roomId}`;
+    navigator.clipboard.writeText(url);
+    toast({ title: t("vroom.linkCopied") });
   };
 
   const leaveRoom = async (roomId: string) => {
@@ -141,6 +152,8 @@ export default function Community() {
       room_type: cfg.type,
       max_users: cfg.maxUsers ?? 999,
       cost_vx: cfg.costVX,
+      join_cost_vx: cfg.joinCostVX,
+      is_private: makePrivate,
       is_active: true,
     }).select("id").single();
     if (error) {
@@ -164,7 +177,7 @@ export default function Community() {
     fetchRooms();
   };
 
-  const renderJoinButton = (roomId: string, maxUsers: number, roomName?: string, isPublic = false) => {
+  const renderJoinButton = (roomId: string, maxUsers: number, roomName?: string, joinCost = 0) => {
     const count = memberCounts[roomId] || 0;
     const isFull = maxUsers < 999 && count >= maxUsers;
 
@@ -178,7 +191,7 @@ export default function Community() {
         {isFull ? t("community.roomFull") : (
           <span className="flex items-center gap-1.5">
             {t("community.joinRoom")}
-            {isPublic && <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-xs font-semibold text-primary">{PUBLIC_ROOM_JOIN_COST} VX</span>}
+            {joinCost > 0 && <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-xs font-semibold text-primary">{joinCost} VX</span>}
           </span>
         )}
       </Button>
@@ -230,8 +243,11 @@ export default function Community() {
                     <Badge variant="outline">{t("community.open")}</Badge>
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  {renderJoinButton(room.id, 999, t(room.nameKey), true)}
+                <CardContent className="flex gap-2">
+                  {renderJoinButton(room.id, 999, t(room.nameKey), PUBLIC_ROOM_JOIN_COST)}
+                  <Button size="icon" variant="outline" onClick={() => shareRoom(room.id)} aria-label={t("vroom.shareRoom")}>
+                    <Share2 className="h-4 w-4" />
+                  </Button>
                 </CardContent>
               </Card>
             </StaggerItem>
@@ -255,6 +271,7 @@ export default function Community() {
                       <CardTitle className="flex items-center gap-2 text-lg">
                         <span className="text-2xl">{cfg?.icon || "🎙️"}</span>
                         {room.room_name}
+                        {room.is_private && <Lock className="h-4 w-4 text-muted-foreground" aria-label={t("vroom.private")} />}
                       </CardTitle>
                       <CardDescription className="flex items-center gap-2">
                         <Badge variant="outline">{room.room_type}</Badge>
@@ -262,7 +279,10 @@ export default function Community() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="flex gap-2">
-                      {renderJoinButton(room.id, room.max_users, room.room_name, false)}
+                      {renderJoinButton(room.id, room.max_users, room.room_name, room.join_cost_vx)}
+                      <Button size="icon" variant="outline" onClick={() => shareRoom(room.id)} aria-label={t("vroom.shareRoom")}>
+                        <Share2 className="h-4 w-4" />
+                      </Button>
                       {user?.id === room.owner_id && (
                         <Button
                           variant="destructive"
@@ -290,10 +310,20 @@ export default function Community() {
         {/* Create private room */}
         {user && (
           <div>
-            <h2 className="mb-4 text-2xl font-bold flex items-center gap-2">
-              <Globe className="h-6 w-6 text-primary" />
-              {t("community.createRoom")}
-            </h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Globe className="h-6 w-6 text-primary" />
+                {t("community.createRoom")}
+              </h2>
+              <button
+                onClick={() => setMakePrivate((v) => !v)}
+                className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${makePrivate ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}
+                aria-pressed={makePrivate}
+              >
+                <Lock className="h-4 w-4" />
+                {makePrivate ? t("vroom.private") : t("community.publicRoom")}
+              </button>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {VOICE_ROOM_CONFIGS.map((cfg) => {
                 const cfgLabel = t(cfg.labelKey);
@@ -307,7 +337,12 @@ export default function Community() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Badge className="mb-3 text-base">{cfg.costVX} VX</Badge>
+                    <div className="mb-3 flex flex-col gap-1 items-center">
+                      <Badge className="text-base">{cfg.costVX} VX</Badge>
+                      {cfg.joinCostVX > 0 && (
+                        <span className="text-xs text-muted-foreground">{t("community.joinCost")}: {cfg.joinCostVX} VX</span>
+                      )}
+                    </div>
                     <Button
                       variant="outline"
                       className="w-full"

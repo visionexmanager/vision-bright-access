@@ -10,14 +10,15 @@ export interface VoiceRoomConfig {
   labelKey: string;
   maxUsers: number | null; // null = unlimited
   costVX: number;
+  joinCostVX: number;
   icon: string;
 }
 
 export const VOICE_ROOM_CONFIGS: VoiceRoomConfig[] = [
-  { type: "mini",     labelKey: "vroom.type.mini",     maxUsers: 4,    costVX: 10,     icon: "🎙️" },
-  { type: "standard", labelKey: "vroom.type.standard", maxUsers: 8,    costVX: 20,     icon: "🎤" },
-  { type: "pro",      labelKey: "vroom.type.pro",      maxUsers: 16,   costVX: 50,     icon: "🎧" },
-  { type: "event",    labelKey: "vroom.type.event",    maxUsers: null, costVX: 10_000, icon: "🏟️" },
+  { type: "mini",     labelKey: "vroom.type.mini",     maxUsers: 4,    costVX: 10,     joinCostVX: 2,  icon: "🎙️" },
+  { type: "standard", labelKey: "vroom.type.standard", maxUsers: 8,    costVX: 20,     joinCostVX: 5,  icon: "🎤" },
+  { type: "pro",      labelKey: "vroom.type.pro",      maxUsers: 16,   costVX: 50,     joinCostVX: 10, icon: "🎧" },
+  { type: "event",    labelKey: "vroom.type.event",    maxUsers: null, costVX: 10_000, joinCostVX: 20, icon: "🏟️" },
 ];
 
 export const EVENT_HOURLY_COST = 5000;

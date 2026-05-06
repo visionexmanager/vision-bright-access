@@ -17,8 +17,9 @@ import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Mic, MicOff, PhoneOff, Users, Volume2 } from "lucide-react";
-import { DEFAULT_ROOMS } from "@/systems/voiceRoomSystem";
+import { Copy, Loader2, Lock, Mic, MicOff, PhoneOff, Users, Volume2 } from "lucide-react";
+import { DEFAULT_ROOMS, PUBLIC_ROOM_JOIN_COST } from "@/systems/voiceRoomSystem";
+import { useVXWallet } from "@/hooks/useVXWallet";
 
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
 
@@ -129,10 +130,12 @@ export default function VoiceRoom() {
   const { user } = useAuth();
   const { t } = useLanguage();
 
+  const { spendVX } = useVXWallet();
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roomName, setRoomName] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
 
   const livekitUrl = resolveLiveKitUrl();
 
@@ -164,6 +167,35 @@ export default function VoiceRoom() {
     }
 
     const getToken = async () => {
+      // Check if already a member to avoid double-charging
+      const { data: existingMember } = await supabase
+        .from("voice_room_members")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!existingMember) {
+        const isDefault = DEFAULT_ROOMS.some((r) => r.id === roomId);
+        if (isDefault) {
+          const ok = await spendVX(PUBLIC_ROOM_JOIN_COST, "voice_room_join", roomId, roomId);
+          if (!ok) { navigate("/community"); return; }
+        } else {
+          const { data: room } = await supabase
+            .from("voice_rooms")
+            .select("join_cost_vx, is_private, owner_id")
+            .eq("id", roomId)
+            .single();
+          if (room) {
+            setIsPrivate(room.is_private);
+            if (room.owner_id !== user.id && room.join_cost_vx > 0) {
+              const ok = await spendVX(room.join_cost_vx, "voice_room_join", roomId, roomId);
+              if (!ok) { navigate("/community"); return; }
+            }
+          }
+        }
+      }
+
       const { error: membershipError } = await supabase.from("voice_room_members").upsert(
         { room_id: roomId, user_id: user.id },
         { onConflict: "room_id,user_id", ignoreDuplicates: true }
@@ -246,16 +278,33 @@ export default function VoiceRoom() {
               <Mic className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">{roomName}</h1>
+              <h1 className="text-xl font-bold flex items-center gap-2">
+                {roomName}
+                {isPrivate && <Lock className="h-4 w-4 text-muted-foreground" aria-label={t("vroom.private")} />}
+              </h1>
               <Badge variant="outline" className="mt-0.5 gap-1 text-xs text-emerald-600 border-emerald-500/40">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 {t("vroom.live")}
               </Badge>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleLeave}>
-            {t("vroom.leave")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                toast({ title: t("vroom.linkCopied") });
+              }}
+              aria-label={t("vroom.shareRoom")}
+            >
+              <Copy className="h-4 w-4 me-1.5" />
+              {t("vroom.shareRoom")}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleLeave}>
+              {t("vroom.leave")}
+            </Button>
+          </div>
         </div>
 
         <Card>
