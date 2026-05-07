@@ -6,6 +6,7 @@ import { useSound } from "@/contexts/SoundContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Mic, Users, Radio, Globe, Trash2, Loader2, LogIn, Lock, Share2 } from "lucide-react";
 import { DEFAULT_ROOMS, VOICE_ROOM_CONFIGS, PUBLIC_ROOM_JOIN_COST } from "@/systems/voiceRoomSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
@@ -20,6 +21,7 @@ type VoiceRoom = {
   owner_id: string;
   room_name: string;
   room_type: string;
+  room_topic: string | null;
   max_users: number;
   cost_vx: number;
   join_cost_vx: number;
@@ -45,6 +47,7 @@ export default function Community() {
   const [memberCounts, setMemberCounts] = useState<RoomMemberCount>({});
   const [myMemberships, setMyMemberships] = useState<RoomMyMembership>({});
   const [makePrivate, setMakePrivate] = useState(false);
+  const [roomTopic, setRoomTopic] = useState("");
 
   const defaultRoomIds = DEFAULT_ROOMS.map((r) => r.id);
 
@@ -150,6 +153,7 @@ export default function Community() {
       owner_id: user.id,
       room_name: cfgLabel,
       room_type: cfg.type,
+      room_topic: roomTopic.trim() || null,
       max_users: cfg.maxUsers ?? 999,
       cost_vx: cfg.costVX,
       join_cost_vx: cfg.joinCostVX,
@@ -273,9 +277,14 @@ export default function Community() {
                         {room.room_name}
                         {room.is_private && <Lock className="h-4 w-4 text-muted-foreground" aria-label={t("vroom.private")} />}
                       </CardTitle>
-                      <CardDescription className="flex items-center gap-2">
-                        <Badge variant="outline">{room.room_type}</Badge>
-                        {renderMemberBadge(room.id, room.max_users)}
+                      <CardDescription className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{room.room_type}</Badge>
+                          {renderMemberBadge(room.id, room.max_users)}
+                        </div>
+                        {room.room_topic && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">{room.room_topic}</p>
+                        )}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="flex gap-2">
@@ -323,6 +332,16 @@ export default function Community() {
                 <Lock className="h-4 w-4" />
                 {makePrivate ? t("vroom.private") : t("community.publicRoom")}
               </button>
+            </div>
+            {/* Topic input */}
+            <div className="mb-4">
+              <Input
+                value={roomTopic}
+                onChange={(e) => setRoomTopic(e.target.value)}
+                placeholder={t("vroom.topicPlaceholder")}
+                maxLength={120}
+                className="max-w-lg"
+              />
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {VOICE_ROOM_CONFIGS.map((cfg) => {
