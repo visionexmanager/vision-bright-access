@@ -31,12 +31,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Check, Copy, Loader2, Lock, Mic, MicOff, Pencil,
-  PhoneOff, ShieldX, UserX, Users, Volume2, X,
+  Check, Copy, Hand, Loader2, Lock, Mic, MicOff,
+  Pencil, PhoneOff, ShieldX, UserX, Users, Volume2, X,
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
 
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
+const REACTIONS = ["👍", "❤️", "😂", "😮", "👏"];
 
 function resolveLiveKitUrl() {
   const configuredUrl = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
@@ -47,17 +48,26 @@ function resolveLiveKitUrl() {
   return url;
 }
 
+// ── Types ──────────────────────────────────────────────────────────
+interface FloatingReaction {
+  id: string;
+  emoji: string;
+  x: number;
+  visible: boolean;
+}
+
 // ── Participant tile ───────────────────────────────────────────────
 interface ParticipantTileProps {
   participant: ReturnType<typeof useParticipants>[number];
   canModerate: boolean;
   isMe: boolean;
+  isRaisingHand: boolean;
   onKick: (identity: string, name: string) => void;
   onBan: (identity: string, name: string) => void;
   t: (key: string) => string;
 }
 
-function ParticipantTile({ participant, canModerate, isMe, onKick, onBan, t }: ParticipantTileProps) {
+function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick, onBan, t }: ParticipantTileProps) {
   const tracks = useTracks(
     [{ source: Track.Source.Microphone, withPlaceholder: true }],
     { participant }
@@ -67,7 +77,10 @@ function ParticipantTile({ participant, canModerate, isMe, onKick, onBan, t }: P
   const displayName = participant.name || participant.identity;
 
   return (
-    <div className={`flex flex-col items-center gap-2 rounded-2xl border p-4 transition-all ${isSpeaking ? "border-primary bg-primary/5 shadow-md" : "border-border bg-muted/30"}`}>
+    <div className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 transition-all ${isSpeaking ? "border-primary bg-primary/5 shadow-md" : "border-border bg-muted/30"}`}>
+      {isRaisingHand && (
+        <span className="absolute -top-2 -right-2 text-lg animate-bounce z-10 select-none">✋</span>
+      )}
       <div className={`relative flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-primary-foreground ${isSpeaking ? "bg-primary" : "bg-muted-foreground/30"}`}>
         {displayName.charAt(0).toUpperCase()}
         {isSpeaking && (
@@ -134,22 +147,85 @@ interface RoomContentProps {
   canModerate: boolean;
   currentUserId: string;
   roomId: string;
+  raisedHands: Set<string>;
   t: (key: string) => string;
 }
 
-function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, t }: RoomContentProps) {
+function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomId, raisedHands, t }: RoomContentProps) {
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
+  const localParticipantRef = useRef(localParticipant);
   const [muted, setMuted] = useState(false);
+  const [handRaised, setHandRaised] = useState(false);
+  const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
+  const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  useEffect(() => { localParticipantRef.current = localParticipant; }, [localParticipant]);
+
+  // Broadcast channel: reactions + mute_all
+  useEffect(() => {
+    const ch = supabase
+      .channel(`room-bc-${roomId}`, { config: { broadcast: { self: true } } })
+      .on("broadcast", { event: "reaction" }, ({ payload }: { payload: { emoji: string; senderId: string } }) => {
+        const id = Math.random().toString(36).slice(2);
+        const x = 5 + Math.random() * 85;
+        const r: FloatingReaction = { id, emoji: payload.emoji, x, visible: true };
+        setFloatingReactions((prev) => [...prev, r]);
+        setTimeout(() => setFloatingReactions((prev) => prev.map((item) => item.id === id ? { ...item, visible: false } : item)), 1600);
+        setTimeout(() => setFloatingReactions((prev) => prev.filter((item) => item.id !== id)), 2600);
+      })
+      .on("broadcast", { event: "mute_all" }, ({ payload }: { payload: { byUserId: string } }) => {
+        if (payload.byUserId === currentUserId) return;
+        localParticipantRef.current?.setMicrophoneEnabled(false);
+        setMuted(true);
+        toast({ title: t("vroom.mutedByOwner") });
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") broadcastChRef.current = ch;
+      });
+
+    return () => {
+      supabase.removeChannel(ch);
+      broadcastChRef.current = null;
+    };
+  }, [roomId, currentUserId, t]);
 
   const toggleMic = async () => {
     await localParticipant.setMicrophoneEnabled(muted);
     setMuted(!muted);
   };
 
+  const toggleHand = async () => {
+    const newVal = !handRaised;
+    setHandRaised(newVal);
+    await supabase
+      .from("voice_room_members")
+      .update({ raise_hand: newVal })
+      .eq("room_id", roomId)
+      .eq("user_id", currentUserId);
+  };
+
+  const muteAll = () => {
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "mute_all",
+      payload: { byUserId: currentUserId },
+    });
+    toast({ title: t("vroom.mutedAll") });
+  };
+
+  const sendReaction = (emoji: string) => {
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "reaction",
+      payload: { emoji, senderId: currentUserId },
+    });
+  };
+
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      {/* Participants grid */}
+      <div className="relative">
         <div className="mb-3 flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium text-muted-foreground">
@@ -163,19 +239,82 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, t }: 
               participant={p}
               canModerate={canModerate}
               isMe={p.identity === currentUserId}
+              isRaisingHand={raisedHands.has(p.identity)}
               onKick={onKick}
               onBan={onBan}
               t={t}
             />
           ))}
         </div>
+
+        {/* Floating reactions overlay */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          {floatingReactions.map((r) => (
+            <div
+              key={r.id}
+              className={`absolute bottom-0 text-4xl transition-all duration-1000 ease-out select-none ${r.visible ? "-translate-y-24 opacity-100" : "-translate-y-48 opacity-0"}`}
+              style={{ left: `${r.x}%` }}
+            >
+              {r.emoji}
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="flex items-center justify-center gap-4 pt-2">
-        <Button size="lg" variant={muted ? "destructive" : "outline"} className="h-14 w-14 rounded-full p-0" onClick={toggleMic} aria-label={muted ? t("vroom.unmute") : t("vroom.mute")}>
+      {/* Reaction bar */}
+      <div className="flex justify-center gap-3 rounded-xl border bg-muted/20 py-2.5 px-4">
+        {REACTIONS.map((emoji) => (
+          <button
+            key={emoji}
+            onClick={() => sendReaction(emoji)}
+            className="text-2xl transition-transform hover:scale-125 active:scale-95"
+            aria-label={emoji}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center justify-center gap-4 pt-2 flex-wrap">
+        {canModerate && (
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-14 w-14 rounded-full p-0 text-orange-500 border-orange-300 hover:bg-orange-50 hover:border-orange-500"
+            onClick={muteAll}
+            title={t("vroom.muteAll")}
+            aria-label={t("vroom.muteAll")}
+          >
+            <MicOff className="h-6 w-6" />
+          </Button>
+        )}
+        <Button
+          size="lg"
+          variant={muted ? "destructive" : "outline"}
+          className="h-14 w-14 rounded-full p-0"
+          onClick={toggleMic}
+          aria-label={muted ? t("vroom.unmute") : t("vroom.mute")}
+        >
           {muted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
         </Button>
-        <Button size="lg" variant="destructive" className="h-14 w-14 rounded-full p-0" onClick={onLeave} aria-label={t("vroom.leaveRoom")}>
+        <Button
+          size="lg"
+          variant="outline"
+          className={`h-14 w-14 rounded-full p-0 transition-colors ${handRaised ? "bg-amber-500 hover:bg-amber-600 border-amber-500 text-white" : ""}`}
+          onClick={toggleHand}
+          aria-label={handRaised ? t("vroom.lowerHand") : t("vroom.raiseHand")}
+          title={handRaised ? t("vroom.lowerHand") : t("vroom.raiseHand")}
+        >
+          <Hand className="h-6 w-6" />
+        </Button>
+        <Button
+          size="lg"
+          variant="destructive"
+          className="h-14 w-14 rounded-full p-0"
+          onClick={onLeave}
+          aria-label={t("vroom.leaveRoom")}
+        >
           <PhoneOff className="h-6 w-6" />
         </Button>
       </div>
@@ -202,6 +341,7 @@ export default function VoiceRoom() {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState(false);
   const [topicDraft, setTopicDraft] = useState("");
+  const [raisedHands, setRaisedHands] = useState<Set<string>>(new Set());
 
   const leftIntentionally = useRef(false);
   const livekitUrl = resolveLiveKitUrl();
@@ -241,7 +381,6 @@ export default function VoiceRoom() {
     if (!roomId) { navigate("/community"); return; }
 
     const getToken = async () => {
-      // Fetch room from DB (all rooms, including defaults, are now in DB)
       const { data: room } = await supabase
         .from("voice_rooms")
         .select("room_name, room_topic, is_private, owner_id, join_cost_vx, is_default, is_active")
@@ -254,7 +393,6 @@ export default function VoiceRoom() {
         return;
       }
 
-      // Block entry to inactive rooms (non-admins)
       if (!room.is_active && !isAdmin) {
         toast({ title: t("vroom.roomInactive"), variant: "destructive" });
         navigate("/community");
@@ -267,7 +405,6 @@ export default function VoiceRoom() {
       setIsPrivate(room.is_private);
       setOwnerId(room.owner_id);
 
-      // Check ban
       const { data: ban } = await supabase
         .from("voice_room_bans")
         .select("id")
@@ -280,7 +417,6 @@ export default function VoiceRoom() {
         return;
       }
 
-      // Avoid double-charging
       const { data: existingMember } = await supabase
         .from("voice_room_members")
         .select("id")
@@ -293,9 +429,10 @@ export default function VoiceRoom() {
         if (!ok) { navigate("/community"); return; }
       }
 
+      // Upsert with raise_hand reset on (re)join
       const { error: membershipError } = await supabase.from("voice_room_members").upsert(
-        { room_id: roomId, user_id: user.id },
-        { onConflict: "room_id,user_id", ignoreDuplicates: true }
+        { room_id: roomId, user_id: user.id, raise_hand: false },
+        { onConflict: "room_id,user_id" }
       );
       if (membershipError) { setError(membershipError.message); setLoading(false); return; }
 
@@ -340,13 +477,65 @@ export default function VoiceRoom() {
     return () => { supabase.removeChannel(channel); };
   }, [user, roomId, token, navigate, t]);
 
+  // Ownership transfer: listen for owner_id change
+  useEffect(() => {
+    if (!roomId || !token) return;
+    const ch = supabase
+      .channel(`room-owner-${roomId}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "voice_rooms",
+        filter: `id=eq.${roomId}`,
+      }, (payload) => {
+        const updated = payload.new as { owner_id?: string };
+        if (updated.owner_id) setOwnerId(updated.owner_id);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [roomId, token]);
+
+  // Raised hands: initial load + realtime updates
+  useEffect(() => {
+    if (!roomId || !token) return;
+
+    supabase
+      .from("voice_room_members")
+      .select("user_id, raise_hand")
+      .eq("room_id", roomId)
+      .eq("raise_hand", true)
+      .then(({ data }) => {
+        if (data) setRaisedHands(new Set(data.map((m) => m.user_id)));
+      });
+
+    const ch = supabase
+      .channel(`room-hands-${roomId}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "voice_room_members",
+        filter: `room_id=eq.${roomId}`,
+      }, (payload) => {
+        const updated = payload.new as { user_id?: string; raise_hand?: boolean };
+        if (!updated.user_id) return;
+        setRaisedHands((prev) => {
+          const next = new Set(prev);
+          if (updated.raise_hand) next.add(updated.user_id!);
+          else next.delete(updated.user_id!);
+          return next;
+        });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(ch); };
+  }, [roomId, token]);
+
   const handleLeave = async () => {
     leftIntentionally.current = true;
     await cleanup();
     navigate("/community");
   };
 
-  // Owner or admin can moderate and edit topic
   const canModerate = user?.id === ownerId || isAdmin;
 
   if (loading) {
@@ -395,7 +584,15 @@ export default function VoiceRoom() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(window.location.href); toast({ title: t("vroom.linkCopied") }); }} aria-label={t("vroom.shareRoom")}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                toast({ title: t("vroom.linkCopied") });
+              }}
+              aria-label={t("vroom.shareRoom")}
+            >
               <Copy className="h-4 w-4 me-1.5" />
               {t("vroom.shareRoom")}
             </Button>
@@ -426,7 +623,13 @@ export default function VoiceRoom() {
             <>
               <span className="flex-1 text-sm text-muted-foreground">{roomTopic || t("vroom.noTopic")}</span>
               {canModerate && (
-                <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground" onClick={() => { setTopicDraft(roomTopic); setEditingTopic(true); }} aria-label={t("vroom.editTopic")}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 text-muted-foreground"
+                  onClick={() => { setTopicDraft(roomTopic); setEditingTopic(true); }}
+                  aria-label={t("vroom.editTopic")}
+                >
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
               )}
@@ -456,6 +659,7 @@ export default function VoiceRoom() {
                 canModerate={canModerate}
                 currentUserId={user?.id ?? ""}
                 roomId={roomId ?? ""}
+                raisedHands={raisedHands}
                 t={t}
               />
             </LiveKitRoom>
