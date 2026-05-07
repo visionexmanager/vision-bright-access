@@ -6,9 +6,11 @@ import {
   useParticipants,
   useLocalParticipant,
   useTracks,
+  useConnectionState,
+  VideoTrack,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track } from "livekit-client";
+import { Track, ConnectionState } from "livekit-client";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -32,7 +34,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Check, Copy, Hand, Loader2, Lock, Mic, MicOff,
-  Pencil, PhoneOff, ShieldX, UserX, Users, Volume2, X,
+  Monitor, MonitorOff, Pencil, PhoneOff, RefreshCw, ShieldX,
+  Unlock, UserX, Users, Volume2, WifiOff, X,
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
 
@@ -153,14 +156,68 @@ interface RoomContentProps {
 
 function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomId, raisedHands, t }: RoomContentProps) {
   const participants = useParticipants();
-  const { localParticipant } = useLocalParticipant();
+  const { localParticipant, isScreenShareEnabled } = useLocalParticipant();
   const localParticipantRef = useRef(localParticipant);
+  const connectionState = useConnectionState();
   const [muted, setMuted] = useState(false);
   const [handRaised, setHandRaised] = useState(false);
   const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
   const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
+  // Screen share tracks for all participants
+  const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
+
+  // Join/leave sound + notification tracking
+  const prevParticipantsRef = useRef<Map<string, string>>(new Map());
+  const isInitialLoadRef = useRef(true);
+
+  // Track reconnecting state for toast
+  const wasReconnectingRef = useRef(false);
+
   useEffect(() => { localParticipantRef.current = localParticipant; }, [localParticipant]);
+
+  // Reconnecting banner + reconnected toast
+  useEffect(() => {
+    if (connectionState === ConnectionState.Reconnecting) {
+      wasReconnectingRef.current = true;
+    } else if (connectionState === ConnectionState.Connected && wasReconnectingRef.current) {
+      wasReconnectingRef.current = false;
+      toast({ title: t("vroom.reconnected") });
+    }
+  }, [connectionState, t]);
+
+  // Join/leave notifications
+  useEffect(() => {
+    const currentMap = new Map<string, string>(
+      participants.map((p) => [p.identity, p.name || p.identity])
+    );
+
+    if (isInitialLoadRef.current) {
+      prevParticipantsRef.current = currentMap;
+      isInitialLoadRef.current = false;
+      return;
+    }
+
+    const prev = prevParticipantsRef.current;
+
+    // Detect joined
+    for (const [identity, name] of currentMap) {
+      if (!prev.has(identity) && identity !== currentUserId) {
+        playJoinLeaveSound(true);
+        toast({ title: `${name} ${t("vroom.userJoined")}` });
+      }
+    }
+
+    // Detect left
+    for (const [identity, name] of prev) {
+      if (!currentMap.has(identity) && identity !== currentUserId) {
+        playJoinLeaveSound(false);
+        toast({ title: `${name} ${t("vroom.userLeft")}` });
+      }
+    }
+
+    prevParticipantsRef.current = currentMap;
+  }, [participants, currentUserId, t]);
 
   // Broadcast channel: reactions + mute_all
   useEffect(() => {
@@ -222,8 +279,55 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
     });
   };
 
+  const toggleScreenShare = async () => {
+    try {
+      await localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
+    } catch {
+      toast({ title: t("vroom.screenShareError"), variant: "destructive" });
+    }
+  };
+
+  const canScreenShare = typeof navigator?.mediaDevices?.getDisplayMedia === "function";
+
   return (
     <div className="flex flex-col gap-6">
+      {/* Reconnecting banner */}
+      {connectionState === ConnectionState.Reconnecting && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-amber-700">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm font-medium">{t("vroom.reconnecting")}</span>
+        </div>
+      )}
+
+      {/* Screen share tracks */}
+      {screenShareTracks.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {screenShareTracks.map((track) => {
+            const isOwn = track.participant.identity === currentUserId;
+            const participantName = track.participant.name || track.participant.identity;
+            return (
+              <div key={track.participant.identity} className="relative aspect-video rounded-xl bg-black border overflow-hidden">
+                <VideoTrack trackRef={track} />
+                <span className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
+                  {participantName} — {t("vroom.sharingScreen")}
+                </span>
+                {isOwn && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-2 right-2 h-7 text-xs"
+                    onClick={toggleScreenShare}
+                  >
+                    <MonitorOff className="h-3.5 w-3.5 me-1" />
+                    {t("vroom.stopSharing")}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Participants grid */}
       <div className="relative">
         <div className="mb-3 flex items-center gap-2">
@@ -308,6 +412,18 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         >
           <Hand className="h-6 w-6" />
         </Button>
+        {canScreenShare && (
+          <Button
+            size="lg"
+            variant="outline"
+            className={`h-14 w-14 rounded-full p-0 transition-colors ${isScreenShareEnabled ? "bg-blue-500 hover:bg-blue-600 border-blue-500 text-white" : ""}`}
+            onClick={toggleScreenShare}
+            aria-label={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+            title={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+          >
+            <Monitor className="h-6 w-6" />
+          </Button>
+        )}
         <Button
           size="lg"
           variant="destructive"
@@ -321,6 +437,28 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
       <p className="text-center text-xs text-muted-foreground">{t("vroom.hint")}</p>
     </div>
   );
+}
+
+// ── Web Audio join/leave tones ─────────────────────────────────────
+function playJoinLeaveSound(joined: boolean) {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const startFreq = joined ? 880 : 660;
+    const endFreq = joined ? 1047 : 494;
+    osc.frequency.setValueAtTime(startFreq, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(endFreq, ctx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+    osc.onended = () => ctx.close();
+  } catch {
+    // AudioContext not available — ignore
+  }
 }
 
 // ── Main page ──────────────────────────────────────────────────────
@@ -342,9 +480,14 @@ export default function VoiceRoom() {
   const [editingTopic, setEditingTopic] = useState(false);
   const [topicDraft, setTopicDraft] = useState("");
   const [raisedHands, setRaisedHands] = useState<Set<string>>(new Set());
+  const [connectionLost, setConnectionLost] = useState(false);
+  const [connectionKey, setConnectionKey] = useState(0);
 
   const leftIntentionally = useRef(false);
+  const roomTopicRef = useRef(roomTopic);
   const livekitUrl = resolveLiveKitUrl();
+
+  useEffect(() => { roomTopicRef.current = roomTopic; }, [roomTopic]);
 
   const cleanup = useCallback(async () => {
     if (user && roomId) {
@@ -375,6 +518,37 @@ export default function VoiceRoom() {
     setEditingTopic(false);
     toast({ title: t("vroom.topicSaved") });
   };
+
+  const togglePrivacy = useCallback(async () => {
+    if (!roomId) return;
+    const newValue = !isPrivate;
+    await supabase.from("voice_rooms").update({ is_private: newValue }).eq("id", roomId);
+    toast({ title: t(newValue ? "vroom.roomNowPrivate" : "vroom.roomNowPublic") });
+  }, [roomId, isPrivate, t]);
+
+  const handleReconnect = useCallback(async () => {
+    if (!user || !roomId) return;
+    // Re-upsert into voice_room_members
+    await supabase.from("voice_room_members").upsert(
+      { room_id: roomId, user_id: user.id, raise_hand: false },
+      { onConflict: "room_id,user_id" }
+    );
+    // Re-fetch token
+    const { data, error: fnErr } = await supabase.functions.invoke("livekit-token", {
+      body: {
+        roomId,
+        userId: user.id,
+        userName: user.user_metadata?.display_name || user.email,
+      },
+    });
+    if (fnErr || !data?.token) {
+      toast({ title: t("vroom.tokenError"), variant: "destructive" });
+      return;
+    }
+    setToken(data.token);
+    setConnectionKey((k) => k + 1);
+    setConnectionLost(false);
+  }, [user, roomId, t]);
 
   useEffect(() => {
     if (!user) { navigate("/login"); return; }
@@ -477,19 +651,25 @@ export default function VoiceRoom() {
     return () => { supabase.removeChannel(channel); };
   }, [user, roomId, token, navigate, t]);
 
-  // Ownership transfer: listen for owner_id change
+  // Unified room data subscription (topic, privacy, ownership)
   useEffect(() => {
     if (!roomId || !token) return;
     const ch = supabase
-      .channel(`room-owner-${roomId}`)
+      .channel(`room-data-${roomId}`)
       .on("postgres_changes", {
         event: "UPDATE",
         schema: "public",
         table: "voice_rooms",
         filter: `id=eq.${roomId}`,
       }, (payload) => {
-        const updated = payload.new as { owner_id?: string };
-        if (updated.owner_id) setOwnerId(updated.owner_id);
+        const updated = payload.new as { owner_id?: string; room_topic?: string; is_private?: boolean };
+        if (updated.owner_id !== undefined) setOwnerId(updated.owner_id);
+        if (updated.room_topic !== undefined) {
+          setRoomTopic(updated.room_topic);
+          // Keep topicDraft in sync unless user is currently editing
+          setTopicDraft((prev) => prev === roomTopicRef.current ? updated.room_topic! : prev);
+        }
+        if (updated.is_private !== undefined) setIsPrivate(updated.is_private);
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -575,7 +755,21 @@ export default function VoiceRoom() {
             <div>
               <h1 className="text-xl font-bold flex items-center gap-2">
                 {roomName}
-                {isPrivate && <Lock className="h-4 w-4 text-muted-foreground" aria-label={t("vroom.private")} />}
+                {canModerate ? (
+                  <button
+                    onClick={togglePrivacy}
+                    aria-label={t(isPrivate ? "vroom.makePublic" : "vroom.makePrivate")}
+                    title={t(isPrivate ? "vroom.makePublic" : "vroom.makePrivate")}
+                    className="inline-flex items-center"
+                  >
+                    {isPrivate
+                      ? <Lock className="h-4 w-4 text-amber-500" />
+                      : <Unlock className="h-4 w-4 text-muted-foreground" />
+                    }
+                  </button>
+                ) : (
+                  isPrivate && <Lock className="h-4 w-4 text-muted-foreground" aria-label={t("vroom.private")} />
+                )}
               </h1>
               <Badge variant="outline" className="mt-0.5 gap-1 text-xs text-emerald-600 border-emerald-500/40">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -639,30 +833,58 @@ export default function VoiceRoom() {
 
         <Card>
           <CardContent className="p-6">
-            <LiveKitRoom
-              serverUrl={livekitUrl}
-              token={token}
-              connect
-              audio
-              video={false}
-              onDisconnected={() => { void cleanup(); }}
-              onError={(err) => {
-                setError(err.message);
-                toast({ title: t("vroom.connectionError"), description: err.message, variant: "destructive" });
-              }}
-            >
-              <RoomAudioRenderer />
-              <RoomContent
-                onLeave={handleLeave}
-                onKick={handleKick}
-                onBan={handleBan}
-                canModerate={canModerate}
-                currentUserId={user?.id ?? ""}
-                roomId={roomId ?? ""}
-                raisedHands={raisedHands}
-                t={t}
-              />
-            </LiveKitRoom>
+            {connectionLost ? (
+              <div className="flex flex-col items-center gap-4 py-10 text-center">
+                <WifiOff className="h-12 w-12 text-muted-foreground" />
+                <div>
+                  <p className="text-lg font-semibold">{t("vroom.connectionLost")}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t("vroom.connectionLostDesc")}</p>
+                </div>
+                <div className="flex gap-3">
+                  <Button onClick={handleReconnect}>
+                    <RefreshCw className="h-4 w-4 me-2" />
+                    {t("vroom.reconnect")}
+                  </Button>
+                  <Button variant="outline" onClick={handleLeave}>
+                    <PhoneOff className="h-4 w-4 me-2" />
+                    {t("vroom.leave")}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <LiveKitRoom
+                key={connectionKey}
+                serverUrl={livekitUrl}
+                token={token}
+                connect
+                audio
+                video={false}
+                onDisconnected={() => {
+                  if (!leftIntentionally.current) {
+                    setConnectionLost(true);
+                    toast({ title: t("vroom.connectionLost"), variant: "destructive" });
+                  } else {
+                    void cleanup();
+                  }
+                }}
+                onError={(err) => {
+                  setError(err.message);
+                  toast({ title: t("vroom.connectionError"), description: err.message, variant: "destructive" });
+                }}
+              >
+                <RoomAudioRenderer />
+                <RoomContent
+                  onLeave={handleLeave}
+                  onKick={handleKick}
+                  onBan={handleBan}
+                  canModerate={canModerate}
+                  currentUserId={user?.id ?? ""}
+                  roomId={roomId ?? ""}
+                  raisedHands={raisedHands}
+                  t={t}
+                />
+              </LiveKitRoom>
+            )}
           </CardContent>
         </Card>
       </div>
