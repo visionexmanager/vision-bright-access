@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import {
   Mic, Users, Radio, Globe, Trash2, Loader2, LogIn,
   Lock, Share2, Check, X, Pencil, PowerOff, Power,
+  Calendar, Clock, Bell,
 } from "lucide-react";
 import { VOICE_ROOM_CONFIGS } from "@/systems/voiceRoomSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
@@ -32,13 +33,64 @@ type VoiceRoom = {
   is_private: boolean;
   is_active: boolean;
   is_default: boolean;
+  scheduled_at: string | null;
   created_at: string;
 };
 
 type RoomMemberCount = Record<string, number>;
 
+// ── Countdown hook ────────────────────────────────────────────────
+function useCountdown(targetISO: string | null) {
+  const calc = () => {
+    if (!targetISO) return null;
+    const diff = new Date(targetISO).getTime() - Date.now();
+    if (diff <= 0) return null;
+    const d = Math.floor(diff / 86_400_000);
+    const h = Math.floor((diff % 86_400_000) / 3_600_000);
+    const m = Math.floor((diff % 3_600_000) / 60_000);
+    const s = Math.floor((diff % 60_000) / 1_000);
+    return { d, h, m, s, diff };
+  };
+  const [remaining, setRemaining] = useState(calc);
+
+  useEffect(() => {
+    if (!targetISO) { setRemaining(null); return; }
+    const id = setInterval(() => setRemaining(calc()), 1_000);
+    return () => clearInterval(id);
+  }, [targetISO]);
+
+  return remaining;
+}
+
+// ── Countdown display ─────────────────────────────────────────────
+function CountdownBadge({ targetISO, onExpire }: { targetISO: string; onExpire?: () => void }) {
+  const rem = useCountdown(targetISO);
+  const expiredRef = useRef(false);
+
+  useEffect(() => {
+    if (!rem && !expiredRef.current) {
+      expiredRef.current = true;
+      onExpire?.();
+    }
+  }, [rem, onExpire]);
+
+  if (!rem) return <Badge className="gap-1 bg-emerald-500 text-white animate-pulse"><Bell className="h-3 w-3" /> Opening…</Badge>;
+
+  const parts = [];
+  if (rem.d > 0) parts.push(`${rem.d}d`);
+  parts.push(`${String(rem.h).padStart(2, "0")}:${String(rem.m).padStart(2, "0")}:${String(rem.s).padStart(2, "0")}`);
+
+  return (
+    <Badge variant="outline" className="gap-1 border-amber-400 text-amber-600 font-mono tabular-nums">
+      <Clock className="h-3 w-3" />
+      {parts.join(" ")}
+    </Badge>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────
 export default function Community() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useSound();
   const { isAdmin } = useAdmin();
@@ -49,25 +101,27 @@ export default function Community() {
   const [userRooms, setUserRooms] = useState<VoiceRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState<string | null>(null);
-  const [joiningRoom, setJoiningRoom] = useState<string | null>(null);
   const [memberCounts, setMemberCounts] = useState<RoomMemberCount>({});
   const [makePrivate, setMakePrivate] = useState(false);
   const [roomTopic, setRoomTopic] = useState("");
 
-  // Inline topic editing for default rooms (admin only)
+  // Admin inline topic editing
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [topicDraft, setTopicDraft] = useState("");
 
+  // Admin scheduling
+  const [schedulingRoomId, setSchedulingRoomId] = useState<string | null>(null);
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [scheduleTopic, setScheduleTopic] = useState("");
+
   // ── Data fetching ───────────────────────────────────────────────
   const fetchRooms = useCallback(async () => {
-    // Default rooms: admins see all (active + inactive), users see only active
     const defQuery = supabase
       .from("voice_rooms")
       .select("*")
       .eq("is_default", true)
       .order("room_name");
 
-    // User rooms: exclude defaults, respect privacy
     let userQuery = supabase
       .from("voice_rooms")
       .select("*")
@@ -86,8 +140,10 @@ export default function Community() {
     ]);
 
     let dRooms = (defRes.data as VoiceRoom[]) || [];
-    // Non-admins only see active default rooms
-    if (!isAdmin) dRooms = dRooms.filter((r) => r.is_active);
+    // Non-admins only see: active rooms OR rooms with a scheduled_at (upcoming)
+    if (!isAdmin) {
+      dRooms = dRooms.filter((r) => r.is_active || r.scheduled_at);
+    }
 
     setDefaultRooms(dRooms);
     setUserRooms((userRes.data as VoiceRoom[]) || []);
@@ -110,13 +166,25 @@ export default function Community() {
     fetchMemberCounts();
   }, [fetchRooms, fetchMemberCounts]);
 
+  // Realtime: member counts
   useEffect(() => {
-    const channel = supabase
+    const ch = supabase
       .channel("voice-room-members-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "voice_room_members" }, fetchMemberCounts)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabase.removeChannel(ch); };
   }, [fetchMemberCounts]);
+
+  // Realtime: room state changes (activation by cron or admin)
+  useEffect(() => {
+    const ch = supabase
+      .channel("voice-rooms-live")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "voice_rooms" }, () => {
+        fetchRooms();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [fetchRooms]);
 
   // ── Actions ─────────────────────────────────────────────────────
   const joinRoom = (roomId: string) => {
@@ -138,10 +206,10 @@ export default function Community() {
   };
 
   const toggleDefaultRoom = async (room: VoiceRoom) => {
-    await supabase.from("voice_rooms").update({ is_active: !room.is_active }).eq("id", room.id);
-    toast({
-      title: room.is_active ? t("vroom.deactivated") : t("vroom.activated"),
-    });
+    await supabase.from("voice_rooms")
+      .update({ is_active: !room.is_active, scheduled_at: null })
+      .eq("id", room.id);
+    toast({ title: room.is_active ? t("vroom.deactivated") : t("vroom.activated") });
     fetchRooms();
   };
 
@@ -152,12 +220,37 @@ export default function Community() {
     fetchRooms();
   };
 
+  // Schedule: set scheduled_at + topic, deactivate room until time arrives
+  const confirmSchedule = async (roomId: string) => {
+    if (!scheduledAt) {
+      toast({ title: t("vroom.scheduleRequiredDate"), variant: "destructive" });
+      return;
+    }
+    await supabase.from("voice_rooms").update({
+      scheduled_at: new Date(scheduledAt).toISOString(),
+      room_topic: scheduleTopic.trim() || null,
+      is_active: false,
+    }).eq("id", roomId);
+    setSchedulingRoomId(null);
+    setScheduledAt("");
+    setScheduleTopic("");
+    toast({ title: t("vroom.scheduleSet") });
+    fetchRooms();
+  };
+
+  const cancelSchedule = async (roomId: string) => {
+    await supabase.from("voice_rooms")
+      .update({ scheduled_at: null })
+      .eq("id", roomId);
+    toast({ title: t("vroom.scheduleCancelled") });
+    fetchRooms();
+  };
+
   const createRoom = async (cfg: (typeof VOICE_ROOM_CONFIGS)[number]) => {
     if (!user) return;
     const cfgLabel = t(cfg.labelKey);
     const paid = await spendVX(cfg.costVX, "voice_room_create", cfgLabel);
     if (!paid) return;
-
     setCreating(cfg.type);
     const { data, error } = await supabase.from("voice_rooms").insert({
       owner_id: user.id,
@@ -171,7 +264,6 @@ export default function Community() {
       is_active: true,
       is_default: false,
     }).select("id").single();
-
     if (error) {
       playSound("error");
       toast({ title: t("community.errorTitle"), description: error.message, variant: "destructive" });
@@ -199,11 +291,9 @@ export default function Community() {
   const renderJoinButton = (room: VoiceRoom) => {
     const count = memberCounts[room.id] || 0;
     const isFull = room.max_users < 999 && count >= room.max_users;
-
     if (!user) return <Button className="flex-1" disabled>{t("community.loginToJoin")}</Button>;
-
     return (
-      <Button className="flex-1" disabled={isFull || joiningRoom === room.id} onClick={() => joinRoom(room.id)}>
+      <Button className="flex-1" disabled={isFull} onClick={() => joinRoom(room.id)}>
         <LogIn className="me-2 h-4 w-4" />
         {isFull ? t("community.roomFull") : (
           <span className="flex items-center gap-1.5">
@@ -219,23 +309,34 @@ export default function Community() {
     );
   };
 
-  // ── Default room card (admin sees extra controls) ─────────────────
-  const renderDefaultRoomCard = (room: VoiceRoom) => {
+  // Local datetime string for the input min value (now)
+  const nowLocal = () => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  };
+
+  const formatScheduled = (iso: string) =>
+    new Date(iso).toLocaleString(lang === "ar" ? "ar-SA" : undefined, {
+      weekday: "short", month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+
+  // ── Active default room card ──────────────────────────────────────
+  const renderActiveDefaultCard = (room: VoiceRoom) => {
     const isEditingTopic = editingTopicId === room.id;
+    const isScheduling = schedulingRoomId === room.id;
 
     return (
       <StaggerItem key={room.id}>
-        <Card className={`transition-shadow hover:shadow-lg ${!room.is_active ? "opacity-60" : ""}`}>
+        <Card className="transition-shadow hover:shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Mic className="h-5 w-5 text-primary" />
               {room.room_name}
-              {!room.is_active && (
-                <Badge variant="outline" className="text-xs text-muted-foreground">{t("vroom.inactive")}</Badge>
-              )}
             </CardTitle>
             <CardDescription className="space-y-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {renderMemberBadge(room.id)}
                 <Badge variant="outline">{t("community.open")}</Badge>
               </div>
@@ -263,33 +364,213 @@ export default function Community() {
               ) : null}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {room.is_active && renderJoinButton(room)}
-            <Button size="icon" variant="outline" onClick={() => shareRoom(room.id)} aria-label={t("vroom.shareRoom")}>
-              <Share2 className="h-4 w-4" />
-            </Button>
+          <CardContent className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              {renderJoinButton(room)}
+              <Button size="icon" variant="outline" onClick={() => shareRoom(room.id)} aria-label={t("vroom.shareRoom")}>
+                <Share2 className="h-4 w-4" />
+              </Button>
+              {isAdmin && (
+                <>
+                  <Button size="icon" variant="destructive" onClick={() => toggleDefaultRoom(room)} title={t("vroom.deactivate")}>
+                    <PowerOff className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="outline" onClick={() => { setTopicDraft(room.room_topic || ""); setEditingTopicId(room.id); }} title={t("vroom.editTopic")}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="border-amber-400 text-amber-600 hover:bg-amber-50"
+                    onClick={() => { setScheduleTopic(room.room_topic || ""); setScheduledAt(""); setSchedulingRoomId(room.id); }}
+                    title={t("vroom.scheduleRoom")}
+                  >
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
 
-            {/* Admin controls */}
-            {isAdmin && (
-              <>
+            {/* Admin scheduling form */}
+            {isAdmin && isScheduling && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {t("vroom.scheduleRoom")}
+                </p>
+                <Input
+                  type="datetime-local"
+                  min={nowLocal()}
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  className="h-8 text-xs"
+                />
+                <Input
+                  value={scheduleTopic}
+                  onChange={(e) => setScheduleTopic(e.target.value)}
+                  placeholder={t("vroom.topicPlaceholder")}
+                  className="h-8 text-xs"
+                  maxLength={120}
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-7 text-xs bg-amber-500 hover:bg-amber-600" onClick={() => confirmSchedule(room.id)}>
+                    <Check className="h-3 w-3 me-1" />{t("vroom.setSchedule")}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSchedulingRoomId(null)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </StaggerItem>
+    );
+  };
+
+  // ── Scheduled (upcoming) default room card ────────────────────────
+  const renderUpcomingCard = (room: VoiceRoom) => {
+    const isScheduling = schedulingRoomId === room.id;
+
+    return (
+      <StaggerItem key={room.id}>
+        <Card className="transition-shadow hover:shadow-lg border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-amber-500" />
+              {room.room_name}
+              <Badge variant="outline" className="border-amber-400 text-amber-600 text-xs">
+                {t("vroom.upcoming")}
+              </Badge>
+            </CardTitle>
+            <CardDescription className="space-y-1.5">
+              {/* Countdown */}
+              {room.scheduled_at && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CountdownBadge targetISO={room.scheduled_at} onExpire={fetchRooms} />
+                  <span className="text-xs text-muted-foreground">
+                    {formatScheduled(room.scheduled_at)}
+                  </span>
+                </div>
+              )}
+              {room.room_topic && (
+                <p className="text-xs text-muted-foreground line-clamp-2">{room.room_topic}</p>
+              )}
+            </CardDescription>
+          </CardHeader>
+
+          {isAdmin && (
+            <CardContent className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {/* Re-schedule */}
                 <Button
-                  size="icon"
-                  variant={room.is_active ? "destructive" : "outline"}
-                  onClick={() => toggleDefaultRoom(room)}
-                  title={room.is_active ? t("vroom.deactivate") : t("vroom.activate")}
-                  className={!room.is_active ? "border-green-500 text-green-600 hover:bg-green-50" : ""}
-                >
-                  {room.is_active ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                </Button>
-                <Button
-                  size="icon"
+                  size="sm"
                   variant="outline"
-                  onClick={() => { setTopicDraft(room.room_topic || ""); setEditingTopicId(room.id); }}
-                  title={t("vroom.editTopic")}
+                  className="border-amber-400 text-amber-600 hover:bg-amber-50 text-xs"
+                  onClick={() => {
+                    const existing = room.scheduled_at ? new Date(room.scheduled_at) : new Date();
+                    existing.setMinutes(existing.getMinutes() - existing.getTimezoneOffset());
+                    setScheduledAt(existing.toISOString().slice(0, 16));
+                    setScheduleTopic(room.room_topic || "");
+                    setSchedulingRoomId(room.id);
+                  }}
                 >
-                  <Pencil className="h-4 w-4" />
+                  <Calendar className="h-3.5 w-3.5 me-1" />{t("vroom.reschedule")}
                 </Button>
-              </>
+                {/* Cancel schedule */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive border-destructive/40 hover:bg-destructive/10 text-xs"
+                  onClick={() => cancelSchedule(room.id)}
+                >
+                  <X className="h-3.5 w-3.5 me-1" />{t("vroom.cancelSchedule")}
+                </Button>
+                {/* Open now */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-green-500 text-green-600 hover:bg-green-50 text-xs"
+                  onClick={() => toggleDefaultRoom(room)}
+                >
+                  <Power className="h-3.5 w-3.5 me-1" />{t("vroom.openNow")}
+                </Button>
+              </div>
+
+              {/* Re-scheduling form */}
+              {isScheduling && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />{t("vroom.reschedule")}
+                  </p>
+                  <Input type="datetime-local" min={nowLocal()} value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="h-8 text-xs" />
+                  <Input value={scheduleTopic} onChange={(e) => setScheduleTopic(e.target.value)} placeholder={t("vroom.topicPlaceholder")} className="h-8 text-xs" maxLength={120} />
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1 h-7 text-xs bg-amber-500 hover:bg-amber-600" onClick={() => confirmSchedule(room.id)}>
+                      <Check className="h-3 w-3 me-1" />{t("vroom.setSchedule")}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSchedulingRoomId(null)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+      </StaggerItem>
+    );
+  };
+
+  // ── Inactive (no schedule) default room card — admin only ─────────
+  const renderInactiveCard = (room: VoiceRoom) => {
+    const isScheduling = schedulingRoomId === room.id;
+    return (
+      <StaggerItem key={room.id}>
+        <Card className="opacity-60 transition-shadow hover:shadow-lg hover:opacity-80">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mic className="h-5 w-5 text-muted-foreground" />
+              {room.room_name}
+              <Badge variant="outline" className="text-xs text-muted-foreground">{t("vroom.inactive")}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-green-500 text-green-600 hover:bg-green-50 text-xs"
+                onClick={() => toggleDefaultRoom(room)}
+              >
+                <Power className="h-3.5 w-3.5 me-1" />{t("vroom.activate")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-amber-400 text-amber-600 hover:bg-amber-50 text-xs"
+                onClick={() => { setScheduleTopic(room.room_topic || ""); setScheduledAt(""); setSchedulingRoomId(room.id); }}
+              >
+                <Calendar className="h-3.5 w-3.5 me-1" />{t("vroom.scheduleRoom")}
+              </Button>
+            </div>
+
+            {isScheduling && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />{t("vroom.scheduleRoom")}
+                </p>
+                <Input type="datetime-local" min={nowLocal()} value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="h-8 text-xs" />
+                <Input value={scheduleTopic} onChange={(e) => setScheduleTopic(e.target.value)} placeholder={t("vroom.topicPlaceholder")} className="h-8 text-xs" maxLength={120} />
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-7 text-xs bg-amber-500 hover:bg-amber-600" onClick={() => confirmSchedule(room.id)}>
+                    <Check className="h-3 w-3 me-1" />{t("vroom.setSchedule")}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSchedulingRoomId(null)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -313,9 +594,7 @@ export default function Community() {
               <Badge variant="outline">{room.room_type}</Badge>
               {renderMemberBadge(room.id, room.max_users)}
             </div>
-            {room.room_topic && (
-              <p className="text-xs text-muted-foreground line-clamp-2">{room.room_topic}</p>
-            )}
+            {room.room_topic && <p className="text-xs text-muted-foreground line-clamp-2">{room.room_topic}</p>}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex gap-2">
@@ -333,6 +612,11 @@ export default function Community() {
     );
   };
 
+  // Split default rooms into buckets
+  const activeDefaults   = defaultRooms.filter((r) => r.is_active);
+  const upcomingDefaults = defaultRooms.filter((r) => !r.is_active && r.scheduled_at);
+  const inactiveDefaults = defaultRooms.filter((r) => !r.is_active && !r.scheduled_at);
+
   // ── Render ────────────────────────────────────────────────────────
   return (
     <Layout>
@@ -348,20 +632,42 @@ export default function Community() {
           </div>
         </AnimatedSection>
 
-        {/* Default rooms section */}
-        {(defaultRooms.length > 0) && (
+        {/* Active default rooms */}
+        {activeDefaults.length > 0 && (
           <div className="mb-12">
             <h2 className="mb-4 text-2xl font-bold flex items-center gap-2">
               <Radio className="h-6 w-6 text-primary" />
               {t("community.voiceRooms")}
-              {isAdmin && (
-                <Badge variant="outline" className="text-xs text-primary border-primary/40 ms-2">
-                  {t("vroom.adminMode")}
-                </Badge>
-              )}
+              {isAdmin && <Badge variant="outline" className="text-xs text-primary border-primary/40 ms-2">{t("vroom.adminMode")}</Badge>}
             </h2>
             <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {defaultRooms.map(renderDefaultRoomCard)}
+              {activeDefaults.map(renderActiveDefaultCard)}
+            </StaggerGrid>
+          </div>
+        )}
+
+        {/* Upcoming scheduled rooms — visible to ALL users */}
+        {upcomingDefaults.length > 0 && (
+          <div className="mb-12">
+            <h2 className="mb-4 text-2xl font-bold flex items-center gap-2">
+              <Clock className="h-6 w-6 text-amber-500" />
+              {t("community.upcomingRooms")}
+            </h2>
+            <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {upcomingDefaults.map(renderUpcomingCard)}
+            </StaggerGrid>
+          </div>
+        )}
+
+        {/* Inactive rooms — admin only */}
+        {isAdmin && inactiveDefaults.length > 0 && (
+          <div className="mb-12">
+            <h2 className="mb-4 text-xl font-semibold flex items-center gap-2 text-muted-foreground">
+              <PowerOff className="h-5 w-5" />
+              {t("vroom.inactiveRooms")}
+            </h2>
+            <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {inactiveDefaults.map(renderInactiveCard)}
             </StaggerGrid>
           </div>
         )}
@@ -402,25 +708,16 @@ export default function Community() {
                 {makePrivate ? t("vroom.private") : t("community.publicRoom")}
               </button>
             </div>
-
-            {/* Topic input */}
             <div className="mb-4">
-              <Input
-                value={roomTopic}
-                onChange={(e) => setRoomTopic(e.target.value)}
-                placeholder={t("vroom.topicPlaceholder")}
-                maxLength={120}
-                className="max-w-lg"
-              />
+              <Input value={roomTopic} onChange={(e) => setRoomTopic(e.target.value)} placeholder={t("vroom.topicPlaceholder")} maxLength={120} className="max-w-lg" />
             </div>
-
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {VOICE_ROOM_CONFIGS.map((cfg) => {
                 const cfgLabel = t(cfg.labelKey);
                 return (
                   <Card key={cfg.type} className="text-center">
                     <CardHeader>
-                      <div className="mx-auto text-4xl" aria-hidden="true">{cfg.icon}</div>
+                      <div className="mx-auto text-4xl">{cfg.icon}</div>
                       <CardTitle className="text-lg">{cfgLabel}</CardTitle>
                       <CardDescription>
                         {cfg.maxUsers ? `${cfg.maxUsers} ${t("community.users")}` : t("community.unlimited")}
@@ -433,13 +730,7 @@ export default function Community() {
                           <span className="text-xs text-muted-foreground">{t("community.joinCost")}: {cfg.joinCostVX} VX</span>
                         )}
                       </div>
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        disabled={creating === cfg.type}
-                        onClick={() => createRoom(cfg)}
-                        aria-label={`${t("community.create")} ${cfgLabel} — ${cfg.costVX} VX`}
-                      >
+                      <Button variant="outline" className="w-full" disabled={creating === cfg.type} onClick={() => createRoom(cfg)}>
                         {creating === cfg.type ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         {t("community.create")}
                       </Button>
