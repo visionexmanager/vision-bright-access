@@ -29,6 +29,11 @@ CREATE POLICY "gs_update" ON game_sessions FOR UPDATE TO authenticated
   USING (
     host_id = auth.uid()
     OR EXISTS (SELECT 1 FROM jsonb_array_elements(players) p WHERE (p->>'id') = auth.uid()::text)
+    OR status = 'waiting'
+  )
+  WITH CHECK (
+    host_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM jsonb_array_elements(players) p WHERE (p->>'id') = auth.uid()::text)
   );
 
 CREATE POLICY "gs_delete" ON game_sessions FOR DELETE TO authenticated

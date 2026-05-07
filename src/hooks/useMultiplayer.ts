@@ -72,7 +72,7 @@ export function useMultiplayer(gameType: GameType) {
       .single();
     setLoading(false);
     if (error) { toast.error(t("mp.createRoomFailed")); return null; }
-    setSession(data as unknown as GameSession);
+    setSession(data as GameSession);
     return code;
   }, [user, gameType, meEntry, t]);
 
@@ -86,7 +86,7 @@ export function useMultiplayer(gameType: GameType) {
       .eq("id", code.toUpperCase().trim())
       .single();
     if (fe || !existing) { toast.error(t("mp.roomNotFound")); setLoading(false); return false; }
-    const s = existing as unknown as GameSession;
+    const s = existing as GameSession;
     if (s.status !== "waiting") { toast.error(t("mp.gameAlreadyStarted")); setLoading(false); return false; }
     if (s.players.length >= s.max_players) { toast.error(t("mp.roomFull")); setLoading(false); return false; }
     if (s.players.find((p) => p.id === user.id)) { setSession(s); setLoading(false); return true; }
@@ -98,7 +98,7 @@ export function useMultiplayer(gameType: GameType) {
       .single();
     setLoading(false);
     if (error) { toast.error(t("mp.joinRoomFailed")); return false; }
-    setSession(data as unknown as GameSession);
+    setSession(data as GameSession);
     return true;
   }, [user, meEntry, t]);
 

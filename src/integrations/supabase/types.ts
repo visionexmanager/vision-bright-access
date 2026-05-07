@@ -217,6 +217,51 @@ export type Database = {
         }
         Relationships: []
       }
+      game_sessions: {
+        Row: {
+          id: string
+          game_type: string
+          host_id: string | null
+          status: string
+          max_players: number
+          players: Json
+          game_state: Json | null
+          current_player_id: string | null
+          winner_id: string | null
+          created_at: string
+          updated_at: string
+          expires_at: string | null
+        }
+        Insert: {
+          id: string
+          game_type: string
+          host_id?: string | null
+          status?: string
+          max_players?: number
+          players?: Json
+          game_state?: Json | null
+          current_player_id?: string | null
+          winner_id?: string | null
+          created_at?: string
+          updated_at?: string
+          expires_at?: string | null
+        }
+        Update: {
+          id?: string
+          game_type?: string
+          host_id?: string | null
+          status?: string
+          max_players?: number
+          players?: Json
+          game_state?: Json | null
+          current_player_id?: string | null
+          winner_id?: string | null
+          created_at?: string
+          updated_at?: string
+          expires_at?: string | null
+        }
+        Relationships: []
+      }
       meal_logs: {
         Row: {
           calories: number
@@ -838,18 +883,21 @@ export type Database = {
         Row: {
           id: string
           joined_at: string
+          raise_hand: boolean
           room_id: string
           user_id: string
         }
         Insert: {
           id?: string
           joined_at?: string
+          raise_hand?: boolean
           room_id: string
           user_id: string
         }
         Update: {
           id?: string
           joined_at?: string
+          raise_hand?: boolean
           room_id?: string
           user_id?: string
         }
@@ -869,10 +917,15 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_default: boolean | null
+          is_private: boolean | null
+          join_cost_vx: number | null
           max_users: number
           owner_id: string
           room_name: string
+          room_topic: string | null
           room_type: string
+          scheduled_at: string | null
           updated_at: string
         }
         Insert: {
@@ -880,10 +933,15 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_default?: boolean | null
+          is_private?: boolean | null
+          join_cost_vx?: number | null
           max_users?: number
           owner_id: string
           room_name?: string
+          room_topic?: string | null
           room_type?: string
+          scheduled_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -891,10 +949,15 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_default?: boolean | null
+          is_private?: boolean | null
+          join_cost_vx?: number | null
           max_users?: number
           owner_id?: string
           room_name?: string
+          room_topic?: string | null
           room_type?: string
+          scheduled_at?: string | null
           updated_at?: string
         }
         Relationships: []
