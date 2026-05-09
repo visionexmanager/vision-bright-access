@@ -35,7 +35,9 @@ type SoundType =
   | "pour"
   | "bubble"
   | "ding"
-  | "whoosh";
+  | "whoosh"
+  | "alarm"   // Urgent malfunction / failure alert
+  | "hatch";  // Egg hatch pop + chirp
 
 function playTone(frequency: number, duration: number, type: OscillatorType = "sine", gain = 0.15) {
   try {
@@ -139,6 +141,21 @@ const SOUNDS: Record<SoundType, () => void> = {
     });
   },
   ding: () => playTone(1200, 0.3, "sine", 0.12),
+  alarm: () => {
+    // Urgent two-tone buzzer: 440 Hz ↔ 330 Hz, alternating 4 times
+    [0, 0.18, 0.36, 0.54].forEach((offset, i) => {
+      setTimeout(() => playTone(i % 2 === 0 ? 440 : 330, 0.15, "square", 0.09), offset * 1000);
+    });
+  },
+  hatch: () => {
+    // Short noise pop → ascending chirp (baby bird)
+    playNoise(0.08, 0.1);
+    setTimeout(() => {
+      playTone(2000, 0.06, "triangle", 0.1);
+      setTimeout(() => playTone(2500, 0.07, "triangle", 0.1), 60);
+      setTimeout(() => playTone(3000, 0.09, "triangle", 0.08), 120);
+    }, 70);
+  },
   whoosh: () => {
     const ctx = getAudioContext();
     try {

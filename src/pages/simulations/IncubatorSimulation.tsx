@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { toast } from "@/hooks/use-toast";
 import { SimulationMentor } from "@/components/SimulationMentor";
+import { useGameAudio } from "@/hooks/useGameAudio";
 import {
   ArrowLeft,
   Thermometer,
@@ -53,6 +54,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
   const { savedProgress } = useSimulationProgress(simulationId);
+  const { playSound } = useGameAudio();
 
   const [state, setState] = useState<IncubatorState>({
     temp: IDEAL_TEMP,
@@ -101,6 +103,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
   };
 
   const repairMalfunction = () => {
+    playSound("correct");
     setState((s) => ({
       ...s,
       malfunction: false,
@@ -194,16 +197,28 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
 
     if (state.day + 1 > TOTAL_DAYS) {
       addLog("🐣 " + t("sim.incubator.hatchDay"));
+      playSound("hatch");
     } else {
       addLog(`📅 ${t("sim.incubator.dayAdvanced")} ${state.day + 1}`);
+      playSound("tick");
     }
   };
+
+  // Play alarm when malfunction appears
+  const prevMalfunctionRef = useRef(false);
+  useEffect(() => {
+    if (state.malfunction && !prevMalfunctionRef.current) {
+      playSound("alarm");
+    }
+    prevMalfunctionRef.current = state.malfunction;
+  }, [state.malfunction, playSound]);
 
   // Save completion
   useEffect(() => {
     if (state.gameOver && !completed && user && simulationId) {
       setCompleted(true);
       const points = Math.round(state.score * 0.5) + state.hatched * 10;
+      playSound("levelUp");
       earnPoints(points, `Incubator Simulation: ${state.hatched}/${TOTAL_EGGS} hatched`);
       
       saveSimulationProgress(user.id, simulationId, {
