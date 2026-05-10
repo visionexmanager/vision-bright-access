@@ -9,52 +9,64 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          timeout: 60s
-          command_timeout: 20m
-          debug: true
-          script: |
-            set -e
-            echo "==> Connected. Working dir: $(pwd)"
-            echo "==> Moving to server path..."
-            cd ${{ secrets.SERVER_PATH }}
-            echo "==> Now in: $(pwd)"
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
 
-            echo "==> Pulling latest code..."
-            git fetch origin main
-            git reset --hard origin/main
+      - name: Test SSH connection
+        run: |
+          echo "Testing connection to ${{ secrets.SERVER_HOST }}..."
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=20 \
+            -v \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
+            "echo '✅ SSH connection successful' && whoami && pwd"
 
-            echo "==> Installing dependencies..."
-            npm ci --prefer-offline || npm ci
+      - name: Deploy to server
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=20 \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
+            "bash -s" << 'DEPLOY_SCRIPT'
+          set -e
 
-            echo "==> Building..."
-            export NODE_OPTIONS="--max-old-space-size=4096"
-            npm run build
+          echo "==> Moving to project directory..."
+          cd ${{ secrets.SERVER_PATH }}
 
-            echo "==> Writing nginx config..."
-            sudo tee /etc/nginx/sites-available/vision-bright-access > /dev/null << 'NGINX_EOF'
-            server {
-                listen 80;
-                listen [::]:80;
-                server_name visionex.app www.visionex.app;
-                root ${{ secrets.SERVER_PATH }}/dist;
-                index index.html;
-                location / {
-                    try_files $uri $uri/ /index.html;
-                }
-                gzip on;
-                gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
-            }
-            NGINX_EOF
+          echo "==> Pulling latest code..."
+          git fetch origin main
+          git reset --hard origin/main
 
-            sudo ln -sf /etc/nginx/sites-available/vision-bright-access /etc/nginx/sites-enabled/vision-bright-access
-            sudo rm -f /etc/nginx/sites-enabled/default
-            sudo nginx -t && sudo systemctl reload nginx
+          echo "==> Installing dependencies..."
+          npm ci --prefer-offline || npm ci
 
-            echo "✅ Deployed successfully to visionex.app"
+          echo "==> Building..."
+          export NODE_OPTIONS="--max-old-space-size=4096"
+          npm run build
+
+          echo "==> Writing nginx config..."
+          sudo tee /etc/nginx/sites-available/vision-bright-access > /dev/null << 'NGINX_EOF'
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name visionex.app www.visionex.app;
+              root ${{ secrets.SERVER_PATH }}/dist;
+              index index.html;
+              location / {
+                  try_files $uri $uri/ /index.html;
+              }
+              gzip on;
+              gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+          }
+          NGINX_EOF
+
+          sudo ln -sf /etc/nginx/sites-available/vision-bright-access /etc/nginx/sites-enabled/vision-bright-access
+          sudo rm -f /etc/nginx/sites-enabled/default
+          sudo nginx -t && sudo systemctl reload nginx
+
+          echo "✅ Deployed successfully to visionex.app"
+          DEPLOY_SCRIPT
