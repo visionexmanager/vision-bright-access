@@ -9,37 +9,23 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Load SSH key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Add server to known hosts
-        run: ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
-
-      - name: Test connection
+      - name: Trigger deploy webhook
         run: |
-          ssh "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" "echo '✅ Connected as:' && whoami"
+          echo "Sending deploy request to server..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "x-deploy-token: visionex-deploy-2024" \
+            --max-time 15 \
+            http://204.168.191.20:9000)
 
-      - name: Deploy
-        run: |
-          ssh "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
-          set -e
-          cd ${{ secrets.SERVER_PATH }}
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
 
-          git fetch origin main
-          git reset --hard origin/main
+          echo "Response: $BODY (HTTP $HTTP_CODE)"
 
-          npm ci --prefer-offline || npm ci
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Deploy webhook failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
 
-          export NODE_OPTIONS="--max-old-space-size=4096"
-          npm run build
-
-          printf 'server {\n    listen 80;\n    listen [::]:80;\n    server_name visionex.app www.visionex.app;\n    root ${{ secrets.SERVER_PATH }}/dist;\n    index index.html;\n    location / {\n        try_files $uri $uri/ /index.html;\n    }\n    gzip on;\n    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;\n}\n' | sudo tee /etc/nginx/sites-available/vision-bright-access > /dev/null
-
-          sudo ln -sf /etc/nginx/sites-available/vision-bright-access /etc/nginx/sites-enabled/vision-bright-access
-          sudo rm -f /etc/nginx/sites-enabled/default
-          sudo nginx -t && sudo systemctl reload nginx
-
-          echo "✅ Deployed successfully"
-          EOF
+          echo "Deploy triggered successfully on server"
