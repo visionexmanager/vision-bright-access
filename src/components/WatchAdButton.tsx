@@ -30,6 +30,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
   const { earnPoints, getTodayAdCount } = useEarnPoints();
   const { playSound } = useSound();
   const [showAd, setShowAd] = useState(false);
+  const [adKey, setAdKey] = useState(0);
   const [todayCount, setTodayCount] = useState<number | null>(null);
 
   // Load today's count once when user is known
@@ -66,7 +67,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
       <>
         <div className={`fixed bottom-6 left-6 z-40 ${className}`}>
           <Button
-            onClick={() => setShowAd(true)}
+            onClick={() => { setAdKey((k) => k + 1); setShowAd(true); }}
             disabled={exhausted}
             size="sm"
             variant="outline"
@@ -83,7 +84,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
           </Button>
         </div>
         {showAd && (
-          <RewardedAdModal onRewarded={handleRewarded} onClose={() => setShowAd(false)} />
+          <RewardedAdModal key={adKey} onRewarded={handleRewarded} onClose={() => setShowAd(false)} />
         )}
       </>
     );
@@ -94,7 +95,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
     return (
       <>
         <Button
-          onClick={() => setShowAd(true)}
+          onClick={() => { setAdKey((k) => k + 1); setShowAd(true); }}
           disabled={exhausted}
           size="sm"
           variant="ghost"
@@ -110,7 +111,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
           )}
         </Button>
         {showAd && (
-          <RewardedAdModal onRewarded={handleRewarded} onClose={() => setShowAd(false)} />
+          <RewardedAdModal key={adKey} onRewarded={handleRewarded} onClose={() => setShowAd(false)} />
         )}
       </>
     );
@@ -137,7 +138,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
             </div>
           </div>
           <Button
-            onClick={() => setShowAd(true)}
+            onClick={() => { setAdKey((k) => k + 1); setShowAd(true); }}
             disabled={exhausted}
             size="sm"
             className="shrink-0 gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
@@ -148,7 +149,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
           </Button>
         </div>
         {showAd && (
-          <RewardedAdModal onRewarded={handleRewarded} onClose={() => setShowAd(false)} />
+          <RewardedAdModal key={adKey} onRewarded={handleRewarded} onClose={() => setShowAd(false)} />
         )}
       </>
     );
@@ -176,7 +177,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
             </div>
           </div>
           <Button
-            onClick={() => setShowAd(true)}
+            onClick={() => { setAdKey((k) => k + 1); setShowAd(true); }}
             disabled={exhausted}
             size="sm"
             className="shrink-0 gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
@@ -188,7 +189,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
         </CardContent>
       </Card>
       {showAd && (
-        <RewardedAdModal onRewarded={handleRewarded} onClose={() => setShowAd(false)} />
+        <RewardedAdModal key={adKey} onRewarded={handleRewarded} onClose={() => setShowAd(false)} />
       )}
     </>
   );

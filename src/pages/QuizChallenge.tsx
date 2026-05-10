@@ -57,7 +57,7 @@ function QuizMulti() {
   const [currentQ, setCurrentQ] = useState(0);
   const [myScore, setMyScore]   = useState(0);
   const [finished, setFinished] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(3);
+  const [timeLeft, setTimeLeft] = useState(10);
 
   const gs      = mp.session?.game_state as Record<string, unknown> | null;
   const opp     = mp.opponents[0];
@@ -135,7 +135,7 @@ function QuizMulti() {
         </div>
       ) : (
         <div className="space-y-4" dir="rtl">
-          <div className={`flex h-12 w-12 mx-auto items-center justify-center rounded-full border-4 text-xl font-black ${timeLeft <= 1 ? "border-destructive text-destructive animate-pulse" : "border-primary text-primary"}`}>{timeLeft}</div>
+          <div className={`flex h-12 w-12 mx-auto items-center justify-center rounded-full border-4 text-xl font-black ${timeLeft <= 3 ? "border-destructive text-destructive animate-pulse" : "border-primary text-primary"}`}>{timeLeft}</div>
           <h2 className="text-xl font-bold text-center" aria-live="polite">{q.q}</h2>
           <div className="grid gap-3">
             {q.options.map((opt, i) => (
@@ -157,7 +157,7 @@ export default function QuizChallenge() {
   const { totalPoints } = usePoints();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(3);
+  const [timeLeft, setTimeLeft] = useState(10);
   const [gameState, setGameState] = useState<GameState>("start");
 
   const correctSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -254,7 +254,7 @@ export default function QuizChallenge() {
                 </div>
                 <div
                   className={`flex h-14 w-14 items-center justify-center rounded-full border-4 text-2xl font-black ${
-                    timeLeft <= 1
+                    timeLeft <= 3
                       ? "border-destructive text-destructive animate-pulse"
                       : "border-primary text-primary"
                   }`}
