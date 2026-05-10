@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,6 +48,7 @@ function pickFault() {
 export function LaptopRepairSimulation({ simulationId }: Props) {
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [tools, setTools] = useState(5000);
@@ -120,12 +122,13 @@ export function LaptopRepairSimulation({ simulationId }: Props) {
         });
         setResolving(false);
 
-        if (isCorrect) playSound("ding"); else playSound("wrong");
+        if (isCorrect) { announce("Correct! Well done."); playSound("ding"); } else { announceUrgent("Incorrect. Try again."); playSound("wrong"); }
 
         if (jobIndex + 1 >= JOBS) {
           const final = newScore + Math.round((newCorrect / JOBS) * 50);
           setScore(final);
           setFinished(true);
+          announce("Simulation complete!");
           playSound("complete");
           saveProgress(final, true);
         }
@@ -178,8 +181,8 @@ export function LaptopRepairSimulation({ simulationId }: Props) {
         </h2>
         {started && (
           <div className="flex gap-2">
-            <Badge variant="secondary">✅ {correct}</Badge>
-            <Badge variant="destructive">❌ {wrong}</Badge>
+            <Badge variant="secondary" role="status" aria-live="polite">✅ {correct}</Badge>
+            <Badge variant="destructive" role="status" aria-live="polite">❌ {wrong}</Badge>
           </div>
         )}
       </div>
@@ -242,12 +245,12 @@ export function LaptopRepairSimulation({ simulationId }: Props) {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={applyFix} disabled={!selectedFix} className="w-full">🔧 Apply Fix</Button>
+                <Button onClick={applyFix} disabled={!selectedFix} className="w-full" aria-label="Apply Fix">🔧 Apply Fix</Button>
               </>
             )}
 
             {feedback && jobIndex + 1 < JOBS && (
-              <Button onClick={nextJob} className="w-full">Next Job →</Button>
+              <Button onClick={nextJob} className="w-full" aria-label="Next Job">Next Job →</Button>
             )}
           </CardContent>
         </Card>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, Milk, Thermometer, RotateCcw, TrendingUp, DollarSign, Heart, Droplets } from "lucide-react";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
+import { SimulationMentor } from "@/components/SimulationMentor";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -23,6 +25,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [stage, setStage] = useState<Stage>("setup");
@@ -88,6 +91,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
 
   const startProduction = () => {
     playSound("correct");
+    announce("Correct! Well done.");
     setStage("production");
     setDay(1);
     const m = calcMetrics();
@@ -151,6 +155,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
     setScore(finalScore);
     setStage("results");
     playSound("levelUp");
+    announce(`Simulation complete! Final score: ${finalScore}`);
     toast.success(`Dairy farm complete! Score: ${finalScore}`);
 
     if (user && simulationId) {
@@ -219,7 +224,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Milk className="h-6 w-6 text-primary" /> Day {day}/7
           </h2>
-          <Badge variant="secondary">Score: {score}</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite">Score: {score}</Badge>
         </div>
 
         <Progress value={(day / 7) * 100} className="h-3" />
@@ -282,7 +287,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
 
-        <Button onClick={advanceDay} className="w-full text-base" size="lg" disabled={day >= 7}>
+        <Button onClick={advanceDay} className="w-full text-base" size="lg" disabled={day >= 7} aria-label={day < 7 ? `Advance to Day ${day + 1}` : "Finishing..."}>
           {day < 7 ? `Advance to Day ${day + 1}` : "Finishing..."}
         </Button>
       </div>
@@ -385,7 +390,9 @@ export function DairyFarmSimulation({ simulationId }: Props) {
         </CardContent>
       </Card>
 
-      <Button onClick={startProduction} className="w-full text-base" size="lg">
+            <SimulationMentor simulationTitle="Dairy Farm" currentStepTitle={} />
+
+      <Button onClick={startProduction} className="w-full text-base" size="lg" aria-label="Start 7-Day Production">
         🚀 Start 7-Day Production
       </Button>
     </div>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -13,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { RotateCcw, Trophy } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 
 interface Props { simulationId?: string; }
 
@@ -32,6 +34,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [breed, setBreed] = useState(SHEEP_BREEDS[0]);
@@ -135,6 +138,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
     setScore(finalScore);
     setFinished(true);
     playSound("complete");
+    announce("Simulation complete!");
     saveProgress(finalScore, true);
   };
 
@@ -165,7 +169,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
     <div className="max-w-2xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">🐑 {started ? `Month ${month}/${totalMonths}` : "Farm Setup"}</h2>
-        {started && <Badge variant="secondary">🐑 {alive} | ❤️ {health}%</Badge>}
+        {started && <Badge variant="secondary" role="status" aria-live="polite">🐑 {alive} | ❤️ {health}%</Badge>}
       </div>
       {started && <Progress value={(month / totalMonths) * 100} className="h-2" />}
 
@@ -202,7 +206,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
             <div className="p-3 rounded-lg bg-muted/50 text-xs">
               <div className="flex justify-between font-bold"><span>Setup Cost:</span><span>${setupCost}</span></div>
             </div>
-            <Button onClick={startFarm} className="w-full">🐑 Start Farm</Button>
+            <Button onClick={startFarm} className="w-full" aria-label="Start Farm">🐑 Start Farm</Button>
           </CardContent>
         </Card>
       )}
@@ -227,7 +231,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
               <label className="text-xs text-muted-foreground mb-1 block">Vaccine Budget: ${vaccineBudget}/month</label>
               <Slider value={[vaccineBudget]} onValueChange={([v]) => setVaccineBudget(v)} min={0} max={100} step={10} />
             </div>
-            <Button onClick={simulateMonth} className="w-full">⏭️ Simulate Month {month}</Button>
+            <Button onClick={simulateMonth} className="w-full" aria-label={`Simulate Month ${month}`}>⏭️ Simulate Month {month}</Button>
           </CardContent>
         </Card>
       )}
@@ -245,6 +249,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
           </CardContent>
         </Card>
       )}
+      <SimulationMentor simulationTitle="Sheep Farm" currentStepTitle={} />
     </div>
   );
 }

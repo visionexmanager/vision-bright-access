@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, RotateCcw, DollarSign, Heart, Droplets, Thermometer, Leaf, TrendingUp } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +26,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [stage, setStage] = useState<Stage>("setup");
@@ -82,6 +85,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
   }, [breedYield, breedFat, herdSize, seasonMultiplier, herdHealth, feedCost, feedStrategy, vetBudget, grazingAcres]);
 
   const startManagement = () => {
+    announce("Correct! Well done.");
     playSound("correct");
     setStage("management");
     setSeason("spring");
@@ -147,6 +151,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
 
     setScore(finalScore);
     setStage("results");
+    announce(`Level complete! Score: ${finalScore}`);
     playSound("levelUp");
 
     if (user && simulationId) {
@@ -213,7 +218,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold">🐄 Week {week}/12 — {seasonEmoji[season]} {season}</h2>
-          <Badge variant="secondary">Herd: {herdSize}</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite">Herd: {herdSize}</Badge>
         </div>
         <Progress value={(week / 12) * 100} className="h-3" />
 

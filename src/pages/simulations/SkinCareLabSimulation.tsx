@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, RotateCcw, DollarSign, Star, Heart, Sparkles, ShieldCheck, Droplets } from "lucide-react";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
+import { SimulationMentor } from "@/components/SimulationMentor";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -26,6 +28,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [stage, setStage] = useState<Stage>("formulation");
@@ -122,6 +125,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
 
   const startClinic = () => {
     playSound("correct");
+    announce("Correct! Well done.");
     setStage("clinic");
     setClientIndex(0);
     setClientFeedback([]);
@@ -136,7 +140,13 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
     setClientFeedback(prev => [...prev, result]);
     if (bought) setTotalRevenue(prev => prev + pricePoint);
 
-    playSound(result.satisfaction >= 60 ? "correct" : "wrong");
+    if (result.satisfaction >= 60) {
+      playSound("correct");
+      announce("Correct! Well done.");
+    } else {
+      playSound("wrong");
+      announceUrgent("Incorrect. Try again.");
+    }
     toast(bought ? `${client.name} purchased! +$${pricePoint}` : `${client.name} declined.`);
 
     if (clientIndex + 1 >= clients.length) {
@@ -163,6 +173,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
     setScore(finalScore);
     setStage("results");
     playSound("levelUp");
+    announce("Simulation complete!");
 
     if (user && simulationId) {
       await saveSimulationProgress(user.id, simulationId, {
@@ -236,7 +247,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold flex items-center gap-2"><Heart className="h-6 w-6 text-pink-500" /> Client {clientIndex + 1}/{clients.length}</h2>
-          <Badge variant="secondary">${totalRevenue} earned</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite">${totalRevenue} earned</Badge>
         </div>
         <Progress value={((clientIndex) / clients.length) * 100} className="h-2" />
 
@@ -261,7 +272,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
           </Card>
         )}
 
-        <Button onClick={serveClient} className="w-full" size="lg">
+        <Button onClick={serveClient} className="w-full" size="lg" aria-label={`Offer Product to ${client.name}`}>
           💁 Offer Product to {client.name}
         </Button>
       </div>
@@ -367,7 +378,9 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
         </CardContent>
       </Card>
 
-      <Button onClick={startClinic} className="w-full text-base" size="lg">
+            <SimulationMentor simulationTitle="Skin Care Lab" currentStepTitle={} />
+
+      <Button onClick={startClinic} className="w-full text-base" size="lg" aria-label={`Open Clinic — Test on ${clients.length} Clients`}>
         🏥 Open Clinic — Test on {clients.length} Clients
       </Button>
     </div>

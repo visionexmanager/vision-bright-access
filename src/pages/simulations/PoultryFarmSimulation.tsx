@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -13,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { RotateCcw, Trophy } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 
 interface Props { simulationId?: string; }
 
@@ -38,6 +40,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [breed, setBreed] = useState(FLOCK_BREEDS[0]);
@@ -132,6 +135,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
     setScore(finalScore);
     setFinished(true);
     playSound("complete");
+    announce("Simulation complete!");
     saveProgress(finalScore, true);
     toast.success(`🎉 Harvest! ${totalMeat}kg meat sold for $${saleRevenue}`);
   };
@@ -164,7 +168,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
     <div className="max-w-2xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">🐔 {started ? `Week ${week}/${totalWeeks}` : "Farm Setup"}</h2>
-        {started && <Badge variant="secondary">🐔 {alive} alive | {avgWeight}kg avg</Badge>}
+        {started && <Badge variant="secondary" role="status" aria-live="polite">🐔 {alive} alive | {avgWeight}kg avg</Badge>}
       </div>
       {started && <Progress value={(week / totalWeeks) * 100} className="h-2" />}
 
@@ -207,13 +211,13 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <Button variant={vaccination ? "default" : "outline"} onClick={() => setVaccination(!vaccination)} className="w-full">
+            <Button variant={vaccination ? "default" : "outline"} onClick={() => setVaccination(!vaccination)} className="w-full" aria-label={`Vaccination ${vaccination ? "enabled" : "disabled"} — cost $${(flockSize * 0.5).toFixed(0)}`}>
               💉 Vaccination {vaccination ? "✓" : ""} (${(flockSize * 0.5).toFixed(0)})
             </Button>
             <div className="p-3 rounded-lg bg-muted/50 text-xs">
               <div className="flex justify-between font-bold"><span>Setup Cost:</span><span>${setupCost}</span></div>
             </div>
-            <Button onClick={startFarm} className="w-full">🐔 Start Farm</Button>
+            <Button onClick={startFarm} className="w-full" aria-label="Start Farm">🐔 Start Farm</Button>
           </CardContent>
         </Card>
       )}
@@ -245,7 +249,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
               <label className="text-xs text-muted-foreground mb-1 block">Target Sell Price: ${sellPrice}/kg</label>
               <Slider value={[sellPrice]} onValueChange={([v]) => setSellPrice(v)} min={2} max={15} step={0.5} />
             </div>
-            <Button onClick={simulateWeek} className="w-full">⏭️ Simulate Week {week}</Button>
+            <Button onClick={simulateWeek} className="w-full" aria-label={`Simulate Week ${week}`}>⏭️ Simulate Week {week}</Button>
           </CardContent>
         </Card>
       )}
@@ -263,6 +267,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
+      <SimulationMentor simulationTitle="Poultry Farm" currentStepTitle={} />
     </div>
   );
 }

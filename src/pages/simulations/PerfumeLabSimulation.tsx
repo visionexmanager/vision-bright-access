@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, RotateCcw, DollarSign, Star, FlaskConical, Sparkles, Heart } from "lucide-react";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
+import { SimulationMentor } from "@/components/SimulationMentor";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -40,6 +42,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [stage, setStage] = useState<Stage>("creation");
@@ -121,10 +124,12 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
   const launchToMarket = () => {
     const p = calcPerfume();
     if (p.notes.length < 3) {
+      announceUrgent("Incorrect. Try again.");
       toast.error("Select at least 3 ingredients!");
       return;
     }
 
+    announce("Correct! Well done.");
     playSound("correct");
 
     // Simulate market response
@@ -151,6 +156,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
 
     setScore(finalScore);
     setStage("results");
+    announce("Simulation complete!");
     playSound("levelUp");
 
     if (user && simulationId) {
@@ -221,7 +227,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
             <div className="text-center space-y-2">
               <p className="text-5xl">🧴</p>
               <h3 className="text-lg font-bold">{perfumeName || "Your Perfume"}</h3>
-              <Badge variant="secondary">{concentration.toUpperCase()}</Badge>
+              <Badge variant="secondary" role="status" aria-live="polite">{concentration.toUpperCase()}</Badge>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Card><CardContent className="pt-3 text-center">
@@ -243,7 +249,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
             </div>
           </CardContent>
         </Card>
-        <Button onClick={finishSim} className="w-full" size="lg">🏆 Get Final Score</Button>
+        <Button onClick={finishSim} className="w-full" size="lg" aria-label="Get Final Score">🏆 Get Final Score</Button>
       </div>
     );
   }
@@ -289,7 +295,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
                 return (
                   <div key={ing.id} className={`rounded-lg border p-3 transition-all ${isSelected ? "border-primary bg-primary/5" : "border-muted"}`}>
                     <div className="flex items-center justify-between">
-                      <Button variant={isSelected ? "default" : "outline"} size="sm" onClick={() => toggleNote(ing.id)}>
+                      <Button variant={isSelected ? "default" : "outline"} size="sm" onClick={() => toggleNote(ing.id)} aria-label={`${isSelected ? "Remove" : "Add"} ${ing.name}`}>
                         {isSelected ? "✓" : "+"} {ing.name}
                       </Button>
                       <span className="text-xs text-muted-foreground">${ing.costPerMl}/ml</span>
@@ -349,7 +355,9 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
         </CardContent>
       </Card>
 
-      <Button onClick={launchToMarket} className="w-full text-base" size="lg" disabled={Object.keys(selectedNotes).length < 3}>
+            <SimulationMentor simulationTitle="Perfume Lab" currentStepTitle={} />
+
+      <Button onClick={launchToMarket} className="w-full text-base" size="lg" disabled={Object.keys(selectedNotes).length < 3} aria-label="Launch to Market">
         🚀 Launch to Market
       </Button>
     </div>
