@@ -15,6 +15,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 15m
           script: |
             set -e
             cd ${{ secrets.SERVER_PATH }}
@@ -24,34 +25,35 @@ jobs:
             git reset --hard origin/main
 
             # Install dependencies
-            npm ci
+            npm ci --prefer-offline || npm ci
 
-            # Build
+            # Build (increased memory limit for large React bundles)
+            export NODE_OPTIONS="--max-old-space-size=4096"
             npm run build
 
-            # Configure nginx to serve the dist folder
-            {
-              echo 'server {'
-              echo '    listen 80;'
-              echo '    listen [::]:80;'
-              echo '    server_name visionex.app www.visionex.app;'
-              echo "    root ${{ secrets.SERVER_PATH }}/dist;"
-              echo '    index index.html;'
-              echo '    location / {'
-              echo '        try_files $uri $uri/ /index.html;'
-              echo '    }'
-              echo '    gzip on;'
-              echo '    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;'
-              echo '}'
-            } > /etc/nginx/sites-available/vision-bright-access
+            # Configure nginx (use sudo tee to write to protected directory)
+            sudo tee /etc/nginx/sites-available/vision-bright-access > /dev/null << 'NGINX_EOF'
+            server {
+                listen 80;
+                listen [::]:80;
+                server_name visionex.app www.visionex.app;
+                root ${{ secrets.SERVER_PATH }}/dist;
+                index index.html;
+                location / {
+                    try_files $uri $uri/ /index.html;
+                }
+                gzip on;
+                gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+            }
+            NGINX_EOF
 
             # Enable the site
-            ln -sf /etc/nginx/sites-available/vision-bright-access /etc/nginx/sites-enabled/vision-bright-access
+            sudo ln -sf /etc/nginx/sites-available/vision-bright-access /etc/nginx/sites-enabled/vision-bright-access
 
             # Remove default site if exists
-            rm -f /etc/nginx/sites-enabled/default
+            sudo rm -f /etc/nginx/sites-enabled/default
 
-            # Test and reload nginx
-            nginx -t && systemctl reload nginx
+            # Test nginx config then reload
+            sudo nginx -t && sudo systemctl reload nginx
 
-            echo "Deployed successfully"
+            echo "✅ Deployed successfully to visionex.app"
