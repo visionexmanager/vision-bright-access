@@ -378,7 +378,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
         </CardContent>
       </Card>
 
-            <SimulationMentor simulationTitle="Skin Care Lab" currentStepTitle={} />
+            <SimulationMentor simulationTitle="Skin Care Lab" currentStepTitle="" />
 
       <Button onClick={startClinic} className="w-full text-base" size="lg" aria-label={`Open Clinic — Test on ${clients.length} Clients`}>
         🏥 Open Clinic — Test on {clients.length} Clients

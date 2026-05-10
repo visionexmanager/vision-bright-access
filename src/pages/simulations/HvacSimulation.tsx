@@ -257,7 +257,7 @@ export function HvacSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
-      <SimulationMentor simulationTitle="HVAC System Design" currentStepTitle={} />
+      <SimulationMentor simulationTitle="HVAC System Design" currentStepTitle="" />
     </div>
   );
 }

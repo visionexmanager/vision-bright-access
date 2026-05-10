@@ -321,7 +321,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
           </CardContent>
         </Card>
       )}
-      <SimulationMentor simulationTitle="Aluminum Glazing" currentStepTitle={} />
+      <SimulationMentor simulationTitle="Aluminum Glazing" currentStepTitle="" />
     </div>
   );
 }

@@ -375,7 +375,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
         </CardContent>
       </Card>
 
-            <SimulationMentor simulationTitle="Detergent Lab" currentStepTitle={} />
+            <SimulationMentor simulationTitle="Detergent Lab" currentStepTitle="" />
 
       <Button onClick={startProduction} className="w-full text-base" size="lg" disabled={totalPct > 100} aria-label="Start Production">
         🏭 Start Production

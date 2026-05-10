@@ -268,7 +268,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
-      <SimulationMentor simulationTitle="Solar Energy Installation" currentStepTitle={} />
+      <SimulationMentor simulationTitle="Solar Energy Installation" currentStepTitle="" />
     </div>
   );
 }

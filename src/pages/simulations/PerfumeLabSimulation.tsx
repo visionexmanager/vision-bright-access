@@ -355,7 +355,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
         </CardContent>
       </Card>
 
-            <SimulationMentor simulationTitle="Perfume Lab" currentStepTitle={} />
+            <SimulationMentor simulationTitle="Perfume Lab" currentStepTitle="" />
 
       <Button onClick={launchToMarket} className="w-full text-base" size="lg" disabled={Object.keys(selectedNotes).length < 3} aria-label="Launch to Market">
         🚀 Launch to Market

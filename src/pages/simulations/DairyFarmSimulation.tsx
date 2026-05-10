@@ -390,7 +390,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
         </CardContent>
       </Card>
 
-            <SimulationMentor simulationTitle="Dairy Farm" currentStepTitle={} />
+            <SimulationMentor simulationTitle="Dairy Farm" currentStepTitle="" />
 
       <Button onClick={startProduction} className="w-full text-base" size="lg" aria-label="Start 7-Day Production">
         🚀 Start 7-Day Production

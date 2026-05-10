@@ -313,7 +313,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
-      <SimulationMentor simulationTitle="Logistics & Shipping" currentStepTitle={} />
+      <SimulationMentor simulationTitle="Logistics & Shipping" currentStepTitle="" />
     </div>
   );
 }

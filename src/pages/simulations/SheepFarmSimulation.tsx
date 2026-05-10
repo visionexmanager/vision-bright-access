@@ -249,7 +249,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
           </CardContent>
         </Card>
       )}
-      <SimulationMentor simulationTitle="Sheep Farm" currentStepTitle={} />
+      <SimulationMentor simulationTitle="Sheep Farm" currentStepTitle="" />
     </div>
   );
 }

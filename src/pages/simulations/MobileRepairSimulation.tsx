@@ -298,7 +298,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
-      <SimulationMentor simulationTitle="Mobile Phone Repair Shop" currentStepTitle={} />
+      <SimulationMentor simulationTitle="Mobile Phone Repair Shop" currentStepTitle="" />
     </div>
   );
 }

@@ -267,7 +267,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
-      <SimulationMentor simulationTitle="Poultry Farm" currentStepTitle={} />
+      <SimulationMentor simulationTitle="Poultry Farm" currentStepTitle="" />
     </div>
   );
 }

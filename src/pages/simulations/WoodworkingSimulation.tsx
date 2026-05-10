@@ -277,7 +277,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
-      <SimulationMentor simulationTitle="Woodworking Workshop" currentStepTitle={} />
+      <SimulationMentor simulationTitle="Woodworking Workshop" currentStepTitle="" />
     </div>
   );
 }
