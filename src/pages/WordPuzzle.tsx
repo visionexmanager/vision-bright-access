@@ -44,7 +44,6 @@ function scramble(word: string): string {
 }
 
 // points from games removed — earn VX via Watch Ad or simulations
-}
 
 type GameState = "start" | "playing" | "end";
 const TOTAL_ROUNDS = 8;
