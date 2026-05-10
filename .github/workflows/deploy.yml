@@ -15,23 +15,29 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 15m
+          port: 22
+          timeout: 60s
+          command_timeout: 20m
+          debug: true
           script: |
             set -e
+            echo "==> Connected. Working dir: $(pwd)"
+            echo "==> Moving to server path..."
             cd ${{ secrets.SERVER_PATH }}
+            echo "==> Now in: $(pwd)"
 
-            # Pull latest code (discard any local changes first)
+            echo "==> Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
 
-            # Install dependencies
+            echo "==> Installing dependencies..."
             npm ci --prefer-offline || npm ci
 
-            # Build (increased memory limit for large React bundles)
+            echo "==> Building..."
             export NODE_OPTIONS="--max-old-space-size=4096"
             npm run build
 
-            # Configure nginx (use sudo tee to write to protected directory)
+            echo "==> Writing nginx config..."
             sudo tee /etc/nginx/sites-available/vision-bright-access > /dev/null << 'NGINX_EOF'
             server {
                 listen 80;
@@ -47,13 +53,8 @@ jobs:
             }
             NGINX_EOF
 
-            # Enable the site
             sudo ln -sf /etc/nginx/sites-available/vision-bright-access /etc/nginx/sites-enabled/vision-bright-access
-
-            # Remove default site if exists
             sudo rm -f /etc/nginx/sites-enabled/default
-
-            # Test nginx config then reload
             sudo nginx -t && sudo systemctl reload nginx
 
             echo "✅ Deployed successfully to visionex.app"
