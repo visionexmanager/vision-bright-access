@@ -15,6 +15,7 @@ import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 const questions = [
   { id: 1, q: "ما هو أسرع حيوان بري في العالم؟", options: ["الأسد", "الفهد", "الغزال"], correct: 1 },
@@ -247,6 +248,7 @@ export default function QuizChallenge() {
         <Card className="w-full border-2 border-primary/30 p-6 sm:p-8 text-center">
           {gameState === "start" && (
             <div className="space-y-6">
+              <WatchAdButton variant="banner" className="mb-4" />
               <Trophy className="mx-auto h-16 w-16 text-primary" aria-hidden="true" />
               <h1 className="text-3xl font-black sm:text-4xl" dir="rtl">
                 {t("quiz.titleWithCount").replace("{count}", String(questions.length))}

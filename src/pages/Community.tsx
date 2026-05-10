@@ -20,6 +20,7 @@ import { toast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import communityImg from "@/assets/community-illustration.jpg";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 type VoiceRoom = {
   id: string;
@@ -631,6 +632,8 @@ export default function Community() {
             </div>
           </div>
         </AnimatedSection>
+
+        <WatchAdButton variant="banner" className="mb-6" />
 
         {/* Active default rooms */}
         {activeDefaults.length > 0 && (

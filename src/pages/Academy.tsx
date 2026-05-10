@@ -16,6 +16,7 @@ import {
   Loader2, Send, Trash2, Phone
 } from "lucide-react";
 import { VoiceChat } from "@/components/VoiceChat";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/academy-chat`;
 
@@ -370,6 +371,8 @@ export default function Academy() {
                   </motion.div>
                 </div>
                 )}
+
+                <WatchAdButton variant="banner" className="my-6" />
 
                 {/* Smart Assistant Chat - NOW FUNCTIONAL */}
                 <div className="bg-foreground rounded-3xl p-6 md:p-10 text-background relative shadow-2xl overflow-hidden">

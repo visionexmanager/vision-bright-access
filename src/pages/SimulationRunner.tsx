@@ -13,6 +13,7 @@ import { SimulationProjectReport } from "@/components/SimulationProjectReport";
 import { getSimulationComponent, hasCustomComponent } from "@/pages/simulations/registry";
 import { SIM_PROJECTS } from "@/data/simulationProjects";
 import { ArrowLeft } from "lucide-react";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 type Simulation = {
   id: string;
@@ -215,6 +216,7 @@ export default function SimulationRunner() {
               </Button>
             </div>
           )}
+          <WatchAdButton variant="banner" className="mt-4" />
         </section>
       </Layout>
     );

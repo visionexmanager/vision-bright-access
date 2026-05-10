@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Newspaper, Cpu, Accessibility, Brain, Globe } from "lucide-react";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import newsImg from "@/assets/news-illustration.jpg";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 const NEWS_ITEMS = [
   { icon: <Cpu className="h-6 w-6 text-primary" />, titleKey: "news.item1.title", descKey: "news.item1.desc", category: "Technology", date: "2026-04-08" },
@@ -30,6 +31,8 @@ export default function News() {
             </div>
           </div>
         </AnimatedSection>
+
+        <WatchAdButton variant="banner" className="mb-6" />
 
         <StaggerGrid className="grid gap-6">
           {NEWS_ITEMS.map((item, i) => (

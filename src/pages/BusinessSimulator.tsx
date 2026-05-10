@@ -10,6 +10,7 @@ import { useSound } from "@/contexts/SoundContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
+import { WatchAdButton } from "@/components/WatchAdButton";
 import simulatorsImg from "@/assets/simulators-illustration.jpg";
 import {
   Briefcase,
@@ -116,6 +117,8 @@ export default function BusinessSimulator() {
           </div>
         </div>
         </AnimatedSection>
+
+        <WatchAdButton variant="banner" className="mb-6" />
 
         {/* Tabs for subcategories */}
         {subcategories.length > 1 && (

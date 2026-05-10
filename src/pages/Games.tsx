@@ -14,6 +14,7 @@ import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/componen
 import { GAMING_PRICES, formatVX } from "@/systems/pricingSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { toast } from "@/hooks/use-toast";
+import { WatchAdButton } from "@/components/WatchAdButton";
 import gamesImg from "@/assets/games-illustration.jpg";
 import quizImg from "@/assets/game-quiz.jpg";
 import memoryImg from "@/assets/game-memory.jpg";
@@ -96,6 +97,8 @@ export default function Games() {
             </div>
           </div>
         </AnimatedSection>
+
+        <WatchAdButton variant="banner" className="mb-6" />
 
         {/* Search & Filter */}
         <div className="mb-6 space-y-4">

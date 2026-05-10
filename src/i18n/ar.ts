@@ -109,6 +109,8 @@ const ar: Record<string, string> = {
   "dash.adWatched": "تمت مشاهدة الإعلان! +{pts} VX",
   "dash.adLimitReached": "وصلت للحد اليومي للإعلانات — عد غداً!",
   "dash.adsToday": "إعلان شوهد اليوم",
+  "dash.today": "اليوم",
+  "dash.remaining": "متبقي",
   "dash.adSecondsLeft": "{s} ثانية متبقية — ابقَ في الصفحة",
   "dash.dailyClaimed": "تم الحصول على مكافأة الدخول اليومي! +{pts} نقطة",
   "dash.alreadyClaimed": "لقد حصلت على مكافأة اليوم بالفعل",

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 // Card data with icons
 const CARD_DATA = [
@@ -188,6 +189,7 @@ export default function MemoryGame() {
   return (
     <Layout>
       <div ref={liveRef} aria-live="assertive" aria-atomic="true" className="sr-only" />
+      <WatchAdButton variant="float" />
 
       <section className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 py-12">
         <Card className="w-full border-2 border-primary/30 p-6 sm:p-8 text-center">

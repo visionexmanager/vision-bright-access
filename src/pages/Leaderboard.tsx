@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trophy, Medal, Award } from "lucide-react";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 type LeaderboardEntry = {
   user_id: string;
@@ -44,6 +45,8 @@ export default function Leaderboard() {
       <section className="section-container py-10" aria-labelledby="leader-heading">
         <h1 id="leader-heading" className="mb-2 text-3xl font-bold">{t("leader.title")}</h1>
         <p className="mb-8 text-lg text-muted-foreground">{t("leader.subtitle")}</p>
+
+        <WatchAdButton variant="banner" className="mb-6" />
 
         <Card>
           <CardContent className="p-0">

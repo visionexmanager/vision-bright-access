@@ -19,6 +19,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useAmbientSound } from "@/hooks/useAmbientSound";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tier = "kiosk" | "boutique" | "store" | "flagship";
@@ -360,6 +361,11 @@ export default function VXBazaar() {
                     }}
                   />
                 ))}
+              </div>
+
+              {/* Earn VX Banner */}
+              <div className="relative z-10 px-4 pt-6">
+                <WatchAdButton variant="banner" className="mb-6" />
               </div>
 
               {/* Header */}

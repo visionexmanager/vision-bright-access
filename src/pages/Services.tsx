@@ -26,6 +26,7 @@ import { simulationImages } from "@/data/simulationImages";
 import { SIMULATION_PRICES } from "@/systems/pricingSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { toast } from "@/hooks/use-toast";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Category = "all" | "simulations" | "professional" | "learning";
@@ -189,6 +190,8 @@ export default function Services() {
             ))}
           </div>
         </AnimatedSection>
+
+        <WatchAdButton variant="card" className="mb-6" />
 
         {/* ── Business Simulations ─────────────────────────────────── */}
         {showSims && (

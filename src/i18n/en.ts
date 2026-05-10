@@ -109,6 +109,8 @@ const en: Record<string, string> = {
   "dash.adWatched": "Ad watched! +{pts} VX earned",
   "dash.adLimitReached": "Daily ad limit reached — come back tomorrow!",
   "dash.adsToday": "ads watched today",
+  "dash.today": "today",
+  "dash.remaining": "remaining",
   "dash.adSecondsLeft": "{s}s remaining — please keep this open",
   "dash.dailyClaimed": "Daily login bonus! +{pts} VX added",
   "dash.alreadyClaimed": "You already claimed today's bonus",

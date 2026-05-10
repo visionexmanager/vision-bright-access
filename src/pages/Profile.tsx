@@ -22,6 +22,7 @@ import { toast } from "@/hooks/use-toast";
 import { usePoints } from "@/hooks/usePoints";
 import { useAchievements, ACHIEVEMENTS } from "@/hooks/useAchievements";
 import { calculateLevel, calculateStage, getStageIcon, STAGE_ICONS } from "@/systems/levelSystem";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 export default function Profile() {
   const { user, loading: authLoading } = useAuth();
@@ -214,6 +215,9 @@ export default function Profile() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   {t("profile.memberSince")} {memberSince}
                 </p>
+
+                {/* Earn VX */}
+                <WatchAdButton variant="card" className="mb-6" />
 
                 {/* Coins Balance */}
                 <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
