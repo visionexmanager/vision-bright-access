@@ -9,64 +9,37 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+      - name: Load SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Test SSH connection
-        run: |
-          echo "Testing connection to ${{ secrets.SERVER_HOST }}..."
-          ssh -i ~/.ssh/deploy_key \
-            -o StrictHostKeyChecking=no \
-            -o ConnectTimeout=20 \
-            -v \
-            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
-            "echo '✅ SSH connection successful' && whoami && pwd"
+      - name: Add server to known hosts
+        run: ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Deploy to server
+      - name: Test connection
         run: |
-          ssh -i ~/.ssh/deploy_key \
-            -o StrictHostKeyChecking=no \
-            -o ConnectTimeout=20 \
-            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
-            "bash -s" << 'DEPLOY_SCRIPT'
+          ssh "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" "echo '✅ Connected as:' && whoami"
+
+      - name: Deploy
+        run: |
+          ssh "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
           set -e
-
-          echo "==> Moving to project directory..."
           cd ${{ secrets.SERVER_PATH }}
 
-          echo "==> Pulling latest code..."
           git fetch origin main
           git reset --hard origin/main
 
-          echo "==> Installing dependencies..."
           npm ci --prefer-offline || npm ci
 
-          echo "==> Building..."
           export NODE_OPTIONS="--max-old-space-size=4096"
           npm run build
 
-          echo "==> Writing nginx config..."
-          sudo tee /etc/nginx/sites-available/vision-bright-access > /dev/null << 'NGINX_EOF'
-          server {
-              listen 80;
-              listen [::]:80;
-              server_name visionex.app www.visionex.app;
-              root ${{ secrets.SERVER_PATH }}/dist;
-              index index.html;
-              location / {
-                  try_files $uri $uri/ /index.html;
-              }
-              gzip on;
-              gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
-          }
-          NGINX_EOF
+          printf 'server {\n    listen 80;\n    listen [::]:80;\n    server_name visionex.app www.visionex.app;\n    root ${{ secrets.SERVER_PATH }}/dist;\n    index index.html;\n    location / {\n        try_files $uri $uri/ /index.html;\n    }\n    gzip on;\n    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;\n}\n' | sudo tee /etc/nginx/sites-available/vision-bright-access > /dev/null
 
           sudo ln -sf /etc/nginx/sites-available/vision-bright-access /etc/nginx/sites-enabled/vision-bright-access
           sudo rm -f /etc/nginx/sites-enabled/default
           sudo nginx -t && sudo systemctl reload nginx
 
-          echo "✅ Deployed successfully to visionex.app"
-          DEPLOY_SCRIPT
+          echo "✅ Deployed successfully"
+          EOF
