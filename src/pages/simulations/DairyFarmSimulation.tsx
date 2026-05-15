@@ -90,7 +90,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
   }, [herdSize, feedQuality, pasteurizationTemp, coolingTarget, productType, feedCostMultiplier, feedQualityBonus]);
 
   const startProduction = () => {
-    playSound("correct");
+    playSound("pour");
     announce("Correct! Well done.");
     setStage("production");
     setDay(1);

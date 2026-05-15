@@ -124,7 +124,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
   };
 
   const startClinic = () => {
-    playSound("correct");
+    playSound("spray");
     announce("Correct! Well done.");
     setStage("clinic");
     setClientIndex(0);

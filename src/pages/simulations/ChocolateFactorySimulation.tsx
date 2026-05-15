@@ -89,7 +89,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
     if (producing) return;
     setProducing(true);
     setProdProgress(0);
-    playSound("scan");
+    playSound("cooking");
 
     const stages = ["Melting cocoa...", "Mixing ingredients...", "Tempering...", "Molding...", "Cooling...", "Packaging..."];
     let step = 0;
@@ -99,6 +99,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
       step++;
       setProdProgress(Math.round((step / totalSteps) * 100));
       setProdStage(stages[Math.min(Math.floor((step / totalSteps) * stages.length), stages.length - 1)]);
+      if (step === 15) playSound("sizzle");
 
       if (step >= totalSteps) {
         clearInterval(interval);

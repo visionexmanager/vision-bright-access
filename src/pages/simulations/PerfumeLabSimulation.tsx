@@ -73,6 +73,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
         delete next[id];
       } else {
         next[id] = 2; // default 2ml
+        playSound("bubble");
       }
       return next;
     });
@@ -130,7 +131,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
     }
 
     announce("Correct! Well done.");
-    playSound("correct");
+    playSound("pour");
 
     // Simulate market response
     const qualityFactor = p.overallQuality / 100;

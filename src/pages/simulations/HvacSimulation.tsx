@@ -119,7 +119,7 @@ export function HvacSimulation({ simulationId }: Props) {
         setHourlyLog((l) => [...l, { hour, temp: clampedTemp, comfort: hourComfort, energy: hourEnergy }]);
 
         setRunning(false);
-        playSound("ding");
+        if (hourComfort < 50) { playSound("alarm"); } else { playSound("ding"); }
         toast.success(`🕐 ${hour}:00 - Temp: ${clampedTemp}°C | Comfort: ${hourComfort}%`);
 
         if (hour >= 20) finishGame();

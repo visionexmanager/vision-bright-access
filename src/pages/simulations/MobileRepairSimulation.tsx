@@ -141,8 +141,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
 
         setRepairing(false);
         setCurrentJob(null);
-        if (quality > 60) { announce("Correct! Well done."); } else { announceUrgent("Incorrect. Try again."); }
-        playSound("ding");
+        if (quality > 60) { announce("Correct! Well done."); playSound("correct"); } else { announceUrgent("Incorrect. Try again."); playSound("wrong"); }
         toast.success(`✅ ${currentJob.device} fixed! Quality: ${quality}% | +$${profit}`);
 
         if (round >= totalRounds) finishGame();

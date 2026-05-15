@@ -99,7 +99,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
   };
 
   const runTests = () => {
-    playSound("scan");
+    playSound("bubble");
     const results = [
       { test: "Cleaning Efficacy", pass: cleaningPower >= 60, detail: `${cleaningPower}% — ${cleaningPower >= 60 ? "Pass" : "Below threshold"}` },
       { test: "Foam Stability", pass: foamLevel >= 50, detail: `${foamLevel}% — ${foamLevel >= 50 ? "Stable" : "Unstable"}` },

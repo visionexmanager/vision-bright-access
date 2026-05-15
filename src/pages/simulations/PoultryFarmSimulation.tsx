@@ -134,7 +134,8 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
     const finalScore = Math.max(0, Math.round((saleRevenue - costs) / 10) + Math.round((alive / flockSize) * 50));
     setScore(finalScore);
     setFinished(true);
-    playSound("complete");
+    playSound("hatch");
+    setTimeout(() => playSound("complete"), 400);
     announce("Simulation complete!");
     saveProgress(finalScore, true);
     toast.success(`🎉 Harvest! ${totalMeat}kg meat sold for $${saleRevenue}`);

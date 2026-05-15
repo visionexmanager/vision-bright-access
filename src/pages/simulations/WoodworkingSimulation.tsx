@@ -103,7 +103,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
     if (crafting) return;
     setCrafting(true);
     setCraftProgress(0);
-    playSound("scan");
+    playSound("whoosh");
 
     const stages = ["🪚 Cutting lumber...", "📐 Measuring & marking...", `🔩 ${joineryType} joinery...`, `✨ Sanding (${sandGrit} grit)...`, `🎨 Applying ${finish.name}...`, "⏳ Drying...", "✅ Final inspection..."];
     let step = 0;

@@ -117,7 +117,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
     }
 
     announce("Correct! Well done.");
-    playSound("correct");
+    playSound("scan");
 
     // Check if repairs match symptoms
     const correctRepairs = selectedRepairs.filter(rid => {
@@ -151,6 +151,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
     setTotalCosts(prev => prev + repairCost);
     setCaseResults(prev => [...prev, { device: currentCase.device, fixed, profit, satisfaction }]);
 
+    if (fixed) playSound("heal"); else playSound("wrong");
     toast(fixed ? `✅ ${currentCase.device} fixed!` : `⚠️ ${currentCase.device} — some issues remain`);
 
     if (caseIndex + 1 >= CASES.length) {

@@ -86,7 +86,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
       return;
     }
     announce("Correct! Well done.");
-    playSound("correct");
+    playSound("cooking");
     setStage("service");
     setRound(1);
     setEvents(["🔓 Kitchen is open! First customers arriving..."]);
@@ -95,7 +95,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   const serveRound = () => {
     const newRound = round + 1;
     setRound(newRound);
-    playSound("tick");
+    playSound("sizzle");
 
     // Customers per round
     const baseCustomers = locationTraffic + Math.round(reputation / 10);

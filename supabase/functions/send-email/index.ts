@@ -114,6 +114,7 @@ Deno.serve(async (req) => {
       "news":    "Visionex News <news@visionex.app>",
       "legal":   "Visionex Legal <legal@visionex.app>",
       "support": "Visionex Support <support@visionex.app>",
+      "billing": "Visionex Billing <billing@visionex.app>",
       "noreply": "Visionex <no-reply@visionex.app>",
     };
 

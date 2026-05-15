@@ -119,7 +119,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
         setLog((l) => [...l, { month, alive: newAlive, wool: monthWool, revenue: woolRevenue }]);
 
         setSimulating(false);
-        playSound("ding");
+        if (monthWool > 0) { playSound("snip"); } else { playSound("ding"); }
         if (deaths > 0) toast.error(`💀 ${deaths} sheep lost`);
         if (monthWool > 0) toast.success(`🧶 Shearing! ${monthWool}kg wool harvested`);
         else toast.success(`✅ Month ${month} complete. Health: ${Math.round(newHealth)}%`);

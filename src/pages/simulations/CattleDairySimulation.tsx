@@ -86,7 +86,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
 
   const startManagement = () => {
     announce("Correct! Well done.");
-    playSound("correct");
+    playSound("pour");
     setStage("management");
     setSeason("spring");
     setWeek(1);

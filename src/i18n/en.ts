@@ -2022,7 +2022,7 @@ const en: Record<string, string> = {
   "ocr.errScanFailed": "Scan failed. Please try again.",
   "vx.balance": "Balance:",
   "trial.active": "Free trial active — {days} days remaining, all features unlocked",
-  "trial.endingSoon": "Free trial ends in {days} days — collect VX coins to keep using all features",
+  "trial.endingSoon": "Free trial ends in {days} days — Bazaar shop rent will be billed from your VX balance on expiry",
   "settings.notifRevokeHint": "To fully disable notifications, open your browser's site settings and set Notifications to \"Block\" for this site.",
   "games.noResults": "No games found matching your search.",
   "games.filterByCategory": "Filter by category",
