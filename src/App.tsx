@@ -117,6 +117,9 @@ const AdminEmails = lazy(() => import("./pages/admin/AdminEmails"));
 const AdminDatabase = lazy(() => import("./pages/admin/AdminDatabase"));
 const AdminLogs = lazy(() => import("./pages/admin/AdminLogs"));
 const AdminVX   = lazy(() => import("./pages/admin/AdminVX"));
+const AdminSimulations = lazy(() => import("./pages/admin/AdminSimulations"));
+const AdminBazaar = lazy(() => import("./pages/admin/AdminBazaar"));
+const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -248,6 +251,9 @@ const App = () => (
                     <Route path="/admin/database" element={<AdminRoute><AdminDatabase /></AdminRoute>} />
                     <Route path="/admin/vx" element={<AdminRoute><AdminVX /></AdminRoute>} />
                     <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
+                    <Route path="/admin/simulations" element={<AdminRoute><AdminSimulations /></AdminRoute>} />
+                    <Route path="/admin/bazaar" element={<AdminRoute><AdminBazaar /></AdminRoute>} />
+                    <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

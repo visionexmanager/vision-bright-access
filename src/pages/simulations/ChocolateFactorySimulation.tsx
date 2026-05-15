@@ -312,6 +312,10 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
+      <SimulationMentor
+        simulationTitle="Chocolate Factory"
+        currentStepTitle={finished ? "Results" : producing ? prodStage : `Batch ${batch}/${totalBatches}`}
+      />
     </div>
   );
 }

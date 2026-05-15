@@ -18,16 +18,14 @@ export function SimulationMentor({ simulationTitle, currentStepTitle }: Simulati
 
   const mentorContext = {
     productName: `Business Simulation: ${simulationTitle}`,
+    currentStep: currentStepTitle || undefined,
   };
 
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
     setInput("");
-    sendMessage(
-      `[Business Mentor Context: Simulation "${simulationTitle}", Current step: "${currentStepTitle}"]\n\n${trimmed}`,
-      mentorContext
-    );
+    sendMessage(trimmed, mentorContext);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -85,10 +83,7 @@ export function SimulationMentor({ simulationTitle, currentStepTitle }: Simulati
               {quickPrompts.map((p, i) => (
                 <button
                   key={i}
-                  onClick={() => sendMessage(
-                    `[Business Mentor Context: Simulation "${simulationTitle}", Current step: "${currentStepTitle}"]\n\n${p}`,
-                    mentorContext
-                  )}
+                  onClick={() => sendMessage(p, mentorContext)}
                   className="text-xs text-start px-3 py-2 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
                 >
                   {p}

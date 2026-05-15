@@ -23,6 +23,7 @@ export function RewardedAdModal({ onRewarded, onClose }: Props) {
   const { t } = useLanguage();
   const adRef = useRef<HTMLModElement>(null);
   const [secondsLeft, setSecondsLeft] = useState(WATCH_SECONDS);
+  const [announcedSeconds, setAnnouncedSeconds] = useState(WATCH_SECONDS);
   const [rewarded, setRewarded] = useState(false);
   const pushedRef = useRef(false);
 
@@ -35,15 +36,23 @@ export function RewardedAdModal({ onRewarded, onClose }: Props) {
     } catch { /* already initialised */ }
   }, []);
 
-  // Countdown timer
+  // Countdown timer — visual updates every second, aria-live announces every 5 seconds
   useEffect(() => {
     if (rewarded) return;
     if (secondsLeft <= 0) {
       setRewarded(true);
+      setAnnouncedSeconds(0);
       onRewarded();
       return;
     }
-    const id = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    const id = setTimeout(() => {
+      setSecondsLeft((s) => {
+        const next = s - 1;
+        // Only update the announced value on multiples of 5 (or when done)
+        if (next % 5 === 0) setAnnouncedSeconds(next);
+        return next;
+      });
+    }, 1000);
     return () => clearTimeout(id);
   }, [secondsLeft, rewarded, onRewarded]);
 
@@ -110,8 +119,10 @@ export function RewardedAdModal({ onRewarded, onClose }: Props) {
           ) : (
             <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
               <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-              <span aria-live="polite" aria-atomic="true">
-                {t("dash.adSecondsLeft").replace("{s}", String(secondsLeft))}
+              {/* Visual counter updates every second; aria-live only fires every 5 seconds */}
+              <span aria-hidden="true">{t("dash.adSecondsLeft").replace("{s}", String(secondsLeft))}</span>
+              <span aria-live="polite" aria-atomic="true" className="sr-only">
+                {announcedSeconds > 0 ? t("dash.adSecondsLeft").replace("{s}", String(announcedSeconds)) : ""}
               </span>
             </p>
           )}

@@ -405,6 +405,10 @@ export function BarberSalonSimulation({ simulationId }: Props) {
           </Button>
         </>
       )}
+      <SimulationMentor
+        simulationTitle="Barber Salon"
+        currentStepTitle={finished ? "Results" : dayActive ? `Day ${day} — In Session` : `Day ${day} — Setup`}
+      />
     </div>
   );
 }

@@ -347,6 +347,10 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
       <Button onClick={submitRepair} className="w-full" size="lg" disabled={selectedRepairs.length === 0}>
         🔧 Submit Repair — Case {caseIndex + 1}
       </Button>
+      <SimulationMentor
+        simulationTitle="Board Surgeon"
+        currentStepTitle={stage === "results" ? "Results" : `Case ${caseIndex + 1} — ${stage}`}
+      />
     </div>
   );
 }

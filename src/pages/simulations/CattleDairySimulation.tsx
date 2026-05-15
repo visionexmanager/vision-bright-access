@@ -325,6 +325,10 @@ export function CattleDairySimulation({ simulationId }: Props) {
       </CardContent></Card>
 
       <Button onClick={startManagement} className="w-full text-base" size="lg">🚀 Start 12-Week Season</Button>
+      <SimulationMentor
+        simulationTitle="Cattle Dairy Farm"
+        currentStepTitle={stage === "results" ? "Results" : stage === "setup" ? "Farm Setup" : `Week ${week} — ${season}`}
+      />
     </div>
   );
 }
