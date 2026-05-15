@@ -199,7 +199,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <SimulationScene slug="chocolate-factory" />
+      <SimulationScene slug="chocolate-factory" isActive={batchStarted} isComplete={finished} />
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">🏭 Batch {batch}/{totalBatches}</h2>

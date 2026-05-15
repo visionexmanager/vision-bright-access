@@ -259,7 +259,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
   // Creation
   return (
     <div className="space-y-6">
-      <SimulationScene slug="perfume-lab" />
+      <SimulationScene slug="perfume-lab" isActive={score > 0} isComplete={launched} />
       <h2 className="text-xl font-bold flex items-center gap-2"><FlaskConical className="h-6 w-6 text-amber-500" /> Perfume Lab</h2>
       <p className="text-sm text-muted-foreground">Craft a unique fragrance by selecting notes from top, heart, and base layers. Balance complexity, longevity, and cost.</p>
 

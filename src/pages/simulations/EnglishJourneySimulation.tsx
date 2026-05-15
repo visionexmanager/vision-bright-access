@@ -350,7 +350,7 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
   // Map view
   return (
     <div className="space-y-6">
-      <SimulationScene slug="english-journey" />
+      <SimulationScene slug="english-journey" isActive={dialogueIndex > 0} isComplete={completedScenarios.size >= scenarios.length} />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">🌍 English Journey</h2>
         <Badge variant="secondary">{score} pts</Badge>

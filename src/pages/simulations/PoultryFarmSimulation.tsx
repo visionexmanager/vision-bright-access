@@ -168,7 +168,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <SimulationScene slug="poultry-farm" />
+      <SimulationScene slug="poultry-farm" isActive={started} isComplete={finished} />
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">🐔 {started ? `Week ${week}/${totalWeeks}` : "Farm Setup"}</h2>
         {started && <Badge variant="secondary" role="status" aria-live="polite">🐔 {alive} alive | {avgWeight}kg avg</Badge>}

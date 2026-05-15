@@ -172,7 +172,7 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <SimulationScene slug="music-training" />
+      <SimulationScene slug="music-training" isActive={started} isComplete={finished} />
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold flex items-center gap-2">
           <Music className="h-5 w-5 text-primary" />

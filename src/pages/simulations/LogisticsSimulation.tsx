@@ -211,7 +211,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <SimulationScene slug="logistics-supply" />
+      <SimulationScene slug="logistics-supply" isActive={round > 0} isComplete={finished} />
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">📦 Shipment {round}/{totalRounds}</h2>
         <div className="flex gap-2">
