@@ -21,10 +21,11 @@ export function useTrial() {
 
   const now = new Date();
   const expiresAt = trialExpiresRaw ? new Date(trialExpiresRaw) : null;
-  const isOnTrial = expiresAt ? expiresAt > now : false;
-  const trialDaysLeft = isOnTrial && expiresAt
-    ? Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    : 0;
+  // NULL means backfill hasn't run yet — treat as on trial with 30 days remaining.
+  const isOnTrial = expiresAt === null ? true : expiresAt > now;
+  const trialDaysLeft = expiresAt
+    ? Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+    : 30;
 
   return { isOnTrial, trialDaysLeft, trialExpiresAt: expiresAt };
 }
