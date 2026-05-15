@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { RotateCcw, Trophy } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
+import { SimulationScene } from "@/components/SimulationScene";
 
 interface Props { simulationId?: string; }
 
@@ -173,6 +174,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
+      <SimulationScene slug="woodworking" />
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">🪵 Project {round}/{totalRounds}</h2>
         <Badge variant="secondary" role="status" aria-live="polite">${revenue - costs} profit</Badge>

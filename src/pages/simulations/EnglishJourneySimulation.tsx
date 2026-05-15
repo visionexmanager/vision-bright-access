@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
+import { SimulationScene } from "@/components/SimulationScene";
 
 type Stage = "map" | "scenario" | "dialogue" | "results";
 
@@ -349,6 +350,7 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
   // Map view
   return (
     <div className="space-y-6">
+      <SimulationScene slug="english-journey" />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">🌍 English Journey</h2>
         <Badge variant="secondary">{score} pts</Badge>

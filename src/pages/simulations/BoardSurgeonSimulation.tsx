@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
+import { SimulationScene } from "@/components/SimulationScene";
 
 type Stage = "diagnosis" | "repair" | "testing" | "results";
 
@@ -259,6 +260,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
   // Diagnosis & Repair stage
   return (
     <div className="space-y-6">
+      <SimulationScene slug="board-surgeon" />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2"><Wrench className="h-6 w-6 text-primary" /> Board Surgeon</h2>
         <Badge variant="secondary" role="status" aria-live="polite">Case {caseIndex + 1}/{CASES.length}</Badge>

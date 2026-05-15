@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
+import { SimulationScene } from "@/components/SimulationScene";
 
 type Stage = "formulation" | "production" | "testing" | "results";
 
@@ -271,6 +272,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
   // Formulation stage
   return (
     <div className="space-y-6">
+      <SimulationScene slug="detergent-lab" />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2">
           <FlaskConical className="h-6 w-6 text-primary" /> Detergent Lab
