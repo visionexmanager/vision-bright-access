@@ -175,15 +175,53 @@
   }
 }
 
-/* ── Simulation scene particle animations ──────────────────────────── */
-@keyframes sim-drift {
-  0%   { transform: translateY(0px)    translateX(0px)   rotate(0deg)  scale(1);   opacity: 0.85; }
-  40%  { transform: translateY(-45px)  translateX(8px)   rotate(6deg)  scale(1.1); opacity: 1;    }
-  100% { transform: translateY(-105px) translateX(-6px)  rotate(-8deg) scale(0.7); opacity: 0;    }
+/* ── Simulation scene animations ────────────────────────────────────── */
+@keyframes sim-drift-up {
+  0%   { transform: translateY(0px)   scale(1);   opacity: 0.85; }
+  60%  { transform: translateY(-55px) scale(1.1); opacity: 0.9;  }
+  100% { transform: translateY(-110px) scale(0.7); opacity: 0;   }
+}
+@keyframes sim-drift-r {
+  0%   { transform: translateX(0px);   }
+  100% { transform: translateX(120px); }
+}
+@keyframes sim-walk {
+  0%, 100% { transform: translateX(0px)  translateY(0px); }
+  25%       { transform: translateX(14px) translateY(-3px); }
+  50%       { transform: translateX(28px) translateY(0px);  }
+  75%       { transform: translateX(14px) translateY(-3px); }
+}
+@keyframes sim-bob {
+  0%, 100% { transform: translateY(0px);   }
+  50%       { transform: translateY(-7px);  }
+}
+@keyframes sim-float-up {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50%       { transform: translateY(-14px) rotate(5deg); }
 }
 @keyframes sim-sway {
-  0%, 100% { transform: translateX(0px) rotate(0deg);  }
-  50%       { transform: translateX(12px) rotate(5deg); }
+  0%, 100% { transform: rotate(-5deg); }
+  50%       { transform: rotate(5deg);  }
+}
+@keyframes sim-pulse {
+  0%, 100% { transform: scale(1);    opacity: 0.9; }
+  50%       { transform: scale(1.08); opacity: 1;   }
+}
+@keyframes sim-spin {
+  from { transform: rotate(0deg);   }
+  to   { transform: rotate(360deg); }
+}
+@keyframes sim-blink {
+  0%, 100% { opacity: 1;   }
+  50%       { opacity: 0.2; }
+}
+@keyframes sim-flame {
+  0%, 100% { transform: scaleY(1)   skewX(0deg);  }
+  50%       { transform: scaleY(1.2) skewX(-5deg); }
+}
+@keyframes sim-celebrate {
+  0%   { transform: translateY(0px)   scale(1);   opacity: 1; }
+  100% { transform: translateY(-80px) scale(0.5); opacity: 0; }
 }
 
 @layer utilities {

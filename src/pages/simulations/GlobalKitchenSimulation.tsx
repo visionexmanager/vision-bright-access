@@ -280,7 +280,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   // Setup
   return (
     <div className="space-y-6">
-      <SimulationScene slug="global-kitchen" />
+      <SimulationScene slug="global-kitchen" isActive={round > 1} isComplete={finished} />
       <h2 className="text-xl font-bold flex items-center gap-2"><ChefHat className="h-6 w-6 text-primary" /> Global Kitchen</h2>
       <p className="text-sm text-muted-foreground">Open your restaurant! Choose menu items, hire chefs, set prices, and serve 6 rounds of customers.</p>
 

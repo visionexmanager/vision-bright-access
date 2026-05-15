@@ -284,7 +284,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
   const q = calcProductQuality();
   return (
     <div className="space-y-6">
-      <SimulationScene slug="skin-care-lab" />
+      <SimulationScene slug="skin-care-lab" isActive={clientIndex > 0} isComplete={finished} />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles className="h-6 w-6 text-primary" /> Skincare Lab</h2>
       </div>
