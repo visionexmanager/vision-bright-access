@@ -63,10 +63,10 @@ export default function ServiceRequestPage({
     setSubmitting(true);
     try {
       if (!isOnTrial) {
-        const { error: deductErr } = await supabase.from("user_points").insert({
-          user_id: user.id,
-          points: -selectedPkg.vx,
-          reason: `Service: ${serviceType} — ${selectedPkg.name}`,
+        const { error: deductErr } = await supabase.rpc("spend_vx", {
+          _amount: selectedPkg.vx,
+          _item_type: "service",
+          _item_name: `${serviceType} — ${selectedPkg.name}`,
         });
         if (deductErr) throw deductErr;
       }

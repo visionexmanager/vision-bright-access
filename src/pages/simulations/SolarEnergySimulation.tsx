@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -13,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { RotateCcw, Trophy, Sun, Zap } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 
 interface Props { simulationId?: string; }
 
@@ -41,6 +43,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [panelType, setPanelType] = useState(PANEL_TYPES[0]);
@@ -130,6 +133,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
     setScore(finalScore);
     setFinished(true);
     playSound("complete");
+    announce("Simulation complete!");
     saveProgress(finalScore, true);
   };
 
@@ -163,7 +167,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
     <div className="max-w-2xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold flex items-center gap-2"><Sun className="h-5 w-5 text-yellow-500" /> {installed ? `Month ${month}/${totalMonths}` : "System Design"}</h2>
-        {installed && <Badge variant="secondary"><Zap className="h-3 w-3" /> {totalEnergy} kWh</Badge>}
+        {installed && <Badge variant="secondary" role="status" aria-live="polite"><Zap className="h-3 w-3" /> {totalEnergy} kWh</Badge>}
       </div>
       {installed && <Progress value={(month / totalMonths) * 100} className="h-2" />}
 
@@ -233,7 +237,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
               <div className="flex justify-between font-bold border-t border-border pt-1"><span>Total Investment:</span><span>${installCost}</span></div>
               <div className="flex justify-between text-green-500"><span>Est. Daily Output:</span><span>{dailyOutput.toFixed(1)} kWh</span></div>
             </div>
-            <Button onClick={installSystem} className="w-full">☀️ Install System</Button>
+            <Button onClick={installSystem} className="w-full" aria-label="Install System">☀️ Install System</Button>
           </CardContent>
         </Card>
       )}
@@ -246,7 +250,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
               <div><p className="text-xs text-muted-foreground">Cost</p><p className="font-bold text-red-500">${totalCost}</p></div>
               <div><p className="text-xs text-muted-foreground">Energy</p><p className="font-bold">{totalEnergy} kWh</p></div>
             </div>
-            <Button onClick={simulateMonth} className="w-full">⏭️ Simulate Month {month}</Button>
+            <Button onClick={simulateMonth} className="w-full" aria-label={`Simulate Month ${month}`}>⏭️ Simulate Month {month}</Button>
           </CardContent>
         </Card>
       )}
@@ -264,6 +268,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
+      <SimulationMentor simulationTitle="Solar Energy Installation" currentStepTitle="" />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Coins, Clock } from "lucide-react";
 import { COIN_PACKAGES, calculatePackageTotal } from "@/systems/coinsSystem";
+import { WatchAdButton } from "@/components/WatchAdButton";
 import { Link } from "react-router-dom";
 
 export default function CoinsStore() {
@@ -20,6 +21,8 @@ export default function CoinsStore() {
           <h1 className="text-4xl font-bold tracking-tight">{t("coins.title")}</h1>
           <p className="mt-2 text-lg text-muted-foreground">{t("coins.subtitle")}</p>
         </div>
+
+        <WatchAdButton variant="card" className="mb-8" />
 
         {/* Coming Soon Banner */}
         <div className="mb-8 rounded-xl border-2 border-primary/30 bg-primary/5 p-6 text-center">

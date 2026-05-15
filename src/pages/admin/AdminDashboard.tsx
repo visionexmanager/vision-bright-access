@@ -5,7 +5,8 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Package, FileText, Users, Settings, ShieldCheck, BarChart3,
-  Mail, ShieldAlert, Database, ScrollText, Flag, Coins, Bell, AlertTriangle
+  Mail, ShieldAlert, Database, ScrollText, Flag, Coins, Bell, AlertTriangle,
+  Gamepad2, Store
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -13,6 +14,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 type Stats = {
   products: number; content: number; users: number; requests: number;
   reports: number; subscribers: number; logs: number; notifications: number;
+  simulations: number; bazaar: number;
 };
 
 const ADMIN_CARDS = [
@@ -28,6 +30,9 @@ const ADMIN_CARDS = [
   { id: "requests", key: "requests" as const, icon: ShieldAlert, link: "/admin/requests", color: "text-orange-500" },
   { id: "settings", key: null, icon: Settings, link: "/admin/settings", color: "text-gray-500" },
   { id: "vx", key: null, icon: Coins, link: "/admin/vx", color: "text-yellow-500" },
+  { id: "simulations", key: "simulations" as const, icon: Gamepad2, link: "/admin/simulations", color: "text-emerald-500" },
+  { id: "bazaar", key: "bazaar" as const, icon: Store, link: "/admin/bazaar", color: "text-orange-500" },
+  { id: "notifications", key: "notifications" as const, icon: Bell, link: "/admin/notifications", color: "text-indigo-500" },
 ];
 
 export default function AdminDashboard() {
@@ -35,11 +40,12 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats>({
     products: 0, content: 0, users: 0, requests: 0,
     reports: 0, subscribers: 0, logs: 0, notifications: 0,
+    simulations: 0, bazaar: 0,
   });
 
   useEffect(() => {
     const load = async () => {
-      const [p, c, u, r, rep, sub, logs, notif] = await Promise.all([
+      const [p, c, u, r, rep, sub, logs, notif, sims, baz] = await Promise.all([
         supabase.from("products").select("id", { count: "exact", head: true }),
         supabase.from("content_items").select("id", { count: "exact", head: true }),
         supabase.from("profiles").select("id", { count: "exact", head: true }),
@@ -48,6 +54,8 @@ export default function AdminDashboard() {
         supabase.from("newsletter_subscribers").select("id", { count: "exact", head: true }),
         supabase.from("admin_logs").select("id", { count: "exact", head: true }),
         supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false),
+        supabase.from("simulations").select("id", { count: "exact", head: true }),
+        supabase.from("bazaar_shops").select("id", { count: "exact", head: true }),
       ]);
       setStats({
         products: p.count ?? 0,
@@ -58,6 +66,8 @@ export default function AdminDashboard() {
         subscribers: sub.count ?? 0,
         logs: logs.count ?? 0,
         notifications: notif.count ?? 0,
+        simulations: sims.count ?? 0,
+        bazaar: baz.count ?? 0,
       });
     };
     load();

@@ -6,7 +6,6 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { usePoints } from "@/hooks/usePoints";
 import { Trophy, RotateCcw, Play, Coins, LogIn } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -15,6 +14,7 @@ import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 const questions = [
   { id: 1, q: "ما هو أسرع حيوان بري في العالم؟", options: ["الأسد", "الفهد", "الغزال"], correct: 1 },
@@ -48,13 +48,6 @@ function getRank(finalScore: number) {
   return { title: "مبتدئ طموح", rank: "beginner" };
 }
 
-function getPointsReward(gameScore: number): number {
-  if (gameScore >= 180) return 50;
-  if (gameScore >= 120) return 30;
-  if (gameScore >= 60) return 15;
-  if (gameScore >= 10) return 5;
-  return 0;
-}
 
 // ─── Multiplayer competitive quiz ────────────────────────────────────────────
 function QuizMulti() {
@@ -64,7 +57,7 @@ function QuizMulti() {
   const [currentQ, setCurrentQ] = useState(0);
   const [myScore, setMyScore]   = useState(0);
   const [finished, setFinished] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(3);
+  const [timeLeft, setTimeLeft] = useState(10);
 
   const gs      = mp.session?.game_state as Record<string, unknown> | null;
   const opp     = mp.opponents[0];
@@ -142,7 +135,7 @@ function QuizMulti() {
         </div>
       ) : (
         <div className="space-y-4" dir="rtl">
-          <div className={`flex h-12 w-12 mx-auto items-center justify-center rounded-full border-4 text-xl font-black ${timeLeft <= 1 ? "border-destructive text-destructive animate-pulse" : "border-primary text-primary"}`}>{timeLeft}</div>
+          <div className={`flex h-12 w-12 mx-auto items-center justify-center rounded-full border-4 text-xl font-black ${timeLeft <= 3 ? "border-destructive text-destructive animate-pulse" : "border-primary text-primary"}`}>{timeLeft}</div>
           <h2 className="text-xl font-bold text-center" aria-live="polite">{q.q}</h2>
           <div className="grid gap-3">
             {q.options.map((opt, i) => (
@@ -161,13 +154,11 @@ export default function QuizChallenge() {
   const [mode, setMode] = useState<"solo" | "multi">("solo");
   const { t } = useLanguage();
   const { user } = useAuth();
-  const { earnPoints } = useEarnPoints();
   const { totalPoints } = usePoints();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(3);
+  const [timeLeft, setTimeLeft] = useState(10);
   const [gameState, setGameState] = useState<GameState>("start");
-  const [pointsAwarded, setPointsAwarded] = useState(false);
 
   const correctSoundRef = useRef<HTMLAudioElement | null>(null);
   const wrongSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -186,20 +177,6 @@ export default function QuizChallenge() {
     }
   }, [currentQuestion]);
 
-  // Award points when game ends
-  useEffect(() => {
-    if (gameState === "end" && !pointsAwarded && user) {
-      const reward = getPointsReward(score);
-      if (reward > 0) {
-        earnPoints(reward, `Quiz Challenge — Score: ${score}`).then((ok) => {
-          if (ok) {
-            toast.success(t("games.quiz.pointsEarned").replace("{pts}", String(reward)));
-          }
-        });
-      }
-      setPointsAwarded(true);
-    }
-  }, [gameState, pointsAwarded, score, user, earnPoints, t]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -231,7 +208,6 @@ export default function QuizChallenge() {
   };
 
   const rank = getRank(score);
-  const reward = getPointsReward(score);
   const progress = ((currentQuestion + 1) / questions.length) * 100;
 
   return (
@@ -247,6 +223,7 @@ export default function QuizChallenge() {
         <Card className="w-full border-2 border-primary/30 p-6 sm:p-8 text-center">
           {gameState === "start" && (
             <div className="space-y-6">
+              <WatchAdButton variant="banner" className="mb-4" />
               <Trophy className="mx-auto h-16 w-16 text-primary" aria-hidden="true" />
               <h1 className="text-3xl font-black sm:text-4xl" dir="rtl">
                 {t("quiz.titleWithCount").replace("{count}", String(questions.length))}
@@ -260,21 +237,6 @@ export default function QuizChallenge() {
                   <Coins className="h-4 w-4 text-primary" />
                   <span>{t("games.quiz.yourPoints").replace("{pts}", String(totalPoints))}</span>
                 </div>
-              )}
-
-              <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground" dir="rtl">
-                <p className="font-semibold text-foreground mb-1">{t("games.quiz.rewards")}</p>
-                <p>🥇 180+ → 50 {t("games.quiz.pts")}</p>
-                <p>🥈 120+ → 30 {t("games.quiz.pts")}</p>
-                <p>🥉 60+ → 15 {t("games.quiz.pts")}</p>
-                <p>⭐ 10+ → 5 {t("games.quiz.pts")}</p>
-              </div>
-
-              {!user && (
-                <p className="text-sm text-muted-foreground">
-                  <Link to="/login" className="text-primary underline">{t("nav.login")}</Link>
-                  {" "}{t("games.quiz.loginToEarn")}
-                </p>
               )}
 
               <Button size="lg" className="text-lg font-bold" onClick={() => setGameState("playing")}>
@@ -292,7 +254,7 @@ export default function QuizChallenge() {
                 </div>
                 <div
                   className={`flex h-14 w-14 items-center justify-center rounded-full border-4 text-2xl font-black ${
-                    timeLeft <= 1
+                    timeLeft <= 3
                       ? "border-destructive text-destructive animate-pulse"
                       : "border-primary text-primary"
                   }`}
@@ -339,19 +301,6 @@ export default function QuizChallenge() {
               <div className="text-6xl font-black text-primary">{score}</div>
               <p className="text-xl">{t("quiz.currentRank")}</p>
               <p className="text-3xl font-black text-primary">{rank.title}</p>
-
-              {user && reward > 0 && (
-                <div className="flex items-center justify-center gap-2 rounded-lg bg-primary/10 p-3 text-primary font-semibold">
-                  <Coins className="h-5 w-5" />
-                  <span>+{reward} {t("games.quiz.pts")} {t("games.quiz.earned")}</span>
-                </div>
-              )}
-              {!user && reward > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  <Link to="/signup" className="text-primary underline">{t("nav.signup")}</Link>
-                  {" "}{t("games.quiz.signupToEarn").replace("{pts}", String(reward))}
-                </p>
-              )}
 
               <Button size="lg" onClick={restart} className="text-lg font-bold">
                 <RotateCcw className="me-2 h-5 w-5" /> {t("quiz.tryAgain")}

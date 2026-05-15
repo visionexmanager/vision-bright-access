@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -14,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { RotateCcw, Trophy } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 
 interface Props { simulationId?: string; }
 
@@ -54,6 +56,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [orders, setOrders] = useState<Order[]>(() => Array.from({ length: 3 }, (_, i) => randomOrder(i)));
@@ -163,6 +166,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
     setScore(Math.round(finalScore));
     setFinished(true);
     playSound("complete");
+    announce("Simulation complete!");
     saveProgress(Math.round(finalScore), true);
   };
 
@@ -208,7 +212,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">🏗️ Round {round}/{totalRounds}</h2>
         <div className="flex gap-2">
-          <Badge variant="secondary">${revenue - costs} profit</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite">${revenue - costs} profit</Badge>
           <Badge variant="outline">⭐ {satisfaction}%</Badge>
         </div>
       </div>
@@ -235,7 +239,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
                   <p className="font-medium text-sm">{o.type} ({o.quantity}x)</p>
                   <p className="text-xs text-muted-foreground">{o.width}x{o.height}cm | Budget: ${o.budget} | {o.deadline} days</p>
                 </div>
-                <Button size="sm" variant="outline">Select</Button>
+                <Button size="sm" variant="outline" aria-label={`Select ${o.type} order`}>Select</Button>
               </div>
             ))}
           </CardContent>
@@ -298,7 +302,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
               <div className="flex justify-between"><span>Customer Budget:</span><span>${currentOrder.budget}</span></div>
             </div>
 
-            <Button onClick={startFabrication} className="w-full">🔨 Start Fabrication</Button>
+            <Button onClick={startFabrication} className="w-full" aria-label="Start Fabrication">🔨 Start Fabrication</Button>
           </CardContent>
         </Card>
       )}
@@ -317,6 +321,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
           </CardContent>
         </Card>
       )}
+      <SimulationMentor simulationTitle="Aluminum Glazing" currentStepTitle="" />
     </div>
   );
 }

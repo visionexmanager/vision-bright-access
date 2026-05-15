@@ -27,6 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 type ContentItem = {
   id: string;
@@ -142,6 +143,8 @@ export default function Content() {
               {t("content.tab.media")}
             </TabsTrigger>
           </TabsList>
+
+          <WatchAdButton variant="banner" className="my-6" />
 
           {/* Content tabs */}
           {contentTabs.map((v) => (

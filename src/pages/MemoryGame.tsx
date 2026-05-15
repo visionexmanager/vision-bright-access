@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { usePoints } from "@/hooks/usePoints";
 import { useGameAudio, useGameTTS } from "@/hooks/useGameAudio";
 import {
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 // Card data with icons
 const CARD_DATA = [
@@ -48,20 +48,12 @@ function buildDeck(): MemCard[] {
   return pairs;
 }
 
-function getPointsReward(moves: number): number {
-  if (moves <= 16) return 40;
-  if (moves <= 24) return 25;
-  if (moves <= 32) return 15;
-  if (moves <= 48) return 5;
-  return 0;
-}
 
 type GameState = "start" | "playing" | "end";
 
 export default function MemoryGame() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
-  const { earnPoints } = useEarnPoints();
   const { totalPoints } = usePoints();
   const { playSound, setEnabled: setSoundEnabled, enabledRef: soundEnabledRef } = useGameAudio();
   const { speak, setEnabled: setTTSEnabled, stop: stopTTS, enabledRef: ttsEnabledRef } = useGameTTS();
@@ -71,7 +63,6 @@ export default function MemoryGame() {
   const [moves, setMoves] = useState(0);
   const [matchedCount, setMatchedCount] = useState(0);
   const [gameState, setGameState] = useState<GameState>("start");
-  const [pointsAwarded, setPointsAwarded] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [ttsOn, setTTSOn] = useState(true);
   const liveRef = useRef<HTMLDivElement>(null);
@@ -137,20 +128,6 @@ export default function MemoryGame() {
     }
   }, [matchedCount, gameState, playSound, speak, ttsOn, t, lang]);
 
-  // Award points
-  useEffect(() => {
-    if (gameState === "end" && !pointsAwarded && user) {
-      const reward = getPointsReward(moves);
-      if (reward > 0) {
-        earnPoints(reward, `Memory Game — ${moves} moves`).then((ok) => {
-          if (ok) {
-            toast.success(t("games.memory.pointsEarned").replace("{pts}", String(reward)));
-          }
-        });
-      }
-      setPointsAwarded(true);
-    }
-  }, [gameState, pointsAwarded, moves, user, earnPoints, t]);
 
   const handleFlip = (id: number) => {
     if (flippedIds.length >= 2) return;
@@ -183,11 +160,10 @@ export default function MemoryGame() {
     if (!next) stopTTS();
   };
 
-  const reward = getPointsReward(moves);
-
   return (
     <Layout>
       <div ref={liveRef} aria-live="assertive" aria-atomic="true" className="sr-only" />
+      <WatchAdButton variant="float" />
 
       <section className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 py-12">
         <Card className="w-full border-2 border-primary/30 p-6 sm:p-8 text-center">
@@ -222,21 +198,6 @@ export default function MemoryGame() {
                   <Coins className="h-4 w-4 text-primary" />
                   <span>{t("games.quiz.yourPoints").replace("{pts}", String(totalPoints))}</span>
                 </div>
-              )}
-
-              <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">
-                <p className="font-semibold text-foreground mb-1">{t("games.quiz.rewards")}</p>
-                <p>🥇 ≤16 {t("games.memory.movesLabel")} → 40 {t("games.quiz.pts")}</p>
-                <p>🥈 ≤24 {t("games.memory.movesLabel")} → 25 {t("games.quiz.pts")}</p>
-                <p>🥉 ≤32 {t("games.memory.movesLabel")} → 15 {t("games.quiz.pts")}</p>
-                <p>⭐ ≤48 {t("games.memory.movesLabel")} → 5 {t("games.quiz.pts")}</p>
-              </div>
-
-              {!user && (
-                <p className="text-sm text-muted-foreground">
-                  <Link to="/login" className="text-primary underline">{t("nav.login")}</Link>
-                  {" "}{t("games.quiz.loginToEarn")}
-                </p>
               )}
 
               <Button size="lg" className="text-lg font-bold" onClick={startGame}>
@@ -326,19 +287,6 @@ export default function MemoryGame() {
               <div className="text-5xl font-black text-primary">
                 {moves} {t("games.memory.movesLabel")}
               </div>
-
-              {user && reward > 0 && (
-                <div className="flex items-center justify-center gap-2 rounded-lg bg-primary/10 p-3 text-primary font-semibold">
-                  <Coins className="h-5 w-5" />
-                  <span>+{reward} {t("games.quiz.pts")} {t("games.quiz.earned")}</span>
-                </div>
-              )}
-              {!user && reward > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  <Link to="/signup" className="text-primary underline">{t("nav.signup")}</Link>
-                  {" "}{t("games.quiz.signupToEarn").replace("{pts}", String(reward))}
-                </p>
-              )}
 
               <Button size="lg" onClick={startGame} className="text-lg font-bold">
                 <RotateCcw className="me-2 h-5 w-5" /> {t("games.memory.playAgain")}

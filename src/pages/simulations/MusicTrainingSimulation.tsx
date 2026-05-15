@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +34,7 @@ const WEEKS = 12;
 export function MusicTrainingSimulation({ simulationId }: Props) {
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [instrument, setInstrument] = useState(INSTRUMENTS[0]);
@@ -114,6 +116,7 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
         setLog((l) => [...l, { week, students: newStudents, skill: newSkill, earned: weekEarned }]);
 
         setSimulating(false);
+        if (dropout > 0) { announceUrgent("Incorrect. Try again."); } else { announce("Correct! Well done."); }
         playSound("ding");
 
         if (dropout > 0)
@@ -125,6 +128,7 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
           const finalScore = Math.max(0, Math.round(newSkill + (newStudents / groupSize) * 50 + (revenue - costs) / 100));
           setScore(finalScore);
           setFinished(true);
+          announce("Simulation complete!");
           playSound("complete");
           saveProgress(finalScore, true);
         } else {
@@ -174,8 +178,8 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
         </h2>
         {started && (
           <div className="flex gap-2">
-            <Badge variant="secondary">🎵 {students} students</Badge>
-            <Badge variant="outline"><Star className="h-3 w-3 mr-1" />{skill}%</Badge>
+            <Badge variant="secondary" role="status" aria-live="polite">🎵 {students} students</Badge>
+            <Badge variant="outline" role="status" aria-live="polite"><Star className="h-3 w-3 mr-1" />{skill}%</Badge>
           </div>
         )}
       </div>
@@ -224,7 +228,7 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
             <div className="p-3 rounded-lg bg-muted/50 text-xs">
               <div className="flex justify-between"><span>Setup Cost:</span><span>${setupCost.toLocaleString()}</span></div>
             </div>
-            <Button onClick={startAcademy} className="w-full">🎵 Open Academy</Button>
+            <Button onClick={startAcademy} className="w-full" aria-label="Open Academy">🎵 Open Academy</Button>
           </CardContent>
         </Card>
       )}
@@ -246,7 +250,7 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
               <label className="text-xs text-muted-foreground mb-1 block">Practice Hours/Day: {practiceHours}h</label>
               <Slider value={[practiceHours]} onValueChange={([v]) => setPracticeHours(v)} min={1} max={6} step={1} />
             </div>
-            <Button onClick={simulateWeek} className="w-full">⏭️ Simulate Week {week}</Button>
+            <Button onClick={simulateWeek} className="w-full" aria-label={`Simulate Week ${week}`}>⏭️ Simulate Week {week}</Button>
           </CardContent>
         </Card>
       )}

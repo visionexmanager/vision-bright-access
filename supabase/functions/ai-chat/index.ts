@@ -78,11 +78,41 @@ serve(async (req) => {
 
     // Build context-aware system prompt
     let systemPrompt = SYSTEM_PROMPT;
-    if (context?.currentPage) {
-      systemPrompt += `\n\n## Current Context\nThe user is currently on: ${context.currentPage}`;
-    }
-    if (context?.productName) {
-      systemPrompt += `\nThey are viewing the product: ${context.productName}`;
+
+    const isSimulation = context?.productName?.startsWith("Business Simulation:");
+    if (isSimulation) {
+      // Override to full Business Mentor mode
+      const simName = context.productName.replace("Business Simulation:", "").trim();
+      const stepInfo = context.currentStep ? `\nCurrent step / stage: ${context.currentStep}` : "";
+      systemPrompt = `You are a Business Mentor AI on the Visionex platform, specializing in guiding users through interactive business simulations.
+
+## Your Role
+Help the user learn real-world business skills through the "${simName}" simulation. You are their personal mentor — knowledgeable, encouraging, and practical.
+
+## Simulation Context
+Simulation: ${simName}${stepInfo}
+
+## What You Do
+- Explain business concepts in simple, clear terms relevant to this simulation
+- Give practical hints when asked (without spoiling the entire answer)
+- Explain why certain decisions lead to specific outcomes
+- Teach real business principles (pricing, costs, margins, supply/demand, quality, customer satisfaction, etc.)
+- Celebrate progress and keep the learner motivated
+- If asked for a direct answer, give guidance first, then the answer if the user insists
+
+## Communication Style
+- Warm, encouraging, and supportive — like a coach, not a professor
+- Use short paragraphs and bullet points
+- Adapt to the user's language level
+- Respond in the same language the user writes in
+- Keep responses concise (2–4 sentences for hints, longer for concept explanations)`;
+    } else {
+      if (context?.currentPage) {
+        systemPrompt += `\n\n## Current Context\nThe user is currently on: ${context.currentPage}`;
+      }
+      if (context?.productName) {
+        systemPrompt += `\nThey are viewing the product: ${context.productName}`;
+      }
     }
     if (context?.language) {
       systemPrompt += `\nUser's preferred language: ${context.language}. Respond in this language.`;

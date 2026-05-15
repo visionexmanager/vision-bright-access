@@ -9,49 +9,23 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            set -e
-            cd ${{ secrets.SERVER_PATH }}
+      - name: Trigger deploy webhook
+        run: |
+          echo "Sending deploy request to server..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "x-deploy-token: visionex-deploy-2024" \
+            --max-time 15 \
+            http://204.168.191.20:9000)
 
-            # Pull latest code (discard any local changes first)
-            git fetch origin main
-            git reset --hard origin/main
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
 
-            # Install dependencies
-            npm ci
+          echo "Response: $BODY (HTTP $HTTP_CODE)"
 
-            # Build
-            npm run build
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Deploy webhook failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
 
-            # Configure nginx to serve the dist folder
-            {
-              echo 'server {'
-              echo '    listen 80;'
-              echo '    listen [::]:80;'
-              echo '    server_name visionex.app www.visionex.app;'
-              echo "    root ${{ secrets.SERVER_PATH }}/dist;"
-              echo '    index index.html;'
-              echo '    location / {'
-              echo '        try_files $uri $uri/ /index.html;'
-              echo '    }'
-              echo '    gzip on;'
-              echo '    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;'
-              echo '}'
-            } > /etc/nginx/sites-available/vision-bright-access
-
-            # Enable the site
-            ln -sf /etc/nginx/sites-available/vision-bright-access /etc/nginx/sites-enabled/vision-bright-access
-
-            # Remove default site if exists
-            rm -f /etc/nginx/sites-enabled/default
-
-            # Test and reload nginx
-            nginx -t && systemctl reload nginx
-
-            echo "Deployed successfully"
+          echo "Deploy triggered successfully on server"

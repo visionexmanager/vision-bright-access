@@ -19,6 +19,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useCart } from "@/contexts/CartContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useAmbientSound } from "@/hooks/useAmbientSound";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tier = "kiosk" | "boutique" | "store" | "flagship";
@@ -200,16 +201,17 @@ export default function VXBazaar() {
       if (shopError) throw shopError;
 
       if (!isOnTrial) {
-        await supabase.from("user_points").insert({
-          user_id: user!.id,
-          points: -tierCfg.setupCost,
-          reason: `VXBazaar: Open ${tierCfg.label} — ${createForm.name.trim()}`,
+        const { error: spendError } = await supabase.rpc("spend_vx", {
+          _amount: tierCfg.setupCost,
+          _item_type: "bazaar_shop",
+          _item_name: `${tierCfg.label} — ${createForm.name.trim()}`,
         });
+        if (spendError) throw spendError;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bazaar-shops"] });
-      queryClient.invalidateQueries({ queryKey: ["points-total"] });
+      queryClient.invalidateQueries({ queryKey: ["points-total", user?.id] });
       toast({ title: t("bazaar.shopOpened") });
       playSound("success");
       setView("street");
@@ -359,6 +361,11 @@ export default function VXBazaar() {
                     }}
                   />
                 ))}
+              </div>
+
+              {/* Earn VX Banner */}
+              <div className="relative z-10 px-4 pt-6">
+                <WatchAdButton variant="banner" className="mb-6" />
               </div>
 
               {/* Header */}

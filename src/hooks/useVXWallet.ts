@@ -13,7 +13,7 @@ export function useVXWallet() {
   const queryClient = useQueryClient();
 
   const { data: balance = 0, isLoading } = useQuery({
-    queryKey: ["vx-balance", user?.id],
+    queryKey: ["points-total", user?.id],
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -56,7 +56,6 @@ export function useVXWallet() {
       }
 
       // Invalidate balance & points queries
-      queryClient.invalidateQueries({ queryKey: ["vx-balance", user.id] });
       queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
       queryClient.invalidateQueries({ queryKey: ["points-history", user.id] });
 

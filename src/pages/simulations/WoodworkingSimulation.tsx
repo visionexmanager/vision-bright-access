@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -13,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { RotateCcw, Trophy } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 
 interface Props { simulationId?: string; }
 
@@ -43,6 +45,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   // Choices
@@ -100,7 +103,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
     if (crafting) return;
     setCrafting(true);
     setCraftProgress(0);
-    playSound("scan");
+    playSound("whoosh");
 
     const stages = ["🪚 Cutting lumber...", "📐 Measuring & marking...", `🔩 ${joineryType} joinery...`, `✨ Sanding (${sandGrit} grit)...`, `🎨 Applying ${finish.name}...`, "⏳ Drying...", "✅ Final inspection..."];
     let step = 0;
@@ -135,6 +138,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
     setScore(finalScore);
     setFinished(true);
     playSound("complete");
+    announce("Simulation complete!");
     saveProgress(finalScore, true);
   };
 
@@ -171,7 +175,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
     <div className="max-w-2xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">🪵 Project {round}/{totalRounds}</h2>
-        <Badge variant="secondary">${revenue - costs} profit</Badge>
+        <Badge variant="secondary" role="status" aria-live="polite">${revenue - costs} profit</Badge>
       </div>
       <Progress value={(round / totalRounds) * 100} className="h-2" />
 
@@ -255,7 +259,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
               <div className="flex justify-between text-green-500"><span>Est. Sale (at 100% quality):</span><span>${project.basePrice}</span></div>
             </div>
 
-            <Button onClick={startCrafting} className="w-full">🪚 Start Crafting</Button>
+            <Button onClick={startCrafting} className="w-full" aria-label="Start Crafting">🪚 Start Crafting</Button>
           </CardContent>
         </Card>
       )}
@@ -273,6 +277,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
+      <SimulationMentor simulationTitle="Woodworking Workshop" currentStepTitle="" />
     </div>
   );
 }

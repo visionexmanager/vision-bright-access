@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -13,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { RotateCcw, Trophy, Thermometer, Flame } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 
 interface Props { simulationId?: string; }
 
@@ -28,6 +30,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   // Business decisions
@@ -86,7 +89,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
     if (producing) return;
     setProducing(true);
     setProdProgress(0);
-    playSound("scan");
+    playSound("cooking");
 
     const stages = ["Melting cocoa...", "Mixing ingredients...", "Tempering...", "Molding...", "Cooling...", "Packaging..."];
     let step = 0;
@@ -96,6 +99,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
       step++;
       setProdProgress(Math.round((step / totalSteps) * 100));
       setProdStage(stages[Math.min(Math.floor((step / totalSteps) * stages.length), stages.length - 1)]);
+      if (step === 15) playSound("sizzle");
 
       if (step >= totalSteps) {
         clearInterval(interval);
@@ -132,6 +136,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
     setScore(finalScore);
     setFinished(true);
     playSound("complete");
+    announce(`Simulation complete! Final score: ${finalScore}`);
     saveProgress(finalScore, true);
   };
 
@@ -197,7 +202,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">🏭 Batch {batch}/{totalBatches}</h2>
         <div className="flex gap-2">
-          <Badge variant="secondary">${revenue - costs} profit</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite">${revenue - costs} profit</Badge>
           <Badge variant="outline">Q: {qualityScore}%</Badge>
         </div>
       </div>
@@ -287,7 +292,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
               </div>
             </div>
 
-            <Button onClick={startProduction} className="w-full">🔥 Start Production</Button>
+            <Button onClick={startProduction} className="w-full" aria-label="Start Production">🔥 Start Production</Button>
           </CardContent>
         </Card>
       )}
@@ -308,6 +313,10 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
+      <SimulationMentor
+        simulationTitle="Chocolate Factory"
+        currentStepTitle={finished ? "Results" : producing ? prodStage : `Batch ${batch}/${totalBatches}`}
+      />
     </div>
   );
 }

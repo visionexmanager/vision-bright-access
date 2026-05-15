@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -13,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { RotateCcw, Trophy, Smartphone, Cpu } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 
 interface Props { simulationId?: string; }
 
@@ -57,6 +59,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [jobs, setJobs] = useState<RepairJob[]>(() => Array.from({ length: 3 }, (_, i) => randomJob(i)));
@@ -138,7 +141,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
 
         setRepairing(false);
         setCurrentJob(null);
-        playSound("ding");
+        if (quality > 60) { announce("Correct! Well done."); playSound("correct"); } else { announceUrgent("Incorrect. Try again."); playSound("wrong"); }
         toast.success(`✅ ${currentJob.device} fixed! Quality: ${quality}% | +$${profit}`);
 
         if (round >= totalRounds) finishGame();
@@ -155,6 +158,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
     const finalScore = Math.max(0, Math.round((revenue - costs) / 5) + reputation + avgQ);
     setScore(finalScore);
     setFinished(true);
+    announce("Simulation complete!");
     playSound("complete");
     saveProgress(finalScore, true);
   };
@@ -194,8 +198,8 @@ export function MobileRepairSimulation({ simulationId }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold flex items-center gap-2"><Smartphone className="h-5 w-5" /> Job {round}/{totalRounds}</h2>
         <div className="flex gap-2">
-          <Badge variant="secondary">${revenue - costs} profit</Badge>
-          <Badge variant="outline">⭐ {reputation}%</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite">${revenue - costs} profit</Badge>
+          <Badge variant="outline" role="status" aria-live="polite">⭐ {reputation}%</Badge>
         </div>
       </div>
       <Progress value={(round / totalRounds) * 100} className="h-2" />
@@ -220,7 +224,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
                   <p className="font-medium text-sm">{j.device} - {j.issue} {j.urgency === "rush" ? "⚡" : ""}</p>
                   <p className="text-xs text-muted-foreground">Difficulty: {"⭐".repeat(j.difficulty)} | Budget: ${j.customerBudget}</p>
                 </div>
-                <Button size="sm" variant="outline">Take</Button>
+                <Button size="sm" variant="outline" aria-label={`Take job: ${j.device} - ${j.issue}`}>Take</Button>
               </div>
             ))}
           </CardContent>
@@ -256,10 +260,10 @@ export function MobileRepairSimulation({ simulationId }: Props) {
             </div>
 
             <div className="flex gap-3">
-              <Button variant={useOemParts ? "default" : "outline"} size="sm" onClick={() => setUseOemParts(true)} className="flex-1">
+              <Button variant={useOemParts ? "default" : "outline"} size="sm" onClick={() => setUseOemParts(true)} className="flex-1" aria-label={`Use OEM Parts ($${issueData.partCost})`}>
                 🏷️ OEM Parts (${issueData.partCost})
               </Button>
-              <Button variant={!useOemParts ? "default" : "outline"} size="sm" onClick={() => setUseOemParts(false)} className="flex-1">
+              <Button variant={!useOemParts ? "default" : "outline"} size="sm" onClick={() => setUseOemParts(false)} className="flex-1" aria-label={`Use Generic Parts ($${Math.round(issueData.partCost * 0.5)})`}>
                 🔄 Generic (${Math.round(issueData.partCost * 0.5)})
               </Button>
             </div>
@@ -275,7 +279,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
               <div className="flex justify-between"><span>Budget:</span><span>${currentJob.customerBudget}</span></div>
             </div>
 
-            <Button onClick={startRepair} className="w-full">🔧 Start Repair</Button>
+            <Button onClick={startRepair} className="w-full" aria-label="Start Repair">🔧 Start Repair</Button>
           </CardContent>
         </Card>
       )}
@@ -293,6 +297,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
+      <SimulationMentor simulationTitle="Mobile Phone Repair Shop" currentStepTitle="" />
     </div>
   );
 }

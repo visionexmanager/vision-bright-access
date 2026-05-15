@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ProductCard } from "@/components/ProductCard";
 import { Search, Eye, Package, HelpCircle, Send } from "lucide-react";
+import { WatchAdButton } from "@/components/WatchAdButton";
 import { toast } from "sonner";
 
 function useDbProducts() {
@@ -255,6 +256,8 @@ export default function Marketplace() {
             <CartDrawer />
           </div>
         </AnimatedSection>
+
+        <WatchAdButton variant="card" className="mb-6" />
 
         <Tabs defaultValue="general" className="w-full">
           <TabsList className="mb-8 grid w-full grid-cols-3 h-auto">

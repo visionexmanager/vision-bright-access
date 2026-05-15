@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -13,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Scissors, RotateCcw, Trophy, Users, DollarSign, Star, Clock } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 
 interface Props { simulationId?: string; }
 
@@ -50,6 +52,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   // Business decisions
@@ -245,7 +248,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
           <Scissors className="h-5 w-5" /> Day {day}/{totalDays}
         </h2>
         <div className="flex gap-2">
-          <Badge variant="secondary"><DollarSign className="h-3 w-3" /> ${profit}</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite"><DollarSign className="h-3 w-3" /> ${profit}</Badge>
           <Badge variant="outline"><Star className="h-3 w-3" /> {reputation}</Badge>
         </div>
       </div>
@@ -402,6 +405,10 @@ export function BarberSalonSimulation({ simulationId }: Props) {
           </Button>
         </>
       )}
+      <SimulationMentor
+        simulationTitle="Barber Salon"
+        currentStepTitle={finished ? "Results" : dayActive ? `Day ${day} — In Session` : `Day ${day} — Setup`}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -13,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { RotateCcw, Trophy, Thermometer, Wind, Snowflake, Flame } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 
 interface Props { simulationId?: string; }
 
@@ -34,6 +36,7 @@ export function HvacSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [building, setBuilding] = useState(BUILDING_TYPES[0]);
@@ -116,7 +119,7 @@ export function HvacSimulation({ simulationId }: Props) {
         setHourlyLog((l) => [...l, { hour, temp: clampedTemp, comfort: hourComfort, energy: hourEnergy }]);
 
         setRunning(false);
-        playSound("ding");
+        if (hourComfort < 50) { playSound("alarm"); } else { playSound("ding"); }
         toast.success(`🕐 ${hour}:00 - Temp: ${clampedTemp}°C | Comfort: ${hourComfort}%`);
 
         if (hour >= 20) finishGame();
@@ -130,6 +133,7 @@ export function HvacSimulation({ simulationId }: Props) {
     setScore(finalScore);
     setFinished(true);
     playSound("complete");
+    announce(`Simulation complete! Final score: ${finalScore}`);
     saveProgress(finalScore, true);
   };
 
@@ -164,7 +168,7 @@ export function HvacSimulation({ simulationId }: Props) {
           {currentTemp > targetTemp ? <Flame className="h-5 w-5 text-red-500" /> : <Snowflake className="h-5 w-5 text-blue-500" />}
           {installed ? `${hour}:00` : "System Design"}
         </h2>
-        {installed && <Badge variant="secondary"><Thermometer className="h-3 w-3" /> {currentTemp}°C</Badge>}
+        {installed && <Badge variant="secondary" role="status" aria-live="polite"><Thermometer className="h-3 w-3" /> {currentTemp}°C</Badge>}
       </div>
       {installed && <Progress value={((hour - 8) / 12) * 100} className="h-2" />}
 
@@ -211,7 +215,7 @@ export function HvacSimulation({ simulationId }: Props) {
             <div className="p-3 rounded-lg bg-muted/50 text-xs">
               <div className="flex justify-between font-bold"><span>Install Cost:</span><span>${installCost}</span></div>
             </div>
-            <Button onClick={installSystem} className="w-full">❄️ Install System</Button>
+            <Button onClick={installSystem} className="w-full" aria-label="Install System">❄️ Install System</Button>
           </CardContent>
         </Card>
       )}
@@ -233,7 +237,7 @@ export function HvacSimulation({ simulationId }: Props) {
               <label className="text-xs text-muted-foreground mb-1 block">Fan Speed: {fanSpeed}</label>
               <Slider value={[fanSpeed]} onValueChange={([v]) => setFanSpeed(v)} min={1} max={5} step={1} />
             </div>
-            <Button onClick={simulateHour} className="w-full">⏭️ Next Hour ({hour}:00 → {hour + 1}:00)</Button>
+            <Button onClick={simulateHour} className="w-full" aria-label={`Next Hour (${hour}:00 to ${hour + 1}:00)`}>⏭️ Next Hour ({hour}:00 → {hour + 1}:00)</Button>
           </CardContent>
         </Card>
       )}
@@ -253,6 +257,7 @@ export function HvacSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
+      <SimulationMentor simulationTitle="HVAC System Design" currentStepTitle="" />
     </div>
   );
 }

@@ -45,8 +45,8 @@ export function CartDrawer() {
 
     toast.success(t("cart.orderPlaced").replace("{points}", String(totalPoints)));
     clearCart();
-    queryClient.invalidateQueries({ queryKey: ["points-total"] });
-    queryClient.invalidateQueries({ queryKey: ["points-history"] });
+    queryClient.invalidateQueries({ queryKey: ["points-total", user?.id] });
+    queryClient.invalidateQueries({ queryKey: ["points-history", user?.id] });
   };
 
   return (

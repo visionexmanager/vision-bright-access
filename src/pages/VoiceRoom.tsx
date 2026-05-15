@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   LiveKitRoom,
@@ -6,79 +6,330 @@ import {
   useParticipants,
   useLocalParticipant,
   useTracks,
+  useConnectionState,
+  VideoTrack,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track } from "livekit-client";
+import { Track, ConnectionState } from "livekit-client";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Mic, MicOff, PhoneOff, Users, Volume2 } from "lucide-react";
-import { DEFAULT_ROOMS } from "@/systems/voiceRoomSystem";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Check, Copy, Hand, Loader2, Lock, Mic, MicOff,
+  Monitor, MonitorOff, Pencil, PhoneOff, RefreshCw, ShieldX,
+  Unlock, UserX, Users, Volume2, WifiOff, X,
+} from "lucide-react";
+import { useVXWallet } from "@/hooks/useVXWallet";
 
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
+const REACTIONS = ["👍", "❤️", "😂", "😮", "👏"];
 
 function resolveLiveKitUrl() {
   const configuredUrl = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
   const url = configuredUrl?.trim().replace(/^["']|["']$/g, "");
-
   if (!url || url.includes("YOUR_PROJECT") || !url.startsWith("wss://")) {
     return FALLBACK_LIVEKIT_URL;
   }
-
   return url;
 }
 
-// ── Participant tile ──────────────────────────────────────────────
-function ParticipantTile({ participant }: { participant: ReturnType<typeof useParticipants>[number] }) {
+// ── Types ──────────────────────────────────────────────────────────
+interface FloatingReaction {
+  id: string;
+  emoji: string;
+  x: number;
+  visible: boolean;
+}
+
+// ── Participant tile ───────────────────────────────────────────────
+interface ParticipantTileProps {
+  participant: ReturnType<typeof useParticipants>[number];
+  canModerate: boolean;
+  isMe: boolean;
+  isRaisingHand: boolean;
+  onKick: (identity: string, name: string) => void;
+  onBan: (identity: string, name: string) => void;
+  t: (key: string) => string;
+}
+
+function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick, onBan, t }: ParticipantTileProps) {
   const tracks = useTracks(
     [{ source: Track.Source.Microphone, withPlaceholder: true }],
     { participant }
   );
-  const isMuted = !tracks.some((t) => t.publication?.isMuted === false && t.publication?.isEnabled);
+  const isMuted = !tracks.some((tr) => tr.publication?.isMuted === false && tr.publication?.isEnabled);
   const isSpeaking = participant.isSpeaking;
+  const displayName = participant.name || participant.identity;
 
   return (
-    <div
-      className={`flex flex-col items-center gap-2 rounded-2xl border p-4 transition-all ${
-        isSpeaking ? "border-primary bg-primary/5 shadow-md" : "border-border bg-muted/30"
-      }`}
-    >
+    <div className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 transition-all ${isSpeaking ? "border-primary bg-primary/5 shadow-md" : "border-border bg-muted/30"}`}>
+      {isRaisingHand && (
+        <span className="absolute -top-2 -right-2 text-lg animate-bounce z-10 select-none">✋</span>
+      )}
       <div className={`relative flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-primary-foreground ${isSpeaking ? "bg-primary" : "bg-muted-foreground/30"}`}>
-        {(participant.name || participant.identity).charAt(0).toUpperCase()}
+        {displayName.charAt(0).toUpperCase()}
         {isSpeaking && (
           <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
             <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
           </span>
         )}
       </div>
-      <span className="max-w-[80px] truncate text-xs font-medium">
-        {participant.name || participant.identity}
-      </span>
+      <span className="max-w-[80px] truncate text-xs font-medium">{displayName}</span>
       {isMuted && <MicOff className="h-3.5 w-3.5 text-muted-foreground" />}
+
+      {canModerate && !isMe && (
+        <div className="flex gap-1 mt-1">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="icon" variant="ghost" className="h-6 w-6 text-orange-500 hover:bg-orange-50 hover:text-orange-600" title={t("vroom.kick")}>
+                <UserX className="h-3.5 w-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("vroom.kick")}</AlertDialogTitle>
+                <AlertDialogDescription>{t("vroom.kickConfirm").replace("{name}", displayName)}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("vroom.cancel")}</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onKick(participant.identity, displayName)} className="bg-orange-500 hover:bg-orange-600">
+                  {t("vroom.kick")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" title={t("vroom.ban")}>
+                <ShieldX className="h-3.5 w-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("vroom.ban")}</AlertDialogTitle>
+                <AlertDialogDescription>{t("vroom.banConfirm").replace("{name}", displayName)}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("vroom.cancel")}</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onBan(participant.identity, displayName)} className="bg-destructive hover:bg-destructive/90">
+                  {t("vroom.ban")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Room inner content (inside LiveKitRoom context) ────────────────
-function RoomContent({ onLeave, t }: { onLeave: () => void; t: (key: string) => string }) {
+// ── Room inner content ─────────────────────────────────────────────
+interface RoomContentProps {
+  onLeave: () => void;
+  onKick: (identity: string, name: string) => void;
+  onBan: (identity: string, name: string) => void;
+  canModerate: boolean;
+  currentUserId: string;
+  roomId: string;
+  raisedHands: Set<string>;
+  t: (key: string) => string;
+}
+
+function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomId, raisedHands, t }: RoomContentProps) {
   const participants = useParticipants();
-  const { localParticipant } = useLocalParticipant();
+  const { localParticipant, isScreenShareEnabled } = useLocalParticipant();
+  const localParticipantRef = useRef(localParticipant);
+  const connectionState = useConnectionState();
   const [muted, setMuted] = useState(false);
+  const [handRaised, setHandRaised] = useState(false);
+  const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
+  const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Screen share tracks for all participants
+  const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
+
+  // Join/leave sound + notification tracking
+  const prevParticipantsRef = useRef<Map<string, string>>(new Map());
+  const isInitialLoadRef = useRef(true);
+
+  // Track reconnecting state for toast
+  const wasReconnectingRef = useRef(false);
+
+  useEffect(() => { localParticipantRef.current = localParticipant; }, [localParticipant]);
+
+  // Reconnecting banner + reconnected toast
+  useEffect(() => {
+    if (connectionState === ConnectionState.Reconnecting) {
+      wasReconnectingRef.current = true;
+    } else if (connectionState === ConnectionState.Connected && wasReconnectingRef.current) {
+      wasReconnectingRef.current = false;
+      toast({ title: t("vroom.reconnected") });
+    }
+  }, [connectionState, t]);
+
+  // Join/leave notifications
+  useEffect(() => {
+    const currentMap = new Map<string, string>(
+      participants.map((p) => [p.identity, p.name || p.identity])
+    );
+
+    if (isInitialLoadRef.current) {
+      prevParticipantsRef.current = currentMap;
+      isInitialLoadRef.current = false;
+      return;
+    }
+
+    const prev = prevParticipantsRef.current;
+
+    // Detect joined
+    for (const [identity, name] of currentMap) {
+      if (!prev.has(identity) && identity !== currentUserId) {
+        playJoinLeaveSound(true);
+        toast({ title: `${name} ${t("vroom.userJoined")}` });
+      }
+    }
+
+    // Detect left
+    for (const [identity, name] of prev) {
+      if (!currentMap.has(identity) && identity !== currentUserId) {
+        playJoinLeaveSound(false);
+        toast({ title: `${name} ${t("vroom.userLeft")}` });
+      }
+    }
+
+    prevParticipantsRef.current = currentMap;
+  }, [participants, currentUserId, t]);
+
+  // Broadcast channel: reactions + mute_all
+  useEffect(() => {
+    const ch = supabase
+      .channel(`room-bc-${roomId}`, { config: { broadcast: { self: true } } })
+      .on("broadcast", { event: "reaction" }, ({ payload }: { payload: { emoji: string; senderId: string } }) => {
+        const id = Math.random().toString(36).slice(2);
+        const x = 5 + Math.random() * 85;
+        const r: FloatingReaction = { id, emoji: payload.emoji, x, visible: true };
+        setFloatingReactions((prev) => [...prev, r]);
+        setTimeout(() => setFloatingReactions((prev) => prev.map((item) => item.id === id ? { ...item, visible: false } : item)), 1600);
+        setTimeout(() => setFloatingReactions((prev) => prev.filter((item) => item.id !== id)), 2600);
+      })
+      .on("broadcast", { event: "mute_all" }, ({ payload }: { payload: { byUserId: string } }) => {
+        if (payload.byUserId === currentUserId) return;
+        localParticipantRef.current?.setMicrophoneEnabled(false);
+        setMuted(true);
+        toast({ title: t("vroom.mutedByOwner") });
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") broadcastChRef.current = ch;
+      });
+
+    return () => {
+      supabase.removeChannel(ch);
+      broadcastChRef.current = null;
+    };
+  }, [roomId, currentUserId, t]);
 
   const toggleMic = async () => {
     await localParticipant.setMicrophoneEnabled(muted);
     setMuted(!muted);
   };
 
+  const toggleHand = async () => {
+    const newVal = !handRaised;
+    setHandRaised(newVal);
+    await supabase
+      .from("voice_room_members")
+      .update({ raise_hand: newVal })
+      .eq("room_id", roomId)
+      .eq("user_id", currentUserId);
+  };
+
+  const muteAll = () => {
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "mute_all",
+      payload: { byUserId: currentUserId },
+    });
+    toast({ title: t("vroom.mutedAll") });
+  };
+
+  const sendReaction = (emoji: string) => {
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "reaction",
+      payload: { emoji, senderId: currentUserId },
+    });
+  };
+
+  const toggleScreenShare = async () => {
+    try {
+      await localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
+    } catch {
+      toast({ title: t("vroom.screenShareError"), variant: "destructive" });
+    }
+  };
+
+  const canScreenShare = typeof navigator?.mediaDevices?.getDisplayMedia === "function";
+
   return (
     <div className="flex flex-col gap-6">
+      {/* Reconnecting banner */}
+      {connectionState === ConnectionState.Reconnecting && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-amber-700">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm font-medium">{t("vroom.reconnecting")}</span>
+        </div>
+      )}
+
+      {/* Screen share tracks */}
+      {screenShareTracks.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {screenShareTracks.map((track) => {
+            const isOwn = track.participant.identity === currentUserId;
+            const participantName = track.participant.name || track.participant.identity;
+            return (
+              <div key={track.participant.identity} className="relative aspect-video rounded-xl bg-black border overflow-hidden">
+                <VideoTrack trackRef={track} />
+                <span className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
+                  {participantName} — {t("vroom.sharingScreen")}
+                </span>
+                {isOwn && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-2 right-2 h-7 text-xs"
+                    onClick={toggleScreenShare}
+                  >
+                    <MonitorOff className="h-3.5 w-3.5 me-1" />
+                    {t("vroom.stopSharing")}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Participants grid */}
-      <div>
+      <div className="relative">
         <div className="mb-3 flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium text-muted-foreground">
@@ -87,13 +338,61 @@ function RoomContent({ onLeave, t }: { onLeave: () => void; t: (key: string) => 
         </div>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
           {participants.map((p) => (
-            <ParticipantTile key={p.sid} participant={p} />
+            <ParticipantTile
+              key={p.sid}
+              participant={p}
+              canModerate={canModerate}
+              isMe={p.identity === currentUserId}
+              isRaisingHand={raisedHands.has(p.identity)}
+              onKick={onKick}
+              onBan={onBan}
+              t={t}
+            />
+          ))}
+        </div>
+
+        {/* Floating reactions overlay */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          {floatingReactions.map((r) => (
+            <div
+              key={r.id}
+              className={`absolute bottom-0 text-4xl transition-all duration-1000 ease-out select-none ${r.visible ? "-translate-y-24 opacity-100" : "-translate-y-48 opacity-0"}`}
+              style={{ left: `${r.x}%` }}
+            >
+              {r.emoji}
+            </div>
           ))}
         </div>
       </div>
 
+      {/* Reaction bar */}
+      <div className="flex justify-center gap-3 rounded-xl border bg-muted/20 py-2.5 px-4">
+        {REACTIONS.map((emoji) => (
+          <button
+            key={emoji}
+            onClick={() => sendReaction(emoji)}
+            className="text-2xl transition-transform hover:scale-125 active:scale-95"
+            aria-label={emoji}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+
       {/* Controls */}
-      <div className="flex items-center justify-center gap-4 pt-2">
+      <div className="flex items-center justify-center gap-4 pt-2 flex-wrap">
+        {canModerate && (
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-14 w-14 rounded-full p-0 text-orange-500 border-orange-300 hover:bg-orange-50 hover:border-orange-500"
+            onClick={muteAll}
+            title={t("vroom.muteAll")}
+            aria-label={t("vroom.muteAll")}
+          >
+            <MicOff className="h-6 w-6" />
+          </Button>
+        )}
         <Button
           size="lg"
           variant={muted ? "destructive" : "outline"}
@@ -103,7 +402,28 @@ function RoomContent({ onLeave, t }: { onLeave: () => void; t: (key: string) => 
         >
           {muted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
         </Button>
-
+        <Button
+          size="lg"
+          variant="outline"
+          className={`h-14 w-14 rounded-full p-0 transition-colors ${handRaised ? "bg-amber-500 hover:bg-amber-600 border-amber-500 text-white" : ""}`}
+          onClick={toggleHand}
+          aria-label={handRaised ? t("vroom.lowerHand") : t("vroom.raiseHand")}
+          title={handRaised ? t("vroom.lowerHand") : t("vroom.raiseHand")}
+        >
+          <Hand className="h-6 w-6" />
+        </Button>
+        {canScreenShare && (
+          <Button
+            size="lg"
+            variant="outline"
+            className={`h-14 w-14 rounded-full p-0 transition-colors ${isScreenShareEnabled ? "bg-blue-500 hover:bg-blue-600 border-blue-500 text-white" : ""}`}
+            onClick={toggleScreenShare}
+            aria-label={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+            title={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+          >
+            <Monitor className="h-6 w-6" />
+          </Button>
+        )}
         <Button
           size="lg"
           variant="destructive"
@@ -114,12 +434,31 @@ function RoomContent({ onLeave, t }: { onLeave: () => void; t: (key: string) => 
           <PhoneOff className="h-6 w-6" />
         </Button>
       </div>
-
-      <p className="text-center text-xs text-muted-foreground">
-        {t("vroom.hint")}
-      </p>
+      <p className="text-center text-xs text-muted-foreground">{t("vroom.hint")}</p>
     </div>
   );
+}
+
+// ── Web Audio join/leave tones ─────────────────────────────────────
+function playJoinLeaveSound(joined: boolean) {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const startFreq = joined ? 880 : 660;
+    const endFreq = joined ? 1047 : 494;
+    osc.frequency.setValueAtTime(startFreq, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(endFreq, ctx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+    osc.onended = () => ctx.close();
+  } catch {
+    // AudioContext not available — ignore
+  }
 }
 
 // ── Main page ──────────────────────────────────────────────────────
@@ -128,52 +467,148 @@ export default function VoiceRoom() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { isAdmin } = useAdmin();
+  const { spendVX } = useVXWallet();
 
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roomName, setRoomName] = useState("");
+  const [roomTopic, setRoomTopic] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [editingTopic, setEditingTopic] = useState(false);
+  const [topicDraft, setTopicDraft] = useState("");
+  const [raisedHands, setRaisedHands] = useState<Set<string>>(new Set());
+  const [connectionLost, setConnectionLost] = useState(false);
+  const [connectionKey, setConnectionKey] = useState(0);
 
+  const leftIntentionally = useRef(false);
+  const roomTopicRef = useRef(roomTopic);
   const livekitUrl = resolveLiveKitUrl();
+
+  useEffect(() => { roomTopicRef.current = roomTopic; }, [roomTopic]);
 
   const cleanup = useCallback(async () => {
     if (user && roomId) {
-      await supabase
-        .from("voice_room_members")
-        .delete()
-        .eq("room_id", roomId)
-        .eq("user_id", user.id);
+      await supabase.from("voice_room_members").delete().eq("room_id", roomId).eq("user_id", user.id);
     }
   }, [user, roomId]);
+
+  const handleKick = useCallback(async (identity: string, name: string) => {
+    if (!roomId) return;
+    await supabase.from("voice_room_members").delete().eq("room_id", roomId).eq("user_id", identity);
+    toast({ title: t("vroom.kickedUser").replace("{name}", name) });
+  }, [roomId, t]);
+
+  const handleBan = useCallback(async (identity: string, name: string) => {
+    if (!roomId || !user) return;
+    await supabase.from("voice_room_bans").upsert(
+      { room_id: roomId, user_id: identity, banned_by: user.id },
+      { onConflict: "room_id,user_id", ignoreDuplicates: true }
+    );
+    await supabase.from("voice_room_members").delete().eq("room_id", roomId).eq("user_id", identity);
+    toast({ title: t("vroom.bannedUser").replace("{name}", name) });
+  }, [roomId, user, t]);
+
+  const saveTopic = async () => {
+    if (!roomId) return;
+    await supabase.from("voice_rooms").update({ room_topic: topicDraft }).eq("id", roomId);
+    setRoomTopic(topicDraft);
+    setEditingTopic(false);
+    toast({ title: t("vroom.topicSaved") });
+  };
+
+  const togglePrivacy = useCallback(async () => {
+    if (!roomId) return;
+    const newValue = !isPrivate;
+    await supabase.from("voice_rooms").update({ is_private: newValue }).eq("id", roomId);
+    toast({ title: t(newValue ? "vroom.roomNowPrivate" : "vroom.roomNowPublic") });
+  }, [roomId, isPrivate, t]);
+
+  const handleReconnect = useCallback(async () => {
+    if (!user || !roomId) return;
+    // Re-upsert into voice_room_members
+    await supabase.from("voice_room_members").upsert(
+      { room_id: roomId, user_id: user.id, raise_hand: false },
+      { onConflict: "room_id,user_id" }
+    );
+    // Re-fetch token
+    const { data, error: fnErr } = await supabase.functions.invoke("livekit-token", {
+      body: {
+        roomId,
+        userId: user.id,
+        userName: user.user_metadata?.display_name || user.email,
+      },
+    });
+    if (fnErr || !data?.token) {
+      toast({ title: t("vroom.tokenError"), variant: "destructive" });
+      return;
+    }
+    setToken(data.token);
+    setConnectionKey((k) => k + 1);
+    setConnectionLost(false);
+  }, [user, roomId, t]);
 
   useEffect(() => {
     if (!user) { navigate("/login"); return; }
     if (!roomId) { navigate("/community"); return; }
 
-    // Resolve room name
-    const def = DEFAULT_ROOMS.find((r) => r.id === roomId);
-    if (def) {
-      setRoomName(t(def.nameKey));
-    } else {
-      supabase
-        .from("voice_rooms")
-        .select("room_name")
-        .eq("id", roomId)
-        .single()
-        .then(({ data }) => { if (data) setRoomName(data.room_name); });
-    }
-
     const getToken = async () => {
-      const { error: membershipError } = await supabase.from("voice_room_members").upsert(
-        { room_id: roomId, user_id: user.id },
-        { onConflict: "room_id,user_id", ignoreDuplicates: true }
-      );
+      const { data: room } = await supabase
+        .from("voice_rooms")
+        .select("room_name, room_topic, is_private, owner_id, join_cost_vx, is_default, is_active")
+        .eq("id", roomId)
+        .single();
 
-      if (membershipError) {
-        setError(membershipError.message);
+      if (!room) {
+        setError(t("vroom.notConfigured"));
         setLoading(false);
         return;
       }
+
+      if (!room.is_active && !isAdmin) {
+        toast({ title: t("vroom.roomInactive"), variant: "destructive" });
+        navigate("/community");
+        return;
+      }
+
+      setRoomName(room.room_name);
+      setRoomTopic(room.room_topic || "");
+      setTopicDraft(room.room_topic || "");
+      setIsPrivate(room.is_private);
+      setOwnerId(room.owner_id);
+
+      const { data: ban } = await supabase
+        .from("voice_room_bans")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (ban) {
+        toast({ title: t("vroom.youAreBanned"), variant: "destructive" });
+        navigate("/community");
+        return;
+      }
+
+      const { data: existingMember } = await supabase
+        .from("voice_room_members")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!existingMember && room.owner_id !== user.id && room.join_cost_vx > 0) {
+        const ok = await spendVX(room.join_cost_vx, "voice_room_join", roomId, roomId);
+        if (!ok) { navigate("/community"); return; }
+      }
+
+      // Upsert with raise_hand reset on (re)join
+      const { error: membershipError } = await supabase.from("voice_room_members").upsert(
+        { room_id: roomId, user_id: user.id, raise_hand: false },
+        { onConflict: "room_id,user_id" }
+      );
+      if (membershipError) { setError(membershipError.message); setLoading(false); return; }
 
       const { data, error: fnErr } = await supabase.functions.invoke("livekit-token", {
         body: {
@@ -192,17 +627,97 @@ export default function VoiceRoom() {
     };
 
     getToken();
-
-    // Cleanup on unmount
     return () => { cleanup(); };
-  }, [user, roomId, navigate, t, cleanup]);
+  }, [user, roomId, navigate, t, cleanup, spendVX, isAdmin]);
+
+  // Listen for being kicked
+  useEffect(() => {
+    if (!user || !roomId || !token) return;
+    const channel = supabase
+      .channel(`kick-watch-${roomId}-${user.id}`)
+      .on("postgres_changes", {
+        event: "DELETE",
+        schema: "public",
+        table: "voice_room_members",
+        filter: `room_id=eq.${roomId}`,
+      }, (payload) => {
+        const deleted = payload.old as { user_id?: string };
+        if (deleted.user_id === user.id && !leftIntentionally.current) {
+          toast({ title: t("vroom.youWereKicked"), variant: "destructive" });
+          navigate("/community");
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, roomId, token, navigate, t]);
+
+  // Unified room data subscription (topic, privacy, ownership)
+  useEffect(() => {
+    if (!roomId || !token) return;
+    const ch = supabase
+      .channel(`room-data-${roomId}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "voice_rooms",
+        filter: `id=eq.${roomId}`,
+      }, (payload) => {
+        const updated = payload.new as { owner_id?: string; room_topic?: string; is_private?: boolean };
+        if (updated.owner_id !== undefined) setOwnerId(updated.owner_id);
+        if (updated.room_topic !== undefined) {
+          setRoomTopic(updated.room_topic);
+          // Keep topicDraft in sync unless user is currently editing
+          setTopicDraft((prev) => prev === roomTopicRef.current ? updated.room_topic! : prev);
+        }
+        if (updated.is_private !== undefined) setIsPrivate(updated.is_private);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [roomId, token]);
+
+  // Raised hands: initial load + realtime updates
+  useEffect(() => {
+    if (!roomId || !token) return;
+
+    supabase
+      .from("voice_room_members")
+      .select("user_id, raise_hand")
+      .eq("room_id", roomId)
+      .eq("raise_hand", true)
+      .then(({ data }) => {
+        if (data) setRaisedHands(new Set(data.map((m) => m.user_id)));
+      });
+
+    const ch = supabase
+      .channel(`room-hands-${roomId}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "voice_room_members",
+        filter: `room_id=eq.${roomId}`,
+      }, (payload) => {
+        const updated = payload.new as { user_id?: string; raise_hand?: boolean };
+        if (!updated.user_id) return;
+        setRaisedHands((prev) => {
+          const next = new Set(prev);
+          if (updated.raise_hand) next.add(updated.user_id!);
+          else next.delete(updated.user_id!);
+          return next;
+        });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(ch); };
+  }, [roomId, token]);
 
   const handleLeave = async () => {
+    leftIntentionally.current = true;
     await cleanup();
     navigate("/community");
   };
 
-  // ── Loading state ──
+  const canModerate = user?.id === ownerId || isAdmin;
+
   if (loading) {
     return (
       <Layout>
@@ -214,28 +729,20 @@ export default function VoiceRoom() {
     );
   }
 
-  // ── Error / missing config ──
   if (error || !token || !livekitUrl) {
     return (
       <Layout>
         <div className="section-container py-16 text-center">
           <div className="mx-auto max-w-md space-y-4">
-            <p className="text-lg font-semibold text-destructive">
-              {error || t("vroom.notConfigured")}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {t("vroom.configDesc")}
-            </p>
-            <Button onClick={() => navigate("/community")}>
-              {t("vroom.backToCommunity")}
-            </Button>
+            <p className="text-lg font-semibold text-destructive">{error || t("vroom.notConfigured")}</p>
+            <p className="text-sm text-muted-foreground">{t("vroom.configDesc")}</p>
+            <Button onClick={() => navigate("/community")}>{t("vroom.backToCommunity")}</Button>
           </div>
         </div>
       </Layout>
     );
   }
 
-  // ── Voice room ──
   return (
     <Layout>
       <div className="section-container py-8">
@@ -246,35 +753,138 @@ export default function VoiceRoom() {
               <Mic className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">{roomName}</h1>
+              <h1 className="text-xl font-bold flex items-center gap-2">
+                {roomName}
+                {canModerate ? (
+                  <button
+                    onClick={togglePrivacy}
+                    aria-label={t(isPrivate ? "vroom.makePublic" : "vroom.makePrivate")}
+                    title={t(isPrivate ? "vroom.makePublic" : "vroom.makePrivate")}
+                    className="inline-flex items-center"
+                  >
+                    {isPrivate
+                      ? <Lock className="h-4 w-4 text-amber-500" />
+                      : <Unlock className="h-4 w-4 text-muted-foreground" />
+                    }
+                  </button>
+                ) : (
+                  isPrivate && <Lock className="h-4 w-4 text-muted-foreground" aria-label={t("vroom.private")} />
+                )}
+              </h1>
               <Badge variant="outline" className="mt-0.5 gap-1 text-xs text-emerald-600 border-emerald-500/40">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 {t("vroom.live")}
               </Badge>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleLeave}>
-            {t("vroom.leave")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                toast({ title: t("vroom.linkCopied") });
+              }}
+              aria-label={t("vroom.shareRoom")}
+            >
+              <Copy className="h-4 w-4 me-1.5" />
+              {t("vroom.shareRoom")}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleLeave}>{t("vroom.leave")}</Button>
+          </div>
+        </div>
+
+        {/* Topic bar */}
+        <div className="mb-4 flex items-center gap-2 rounded-xl border bg-muted/30 px-4 py-2.5">
+          {editingTopic ? (
+            <>
+              <Input
+                value={topicDraft}
+                onChange={(e) => setTopicDraft(e.target.value)}
+                placeholder={t("vroom.topicPlaceholder")}
+                className="h-7 flex-1 border-none bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
+                maxLength={120}
+                autoFocus
+              />
+              <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600" onClick={saveTopic}>
+                <Check className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground" onClick={() => { setEditingTopic(false); setTopicDraft(roomTopic); }}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <span className="flex-1 text-sm text-muted-foreground">{roomTopic || t("vroom.noTopic")}</span>
+              {canModerate && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 text-muted-foreground"
+                  onClick={() => { setTopicDraft(roomTopic); setEditingTopic(true); }}
+                  aria-label={t("vroom.editTopic")}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </>
+          )}
         </div>
 
         <Card>
           <CardContent className="p-6">
-            <LiveKitRoom
-              serverUrl={livekitUrl}
-              token={token}
-              connect
-              audio
-              video={false}
-              onDisconnected={() => { void cleanup(); }}
-              onError={(err) => {
-                setError(err.message);
-                toast({ title: t("vroom.connectionError"), description: err.message, variant: "destructive" });
-              }}
-            >
-              <RoomAudioRenderer />
-              <RoomContent onLeave={handleLeave} t={t} />
-            </LiveKitRoom>
+            {connectionLost ? (
+              <div className="flex flex-col items-center gap-4 py-10 text-center">
+                <WifiOff className="h-12 w-12 text-muted-foreground" />
+                <div>
+                  <p className="text-lg font-semibold">{t("vroom.connectionLost")}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t("vroom.connectionLostDesc")}</p>
+                </div>
+                <div className="flex gap-3">
+                  <Button onClick={handleReconnect}>
+                    <RefreshCw className="h-4 w-4 me-2" />
+                    {t("vroom.reconnect")}
+                  </Button>
+                  <Button variant="outline" onClick={handleLeave}>
+                    <PhoneOff className="h-4 w-4 me-2" />
+                    {t("vroom.leave")}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <LiveKitRoom
+                key={connectionKey}
+                serverUrl={livekitUrl}
+                token={token}
+                connect
+                audio
+                video={false}
+                onDisconnected={() => {
+                  if (!leftIntentionally.current) {
+                    setConnectionLost(true);
+                    toast({ title: t("vroom.connectionLost"), variant: "destructive" });
+                  } else {
+                    void cleanup();
+                  }
+                }}
+                onError={(err) => {
+                  setError(err.message);
+                  toast({ title: t("vroom.connectionError"), description: err.message, variant: "destructive" });
+                }}
+              >
+                <RoomAudioRenderer />
+                <RoomContent
+                  onLeave={handleLeave}
+                  onKick={handleKick}
+                  onBan={handleBan}
+                  canModerate={canModerate}
+                  currentUserId={user?.id ?? ""}
+                  roomId={roomId ?? ""}
+                  raisedHands={raisedHands}
+                  t={t}
+                />
+              </LiveKitRoom>
+            )}
           </CardContent>
         </Card>
       </div>

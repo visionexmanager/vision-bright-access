@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, RotateCcw, DollarSign, Star, ChefHat, Users, TrendingUp, Flame } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +39,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [stage, setStage] = useState<Stage>("setup");
@@ -82,7 +85,8 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
       toast.error("Select at least 2 menu items!");
       return;
     }
-    playSound("correct");
+    announce("Correct! Well done.");
+    playSound("cooking");
     setStage("service");
     setRound(1);
     setEvents(["🔓 Kitchen is open! First customers arriving..."]);
@@ -91,7 +95,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   const serveRound = () => {
     const newRound = round + 1;
     setRound(newRound);
-    playSound("tick");
+    playSound("sizzle");
 
     // Customers per round
     const baseCustomers = locationTraffic + Math.round(reputation / 10);
@@ -159,6 +163,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
 
     setScore(finalScore);
     setStage("results");
+    announce(`Level complete! Score: ${finalScore}`);
     playSound("levelUp");
 
     if (user && simulationId) {
@@ -230,7 +235,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold flex items-center gap-2"><Flame className="h-6 w-6 text-primary" /> Round {round}/6</h2>
-          <Badge variant="secondary">⭐ {reputation}</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite">⭐ {reputation}</Badge>
         </div>
         <Progress value={(round / 6) * 100} className="h-3" />
 
@@ -266,6 +271,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
         <Button onClick={serveRound} className="w-full" size="lg" disabled={round >= 6}>
           {round < 6 ? `Serve Round ${round + 1}` : "Finishing..."}
         </Button>
+        <SimulationMentor simulationTitle="Global Kitchen Restaurant" currentStepTitle={`Round ${round} — ${stage}`} />
       </div>
     );
   }
@@ -323,6 +329,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
                 size="sm"
                 onClick={() => toggleMenuItem(item.name)}
                 className="h-auto py-2 flex flex-col text-xs"
+                aria-label={item.name}
               >
                 <span>{item.emoji} {item.name}</span>
                 <span className="opacity-70">${item.basePrice} · ⭐{item.difficulty}/10</span>
@@ -341,6 +348,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
       <Button onClick={startService} className="w-full text-base" size="lg" disabled={menuSelection.length < 2}>
         🍽️ Open Restaurant — Serve 6 Rounds
       </Button>
+      <SimulationMentor simulationTitle="Global Kitchen Restaurant" currentStepTitle="Setup — Configure your restaurant" />
     </div>
   );
 }

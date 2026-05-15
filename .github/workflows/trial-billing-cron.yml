@@ -1,0 +1,19 @@
+name: Trial Billing Cron
+
+on:
+  schedule:
+    # Runs daily at 06:00 UTC
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger trial-billing edge function
+        run: |
+          curl -sS -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/trial-billing" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --fail-with-body

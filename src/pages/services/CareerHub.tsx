@@ -53,10 +53,9 @@ export default function CareerHub() {
 
     // Award points once per session if user is logged in
     if (user && !pointsAwarded) {
-      const { error } = await supabase.from("user_points").insert({
-        user_id: user.id,
-        points: CAREER_POINTS,
-        reason: "Career Hub analysis completed",
+      const { error } = await supabase.rpc("award_points", {
+        _points: CAREER_POINTS,
+        _reason: "Engaged: Career Hub",
       });
       if (!error) {
         setPointsAwarded(true);

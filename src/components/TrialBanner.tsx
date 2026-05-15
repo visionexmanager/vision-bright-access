@@ -10,7 +10,7 @@ export function TrialBanner() {
 
   if (!user || !isOnTrial) return null;
 
-  const isWarning = trialDaysLeft <= 7;
+  const isWarning = trialDaysLeft <= 3;
 
   const warningText = t("trial.endingSoon")
     .replace("{days}", String(trialDaysLeft))

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +28,7 @@ const ROUNDS = 6;
 export function TradeTycoonSimulation({ simulationId }: Props) {
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [market, setMarket] = useState(MARKETS[0]);
@@ -127,6 +129,7 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
           setScore(finalScore);
           setFinished(true);
           playSound("complete");
+          announce("Simulation complete!");
           saveProgress(finalScore, true);
         } else {
           setRound((r) => r + 1);
@@ -175,7 +178,7 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
         </h2>
         {started && (
           <div className="flex gap-2">
-            <Badge variant="secondary">💰 ${cash.toLocaleString()}</Badge>
+            <Badge variant="secondary" role="status" aria-live="polite">💰 ${cash.toLocaleString()}</Badge>
             <Badge variant="outline">📦 {inventory}</Badge>
           </div>
         )}
@@ -211,7 +214,7 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
               <label className="text-xs text-muted-foreground mb-1 block">Starting Capital: ${capital.toLocaleString()}</label>
               <Slider value={[capital]} onValueChange={([v]) => setCapital(v)} min={5000} max={50000} step={1000} />
             </div>
-            <Button onClick={startGame} className="w-full">📈 Start Trading</Button>
+            <Button onClick={startGame} className="w-full" aria-label="Start Trading">📈 Start Trading</Button>
           </CardContent>
         </Card>
       )}
@@ -236,7 +239,7 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
               <label className="text-xs text-muted-foreground mb-1 block">Ad Budget: ${adBudget}</label>
               <Slider value={[adBudget]} onValueChange={([v]) => setAdBudget(v)} min={0} max={2000} step={50} />
             </div>
-            <Button onClick={simulateRound} className="w-full">⏭️ Execute Round {round}</Button>
+            <Button onClick={simulateRound} className="w-full" aria-label={`Execute Round ${round}`}>⏭️ Execute Round {round}</Button>
           </CardContent>
         </Card>
       )}

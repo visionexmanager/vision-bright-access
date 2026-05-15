@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { usePoints } from "@/hooks/usePoints";
 import { useGameAudio, useGameTTS } from "@/hooks/useGameAudio";
 import {
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { WatchAdButton } from "@/components/WatchAdButton";
 
 interface WordEntry {
   wordKey: string;
@@ -43,14 +43,7 @@ function scramble(word: string): string {
   return result === word ? scramble(word) : result;
 }
 
-function getPointsReward(score: number, total: number): number {
-  const pct = score / total;
-  if (pct >= 0.9) return 40;
-  if (pct >= 0.7) return 25;
-  if (pct >= 0.5) return 15;
-  if (pct >= 0.3) return 5;
-  return 0;
-}
+// points from games removed — earn VX via Watch Ad or simulations
 
 type GameState = "start" | "playing" | "end";
 const TOTAL_ROUNDS = 8;
@@ -58,7 +51,6 @@ const TOTAL_ROUNDS = 8;
 export default function WordPuzzle() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
-  const { earnPoints } = useEarnPoints();
   const { totalPoints } = usePoints();
   const { playSound, setEnabled: setSoundEnabled, enabledRef: soundEnabledRef } = useGameAudio();
   const { speak, setEnabled: setTTSEnabled, stop: stopTTS, enabledRef: ttsEnabledRef } = useGameTTS();
@@ -73,7 +65,6 @@ export default function WordPuzzle() {
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [gameState, setGameState] = useState<GameState>("start");
-  const [pointsAwarded, setPointsAwarded] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [ttsOn, setTTSOn] = useState(true);
   const liveRef = useRef<HTMLDivElement>(null);
@@ -116,20 +107,6 @@ export default function WordPuzzle() {
     }
   }, [round, gameState, gameWords, t]);
 
-  // Award points
-  useEffect(() => {
-    if (gameState === "end" && !pointsAwarded && user) {
-      const reward = getPointsReward(score, TOTAL_ROUNDS);
-      if (reward > 0) {
-        earnPoints(reward, `Word Puzzle — Score: ${score}/${TOTAL_ROUNDS}`).then((ok) => {
-          if (ok) {
-            toast.success(t("games.word.pointsEarned").replace("{pts}", String(reward)));
-          }
-        });
-      }
-      setPointsAwarded(true);
-    }
-  }, [gameState, pointsAwarded, score, user, earnPoints, t]);
 
   const selectLetter = (index: number) => {
     if (selectedLetters.includes(index) || feedback !== null) return;
@@ -213,11 +190,10 @@ export default function WordPuzzle() {
   };
 
   const progress = gameState === "playing" ? ((round + 1) / TOTAL_ROUNDS) * 100 : 0;
-  const reward = getPointsReward(score, TOTAL_ROUNDS);
-
   return (
     <Layout>
       <div ref={liveRef} aria-live="assertive" aria-atomic="true" className="sr-only" />
+      <WatchAdButton variant="float" />
 
       <section className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 py-12">
         <Card className="w-full border-2 border-primary/30 p-6 sm:p-8 text-center">
@@ -252,21 +228,6 @@ export default function WordPuzzle() {
                   <Coins className="h-4 w-4 text-primary" />
                   <span>{t("games.quiz.yourPoints").replace("{pts}", String(totalPoints))}</span>
                 </div>
-              )}
-
-              <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">
-                <p className="font-semibold text-foreground mb-1">{t("games.quiz.rewards")}</p>
-                <p>🥇 90%+ → 40 {t("games.quiz.pts")}</p>
-                <p>🥈 70%+ → 25 {t("games.quiz.pts")}</p>
-                <p>🥉 50%+ → 15 {t("games.quiz.pts")}</p>
-                <p>⭐ 30%+ → 5 {t("games.quiz.pts")}</p>
-              </div>
-
-              {!user && (
-                <p className="text-sm text-muted-foreground">
-                  <Link to="/login" className="text-primary underline">{t("nav.login")}</Link>
-                  {" "}{t("games.quiz.loginToEarn")}
-                </p>
               )}
 
               <Button size="lg" className="text-lg font-bold" onClick={startGame}>
@@ -414,19 +375,6 @@ export default function WordPuzzle() {
               <div className="text-5xl font-black text-primary">
                 {score}/{TOTAL_ROUNDS}
               </div>
-
-              {user && reward > 0 && (
-                <div className="flex items-center justify-center gap-2 rounded-lg bg-primary/10 p-3 text-primary font-semibold">
-                  <Coins className="h-5 w-5" />
-                  <span>+{reward} {t("games.quiz.pts")} {t("games.quiz.earned")}</span>
-                </div>
-              )}
-              {!user && reward > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  <Link to="/signup" className="text-primary underline">{t("nav.signup")}</Link>
-                  {" "}{t("games.quiz.signupToEarn").replace("{pts}", String(reward))}
-                </p>
-              )}
 
               <Button size="lg" onClick={startGame} className="text-lg font-bold">
                 <RotateCcw className="me-2 h-5 w-5" /> {t("games.word.playAgain")}

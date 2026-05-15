@@ -25,7 +25,7 @@ export function useAIChat() {
   const { pathname } = useLocation();
 
   const sendMessage = useCallback(
-    async (input: string, productContext?: { productName?: string }) => {
+    async (input: string, productContext?: { productName?: string; currentStep?: string }) => {
       const userMsg: Message = {
         id: crypto.randomUUID(),
         role: "user",

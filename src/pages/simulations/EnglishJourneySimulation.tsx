@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, XCircle, Plane, Hotel, UtensilsCrossed, ShoppingBag, RotateCcw, Star, ArrowRight, MessageCircle } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -147,6 +149,7 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [stage, setStage] = useState<Stage>("map");
@@ -189,7 +192,13 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
     setFeedback({ text: choice.feedback, correct: choice.correct });
     setScore(prev => prev + choice.points);
     setConversationLog(prev => [...prev, { speaker: "You", text: choice.text }]);
-    playSound(choice.correct ? "correct" : "wrong");
+    if (choice.correct) {
+      announce("Correct! Well done.");
+      playSound("correct");
+    } else {
+      announceUrgent("Incorrect. Try again.");
+      playSound("wrong");
+    }
   };
 
   const nextDialogue = () => {
@@ -205,6 +214,7 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
       setCompletedScenarios(prev => new Set(prev).add(scenario.id));
       setStage("map");
       setActiveScenario(null);
+      announce(`Level complete! Score: ${score}`);
       playSound("levelUp");
       toast.success(`${scenario.location} completed! Great communication!`);
       return;
@@ -271,7 +281,7 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
           <h2 className="text-lg font-bold flex items-center gap-2">
             {scenario.emoji} {scenario.location}
           </h2>
-          <Badge variant="secondary">{score} pts</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite">{score} pts</Badge>
         </div>
 
         <p className="text-sm text-muted-foreground italic">{scenario.context}</p>
@@ -308,6 +318,7 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
                 variant="outline"
                 onClick={() => handleChoice(choice)}
                 className="w-full h-auto py-3 text-start justify-start whitespace-normal"
+                aria-label={choice.text}
               >
                 <MessageCircle className="h-4 w-4 me-2 shrink-0" />
                 {choice.text}
@@ -330,6 +341,7 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
             <ArrowRight className="h-4 w-4" /> Continue
           </Button>
         )}
+        <SimulationMentor simulationTitle="English Journey" currentStepTitle={`${scenario.location} — Dialogue ${dialogueIndex + 1}`} />
       </div>
     );
   }
@@ -378,6 +390,7 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
+      <SimulationMentor simulationTitle="English Journey" currentStepTitle={activeScenario ? `Scenario: ${SCENARIOS.find(s => s.id === activeScenario)?.location}` : "Choose a scenario"} />
     </div>
   );
 }

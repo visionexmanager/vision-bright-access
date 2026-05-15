@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -13,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { RotateCcw, Trophy, Package, Ship, Plane, Truck } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 
 interface Props { simulationId?: string; }
 
@@ -59,6 +61,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   // Available shipments
@@ -153,6 +156,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
 
         setShipping(false);
         setCurrentShipment(null);
+        if (isDamaged || !isOnTime) { announceUrgent("Incorrect. Try again."); } else { announce("Correct! Well done."); }
         playSound("ding");
         toast.success(`${status} | ${currentShipment.cargo} → ${dest.name} | ${profit > 0 ? "+" : ""}$${profit}`);
 
@@ -169,6 +173,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
     const finalScore = Math.max(0, Math.round((revenue - costs) / 10) + onTime * 15 - late * 5 - damaged * 20);
     setScore(finalScore);
     setFinished(true);
+    announce("Simulation complete!");
     playSound("complete");
     saveProgress(finalScore, true);
   };
@@ -208,8 +213,8 @@ export function LogisticsSimulation({ simulationId }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">📦 Shipment {round}/{totalRounds}</h2>
         <div className="flex gap-2">
-          <Badge variant="secondary">${revenue - costs} profit</Badge>
-          <Badge variant="outline">✅ {onTime} | ⏰ {late}</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite">${revenue - costs} profit</Badge>
+          <Badge variant="outline" role="status" aria-live="polite">✅ {onTime} | ⏰ {late}</Badge>
         </div>
       </div>
       <Progress value={(round / totalRounds) * 100} className="h-2" />
@@ -235,7 +240,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
                     <p className="font-medium text-sm">{s.cargo} {s.fragile ? "⚠️" : ""}</p>
                     <p className="text-xs text-muted-foreground">{s.weight}T → {d.name} | {s.deadline} days | ${s.value}</p>
                   </div>
-                  <Button size="sm" variant="outline">Accept</Button>
+                  <Button size="sm" variant="outline" aria-label={`Accept shipment: ${s.cargo} to ${d.name}`}>Accept</Button>
                 </div>
               );
             })}
@@ -265,10 +270,10 @@ export function LogisticsSimulation({ simulationId }: Props) {
             </div>
 
             <div className="flex gap-3">
-              <Button variant={insurance ? "default" : "outline"} size="sm" onClick={() => setInsurance(!insurance)} className="flex-1">
+              <Button variant={insurance ? "default" : "outline"} size="sm" onClick={() => setInsurance(!insurance)} className="flex-1" aria-label={`Insurance ${insurance ? "enabled" : "disabled"} ($${Math.round(currentShipment.value * 0.05)})`}>
                 🛡️ Insurance {insurance ? "✓" : ""} (${Math.round(currentShipment.value * 0.05)})
               </Button>
-              <Button variant={rushDelivery ? "default" : "outline"} size="sm" onClick={() => setRushDelivery(!rushDelivery)} className="flex-1">
+              <Button variant={rushDelivery ? "default" : "outline"} size="sm" onClick={() => setRushDelivery(!rushDelivery)} className="flex-1" aria-label={`Rush delivery ${rushDelivery ? "enabled" : "disabled"} (+$${Math.round(shippingCost * 0.4)})`}>
                 ⚡ Rush {rushDelivery ? "✓" : ""} (+${Math.round(shippingCost * 0.4)})
               </Button>
             </div>
@@ -290,7 +295,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
               </div>
             </div>
 
-            <Button onClick={startShipping} className="w-full">🚀 Ship It!</Button>
+            <Button onClick={startShipping} className="w-full" aria-label="Ship It">🚀 Ship It!</Button>
           </CardContent>
         </Card>
       )}
@@ -308,6 +313,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
       )}
+      <SimulationMentor simulationTitle="Logistics & Shipping" currentStepTitle="" />
     </div>
   );
 }

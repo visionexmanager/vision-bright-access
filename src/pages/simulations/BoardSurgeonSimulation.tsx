@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, XCircle, Wrench, Flame, Cpu, Battery, MemoryStick, Fan, Monitor, Zap, RotateCcw, Thermometer, AlertTriangle } from "lucide-react";
+import { SimulationMentor } from "@/components/SimulationMentor";
 import { FinancialBar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,6 +63,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [stage, setStage] = useState<Stage>("diagnosis");
@@ -113,7 +116,8 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
       return;
     }
 
-    playSound("correct");
+    announce("Correct! Well done.");
+    playSound("scan");
 
     // Check if repairs match symptoms
     const correctRepairs = selectedRepairs.filter(rid => {
@@ -147,6 +151,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
     setTotalCosts(prev => prev + repairCost);
     setCaseResults(prev => [...prev, { device: currentCase.device, fixed, profit, satisfaction }]);
 
+    if (fixed) playSound("heal"); else playSound("wrong");
     toast(fixed ? `✅ ${currentCase.device} fixed!` : `⚠️ ${currentCase.device} — some issues remain`);
 
     if (caseIndex + 1 >= CASES.length) {
@@ -171,6 +176,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
 
     setScore(finalScore);
     setStage("results");
+    announce(`Level complete! Score: ${finalScore}`);
     playSound("levelUp");
 
     if (user && simulationId) {
@@ -255,7 +261,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2"><Wrench className="h-6 w-6 text-primary" /> Board Surgeon</h2>
-        <Badge variant="secondary">Case {caseIndex + 1}/{CASES.length}</Badge>
+        <Badge variant="secondary" role="status" aria-live="polite">Case {caseIndex + 1}/{CASES.length}</Badge>
       </div>
 
       <Progress value={((caseIndex) / CASES.length) * 100} className="h-2" />
@@ -313,6 +319,7 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
                   size="sm"
                   onClick={() => toggleRepair(action.id)}
                   className="h-auto py-2 flex flex-col text-xs text-start"
+                  aria-label={action.name}
                 >
                   <span>{action.name}</span>
                   <span className="opacity-70">${action.cost} · {action.time}min · {action.tool}</span>
@@ -341,6 +348,10 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
       <Button onClick={submitRepair} className="w-full" size="lg" disabled={selectedRepairs.length === 0}>
         🔧 Submit Repair — Case {caseIndex + 1}
       </Button>
+      <SimulationMentor
+        simulationTitle="Board Surgeon"
+        currentStepTitle={stage === "results" ? "Results" : `Case ${caseIndex + 1} — ${stage}`}
+      />
     </div>
   );
 }

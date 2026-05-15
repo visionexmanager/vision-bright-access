@@ -14,6 +14,8 @@ import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { toast } from "@/hooks/use-toast";
 import { SimulationMentor } from "@/components/SimulationMentor";
+import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import {
   Wifi, AlertTriangle, CheckCircle2, Activity, Server, Shield, Gauge,
   RotateCcw, Trophy, Terminal, DollarSign, Users, Zap,
@@ -37,6 +39,8 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
   const { savedProgress } = useSimulationProgress(simulationId);
+  const { playSound } = useGameAudio();
+  const { announce, announceUrgent } = useScreenReader();
 
   const [stage, setStage] = useState<Stage>("setup");
   const [score, setScore] = useState(0);
@@ -72,13 +76,12 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   const detectionSpeed = monitoringLevel === "basic" ? 0.6 : monitoringLevel === "advanced" ? 0.85 : 0.98;
 
   const startMonitoring = () => {
-    playSound();
+    playSound("scan");
+    announce(`NOC shift started. Team of ${teamSize} engineers on duty. ${INCIDENTS.length} incidents to handle.`);
     setStage("monitoring");
     setLog([`[${new Date().toLocaleTimeString()}] NOC operational. Team of ${teamSize} engineers on duty.`]);
     triggerIncident(0);
   };
-
-  const playSound = () => {}; // placeholder
 
   const triggerIncident = (idx: number) => {
     if (idx >= INCIDENTS.length) {
@@ -90,6 +93,8 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
     const detected = Math.random() < detectionSpeed;
 
     if (!detected) {
+      playSound("wrong");
+      announceUrgent(`Missed incident: ${incident.name}. Uptime degraded.`);
       setLog(prev => [`⚠️ [MISSED] ${incident.name} — Not detected by monitoring`, ...prev]);
       setTotalMissed(prev => prev + 1);
       setUptime(prev => Math.max(95, prev - 0.3));
@@ -98,11 +103,12 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
       return;
     }
 
+    playSound("alarm");
+    announceUrgent(`Alert! ${incident.name}. Severity: ${incident.severity}. ${incident.affectedUsers} users affected. Choose your response.`);
     setCurrentIncident(incident);
     setStage("incident");
     setLog(prev => [`🚨 [ALERT] ${incident.name} — ${incident.severity.toUpperCase()} — ${incident.affectedUsers} users affected`, ...prev]);
 
-    // Generate response choices based on incident
     const choices = generateChoices(incident);
     setResponseChoices(choices);
   };
@@ -144,6 +150,10 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   };
 
   const handleResponse = (choice: { label: string; score: number; effect: string }) => {
+    const isOptimal = choice.score >= 20;
+    playSound(isOptimal ? "correct" : "ding");
+    announce(`Incident resolved. ${choice.effect} +${choice.score} points.`);
+
     setScore(prev => prev + choice.score);
     setTotalResolved(prev => prev + 1);
     setUptime(prev => Math.min(99.99, prev + 0.1));
@@ -168,6 +178,8 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
 
     setScore(finalScore);
     setStage("results");
+    playSound("levelUp");
+    announce(`NOC shift complete! Final score: ${finalScore}. Uptime: ${uptime.toFixed(2)}%. Incidents resolved: ${totalResolved}.`);
 
     const points = Math.round(finalScore * 0.8);
     if (user) {
@@ -238,31 +250,32 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive animate-pulse" /> Active Incident</h2>
-          <Badge variant="secondary">Score: {score}</Badge>
+          <h2 className="text-xl font-bold flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive animate-pulse" aria-hidden="true" /> Active Incident</h2>
+          <Badge variant="secondary" role="status" aria-live="polite">Score: {score}</Badge>
         </div>
 
-        <Card className={`border-2 ${severityColor[currentIncident.severity]}`}>
+        <Card className={`border-2 ${severityColor[currentIncident.severity]}`} role="alert" aria-label={`${currentIncident.severity} severity incident: ${currentIncident.name}`}>
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold">{currentIncident.name}</h3>
-              <Badge variant="destructive">{currentIncident.severity.toUpperCase()}</Badge>
+              <Badge variant="destructive" aria-label={`Severity: ${currentIncident.severity}`}>{currentIncident.severity.toUpperCase()}</Badge>
             </div>
             <p className="text-muted-foreground">{currentIncident.description}</p>
             <div className="flex gap-4 text-sm">
-              <span className="flex items-center gap-1"><Users className="h-4 w-4" /> {currentIncident.affectedUsers} users affected</span>
+              <span className="flex items-center gap-1"><Users className="h-4 w-4" aria-hidden="true" /> <span aria-label={`${currentIncident.affectedUsers} users affected`}>{currentIncident.affectedUsers} users affected</span></span>
             </div>
           </CardContent>
         </Card>
 
-        <h3 className="font-bold">Choose Response:</h3>
-        <div className="space-y-3">
+        <h3 className="font-bold" id="response-label">Choose Response:</h3>
+        <div className="space-y-3" role="group" aria-labelledby="response-label">
           {responseChoices.map((choice, i) => (
             <Button
               key={i}
               variant="outline"
               className="w-full h-auto py-4 text-start justify-start"
               onClick={() => handleResponse(choice)}
+              aria-label={`Response option ${i + 1}: ${choice.label}`}
             >
               <div>
                 <p className="font-medium">{choice.label}</p>
@@ -339,8 +352,8 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
       <p className="text-sm text-muted-foreground">Configure your NOC team and infrastructure. Handle {INCIDENTS.length} network incidents with the right resources and decisions.</p>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">👥 Team Size</span><Badge variant="outline">{teamSize} engineers</Badge></div>
-        <Slider value={[teamSize]} onValueChange={([v]) => setTeamSize(v)} min={1} max={6} step={1} />
+        <div className="flex justify-between"><label htmlFor="team-slider" className="font-medium">👥 Team Size</label><Badge variant="outline" aria-live="polite">{teamSize} engineers</Badge></div>
+        <Slider id="team-slider" value={[teamSize]} onValueChange={([v]) => setTeamSize(v)} min={1} max={6} step={1} aria-label={`Team size: ${teamSize} engineers`} aria-valuemin={1} aria-valuemax={6} aria-valuenow={teamSize} />
         <p className="text-xs text-muted-foreground">More engineers = faster response but $800/person</p>
       </CardContent></Card>
 

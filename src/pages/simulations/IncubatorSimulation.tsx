@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { toast } from "@/hooks/use-toast";
 import { SimulationMentor } from "@/components/SimulationMentor";
+import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import {
   ArrowLeft,
   Thermometer,
@@ -53,6 +55,8 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
   const { savedProgress } = useSimulationProgress(simulationId);
+  const { playSound } = useGameAudio();
+  const { announce } = useScreenReader();
 
   const [state, setState] = useState<IncubatorState>({
     temp: IDEAL_TEMP,
@@ -101,6 +105,8 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
   };
 
   const repairMalfunction = () => {
+    playSound("correct");
+    announce("Correct! Well done.");
     setState((s) => ({
       ...s,
       malfunction: false,
@@ -194,16 +200,29 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
 
     if (state.day + 1 > TOTAL_DAYS) {
       addLog("🐣 " + t("sim.incubator.hatchDay"));
+      playSound("hatch");
     } else {
       addLog(`📅 ${t("sim.incubator.dayAdvanced")} ${state.day + 1}`);
+      playSound("tick");
     }
   };
+
+  // Play alarm when malfunction appears
+  const prevMalfunctionRef = useRef(false);
+  useEffect(() => {
+    if (state.malfunction && !prevMalfunctionRef.current) {
+      playSound("alarm");
+    }
+    prevMalfunctionRef.current = state.malfunction;
+  }, [state.malfunction, playSound]);
 
   // Save completion
   useEffect(() => {
     if (state.gameOver && !completed && user && simulationId) {
       setCompleted(true);
       const points = Math.round(state.score * 0.5) + state.hatched * 10;
+      playSound("levelUp");
+      announce(`Simulation complete! Final score: ${state.score}`);
       earnPoints(points, `Incubator Simulation: ${state.hatched}/${TOTAL_EGGS} hatched`);
       
       saveSimulationProgress(user.id, simulationId, {
@@ -283,7 +302,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
               <p className="text-sm text-muted-foreground">{state.malfunctionType}</p>
             </div>
           </div>
-          <Button variant="destructive" onClick={repairMalfunction} className="gap-2">
+          <Button variant="destructive" onClick={repairMalfunction} className="gap-2" aria-label={t("sim.incubator.repair")}>
             <Wrench className="h-4 w-4" />
             {t("sim.incubator.repair")}
           </Button>
@@ -349,7 +368,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
 
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">{t("sim.incubator.score")}</span>
-                <Badge variant={state.score >= 70 ? "default" : "destructive"}>{state.score}/100</Badge>
+                <Badge variant={state.score >= 70 ? "default" : "destructive"} role="status" aria-live="polite">{state.score}/100</Badge>
               </div>
             </CardContent>
           </Card>
@@ -366,6 +385,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
                     onClick={() => adjustTemp(0.5)}
                     disabled={state.malfunction}
                     className="gap-2"
+                    aria-label={`Increase ${t("sim.incubator.temp")}`}
                   >
                     <ChevronUp className="h-4 w-4" />
                     + {t("sim.incubator.temp")}
@@ -375,6 +395,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
                     onClick={() => adjustTemp(-0.5)}
                     disabled={state.malfunction}
                     className="gap-2"
+                    aria-label={`Decrease ${t("sim.incubator.temp")}`}
                   >
                     <ChevronDown className="h-4 w-4" />
                     - {t("sim.incubator.temp")}
@@ -384,6 +405,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
                     onClick={() => adjustHumidity(5)}
                     disabled={state.malfunction}
                     className="gap-2"
+                    aria-label={`Increase ${t("sim.incubator.humidity")}`}
                   >
                     <ChevronUp className="h-4 w-4" />
                     + {t("sim.incubator.humidity")}
@@ -393,6 +415,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
                     onClick={() => adjustHumidity(-5)}
                     disabled={state.malfunction}
                     className="gap-2"
+                    aria-label={`Decrease ${t("sim.incubator.humidity")}`}
                   >
                     <ChevronDown className="h-4 w-4" />
                     - {t("sim.incubator.humidity")}
@@ -402,6 +425,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
                   onClick={nextDay}
                   disabled={state.malfunction}
                   className="w-full gap-2 text-base"
+                  aria-label={t("sim.incubator.nextDay")}
                 >
                   <SkipForward className="h-4 w-4" />
                   {t("sim.incubator.nextDay")}

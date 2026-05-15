@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, FlaskConical, Droplets, RotateCcw, DollarSign, Star, Beaker, Thermometer } from "lucide-react";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
+import { SimulationMentor } from "@/components/SimulationMentor";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
@@ -24,6 +26,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
+  const { announce } = useScreenReader();
   const { savedProgress } = useSimulationProgress(simulationId);
 
   const [stage, setStage] = useState<Stage>("formulation");
@@ -85,6 +88,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
       return;
     }
     playSound("correct");
+    announce("Correct! Well done.");
     setStage("production");
     const m = calcFormula();
     setCleaningPower(m.cleaning);
@@ -95,7 +99,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
   };
 
   const runTests = () => {
-    playSound("scan");
+    playSound("bubble");
     const results = [
       { test: "Cleaning Efficacy", pass: cleaningPower >= 60, detail: `${cleaningPower}% — ${cleaningPower >= 60 ? "Pass" : "Below threshold"}` },
       { test: "Foam Stability", pass: foamLevel >= 50, detail: `${foamLevel}% — ${foamLevel >= 50 ? "Stable" : "Unstable"}` },
@@ -116,6 +120,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
     setScore(finalScore);
     setStage("results");
     playSound("levelUp");
+    announce(`Simulation complete! Final score: ${finalScore}`);
 
     if (user && simulationId) {
       await saveSimulationProgress(user.id, simulationId, {
@@ -193,7 +198,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
           ))}
         </div>
         <p className="text-center text-sm text-muted-foreground">{testResults.filter(r => r.pass).length}/{testResults.length} tests passed</p>
-        <Button onClick={finishSim} className="w-full" size="lg">🏁 Finish & Get Score</Button>
+        <Button onClick={finishSim} className="w-full" size="lg" aria-label="Finish & Get Score">🏁 Finish & Get Score</Button>
       </div>
     );
   }
@@ -257,7 +262,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
 
         <div className="flex gap-3">
           <Button onClick={() => setStage("formulation")} variant="outline" className="flex-1">← Adjust Formula</Button>
-          <Button onClick={runTests} className="flex-1">🧪 Run Quality Tests</Button>
+          <Button onClick={runTests} className="flex-1" aria-label="Run Quality Tests">🧪 Run Quality Tests</Button>
         </div>
       </div>
     );
@@ -370,7 +375,9 @@ export function DetergentLabSimulation({ simulationId }: Props) {
         </CardContent>
       </Card>
 
-      <Button onClick={startProduction} className="w-full text-base" size="lg" disabled={totalPct > 100}>
+            <SimulationMentor simulationTitle="Detergent Lab" currentStepTitle="" />
+
+      <Button onClick={startProduction} className="w-full text-base" size="lg" disabled={totalPct > 100} aria-label="Start Production">
         🏭 Start Production
       </Button>
     </div>
