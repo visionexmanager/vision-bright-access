@@ -1,17 +1,52 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Coins, Clock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Coins, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const AD_CLIENT = "ca-pub-6897088904832302";
-const AD_SLOT   = "3569383992";
-const WATCH_SECONDS = 30;
-const VX_REWARD     = 5;
+// GPT network code and rewarded ad unit — set these in your .env file
+const GAM_NETWORK_CODE = import.meta.env.VITE_GAM_NETWORK_CODE ?? "MISSING";
+const GAM_AD_UNIT      = import.meta.env.VITE_GAM_REWARDED_UNIT ?? "rewarded";
+const AD_UNIT_PATH     = `/${GAM_NETWORK_CODE}/${GAM_AD_UNIT}`;
+
+const VX_REWARD = 5;
 
 declare global {
   interface Window {
-    adsbygoogle: unknown[];
+    googletag: {
+      cmd: Array<() => void>;
+      defineOutOfPageSlot: (
+        adUnitPath: string,
+        format: string
+      ) => GPTSlot | null;
+      enums: { OutOfPageFormat: { REWARDED: string } };
+      pubads: () => GPTPubAds;
+      enableServices: () => void;
+      display: (slot: GPTSlot) => void;
+      destroySlots: (slots: GPTSlot[]) => void;
+    };
   }
+}
+
+interface GPTSlot {
+  addService: (service: GPTPubAds) => GPTSlot;
+}
+
+interface GPTRewardedReadyEvent {
+  makeRewardedVisible: () => void;
+}
+
+interface GPTRewardedGrantedEvent {
+  payload: { type: string; amount: number } | null;
+}
+
+interface GPTPubAds {
+  addEventListener: (
+    event: "rewardedSlotReady" | "rewardedSlotGranted" | "rewardedSlotClosed",
+    listener: (e: GPTRewardedReadyEvent & GPTRewardedGrantedEvent) => void
+  ) => void;
+  removeEventListener: (
+    event: "rewardedSlotReady" | "rewardedSlotGranted" | "rewardedSlotClosed",
+    listener: (e: GPTRewardedReadyEvent & GPTRewardedGrantedEvent) => void
+  ) => void;
 }
 
 interface Props {
@@ -19,35 +54,69 @@ interface Props {
   onClose: () => void;
 }
 
+type AdState = "loading" | "ready" | "watching" | "granted" | "error";
+
 export function RewardedAdModal({ onRewarded, onClose }: Props) {
   const { t } = useLanguage();
-  const adRef = useRef<HTMLModElement>(null);
-  const [secondsLeft, setSecondsLeft] = useState(WATCH_SECONDS);
-  const [rewarded, setRewarded] = useState(false);
-  const pushedRef = useRef(false);
+  const [state, setState] = useState<AdState>("loading");
+  const slotRef = useRef<GPTSlot | null>(null);
 
-  // Push the AdSense ad once on mount
   useEffect(() => {
-    if (pushedRef.current) return;
-    pushedRef.current = true;
-    try {
-      (window.adsbygoogle = window.adsbygoogle || []).push({});
-    } catch { /* already initialised */ }
-  }, []);
-
-  // Countdown timer
-  useEffect(() => {
-    if (rewarded) return;
-    if (secondsLeft <= 0) {
-      setRewarded(true);
-      onRewarded();
+    const gt = window.googletag;
+    if (!gt) {
+      setState("error");
       return;
     }
-    const id = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(id);
-  }, [secondsLeft, rewarded, onRewarded]);
 
-  const pct = ((WATCH_SECONDS - secondsLeft) / WATCH_SECONDS) * 100;
+    const onReady = (e: GPTRewardedReadyEvent & GPTRewardedGrantedEvent) => {
+      setState("watching");
+      e.makeRewardedVisible();
+    };
+
+    const onGranted = () => {
+      setState("granted");
+      onRewarded();
+    };
+
+    const onClosed = () => {
+      onClose();
+    };
+
+    gt.cmd.push(() => {
+      const slot = gt.defineOutOfPageSlot(
+        AD_UNIT_PATH,
+        gt.enums.OutOfPageFormat.REWARDED
+      );
+
+      if (!slot) {
+        // Browser doesn't support rewarded ads (e.g. ad blocker)
+        setState("error");
+        return;
+      }
+
+      slotRef.current = slot;
+      slot.addService(gt.pubads());
+      gt.enableServices();
+      gt.display(slot);
+      setState("ready");
+
+      gt.pubads().addEventListener("rewardedSlotReady", onReady);
+      gt.pubads().addEventListener("rewardedSlotGranted", onGranted);
+      gt.pubads().addEventListener("rewardedSlotClosed", onClosed);
+    });
+
+    return () => {
+      gt.cmd.push(() => {
+        gt.pubads().removeEventListener("rewardedSlotReady", onReady);
+        gt.pubads().removeEventListener("rewardedSlotGranted", onGranted);
+        gt.pubads().removeEventListener("rewardedSlotClosed", onClosed);
+        if (slotRef.current) {
+          gt.destroySlots([slotRef.current]);
+          slotRef.current = null;
+        }
+      });
+    };
+  }, [onRewarded, onClose]);
 
   return (
     <div
@@ -56,66 +125,51 @@ export function RewardedAdModal({ onRewarded, onClose }: Props) {
       aria-label={t("dash.watchAd")}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
     >
-      <div className="relative w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <div className="flex items-center gap-2">
-            <Coins className="h-5 w-5 text-amber-500" aria-hidden="true" />
-            <span className="font-bold text-base">
-              {rewarded
-                ? t("dash.adWatched").replace("{pts}", String(VX_REWARD))
-                : `${secondsLeft}s — +${VX_REWARD} VX`}
-            </span>
-          </div>
-          {rewarded && (
-            <Button size="sm" variant="ghost" onClick={onClose} aria-label={t("vx.close")}>
-              <X className="h-4 w-4" />
-            </Button>
-          )}
+      <div className="relative w-full max-w-sm rounded-2xl border border-border bg-card shadow-2xl p-8 text-center space-y-4">
+        <div className="flex justify-center">
+          <Coins className="h-10 w-10 text-amber-500" aria-hidden="true" />
         </div>
 
-        {/* Progress bar */}
-        <div className="h-1.5 w-full bg-muted" aria-hidden="true">
-          <div
-            className="h-full bg-amber-500 transition-all duration-1000"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
+        {state === "loading" && (
+          <>
+            <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">{t("dash.adLoading")}</p>
+          </>
+        )}
 
-        {/* Ad container */}
-        <div className="px-4 py-4 min-h-[250px] flex items-center justify-center bg-muted/30">
-          <ins
-            ref={adRef}
-            className="adsbygoogle"
-            style={{ display: "block", width: "100%", minHeight: 250 }}
-            data-ad-client={AD_CLIENT}
-            data-ad-slot={AD_SLOT}
-            data-ad-format="auto"
-            data-full-width-responsive="true"
-          />
-        </div>
+        {state === "ready" && (
+          <p className="text-sm text-muted-foreground">{t("dash.adLoading")}</p>
+        )}
 
-        {/* Footer */}
-        <div className="px-5 pb-5 pt-3 text-center">
-          {rewarded ? (
-            <div className="space-y-3">
-              <p className="text-sm font-semibold text-amber-500">
-                🎉 {t("dash.adWatched").replace("{pts}", String(VX_REWARD))}
-              </p>
-              <Button onClick={onClose} className="w-full">
-                {t("vx.close")}
-              </Button>
-            </div>
-          ) : (
-            <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-              <span aria-live="polite" aria-atomic="true">
-                {t("dash.adSecondsLeft").replace("{s}", String(secondsLeft))}
-              </span>
+        {state === "watching" && (
+          <p className="text-sm font-medium">{t("dash.adWatching")}</p>
+        )}
+
+        {state === "granted" && (
+          <>
+            <p className="text-base font-bold text-amber-500">
+              🎉 {t("dash.adWatched").replace("{pts}", String(VX_REWARD))}
             </p>
-          )}
-        </div>
+            <button
+              onClick={onClose}
+              className="mt-2 w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            >
+              {t("vx.close")}
+            </button>
+          </>
+        )}
+
+        {state === "error" && (
+          <>
+            <p className="text-sm text-destructive">{t("dash.adError")}</p>
+            <button
+              onClick={onClose}
+              className="mt-2 w-full rounded-lg border px-4 py-2 text-sm"
+            >
+              {t("vx.close")}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
