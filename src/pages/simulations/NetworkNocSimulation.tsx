@@ -21,6 +21,7 @@ import {
   RotateCcw, Trophy, Terminal, DollarSign, Users, Zap,
 } from "lucide-react";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
+import { SimulationScene } from "@/components/SimulationScene";
 
 type Stage = "setup" | "monitoring" | "incident" | "results";
 
@@ -348,6 +349,7 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   // Setup
   return (
     <div className="space-y-6">
+      <SimulationScene slug="network-noc" />
       <h2 className="text-xl font-bold flex items-center gap-2"><Wifi className="h-6 w-6 text-primary" /> Network Operations Center</h2>
       <p className="text-sm text-muted-foreground">Configure your NOC team and infrastructure. Handle {INCIDENTS.length} network incidents with the right resources and decisions.</p>
 

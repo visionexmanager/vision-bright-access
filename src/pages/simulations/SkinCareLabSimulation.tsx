@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
+import { SimulationScene } from "@/components/SimulationScene";
 
 type Stage = "formulation" | "clinic" | "results";
 
@@ -283,6 +284,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
   const q = calcProductQuality();
   return (
     <div className="space-y-6">
+      <SimulationScene slug="skin-care-lab" />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles className="h-6 w-6 text-primary" /> Skincare Lab</h2>
       </div>

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { RotateCcw, Trophy, Thermometer, Flame } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
+import { SimulationScene } from "@/components/SimulationScene";
 
 interface Props { simulationId?: string; }
 
@@ -198,6 +199,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
+      <SimulationScene slug="chocolate-factory" />
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">🏭 Batch {batch}/{totalBatches}</h2>

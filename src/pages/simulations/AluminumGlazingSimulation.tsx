@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { RotateCcw, Trophy } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
+import { SimulationScene } from "@/components/SimulationScene";
 
 interface Props { simulationId?: string; }
 
@@ -209,6 +210,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
+      <SimulationScene slug="aluminum-glazing" />
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">🏗️ Round {round}/{totalRounds}</h2>
         <div className="flex gap-2">

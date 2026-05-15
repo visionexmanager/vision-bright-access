@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
+import { SimulationScene } from "@/components/SimulationScene";
 
 type Stage = "setup" | "management" | "results";
 type Season = "spring" | "summer" | "autumn" | "winter";
@@ -265,6 +266,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
   // Setup
   return (
     <div className="space-y-6">
+      <SimulationScene slug="cattle-dairy" />
       <h2 className="text-xl font-bold">🐄 Cattle Ranch Setup</h2>
       <p className="text-sm text-muted-foreground">Build your cattle ranch and manage it through 12 weeks (4 seasons). Balance breeding, feeding, health, and finances.</p>
 

@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
+import { SimulationScene } from "@/components/SimulationScene";
 
 type Stage = "setup" | "service" | "results";
 
@@ -279,6 +280,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   // Setup
   return (
     <div className="space-y-6">
+      <SimulationScene slug="global-kitchen" />
       <h2 className="text-xl font-bold flex items-center gap-2"><ChefHat className="h-6 w-6 text-primary" /> Global Kitchen</h2>
       <p className="text-sm text-muted-foreground">Open your restaurant! Choose menu items, hire chefs, set prices, and serve 6 rounds of customers.</p>
 
