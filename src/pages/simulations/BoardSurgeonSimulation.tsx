@@ -108,12 +108,12 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
     });
 
     setDiagnosticNotes(notes);
-    toast.success("Diagnostics complete!");
+    toast.success(t("sim.diagnosticsComplete"));
   };
 
   const submitRepair = () => {
     if (!currentCase || selectedRepairs.length === 0) {
-      toast.error("Select at least one repair action!");
+      toast.error(t("sim.selectRepairAction"));
       return;
     }
 

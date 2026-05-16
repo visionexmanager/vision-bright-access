@@ -113,7 +113,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
     const count = 3 + staffCount + tierBonus + repBonus + Math.floor(Math.random() * 3);
     const newQueue = Array.from({ length: count }, (_, i) => randomCustomer(day * 100 + i));
     setQueue(newQueue);
-    toast.success(`📋 ${count} customers arrived today!`);
+    toast.success(t("sim.customersArrived").replace("{count}", String(count)));
   };
 
   // Serve the next customer
@@ -143,7 +143,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
           setCustomersServed((c) => c + 1);
           setReputation((r) => Math.min(100, r + (satisfied ? 3 : -5)));
           playSound("ding");
-          toast.success(`✅ ${prev.customer.name} served! +$${price + tipAmount}`);
+          toast.success(t("sim.customerServed").replace("{name}", prev.customer.name).replace("{amount}", String(price + tipAmount)));
           return null;
         }
         return { ...prev, progress: newProgress };
@@ -162,7 +162,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
         if (leaving.length > 0) {
           setCustomersLost((l) => l + leaving.length);
           setReputation((r) => Math.max(0, r - leaving.length * 4));
-          leaving.forEach((c) => toast.error(`😤 ${c.name} left! (too long wait)`));
+          leaving.forEach((c) => toast.error(t("sim.customerLeft").replace("{name}", c.name)));
         }
         return updated.filter((c) => c.patience > 0);
       });
@@ -179,7 +179,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
       finishGame();
     } else {
       setDay((d) => d + 1);
-      toast.success(`🌙 Day ${day} complete! Profit so far: $${profit}`);
+      toast.success(t("sim.dayComplete").replace("{day}", String(day)).replace("{profit}", String(profit)));
     }
   };
 

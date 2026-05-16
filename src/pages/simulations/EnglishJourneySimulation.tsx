@@ -217,7 +217,7 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
       setActiveScenario(null);
       announce(`Level complete! Score: ${score}`);
       playSound("levelUp");
-      toast.success(`${scenario.location} completed! Great communication!`);
+      toast.success(t("sim.scenarioComplete").replace("{location}", scenario.location));
       return;
     }
 
@@ -239,7 +239,7 @@ export function EnglishJourneySimulation({ simulationId }: Props) {
       });
     }
     setStage("results");
-    toast.success("Journey saved!");
+    toast.success(t("sim.journeySaved"));
   };
 
   const reset = () => {

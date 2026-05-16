@@ -85,7 +85,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
 
   const startProduction = () => {
     if (totalPct > 100) {
-      toast.error("Total percentage exceeds 100%!");
+      toast.error(t("sim.percentExceeds"));
       return;
     }
     playSound("correct");

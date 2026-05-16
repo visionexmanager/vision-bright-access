@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useScreenReader } from "@/hooks/useScreenReader";
@@ -27,6 +28,7 @@ const MARKETS = [
 const ROUNDS = 6;
 
 export function TradeTycoonSimulation({ simulationId }: Props) {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
   const { announce, announceUrgent } = useScreenReader();
@@ -75,7 +77,7 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
     setRound(1);
     setStarted(true);
     playSound("scan");
-    toast.success(`📈 Trading started in ${market.name}!`);
+    toast.success(t("sim.tradingStarted").replace("{market}", market.name));
   };
 
   const buyQtyCost = buyQty * (sellPrice * (1 - market.margin));
@@ -83,7 +85,7 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
   const simulateRound = () => {
     if (simulating) return;
     if (buyQtyCost > cash) {
-      toast.error(`Not enough cash! Need $${Math.round(buyQtyCost)}`);
+      toast.error(t("sim.notEnoughCash").replace("{amount}", String(Math.round(buyQtyCost))));
       return;
     }
     setSimulating(true);
@@ -121,9 +123,9 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
         playSound("ding");
 
         if (roundProfit > 0)
-          toast.success(`Round ${round} ✅ Sold ${unitsSold} units. Profit $${Math.round(roundProfit)}`);
+          toast.success(t("sim.roundProfit").replace("{round}", String(round)).replace("{units}", String(unitsSold)).replace("{profit}", String(Math.round(roundProfit))));
         else
-          toast.error(`Round ${round} ❌ Lost $${Math.abs(Math.round(roundProfit))}`);
+          toast.error(t("sim.roundLoss").replace("{round}", String(round)).replace("{loss}", String(Math.abs(Math.round(roundProfit)))));
 
         if (round >= ROUNDS) {
           const finalScore = Math.max(0, Math.round((newCash - capital) / 50 + newRep));

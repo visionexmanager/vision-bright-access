@@ -88,7 +88,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
     setInstalled(true);
     setTotalCost(installCost);
     playSound("scan");
-    toast.success(`☀️ System installed! ${panelCount} panels at ${location.name}`);
+    toast.success(t("sim.solarInstalled").replace("{count}", String(panelCount)).replace("{location}", location.name));
   };
 
   const simulateMonth = () => {
@@ -120,7 +120,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
 
         setSimulating(false);
         playSound("ding");
-        toast.success(`📊 Month ${month}: ${monthEnergy} kWh generated | +$${monthRevenue}`);
+        toast.success(t("sim.monthEnergy").replace("{month}", String(month)).replace("{energy}", String(monthEnergy)).replace("{revenue}", String(monthRevenue)));
 
         if (month >= totalMonths) finishGame();
         else setMonth((m) => m + 1);

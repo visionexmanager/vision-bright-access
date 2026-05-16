@@ -157,7 +157,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
     setStage("results");
     playSound("levelUp");
     announce(`Simulation complete! Final score: ${finalScore}`);
-    toast.success(`Dairy farm complete! Score: ${finalScore}`);
+    toast.success(t("sim.farmComplete").replace("{score}", String(finalScore)));
 
     if (user && simulationId) {
       await saveSimulationProgress(user.id, simulationId, {

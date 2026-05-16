@@ -81,7 +81,7 @@ export function HvacSimulation({ simulationId }: Props) {
     setInstalled(true);
     setTotalCost(installCost);
     playSound("scan");
-    toast.success(`❄️ ${system.name} installed in ${building.name}!`);
+    toast.success(t("sim.hvacInstalled").replace("{system}", system.name).replace("{building}", building.name));
   };
 
   const simulateHour = () => {

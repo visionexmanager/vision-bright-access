@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useScreenReader } from "@/hooks/useScreenReader";
@@ -33,6 +34,7 @@ const TEACHING_STYLES = [
 const WEEKS = 12;
 
 export function MusicTrainingSimulation({ simulationId }: Props) {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
   const { announce, announceUrgent } = useScreenReader();
@@ -81,7 +83,7 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
     setWeek(1);
     setStarted(true);
     playSound("scan");
-    toast.success(`🎵 ${instrument.name} academy started with ${groupSize} students!`);
+    toast.success(t("sim.academyStarted").replace("{instrument}", instrument.name).replace("{students}", String(groupSize)));
   };
 
   const simulateWeek = () => {
@@ -121,9 +123,9 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
         playSound("ding");
 
         if (dropout > 0)
-          toast.error(`😢 1 student dropped out. Remaining: ${newStudents}`);
+          toast.error(t("sim.studentDropout").replace("{count}", String(newStudents)));
         else
-          toast.success(`Week ${week} ✅ Skill: ${newSkill}% | Earned $${weekEarned}`);
+          toast.success(t("sim.weekComplete").replace("{week}", String(week)).replace("{skill}", String(newSkill)).replace("{amount}", String(weekEarned)));
 
         if (week >= WEEKS) {
           const finalScore = Math.max(0, Math.round(newSkill + (newStudents / groupSize) * 50 + (revenue - costs) / 100));

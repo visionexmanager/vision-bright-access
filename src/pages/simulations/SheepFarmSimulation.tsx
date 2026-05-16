@@ -81,7 +81,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
     setCosts(setupCost);
     setHealth(80);
     playSound("scan");
-    toast.success(`🐑 Flock of ${flockSize} ${breed.name} started!`);
+    toast.success(t("sim.sheepFlockStarted").replace("{count}", String(flockSize)).replace("{breed}", breed.name));
   };
 
   const simulateMonth = () => {
@@ -121,9 +121,9 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
 
         setSimulating(false);
         if (monthWool > 0) { playSound("snip"); } else { playSound("ding"); }
-        if (deaths > 0) toast.error(`💀 ${deaths} sheep lost`);
-        if (monthWool > 0) toast.success(`🧶 Shearing! ${monthWool}kg wool harvested`);
-        else toast.success(`✅ Month ${month} complete. Health: ${Math.round(newHealth)}%`);
+        if (deaths > 0) toast.error(t("sim.sheepLost").replace("{count}", String(deaths)));
+        if (monthWool > 0) toast.success(t("sim.woolHarvested").replace("{amount}", String(monthWool)));
+        else toast.success(t("sim.monthComplete").replace("{month}", String(month)).replace("{health}", String(Math.round(newHealth))));
 
         if (month >= totalMonths) sellAndFinish(newAlive);
         else setMonth((m) => m + 1);

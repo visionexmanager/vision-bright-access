@@ -86,7 +86,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
     setAlive(flockSize);
     setCosts(setupCost);
     playSound("scan");
-    toast.success(`🐔 Farm started! ${flockSize} ${breed.name} chicks`);
+    toast.success(t("sim.flockStarted").replace("{count}", String(flockSize)).replace("{breed}", breed.name));
   };
 
   const simulateWeek = () => {
@@ -119,8 +119,8 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
 
         setSimulating(false);
         playSound("ding");
-        if (deaths > 0) toast.error(`💀 ${deaths} birds lost this week`);
-        else toast.success(`✅ Week ${week}: All birds healthy! Weight: ${newWeight}kg`);
+        if (deaths > 0) toast.error(t("sim.birdsLost").replace("{count}", String(deaths)));
+        else toast.success(t("sim.birdsHealthy").replace("{week}", String(week)).replace("{weight}", String(newWeight)));
 
         if (week >= totalWeeks) harvestAndSell();
         else setWeek((w) => w + 1);
@@ -139,7 +139,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
     setTimeout(() => playSound("complete"), 400);
     announce("Simulation complete!");
     saveProgress(finalScore, true);
-    toast.success(`🎉 Harvest! ${totalMeat}kg meat sold for $${saleRevenue}`);
+    toast.success(t("sim.harvestComplete").replace("{meat}", String(totalMeat)).replace("{revenue}", String(saleRevenue)));
   };
 
   const restart = () => {

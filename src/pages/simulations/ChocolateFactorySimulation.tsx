@@ -120,7 +120,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
         setProducing(false);
         setProdProgress(0);
         playSound("ding");
-        toast.success(`🍫 Batch ${batch} done! Quality: ${quality}% | ${goodBars}/${batchSize} good bars`);
+        toast.success(t("sim.batchDone").replace("{batch}", String(batch)).replace("{quality}", String(quality)).replace("{good}", String(goodBars)).replace("{total}", String(batchSize)));
 
         if (batch >= totalBatches) {
           finishGame(quality);

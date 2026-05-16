@@ -13,17 +13,20 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 
-const PUZZLES = [
-  { q: "If all cats are animals, and some animals are pets, which is true?", choices: ["All cats are pets","Some cats may be pets","No cats are pets","All pets are cats"], answer: 1 },
-  { q: "What comes next: 2, 6, 18, 54, ?", choices: ["108","162","72","216"], answer: 1 },
-  { q: "Complete: 🔺🔵🔺🔵🔺?", choices: ["🔺","🔵","⬛","🟢"], answer: 1 },
-  { q: "A is taller than B, B is taller than C. Who is shortest?", choices: ["A","B","C","Cannot tell"], answer: 2 },
-  { q: "If MOUSE = 13+15+21+19+5 = 73, what is CAT?", choices: ["24","22","26","28"], answer: 0 },
-];
+function getPuzzles(t: (key: string) => string) {
+  return [
+    { q: t("logiquest.q1"), choices: [t("logiquest.q1c0"), t("logiquest.q1c1"), t("logiquest.q1c2"), t("logiquest.q1c3")], answer: 1 },
+    { q: t("logiquest.q2"), choices: [t("logiquest.q2c0"), t("logiquest.q2c1"), t("logiquest.q2c2"), t("logiquest.q2c3")], answer: 1 },
+    { q: t("logiquest.q3"), choices: [t("logiquest.q3c0"), t("logiquest.q3c1"), t("logiquest.q3c2"), t("logiquest.q3c3")], answer: 1 },
+    { q: t("logiquest.q4"), choices: [t("logiquest.q4c0"), t("logiquest.q4c1"), t("logiquest.q4c2"), t("logiquest.q4c3")], answer: 2 },
+    { q: t("logiquest.q5"), choices: [t("logiquest.q5c0"), t("logiquest.q5c1"), t("logiquest.q5c2"), t("logiquest.q5c3")], answer: 0 },
+  ];
+}
 
 // ─── Solo ────────────────────────────────────────────────────────────────────
 function LogiQuestSolo() {
   const { t } = useLanguage();
+  const PUZZLES = getPuzzles(t);
   const { playSound } = useSound();
   const [current,  setCurrent]  = useState(0);
   const [score,    setScore]    = useState(0);
@@ -83,6 +86,8 @@ function LogiQuestSolo() {
 // ─── Multiplayer (race — same puzzles, compare scores) ───────────────────────
 function LogiQuestMulti() {
   const { user } = useAuth();
+  const { t } = useLanguage();
+  const PUZZLES = getPuzzles(t);
   const { playSound } = useSound();
   const mp = useMultiplayer("logiquest");
 
@@ -155,14 +160,14 @@ function LogiQuestMulti() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between rounded-lg border p-3 text-sm">
-        <div className="text-center"><p className="text-xs text-muted-foreground">You</p><p className="text-xl font-bold text-primary">{myScore}</p></div>
+        <div className="text-center"><p className="text-xs text-muted-foreground">{t("logiquest.you")}</p><p className="text-xl font-bold text-primary">{myScore}</p></div>
         <div className="text-center self-center"><Badge variant="outline">Q {current + 1}/{PUZZLES.length}</Badge></div>
         <div className="text-center"><p className="text-xs text-muted-foreground">{opp?.name ?? "Opponent"}</p><p className="text-xl font-bold">{oppScore}</p></div>
       </div>
       {finished ? (
         <Card><CardContent className="pt-6 text-center space-y-2">
-          <p className="text-xl font-bold">Done! ✅</p>
-          <p className="text-muted-foreground">Score: {myScore} — Waiting for opponent…</p>
+          <p className="text-xl font-bold">{t("logiquest.done")}</p>
+          <p className="text-muted-foreground">{t("logiquest.score")}: {myScore} — {t("logiquest.waitingOpponent")}</p>
         </CardContent></Card>
       ) : (
         <Card><CardContent className="pt-6 space-y-6">

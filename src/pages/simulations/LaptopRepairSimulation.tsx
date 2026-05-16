@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useScreenReader } from "@/hooks/useScreenReader";
@@ -47,6 +48,7 @@ function pickFault() {
 }
 
 export function LaptopRepairSimulation({ simulationId }: Props) {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
   const { announce, announceUrgent } = useScreenReader();
@@ -90,7 +92,7 @@ export function LaptopRepairSimulation({ simulationId }: Props) {
     setFeedback(null);
     setStarted(true);
     playSound("scan");
-    toast.success("🔧 Workshop opened! First laptop incoming…");
+    toast.success(t("sim.workshopOpened"));
   };
 
   const applyFix = () => {

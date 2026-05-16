@@ -125,7 +125,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
 
         setCrafting(false);
         playSound("ding");
-        toast.success(`🪵 ${project.name} complete! Quality: ${quality}% | Sold: $${sellPrice}`);
+        toast.success(t("sim.woodworkComplete").replace("{project}", project.name).replace("{quality}", String(quality)).replace("{price}", String(sellPrice)));
 
         if (round >= totalRounds) finishGame();
         else setRound((r) => r + 1);

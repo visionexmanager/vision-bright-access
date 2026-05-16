@@ -121,7 +121,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
   const startShipping = () => {
     if (!currentShipment || shipping) return;
     if (currentShipment.weight > transport.maxWeight) {
-      toast.error(`❌ ${transport.name} max weight: ${transport.maxWeight}T. Cargo is ${currentShipment.weight}T`);
+      toast.error(t("sim.weightExceeded").replace("{transport}", transport.name).replace("{max}", String(transport.maxWeight)).replace("{cargo}", String(currentShipment.weight)));
       return;
     }
     setShipping(true);

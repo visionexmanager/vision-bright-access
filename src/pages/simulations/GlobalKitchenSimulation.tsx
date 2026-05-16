@@ -83,7 +83,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
 
   const startService = () => {
     if (menuSelection.length < 2) {
-      toast.error("Select at least 2 menu items!");
+      toast.error(t("sim.selectMenuItems").replace("{count}", "2"));
       return;
     }
     announce("Correct! Well done.");

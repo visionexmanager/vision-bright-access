@@ -109,7 +109,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
   const startRepair = () => {
     if (!currentJob || repairing) return;
     if (totalCharge > currentJob.customerBudget * 1.3) {
-      toast.error("❌ Price too high! Customer walked away.");
+      toast.error(t("sim.priceTooHigh"));
       setReputation((r) => Math.max(0, r - 8));
       setCurrentJob(null);
       return;
@@ -143,7 +143,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
         setRepairing(false);
         setCurrentJob(null);
         if (quality > 60) { announce("Correct! Well done."); playSound("correct"); } else { announceUrgent("Incorrect. Try again."); playSound("wrong"); }
-        toast.success(`✅ ${currentJob.device} fixed! Quality: ${quality}% | +$${profit}`);
+        toast.success(t("sim.deviceFixed").replace("{device}", currentJob.device).replace("{quality}", String(quality)).replace("{profit}", String(profit)));
 
         if (round >= totalRounds) finishGame();
         else {

@@ -127,7 +127,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
     const p = calcPerfume();
     if (p.notes.length < 3) {
       announceUrgent("Incorrect. Try again.");
-      toast.error("Select at least 3 ingredients!");
+      toast.error(t("sim.selectIngredients").replace("{count}", "3"));
       return;
     }
 

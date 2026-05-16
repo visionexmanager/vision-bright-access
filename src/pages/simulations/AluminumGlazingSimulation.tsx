@@ -119,7 +119,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
   const startFabrication = () => {
     if (!currentOrder || fabricating) return;
     if (quotePrice > currentOrder.budget * 1.5) {
-      toast.error("❌ Quote too high! Customer rejected.");
+      toast.error(t("sim.quoteTooHigh"));
       setSatisfaction((s) => Math.max(0, s - 10));
       setCurrentOrder(null);
       return;
@@ -150,7 +150,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
         setFabricating(false);
         setCurrentOrder(null);
         playSound("ding");
-        toast.success(`✅ ${currentOrder.type} complete! Quality: ${quality}%`);
+        toast.success(t("sim.orderComplete").replace("{type}", currentOrder.type).replace("{quality}", String(quality)));
 
         if (round >= totalRounds) {
           finishGame();
