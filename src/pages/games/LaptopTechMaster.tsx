@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useMemo, useEffect } from "react";
 import heroImg from "@/assets/game-laptoptech.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -75,6 +76,7 @@ function LaptopBoard({
 function LaptopTechSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { techClick, techRepair, techBoot, techError } = useGameSounds();
   const [current, setCurrent] = useState(0);
   const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -86,12 +88,13 @@ function LaptopTechSolo() {
 
   const answer = (correct: boolean) => {
     if (!issue) return;
+    techClick();
     if (correct) {
       setScore((s) => s + issue.points);
-      playSound("success");
+      setTimeout(techRepair, 100);
       setFeedback("✅ Correct!");
     } else {
-      playSound("navigate");
+      techError();
       setFeedback(`❌ Wrong! Answer: ${issue.fix}`);
     }
     setTimeout(() => { setCurrent((c) => c + 1); setFeedback(null); }, 1200);
@@ -102,7 +105,7 @@ function LaptopTechSolo() {
     setScore(0);
     setFeedback(null);
     setSeed(Math.floor(Math.random() * 999999));
-    playSound("start");
+    techBoot();
   };
 
   if (done) {
@@ -121,6 +124,7 @@ function LaptopTechSolo() {
 function LaptopTechMulti() {
   const { user } = useAuth();
   const { playSound } = useSound();
+  const { techClick, techRepair, techError } = useGameSounds();
   const mp = useMultiplayer("laptoptech");
   const [current, setCurrent] = useState(0);
   const [score, setScore] = useState(0);
@@ -147,7 +151,7 @@ function LaptopTechMulti() {
     setScore(nextScore);
     mp.updateMyScore(nextScore, false);
     setFeedback(correct ? "✅ Correct!" : `❌ ${issue.fix}`);
-    playSound(correct ? "success" : "navigate");
+    if (correct) setTimeout(techRepair, 100); else techError();
     setTimeout(() => {
       const next = current + 1;
       if (next >= ISSUES.length) {

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useEffect } from "react";
 import heroImg from "@/assets/game-logiquest.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -25,6 +26,7 @@ const PUZZLES = [
 function LogiQuestSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { logiCorrect, logiWrong, logiTimerWarn } = useGameSounds();
   const [current,  setCurrent]  = useState(0);
   const [score,    setScore]    = useState(0);
   const [answered, setAnswered] = useState<number | null>(null);
@@ -32,7 +34,8 @@ function LogiQuestSolo() {
 
   useEffect(() => {
     if (current >= PUZZLES.length || answered !== null) return;
-    if (timeLeft <= 0) { setAnswered(-1); playSound("navigate"); return; }
+    if (timeLeft <= 0) { setAnswered(-1); logiWrong(); return; }
+    if (timeLeft === 5) logiTimerWarn();
     const t = setTimeout(() => setTimeLeft((v) => v - 1), 1000);
     return () => clearTimeout(t);
   }, [timeLeft, current, answered, playSound]);
@@ -40,12 +43,12 @@ function LogiQuestSolo() {
   const answer = (idx: number) => {
     if (answered !== null) return;
     setAnswered(idx);
-    if (idx === PUZZLES[current].answer) { setScore((s) => s + 100 + timeLeft * 5); playSound("success"); }
-    else playSound("navigate");
+    if (idx === PUZZLES[current].answer) { setScore((s) => s + 100 + timeLeft * 5); logiCorrect(); }
+    else logiWrong();
   };
 
   const next    = () => { setCurrent((c) => c + 1); setAnswered(null); setTimeLeft(15); };
-  const restart = () => { setCurrent(0); setScore(0); setAnswered(null); setTimeLeft(15); playSound("start"); };
+  const restart = () => { setCurrent(0); setScore(0); setAnswered(null); setTimeLeft(15); };
   const puzzle  = PUZZLES[current];
   const done    = current >= PUZZLES.length;
 
@@ -84,6 +87,7 @@ function LogiQuestSolo() {
 function LogiQuestMulti() {
   const { user } = useAuth();
   const { playSound } = useSound();
+  const { logiCorrect, logiWrong, logiTimerWarn } = useGameSounds();
   const mp = useMultiplayer("logiquest");
 
   const [current,  setCurrent]  = useState(0);
@@ -103,6 +107,7 @@ function LogiQuestMulti() {
   useEffect(() => {
     if (finished || mp.status !== "playing" || answered !== null) return;
     if (timeLeft <= 0) { autoNext(); return; }
+    if (timeLeft === 5) logiTimerWarn();
     const t = setTimeout(() => setTimeLeft((v) => v - 1), 1000);
     return () => clearTimeout(t);
   }, [timeLeft, finished, mp.status, answered]);
@@ -117,7 +122,7 @@ function LogiQuestMulti() {
   }, [bothDone, mp]);
 
   const autoNext = () => {
-    playSound("navigate");
+    logiWrong();
     advance(myScore);
   };
 
@@ -139,7 +144,7 @@ function LogiQuestMulti() {
     const newScore = myScore + bonus;
     setMyScore(newScore);
     mp.updateMyScore(newScore, false);
-    if (correct) playSound("success"); else playSound("navigate");
+    if (correct) logiCorrect(); else logiWrong();
     setTimeout(() => advance(newScore), 800);
   };
 

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useCallback } from "react";
 import heroImg from "@/assets/game-dreamhome.jpg";
 
@@ -18,17 +19,19 @@ const ITEM_KEYS: Record<string, string[]> = {
 export default function DreamHome() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { homeKnock, homeApproval, homeWrong, homeComplete } = useGameSounds();
   const [room, setRoom] = useState<string>(ROOM_KEYS[0]);
   const [placed, setPlaced] = useState<Record<string, string[]>>({});
   const [budget, setBudget] = useState(5000);
 
   const placeItem = useCallback((item: string) => {
-    if (budget < 200) { playSound("navigate"); return; }
+    if (budget < 200) { homeWrong(); return; }
     const current = placed[room] || [];
     if (current.includes(item)) return;
     setPlaced({ ...placed, [room]: [...current, item] });
     setBudget((b) => b - 200);
-    playSound("success");
+    homeKnock();
+    setTimeout(homeApproval, 200);
   }, [placed, room, budget, playSound]);
 
   const totalItems = Object.values(placed).flat().length;
@@ -70,7 +73,7 @@ export default function DreamHome() {
               <p className="font-bold mb-3">{t("dreamhome.placed")}:</p>
               <div className="flex flex-wrap gap-2 min-h-[60px]">
                 {(placed[room] || []).map((item) => (
-                  <Badge key={item} variant="secondary">{t(`dreamhome.item.${item}`)}</Badge>
+                  <Badge key={item} variant="secondary" className="animate-bounce-once">{t(`dreamhome.item.${item}`)}</Badge>
                 ))}
                 {!(placed[room] || []).length && <p className="text-muted-foreground text-sm">{t("dreamhome.empty")}</p>}
               </div>

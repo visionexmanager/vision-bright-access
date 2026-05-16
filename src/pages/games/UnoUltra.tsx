@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useCallback } from "react";
 import heroImg from "@/assets/game-uno.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -23,6 +24,7 @@ function randomCard() { return UNO_CARDS[Math.floor(Math.random() * UNO_CARDS.le
 function UnoSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { cardFlip, cardShuffle, cardWin, cardLose } = useGameSounds();
   const [deck, setDeck] = useState(() => [...UNO_CARDS].sort(() => Math.random() - 0.5));
   const [hand, setHand] = useState<UCard[]>(() => deck.slice(0, 7));
   const [pile, setPile] = useState<UCard>(() => deck[7]);
@@ -30,16 +32,17 @@ function UnoSolo() {
 
   const playCard = useCallback((idx: number) => {
     const card = hand[idx];
-    if (!canPlay(card, pile)) { playSound("navigate"); return; }
+    if (!canPlay(card, pile)) { cardLose(); return; }
+    cardFlip();
     setPile(card);
     const h = hand.filter((_, i) => i !== idx);
-    setHand(h); setScore((s) => s + card.value * 10); playSound("success");
+    setHand(h); setScore((s) => s + card.value * 10); cardWin();
   }, [hand, pile, playSound]);
 
-  const draw = () => { setHand([...hand, randomCard()]); playSound("navigate"); };
+  const draw = () => { setHand([...hand, randomCard()]); cardFlip(); };
   const restart = () => {
     const d = [...UNO_CARDS].sort(() => Math.random() - 0.5);
-    setDeck(d); setHand(d.slice(0, 7)); setPile(d[7]); setScore(0); playSound("start");
+    setDeck(d); setHand(d.slice(0, 7)); setPile(d[7]); setScore(0); cardShuffle();
   };
 
   return (
@@ -57,7 +60,7 @@ function UnoSolo() {
         <Card><CardContent className="pt-6 space-y-4">
           <div className="flex flex-wrap justify-center gap-2">
             {hand.map((card, i) => (
-              <Button key={i} variant={canPlay(card, pile) ? "default" : "outline"} className="text-lg h-16 w-16 flex-col" onClick={() => playCard(i)}>
+              <Button key={i} variant={canPlay(card, pile) ? "default" : "outline"} className="text-lg h-16 w-16 flex-col transition-transform hover:-translate-y-2 hover:shadow-lg" onClick={() => playCard(i)}>
                 <span>{card.color}</span><span className="text-sm font-bold">{card.value}</span>
               </Button>
             ))}

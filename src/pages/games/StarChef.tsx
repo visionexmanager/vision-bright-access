@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useEffect, useCallback } from "react";
 import heroImg from "@/assets/game-starchef.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -76,6 +77,7 @@ function ChefBoard({
 function StarChefSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { chefSizzle, chefPlate, chefTimer, chefSuccess, chefWrong } = useGameSounds();
   const [order, setOrder] = useState(() => ORDERS[0]);
   const [plate, setPlate] = useState<string[]>([]);
   const [score, setScore] = useState(0);
@@ -88,7 +90,7 @@ function StarChefSolo() {
     setPlate([]);
     setOrder(ORDERS[Math.floor(Math.random() * ORDERS.length)]);
     setGameActive(true);
-    playSound("start");
+    chefSizzle();
   };
 
   useEffect(() => {
@@ -100,27 +102,29 @@ function StarChefSolo() {
   useEffect(() => {
     if (timeLeft <= 0 && gameActive) {
       setGameActive(false);
-      playSound("navigate");
+      chefTimer();
     }
-  }, [timeLeft, gameActive, playSound]);
+  }, [timeLeft, gameActive, chefTimer]);
 
   const addItem = useCallback((item: string) => {
     if (!gameActive) return;
+    chefSizzle();
     const next = [...plate, item];
     setPlate(next);
     if (next.length === order.items.length) {
       const correct = next.every((it, i) => it === order.items[i]);
       if (correct) {
         setScore((s) => s + 100);
-        playSound("success");
+        chefPlate();
+        setTimeout(chefSuccess, 200);
         setPlate([]);
         setOrder(ORDERS[Math.floor(Math.random() * ORDERS.length)]);
       } else {
-        playSound("navigate");
+        chefWrong();
         setPlate([]);
       }
     }
-  }, [gameActive, plate, order, playSound]);
+  }, [gameActive, plate, order, chefSizzle, chefPlate, chefSuccess, chefWrong]);
 
   if (!gameActive && timeLeft === ROUND_SECONDS) {
     return <Card><CardContent className="pt-6 text-center"><Button size="lg" onClick={start}>{t("starchef.start")}</Button></CardContent></Card>;
@@ -166,9 +170,9 @@ function StarChefMulti() {
     if (mp.status === "playing" && timeLeft <= 0 && !finished) {
       setFinished(true);
       mp.updateMyScore(score, true);
-      playSound("navigate");
+      chefTimer();
     }
-  }, [timeLeft, finished, mp, score, playSound]);
+  }, [timeLeft, finished, mp, score]);
 
   useEffect(() => {
     if (bothDone && mp.status === "playing") {
@@ -177,8 +181,11 @@ function StarChefMulti() {
     }
   }, [bothDone, mp]);
 
+  const { chefSizzle, chefPlate, chefSuccess, chefWrong, chefTimer } = useGameSounds();
+
   const addItem = (item: string) => {
     if (finished || mp.status !== "playing") return;
+    chefSizzle();
     const next = [...plate, item];
     setPlate(next);
     if (next.length === order.items.length) {
@@ -188,9 +195,10 @@ function StarChefMulti() {
         setScore(nextScore);
         setServed((s) => s + 1);
         mp.updateMyScore(nextScore, false);
-        playSound("success");
+        chefPlate();
+        setTimeout(chefSuccess, 200);
       } else {
-        playSound("navigate");
+        chefWrong();
       }
       setPlate([]);
     }

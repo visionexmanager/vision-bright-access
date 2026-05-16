@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useCallback, useEffect } from "react";
 import heroImg from "@/assets/game-briscola.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -24,6 +25,7 @@ function createDeck(): BCard[] {
 function BriscolaSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { cardFlip, cardShuffle, cardWin, cardLose } = useGameSounds();
   const [deck]  = useState(createDeck);
   const [hand,  setHand]     = useState<BCard[]>(() => deck.slice(0, 3));
   const [cpuHand]            = useState<BCard[]>(() => deck.slice(3, 6));
@@ -38,13 +40,14 @@ function BriscolaSolo() {
     const cpu = cpuHand[Math.floor(Math.random() * cpuHand.length)];
     setCpuPlayed(cpu);
     const wins = card.value >= cpu.value || card.suit === trump.suit;
-    if (wins) { setScore((s) => s + card.value + cpu.value); playSound("success"); }
-    else playSound("navigate");
+    cardFlip();
+    if (wins) { setScore((s) => s + card.value + cpu.value); setTimeout(cardWin, 100); }
+    else setTimeout(cardLose, 100);
     setHand(hand.filter((_, i) => i !== idx));
     setTimeout(() => { setPlayed(null); setCpuPlayed(null); }, 1500);
   }, [hand, cpuHand, trump, playSound]);
 
-  const restart = () => { window.location.reload(); };
+  const restart = () => { cardShuffle(); window.location.reload(); };
 
   return (
     <div className="space-y-4">
@@ -59,7 +62,7 @@ function BriscolaSolo() {
         <Card><CardContent className="pt-6">
           <div className="flex justify-center gap-3">
             {hand.map((card, i) => (
-              <Button key={i} variant="outline" className="h-24 w-20 text-xl flex-col" onClick={() => play(i)}>
+              <Button key={i} variant="outline" className="h-24 w-20 text-xl flex-col transition-transform hover:-translate-y-2 hover:shadow-lg" onClick={() => play(i)}>
                 <span className="text-2xl">{card.suit}</span><span className="font-bold">{card.value}</span>
               </Button>
             ))}

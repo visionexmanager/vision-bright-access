@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useCallback, useEffect } from "react";
 import heroImg from "@/assets/game-earmaster.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -83,6 +84,7 @@ function EarBoard({
 
 function MusicEarSolo() {
   const { playSound } = useSound();
+  const { musicCorrect, musicWrong } = useGameSounds();
   const [target, setTarget] = useState(() => NOTE_NAMES[Math.floor(Math.random() * NOTE_NAMES.length)]);
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(1);
@@ -95,11 +97,11 @@ function MusicEarSolo() {
   const guess = (note: string) => {
     if (note === target) {
       setScore((s) => s + 100);
-      playSound("success");
+      musicCorrect();
       setFeedback("✅");
     } else {
       setFeedback(`❌ ${target}`);
-      playSound("navigate");
+      musicWrong();
     }
     setTimeout(() => {
       setTarget(NOTE_NAMES[Math.floor(Math.random() * NOTE_NAMES.length)]);
@@ -114,6 +116,7 @@ function MusicEarSolo() {
 function MusicEarMulti() {
   const { user } = useAuth();
   const { playSound } = useSound();
+  const { musicCorrect, musicWrong } = useGameSounds();
   const mp = useMultiplayer("earmaster");
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(1);
@@ -155,7 +158,7 @@ function MusicEarMulti() {
     setScore(newScore);
     mp.updateMyScore(newScore, false);
     setFeedback(correct ? "✅" : `❌ ${target}`);
-    playSound(correct ? "success" : "navigate");
+    if (correct) musicCorrect(); else musicWrong();
     setTimeout(() => advance(newScore), 1200);
   };
 

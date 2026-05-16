@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useCallback, useMemo } from "react";
 
 // ── Character database ────────────────────────────────────────────────────────
@@ -106,6 +107,7 @@ type Phase = "intro" | "playing" | "guess" | "correct" | "wrong";
 export default function Akinator() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { akinatorReveal, akinatorThink, akinatorCorrect, akinatorWrong } = useGameSounds();
 
   const [phase, setPhase] = useState<Phase>("intro");
   const [answers, setAnswers] = useState<{ trait: string; weight: number }[]>([]);
@@ -129,8 +131,8 @@ export default function Akinator() {
     setGuessResult(null);
     const first = pickNextQuestion(new Set(), []);
     setCurrentQuestion(first);
-    playSound("start");
-  }, [playSound]);
+    akinatorThink();
+  }, [akinatorThink]);
 
   const handleAnswer = useCallback((answer: Answer) => {
     if (!currentQuestion) return;
@@ -142,7 +144,7 @@ export default function Akinator() {
     setAnswers(newAnswers);
     setAnsweredIds(newAnsweredIds);
     setQuestionCount(newCount);
-    playSound("navigate");
+    akinatorThink();
 
     const ranked = scoreCharacters(newAnswers);
     const top = ranked[0];
@@ -157,6 +159,7 @@ export default function Akinator() {
       const candidate = ranked.find((r) => !wrongGuesses.includes(r.char.id));
       setGuessResult(candidate ?? top);
       setPhase("guess");
+      akinatorReveal();
     } else {
       const next = pickNextQuestion(newAnsweredIds, newAnswers);
       setCurrentQuestion(next ?? null);
@@ -164,20 +167,21 @@ export default function Akinator() {
         const candidate = ranked.find((r) => !wrongGuesses.includes(r.char.id));
         setGuessResult(candidate ?? top);
         setPhase("guess");
+        akinatorReveal();
       }
     }
-  }, [currentQuestion, answers, answeredIds, questionCount, wrongGuesses, playSound]);
+  }, [currentQuestion, answers, answeredIds, questionCount, wrongGuesses, akinatorThink, akinatorReveal]);
 
   const handleCorrect = useCallback(() => {
     setPhase("correct");
-    playSound("success");
-  }, [playSound]);
+    akinatorCorrect();
+  }, [akinatorCorrect]);
 
   const handleWrong = useCallback(() => {
     if (!guessResult) return;
     const newWrong = [...wrongGuesses, guessResult.char.id];
     setWrongGuesses(newWrong);
-    playSound("navigate");
+    akinatorWrong();
 
     // Try next best candidate not yet guessed
     const next = topCandidates.find((r) => !newWrong.includes(r.char.id));
@@ -194,7 +198,7 @@ export default function Akinator() {
         setPhase("wrong");
       }
     }
-  }, [guessResult, wrongGuesses, topCandidates, questionCount, answeredIds, answers, playSound]);
+  }, [guessResult, wrongGuesses, topCandidates, questionCount, answeredIds, answers, akinatorWrong]);
 
   const progress = Math.min((questionCount / MAX_QUESTIONS) * 100, 100);
 

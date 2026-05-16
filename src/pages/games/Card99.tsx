@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useCallback } from "react";
 import heroImg from "@/assets/game-card99.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -20,6 +21,7 @@ const CARD_NAMES = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", 
 function Card99Solo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { cardFlip, cardWin, cardLose } = useGameSounds();
   const [total,    setTotal]    = useState(0);
   const [hand,     setHand]     = useState<number[]>(dealHand);
   const [score,    setScore]    = useState(0);
@@ -29,13 +31,14 @@ function Card99Solo() {
     const card = hand[idx];
     const val  = cardValue(card);
     const next = total + val;
-    if (next > 99) { setGameOver(true); playSound("navigate"); return; }
+    if (next > 99) { setGameOver(true); cardLose(); return; }
+    cardFlip();
     setTotal(next); setScore((s) => s + val);
     const newHand = [...hand]; newHand[idx] = Math.floor(Math.random() * 13) + 1;
-    setHand(newHand); playSound("success");
+    setHand(newHand); cardWin();
   }, [hand, total, playSound]);
 
-  const restart = () => { setTotal(0); setScore(0); setGameOver(false); setHand(dealHand()); playSound("start"); };
+  const restart = () => { setTotal(0); setScore(0); setGameOver(false); setHand(dealHand()); cardFlip(); };
 
   return (
     <Card>
@@ -56,7 +59,7 @@ function Card99Solo() {
             <p className="text-6xl font-bold text-primary">{total}</p>
             <div className="flex justify-center gap-4">
               {hand.map((card, i) => (
-                <Button key={i} variant="outline" className="h-24 w-16 text-xl flex-col font-bold" onClick={() => play(i)}>
+                <Button key={i} variant="outline" className="h-24 w-16 text-xl flex-col font-bold transition-transform hover:-translate-y-2 hover:shadow-lg" onClick={() => play(i)}>
                   <span>{CARD_NAMES[card]}</span>
                   <span className="text-xs text-muted-foreground">+{cardValue(card)}</span>
                 </Button>

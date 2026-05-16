@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useEffect, useCallback } from "react";
 import heroImg from "@/assets/game-dominoes.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -40,24 +41,25 @@ function place(tile: Tile, board: Tile[]): Tile[] {
 function DominoesSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { dominoThud, dominoInvalid, dominoSlide } = useGameSounds();
   const [hand,  setHand]  = useState<Tile[]>([]);
   const [board, setBoard] = useState<Tile[]>([]);
   const [score, setScore] = useState(0);
 
   const deal = useCallback(() => {
     const all = createTiles().sort(() => Math.random() - 0.5);
-    setHand(all.slice(0, 7)); setBoard([all[7]]); setScore(0);
+    setHand(all.slice(0, 7)); setBoard([all[7]]); setScore(0); dominoSlide();
   }, []);
 
   useEffect(() => { deal(); }, [deal]);
 
   const playTile = (idx: number) => {
     const tile = hand[idx];
-    if (!canPlay(tile, board)) { playSound("navigate"); return; }
+    if (!canPlay(tile, board)) { dominoInvalid(); return; }
     setBoard(place(tile, board));
     setHand(hand.filter((_, i) => i !== idx));
     setScore((s) => s + tile.left + tile.right);
-    playSound("success");
+    dominoThud();
   };
 
   return (
@@ -67,7 +69,7 @@ function DominoesSolo() {
         <CardContent>
           <div className="flex flex-wrap gap-2 justify-center min-h-[60px]">
             {board.map((tile, i) => (
-              <div key={i} className="inline-flex items-center gap-0 border-2 border-border rounded-lg px-3 py-2 bg-accent text-lg font-bold">
+              <div key={i} className="inline-flex items-center gap-0 border-2 border-border rounded-lg px-3 py-2 bg-accent text-lg font-bold transition-all duration-200 hover:border-primary">
                 {tile.left}<span className="mx-1 text-muted-foreground">|</span>{tile.right}
               </div>
             ))}
@@ -96,6 +98,7 @@ function DominoesSolo() {
 function DominoesMulti() {
   const { user } = useAuth();
   const { playSound } = useSound();
+  const { dominoThud, dominoInvalid } = useGameSounds();
   const mp = useMultiplayer("dominoes");
 
   const gs    = mp.session?.game_state as Record<string, unknown> | null;
@@ -121,25 +124,25 @@ function DominoesMulti() {
   const playTile = useCallback((idx: number) => {
     if (!mp.isMyTurn || !user) return;
     const tile = myHand[idx];
-    if (!canPlay(tile, board)) { playSound("navigate"); return; }
+    if (!canPlay(tile, board)) { dominoInvalid(); return; }
     const newBoard  = place(tile, board);
     const newHands  = { ...hands, [user.id]: myHand.filter((_, i) => i !== idx) };
     const newScores = { ...scoresG, [user.id]: (scoresG[user.id] ?? 0) + tile.left + tile.right };
     if (newHands[user.id].length === 0) {
       mp.makeMove({ hands: newHands, board: newBoard, scores: newScores }, nextPlayer());
       mp.endGame(user.id);
-      playSound("success");
+      dominoThud();
       return;
     }
     mp.makeMove({ hands: newHands, board: newBoard, scores: newScores }, nextPlayer());
-    playSound("success");
+    dominoThud();
   }, [mp, user, myHand, board, hands, scoresG, playSound]);
 
   // Pass (no playable tile) — just switch turns
   const pass = useCallback(() => {
     if (!mp.isMyTurn) return;
     mp.makeMove(gs ?? {}, nextPlayer());
-    playSound("navigate");
+    dominoInvalid();
   }, [mp, gs, playSound]);
 
   const hasPlayable = myHand.some((t) => canPlay(t, board));

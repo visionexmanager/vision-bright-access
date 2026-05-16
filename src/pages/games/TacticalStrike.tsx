@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useEffect, useCallback } from "react";
 import heroImg from "@/assets/game-tactical.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -27,7 +28,7 @@ function StrikeGrid({ grid, onHit }: { grid: string[]; onHit: (idx: number) => v
       <CardContent className="pt-6">
         <div className="grid grid-cols-4 gap-2">
           {grid.map((cell, i) => (
-            <Button key={i} variant="outline" className="h-16 text-3xl" onClick={() => onHit(i)}>{cell}</Button>
+            <Button key={i} variant="outline" className="h-16 text-3xl transition-transform active:scale-75 hover:bg-primary/10" onClick={() => onHit(i)}>{cell}</Button>
           ))}
         </div>
       </CardContent>
@@ -38,6 +39,7 @@ function StrikeGrid({ grid, onHit }: { grid: string[]; onHit: (idx: number) => v
 function TacticalSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { tacticalHit, tacticalMiss, tacticalExplosion } = useGameSounds();
   const [grid, setGrid] = useState<string[]>([]);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
@@ -58,9 +60,9 @@ function TacticalSolo() {
   const hit = (idx: number) => {
     if (!active) return;
     const target = grid[idx];
-    if (target === "🎯") { setScore((s) => s + 10); playSound("success"); }
-    else if (target === "⭐") { setScore((s) => s + 25); playSound("success"); }
-    else { setScore((s) => s - 15); playSound("navigate"); }
+    if (target === "🎯") { setScore((s) => s + 10); tacticalHit(); }
+    else if (target === "⭐") { setScore((s) => s + 25); tacticalExplosion(); }
+    else { setScore((s) => s - 15); tacticalMiss(); }
     setGrid((g) => g.map((v, i) => (i === idx ? "💥" : v)));
   };
 

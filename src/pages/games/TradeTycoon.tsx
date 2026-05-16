@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useMemo, useEffect } from "react";
 import heroImg from "@/assets/game-tradetycoon.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -75,6 +76,7 @@ function GoodsMarket({
 
 function useTrading(initialPrices: number[]) {
   const { playSound } = useSound();
+  const { tradeCoin, tradeCashRegister, tradeMarketRise, tradeMarketFall } = useGameSounds();
   const [cash, setCash] = useState(1000);
   const [inventory, setInventory] = useState<Record<string, number>>({});
   const [qty, setQty] = useState<Record<string, string>>({});
@@ -85,11 +87,11 @@ function useTrading(initialPrices: number[]) {
     const amount = parseInt(qty[GOODS[idx].name] || "0");
     if (!amount || amount <= 0) return;
     const cost = amount * prices[idx];
-    if (cost > cash) { playSound("navigate"); return; }
+    if (cost > cash) { tradeMarketFall(); return; }
     setCash((c) => c - cost);
     setInventory((inv) => ({ ...inv, [GOODS[idx].name]: (inv[GOODS[idx].name] || 0) + amount }));
     setQty((q) => ({ ...q, [GOODS[idx].name]: "" }));
-    playSound("success");
+    tradeCashRegister();
   };
 
   const sell = (idx: number, prices = initialPrices) => {
@@ -97,7 +99,8 @@ function useTrading(initialPrices: number[]) {
     if (!have) return;
     setCash((c) => c + have * prices[idx]);
     setInventory((inv) => ({ ...inv, [GOODS[idx].name]: 0 }));
-    playSound("success");
+    tradeCoin();
+    setTimeout(tradeMarketRise, 100);
   };
 
   return { cash, inventory, qty, setQty, totalValue, buy, sell };
@@ -106,6 +109,7 @@ function useTrading(initialPrices: number[]) {
 function TradeTycoonSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { tradeMarketRise } = useGameSounds();
   const [day, setDay] = useState(1);
   const [prices, setPrices] = useState(() => GOODS.map((g) => g.buy));
   const trading = useTrading(prices);
@@ -114,7 +118,7 @@ function TradeTycoonSolo() {
   const nextDay = () => {
     setPrices(GOODS.map((g, i) => Math.max(1, prices[i] + Math.floor((Math.random() - 0.45) * g.volatility))));
     setDay((d) => d + 1);
-    playSound("start");
+    tradeMarketRise();
   };
 
   return (

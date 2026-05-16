@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useEffect, useCallback } from "react";
 import heroImg from "@/assets/game-velocity.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -55,6 +56,7 @@ function RaceControls({
 
 function useRaceEngine(onFinish: (distance: number, fuel: number) => void) {
   const { playSound } = useSound();
+  const { racingRev, racingScreech, racingCheckpoint, racingFinish, racingCrash } = useGameSounds();
   const [speed, setSpeed] = useState(0);
   const [distance, setDistance] = useState(0);
   const [fuel, setFuel] = useState(100);
@@ -69,7 +71,7 @@ function useRaceEngine(onFinish: (distance: number, fuel: number) => void) {
     setLap(1);
     setRacing(true);
     setFinished(false);
-    playSound("start");
+    racingRev();
   };
 
   useEffect(() => {
@@ -80,10 +82,11 @@ function useRaceEngine(onFinish: (distance: number, fuel: number) => void) {
         if (newD >= TOTAL_DISTANCE) {
           setRacing(false);
           setFinished(true);
+          racingFinish();
           onFinish(newD, fuel);
           return newD;
         }
-        if (newD >= LAP_DISTANCE * lap) setLap((l) => l + 1);
+        if (newD >= LAP_DISTANCE * lap) { setLap((l) => l + 1); racingCheckpoint(); }
         return newD;
       });
       setFuel((f) => {
@@ -100,16 +103,16 @@ function useRaceEngine(onFinish: (distance: number, fuel: number) => void) {
     return () => clearInterval(interval);
   }, [racing, speed, lap, fuel, distance, onFinish]);
 
-  const accelerate = () => setSpeed((s) => Math.min(s + 10, 100));
-  const brake = () => setSpeed((s) => Math.max(s - 20, 0));
+  const accelerate = () => { setSpeed((s) => Math.min(s + 10, 100)); racingRev(); };
+  const brake = () => { setSpeed((s) => Math.max(s - 20, 0)); racingScreech(); };
   const nitro = useCallback(() => {
     setFuel((f) => {
       if (f < 20) return f;
       setSpeed(100);
-      playSound("success");
+      racingRev();
       return f - 20;
     });
-  }, [playSound]);
+  }, [racingRev]);
 
   return { speed, distance, fuel, lap, racing, finished, start, accelerate, brake, nitro };
 }

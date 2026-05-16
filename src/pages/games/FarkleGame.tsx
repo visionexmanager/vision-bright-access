@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useCallback, useEffect } from "react";
 import heroImg from "@/assets/game-farkle.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -32,6 +33,7 @@ const WIN_SCORE  = 1000;
 function FarkleSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { diceRoll, diceSettle, diceScore, farkleBust } = useGameSounds();
   const [dice, setDice]           = useState<number[]>([]);
   const [kept, setKept]           = useState<number[]>([]);
   const [score, setScore]         = useState(0);
@@ -39,13 +41,13 @@ function FarkleSolo() {
   const [rolling, setRolling]     = useState(false);
 
   const roll = useCallback(() => {
-    setRolling(true); playSound("start");
+    setRolling(true); diceRoll();
     setTimeout(() => {
       const n = 6 - kept.length;
       const newDice = rollDice(n);
       setDice(newDice);
       const s = scoreDice(newDice);
-      if (s === 0) { playSound("navigate"); setRoundScore(0); setDice([]); setKept([]); }
+      if (s === 0) { setTimeout(farkleBust, 300); setRoundScore(0); setDice([]); setKept([]); }
       setRolling(false);
     }, 500);
   }, [kept, playSound]);
@@ -56,11 +58,11 @@ function FarkleSolo() {
     setKept([...kept, die]);
     setDice(dice.filter((_, i) => i !== idx));
     setRoundScore((s) => s + (die === 1 ? 100 : 50));
-    playSound("success");
+    diceScore();
   };
 
-  const bank = () => { setScore((s) => s + roundScore); setRoundScore(0); setDice([]); setKept([]); playSound("success"); };
-  const restart = () => { setScore(0); setRoundScore(0); setDice([]); setKept([]); playSound("start"); };
+  const bank = () => { setScore((s) => s + roundScore); setRoundScore(0); setDice([]); setKept([]); diceScore(); };
+  const restart = () => { setScore(0); setRoundScore(0); setDice([]); setKept([]); diceRoll(); };
 
   return (
     <Card>
@@ -97,6 +99,7 @@ function FarkleSolo() {
 function FarkleMultiplayer() {
   const { user } = useAuth();
   const { playSound } = useSound();
+  const { diceRoll, diceScore, farkleBust } = useGameSounds();
   const mp = useMultiplayer("farkle");
   const [rolling, setRolling] = useState(false);
 
@@ -132,13 +135,13 @@ function FarkleMultiplayer() {
 
   const roll = useCallback(() => {
     if (!mp.isMyTurn || rolling) return;
-    setRolling(true); playSound("start");
+    setRolling(true); diceRoll();
     setTimeout(() => {
       const n = 6 - kept.length;
       const newDice = rollDice(n);
       const s = scoreDice(newDice);
       if (s === 0) {
-        playSound("navigate");
+        setTimeout(farkleBust, 300);
         // Farkle — lose round, pass turn
         mp.makeMove(buildState({ dice: [], kept: [], roundScore: 0 }), nextPlayer());
       } else {
@@ -156,7 +159,7 @@ function FarkleMultiplayer() {
     const newKept = [...kept, die];
     const bonus   = die === 1 ? 100 : 50;
     mp.makeMove(buildState({ dice: newDice, kept: newKept, roundScore: round + bonus }), user!.id);
-    playSound("success");
+    diceScore();
   }, [mp, dice, kept, round, buildState, playSound, user]);
 
   const bank = useCallback(() => {
@@ -166,11 +169,11 @@ function FarkleMultiplayer() {
     if (newScores[user!.id] >= WIN_SCORE) {
       mp.makeMove(buildState({ dice: [], kept: [], roundScore: 0, scores: newScores }), nextPlayer());
       mp.endGame(user!.id);
-      playSound("success");
+      diceScore();
       return;
     }
     mp.makeMove(buildState({ dice: [], kept: [], roundScore: 0, scores: newScores }), nextPlayer());
-    playSound("success");
+    diceScore();
   }, [mp, round, scores, buildState, playSound, user]);
 
   // ── Lobby / waiting ──────────────────────────────────────────────────────

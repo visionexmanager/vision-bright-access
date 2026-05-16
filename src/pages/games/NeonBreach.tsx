@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useEffect, useCallback } from "react";
 import heroImg from "@/assets/game-neonbreach.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -20,6 +21,7 @@ const FIREWALL_NODES = ["🔒", "🛡️", "⚡", "🔑", "💾", "🌐", "📡"
 function NeonBreachSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { neonBeep, neonGlitch, neonGranted } = useGameSounds();
   const [sequence, setSequence] = useState<number[]>([]);
   const [playerSeq, setPlayerSeq] = useState<number[]>([]);
   const [level, setLevel]   = useState(1);
@@ -37,6 +39,7 @@ function NeonBreachSolo() {
   useEffect(() => {
     if (phase !== "showing" || showIdx < 0) return;
     if (showIdx >= sequence.length) { setPhase("input"); setShowIdx(-1); return; }
+    neonBeep();
     const t = setTimeout(() => setShowIdx((i) => i + 1), 600);
     return () => clearTimeout(t);
   }, [phase, showIdx, sequence.length]);
@@ -45,15 +48,16 @@ function NeonBreachSolo() {
     if (phase !== "input") return;
     const next = [...playerSeq, idx];
     setPlayerSeq(next);
-    if (idx !== sequence[next.length - 1]) { setPhase("gameover"); playSound("navigate"); return; }
-    playSound("success");
+    if (idx !== sequence[next.length - 1]) { setPhase("gameover"); neonGlitch(); return; }
+    neonBeep();
     if (next.length === sequence.length) {
       setScore((s) => s + level * 50); setLevel((l) => l + 1);
+      neonGranted();
       setTimeout(() => startLevel(level + 1), 500);
     }
   };
 
-  const restart = () => { setLevel(1); setScore(0); startLevel(1); playSound("start"); };
+  const restart = () => { setLevel(1); setScore(0); startLevel(1); };
 
   return (
     <div className="space-y-4">
@@ -76,7 +80,7 @@ function NeonBreachSolo() {
           <div className="grid grid-cols-4 gap-3">
             {FIREWALL_NODES.map((node, i) => (
               <Button key={i} variant="outline"
-                className={`text-3xl h-16 transition-all ${phase === "showing" && showIdx >= 0 && sequence[showIdx] === i ? "bg-primary text-primary-foreground scale-110" : ""}`}
+                className={`text-3xl h-16 transition-all ${phase === "showing" && showIdx >= 0 && sequence[showIdx] === i ? "bg-primary text-primary-foreground scale-110 animate-pulse" : ""}`}
                 disabled={phase !== "input"} onClick={() => tap(i)}>{node}</Button>
             ))}
           </div>

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useCallback, useEffect } from "react";
 import heroImg from "@/assets/game-jungle.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -75,6 +76,7 @@ function JungleBoard({
 
 function JungleSolo() {
   const { playSound } = useSound();
+  const { jungleSwish, jungleDanger, jungleSuccess, jungleFail } = useGameSounds();
   const [step, setStep] = useState(0);
   const [hp, setHp] = useState(100);
   const [score, setScore] = useState(0);
@@ -84,13 +86,14 @@ function JungleSolo() {
     const newHp = Math.min(100, hp + choice.hp);
     setHp(newHp);
     setScore((s) => s + choice.score);
-    if (newHp <= 0) { setGameOver(true); playSound("navigate"); return; }
-    if (step + 1 >= SCENARIOS.length) { setGameOver(true); playSound("success"); return; }
+    jungleSwish();
+    if (newHp <= 0) { setGameOver(true); setTimeout(jungleDanger, 200); return; }
+    if (step + 1 >= SCENARIOS.length) { setGameOver(true); setTimeout(jungleSuccess, 200); return; }
     setStep((s) => s + 1);
-    playSound(choice.hp >= 0 ? "success" : "navigate");
+    setTimeout(choice.hp >= 0 ? jungleSuccess : jungleFail, 150);
   }, [hp, step, playSound]);
 
-  const restart = () => { setStep(0); setHp(100); setScore(0); setGameOver(false); playSound("start"); };
+  const restart = () => { setStep(0); setHp(100); setScore(0); setGameOver(false); jungleSwish(); };
   return <JungleBoard step={step} hp={hp} score={score} gameOver={gameOver} onChoose={choose} onRestart={restart} />;
 }
 

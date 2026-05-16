@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useGameSounds } from "@/hooks/useGameSounds";
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import heroImg from "@/assets/game-hangman.jpg";
@@ -22,6 +23,7 @@ const MAX_WRONG = 6;
 function HangmanSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { hangmanCorrect, hangmanWrong, hangmanWin, hangmanGameOver } = useGameSounds();
   const [word,    setWord]    = useState(() => WORDS[Math.floor(Math.random() * WORDS.length)]);
   const [guessed, setGuessed] = useState<Set<string>>(new Set());
   const [wrong,   setWrong]   = useState(0);
@@ -31,8 +33,8 @@ function HangmanSolo() {
     const next = new Set(guessed);
     next.add(letter);
     setGuessed(next);
-    if (!word.includes(letter)) { setWrong((w) => w + 1); playSound("navigate"); }
-    else playSound("success");
+    if (!word.includes(letter)) { setWrong((w) => w + 1); hangmanWrong(); }
+    else hangmanCorrect();
   }, [guessed, word, playSound]);
 
   const display  = word.split("").map((l) => (guessed.has(l) ? l : "_")).join(" ");
@@ -40,10 +42,10 @@ function HangmanSolo() {
   const lost     = wrong >= MAX_WRONG;
   const gameOver = won || lost;
 
-  if (won && !lost)  toast.success(t("hangman.won"),  { id: "hw" });
-  if (lost)          toast.error(t("hangman.lost"),   { id: "hl" });
+  if (won && !lost)  { toast.success(t("hangman.won"),  { id: "hw" }); }
+  if (lost)          { toast.error(t("hangman.lost"),   { id: "hl" }); }
 
-  const restart = () => { setWord(WORDS[Math.floor(Math.random() * WORDS.length)]); setGuessed(new Set()); setWrong(0); playSound("start"); };
+  const restart = () => { setWord(WORDS[Math.floor(Math.random() * WORDS.length)]); setGuessed(new Set()); setWrong(0); };
 
   return (
     <Card>
@@ -59,7 +61,7 @@ function HangmanSolo() {
             <Button key={l} size="sm"
               variant={guessed.has(l) ? (word.includes(l) ? "default" : "destructive") : "outline"}
               disabled={guessed.has(l) || gameOver} onClick={() => guess(l)}
-              className="w-10 h-10 text-lg font-bold">{l}</Button>
+              className="w-10 h-10 text-lg font-bold transition-transform active:scale-90">{l}</Button>
           ))}
         </div>
         {gameOver && (
@@ -77,6 +79,7 @@ function HangmanSolo() {
 function HangmanMulti() {
   const { user } = useAuth();
   const { playSound } = useSound();
+  const { hangmanCorrect, hangmanWrong } = useGameSounds();
   const mp = useMultiplayer("hangman");
 
   // Each player has their own private guess state (not stored in DB for fairness)
@@ -133,10 +136,10 @@ function HangmanMulti() {
     if (!word.includes(letter)) {
       const newWrong = wrong + 1;
       setWrong(newWrong);
-      playSound("navigate");
+      hangmanWrong();
       if (newWrong >= MAX_WRONG) finish(newWrong, false);
     } else {
-      playSound("success");
+      hangmanCorrect();
       const allRevealed = word.split("").every((l) => next.has(l));
       if (allRevealed) finish(wrong, true);
     }
