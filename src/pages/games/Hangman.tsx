@@ -76,6 +76,7 @@ function HangmanSolo() {
 // ─── Multiplayer (both guess the same word, fewer wrong guesses wins) ─────────
 function HangmanMulti() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { playSound } = useSound();
   const mp = useMultiplayer("hangman");
 
@@ -154,11 +155,11 @@ function HangmanMulti() {
     <div className="space-y-4">
       {/* Scoreboard */}
       <div className="flex justify-between rounded-lg border p-3 text-sm">
-        <div className="text-center"><p className="text-xs text-muted-foreground">You</p>
-          <Badge variant={wrong > 4 ? "destructive" : "secondary"}>{wrong}/{MAX_WRONG} wrong</Badge></div>
-        <div className="text-center self-center text-muted-foreground text-xs">same word</div>
-        <div className="text-center"><p className="text-xs text-muted-foreground">{opp?.name ?? "Opponent"}</p>
-          {opp && gs?.[`fin_${opp.id}`] ? <Badge variant="default" className="text-xs">Done ✓</Badge> : <Badge variant="outline" className="text-xs">Playing…</Badge>}
+        <div className="text-center"><p className="text-xs text-muted-foreground">{t("mp.you")}</p>
+          <Badge variant={wrong > 4 ? "destructive" : "secondary"}>{wrong}/{MAX_WRONG} {t("hangman.attempts")}</Badge></div>
+        <div className="text-center self-center text-muted-foreground text-xs">{t("mp.sameWord")}</div>
+        <div className="text-center"><p className="text-xs text-muted-foreground">{opp?.name ?? t("mp.opponent")}</p>
+          {opp && gs?.[`fin_${opp.id}`] ? <Badge variant="default" className="text-xs">{t("mp.doneCheck")}</Badge> : <Badge variant="outline" className="text-xs">{t("mp.playing")}</Badge>}
         </div>
       </div>
 
@@ -166,12 +167,12 @@ function HangmanMulti() {
         <CardHeader className="text-center">
           <div className="text-5xl font-mono tracking-[0.25em]">{display || "…"}</div>
           <Badge variant={wrong > 4 ? "destructive" : "secondary"} className="mx-auto mt-3">
-            Mistakes: {wrong}/{MAX_WRONG}
+            {t("mp.mistakes")}: {wrong}/{MAX_WRONG}
           </Badge>
         </CardHeader>
         <CardContent>
           {finished ? (
-            <p className="text-center font-bold py-4">{won ? "🎉 You got it!" : `😞 The word was: ${word}`} — Waiting for opponent…</p>
+            <p className="text-center font-bold py-4">{won ? `🎉 ${t("hangman.won")}` : `😞 ${t("hangman.answer")}: ${word}`} — {t("mp.waitingForOpponent")}</p>
           ) : (
             <div className="flex flex-wrap justify-center gap-2">
               {ALPHA.map((l) => (

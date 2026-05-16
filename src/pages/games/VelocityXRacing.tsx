@@ -138,6 +138,7 @@ function VelocitySolo({ track }: { track: string }) {
 
 function VelocityMulti() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const mp = useMultiplayer("velocity");
   const gs = mp.session?.game_state as Record<string, unknown> | null;
   const seed = (gs?.seed as number) ?? 7;
@@ -173,14 +174,14 @@ function VelocityMulti() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between rounded-lg border p-3 text-sm">
-        <div className="text-center"><p className="text-xs text-muted-foreground">You</p><p className="text-xl font-bold text-primary">{Math.round(race.distance)}</p></div>
+        <div className="text-center"><p className="text-xs text-muted-foreground">{t("mp.you")}</p><p className="text-xl font-bold text-primary">{Math.round(race.distance)}</p></div>
         <Badge variant="outline">{trackFromSeed(seed)}</Badge>
-        <div className="text-center"><p className="text-xs text-muted-foreground">{opp?.name ?? "Opponent"}</p><p className="text-xl font-bold">{oppScore}</p></div>
+        <div className="text-center"><p className="text-xs text-muted-foreground">{opp?.name ?? t("mp.opponent")}</p><p className="text-xl font-bold">{oppScore}</p></div>
       </div>
       {race.finished ? (
         <Card><CardContent className="pt-6 text-center space-y-2">
-          <p className="text-xl font-bold">Finished! ✅</p>
-          <p className="text-muted-foreground">Waiting for opponent…</p>
+          <p className="text-xl font-bold">{t("mp.done")}</p>
+          <p className="text-muted-foreground">{t("mp.waitingForOpponent")}</p>
         </CardContent></Card>
       ) : (
         <RaceControls distance={race.distance} fuel={race.fuel} onAccelerate={race.accelerate} onBrake={race.brake} onNitro={race.nitro} />

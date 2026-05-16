@@ -123,12 +123,12 @@ function Card99Multi() {
 
   return (
     <div className="space-y-4">
-      <OpponentPanel opponent={opp} isOpponentTurn={!mp.isMyTurn} label="Opponent's cards: 3" />
+      <OpponentPanel opponent={opp} isOpponentTurn={!mp.isMyTurn} label={t("mp.opponentCards").replace("{count}", "3")} />
       <Card className={mp.isMyTurn ? "border-primary" : "opacity-70"}>
         <CardContent className="pt-6 text-center space-y-6">
           <Badge variant={total > 85 ? "destructive" : "secondary"}>Total: {total} / 99</Badge>
           <p className="text-6xl font-bold text-primary">{total}</p>
-          <p className="text-sm font-medium">{mp.isMyTurn ? "Your turn — play a card" : "Waiting for opponent…"}</p>
+          <p className="text-sm font-medium">{mp.isMyTurn ? t("mp.yourTurnPlay") : t("mp.waitingForOpponent")}</p>
           <div className="flex justify-center gap-4">
             {myHand.map((card, i) => (
               <Button key={i} variant="outline" className="h-24 w-16 text-xl flex-col font-bold"

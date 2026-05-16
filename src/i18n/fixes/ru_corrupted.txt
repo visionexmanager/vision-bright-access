@@ -1,0 +1,115 @@
+aptitude.start|||Start
+nav.professionalTools|||Professional Tools
+nav.mainNavigation|||Main navigation
+nav.visionexHome|||VisionEx home
+nav.adminPanel|||Admin Panel
+nav.muteSounds|||Mute sounds
+nav.unmuteSounds|||Unmute sounds
+footer.brandDesc|||A platform built for everyone - accessible by design.
+footer.pages|||Pages
+footer.more|||More
+footer.legalLinks|||Legal links
+footer.link.home|||Home
+footer.link.services|||Services
+footer.link.content|||Content
+footer.link.games|||Games
+footer.link.news|||News
+footer.link.contact|||Contact
+footer.link.professionalTools|||Professional Tools
+footer.link.academy|||Academy
+footer.link.community|||Community
+footer.link.leaderboard|||Leaderboard
+footer.link.assistiveProducts|||Assistive Products
+footer.link.privacyPolicy|||Privacy Policy
+footer.link.termsOfUse|||Terms of Use
+footer.link.communityGuidelines|||Community Guidelines
+footer.link.marketplacePolicy|||Marketplace Policy
+footer.link.accessibility|||Accessibility
+footer.link.legalDisclaimer|||Legal Disclaimer
+cookie.label|||Cookie consent
+cookie.title|||We use cookies
+cookie.description|||We use cookies to remember your preferences and serve ads via Google AdSense. By continuing, you agree to our
+cookie.privacy|||Privacy Policy
+cookie.acceptAll|||Accept all
+cookie.essentialOnly|||Essential only
+vroom.default.mainHall|||Main Hall
+vroom.default.techSupport|||Tech Support
+vroom.default.tradeCommerce|||Trade & Commerce
+vroom.type.mini|||Mini Room
+vroom.type.standard|||Standard Room
+vroom.type.pro|||Pro Room
+vroom.type.event|||Event Room
+mp.opponent|||Opponent
+mp.theirTurn|||Their turn
+mp.draw|||It's a draw!
+mp.youWon|||You won!
+mp.opponentWon|||{name} won!
+mp.backToLobby|||Back to lobby
+signup.mustAgree|||You must agree to the Terms of Use and Privacy Policy
+signup.deviceBanned|||This device has been banned. Please contact support.
+signup.agreePrefix|||I agree to the
+signup.terms|||Terms of Use
+signup.privacy|||Privacy Policy
+memory.card.apple|||Apple
+memory.card.star|||Star
+memory.card.music|||Music
+memory.card.cat|||Cat
+memory.card.rainbow|||Rainbow
+memory.card.bell|||Bell
+memory.card.target|||Target
+memory.card.diamond|||Diamond
+word.entry.keyboard.word|||KEYBOARD
+word.entry.keyboard.hint|||You type with this
+word.entry.contrast.word|||CONTRAST
+word.entry.contrast.hint|||Light vs dark difference
+word.entry.braille.word|||BRAILLE
+word.entry.braille.hint|||Tactile reading system
+word.entry.website.word|||WEBSITE
+word.entry.website.hint|||Pages on the internet
+word.entry.design.word|||DESIGN
+word.entry.design.hint|||Creating visual layouts
+word.entry.screen.word|||SCREEN
+word.entry.screen.hint|||Display you look at
+word.entry.speech.word|||SPEECH
+word.entry.speech.hint|||Talking output from a device
+word.entry.access.word|||ACCESS
+word.entry.access.hint|||Ability to reach or use
+word.entry.vision.word|||VISION
+word.entry.vision.hint|||Sense of sight
+word.entry.cursor.word|||CURSOR
+word.entry.cursor.hint|||Pointer on screen
+bazaar.subtitle|||The marketplace built by you, for everyone
+bazaar.loadingShops|||Loading shops...
+bazaar.noShops|||No shops yet - be the first to open one!
+bazaar.loginPrompt|||Log in to open your own shop or chat with sellers
+bazaar.itemsInStock|||{count} items in stock
+bazaar.addProduct|||Add New Product
+bazaar.productNameRequired|||Product name (required)
+bazaar.descriptionOptional|||Description (optional)
+bazaar.openShop|||Open Your Shop
+bazaar.yourBalance|||Your balance
+bazaar.setupCost|||Setup cost
+bazaar.afterOpening|||After opening
+bazaar.loginToOpen|||You must be logged in to open a shop
+ptool.cat.all|||All Tools
+ptool.cat.performance|||Performance
+ptool.cat.network|||Network
+ptool.cat.security|||Security
+ptool.cat.maintenance|||Maintenance
+ptool.tool.battery-saver.name|||Battery Saver
+ptool.tool.super-speed-network.name|||Super Speed & Network Fix
+ptool.tool.autofix-system.name|||Auto Fix System
+ptool.tool.cleanup.name|||System Cleanup
+ptool.tool.drivers-update.name|||Auto Driver Updater
+ptool.tool.hardware-health.name|||Hardware Health Check
+ptool.tool.internet-fast.name|||Internet Booster
+ptool.tool.organizer-files.name|||File Organizer
+ptool.tool.ram-refresher.name|||RAM Refresher
+ptool.tool.reset-thumbs.name|||Thumbnail Cache Reset
+ptool.tool.virus-hunter.name|||Deep Malware Hunter
+oasis.phase.inhale|||Inhale
+oasis.phase.hold|||Hold
+oasis.phase.exhale|||Exhale
+oasis.tone.calm|||Calm (432 Hz)
+oasis.tone.focus|||Focus (528 Hz)
+oasis.tone.ground|||Grounding (174 Hz)

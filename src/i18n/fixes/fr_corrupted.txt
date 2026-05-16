@@ -1,0 +1,33 @@
+footer.brandDesc|||A platform built for everyone - accessible by design.
+footer.link.news|||News
+footer.link.academy|||Academy
+footer.link.assistiveProducts|||Assistive Products
+footer.link.termsOfUse|||Terms of Use
+footer.link.communityGuidelines|||Community Guidelines
+footer.link.legalDisclaimer|||Legal Disclaimer
+cookie.description|||We use cookies to remember your preferences and serve ads via Google AdSense. By continuing, you agree to our
+vroom.type.event|||Event Room
+signup.mustAgree|||You must agree to the Terms of Use and Privacy Policy
+signup.deviceBanned|||This device has been banned. Please contact support.
+signup.agreePrefix|||I agree to the
+signup.terms|||Terms of Use
+memory.card.star|||Star
+word.entry.contrast.hint|||Light vs dark difference
+word.entry.braille.hint|||Tactile reading system
+word.entry.design.hint|||Creating visual layouts
+word.entry.speech.hint|||Talking output from a device
+word.entry.access.hint|||Ability to reach or use
+word.entry.cursor.hint|||Pointer on screen
+bazaar.subtitle|||The marketplace built by you, for everyone
+bazaar.noShops|||No shops yet - be the first to open one!
+bazaar.setupCost|||Setup cost
+bazaar.afterOpening|||After opening
+bazaar.loginToOpen|||You must be logged in to open a shop
+ptool.cat.network|||Network
+ptool.cat.security|||Security
+ptool.tool.battery-saver.name|||Battery Saver
+ptool.tool.super-speed-network.name|||Super Speed & Network Fix
+ptool.tool.autofix-system.name|||Auto Fix System
+ptool.tool.cleanup.name|||System Cleanup
+ptool.tool.hardware-health.name|||Hardware Health Check
+ptool.tool.reset-thumbs.name|||Thumbnail Cache Reset

@@ -1,0 +1,45 @@
+nav.mainNavigation|||Main navigation
+nav.adminPanel|||Admin Panel
+footer.brandDesc|||A platform built for everyone - accessible by design.
+footer.pages|||Pages
+footer.more|||More
+footer.link.leaderboard|||Leaderboard
+footer.link.privacyPolicy|||Privacy Policy
+footer.link.termsOfUse|||Terms of Use
+footer.link.marketplacePolicy|||Marketplace Policy
+cookie.privacy|||Privacy Policy
+vroom.default.techSupport|||Tech Support
+vroom.type.standard|||Standard Room
+mp.draw|||It's a draw!
+mp.youWon|||You won!
+mp.opponentWon|||{name} won!
+signup.mustAgree|||You must agree to the Terms of Use and Privacy Policy
+signup.terms|||Terms of Use
+signup.privacy|||Privacy Policy
+memory.card.music|||Music
+memory.card.rainbow|||Rainbow
+word.entry.braille.hint|||Tactile reading system
+word.entry.website.hint|||Pages on the internet
+word.entry.design.word|||DESIGN
+word.entry.design.hint|||Creating visual layouts
+bazaar.noShops|||No shops yet - be the first to open one!
+bazaar.loginPrompt|||Log in to open your own shop or chat with sellers
+bazaar.itemsInStock|||{count} items in stock
+bazaar.addProduct|||Add New Product
+bazaar.descriptionOptional|||Description (optional)
+bazaar.priceRequired|||Price in dollars (required)
+bazaar.shelfPosition|||Shelf position
+bazaar.noProductsYet|||No products yet.
+bazaar.description|||Description
+bazaar.shopDescriptionPlaceholder|||What do you sell?
+bazaar.shopCountry|||Shop Country
+bazaar.setupCost|||Setup cost
+bazaar.afterOpening|||After opening
+bazaar.loginToOpen|||You must be logged in to open a shop
+bazaar.productAdded|||Product added!
+ptool.tool.battery-saver.name|||Battery Saver
+ptool.tool.super-speed-network.name|||Super Speed & Network Fix
+ptool.tool.autofix-system.name|||Auto Fix System
+ptool.tool.drivers-update.name|||Auto Driver Updater
+ptool.tool.hardware-health.name|||Hardware Health Check
+oasis.phase.hold|||Hold

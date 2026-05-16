@@ -1,0 +1,57 @@
+aptitude.start|||Start
+nav.professionalTools|||Professional Tools
+nav.adminPanel|||Admin Panel
+footer.brandDesc|||A platform built for everyone - accessible by design.
+footer.legalLinks|||Legal links
+footer.link.content|||Content
+footer.link.contact|||Contact
+footer.link.professionalTools|||Professional Tools
+footer.link.assistiveProducts|||Assistive Products
+footer.link.termsOfUse|||Terms of Use
+footer.link.accessibility|||Accessibility
+cookie.label|||Cookie consent
+cookie.title|||We use cookies
+cookie.description|||We use cookies to remember your preferences and serve ads via Google AdSense. By continuing, you agree to our
+cookie.acceptAll|||Accept all
+cookie.essentialOnly|||Essential only
+mp.theirTurn|||Their turn
+mp.youWon|||You won!
+mp.backToLobby|||Back to lobby
+signup.mustAgree|||You must agree to the Terms of Use and Privacy Policy
+signup.deviceBanned|||This device has been banned. Please contact support.
+signup.agreePrefix|||I agree to the
+signup.terms|||Terms of Use
+memory.card.star|||Star
+memory.card.music|||Music
+memory.card.rainbow|||Rainbow
+word.entry.keyboard.hint|||You type with this
+word.entry.contrast.hint|||Light vs dark difference
+word.entry.website.hint|||Pages on the internet
+word.entry.design.hint|||Creating visual layouts
+word.entry.screen.hint|||Display you look at
+word.entry.speech.hint|||Talking output from a device
+word.entry.access.hint|||Ability to reach or use
+word.entry.vision.hint|||Sense of sight
+word.entry.cursor.hint|||Pointer on screen
+bazaar.subtitle|||The marketplace built by you, for everyone
+bazaar.loadingShops|||Loading shops...
+bazaar.noShops|||No shops yet - be the first to open one!
+bazaar.loginPrompt|||Log in to open your own shop or chat with sellers
+bazaar.itemsInStock|||{count} items in stock
+bazaar.addProduct|||Add New Product
+bazaar.productNameRequired|||Product name (required)
+bazaar.descriptionOptional|||Description (optional)
+bazaar.openShop|||Open Your Shop
+bazaar.afterOpening|||After opening
+bazaar.loginToOpen|||You must be logged in to open a shop
+ptool.cat.all|||All Tools
+ptool.cat.security|||Security
+ptool.cat.maintenance|||Maintenance
+ptool.tool.super-speed-network.name|||Super Speed & Network Fix
+ptool.tool.autofix-system.name|||Auto Fix System
+ptool.tool.drivers-update.name|||Auto Driver Updater
+ptool.tool.hardware-health.name|||Hardware Health Check
+ptool.tool.internet-fast.name|||Internet Booster
+ptool.tool.organizer-files.name|||File Organizer
+ptool.tool.reset-thumbs.name|||Thumbnail Cache Reset
+ptool.tool.virus-hunter.name|||Deep Malware Hunter

@@ -162,7 +162,7 @@ function LogiQuestMulti() {
       <div className="flex justify-between rounded-lg border p-3 text-sm">
         <div className="text-center"><p className="text-xs text-muted-foreground">{t("logiquest.you")}</p><p className="text-xl font-bold text-primary">{myScore}</p></div>
         <div className="text-center self-center"><Badge variant="outline">Q {current + 1}/{PUZZLES.length}</Badge></div>
-        <div className="text-center"><p className="text-xs text-muted-foreground">{opp?.name ?? "Opponent"}</p><p className="text-xl font-bold">{oppScore}</p></div>
+        <div className="text-center"><p className="text-xs text-muted-foreground">{opp?.name ?? t("mp.opponent")}</p><p className="text-xl font-bold">{oppScore}</p></div>
       </div>
       {finished ? (
         <Card><CardContent className="pt-6 text-center space-y-2">

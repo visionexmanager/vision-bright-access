@@ -79,6 +79,7 @@ function BriscolaSolo() {
 // ─── Multiplayer ─────────────────────────────────────────────────────────────
 function BriscolaMulti() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { playSound } = useSound();
   const mp  = useMultiplayer("briscola");
   const [resolving, setResolving] = useState(false);
@@ -172,9 +173,9 @@ function BriscolaMulti() {
       <Card className={mp.isMyTurn ? "border-primary" : "opacity-70"}>
         <CardContent className="pt-6 space-y-4">
           <div className="text-center">
-            <Badge variant="secondary">Your score: {scoresG[user?.id ?? ""] ?? 0}</Badge>
+            <Badge variant="secondary">{t("mp.you")}: {scoresG[user?.id ?? ""] ?? 0}</Badge>
             <p className="text-sm text-muted-foreground mt-1">
-              {myTableCard ? "Card played — waiting…" : mp.isMyTurn ? "Play a card" : "Opponent's turn"}
+              {myTableCard ? t("mp.cardPlayedWaiting") : mp.isMyTurn ? t("mp.playCard") : t("mp.opponentTurn")}
             </p>
           </div>
           <div className="flex justify-center gap-3">

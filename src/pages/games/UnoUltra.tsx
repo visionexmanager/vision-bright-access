@@ -75,6 +75,7 @@ function UnoSolo() {
 // ─── Multiplayer ─────────────────────────────────────────────────────────────
 function UnoMulti() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { playSound } = useSound();
   const mp = useMultiplayer("uno");
 
@@ -135,7 +136,7 @@ function UnoMulti() {
       <Card className={mp.isMyTurn ? "border-primary" : "opacity-70"}>
         <CardContent className="pt-6 space-y-4">
           <p className="text-center text-sm font-medium">
-            {mp.isMyTurn ? `Your turn — ${myHand.length} card(s)` : "Opponent's turn…"}
+            {mp.isMyTurn ? t("mp.yourTurnCards").replace("{count}", String(myHand.length)) : t("mp.opponentTurnDots")}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {myHand.map((card, i) => (

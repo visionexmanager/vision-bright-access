@@ -1,0 +1,20 @@
+nav.muteSounds|||Mute sounds
+nav.unmuteSounds|||Unmute sounds
+footer.brandDesc|||A platform built for everyone - accessible by design.
+cookie.description|||We use cookies to remember your preferences and serve ads via Google AdSense. By continuing, you agree to our
+mp.backToLobby|||Back to lobby
+signup.deviceBanned|||This device has been banned. Please contact support.
+word.entry.speech.hint|||Talking output from a device
+word.entry.access.hint|||Ability to reach or use
+bazaar.subtitle|||The marketplace built by you, for everyone
+bazaar.noShops|||No shops yet - be the first to open one!
+bazaar.loginPrompt|||Log in to open your own shop or chat with sellers
+bazaar.addProduct|||Add New Product
+bazaar.openShop|||Open Your Shop
+bazaar.chooseTier|||Choose Your Tier
+bazaar.themeColorHint|||Used for borders & accents
+bazaar.afterOpening|||After opening
+bazaar.loginToOpen|||You must be logged in to open a shop
+bazaar.productAdded|||Product added!
+ptool.tool.reset-thumbs.name|||Thumbnail Cache Reset
+ptool.tool.virus-hunter.name|||Deep Malware Hunter

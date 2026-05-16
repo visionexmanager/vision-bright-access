@@ -96,6 +96,7 @@ function JungleSolo() {
 
 function JungleMulti() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { playSound } = useSound();
   const mp = useMultiplayer("jungle");
   const [step, setStep] = useState(0);
@@ -141,12 +142,12 @@ function JungleMulti() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between rounded-lg border p-3 text-sm">
-        <div className="text-center"><p className="text-xs text-muted-foreground">You</p><p className="text-xl font-bold text-primary">{score}</p></div>
+        <div className="text-center"><p className="text-xs text-muted-foreground">{t("mp.you")}</p><p className="text-xl font-bold text-primary">{score}</p></div>
         <Badge variant="outline">{step + 1}/{SCENARIOS.length}</Badge>
-        <div className="text-center"><p className="text-xs text-muted-foreground">{opp?.name ?? "Opponent"}</p><p className="text-xl font-bold">{oppScore}</p></div>
+        <div className="text-center"><p className="text-xs text-muted-foreground">{opp?.name ?? t("mp.opponent")}</p><p className="text-xl font-bold">{oppScore}</p></div>
       </div>
       {gameOver ? (
-        <Card><CardContent className="pt-6 text-center space-y-2"><p className="text-xl font-bold">Done! ✅</p><p className="text-muted-foreground">Score: {score} — Waiting for opponent…</p></CardContent></Card>
+        <Card><CardContent className="pt-6 text-center space-y-2"><p className="text-xl font-bold">{t("mp.done")}</p><p className="text-muted-foreground">{t("mp.scoreWaiting").replace("{score}", String(score))}</p></CardContent></Card>
       ) : (
         <JungleBoard step={step} hp={hp} score={score} gameOver={false} onChoose={choose} />
       )}

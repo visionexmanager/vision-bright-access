@@ -45,6 +45,21 @@ function getTier(points: number) {
   return { ...VIP_TIERS[0], index: 0 };
 }
 
+function translateReason(reason: string, t: (key: string) => string): string {
+  const lower = reason.toLowerCase();
+  if (lower.includes("daily login") || lower.includes("login bonus")) return t("dash.reason.dailyLogin");
+  if (lower.includes("watched an ad") || lower.includes("watch") && lower.includes("ad")) return t("dash.reason.watchedAd");
+  if (lower.includes("vx purchase") || lower.includes("purchase")) return t("dash.reason.vxPurchase");
+  if (lower.includes("bazaar") || lower.includes("rent") || lower.includes("trial billing")) return t("dash.reason.trialBilling");
+  if (lower.includes("admin") && (lower.includes("grant") || lower.includes("credit"))) return t("dash.reason.adminGrant");
+  if (lower.includes("admin") && (lower.includes("deduct") || lower.includes("penalty"))) return t("dash.reason.adminDeduction");
+  if (lower.includes("quiz")) return t("dash.reason.quiz");
+  if (lower.includes("memory")) return t("dash.reason.memory");
+  if (lower.includes("word") || lower.includes("puzzle")) return t("dash.reason.wordPuzzle");
+  if (lower.includes("simulation") || lower.includes("sim")) return t("dash.reason.simulation");
+  return reason;
+}
+
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const { totalPoints, history, loadingTotal, loadingHistory } = usePoints();
@@ -326,7 +341,7 @@ export default function Dashboard() {
                 <TableBody>
                   {history.map((entry) => (
                     <TableRow key={entry.id}>
-                      <TableCell className="text-base font-medium">{entry.reason}</TableCell>
+                      <TableCell className="text-base font-medium">{translateReason(entry.reason, t)}</TableCell>
                       <TableCell>
                         <Badge variant={entry.points > 0 ? "default" : "destructive"} className="text-sm">
                           {entry.points > 0 ? "+" : ""}{entry.points}

@@ -1,0 +1,46 @@
+nav.mainNavigation|||Main navigation
+nav.visionexHome|||VisionEx home
+footer.brandDesc|||A platform built for everyone - accessible by design.
+footer.pages|||Pages
+footer.link.home|||Home
+footer.link.services|||Services
+footer.link.content|||Content
+footer.link.news|||News
+footer.link.leaderboard|||Leaderboard
+footer.link.privacyPolicy|||Privacy Policy
+footer.link.marketplacePolicy|||Marketplace Policy
+cookie.description|||We use cookies to remember your preferences and serve ads via Google AdSense. By continuing, you agree to our
+cookie.privacy|||Privacy Policy
+vroom.default.mainHall|||Main Hall
+vroom.default.techSupport|||Tech Support
+vroom.default.tradeCommerce|||Trade & Commerce
+vroom.type.standard|||Standard Room
+signup.mustAgree|||You must agree to the Terms of Use and Privacy Policy
+signup.privacy|||Privacy Policy
+memory.card.apple|||Apple
+memory.card.music|||Music
+memory.card.rainbow|||Rainbow
+word.entry.contrast.hint|||Light vs dark difference
+word.entry.braille.hint|||Tactile reading system
+word.entry.website.hint|||Pages on the internet
+word.entry.speech.hint|||Talking output from a device
+word.entry.access.hint|||Ability to reach or use
+word.entry.vision.hint|||Sense of sight
+bazaar.noShops|||No shops yet - be the first to open one!
+bazaar.productNameRequired|||Product name (required)
+bazaar.descriptionOptional|||Description (optional)
+bazaar.priceRequired|||Price in dollars (required)
+bazaar.shelfPosition|||Shelf position
+bazaar.noProductsYet|||No products yet.
+bazaar.description|||Description
+bazaar.shopCountry|||Shop Country
+bazaar.chooseTier|||Choose Your Tier
+bazaar.setupCost|||Setup cost
+bazaar.afterOpening|||After opening
+ptool.cat.security|||Security
+ptool.cat.maintenance|||Maintenance
+ptool.tool.super-speed-network.name|||Super Speed & Network Fix
+ptool.tool.autofix-system.name|||Auto Fix System
+ptool.tool.drivers-update.name|||Auto Driver Updater
+ptool.tool.hardware-health.name|||Hardware Health Check
+ptool.tool.virus-hunter.name|||Deep Malware Hunter

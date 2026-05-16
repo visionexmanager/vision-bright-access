@@ -215,8 +215,8 @@ function FarkleMultiplayer() {
       <Card className={mp.isMyTurn ? "border-primary" : "opacity-70"}>
         <CardContent className="pt-6 text-center space-y-4">
           <div className="flex justify-center gap-4">
-            <Badge>{mp.isMyTurn ? "Your turn" : "Waiting…"}</Badge>
-            <Badge variant="secondary">Your score: {myScore} / {WIN_SCORE}</Badge>
+            <Badge>{mp.isMyTurn ? t("mp.yourTurn") : t("mp.waitingDots")}</Badge>
+            <Badge variant="secondary">{t("mp.yourScore").replace("{score}", String(myScore)).replace("{max}", String(WIN_SCORE))}</Badge>
             <Badge variant="outline">Round: {round}</Badge>
           </div>
           <div className="flex justify-center gap-3 min-h-[80px]">

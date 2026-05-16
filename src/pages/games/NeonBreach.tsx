@@ -90,6 +90,7 @@ function NeonBreachSolo() {
 // ─── Multiplayer (competitive — same seeded sequence) ────────────────────────
 function NeonBreachMulti() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { playSound } = useSound();
   const mp = useMultiplayer("neonbreach");
 
@@ -181,13 +182,13 @@ function NeonBreachMulti() {
       {/* Live scoreboard */}
       <div className="flex justify-between rounded-lg border p-3 text-sm">
         <div className="text-center">
-          <p className="text-xs text-muted-foreground">You</p>
+          <p className="text-xs text-muted-foreground">{t("mp.you")}</p>
           <p className="text-xl font-bold text-primary">{myScore}</p>
           <Badge variant="secondary" className="text-xs">Lv {level}</Badge>
         </div>
         <div className="text-center self-center text-muted-foreground">VS</div>
         <div className="text-center">
-          <p className="text-xs text-muted-foreground">{opp?.name ?? "Opponent"}</p>
+          <p className="text-xs text-muted-foreground">{opp?.name ?? t("mp.opponent")}</p>
           <p className="text-xl font-bold">{oppScore}</p>
           {oppElim && <Badge variant="destructive" className="text-xs">Out</Badge>}
         </div>
@@ -196,8 +197,8 @@ function NeonBreachMulti() {
       {phase === "eliminated" ? (
         <Card><CardContent className="pt-6 text-center space-y-3">
           <p className="text-4xl">🔥</p>
-          <p className="text-xl font-bold">You were breached!</p>
-          <p className="text-muted-foreground">Score: {myScore} — Waiting for opponent…</p>
+          <p className="text-xl font-bold">{t("mp.youWereBreached")}</p>
+          <p className="text-muted-foreground">{t("mp.scoreWaiting").replace("{score}", String(myScore))}</p>
         </CardContent></Card>
       ) : (
         <Card><CardContent className="pt-6 space-y-6">
