@@ -50,7 +50,7 @@ function StarRating({ rating }: { rating: number }) {
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const { addToCart, items } = useCart();
-  const { t } = useLanguage();
+  const { t, translateText } = useLanguage();
 
   const product = allProducts.find((p) => p.id === id);
   const inCart = product ? items.some((i) => i.product.id === product.id) : false;
@@ -79,9 +79,12 @@ export default function ProductDetail() {
     );
   }
 
+  const productName = translateText(product.name);
+  const productDescription = translateText(product.description);
+
   const handleAdd = () => {
     addToCart(product);
-    toast.success(t("cart.added").replace("{name}", product.name));
+    toast.success(t("cart.added").replace("{name}", productName));
   };
 
   const trustBadges = [
@@ -98,7 +101,7 @@ export default function ProductDetail() {
             {t("market.title")}
           </Link>
           <span className="text-muted-foreground">/</span>
-          <span className="text-muted-foreground">{product.name}</span>
+          <span className="text-muted-foreground">{productName}</span>
         </nav>
 
         <div className="grid gap-8 md:grid-cols-2">
@@ -112,9 +115,9 @@ export default function ProductDetail() {
 
           <div className="flex flex-col gap-4">
             <div className="flex items-start justify-between gap-4">
-              <h1 id="product-heading" className="text-3xl font-bold leading-tight">{product.name}</h1>
+              <h1 id="product-heading" className="text-3xl font-bold leading-tight">{productName}</h1>
               <div className="flex items-center gap-1">
-                <WishlistButton productId={product.id} productName={product.name} />
+                <WishlistButton productId={product.id} productName={productName} />
                 <CartDrawer />
               </div>
             </div>
@@ -128,7 +131,7 @@ export default function ProductDetail() {
               </div>
             </div>
 
-            <p className="text-lg leading-relaxed text-muted-foreground">{product.description}</p>
+            <p className="text-lg leading-relaxed text-muted-foreground">{productDescription}</p>
 
             <Separator />
 
@@ -144,7 +147,7 @@ export default function ProductDetail() {
               disabled={!product.inStock}
               size="lg"
               className="mt-2 text-lg h-14"
-              aria-label={!product.inStock ? `${product.name} ${t("product.outOfStock")}` : inCart ? `${t("product.addAnother")} ${product.name}` : `${t("product.addToCart")} ${product.name}`}
+              aria-label={!product.inStock ? `${productName} ${t("product.outOfStock")}` : inCart ? `${t("product.addAnother")} ${productName}` : `${t("product.addToCart")} ${productName}`}
             >
               {!product.inStock ? (
                 t("product.outOfStock")
@@ -181,7 +184,7 @@ export default function ProductDetail() {
                     <span className="text-base font-bold">{review.author}</span>
                     <StarRating rating={review.rating} />
                   </div>
-                  <p className="text-base leading-relaxed text-muted-foreground">{review.text}</p>
+                  <p className="text-base leading-relaxed text-muted-foreground">{translateText(review.text)}</p>
                 </CardContent>
               </Card>
             ))}
@@ -198,7 +201,7 @@ export default function ProductDetail() {
                     <CardContent className="flex items-center gap-4 p-5">
                       <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-3xl">{rp.image}</div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="truncate text-lg font-bold group-hover:text-primary transition-colors">{rp.name}</h3>
+                        <h3 className="truncate text-lg font-bold group-hover:text-primary transition-colors">{translateText(rp.name)}</h3>
                         <VXPrice amount={rp.price} size="sm" />
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Star className="h-3.5 w-3.5 fill-accent text-accent" aria-hidden="true" />

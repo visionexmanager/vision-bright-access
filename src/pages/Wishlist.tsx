@@ -19,7 +19,7 @@ export default function Wishlist() {
   const { user, loading: authLoading } = useAuth();
   const { wishlistIds, isLoading, toggleWishlist } = useWishlist();
   const { addToCart, items } = useCart();
-  const { t } = useLanguage();
+  const { t, translateText } = useLanguage();
 
   if (authLoading) {
     return (
@@ -42,7 +42,7 @@ export default function Wishlist() {
 
   const handleAddToCart = (product: typeof allProducts[0]) => {
     addToCart(product);
-    toast.success(t("cart.added").replace("{name}", product.name));
+    toast.success(t("cart.added").replace("{name}", translateText(product.name)));
   };
 
   return (
@@ -72,6 +72,8 @@ export default function Wishlist() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {wishlistProducts.map((product) => {
               const inCart = items.some((i) => i.product.id === product.id);
+              const productName = translateText(product.name);
+              const productDescription = translateText(product.description);
               return (
                 <Card key={product.id} className="flex flex-col transition-shadow hover:shadow-lg">
                   <CardContent className="flex flex-1 flex-col gap-3 p-6">
@@ -82,8 +84,8 @@ export default function Wishlist() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleRemove(product.id, product.name)}
-                        aria-label={`Remove ${product.name} from wishlist`}
+                        onClick={() => handleRemove(product.id, productName)}
+                        aria-label={t("cart.removeItem").replace("{name}", productName)}
                         className="text-destructive hover:text-destructive"
                       >
                         <Heart className="h-5 w-5 fill-current" />
@@ -91,9 +93,9 @@ export default function Wishlist() {
                     </div>
 
                     <Link to={`/product/${product.id}`} className="text-xl font-bold leading-tight hover:text-primary transition-colors underline-offset-4 hover:underline">
-                      {product.name}
+                      {productName}
                     </Link>
-                    <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{product.description}</p>
+                    <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{productDescription}</p>
 
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Star className="h-4 w-4 fill-accent text-accent" aria-hidden="true" />
@@ -103,7 +105,7 @@ export default function Wishlist() {
                     <div className="flex items-center justify-between border-t border-border pt-3">
                       <div>
                         <VXPrice amount={product.price} size="lg" />
-                        <p className="text-sm font-medium text-primary">+{product.points} pts</p>
+                        <p className="text-sm font-medium text-primary">{t("market.pts").replace("{points}", String(product.points))}</p>
                       </div>
                       <Button
                         onClick={() => handleAddToCart(product)}

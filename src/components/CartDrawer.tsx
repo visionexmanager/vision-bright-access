@@ -17,7 +17,7 @@ import { VXPrice } from "@/components/VXPrice";
 export function CartDrawer() {
   const { items, totalItems, totalPrice, totalPoints, updateQuantity, removeFromCart, clearCart } = useCart();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, translateText } = useLanguage();
   const { balance, spendVX } = useVXWallet();
   const queryClient = useQueryClient();
 
@@ -30,7 +30,7 @@ export function CartDrawer() {
     }
     if (items.length === 0) return;
 
-    const itemNames = items.map((i) => `${i.product.name} x${i.quantity}`).join(", ");
+    const itemNames = items.map((i) => `${translateText(i.product.name)} x${i.quantity}`).join(", ");
     const success = await spendVX(totalPrice, "marketplace", itemNames, undefined);
 
     if (!success) return;
@@ -80,29 +80,32 @@ export function CartDrawer() {
         ) : (
           <>
             <div className="flex-1 space-y-4 overflow-y-auto py-4">
-              {items.map(({ product, quantity }) => (
+              {items.map(({ product, quantity }) => {
+                const productName = translateText(product.name);
+                return (
                 <div key={product.id} className="flex items-start gap-4 rounded-lg border p-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-2xl">
                     {product.image}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="truncate text-base font-semibold">{product.name}</h3>
+                    <h3 className="truncate text-base font-semibold">{productName}</h3>
                     <VXPrice amount={product.price} size="sm" />
                   <div className="mt-2 flex items-center gap-2">
-                      <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => updateQuantity(product.id, quantity - 1)} aria-label={t("cart.decreaseItem").replace("{name}", product.name)}>
+                      <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => updateQuantity(product.id, quantity - 1)} aria-label={t("cart.decreaseItem").replace("{name}", productName)}>
                         <Minus className="h-4 w-4" />
                       </Button>
                       <span className="w-8 text-center text-base font-medium" aria-live="polite">{quantity}</span>
-                      <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => updateQuantity(product.id, quantity + 1)} aria-label={t("cart.increaseItem").replace("{name}", product.name)}>
+                      <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => updateQuantity(product.id, quantity + 1)} aria-label={t("cart.increaseItem").replace("{name}", productName)}>
                         <Plus className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="ms-auto h-10 w-10 text-destructive" onClick={() => removeFromCart(product.id)} aria-label={t("cart.removeItem").replace("{name}", product.name)}>
+                      <Button variant="ghost" size="icon" className="ms-auto h-10 w-10 text-destructive" onClick={() => removeFromCart(product.id)} aria-label={t("cart.removeItem").replace("{name}", productName)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
 
             <div className="space-y-3 border-t pt-4">

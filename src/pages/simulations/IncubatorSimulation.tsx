@@ -14,8 +14,8 @@ import { toast } from "@/hooks/use-toast";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useScreenReader } from "@/hooks/useScreenReader";
-import {
 import { SimulationScene } from "@/components/SimulationScene";
+import {
   ArrowLeft,
   Thermometer,
   Droplets,

@@ -43,7 +43,7 @@ export default function ServiceRequestPage({
   const { isOnTrial } = useTrial();
   const queryClient = useQueryClient();
   const { playSound } = useSound();
-  const { t } = useLanguage();
+  const { t, translateText } = useLanguage();
 
   const [selectedPkg, setSelectedPkg] = useState<ServicePackage | null>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
@@ -103,7 +103,7 @@ export default function ServiceRequestPage({
           <h1 className="text-3xl font-bold mb-2">{t("svcReq.successTitle")}</h1>
           <p className="text-muted-foreground max-w-md mb-2">
             {t("svcReq.successDesc")
-              .replace("{name}", selectedPkg?.name ?? "")
+              .replace("{name}", translateText(selectedPkg?.name ?? ""))
               .replace("{email}", form.email)}
           </p>
           <p className="text-sm text-primary font-semibold mb-8">
@@ -130,8 +130,8 @@ export default function ServiceRequestPage({
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20 mb-3">
                 <Icon className="h-7 w-7 text-primary" />
               </div>
-              <h1 className="text-3xl font-bold sm:text-4xl">{title}</h1>
-              <p className="mt-1 text-lg text-muted-foreground">{subtitle}</p>
+              <h1 className="text-3xl font-bold sm:text-4xl">{translateText(title)}</h1>
+              <p className="mt-1 text-lg text-muted-foreground">{translateText(subtitle)}</p>
             </div>
           </div>
         </AnimatedSection>
@@ -145,8 +145,8 @@ export default function ServiceRequestPage({
                   <HIcon className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">{label}</p>
-                  <p className="font-semibold text-sm">{value}</p>
+                  <p className="text-xs text-muted-foreground">{translateText(label)}</p>
+                  <p className="font-semibold text-sm">{translateText(value)}</p>
                 </div>
               </div>
             ))}
@@ -161,6 +161,8 @@ export default function ServiceRequestPage({
           {packages.map((pkg) => {
             const selected = selectedPkg?.name === pkg.name;
             const affordable = totalPoints >= pkg.vx;
+            const packageName = translateText(pkg.name);
+            const packageDescription = translateText(pkg.description);
             return (
               <StaggerItem key={pkg.name}>
                 <button
@@ -174,21 +176,21 @@ export default function ServiceRequestPage({
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <p className="font-bold text-lg">{pkg.name}</p>
+                      <p className="font-bold text-lg">{packageName}</p>
                       {pkg.badge && (
-                        <Badge className="mt-1 text-xs">{pkg.badge}</Badge>
+                        <Badge className="mt-1 text-xs">{translateText(pkg.badge)}</Badge>
                       )}
                     </div>
                     {selected && (
                       <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mb-4">{pkg.description}</p>
+                  <p className="text-sm text-muted-foreground mb-4">{packageDescription}</p>
                   <ul className="space-y-1.5 mb-4">
                     {pkg.features.map((f) => (
                       <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground">
                         <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-500" />
-                        {f}
+                        {translateText(f)}
                       </li>
                     ))}
                   </ul>
@@ -215,7 +217,7 @@ export default function ServiceRequestPage({
               <h2 className="mb-1 text-xl font-bold">{t("svcReq.submitRequest")}</h2>
               <p className="mb-6 text-sm text-muted-foreground">
                 {selectedPkg
-                  ? t("svcReq.selectedPkg").replace("{name}", selectedPkg.name).replace("{vx}", selectedPkg.vx.toLocaleString())
+                  ? t("svcReq.selectedPkg").replace("{name}", translateText(selectedPkg.name)).replace("{vx}", selectedPkg.vx.toLocaleString())
                   : t("svcReq.selectPackagePrompt")}
               </p>
 

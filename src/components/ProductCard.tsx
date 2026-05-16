@@ -15,12 +15,14 @@ interface ProductCardProps {
 
 export const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
   const { addToCart, items } = useCart();
-  const { t } = useLanguage();
+  const { t, translateText } = useLanguage();
   const inCart = items.some((i) => i.product.id === product.id);
+  const productName = translateText(product.name);
+  const productDescription = translateText(product.description);
 
   const handleAdd = () => {
     addToCart(product);
-    toast.success(t("cart.added").replace("{name}", product.name));
+    toast.success(t("cart.added").replace("{name}", productName));
   };
 
   return (
@@ -31,7 +33,7 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
             {product.image}
           </div>
           <div className="flex items-center gap-1">
-            <WishlistButton productId={product.id} productName={product.name} />
+            <WishlistButton productId={product.id} productName={productName} />
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Star className="h-4 w-4 fill-accent text-accent" aria-hidden="true" />
               <span className="font-medium">{product.rating}</span>
@@ -40,10 +42,10 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
         </div>
 
         <Link to={`/product/${product.id}`} className="text-xl font-bold leading-tight hover:text-primary transition-colors underline-offset-4 hover:underline">
-          {product.name}
+          {productName}
         </Link>
         <p className="flex-1 text-sm leading-relaxed text-muted-foreground">
-          {product.description}
+          {productDescription}
         </p>
 
         <div className="flex items-center justify-between border-t border-border pt-3">
@@ -55,10 +57,10 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
             className="text-base"
             aria-label={
               !product.inStock
-                ? `${product.name} ${t("market.outOfStock")}`
+                ? `${productName} ${t("market.outOfStock")}`
                 : inCart
-                ? `${t("market.addMore")} ${product.name}`
-                : `${t("market.addToCart")} ${product.name}`
+                ? `${t("market.addMore")} ${productName}`
+                : `${t("market.addToCart")} ${productName}`
             }
           >
             {!product.inStock ? (

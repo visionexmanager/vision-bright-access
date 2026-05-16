@@ -78,11 +78,7 @@ export default function ProfessionalTools() {
               <h1 className="text-3xl font-bold tracking-tight">
                 {t("ptool.pageTitle")}
               </h1>
-              <p className="mt-1 text-muted-foreground">
-                {isAr
-                  ? "أدوات Windows احترافية مُعدّة خصيصاً من Visionex — كل أداة بـ 1,000 VX"
-                  : "Windows tools built exclusively by Visionex — each tool costs 1,000 VX"}
-              </p>
+              <p className="mt-1 text-muted-foreground">{t("ptool.noteDesc")}</p>
             </div>
           </div>
 
