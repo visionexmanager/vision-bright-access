@@ -1,15 +1,5 @@
-import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
+import { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from "react";
 import en from "@/i18n/en";
-import ar from "@/i18n/ar";
-import es from "@/i18n/es";
-import de from "@/i18n/de";
-import pt from "@/i18n/pt";
-import zh from "@/i18n/zh";
-import tr from "@/i18n/tr";
-import fr from "@/i18n/fr";
-import ru from "@/i18n/ru";
-import ur from "@/i18n/ur";
-import hi from "@/i18n/hi";
 
 export const supportedLangs = ["en", "ar", "es", "de", "pt", "zh", "tr", "fr", "ru", "ur", "hi"] as const;
 export type Lang = (typeof supportedLangs)[number];
@@ -32,19 +22,16 @@ const LanguageContext = createContext<LanguageContextType>({
 
 export const useLanguage = () => useContext(LanguageContext);
 
-const translations: Record<Lang, Record<string, string>> = {
-  en,
-  ar,
-  es,
-  de,
-  pt,
-  zh,
-  tr,
-  fr,
-  ru,
-  ur,
-  hi,
-};
+// English is always bundled (it's the default/fallback).
+// All other languages are loaded on demand — ~200-340 KB each instead of 2.5 MB upfront.
+const loadedTranslations: Partial<Record<Lang, Record<string, string>>> = { en };
+
+async function loadLang(lang: Lang): Promise<Record<string, string>> {
+  if (loadedTranslations[lang]) return loadedTranslations[lang]!;
+  const mod = await import(`../i18n/${lang}.ts`);
+  loadedTranslations[lang] = mod.default;
+  return mod.default;
+}
 
 const rtlLangs: Lang[] = ["ar", "ur"];
 const originalTextNodes = new WeakMap<Text, string>();
@@ -152,9 +139,7 @@ function buildDomTranslationMap(lang: Lang) {
   const map = new Map<string, string>();
   if (lang === "en") return map;
 
-  // Only use commonDomText (≈60 entries) for DOM walking.
-  // React components handle the rest via t(). Using all 3000+ translation
-  // keys here causes O(nodes × keys) string work that freezes the browser.
+  // Only commonDomText (≈60 entries) for DOM walking — React handles the rest via t().
   for (const [englishValue, localized] of Object.entries(commonDomText)) {
     const translatedValue = localized[lang];
     if (translatedValue) map.set(englishValue, translatedValue);
@@ -305,13 +290,24 @@ function detectBrowserLang(): Lang {
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(() => {
+  const initialLang: Lang = (() => {
     const saved = localStorage.getItem("visionex-lang") as Lang | null;
     if (saved && supportedLangs.includes(saved)) return saved;
     return detectBrowserLang();
-  });
+  })();
+
+  const [lang, setLangState] = useState<Lang>(initialLang);
+  // Tracks whether the current language's file has been loaded.
+  const [langReady, setLangReady] = useState(initialLang === "en");
 
   const dir = rtlLangs.includes(lang) ? "rtl" : "ltr";
+
+  // Load the language file on demand when lang changes.
+  useEffect(() => {
+    if (lang === "en") { setLangReady(true); return; }
+    setLangReady(false);
+    loadLang(lang).then(() => setLangReady(true));
+  }, [lang]);
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -319,7 +315,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("visionex-lang", lang);
   }, [lang, dir]);
 
-  useEffect(() => translateStaticDomText(lang), [lang]);
+  useEffect(() => {
+    if (!langReady) return;
+    return translateStaticDomText(lang);
+  }, [lang, langReady]);
 
   const setLang = useCallback((newLang: Lang) => {
     setLangState(newLang);
@@ -327,11 +326,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback(
     (key: string): string => {
-      const current = translations[lang]?.[key];
-      if (current) return current;
-      return lang === "en" ? translations.en[key] || key : key;
+      const dict = loadedTranslations[lang];
+      if (dict?.[key]) return dict[key];
+      return en[key] ?? key;
     },
-    [lang]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lang, langReady]
   );
 
   const translateText = useCallback(
