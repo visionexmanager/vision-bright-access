@@ -152,19 +152,9 @@ function buildDomTranslationMap(lang: Lang) {
   const map = new Map<string, string>();
   if (lang === "en") return map;
 
-  for (const [key, englishValue] of Object.entries(translations.en)) {
-    const translatedValue = translations[lang]?.[key];
-    if (
-      translatedValue &&
-      englishValue &&
-      translatedValue !== englishValue &&
-      !englishValue.includes("{") &&
-      englishValue.trim().length > 1
-    ) {
-      map.set(englishValue, translatedValue);
-    }
-  }
-
+  // Only use commonDomText (≈60 entries) for DOM walking.
+  // React components handle the rest via t(). Using all 3000+ translation
+  // keys here causes O(nodes × keys) string work that freezes the browser.
   for (const [englishValue, localized] of Object.entries(commonDomText)) {
     const translatedValue = localized[lang];
     if (translatedValue) map.set(englishValue, translatedValue);
@@ -260,14 +250,28 @@ function translateStaticDomText(lang: Lang) {
     element.querySelectorAll("*").forEach(translateElementAttributes);
   };
 
-  translateNode(document.body);
+  // Defer initial DOM walk so it doesn't block the first paint.
+  const idle = typeof requestIdleCallback !== "undefined" ? requestIdleCallback : setTimeout;
+  const handle = idle(() => translateNode(document.body));
+
+  let rafPending = false;
+  const pendingNodes: Node[] = [];
 
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
-      mutation.addedNodes.forEach(translateNode);
+      mutation.addedNodes.forEach((n) => pendingNodes.push(n));
       if (mutation.type === "attributes" && mutation.target instanceof Element) {
-        translateElementAttributes(mutation.target);
+        pendingNodes.push(mutation.target);
       }
+    }
+    // Batch all mutations into a single rAF to avoid cascading work.
+    if (!rafPending) {
+      rafPending = true;
+      requestAnimationFrame(() => {
+        const nodes = pendingNodes.splice(0);
+        for (const n of nodes) translateNode(n);
+        rafPending = false;
+      });
     }
   });
 
@@ -278,7 +282,11 @@ function translateStaticDomText(lang: Lang) {
     attributeFilter: attributes,
   });
 
-  return () => observer.disconnect();
+  return () => {
+    if (typeof requestIdleCallback !== "undefined") cancelIdleCallback(handle as number);
+    else clearTimeout(handle as number);
+    observer.disconnect();
+  };
 }
 
 function detectBrowserLang(): Lang {
