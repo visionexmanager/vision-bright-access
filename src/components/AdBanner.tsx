@@ -17,15 +17,15 @@ declare global {
  * Usage: <AdBanner slot="XXXXXXXXXX" format="horizontal" />
  */
 export function AdBanner({ slot, format = "auto", className = "" }: Props) {
-  const pushed = useRef(false);
+  const pushedSlot = useRef<string | null>(null);
 
   useEffect(() => {
-    if (pushed.current) return;
-    pushed.current = true;
+    if (pushedSlot.current === slot) return;
+    pushedSlot.current = slot;
     try {
       (window.adsbygoogle = window.adsbygoogle || []).push({});
     } catch { /* already initialised */ }
-  }, []);
+  }, [slot]);
 
   return (
     <div

@@ -12,13 +12,15 @@ export function TrialBanner() {
 
   const isWarning = trialDaysLeft <= 3;
 
-  const warningText = t("trial.endingSoon")
-    .replace("{days}", String(trialDaysLeft))
-    || `Free trial ends in ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} — collect VX coins to keep using all features`;
+  const warningRaw = t("trial.endingSoon");
+  const warningText = (warningRaw && warningRaw !== "trial.endingSoon")
+    ? warningRaw.replace("{days}", String(trialDaysLeft))
+    : `Free trial ends in ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} — collect VX coins to keep using all features`;
 
-  const activeText = t("trial.active")
-    .replace("{days}", String(trialDaysLeft))
-    || `Free trial active — ${trialDaysLeft} days remaining, all features unlocked`;
+  const activeRaw = t("trial.active");
+  const activeText = (activeRaw && activeRaw !== "trial.active")
+    ? activeRaw.replace("{days}", String(trialDaysLeft))
+    : `Free trial active — ${trialDaysLeft} days remaining, all features unlocked`;
 
   return (
     <div

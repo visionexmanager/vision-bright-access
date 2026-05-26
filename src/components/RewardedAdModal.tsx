@@ -6,7 +6,10 @@ import { Progress } from "@/components/ui/progress";
 const GAM_NETWORK_CODE = import.meta.env.VITE_GAM_NETWORK_CODE ?? "MISSING";
 const GAM_AD_UNIT      = import.meta.env.VITE_GAM_REWARDED_UNIT ?? "rewarded";
 const AD_UNIT_PATH     = `/${GAM_NETWORK_CODE}/${GAM_AD_UNIT}`;
-const GPT_ENABLED      = GAM_NETWORK_CODE !== "MISSING";
+const GPT_ENABLED      =
+  GAM_NETWORK_CODE !== "MISSING" &&
+  GAM_NETWORK_CODE !== "YOUR_GAM_NETWORK_CODE" &&
+  GAM_NETWORK_CODE.trim() !== "";
 
 const VX_REWARD        = 5;
 const SIMULATED_AD_SEC = 15;

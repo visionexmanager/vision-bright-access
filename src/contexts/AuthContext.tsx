@@ -20,7 +20,7 @@ export const useAuth = () => useContext(AuthContext);
 
 const trialExpiresAtFromNow = () => {
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 30);
+  expiresAt.setMonth(expiresAt.getMonth() + 1);
   return expiresAt.toISOString();
 };
 
