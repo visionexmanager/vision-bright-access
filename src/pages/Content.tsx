@@ -16,12 +16,8 @@ import {
   BookOpen,
   Mic,
   Play,
-  Briefcase,
-  ArrowRight,
-  Cpu,
   Coins,
 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
@@ -149,26 +145,6 @@ export default function Content() {
           {/* Content tabs */}
           {contentTabs.map((v) => (
             <TabsContent key={v} value={v}>
-              {/* Business Simulations banner → links to Services page */}
-              {v === "all" && (
-                <Link
-                  to="/services?cat=simulations"
-                  aria-label={`${t("bsim.title")} — ${t("bsim.bannerDesc")}`}
-                  className="group mb-6 block rounded-xl border bg-gradient-to-r from-primary/10 to-primary/5 p-5 transition-shadow hover:shadow-lg"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="rounded-xl bg-primary/20 p-3 shrink-0" aria-hidden="true">
-                      <Cpu className="h-7 w-7 text-primary" aria-hidden="true" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-lg font-bold">{t("bsim.title")}</p>
-                      <p className="text-sm text-muted-foreground">{t("bsim.bannerDesc")}</p>
-                    </div>
-                    <ArrowRight className="h-5 w-5 text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0" aria-hidden="true" />
-                  </div>
-                </Link>
-              )}
-
               <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" role="list">
                 {filterItems(v).map((item) => {
                   const Icon = typeIcons[item.type] ?? FileText;
