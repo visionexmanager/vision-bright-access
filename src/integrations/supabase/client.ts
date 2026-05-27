@@ -2,16 +2,38 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+
+// Validate at startup so a missing env var surfaces as a clear console error
+// rather than a cryptic module-level crash that kills the whole app.
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  console.error(
+    "[supabase] Missing environment variables.\n" +
+    "  VITE_SUPABASE_URL:", SUPABASE_URL ? "✓" : "✗ MISSING",
+    "\n  VITE_SUPABASE_PUBLISHABLE_KEY:", SUPABASE_PUBLISHABLE_KEY ? "✓" : "✗ MISSING",
+    "\nMake sure these are set in your deployment environment."
+  );
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
+// Use a safe fallback URL so createClient doesn't throw on missing vars
+// (the app will still show an auth error, but won't white-screen)
+export const supabase = createClient<Database>(
+  SUPABASE_URL    ?? "https://placeholder.supabase.co",
+  SUPABASE_PUBLISHABLE_KEY ?? "placeholder",
+  {
+    auth: {
+      // Fall back to sessionStorage if localStorage is unavailable
+      // (some browsers restrict it in private/incognito mode)
+      storage: (() => {
+        try { localStorage.setItem("__sb_test", "1"); localStorage.removeItem("__sb_test"); return localStorage; }
+        catch { return sessionStorage; }
+      })(),
+      persistSession: true,
+      autoRefreshToken: true,
+    },
   }
-});
+);
