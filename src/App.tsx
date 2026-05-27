@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useLocation } from "react-router-dom";
+import { ErrorBoundary, PageErrorBoundary } from "@/components/ErrorBoundary";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -135,27 +136,19 @@ function PageLoader() {
   const { t } = useLanguage();
   return (
     <div className="flex min-h-screen items-center justify-center" role="status" aria-label={t("app.loadingPage")}>
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" aria-hidden="true" />
     </div>
   );
 }
 
-const App = () => (
-  <ErrorBoundary>
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <LanguageProvider>
-             <AuthProvider>
-              <CartProvider>
-              <CurrencyProvider>
-              <SoundProvider>
-                <Suspense fallback={<PageLoader />}>
-                  <PageTracker />
-                  <Routes>
+// Resets the per-page error boundary on every navigation
+function AppRoutes() {
+  const location = useLocation();
+  return (
+    <PageErrorBoundary routeKey={location.pathname}>
+      <Suspense fallback={<PageLoader />}>
+        <PageTracker />
+        <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
@@ -258,9 +251,27 @@ const App = () => (
                     <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
-                </Suspense>
-              </SoundProvider>
-              </CurrencyProvider>
+      </Suspense>
+    </PageErrorBoundary>
+  );
+}
+
+const App = () => (
+  <ErrorBoundary>
+  <QueryClientProvider client={queryClient}>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <LanguageProvider>
+            <AuthProvider>
+              <CartProvider>
+                <CurrencyProvider>
+                  <SoundProvider>
+                    <AppRoutes />
+                  </SoundProvider>
+                </CurrencyProvider>
               </CartProvider>
             </AuthProvider>
           </LanguageProvider>
