@@ -2,6 +2,18 @@ import { useEffect, useRef } from "react";
 
 const AD_CLIENT = "ca-pub-6897088904832302";
 
+// Inject adsbygoogle.js once, the first time any banner mounts
+let adsenseScriptInjected = false;
+function ensureAdsense() {
+  if (adsenseScriptInjected || typeof document === "undefined") return;
+  adsenseScriptInjected = true;
+  const s = document.createElement("script");
+  s.async = true;
+  s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${AD_CLIENT}`;
+  s.crossOrigin = "anonymous";
+  document.head.appendChild(s);
+}
+
 interface Props {
   slot: string;
   format?: "auto" | "horizontal" | "rectangle" | "vertical";
@@ -20,6 +32,7 @@ export function AdBanner({ slot, format = "auto", className = "" }: Props) {
   const pushedSlot = useRef<string | null>(null);
 
   useEffect(() => {
+    ensureAdsense();
     if (pushedSlot.current === slot) return;
     pushedSlot.current = slot;
     try {

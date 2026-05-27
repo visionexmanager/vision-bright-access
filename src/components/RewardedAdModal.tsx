@@ -14,6 +14,21 @@ const GPT_ENABLED      =
 const VX_REWARD        = 5;
 const SIMULATED_AD_SEC = 15;
 
+// Inject gpt.js once, only when the rewarded ad modal first opens
+let gptScriptInjected = false;
+function ensureGpt() {
+  if (typeof window === "undefined") return;
+  // Always ensure the cmd queue exists before the script loads
+  window.googletag = window.googletag || ({ cmd: [] } as typeof window.googletag);
+  if (gptScriptInjected) return;
+  gptScriptInjected = true;
+  const s = document.createElement("script");
+  s.async = true;
+  s.src = "https://securepubads.g.doubleclick.net/tag/js/gpt.js";
+  s.crossOrigin = "anonymous";
+  document.head.appendChild(s);
+}
+
 declare global {
   interface Window {
     googletag: {
@@ -121,6 +136,7 @@ function GptAdModal({ onRewarded, onClose }: Props) {
   const [fallback, setFallback] = useState(false);
 
   useEffect(() => {
+    ensureGpt();
     const gt = window.googletag;
     if (!gt) { setFallback(true); return; }
 

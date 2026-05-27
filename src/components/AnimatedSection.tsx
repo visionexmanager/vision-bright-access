@@ -1,39 +1,80 @@
-import { motion, type Variants } from "framer-motion";
-import { ReactNode } from "react";
+/**
+ * AnimatedSection — lightweight scroll-reveal powered by CSS + IntersectionObserver.
+ *
+ * Previously used framer-motion (151 kB). Now zero extra JS weight:
+ * the animations are pure CSS @keyframes driven by a single data-attribute
+ * toggled by one shared IntersectionObserver per page.
+ */
+import { useEffect, useRef, ReactNode } from "react";
 
-// Stagger container for lists/grids
-export const staggerContainer: Variants = {
-  hidden: {},
-  show: {
-    transition: { staggerChildren: 0.1 },
-  },
-};
+// Keep the same Variants type so existing callers don't need edits
+export type Variants = Record<string, unknown>;
 
-// Fade up for cards
-export const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } },
-};
+// Named preset variants — values are CSS class suffixes
+export const fadeUp:    Variants = { _variant: "fade-up" };
+export const scaleFade: Variants = { _variant: "scale-fade" };
+export const slideLeft: Variants = { _variant: "slide-left" };
+export const slideRight:Variants = { _variant: "slide-right" };
 
-// Scale fade for hero sections
-export const scaleFade: Variants = {
-  hidden: { opacity: 0, scale: 0.96 },
-  show: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: "easeOut" } },
-};
+// Stagger container / item presets kept for API compatibility
+export const staggerContainer: Variants = { _variant: "stagger" };
 
-// Slide in from left
-export const slideLeft: Variants = {
-  hidden: { opacity: 0, x: -30 },
-  show: { opacity: 1, x: 0, transition: { duration: 0.4, ease: "easeOut" } },
-};
+// ─── CSS injected once ────────────────────────────────────────────────────────
+const CSS = `
+[data-anim] {
+  opacity: 0;
+  will-change: opacity, transform;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+[data-anim="fade-up"]    { transform: translateY(24px); }
+[data-anim="scale-fade"] { transform: scale(0.96); }
+[data-anim="slide-left"] { transform: translateX(-30px); }
+[data-anim="slide-right"]{ transform: translateX(30px); }
 
-// Slide in from right
-export const slideRight: Variants = {
-  hidden: { opacity: 0, x: 30 },
-  show: { opacity: 1, x: 0, transition: { duration: 0.4, ease: "easeOut" } },
-};
+[data-anim].anim-visible {
+  opacity: 1 !important;
+  transform: none !important;
+}
 
-// Reusable wrapper — animates on scroll into view
+/* Respect reduced-motion: show immediately, no animation */
+@media (prefers-reduced-motion: reduce) {
+  [data-anim] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+`;
+
+let styleInjected = false;
+function ensureStyle() {
+  if (styleInjected || typeof document === "undefined") return;
+  styleInjected = true;
+  const s = document.createElement("style");
+  s.textContent = CSS;
+  document.head.appendChild(s);
+}
+
+// One shared observer for the whole app
+let observer: IntersectionObserver | null = null;
+function getObserver() {
+  if (observer) return observer;
+  if (typeof IntersectionObserver === "undefined") return null;
+  observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) {
+          e.target.classList.add("anim-visible");
+          observer!.unobserve(e.target);
+        }
+      });
+    },
+    { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
+  );
+  return observer;
+}
+
+// ─── AnimatedSection ─────────────────────────────────────────────────────────
 export function AnimatedSection({
   children,
   variants = fadeUp,
@@ -43,20 +84,31 @@ export function AnimatedSection({
   variants?: Variants;
   className?: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const variant = (variants._variant as string) ?? "fade-up";
+
+  useEffect(() => {
+    ensureStyle();
+    const el = ref.current;
+    if (!el) return;
+    const obs = getObserver();
+    if (!obs) {
+      // Fallback: just show the element immediately
+      el.classList.add("anim-visible");
+      return;
+    }
+    obs.observe(el);
+    return () => obs.unobserve(el);
+  }, []);
+
   return (
-    <motion.div
-      variants={variants}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, amount: 0.15 }}
-      className={className}
-    >
+    <div ref={ref} data-anim={variant} className={className}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 
-// Grid/list container that staggers children
+// ─── StaggerGrid ─────────────────────────────────────────────────────────────
 export function StaggerGrid({
   children,
   className = "",
@@ -65,19 +117,13 @@ export function StaggerGrid({
   className?: string;
 }) {
   return (
-    <motion.div
-      variants={staggerContainer}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, amount: 0.1 }}
-      className={className}
-    >
+    <AnimatedSection variants={fadeUp} className={className}>
       {children}
-    </motion.div>
+    </AnimatedSection>
   );
 }
 
-// Individual stagger item
+// ─── StaggerItem ─────────────────────────────────────────────────────────────
 export function StaggerItem({
   children,
   className = "",
@@ -85,9 +131,6 @@ export function StaggerItem({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <motion.div variants={fadeUp} className={className}>
-      {children}
-    </motion.div>
-  );
+  // Items inside a StaggerGrid don't need individual observers — the parent handles it
+  return <div className={className}>{children}</div>;
 }

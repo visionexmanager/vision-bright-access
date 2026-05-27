@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageSquare, Send, Store, ShoppingCart, X, Plus, ArrowLeft,
   Coins, Crown, Package, Settings, Trash2, ImagePlus, CheckCircle2,
@@ -339,13 +338,13 @@ export default function VXBazaar() {
   return (
     <Layout>
       <div className="min-h-screen overflow-hidden" style={{ background: "linear-gradient(180deg, #0d0a1a 0%, #1a0d2e 40%, #0f1520 100%)" }}>
-        <AnimatePresence mode="wait">
+        <>
 
           {/* ════════════════════════════════════════════════════════════
               STREET VIEW
           ════════════════════════════════════════════════════════════ */}
           {view === "street" && (
-            <motion.div key="street" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="animate-in fade-in duration-300">
 
               {/* Sky + stars */}
               <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -464,11 +463,8 @@ export default function VXBazaar() {
                     {shops.map(shop => {
                       const sign = SIGN_STYLES[shop.sign_style] ?? SIGN_STYLES.neon;
                       return (
-                        <motion.div
-                          key={shop.id}
-                          whileHover={{ y: -6, scale: 1.01 }}
-                          transition={{ type: "spring", stiffness: 300 }}
-                          className="relative min-w-[300px] h-[400px] snap-center flex-shrink-0 cursor-pointer md:min-w-[360px]"
+                        <div
+                          className="relative min-w-[300px] h-[400px] snap-center flex-shrink-0 cursor-pointer md:min-w-[360px] transition-transform hover:-translate-y-1.5 hover:scale-[1.01]"
                           onClick={() => enterShop(shop)}
                           role="button"
                           aria-label={t("bazaar.enterShop").replace("{shop}", shop.name)}
@@ -527,7 +523,7 @@ export default function VXBazaar() {
                               </div>
                             </div>
                           </div>
-                        </motion.div>
+                        </div>
                       );
                     })}
                   </div>
@@ -551,14 +547,14 @@ export default function VXBazaar() {
                   <p className="text-sm">{t("bazaar.loginPrompt")}</p>
                 </div>
               )}
-            </motion.div>
+            </div>
           )}
 
           {/* ════════════════════════════════════════════════════════════
               INSIDE SHOP
           ════════════════════════════════════════════════════════════ */}
           {view === "inside" && activeShop && (
-            <motion.div key="inside" initial={{ scale: 1.04, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }} className="relative min-h-screen">
+            <div className="relative min-h-screen animate-in fade-in zoom-in-95 duration-300">
               <div className="absolute inset-0">
                 <img src={activeShop.bg_image ?? DEFAULT_BG} className="h-full w-full object-cover" alt="" role="presentation" />
                 <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
@@ -616,10 +612,8 @@ export default function VXBazaar() {
                           playSound("points");
                         };
                         return (
-                        <motion.div
-                          key={item.id}
-                          whileHover={{ scale: 1.04 }}
-                          className="rounded-xl bg-white/10 border border-white/20 backdrop-blur-md p-4 text-center"
+                        <div
+                          className="rounded-xl bg-white/10 border border-white/20 backdrop-blur-md p-4 text-center transition-transform hover:scale-[1.04]"
                         >
                           {item.image ? (
                             <img src={item.image} alt={item.name} className="mb-3 h-28 w-full rounded-lg object-cover" />
@@ -640,7 +634,7 @@ export default function VXBazaar() {
                           >
                             <ShoppingCart className="h-3.5 w-3.5" /> {t("market.addToCart")}
                           </button>
-                        </motion.div>
+                        </div>
                         );
                       })}
                     </div>
@@ -659,14 +653,14 @@ export default function VXBazaar() {
                   )}
                 </div>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {/* ════════════════════════════════════════════════════════════
               MANAGE SHOP (owner only)
           ════════════════════════════════════════════════════════════ */}
           {view === "manage" && activeShop && (
-            <motion.div key="manage" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-2xl px-4 py-10">
+            <div className="mx-auto max-w-2xl px-4 py-10 animate-in fade-in slide-in-from-bottom-5 duration-300">
               <div className="mb-6 flex items-center gap-3">
                 <button onClick={() => setView("inside")} className="rounded-full bg-white/10 p-2 hover:bg-white/20">
                   <ArrowLeft className="h-5 w-5" />
@@ -786,22 +780,18 @@ export default function VXBazaar() {
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
           )}
 
           {/* ════════════════════════════════════════════════════════════
               AI CHAT
           ════════════════════════════════════════════════════════════ */}
           {view === "chat" && activeShop && (
-            <motion.div
-              key="chat"
+            <div
               role="dialog"
               aria-modal="true"
               aria-labelledby="chat-dialog-title"
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              className="fixed inset-0 z-50 flex flex-col bg-white text-slate-900 md:inset-x-auto md:bottom-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[500px] md:h-[75vh] md:rounded-t-3xl shadow-2xl"
+              className="fixed inset-0 z-50 flex flex-col bg-white text-slate-900 md:inset-x-auto md:bottom-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[500px] md:h-[75vh] md:rounded-t-3xl shadow-2xl animate-in slide-in-from-bottom duration-300"
             >
               <div className="flex items-center justify-between border-b px-6 py-4">
                 <h3 id="chat-dialog-title" className="font-black flex items-center gap-2 text-lg">
@@ -851,14 +841,14 @@ export default function VXBazaar() {
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {/* ════════════════════════════════════════════════════════════
               CREATE SHOP
           ════════════════════════════════════════════════════════════ */}
           {view === "create" && (
-            <motion.div key="create" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mx-auto max-w-xl px-4 py-10">
+            <div className="mx-auto max-w-xl px-4 py-10 animate-in fade-in slide-in-from-bottom-8 duration-300">
               <div className="mb-8 flex items-center gap-3">
                 <button onClick={() => setView("street")} className="rounded-full bg-white/10 p-2 hover:bg-white/20">
                   <ArrowLeft className="h-5 w-5" />
@@ -1003,10 +993,10 @@ export default function VXBazaar() {
 
                 {!user && <p className="text-center text-xs text-stone-500">{t("bazaar.loginToOpen")}</p>}
               </div>
-            </motion.div>
+            </div>
           )}
 
-        </AnimatePresence>
+        </>
       </div>
     </Layout>
   );
