@@ -30,20 +30,28 @@ interface Shipment {
 }
 
 const DESTINATIONS = [
-  { id: "local", name: "🏙️ Local (50km)", distance: 50, baseCost: 30 },
-  { id: "domestic", name: "🗺️ Domestic (500km)", distance: 500, baseCost: 150 },
-  { id: "continental", name: "🌍 Continental (2000km)", distance: 2000, baseCost: 500 },
-  { id: "overseas", name: "🌊 Overseas (8000km)", distance: 8000, baseCost: 1200 },
+  { id: "local", key: "sim.logistics.destination.local", name: "🏙️ Local (50km)", distance: 50, baseCost: 30 },
+  { id: "domestic", key: "sim.logistics.destination.domestic", name: "🗺️ Domestic (500km)", distance: 500, baseCost: 150 },
+  { id: "continental", key: "sim.logistics.destination.continental", name: "🌍 Continental (2000km)", distance: 2000, baseCost: 500 },
+  { id: "overseas", key: "sim.logistics.destination.overseas", name: "🌊 Overseas (8000km)", distance: 8000, baseCost: 1200 },
 ];
 
 const TRANSPORT_MODES = [
-  { id: "truck", name: "🚚 Truck", icon: <Truck className="h-4 w-4" />, speed: 1, cost: 1, maxWeight: 20, reliability: 0.9 },
-  { id: "rail", name: "🚂 Rail", icon: <Package className="h-4 w-4" />, speed: 0.8, cost: 0.6, maxWeight: 100, reliability: 0.95 },
-  { id: "sea", name: "🚢 Sea Freight", icon: <Ship className="h-4 w-4" />, speed: 0.3, cost: 0.3, maxWeight: 500, reliability: 0.85 },
-  { id: "air", name: "✈️ Air Freight", icon: <Plane className="h-4 w-4" />, speed: 3, cost: 4, maxWeight: 10, reliability: 0.98 },
+  { id: "truck", key: "sim.logistics.transport.truck", name: "🚚 Truck", icon: <Truck className="h-4 w-4" />, speed: 1, cost: 1, maxWeight: 20, reliability: 0.9 },
+  { id: "rail", key: "sim.logistics.transport.rail", name: "🚂 Rail", icon: <Package className="h-4 w-4" />, speed: 0.8, cost: 0.6, maxWeight: 100, reliability: 0.95 },
+  { id: "sea", key: "sim.logistics.transport.sea", name: "🚢 Sea Freight", icon: <Ship className="h-4 w-4" />, speed: 0.3, cost: 0.3, maxWeight: 500, reliability: 0.85 },
+  { id: "air", key: "sim.logistics.transport.air", name: "✈️ Air Freight", icon: <Plane className="h-4 w-4" />, speed: 3, cost: 4, maxWeight: 10, reliability: 0.98 },
 ];
 
-const CARGOS = ["Electronics", "Food & Perishables", "Machinery", "Textiles", "Furniture", "Chemicals"];
+const CARGO_KEYS = [
+  { name: "Electronics", key: "sim.logistics.cargo.electronics" },
+  { name: "Food & Perishables", key: "sim.logistics.cargo.food" },
+  { name: "Machinery", key: "sim.logistics.cargo.machinery" },
+  { name: "Textiles", key: "sim.logistics.cargo.textiles" },
+  { name: "Furniture", key: "sim.logistics.cargo.furniture" },
+  { name: "Chemicals", key: "sim.logistics.cargo.chemicals" },
+];
+const CARGOS = CARGO_KEYS.map((c) => c.name);
 
 function randomShipment(id: number): Shipment {
   const dest = DESTINATIONS[Math.floor(Math.random() * DESTINATIONS.length)];
@@ -128,7 +136,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
     setShipProgress(0);
     playSound("scan");
 
-    const stages = ["📦 Loading cargo...", "🔍 Customs clearance...", `${transport.name} in transit...`, "📍 Approaching destination...", "📋 Delivery confirmation..."];
+    const stages = [t("sim.logistics.stage.loading"), t("sim.logistics.stage.customs"), `${t(transport.key)} ${t("sim.logistics.stage.inTransit")}`, t("sim.logistics.stage.approaching"), t("sim.logistics.stage.delivery")];
     let step = 0;
     const total = 25;
     const interval = setInterval(() => {
@@ -152,7 +160,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
         if (isOnTime) setOnTime((o) => o + 1); else setLate((l) => l + 1);
         if (isDamaged) setDamaged((d) => d + 1);
 
-        const status = isDamaged ? "💥 Damaged" : isOnTime ? "✅ On Time" : "⏰ Late";
+        const status = isDamaged ? t("sim.logistics.status.damaged") : isOnTime ? t("sim.logistics.status.onTime") : t("sim.logistics.status.late");
         setHistory((h) => [...h, { cargo: currentShipment.cargo, dest: dest.name, profit, status }]);
 
         setShipping(false);

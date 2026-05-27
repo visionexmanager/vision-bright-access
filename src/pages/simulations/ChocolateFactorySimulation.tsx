@@ -19,12 +19,14 @@ import { SimulationScene } from "@/components/SimulationScene";
 
 interface Props { simulationId?: string; }
 
+const RECIPE_IDS = ["dark", "milk", "white", "truffle", "hazelnut"] as const;
+
 const RECIPES = [
-  { id: "dark", name: "🍫 Dark Chocolate", cocoa: 70, sugar: 15, milk: 5, sellPrice: 8, idealTemp: 32 },
-  { id: "milk", name: "🥛 Milk Chocolate", cocoa: 40, sugar: 25, milk: 25, sellPrice: 6, idealTemp: 30 },
-  { id: "white", name: "🤍 White Chocolate", cocoa: 0, sugar: 30, milk: 40, sellPrice: 7, idealTemp: 28 },
-  { id: "truffle", name: "🟤 Truffle Deluxe", cocoa: 60, sugar: 10, milk: 15, sellPrice: 15, idealTemp: 31 },
-  { id: "hazelnut", name: "🌰 Hazelnut Praline", cocoa: 50, sugar: 20, milk: 10, sellPrice: 12, idealTemp: 29 },
+  { id: "dark", cocoa: 70, sugar: 15, milk: 5, sellPrice: 8, idealTemp: 32 },
+  { id: "milk", cocoa: 40, sugar: 25, milk: 25, sellPrice: 6, idealTemp: 30 },
+  { id: "white", cocoa: 0, sugar: 30, milk: 40, sellPrice: 7, idealTemp: 28 },
+  { id: "truffle", cocoa: 60, sugar: 10, milk: 15, sellPrice: 15, idealTemp: 31 },
+  { id: "hazelnut", cocoa: 50, sugar: 20, milk: 10, sellPrice: 12, idealTemp: 29 },
 ];
 
 export function ChocolateFactorySimulation({ simulationId }: Props) {
@@ -86,13 +88,22 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
     return Math.max(0, Math.min(100, q));
   };
 
+  const getStages = () => [
+    t("sim.choco.stage.meltingCocoa"),
+    t("sim.choco.stage.mixingIngredients"),
+    t("sim.choco.stage.tempering"),
+    t("sim.choco.stage.molding"),
+    t("sim.choco.stage.cooling"),
+    t("sim.choco.stage.packaging"),
+  ];
+
   const startProduction = () => {
     if (producing) return;
     setProducing(true);
     setProdProgress(0);
     playSound("cooking");
 
-    const stages = ["Melting cocoa...", "Mixing ingredients...", "Tempering...", "Molding...", "Cooling...", "Packaging..."];
+    const stages = getStages();
     let step = 0;
     const totalSteps = 30;
 
@@ -120,7 +131,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
         setProducing(false);
         setProdProgress(0);
         playSound("ding");
-        toast.success(`🍫 Batch ${batch} done! Quality: ${quality}% | ${goodBars}/${batchSize} good bars`);
+        toast.success(t("sim.choco.batchComplete").replace("{n}", String(batch)).replace("{quality}", String(quality)).replace("{good}", String(goodBars)).replace("{total}", String(batchSize)));
 
         if (batch >= totalBatches) {
           finishGame(quality);
@@ -157,41 +168,43 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
     setPackaging("basic");
   };
 
+  const recipeNameKey = (id: string) => `sim.choco.recipe.${id}` as const;
+
   if (finished) {
     return (
       <Card className="max-w-lg mx-auto animate-in fade-in">
         <CardContent className="p-8 text-center space-y-4">
           <Trophy className="mx-auto h-16 w-16 text-primary" />
-          <h2 className="text-2xl font-bold">🏭 Factory Report</h2>
+          <h2 className="text-2xl font-bold">{t("sim.choco.report.title")}</h2>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-green-500/10 p-3">
               <p className="text-2xl font-bold text-green-500">${revenue}</p>
-              <p className="text-xs text-muted-foreground">Revenue</p>
+              <p className="text-xs text-muted-foreground">{t("sim.choco.report.revenue")}</p>
             </div>
             <div className="rounded-xl bg-red-500/10 p-3">
               <p className="text-2xl font-bold text-red-500">${costs}</p>
-              <p className="text-xs text-muted-foreground">Costs</p>
+              <p className="text-xs text-muted-foreground">{t("sim.choco.report.costs")}</p>
             </div>
             <div className="rounded-xl bg-primary/10 p-3">
               <p className="text-2xl font-bold text-primary">{qualityScore}%</p>
-              <p className="text-xs text-muted-foreground">Avg Quality</p>
+              <p className="text-xs text-muted-foreground">{t("sim.choco.report.avgQuality")}</p>
             </div>
             <div className="rounded-xl bg-yellow-500/10 p-3">
               <p className="text-2xl font-bold text-yellow-500">{score}</p>
-              <p className="text-xs text-muted-foreground">Score</p>
+              <p className="text-xs text-muted-foreground">{t("sim.choco.report.score")}</p>
             </div>
           </div>
           <div className="text-start space-y-1">
             {batches.map((b, i) => (
               <div key={i} className="flex justify-between text-sm p-1 rounded bg-muted/30">
-                <span>Batch {i + 1}: {b.recipe}</span>
+                <span>{t("sim.choco.report.batchRow").replace("{n}", String(i + 1)).replace("{recipe}", t(recipeNameKey(b.recipe)))}</span>
                 <span className={b.profit > 0 ? "text-green-500" : "text-red-500"}>
                   Q:{b.quality}% | ${b.profit}
                 </span>
               </div>
             ))}
           </div>
-          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />Play Again</Button>
+          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.choco.report.playAgain")}</Button>
         </CardContent>
       </Card>
     );
@@ -199,13 +212,13 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <SimulationScene slug="chocolate-factory" isActive={batchStarted} isComplete={finished} />
+      <SimulationScene slug="chocolate-factory" isActive={batch > 1 || producing} isComplete={finished} />
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">🏭 Batch {batch}/{totalBatches}</h2>
+        <h2 className="text-lg font-bold">{t("sim.choco.round").replace("{batch}", String(batch)).replace("{total}", String(totalBatches))}</h2>
         <div className="flex gap-2">
-          <Badge variant="secondary" role="status" aria-live="polite">${revenue - costs} profit</Badge>
-          <Badge variant="outline">Q: {qualityScore}%</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite">{t("sim.choco.profitBadge").replace("{profit}", String(revenue - costs))}</Badge>
+          <Badge variant="outline">{t("sim.choco.qualityBadge").replace("{quality}", String(qualityScore))}</Badge>
         </div>
       </div>
       <Progress value={(batch / totalBatches) * 100} className="h-2" />
@@ -226,16 +239,16 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
       {!producing && (
         <Card>
           <CardContent className="p-4 space-y-4">
-            <h3 className="font-bold text-sm">🍫 Production Controls</h3>
+            <h3 className="font-bold text-sm">{t("sim.choco.productionControls")}</h3>
 
             {/* Recipe */}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Recipe</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.choco.recipeLabel")}</label>
               <Select value={selectedRecipe.id} onValueChange={(v) => setSelectedRecipe(RECIPES.find((r) => r.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {RECIPES.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name} (sells @${r.sellPrice})</SelectItem>
+                    <SelectItem key={r.id} value={r.id}>{t(recipeNameKey(r.id))} (sells @${r.sellPrice})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -244,7 +257,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
             {/* Batch Size */}
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
-                Batch Size: {batchSize} bars (cost: ${Math.round(ingredientCost)})
+                {t("sim.choco.batchSizeLabel").replace("{count}", String(batchSize)).replace("{cost}", String(Math.round(ingredientCost)))}
               </label>
               <Slider value={[batchSize]} onValueChange={([v]) => setBatchSize(v)} min={20} max={200} step={10} />
             </div>
@@ -253,9 +266,9 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
             <div>
               <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                 <Thermometer className="h-3 w-3" />
-                Temperature: {temperature}°C
+                {t("sim.choco.temperatureLabel").replace("{temp}", String(temperature))}
                 <span className={`text-xs ml-1 ${Math.abs(temperature - selectedRecipe.idealTemp) <= 1 ? "text-green-500" : Math.abs(temperature - selectedRecipe.idealTemp) <= 3 ? "text-yellow-500" : "text-red-500"}`}>
-                  (ideal: {selectedRecipe.idealTemp}°C)
+                  {t("sim.choco.idealTemp").replace("{temp}", String(selectedRecipe.idealTemp))}
                 </span>
               </label>
               <Slider value={[temperature]} onValueChange={([v]) => setTemperature(v)} min={20} max={45} step={0.5} />
@@ -264,37 +277,37 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
             {/* Mix Time */}
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
-                Mix Time: {mixTime} min (sweet spot: 4-6 min)
+                {t("sim.choco.mixTimeLabel").replace("{time}", String(mixTime))}
               </label>
               <Slider value={[mixTime]} onValueChange={([v]) => setMixTime(v)} min={1} max={12} step={1} />
             </div>
 
             {/* Packaging */}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Packaging (${ packagingCost}/bar)</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.choco.packagingLabel")} (${packagingCost}/bar)</label>
               <Select value={packaging} onValueChange={(v: any) => setPackaging(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="basic">📦 Basic ($0.50)</SelectItem>
-                  <SelectItem value="premium">🎁 Premium ($1.50)</SelectItem>
-                  <SelectItem value="luxury">✨ Luxury ($3.00)</SelectItem>
+                  <SelectItem value="basic">{t("sim.choco.packaging.basic")}</SelectItem>
+                  <SelectItem value="premium">{t("sim.choco.packaging.premium")}</SelectItem>
+                  <SelectItem value="luxury">{t("sim.choco.packaging.luxury")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Cost preview */}
             <div className="p-3 rounded-lg bg-muted/50 text-xs space-y-1">
-              <div className="flex justify-between"><span>Ingredients:</span><span>${Math.round(ingredientCost)}</span></div>
-              <div className="flex justify-between"><span>Packaging:</span><span>${Math.round(packagingCost * batchSize)}</span></div>
+              <div className="flex justify-between"><span>{t("sim.choco.costs.ingredients")}</span><span>${Math.round(ingredientCost)}</span></div>
+              <div className="flex justify-between"><span>{t("sim.choco.costs.packaging")}</span><span>${Math.round(packagingCost * batchSize)}</span></div>
               <div className="flex justify-between font-bold border-t border-border pt-1">
-                <span>Total Cost:</span><span>${Math.round(ingredientCost + packagingCost * batchSize)}</span>
+                <span>{t("sim.choco.costs.total")}</span><span>${Math.round(ingredientCost + packagingCost * batchSize)}</span>
               </div>
               <div className="flex justify-between text-green-500">
-                <span>Max Revenue (100% quality):</span><span>${Math.round(batchSize * selectedRecipe.sellPrice)}</span>
+                <span>{t("sim.choco.costs.maxRevenue")}</span><span>${Math.round(batchSize * selectedRecipe.sellPrice)}</span>
               </div>
             </div>
 
-            <Button onClick={startProduction} className="w-full" aria-label="Start Production">🔥 Start Production</Button>
+            <Button onClick={startProduction} className="w-full" aria-label={t("sim.choco.btn.startProduction")}>{t("sim.choco.btn.startProduction")}</Button>
           </CardContent>
         </Card>
       )}
@@ -303,10 +316,10 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
       {batches.length > 0 && (
         <Card>
           <CardContent className="p-3">
-            <h3 className="font-bold text-xs mb-2">📊 Batch History</h3>
+            <h3 className="font-bold text-xs mb-2">{t("sim.choco.history.title")}</h3>
             {batches.map((b, i) => (
               <div key={i} className="flex justify-between text-xs py-1 border-b border-border last:border-0">
-                <span>#{i + 1} {b.recipe}</span>
+                <span>#{i + 1} {t(recipeNameKey(b.recipe))}</span>
                 <span className={b.profit > 0 ? "text-green-500" : "text-red-500"}>
                   Q:{b.quality}% | {b.profit > 0 ? "+" : ""}${b.profit}
                 </span>
@@ -316,8 +329,8 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
         </Card>
       )}
       <SimulationMentor
-        simulationTitle="Chocolate Factory"
-        currentStepTitle={finished ? "Results" : producing ? prodStage : `Batch ${batch}/${totalBatches}`}
+        simulationTitle={t("sim.choco.report.title")}
+        currentStepTitle={finished ? t("sim.choco.complete") : producing ? prodStage : t("sim.choco.round").replace("{batch}", String(batch)).replace("{total}", String(totalBatches))}
       />
     </div>
   );

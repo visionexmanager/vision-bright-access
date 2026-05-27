@@ -101,7 +101,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
     setCowHealth(m.health);
     setRevenue(m.dailyRevenue);
     setCosts(m.dailyCost);
-    setEvents([`Day 1: Production started with ${herdSize} cows`]);
+    setEvents([t("sim.dairyfarm.event.started").replace("{count}", String(herdSize))]);
   };
 
   const advanceDay = () => {
@@ -117,20 +117,20 @@ export function DairyFarmSimulation({ simulationId }: Props) {
     let costBonus = 0;
 
     if (rand < 0.15) {
-      eventMsg = `Day ${newDay}: 🌡️ Heat wave — milk yield dropped 10%`;
+      eventMsg = t("sim.dairyfarm.event.heatWave").replace("{day}", String(newDay));
       m.yield_ = Math.round(m.yield_ * 0.9);
       m.health = Math.max(40, m.health - 10);
     } else if (rand < 0.25) {
-      eventMsg = `Day ${newDay}: 📈 Market demand surge — prices up 20%`;
+      eventMsg = t("sim.dairyfarm.event.demandSurge").replace("{day}", String(newDay));
       revenueBonus = Math.round(m.dailyRevenue * 0.2);
     } else if (rand < 0.35) {
-      eventMsg = `Day ${newDay}: 🔧 Equipment maintenance needed`;
+      eventMsg = t("sim.dairyfarm.event.maintenance").replace("{day}", String(newDay));
       costBonus = 80;
     } else if (rand < 0.45) {
-      eventMsg = `Day ${newDay}: 🏆 Quality inspection passed — bonus $50`;
+      eventMsg = t("sim.dairyfarm.event.inspection").replace("{day}", String(newDay));
       revenueBonus = 50;
     } else {
-      eventMsg = `Day ${newDay}: Normal operations`;
+      eventMsg = t("sim.dairyfarm.event.normal").replace("{day}", String(newDay));
     }
 
     setDailyYield(m.yield_);
@@ -194,26 +194,26 @@ export function DairyFarmSimulation({ simulationId }: Props) {
         <Card className="border-green-500/40 bg-green-500/10">
           <CardContent className="pt-6 text-center space-y-4">
             <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
-            <h2 className="text-2xl font-bold">Dairy Farm Complete!</h2>
+            <h2 className="text-2xl font-bold">{t("sim.dairyfarm.results.title")}</h2>
             <p className="text-4xl font-bold text-primary">{score} pts</p>
             <div className="grid grid-cols-2 gap-4 text-sm max-w-md mx-auto">
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Revenue</p><p className="text-lg font-bold text-green-500">${revenue}</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Profit</p><p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.dairyfarm.metric.revenue")}</p><p className="text-lg font-bold text-green-500">${revenue}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.dairyfarm.metric.profit")}</p><p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p></div>
             </div>
           </CardContent>
         </Card>
-        <FinancialBar title="📊 7-Day Financial Summary" data={[
-          { label: "Revenue", value: revenue, color: "hsl(142 71% 45%)" },
-          { label: "Costs", value: costs, color: "hsl(0 84% 60%)" },
-          { label: "Profit", value: Math.max(0, profit), color: "hsl(var(--primary))" },
+        <FinancialBar title={t("sim.dairyfarm.chart.financialSummary")} data={[
+          { label: t("sim.dairyfarm.metric.revenue"), value: revenue, color: "hsl(142 71% 45%)" },
+          { label: t("sim.dairyfarm.metric.costs"), value: costs, color: "hsl(0 84% 60%)" },
+          { label: t("sim.dairyfarm.metric.profit"), value: Math.max(0, profit), color: "hsl(var(--primary))" },
         ]} />
-        <PerformanceRadar title="🐄 Farm Performance" data={[
-          { metric: "Milk Quality", value: milkQuality },
-          { metric: "Cow Health", value: cowHealth },
-          { metric: "Yield", value: Math.min(100, Math.round(dailyYield / herdSize * 3)) },
-          { metric: "Profitability", value: Math.min(100, Math.max(0, Math.round((profit / Math.max(1, revenue)) * 100))) },
+        <PerformanceRadar title={t("sim.dairyfarm.chart.performance")} data={[
+          { metric: t("sim.dairyfarm.metric.milkQuality"), value: milkQuality },
+          { metric: t("sim.dairyfarm.metric.cowHealth"), value: cowHealth },
+          { metric: t("sim.dairyfarm.metric.yield"), value: Math.min(100, Math.round(dailyYield / herdSize * 3)) },
+          { metric: t("sim.dairyfarm.metric.profitability"), value: Math.min(100, Math.max(0, Math.round((profit / Math.max(1, revenue)) * 100))) },
         ]} />
-        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> {t("sim.dairyfarm.btn.playAgain")}</Button>
       </div>
     );
   }
@@ -223,9 +223,9 @@ export function DairyFarmSimulation({ simulationId }: Props) {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold flex items-center gap-2">
-            <Milk className="h-6 w-6 text-primary" /> Day {day}/7
+            <Milk className="h-6 w-6 text-primary" /> {t("sim.dairyfarm.label.dayHeader").replace("{day}", String(day))}
           </h2>
-          <Badge variant="secondary" role="status" aria-live="polite">Score: {score}</Badge>
+          <Badge variant="secondary" role="status" aria-live="polite">{t("sim.noc.score")}: {score}</Badge>
         </div>
 
         <Progress value={(day / 7) * 100} className="h-3" />
@@ -236,28 +236,28 @@ export function DairyFarmSimulation({ simulationId }: Props) {
             <CardContent className="pt-4 text-center">
               <DollarSign className="h-5 w-5 mx-auto text-green-500" />
               <p className="text-lg font-bold text-green-500">${revenue}</p>
-              <p className="text-xs text-muted-foreground">Revenue</p>
+              <p className="text-xs text-muted-foreground">{t("sim.dairyfarm.metric.revenue")}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4 text-center">
               <TrendingUp className="h-5 w-5 mx-auto text-destructive" />
               <p className="text-lg font-bold text-destructive">${costs}</p>
-              <p className="text-xs text-muted-foreground">Costs</p>
+              <p className="text-xs text-muted-foreground">{t("sim.dairyfarm.metric.costs")}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4 text-center">
               <Droplets className="h-5 w-5 mx-auto text-blue-500" />
               <p className="text-lg font-bold">{dailyYield}L</p>
-              <p className="text-xs text-muted-foreground">Daily Yield</p>
+              <p className="text-xs text-muted-foreground">{t("sim.dairyfarm.card.dailyYield")}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4 text-center">
               <Heart className="h-5 w-5 mx-auto text-pink-500" />
               <p className="text-lg font-bold">{cowHealth}%</p>
-              <p className="text-xs text-muted-foreground">Cow Health</p>
+              <p className="text-xs text-muted-foreground">{t("sim.dairyfarm.card.cowHealth")}</p>
             </CardContent>
           </Card>
         </div>
@@ -266,12 +266,12 @@ export function DairyFarmSimulation({ simulationId }: Props) {
         <Card>
           <CardContent className="pt-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Milk Quality</span>
+              <span>{t("sim.dairyfarm.card.milkQuality")}</span>
               <span className="font-bold">{milkQuality}%</span>
             </div>
             <Progress value={milkQuality} className="h-2" />
             <div className="flex justify-between text-sm">
-              <span>Profit</span>
+              <span>{t("sim.dairyfarm.metric.profit")}</span>
               <span className={`font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</span>
             </div>
           </CardContent>
@@ -288,8 +288,8 @@ export function DairyFarmSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
 
-        <Button onClick={advanceDay} className="w-full text-base" size="lg" disabled={day >= 7} aria-label={day < 7 ? `Advance to Day ${day + 1}` : "Finishing..."}>
-          {day < 7 ? `Advance to Day ${day + 1}` : "Finishing..."}
+        <Button onClick={advanceDay} className="w-full text-base" size="lg" disabled={day >= 7} aria-label={day < 7 ? t("sim.dairyfarm.btn.advanceDay").replace("{day}", String(day + 1)) : t("sim.dairyfarm.btn.finishing")}>
+          {day < 7 ? t("sim.dairyfarm.btn.advanceDay").replace("{day}", String(day + 1)) : t("sim.dairyfarm.btn.finishing")}
         </Button>
       </div>
     );
@@ -298,36 +298,36 @@ export function DairyFarmSimulation({ simulationId }: Props) {
   // Setup stage
   return (
     <div className="space-y-6">
-      <SimulationScene slug="dairy-farm" isActive={score > 0} isComplete={score > 0 && week >= totalWeeks} />
+      <SimulationScene slug="dairy-farm" isActive={score > 0} isComplete={stage === "results"} />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2">
-          <Milk className="h-6 w-6 text-primary" /> Dairy Farm Setup
+          <Milk className="h-6 w-6 text-primary" /> {t("sim.dairyfarm.setupTitle")}
         </h2>
       </div>
-      <p className="text-sm text-muted-foreground">Configure your dairy farm. Your decisions will affect milk yield, quality, costs, and profit over 7 days.</p>
+      <p className="text-sm text-muted-foreground">{t("sim.dairyfarm.setupDescription")}</p>
 
       {/* Herd Size */}
       <Card>
         <CardContent className="pt-6 space-y-3">
           <div className="flex justify-between">
-            <span className="font-medium">🐄 Herd Size</span>
+            <span className="font-medium">🐄 {t("sim.dairyfarm.label.herdSize")}</span>
             <Badge variant="outline">{herdSize} cows</Badge>
           </div>
           <Slider value={[herdSize]} onValueChange={([v]) => setHerdSize(v)} min={10} max={50} step={5} />
-          <p className="text-xs text-muted-foreground">More cows = more yield but higher feed & labor costs</p>
+          <p className="text-xs text-muted-foreground">{t("sim.dairyfarm.hint.herdSize")}</p>
         </CardContent>
       </Card>
 
       {/* Feed Quality */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <span className="font-medium">🌾 Feed Quality</span>
+          <span className="font-medium">🌾 {t("sim.dairyfarm.label.feedQuality")}</span>
           <Select value={feedQuality} onValueChange={(v: any) => setFeedQuality(v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="economy">Economy — Low cost, lower yield</SelectItem>
-              <SelectItem value="standard">Standard — Balanced</SelectItem>
-              <SelectItem value="premium">Premium — High yield, high cost</SelectItem>
+              <SelectItem value="economy">{t("sim.dairyfarm.feed.economy")}</SelectItem>
+              <SelectItem value="standard">{t("sim.dairyfarm.feed.standard")}</SelectItem>
+              <SelectItem value="premium">{t("sim.dairyfarm.feed.premium")}</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
@@ -338,12 +338,12 @@ export function DairyFarmSimulation({ simulationId }: Props) {
         <CardContent className="pt-6 space-y-3">
           <div className="flex justify-between">
             <span className="font-medium flex items-center gap-1">
-              <Thermometer className="h-4 w-4 text-destructive" /> Pasteurization Temp
+              <Thermometer className="h-4 w-4 text-destructive" /> {t("sim.dairyfarm.label.pasteurization")}
             </span>
             <Badge variant={pasteurizationTemp === 72 ? "default" : "outline"}>{pasteurizationTemp}°C</Badge>
           </div>
           <Slider value={[pasteurizationTemp]} onValueChange={([v]) => setPasteurizationTemp(v)} min={60} max={90} step={1} />
-          <p className="text-xs text-muted-foreground">72°C is ideal. Too low = bacteria risk. Too high = nutrient loss.</p>
+          <p className="text-xs text-muted-foreground">{t("sim.dairyfarm.hint.pasteurization")}</p>
         </CardContent>
       </Card>
 
@@ -351,24 +351,24 @@ export function DairyFarmSimulation({ simulationId }: Props) {
       <Card>
         <CardContent className="pt-6 space-y-3">
           <div className="flex justify-between">
-            <span className="font-medium">❄️ Cooling Target</span>
+            <span className="font-medium">❄️ {t("sim.dairyfarm.label.cooling")}</span>
             <Badge variant={coolingTarget === 4 ? "default" : "outline"}>{coolingTarget}°C</Badge>
           </div>
           <Slider value={[coolingTarget]} onValueChange={([v]) => setCoolingTarget(v)} min={1} max={10} step={1} />
-          <p className="text-xs text-muted-foreground">4°C is ideal for safe storage</p>
+          <p className="text-xs text-muted-foreground">{t("sim.dairyfarm.hint.cooling")}</p>
         </CardContent>
       </Card>
 
       {/* Product Type */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <span className="font-medium">🧀 Product Type</span>
+          <span className="font-medium">🧀 {t("sim.dairyfarm.label.productType")}</span>
           <Select value={productType} onValueChange={(v: any) => setProductType(v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="milk">Fresh Milk — $1.2/L, easy processing</SelectItem>
-              <SelectItem value="yogurt">Yogurt — $2.5/L, medium processing</SelectItem>
-              <SelectItem value="cheese">Cheese — $4.0/L, high processing cost</SelectItem>
+              <SelectItem value="milk">{t("sim.dairyfarm.product.freshMilk")}</SelectItem>
+              <SelectItem value="yogurt">{t("sim.dairyfarm.product.yogurt")}</SelectItem>
+              <SelectItem value="cheese">{t("sim.dairyfarm.product.cheese")}</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
@@ -377,25 +377,25 @@ export function DairyFarmSimulation({ simulationId }: Props) {
       {/* Preview metrics */}
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="pt-4">
-          <p className="text-sm font-medium mb-2">📊 Estimated Daily Metrics:</p>
+          <p className="text-sm font-medium mb-2">📊 {t("sim.dairyfarm.section.estimatedMetrics")}</p>
           {(() => {
             const m = calcMetrics();
             return (
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <span>Yield: <strong>{m.yield_}L/day</strong></span>
-                <span>Quality: <strong>{m.quality}%</strong></span>
-                <span>Revenue: <strong className="text-green-500">${m.dailyRevenue}/day</strong></span>
-                <span>Costs: <strong className="text-destructive">${m.dailyCost}/day</strong></span>
+                <span>{t("sim.dairyfarm.metric.yield")}: <strong>{m.yield_}L/day</strong></span>
+                <span>{t("sim.dairyfarm.metric.milkQuality")}: <strong>{m.quality}%</strong></span>
+                <span>{t("sim.dairyfarm.metric.revenue")}: <strong className="text-green-500">${m.dailyRevenue}/day</strong></span>
+                <span>{t("sim.dairyfarm.metric.costs")}: <strong className="text-destructive">${m.dailyCost}/day</strong></span>
               </div>
             );
           })()}
         </CardContent>
       </Card>
 
-            <SimulationMentor simulationTitle="Dairy Farm" currentStepTitle="" />
+            <SimulationMentor simulationTitle={t("sim.dairyfarm.setupTitle")} currentStepTitle="" />
 
       <Button onClick={startProduction} className="w-full text-base" size="lg" aria-label="Start 7-Day Production">
-        🚀 Start 7-Day Production
+        {t("sim.dairyfarm.btn.startProduction")}
       </Button>
     </div>
   );

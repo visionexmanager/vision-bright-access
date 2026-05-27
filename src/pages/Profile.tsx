@@ -165,7 +165,7 @@ export default function Profile() {
     { icon: Target, label: t("profile.statsSimulations"), value: stats?.completedSimulations ?? 0, sub: `/ ${stats?.totalSimulations ?? 0}`, color: "text-blue-500" },
     { icon: Star, label: t("profile.statsPoints"), value: totalPoints, sub: "", color: "text-yellow-500" },
     { icon: Trophy, label: t("profile.statsAchievements"), value: unlocked.size, sub: `/ ${ACHIEVEMENTS.length}`, color: "text-amber-500" },
-    { icon: Flame, label: t("profile.statsLevel"), value: `Lv.${level}`, sub: stageIcon, color: "text-orange-500" },
+    { icon: Flame, label: t("profile.statsLevel"), value: `${t("profile.levelPrefix") || "Lv."}${level}`, sub: stageIcon, color: "text-orange-500" },
     { icon: Users, label: t("profile.statsRooms"), value: stats?.activeRooms ?? 0, sub: "", color: "text-emerald-500" },
     { icon: BookOpen, label: t("profile.statsMeals"), value: stats?.mealsLogged ?? 0, sub: "", color: "text-purple-500" },
   ];

@@ -8,10 +8,10 @@ import newsImg from "@/assets/news-illustration.jpg";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
 const NEWS_ITEMS = [
-  { icon: <Cpu className="h-6 w-6 text-primary" />, titleKey: "news.item1.title", descKey: "news.item1.desc", category: "Technology", date: "2026-04-08" },
-  { icon: <Accessibility className="h-6 w-6 text-primary" />, titleKey: "news.item2.title", descKey: "news.item2.desc", category: "Accessibility", date: "2026-04-07" },
-  { icon: <Brain className="h-6 w-6 text-primary" />, titleKey: "news.item3.title", descKey: "news.item3.desc", category: "AI", date: "2026-04-05" },
-  { icon: <Globe className="h-6 w-6 text-primary" />, titleKey: "news.item4.title", descKey: "news.item4.desc", category: "Community", date: "2026-04-03" },
+  { icon: <Cpu className="h-6 w-6 text-primary" />, titleKey: "news.item1.title", descKey: "news.item1.desc", categoryKey: "news.cat.technology", date: "2026-04-08" },
+  { icon: <Accessibility className="h-6 w-6 text-primary" />, titleKey: "news.item2.title", descKey: "news.item2.desc", categoryKey: "news.cat.accessibility", date: "2026-04-07" },
+  { icon: <Brain className="h-6 w-6 text-primary" />, titleKey: "news.item3.title", descKey: "news.item3.desc", categoryKey: "news.cat.ai", date: "2026-04-05" },
+  { icon: <Globe className="h-6 w-6 text-primary" />, titleKey: "news.item4.title", descKey: "news.item4.desc", categoryKey: "news.cat.community", date: "2026-04-03" },
 ];
 
 export default function News() {
@@ -43,7 +43,7 @@ export default function News() {
                   <div className="flex-1">
                     <CardTitle className="text-lg">{t(item.titleKey)}</CardTitle>
                     <CardDescription className="flex items-center gap-2">
-                      <Badge variant="outline">{item.category}</Badge>
+                      <Badge variant="outline">{t(item.categoryKey)}</Badge>
                       <span>{item.date}</span>
                     </CardDescription>
                   </div>

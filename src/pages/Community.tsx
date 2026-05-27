@@ -67,6 +67,7 @@ function useCountdown(targetISO: string | null) {
 function CountdownBadge({ targetISO, onExpire }: { targetISO: string; onExpire?: () => void }) {
   const rem = useCountdown(targetISO);
   const expiredRef = useRef(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (!rem && !expiredRef.current) {
@@ -75,7 +76,7 @@ function CountdownBadge({ targetISO, onExpire }: { targetISO: string; onExpire?:
     }
   }, [rem, onExpire]);
 
-  if (!rem) return <Badge className="gap-1 bg-emerald-500 text-white animate-pulse"><Bell className="h-3 w-3" /> Opening…</Badge>;
+  if (!rem) return <Badge className="gap-1 bg-emerald-500 text-white animate-pulse"><Bell className="h-3 w-3" /> {t("community.opening") || "Opening…"}</Badge>;
 
   const parts = [];
   if (rem.d > 0) parts.push(`${rem.d}d`);

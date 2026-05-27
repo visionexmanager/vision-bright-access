@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useScreenReader } from "@/hooks/useScreenReader";
@@ -18,21 +19,22 @@ import { SimulationScene } from "@/components/SimulationScene";
 interface Props { simulationId?: string; }
 
 const INSTRUMENTS = [
-  { id: "piano",  name: "🎹 Piano",  demand: 90, cost: 8000,  weeks: 12 },
-  { id: "guitar", name: "🎸 Guitar", demand: 80, cost: 3000,  weeks: 10 },
-  { id: "violin", name: "🎻 Violin", demand: 60, cost: 5000,  weeks: 16 },
-  { id: "drums",  name: "🥁 Drums",  demand: 70, cost: 4000,  weeks: 8  },
+  { id: "piano",  nameKey: "sim.music.instrument.piano",  demand: 90, cost: 8000,  weeks: 12 },
+  { id: "guitar", nameKey: "sim.music.instrument.guitar", demand: 80, cost: 3000,  weeks: 10 },
+  { id: "violin", nameKey: "sim.music.instrument.violin", demand: 60, cost: 5000,  weeks: 16 },
+  { id: "drums",  nameKey: "sim.music.instrument.drums",  demand: 70, cost: 4000,  weeks: 8  },
 ];
 
 const TEACHING_STYLES = [
-  { id: "classical", name: "🎼 Classical Theory",   retention: 0.85, progress: 0.7 },
-  { id: "practical", name: "🎵 Practical Playing",  retention: 0.75, progress: 0.9 },
-  { id: "mixed",     name: "🎶 Mixed Approach",     retention: 0.80, progress: 0.8 },
+  { id: "classical", nameKey: "sim.music.style.classical",  retention: 0.85, progress: 0.7 },
+  { id: "practical", nameKey: "sim.music.style.practical",  retention: 0.75, progress: 0.9 },
+  { id: "mixed",     nameKey: "sim.music.style.mixed",      retention: 0.80, progress: 0.8 },
 ];
 
 const WEEKS = 12;
 
 export function MusicTrainingSimulation({ simulationId }: Props) {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const { playSound } = useGameAudio();
   const { announce, announceUrgent } = useScreenReader();
@@ -81,7 +83,7 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
     setWeek(1);
     setStarted(true);
     playSound("scan");
-    toast.success(`🎵 ${instrument.name} academy started with ${groupSize} students!`);
+    toast.success(t("sim.music.academyStarted").replace("{instrument}", t(instrument.nameKey as any)).replace("{count}", String(groupSize)));
   };
 
   const simulateWeek = () => {
@@ -121,9 +123,9 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
         playSound("ding");
 
         if (dropout > 0)
-          toast.error(`😢 1 student dropped out. Remaining: ${newStudents}`);
+          toast.error(t("sim.music.studentDropout").replace("{count}", String(newStudents)));
         else
-          toast.success(`Week ${week} ✅ Skill: ${newSkill}% | Earned $${weekEarned}`);
+          toast.success(t("sim.music.weekComplete").replace("{week}", String(week)).replace("{skill}", String(newSkill)).replace("{earned}", String(weekEarned)));
 
         if (week >= WEEKS) {
           const finalScore = Math.max(0, Math.round(newSkill + (newStudents / groupSize) * 50 + (revenue - costs) / 100));
@@ -152,20 +154,20 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
         <Card>
           <CardContent className="p-8 text-center space-y-4">
             <Trophy className="mx-auto h-16 w-16 text-primary" />
-            <h2 className="text-2xl font-bold">🎵 Recital Report</h2>
+            <h2 className="text-2xl font-bold">{t("sim.music.report.title")}</h2>
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-purple-500/10 p-3"><p className="text-2xl font-bold text-purple-500">{skill}%</p><p className="text-xs text-muted-foreground">Avg Skill</p></div>
-              <div className="rounded-xl bg-blue-500/10 p-3"><p className="text-2xl font-bold text-blue-500">{students}/{groupSize}</p><p className="text-xs text-muted-foreground">Students Left</p></div>
+              <div className="rounded-xl bg-purple-500/10 p-3"><p className="text-2xl font-bold text-purple-500">{skill}%</p><p className="text-xs text-muted-foreground">{t("sim.music.report.avgSkill")}</p></div>
+              <div className="rounded-xl bg-blue-500/10 p-3"><p className="text-2xl font-bold text-blue-500">{students}/{groupSize}</p><p className="text-xs text-muted-foreground">{t("sim.music.report.studentsLeft")}</p></div>
               <div className={`rounded-xl p-3 ${netProfit >= 0 ? "bg-green-500/10" : "bg-red-500/10"}`}>
                 <p className={`text-2xl font-bold ${netProfit >= 0 ? "text-green-500" : "text-red-500"}`}>${netProfit.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">Net Profit</p>
+                <p className="text-xs text-muted-foreground">{t("sim.music.report.netProfit")}</p>
               </div>
-              <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">{score}</p><p className="text-xs text-muted-foreground">Score</p></div>
+              <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">{score}</p><p className="text-xs text-muted-foreground">{t("sim.music.report.score")}</p></div>
             </div>
-            <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />Play Again</Button>
+            <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.music.btn.playAgain")}</Button>
           </CardContent>
         </Card>
-        <SimulationMentor simulationTitle="Music Training Studio" currentStepTitle="Results" />
+        <SimulationMentor simulationTitle={t("sim.music.title")} currentStepTitle={t("sim.music.report.title")} />
       </div>
     );
   }
@@ -176,11 +178,11 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold flex items-center gap-2">
           <Music className="h-5 w-5 text-primary" />
-          {started ? `Week ${week}/${WEEKS}` : "Academy Setup"}
+          {started ? t("sim.music.weekHeader").replace("{week}", String(week)).replace("{total}", String(WEEKS)) : t("sim.music.setupHeader")}
         </h2>
         {started && (
           <div className="flex gap-2">
-            <Badge variant="secondary" role="status" aria-live="polite">🎵 {students} students</Badge>
+            <Badge variant="secondary" role="status" aria-live="polite">{t("sim.music.studentsBadge").replace("{count}", String(students))}</Badge>
             <Badge variant="outline" role="status" aria-live="polite"><Star className="h-3 w-3 mr-1" />{skill}%</Badge>
           </div>
         )}
@@ -191,7 +193,7 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
         <Card className="border-primary">
           <CardContent className="p-6 text-center space-y-3">
             <Music className="mx-auto h-8 w-8 text-primary animate-bounce" />
-            <p className="font-semibold">Simulating Week {week}…</p>
+            <p className="font-semibold">{t("sim.music.simulatingWeek").replace("{week}", String(week))}</p>
             <Progress value={simProgress} className="h-3" />
           </CardContent>
         </Card>
@@ -200,37 +202,37 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
       {!started && (
         <Card>
           <CardContent className="p-4 space-y-4">
-            <h3 className="font-bold text-sm">🎼 Academy Setup</h3>
+            <h3 className="font-bold text-sm">{t("sim.music.setupTitle")}</h3>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Instrument</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.music.instrumentLabel")}</label>
               <Select value={instrument.id} onValueChange={(v) => setInstrument(INSTRUMENTS.find((i) => i.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {INSTRUMENTS.map((i) => (
-                    <SelectItem key={i.id} value={i.id}>{i.name} — Demand {i.demand}% | ${i.cost} setup</SelectItem>
+                    <SelectItem key={i.id} value={i.id}>{t(i.nameKey as any)} — Demand {i.demand}% | ${i.cost} setup</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Teaching Style</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.music.teachingStyle")}</label>
               <Select value={style.id} onValueChange={(v) => setStyle(TEACHING_STYLES.find((s) => s.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {TEACHING_STYLES.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    <SelectItem key={s.id} value={s.id}>{t(s.nameKey as any)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Group Size: {groupSize} students</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.music.groupSizeLabel").replace("{count}", String(groupSize))}</label>
               <Slider value={[groupSize]} onValueChange={([v]) => setGroupSize(v)} min={2} max={15} step={1} />
             </div>
             <div className="p-3 rounded-lg bg-muted/50 text-xs">
-              <div className="flex justify-between"><span>Setup Cost:</span><span>${setupCost.toLocaleString()}</span></div>
+              <div className="flex justify-between"><span>{t("sim.music.costs.setupCost")}</span><span>${setupCost.toLocaleString()}</span></div>
             </div>
-            <Button onClick={startAcademy} className="w-full" aria-label="Open Academy">🎵 Open Academy</Button>
+            <Button onClick={startAcademy} className="w-full" aria-label={t("sim.music.btn.openAcademy")}>{t("sim.music.btn.openAcademy")}</Button>
           </CardContent>
         </Card>
       )}
@@ -239,20 +241,22 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
         <Card>
           <CardContent className="p-4 space-y-4">
             <div className="grid grid-cols-4 gap-2 text-center">
-              <div><p className="text-xs text-muted-foreground">Students</p><p className="font-bold">{students}</p></div>
-              <div><p className="text-xs text-muted-foreground">Skill</p><p className="font-bold">{skill}%</p></div>
-              <div><p className="text-xs text-muted-foreground">Revenue</p><p className="font-bold">${revenue}</p></div>
-              <div><p className="text-xs text-muted-foreground">Costs</p><p className="font-bold">${costs}</p></div>
+              <div><p className="text-xs text-muted-foreground">{t("sim.music.stats.students")}</p><p className="font-bold">{students}</p></div>
+              <div><p className="text-xs text-muted-foreground">{t("sim.music.stats.skill")}</p><p className="font-bold">{skill}%</p></div>
+              <div><p className="text-xs text-muted-foreground">{t("sim.music.stats.revenue")}</p><p className="font-bold">${revenue}</p></div>
+              <div><p className="text-xs text-muted-foreground">{t("sim.music.stats.costs")}</p><p className="font-bold">${costs}</p></div>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Session Fee: ${sessionFee}/month</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.music.sessionFeeLabel").replace("{fee}", String(sessionFee))}</label>
               <Slider value={[sessionFee]} onValueChange={([v]) => setSessionFee(v)} min={30} max={300} step={10} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Practice Hours/Day: {practiceHours}h</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.music.practiceHoursLabel").replace("{hours}", String(practiceHours))}</label>
               <Slider value={[practiceHours]} onValueChange={([v]) => setPracticeHours(v)} min={1} max={6} step={1} />
             </div>
-            <Button onClick={simulateWeek} className="w-full" aria-label={`Simulate Week ${week}`}>⏭️ Simulate Week {week}</Button>
+            <Button onClick={simulateWeek} className="w-full" aria-label={t("sim.music.btn.simulateWeek").replace("{week}", String(week))}>
+              {t("sim.music.btn.simulateWeek").replace("{week}", String(week))}
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -260,11 +264,11 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
       {log.length > 0 && (
         <Card>
           <CardContent className="p-3">
-            <h3 className="font-bold text-xs mb-2">📊 Weekly Log</h3>
+            <h3 className="font-bold text-xs mb-2">{t("sim.music.history.title")}</h3>
             <div className="max-h-32 overflow-y-auto">
               {log.map((l) => (
                 <div key={l.week} className="flex justify-between text-xs py-1 border-b border-border last:border-0">
-                  <span>Week {l.week}: {l.students} students | Skill {l.skill}%</span>
+                  <span>{t("sim.music.history.entry").replace("{week}", String(l.week)).replace("{students}", String(l.students)).replace("{skill}", String(l.skill))}</span>
                   <span className="text-green-500 font-medium">+${l.earned}</span>
                 </div>
               ))}
@@ -273,7 +277,7 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
         </Card>
       )}
 
-      {started && <SimulationMentor simulationTitle="Music Training Studio" currentStepTitle={`Week ${week}`} />}
+      {started && <SimulationMentor simulationTitle={t("sim.music.title")} currentStepTitle={t("sim.music.weekHeader").replace("{week}", String(week)).replace("{total}", String(WEEKS))} />}
     </div>
   );
 }

@@ -1,13 +1,16 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, lazy, Suspense } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { NewsletterSubscribe } from "./NewsletterSubscribe";
-import { AIChat } from "./AIChat";
 import { CookieBanner } from "./CookieBanner";
 import { TrialBanner } from "./TrialBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMessageNotifications } from "@/hooks/useMessageNotifications";
 import logo from "@/assets/logo.png";
+
+// Lazy-load the AI chat widget — it's a floating button that users open on demand.
+// This keeps the Layout chunk lean and defers the react-markdown + voice-chat weight.
+const AIChat = lazy(() => import("./AIChat").then((m) => ({ default: m.AIChat })));
 
 const FOOTER_LINKS = {
   pages: [
@@ -128,7 +131,9 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </footer>
 
-      <AIChat />
+      <Suspense fallback={null}>
+        <AIChat />
+      </Suspense>
       <CookieBanner />
     </div>
   );

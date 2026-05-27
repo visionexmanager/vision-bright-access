@@ -86,7 +86,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
     setAlive(flockSize);
     setCosts(setupCost);
     playSound("scan");
-    toast.success(`🐔 Farm started! ${flockSize} ${breed.name} chicks`);
+    toast.success(t("sim.poultryFarm.success.started").replace("{count}", String(flockSize)).replace("{breed}", breed.name));
   };
 
   const simulateWeek = () => {
@@ -119,8 +119,8 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
 
         setSimulating(false);
         playSound("ding");
-        if (deaths > 0) toast.error(`💀 ${deaths} birds lost this week`);
-        else toast.success(`✅ Week ${week}: All birds healthy! Weight: ${newWeight}kg`);
+        if (deaths > 0) toast.error(t("sim.poultryFarm.error.deaths").replace("{count}", String(deaths)));
+        else toast.success(t("sim.poultryFarm.success.healthy").replace("{week}", String(week)).replace("{weight}", String(newWeight)));
 
         if (week >= totalWeeks) harvestAndSell();
         else setWeek((w) => w + 1);
@@ -139,7 +139,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
     setTimeout(() => playSound("complete"), 400);
     announce("Simulation complete!");
     saveProgress(finalScore, true);
-    toast.success(`🎉 Harvest! ${totalMeat}kg meat sold for $${saleRevenue}`);
+    toast.success(t("sim.poultryFarm.success.harvest").replace("{meat}", String(totalMeat)).replace("{revenue}", String(saleRevenue)));
   };
 
   const restart = () => {
@@ -153,11 +153,11 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
       <Card className="max-w-lg mx-auto animate-in fade-in">
         <CardContent className="p-8 text-center space-y-4">
           <Trophy className="mx-auto h-16 w-16 text-primary" />
-          <h2 className="text-2xl font-bold">🐔 Farm Report</h2>
+          <h2 className="text-2xl font-bold">{t("sim.poultryFarm.report.title")}</h2>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-green-500/10 p-3"><p className="text-2xl font-bold text-green-500">${revenue}</p><p className="text-xs text-muted-foreground">Revenue</p></div>
             <div className="rounded-xl bg-red-500/10 p-3"><p className="text-2xl font-bold text-red-500">${costs}</p><p className="text-xs text-muted-foreground">Costs</p></div>
-            <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">{alive}/{flockSize}</p><p className="text-xs text-muted-foreground">Survived</p></div>
+            <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">{alive}/{flockSize}</p><p className="text-xs text-muted-foreground">{t("sim.poultryFarm.report.survived")}</p></div>
             <div className="rounded-xl bg-yellow-500/10 p-3"><p className="text-2xl font-bold text-yellow-500">{score}</p><p className="text-xs text-muted-foreground">Score</p></div>
           </div>
           <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />Play Again</Button>
@@ -170,15 +170,15 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
     <div className="max-w-2xl mx-auto space-y-4">
       <SimulationScene slug="poultry-farm" isActive={started} isComplete={finished} />
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">🐔 {started ? `Week ${week}/${totalWeeks}` : "Farm Setup"}</h2>
-        {started && <Badge variant="secondary" role="status" aria-live="polite">🐔 {alive} alive | {avgWeight}kg avg</Badge>}
+        <h2 className="text-lg font-bold">🐔 {started ? t("sim.poultryFarm.week").replace("{week}", String(week)).replace("{total}", String(totalWeeks)) : t("sim.poultryFarm.setup")}</h2>
+        {started && <Badge variant="secondary" role="status" aria-live="polite">{t("sim.poultryFarm.stats").replace("{alive}", String(alive)).replace("{weight}", String(avgWeight))}</Badge>}
       </div>
       {started && <Progress value={(week / totalWeeks) * 100} className="h-2" />}
 
       {simulating && (
         <Card className="border-primary">
           <CardContent className="p-6 text-center space-y-3">
-            <p className="text-lg font-semibold animate-pulse">🐔 Simulating week {week}...</p>
+            <p className="text-lg font-semibold animate-pulse">{t("sim.poultryFarm.simulatingWeek").replace("{week}", String(week))}</p>
             <Progress value={simProgress} className="h-3" />
           </CardContent>
         </Card>
@@ -187,9 +187,9 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
       {!started && (
         <Card>
           <CardContent className="p-4 space-y-4">
-            <h3 className="font-bold text-sm">🏗️ Farm Setup</h3>
+            <h3 className="font-bold text-sm">{t("sim.poultryFarm.setupTitle")}</h3>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Breed</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.breed")}</label>
               <Select value={breed.id} onValueChange={(v) => setBreed(FLOCK_BREEDS.find((b) => b.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -200,11 +200,11 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Flock: {flockSize} birds</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.flock").replace("{count}", String(flockSize))}</label>
               <Slider value={[flockSize]} onValueChange={([v]) => setFlockSize(v)} min={50} max={Math.min(500, housing.capacity)} step={25} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Housing</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.housing")}</label>
               <Select value={housing.id} onValueChange={(v) => setHousing(HOUSING_TYPES.find((h) => h.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -215,12 +215,12 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
               </Select>
             </div>
             <Button variant={vaccination ? "default" : "outline"} onClick={() => setVaccination(!vaccination)} className="w-full" aria-label={`Vaccination ${vaccination ? "enabled" : "disabled"} — cost $${(flockSize * 0.5).toFixed(0)}`}>
-              💉 Vaccination {vaccination ? "✓" : ""} (${(flockSize * 0.5).toFixed(0)})
+              {t("sim.poultryFarm.vaccination")} {vaccination ? "✓" : ""} (${(flockSize * 0.5).toFixed(0)})
             </Button>
             <div className="p-3 rounded-lg bg-muted/50 text-xs">
-              <div className="flex justify-between font-bold"><span>Setup Cost:</span><span>${setupCost}</span></div>
+              <div className="flex justify-between font-bold"><span>{t("sim.poultryFarm.costs.setupCost")}</span><span>${setupCost}</span></div>
             </div>
-            <Button onClick={startFarm} className="w-full" aria-label="Start Farm">🐔 Start Farm</Button>
+            <Button onClick={startFarm} className="w-full" aria-label="Start Farm">{t("sim.poultryFarm.btn.startFarm")}</Button>
           </CardContent>
         </Card>
       )}
@@ -229,12 +229,12 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
         <Card>
           <CardContent className="p-4 space-y-4">
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div><p className="text-xs text-muted-foreground">Alive</p><p className="font-bold">{alive}</p></div>
-              <div><p className="text-xs text-muted-foreground">Weight</p><p className="font-bold">{avgWeight}kg</p></div>
-              <div><p className="text-xs text-muted-foreground">Costs</p><p className="font-bold text-red-500">${costs}</p></div>
+              <div><p className="text-xs text-muted-foreground">{t("sim.poultryFarm.stats.alive")}</p><p className="font-bold">{alive}</p></div>
+              <div><p className="text-xs text-muted-foreground">{t("sim.poultryFarm.stats.weight")}</p><p className="font-bold">{avgWeight}kg</p></div>
+              <div><p className="text-xs text-muted-foreground">{t("sim.poultryFarm.stats.costs")}</p><p className="font-bold text-red-500">${costs}</p></div>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Feed Type</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.feedType")}</label>
               <Select value={feed.id} onValueChange={(v) => setFeed(FEED_TYPES.find((f) => f.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -245,14 +245,14 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Barn Temp: {temperature}°C (25°C ideal)</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.temperature").replace("{temp}", String(temperature))}</label>
               <Slider value={[temperature]} onValueChange={([v]) => setTemperature(v)} min={10} max={40} step={1} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Target Sell Price: ${sellPrice}/kg</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.sellPrice").replace("{price}", String(sellPrice))}</label>
               <Slider value={[sellPrice]} onValueChange={([v]) => setSellPrice(v)} min={2} max={15} step={0.5} />
             </div>
-            <Button onClick={simulateWeek} className="w-full" aria-label={`Simulate Week ${week}`}>⏭️ Simulate Week {week}</Button>
+            <Button onClick={simulateWeek} className="w-full" aria-label={t("sim.poultryFarm.btn.simulateWeek").replace("{week}", String(week))}>{t("sim.poultryFarm.btn.simulateWeek").replace("{week}", String(week))}</Button>
           </CardContent>
         </Card>
       )}
@@ -260,7 +260,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
       {weeklyLog.length > 0 && (
         <Card>
           <CardContent className="p-3">
-            <h3 className="font-bold text-xs mb-2">📊 Weekly Log</h3>
+            <h3 className="font-bold text-xs mb-2">{t("sim.poultryFarm.history.title")}</h3>
             {weeklyLog.map((l) => (
               <div key={l.week} className="flex justify-between text-xs py-1 border-b border-border last:border-0">
                 <span>Week {l.week}: {l.alive} birds, {l.weight}kg</span>

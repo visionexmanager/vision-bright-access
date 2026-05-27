@@ -177,10 +177,10 @@ export function MobileRepairSimulation({ simulationId }: Props) {
           <Trophy className="mx-auto h-16 w-16 text-primary" />
           <h2 className="text-2xl font-bold">📱 Repair Shop Report</h2>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-green-500/10 p-3"><p className="text-2xl font-bold text-green-500">${revenue}</p><p className="text-xs text-muted-foreground">Revenue</p></div>
-            <div className="rounded-xl bg-red-500/10 p-3"><p className="text-2xl font-bold text-red-500">${costs}</p><p className="text-xs text-muted-foreground">Costs</p></div>
+            <div className="rounded-xl bg-green-500/10 p-3"><p className="text-2xl font-bold text-green-500">${revenue}</p><p className="text-xs text-muted-foreground">{t("sim.repair.report.revenue")}</p></div>
+            <div className="rounded-xl bg-red-500/10 p-3"><p className="text-2xl font-bold text-red-500">${costs}</p><p className="text-xs text-muted-foreground">{t("sim.repair.report.costs")}</p></div>
             <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">{reputation}%</p><p className="text-xs text-muted-foreground">Reputation</p></div>
-            <div className="rounded-xl bg-yellow-500/10 p-3"><p className="text-2xl font-bold text-yellow-500">{score}</p><p className="text-xs text-muted-foreground">Score</p></div>
+            <div className="rounded-xl bg-yellow-500/10 p-3"><p className="text-2xl font-bold text-yellow-500">{score}</p><p className="text-xs text-muted-foreground">{t("sim.repair.report.score")}</p></div>
           </div>
           {history.map((h, i) => (
             <div key={i} className="flex justify-between text-sm p-1 bg-muted/30 rounded">
@@ -188,7 +188,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
               <span className={h.profit > 0 ? "text-green-500" : "text-red-500"}>Q:{h.quality}% | ${h.profit}</span>
             </div>
           ))}
-          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />Play Again</Button>
+          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.repair.report.playAgain")}</Button>
         </CardContent>
       </Card>
     );

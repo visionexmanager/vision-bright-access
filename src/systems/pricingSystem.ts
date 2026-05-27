@@ -3,8 +3,6 @@
  * Rate: 1000 VX = 1 USD
  */
 
-export const VX_RATE = 1000; // VX per USD
-
 // ── Gaming Zone ──
 // 1000 VX = $1 USD
 export const GAMING_PRICES = {
@@ -28,25 +26,6 @@ export const SIMULATION_PRICES = {
   lifetimeAccess: 50_000,  // $50.00 — lifetime unlimited access
 } as const;
 
-// ── Professional Tools (Windows .bat) ──
-export const PRO_TOOL_PRICES = {
-  singleTool: 1000,
-} as const;
-
-// ── Technical Services ──
-export const TECH_SERVICE_PRICES = {
-  fileDownload: 500,
-  techConsultation: 2500,
-  remoteSupport: 10000,
-} as const;
-
-// ── Account Features ──
-export const ACCOUNT_PRICES = {
-  changeUsername: 1000,
-  monthlyVip: 8000,
-  removeAds: 5000,
-} as const;
-
 // ── OCR / Document Scanner ──
 export const OCR_PRICES = {
   singleScan:      50,   // text extraction only
@@ -61,11 +40,6 @@ export const EARNING_RATES = {
   referFriend: 200,
   dailyLogin: 10,
 } as const;
-
-/** Convert VX to USD string */
-export function vxToUsd(vx: number): string {
-  return `$${(vx / VX_RATE).toFixed(2)}`;
-}
 
 /** Format VX with locale separator */
 export function formatVX(vx: number): string {

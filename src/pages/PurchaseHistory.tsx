@@ -12,7 +12,6 @@ import { formatVX } from "@/systems/pricingSystem";
 export default function PurchaseHistory() {
   const { user } = useAuth();
   const { t, lang } = useLanguage();
-  const isRTL = lang === "ar";
 
   const { data: purchases = [], isLoading } = useQuery({
     queryKey: ["vx-purchases", user?.id],
@@ -40,10 +39,10 @@ export default function PurchaseHistory() {
 
   return (
     <Layout>
-      <div className="section-container py-8" dir={isRTL ? "rtl" : "ltr"}>
+      <div className="section-container py-8">
         <div className="flex items-center gap-3 mb-6">
           <ShoppingBag className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold">{isRTL ? "سجل المشتريات" : "Purchase History"}</h1>
+          <h1 className="text-2xl font-bold">{t("purchaseHistory.title")}</h1>
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-6">
@@ -51,7 +50,7 @@ export default function PurchaseHistory() {
             <CardContent className="flex items-center gap-3 p-4">
               <Coins className="h-5 w-5 text-yellow-500" />
               <div>
-                <p className="text-xs text-muted-foreground">{isRTL ? "إجمالي الإنفاق" : "Total Spent"}</p>
+                <p className="text-xs text-muted-foreground">{t("purchaseHistory.totalSpent")}</p>
                 <p className="text-lg font-bold text-primary">{formatVX(totalSpent)}</p>
               </div>
             </CardContent>
@@ -60,7 +59,7 @@ export default function PurchaseHistory() {
             <CardContent className="flex items-center gap-3 p-4">
               <Calendar className="h-5 w-5 text-blue-500" />
               <div>
-                <p className="text-xs text-muted-foreground">{isRTL ? "عدد العمليات" : "Transactions"}</p>
+                <p className="text-xs text-muted-foreground">{t("purchaseHistory.transactions")}</p>
                 <p className="text-lg font-bold">{purchases.length}</p>
               </div>
             </CardContent>
@@ -69,7 +68,7 @@ export default function PurchaseHistory() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">{isRTL ? "جميع المشتريات" : "All Purchases"}</CardTitle>
+            <CardTitle className="text-lg">{t("purchaseHistory.allPurchases")}</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -79,16 +78,16 @@ export default function PurchaseHistory() {
             ) : purchases.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <ShoppingBag className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p>{isRTL ? "لا توجد مشتريات بعد" : "No purchases yet"}</p>
+                <p>{t("purchaseHistory.empty")}</p>
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{isRTL ? "العنصر" : "Item"}</TableHead>
-                    <TableHead>{isRTL ? "النوع" : "Type"}</TableHead>
-                    <TableHead>{isRTL ? "المبلغ" : "Amount"}</TableHead>
-                    <TableHead>{isRTL ? "التاريخ" : "Date"}</TableHead>
+                    <TableHead>{t("purchaseHistory.colItem")}</TableHead>
+                    <TableHead>{t("purchaseHistory.colType")}</TableHead>
+                    <TableHead>{t("purchaseHistory.colAmount")}</TableHead>
+                    <TableHead>{t("purchaseHistory.colDate")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -100,7 +99,7 @@ export default function PurchaseHistory() {
                       </TableCell>
                       <TableCell className="text-primary font-semibold">{formatVX(p.amount)}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">
-                        {new Date(p.created_at).toLocaleDateString(isRTL ? "ar" : "en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        {new Date(p.created_at).toLocaleDateString(lang, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </TableCell>
                     </TableRow>
                   ))}

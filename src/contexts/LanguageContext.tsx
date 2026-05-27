@@ -303,10 +303,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const dir = rtlLangs.includes(lang) ? "rtl" : "ltr";
 
   // Load the language file on demand when lang changes.
+  // On failure (e.g. network error or corrupt bundle) we silently fall back to
+  // English so the page still renders instead of hanging on a spinner forever.
   useEffect(() => {
     if (lang === "en") { setLangReady(true); return; }
     setLangReady(false);
-    loadLang(lang).then(() => setLangReady(true));
+    loadLang(lang)
+      .then(() => setLangReady(true))
+      .catch((err) => {
+        console.error(`[i18n] Failed to load language "${lang}":`, err);
+        setLangReady(true); // surface English fallback rather than hanging
+      });
   }, [lang]);
 
   useEffect(() => {

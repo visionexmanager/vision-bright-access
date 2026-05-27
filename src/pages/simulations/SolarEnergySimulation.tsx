@@ -151,14 +151,14 @@ export function SolarEnergySimulation({ simulationId }: Props) {
       <Card className="max-w-lg mx-auto animate-in fade-in">
         <CardContent className="p-8 text-center space-y-4">
           <Trophy className="mx-auto h-16 w-16 text-primary" />
-          <h2 className="text-2xl font-bold">☀️ Solar Farm Report</h2>
+          <h2 className="text-2xl font-bold">{t("sim.solar.report.title")}</h2>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-green-500/10 p-3"><p className="text-2xl font-bold text-green-500">${totalRevenue}</p><p className="text-xs text-muted-foreground">Revenue</p></div>
-            <div className="rounded-xl bg-red-500/10 p-3"><p className="text-2xl font-bold text-red-500">${totalCost}</p><p className="text-xs text-muted-foreground">Total Cost</p></div>
-            <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">{totalEnergy} kWh</p><p className="text-xs text-muted-foreground">Total Energy</p></div>
-            <div className="rounded-xl bg-yellow-500/10 p-3"><p className="text-2xl font-bold text-yellow-500">{paybackYears} yrs</p><p className="text-xs text-muted-foreground">Payback</p></div>
+            <div className="rounded-xl bg-green-500/10 p-3"><p className="text-2xl font-bold text-green-500">${totalRevenue}</p><p className="text-xs text-muted-foreground">{t("sim.solar.report.revenue")}</p></div>
+            <div className="rounded-xl bg-red-500/10 p-3"><p className="text-2xl font-bold text-red-500">${totalCost}</p><p className="text-xs text-muted-foreground">{t("sim.solar.report.totalCost")}</p></div>
+            <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">{totalEnergy} kWh</p><p className="text-xs text-muted-foreground">{t("sim.solar.report.totalEnergy")}</p></div>
+            <div className="rounded-xl bg-yellow-500/10 p-3"><p className="text-2xl font-bold text-yellow-500">{paybackYears} yrs</p><p className="text-xs text-muted-foreground">{t("sim.solar.report.payback")}</p></div>
           </div>
-          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />Play Again</Button>
+          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.solar.report.playAgain")}</Button>
         </CardContent>
       </Card>
     );
@@ -168,7 +168,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
     <div className="max-w-2xl mx-auto space-y-4">
       <SimulationScene slug="solar-energy" isActive={installed} isComplete={finished} />
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold flex items-center gap-2"><Sun className="h-5 w-5 text-yellow-500" /> {installed ? `Month ${month}/${totalMonths}` : "System Design"}</h2>
+        <h2 className="text-lg font-bold flex items-center gap-2"><Sun className="h-5 w-5 text-yellow-500" /> {installed ? t("sim.solar.month").replace("{month}", String(month)).replace("{total}", String(totalMonths)) : t("sim.solar.systemDesign")}</h2>
         {installed && <Badge variant="secondary" role="status" aria-live="polite"><Zap className="h-3 w-3" /> {totalEnergy} kWh</Badge>}
       </div>
       {installed && <Progress value={(month / totalMonths) * 100} className="h-2" />}
@@ -177,7 +177,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
         <Card className="border-primary">
           <CardContent className="p-6 text-center space-y-3">
             <Sun className="mx-auto h-8 w-8 text-yellow-500 animate-spin" />
-            <p className="font-semibold">Simulating month {month}...</p>
+            <p className="font-semibold">{t("sim.solar.simulatingMonth").replace("{month}", String(month))}</p>
             <Progress value={simProgress} className="h-3" />
           </CardContent>
         </Card>
@@ -186,9 +186,9 @@ export function SolarEnergySimulation({ simulationId }: Props) {
       {!installed && (
         <Card>
           <CardContent className="p-4 space-y-4">
-            <h3 className="font-bold text-sm">☀️ Design Your Solar System</h3>
+            <h3 className="font-bold text-sm">{t("sim.solar.designTitle")}</h3>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Panel Type</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.panelType")}</label>
               <Select value={panelType.id} onValueChange={(v) => setPanelType(PANEL_TYPES.find((p) => p.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -199,11 +199,11 @@ export function SolarEnergySimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Panels: {panelCount}</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.panelCount").replace("{count}", String(panelCount))}</label>
               <Slider value={[panelCount]} onValueChange={([v]) => setPanelCount(v)} min={4} max={50} step={2} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Location</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.locationLabel")}</label>
               <Select value={location.id} onValueChange={(v) => setLocation(LOCATIONS.find((l) => l.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -214,7 +214,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Battery Storage</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.batteryStorage")}</label>
               <Select value={battery.id} onValueChange={(v) => setBattery(BATTERY_OPTIONS.find((b) => b.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -225,21 +225,21 @@ export function SolarEnergySimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Tilt Angle: {tiltAngle}° (30° optimal)</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.tiltAngle").replace("{angle}", String(tiltAngle))}</label>
               <Slider value={[tiltAngle]} onValueChange={([v]) => setTiltAngle(v)} min={0} max={60} step={5} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Grid Sell Price: ${gridSellPrice}/kWh</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.gridSellPrice").replace("{price}", gridSellPrice.toFixed(2))}</label>
               <Slider value={[gridSellPrice * 100]} onValueChange={([v]) => setGridSellPrice(v / 100)} min={3} max={20} step={1} />
             </div>
             <div className="p-3 rounded-lg bg-muted/50 text-xs space-y-1">
-              <div className="flex justify-between"><span>Panels ({panelCount}x):</span><span>${panelType.cost * panelCount}</span></div>
-              <div className="flex justify-between"><span>Installation:</span><span>${location.installCost}</span></div>
-              {battery.cost > 0 && <div className="flex justify-between"><span>Battery:</span><span>${battery.cost}</span></div>}
-              <div className="flex justify-between font-bold border-t border-border pt-1"><span>Total Investment:</span><span>${installCost}</span></div>
-              <div className="flex justify-between text-green-500"><span>Est. Daily Output:</span><span>{dailyOutput.toFixed(1)} kWh</span></div>
+              <div className="flex justify-between"><span>{t("sim.solar.costs.panels").replace("{count}", String(panelCount))}</span><span>${panelType.cost * panelCount}</span></div>
+              <div className="flex justify-between"><span>{t("sim.solar.costs.installation")}</span><span>${location.installCost}</span></div>
+              {battery.cost > 0 && <div className="flex justify-between"><span>{t("sim.solar.costs.battery")}</span><span>${battery.cost}</span></div>}
+              <div className="flex justify-between font-bold border-t border-border pt-1"><span>{t("sim.solar.costs.totalInvestment")}</span><span>${installCost}</span></div>
+              <div className="flex justify-between text-green-500"><span>{t("sim.solar.costs.estimatedDailyOutput")}</span><span>{dailyOutput.toFixed(1)} kWh</span></div>
             </div>
-            <Button onClick={installSystem} className="w-full" aria-label="Install System">☀️ Install System</Button>
+            <Button onClick={installSystem} className="w-full" aria-label="Install System">{t("sim.solar.btn.installSystem")}</Button>
           </CardContent>
         </Card>
       )}
@@ -248,11 +248,11 @@ export function SolarEnergySimulation({ simulationId }: Props) {
         <Card>
           <CardContent className="p-4 space-y-3">
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div><p className="text-xs text-muted-foreground">Revenue</p><p className="font-bold text-green-500">${totalRevenue}</p></div>
-              <div><p className="text-xs text-muted-foreground">Cost</p><p className="font-bold text-red-500">${totalCost}</p></div>
-              <div><p className="text-xs text-muted-foreground">Energy</p><p className="font-bold">{totalEnergy} kWh</p></div>
+              <div><p className="text-xs text-muted-foreground">{t("sim.solar.stats.revenue")}</p><p className="font-bold text-green-500">${totalRevenue}</p></div>
+              <div><p className="text-xs text-muted-foreground">{t("sim.solar.stats.costs")}</p><p className="font-bold text-red-500">${totalCost}</p></div>
+              <div><p className="text-xs text-muted-foreground">{t("sim.solar.stats.energy")}</p><p className="font-bold">{totalEnergy} kWh</p></div>
             </div>
-            <Button onClick={simulateMonth} className="w-full" aria-label={`Simulate Month ${month}`}>⏭️ Simulate Month {month}</Button>
+            <Button onClick={simulateMonth} className="w-full" aria-label={`Simulate Month ${month}`}>{t("sim.solar.btn.simulateMonth").replace("{month}", String(month))}</Button>
           </CardContent>
         </Card>
       )}
@@ -260,7 +260,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
       {monthlyData.length > 0 && (
         <Card>
           <CardContent className="p-3">
-            <h3 className="font-bold text-xs mb-2">📊 Monthly Performance</h3>
+            <h3 className="font-bold text-xs mb-2">{t("sim.solar.history.title")}</h3>
             {monthlyData.map((d) => (
               <div key={d.month} className="flex justify-between text-xs py-1 border-b border-border last:border-0">
                 <span>Month {d.month}</span>

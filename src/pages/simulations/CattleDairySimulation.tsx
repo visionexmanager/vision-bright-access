@@ -93,7 +93,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
     setWeek(1);
     const m = calcWeekMetrics();
     setMilkProduction(m.dailyYield);
-    setEvents(["🌱 Spring — Season started. Your herd is ready!"]);
+    setEvents([t("sim.cattle.event.springStart")]);
   };
 
   const advanceWeek = () => {
@@ -101,7 +101,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
     const seasons: Season[] = ["spring", "summer", "autumn", "winter"];
     const newSeason = seasons[Math.floor((newWeek - 1) / 3) % 4];
     if (newSeason !== season) {
-      toast(`Season changed to ${newSeason}!`);
+      toast(t("sim.cattle.event.seasonChanged").replace("{season}", newSeason));
     }
 
     setWeek(newWeek);
@@ -118,20 +118,20 @@ export function CattleDairySimulation({ simulationId }: Props) {
     let revMod = 0;
 
     if (rand < 0.1) {
-      eventMsg = `Week ${newWeek}: 🦠 Disease outbreak! -15% health`;
+      eventMsg = t("sim.cattle.event.diseaseOutbreak").replace("{week}", String(newWeek));
       healthMod = -15;
       costMod = herdSize * 5;
     } else if (rand < 0.2) {
-      eventMsg = `Week ${newWeek}: 📈 Milk prices surged +20%`;
+      eventMsg = t("sim.cattle.event.pricesSurged").replace("{week}", String(newWeek));
       revMod = Math.round(m.weeklyRevenue * 0.2);
     } else if (rand < 0.28) {
-      eventMsg = `Week ${newWeek}: 🐄 New calf born! Herd +1`;
+      eventMsg = t("sim.cattle.event.calfBorn").replace("{week}", String(newWeek));
       setHerdSize(prev => prev + 1);
     } else if (rand < 0.35) {
-      eventMsg = `Week ${newWeek}: 🌧️ Heavy rain — grazing limited`;
+      eventMsg = t("sim.cattle.event.heavyRain").replace("{week}", String(newWeek));
       healthMod = -3;
     } else {
-      eventMsg = `Week ${newWeek}: Normal operations (${newSeason})`;
+      eventMsg = t("sim.cattle.event.normalOperations").replace("{week}", String(newWeek)).replace("{season}", newSeason);
     }
 
     setHerdHealth(prev => Math.min(100, Math.max(20, prev + m.healthDelta + healthMod)));
@@ -190,25 +190,25 @@ export function CattleDairySimulation({ simulationId }: Props) {
         <Card className="border-green-500/40 bg-green-500/10">
           <CardContent className="pt-6 text-center space-y-4">
             <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
-            <h2 className="text-2xl font-bold">Cattle Ranch — Season Complete!</h2>
+            <h2 className="text-2xl font-bold">{t("sim.cattle.results.title")}</h2>
             <p className="text-4xl font-bold text-primary">{score} pts</p>
             <div className="grid grid-cols-2 gap-3 text-sm max-w-md mx-auto">
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Revenue</p><p className="text-lg font-bold text-green-500">${totalRevenue}</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Profit</p><p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.cattle.metric.revenue")}</p><p className="text-lg font-bold text-green-500">${totalRevenue}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.cattle.metric.profit")}</p><p className={`text-lg font-bold ${profit >= 0 ? "text-green-500" : "text-destructive"}`}>${profit}</p></div>
             </div>
           </CardContent>
         </Card>
-        <FinancialBar title="📊 12-Week Financial Summary" data={[
-          { label: "Revenue", value: totalRevenue, color: "hsl(142 71% 45%)" },
+        <FinancialBar title={t("sim.cattle.chart.financialSummary")} data={[
+          { label: t("sim.cattle.metric.revenue"), value: totalRevenue, color: "hsl(142 71% 45%)" },
           { label: "Costs", value: totalCosts, color: "hsl(0 84% 60%)" },
-          { label: "Profit", value: Math.max(0, profit), color: "hsl(var(--primary))" },
+          { label: t("sim.cattle.metric.profit"), value: Math.max(0, profit), color: "hsl(var(--primary))" },
         ]} />
-        <PerformanceRadar title="🐄 Ranch Performance" data={[
-          { metric: "Herd Health", value: herdHealth },
-          { metric: "Production", value: Math.min(100, Math.round(milkProduction / 100)) },
-          { metric: "Profitability", value: Math.min(100, Math.max(0, Math.round((profit / Math.max(1, totalRevenue)) * 100))) },
+        <PerformanceRadar title={t("sim.cattle.chart.performance")} data={[
+          { metric: t("sim.cattle.metric.herdHealth"), value: herdHealth },
+          { metric: t("sim.cattle.metric.production"), value: Math.min(100, Math.round(milkProduction / 100)) },
+          { metric: t("sim.cattle.metric.profitability"), value: Math.min(100, Math.max(0, Math.round((profit / Math.max(1, totalRevenue)) * 100))) },
         ]} />
-        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> {t("sim.cattle.btn.playAgain")}</Button>
       </div>
     );
   }
@@ -227,7 +227,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
           <Card><CardContent className="pt-4 text-center">
             <DollarSign className="h-5 w-5 mx-auto text-green-500" />
             <p className="text-lg font-bold text-green-500">${totalRevenue}</p>
-            <p className="text-xs text-muted-foreground">Revenue</p>
+            <p className="text-xs text-muted-foreground">{t("sim.cattle.metric.revenue")}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
             <TrendingUp className="h-5 w-5 mx-auto text-destructive" />
@@ -237,12 +237,12 @@ export function CattleDairySimulation({ simulationId }: Props) {
           <Card><CardContent className="pt-4 text-center">
             <Droplets className="h-5 w-5 mx-auto text-blue-500" />
             <p className="text-lg font-bold">{milkProduction}L/day</p>
-            <p className="text-xs text-muted-foreground">Production</p>
+            <p className="text-xs text-muted-foreground">{t("sim.cattle.metric.production")}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
             <Heart className="h-5 w-5 mx-auto text-pink-500" />
             <p className="text-lg font-bold">{herdHealth}%</p>
-            <p className="text-xs text-muted-foreground">Herd Health</p>
+            <p className="text-xs text-muted-foreground">{t("sim.cattle.metric.herdHealth")}</p>
           </CardContent></Card>
         </div>
 

@@ -85,11 +85,11 @@ export function DetergentLabSimulation({ simulationId }: Props) {
 
   const startProduction = () => {
     if (totalPct > 100) {
-      toast.error("Total percentage exceeds 100%!");
+      toast.error(t("sim.detergent.error.totalExceeds"));
       return;
     }
     playSound("correct");
-    announce("Correct! Well done.");
+    announce(t("sim.common.correct"));
     setStage("production");
     const m = calcFormula();
     setCleaningPower(m.cleaning);
@@ -102,11 +102,11 @@ export function DetergentLabSimulation({ simulationId }: Props) {
   const runTests = () => {
     playSound("bubble");
     const results = [
-      { test: "Cleaning Efficacy", pass: cleaningPower >= 60, detail: `${cleaningPower}% — ${cleaningPower >= 60 ? "Pass" : "Below threshold"}` },
-      { test: "Foam Stability", pass: foamLevel >= 50, detail: `${foamLevel}% — ${foamLevel >= 50 ? "Stable" : "Unstable"}` },
-      { test: "Safety Compliance", pass: safetyRating >= 70, detail: `${safetyRating}% — ${safetyRating >= 70 ? "Compliant" : "Non-compliant"}` },
-      { test: "pH Balance", pass: surfactantPct <= 35, detail: surfactantPct <= 35 ? "pH 7.2 — Neutral" : "pH 9.5 — Too alkaline" },
-      { test: "Cost Viability", pass: totalProfit > 0, detail: `$${totalProfit} — ${totalProfit > 0 ? "Profitable" : "Loss-making"}` },
+      { test: t("sim.detergent.tests.cleaningEfficacy"), pass: cleaningPower >= 60, detail: `${cleaningPower}% — ${cleaningPower >= 60 ? t("sim.detergent.result.pass") : t("sim.detergent.result.belowThreshold")}` },
+      { test: t("sim.detergent.tests.foamStability"), pass: foamLevel >= 50, detail: `${foamLevel}% — ${foamLevel >= 50 ? t("sim.detergent.result.stable") : t("sim.detergent.result.unstable")}` },
+      { test: t("sim.detergent.tests.safetyCompliance"), pass: safetyRating >= 70, detail: `${safetyRating}% — ${safetyRating >= 70 ? t("sim.detergent.result.compliant") : t("sim.detergent.result.nonCompliant")}` },
+      { test: t("sim.detergent.tests.phBalance"), pass: surfactantPct <= 35, detail: surfactantPct <= 35 ? t("sim.detergent.result.phNeutral") : t("sim.detergent.result.phAlkaline") },
+      { test: t("sim.detergent.tests.costViability"), pass: totalProfit > 0, detail: `$${totalProfit} — ${totalProfit > 0 ? t("sim.detergent.result.profitable") : t("sim.detergent.result.lossMaking")}` },
     ];
     setTestResults(results);
     setStage("testing");
@@ -154,29 +154,29 @@ export function DetergentLabSimulation({ simulationId }: Props) {
         <Card className="border-green-500/40 bg-green-500/10">
           <CardContent className="pt-6 text-center space-y-4">
             <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
-            <h2 className="text-2xl font-bold">{brandName || "Detergent"} — Lab Complete!</h2>
+            <h2 className="text-2xl font-bold">{t("sim.detergent.results.completeTitle").replace("{name}", brandName || t("sim.detergent.title").replace(" 🧼",""))}</h2>
             <p className="text-4xl font-bold text-primary">{score} pts</p>
             <div className="grid grid-cols-2 gap-3 text-sm max-w-md mx-auto">
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Cleaning</p><p className="text-lg font-bold">{cleaningPower}%</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Safety</p><p className="text-lg font-bold">{safetyRating}%</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Unit Cost</p><p className="text-lg font-bold">${costPerUnit}</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Profit</p><p className={`text-lg font-bold ${totalProfit >= 0 ? "text-green-500" : "text-destructive"}`}>${totalProfit}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.detergent.card.cleaning")}</p><p className="text-lg font-bold">{cleaningPower}%</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.detergent.card.safety")}</p><p className="text-lg font-bold">{safetyRating}%</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.detergent.card.unitCost")}</p><p className="text-lg font-bold">${costPerUnit}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.detergent.card.profit")}</p><p className={`text-lg font-bold ${totalProfit >= 0 ? "text-green-500" : "text-destructive"}`}>${totalProfit}</p></div>
             </div>
           </CardContent>
         </Card>
-        <PerformanceRadar title="🧪 Product Quality Profile" data={[
-          { metric: "Cleaning", value: cleaningPower },
+        <PerformanceRadar title={t("sim.detergent.chart.qualityProfile")} data={[
+          { metric: t("sim.detergent.card.cleaning"), value: cleaningPower },
           { metric: "Foam", value: foamLevel },
-          { metric: "Safety", value: safetyRating },
-          { metric: "Cost Efficiency", value: Math.min(100, Math.max(0, Math.round((1 - costPerUnit / pricePerUnit) * 100))) },
-          { metric: "Profitability", value: Math.min(100, Math.max(0, Math.round((totalProfit / Math.max(1, pricePerUnit * batchSize)) * 100))) },
+          { metric: t("sim.detergent.card.safety"), value: safetyRating },
+          { metric: t("sim.detergent.metric.costEfficiency"), value: Math.min(100, Math.max(0, Math.round((1 - costPerUnit / pricePerUnit) * 100))) },
+          { metric: t("sim.detergent.metric.profitability"), value: Math.min(100, Math.max(0, Math.round((totalProfit / Math.max(1, pricePerUnit * batchSize)) * 100))) },
         ]} />
-        <FinancialBar title="📊 Batch Economics" data={[
-          { label: "Revenue", value: Math.round(pricePerUnit * batchSize), color: "hsl(142 71% 45%)" },
-          { label: "Cost", value: Math.round(costPerUnit * batchSize), color: "hsl(0 84% 60%)" },
-          { label: "Profit", value: Math.max(0, totalProfit), color: "hsl(var(--primary))" },
+        <FinancialBar title={t("sim.detergent.chart.batchEconomics")} data={[
+          { label: t("sim.detergent.label.revenue"), value: Math.round(pricePerUnit * batchSize), color: "hsl(142 71% 45%)" },
+          { label: t("sim.detergent.label.cost"), value: Math.round(costPerUnit * batchSize), color: "hsl(0 84% 60%)" },
+          { label: t("sim.detergent.card.profit"), value: Math.max(0, totalProfit), color: "hsl(var(--primary))" },
         ]} />
-        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Try Again</Button>
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> {t("sim.detergent.btn.tryAgain")}</Button>
       </div>
     );
   }
@@ -184,7 +184,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
   if (stage === "testing") {
     return (
       <div className="space-y-6">
-        <h2 className="text-xl font-bold flex items-center gap-2"><Beaker className="h-6 w-6 text-primary" /> Quality Testing</h2>
+        <h2 className="text-xl font-bold flex items-center gap-2"><Beaker className="h-6 w-6 text-primary" /> {t("sim.detergent.stage.testing")}</h2>
         <div className="space-y-3">
           {testResults.map((r, i) => (
             <Card key={i} className={r.pass ? "border-green-500/30" : "border-destructive/30"}>
@@ -198,8 +198,8 @@ export function DetergentLabSimulation({ simulationId }: Props) {
             </Card>
           ))}
         </div>
-        <p className="text-center text-sm text-muted-foreground">{testResults.filter(r => r.pass).length}/{testResults.length} tests passed</p>
-        <Button onClick={finishSim} className="w-full" size="lg" aria-label="Finish & Get Score">🏁 Finish & Get Score</Button>
+        <p className="text-center text-sm text-muted-foreground">{t("sim.detergent.testsPassedOf").replace("{pass}", String(testResults.filter(r => r.pass).length)).replace("{total}", String(testResults.length))}</p>
+        <Button onClick={finishSim} className="w-full" size="lg" aria-label={t("sim.detergent.btn.finishScore")}>🏁 {t("sim.detergent.btn.finishScore")}</Button>
       </div>
     );
   }
@@ -207,63 +207,63 @@ export function DetergentLabSimulation({ simulationId }: Props) {
   if (stage === "production") {
     return (
       <div className="space-y-6">
-        <h2 className="text-xl font-bold flex items-center gap-2"><FlaskConical className="h-6 w-6 text-primary" /> Production Preview</h2>
+        <h2 className="text-xl font-bold flex items-center gap-2"><FlaskConical className="h-6 w-6 text-primary" /> {t("sim.detergent.stage.production")}</h2>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <Card><CardContent className="pt-4 text-center">
             <Star className="h-5 w-5 mx-auto text-primary" />
             <p className="text-lg font-bold">{cleaningPower}%</p>
-            <p className="text-xs text-muted-foreground">Cleaning Power</p>
+            <p className="text-xs text-muted-foreground">{t("sim.detergent.metric.cleaningPower")}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
             <Droplets className="h-5 w-5 mx-auto text-blue-500" />
             <p className="text-lg font-bold">{foamLevel}%</p>
-            <p className="text-xs text-muted-foreground">Foam Level</p>
+            <p className="text-xs text-muted-foreground">{t("sim.detergent.metric.foamLevel")}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
             <CheckCircle2 className="h-5 w-5 mx-auto text-green-500" />
             <p className="text-lg font-bold">{safetyRating}%</p>
-            <p className="text-xs text-muted-foreground">Safety</p>
+            <p className="text-xs text-muted-foreground">{t("sim.detergent.metric.safety")}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
             <DollarSign className="h-5 w-5 mx-auto text-yellow-500" />
             <p className="text-lg font-bold">${costPerUnit}</p>
-            <p className="text-xs text-muted-foreground">Cost/Unit</p>
+            <p className="text-xs text-muted-foreground">{t("sim.detergent.metric.costPerUnit")}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
             <DollarSign className="h-5 w-5 mx-auto text-green-500" />
             <p className={`text-lg font-bold ${totalProfit >= 0 ? "text-green-500" : "text-destructive"}`}>${totalProfit}</p>
-            <p className="text-xs text-muted-foreground">Total Profit</p>
+            <p className="text-xs text-muted-foreground">{t("sim.detergent.metric.totalProfit")}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
             <Beaker className="h-5 w-5 mx-auto text-purple-500" />
             <p className="text-lg font-bold">{batchSize}</p>
-            <p className="text-xs text-muted-foreground">Batch Size</p>
+            <p className="text-xs text-muted-foreground">{t("sim.detergent.metric.batchSize")}</p>
           </CardContent></Card>
         </div>
 
         {/* Formula breakdown */}
         <Card className="border-primary/20">
           <CardContent className="pt-4 space-y-2">
-            <p className="text-sm font-medium">Formula Breakdown:</p>
+            <p className="text-sm font-medium">{t("sim.detergent.section.formulaBreakdown")}</p>
             <div className="flex gap-1 h-6 rounded-full overflow-hidden">
-              <div className="bg-blue-500 transition-all" style={{ width: `${waterPct}%` }} title={`Water ${waterPct}%`} />
-              <div className="bg-yellow-500 transition-all" style={{ width: `${surfactantPct}%` }} title={`Surfactant ${surfactantPct}%`} />
-              <div className="bg-pink-400 transition-all" style={{ width: `${fragrancePct}%` }} title={`Fragrance ${fragrancePct}%`} />
-              <div className="bg-muted-foreground/30 transition-all" style={{ width: `${fillerPct}%` }} title={`Filler ${fillerPct}%`} />
+              <div className="bg-blue-500 transition-all" style={{ width: `${waterPct}%` }} title={`${t("sim.detergent.ingredient.water")} ${waterPct}%`} />
+              <div className="bg-yellow-500 transition-all" style={{ width: `${surfactantPct}%` }} title={`${t("sim.detergent.ingredient.surfactant")} ${surfactantPct}%`} />
+              <div className="bg-pink-400 transition-all" style={{ width: `${fragrancePct}%` }} title={`${t("sim.detergent.ingredient.fragrance")} ${fragrancePct}%`} />
+              <div className="bg-muted-foreground/30 transition-all" style={{ width: `${fillerPct}%` }} title={`${t("sim.detergent.ingredient.filler")} ${fillerPct}%`} />
             </div>
             <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" />Water {waterPct}%</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" />Surfactant {surfactantPct}%</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-pink-400" />Fragrance {fragrancePct}%</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted-foreground/30" />Filler {fillerPct}%</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" />{t("sim.detergent.ingredient.water")} {waterPct}%</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" />{t("sim.detergent.ingredient.surfactant")} {surfactantPct}%</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-pink-400" />{t("sim.detergent.ingredient.fragrance")} {fragrancePct}%</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted-foreground/30" />{t("sim.detergent.ingredient.filler")} {fillerPct}%</span>
             </div>
           </CardContent>
         </Card>
 
         <div className="flex gap-3">
-          <Button onClick={() => setStage("formulation")} variant="outline" className="flex-1">← Adjust Formula</Button>
-          <Button onClick={runTests} className="flex-1" aria-label="Run Quality Tests">🧪 Run Quality Tests</Button>
+          <Button onClick={() => setStage("formulation")} variant="outline" className="flex-1">{t("sim.detergent.btn.adjustFormula")}</Button>
+          <Button onClick={runTests} className="flex-1" aria-label={t("sim.detergent.btn.runTests")}>🧪 {t("sim.detergent.btn.runTests")}</Button>
         </div>
       </div>
     );
@@ -275,32 +275,32 @@ export function DetergentLabSimulation({ simulationId }: Props) {
       <SimulationScene slug="detergent-lab" isActive={score > 0} isComplete={tested} />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2">
-          <FlaskConical className="h-6 w-6 text-primary" /> Detergent Lab
+          <FlaskConical className="h-6 w-6 text-primary" /> {t("sim.detergent.title")}
         </h2>
       </div>
-      <p className="text-sm text-muted-foreground">Design your detergent formula. Balance cleaning power, safety, and cost for maximum profit.</p>
+      <p className="text-sm text-muted-foreground">{t("sim.detergent.label.description")}</p>
 
       {/* Brand Name */}
       <Card>
         <CardContent className="pt-6 space-y-2">
-          <span className="font-medium">🏷️ Brand Name</span>
-          <Input value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="Enter brand name..." />
+          <span className="font-medium">{t("sim.detergent.label.brandName")}</span>
+          <Input value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder={t("sim.detergent.placeholder.brandName")} />
         </CardContent>
       </Card>
 
       {/* Surfactant */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <div className="flex justify-between"><span className="font-medium">🧴 Surfactant</span><Badge variant="outline">{surfactantPct}%</Badge></div>
+          <div className="flex justify-between"><span className="font-medium">{t("sim.detergent.label.surfactant")}</span><Badge variant="outline">{surfactantPct}%</Badge></div>
           <Slider value={[surfactantPct]} onValueChange={([v]) => setSurfactantPct(v)} min={10} max={45} step={1} />
-          <p className="text-xs text-muted-foreground">Higher = more cleaning power but higher cost & lower safety above 35%</p>
+          <p className="text-xs text-muted-foreground">{t("sim.detergent.hint.surfactant")}</p>
         </CardContent>
       </Card>
 
       {/* Water */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <div className="flex justify-between"><span className="font-medium">💧 Water</span><Badge variant="outline">{waterPct}%</Badge></div>
+          <div className="flex justify-between"><span className="font-medium">{t("sim.detergent.label.water")}</span><Badge variant="outline">{waterPct}%</Badge></div>
           <Slider value={[waterPct]} onValueChange={([v]) => setWaterPct(v)} min={40} max={80} step={1} />
         </CardContent>
       </Card>
@@ -308,24 +308,24 @@ export function DetergentLabSimulation({ simulationId }: Props) {
       {/* Fragrance */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <div className="flex justify-between"><span className="font-medium">🌸 Fragrance</span><Badge variant="outline">{fragrancePct}%</Badge></div>
+          <div className="flex justify-between"><span className="font-medium">{t("sim.detergent.label.fragrance")}</span><Badge variant="outline">{fragrancePct}%</Badge></div>
           <Slider value={[fragrancePct]} onValueChange={([v]) => setFragrancePct(v)} min={0} max={15} step={1} />
         </CardContent>
       </Card>
 
-      {totalPct > 100 && <p className="text-destructive text-sm font-medium">⚠️ Total exceeds 100% ({totalPct}%)</p>}
+      {totalPct > 100 && <p className="text-destructive text-sm font-medium">{t("sim.detergent.warning.exceeds").replace("{pct}", String(totalPct))}</p>}
 
       {/* Additive */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <span className="font-medium">⚗️ Special Additive</span>
+          <span className="font-medium">{t("sim.detergent.label.additive")}</span>
           <Select value={additiveType} onValueChange={(v: any) => setAdditiveType(v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="softener">Fabric Softener (+foam)</SelectItem>
-              <SelectItem value="bleach">Bleach (+cleaning, -safety)</SelectItem>
-              <SelectItem value="enzyme">Enzyme (+cleaning, higher cost)</SelectItem>
+              <SelectItem value="none">{t("sim.detergent.additive.none")}</SelectItem>
+              <SelectItem value="softener">{t("sim.detergent.additive.softener")}</SelectItem>
+              <SelectItem value="bleach">{t("sim.detergent.additive.bleach")}</SelectItem>
+              <SelectItem value="enzyme">{t("sim.detergent.additive.enzyme")}</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>

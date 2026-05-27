@@ -20,18 +20,18 @@ import { SimulationScene } from "@/components/SimulationScene";
 
 interface Props { simulationId?: string; }
 
-const GLASS_TYPES = [
-  { id: "single", name: "Single Pane", cost: 20, insulation: 1, strength: 1 },
-  { id: "double", name: "Double Glazed", cost: 45, insulation: 3, strength: 2 },
-  { id: "triple", name: "Triple Glazed", cost: 75, insulation: 5, strength: 3 },
-  { id: "laminated", name: "Laminated Safety", cost: 60, insulation: 2, strength: 5 },
-  { id: "smart", name: "Smart Glass", cost: 120, insulation: 4, strength: 3 },
+const GLASS_TYPE_IDS = [
+  { id: "single", key: "sim.glazing.glass.single", cost: 20, insulation: 1, strength: 1 },
+  { id: "double", key: "sim.glazing.glass.double", cost: 45, insulation: 3, strength: 2 },
+  { id: "triple", key: "sim.glazing.glass.triple", cost: 75, insulation: 5, strength: 3 },
+  { id: "laminated", key: "sim.glazing.glass.laminated", cost: 60, insulation: 2, strength: 5 },
+  { id: "smart", key: "sim.glazing.glass.smart", cost: 120, insulation: 4, strength: 3 },
 ];
 
-const FRAME_TYPES = [
-  { id: "standard", name: "Standard Aluminum", cost: 15, durability: 2 },
-  { id: "thermal", name: "Thermal Break", cost: 35, durability: 4 },
-  { id: "heavy", name: "Heavy Duty", cost: 50, durability: 5 },
+const FRAME_TYPE_IDS = [
+  { id: "standard", key: "sim.glazing.frame.standard", cost: 15, durability: 2 },
+  { id: "thermal", key: "sim.glazing.frame.thermal", cost: 35, durability: 4 },
+  { id: "heavy", key: "sim.glazing.frame.heavy", cost: 50, durability: 5 },
 ];
 
 interface Order {
@@ -44,8 +44,11 @@ interface Order {
   deadline: number;
 }
 
+const ORDER_TYPE_IDS = ["sim.glazing.orderType.window", "sim.glazing.orderType.door", "sim.glazing.orderType.curtainWall", "sim.glazing.orderType.skylight", "sim.glazing.orderType.storefront"];
+const ORDER_TYPE_NAMES = ["Window", "Door", "Curtain Wall", "Skylight", "Storefront"];
+
 function randomOrder(id: number): Order {
-  const types = ["Window", "Door", "Curtain Wall", "Skylight", "Storefront"];
+  const types = ORDER_TYPE_NAMES;
   const type = types[Math.floor(Math.random() * types.length)];
   const w = 80 + Math.floor(Math.random() * 200);
   const h = 100 + Math.floor(Math.random() * 250);
@@ -63,9 +66,12 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
   const [orders, setOrders] = useState<Order[]>(() => Array.from({ length: 3 }, (_, i) => randomOrder(i)));
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
 
+  const GLASS_TYPES = GLASS_TYPE_IDS.map((g) => ({ ...g, name: t(g.key) }));
+  const FRAME_TYPES = FRAME_TYPE_IDS.map((f) => ({ ...f, name: t(f.key) }));
+
   // Design choices
-  const [glassType, setGlassType] = useState(GLASS_TYPES[1]);
-  const [frameType, setFrameType] = useState(FRAME_TYPES[0]);
+  const [glassType, setGlassType] = useState(GLASS_TYPE_IDS[1]);
+  const [frameType, setFrameType] = useState(FRAME_TYPE_IDS[0]);
   const [cutAngle, setCutAngle] = useState(45);
   const [sealantThickness, setSealantThickness] = useState(3);
   const [markup, setMarkup] = useState(30);
@@ -119,7 +125,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
   const startFabrication = () => {
     if (!currentOrder || fabricating) return;
     if (quotePrice > currentOrder.budget * 1.5) {
-      toast.error("❌ Quote too high! Customer rejected.");
+      toast.error(t("sim.glazing.error.quoteTooHigh"));
       setSatisfaction((s) => Math.max(0, s - 10));
       setCurrentOrder(null);
       return;
@@ -128,7 +134,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
     setFabProgress(0);
     playSound("scan");
 
-    const stages = ["📐 Cutting aluminum...", "🪟 Fitting glass...", "🔧 Applying sealant...", "⚡ Assembly...", "✅ Quality check..."];
+    const stages = [t("sim.glazing.stage.cutting"), t("sim.glazing.stage.fittingGlass"), t("sim.glazing.stage.applySealant"), t("sim.glazing.stage.assembly"), t("sim.glazing.stage.qualityCheck")];
     let step = 0;
     const total = 25;
     const interval = setInterval(() => {
@@ -189,12 +195,12 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
       <Card className="max-w-lg mx-auto animate-in fade-in">
         <CardContent className="p-8 text-center space-y-4">
           <Trophy className="mx-auto h-16 w-16 text-primary" />
-          <h2 className="text-2xl font-bold">🏗️ Workshop Report</h2>
+          <h2 className="text-2xl font-bold">{t("sim.glazing.report.title")}</h2>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-green-500/10 p-3"><p className="text-2xl font-bold text-green-500">${revenue}</p><p className="text-xs text-muted-foreground">Revenue</p></div>
-            <div className="rounded-xl bg-red-500/10 p-3"><p className="text-2xl font-bold text-red-500">${costs}</p><p className="text-xs text-muted-foreground">Costs</p></div>
-            <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">{satisfaction}%</p><p className="text-xs text-muted-foreground">Satisfaction</p></div>
-            <div className="rounded-xl bg-yellow-500/10 p-3"><p className="text-2xl font-bold text-yellow-500">{score}</p><p className="text-xs text-muted-foreground">Score</p></div>
+            <div className="rounded-xl bg-green-500/10 p-3"><p className="text-2xl font-bold text-green-500">${revenue}</p><p className="text-xs text-muted-foreground">{t("sim.glazing.report.revenue")}</p></div>
+            <div className="rounded-xl bg-red-500/10 p-3"><p className="text-2xl font-bold text-red-500">${costs}</p><p className="text-xs text-muted-foreground">{t("sim.glazing.report.costs")}</p></div>
+            <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">{satisfaction}%</p><p className="text-xs text-muted-foreground">{t("sim.glazing.report.satisfaction")}</p></div>
+            <div className="rounded-xl bg-yellow-500/10 p-3"><p className="text-2xl font-bold text-yellow-500">{score}</p><p className="text-xs text-muted-foreground">{t("sim.glazing.report.score")}</p></div>
           </div>
           {history.map((h, i) => (
             <div key={i} className="flex justify-between text-sm p-1 bg-muted/30 rounded">
@@ -202,7 +208,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
               <span className={h.profit > 0 ? "text-green-500" : "text-red-500"}>Q:{h.quality}% | ${h.profit}</span>
             </div>
           ))}
-          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />Play Again</Button>
+          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.glazing.report.playAgain")}</Button>
         </CardContent>
       </Card>
     );
@@ -234,14 +240,14 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
       {!currentOrder && !fabricating && (
         <Card>
           <CardContent className="p-4 space-y-3">
-            <h3 className="font-bold text-sm">📋 Available Orders</h3>
+            <h3 className="font-bold text-sm">{t("sim.glazing.availableOrders")}</h3>
             {orders.map((o) => (
               <div key={o.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors" onClick={() => selectOrder(o)}>
                 <div>
                   <p className="font-medium text-sm">{o.type} ({o.quantity}x)</p>
                   <p className="text-xs text-muted-foreground">{o.width}x{o.height}cm | Budget: ${o.budget} | {o.deadline} days</p>
                 </div>
-                <Button size="sm" variant="outline" aria-label={`Select ${o.type} order`}>Select</Button>
+                <Button size="sm" variant="outline" aria-label={`Select ${o.type} order`}>{t("sim.glazing.selectOrder")}</Button>
               </div>
             ))}
           </CardContent>
@@ -256,8 +262,8 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
             <p className="text-xs text-muted-foreground">Size: {currentOrder.width}x{currentOrder.height}cm | Budget: ${currentOrder.budget}</p>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Glass Type</label>
-              <Select value={glassType.id} onValueChange={(v) => setGlassType(GLASS_TYPES.find((g) => g.id === v)!)}>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.glazing.glassType")}</label>
+              <Select value={glassType.id} onValueChange={(v) => setGlassType(GLASS_TYPE_IDS.find((g) => g.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {GLASS_TYPES.map((g) => (
@@ -268,8 +274,8 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Frame Type</label>
-              <Select value={frameType.id} onValueChange={(v) => setFrameType(FRAME_TYPES.find((f) => f.id === v)!)}>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.glazing.frameType")}</label>
+              <Select value={frameType.id} onValueChange={(v) => setFrameType(FRAME_TYPE_IDS.find((f) => f.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {FRAME_TYPES.map((f) => (
@@ -295,16 +301,16 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
             </div>
 
             <div className="p-3 rounded-lg bg-muted/50 text-xs space-y-1">
-              <div className="flex justify-between"><span>Unit cost:</span><span>${unitCost}</span></div>
-              <div className="flex justify-between"><span>Total cost ({currentOrder.quantity}x):</span><span>${unitCost * currentOrder.quantity}</span></div>
+              <div className="flex justify-between"><span>{t("sim.glazing.costBreakdown.unitCost")}:</span><span>${unitCost}</span></div>
+              <div className="flex justify-between"><span>{t("sim.glazing.costBreakdown.totalCost")} ({currentOrder.quantity}x):</span><span>${unitCost * currentOrder.quantity}</span></div>
               <div className="flex justify-between font-bold border-t border-border pt-1">
-                <span>Your Quote:</span>
+                <span>{t("sim.glazing.costBreakdown.yourQuote")}:</span>
                 <span className={quotePrice > currentOrder.budget * 1.5 ? "text-red-500" : "text-green-500"}>${quotePrice}</span>
               </div>
-              <div className="flex justify-between"><span>Customer Budget:</span><span>${currentOrder.budget}</span></div>
+              <div className="flex justify-between"><span>{t("sim.glazing.costBreakdown.customerBudget")}:</span><span>${currentOrder.budget}</span></div>
             </div>
 
-            <Button onClick={startFabrication} className="w-full" aria-label="Start Fabrication">🔨 Start Fabrication</Button>
+            <Button onClick={startFabrication} className="w-full" aria-label="Start Fabrication">{t("sim.glazing.btn.startFabrication")}</Button>
           </CardContent>
         </Card>
       )}
@@ -313,7 +319,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
       {history.length > 0 && (
         <Card>
           <CardContent className="p-3">
-            <h3 className="font-bold text-xs mb-2">📊 Order History</h3>
+            <h3 className="font-bold text-xs mb-2">{t("sim.glazing.history.title")}</h3>
             {history.map((h, i) => (
               <div key={i} className="flex justify-between text-xs py-1 border-b border-border last:border-0">
                 <span>#{i + 1} {h.order}</span>

@@ -221,28 +221,28 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
         <Card className="border-green-500/40 bg-green-500/10">
           <CardContent className="pt-6 text-center space-y-4">
             <Trophy className="h-12 w-12 mx-auto text-primary" />
-            <h2 className="text-2xl font-bold">NOC Shift Complete!</h2>
+            <h2 className="text-2xl font-bold">{t("sim.noc.report.title")}</h2>
             <p className="text-4xl font-bold text-primary">{score} pts</p>
             <div className="grid grid-cols-2 gap-3 text-sm max-w-md mx-auto">
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Uptime</p><p className="text-lg font-bold">{uptime.toFixed(2)}%</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Resolved</p><p className="text-lg font-bold text-green-500">{totalResolved}</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Missed</p><p className="text-lg font-bold text-destructive">{totalMissed}</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Budget</p><p className={`text-lg font-bold ${totalCost <= budget ? "text-green-500" : "text-destructive"}`}>${totalCost}/${budget}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.noc.report.uptime")}</p><p className="text-lg font-bold">{uptime.toFixed(2)}%</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.noc.report.resolved")}</p><p className="text-lg font-bold text-green-500">{totalResolved}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.noc.report.missed")}</p><p className="text-lg font-bold text-destructive">{totalMissed}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.noc.report.budget")}</p><p className={`text-lg font-bold ${totalCost <= budget ? "text-green-500" : "text-destructive"}`}>${totalCost}/${budget}</p></div>
             </div>
           </CardContent>
         </Card>
-        <PerformanceRadar title="🖥️ NOC Performance" data={[
-          { metric: "Uptime", value: Math.round(uptime) },
-          { metric: "Resolution", value: Math.round((totalResolved / Math.max(1, totalResolved + totalMissed)) * 100) },
-          { metric: "Response Time", value: Math.max(0, 100 - mttr * 5) },
-          { metric: "Budget Mgmt", value: Math.min(100, Math.max(0, Math.round((1 - totalCost / Math.max(1, budget)) * 100))) },
+        <PerformanceRadar title={t("sim.noc.chart.performance")} data={[
+          { metric: t("sim.noc.metric.uptime"), value: Math.round(uptime) },
+          { metric: t("sim.noc.metric.resolution"), value: Math.round((totalResolved / Math.max(1, totalResolved + totalMissed)) * 100) },
+          { metric: t("sim.noc.metric.responseTime"), value: Math.max(0, 100 - mttr * 5) },
+          { metric: t("sim.noc.metric.budgetMgmt"), value: Math.min(100, Math.max(0, Math.round((1 - totalCost / Math.max(1, budget)) * 100))) },
         ]} />
-        <FinancialBar title="📊 Budget Breakdown" data={[
-          { label: "Budget", value: budget, color: "hsl(217 91% 60%)" },
-          { label: "Spent", value: totalCost, color: totalCost <= budget ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)" },
-          { label: "Remaining", value: Math.max(0, budget - totalCost), color: "hsl(var(--primary))" },
+        <FinancialBar title={t("sim.noc.chart.budget")} data={[
+          { label: t("sim.noc.report.budget"), value: budget, color: "hsl(217 91% 60%)" },
+          { label: t("sim.noc.label.spent"), value: totalCost, color: totalCost <= budget ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)" },
+          { label: t("sim.noc.label.remaining"), value: Math.max(0, budget - totalCost), color: "hsl(var(--primary))" },
         ]} />
-        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Play Again</Button>
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> {t("sim.noc.btn.playAgain")}</Button>
       </div>
     );
   }
@@ -251,8 +251,8 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive animate-pulse" aria-hidden="true" /> Active Incident</h2>
-          <Badge variant="secondary" role="status" aria-live="polite">Score: {score}</Badge>
+          <h2 className="text-xl font-bold flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive animate-pulse" aria-hidden="true" /> {t("sim.noc.activeIncident")}</h2>
+          <Badge variant="secondary" role="status" aria-live="polite">{t("sim.noc.score")}: {score}</Badge>
         </div>
 
         <Card className={`border-2 ${severityColor[currentIncident.severity]}`} role="alert" aria-label={`${currentIncident.severity} severity incident: ${currentIncident.name}`}>
@@ -268,7 +268,7 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
           </CardContent>
         </Card>
 
-        <h3 className="font-bold" id="response-label">Choose Response:</h3>
+        <h3 className="font-bold" id="response-label">{t("sim.noc.incident.chooseResponse")}</h3>
         <div className="space-y-3" role="group" aria-labelledby="response-label">
           {responseChoices.map((choice, i) => (
             <Button
@@ -301,30 +301,30 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2"><Activity className="h-6 w-6 text-green-500 animate-pulse" /> NOC Monitoring</h2>
-          <Badge variant="secondary">Score: {score}</Badge>
+          <h2 className="text-xl font-bold flex items-center gap-2"><Activity className="h-6 w-6 text-green-500 animate-pulse" /> {t("sim.noc.label.monitoring")}</h2>
+          <Badge variant="secondary">{t("sim.noc.score")}: {score}</Badge>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Card><CardContent className="pt-4 text-center">
             <Gauge className="h-5 w-5 mx-auto text-green-500" />
             <p className="text-lg font-bold">{uptime.toFixed(2)}%</p>
-            <p className="text-xs text-muted-foreground">Uptime</p>
+            <p className="text-xs text-muted-foreground">{t("sim.noc.metric.uptime")}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
             <CheckCircle2 className="h-5 w-5 mx-auto text-green-500" />
             <p className="text-lg font-bold">{totalResolved}</p>
-            <p className="text-xs text-muted-foreground">Resolved</p>
+            <p className="text-xs text-muted-foreground">{t("sim.noc.report.resolved")}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
             <AlertTriangle className="h-5 w-5 mx-auto text-destructive" />
             <p className="text-lg font-bold">{totalMissed}</p>
-            <p className="text-xs text-muted-foreground">Missed</p>
+            <p className="text-xs text-muted-foreground">{t("sim.noc.report.missed")}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
             <Zap className="h-5 w-5 mx-auto text-amber-500" />
             <p className="text-lg font-bold">{incidentIndex}/{INCIDENTS.length}</p>
-            <p className="text-xs text-muted-foreground">Progress</p>
+            <p className="text-xs text-muted-foreground">{t("sim.noc.label.progress")}</p>
           </CardContent></Card>
         </div>
 
@@ -332,14 +332,14 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
 
         <Card className="bg-black/50 border-primary/20">
           <CardContent className="p-4">
-            <h3 className="font-mono text-sm mb-2 text-primary flex items-center gap-2"><Terminal className="h-4 w-4" /> Terminal</h3>
+            <h3 className="font-mono text-sm mb-2 text-primary flex items-center gap-2"><Terminal className="h-4 w-4" /> {t("sim.noc.label.terminal")}</h3>
             <div className="max-h-32 overflow-y-auto space-y-1 font-mono text-xs text-green-400/80">
               {log.map((entry, i) => <p key={i}>{entry}</p>)}
             </div>
           </CardContent>
         </Card>
 
-        <p className="text-center text-muted-foreground text-sm animate-pulse">Monitoring for next incident...</p>
+        <p className="text-center text-muted-foreground text-sm animate-pulse">{t("sim.noc.monitoring.waiting")}</p>
 
         <SimulationMentor simulationTitle="Network NOC" currentStepTitle={`Incident ${incidentIndex + 1}`} />
       </div>
@@ -349,60 +349,60 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   // Setup
   return (
     <div className="space-y-6">
-      <SimulationScene slug="network-noc" isActive={incidentIndex > 0} isComplete={finished} />
-      <h2 className="text-xl font-bold flex items-center gap-2"><Wifi className="h-6 w-6 text-primary" /> Network Operations Center</h2>
-      <p className="text-sm text-muted-foreground">Configure your NOC team and infrastructure. Handle {INCIDENTS.length} network incidents with the right resources and decisions.</p>
+      <SimulationScene slug="network-noc" isActive={incidentIndex > 0} isComplete={stage === "results"} />
+      <h2 className="text-xl font-bold flex items-center gap-2"><Wifi className="h-6 w-6 text-primary" /> {t("sim.noc.title")}</h2>
+      <p className="text-sm text-muted-foreground">{t("sim.noc.description")}</p>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><label htmlFor="team-slider" className="font-medium">👥 Team Size</label><Badge variant="outline" aria-live="polite">{teamSize} engineers</Badge></div>
+        <div className="flex justify-between"><label htmlFor="team-slider" className="font-medium">👥 {t("sim.noc.label.teamSize")}</label><Badge variant="outline" aria-live="polite">{teamSize} {t("sim.noc.label.engineers")}</Badge></div>
         <Slider id="team-slider" value={[teamSize]} onValueChange={([v]) => setTeamSize(v)} min={1} max={6} step={1} aria-label={`Team size: ${teamSize} engineers`} aria-valuemin={1} aria-valuemax={6} aria-valuenow={teamSize} />
-        <p className="text-xs text-muted-foreground">More engineers = faster response but $800/person</p>
+        <p className="text-xs text-muted-foreground">{t("sim.noc.hint.engineers")}</p>
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <span className="font-medium">📡 Monitoring Level</span>
+        <span className="font-medium">📡 {t("sim.noc.label.monitoringLevel")}</span>
         <Select value={monitoringLevel} onValueChange={(v: any) => setMonitoringLevel(v)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="basic">Basic ($500) — 60% detection rate</SelectItem>
-            <SelectItem value="advanced">Advanced ($1,500) — 85% detection rate</SelectItem>
-            <SelectItem value="enterprise">Enterprise ($3,000) — 98% detection rate</SelectItem>
+            <SelectItem value="basic">{t("sim.noc.monitoring.basic")}</SelectItem>
+            <SelectItem value="advanced">{t("sim.noc.monitoring.advanced")}</SelectItem>
+            <SelectItem value="enterprise">{t("sim.noc.monitoring.enterprise")}</SelectItem>
           </SelectContent>
         </Select>
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <span className="font-medium">🔄 Redundancy</span>
+        <span className="font-medium">{t("sim.noc.label.redundancy")}</span>
         <Select value={redundancy} onValueChange={(v: any) => setRedundancy(v)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">None ($0) — No failover</SelectItem>
-            <SelectItem value="active-passive">Active-Passive ($1,000) — Basic failover</SelectItem>
-            <SelectItem value="active-active">Active-Active ($2,500) — Full redundancy</SelectItem>
+            <SelectItem value="none">{t("sim.noc.redundancy.none")}</SelectItem>
+            <SelectItem value="active-passive">{t("sim.noc.redundancy.activePassive")}</SelectItem>
+            <SelectItem value="active-active">{t("sim.noc.redundancy.activeActive")}</SelectItem>
           </SelectContent>
         </Select>
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">💰 Monthly Budget</span><Badge variant="outline">${budget}</Badge></div>
+        <div className="flex justify-between"><span className="font-medium">💰 {t("sim.noc.label.budget")}</span><Badge variant="outline">${budget}</Badge></div>
         <Slider value={[budget]} onValueChange={([v]) => setBudget(v)} min={2000} max={10000} step={500} />
       </CardContent></Card>
 
       <Card className={`border-primary/30 ${totalCost <= budget ? "bg-green-500/5" : "bg-destructive/5"}`}>
         <CardContent className="pt-4">
-          <p className="text-sm font-medium mb-2">📊 Cost Breakdown:</p>
+          <p className="text-sm font-medium mb-2">📊 {t("sim.noc.section.costBreakdown")}</p>
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <span>Team: <strong>${teamCost}</strong></span>
-            <span>Monitoring: <strong>${monitoringCost}</strong></span>
-            <span>Redundancy: <strong>${redundancyCost}</strong></span>
-            <span>Total: <strong className={totalCost <= budget ? "text-green-500" : "text-destructive"}>${totalCost}/{budget}</strong></span>
+            <span>{t("sim.noc.cost.team")}: <strong>${teamCost}</strong></span>
+            <span>{t("sim.noc.cost.monitoring")}: <strong>${monitoringCost}</strong></span>
+            <span>{t("sim.noc.cost.redundancy")}: <strong>${redundancyCost}</strong></span>
+            <span>{t("sim.noc.cost.total")}: <strong className={totalCost <= budget ? "text-green-500" : "text-destructive"}>${totalCost}/{budget}</strong></span>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Detection Rate: <strong>{Math.round(detectionSpeed * 100)}%</strong></p>
+          <p className="text-xs text-muted-foreground mt-2">{t("sim.noc.label.detectionRate")}: <strong>{Math.round(detectionSpeed * 100)}%</strong></p>
         </CardContent>
       </Card>
 
       <Button onClick={startMonitoring} className="w-full text-base" size="lg">
-        🖥️ Start NOC Shift — Handle {INCIDENTS.length} Incidents
+        {t("sim.noc.btn.startShift").replace("{count}", String(INCIDENTS.length))}
       </Button>
     </div>
   );

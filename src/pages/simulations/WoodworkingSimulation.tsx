@@ -155,10 +155,10 @@ export function WoodworkingSimulation({ simulationId }: Props) {
           <Trophy className="mx-auto h-16 w-16 text-primary" />
           <h2 className="text-2xl font-bold">🪵 Workshop Report</h2>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-green-500/10 p-3"><p className="text-2xl font-bold text-green-500">${revenue}</p><p className="text-xs text-muted-foreground">Revenue</p></div>
-            <div className="rounded-xl bg-red-500/10 p-3"><p className="text-2xl font-bold text-red-500">${costs}</p><p className="text-xs text-muted-foreground">Costs</p></div>
-            <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">${revenue - costs}</p><p className="text-xs text-muted-foreground">Profit</p></div>
-            <div className="rounded-xl bg-yellow-500/10 p-3"><p className="text-2xl font-bold text-yellow-500">{score}</p><p className="text-xs text-muted-foreground">Score</p></div>
+            <div className="rounded-xl bg-green-500/10 p-3"><p className="text-2xl font-bold text-green-500">${revenue}</p><p className="text-xs text-muted-foreground">{t("sim.woodworking.report.revenue")}</p></div>
+            <div className="rounded-xl bg-red-500/10 p-3"><p className="text-2xl font-bold text-red-500">${costs}</p><p className="text-xs text-muted-foreground">{t("sim.woodworking.report.costs")}</p></div>
+            <div className="rounded-xl bg-primary/10 p-3"><p className="text-2xl font-bold text-primary">${revenue - costs}</p><p className="text-xs text-muted-foreground">{t("sim.woodworking.report.profit")}</p></div>
+            <div className="rounded-xl bg-yellow-500/10 p-3"><p className="text-2xl font-bold text-yellow-500">{score}</p><p className="text-xs text-muted-foreground">{t("sim.woodworking.report.score")}</p></div>
           </div>
           {results.map((r, i) => (
             <div key={i} className="flex justify-between text-sm p-1 bg-muted/30 rounded">
@@ -166,7 +166,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
               <span className={r.profit > 0 ? "text-green-500" : "text-red-500"}>Q:{r.quality}% | ${r.profit}</span>
             </div>
           ))}
-          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />Play Again</Button>
+          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.woodworking.report.playAgain")}</Button>
         </CardContent>
       </Card>
     );
@@ -196,7 +196,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
             <h3 className="font-bold text-sm">🛠️ Workshop Controls</h3>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Project</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.woodworking.projectLabel")}</label>
               <Select value={project.id} onValueChange={(v) => setProject(PROJECTS.find((p) => p.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -208,7 +208,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Wood Type</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.woodworking.woodType")}</label>
               <Select value={wood.id} onValueChange={(v) => setWood(WOOD_TYPES.find((w) => w.id === v)!)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>

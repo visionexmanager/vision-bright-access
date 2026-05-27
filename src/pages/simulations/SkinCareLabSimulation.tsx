@@ -114,10 +114,10 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
     satisfaction = Math.min(100, Math.max(10, satisfaction));
 
     const comments: Record<string, string> = {
-      high: "Amazing product! My skin feels incredible! ⭐⭐⭐⭐⭐",
-      good: "Good product, noticeable results. ⭐⭐⭐⭐",
-      ok: "It's okay, nothing special. ⭐⭐⭐",
-      bad: "Not suitable for my skin type. ⭐⭐",
+      high: t("sim.skincare.feedback.excellent"),
+      good: t("sim.skincare.feedback.good"),
+      ok: t("sim.skincare.feedback.average"),
+      bad: t("sim.skincare.feedback.poor"),
     };
 
     const comment = satisfaction >= 80 ? comments.high : satisfaction >= 60 ? comments.good : satisfaction >= 40 ? comments.ok : comments.bad;
@@ -213,31 +213,31 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
         <Card className="border-green-500/40 bg-green-500/10">
           <CardContent className="pt-6 text-center space-y-4">
             <Sparkles className="h-12 w-12 mx-auto text-primary" />
-            <h2 className="text-2xl font-bold">{productName || "Your Serum"} — Complete!</h2>
+            <h2 className="text-2xl font-bold">{t("sim.skincare.results.title").replace("{name}", productName || "Your Serum")}</h2>
             <p className="text-4xl font-bold text-primary">{score} pts</p>
             <div className="grid grid-cols-2 gap-3 text-sm max-w-md mx-auto">
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Quality</p><p className="text-lg font-bold">{q.overallQuality}%</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Satisfaction</p><p className="text-lg font-bold">{avgSat}%</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Sales</p><p className="text-lg font-bold">{purchases}/{clients.length}</p></div>
-              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">Revenue</p><p className="text-lg font-bold text-green-500">${totalRevenue}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.skincare.metric.quality")}</p><p className="text-lg font-bold">{q.overallQuality}%</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.skincare.metric.satisfaction")}</p><p className="text-lg font-bold">{avgSat}%</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.skincare.metric.sales")}</p><p className="text-lg font-bold">{purchases}/{clients.length}</p></div>
+              <div className="bg-background rounded-lg p-3"><p className="text-muted-foreground">{t("sim.skincare.metric.revenue")}</p><p className="text-lg font-bold text-green-500">${totalRevenue}</p></div>
             </div>
           </CardContent>
         </Card>
-        <PerformanceRadar title="🧴 Product Performance" data={[
-          { metric: "Hydration", value: q.hydration },
-          { metric: "Brightening", value: q.brightening },
-          { metric: "Anti-aging", value: q.antiAging },
-          { metric: "Sun Protection", value: q.sunProtection },
-          { metric: "Satisfaction", value: avgSat },
+        <PerformanceRadar title={`🧴 ${t("sim.skincare.chart.performance")}`} data={[
+          { metric: t("sim.skincare.metric.hydration"), value: q.hydration },
+          { metric: t("sim.skincare.metric.brightening"), value: q.brightening },
+          { metric: t("sim.skincare.metric.antiAging"), value: q.antiAging },
+          { metric: t("sim.skincare.metric.sunProtection"), value: q.sunProtection },
+          { metric: t("sim.skincare.metric.satisfaction"), value: avgSat },
         ]} />
         {clientFeedback.length > 0 && (
-          <FinancialBar title="😊 Client Satisfaction" data={clientFeedback.map((f, i) => ({
+          <FinancialBar title={`😊 ${t("sim.skincare.chart.satisfaction")}`} data={clientFeedback.map((f, i) => ({
             label: clients[i]?.name?.split(" ")[0] || `Client ${i+1}`,
             value: f.satisfaction,
             color: f.satisfaction >= 70 ? "hsl(142 71% 45%)" : f.satisfaction >= 50 ? "hsl(45 93% 47%)" : "hsl(0 84% 60%)",
           }))} />
         )}
-        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> Try Again</Button>
+        <Button onClick={reset} variant="outline" className="w-full gap-2"><RotateCcw className="h-4 w-4" /> {t("sim.skincare.btn.tryAgain")}</Button>
       </div>
     );
   }
@@ -247,8 +247,8 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2"><Heart className="h-6 w-6 text-pink-500" /> Client {clientIndex + 1}/{clients.length}</h2>
-          <Badge variant="secondary" role="status" aria-live="polite">${totalRevenue} earned</Badge>
+          <h2 className="text-xl font-bold flex items-center gap-2"><Heart className="h-6 w-6 text-pink-500" /> {t("sim.skincare.label.clientProgress").replace("{current}", String(clientIndex + 1)).replace("{total}", String(clients.length))}</h2>
+          <Badge variant="secondary" role="status" aria-live="polite">${totalRevenue} {t("sim.skincare.label.earned")}</Badge>
         </div>
         <Progress value={((clientIndex) / clients.length) * 100} className="h-2" />
 
@@ -257,8 +257,8 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
             <p className="text-4xl">👤</p>
             <h3 className="text-lg font-bold">{client.name}</h3>
             <div className="flex flex-wrap justify-center gap-2">
-              <Badge variant="secondary">Skin: {client.skin}</Badge>
-              <Badge variant="outline">Budget: ${client.budget}</Badge>
+              <Badge variant="secondary">{t("sim.skincare.label.skin")} {client.skin}</Badge>
+              <Badge variant="outline">{t("sim.skincare.label.budget")} ${client.budget}</Badge>
             </div>
             <p className="text-muted-foreground">"{client.concern}"</p>
             <p className="text-sm">Your product: <strong>{productName || "Serum"}</strong> at <strong>${pricePoint}</strong></p>
@@ -273,8 +273,8 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
           </Card>
         )}
 
-        <Button onClick={serveClient} className="w-full" size="lg" aria-label={`Offer Product to ${client.name}`}>
-          💁 Offer Product to {client.name}
+        <Button onClick={serveClient} className="w-full" size="lg" aria-label={t("sim.skincare.btn.offerProduct").replace("{name}", client.name)}>
+          💁 {t("sim.skincare.btn.offerProduct").replace("{name}", client.name)}
         </Button>
       </div>
     );
@@ -286,84 +286,84 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
     <div className="space-y-6">
       <SimulationScene slug="skin-care-lab" isActive={clientIndex > 0} isComplete={finished} />
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles className="h-6 w-6 text-primary" /> Skincare Lab</h2>
+        <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles className="h-6 w-6 text-primary" /> {t("sim.skincare.title")}</h2>
       </div>
-      <p className="text-sm text-muted-foreground">Formulate a skincare serum, then test it on real clients in the clinic.</p>
+      <p className="text-sm text-muted-foreground">{t("sim.skincare.description")}</p>
 
       <Card><CardContent className="pt-6 space-y-2">
-        <span className="font-medium">🏷️ Product Name</span>
-        <Input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="e.g., GlowSerum Pro" />
+        <span className="font-medium">🏷️ {t("sim.skincare.label.productName")}</span>
+        <Input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder={t("sim.skincare.placeholder.productName")} />
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <span className="font-medium">🎯 Target Skin Type</span>
+        <span className="font-medium">🎯 {t("sim.skincare.label.skinType")}</span>
         <Select value={skinTarget} onValueChange={(v: any) => setSkinTarget(v)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="normal">Normal</SelectItem>
-            <SelectItem value="oily">Oily — Acne-prone</SelectItem>
-            <SelectItem value="dry">Dry — Dehydrated</SelectItem>
-            <SelectItem value="sensitive">Sensitive — Reactive</SelectItem>
+            <SelectItem value="normal">{t("sim.skincare.skinType.normal")}</SelectItem>
+            <SelectItem value="oily">{t("sim.skincare.skinType.oily")}</SelectItem>
+            <SelectItem value="dry">{t("sim.skincare.skinType.dry")}</SelectItem>
+            <SelectItem value="sensitive">{t("sim.skincare.skinType.sensitive")}</SelectItem>
           </SelectContent>
         </Select>
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">💧 Hyaluronic Acid</span><Badge variant="outline">{hyaluronicAcid}%</Badge></div>
+        <div className="flex justify-between"><span className="font-medium">💧 {t("sim.skincare.label.hyaluronicAcid")}</span><Badge variant="outline">{hyaluronicAcid}%</Badge></div>
         <Slider value={[hyaluronicAcid]} onValueChange={([v]) => setHyaluronicAcid(v)} min={0} max={5} step={0.5} />
-        <p className="text-xs text-muted-foreground">Deep hydration booster</p>
+        <p className="text-xs text-muted-foreground">{t("sim.skincare.hint.hyaluronicAcid")}</p>
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">🍊 Vitamin C</span><Badge variant="outline">{vitaminC}%</Badge></div>
+        <div className="flex justify-between"><span className="font-medium">🍊 {t("sim.skincare.label.vitaminC")}</span><Badge variant="outline">{vitaminC}%</Badge></div>
         <Slider value={[vitaminC]} onValueChange={([v]) => setVitaminC(v)} min={0} max={20} step={1} />
-        <p className="text-xs text-muted-foreground">Brightening & antioxidant (above 15% can irritate sensitive skin)</p>
+        <p className="text-xs text-muted-foreground">{t("sim.skincare.hint.vitaminC")}</p>
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">✨ Niacinamide</span><Badge variant="outline">{niacinamide}%</Badge></div>
+        <div className="flex justify-between"><span className="font-medium">✨ {t("sim.skincare.label.niacinamide")}</span><Badge variant="outline">{niacinamide}%</Badge></div>
         <Slider value={[niacinamide]} onValueChange={([v]) => setNiacinamide(v)} min={0} max={10} step={1} />
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">🔬 Retinol</span><Badge variant="outline">{retinol}%</Badge></div>
+        <div className="flex justify-between"><span className="font-medium">🔬 {t("sim.skincare.label.retinol")}</span><Badge variant="outline">{retinol}%</Badge></div>
         <Slider value={[retinol]} onValueChange={([v]) => setRetinol(v)} min={0} max={2} step={0.1} />
-        <p className="text-xs text-muted-foreground">Powerful anti-aging but reduces gentleness. Avoid with high Vitamin C.</p>
+        <p className="text-xs text-muted-foreground">{t("sim.skincare.hint.retinol")}</p>
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">☀️ SPF Level</span><Badge variant="outline">SPF {spf}</Badge></div>
+        <div className="flex justify-between"><span className="font-medium">☀️ {t("sim.skincare.label.spf")}</span><Badge variant="outline">SPF {spf}</Badge></div>
         <Slider value={[spf]} onValueChange={([v]) => setSpf(v)} min={0} max={50} step={5} />
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <span className="font-medium">📦 Packaging</span>
+        <span className="font-medium">📦 {t("sim.skincare.label.packaging")}</span>
         <Select value={packageType} onValueChange={(v: any) => setPackageType(v)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="basic">Basic — $2 cost</SelectItem>
-            <SelectItem value="premium">Premium — $5 cost</SelectItem>
-            <SelectItem value="luxury">Luxury — $10 cost</SelectItem>
+            <SelectItem value="basic">{t("sim.skincare.packaging.basic")}</SelectItem>
+            <SelectItem value="premium">{t("sim.skincare.packaging.premium")}</SelectItem>
+            <SelectItem value="luxury">{t("sim.skincare.packaging.luxury")}</SelectItem>
           </SelectContent>
         </Select>
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">💰 Retail Price</span><Badge variant="outline">${pricePoint}</Badge></div>
+        <div className="flex justify-between"><span className="font-medium">💰 {t("sim.skincare.label.price")}</span><Badge variant="outline">${pricePoint}</Badge></div>
         <Slider value={[pricePoint]} onValueChange={([v]) => setPricePoint(v)} min={10} max={80} step={5} />
       </CardContent></Card>
 
       {/* Quality Preview */}
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="pt-4 space-y-3">
-          <p className="text-sm font-medium">📊 Product Analysis:</p>
+          <p className="text-sm font-medium">📊 {t("sim.skincare.section.analysis")}:</p>
           <div className="space-y-2">
             {[
-              { label: "Hydration", value: q.hydration, icon: <Droplets className="h-3 w-3" /> },
-              { label: "Brightening", value: q.brightening, icon: <Star className="h-3 w-3" /> },
-              { label: "Anti-Aging", value: q.antiAging, icon: <Sparkles className="h-3 w-3" /> },
+              { label: t("sim.skincare.metric.hydration"), value: q.hydration, icon: <Droplets className="h-3 w-3" /> },
+              { label: t("sim.skincare.metric.brightening"), value: q.brightening, icon: <Star className="h-3 w-3" /> },
+              { label: t("sim.skincare.metric.antiAging"), value: q.antiAging, icon: <Sparkles className="h-3 w-3" /> },
               { label: "Gentleness", value: q.gentleness, icon: <Heart className="h-3 w-3" /> },
-              { label: "Sun Protection", value: q.sunProtection, icon: <ShieldCheck className="h-3 w-3" /> },
+              { label: t("sim.skincare.metric.sunProtection"), value: q.sunProtection, icon: <ShieldCheck className="h-3 w-3" /> },
             ].map(m => (
               <div key={m.label} className="flex items-center gap-2">
                 {m.icon}
@@ -374,16 +374,16 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
             ))}
           </div>
           <div className="flex justify-between text-sm pt-2 border-t">
-            <span>Overall: <strong>{q.overallQuality}%</strong></span>
-            <span>Unit Cost: <strong>${q.unitCost}</strong></span>
+            <span>{t("sim.skincare.label.overall")} <strong>{q.overallQuality}%</strong></span>
+            <span>{t("sim.skincare.label.unitCost")} <strong>${q.unitCost}</strong></span>
           </div>
         </CardContent>
       </Card>
 
-            <SimulationMentor simulationTitle="Skin Care Lab" currentStepTitle="" />
+            <SimulationMentor simulationTitle={t("sim.skincare.title")} currentStepTitle="" />
 
-      <Button onClick={startClinic} className="w-full text-base" size="lg" aria-label={`Open Clinic — Test on ${clients.length} Clients`}>
-        🏥 Open Clinic — Test on {clients.length} Clients
+      <Button onClick={startClinic} className="w-full text-base" size="lg" aria-label={t("sim.skincare.btn.openClinic").replace("{n}", String(clients.length))}>
+        🏥 {t("sim.skincare.btn.openClinic").replace("{n}", String(clients.length))}
       </Button>
     </div>
   );

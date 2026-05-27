@@ -113,7 +113,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
     const count = 3 + staffCount + tierBonus + repBonus + Math.floor(Math.random() * 3);
     const newQueue = Array.from({ length: count }, (_, i) => randomCustomer(day * 100 + i));
     setQueue(newQueue);
-    toast.success(`📋 ${count} customers arrived today!`);
+    toast.success(t("sim.barber.notification.customersArrived").replace("{count}", String(count)));
   };
 
   // Serve the next customer
@@ -143,7 +143,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
           setCustomersServed((c) => c + 1);
           setReputation((r) => Math.min(100, r + (satisfied ? 3 : -5)));
           playSound("ding");
-          toast.success(`✅ ${prev.customer.name} served! +$${price + tipAmount}`);
+          toast.success(t("sim.barber.notification.customerServed").replace("{name}", prev.customer.name).replace("{amount}", String(price + tipAmount)));
           return null;
         }
         return { ...prev, progress: newProgress };
@@ -162,7 +162,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
         if (leaving.length > 0) {
           setCustomersLost((l) => l + leaving.length);
           setReputation((r) => Math.max(0, r - leaving.length * 4));
-          leaving.forEach((c) => toast.error(`😤 ${c.name} left! (too long wait)`));
+          leaving.forEach((c) => toast.error(t("sim.barber.notification.customerLeft").replace("{name}", c.name)));
         }
         return updated.filter((c) => c.patience > 0);
       });
@@ -179,7 +179,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
       finishGame();
     } else {
       setDay((d) => d + 1);
-      toast.success(`🌙 Day ${day} complete! Profit so far: $${profit}`);
+      toast.success(t("sim.barber.notification.dayComplete").replace("{day}", String(day)).replace("{profit}", String(profit)));
     }
   };
 
@@ -213,29 +213,29 @@ export function BarberSalonSimulation({ simulationId }: Props) {
       <Card className="max-w-lg mx-auto animate-in fade-in">
         <CardContent className="p-8 text-center space-y-4">
           <Trophy className="mx-auto h-16 w-16 text-primary" />
-          <h2 className="text-2xl font-bold">Salon Week Complete!</h2>
+          <h2 className="text-2xl font-bold">{t("sim.barber.results.title")}</h2>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-green-500/10 p-3">
               <p className="text-2xl font-bold text-green-500">${revenue}</p>
-              <p className="text-xs text-muted-foreground">Revenue</p>
+              <p className="text-xs text-muted-foreground">{t("sim.barber.metric.revenue")}</p>
             </div>
             <div className="rounded-xl bg-red-500/10 p-3">
               <p className="text-2xl font-bold text-red-500">${costs}</p>
-              <p className="text-xs text-muted-foreground">Costs</p>
+              <p className="text-xs text-muted-foreground">{t("sim.barber.metric.costs")}</p>
             </div>
             <div className="rounded-xl bg-primary/10 p-3">
               <p className="text-2xl font-bold text-primary">${profit}</p>
-              <p className="text-xs text-muted-foreground">Net Profit</p>
+              <p className="text-xs text-muted-foreground">{t("sim.barber.metric.netProfit")}</p>
             </div>
             <div className="rounded-xl bg-yellow-500/10 p-3">
               <p className="text-2xl font-bold text-yellow-500">{score}</p>
-              <p className="text-xs text-muted-foreground">Score</p>
+              <p className="text-xs text-muted-foreground">{t("sim.barber.metric.score")}</p>
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
-            👥 {customersServed} served | 😤 {customersLost} lost | ⭐ {reputation} reputation
+            {t("sim.barber.results.summary").replace("{served}", String(customersServed)).replace("{lost}", String(customersLost)).replace("{reputation}", String(reputation))}
           </p>
-          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />Play Again</Button>
+          <Button onClick={restart}><RotateCcw className="mr-2 h-4 w-4" />{t("sim.barber.btn.playAgain")}</Button>
         </CardContent>
       </Card>
     );
@@ -247,7 +247,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold flex items-center gap-2">
-          <Scissors className="h-5 w-5" /> Day {day}/{totalDays}
+          <Scissors className="h-5 w-5" /> {t("sim.barber.label.dayProgress").replace("{day}", String(day)).replace("{total}", String(totalDays))}
         </h2>
         <div className="flex gap-2">
           <Badge variant="secondary" role="status" aria-live="polite"><DollarSign className="h-3 w-3" /> ${profit}</Badge>
@@ -260,17 +260,17 @@ export function BarberSalonSimulation({ simulationId }: Props) {
       {!dayActive && (
         <Card>
           <CardContent className="p-4 space-y-4">
-            <h3 className="font-bold text-sm">⚙️ Business Decisions</h3>
+            <h3 className="font-bold text-sm">{t("sim.barber.section.businessDecisions")}</h3>
 
             {/* Salon Tier */}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Salon Tier (affects rent & customers)</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.barber.label.salonTier")}</label>
               <Select value={salonTier} onValueChange={(v: any) => setSalonTier(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="basic">🏠 Basic ($60/day)</SelectItem>
-                  <SelectItem value="premium">✨ Premium ($120/day)</SelectItem>
-                  <SelectItem value="luxury">💎 Luxury ($200/day)</SelectItem>
+                  <SelectItem value="basic">{t("sim.barber.salonTier.basic")}</SelectItem>
+                  <SelectItem value="premium">{t("sim.barber.salonTier.premium")}</SelectItem>
+                  <SelectItem value="luxury">{t("sim.barber.salonTier.luxury")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -278,7 +278,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
             {/* Staff */}
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
-                Staff: {staffCount} ($80/each/day = ${staffCount * 80})
+                {t("sim.barber.label.staffCost").replace("{count}", String(staffCount)).replace("{total}", String(staffCount * 80))}
               </label>
               <Slider
                 value={[staffCount]}
@@ -289,7 +289,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
 
             {/* Pricing */}
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground">Set Your Prices</p>
+              <p className="text-xs font-semibold text-muted-foreground">{t("sim.barber.section.setPrices")}</p>
               {SERVICE_OPTIONS.map((svc) => (
                 <div key={svc.id} className="flex items-center gap-2">
                   <span className="text-lg w-8">{svc.emoji}</span>
@@ -308,9 +308,9 @@ export function BarberSalonSimulation({ simulationId }: Props) {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Daily fixed costs: ${dailyFixedCost} (rent ${dailyRent} + staff ${dailyStaffCost})
+              {t("sim.barber.label.dailyFixedCosts").replace("{total}", String(dailyFixedCost)).replace("{rent}", String(dailyRent)).replace("{staff}", String(dailyStaffCost))}
             </p>
-            <Button onClick={startDay} className="w-full">🚀 Open Salon for Day {day}</Button>
+            <Button onClick={startDay} className="w-full">{t("sim.barber.btn.openSalon").replace("{day}", String(day))}</Button>
           </CardContent>
         </Card>
       )}
