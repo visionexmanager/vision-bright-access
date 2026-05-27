@@ -30,3 +30,10 @@ dist-ssr
 
 # Claude Code internal
 .claude/
+
+# Supabase CLI temp files (auto-generated, not source)
+supabase/.temp/
+
+# One-off utility / fix scripts (not part of the app)
+*.py
+set-supabase-secret.sh
