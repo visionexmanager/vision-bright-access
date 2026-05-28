@@ -8,24 +8,52 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+
     steps:
       - name: Trigger deploy webhook
         run: |
           echo "Sending deploy request to server..."
-          RESPONSE=$(curl -s -w "\n%{http_code}" \
-            -X POST \
-            -H "x-deploy-token: visionex-deploy-2024" \
-            --max-time 15 \
-            http://204.168.191.20:9000)
 
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -1)
+          for i in 1 2 3; do
+            RESPONSE=$(curl -s -w "\n%{http_code}" \
+              -X POST \
+              -H "x-deploy-token: ${{ secrets.DEPLOY_TOKEN }}" \
+              --max-time 20 \
+              http://204.168.191.20:9000)
 
-          echo "Response: $BODY (HTTP $HTTP_CODE)"
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            BODY=$(echo "$RESPONSE" | head -1)
 
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Deploy webhook failed with HTTP $HTTP_CODE"
+            echo "Attempt $i — Response: $BODY (HTTP $HTTP_CODE)"
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Deploy triggered successfully"
+              break
+            fi
+
+            if [ "$i" = "3" ]; then
+              echo "Deploy webhook failed after 3 attempts (last HTTP $HTTP_CODE)"
+              exit 1
+            fi
+
+            echo "Retrying in 5 seconds..."
+            sleep 5
+          done
+
+      - name: Wait for build
+        run: |
+          echo "Waiting 60 seconds for build + nginx reload..."
+          sleep 60
+
+      - name: Verify site is live
+        run: |
+          echo "Checking visionex.app..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://visionex.app)
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Site is live! (HTTP $HTTP_CODE)"
+          else
+            echo "❌ Health check failed — HTTP $HTTP_CODE"
             exit 1
           fi
-
-          echo "Deploy triggered successfully on server"
