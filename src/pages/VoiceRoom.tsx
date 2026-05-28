@@ -1049,6 +1049,7 @@ export default function VoiceRoom() {
   const togglePrivacy = useCallback(async () => {
     if (!roomId) return;
     const newValue = !isPrivate;
+    setIsPrivate(newValue);
     await supabase.from("voice_rooms").update({ is_private: newValue }).eq("id", roomId);
     toast({ title: t(newValue ? "vroom.roomNowPrivate" : "vroom.roomNowPublic") });
   }, [roomId, isPrivate, t]);
