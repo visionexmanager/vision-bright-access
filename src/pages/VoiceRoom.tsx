@@ -11,7 +11,7 @@ import {
   VideoTrack,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, ConnectionState, RemoteAudioTrack, AudioPresets } from "livekit-client";
+import { Track, ConnectionState, RemoteAudioTrack, AudioPresets, LocalAudioTrack } from "livekit-client";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Check, ChevronDown, ChevronUp, Copy, Hand, Headphones, Loader2, Lock, Mic, MicOff,
-  Monitor, MonitorOff, Pencil, PhoneOff, RefreshCw, ShieldX,
+  Monitor, MonitorOff, Pencil, PhoneOff, Radio, RefreshCw, Settings2, ShieldX,
   Unlock, UserX, Users, Volume2, WifiOff, X,
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
@@ -182,10 +182,11 @@ interface ParticipantTileProps {
   isRaisingHand: boolean;
   onKick: (identity: string, name: string) => void;
   onBan: (identity: string, name: string) => void;
+  onMuteUser: (identity: string) => void;
   t: (key: string) => string;
 }
 
-function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick, onBan, t }: ParticipantTileProps) {
+function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick, onBan, onMuteUser, t }: ParticipantTileProps) {
   const tracks = useTracks(
     [{ source: Track.Source.Microphone, withPlaceholder: true }],
     { participant }
@@ -212,6 +213,17 @@ function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick
 
       {canModerate && !isMe && (
         <div className="flex gap-1 mt-1">
+          {/* Mute individual user */}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6 text-muted-foreground hover:bg-muted hover:text-foreground"
+            title={t("vroom.muteUser")}
+            onClick={() => onMuteUser(participant.identity)}
+          >
+            <MicOff className="h-3.5 w-3.5" />
+          </Button>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button size="icon" variant="ghost" className="h-6 w-6 text-orange-500 hover:bg-orange-50 hover:text-orange-600" title={t("vroom.kick")}>
@@ -281,6 +293,14 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const [screenShareRestarting, setScreenShareRestarting] = useState(false);
   const [spatialAudioEnabled, setSpatialAudioEnabled] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  // Owner-controlled room permissions
+  const [screenShareAllowed, setScreenShareAllowed] = useState(true);
+  const [micAllowed, setMicAllowed] = useState(true);
+  const [reactionSoundsEnabled, setReactionSoundsEnabled] = useState(true);
+  const [showPermissionsPanel, setShowPermissionsPanel] = useState(false);
+  // Audio-only share
+  const [isAudioShareEnabled, setIsAudioShareEnabled] = useState(false);
+  const audioShareTrackRef = useRef<LocalAudioTrack | null>(null);
   const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   // Mobile audio unlock — iOS/Android require a user gesture before playing remote audio
   const { canPlayAudio, startAudio } = useAudioPlayback();
@@ -362,6 +382,31 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         setMuted(true);
         toast({ title: t("vroom.mutedByOwner") });
       })
+      .on("broadcast", { event: "mute_user" }, ({ payload }: { payload: { userId: string } }) => {
+        if (payload.userId !== currentUserId) return;
+        localParticipantRef.current?.setMicrophoneEnabled(false);
+        setMuted(true);
+        toast({ title: t("vroom.mutedByOwner") });
+      })
+      .on("broadcast", { event: "force_leave" }, ({ payload }: { payload: { userId: string; action: string } }) => {
+        if (payload.userId !== currentUserId) return;
+        const msg = payload.action === "banned" ? t("vroom.youAreBanned") : t("vroom.youWereKicked");
+        toast({ title: msg, variant: "destructive" });
+        onLeave();
+      })
+      .on("broadcast", { event: "room_permissions" }, ({ payload }: { payload: { byUserId: string; screenShareAllowed?: boolean; micAllowed?: boolean; reactionSoundsEnabled?: boolean } }) => {
+        if (payload.byUserId === currentUserId) return;
+        if (payload.screenShareAllowed !== undefined) setScreenShareAllowed(payload.screenShareAllowed);
+        if (payload.micAllowed !== undefined) {
+          setMicAllowed(payload.micAllowed);
+          if (!payload.micAllowed) {
+            localParticipantRef.current?.setMicrophoneEnabled(false);
+            setMuted(true);
+            toast({ title: t("vroom.micLockedByOwner") });
+          }
+        }
+        if (payload.reactionSoundsEnabled !== undefined) setReactionSoundsEnabled(payload.reactionSoundsEnabled);
+      })
       .on("broadcast", { event: "hand_raised" }, ({ payload }: { payload: { userId: string; userName: string } }) => {
         if (payload.userId === currentUserId) return;
         toast({ title: `✋ ${payload.userName} ${t("vroom.raisedHand")}`, duration: 3000 });
@@ -382,6 +427,11 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   }, [roomId, currentUserId, t]);
 
   const toggleMic = async () => {
+    // Block unmute if owner locked the mic (non-owners only)
+    if (muted && !micAllowed && !canModerate) {
+      toast({ title: t("vroom.micLockedByOwner") });
+      return;
+    }
     await localParticipant.setMicrophoneEnabled(muted);
     setMuted(!muted);
   };
@@ -417,6 +467,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   };
 
   const sendReaction = (emoji: string) => {
+    playReactionSound(emoji, reactionSoundsEnabled);
     broadcastChRef.current?.send({
       type: "broadcast",
       event: "reaction",
@@ -428,7 +479,111 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
     });
   };
 
+  // Wrapper kick: broadcast force_leave first so the kicked user navigates instantly
+  const kickUser = (identity: string, name: string) => {
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "force_leave",
+      payload: { userId: identity, action: "kicked" },
+    });
+    onKick(identity, name);
+  };
+
+  // Wrapper ban: broadcast + DB
+  const banUser = (identity: string, name: string) => {
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "force_leave",
+      payload: { userId: identity, action: "banned" },
+    });
+    onBan(identity, name);
+  };
+
+  // Mute a specific user
+  const muteUser = (identity: string) => {
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "mute_user",
+      payload: { userId: identity },
+    });
+  };
+
+  // Owner: toggle screen share permission for all
+  const toggleScreenSharePermission = () => {
+    const newVal = !screenShareAllowed;
+    setScreenShareAllowed(newVal);
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "room_permissions",
+      payload: { byUserId: currentUserId, screenShareAllowed: newVal },
+    });
+    toast({ title: newVal ? t("vroom.screenShareEnabled") : t("vroom.screenShareDisabled") });
+  };
+
+  // Owner: lock/unlock mic for all
+  const toggleMicPermission = () => {
+    const newVal = !micAllowed;
+    setMicAllowed(newVal);
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "room_permissions",
+      payload: { byUserId: currentUserId, micAllowed: newVal },
+    });
+    toast({ title: newVal ? t("vroom.micUnlocked") : t("vroom.micLocked") });
+  };
+
+  // Owner: toggle reaction sounds for all
+  const toggleReactionSounds = () => {
+    const newVal = !reactionSoundsEnabled;
+    setReactionSoundsEnabled(newVal);
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "room_permissions",
+      payload: { byUserId: currentUserId, reactionSoundsEnabled: newVal },
+    });
+  };
+
+  // Audio-only share (system/tab audio without visible screen)
+  const toggleAudioShare = async () => {
+    if (isAudioShareEnabled) {
+      if (audioShareTrackRef.current) {
+        await localParticipant.unpublishTrack(audioShareTrackRef.current);
+        audioShareTrackRef.current.stop();
+        audioShareTrackRef.current = null;
+      }
+      setIsAudioShareEnabled(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { width: 1, height: 1, frameRate: 1 } as MediaTrackConstraints,
+          audio: true,
+        });
+        // Stop video immediately — we only want the audio track
+        stream.getVideoTracks().forEach((t) => t.stop());
+        const mediaAudioTrack = stream.getAudioTracks()[0];
+        if (!mediaAudioTrack) {
+          toast({ title: t("vroom.noAudioTrack"), variant: "destructive" });
+          return;
+        }
+        const lkTrack = new LocalAudioTrack(mediaAudioTrack, undefined, false);
+        await localParticipant.publishTrack(lkTrack, { source: Track.Source.ScreenShareAudio });
+        audioShareTrackRef.current = lkTrack;
+        setIsAudioShareEnabled(true);
+        mediaAudioTrack.onended = () => {
+          setIsAudioShareEnabled(false);
+          audioShareTrackRef.current = null;
+        };
+      } catch {
+        toast({ title: t("vroom.screenShareError"), variant: "destructive" });
+      }
+    }
+  };
+
   const toggleScreenShare = async () => {
+    if (!isScreenShareEnabled && !screenShareAllowed && !canModerate) {
+      toast({ title: t("vroom.screenShareDisabled") });
+      return;
+    }
     try {
       const willEnable = !isScreenShareEnabled;
       await localParticipant.setScreenShareEnabled(
@@ -466,7 +621,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
     }
   };
 
-  const canScreenShare = typeof navigator?.mediaDevices?.getDisplayMedia === "function";
+  // Show screen share button on all devices; getDisplayMedia may not work on some mobile
+  // browsers but we handle the error gracefully instead of hiding the button.
+  const canScreenShare = true;
 
   return (
     <div className="flex flex-col gap-6">
@@ -535,8 +692,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
               canModerate={canModerate}
               isMe={p.identity === currentUserId}
               isRaisingHand={raisedHands.has(p.identity)}
-              onKick={onKick}
-              onBan={onBan}
+              onKick={kickUser}
+              onBan={banUser}
+              onMuteUser={muteUser}
               t={t}
             />
           ))}
@@ -611,19 +769,67 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         </div>
       </div>
 
+      {/* Owner permissions panel */}
+      {canModerate && showPermissionsPanel && (
+        <div className="rounded-xl border bg-card p-4 shadow-md flex flex-col gap-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t("vroom.roomControls")}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={micAllowed ? "outline" : "destructive"}
+              className="gap-1.5 text-xs"
+              onClick={toggleMicPermission}
+            >
+              <MicOff className="h-3.5 w-3.5" />
+              {micAllowed ? t("vroom.lockMic") : t("vroom.unlockMic")}
+            </Button>
+            <Button
+              size="sm"
+              variant={screenShareAllowed ? "outline" : "destructive"}
+              className="gap-1.5 text-xs"
+              onClick={toggleScreenSharePermission}
+            >
+              <Monitor className="h-3.5 w-3.5" />
+              {screenShareAllowed ? t("vroom.disableScreenShare") : t("vroom.enableScreenShare")}
+            </Button>
+            <Button
+              size="sm"
+              variant={reactionSoundsEnabled ? "outline" : "secondary"}
+              className="gap-1.5 text-xs"
+              onClick={toggleReactionSounds}
+            >
+              <Volume2 className="h-3.5 w-3.5" />
+              {reactionSoundsEnabled ? t("vroom.muteReactionSounds") : t("vroom.unmuteReactionSounds")}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Controls */}
       <div className="flex items-center justify-center gap-4 pt-2 flex-wrap">
         {canModerate && (
-          <Button
-            size="lg"
-            variant="outline"
-            className="h-14 w-14 rounded-full p-0 text-orange-500 border-orange-300 hover:bg-orange-50 hover:border-orange-500"
-            onClick={muteAll}
-            title={t("vroom.muteAll")}
-            aria-label={t("vroom.muteAll")}
-          >
-            <MicOff className="h-6 w-6" />
-          </Button>
+          <>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-14 w-14 rounded-full p-0 text-orange-500 border-orange-300 hover:bg-orange-50 hover:border-orange-500"
+              onClick={muteAll}
+              title={t("vroom.muteAll")}
+              aria-label={t("vroom.muteAll")}
+            >
+              <MicOff className="h-6 w-6" />
+            </Button>
+            <Button
+              size="lg"
+              variant={showPermissionsPanel ? "secondary" : "outline"}
+              className="h-14 w-14 rounded-full p-0"
+              onClick={() => setShowPermissionsPanel((v) => !v)}
+              title={t("vroom.roomControls")}
+              aria-label={t("vroom.roomControls")}
+            >
+              <Settings2 className="h-6 w-6" />
+            </Button>
+          </>
         )}
         <Button
           size="lg"
@@ -693,6 +899,20 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
             </button>
           </div>
         )}
+
+        {/* Audio-only share (system/tab audio without screen video) */}
+        <Button
+          size="lg"
+          variant="outline"
+          className={`h-14 w-14 rounded-full p-0 transition-colors ${isAudioShareEnabled ? "bg-green-500 hover:bg-green-600 border-green-500 text-white" : ""}`}
+          onClick={toggleAudioShare}
+          aria-pressed={isAudioShareEnabled}
+          aria-label={isAudioShareEnabled ? t("vroom.stopAudioShare") : t("vroom.shareAudioOnly")}
+          title={isAudioShareEnabled ? t("vroom.stopAudioShare") : t("vroom.shareAudioOnly")}
+        >
+          <Radio className="h-6 w-6" />
+        </Button>
+
         <Button
           size="lg"
           variant="destructive"
@@ -731,6 +951,36 @@ function playJoinLeaveSound(joined: boolean) {
   } catch {
     // AudioContext not available — ignore
   }
+}
+
+// ── Reaction sounds ────────────────────────────────────────────────
+// Maps emoji to [startFreq, endFreq, oscType, duration]
+const REACTION_SOUNDS: Record<string, [number, number, OscillatorType, number]> = {
+  "👍": [523, 659, "sine", 0.18],
+  "❤️": [440, 554, "sine", 0.22],
+  "😂": [880, 1047, "square", 0.15],
+  "😮": [440, 330, "sine", 0.2],
+  "👏": [300, 280, "sawtooth", 0.12],
+};
+
+function playReactionSound(emoji: string, enabled: boolean) {
+  if (!enabled) return;
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const [startF, endF, type, dur] = REACTION_SOUNDS[emoji] ?? [600, 750, "sine", 0.15];
+    osc.type = type;
+    osc.frequency.setValueAtTime(startF, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(endF, ctx.currentTime + dur);
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + dur);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + dur);
+    osc.onended = () => ctx.close();
+  } catch { /* AudioContext unavailable */ }
 }
 
 // ── Main page ──────────────────────────────────────────────────────
