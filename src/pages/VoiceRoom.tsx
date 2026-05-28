@@ -520,7 +520,7 @@ export default function VoiceRoom() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useLanguage();
-  const { isAdmin } = useAdmin();
+  const { isAdmin, loading: adminLoading } = useAdmin();
   const { spendVX } = useVXWallet();
 
   const [token, setToken] = useState<string | null>(null);
@@ -547,6 +547,11 @@ export default function VoiceRoom() {
       await supabase.from("voice_room_members").delete().eq("room_id", roomId).eq("user_id", user.id);
     }
   }, [user, roomId]);
+
+  // Keep cleanup in a ref so the join effect never re-runs just because the
+  // cleanup useCallback got a new reference (e.g. after auth session refresh).
+  const cleanupRef = useRef(cleanup);
+  useEffect(() => { cleanupRef.current = cleanup; }, [cleanup]);
 
   const handleKick = useCallback(async (identity: string, name: string) => {
     if (!roomId) return;
@@ -606,6 +611,11 @@ export default function VoiceRoom() {
   useEffect(() => {
     if (!user) { navigate("/login"); return; }
     if (!roomId) { navigate("/community"); return; }
+    // Wait for the async admin check to complete before joining.
+    // Without this guard, isAdmin starts as false and changes to true after the
+    // DB check, which causes the effect cleanup to run (deleting the member from
+    // voice_room_members), triggering the kick subscription and booting the user.
+    if (adminLoading) return;
 
     const getToken = async () => {
       const { data: room } = await supabase
@@ -680,8 +690,12 @@ export default function VoiceRoom() {
     };
 
     getToken();
-    return () => { cleanup(); };
-  }, [user, roomId, navigate, t, cleanup, spendVX, isAdmin]);
+    return () => { cleanupRef.current(); };
+  // adminLoading (not isAdmin) is the key dep: we wait for it to be false,
+  // then run once.  isAdmin/t/cleanup are intentionally omitted — they're
+  // either stable or captured via refs so they never cause a re-join.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, roomId, adminLoading]);
 
   // Listen for being kicked
   useEffect(() => {
@@ -771,7 +785,7 @@ export default function VoiceRoom() {
 
   const canModerate = user?.id === ownerId || isAdmin;
 
-  if (loading) {
+  if (loading || adminLoading) {
     return (
       <Layout>
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
@@ -783,13 +797,26 @@ export default function VoiceRoom() {
   }
 
   if (error || !token || !livekitUrl) {
+    // Only show the "please configure LiveKit" hint when there's genuinely no
+    // token/URL. For runtime LiveKit errors (e.g. "Client initiated disconnect")
+    // just show the error message with a retry button instead.
+    const isConfigError = !token || !livekitUrl;
     return (
       <Layout>
         <div className="section-container py-16 text-center">
           <div className="mx-auto max-w-md space-y-4">
             <p className="text-lg font-semibold text-destructive">{error || t("vroom.notConfigured")}</p>
-            <p className="text-sm text-muted-foreground">{t("vroom.configDesc")}</p>
-            <Button onClick={() => navigate("/community")}>{t("vroom.backToCommunity")}</Button>
+            {isConfigError && (
+              <p className="text-sm text-muted-foreground">{t("vroom.configDesc")}</p>
+            )}
+            <div className="flex justify-center gap-3">
+              {error && token && (
+                <Button variant="outline" onClick={() => { setError(null); setConnectionLost(false); }}>
+                  {t("vroom.reconnect")}
+                </Button>
+              )}
+              <Button onClick={() => navigate("/community")}>{t("vroom.backToCommunity")}</Button>
+            </div>
           </div>
         </div>
       </Layout>
