@@ -673,7 +673,7 @@ function playJoinLeaveSound(joined: boolean) {
 export default function VoiceRoom() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { t } = useLanguage();
   const { isAdmin, loading: adminLoading } = useAdmin();
   const { spendVX } = useVXWallet();
@@ -764,6 +764,12 @@ export default function VoiceRoom() {
   }, [user, roomId, t]);
 
   useEffect(() => {
+    // Wait for Supabase auth to fully resolve before acting.  Without this guard,
+    // user is null during the brief window before the session is loaded, causing
+    // an immediate navigate("/login") that results in a redirect loop — and, on
+    // the way back, LiveKit receives a CLIENT_INITIATED disconnect while still
+    // connecting, which bubbles up as a spurious "Client initiated disconnect" error.
+    if (authLoading) return;
     if (!user) { navigate("/login"); return; }
     if (!roomId) { navigate("/community"); return; }
     // Wait for the async admin check to complete before joining.
@@ -846,11 +852,11 @@ export default function VoiceRoom() {
 
     getToken();
     return () => { cleanupRef.current(); };
-  // adminLoading (not isAdmin) is the key dep: we wait for it to be false,
-  // then run once.  isAdmin/t/cleanup are intentionally omitted — they're
-  // either stable or captured via refs so they never cause a re-join.
+  // authLoading + adminLoading guard the entry point so the effect only fires
+  // once both the Supabase session AND the admin DB check have settled.
+  // isAdmin/t/cleanup are intentionally omitted — stable or accessed via refs.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, roomId, adminLoading]);
+  }, [user?.id, roomId, authLoading, adminLoading]);
 
   // Listen for being kicked
   useEffect(() => {
@@ -940,7 +946,7 @@ export default function VoiceRoom() {
 
   const canModerate = user?.id === ownerId || isAdmin;
 
-  if (loading || adminLoading) {
+  if (authLoading || loading || adminLoading) {
     return (
       <Layout>
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
@@ -1104,6 +1110,11 @@ export default function VoiceRoom() {
                   }
                 }}
                 onError={(err) => {
+                  // "Client initiated disconnect" is LiveKit's way of saying it
+                  // cleaned up an in-progress connection when the component unmounted
+                  // (e.g. during the auth-loading window). It is NOT a real error —
+                  // suppress it so the user never sees a false error screen.
+                  if (err.message?.toLowerCase().includes("client initiated")) return;
                   setError(err.message);
                   toast({ title: t("vroom.connectionError"), description: err.message, variant: "destructive" });
                 }}
