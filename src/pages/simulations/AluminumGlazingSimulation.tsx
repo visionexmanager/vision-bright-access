@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -89,6 +89,10 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
   const [score, setScore] = useState(0);
   const [history, setHistory] = useState<{ order: string; profit: number; quality: number }[]>([]);
 
+  // Unmount guard: clear any in-flight fabrication interval if the user navigates away.
+  const fabricationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => { if (fabricationIntervalRef.current) clearInterval(fabricationIntervalRef.current); }, []);
+
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -137,12 +141,13 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
     const stages = [t("sim.glazing.stage.cutting"), t("sim.glazing.stage.fittingGlass"), t("sim.glazing.stage.applySealant"), t("sim.glazing.stage.assembly"), t("sim.glazing.stage.qualityCheck")];
     let step = 0;
     const total = 25;
-    const interval = setInterval(() => {
+    fabricationIntervalRef.current = setInterval(() => {
       step++;
       setFabProgress(Math.round((step / total) * 100));
       setFabStage(stages[Math.min(Math.floor((step / total) * stages.length), stages.length - 1)]);
       if (step >= total) {
-        clearInterval(interval);
+        clearInterval(fabricationIntervalRef.current!);
+        fabricationIntervalRef.current = null;
         const quality = calculateQuality();
         const totalCost = unitCost * currentOrder.quantity;
         const withinBudget = quotePrice <= currentOrder.budget;

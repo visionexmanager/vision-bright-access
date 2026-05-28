@@ -126,7 +126,11 @@ export default function EmpathyOasis() {
     setActiveTone(key);
   }, [activeTone, stopTone]);
 
-  useEffect(() => () => { oscRef.current?.stop(); audioCtxRef.current?.close(); }, []);
+  useEffect(() => () => {
+    if (toneInterval.current) clearInterval(toneInterval.current);
+    oscRef.current?.stop();
+    audioCtxRef.current?.close();
+  }, []);
 
   // ── Affirmations (TTS) ─────────────────────────────────────────
   const affirmations = AFFIRMATION_KEYS.map((key) => t(key));

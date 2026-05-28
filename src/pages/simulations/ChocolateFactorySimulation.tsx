@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -57,6 +57,10 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
   const [score, setScore] = useState(0);
   const [batches, setBatches] = useState<{ recipe: string; quality: number; profit: number }[]>([]);
 
+  // Unmount guard: clear any in-flight production interval if the user navigates away.
+  const productionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => { if (productionIntervalRef.current) clearInterval(productionIntervalRef.current); }, []);
+
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -107,14 +111,15 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
     let step = 0;
     const totalSteps = 30;
 
-    const interval = setInterval(() => {
+    productionIntervalRef.current = setInterval(() => {
       step++;
       setProdProgress(Math.round((step / totalSteps) * 100));
       setProdStage(stages[Math.min(Math.floor((step / totalSteps) * stages.length), stages.length - 1)]);
       if (step === 15) playSound("sizzle");
 
       if (step >= totalSteps) {
-        clearInterval(interval);
+        clearInterval(productionIntervalRef.current!);
+        productionIntervalRef.current = null;
         const quality = calculateQuality();
         const yieldRate = quality > 70 ? 0.95 : quality > 40 ? 0.75 : 0.5;
         const goodBars = Math.round(batchSize * yieldRate);

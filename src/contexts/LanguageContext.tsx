@@ -264,6 +264,16 @@ function translateStaticDomText(lang: Lang) {
   const idle = typeof requestIdleCallback !== "undefined" ? requestIdleCallback : setTimeout;
   const handle = idle(() => translateNode(document.body));
 
+  // English needs no ongoing observer — the initial walk above already restores
+  // any previously-translated nodes. Skipping the observer eliminates the biggest
+  // source of unnecessary DOM work for the majority of English-language users.
+  if (lang === "en") {
+    return () => {
+      if (typeof requestIdleCallback !== "undefined") cancelIdleCallback(handle as number);
+      else clearTimeout(handle as number);
+    };
+  }
+
   let rafPending = false;
   const pendingNodes = new Set<Node>();
 

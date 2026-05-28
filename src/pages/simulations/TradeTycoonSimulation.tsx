@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useScreenReader } from "@/hooks/useScreenReader";
@@ -51,6 +51,10 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
   const [log, setLog] = useState<{ round: number; bought: number; sold: number; profit: number }[]>([]);
   const [started, setStarted] = useState(false);
 
+  // Unmount guard: clear any in-flight simulation interval if the user navigates away.
+  const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => { if (simIntervalRef.current) clearInterval(simIntervalRef.current); }, []);
+
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -91,11 +95,12 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
 
     let step = 0;
     const total = 15;
-    const interval = setInterval(() => {
+    simIntervalRef.current = setInterval(() => {
       step++;
       setSimProgress(Math.round((step / total) * 100));
       if (step >= total) {
-        clearInterval(interval);
+        clearInterval(simIntervalRef.current!);
+        simIntervalRef.current = null;
 
         const priceSwing = 1 + (Math.random() - 0.5) * market.volatility * 2;
         const adEffect = adBudget / 100;

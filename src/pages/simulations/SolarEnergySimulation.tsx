@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -66,6 +66,10 @@ export function SolarEnergySimulation({ simulationId }: Props) {
   const [monthlyData, setMonthlyData] = useState<{ month: number; energy: number; revenue: number }[]>([]);
   const [installed, setInstalled] = useState(false);
 
+  // Unmount guard: clear any in-flight simulation interval if the user navigates away.
+  const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => { if (simIntervalRef.current) clearInterval(simIntervalRef.current); }, []);
+
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -100,11 +104,12 @@ export function SolarEnergySimulation({ simulationId }: Props) {
     const seasonFactor = [0.6, 0.7, 0.85, 1.0, 1.1, 1.2, 1.2, 1.1, 1.0, 0.85, 0.7, 0.6][month - 1];
     let step = 0;
     const total = 15;
-    const interval = setInterval(() => {
+    simIntervalRef.current = setInterval(() => {
       step++;
       setSimProgress(Math.round((step / total) * 100));
       if (step >= total) {
-        clearInterval(interval);
+        clearInterval(simIntervalRef.current!);
+        simIntervalRef.current = null;
         const monthEnergy = Math.round(dailyOutput * 30 * seasonFactor);
         const selfConsumed = Math.min(monthEnergy * 0.6, battery.capacity > 0 ? monthEnergy * 0.8 : monthEnergy * 0.4);
         const gridSold = monthEnergy - selfConsumed;
