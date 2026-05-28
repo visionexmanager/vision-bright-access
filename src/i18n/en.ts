@@ -2214,6 +2214,7 @@ const en: Record<string, string> = {
   "vroom.audio": "Audio",
   "vroom.shareAudio": "Include system audio",
   "vroom.spatialAudio": "Spatial Audio",
+  "vroom.moreReactions": "More reactions",
   "mp.opponent": "Opponent",
   "mp.theirTurn": "Their turn",
   "mp.draw": "It's a draw!",

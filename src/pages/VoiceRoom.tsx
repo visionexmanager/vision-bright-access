@@ -34,14 +34,36 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Check, Copy, Hand, Headphones, Loader2, Lock, Mic, MicOff,
+  Check, ChevronDown, ChevronUp, Copy, Hand, Headphones, Loader2, Lock, Mic, MicOff,
   Monitor, MonitorOff, Pencil, PhoneOff, RefreshCw, ShieldX,
   Unlock, UserX, Users, Volume2, WifiOff, X,
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
 
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
+
+// ── Reactions ──────────────────────────────────────────────────────
+// Core reactions always visible in the bar
 const REACTIONS = ["👍", "❤️", "😂", "😮", "👏"];
+
+// Extra emojis shown in the collapsible picker
+const EXTRA_EMOJIS = [
+  // Faces
+  "😁","😆","😅","🤣","😊","🥰","😍","😎","🤩","🥳",
+  "😜","🤪","😝","🤔","🤨","😏","😒","🙄","😤","😡",
+  "😢","😭","🥺","😳","🫣","🤯","😇","🥹","😴","🥱",
+  "😬","🫠","🤐","😶","😐","🫡","🤭","🫢","🤫","😑",
+  // Gestures & body
+  "🙌","👋","🤝","✌️","🤞","🤙","👍🏼","👎","💪","🙏",
+  "🫶","🫂","💃","🕺","🤜","🤛","🙋","🤦","🤷",
+  // Symbols & objects
+  "🔥","💯","⭐","🌟","✨","💫","🎉","🎊","🎈","🎁",
+  "💥","🚀","💎","🏆","🥇","🎯","💡","❄️","🌈","🌊",
+  "⚡","🌙","☀️","🍀","🦋","🌸","🌺","🌻",
+  // Fun extras
+  "🎵","🎶","🎮","⚽","🏀","🎸","🍕","🍔","🧁","🍭",
+  "🐶","😺","🦄","🐧","🦊","🐸","👻","💀","🤖","👽",
+];
 
 // High-quality audio options for the LiveKit room — applied once on connect.
 const ROOM_OPTIONS = {
@@ -258,6 +280,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const [screenAudioEnabled, setScreenAudioEnabled] = useState(false);
   const [screenShareRestarting, setScreenShareRestarting] = useState(false);
   const [spatialAudioEnabled, setSpatialAudioEnabled] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   // Mobile audio unlock — iOS/Android require a user gesture before playing remote audio
   const { canPlayAudio, startAudio } = useAudioPlayback();
@@ -533,18 +556,59 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         </div>
       </div>
 
-      {/* Reaction bar */}
-      <div className="flex justify-center gap-3 rounded-xl border bg-muted/20 py-2.5 px-4">
-        {REACTIONS.map((emoji) => (
+      {/* Reaction bar + collapsible emoji picker */}
+      <div className="flex flex-col gap-2">
+        {/* Expanded emoji picker */}
+        {showEmojiPicker && (
+          <div className="rounded-xl border bg-card p-3 shadow-md">
+            <div className="flex max-h-44 flex-wrap gap-1 overflow-y-auto">
+              {EXTRA_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => { sendReaction(emoji); setShowEmojiPicker(false); }}
+                  className="rounded-lg p-1 text-xl leading-none transition-transform hover:scale-125 hover:bg-muted active:scale-95"
+                  aria-label={emoji}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Core reactions + toggle button */}
+        <div className="flex items-center justify-center gap-3 rounded-xl border bg-muted/20 py-2.5 px-4">
+          {REACTIONS.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => sendReaction(emoji)}
+              className="text-2xl transition-transform hover:scale-125 active:scale-95"
+              aria-label={emoji}
+            >
+              {emoji}
+            </button>
+          ))}
+
+          {/* Divider */}
+          <span className="mx-0.5 h-5 w-px rounded-full bg-border" aria-hidden="true" />
+
+          {/* More emojis toggle */}
           <button
-            key={emoji}
-            onClick={() => sendReaction(emoji)}
-            className="text-2xl transition-transform hover:scale-125 active:scale-95"
-            aria-label={emoji}
+            onClick={() => setShowEmojiPicker((v) => !v)}
+            className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+              showEmojiPicker
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+            }`}
+            aria-label={t("vroom.moreReactions")}
+            aria-expanded={showEmojiPicker}
           >
-            {emoji}
+            <span className="text-base leading-none">😀</span>
+            {showEmojiPicker
+              ? <ChevronDown className="h-3 w-3" />
+              : <ChevronUp className="h-3 w-3" />}
           </button>
-        ))}
+        </div>
       </div>
 
       {/* Controls */}

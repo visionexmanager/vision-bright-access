@@ -2233,6 +2233,7 @@ const ar: Record<string, string> = {
   "vroom.audio": "صوت",
   "vroom.shareAudio": "تضمين صوت النظام",
   "vroom.spatialAudio": "صوت محيطي",
+  "vroom.moreReactions": "المزيد من التفاعلات",
   "mp.opponent": "المنافس",
   "mp.theirTurn": "دورهم",
   "mp.draw": "تعادل!",
