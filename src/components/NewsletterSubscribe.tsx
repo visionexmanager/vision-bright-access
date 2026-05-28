@@ -37,12 +37,31 @@ export function NewsletterSubscribe() {
     () => localStorage.getItem(LS_DISMISSED_KEY) === "true"
   );
 
+  // Derive a per-account dismissed key so "dismiss" on device A doesn't bleed
+  // into a different account on device B.
+  const getDismissedKey = (uid?: string) =>
+    uid ? `${LS_DISMISSED_KEY}_${uid}` : LS_DISMISSED_KEY;
+
   const handleDismiss = () => {
-    localStorage.setItem(LS_DISMISSED_KEY, "true");
+    const key = getDismissedKey(user?.id);
+    localStorage.setItem(key, "true");
     setDismissed(true);
   };
 
-  // For logged-in users: check DB on mount
+  // When the logged-in user changes, reload the dismissed flag for that account.
+  useEffect(() => {
+    const key = getDismissedKey(user?.id);
+    setDismissed(localStorage.getItem(key) === "true");
+  }, [user?.id]);
+
+  // Pre-fill email field for logged-in users.
+  useEffect(() => {
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [user?.email]);
+
+  // For logged-in users: check DB on mount to sync subscription state across devices.
   useEffect(() => {
     if (!user?.email || subscribed) return;
     supabase
@@ -56,7 +75,7 @@ export function NewsletterSubscribe() {
           setSubscribed(true);
         }
       });
-  }, [user, subscribed]);
+  }, [user?.email, subscribed]);
 
   function toggleTopic(topic: string) {
     setTopics((prev) =>

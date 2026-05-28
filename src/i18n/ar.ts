@@ -2230,6 +2230,8 @@ const ar: Record<string, string> = {
   "vroom.raisedHand": "رفع يده",
   "vroom.startedScreenShare": "بدأ مشاركة الشاشة",
   "vroom.stoppedScreenShare": "أوقف مشاركة الشاشة",
+  "vroom.audio": "صوت",
+  "vroom.shareAudio": "تضمين صوت النظام",
   "mp.opponent": "المنافس",
   "mp.theirTurn": "دورهم",
   "mp.draw": "تعادل!",

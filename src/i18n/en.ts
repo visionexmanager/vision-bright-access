@@ -2211,6 +2211,8 @@ const en: Record<string, string> = {
   "vroom.raisedHand": "raised their hand",
   "vroom.startedScreenShare": "started sharing screen",
   "vroom.stoppedScreenShare": "stopped sharing screen",
+  "vroom.audio": "Audio",
+  "vroom.shareAudio": "Include system audio",
   "mp.opponent": "Opponent",
   "mp.theirTurn": "Their turn",
   "mp.draw": "It's a draw!",

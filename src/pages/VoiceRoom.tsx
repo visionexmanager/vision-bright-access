@@ -163,6 +163,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const [muted, setMuted] = useState(false);
   const [handRaised, setHandRaised] = useState(false);
   const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
+  const [screenAudioEnabled, setScreenAudioEnabled] = useState(false);
   const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   // Mobile audio unlock — iOS/Android require a user gesture before playing remote audio
   const { canPlayAudio, startAudio } = useAudioPlayback();
@@ -313,7 +314,10 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const toggleScreenShare = async () => {
     try {
       const willEnable = !isScreenShareEnabled;
-      await localParticipant.setScreenShareEnabled(willEnable);
+      await localParticipant.setScreenShareEnabled(
+        willEnable,
+        willEnable ? { audio: screenAudioEnabled } : undefined,
+      );
       broadcastChRef.current?.send({
         type: "broadcast",
         event: "screen_share",
@@ -466,16 +470,35 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
           <Hand className="h-6 w-6" />
         </Button>
         {canScreenShare && (
-          <Button
-            size="lg"
-            variant="outline"
-            className={`h-14 w-14 rounded-full p-0 transition-colors ${isScreenShareEnabled ? "bg-blue-500 hover:bg-blue-600 border-blue-500 text-white" : ""}`}
-            onClick={toggleScreenShare}
-            aria-label={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
-            title={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
-          >
-            <Monitor className="h-6 w-6" />
-          </Button>
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-14 w-14 rounded-full p-0 transition-colors ${isScreenShareEnabled ? "bg-blue-500 hover:bg-blue-600 border-blue-500 text-white" : ""}`}
+              onClick={toggleScreenShare}
+              aria-label={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+              title={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+            >
+              <Monitor className="h-6 w-6" />
+            </Button>
+            {!isScreenShareEnabled && (
+              <button
+                type="button"
+                className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                  screenAudioEnabled
+                    ? "border-blue-400 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setScreenAudioEnabled((v) => !v)}
+                aria-pressed={screenAudioEnabled}
+                aria-label={t("vroom.shareAudio")}
+                title={t("vroom.shareAudio")}
+              >
+                <Volume2 className="h-2.5 w-2.5" />
+                <span>{t("vroom.audio")}</span>
+              </button>
+            )}
+          </div>
         )}
         <Button
           size="lg"
