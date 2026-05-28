@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from "react";
-import en from "@/i18n/en";
 
 export const supportedLangs = ["en", "ar", "es", "de", "pt", "zh", "tr", "fr", "ru", "ur", "hi"] as const;
 export type Lang = (typeof supportedLangs)[number];
@@ -22,9 +21,9 @@ const LanguageContext = createContext<LanguageContextType>({
 
 export const useLanguage = () => useContext(LanguageContext);
 
-// English is always bundled (it's the default/fallback).
-// All other languages are loaded on demand — ~200-340 KB each instead of 2.5 MB upfront.
-const loadedTranslations: Partial<Record<Lang, Record<string, string>>> = { en };
+// All language files are loaded on demand — ~200-340 KB each.
+// English is also lazily loaded now so it's not in the main bundle (~242 KB saved).
+const loadedTranslations: Partial<Record<Lang, Record<string, string>>> = {};
 
 async function loadLang(lang: Lang): Promise<Record<string, string>> {
   if (loadedTranslations[lang]) return loadedTranslations[lang]!;
@@ -36,6 +35,23 @@ async function loadLang(lang: Lang): Promise<Record<string, string>> {
 const rtlLangs: Lang[] = ["ar", "ur"];
 const originalTextNodes = new WeakMap<Text, string>();
 const originalAttributes = new WeakMap<Element, Map<string, string>>();
+
+function safeGetStoredLang(): Lang | null {
+  try {
+    const saved = localStorage.getItem("visionex-lang") as Lang | null;
+    return saved && supportedLangs.includes(saved) ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeSetStoredLang(lang: Lang) {
+  try {
+    localStorage.setItem("visionex-lang", lang);
+  } catch {
+    // Storage can be unavailable in hardened browser/privacy modes.
+  }
+}
 
 const commonDomText: Record<string, Partial<Record<Lang, string>>> = {
   "Revenue": { ar: "الإيرادات", es: "Ingresos", de: "Umsatz", pt: "Receita", zh: "收入", tr: "Gelir", fr: "Revenus", ru: "Доход", ur: "آمدنی", hi: "राजस्व" },
@@ -135,9 +151,12 @@ const commonDomText: Record<string, Partial<Record<Lang, string>>> = {
   "Exceptional product! The attention to detail and accessibility features are truly impressive.": { ar: "منتج استثنائي! الاهتمام بالتفاصيل وميزات إمكانية الوصول مبهرة حقًا.", es: "¡Producto excepcional! La atención al detalle y las funciones de accesibilidad impresionan.", de: "Außergewöhnliches Produkt! Details und Barrierefreiheitsfunktionen sind beeindruckend.", pt: "Produto excepcional! A atenção aos detalhes e os recursos de acessibilidade impressionam.", zh: "出色的产品！对细节的关注和无障碍功能令人印象深刻。", tr: "Olağanüstü ürün! Ayrıntılar ve erişilebilirlik özellikleri gerçekten etkileyici.", fr: "Produit exceptionnel ! Le souci du détail et les fonctions d’accessibilité sont impressionnants.", ru: "Исключительный продукт! Внимание к деталям и функции доступности впечатляют.", ur: "غیر معمولی پروڈکٹ! تفصیل پر توجہ اور ایکسیسبلٹی خصوصیات واقعی متاثر کن ہیں۔", hi: "असाधारण उत्पाद! विवरण और एक्सेसिबिलिटी सुविधाएँ सच में प्रभावशाली हैं।" },
 };
 
-function buildDomTranslationMap(lang: Lang) {
+// Sorted entries array type — pre-computed once per language change
+type SortedEntries = [string, string][];
+
+function buildDomTranslationMap(lang: Lang): { map: Map<string, string>; sorted: SortedEntries } {
   const map = new Map<string, string>();
-  if (lang === "en") return map;
+  if (lang === "en") return { map, sorted: [] };
 
   // Only commonDomText (≈60 entries) for DOM walking — React handles the rest via t().
   for (const [englishValue, localized] of Object.entries(commonDomText)) {
@@ -145,17 +164,23 @@ function buildDomTranslationMap(lang: Lang) {
     if (translatedValue) map.set(englishValue, translatedValue);
   }
 
-  return map;
+  // Sort ONCE here — longest match first, skip short keys.
+  // Previously this was done on every translateDomValue() call (O(N log N) per text node).
+  const sorted: SortedEntries = [...map.entries()]
+    .filter(([k]) => k.length >= 3)
+    .sort((a, b) => b[0].length - a[0].length);
+
+  return { map, sorted };
 }
 
-function translateDomValue(value: string, translationMap: Map<string, string>) {
-  const exact = translationMap.get(value.trim());
+function translateDomValue(value: string, map: Map<string, string>, sorted: SortedEntries) {
+  const exact = map.get(value.trim());
   if (exact) return value.replace(value.trim(), exact);
 
+  if (sorted.length === 0) return null;
+
   let translated = value;
-  const entries = [...translationMap.entries()].sort((a, b) => b[0].length - a[0].length);
-  for (const [englishValue, translatedValue] of entries) {
-    if (englishValue.length < 3) continue;
+  for (const [englishValue, translatedValue] of sorted) {
     translated = translated.replaceAll(englishValue, translatedValue);
   }
 
@@ -165,7 +190,7 @@ function translateDomValue(value: string, translationMap: Map<string, string>) {
 function translateStaticDomText(lang: Lang) {
   if (typeof document === "undefined" || !document.body) return () => {};
 
-  const translationMap = buildDomTranslationMap(lang);
+  const { map: translationMap, sorted: sortedEntries } = buildDomTranslationMap(lang);
   const attributes = ["aria-label", "title", "placeholder", "alt"];
   const ignoredTags = new Set(["SCRIPT", "STYLE", "TEXTAREA", "CODE", "PRE"]);
 
@@ -182,7 +207,7 @@ function translateStaticDomText(lang: Lang) {
     }
 
     const trimmed = original.trim();
-    const translated = translateDomValue(trimmed, translationMap);
+    const translated = translateDomValue(trimmed, translationMap, sortedEntries);
     if (!translated) return;
 
     const prefix = original.match(/^\s*/)?.[0] ?? "";
@@ -206,12 +231,12 @@ function translateStaticDomText(lang: Lang) {
 
       const original = originals.get(attr) ?? current;
       if (lang === "en") {
-        element.setAttribute(attr, original);
+        if (current !== original) element.setAttribute(attr, original);
         continue;
       }
 
-      const translated = translateDomValue(original, translationMap);
-      if (translated) element.setAttribute(attr, translated);
+      const translated = translateDomValue(original, translationMap, sortedEntries);
+      if (translated && current !== translated) element.setAttribute(attr, translated);
     }
   };
 
@@ -240,20 +265,21 @@ function translateStaticDomText(lang: Lang) {
   const handle = idle(() => translateNode(document.body));
 
   let rafPending = false;
-  const pendingNodes: Node[] = [];
+  const pendingNodes = new Set<Node>();
 
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
-      mutation.addedNodes.forEach((n) => pendingNodes.push(n));
+      mutation.addedNodes.forEach((n) => pendingNodes.add(n));
       if (mutation.type === "attributes" && mutation.target instanceof Element) {
-        pendingNodes.push(mutation.target);
+        pendingNodes.add(mutation.target);
       }
     }
     // Batch all mutations into a single rAF to avoid cascading work.
     if (!rafPending) {
       rafPending = true;
       requestAnimationFrame(() => {
-        const nodes = pendingNodes.splice(0);
+        const nodes = [...pendingNodes];
+        pendingNodes.clear();
         for (const n of nodes) translateNode(n);
         rafPending = false;
       });
@@ -291,35 +317,35 @@ function detectBrowserLang(): Lang {
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const initialLang: Lang = (() => {
-    const saved = localStorage.getItem("visionex-lang") as Lang | null;
-    if (saved && supportedLangs.includes(saved)) return saved;
+    const saved = safeGetStoredLang();
+    if (saved) return saved;
     return detectBrowserLang();
   })();
 
   const [lang, setLangState] = useState<Lang>(initialLang);
   // Tracks whether the current language's file has been loaded.
-  const [langReady, setLangReady] = useState(initialLang === "en");
+  const [langReady, setLangReady] = useState(false);
 
   const dir = rtlLangs.includes(lang) ? "rtl" : "ltr";
 
   // Load the language file on demand when lang changes.
-  // On failure (e.g. network error or corrupt bundle) we silently fall back to
-  // English so the page still renders instead of hanging on a spinner forever.
+  // English is now also lazily loaded (saves ~242 KB from the main bundle).
+  // On failure (e.g. network error or corrupt bundle) we silently fall back so
+  // the page still renders instead of hanging on a spinner forever.
   useEffect(() => {
-    if (lang === "en") { setLangReady(true); return; }
     setLangReady(false);
     loadLang(lang)
       .then(() => setLangReady(true))
       .catch((err) => {
         console.error(`[i18n] Failed to load language "${lang}":`, err);
-        setLangReady(true); // surface English fallback rather than hanging
+        setLangReady(true); // surface whatever is loaded rather than hanging
       });
   }, [lang]);
 
   useEffect(() => {
     document.documentElement.lang = lang;
     document.documentElement.dir = dir;
-    localStorage.setItem("visionex-lang", lang);
+    safeSetStoredLang(lang);
   }, [lang, dir]);
 
   useEffect(() => {
@@ -333,9 +359,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback(
     (key: string): string => {
+      // Try current language first, fall back to English, then the key itself
       const dict = loadedTranslations[lang];
       if (dict?.[key]) return dict[key];
-      return en[key] ?? key;
+      const enDict = loadedTranslations["en"];
+      return enDict?.[key] ?? key;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [lang, langReady]
@@ -344,7 +372,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const translateText = useCallback(
     (text: string): string => {
       if (!text || lang === "en") return text;
-      return translateDomValue(text, buildDomTranslationMap(lang)) ?? text;
+      const { map, sorted } = buildDomTranslationMap(lang);
+      return translateDomValue(text, map, sorted) ?? text;
     },
     [lang]
   );
