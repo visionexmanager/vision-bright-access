@@ -7,6 +7,7 @@ import {
   useLocalParticipant,
   useTracks,
   useConnectionState,
+  useAudioPlayback,
   VideoTrack,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
@@ -163,6 +164,8 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const [handRaised, setHandRaised] = useState(false);
   const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
   const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  // Mobile audio unlock — iOS/Android require a user gesture before playing remote audio
+  const { canPlayAudio, startAudio } = useAudioPlayback();
 
   // Screen share tracks for all participants
   const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
@@ -219,23 +222,36 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
     prevParticipantsRef.current = currentMap;
   }, [participants, currentUserId, t]);
 
-  // Broadcast channel: reactions + mute_all
+  // Broadcast channel: reactions + mute_all + hand_raised + screen_share
   useEffect(() => {
     const ch = supabase
       .channel(`room-bc-${roomId}`, { config: { broadcast: { self: true } } })
-      .on("broadcast", { event: "reaction" }, ({ payload }: { payload: { emoji: string; senderId: string } }) => {
+      .on("broadcast", { event: "reaction" }, ({ payload }: { payload: { emoji: string; senderId: string; senderName: string } }) => {
         const id = Math.random().toString(36).slice(2);
         const x = 5 + Math.random() * 85;
         const r: FloatingReaction = { id, emoji: payload.emoji, x, visible: true };
         setFloatingReactions((prev) => [...prev, r]);
         setTimeout(() => setFloatingReactions((prev) => prev.map((item) => item.id === id ? { ...item, visible: false } : item)), 1600);
         setTimeout(() => setFloatingReactions((prev) => prev.filter((item) => item.id !== id)), 2600);
+        // Notify others (not yourself) who sent the reaction
+        if (payload.senderId !== currentUserId) {
+          toast({ title: `${payload.senderName || payload.senderId} ${payload.emoji}`, duration: 2500 });
+        }
       })
       .on("broadcast", { event: "mute_all" }, ({ payload }: { payload: { byUserId: string } }) => {
         if (payload.byUserId === currentUserId) return;
         localParticipantRef.current?.setMicrophoneEnabled(false);
         setMuted(true);
         toast({ title: t("vroom.mutedByOwner") });
+      })
+      .on("broadcast", { event: "hand_raised" }, ({ payload }: { payload: { userId: string; userName: string } }) => {
+        if (payload.userId === currentUserId) return;
+        toast({ title: `✋ ${payload.userName} ${t("vroom.raisedHand")}`, duration: 3000 });
+      })
+      .on("broadcast", { event: "screen_share" }, ({ payload }: { payload: { userId: string; userName: string; started: boolean } }) => {
+        if (payload.userId === currentUserId) return;
+        const msg = payload.started ? t("vroom.startedScreenShare") : t("vroom.stoppedScreenShare");
+        toast({ title: `🖥️ ${payload.userName} ${msg}`, duration: 3000 });
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") broadcastChRef.current = ch;
@@ -260,6 +276,17 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
       .update({ raise_hand: newVal })
       .eq("room_id", roomId)
       .eq("user_id", currentUserId);
+    // Notify all participants when raising (not lowering)
+    if (newVal) {
+      broadcastChRef.current?.send({
+        type: "broadcast",
+        event: "hand_raised",
+        payload: {
+          userId: currentUserId,
+          userName: localParticipant.name || currentUserId,
+        },
+      });
+    }
   };
 
   const muteAll = () => {
@@ -275,13 +302,27 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
     broadcastChRef.current?.send({
       type: "broadcast",
       event: "reaction",
-      payload: { emoji, senderId: currentUserId },
+      payload: {
+        emoji,
+        senderId: currentUserId,
+        senderName: localParticipant.name || currentUserId,
+      },
     });
   };
 
   const toggleScreenShare = async () => {
     try {
-      await localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
+      const willEnable = !isScreenShareEnabled;
+      await localParticipant.setScreenShareEnabled(willEnable);
+      broadcastChRef.current?.send({
+        type: "broadcast",
+        event: "screen_share",
+        payload: {
+          userId: currentUserId,
+          userName: localParticipant.name || currentUserId,
+          started: willEnable,
+        },
+      });
     } catch {
       toast({ title: t("vroom.screenShareError"), variant: "destructive" });
     }
@@ -291,6 +332,18 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Mobile audio unlock — shown when browser blocks autoplay (iOS Safari, etc.) */}
+      {!canPlayAudio && (
+        <button
+          onClick={startAudio}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-400 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700 animate-pulse"
+          aria-label={t("vroom.tapToHear")}
+        >
+          <Volume2 className="h-4 w-4 shrink-0" />
+          {t("vroom.tapToHear")}
+        </button>
+      )}
+
       {/* Reconnecting banner */}
       {connectionState === ConnectionState.Reconnecting && (
         <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-amber-700">
