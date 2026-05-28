@@ -297,6 +297,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const [screenShareAllowed, setScreenShareAllowed] = useState(true);
   const [micAllowed, setMicAllowed] = useState(true);
   const [reactionSoundsEnabled, setReactionSoundsEnabled] = useState(true);
+  const reactionSoundsEnabledRef = useRef(true);
   const [showPermissionsPanel, setShowPermissionsPanel] = useState(false);
   // Audio-only share
   const [isAudioShareEnabled, setIsAudioShareEnabled] = useState(false);
@@ -316,6 +317,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const wasReconnectingRef = useRef(false);
 
   useEffect(() => { localParticipantRef.current = localParticipant; }, [localParticipant]);
+  useEffect(() => { reactionSoundsEnabledRef.current = reactionSoundsEnabled; }, [reactionSoundsEnabled]);
 
   // Reconnecting banner + reconnected toast
   useEffect(() => {
@@ -371,8 +373,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         setFloatingReactions((prev) => [...prev, r]);
         setTimeout(() => setFloatingReactions((prev) => prev.map((item) => item.id === id ? { ...item, visible: false } : item)), 1600);
         setTimeout(() => setFloatingReactions((prev) => prev.filter((item) => item.id !== id)), 2600);
-        // Notify others (not yourself) who sent the reaction
+        // Play sound + notify when someone else sends a reaction
         if (payload.senderId !== currentUserId) {
+          playReactionSound(payload.emoji, reactionSoundsEnabledRef.current);
           toast({ title: `${payload.senderName || payload.senderId} ${payload.emoji}`, duration: 2500 });
         }
       })
@@ -405,7 +408,10 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
             toast({ title: t("vroom.micLockedByOwner") });
           }
         }
-        if (payload.reactionSoundsEnabled !== undefined) setReactionSoundsEnabled(payload.reactionSoundsEnabled);
+        if (payload.reactionSoundsEnabled !== undefined) {
+          setReactionSoundsEnabled(payload.reactionSoundsEnabled);
+          reactionSoundsEnabledRef.current = payload.reactionSoundsEnabled;
+        }
       })
       .on("broadcast", { event: "hand_raised" }, ({ payload }: { payload: { userId: string; userName: string } }) => {
         if (payload.userId === currentUserId) return;
@@ -536,6 +542,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const toggleReactionSounds = () => {
     const newVal = !reactionSoundsEnabled;
     setReactionSoundsEnabled(newVal);
+    reactionSoundsEnabledRef.current = newVal;
     broadcastChRef.current?.send({
       type: "broadcast",
       event: "room_permissions",
@@ -774,6 +781,16 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         <div className="rounded-xl border bg-card p-4 shadow-md flex flex-col gap-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t("vroom.roomControls")}</p>
           <div className="flex flex-wrap gap-2">
+            {/* Mute all — moved inside the panel */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs text-orange-500 border-orange-300 hover:bg-orange-50 hover:border-orange-500"
+              onClick={muteAll}
+            >
+              <MicOff className="h-3.5 w-3.5" />
+              {t("vroom.muteAll")}
+            </Button>
             <Button
               size="sm"
               variant={micAllowed ? "outline" : "destructive"}
@@ -808,28 +825,16 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
       {/* Controls */}
       <div className="flex items-center justify-center gap-4 pt-2 flex-wrap">
         {canModerate && (
-          <>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-14 w-14 rounded-full p-0 text-orange-500 border-orange-300 hover:bg-orange-50 hover:border-orange-500"
-              onClick={muteAll}
-              title={t("vroom.muteAll")}
-              aria-label={t("vroom.muteAll")}
-            >
-              <MicOff className="h-6 w-6" />
-            </Button>
-            <Button
-              size="lg"
-              variant={showPermissionsPanel ? "secondary" : "outline"}
-              className="h-14 w-14 rounded-full p-0"
-              onClick={() => setShowPermissionsPanel((v) => !v)}
-              title={t("vroom.roomControls")}
-              aria-label={t("vroom.roomControls")}
-            >
-              <Settings2 className="h-6 w-6" />
-            </Button>
-          </>
+          <Button
+            size="lg"
+            variant={showPermissionsPanel ? "secondary" : "outline"}
+            className="h-14 w-14 rounded-full p-0"
+            onClick={() => setShowPermissionsPanel((v) => !v)}
+            title={t("vroom.roomControls")}
+            aria-label={t("vroom.roomControls")}
+          >
+            <Settings2 className="h-6 w-6" />
+          </Button>
         )}
         <Button
           size="lg"
@@ -864,7 +869,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
           <Headphones className="h-6 w-6" />
         </Button>
 
-        {/* Screen share (with audio sub-toggle) */}
+        {/* Screen share — audio sub-toggle appears only while sharing */}
         {canScreenShare && (
           <div className="flex flex-col items-center gap-1">
             <Button
@@ -877,26 +882,27 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
             >
               <Monitor className="h-6 w-6" />
             </Button>
-            {/* Audio toggle — always visible; if toggled during share, restarts capture */}
-            <button
-              type="button"
-              disabled={screenShareRestarting}
-              className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                screenAudioEnabled
-                  ? "border-blue-400 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={toggleScreenAudio}
-              aria-pressed={screenAudioEnabled}
-              aria-label={t("vroom.shareAudio")}
-              title={t("vroom.shareAudio")}
-            >
-              {screenShareRestarting
-                ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                : <Volume2 className="h-2.5 w-2.5" />
-              }
-              <span>{t("vroom.audio")}</span>
-            </button>
+            {isScreenShareEnabled && (
+              <button
+                type="button"
+                disabled={screenShareRestarting}
+                className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  screenAudioEnabled
+                    ? "border-blue-400 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={toggleScreenAudio}
+                aria-pressed={screenAudioEnabled}
+                aria-label={t("vroom.shareAudio")}
+                title={t("vroom.shareAudio")}
+              >
+                {screenShareRestarting
+                  ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                  : <Volume2 className="h-2.5 w-2.5" />
+                }
+                <span>{t("vroom.audio")}</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -954,32 +960,137 @@ function playJoinLeaveSound(joined: boolean) {
 }
 
 // ── Reaction sounds ────────────────────────────────────────────────
-// Maps emoji to [startFreq, endFreq, oscType, duration]
-const REACTION_SOUNDS: Record<string, [number, number, OscillatorType, number]> = {
-  "👍": [523, 659, "sine", 0.18],
-  "❤️": [440, 554, "sine", 0.22],
-  "😂": [880, 1047, "square", 0.15],
-  "😮": [440, 330, "sine", 0.2],
-  "👏": [300, 280, "sawtooth", 0.12],
-};
+const LAUGH_EMOJIS = new Set(["😂","🤣","😆","😅","😁","😜","🤪","😝","😄","😃"]);
+const LOVE_EMOJIS  = new Set(["❤️","🥰","😍","🫶","💕","💓","💗","💝","😘","🤩"]);
+const WOW_EMOJIS   = new Set(["😮","🤯","😱","😳","🫣","🫠"]);
+const CLAP_EMOJIS  = new Set(["👏","🙌","🎉","🎊","🥳","🏆","🥇"]);
+const SAD_EMOJIS   = new Set(["😢","😭","🥺","😔","😞"]);
+const BOO_EMOJIS   = new Set(["👎","😡","😤","😒"]);
+const FIRE_EMOJIS  = new Set(["🔥","💯","⚡","💥","🚀"]);
 
 function playReactionSound(emoji: string, enabled: boolean) {
   if (!enabled) return;
   try {
     const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    const [startF, endF, type, dur] = REACTION_SOUNDS[emoji] ?? [600, 750, "sine", 0.15];
-    osc.type = type;
-    osc.frequency.setValueAtTime(startF, ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(endF, ctx.currentTime + dur);
-    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + dur);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + dur);
-    osc.onended = () => ctx.close();
+    const t0 = ctx.currentTime;
+
+    if (CLAP_EMOJIS.has(emoji) || emoji === "👍") {
+      // Clapping: noise bursts through bandpass
+      const claps = emoji === "👍" ? 1 : 3;
+      for (let i = 0; i < claps; i++) {
+        const bufLen = Math.floor(ctx.sampleRate * 0.07);
+        const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let j = 0; j < bufLen; j++) data[j] = (Math.random() * 2 - 1) * Math.exp(-j / (bufLen * 0.4));
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const bp = ctx.createBiquadFilter();
+        bp.type = "bandpass"; bp.frequency.value = 1400; bp.Q.value = 0.7;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.5, t0 + i * 0.13);
+        src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+        src.start(t0 + i * 0.13);
+      }
+      setTimeout(() => ctx.close(), 800);
+
+    } else if (LAUGH_EMOJIS.has(emoji)) {
+      // Laughing: pulsed mid-tone "ha ha ha"
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      osc.type = "sawtooth"; osc.frequency.value = 320;
+      lfo.frequency.value = 6; lfoGain.gain.value = 25;
+      lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
+      osc.connect(gain); gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0, t0);
+      const pulses = emoji === "🤣" ? 4 : 3;
+      for (let i = 0; i < pulses; i++) {
+        gain.gain.linearRampToValueAtTime(0.14, t0 + i * 0.14 + 0.05);
+        gain.gain.linearRampToValueAtTime(0,    t0 + i * 0.14 + 0.12);
+      }
+      lfo.start(t0); osc.start(t0);
+      const dur = pulses * 0.14 + 0.05;
+      osc.stop(t0 + dur); lfo.stop(t0 + dur);
+      osc.onended = () => ctx.close();
+
+    } else if (LOVE_EMOJIS.has(emoji)) {
+      // Heartbeat: soft double-pulse
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine"; osc.frequency.value = 180;
+      osc.connect(gain); gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.15, t0 + 0.05);
+      gain.gain.linearRampToValueAtTime(0.02, t0 + 0.12);
+      gain.gain.linearRampToValueAtTime(0.10, t0 + 0.18);
+      gain.gain.linearRampToValueAtTime(0,    t0 + 0.30);
+      osc.start(t0); osc.stop(t0 + 0.32);
+      osc.onended = () => ctx.close();
+
+    } else if (WOW_EMOJIS.has(emoji)) {
+      // Wow / gasp: descending sweep
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(700, t0);
+      osc.frequency.exponentialRampToValueAtTime(200, t0 + 0.35);
+      gain.gain.setValueAtTime(0.13, t0);
+      gain.gain.linearRampToValueAtTime(0, t0 + 0.35);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + 0.36);
+      osc.onended = () => ctx.close();
+
+    } else if (SAD_EMOJIS.has(emoji)) {
+      // Sad: descending minor tone
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(440, t0);
+      osc.frequency.linearRampToValueAtTime(300, t0 + 0.4);
+      gain.gain.setValueAtTime(0.1, t0);
+      gain.gain.linearRampToValueAtTime(0, t0 + 0.4);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + 0.4);
+      osc.onended = () => ctx.close();
+
+    } else if (BOO_EMOJIS.has(emoji)) {
+      // Negative: low buzz
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square"; osc.frequency.value = 100;
+      gain.gain.setValueAtTime(0.08, t0);
+      gain.gain.linearRampToValueAtTime(0, t0 + 0.25);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + 0.25);
+      osc.onended = () => ctx.close();
+
+    } else if (FIRE_EMOJIS.has(emoji)) {
+      // Fire/hype: rising bright ping
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(660, t0);
+      osc.frequency.exponentialRampToValueAtTime(1320, t0 + 0.12);
+      gain.gain.setValueAtTime(0.13, t0);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.3);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + 0.3);
+      osc.onended = () => ctx.close();
+
+    } else {
+      // Default: soft pop
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(600, t0);
+      osc.frequency.linearRampToValueAtTime(400, t0 + 0.1);
+      gain.gain.setValueAtTime(0.1, t0);
+      gain.gain.linearRampToValueAtTime(0, t0 + 0.15);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + 0.15);
+      osc.onended = () => ctx.close();
+    }
   } catch { /* AudioContext unavailable */ }
 }
 
