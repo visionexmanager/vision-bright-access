@@ -11,7 +11,7 @@ import {
   VideoTrack,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, ConnectionState } from "livekit-client";
+import { Track, ConnectionState, RemoteAudioTrack, AudioPresets } from "livekit-client";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -34,7 +34,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Check, Copy, Hand, Loader2, Lock, Mic, MicOff,
+  Check, Copy, Hand, Headphones, Loader2, Lock, Mic, MicOff,
   Monitor, MonitorOff, Pencil, PhoneOff, RefreshCw, ShieldX,
   Unlock, UserX, Users, Volume2, WifiOff, X,
 } from "lucide-react";
@@ -43,6 +43,21 @@ import { useVXWallet } from "@/hooks/useVXWallet";
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
 const REACTIONS = ["👍", "❤️", "😂", "😮", "👏"];
 
+// High-quality audio options for the LiveKit room — applied once on connect.
+const ROOM_OPTIONS = {
+  audioCaptureDefaults: {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+  },
+  publishDefaults: {
+    audioPreset: AudioPresets.musicHighQuality, // 96 kbps, high fidelity
+    dtx: false,  // always transmit, no silence gaps
+    red: true,   // redundant encoding for packet-loss resilience
+    stopMicTrackOnMute: false,
+  },
+};
+
 function resolveLiveKitUrl() {
   const configuredUrl = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
   const url = configuredUrl?.trim().replace(/^["']|["']$/g, "");
@@ -50,6 +65,83 @@ function resolveLiveKitUrl() {
     return FALLBACK_LIVEKIT_URL;
   }
   return url;
+}
+
+// ── Spatial audio renderer ─────────────────────────────────────────
+// Uses LiveKit's @internal Web Audio plugin API to route each remote
+// participant's mic through a StereoPannerNode, spreading voices across
+// the stereo field (left ↔ right) so they're easier to distinguish.
+// When unmounted (spatial audio off) it restores normal playback.
+function SpatialAudioRenderer({ currentUserId }: { currentUserId: string }) {
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  // Map: participantIdentity → { panner, track }
+  const nodesRef = useRef<Map<string, { panner: StereoPannerNode; track: RemoteAudioTrack }>>(
+    new Map()
+  );
+
+  const remoteTracks = useTracks(
+    [{ source: Track.Source.Microphone, withPlaceholder: false }],
+  ).filter((t) => t.participant.identity !== currentUserId && t.publication?.track);
+
+  // Create AudioContext once; tear down on unmount
+  useEffect(() => {
+    const ctx = new AudioContext();
+    audioCtxRef.current = ctx;
+    return () => {
+      // Restore normal LiveKit audio element playback for every track
+      for (const [, { track }] of nodesRef.current) {
+        try { track.setAudioContext(undefined); track.setWebAudioPlugins([]); } catch { /* ignore */ }
+      }
+      nodesRef.current.clear();
+      void ctx.close();
+    };
+  }, []);
+
+  // Connect/update tracks whenever remote participants change
+  useEffect(() => {
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+
+    const liveIds = new Set(remoteTracks.map((t) => t.participant.identity));
+    const total = remoteTracks.length;
+
+    remoteTracks.forEach((trackRef, idx) => {
+      const identity = trackRef.participant.identity;
+      const track = trackRef.publication?.track as RemoteAudioTrack | undefined;
+      if (!track) return;
+
+      // Spread voices evenly: −0.7 (far left) … 0 (center) … +0.7 (far right)
+      const panValue = total > 1 ? ((idx / (total - 1)) * 2 - 1) * 0.7 : 0;
+
+      const existing = nodesRef.current.get(identity);
+      if (existing) {
+        existing.panner.pan.setTargetAtTime(panValue, ctx.currentTime, 0.05);
+      } else {
+        const panner = ctx.createStereoPanner();
+        panner.pan.value = panValue;
+        try {
+          // setAudioContext → LiveKit mutes the <audio> element and routes
+          //   through ctx.  setWebAudioPlugins inserts: src → panner → ctx.destination
+          track.setAudioContext(ctx);
+          track.setWebAudioPlugins([panner]);
+          nodesRef.current.set(identity, { panner, track });
+        } catch (e) {
+          console.warn("[SpatialAudio] setup failed for", identity, e);
+        }
+      }
+    });
+
+    // Clean up nodes for participants who left
+    for (const [id, { track }] of nodesRef.current) {
+      if (!liveIds.has(id)) {
+        try { track.setAudioContext(undefined); track.setWebAudioPlugins([]); } catch { /* ignore */ }
+        nodesRef.current.delete(id);
+      }
+    }
+  }, [remoteTracks]);
+
+  return null;
 }
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -164,6 +256,8 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const [handRaised, setHandRaised] = useState(false);
   const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
   const [screenAudioEnabled, setScreenAudioEnabled] = useState(false);
+  const [screenShareRestarting, setScreenShareRestarting] = useState(false);
+  const [spatialAudioEnabled, setSpatialAudioEnabled] = useState(false);
   const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   // Mobile audio unlock — iOS/Android require a user gesture before playing remote audio
   const { canPlayAudio, startAudio } = useAudioPlayback();
@@ -332,6 +426,23 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
     }
   };
 
+  // Toggle screen-share audio on/off. If already sharing, restarts the share
+  // so the browser can capture (or stop capturing) system audio.
+  const toggleScreenAudio = async () => {
+    const newVal = !screenAudioEnabled;
+    setScreenAudioEnabled(newVal);
+    if (!isScreenShareEnabled) return; // not sharing — just flip the flag
+    setScreenShareRestarting(true);
+    try {
+      await localParticipant.setScreenShareEnabled(false);
+      await localParticipant.setScreenShareEnabled(true, { audio: newVal });
+    } catch {
+      toast({ title: t("vroom.screenShareError"), variant: "destructive" });
+    } finally {
+      setScreenShareRestarting(false);
+    }
+  };
+
   const canScreenShare = typeof navigator?.mediaDevices?.getDisplayMedia === "function";
 
   return (
@@ -469,6 +580,21 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         >
           <Hand className="h-6 w-6" />
         </Button>
+
+        {/* Spatial audio toggle */}
+        <Button
+          size="lg"
+          variant="outline"
+          className={`h-14 w-14 rounded-full p-0 transition-colors ${spatialAudioEnabled ? "bg-purple-500 hover:bg-purple-600 border-purple-500 text-white" : ""}`}
+          onClick={() => setSpatialAudioEnabled((v) => !v)}
+          aria-pressed={spatialAudioEnabled}
+          aria-label={t("vroom.spatialAudio")}
+          title={t("vroom.spatialAudio")}
+        >
+          <Headphones className="h-6 w-6" />
+        </Button>
+
+        {/* Screen share (with audio sub-toggle) */}
         {canScreenShare && (
           <div className="flex flex-col items-center gap-1">
             <Button
@@ -481,23 +607,26 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
             >
               <Monitor className="h-6 w-6" />
             </Button>
-            {!isScreenShareEnabled && (
-              <button
-                type="button"
-                className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
-                  screenAudioEnabled
-                    ? "border-blue-400 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                }`}
-                onClick={() => setScreenAudioEnabled((v) => !v)}
-                aria-pressed={screenAudioEnabled}
-                aria-label={t("vroom.shareAudio")}
-                title={t("vroom.shareAudio")}
-              >
-                <Volume2 className="h-2.5 w-2.5" />
-                <span>{t("vroom.audio")}</span>
-              </button>
-            )}
+            {/* Audio toggle — always visible; if toggled during share, restarts capture */}
+            <button
+              type="button"
+              disabled={screenShareRestarting}
+              className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                screenAudioEnabled
+                  ? "border-blue-400 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={toggleScreenAudio}
+              aria-pressed={screenAudioEnabled}
+              aria-label={t("vroom.shareAudio")}
+              title={t("vroom.shareAudio")}
+            >
+              {screenShareRestarting
+                ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                : <Volume2 className="h-2.5 w-2.5" />
+              }
+              <span>{t("vroom.audio")}</span>
+            </button>
           </div>
         )}
         <Button
@@ -511,6 +640,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         </Button>
       </div>
       <p className="text-center text-xs text-muted-foreground">{t("vroom.hint")}</p>
+
+      {/* Spatial audio processor — only mounted while the feature is on */}
+      {spatialAudioEnabled && <SpatialAudioRenderer currentUserId={currentUserId} />}
     </div>
   );
 }
@@ -962,6 +1094,7 @@ export default function VoiceRoom() {
                 connect
                 audio
                 video={false}
+                options={ROOM_OPTIONS}
                 onDisconnected={() => {
                   if (!leftIntentionally.current) {
                     setConnectionLost(true);

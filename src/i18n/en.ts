@@ -2213,6 +2213,7 @@ const en: Record<string, string> = {
   "vroom.stoppedScreenShare": "stopped sharing screen",
   "vroom.audio": "Audio",
   "vroom.shareAudio": "Include system audio",
+  "vroom.spatialAudio": "Spatial Audio",
   "mp.opponent": "Opponent",
   "mp.theirTurn": "Their turn",
   "mp.draw": "It's a draw!",
