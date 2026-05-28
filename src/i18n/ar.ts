@@ -2234,6 +2234,8 @@ const ar: Record<string, string> = {
   "vroom.shareAudio": "تضمين صوت النظام",
   "vroom.spatialAudio": "صوت محيطي",
   "vroom.moreReactions": "المزيد من التفاعلات",
+  "vroom.micPermissionDenied": "الميكروفون محجوب",
+  "vroom.micPermissionDesc": "اسمح بالوصول للميكروفون في إعدادات المتصفح للتحدث",
   "mp.opponent": "المنافس",
   "mp.theirTurn": "دورهم",
   "mp.draw": "تعادل!",

@@ -2215,6 +2215,8 @@ const en: Record<string, string> = {
   "vroom.shareAudio": "Include system audio",
   "vroom.spatialAudio": "Spatial Audio",
   "vroom.moreReactions": "More reactions",
+  "vroom.micPermissionDenied": "Microphone blocked",
+  "vroom.micPermissionDesc": "Allow microphone access in your browser settings to speak",
   "mp.opponent": "Opponent",
   "mp.theirTurn": "Their turn",
   "mp.draw": "It's a draw!",

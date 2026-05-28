@@ -1174,11 +1174,25 @@ export default function VoiceRoom() {
                   }
                 }}
                 onError={(err) => {
-                  // "Client initiated disconnect" is LiveKit's way of saying it
-                  // cleaned up an in-progress connection when the component unmounted
-                  // (e.g. during the auth-loading window). It is NOT a real error —
-                  // suppress it so the user never sees a false error screen.
+                  // "Client initiated disconnect" is LiveKit cleanup — not a real error.
                   if (err.message?.toLowerCase().includes("client initiated")) return;
+
+                  // Microphone/camera permission denied by the browser (NotAllowedError).
+                  // The user can still be in the room — they're just muted.
+                  // Show a non-blocking toast instead of replacing the whole UI.
+                  const isMediaPermissionError =
+                    (err as { name?: string }).name === "NotAllowedError" ||
+                    err.message?.toLowerCase().includes("permission denied") ||
+                    err.message?.toLowerCase().includes("notallowederror");
+                  if (isMediaPermissionError) {
+                    toast({
+                      title: t("vroom.micPermissionDenied"),
+                      description: t("vroom.micPermissionDesc"),
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
                   setError(err.message);
                   toast({ title: t("vroom.connectionError"), description: err.message, variant: "destructive" });
                 }}
