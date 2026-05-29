@@ -11,7 +11,7 @@ import {
   VideoTrack,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, ConnectionState, RemoteAudioTrack, AudioPresets } from "livekit-client";
+import { Track, ConnectionState, RemoteAudioTrack, AudioPresets, LocalAudioTrack } from "livekit-client";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -35,8 +35,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Check, ChevronDown, ChevronUp, Copy, Hand, Headphones, Loader2, Lock, MessageSquare,
-  Mic, MicOff, Monitor, MonitorOff, Pencil, PhoneOff, RefreshCw, Send, ShieldX,
-  Unlock, UserX, Users, Volume2, WifiOff, X,
+  Mic, MicOff, Monitor, MonitorOff, Pencil, PhoneOff, RefreshCw, Send, Settings2, ShieldX,
+  Unlock, UserX, Users, Video, VideoOff, Volume2, WifiOff, X, Music2,
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
 
@@ -182,6 +182,13 @@ interface FloatingReaction {
   visible: boolean;
 }
 
+interface RoomPerms {
+  camera: boolean;
+  mic: boolean;
+  chat: boolean;
+  screen: boolean;
+}
+
 // ── Participant tile ───────────────────────────────────────────────
 interface ParticipantTileProps {
   participant: ReturnType<typeof useParticipants>[number];
@@ -198,23 +205,39 @@ function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick
     [{ source: Track.Source.Microphone, withPlaceholder: true }],
     { participant }
   );
+  const cameraTracks = useTracks(
+    [{ source: Track.Source.Camera, withPlaceholder: false }],
+    { participant }
+  );
   const isMuted = !tracks.some((tr) => tr.publication?.isMuted === false && tr.publication?.isEnabled);
   const isSpeaking = participant.isSpeaking;
   const displayName = participant.name || participant.identity;
+  const hasCameraTrack = cameraTracks.length > 0 && cameraTracks[0].publication?.isEnabled;
 
   return (
     <div className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 transition-all ${isSpeaking ? "border-primary bg-primary/5 shadow-md" : "border-border bg-muted/30"}`}>
       {isRaisingHand && (
         <span className="absolute -top-2 -right-2 text-lg animate-bounce z-10 select-none">✋</span>
       )}
-      <div className={`relative flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-primary-foreground ${isSpeaking ? "bg-primary" : "bg-muted-foreground/30"}`}>
-        {displayName.charAt(0).toUpperCase()}
-        {isSpeaking && (
-          <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-            <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
-          </span>
-        )}
-      </div>
+      {hasCameraTrack ? (
+        <div className={`relative w-full aspect-video rounded-xl overflow-hidden border-2 ${isSpeaking ? "border-primary" : "border-transparent"}`}>
+          <VideoTrack trackRef={cameraTracks[0]} className="w-full h-full object-cover" />
+          {isSpeaking && (
+            <span className="absolute bottom-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+              <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className={`relative flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-primary-foreground ${isSpeaking ? "bg-primary" : "bg-muted-foreground/30"}`}>
+          {displayName.charAt(0).toUpperCase()}
+          {isSpeaking && (
+            <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+              <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
+            </span>
+          )}
+        </div>
+      )}
       <span className="max-w-[80px] truncate text-xs font-medium">{displayName}</span>
       {isMuted && <MicOff className="h-3.5 w-3.5 text-muted-foreground" />}
 
@@ -271,15 +294,18 @@ interface RoomContentProps {
   onKick: (identity: string, name: string) => void;
   onBan: (identity: string, name: string) => void;
   canModerate: boolean;
+  isOwner: boolean;
   currentUserId: string;
   roomId: string;
   raisedHands: Set<string>;
+  roomPerms: RoomPerms;
+  onUpdatePerms: (key: keyof RoomPerms, val: boolean) => Promise<void>;
   t: (key: string) => string;
 }
 
-function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomId, raisedHands, t }: RoomContentProps) {
+function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUserId, roomId, raisedHands, roomPerms, onUpdatePerms, t }: RoomContentProps) {
   const participants = useParticipants();
-  const { localParticipant, isScreenShareEnabled } = useLocalParticipant();
+  const { localParticipant, isScreenShareEnabled, isCameraEnabled } = useLocalParticipant();
   const localParticipantRef = useRef(localParticipant);
   const connectionState = useConnectionState();
   const [muted, setMuted] = useState(false);
@@ -290,6 +316,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const [spatialAudioEnabled, setSpatialAudioEnabled] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [showRoomControls, setShowRoomControls] = useState(false);
+  const [audioShareEnabled, setAudioShareEnabled] = useState(false);
+  const audioShareTrackRef = useRef<MediaStreamTrack | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
@@ -384,6 +413,13 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         const msg = payload.started ? t("vroom.startedScreenShare") : t("vroom.stoppedScreenShare");
         toast({ title: `🖥️ ${payload.userName} ${msg}`, duration: 3000 });
       })
+      .on("broadcast", { event: "perms_changed" }, ({ payload }: { payload: Partial<RoomPerms> & { byUserId: string } }) => {
+        // Non-owners enforce newly disabled perms
+        if (payload.byUserId === currentUserId) return;
+        if (payload.mic === false) { localParticipantRef.current?.setMicrophoneEnabled(false); setMuted(true); }
+        if (payload.camera === false) { localParticipantRef.current?.setCameraEnabled(false); }
+        if (payload.screen === false && isScreenShareEnabled) { localParticipantRef.current?.setScreenShareEnabled(false); }
+      })
       .on("broadcast", { event: "chat_message" }, ({ payload }: { payload: ChatMessage }) => {
         setChatMessages((prev) => [...prev, payload]);
         setChatOpen((open) => {
@@ -428,6 +464,10 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   };
 
   const toggleMic = async () => {
+    if (!roomPerms.mic && muted && !isOwner) {
+      toast({ title: t("vroom.permDisabledByOwner"), variant: "destructive" });
+      return;
+    }
     await localParticipant.setMicrophoneEnabled(muted);
     setMuted(!muted);
   };
@@ -463,6 +503,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   };
 
   const sendReaction = (emoji: string) => {
+    playReactionSound(emoji);
     broadcastChRef.current?.send({
       type: "broadcast",
       event: "reaction",
@@ -472,6 +513,48 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         senderName: localParticipant.name || currentUserId,
       },
     });
+  };
+
+  const toggleCamera = async () => {
+    if (!roomPerms.camera && !isOwner) {
+      toast({ title: t("vroom.permDisabledByOwner"), variant: "destructive" });
+      return;
+    }
+    try {
+      await localParticipant.setCameraEnabled(!isCameraEnabled);
+    } catch {
+      toast({ title: t("vroom.cameraOff"), variant: "destructive" });
+    }
+  };
+
+  const toggleAudioShare = async () => {
+    if (audioShareEnabled) {
+      audioShareTrackRef.current?.stop();
+      audioShareTrackRef.current = null;
+      setAudioShareEnabled(false);
+      return;
+    }
+    if (!roomPerms.screen && !isOwner) {
+      toast({ title: t("vroom.permDisabledByOwner"), variant: "destructive" });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      stream.getVideoTracks().forEach((vt) => vt.stop());
+      const audioTrack = stream.getAudioTracks()[0];
+      if (!audioTrack) {
+        toast({ title: t("vroom.audioShareFailed"), variant: "destructive" });
+        return;
+      }
+      const lkTrack = new LocalAudioTrack(audioTrack, undefined, false);
+      await localParticipant.publishTrack(lkTrack, { source: Track.Source.ScreenShareAudio, name: "audio-share" });
+      audioShareTrackRef.current = audioTrack;
+      setAudioShareEnabled(true);
+      audioTrack.onended = () => setAudioShareEnabled(false);
+      toast({ title: t("vroom.audioShareActive") });
+    } catch {
+      toast({ title: t("vroom.audioShareFailed"), variant: "destructive" });
+    }
   };
 
   const toggleScreenShare = async () => {
@@ -699,8 +782,52 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         </div>
       </div>
 
+      {/* Room Controls Panel — owner only */}
+      {isOwner && showRoomControls && (
+        <div className="rounded-xl border bg-card p-4 shadow-md space-y-3">
+          <p className="text-sm font-semibold flex items-center gap-1.5">
+            <Settings2 className="h-4 w-4 text-primary" />
+            {t("vroom.roomControls")}
+          </p>
+          {([
+            { key: "mic" as const,    label: t("vroom.allowMic"),         icon: Mic },
+            { key: "camera" as const, label: t("vroom.allowCamera"),      icon: Video },
+            { key: "chat" as const,   label: t("vroom.allowChat"),        icon: MessageSquare },
+            { key: "screen" as const, label: t("vroom.allowScreenShare"), icon: Monitor },
+          ]).map(({ key, label, icon: Icon }) => (
+            <div key={key} className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon className="h-4 w-4" />
+                {label}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={roomPerms[key]}
+                onClick={() => onUpdatePerms(key, !roomPerms[key])}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${roomPerms[key] ? "bg-primary" : "bg-muted-foreground/30"}`}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform ${roomPerms[key] ? "translate-x-5" : "translate-x-0"}`} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Controls */}
       <div className="flex items-center justify-center gap-4 pt-2 flex-wrap">
+        {isOwner && (
+          <Button
+            size="lg"
+            variant="outline"
+            className={`h-14 w-14 rounded-full p-0 transition-colors ${showRoomControls ? "bg-primary border-primary text-primary-foreground" : ""}`}
+            onClick={() => setShowRoomControls((v) => !v)}
+            title={t("vroom.roomControls")}
+            aria-label={t("vroom.roomControls")}
+          >
+            <Settings2 className="h-6 w-6" />
+          </Button>
+        )}
         {canModerate && (
           <Button
             size="lg"
@@ -718,10 +845,25 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
           variant={muted ? "destructive" : "outline"}
           className="h-14 w-14 rounded-full p-0"
           onClick={toggleMic}
+          disabled={!roomPerms.mic && !isOwner}
           aria-label={muted ? t("vroom.unmute") : t("vroom.mute")}
+          title={!roomPerms.mic && !isOwner ? t("vroom.permDisabledByOwner") : undefined}
         >
           {muted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
         </Button>
+        {/* Camera toggle */}
+        {(roomPerms.camera || isOwner) && (
+          <Button
+            size="lg"
+            variant="outline"
+            className={`h-14 w-14 rounded-full p-0 transition-colors ${isCameraEnabled ? "bg-green-500 hover:bg-green-600 border-green-500 text-white" : ""}`}
+            onClick={toggleCamera}
+            aria-label={isCameraEnabled ? t("vroom.cameraOff") : t("vroom.cameraOn")}
+            title={isCameraEnabled ? t("vroom.cameraOff") : t("vroom.cameraOn")}
+          >
+            {isCameraEnabled ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
+          </Button>
+        )}
         <Button
           size="lg"
           variant="outline"
@@ -747,7 +889,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         </Button>
 
         {/* Screen share (with audio sub-toggle) */}
-        {canScreenShare && (
+        {canScreenShare && (roomPerms.screen || isOwner) && (
           <div className="flex flex-col items-center gap-1">
             <Button
               size="lg"
@@ -759,7 +901,6 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
             >
               <Monitor className="h-6 w-6" />
             </Button>
-            {/* Audio toggle — always visible; if toggled during share, restarts capture */}
             <button
               type="button"
               disabled={screenShareRestarting}
@@ -781,8 +922,24 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
             </button>
           </div>
         )}
+        {/* Audio-only share */}
+        {canScreenShare && (roomPerms.screen || isOwner) && (
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-14 w-14 rounded-full p-0 transition-colors ${audioShareEnabled ? "bg-teal-500 hover:bg-teal-600 border-teal-500 text-white" : ""}`}
+              onClick={toggleAudioShare}
+              aria-label={t("vroom.audioShare")}
+              title={t("vroom.audioShare")}
+            >
+              <Music2 className="h-6 w-6" />
+            </Button>
+            <span className="text-[10px] text-muted-foreground">{t("vroom.audioShare")}</span>
+          </div>
+        )}
         {/* Chat toggle */}
-        <div className="relative">
+        {(roomPerms.chat || isOwner) && <div className="relative">
           <Button
             size="lg"
             variant="outline"
@@ -798,7 +955,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
-        </div>
+        </div>}
 
         <Button
           size="lg"
@@ -840,6 +997,127 @@ function playJoinLeaveSound(joined: boolean) {
   }
 }
 
+// ── Reaction sounds ────────────────────────────────────────────────
+function playReactionSound(emoji: string) {
+  try {
+    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+
+    const laughEmojis = ["😂","😆","😅","🤣","😁","🤪","😜","😝"];
+    const clapEmojis  = ["👏","🙌","🤜","🤛","💪","🫶"];
+    const heartEmojis = ["❤️","🥰","😍","💕","💗","💓","💞","🫂","🌸"];
+    const dingEmojis  = ["👍","👍🏼","💯","🏆","🥇","⭐","🌟","✨","💫","💎","🎯"];
+    const gaspEmojis  = ["😮","🤯","😱","🫢","🫣","😳","😬"];
+    const wooshEmojis = ["🔥","⚡","💥","🚀","🌊","🌈"];
+    const celebEmojis = ["🎉","🎊","🎈","🎁","🥳","🎵","🎶","🎸"];
+    const booEmojis   = ["😡","😤","👎","💀","🙄","😒","😤"];
+
+    if (laughEmojis.includes(emoji)) {
+      // Ha-ha-ha: 3 short sawtooth bursts with pitch variation
+      for (let i = 0; i < 3; i++) {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(320 + i * 15, t + i * 0.14);
+        osc.frequency.linearRampToValueAtTime(210, t + i * 0.14 + 0.1);
+        g.gain.setValueAtTime(0, t + i * 0.14);
+        g.gain.linearRampToValueAtTime(0.13, t + i * 0.14 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.14 + 0.12);
+        osc.start(t + i * 0.14); osc.stop(t + i * 0.14 + 0.14);
+      }
+    } else if (clapEmojis.includes(emoji)) {
+      // Two sharp noise claps
+      for (let i = 0; i < 2; i++) {
+        const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.13), ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let j = 0; j < d.length; j++) d[j] = Math.random() * 2 - 1;
+        const src = ctx.createBufferSource(); src.buffer = buf;
+        const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1300; bp.Q.value = 1;
+        const g = ctx.createGain();
+        src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.35, t + i * 0.2);
+        g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.2 + 0.12);
+        src.start(t + i * 0.2);
+      }
+    } else if (heartEmojis.includes(emoji)) {
+      // Warm chord: fundamental + fifth + octave
+      [220, 330, 440].forEach((freq, i) => {
+        const osc = ctx.createOscillator(); const g = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.type = "sine"; osc.frequency.value = freq;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.09 - i * 0.02, t + 0.08);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+        osc.start(t); osc.stop(t + 0.8);
+      });
+    } else if (gaspEmojis.includes(emoji)) {
+      // Breathy inhale: highpass noise, falling cutoff
+      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.28), ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < d.length; j++) d[j] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const hp = ctx.createBiquadFilter(); hp.type = "highpass";
+      hp.frequency.setValueAtTime(2200, t); hp.frequency.linearRampToValueAtTime(600, t + 0.25);
+      const g = ctx.createGain();
+      src.connect(hp); hp.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.16, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      src.start(t);
+    } else if (wooshEmojis.includes(emoji)) {
+      // Sweeping bandpass noise (low→high)
+      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.38), ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < d.length; j++) d[j] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 4;
+      bp.frequency.setValueAtTime(180, t); bp.frequency.exponentialRampToValueAtTime(3200, t + 0.33);
+      const g = ctx.createGain();
+      src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.18, t); g.gain.linearRampToValueAtTime(0.28, t + 0.15);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      src.start(t);
+    } else if (celebEmojis.includes(emoji)) {
+      // Ascending arpeggio: C5 E5 G5 C6
+      [523, 659, 784, 1047].forEach((freq, i) => {
+        const osc = ctx.createOscillator(); const g = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.type = "sine"; osc.frequency.value = freq;
+        g.gain.setValueAtTime(0, t + i * 0.07);
+        g.gain.linearRampToValueAtTime(0.11, t + i * 0.07 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.07 + 0.22);
+        osc.start(t + i * 0.07); osc.stop(t + i * 0.07 + 0.25);
+      });
+    } else if (dingEmojis.includes(emoji)) {
+      // Crisp approval ding: sine with slight pitch fall
+      const osc = ctx.createOscillator(); const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(900, t); osc.frequency.exponentialRampToValueAtTime(680, t + 0.35);
+      g.gain.setValueAtTime(0.16, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
+      osc.start(t); osc.stop(t + 0.45);
+    } else if (booEmojis.includes(emoji)) {
+      // Descending dissonant buzzer
+      [200, 193].forEach((freq, i) => {
+        const osc = ctx.createOscillator(); const g = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(freq, t); osc.frequency.linearRampToValueAtTime(90, t + 0.4);
+        g.gain.setValueAtTime(0.09, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+        osc.start(t + i * 0.04); osc.stop(t + 0.45);
+      });
+    } else {
+      // Default soft blip
+      const osc = ctx.createOscillator(); const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = "sine"; osc.frequency.value = 620;
+      g.gain.setValueAtTime(0.09, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      osc.start(t); osc.stop(t + 0.18);
+    }
+
+    setTimeout(() => ctx.close().catch(() => {}), 2000);
+  } catch { /* ignore */ }
+}
+
 // ── Main page ──────────────────────────────────────────────────────
 export default function VoiceRoom() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -861,6 +1139,7 @@ export default function VoiceRoom() {
   const [raisedHands, setRaisedHands] = useState<Set<string>>(new Set());
   const [connectionLost, setConnectionLost] = useState(false);
   const [connectionKey, setConnectionKey] = useState(0);
+  const [roomPerms, setRoomPerms] = useState<RoomPerms>({ camera: true, mic: true, chat: true, screen: true });
 
   const leftIntentionally = useRef(false);
   const roomTopicRef = useRef(roomTopic);
@@ -952,7 +1231,7 @@ export default function VoiceRoom() {
     const getToken = async () => {
       const { data: room } = await supabase
         .from("voice_rooms")
-        .select("room_name, room_topic, is_private, owner_id, join_cost_vx, is_default, is_active")
+        .select("room_name, room_topic, is_private, owner_id, join_cost_vx, is_default, is_active, allow_camera, allow_mic, allow_chat, allow_screen_share")
         .eq("id", roomId)
         .single();
 
@@ -973,6 +1252,12 @@ export default function VoiceRoom() {
       setTopicDraft(room.room_topic || "");
       setIsPrivate(room.is_private);
       setOwnerId(room.owner_id);
+      setRoomPerms({
+        camera: room.allow_camera ?? true,
+        mic: room.allow_mic ?? true,
+        chat: room.allow_chat ?? true,
+        screen: room.allow_screen_share ?? true,
+      });
 
       const { data: ban } = await supabase
         .from("voice_room_bans")
@@ -1061,14 +1346,22 @@ export default function VoiceRoom() {
         table: "voice_rooms",
         filter: `id=eq.${roomId}`,
       }, (payload) => {
-        const updated = payload.new as { owner_id?: string; room_topic?: string; is_private?: boolean };
+        const updated = payload.new as {
+          owner_id?: string; room_topic?: string; is_private?: boolean;
+          allow_camera?: boolean; allow_mic?: boolean; allow_chat?: boolean; allow_screen_share?: boolean;
+        };
         if (updated.owner_id !== undefined) setOwnerId(updated.owner_id);
         if (updated.room_topic !== undefined) {
           setRoomTopic(updated.room_topic);
-          // Keep topicDraft in sync unless user is currently editing
           setTopicDraft((prev) => prev === roomTopicRef.current ? updated.room_topic! : prev);
         }
         if (updated.is_private !== undefined) setIsPrivate(updated.is_private);
+        setRoomPerms((prev) => ({
+          camera: updated.allow_camera ?? prev.camera,
+          mic: updated.allow_mic ?? prev.mic,
+          chat: updated.allow_chat ?? prev.chat,
+          screen: updated.allow_screen_share ?? prev.screen,
+        }));
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -1116,6 +1409,19 @@ export default function VoiceRoom() {
   };
 
   const canModerate = user?.id === ownerId || isAdmin;
+  const isOwner = user?.id === ownerId;
+
+  const handleUpdatePerms = useCallback(async (key: keyof RoomPerms, val: boolean) => {
+    if (!roomId) return;
+    const colMap: Record<keyof RoomPerms, string> = {
+      camera: "allow_camera",
+      mic: "allow_mic",
+      chat: "allow_chat",
+      screen: "allow_screen_share",
+    };
+    await supabase.from("voice_rooms").update({ [colMap[key]]: val }).eq("id", roomId);
+    setRoomPerms((prev) => ({ ...prev, [key]: val }));
+  }, [roomId]);
 
   if (authLoading || loading || adminLoading) {
     return (
@@ -1310,9 +1616,12 @@ export default function VoiceRoom() {
                   onKick={handleKick}
                   onBan={handleBan}
                   canModerate={canModerate}
+                  isOwner={isOwner}
                   currentUserId={user?.id ?? ""}
                   roomId={roomId ?? ""}
                   raisedHands={raisedHands}
+                  roomPerms={roomPerms}
+                  onUpdatePerms={handleUpdatePerms}
                   t={t}
                 />
               </LiveKitRoom>
