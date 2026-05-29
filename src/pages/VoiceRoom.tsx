@@ -329,6 +329,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const [notifOpen, setNotifOpen] = useState(false);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
   const [roomEvents, setRoomEvents] = useState<RoomActivityEvent[]>([]);
+  const [roomBanners, setRoomBanners] = useState<{ id: string; icon: string; text: string }[]>([]);
   const notifEndRef = useRef<HTMLDivElement>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -351,12 +352,15 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   useEffect(() => { localParticipantRef.current = localParticipant; }, [localParticipant]);
 
   const addEvent = useCallback((icon: string, text: string) => {
-    const ev: RoomActivityEvent = { id: Math.random().toString(36).slice(2), icon, text, ts: Date.now() };
-    setRoomEvents((prev) => [...prev.slice(-99), ev]);
+    const id = Math.random().toString(36).slice(2);
+    setRoomEvents((prev) => [...prev.slice(-99), { id, icon, text, ts: Date.now() }]);
     setNotifOpen((open) => {
       if (!open) setUnreadNotifs((n) => n + 1);
       return open;
     });
+    // Show banner — max 4 visible at once, auto-dismiss after 4s
+    setRoomBanners((prev) => [...prev.slice(-3), { id, icon, text }]);
+    setTimeout(() => setRoomBanners((prev) => prev.filter((b) => b.id !== id)), 4000);
   }, []);
 
   // Auto-scroll notifications panel
@@ -707,19 +711,62 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
                   {participantName} — {t("vroom.sharingScreen")}
                 </span>
                 {isOwn && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="absolute top-2 right-2 h-7 text-xs"
-                    onClick={toggleScreenShare}
-                  >
-                    <MonitorOff className="h-3.5 w-3.5 me-1" />
-                    {t("vroom.stopSharing")}
-                  </Button>
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                    {/* Include system audio — only visible while screen sharing */}
+                    <button
+                      type="button"
+                      disabled={screenShareRestarting}
+                      className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold backdrop-blur transition-colors disabled:opacity-50 ${
+                        screenAudioEnabled
+                          ? "border-blue-400 bg-blue-500/80 text-white"
+                          : "border-white/30 bg-black/50 text-white hover:bg-black/70"
+                      }`}
+                      onClick={toggleScreenAudio}
+                      aria-pressed={screenAudioEnabled}
+                      title={t("vroom.shareAudio")}
+                    >
+                      {screenShareRestarting
+                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                        : <Volume2 className="h-3 w-3" />
+                      }
+                      <span>{t("vroom.audio")}</span>
+                    </button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 text-xs"
+                      onClick={toggleScreenShare}
+                    >
+                      <MonitorOff className="h-3.5 w-3.5 me-1" />
+                      {t("vroom.stopSharing")}
+                    </Button>
+                  </div>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Room event banners — slide in from top, auto-dismiss */}
+      {roomBanners.length > 0 && (
+        <div className="flex flex-col gap-1.5" aria-live="polite">
+          {roomBanners.map((b) => (
+            <div
+              key={b.id}
+              className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-card/95 backdrop-blur px-3.5 py-2.5 shadow-md text-sm animate-in slide-in-from-top-3 duration-300"
+            >
+              <span className="text-lg leading-none shrink-0">{b.icon}</span>
+              <span className="flex-1 text-foreground font-medium leading-snug">{b.text}</span>
+              <button
+                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setRoomBanners((prev) => prev.filter((x) => x.id !== b.id))}
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -760,9 +807,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         </div>
       </div>
 
-      {/* Notifications panel */}
+      {/* Notifications history panel (bell button) */}
       {notifOpen && (
-        <div className="rounded-xl border bg-card shadow-sm flex flex-col" style={{ maxHeight: 300 }}>
+        <div className="rounded-xl border bg-card shadow-sm flex flex-col" style={{ maxHeight: 280 }}>
           <div className="flex items-center justify-between border-b px-3 py-2 shrink-0">
             <span className="text-sm font-semibold flex items-center gap-1.5">
               <Bell className="h-4 w-4 text-primary" />
@@ -772,15 +819,15 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               <X className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-[80px]">
+          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
             {roomEvents.length === 0 && (
               <p className="text-center text-xs text-muted-foreground py-4">{t("vroom.notificationsEmpty")}</p>
             )}
             {roomEvents.map((ev) => (
-              <div key={ev.id} className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-muted/40 transition-colors">
+              <div key={ev.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-muted/40 transition-colors">
                 <span className="text-base leading-none shrink-0">{ev.icon}</span>
                 <span className="flex-1 text-muted-foreground leading-snug">{ev.text}</span>
-                <span className="shrink-0 text-[10px] text-muted-foreground/60">
+                <span className="shrink-0 text-[10px] text-muted-foreground/50">
                   {new Date(ev.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
               </div>
@@ -998,39 +1045,18 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
           <Headphones className="h-6 w-6" />
         </Button>
 
-        {/* Screen share (with audio sub-toggle) */}
+        {/* Screen share */}
         {canScreenShare && (roomPerms.screen || isOwner) && (
-          <div className="flex flex-col items-center gap-1">
-            <Button
-              size="lg"
-              variant="outline"
-              className={`h-14 w-14 rounded-full p-0 transition-colors ${isScreenShareEnabled ? "bg-blue-500 hover:bg-blue-600 border-blue-500 text-white" : ""}`}
-              onClick={toggleScreenShare}
-              aria-label={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
-              title={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
-            >
-              <Monitor className="h-6 w-6" />
-            </Button>
-            <button
-              type="button"
-              disabled={screenShareRestarting}
-              className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                screenAudioEnabled
-                  ? "border-blue-400 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={toggleScreenAudio}
-              aria-pressed={screenAudioEnabled}
-              aria-label={t("vroom.shareAudio")}
-              title={t("vroom.shareAudio")}
-            >
-              {screenShareRestarting
-                ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                : <Volume2 className="h-2.5 w-2.5" />
-              }
-              <span>{t("vroom.audio")}</span>
-            </button>
-          </div>
+          <Button
+            size="lg"
+            variant="outline"
+            className={`h-14 w-14 rounded-full p-0 transition-colors ${isScreenShareEnabled ? "bg-blue-500 hover:bg-blue-600 border-blue-500 text-white" : ""}`}
+            onClick={toggleScreenShare}
+            aria-label={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+            title={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+          >
+            <Monitor className="h-6 w-6" />
+          </Button>
         )}
         {/* Audio-only share */}
         {canScreenShare && (roomPerms.screen || isOwner) && (
