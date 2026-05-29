@@ -34,8 +34,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Check, ChevronDown, ChevronUp, Copy, Hand, Headphones, Loader2, Lock, Mic, MicOff,
-  Monitor, MonitorOff, Pencil, PhoneOff, RefreshCw, ShieldX,
+  Check, ChevronDown, ChevronUp, Copy, Hand, Headphones, Loader2, Lock, MessageSquare,
+  Mic, MicOff, Monitor, MonitorOff, Pencil, PhoneOff, RefreshCw, Send, ShieldX,
   Unlock, UserX, Users, Volume2, WifiOff, X,
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
@@ -167,6 +167,14 @@ function SpatialAudioRenderer({ currentUserId }: { currentUserId: string }) {
 }
 
 // ── Types ──────────────────────────────────────────────────────────
+interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  ts: number;
+}
+
 interface FloatingReaction {
   id: string;
   emoji: string;
@@ -281,6 +289,11 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const [screenShareRestarting, setScreenShareRestarting] = useState(false);
   const [spatialAudioEnabled, setSpatialAudioEnabled] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   // Mobile audio unlock — iOS/Android require a user gesture before playing remote audio
   const { canPlayAudio, startAudio } = useAudioPlayback();
@@ -371,6 +384,18 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         const msg = payload.started ? t("vroom.startedScreenShare") : t("vroom.stoppedScreenShare");
         toast({ title: `🖥️ ${payload.userName} ${msg}`, duration: 3000 });
       })
+      .on("broadcast", { event: "chat_message" }, ({ payload }: { payload: ChatMessage }) => {
+        setChatMessages((prev) => [...prev, payload]);
+        setChatOpen((open) => {
+          if (!open) {
+            setUnreadCount((n) => n + 1);
+            if (payload.senderId !== currentUserId) {
+              toast({ title: `💬 ${payload.senderName}: ${payload.text.slice(0, 60)}`, duration: 4000 });
+            }
+          }
+          return open;
+        });
+      })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") broadcastChRef.current = ch;
       });
@@ -380,6 +405,27 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
       broadcastChRef.current = null;
     };
   }, [roomId, currentUserId, t]);
+
+  useEffect(() => {
+    if (chatOpen) {
+      setUnreadCount(0);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
+  }, [chatOpen, chatMessages]);
+
+  const sendChatMessage = () => {
+    const text = chatInput.trim();
+    if (!text || !broadcastChRef.current) return;
+    const msg: ChatMessage = {
+      id: Math.random().toString(36).slice(2),
+      senderId: currentUserId,
+      senderName: localParticipant.name || currentUserId,
+      text,
+      ts: Date.now(),
+    };
+    broadcastChRef.current.send({ type: "broadcast", event: "chat_message", payload: msg });
+    setChatInput("");
+  };
 
   const toggleMic = async () => {
     await localParticipant.setMicrophoneEnabled(muted);
@@ -556,6 +602,48 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         </div>
       </div>
 
+      {/* Chat panel */}
+      {chatOpen && (
+        <div className="rounded-xl border bg-card shadow-sm flex flex-col" style={{ maxHeight: 320 }}>
+          <div className="flex items-center justify-between border-b px-3 py-2">
+            <span className="text-sm font-semibold flex items-center gap-1.5">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              {t("vroom.chat")}
+            </span>
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setChatOpen(false)}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px]">
+            {chatMessages.length === 0 && (
+              <p className="text-center text-xs text-muted-foreground py-4">{t("vroom.chatEmpty")}</p>
+            )}
+            {chatMessages.map((msg) => (
+              <div key={msg.id} className={`flex flex-col ${msg.senderId === currentUserId ? "items-end" : "items-start"}`}>
+                <span className="text-[10px] text-muted-foreground mb-0.5">{msg.senderName}</span>
+                <div className={`rounded-2xl px-3 py-1.5 text-sm max-w-[80%] ${msg.senderId === currentUserId ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm"}`}>
+                  {msg.text}
+                </div>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+          <div className="border-t p-2 flex gap-2">
+            <input
+              className="flex-1 rounded-lg border bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder={t("vroom.chatPlaceholder")}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
+              maxLength={300}
+            />
+            <Button size="icon" className="h-9 w-9 shrink-0" onClick={sendChatMessage} disabled={!chatInput.trim()}>
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Reaction bar + collapsible emoji picker */}
       <div className="flex flex-col gap-2">
         {/* Expanded emoji picker */}
@@ -693,6 +781,25 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
             </button>
           </div>
         )}
+        {/* Chat toggle */}
+        <div className="relative">
+          <Button
+            size="lg"
+            variant="outline"
+            className={`h-14 w-14 rounded-full p-0 transition-colors ${chatOpen ? "bg-primary border-primary text-primary-foreground" : ""}`}
+            onClick={() => setChatOpen((v) => !v)}
+            aria-label={t("vroom.chat")}
+            title={t("vroom.chat")}
+          >
+            <MessageSquare className="h-6 w-6" />
+          </Button>
+          {unreadCount > 0 && !chatOpen && (
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </div>
+
         <Button
           size="lg"
           variant="destructive"
