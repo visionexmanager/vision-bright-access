@@ -34,9 +34,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Check, ChevronDown, ChevronUp, Copy, Hand, Headphones, Loader2, Lock, MessageSquare,
-  Mic, MicOff, Monitor, MonitorOff, Pencil, PhoneOff, RefreshCw, Send, Settings2, ShieldX,
-  Unlock, UserX, Users, Video, VideoOff, Volume2, WifiOff, X, Music2,
+  Bell, Check, ChevronDown, ChevronUp, Copy, Hand, Headphones, Loader2, Lock, MessageSquare,
+  Mic, MicOff, Monitor, MonitorOff, Music2, Pencil, PhoneOff, RefreshCw, Send, Settings2,
+  ShieldX, Unlock, UserX, Users, Video, VideoOff, Volume2, WifiOff, X,
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
 
@@ -189,6 +189,13 @@ interface RoomPerms {
   screen: boolean;
 }
 
+interface RoomActivityEvent {
+  id: string;
+  icon: string;
+  text: string;
+  ts: number;
+}
+
 // ── Participant tile ───────────────────────────────────────────────
 interface ParticipantTileProps {
   participant: ReturnType<typeof useParticipants>[number];
@@ -319,6 +326,10 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const [showRoomControls, setShowRoomControls] = useState(false);
   const [audioShareEnabled, setAudioShareEnabled] = useState(false);
   const audioShareTrackRef = useRef<MediaStreamTrack | null>(null);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
+  const [roomEvents, setRoomEvents] = useState<RoomActivityEvent[]>([]);
+  const notifEndRef = useRef<HTMLDivElement>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
@@ -339,6 +350,23 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
 
   useEffect(() => { localParticipantRef.current = localParticipant; }, [localParticipant]);
 
+  const addEvent = useCallback((icon: string, text: string) => {
+    const ev: RoomActivityEvent = { id: Math.random().toString(36).slice(2), icon, text, ts: Date.now() };
+    setRoomEvents((prev) => [...prev.slice(-99), ev]);
+    setNotifOpen((open) => {
+      if (!open) setUnreadNotifs((n) => n + 1);
+      return open;
+    });
+  }, []);
+
+  // Auto-scroll notifications panel
+  useEffect(() => {
+    if (notifOpen) {
+      setUnreadNotifs(0);
+      setTimeout(() => notifEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
+  }, [notifOpen, roomEvents]);
+
   // Reconnecting banner + reconnected toast
   useEffect(() => {
     if (connectionState === ConnectionState.Reconnecting) {
@@ -346,8 +374,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     } else if (connectionState === ConnectionState.Connected && wasReconnectingRef.current) {
       wasReconnectingRef.current = false;
       toast({ title: t("vroom.reconnected") });
+      addEvent("🔄", t("vroom.reconnected"));
     }
-  }, [connectionState, t]);
+  }, [connectionState, t, addEvent]);
 
   // Join/leave notifications
   useEffect(() => {
@@ -368,6 +397,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       if (!prev.has(identity) && identity !== currentUserId) {
         playJoinLeaveSound(true);
         toast({ title: `${name} ${t("vroom.userJoined")}` });
+        addEvent("🟢", `${name} ${t("vroom.userJoined")}`);
       }
     }
 
@@ -376,13 +406,14 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       if (!currentMap.has(identity) && identity !== currentUserId) {
         playJoinLeaveSound(false);
         toast({ title: `${name} ${t("vroom.userLeft")}` });
+        addEvent("🔴", `${name} ${t("vroom.userLeft")}`);
       }
     }
 
     prevParticipantsRef.current = currentMap;
-  }, [participants, currentUserId, t]);
+  }, [participants, currentUserId, t, addEvent]);
 
-  // Broadcast channel: reactions + mute_all + hand_raised + screen_share
+  // Broadcast channel: reactions + mute_all + hand_raised + screen_share + camera + audio_share + perms
   useEffect(() => {
     const ch = supabase
       .channel(`room-bc-${roomId}`, { config: { broadcast: { self: true } } })
@@ -393,35 +424,62 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         setFloatingReactions((prev) => [...prev, r]);
         setTimeout(() => setFloatingReactions((prev) => prev.map((item) => item.id === id ? { ...item, visible: false } : item)), 1600);
         setTimeout(() => setFloatingReactions((prev) => prev.filter((item) => item.id !== id)), 2600);
-        // Notify others (not yourself) who sent the reaction
+        addEvent(payload.emoji, `${payload.senderName || payload.senderId} ${payload.emoji}`);
         if (payload.senderId !== currentUserId) {
           toast({ title: `${payload.senderName || payload.senderId} ${payload.emoji}`, duration: 2500 });
         }
       })
-      .on("broadcast", { event: "mute_all" }, ({ payload }: { payload: { byUserId: string } }) => {
+      .on("broadcast", { event: "mute_all" }, ({ payload }: { payload: { byUserId: string; byName: string } }) => {
         if (payload.byUserId === currentUserId) return;
         localParticipantRef.current?.setMicrophoneEnabled(false);
         setMuted(true);
         toast({ title: t("vroom.mutedByOwner") });
+        addEvent("🔇", `${payload.byName || t("vroom.owner")} ${t("vroom.mutedAll")}`);
       })
       .on("broadcast", { event: "hand_raised" }, ({ payload }: { payload: { userId: string; userName: string } }) => {
         if (payload.userId === currentUserId) return;
         toast({ title: `✋ ${payload.userName} ${t("vroom.raisedHand")}`, duration: 3000 });
+        addEvent("✋", `${payload.userName} ${t("vroom.raisedHand")}`);
       })
       .on("broadcast", { event: "screen_share" }, ({ payload }: { payload: { userId: string; userName: string; started: boolean } }) => {
         if (payload.userId === currentUserId) return;
         const msg = payload.started ? t("vroom.startedScreenShare") : t("vroom.stoppedScreenShare");
         toast({ title: `🖥️ ${payload.userName} ${msg}`, duration: 3000 });
+        addEvent("🖥️", `${payload.userName} ${msg}`);
       })
-      .on("broadcast", { event: "perms_changed" }, ({ payload }: { payload: Partial<RoomPerms> & { byUserId: string } }) => {
-        // Non-owners enforce newly disabled perms
-        if (payload.byUserId === currentUserId) return;
-        if (payload.mic === false) { localParticipantRef.current?.setMicrophoneEnabled(false); setMuted(true); }
-        if (payload.camera === false) { localParticipantRef.current?.setCameraEnabled(false); }
-        if (payload.screen === false && isScreenShareEnabled) { localParticipantRef.current?.setScreenShareEnabled(false); }
+      .on("broadcast", { event: "camera_toggle" }, ({ payload }: { payload: { userId: string; userName: string; on: boolean } }) => {
+        if (payload.userId === currentUserId) return;
+        const msg = payload.on ? t("vroom.cameraOn") : t("vroom.cameraOff");
+        addEvent(payload.on ? "📷" : "📷", `${payload.userName}: ${msg}`);
+      })
+      .on("broadcast", { event: "audio_share" }, ({ payload }: { payload: { userId: string; userName: string; started: boolean } }) => {
+        if (payload.userId === currentUserId) return;
+        const msg = payload.started ? t("vroom.audioShareActive") : t("vroom.audioShare");
+        toast({ title: `🎵 ${payload.userName} — ${msg}`, duration: 3000 });
+        addEvent("🎵", `${payload.userName} — ${msg}`);
+      })
+      .on("broadcast", { event: "perms_changed" }, ({ payload }: { payload: Partial<RoomPerms> & { byUserId: string; byName: string } }) => {
+        if (payload.byUserId !== currentUserId) {
+          if (payload.mic === false) { localParticipantRef.current?.setMicrophoneEnabled(false); setMuted(true); }
+          if (payload.camera === false) { localParticipantRef.current?.setCameraEnabled(false); }
+          if (payload.screen === false && isScreenShareEnabled) { localParticipantRef.current?.setScreenShareEnabled(false); }
+        }
+        // Log the perm change for everyone
+        const permLabels: Record<string, string> = {
+          mic: t("vroom.allowMic"), camera: t("vroom.allowCamera"),
+          chat: t("vroom.allowChat"), screen: t("vroom.allowScreenShare"),
+        };
+        for (const [key, val] of Object.entries(payload)) {
+          if (key === "byUserId" || key === "byName") continue;
+          const label = permLabels[key];
+          if (label !== undefined) {
+            addEvent(val ? "✅" : "🚫", `${payload.byName || t("vroom.owner")}: ${label} ${val ? "✅" : "🚫"}`);
+          }
+        }
       })
       .on("broadcast", { event: "chat_message" }, ({ payload }: { payload: ChatMessage }) => {
         setChatMessages((prev) => [...prev, payload]);
+        addEvent("💬", `${payload.senderName}: ${payload.text.slice(0, 60)}`);
         setChatOpen((open) => {
           if (!open) {
             setUnreadCount((n) => n + 1);
@@ -440,7 +498,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       supabase.removeChannel(ch);
       broadcastChRef.current = null;
     };
-  }, [roomId, currentUserId, t]);
+  }, [roomId, currentUserId, t, addEvent]);
 
   useEffect(() => {
     if (chatOpen) {
@@ -468,8 +526,10 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       toast({ title: t("vroom.permDisabledByOwner"), variant: "destructive" });
       return;
     }
-    await localParticipant.setMicrophoneEnabled(muted);
-    setMuted(!muted);
+    const next = muted; // muted=true means we're about to unmute
+    await localParticipant.setMicrophoneEnabled(next);
+    setMuted(!next);
+    addEvent(next ? "🎙️" : "🔇", `${t("vroom.you")}: ${next ? t("vroom.unmute") : t("vroom.mute")}`);
   };
 
   const toggleHand = async () => {
@@ -494,11 +554,13 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   };
 
   const muteAll = () => {
+    const myName = localParticipant.name || currentUserId;
     broadcastChRef.current?.send({
       type: "broadcast",
       event: "mute_all",
-      payload: { byUserId: currentUserId },
+      payload: { byUserId: currentUserId, byName: myName },
     });
+    addEvent("🔇", `${t("vroom.you")}: ${t("vroom.mutedAll")}`);
     toast({ title: t("vroom.mutedAll") });
   };
 
@@ -521,7 +583,13 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       return;
     }
     try {
-      await localParticipant.setCameraEnabled(!isCameraEnabled);
+      const next = !isCameraEnabled;
+      await localParticipant.setCameraEnabled(next);
+      broadcastChRef.current?.send({
+        type: "broadcast", event: "camera_toggle",
+        payload: { userId: currentUserId, userName: localParticipant.name || currentUserId, on: next },
+      });
+      addEvent(next ? "📷" : "📷", `${t("vroom.you")}: ${next ? t("vroom.cameraOn") : t("vroom.cameraOff")}`);
     } catch {
       toast({ title: t("vroom.cameraOff"), variant: "destructive" });
     }
@@ -550,7 +618,13 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       await localParticipant.publishTrack(lkTrack, { source: Track.Source.ScreenShareAudio, name: "audio-share" });
       audioShareTrackRef.current = audioTrack;
       setAudioShareEnabled(true);
-      audioTrack.onended = () => setAudioShareEnabled(false);
+      broadcastChRef.current?.send({ type: "broadcast", event: "audio_share", payload: { userId: currentUserId, userName: localParticipant.name || currentUserId, started: true } });
+      addEvent("🎵", `${t("vroom.you")}: ${t("vroom.audioShareActive")}`);
+      audioTrack.onended = () => {
+        setAudioShareEnabled(false);
+        broadcastChRef.current?.send({ type: "broadcast", event: "audio_share", payload: { userId: currentUserId, userName: localParticipant.name || currentUserId, started: false } });
+        addEvent("🎵", `${t("vroom.you")}: ${t("vroom.audioShare")} ⏹`);
+      };
       toast({ title: t("vroom.audioShareActive") });
     } catch {
       toast({ title: t("vroom.audioShareFailed"), variant: "destructive" });
@@ -573,6 +647,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
           started: willEnable,
         },
       });
+      addEvent("🖥️", `${t("vroom.you")}: ${willEnable ? t("vroom.startedScreenShare") : t("vroom.stoppedScreenShare")}`);
     } catch {
       toast({ title: t("vroom.screenShareError"), variant: "destructive" });
     }
@@ -684,6 +759,36 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
           ))}
         </div>
       </div>
+
+      {/* Notifications panel */}
+      {notifOpen && (
+        <div className="rounded-xl border bg-card shadow-sm flex flex-col" style={{ maxHeight: 300 }}>
+          <div className="flex items-center justify-between border-b px-3 py-2 shrink-0">
+            <span className="text-sm font-semibold flex items-center gap-1.5">
+              <Bell className="h-4 w-4 text-primary" />
+              {t("vroom.notifications")}
+            </span>
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setNotifOpen(false)}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-[80px]">
+            {roomEvents.length === 0 && (
+              <p className="text-center text-xs text-muted-foreground py-4">{t("vroom.notificationsEmpty")}</p>
+            )}
+            {roomEvents.map((ev) => (
+              <div key={ev.id} className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-muted/40 transition-colors">
+                <span className="text-base leading-none shrink-0">{ev.icon}</span>
+                <span className="flex-1 text-muted-foreground leading-snug">{ev.text}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground/60">
+                  {new Date(ev.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+            ))}
+            <div ref={notifEndRef} />
+          </div>
+        </div>
+      )}
 
       {/* Chat panel */}
       {chatOpen && (
@@ -938,6 +1043,25 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             <span className="text-[10px] text-muted-foreground">{t("vroom.audioShare")}</span>
           </div>
         )}
+        {/* Notifications toggle */}
+        <div className="relative">
+          <Button
+            size="lg"
+            variant="outline"
+            className={`h-14 w-14 rounded-full p-0 transition-colors ${notifOpen ? "bg-amber-500 border-amber-500 text-white" : ""}`}
+            onClick={() => setNotifOpen((v) => !v)}
+            aria-label={t("vroom.notifications")}
+            title={t("vroom.notifications")}
+          >
+            <Bell className="h-6 w-6" />
+          </Button>
+          {unreadNotifs > 0 && !notifOpen && (
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+              {unreadNotifs > 9 ? "9+" : unreadNotifs}
+            </span>
+          )}
+        </div>
+
         {/* Chat toggle */}
         {(roomPerms.chat || isOwner) && <div className="relative">
           <Button
@@ -1412,16 +1536,23 @@ export default function VoiceRoom() {
   const isOwner = user?.id === ownerId;
 
   const handleUpdatePerms = useCallback(async (key: keyof RoomPerms, val: boolean) => {
-    if (!roomId) return;
+    if (!roomId || !user) return;
     const colMap: Record<keyof RoomPerms, string> = {
-      camera: "allow_camera",
-      mic: "allow_mic",
-      chat: "allow_chat",
-      screen: "allow_screen_share",
+      camera: "allow_camera", mic: "allow_mic", chat: "allow_chat", screen: "allow_screen_share",
     };
     await supabase.from("voice_rooms").update({ [colMap[key]]: val }).eq("id", roomId);
     setRoomPerms((prev) => ({ ...prev, [key]: val }));
-  }, [roomId]);
+    // Notify all room members via broadcast
+    const bc = supabase.channel(`room-bc-${roomId}`);
+    bc.send({
+      type: "broadcast", event: "perms_changed",
+      payload: {
+        [key]: val,
+        byUserId: user.id,
+        byName: user.user_metadata?.display_name || user.email || "",
+      },
+    });
+  }, [roomId, user]);
 
   if (authLoading || loading || adminLoading) {
     return (
