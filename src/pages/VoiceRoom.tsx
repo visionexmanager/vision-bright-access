@@ -212,39 +212,23 @@ function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick
     [{ source: Track.Source.Microphone, withPlaceholder: true }],
     { participant }
   );
-  const cameraTracks = useTracks(
-    [{ source: Track.Source.Camera, withPlaceholder: false }],
-    { participant }
-  );
   const isMuted = !tracks.some((tr) => tr.publication?.isMuted === false && tr.publication?.isEnabled);
   const isSpeaking = participant.isSpeaking;
   const displayName = participant.name || participant.identity;
-  const hasCameraTrack = cameraTracks.length > 0 && cameraTracks[0].publication?.isEnabled;
 
   return (
     <div className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 transition-all ${isSpeaking ? "border-primary bg-primary/5 shadow-md" : "border-border bg-muted/30"}`}>
       {isRaisingHand && (
         <span className="absolute -top-2 -right-2 text-lg animate-bounce z-10 select-none">✋</span>
       )}
-      {hasCameraTrack ? (
-        <div className={`relative w-full aspect-video rounded-xl overflow-hidden border-2 ${isSpeaking ? "border-primary" : "border-transparent"}`}>
-          <VideoTrack trackRef={cameraTracks[0]} className="w-full h-full object-cover" />
-          {isSpeaking && (
-            <span className="absolute bottom-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-              <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
-            </span>
-          )}
-        </div>
-      ) : (
-        <div className={`relative flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-primary-foreground ${isSpeaking ? "bg-primary" : "bg-muted-foreground/30"}`}>
-          {displayName.charAt(0).toUpperCase()}
-          {isSpeaking && (
-            <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-              <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
-            </span>
-          )}
-        </div>
-      )}
+      <div className={`relative flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-primary-foreground ${isSpeaking ? "bg-primary" : "bg-muted-foreground/30"}`}>
+        {displayName.charAt(0).toUpperCase()}
+        {isSpeaking && (
+          <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+            <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
+          </span>
+        )}
+      </div>
       <span className="max-w-[80px] truncate text-xs font-medium">{displayName}</span>
       {isMuted && <MicOff className="h-3.5 w-3.5 text-muted-foreground" />}
 
@@ -341,6 +325,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
 
   // Screen share tracks for all participants
   const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
+  // Camera tracks for all participants
+  const allCameraTracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: false }])
+    .filter((tr) => tr.publication?.isEnabled && tr.publication?.track);
 
   // Join/leave sound + notification tracking
   const prevParticipantsRef = useRef<Map<string, string>>(new Map());
@@ -770,6 +757,41 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         </div>
       )}
 
+      {/* Camera video grid — shown when any participant has camera on */}
+      {allCameraTracks.length > 0 && (
+        <div className={`grid gap-3 ${
+          allCameraTracks.length === 1 ? "grid-cols-1" :
+          allCameraTracks.length === 2 ? "grid-cols-2" :
+          allCameraTracks.length <= 4 ? "grid-cols-2" :
+          "grid-cols-3"
+        }`}>
+          {allCameraTracks.map((track) => {
+            const name = track.participant.name || track.participant.identity;
+            const isOwn = track.participant.identity === currentUserId;
+            const speaking = track.participant.isSpeaking;
+            return (
+              <div
+                key={track.participant.identity}
+                className={`relative aspect-video rounded-xl overflow-hidden bg-zinc-900 border-2 transition-all ${speaking ? "border-primary shadow-lg shadow-primary/20" : "border-zinc-700/50"}`}
+              >
+                <VideoTrack trackRef={track} className="w-full h-full object-cover" />
+                {/* Name badge */}
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 flex items-center gap-1.5">
+                  {speaking && (
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
+                      <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
+                    </span>
+                  )}
+                  <span className="text-xs font-semibold text-white truncate">
+                    {isOwn ? `${name} (${t("vroom.you")})` : name}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Participants grid */}
       <div className="relative">
         <div className="mb-3 flex items-center gap-2">
@@ -1011,12 +1033,12 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               variant="outline"
               className={`h-14 w-14 rounded-full p-0 transition-colors ${isCameraEnabled ? "bg-green-500 hover:bg-green-600 border-green-500 text-white" : "border-muted-foreground/40"}`}
               onClick={toggleCamera}
-              aria-label={isCameraEnabled ? t("vroom.cameraOff") : t("vroom.cameraOn")}
-              title={isCameraEnabled ? t("vroom.cameraOff") : t("vroom.cameraOn")}
+              aria-label={isCameraEnabled ? t("vroom.cameraOn") : t("vroom.cameraOff")}
+              title={isCameraEnabled ? t("vroom.cameraOn") : t("vroom.cameraOff")}
             >
               {isCameraEnabled ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
             </Button>
-            <span className={`text-[10px] font-medium ${isCameraEnabled ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+            <span className={`text-[10px] font-semibold ${isCameraEnabled ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
               {isCameraEnabled ? t("vroom.cameraOn") : t("vroom.cameraOff")}
             </span>
           </div>
