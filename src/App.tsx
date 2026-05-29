@@ -76,6 +76,12 @@ const RadarAI = lazy(() => import("./pages/services/RadarAI"));
 const EducationalEmpire = lazy(() => import("./pages/services/EducationalEmpire"));
 const EmpathyOasis = lazy(() => import("./pages/services/EmpathyOasis"));
 const OCRScan = lazy(() => import("./pages/services/OCRScan"));
+const LiveTV = lazy(() => import("./pages/services/LiveTV"));
+const LiveTVWatch = lazy(() => import("./pages/services/LiveTVWatch"));
+const LiveTVSubscribe = lazy(() => import("./pages/services/LiveTVSubscribe"));
+const LiveRadio = lazy(() => import("./pages/services/LiveRadio"));
+const LiveRadioListen = lazy(() => import("./pages/services/LiveRadioListen"));
+const LiveRadioSubscribe = lazy(() => import("./pages/services/LiveRadioSubscribe"));
 
 // New game pages
 const Hangman = lazy(() => import("./pages/games/Hangman"));
@@ -121,6 +127,8 @@ const AdminLogs = lazy(() => import("./pages/admin/AdminLogs"));
 const AdminVX   = lazy(() => import("./pages/admin/AdminVX"));
 const AdminSimulations = lazy(() => import("./pages/admin/AdminSimulations"));
 const AdminBazaar = lazy(() => import("./pages/admin/AdminBazaar"));
+const AdminTV = lazy(() => import("./pages/admin/AdminTV"));
+const AdminRadio = lazy(() => import("./pages/admin/AdminRadio"));
 const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
 
 const queryClient = new QueryClient({
@@ -198,6 +206,12 @@ function AppRoutes() {
                     <Route path="/services/ocr-scan" element={<OCRScan />} />
                     <Route path="/services/educational-empire" element={<EducationalEmpire />} />
                     <Route path="/services/empathy-oasis" element={<EmpathyOasis />} />
+                    <Route path="/services/live-tv" element={<LiveTV />} />
+                    <Route path="/services/live-tv/subscribe" element={<LiveTVSubscribe />} />
+                    <Route path="/services/live-tv/watch/:channelId" element={<LiveTVWatch />} />
+                    <Route path="/services/live-radio" element={<LiveRadio />} />
+                    <Route path="/services/live-radio/subscribe" element={<LiveRadioSubscribe />} />
+                    <Route path="/services/live-radio/listen/:stationId" element={<LiveRadioListen />} />
                     <Route path="/games/hangman" element={<Hangman />} />
                     <Route path="/games/dominoes" element={<Dominoes />} />
                     <Route path="/games/farkle" element={<FarkleGame />} />
@@ -248,6 +262,8 @@ function AppRoutes() {
                     <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
                     <Route path="/admin/simulations" element={<AdminRoute><AdminSimulations /></AdminRoute>} />
                     <Route path="/admin/bazaar" element={<AdminRoute><AdminBazaar /></AdminRoute>} />
+                    <Route path="/admin/tv" element={<AdminRoute><AdminTV /></AdminRoute>} />
+                    <Route path="/admin/radio" element={<AdminRoute><AdminRadio /></AdminRoute>} />
                     <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

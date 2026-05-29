@@ -1,0 +1,198 @@
+import { useState, useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Layout } from "@/components/Layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Radio, Search, Star, Lock, ChevronLeft, RefreshCw } from "lucide-react";
+import { useRadioSubscription } from "@/hooks/useRadioSubscription";
+import { StationCard } from "@/components/radio/StationCard";
+import { RadioSubscriptionStatus } from "@/components/radio/RadioSubscriptionStatus";
+import { cn } from "@/lib/utils";
+import type { RadioStation } from "@/hooks/useRadioSubscription";
+
+export default function LiveRadio() {
+  const navigate = useNavigate();
+  const {
+    subscription, isSubscribed, daysRemaining,
+    stations, genres, isLoading,
+  } = useRadioSubscription();
+
+  const [query,      setQuery]      = useState("");
+  const [activeSlug, setActiveSlug] = useState<string>("all");
+
+  const filtered = useMemo(() => {
+    let list = stations;
+    if (activeSlug !== "all") list = list.filter(s => s.genre?.slug === activeSlug);
+    if (query.trim())         list = list.filter(s =>
+      s.name_ar.includes(query) || s.name.toLowerCase().includes(query.toLowerCase())
+    );
+    return list;
+  }, [stations, activeSlug, query]);
+
+  const featured = stations.filter(s => s.is_featured).slice(0, 6);
+
+  const handleStationClick = (station: RadioStation) => {
+    if (!isSubscribed) {
+      navigate("/services/live-radio/subscribe");
+      return;
+    }
+    navigate(`/services/live-radio/listen/${station.id}`);
+  };
+
+  return (
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8" dir="rtl">
+
+        {/* Hero Header */}
+        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-l from-orange-900/80 via-orange-800/50 to-slate-900 p-8 border border-orange-500/20">
+          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-500/20 rounded-xl border border-orange-400/30">
+                  <Radio className="w-7 h-7 text-orange-400" />
+                </div>
+                <h1 className="text-3xl font-extrabold text-white">VisionRadio</h1>
+              </div>
+              <p className="text-orange-200/80 text-sm max-w-xs">
+                بث مباشر لمئات المحطات الإذاعية · أخبار · موسيقى · قرآن · رياضة
+              </p>
+              <RadioSubscriptionStatus
+                subscription={subscription}
+                isSubscribed={isSubscribed}
+                daysRemaining={daysRemaining}
+                className="mt-1"
+              />
+            </div>
+
+            {!isSubscribed ? (
+              <Button asChild size="lg" className="bg-orange-500 hover:bg-orange-400 text-white font-bold shadow-lg shadow-orange-500/30">
+                <Link to="/services/live-radio/subscribe">
+                  اشترك الآن — ابدأ الاستماع
+                  <ChevronLeft className="w-5 h-5 mr-2" />
+                </Link>
+              </Button>
+            ) : (
+              <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 text-sm px-4 py-2">
+                ✓ اشتراك نشط · {daysRemaining} {daysRemaining === 1 ? "يوم" : "أيام"} متبقية
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Subscription required notice */}
+        {!isSubscribed && (
+          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 flex items-start gap-3">
+            <Lock className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-yellow-600 text-sm">يلزم الاشتراك للاستماع إلى المحطات</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                تصفح المحطات المتاحة ثم{" "}
+                <Link to="/services/live-radio/subscribe" className="text-orange-500 underline underline-offset-2">
+                  اشترك بدءاً من 300 VX فقط
+                </Link>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Featured stations */}
+        {featured.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+              <h2 className="font-bold text-lg text-foreground">المحطات المميزة</h2>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+              {featured.map(st => (
+                <button
+                  key={st.id}
+                  onClick={() => handleStationClick(st)}
+                  className={cn(
+                    "relative flex flex-col items-center justify-center gap-2 rounded-xl p-3 border transition-all hover:scale-105",
+                    "border-border bg-card hover:border-orange-400/40 hover:shadow-md"
+                  )}
+                >
+                  {st.logo_url
+                    ? <img src={st.logo_url} alt={st.name_ar} className="w-12 h-12 object-cover rounded-lg" />
+                    : <Radio className="w-10 h-10 text-muted-foreground" />
+                  }
+                  <span className="text-xs font-medium text-center text-foreground line-clamp-2">{st.name_ar}</span>
+                  {!isSubscribed && <Lock className="absolute top-2 left-2 w-3.5 h-3.5 text-muted-foreground/60" />}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Search */}
+        <div className="relative max-w-md">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="ابحث عن محطة…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            className="pr-9"
+            dir="rtl"
+          />
+        </div>
+
+        {/* Genre tabs */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setActiveSlug("all")}
+            className={cn(
+              "px-4 py-1.5 rounded-full text-sm font-medium border transition-colors",
+              activeSlug === "all"
+                ? "bg-orange-500 text-white border-orange-500"
+                : "border-border text-muted-foreground hover:border-orange-400/40 hover:text-foreground"
+            )}
+          >
+            الكل ({stations.length})
+          </button>
+          {genres.map(genre => {
+            const count = stations.filter(s => s.genre?.slug === genre.slug).length;
+            return (
+              <button
+                key={genre.id}
+                onClick={() => setActiveSlug(genre.slug)}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-sm font-medium border transition-colors",
+                  activeSlug === genre.slug
+                    ? "bg-orange-500 text-white border-orange-500"
+                    : "border-border text-muted-foreground hover:border-orange-400/40 hover:text-foreground"
+                )}
+              >
+                {genre.name_ar} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Station grid */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
+            <RefreshCw className="w-5 h-5 animate-spin" />
+            جاري تحميل المحطات…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <Radio className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>لا توجد محطات مطابقة للبحث</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {filtered.map(st => (
+              <StationCard
+                key={st.id}
+                station={st}
+                isSubscribed={isSubscribed}
+                onClick={handleStationClick}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </Layout>
+  );
+}
