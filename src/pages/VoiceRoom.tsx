@@ -958,16 +958,21 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         </Button>
         {/* Camera toggle */}
         {(roomPerms.camera || isOwner) && (
-          <Button
-            size="lg"
-            variant="outline"
-            className={`h-14 w-14 rounded-full p-0 transition-colors ${isCameraEnabled ? "bg-green-500 hover:bg-green-600 border-green-500 text-white" : ""}`}
-            onClick={toggleCamera}
-            aria-label={isCameraEnabled ? t("vroom.cameraOff") : t("vroom.cameraOn")}
-            title={isCameraEnabled ? t("vroom.cameraOff") : t("vroom.cameraOn")}
-          >
-            {isCameraEnabled ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
-          </Button>
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-14 w-14 rounded-full p-0 transition-colors ${isCameraEnabled ? "bg-green-500 hover:bg-green-600 border-green-500 text-white" : "border-muted-foreground/40"}`}
+              onClick={toggleCamera}
+              aria-label={isCameraEnabled ? t("vroom.cameraOff") : t("vroom.cameraOn")}
+              title={isCameraEnabled ? t("vroom.cameraOff") : t("vroom.cameraOn")}
+            >
+              {isCameraEnabled ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
+            </Button>
+            <span className={`text-[10px] font-medium ${isCameraEnabled ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+              {isCameraEnabled ? t("vroom.cameraOn") : t("vroom.cameraOff")}
+            </span>
+          </div>
         )}
         <Button
           size="lg"
@@ -1122,123 +1127,332 @@ function playJoinLeaveSound(joined: boolean) {
 }
 
 // ── Reaction sounds ────────────────────────────────────────────────
+// Helpers
+function _noiseBuf(ctx: AudioContext, dur: number) {
+  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return buf;
+}
+function _osc(ctx: AudioContext, type: OscillatorType, freq: number) {
+  const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq; return o;
+}
+function _gain(ctx: AudioContext, val = 0) {
+  const g = ctx.createGain(); g.gain.value = val; return g;
+}
+function _bpf(ctx: AudioContext, freq: number, q = 1) {
+  const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q; return f;
+}
+
 function playReactionSound(emoji: string) {
   try {
     const ctx = new AudioContext();
-    const t = ctx.currentTime;
+    const now = ctx.currentTime;
 
-    const laughEmojis = ["😂","😆","😅","🤣","😁","🤪","😜","😝"];
-    const clapEmojis  = ["👏","🙌","🤜","🤛","💪","🫶"];
-    const heartEmojis = ["❤️","🥰","😍","💕","💗","💓","💞","🫂","🌸"];
-    const dingEmojis  = ["👍","👍🏼","💯","🏆","🥇","⭐","🌟","✨","💫","💎","🎯"];
-    const gaspEmojis  = ["😮","🤯","😱","🫢","🫣","😳","😬"];
-    const wooshEmojis = ["🔥","⚡","💥","🚀","🌊","🌈"];
-    const celebEmojis = ["🎉","🎊","🎈","🎁","🥳","🎵","🎶","🎸"];
-    const booEmojis   = ["😡","😤","👎","💀","🙄","😒","😤"];
+    // ── Laugh 😂😆😅🤣😁🤪😜😝 ──────────────────────────────────────
+    // Realistic "HA HA HA": voiced bursts through vowel formants
+    if (["😂","😆","😅","🤣","😁","🤪","😜","😝"].includes(emoji)) {
+      for (let i = 0; i < 4; i++) {
+        const t0 = now + i * 0.16;
+        // Vocal cord oscillator (sawtooth = rich harmonics like voice)
+        const src = _osc(ctx, "sawtooth", 200 + i * 8);
+        // First formant "AH" ~800 Hz
+        const f1 = _bpf(ctx, 800, 8);
+        // Second formant ~1200 Hz
+        const f2 = _bpf(ctx, 1200, 6);
+        const mix = _gain(ctx);
+        const env = _gain(ctx);
+        src.connect(f1); src.connect(f2);
+        f1.connect(mix); f2.connect(mix);
+        mix.connect(env); env.connect(ctx.destination);
+        // Shape each "HA" burst
+        env.gain.setValueAtTime(0, t0);
+        env.gain.linearRampToValueAtTime(0.22, t0 + 0.025);
+        env.gain.setValueAtTime(0.22, t0 + 0.07);
+        env.gain.exponentialRampToValueAtTime(0.001, t0 + 0.13);
+        src.start(t0); src.stop(t0 + 0.15);
+      }
 
-    if (laughEmojis.includes(emoji)) {
-      // Ha-ha-ha: 3 short sawtooth bursts with pitch variation
-      for (let i = 0; i < 3; i++) {
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-        osc.connect(g); g.connect(ctx.destination);
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(320 + i * 15, t + i * 0.14);
-        osc.frequency.linearRampToValueAtTime(210, t + i * 0.14 + 0.1);
-        g.gain.setValueAtTime(0, t + i * 0.14);
-        g.gain.linearRampToValueAtTime(0.13, t + i * 0.14 + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.14 + 0.12);
-        osc.start(t + i * 0.14); osc.stop(t + i * 0.14 + 0.14);
+    // ── Clap 👏🙌💪🫶 ──────────────────────────────────────────────
+    // Realistic hand clap: noise through stacked resonant bands
+    } else if (["👏","🙌","🤜","🤛","💪","🫶"].includes(emoji)) {
+      for (let c = 0; c < 3; c++) {
+        const t0 = now + c * 0.22;
+        const src = ctx.createBufferSource();
+        src.buffer = _noiseBuf(ctx, 0.18);
+        // Hand-clap has peaks around 900 Hz, 1.8 kHz, 3.5 kHz, 6 kHz
+        const bands = [900, 1800, 3500, 6000].map((f) => _bpf(ctx, f, 2.5));
+        const mix = _gain(ctx);
+        const env = _gain(ctx);
+        src.connect(bands[0]); src.connect(bands[1]);
+        src.connect(bands[2]); src.connect(bands[3]);
+        bands.forEach((b) => b.connect(mix));
+        mix.connect(env); env.connect(ctx.destination);
+        env.gain.setValueAtTime(0.55, t0);
+        env.gain.exponentialRampToValueAtTime(0.001, t0 + 0.14);
+        src.start(t0);
       }
-    } else if (clapEmojis.includes(emoji)) {
-      // Two sharp noise claps
-      for (let i = 0; i < 2; i++) {
-        const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.13), ctx.sampleRate);
-        const d = buf.getChannelData(0);
-        for (let j = 0; j < d.length; j++) d[j] = Math.random() * 2 - 1;
-        const src = ctx.createBufferSource(); src.buffer = buf;
-        const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1300; bp.Q.value = 1;
-        const g = ctx.createGain();
-        src.connect(bp); bp.connect(g); g.connect(ctx.destination);
-        g.gain.setValueAtTime(0.35, t + i * 0.2);
-        g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.2 + 0.12);
-        src.start(t + i * 0.2);
+
+    // ── Heart ❤️🥰😍💕💗💓💞🫂🌸 ─────────────────────────────────
+    // Realistic heartbeat: lub-DUB two-thump pattern
+    } else if (["❤️","🥰","😍","💕","💗","💓","💞","🫂","🌸"].includes(emoji)) {
+      const beats = [[0, 65, 0.28], [0.18, 55, 0.22], [0.72, 65, 0.28], [0.90, 55, 0.22]] as [number,number,number][];
+      beats.forEach(([dt, freq, dur]) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 200;
+        o.connect(lp); lp.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + dt);
+        g.gain.linearRampToValueAtTime(0.5, now + dt + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.001, now + dt + dur);
+        o.start(now + dt); o.stop(now + dt + dur + 0.05);
+      });
+
+    // ── Wow / Gasp 😮🤯😱🫢🫣😳 ───────────────────────────────────
+    // Quick "OH!" intake: voiced rising + breathy noise
+    } else if (["😮","🤯","😱","🫢","🫣","😳"].includes(emoji)) {
+      // Voiced "oh" – rising pitch
+      const voc = _osc(ctx, "sawtooth", 180);
+      const f1 = _bpf(ctx, 500, 7);   // "oh" first formant
+      const f2 = _bpf(ctx, 900, 5);
+      const venv = _gain(ctx);
+      voc.connect(f1); voc.connect(f2);
+      f1.connect(venv); f2.connect(venv);
+      venv.connect(ctx.destination);
+      voc.frequency.setValueAtTime(180, now);
+      voc.frequency.linearRampToValueAtTime(260, now + 0.2);
+      venv.gain.setValueAtTime(0, now);
+      venv.gain.linearRampToValueAtTime(0.22, now + 0.04);
+      venv.gain.setValueAtTime(0.22, now + 0.16);
+      venv.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      voc.start(now); voc.stop(now + 0.3);
+      // Breath layer
+      const nsrc = ctx.createBufferSource();
+      nsrc.buffer = _noiseBuf(ctx, 0.25);
+      const nhp = ctx.createBiquadFilter(); nhp.type = "highpass"; nhp.frequency.value = 2000;
+      const ng = _gain(ctx);
+      nsrc.connect(nhp); nhp.connect(ng); ng.connect(ctx.destination);
+      ng.gain.setValueAtTime(0.08, now);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      nsrc.start(now);
+
+    // ── Fire 🔥 ────────────────────────────────────────────────────
+    // Low crackling flame: bass rumble + high-frequency crackle
+    } else if (emoji === "🔥") {
+      // Bass rumble
+      const rumble = _osc(ctx, "sine", 80);
+      const rg = _gain(ctx);
+      rumble.connect(rg); rg.connect(ctx.destination);
+      rg.gain.setValueAtTime(0.12, now);
+      rg.gain.linearRampToValueAtTime(0.18, now + 0.15);
+      rg.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      rumble.start(now); rumble.stop(now + 0.6);
+      // Crackle: noise with random amplitude bursts
+      const csrc = ctx.createBufferSource();
+      csrc.buffer = _noiseBuf(ctx, 0.55);
+      const cbp = _bpf(ctx, 3500, 1.5);
+      const cg = _gain(ctx);
+      csrc.connect(cbp); cbp.connect(cg); cg.connect(ctx.destination);
+      cg.gain.setValueAtTime(0.18, now);
+      cg.gain.setValueAtTime(0.06, now + 0.1);
+      cg.gain.setValueAtTime(0.22, now + 0.18);
+      cg.gain.setValueAtTime(0.04, now + 0.28);
+      cg.gain.setValueAtTime(0.19, now + 0.38);
+      cg.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      csrc.start(now);
+
+    // ── Lightning ⚡ ───────────────────────────────────────────────
+    // Sharp electric snap + buzz
+    } else if (emoji === "⚡") {
+      // Initial crack
+      const csrc = ctx.createBufferSource();
+      csrc.buffer = _noiseBuf(ctx, 0.08);
+      const cbp = _bpf(ctx, 5000, 0.5);
+      const cg = _gain(ctx);
+      csrc.connect(cbp); cbp.connect(cg); cg.connect(ctx.destination);
+      cg.gain.setValueAtTime(0.6, now);
+      cg.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+      csrc.start(now);
+      // Buzz tail
+      const buz = _osc(ctx, "square", 120);
+      const bg = _gain(ctx);
+      buz.connect(bg); bg.connect(ctx.destination);
+      bg.gain.setValueAtTime(0.12, now + 0.06);
+      bg.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      buz.start(now + 0.06); buz.stop(now + 0.38);
+
+    // ── Explosion 💥 ────────────────────────────────────────────────
+    // Deep boom + crack
+    } else if (emoji === "💥") {
+      // Boom
+      const boom = _osc(ctx, "sine", 60);
+      const bg = _gain(ctx);
+      boom.connect(bg); bg.connect(ctx.destination);
+      boom.frequency.setValueAtTime(60, now);
+      boom.frequency.exponentialRampToValueAtTime(20, now + 0.4);
+      bg.gain.setValueAtTime(0.5, now);
+      bg.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      boom.start(now); boom.stop(now + 0.5);
+      // Crack noise burst
+      const nsrc = ctx.createBufferSource();
+      nsrc.buffer = _noiseBuf(ctx, 0.12);
+      const ng = _gain(ctx);
+      nsrc.connect(ng); ng.connect(ctx.destination);
+      ng.gain.setValueAtTime(0.45, now);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      nsrc.start(now);
+
+    // ── Rocket 🚀 ──────────────────────────────────────────────────
+    // Rising whoosh
+    } else if (emoji === "🚀") {
+      const nsrc = ctx.createBufferSource();
+      nsrc.buffer = _noiseBuf(ctx, 0.5);
+      const bp = _bpf(ctx, 300, 3);
+      const g = _gain(ctx);
+      nsrc.connect(bp); bp.connect(g); g.connect(ctx.destination);
+      bp.frequency.setValueAtTime(200, now);
+      bp.frequency.exponentialRampToValueAtTime(4000, now + 0.48);
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.linearRampToValueAtTime(0.28, now + 0.3);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      nsrc.start(now);
+
+    // ── Wave 🌊 ────────────────────────────────────────────────────
+    // Ocean wave: filtered noise with slow swell
+    } else if (emoji === "🌊") {
+      const nsrc = ctx.createBufferSource();
+      nsrc.buffer = _noiseBuf(ctx, 0.9);
+      const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 700;
+      const g = _gain(ctx);
+      nsrc.connect(lp); lp.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.28, now + 0.35);
+      g.gain.linearRampToValueAtTime(0.14, now + 0.65);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.88);
+      nsrc.start(now);
+
+    // ── Celebration 🎉🎊🎈🎁🥳 ────────────────────────────────────
+    // Cork pop! + sparkle arpeggio
+    } else if (["🎉","🎊","🎈","🎁","🥳"].includes(emoji)) {
+      // Pop
+      const psrc = ctx.createBufferSource();
+      psrc.buffer = _noiseBuf(ctx, 0.06);
+      const pbp = _bpf(ctx, 600, 0.8);
+      const pg = _gain(ctx);
+      psrc.connect(pbp); pbp.connect(pg); pg.connect(ctx.destination);
+      pg.gain.setValueAtTime(0.5, now);
+      pg.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      psrc.start(now);
+      // Sparkle: quick high arpeggio
+      [1047, 1319, 1568, 2093].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + 0.06 + i * 0.06);
+        g.gain.linearRampToValueAtTime(0.1, now + 0.06 + i * 0.06 + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.06 + i * 0.06 + 0.18);
+        o.start(now + 0.06 + i * 0.06);
+        o.stop(now + 0.06 + i * 0.06 + 0.2);
+      });
+
+    // ── Music 🎵🎶🎸 ──────────────────────────────────────────────
+    // Guitar-like pluck (Karplus-Strong approximation)
+    } else if (["🎵","🎶","🎸"].includes(emoji)) {
+      [196, 247, 294, 370].forEach((freq, i) => {
+        const o = _osc(ctx, "sawtooth", freq);
+        const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = freq * 4;
+        const g = _gain(ctx);
+        o.connect(lp); lp.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.1);
+        g.gain.linearRampToValueAtTime(0.14, now + i * 0.1 + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.5);
+        o.start(now + i * 0.1);
+        o.stop(now + i * 0.1 + 0.55);
+      });
+
+    // ── Thumbs up / Stars / Awards 👍💯🏆🥇⭐🌟✨💫💎🎯 ──────────
+    // Satisfying bell: fundamental + harmonics with good sustain
+    } else if (["👍","👍🏼","💯","🏆","🥇","⭐","🌟","✨","💫","💎","🎯"].includes(emoji)) {
+      [880, 1760, 2640].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(0.18 / (i + 1), now + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.6 - i * 0.1);
+        o.start(now); o.stop(now + 0.7);
+      });
+
+    // ── Angry 😡😤 ────────────────────────────────────────────────
+    // Distorted grunt
+    } else if (["😡","😤"].includes(emoji)) {
+      const o = _osc(ctx, "sawtooth", 140);
+      const dist = ctx.createWaveShaper();
+      const curve = new Float32Array(256);
+      for (let i = 0; i < 256; i++) {
+        const x = (i * 2) / 256 - 1;
+        curve[i] = (Math.PI + 200) * x / (Math.PI + 200 * Math.abs(x));
       }
-    } else if (heartEmojis.includes(emoji)) {
-      // Warm chord: fundamental + fifth + octave
-      [220, 330, 440].forEach((freq, i) => {
-        const osc = ctx.createOscillator(); const g = ctx.createGain();
-        osc.connect(g); g.connect(ctx.destination);
-        osc.type = "sine"; osc.frequency.value = freq;
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.09 - i * 0.02, t + 0.08);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
-        osc.start(t); osc.stop(t + 0.8);
+      dist.curve = curve;
+      const g = _gain(ctx);
+      o.connect(dist); dist.connect(g); g.connect(ctx.destination);
+      o.frequency.setValueAtTime(140, now);
+      o.frequency.linearRampToValueAtTime(80, now + 0.35);
+      g.gain.setValueAtTime(0.2, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+      o.start(now); o.stop(now + 0.4);
+
+    // ── Thumbs down / Boo 👎💀🙄😒 ───────────────────────────────
+    // Sad descending trombone-like glide
+    } else if (["👎","💀","🙄","😒"].includes(emoji)) {
+      const o = _osc(ctx, "sawtooth", 220);
+      const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 800;
+      const g = _gain(ctx);
+      o.connect(lp); lp.connect(g); g.connect(ctx.destination);
+      o.frequency.setValueAtTime(220, now);
+      o.frequency.linearRampToValueAtTime(100, now + 0.55);
+      g.gain.setValueAtTime(0.15, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.58);
+      o.start(now); o.stop(now + 0.6);
+
+    // ── Skull 💀 ───────────────────────────────────────────────────
+    } else if (emoji === "💀") {
+      // Eerie descending tone
+      [220, 277].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.setValueAtTime(freq, now);
+        o.frequency.linearRampToValueAtTime(freq * 0.5, now + 0.7);
+        g.gain.setValueAtTime(0.08, now + i * 0.03);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.72);
+        o.start(now + i * 0.03); o.stop(now + 0.75);
       });
-    } else if (gaspEmojis.includes(emoji)) {
-      // Breathy inhale: highpass noise, falling cutoff
-      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.28), ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let j = 0; j < d.length; j++) d[j] = Math.random() * 2 - 1;
-      const src = ctx.createBufferSource(); src.buffer = buf;
-      const hp = ctx.createBiquadFilter(); hp.type = "highpass";
-      hp.frequency.setValueAtTime(2200, t); hp.frequency.linearRampToValueAtTime(600, t + 0.25);
-      const g = ctx.createGain();
-      src.connect(hp); hp.connect(g); g.connect(ctx.destination);
-      g.gain.setValueAtTime(0.16, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-      src.start(t);
-    } else if (wooshEmojis.includes(emoji)) {
-      // Sweeping bandpass noise (low→high)
-      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.38), ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let j = 0; j < d.length; j++) d[j] = Math.random() * 2 - 1;
-      const src = ctx.createBufferSource(); src.buffer = buf;
-      const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 4;
-      bp.frequency.setValueAtTime(180, t); bp.frequency.exponentialRampToValueAtTime(3200, t + 0.33);
-      const g = ctx.createGain();
-      src.connect(bp); bp.connect(g); g.connect(ctx.destination);
-      g.gain.setValueAtTime(0.18, t); g.gain.linearRampToValueAtTime(0.28, t + 0.15);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-      src.start(t);
-    } else if (celebEmojis.includes(emoji)) {
-      // Ascending arpeggio: C5 E5 G5 C6
-      [523, 659, 784, 1047].forEach((freq, i) => {
-        const osc = ctx.createOscillator(); const g = ctx.createGain();
-        osc.connect(g); g.connect(ctx.destination);
-        osc.type = "sine"; osc.frequency.value = freq;
-        g.gain.setValueAtTime(0, t + i * 0.07);
-        g.gain.linearRampToValueAtTime(0.11, t + i * 0.07 + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.07 + 0.22);
-        osc.start(t + i * 0.07); osc.stop(t + i * 0.07 + 0.25);
+
+    // ── Hand gestures 🙏🫡✌️🤞🤙 ──────────────────────────────────
+    // Gentle soft chime
+    } else if (["🙏","🫡","✌️","🤞","🤙","🙋","🤦","🤷"].includes(emoji)) {
+      [660, 990].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.08);
+        g.gain.linearRampToValueAtTime(0.1, now + i * 0.08 + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.4);
+        o.start(now + i * 0.08); o.stop(now + i * 0.08 + 0.45);
       });
-    } else if (dingEmojis.includes(emoji)) {
-      // Crisp approval ding: sine with slight pitch fall
-      const osc = ctx.createOscillator(); const g = ctx.createGain();
-      osc.connect(g); g.connect(ctx.destination);
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(900, t); osc.frequency.exponentialRampToValueAtTime(680, t + 0.35);
-      g.gain.setValueAtTime(0.16, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
-      osc.start(t); osc.stop(t + 0.45);
-    } else if (booEmojis.includes(emoji)) {
-      // Descending dissonant buzzer
-      [200, 193].forEach((freq, i) => {
-        const osc = ctx.createOscillator(); const g = ctx.createGain();
-        osc.connect(g); g.connect(ctx.destination);
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(freq, t); osc.frequency.linearRampToValueAtTime(90, t + 0.4);
-        g.gain.setValueAtTime(0.09, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-        osc.start(t + i * 0.04); osc.stop(t + 0.45);
-      });
+
+    // ── Default: soft blip ─────────────────────────────────────────
     } else {
-      // Default soft blip
-      const osc = ctx.createOscillator(); const g = ctx.createGain();
-      osc.connect(g); g.connect(ctx.destination);
-      osc.type = "sine"; osc.frequency.value = 620;
-      g.gain.setValueAtTime(0.09, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-      osc.start(t); osc.stop(t + 0.18);
+      const o = _osc(ctx, "sine", 640);
+      const g = _gain(ctx);
+      o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.1, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      o.start(now); o.stop(now + 0.2);
     }
 
-    setTimeout(() => ctx.close().catch(() => {}), 2000);
+    setTimeout(() => ctx.close().catch(() => {}), 2500);
   } catch { /* ignore */ }
 }
 
