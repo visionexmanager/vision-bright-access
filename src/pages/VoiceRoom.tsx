@@ -34,9 +34,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Check, ChevronDown, ChevronUp, Copy, Hand, Headphones, Loader2, Lock, Mic, MicOff,
-  Monitor, MonitorOff, Pencil, PhoneOff, Radio, RefreshCw, Settings2, ShieldX,
-  Unlock, UserX, Users, Volume2, WifiOff, X,
+  Camera, CameraOff, Check, ChevronDown, ChevronUp, Copy, Hand, Headphones, Loader2,
+  Lock, MessageSquare, Mic, MicOff, Monitor, MonitorOff, Pencil, PhoneOff, Radio,
+  RefreshCw, Send, Settings2, ShieldX, Unlock, UserX, Users, Volume2, WifiOff, X,
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
 
@@ -174,6 +174,14 @@ interface FloatingReaction {
   visible: boolean;
 }
 
+interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  ts: number;
+}
+
 // ── Participant tile ───────────────────────────────────────────────
 interface ParticipantTileProps {
   participant: ReturnType<typeof useParticipants>[number];
@@ -191,6 +199,11 @@ function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick
     [{ source: Track.Source.Microphone, withPlaceholder: true }],
     { participant }
   );
+  const cameraTracks = useTracks(
+    [{ source: Track.Source.Camera, withPlaceholder: false }],
+    { participant }
+  );
+  const cameraTrack = cameraTracks[0];
   const isMuted = !tracks.some((tr) => tr.publication?.isMuted === false && tr.publication?.isEnabled);
   const isSpeaking = participant.isSpeaking;
   const displayName = participant.name || participant.identity;
@@ -200,14 +213,25 @@ function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick
       {isRaisingHand && (
         <span className="absolute -top-2 -right-2 text-lg animate-bounce z-10 select-none">✋</span>
       )}
-      <div className={`relative flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-primary-foreground ${isSpeaking ? "bg-primary" : "bg-muted-foreground/30"}`}>
-        {displayName.charAt(0).toUpperCase()}
-        {isSpeaking && (
-          <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-            <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
-          </span>
-        )}
-      </div>
+      {cameraTrack ? (
+        <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black">
+          <VideoTrack trackRef={cameraTrack} className="w-full h-full object-cover" />
+          {isSpeaking && (
+            <span className="absolute bottom-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+              <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className={`relative flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-primary-foreground ${isSpeaking ? "bg-primary" : "bg-muted-foreground/30"}`}>
+          {displayName.charAt(0).toUpperCase()}
+          {isSpeaking && (
+            <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+              <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
+            </span>
+          )}
+        </div>
+      )}
       <span className="max-w-[80px] truncate text-xs font-medium">{displayName}</span>
       {isMuted && <MicOff className="h-3.5 w-3.5 text-muted-foreground" />}
 
@@ -293,9 +317,17 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   const [screenShareRestarting, setScreenShareRestarting] = useState(false);
   const [spatialAudioEnabled, setSpatialAudioEnabled] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  // Camera
+  const [cameraEnabled, setCameraEnabled] = useState(false);
+  // Chat
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
   // Owner-controlled room permissions
   const [screenShareAllowed, setScreenShareAllowed] = useState(true);
   const [micAllowed, setMicAllowed] = useState(true);
+  const [cameraAllowed, setCameraAllowed] = useState(true);
   const [reactionSoundsEnabled, setReactionSoundsEnabled] = useState(true);
   const reactionSoundsEnabledRef = useRef(true);
   const [showPermissionsPanel, setShowPermissionsPanel] = useState(false);
@@ -318,6 +350,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
 
   useEffect(() => { localParticipantRef.current = localParticipant; }, [localParticipant]);
   useEffect(() => { reactionSoundsEnabledRef.current = reactionSoundsEnabled; }, [reactionSoundsEnabled]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
 
   // Reconnecting banner + reconnected toast
   useEffect(() => {
@@ -397,7 +430,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         toast({ title: msg, variant: "destructive" });
         onLeave();
       })
-      .on("broadcast", { event: "room_permissions" }, ({ payload }: { payload: { byUserId: string; screenShareAllowed?: boolean; micAllowed?: boolean; reactionSoundsEnabled?: boolean } }) => {
+      .on("broadcast", { event: "room_permissions" }, ({ payload }: { payload: { byUserId: string; screenShareAllowed?: boolean; micAllowed?: boolean; cameraAllowed?: boolean; reactionSoundsEnabled?: boolean } }) => {
         if (payload.byUserId === currentUserId) return;
         if (payload.screenShareAllowed !== undefined) setScreenShareAllowed(payload.screenShareAllowed);
         if (payload.micAllowed !== undefined) {
@@ -406,6 +439,14 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
             localParticipantRef.current?.setMicrophoneEnabled(false);
             setMuted(true);
             toast({ title: t("vroom.micLockedByOwner") });
+          }
+        }
+        if (payload.cameraAllowed !== undefined) {
+          setCameraAllowed(payload.cameraAllowed);
+          if (!payload.cameraAllowed) {
+            localParticipantRef.current?.setCameraEnabled(false);
+            setCameraEnabled(false);
+            toast({ title: t("vroom.cameraLockedByOwner") });
           }
         }
         if (payload.reactionSoundsEnabled !== undefined) {
@@ -421,6 +462,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         if (payload.userId === currentUserId) return;
         const msg = payload.started ? t("vroom.startedScreenShare") : t("vroom.stoppedScreenShare");
         toast({ title: `🖥️ ${payload.userName} ${msg}`, duration: 3000 });
+      })
+      .on("broadcast", { event: "chat_message" }, ({ payload }: { payload: ChatMessage }) => {
+        setChatMessages((prev) => [...prev, payload]);
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") broadcastChRef.current = ch;
@@ -548,6 +592,51 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
       event: "room_permissions",
       payload: { byUserId: currentUserId, reactionSoundsEnabled: newVal },
     });
+  };
+
+  // Camera toggle
+  const toggleCamera = async () => {
+    if (!cameraEnabled && !cameraAllowed && !canModerate) {
+      toast({ title: t("vroom.cameraLockedByOwner") });
+      return;
+    }
+    try {
+      await localParticipant.setCameraEnabled(!cameraEnabled);
+      setCameraEnabled((v) => !v);
+    } catch {
+      toast({ title: t("vroom.cameraError"), variant: "destructive" });
+    }
+  };
+
+  // Owner: toggle camera permission for all
+  const toggleCameraPermission = () => {
+    const newVal = !cameraAllowed;
+    setCameraAllowed(newVal);
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "room_permissions",
+      payload: { byUserId: currentUserId, cameraAllowed: newVal },
+    });
+    toast({ title: newVal ? t("vroom.cameraUnlocked") : t("vroom.cameraLocked") });
+  };
+
+  // Send chat message
+  const sendChatMessage = () => {
+    const text = chatInput.trim();
+    if (!text) return;
+    const msg: ChatMessage = {
+      id: Math.random().toString(36).slice(2),
+      senderId: currentUserId,
+      senderName: localParticipant.name || currentUserId,
+      text,
+      ts: Date.now(),
+    };
+    broadcastChRef.current?.send({
+      type: "broadcast",
+      event: "chat_message",
+      payload: msg,
+    });
+    setChatInput("");
   };
 
   // Audio-only share (system/tab audio without visible screen)
@@ -811,6 +900,15 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
             </Button>
             <Button
               size="sm"
+              variant={cameraAllowed ? "outline" : "destructive"}
+              className="gap-1.5 text-xs"
+              onClick={toggleCameraPermission}
+            >
+              <Camera className="h-3.5 w-3.5" />
+              {cameraAllowed ? t("vroom.lockCamera") : t("vroom.unlockCamera")}
+            </Button>
+            <Button
+              size="sm"
               variant={reactionSoundsEnabled ? "outline" : "secondary"}
               className="gap-1.5 text-xs"
               onClick={toggleReactionSounds}
@@ -844,6 +942,30 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
           aria-label={muted ? t("vroom.unmute") : t("vroom.mute")}
         >
           {muted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+        </Button>
+
+        {/* Camera toggle */}
+        <Button
+          size="lg"
+          variant="outline"
+          className={`h-14 w-14 rounded-full p-0 transition-colors ${cameraEnabled ? "bg-teal-500 hover:bg-teal-600 border-teal-500 text-white" : ""}`}
+          onClick={toggleCamera}
+          aria-label={cameraEnabled ? t("vroom.cameraOff") : t("vroom.cameraOn")}
+          title={cameraEnabled ? t("vroom.cameraOff") : t("vroom.cameraOn")}
+        >
+          {cameraEnabled ? <Camera className="h-6 w-6" /> : <CameraOff className="h-6 w-6" />}
+        </Button>
+
+        {/* Chat toggle */}
+        <Button
+          size="lg"
+          variant="outline"
+          className={`h-14 w-14 rounded-full p-0 transition-colors ${showChat ? "bg-indigo-500 hover:bg-indigo-600 border-indigo-500 text-white" : ""}`}
+          onClick={() => setShowChat((v) => !v)}
+          aria-label={t("vroom.chat")}
+          title={t("vroom.chat")}
+        >
+          <MessageSquare className="h-6 w-6" />
         </Button>
         <Button
           size="lg"
@@ -931,6 +1053,54 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
       </div>
       <p className="text-center text-xs text-muted-foreground">{t("vroom.hint")}</p>
 
+      {/* Chat panel */}
+      {showChat && (
+        <div className="flex flex-col rounded-2xl border bg-card shadow-md overflow-hidden">
+          <div className="flex items-center gap-2 border-b px-4 py-2.5 bg-muted/30">
+            <MessageSquare className="h-4 w-4 text-indigo-500" />
+            <span className="text-sm font-semibold">{t("vroom.chat")}</span>
+          </div>
+          <div className="flex flex-col gap-2 p-3 h-64 overflow-y-auto">
+            {chatMessages.length === 0 && (
+              <p className="text-center text-xs text-muted-foreground mt-8">{t("vroom.chatEmpty")}</p>
+            )}
+            {chatMessages.map((msg) => {
+              const isMe = msg.senderId === currentUserId;
+              return (
+                <div key={msg.id} className={`flex flex-col gap-0.5 max-w-[80%] ${isMe ? "self-end items-end" : "self-start items-start"}`}>
+                  {!isMe && (
+                    <span className="text-[10px] text-muted-foreground px-1">{msg.senderName}</span>
+                  )}
+                  <div className={`rounded-2xl px-3 py-2 text-sm leading-snug ${isMe ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm"}`}>
+                    {msg.text}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground px-1">
+                    {new Date(msg.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              );
+            })}
+            <div ref={chatEndRef} />
+          </div>
+          <form
+            className="flex gap-2 border-t px-3 py-2.5"
+            onSubmit={(e) => { e.preventDefault(); sendChatMessage(); }}
+          >
+            <input
+              className="flex-1 rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+              placeholder={t("vroom.chatPlaceholder")}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              maxLength={500}
+              autoComplete="off"
+            />
+            <Button type="submit" size="icon" className="h-9 w-9 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white shrink-0" disabled={!chatInput.trim()}>
+              <Send className="h-4 w-4" />
+            </Button>
+          </form>
+        </div>
+      )}
+
       {/* Spatial audio processor — only mounted while the feature is on */}
       {spatialAudioEnabled && <SpatialAudioRenderer currentUserId={currentUserId} />}
     </div>
@@ -973,122 +1143,220 @@ function playReactionSound(emoji: string, enabled: boolean) {
   try {
     const ctx = new AudioContext();
     const t0 = ctx.currentTime;
+    const sr = ctx.sampleRate;
+
+    const makeNoiseBuf = (dur: number, env: (j: number, len: number) => number) => {
+      const len = Math.floor(sr * dur);
+      const buf = ctx.createBuffer(1, len, sr);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < len; j++) d[j] = (Math.random() * 2 - 1) * env(j, len);
+      return buf;
+    };
 
     if (CLAP_EMOJIS.has(emoji) || emoji === "👍") {
-      // Clapping: noise bursts through bandpass
+      // Realistic clap: transient snap + body noise + tail, layered
       const claps = emoji === "👍" ? 1 : 3;
       for (let i = 0; i < claps; i++) {
-        const bufLen = Math.floor(ctx.sampleRate * 0.07);
-        const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let j = 0; j < bufLen; j++) data[j] = (Math.random() * 2 - 1) * Math.exp(-j / (bufLen * 0.4));
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        const bp = ctx.createBiquadFilter();
-        bp.type = "bandpass"; bp.frequency.value = 1400; bp.Q.value = 0.7;
-        const g = ctx.createGain();
-        g.gain.setValueAtTime(0.5, t0 + i * 0.13);
-        src.connect(bp); bp.connect(g); g.connect(ctx.destination);
-        src.start(t0 + i * 0.13);
+        const dt = t0 + i * 0.16 + (i > 0 ? (Math.random() * 0.02 - 0.01) : 0);
+
+        // Sharp attack snap (high-freq noise burst ~2kHz-5kHz)
+        const snapBuf = makeNoiseBuf(0.015, (j, len) => Math.exp(-j / (len * 0.25)));
+        const snapSrc = ctx.createBufferSource();
+        snapSrc.buffer = snapBuf;
+        const snapHP = ctx.createBiquadFilter();
+        snapHP.type = "highpass"; snapHP.frequency.value = 2200;
+        const snapG = ctx.createGain();
+        snapG.gain.setValueAtTime(1.2, dt);
+        snapSrc.connect(snapHP); snapHP.connect(snapG); snapG.connect(ctx.destination);
+        snapSrc.start(dt);
+
+        // Body noise (mid-freq 600-1800Hz)
+        const bodyBuf = makeNoiseBuf(0.12, (j, len) => Math.exp(-j / (len * 0.35)));
+        const bodySrc = ctx.createBufferSource();
+        bodySrc.buffer = bodyBuf;
+        const bodyBP = ctx.createBiquadFilter();
+        bodyBP.type = "bandpass"; bodyBP.frequency.value = 900; bodyBP.Q.value = 0.5;
+        const bodyG = ctx.createGain();
+        bodyG.gain.setValueAtTime(0.85, dt);
+        bodySrc.connect(bodyBP); bodyBP.connect(bodyG); bodyG.connect(ctx.destination);
+        bodySrc.start(dt);
+
+        // Low thump (adds warmth)
+        const thumpBuf = makeNoiseBuf(0.06, (j, len) => Math.exp(-j / (len * 0.2)));
+        const thumpSrc = ctx.createBufferSource();
+        thumpSrc.buffer = thumpBuf;
+        const thumpLP = ctx.createBiquadFilter();
+        thumpLP.type = "lowpass"; thumpLP.frequency.value = 350;
+        const thumpG = ctx.createGain();
+        thumpG.gain.setValueAtTime(0.5, dt);
+        thumpSrc.connect(thumpLP); thumpLP.connect(thumpG); thumpG.connect(ctx.destination);
+        thumpSrc.start(dt);
       }
-      setTimeout(() => ctx.close(), 800);
+      setTimeout(() => ctx.close(), 1000);
 
     } else if (LAUGH_EMOJIS.has(emoji)) {
-      // Laughing: pulsed mid-tone "ha ha ha"
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const lfo = ctx.createOscillator();
-      const lfoGain = ctx.createGain();
-      osc.type = "sawtooth"; osc.frequency.value = 320;
-      lfo.frequency.value = 6; lfoGain.gain.value = 25;
-      lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
-      osc.connect(gain); gain.connect(ctx.destination);
-      gain.gain.setValueAtTime(0, t0);
+      // Laughing: "ha ha ha" — pulsed sawtooth with pitch wobble & breathiness
       const pulses = emoji === "🤣" ? 4 : 3;
       for (let i = 0; i < pulses; i++) {
-        gain.gain.linearRampToValueAtTime(0.14, t0 + i * 0.14 + 0.05);
-        gain.gain.linearRampToValueAtTime(0,    t0 + i * 0.14 + 0.12);
+        const dt = t0 + i * 0.17;
+        // Voiced part (sawtooth formant)
+        const osc = ctx.createOscillator();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(280, dt);
+        osc.frequency.linearRampToValueAtTime(320, dt + 0.04);
+        osc.frequency.linearRampToValueAtTime(260, dt + 0.09);
+        const vgain = ctx.createGain();
+        vgain.gain.setValueAtTime(0, dt);
+        vgain.gain.linearRampToValueAtTime(0.18, dt + 0.03);
+        vgain.gain.linearRampToValueAtTime(0, dt + 0.10);
+        // Formant filter (vowel "a")
+        const f1 = ctx.createBiquadFilter(); f1.type = "peaking"; f1.frequency.value = 750; f1.gain.value = 8; f1.Q.value = 2;
+        const f2 = ctx.createBiquadFilter(); f2.type = "peaking"; f2.frequency.value = 1200; f2.gain.value = 4; f2.Q.value = 3;
+        osc.connect(f1); f1.connect(f2); f2.connect(vgain); vgain.connect(ctx.destination);
+        osc.start(dt); osc.stop(dt + 0.12);
+
+        // Breath noise layered
+        const breathBuf = makeNoiseBuf(0.08, (j, len) => Math.exp(-j / (len * 0.5)) * 0.3);
+        const bSrc = ctx.createBufferSource(); bSrc.buffer = breathBuf;
+        const bBP = ctx.createBiquadFilter(); bBP.type = "bandpass"; bBP.frequency.value = 3000; bBP.Q.value = 0.8;
+        const bG = ctx.createGain(); bG.gain.setValueAtTime(0.12, dt);
+        bSrc.connect(bBP); bBP.connect(bG); bG.connect(ctx.destination);
+        bSrc.start(dt);
       }
-      lfo.start(t0); osc.start(t0);
-      const dur = pulses * 0.14 + 0.05;
-      osc.stop(t0 + dur); lfo.stop(t0 + dur);
-      osc.onended = () => ctx.close();
+      setTimeout(() => ctx.close(), 900);
 
     } else if (LOVE_EMOJIS.has(emoji)) {
-      // Heartbeat: soft double-pulse
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine"; osc.frequency.value = 180;
-      osc.connect(gain); gain.connect(ctx.destination);
-      gain.gain.setValueAtTime(0, t0);
-      gain.gain.linearRampToValueAtTime(0.15, t0 + 0.05);
-      gain.gain.linearRampToValueAtTime(0.02, t0 + 0.12);
-      gain.gain.linearRampToValueAtTime(0.10, t0 + 0.18);
-      gain.gain.linearRampToValueAtTime(0,    t0 + 0.30);
-      osc.start(t0); osc.stop(t0 + 0.32);
-      osc.onended = () => ctx.close();
+      // Cute heartbeat: soft "ba-bum" with warm harmonics + sparkle
+      const playThump = (at: number, freq: number, vol: number) => {
+        const osc = ctx.createOscillator(); osc.type = "sine"; osc.frequency.value = freq;
+        const h2 = ctx.createOscillator(); h2.type = "sine"; h2.frequency.value = freq * 2;
+        const masterG = ctx.createGain();
+        masterG.gain.setValueAtTime(0, at);
+        masterG.gain.linearRampToValueAtTime(vol, at + 0.018);
+        masterG.gain.exponentialRampToValueAtTime(0.001, at + 0.22);
+        const h2G = ctx.createGain(); h2G.gain.value = 0.3;
+        osc.connect(masterG); h2.connect(h2G); h2G.connect(masterG); masterG.connect(ctx.destination);
+        osc.start(at); osc.stop(at + 0.25);
+        h2.start(at); h2.stop(at + 0.25);
+      };
+      // "ba" — deeper
+      playThump(t0, 95, 0.22);
+      // "bum" — slightly higher
+      playThump(t0 + 0.14, 80, 0.18);
+
+      // Sparkle ping on top (cute glitter)
+      const sparkOsc = ctx.createOscillator(); sparkOsc.type = "sine"; sparkOsc.frequency.value = 1400;
+      const sparkG = ctx.createGain();
+      sparkG.gain.setValueAtTime(0.12, t0);
+      sparkG.gain.exponentialRampToValueAtTime(0.001, t0 + 0.35);
+      sparkOsc.connect(sparkG); sparkG.connect(ctx.destination);
+      sparkOsc.start(t0); sparkOsc.stop(t0 + 0.36);
+      sparkOsc.onended = () => ctx.close();
 
     } else if (WOW_EMOJIS.has(emoji)) {
-      // Wow / gasp: descending sweep
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(700, t0);
-      osc.frequency.exponentialRampToValueAtTime(200, t0 + 0.35);
-      gain.gain.setValueAtTime(0.13, t0);
-      gain.gain.linearRampToValueAtTime(0, t0 + 0.35);
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.start(t0); osc.stop(t0 + 0.36);
-      osc.onended = () => ctx.close();
+      // Gasp / sharp inhale: rising filtered noise burst mimicking breath intake
+      const gaspBuf = makeNoiseBuf(0.32, (j, len) => {
+        const env = Math.sin((j / len) * Math.PI); // rises then falls
+        return env * Math.exp(-j / (len * 1.2)) * 1.4;
+      });
+      const gaspSrc = ctx.createBufferSource(); gaspSrc.buffer = gaspBuf;
+
+      // Rising bandpass to mimic vocal tract opening
+      const bp1 = ctx.createBiquadFilter(); bp1.type = "bandpass"; bp1.Q.value = 1.8;
+      bp1.frequency.setValueAtTime(800, t0);
+      bp1.frequency.exponentialRampToValueAtTime(2400, t0 + 0.18);
+      bp1.frequency.exponentialRampToValueAtTime(1200, t0 + 0.32);
+
+      const bp2 = ctx.createBiquadFilter(); bp2.type = "bandpass"; bp2.frequency.value = 600; bp2.Q.value = 0.6;
+
+      const masterG = ctx.createGain();
+      masterG.gain.setValueAtTime(0, t0);
+      masterG.gain.linearRampToValueAtTime(0.55, t0 + 0.06);
+      masterG.gain.linearRampToValueAtTime(0.35, t0 + 0.2);
+      masterG.gain.linearRampToValueAtTime(0, t0 + 0.32);
+
+      gaspSrc.connect(bp1); bp1.connect(bp2); bp2.connect(masterG); masterG.connect(ctx.destination);
+      gaspSrc.start(t0);
+
+      // Small voiced "oh" undertone for realism
+      const osc = ctx.createOscillator(); osc.type = "sine";
+      osc.frequency.setValueAtTime(220, t0);
+      osc.frequency.linearRampToValueAtTime(380, t0 + 0.12);
+      const oscG = ctx.createGain();
+      oscG.gain.setValueAtTime(0, t0);
+      oscG.gain.linearRampToValueAtTime(0.07, t0 + 0.05);
+      oscG.gain.linearRampToValueAtTime(0, t0 + 0.2);
+      osc.connect(oscG); oscG.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + 0.22);
+      setTimeout(() => ctx.close(), 500);
 
     } else if (SAD_EMOJIS.has(emoji)) {
-      // Sad: descending minor tone
-      const osc = ctx.createOscillator();
+      // Sad "aww": descending voiced sigh with breathiness
+      const osc = ctx.createOscillator(); osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(380, t0);
+      osc.frequency.exponentialRampToValueAtTime(200, t0 + 0.5);
+      const f1 = ctx.createBiquadFilter(); f1.type = "peaking"; f1.frequency.value = 800; f1.gain.value = 6; f1.Q.value = 2;
       const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(440, t0);
-      osc.frequency.linearRampToValueAtTime(300, t0 + 0.4);
-      gain.gain.setValueAtTime(0.1, t0);
-      gain.gain.linearRampToValueAtTime(0, t0 + 0.4);
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.start(t0); osc.stop(t0 + 0.4);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.14, t0 + 0.06);
+      gain.gain.linearRampToValueAtTime(0.08, t0 + 0.35);
+      gain.gain.linearRampToValueAtTime(0, t0 + 0.52);
+      osc.connect(f1); f1.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + 0.54);
+
+      // Breath layer
+      const breathBuf = makeNoiseBuf(0.4, (j, len) => 0.15 * Math.exp(-j / (len * 0.8)));
+      const bSrc = ctx.createBufferSource(); bSrc.buffer = breathBuf;
+      const bBP = ctx.createBiquadFilter(); bBP.type = "bandpass"; bBP.frequency.value = 2500; bBP.Q.value = 0.5;
+      const bG = ctx.createGain(); bG.gain.value = 0.25;
+      bSrc.connect(bBP); bBP.connect(bG); bG.connect(ctx.destination);
+      bSrc.start(t0);
       osc.onended = () => ctx.close();
 
     } else if (BOO_EMOJIS.has(emoji)) {
-      // Negative: low buzz
-      const osc = ctx.createOscillator();
+      // Boo: low groan / rumble
+      const osc = ctx.createOscillator(); osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(130, t0);
+      osc.frequency.linearRampToValueAtTime(90, t0 + 0.4);
+      const f1 = ctx.createBiquadFilter(); f1.type = "peaking"; f1.frequency.value = 500; f1.gain.value = 5; f1.Q.value = 1.5;
       const gain = ctx.createGain();
-      osc.type = "square"; osc.frequency.value = 100;
-      gain.gain.setValueAtTime(0.08, t0);
-      gain.gain.linearRampToValueAtTime(0, t0 + 0.25);
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.start(t0); osc.stop(t0 + 0.25);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.13, t0 + 0.05);
+      gain.gain.linearRampToValueAtTime(0, t0 + 0.42);
+      osc.connect(f1); f1.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + 0.44);
       osc.onended = () => ctx.close();
 
     } else if (FIRE_EMOJIS.has(emoji)) {
-      // Fire/hype: rising bright ping
-      const osc = ctx.createOscillator();
+      // Hype: bright shimmer rise + crowd energy
+      const osc = ctx.createOscillator(); osc.type = "triangle";
+      osc.frequency.setValueAtTime(880, t0);
+      osc.frequency.exponentialRampToValueAtTime(1760, t0 + 0.08);
       const gain = ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(660, t0);
-      osc.frequency.exponentialRampToValueAtTime(1320, t0 + 0.12);
-      gain.gain.setValueAtTime(0.13, t0);
-      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.3);
+      gain.gain.setValueAtTime(0.18, t0);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.35);
       osc.connect(gain); gain.connect(ctx.destination);
-      osc.start(t0); osc.stop(t0 + 0.3);
+      osc.start(t0); osc.stop(t0 + 0.36);
+
+      // Shimmer overtone
+      const osc2 = ctx.createOscillator(); osc2.type = "sine"; osc2.frequency.value = 2640;
+      const g2 = ctx.createGain();
+      g2.gain.setValueAtTime(0.08, t0);
+      g2.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+      osc2.connect(g2); g2.connect(ctx.destination);
+      osc2.start(t0); osc2.stop(t0 + 0.22);
       osc.onended = () => ctx.close();
 
     } else {
-      // Default: soft pop
-      const osc = ctx.createOscillator();
+      // Default: soft resonant pop
+      const osc = ctx.createOscillator(); osc.type = "sine";
+      osc.frequency.setValueAtTime(700, t0);
+      osc.frequency.exponentialRampToValueAtTime(350, t0 + 0.12);
       const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(600, t0);
-      osc.frequency.linearRampToValueAtTime(400, t0 + 0.1);
-      gain.gain.setValueAtTime(0.1, t0);
-      gain.gain.linearRampToValueAtTime(0, t0 + 0.15);
+      gain.gain.setValueAtTime(0.12, t0);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
       osc.connect(gain); gain.connect(ctx.destination);
-      osc.start(t0); osc.stop(t0 + 0.15);
+      osc.start(t0); osc.stop(t0 + 0.19);
       osc.onended = () => ctx.close();
     }
   } catch { /* AudioContext unavailable */ }
