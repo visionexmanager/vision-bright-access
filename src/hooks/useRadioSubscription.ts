@@ -21,6 +21,7 @@ export type RadioStation = {
   description:    string | null;
   description_ar: string | null;
   logo_url:       string | null;
+  official_url:   string | null;
   genre_id:       string | null;
   bitrate:        string;
   language:       string;

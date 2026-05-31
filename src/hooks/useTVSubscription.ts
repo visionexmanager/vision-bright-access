@@ -21,6 +21,7 @@ export type TVChannel = {
   description:    string | null;
   description_ar: string | null;
   logo_url:       string | null;
+  official_url:   string | null;
   category_id:    string | null;
   quality:        string;
   language:       string;
