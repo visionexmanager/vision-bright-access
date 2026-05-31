@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   LiveKitRoom,
@@ -34,11 +34,19 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Bell, Check, ChevronDown, ChevronUp, Copy, Hand, Headphones, Loader2, Lock, MessageSquare,
-  Mic, MicOff, Monitor, MonitorOff, Music2, Pencil, PhoneOff, RefreshCw, Send, Settings2,
-  ShieldX, Unlock, UserX, Users, Video, VideoOff, Volume2, WifiOff, X,
+  BarChart2, Bell, Check, ChevronDown, ChevronUp, Copy, Crown, Hand, Headphones,
+  ImageIcon, LayoutGrid, Loader2, Lock, MessageSquare, Mic, MicOff, Monitor, MonitorOff,
+  Music2, Pencil, PhoneOff, RefreshCw, Send, Settings2, ShieldX, Sparkles, Timer,
+  Unlock, Upload, UserX, Users, Users2, Video, VideoOff, Volume2, WifiOff, X,
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
+import { JoinModal } from "@/components/voice-room/JoinModal";
+import { LivePollWidget } from "@/components/voice-room/LivePollWidget";
+import type { Poll } from "@/components/voice-room/LivePollWidget";
+import { SpeakerQueuePanel } from "@/components/voice-room/SpeakerQueuePanel";
+import type { QueueEntry } from "@/components/voice-room/SpeakerQueuePanel";
+import { VoiceEffectsPanel } from "@/components/voice-room/VoiceEffectsPanel";
+import type { VoiceEffectType } from "@/components/voice-room/VoiceEffectsPanel";
 
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
 
@@ -196,6 +204,8 @@ interface RoomActivityEvent {
   ts: number;
 }
 
+type LayoutType = "gallery" | "speaker" | "cameras";
+
 // ── Participant tile ───────────────────────────────────────────────
 interface ParticipantTileProps {
   participant: ReturnType<typeof useParticipants>[number];
@@ -292,9 +302,16 @@ interface RoomContentProps {
   roomPerms: RoomPerms;
   onUpdatePerms: (key: keyof RoomPerms, val: boolean) => Promise<void>;
   t: (key: string) => string;
+  isOnStage: boolean;
+  isListener: boolean;
+  isStageMode: boolean;
+  stageMembers: Set<string>;
+  onPromoteToStage: (userId: string) => Promise<void>;
+  onDemoteFromStage: (userId: string) => Promise<void>;
+  joinTimeRef: React.MutableRefObject<number>;
 }
 
-function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUserId, roomId, raisedHands, roomPerms, onUpdatePerms, t }: RoomContentProps) {
+function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUserId, roomId, raisedHands, roomPerms, onUpdatePerms, t, isOnStage, isListener, isStageMode, stageMembers, onPromoteToStage, onDemoteFromStage, joinTimeRef }: RoomContentProps) {
   const participants = useParticipants();
   const { localParticipant, isScreenShareEnabled, isCameraEnabled } = useLocalParticipant();
   const localParticipantRef = useRef(localParticipant);
@@ -320,8 +337,19 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const [unreadCount, setUnreadCount] = useState(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Mobile audio unlock — iOS/Android require a user gesture before playing remote audio
   const { canPlayAudio, startAudio } = useAudioPlayback();
+
+  // New feature state
+  const [layout, setLayout] = useState<LayoutType>("gallery");
+  const [voiceEffect, setVoiceEffect] = useState<VoiceEffectType>("none");
+  const [cameraBlurred, setCameraBlurred] = useState(false);
+  const [activePoll, setActivePoll] = useState<Poll | null>(null);
+  const [showPollCreator, setShowPollCreator] = useState(false);
+  const [showEffects, setShowEffects] = useState(false);
+  const [showQueue, setShowQueue] = useState(false);
+  const voiceEffectCleanupRef = useRef<(() => void) | null>(null);
 
   // Screen share tracks for all participants
   const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
@@ -481,6 +509,24 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
           return open;
         });
       })
+      .on("broadcast", { event: "poll_create" }, ({ payload }: { payload: Poll }) => {
+        setActivePoll(payload);
+        addEvent("📊", `${t("vroom.newPoll")}: ${payload.question}`);
+        if (payload.createdBy !== currentUserId) {
+          toast({ title: `📊 ${t("vroom.newPoll")}: ${payload.question}`, duration: 5000 });
+        }
+      })
+      .on("broadcast", { event: "poll_vote" }, ({ payload }: { payload: { pollId: string; optionIndex: number; voterId: string } }) => {
+        setActivePoll((prev) => {
+          if (!prev || prev.id !== payload.pollId) return prev;
+          if (prev.voterIds.includes(payload.voterId)) return prev;
+          const newVotes = { ...prev.votes, [payload.optionIndex]: (prev.votes[payload.optionIndex] || 0) + 1 };
+          return { ...prev, votes: newVotes, voterIds: [...prev.voterIds, payload.voterId] };
+        });
+      })
+      .on("broadcast", { event: "poll_close" }, () => {
+        setActivePoll((prev) => prev ? { ...prev, isActive: false } : null);
+      })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") broadcastChRef.current = ch;
       });
@@ -511,6 +557,156 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     broadcastChRef.current.send({ type: "broadcast", event: "chat_message", payload: msg });
     setChatInput("");
   };
+
+  // ── Voice effects ────────────────────────────────────────────────
+  const applyVoiceEffect = async (effect: VoiceEffectType) => {
+    if (voiceEffectCleanupRef.current) {
+      voiceEffectCleanupRef.current();
+      voiceEffectCleanupRef.current = null;
+      await localParticipant.setMicrophoneEnabled(false);
+    }
+    setVoiceEffect(effect);
+    if (effect === "none") {
+      await localParticipant.setMicrophoneEnabled(true);
+      return;
+    }
+    try {
+      const rawStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = new AudioContext();
+      const source = ctx.createMediaStreamSource(rawStream);
+      const dest = ctx.createMediaStreamDestination();
+
+      if (effect === "robot") {
+        const carrier = ctx.createOscillator();
+        carrier.frequency.value = 50;
+        carrier.start();
+        const ringGain = ctx.createGain();
+        carrier.connect(ringGain.gain);
+        source.connect(ringGain);
+        ringGain.connect(dest);
+        voiceEffectCleanupRef.current = () => { carrier.stop(); rawStream.getTracks().forEach((t) => t.stop()); ctx.close(); };
+      } else if (effect === "echo") {
+        const delay = ctx.createDelay(1.0);
+        delay.delayTime.value = 0.3;
+        const feedback = ctx.createGain();
+        feedback.gain.value = 0.4;
+        source.connect(dest);
+        source.connect(delay);
+        delay.connect(feedback);
+        feedback.connect(delay);
+        delay.connect(dest);
+        voiceEffectCleanupRef.current = () => { rawStream.getTracks().forEach((t) => t.stop()); ctx.close(); };
+      } else if (effect === "reverb") {
+        const convolver = ctx.createConvolver();
+        const len = ctx.sampleRate * 2;
+        const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+        for (let ch = 0; ch < 2; ch++) {
+          const d = buf.getChannelData(ch);
+          for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.5);
+        }
+        convolver.buffer = buf;
+        const wet = ctx.createGain(); wet.gain.value = 0.5;
+        const dry = ctx.createGain(); dry.gain.value = 0.5;
+        source.connect(convolver); convolver.connect(wet); wet.connect(dest);
+        source.connect(dry); dry.connect(dest);
+        voiceEffectCleanupRef.current = () => { rawStream.getTracks().forEach((t) => t.stop()); ctx.close(); };
+      } else if (effect === "deep") {
+        const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1800;
+        const modOsc = ctx.createOscillator(); modOsc.frequency.value = 5; modOsc.start();
+        const modGain = ctx.createGain(); modGain.gain.value = 0.2;
+        modOsc.connect(modGain.gain);
+        source.connect(lp); lp.connect(modGain); modGain.connect(dest);
+        voiceEffectCleanupRef.current = () => { modOsc.stop(); rawStream.getTracks().forEach((t) => t.stop()); ctx.close(); };
+      }
+
+      const processedTrack = dest.stream.getAudioTracks()[0];
+      const lkTrack = new LocalAudioTrack(processedTrack, undefined, false);
+      await localParticipant.publishTrack(lkTrack, { source: Track.Source.Microphone });
+      setMuted(false);
+      addEvent("🎙️", `${t("vroom.you")}: ${t("vroom.voiceEffect")} — ${effect}`);
+    } catch {
+      toast({ title: t("vroom.voiceEffectError"), variant: "destructive" });
+      setVoiceEffect("none");
+    }
+  };
+
+  // ── Camera background blur ────────────────────────────────────────
+  const toggleCameraBlur = async () => {
+    if (!isCameraEnabled) {
+      toast({ title: t("vroom.enableCameraFirst"), variant: "destructive" });
+      return;
+    }
+    const newVal = !cameraBlurred;
+    try {
+      const pub = localParticipant.getTrackPublication(Track.Source.Camera);
+      if (pub?.track?.mediaStreamTrack) {
+        await pub.track.mediaStreamTrack.applyConstraints({
+          advanced: [{ backgroundBlur: newVal } as MediaTrackConstraintSet],
+        });
+        setCameraBlurred(newVal);
+        addEvent("📷", `${t("vroom.you")}: ${newVal ? t("vroom.cameraBlurOn") : t("vroom.cameraBlurOff")}`);
+      }
+    } catch {
+      toast({ title: t("vroom.blurNotSupported"), variant: "destructive" });
+    }
+  };
+
+  // ── File share in chat ────────────────────────────────────────────
+  const shareFile = async (file: File) => {
+    const path = `rooms/${roomId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const { error } = await supabase.storage.from("voice-room-uploads").upload(path, file);
+    if (error) { toast({ title: t("vroom.uploadFailed"), variant: "destructive" }); return; }
+    const { data: { publicUrl } } = supabase.storage.from("voice-room-uploads").getPublicUrl(path);
+    const isImage = file.type.startsWith("image/");
+    const msg: ChatMessage = {
+      id: Math.random().toString(36).slice(2),
+      senderId: currentUserId,
+      senderName: localParticipant.name || currentUserId,
+      text: isImage ? `[img]${publicUrl}[/img]` : `[file]${file.name}|${publicUrl}[/file]`,
+      ts: Date.now(),
+    };
+    broadcastChRef.current?.send({ type: "broadcast", event: "chat_message", payload: msg });
+  };
+
+  // ── Poll actions ──────────────────────────────────────────────────
+  const handleCreatePoll = (question: string, options: string[]) => {
+    const poll: Poll = {
+      id: Math.random().toString(36).slice(2),
+      question,
+      options,
+      votes: {},
+      voterIds: [],
+      createdBy: currentUserId,
+      isActive: true,
+    };
+    broadcastChRef.current?.send({ type: "broadcast", event: "poll_create", payload: poll });
+    setShowPollCreator(false);
+  };
+
+  const handleVote = (pollId: string, optionIndex: number) => {
+    broadcastChRef.current?.send({
+      type: "broadcast", event: "poll_vote",
+      payload: { pollId, optionIndex, voterId: currentUserId },
+    });
+  };
+
+  const handleClosePoll = () => {
+    broadcastChRef.current?.send({ type: "broadcast", event: "poll_close", payload: {} });
+  };
+
+  // ── Featured speaker ──────────────────────────────────────────────
+  const featuredSpeaker = useMemo(() => {
+    if (layout !== "speaker") return null;
+    return participants.find((p) => p.isSpeaking) || null;
+  }, [participants, layout]);
+
+  // ── Speaker queue (raised hands with time) ────────────────────────
+  const speakerQueue = useMemo<QueueEntry[]>(() => {
+    return participants
+      .filter((p) => p.identity !== currentUserId && raisedHands.has(p.identity))
+      .map((p) => ({ id: p.identity, name: p.name || p.identity, raisedAt: Date.now() - 30000 }))
+      .slice(0, 10);
+  }, [participants, raisedHands, currentUserId]);
 
   const toggleMic = async () => {
     if (!roomPerms.mic && muted && !isOwner) {
@@ -757,40 +953,132 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         </div>
       )}
 
-      {/* Camera video grid — shown when any participant has camera on */}
-      {allCameraTracks.length > 0 && (
-        <div className={`grid gap-3 ${
-          allCameraTracks.length === 1 ? "grid-cols-1" :
-          allCameraTracks.length === 2 ? "grid-cols-2" :
-          allCameraTracks.length <= 4 ? "grid-cols-2" :
-          "grid-cols-3"
-        }`}>
-          {allCameraTracks.map((track) => {
-            const name = track.participant.name || track.participant.identity;
-            const isOwn = track.participant.identity === currentUserId;
-            const speaking = track.participant.isSpeaking;
-            return (
-              <div
-                key={track.participant.identity}
-                className={`relative aspect-video rounded-xl overflow-hidden bg-zinc-900 border-2 transition-all ${speaking ? "border-primary shadow-lg shadow-primary/20" : "border-zinc-700/50"}`}
-              >
-                <VideoTrack trackRef={track} className="w-full h-full object-cover" />
-                {/* Name badge */}
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 flex items-center gap-1.5">
-                  {speaking && (
-                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
-                      <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
-                    </span>
-                  )}
-                  <span className="text-xs font-semibold text-white truncate">
-                    {isOwn ? `${name} (${t("vroom.you")})` : name}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+      {/* Audience banner for non-stage users in stage mode */}
+      {isStageMode && !isOnStage && !isListener && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700">
+          <Crown className="h-4 w-4 shrink-0" />
+          <span className="text-sm font-medium">{t("vroom.youAreAudience")}</span>
         </div>
       )}
+      {isListener && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2.5 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
+          <Headphones className="h-4 w-4 shrink-0" />
+          <span className="text-sm font-medium">{t("vroom.youAreListener")}</span>
+        </div>
+      )}
+
+      {/* Live Poll */}
+      {(activePoll || showPollCreator) && (
+        <LivePollWidget
+          poll={activePoll}
+          isOwner={isOwner}
+          currentUserId={currentUserId}
+          showCreator={showPollCreator}
+          t={t}
+          onCreatePoll={handleCreatePoll}
+          onVote={handleVote}
+          onClosePoll={handleClosePoll}
+          onHideCreator={() => setShowPollCreator(false)}
+        />
+      )}
+
+      {/* Speaker Queue */}
+      {showQueue && isOwner && (
+        <SpeakerQueuePanel
+          queue={speakerQueue}
+          t={t}
+          onInvite={onPromoteToStage}
+          onClose={() => setShowQueue(false)}
+        />
+      )}
+
+      {/* Voice Effects Panel */}
+      {showEffects && (
+        <VoiceEffectsPanel
+          currentEffect={voiceEffect}
+          t={t}
+          onSelect={applyVoiceEffect}
+          onClose={() => setShowEffects(false)}
+          disabled={isListener}
+        />
+      )}
+
+      {/* Camera video grid — shown when any participant has camera on */}
+      {allCameraTracks.length > 0 && (() => {
+        const visibleTracks = layout === "cameras"
+          ? allCameraTracks
+          : allCameraTracks;
+
+        if (layout === "speaker" && featuredSpeaker) {
+          const featuredTrack = visibleTracks.find((t) => t.participant.identity === featuredSpeaker.identity);
+          const otherTracks = visibleTracks.filter((t) => t.participant.identity !== featuredSpeaker.identity);
+          return (
+            <div className="flex flex-col gap-3">
+              {featuredTrack && (
+                <div className="relative aspect-video rounded-xl overflow-hidden bg-zinc-900 border-2 border-primary shadow-lg shadow-primary/30">
+                  <VideoTrack trackRef={featuredTrack} className="w-full h-full object-cover" />
+                  <div className="absolute top-2 left-2">
+                    <Badge className="gap-1 text-xs bg-primary/80 backdrop-blur">
+                      <Volume2 className="h-3 w-3" /> {t("vroom.featuredSpeaker")}
+                    </Badge>
+                  </div>
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+                    <span className="text-sm font-semibold text-white">{featuredSpeaker.name || featuredSpeaker.identity}</span>
+                  </div>
+                </div>
+              )}
+              {otherTracks.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {otherTracks.map((track) => {
+                    const name = track.participant.name || track.participant.identity;
+                    return (
+                      <div key={track.participant.identity} className="relative flex-shrink-0 w-32 aspect-video rounded-lg overflow-hidden bg-zinc-900 border border-zinc-700/50">
+                        <VideoTrack trackRef={track} className="w-full h-full object-cover" />
+                        <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1 py-0.5">
+                          <span className="text-[10px] text-white truncate block">{name}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        return (
+          <div className={`grid gap-3 ${
+            visibleTracks.length === 1 ? "grid-cols-1" :
+            visibleTracks.length === 2 ? "grid-cols-2" :
+            visibleTracks.length <= 4 ? "grid-cols-2" :
+            "grid-cols-3"
+          }`}>
+            {visibleTracks.map((track) => {
+              const name = track.participant.name || track.participant.identity;
+              const isOwn = track.participant.identity === currentUserId;
+              const speaking = track.participant.isSpeaking;
+              return (
+                <div
+                  key={track.participant.identity}
+                  className={`relative aspect-video rounded-xl overflow-hidden bg-zinc-900 border-2 transition-all ${speaking ? "border-primary shadow-lg shadow-primary/20" : "border-zinc-700/50"}`}
+                >
+                  <VideoTrack trackRef={track} className="w-full h-full object-cover" />
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 flex items-center gap-1.5">
+                    {speaking && (
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
+                        <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
+                      </span>
+                    )}
+                    <span className="text-xs font-semibold text-white truncate">
+                      {isOwn ? `${name} (${t("vroom.you")})` : name}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Participants grid */}
       <div className="relative">
@@ -799,21 +1087,66 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
           <span className="text-sm font-medium text-muted-foreground">
             {participants.length} {t("vroom.participants")}
           </span>
+          {/* Layout selector */}
+          <div className="ms-auto flex items-center gap-1 rounded-lg border p-0.5">
+            {(["gallery", "speaker", "cameras"] as LayoutType[]).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLayout(l)}
+                title={t(`vroom.layout${l.charAt(0).toUpperCase() + l.slice(1)}`)}
+                className={`rounded px-2 py-1 text-xs transition-colors ${layout === l ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {l === "gallery" ? <LayoutGrid className="h-3.5 w-3.5" /> : l === "speaker" ? <Sparkles className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-          {participants.map((p) => (
-            <ParticipantTile
-              key={p.sid}
-              participant={p}
-              canModerate={canModerate}
-              isMe={p.identity === currentUserId}
-              isRaisingHand={raisedHands.has(p.identity)}
-              onKick={onKick}
-              onBan={onBan}
-              t={t}
-            />
-          ))}
-        </div>
+
+        {isStageMode ? (
+          <>
+            <div className="mb-2">
+              <p className="text-xs font-semibold text-primary mb-2 flex items-center gap-1.5">
+                <Crown className="h-3.5 w-3.5" /> {t("vroom.stageArea")}
+              </p>
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+                {participants.filter((p) => stageMembers.has(p.identity)).map((p) => (
+                  <ParticipantTile key={p.sid} participant={p} canModerate={canModerate} isMe={p.identity === currentUserId} isRaisingHand={raisedHands.has(p.identity)} onKick={onKick} onBan={onBan} t={t} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" /> {t("vroom.audienceArea")}
+              </p>
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+                {participants.filter((p) => !stageMembers.has(p.identity)).map((p) => (
+                  <ParticipantTile key={p.sid} participant={p} canModerate={canModerate} isMe={p.identity === currentUserId} isRaisingHand={raisedHands.has(p.identity)} onKick={onKick} onBan={onBan} t={t} />
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className={`grid gap-3 ${
+            layout === "gallery"
+              ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+              : layout === "cameras"
+              ? "grid-cols-2 sm:grid-cols-3"
+              : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+          }`}>
+            {participants.map((p) => (
+              <ParticipantTile
+                key={p.sid}
+                participant={p}
+                canModerate={canModerate}
+                isMe={p.identity === currentUserId}
+                isRaisingHand={raisedHands.has(p.identity)}
+                onKick={onKick}
+                onBan={onBan}
+                t={t}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Floating reactions overlay */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -875,17 +1208,42 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             {chatMessages.length === 0 && (
               <p className="text-center text-xs text-muted-foreground py-4">{t("vroom.chatEmpty")}</p>
             )}
-            {chatMessages.map((msg) => (
-              <div key={msg.id} className={`flex flex-col ${msg.senderId === currentUserId ? "items-end" : "items-start"}`}>
-                <span className="text-[10px] text-muted-foreground mb-0.5">{msg.senderName}</span>
-                <div className={`rounded-2xl px-3 py-1.5 text-sm max-w-[80%] ${msg.senderId === currentUserId ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm"}`}>
-                  {msg.text}
+            {chatMessages.map((msg) => {
+              const imgMatch = msg.text.match(/^\[img\](.*)\[\/img\]$/);
+              const fileMatch = msg.text.match(/^\[file\](.*)\|(.*)\[\/file\]$/);
+              return (
+                <div key={msg.id} className={`flex flex-col ${msg.senderId === currentUserId ? "items-end" : "items-start"}`}>
+                  <span className="text-[10px] text-muted-foreground mb-0.5">{msg.senderName}</span>
+                  {imgMatch ? (
+                    <a href={imgMatch[1]} target="_blank" rel="noopener noreferrer">
+                      <img src={imgMatch[1]} alt="shared" className="max-w-[200px] max-h-[150px] rounded-xl object-cover border" />
+                    </a>
+                  ) : fileMatch ? (
+                    <a href={fileMatch[2]} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 transition-colors">
+                      <ImageIcon className="h-4 w-4 text-primary" />
+                      <span className="underline">{fileMatch[1]}</span>
+                    </a>
+                  ) : (
+                    <div className={`rounded-2xl px-3 py-1.5 text-sm max-w-[80%] ${msg.senderId === currentUserId ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm"}`}>
+                      {msg.text}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div ref={chatEndRef} />
           </div>
           <div className="border-t p-2 flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept="image/*,application/pdf,text/plain"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) shareFile(f); e.target.value = ""; }}
+            />
+            <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={() => fileInputRef.current?.click()} title={t("vroom.uploadFile")}>
+              <Upload className="h-4 w-4" />
+            </Button>
             <input
               className="flex-1 rounded-lg border bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/40"
               placeholder={t("vroom.chatPlaceholder")}
@@ -963,6 +1321,26 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             <Settings2 className="h-4 w-4 text-primary" />
             {t("vroom.roomControls")}
           </p>
+          {/* Stage mode toggle */}
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Crown className="h-4 w-4" />
+              {t("vroom.stageMode")}
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isStageMode}
+              onClick={async () => {
+                const newMode = isStageMode ? "conversation" : "stage";
+                await supabase.from("voice_rooms").update({ room_mode: newMode }).eq("id", roomId);
+                addEvent(isStageMode ? "🎙️" : "🏛️", `${t("vroom.you")}: ${t(isStageMode ? "vroom.stageModeOff" : "vroom.stageModeOn")}`);
+              }}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${isStageMode ? "bg-primary" : "bg-muted-foreground/30"}`}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform ${isStageMode ? "translate-x-5" : "translate-x-0"}`} />
+            </button>
+          </div>
           {([
             { key: "mic" as const,    label: t("vroom.allowMic"),         icon: Mic },
             { key: "camera" as const, label: t("vroom.allowCamera"),      icon: Video },
@@ -1096,6 +1474,69 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             <span className="text-[10px] text-muted-foreground">{t("vroom.audioShare")}</span>
           </div>
         )}
+        {/* Voice Effects */}
+        {!isListener && (
+          <Button
+            size="lg"
+            variant="outline"
+            className={`h-14 w-14 rounded-full p-0 transition-colors ${showEffects || voiceEffect !== "none" ? "bg-indigo-500 border-indigo-500 text-white" : ""}`}
+            onClick={() => setShowEffects((v) => !v)}
+            aria-label={t("vroom.voiceEffects")}
+            title={t("vroom.voiceEffects")}
+          >
+            <Sparkles className="h-6 w-6" />
+          </Button>
+        )}
+
+        {/* Camera blur */}
+        {isCameraEnabled && (
+          <Button
+            size="lg"
+            variant="outline"
+            className={`h-14 w-14 rounded-full p-0 transition-colors ${cameraBlurred ? "bg-slate-500 border-slate-500 text-white" : ""}`}
+            onClick={toggleCameraBlur}
+            aria-label={cameraBlurred ? t("vroom.cameraBlurOn") : t("vroom.cameraBlurOff")}
+            title={cameraBlurred ? t("vroom.cameraBlurOn") : t("vroom.cameraBlurOff")}
+          >
+            <ImageIcon className="h-6 w-6" />
+          </Button>
+        )}
+
+        {/* Live Poll */}
+        {isOwner && (
+          <Button
+            size="lg"
+            variant="outline"
+            className={`h-14 w-14 rounded-full p-0 transition-colors ${showPollCreator || activePoll ? "bg-green-500 border-green-500 text-white" : ""}`}
+            onClick={() => setShowPollCreator((v) => !v)}
+            aria-label={t("vroom.createPoll")}
+            title={t("vroom.createPoll")}
+          >
+            <BarChart2 className="h-6 w-6" />
+          </Button>
+        )}
+
+        {/* Speaker Queue (owner, stage mode) */}
+        {isOwner && isStageMode && (
+          <div className="relative">
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-14 w-14 rounded-full p-0 transition-colors ${showQueue ? "bg-amber-500 border-amber-500 text-white" : ""}`}
+              onClick={() => setShowQueue((v) => !v)}
+              aria-label={t("vroom.speakerQueue")}
+              title={t("vroom.speakerQueue")}
+            >
+              <Users2 className="h-6 w-6" />
+            </Button>
+            {speakerQueue.length > 0 && !showQueue && (
+              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+                {speakerQueue.length}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Notifications toggle */}
         <div className="relative">
           <Button
@@ -1526,6 +1967,15 @@ export default function VoiceRoom() {
   const [connectionLost, setConnectionLost] = useState(false);
   const [connectionKey, setConnectionKey] = useState(0);
   const [roomPerms, setRoomPerms] = useState<RoomPerms>({ camera: true, mic: true, chat: true, screen: true });
+  // New advanced feature state
+  const [roomMode, setRoomMode] = useState<"conversation" | "stage">("conversation");
+  const [roomPassword, setRoomPassword] = useState<string | null>(null);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [isListener, setIsListener] = useState(false);
+  const [isOnStage, setIsOnStage] = useState(false);
+  const [stageMembers, setStageMembers] = useState<Set<string>>(new Set());
+  const [pendingJoin, setPendingJoin] = useState(false);
+  const joinTimeRef = useRef<number>(Date.now());
 
   const leftIntentionally = useRef(false);
   const roomTopicRef = useRef(roomTopic);
@@ -1617,7 +2067,7 @@ export default function VoiceRoom() {
     const getToken = async () => {
       const { data: room } = await supabase
         .from("voice_rooms")
-        .select("room_name, room_topic, is_private, owner_id, join_cost_vx, is_default, is_active, allow_camera, allow_mic, allow_chat, allow_screen_share")
+        .select("room_name, room_topic, is_private, owner_id, join_cost_vx, is_default, is_active, allow_camera, allow_mic, allow_chat, allow_screen_share, room_mode, room_password")
         .eq("id", roomId)
         .single();
 
@@ -1644,6 +2094,10 @@ export default function VoiceRoom() {
         chat: room.allow_chat ?? true,
         screen: room.allow_screen_share ?? true,
       });
+      const mode = (room as { room_mode?: string }).room_mode as "conversation" | "stage" | undefined;
+      const pwd = (room as { room_password?: string | null }).room_password ?? null;
+      setRoomMode(mode || "conversation");
+      setRoomPassword(pwd);
 
       const { data: ban } = await supabase
         .from("voice_room_bans")
@@ -1667,6 +2121,16 @@ export default function VoiceRoom() {
       if (!existingMember && room.owner_id !== user.id && room.join_cost_vx > 0) {
         const ok = await spendVX(room.join_cost_vx, "voice_room_join", roomId, roomId);
         if (!ok) { navigate("/community"); return; }
+      }
+
+      // Show join modal for password/stage mode (skip for owner and existing members)
+      const hasPassword = !!pwd;
+      const isStageRoom = (mode || "conversation") === "stage";
+      if ((hasPassword || isStageRoom) && room.owner_id !== user.id && !existingMember) {
+        setLoading(false);
+        setPendingJoin(true);
+        setShowJoinModal(true);
+        return;
       }
 
       // Upsert with raise_hand reset on (re)join
@@ -1788,8 +2252,107 @@ export default function VoiceRoom() {
     return () => { supabase.removeChannel(ch); };
   }, [roomId, token]);
 
+  const handleJoinConfirmed = async (joinMode: "speaker" | "listener", password?: string) => {
+    if (!user || !roomId) return;
+    // Validate password
+    if (roomPassword && password !== roomPassword) {
+      toast({ title: t("vroom.wrongPassword"), variant: "destructive" });
+      return;
+    }
+    const listenerMode = joinMode === "listener";
+    setIsListener(listenerMode);
+    setShowJoinModal(false);
+    setPendingJoin(false);
+    joinTimeRef.current = Date.now();
+    // Upsert membership
+    await supabase.from("voice_room_members").upsert(
+      { room_id: roomId, user_id: user.id, raise_hand: false, is_listener: listenerMode },
+      { onConflict: "room_id,user_id" }
+    );
+    // Fetch token
+    const { data, error: fnErr } = await supabase.functions.invoke("livekit-token", {
+      body: { roomId, userId: user.id, userName: user.user_metadata?.display_name || user.email },
+    });
+    if (fnErr || !data?.token) {
+      setError(fnErr?.message || t("vroom.tokenError"));
+    } else {
+      setToken(data.token);
+    }
+    setLoading(false);
+  };
+
+  const handlePromoteToStage = async (userId: string) => {
+    if (!roomId) return;
+    await supabase.from("voice_room_members").update({ is_on_stage: true }).eq("room_id", roomId).eq("user_id", userId);
+    setStageMembers((prev) => new Set([...prev, userId]));
+    const participant = stageMembers;
+    toast({ title: t("vroom.promotedToStage").replace("{name}", userId) });
+  };
+
+  const handleDemoteFromStage = async (userId: string) => {
+    if (!roomId) return;
+    await supabase.from("voice_room_members").update({ is_on_stage: false }).eq("room_id", roomId).eq("user_id", userId);
+    setStageMembers((prev) => { const s = new Set(prev); s.delete(userId); return s; });
+    toast({ title: t("vroom.demotedFromStage").replace("{name}", userId) });
+  };
+
+  // Load stage members + realtime
+  useEffect(() => {
+    if (!roomId || !token) return;
+    supabase
+      .from("voice_room_members")
+      .select("user_id, is_on_stage")
+      .eq("room_id", roomId)
+      .eq("is_on_stage", true)
+      .then(({ data }) => {
+        if (data) setStageMembers(new Set(data.map((m) => m.user_id)));
+      });
+    // Owner is always on stage
+    if (ownerId) setStageMembers((prev) => new Set([...prev, ownerId]));
+    // Current user on stage if owner
+    if (user && user.id === ownerId) setIsOnStage(true);
+    const ch = supabase
+      .channel(`room-stage-${roomId}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "voice_room_members", filter: `room_id=eq.${roomId}` }, (payload) => {
+        const updated = payload.new as { user_id?: string; is_on_stage?: boolean; room_mode?: string };
+        if (!updated.user_id) return;
+        setStageMembers((prev) => {
+          const s = new Set(prev);
+          if (updated.is_on_stage) s.add(updated.user_id!);
+          else s.delete(updated.user_id!);
+          return s;
+        });
+        if (updated.user_id === user?.id) setIsOnStage(!!updated.is_on_stage);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [roomId, token, ownerId, user]);
+
+  // Subscribe to room_mode changes
+  useEffect(() => {
+    if (!roomId || !token) return;
+    const ch = supabase
+      .channel(`room-mode-${roomId}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "voice_rooms", filter: `id=eq.${roomId}` }, (payload) => {
+        const u = payload.new as { room_mode?: string };
+        if (u.room_mode) setRoomMode(u.room_mode as "conversation" | "stage");
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [roomId, token]);
+
   const handleLeave = async () => {
     leftIntentionally.current = true;
+    // VX rewards: 1 VX per 5 minutes, max 20
+    const minutes = Math.floor((Date.now() - joinTimeRef.current) / 60000);
+    const vxToAward = Math.min(Math.floor(minutes / 5), 20);
+    if (vxToAward > 0) {
+      toast({ title: t("vroom.vxEarned").replace("{vx}", String(vxToAward)), duration: 5000 });
+      // Attempt RPC grant (non-blocking)
+      supabase.rpc("grant_vx_to_user" as never, { user_id: user?.id, amount: vxToAward, reason: "voice_room_participation" } as never).catch(() => {});
+    } else if (minutes > 0) {
+      toast({ title: t("vroom.vxMinimum"), duration: 3000 });
+    }
     await cleanup();
     navigate("/community");
   };
@@ -1815,6 +2378,21 @@ export default function VoiceRoom() {
       },
     });
   }, [roomId, user]);
+
+  // Show join modal (password / stage mode choice)
+  if (showJoinModal) {
+    return (
+      <Layout>
+        <JoinModal
+          roomName={roomName}
+          hasPassword={!!roomPassword}
+          isStageMode={roomMode === "stage"}
+          t={t}
+          onJoin={handleJoinConfirmed}
+        />
+      </Layout>
+    );
+  }
 
   if (authLoading || loading || adminLoading) {
     return (
@@ -2016,6 +2594,13 @@ export default function VoiceRoom() {
                   roomPerms={roomPerms}
                   onUpdatePerms={handleUpdatePerms}
                   t={t}
+                  isOnStage={isOnStage || isOwner}
+                  isListener={isListener}
+                  isStageMode={roomMode === "stage"}
+                  stageMembers={stageMembers}
+                  onPromoteToStage={handlePromoteToStage}
+                  onDemoteFromStage={handleDemoteFromStage}
+                  joinTimeRef={joinTimeRef}
                 />
               </LiveKitRoom>
             )}
