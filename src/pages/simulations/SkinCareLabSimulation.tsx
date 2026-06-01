@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -10,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, RotateCcw, DollarSign, Star, Heart, Sparkles, ShieldCheck, Droplets } from "lucide-react";
+import { CheckCircle2, RotateCcw, DollarSign, Star, Heart, Sparkles, ShieldCheck, Droplets, ArrowLeft } from "lucide-react";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { useAuth } from "@/contexts/AuthContext";

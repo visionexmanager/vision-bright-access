@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -9,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, Plane, Hotel, UtensilsCrossed, ShoppingBag, RotateCcw, Star, ArrowRight, MessageCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Plane, Hotel, UtensilsCrossed, ShoppingBag, RotateCcw, Star, ArrowRight, MessageCircle, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";

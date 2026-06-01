@@ -137,7 +137,10 @@ export default function Services() {
     if (!user) { toast({ title: t("services.loginRequired"), variant: "destructive" }); return; }
     // Trial users play simulations free
     if (isOnTrial) { navigate(`/business-simulator/${sim.slug}`); return; }
-    const ok = await spendVX(SIMULATION_PRICES.singleSession, "simulation", sim.title, sim.id);
+    // Difficulty multiplier: Beginner=1x, Intermediate=1.2x, Advanced=1.5x
+    const diffMult = sim.difficulty === "Advanced" ? 1.5 : sim.difficulty === "Intermediate" ? 1.2 : 1.0;
+    const cost = Math.round(SIMULATION_PRICES.singleSession * diffMult);
+    const ok = await spendVX(cost, "simulation", sim.title, sim.id);
     if (ok) navigate(`/business-simulator/${sim.slug}`);
   };
 
@@ -280,7 +283,7 @@ export default function Services() {
                             <span className="flex items-center gap-1 text-xs font-semibold text-primary">
                               <Coins className="h-3.5 w-3.5" aria-hidden="true" />
                               <span className="sr-only">{t("services.cost")}</span>
-                              {formatVX(SIMULATION_PRICES.singleSession)}
+                              {isOnTrial ? "🎁 " + t("games.trialPlay") : formatVX(Math.round(SIMULATION_PRICES.singleSession * (sim.difficulty === "Advanced" ? 1.5 : sim.difficulty === "Intermediate" ? 1.2 : 1.0)))}
                             </span>
                             <Button
                               size="sm"

@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrial } from "@/hooks/useTrial";
 import { useAchievements } from "@/hooks/useAchievements";
 import { useAmbientSound, getSimulationAmbient } from "@/hooks/useAmbientSound";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +14,7 @@ import { SimulationProjectBrief } from "@/components/SimulationProjectBrief";
 import { SimulationProjectReport } from "@/components/SimulationProjectReport";
 import { getSimulationComponent, hasCustomComponent } from "@/pages/simulations/registry";
 import { SIM_PROJECTS } from "@/data/simulationProjects";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Gift, Clock, Star, Zap } from "lucide-react";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
 type Simulation = {
@@ -50,6 +52,7 @@ export default function SimulationRunner() {
   const { user } = useAuth();
   const { checkAndUnlock } = useAchievements();
 
+  const { isOnTrial, trialDaysLeft } = useTrial();
   const [simulation, setSimulation] = useState<Simulation | null>(null);
   const [progress, setProgress] = useState<SimProgress | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
@@ -190,12 +193,20 @@ export default function SimulationRunner() {
     return (
       <Layout>
         <section className="container mx-auto max-w-2xl px-4 py-10">
-          <Button asChild variant="ghost" className="mb-6">
-            <Link to="/business-simulator">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              {t("bsim.backToList")}
-            </Link>
-          </Button>
+          <div className="flex items-center justify-between mb-6">
+            <Button asChild variant="ghost">
+              <Link to="/services">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                {t("bsim.backToList")}
+              </Link>
+            </Button>
+            {isOnTrial && (
+              <Badge className="gap-1.5 bg-primary/10 text-primary border-primary/30">
+                <Gift className="h-3.5 w-3.5" />
+                {t("sim.trialUnlocked")}
+              </Badge>
+            )}
+          </div>
 
           {project ? (
             <SimulationProjectBrief
@@ -261,9 +272,47 @@ export default function SimulationRunner() {
   // Active simulation phase — render custom component
   if (slug && hasCustomComponent(slug)) {
     const CustomSim = getSimulationComponent(slug)!;
+    const diffColor = simulation.difficulty === "Beginner"
+      ? "bg-green-500/15 text-green-600 border-green-500/30"
+      : simulation.difficulty === "Intermediate"
+      ? "bg-yellow-500/15 text-yellow-600 border-yellow-500/30"
+      : "bg-red-500/15 text-red-600 border-red-500/30";
+
     return (
       <Layout>
-        <section className="section-container py-10">
+        {/* Trial banner */}
+        {isOnTrial && (
+          <div className="w-full bg-primary/10 border-b border-primary/20 px-4 py-2 flex items-center justify-center gap-2 text-xs font-semibold text-primary">
+            <Gift className="h-3.5 w-3.5" />
+            {t("sim.trialUnlocked")} · {trialDaysLeft} {t("liveTV.days")}
+          </div>
+        )}
+
+        <section className="section-container py-6">
+          {/* Simulation status bar */}
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <Button asChild variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
+              <Link to="/services">
+                <ArrowLeft className="h-4 w-4" />
+                {t("bsim.backToList")}
+              </Link>
+            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-base font-bold truncate max-w-[200px]">{simulation.title}</h1>
+              <Badge variant="outline" className={`text-xs ${diffColor}`}>
+                {simulation.difficulty}
+              </Badge>
+              <Badge variant="outline" className="text-xs gap-1">
+                <Clock className="h-3 w-3" />
+                {simulation.estimated_duration}m
+              </Badge>
+              <Badge variant="outline" className="text-xs gap-1 text-primary border-primary/30">
+                <Star className="h-3 w-3" />
+                {simulation.points} VX
+              </Badge>
+            </div>
+          </div>
+
           <Suspense
             fallback={
               <div className="flex min-h-[30vh] items-center justify-center">
