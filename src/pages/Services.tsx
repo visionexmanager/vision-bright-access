@@ -11,6 +11,7 @@ import {
   ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video,
   Coins, Scissors, Scale, Stethoscope, Brain, Sparkles, Users,
   Dumbbell, Plane, ScanLine, Globe, Cpu, CheckCircle, Clock, Trophy, FileText,
+  Tv, Radio, Play,
 } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
 import { Link, useNavigate } from "react-router-dom";
@@ -293,6 +294,99 @@ export default function Services() {
                 })}
               </StaggerGrid>
             )}
+          </AnimatedSection>
+        )}
+
+        {/* ── Media Services: VisionTV & VisionRadio ──────────────── */}
+        {(activeCategory === "all" || activeCategory === "learning") && (
+          <AnimatedSection className="mb-12">
+            <div className="mb-6">
+              <div aria-hidden="true" className="mb-1 inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                <Play className="h-3.5 w-3.5" /> {t("services.mediaTitle") || "بث مباشر"}
+              </div>
+              <h2 className="text-2xl font-bold text-foreground">{t("services.mediaHeading") || "قنوات وإذاعات مباشرة"}</h2>
+              <p className="mt-1 text-muted-foreground max-w-xl">{t("services.mediaDesc") || "شاهد القنوات التلفزيونية واستمع للإذاعات من مصادرها الرسمية مجاناً"}</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* VisionTV */}
+              <Link to="/services/live-tv" onClick={() => playSound("navigate")} className="group block">
+                <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-blue-950/80 via-blue-900/60 to-slate-900 p-6 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 hover:-translate-y-1 border-blue-500/20">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/20 border border-blue-400/30">
+                          <Tv className="h-6 w-6 text-blue-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-extrabold text-white">VisionTV</h3>
+                          <span className="flex items-center gap-1 text-[10px] text-blue-300/80">
+                            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                            {t("services.liveNow") || "بث مباشر الآن"}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-blue-200/70 leading-relaxed max-w-xs">
+                        {t("services.tvDesc") || "160+ قناة عربية وعالمية • أخبار • رياضة • ترفيه • دينية • أطفال وأكثر"}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {["إخبارية","خليجية","رياضية","ترفيهية","دولية"].map(cat => (
+                          <span key={cat} className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-medium text-blue-300 border border-blue-500/20">{cat}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="shrink-0 opacity-10 group-hover:opacity-20 transition-opacity">
+                      <Tv className="h-24 w-24 text-blue-300" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="rounded-full bg-green-500/20 border border-green-400/30 px-3 py-1 text-xs font-bold text-green-400">
+                      {t("services.free") || "مجاني • من المصدر الرسمي"}
+                    </span>
+                    <ArrowRight className="h-5 w-5 text-blue-400 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </Link>
+
+              {/* VisionRadio */}
+              <Link to="/services/live-radio" onClick={() => playSound("navigate")} className="group block">
+                <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-orange-950/80 via-orange-900/50 to-slate-900 p-6 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/20 hover:-translate-y-1 border-orange-500/20">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-500/20 border border-orange-400/30">
+                          <Radio className="h-6 w-6 text-orange-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-extrabold text-white">VisionRadio</h3>
+                          <span className="flex items-center gap-1 text-[10px] text-orange-300/80">
+                            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                            {t("services.liveNow") || "بث مباشر الآن"}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-orange-200/70 leading-relaxed max-w-xs">
+                        {t("services.radioDesc") || "100+ محطة إذاعية • قرآن كريم • موسيقى • أخبار • دولية وأكثر"}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {["قرآنية","موسيقى","إخبارية","خليجية","دولية"].map(cat => (
+                          <span key={cat} className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-medium text-orange-300 border border-orange-500/20">{cat}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="shrink-0 opacity-10 group-hover:opacity-20 transition-opacity">
+                      <Radio className="h-24 w-24 text-orange-300" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="rounded-full bg-green-500/20 border border-green-400/30 px-3 py-1 text-xs font-bold text-green-400">
+                      {t("services.free") || "مجاني • من المصدر الرسمي"}
+                    </span>
+                    <ArrowRight className="h-5 w-5 text-orange-400 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </Link>
+            </div>
           </AnimatedSection>
         )}
 
