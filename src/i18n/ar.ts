@@ -4171,6 +4171,39 @@ const ar: Record<string, string> = {
   "sim.noc.report.budget": "الميزانية",
   "sim.noc.incident.chooseResponse": "اختر الرد:",
   "community.opening": "يفتح قريباً…",
+
+  // Services page — media section
+  "services.mediaTitle":   "بث مباشر",
+  "services.mediaHeading": "تلفزيون وراديو مباشر",
+  "services.mediaDesc":    "شاهد القنوات التلفزيونية واستمع للإذاعات من مصادرها الرسمية مجاناً",
+  "services.liveNow":      "بث مباشر الآن",
+  "services.tvDesc":       "160+ قناة عربية وعالمية · رياضة · أفلام · أخبار · أطفال",
+  "services.radioDesc":    "100+ محطة إذاعية · قرآن كريم · موسيقى · أخبار · دولية",
+  "services.free":         "مجاني · من المصدر الرسمي",
+
+  // VisionTV
+  "liveTV.heroDesc":            "بث مباشر لمئات القنوات العربية والعالمية · رياضة · أفلام · أخبار",
+  "liveTV.subscribeNow":        "شاهد الآن",
+  "liveTV.activeSubscription":  "اشتراك نشط",
+  "liveTV.day":                 "يوم متبقي",
+  "liveTV.days":                "أيام متبقية",
+  "liveTV.featured":            "القنوات المميزة",
+  "liveTV.searchPlaceholder":   "ابحث عن قناة…",
+  "liveTV.all":                 "الكل",
+  "liveTV.loading":             "جاري تحميل القنوات…",
+  "liveTV.noResults":           "لا توجد قنوات مطابقة للبحث",
+
+  // VisionRadio
+  "liveRadio.heroDesc":           "بث مباشر لمئات المحطات الإذاعية · أخبار · موسيقى · قرآن · رياضة",
+  "liveRadio.subscribeNow":       "استمع الآن",
+  "liveRadio.activeSubscription": "اشتراك نشط",
+  "liveRadio.day":                "يوم متبقي",
+  "liveRadio.days":               "أيام متبقية",
+  "liveRadio.featured":           "المحطات المميزة",
+  "liveRadio.searchPlaceholder":  "ابحث عن محطة…",
+  "liveRadio.all":                "الكل",
+  "liveRadio.loading":            "جاري تحميل المحطات…",
+  "liveRadio.noResults":          "لا توجد محطات مطابقة للبحث",
 };
 
 export default ar;

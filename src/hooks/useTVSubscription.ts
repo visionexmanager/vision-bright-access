@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrial } from "@/hooks/useTrial";
 import { toast } from "sonner";
 
 export type TVSubscription = {
@@ -54,6 +55,7 @@ export type TVPlan = {
 export function useTVSubscription() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isOnTrial } = useTrial();
 
   const { data: subscription, isLoading: subLoading } = useQuery<TVSubscription | null>({
     queryKey: ["tv-subscription", user?.id],
@@ -107,7 +109,7 @@ export function useTVSubscription() {
     },
   });
 
-  const isSubscribed = !!(
+  const isSubscribed = isOnTrial || !!(
     subscription &&
     subscription.status === "active" &&
     new Date(subscription.expires_at) > new Date()

@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrial } from "@/hooks/useTrial";
 import { toast } from "sonner";
 
 export type RadioSubscription = {
@@ -55,6 +56,7 @@ export type RadioPlan = {
 export function useRadioSubscription() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isOnTrial } = useTrial();
 
   const { data: subscription, isLoading: subLoading } = useQuery<RadioSubscription | null>({
     queryKey: ["radio-subscription", user?.id],
@@ -108,7 +110,7 @@ export function useRadioSubscription() {
     },
   });
 
-  const isSubscribed = !!(
+  const isSubscribed = isOnTrial || !!(
     subscription &&
     subscription.status === "active" &&
     new Date(subscription.expires_at) > new Date()

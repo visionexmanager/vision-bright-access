@@ -4153,6 +4153,39 @@ const en: Record<string, string> = {
 
   // Community countdown
   "community.opening": "Opening…",
+
+  // Services page — media section
+  "services.mediaTitle":   "Live Streaming",
+  "services.mediaHeading": "Live TV & Radio",
+  "services.mediaDesc":    "Watch TV channels and listen to radio stations from their official sources — free",
+  "services.liveNow":      "Live Now",
+  "services.tvDesc":       "160+ Arabic & international channels · Sports · Movies · News · Kids",
+  "services.radioDesc":    "100+ radio stations · Quran · Music · News · International",
+  "services.free":         "Free · From Official Source",
+
+  // VisionTV
+  "liveTV.heroDesc":            "Live stream of hundreds of Arabic & international channels · Sports · Movies · News",
+  "liveTV.subscribeNow":        "Watch Now",
+  "liveTV.activeSubscription":  "Active",
+  "liveTV.day":                 "day remaining",
+  "liveTV.days":                "days remaining",
+  "liveTV.featured":            "Featured Channels",
+  "liveTV.searchPlaceholder":   "Search channels…",
+  "liveTV.all":                 "All",
+  "liveTV.loading":             "Loading channels…",
+  "liveTV.noResults":           "No channels match your search",
+
+  // VisionRadio
+  "liveRadio.heroDesc":           "Live stream of hundreds of radio stations · News · Music · Quran · Sports",
+  "liveRadio.subscribeNow":       "Listen Now",
+  "liveRadio.activeSubscription": "Active",
+  "liveRadio.day":                "day remaining",
+  "liveRadio.days":               "days remaining",
+  "liveRadio.featured":           "Featured Stations",
+  "liveRadio.searchPlaceholder":  "Search stations…",
+  "liveRadio.all":                "All",
+  "liveRadio.loading":            "Loading stations…",
+  "liveRadio.noResults":          "No stations match your search",
 };
 
 export default en;
