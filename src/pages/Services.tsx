@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { simulationImages } from "@/data/simulationImages";
 import { SIMULATION_PRICES } from "@/systems/pricingSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
+import { useTrial } from "@/hooks/useTrial";
 import { toast } from "@/hooks/use-toast";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
@@ -95,6 +96,7 @@ export default function Services() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { spendVX } = useVXWallet();
+  const { isOnTrial } = useTrial();
   const uid = useId();
 
   const [activeCategory, setActiveCategory] = useState<Category>("all");
@@ -133,6 +135,8 @@ export default function Services() {
 
   const handleStartSim = async (sim: SimRow) => {
     if (!user) { toast({ title: t("services.loginRequired"), variant: "destructive" }); return; }
+    // Trial users play simulations free
+    if (isOnTrial) { navigate(`/business-simulator/${sim.slug}`); return; }
     const ok = await spendVX(SIMULATION_PRICES.singleSession, "simulation", sim.title, sim.id);
     if (ok) navigate(`/business-simulator/${sim.slug}`);
   };

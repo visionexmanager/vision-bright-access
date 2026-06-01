@@ -5,7 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useGameSounds } from "@/hooks/useGameSounds";
-import { useState, useCallback, useEffect } from "react";
+import { useHighScore } from "@/hooks/useHighScore";
+import { GameHeader } from "@/components/game/GameHeader";
+import { HowToPlay } from "@/components/game/HowToPlay";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import heroImg from "@/assets/game-jungle.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
@@ -13,33 +16,54 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 
-const SCENARIOS = [
-  { text: "jungle.scene1", choices: [{ key: "jungle.s1c1", hp: -10, score: 20 }, { key: "jungle.s1c2", hp: 5, score: 10 }] },
-  { text: "jungle.scene2", choices: [{ key: "jungle.s2c1", hp: -20, score: 30 }, { key: "jungle.s2c2", hp: -5, score: 15 }] },
-  { text: "jungle.scene3", choices: [{ key: "jungle.s3c1", hp: 10, score: 25 }, { key: "jungle.s3c2", hp: -15, score: 35 }] },
-  { text: "jungle.scene4", choices: [{ key: "jungle.s4c1", hp: -25, score: 40 }, { key: "jungle.s4c2", hp: 0, score: 20 }] },
-  { text: "jungle.scene5", choices: [{ key: "jungle.s5c1", hp: -10, score: 50 }, { key: "jungle.s5c2", hp: 5, score: 30 }] },
+// All 20 scenarios (5 original + 15 new)
+const ALL_SCENARIOS = [
+  { text: "jungle.scene1",  choices: [{ key: "jungle.s1c1",  hp: -10, score: 20 }, { key: "jungle.s1c2",  hp: 5,   score: 10 }] },
+  { text: "jungle.scene2",  choices: [{ key: "jungle.s2c1",  hp: -20, score: 30 }, { key: "jungle.s2c2",  hp: -5,  score: 15 }] },
+  { text: "jungle.scene3",  choices: [{ key: "jungle.s3c1",  hp: 10,  score: 25 }, { key: "jungle.s3c2",  hp: -15, score: 35 }] },
+  { text: "jungle.scene4",  choices: [{ key: "jungle.s4c1",  hp: -25, score: 40 }, { key: "jungle.s4c2",  hp: 0,   score: 20 }] },
+  { text: "jungle.scene5",  choices: [{ key: "jungle.s5c1",  hp: -10, score: 50 }, { key: "jungle.s5c2",  hp: 5,   score: 30 }] },
+  { text: "jungle.scene6",  choices: [{ key: "jungle.s6c1",  hp: 5,   score: 25 }, { key: "jungle.s6c2",  hp: 0,   score: 10 }] },
+  { text: "jungle.scene7",  choices: [{ key: "jungle.s7c1",  hp: -5,  score: 40 }, { key: "jungle.s7c2",  hp: 10,  score: 20 }] },
+  { text: "jungle.scene8",  choices: [{ key: "jungle.s8c1",  hp: 15,  score: 45 }, { key: "jungle.s8c2",  hp: -5,  score: 15 }] },
+  { text: "jungle.scene9",  choices: [{ key: "jungle.s9c1",  hp: 10,  score: 30 }, { key: "jungle.s9c2",  hp: -5,  score: 35 }] },
+  { text: "jungle.scene10", choices: [{ key: "jungle.s10c1", hp: -20, score: 30 }, { key: "jungle.s10c2", hp: 0,   score: 20 }] },
+  { text: "jungle.scene11", choices: [{ key: "jungle.s11c1", hp: 5,   score: 30 }, { key: "jungle.s11c2", hp: -25, score: 40 }] },
+  { text: "jungle.scene12", choices: [{ key: "jungle.s12c1", hp: 20,  score: 35 }, { key: "jungle.s12c2", hp: -15, score: 20 }] },
+  { text: "jungle.scene13", choices: [{ key: "jungle.s13c1", hp: 10,  score: 25 }, { key: "jungle.s13c2", hp: -10, score: 30 }] },
+  { text: "jungle.scene14", choices: [{ key: "jungle.s14c1", hp: 15,  score: 30 }, { key: "jungle.s14c2", hp: 5,   score: 20 }] },
+  { text: "jungle.scene15", choices: [{ key: "jungle.s15c1", hp: 20,  score: 20 }, { key: "jungle.s15c2", hp: -5,  score: 30 }] },
+  { text: "jungle.scene16", choices: [{ key: "jungle.s16c1", hp: 5,   score: 40 }, { key: "jungle.s16c2", hp: 0,   score: 10 }] },
+  { text: "jungle.scene17", choices: [{ key: "jungle.s17c1", hp: 5,   score: 30 }, { key: "jungle.s17c2", hp: -20, score: 35 }] },
+  { text: "jungle.scene18", choices: [{ key: "jungle.s18c1", hp: 20,  score: 50 }, { key: "jungle.s18c2", hp: 0,   score: 10 }] },
+  { text: "jungle.scene19", choices: [{ key: "jungle.s19c1", hp: -10, score: 40 }, { key: "jungle.s19c2", hp: 0,   score: 15 }] },
+  { text: "jungle.scene20", choices: [{ key: "jungle.s20c1", hp: 30,  score: 60 }, { key: "jungle.s20c2", hp: 5,   score: 40 }] },
 ];
+
+// Pick 8 random scenarios per game
+function pickScenarios(seed = Math.random()) {
+  const all = [...ALL_SCENARIOS];
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(seed * (i + 1)) % (i + 1);
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return all.slice(0, 8);
+}
+
+const SCENARIOS = ALL_SCENARIOS; // kept for multiplayer compatibility
 
 type Choice = { hp: number; score: number };
 
 function JungleBoard({
-  step,
-  hp,
-  score,
-  gameOver,
-  onChoose,
-  onRestart,
+  step, hp, score, gameOver, onChoose, onRestart, scenarios,
 }: {
-  step: number;
-  hp: number;
-  score: number;
-  gameOver: boolean;
-  onChoose: (choice: Choice) => void;
-  onRestart?: () => void;
+  step: number; hp: number; score: number; gameOver: boolean;
+  onChoose: (choice: Choice) => void; onRestart?: () => void;
+  scenarios?: typeof ALL_SCENARIOS;
 }) {
   const { t } = useLanguage();
-  const scene = SCENARIOS[Math.min(step, SCENARIOS.length - 1)];
+  const pool = scenarios ?? SCENARIOS;
+  const scene = pool[Math.min(step, pool.length - 1)];
 
   return (
     <>
@@ -77,6 +101,8 @@ function JungleBoard({
 function JungleSolo() {
   const { playSound } = useSound();
   const { jungleSwish, jungleDanger, jungleSuccess, jungleFail } = useGameSounds();
+  const { highScore, updateHighScore } = useHighScore("jungle");
+  const [scenarios, setScenarios] = useState(() => pickScenarios());
   const [step, setStep] = useState(0);
   const [hp, setHp] = useState(100);
   const [score, setScore] = useState(0);
@@ -87,14 +113,24 @@ function JungleSolo() {
     setHp(newHp);
     setScore((s) => s + choice.score);
     jungleSwish();
-    if (newHp <= 0) { setGameOver(true); setTimeout(jungleDanger, 200); return; }
-    if (step + 1 >= SCENARIOS.length) { setGameOver(true); setTimeout(jungleSuccess, 200); return; }
+    if (newHp <= 0) {
+      updateHighScore(score + choice.score);
+      setGameOver(true); setTimeout(jungleDanger, 200); return;
+    }
+    if (step + 1 >= scenarios.length) {
+      updateHighScore(score + choice.score);
+      setGameOver(true); setTimeout(jungleSuccess, 200); return;
+    }
     setStep((s) => s + 1);
     setTimeout(choice.hp >= 0 ? jungleSuccess : jungleFail, 150);
-  }, [hp, step, playSound]);
+  }, [hp, step, scenarios, score, playSound]);
 
-  const restart = () => { setStep(0); setHp(100); setScore(0); setGameOver(false); jungleSwish(); };
-  return <JungleBoard step={step} hp={hp} score={score} gameOver={gameOver} onChoose={choose} onRestart={restart} />;
+  const restart = () => {
+    setScenarios(pickScenarios());
+    setStep(0); setHp(100); setScore(0); setGameOver(false);
+    jungleSwish();
+  };
+  return <JungleBoard step={step} hp={hp} score={score} gameOver={gameOver} onChoose={choose} onRestart={restart} scenarios={scenarios} />;
 }
 
 function JungleMulti() {
@@ -159,6 +195,7 @@ function JungleMulti() {
 
 export default function JungleSurvival() {
   const { t } = useLanguage();
+  const { highScore } = useHighScore("jungle");
   const [mode, setMode] = useState<"solo" | "multi">("solo");
 
   return (
@@ -167,10 +204,20 @@ export default function JungleSurvival() {
         <div className="relative mb-6 overflow-hidden rounded-2xl">
           <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4 text-center">
+          <div className="absolute bottom-4 start-4 end-4 text-center">
             <h1 className="text-3xl font-bold">🌴 {t("jungle.title")}</h1>
           </div>
         </div>
+        <GameHeader
+          title={t("jungle.title")}
+          highScore={highScore}
+          extra={
+            <HowToPlay
+              titleKey="jungle.title"
+              steps={["jungle.howTo.1","jungle.howTo.2","jungle.howTo.3","jungle.howTo.4"]}
+            />
+          }
+        />
         <div className="flex rounded-lg overflow-hidden border mb-6">
           <button onClick={() => setMode("solo")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
           <button onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
