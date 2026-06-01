@@ -11,7 +11,7 @@ import {
   ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video,
   Coins, Scissors, Scale, Stethoscope, Brain, Sparkles, Users,
   Dumbbell, Plane, ScanLine, Globe, Cpu, CheckCircle, Clock, Trophy, FileText,
-  Tv, Radio, Play,
+  Tv, Radio, Play, MapPin,
 } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
 import { Link, useNavigate } from "react-router-dom";
@@ -66,7 +66,7 @@ const LEARNING_SERVICES = [
   { icon: Sparkles,    name: "svc.skinTitle",          desc: "svc.skinDesc",          vx: 800,     to: "/services/skin-care",           color: "bg-orange-500/10 text-orange-600 dark:text-orange-400" },    // $0.80
   { icon: Users,       name: "svc.socialTitle",        desc: "svc.socialDesc",        vx: 1_000,   to: "/services/social-guide",        color: "bg-teal-500/10 text-teal-600 dark:text-teal-400" },          // $1
   { icon: Truck,       name: "delivery.serviceTitle",  desc: "delivery.serviceDesc",  vx: 1_500,   to: "/services/delivery",            color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" },          // $1.50
-  { icon: Plane,       name: "svc.travelTitle",        desc: "svc.travelDesc",        vx: 500,     to: "/services/shared-trip",         color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" },          // $0.50
+  { icon: MapPin,      name: "delivery.tripTitle",     desc: "delivery.tripDesc",     vx: 500,     to: "/services/shared-trip",         color: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" },    // $0.50
   { icon: Dumbbell,    name: "svc.sportsTitle",        desc: "svc.sportsDesc",        vx: 2_000,   to: "/services/sports-coach",        color: "bg-lime-500/10 text-lime-600 dark:text-lime-400" },          // $2
   { icon: Heart,       name: "oasis.serviceTitle",     desc: "oasis.serviceDesc",     vx: 3_000,   to: "/services/empathy-oasis",       color: "bg-rose-500/10 text-rose-600 dark:text-rose-400" },          // $3
   { icon: Heart,       name: "nutrition.serviceTitle", desc: "nutrition.serviceDesc", vx: 4_000,   to: "/services/nutrition",           color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" }, // $4
@@ -161,7 +161,7 @@ export default function Services() {
           <div className="relative mb-8 overflow-hidden rounded-2xl">
             <img src={servicesImg} alt="" role="presentation" className="h-48 w-full object-cover sm:h-56" loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-            <div className="absolute bottom-6 left-6 right-6">
+            <div className="absolute bottom-6 start-6 end-6">
               <h1 id="services-heading" className="text-3xl font-bold text-foreground">{t("services.title")}</h1>
               <p className="mt-1 text-lg text-muted-foreground">{t("services.subtitle")}</p>
             </div>

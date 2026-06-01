@@ -4162,6 +4162,10 @@ const en: Record<string, string> = {
   // Community countdown
   "community.opening": "Opening…",
 
+  // Shared trip service
+  "delivery.tripTitle": "Shared Trip",
+  "delivery.tripDesc":  "Plan and share a trip route with friends or family",
+
   // Academy page
   "academy.step1.title":   "What's your name?",
   "academy.step1.sub":     "Tell us your name to get started",

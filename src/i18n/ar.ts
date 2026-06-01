@@ -4188,6 +4188,10 @@ const ar: Record<string, string> = {
   "services.tagQuran":          "قرآنية",
   "services.tagMusic":          "موسيقى",
 
+  // Shared trip service
+  "delivery.tripTitle": "رحلة مشتركة",
+  "delivery.tripDesc":  "خطط ووزّع مسار رحلة مع الأصدقاء أو العائلة",
+
   // Academy page
   "academy.step1.title":   "ما اسمك؟",
   "academy.step1.sub":     "أخبرنا باسمك للبدء",

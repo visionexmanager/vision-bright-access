@@ -1,10 +1,19 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap');
+/* ── Fonts ─────────────────────────────────────────────────────────────────
+   Load multilingual fonts:
+   • Space Grotesk  — latin headings (clean, modern)
+   • Inter          — latin body text
+   • Cairo          — Arabic UI + headings (excellent Arabic rendering)
+   • Noto Sans Devanagari — Hindi/Urdu script support
+   All fonts are display=swap so text shows immediately with fallback
+   ──────────────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Cairo:wght@400;500;600;700;900&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  /* ── Light theme ─────────────────────────────────────────────────────── */
   :root {
     --background: 210 20% 98%;
     --foreground: 220 20% 12%;
@@ -24,8 +33,8 @@
     --muted: 210 14% 95%;
     --muted-foreground: 220 10% 38%;
 
-    --accent: 38 92% 50%;
-    --accent-foreground: 220 20% 12%;
+    --accent: 172 40% 92%;
+    --accent-foreground: 172 66% 22%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
@@ -44,8 +53,12 @@
     --sidebar-accent-foreground: 220 20% 12%;
     --sidebar-border: 210 14% 89%;
     --sidebar-ring: 172 66% 32%;
+
+    /* Theme transition speed */
+    --theme-transition: 0.25s ease;
   }
 
+  /* ── Dark theme ──────────────────────────────────────────────────────── */
   .dark {
     --background: 220 20% 7%;
     --foreground: 210 14% 93%;
@@ -65,8 +78,8 @@
     --muted: 220 16% 16%;
     --muted-foreground: 210 10% 58%;
 
-    --accent: 38 92% 50%;
-    --accent-foreground: 220 20% 7%;
+    --accent: 172 30% 18%;
+    --accent-foreground: 172 60% 65%;
 
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -85,6 +98,7 @@
     --sidebar-ring: 172 60% 42%;
   }
 
+  /* ── High Contrast theme ─────────────────────────────────────────────── */
   .high-contrast {
     --background: 0 0% 0%;
     --foreground: 0 0% 100%;
@@ -104,8 +118,8 @@
     --muted: 0 0% 12%;
     --muted-foreground: 0 0% 80%;
 
-    --accent: 54 100% 50%;
-    --accent-foreground: 0 0% 0%;
+    --accent: 54 100% 25%;
+    --accent-foreground: 54 100% 90%;
 
     --destructive: 0 100% 60%;
     --destructive-foreground: 0 0% 0%;
@@ -126,60 +140,171 @@
 }
 
 @layer base {
+  /* ── Global reset ─────────────────────────────────────────────────────── */
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
 
+  /* Smooth theme transitions — applied to common layout elements only,
+     NOT to * (which would make every hover/active state sluggish) */
+  html,
+  body,
+  .bg-background,
+  .bg-card,
+  .bg-muted,
+  nav,
+  footer,
+  main {
+    transition:
+      background-color var(--theme-transition),
+      border-color var(--theme-transition),
+      color var(--theme-transition);
+  }
+
+  /* ── Body ──────────────────────────────────────────────────────────────── */
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', 'Noto Sans Devanagari', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+    /* Latin: Inter. Arabic/Urdu: Cairo. Hindi: Noto Sans Devanagari. Fallbacks. */
+    font-family: 'Inter', 'Cairo', 'Noto Sans Devanagari', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
     font-size: 16px;
     line-height: 1.65;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Prevent font-size inflation on mobile */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
-  @media (min-width: 1024px) {
-    body { font-size: 17px; }
-  }
+  /* Slightly larger text on large screens for readability */
+  @media (min-width: 1024px) { body { font-size: 17px; } }
+  @media (min-width: 1280px) { body { font-size: 18px; } }
 
-  @media (min-width: 1280px) {
-    body { font-size: 18px; }
-  }
-
+  /* ── Headings ───────────────────────────────────────────────────────────── */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', 'Noto Sans Devanagari', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+    /* Latin headings: Space Grotesk. Arabic headings: Cairo (900 weight = bold). */
+    font-family: 'Space Grotesk', 'Cairo', 'Noto Sans Devanagari', 'PingFang SC', system-ui, sans-serif;
     font-weight: 700;
-    letter-spacing: -0.02em;
     line-height: 1.2;
+    /* letter-spacing only for Latin — Arabic script must NOT have tracking */
+    letter-spacing: -0.01em;
   }
 
-  /* Smooth transitions globally */
-  a, button, input, textarea, select {
+  /* In RTL (Arabic/Urdu), disable letter-spacing — it breaks Arabic ligatures */
+  [dir="rtl"] h1,
+  [dir="rtl"] h2,
+  [dir="rtl"] h3,
+  [dir="rtl"] h4,
+  [dir="rtl"] h5,
+  [dir="rtl"] h6 {
+    letter-spacing: 0;
+    font-family: 'Cairo', system-ui, sans-serif;
+    font-weight: 700;
+  }
+
+  /* Arabic body text needs more line-height for readability */
+  [dir="rtl"] body,
+  [dir="rtl"] p,
+  [dir="rtl"] li,
+  [dir="rtl"] span {
+    line-height: 1.85;
+    font-family: 'Cairo', system-ui, sans-serif;
+  }
+
+  /* ── Smooth transitions on interactive elements ──────────────────────── */
+  a, button {
     @apply transition-colors duration-150;
   }
 
-  /* Enhanced focus indicators for accessibility */
+  /* Input/textarea — no transition-colors (causes flash on autofill) */
+  input, textarea, select {
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  /* ── Accessible focus indicators ─────────────────────────────────────── */
   *:focus-visible {
     @apply outline-none ring-[3px] ring-ring ring-offset-2 ring-offset-background;
   }
 
-  /* Skip to content link */
+  /* ── Skip to content link (uses logical properties for RTL) ──────────── */
   .skip-link {
-    @apply absolute -top-full left-4 z-50 bg-primary text-primary-foreground px-6 py-3 rounded-b-lg font-semibold text-lg;
-    transition: top 0.2s;
+    @apply absolute z-50 bg-primary text-primary-foreground px-6 py-3 rounded-b-lg font-semibold text-lg;
+    /* Use inset-inline-start so it works in both LTR and RTL */
+    inset-inline-start: 1rem;
+    top: -100px;
+    transition: top 0.2s ease;
   }
   .skip-link:focus {
-    @apply top-0;
+    top: 0;
+  }
+
+  /* ── Custom scrollbar (webkit) — subtle, brand-colored ──────────────── */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+    border: 2px solid hsl(var(--muted));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.6);
+  }
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) hsl(var(--muted));
+  }
+
+  /* ── Text selection color ─────────────────────────────────────────────── */
+  ::selection {
+    background: hsl(var(--primary) / 0.2);
+    color: hsl(var(--foreground));
+  }
+  ::-moz-selection {
+    background: hsl(var(--primary) / 0.2);
+    color: hsl(var(--foreground));
+  }
+
+  /* ── Images ────────────────────────────────────────────────────────────── */
+  img {
+    max-width: 100%;
+    height: auto;
+    /* Prevent layout shift while images load */
+    display: block;
+  }
+
+  /* ── Tables ─────────────────────────────────────────────────────────────── */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  /* ── Print styles ────────────────────────────────────────────────────────── */
+  @media print {
+    nav, footer, .skip-link, [aria-hidden="true"] {
+      display: none !important;
+    }
+    body {
+      font-size: 12pt;
+      background: white;
+      color: black;
+    }
   }
 }
 
-/* ── Simulation scene animations ────────────────────────────────────── */
+/* ── Simulation scene animations ────────────────────────────────────────── */
 @keyframes sim-drift-up {
-  0%   { transform: translateY(0px)   scale(1);   opacity: 0.85; }
-  60%  { transform: translateY(-55px) scale(1.1); opacity: 0.9;  }
-  100% { transform: translateY(-110px) scale(0.7); opacity: 0;   }
+  0%   { transform: translateY(0px)    scale(1);   opacity: 0.85; }
+  60%  { transform: translateY(-55px)  scale(1.1); opacity: 0.9;  }
+  100% { transform: translateY(-110px) scale(0.7); opacity: 0;    }
 }
 @keyframes sim-drift-r {
   0%   { transform: translateX(0px);   }
@@ -192,11 +317,11 @@
   75%       { transform: translateX(14px) translateY(-3px); }
 }
 @keyframes sim-bob {
-  0%, 100% { transform: translateY(0px);   }
-  50%       { transform: translateY(-7px);  }
+  0%, 100% { transform: translateY(0px);  }
+  50%       { transform: translateY(-7px); }
 }
 @keyframes sim-float-up {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  0%, 100% { transform: translateY(0px) rotate(0deg);   }
   50%       { transform: translateY(-14px) rotate(5deg); }
 }
 @keyframes sim-sway {
@@ -224,8 +349,41 @@
   100% { transform: translateY(-80px) scale(0.5); opacity: 0; }
 }
 
+/* ── AnimatedSection — optimised will-change handling ───────────────────── */
 @layer utilities {
-  /* Utility for consistent section spacing */
+  /* Only promote to GPU layer when animation is about to start,
+     not permanently (which wastes GPU memory on static pages) */
+  [data-anim] {
+    opacity: 0;
+    transition: opacity 0.45s ease, transform 0.45s ease;
+  }
+  [data-anim="fade-up"]    { transform: translateY(24px); }
+  [data-anim="scale-fade"] { transform: scale(0.96); }
+  [data-anim="slide-left"] { transform: translateX(-30px); }
+  [data-anim="slide-right"]{ transform: translateX(30px); }
+
+  /* will-change only when animation is running — removed after */
+  [data-anim]:not(.anim-visible) {
+    will-change: opacity, transform;
+  }
+
+  [data-anim].anim-visible {
+    opacity: 1 !important;
+    transform: none !important;
+    will-change: auto;
+  }
+
+  /* Respect reduced-motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    [data-anim] {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+      will-change: auto !important;
+    }
+  }
+
+  /* ── Section layout utilities ───────────────────────────────────────── */
   .section-padding {
     @apply px-4 py-16 sm:px-6 lg:px-8;
   }
@@ -237,5 +395,30 @@
   }
   .section-container {
     @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  /* ── Text balance for headings ──────────────────────────────────────── */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* ── Line-clamp utilities ───────────────────────────────────────────── */
+  .line-clamp-1 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
+  .line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .line-clamp-3 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+
+  /* ── Gradient text utility ──────────────────────────────────────────── */
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* ── Glass card utility ─────────────────────────────────────────────── */
+  .glass {
+    background: hsl(var(--card) / 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 }
