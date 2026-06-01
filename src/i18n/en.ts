@@ -33,6 +33,9 @@ const en: Record<string, string> = {
   "home.pointsTitle": "Start free — explore everything",
   "home.pointsDesc": "Sign up and get a full 30-day free trial with access to all features. After your trial, earn VX coins through activities or purchase them to keep going.",
   "home.claimPoints": "Start your free trial",
+  "home.highlight.trial":       "30-day free trial",
+  "home.highlight.noCard":      "No credit card needed",
+  "home.highlight.allFeatures": "All features included",
   "home.howTitle": "How It Works",
   "home.step1": "Sign Up",
   "home.step1d": "Create your free account and instantly unlock a 30-day free trial — no payment required.",
@@ -4153,6 +4156,62 @@ const en: Record<string, string> = {
 
   // Community countdown
   "community.opening": "Opening…",
+
+  // TV/Radio hook toast messages
+  "tv.toast.loginRequired":     "Please log in first",
+  "tv.toast.subError":          "Subscription error: {msg}",
+  "tv.toast.alreadySubscribed": "You already have an active subscription",
+  "tv.toast.insufficientVX":    "Insufficient VX balance",
+  "tv.toast.planNotFound":      "Subscription plan not found",
+  "tv.toast.notAuthenticated":  "Please log in first",
+  "tv.toast.subFailed":         "Subscription failed",
+  "tv.toast.subscribed":        "Subscribed! {vx} VX deducted",
+  "tv.toast.streamError":       "Could not access stream: {msg}",
+  "tv.toast.subExpired":        "Your subscription has expired, please renew",
+  "tv.toast.channelNotFound":   "This channel is not available",
+  "tv.toast.stationNotFound":   "This station is not available",
+  "tv.toast.streamFailed":      "Could not play this channel",
+
+  // Navbar — media & rooms
+  "nav.voiceRooms":  "Voice Rooms",
+  "nav.liveTV":      "VisionTV",
+  "nav.liveRadio":   "VisionRadio",
+
+  // Dashboard — quick links
+  "dash.quickLinks":          "Quick Access",
+  "dash.voiceRoomsLink":      "Voice Rooms",
+  "dash.voiceRoomsLinkDesc":  "Join or create a live voice room",
+  "dash.tvLink":              "VisionTV",
+  "dash.tvLinkDesc":          "Watch live TV channels",
+  "dash.radioLink":           "VisionRadio",
+  "dash.radioLinkDesc":       "Listen to live radio stations",
+  "dash.playGamesLink":       "Games",
+  "dash.playGamesLinkDesc":   "Play and earn VX coins",
+
+  // Voice Rooms page
+  "vrooms.title":          "Voice Rooms",
+  "vrooms.subtitle":       "Join a live room or create your own",
+  "vrooms.create":         "Create Room",
+  "vrooms.empty":          "No rooms available right now",
+  "vrooms.emptyDesc":      "Be the first — create a new voice room!",
+  "vrooms.loading":        "Loading rooms…",
+  "vrooms.members":        "{n} member",
+  "vrooms.membersPlural":  "{n} members",
+  "vrooms.join":           "Join",
+  "vrooms.locked":         "Private",
+  "vrooms.stageMode":      "Stage",
+  "vrooms.searchPlaceholder": "Search rooms…",
+  "vrooms.owner":          "Owner",
+  "vrooms.live":           "Live",
+
+  // Services page — category tags for media cards
+  "services.tagNews":           "News",
+  "services.tagGulf":           "Gulf",
+  "services.tagSports":         "Sports",
+  "services.tagEntertainment":  "Entertainment",
+  "services.tagInternational":  "International",
+  "services.tagQuran":          "Quran",
+  "services.tagMusic":          "Music",
 
   // Services page — media section
   "services.mediaTitle":   "Live Streaming",

@@ -3,7 +3,7 @@ import { AdBanner } from "@/components/AdBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowRight, Eye, ShoppingBag, BookOpen, Sparkles, UserPlus, Zap, Gift, TrendingUp } from "lucide-react";
+import { ArrowRight, Eye, ShoppingBag, BookOpen, Sparkles, UserPlus, Zap, Gift, TrendingUp, Tv, Radio, Mic2, Gamepad2, CheckCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSound } from "@/contexts/SoundContext";
@@ -21,6 +21,10 @@ export default function Index() {
     { icon: ShoppingBag, title: t("home.feature.marketplace"), desc: t("home.feature.marketplaceDesc"), to: "/bazaar" },
     { icon: Eye, title: t("home.feature.services"), desc: t("home.feature.servicesDesc"), to: "/services" },
     { icon: BookOpen, title: t("home.feature.content"), desc: t("home.feature.contentDesc"), to: "/content" },
+    { icon: Tv, title: t("nav.liveTV"), desc: t("services.tvDesc"), to: "/services/live-tv" },
+    { icon: Radio, title: t("nav.liveRadio"), desc: t("services.radioDesc"), to: "/services/live-radio" },
+    { icon: Mic2, title: t("nav.voiceRooms"), desc: t("vrooms.subtitle"), to: "/community/voice-rooms" },
+    { icon: Gamepad2, title: t("nav.games"), desc: t("home.feature.contentDesc"), to: "/games" },
   ];
 
   const steps = [
@@ -47,7 +51,24 @@ export default function Index() {
             {t("home.title")}
             <span className="text-primary">{t("home.titleHighlight")}</span>
           </h1>
-          <p className="mb-8 text-lg text-muted-foreground sm:text-xl">{t("home.subtitle")}</p>
+          <p className="mb-6 text-lg text-muted-foreground sm:text-xl">{t("home.subtitle")}</p>
+
+          {/* Trial & highlights */}
+          {!user && (
+            <div className="mb-8 flex flex-wrap items-center justify-center gap-3 text-sm">
+              {[
+                t("home.highlight.trial"),
+                t("home.highlight.noCard"),
+                t("home.highlight.allFeatures"),
+              ].map(h => (
+                <span key={h} className="flex items-center gap-1.5 text-muted-foreground">
+                  <CheckCircle className="h-4 w-4 text-primary shrink-0" />
+                  {h}
+                </span>
+              ))}
+            </div>
+          )}
+
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             {user ? (
               <Link to="/dashboard">
@@ -94,19 +115,20 @@ export default function Index() {
           <AnimatedSection>
             <h2 id="features-heading" className="mb-10 text-center text-3xl font-bold">{t("home.featuresTitle")}</h2>
           </AnimatedSection>
-          <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((f, i) => {
               const Icon = f.icon;
+              const isFirst = i === 0;
               return (
-                <StaggerItem key={f.title} className={i === 0 ? "sm:col-span-2 lg:col-span-1" : ""}>
+                <StaggerItem key={f.title} className={isFirst ? "sm:col-span-2 lg:col-span-2" : ""}>
                   <Link to={f.to} className="group" onClick={() => playSound("navigate")}>
-                    <Card className={`h-full transition-shadow hover:shadow-lg group-focus-visible:ring-4 group-focus-visible:ring-ring ${i === 0 ? "bg-primary/5 border-primary/20" : ""}`}>
-                      <CardContent className={`flex flex-col items-start gap-4 ${i === 0 ? "p-10" : "p-8"}`}>
-                        <div className={`rounded-xl ${i === 0 ? "bg-primary/15 p-4" : "bg-primary/10 p-3"}`}>
-                          <Icon className={`text-primary ${i === 0 ? "h-10 w-10" : "h-8 w-8"}`} aria-hidden="true" />
+                    <Card className={`h-full transition-shadow hover:shadow-lg group-focus-visible:ring-4 group-focus-visible:ring-ring ${isFirst ? "bg-primary/5 border-primary/20" : ""}`}>
+                      <CardContent className={`flex flex-col items-start gap-3 ${isFirst ? "p-8" : "p-6"}`}>
+                        <div className={`rounded-xl ${isFirst ? "bg-primary/15 p-4" : "bg-primary/10 p-3"}`}>
+                          <Icon className={`text-primary ${isFirst ? "h-9 w-9" : "h-7 w-7"}`} aria-hidden="true" />
                         </div>
-                        <h3 className={`font-bold ${i === 0 ? "text-2xl" : "text-xl"}`}>{f.title}</h3>
-                        <p className="text-muted-foreground">{f.desc}</p>
+                        <h3 className={`font-bold ${isFirst ? "text-2xl" : "text-lg"}`}>{f.title}</h3>
+                        <p className={`text-muted-foreground ${isFirst ? "" : "text-sm"}`}>{f.desc}</p>
                       </CardContent>
                     </Card>
                   </Link>

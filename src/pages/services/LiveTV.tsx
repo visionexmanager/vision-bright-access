@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tv, Search, Star, Lock, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useTVSubscription } from "@/hooks/useTVSubscription";
+import { useTrial } from "@/hooks/useTrial";
 import { ChannelCard } from "@/components/tv/ChannelCard";
 import { TVSubscriptionStatus } from "@/components/tv/TVSubscriptionStatus";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -21,6 +22,9 @@ export default function LiveTV() {
     subscription, isSubscribed, daysRemaining,
     channels, categories, isLoading,
   } = useTVSubscription();
+  const { isOnTrial, trialDaysLeft } = useTrial();
+  // Show trial days when no paid subscription
+  const displayDays = subscription ? daysRemaining : (isOnTrial ? trialDaysLeft : 0);
 
   const [query,      setQuery]      = useState("");
   const [activeSlug, setActiveSlug] = useState<string>("all");
@@ -72,7 +76,7 @@ export default function LiveTV() {
 
             {isSubscribed ? (
               <Badge className="bg-green-500/20 text-green-300 border-green-500/40 text-sm px-4 py-2">
-                ✓ {t("liveTV.activeSubscription")} · {daysRemaining} {t(daysRemaining === 1 ? "liveTV.day" : "liveTV.days")}
+                ✓ {isOnTrial && !subscription ? t("home.highlight.trial") : t("liveTV.activeSubscription")} · {displayDays} {t(displayDays === 1 ? "liveTV.day" : "liveTV.days")}
               </Badge>
             ) : (
               <Button asChild size="lg" className="bg-blue-500 hover:bg-blue-400 text-white font-bold shadow-lg shadow-blue-500/30">

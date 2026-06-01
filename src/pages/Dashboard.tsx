@@ -26,8 +26,13 @@ import {
   ShoppingCart,
   Sparkles,
   Trophy,
+  Mic2,
+  Tv,
+  Radio,
+  Gamepad2,
 } from "lucide-react";
 import { format } from "date-fns";
+import { ar as arLocale, enUS, es, de, pt, zhCN, tr, fr, ru } from "date-fns/locale";
 import { toast } from "@/hooks/use-toast";
 import dashboardImg from "@/assets/dashboard-illustration.jpg";
 
@@ -60,11 +65,16 @@ function translateReason(reason: string, t: (key: string) => string): string {
   return reason;
 }
 
+const DATE_LOCALES: Record<string, Locale> = {
+  ar: arLocale, es, de, pt, zh: zhCN, tr, fr, ru,
+  en: enUS, ur: arLocale, hi: enUS,
+};
+
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const { totalPoints, history, loadingTotal, loadingHistory } = usePoints();
   const { earnPoints, checkDailyLogin, getTodayAdCount } = useEarnPoints();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { playSound } = useSound();
   const [showAd, setShowAd] = useState(false);
   const [todayAdCount, setTodayAdCount] = useState<number>(0);
@@ -231,6 +241,36 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
+        {/* Quick Access */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Sparkles className="h-6 w-6 text-primary" aria-hidden="true" />
+              {t("dash.quickLinks")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { icon: Mic2,     to: "/community",          label: t("dash.voiceRoomsLink"),  desc: t("dash.voiceRoomsLinkDesc"),  color: "text-violet-500" },
+                { icon: Tv,       to: "/services/live-tv",   label: t("dash.tvLink"),           desc: t("dash.tvLinkDesc"),           color: "text-blue-500" },
+                { icon: Radio,    to: "/services/live-radio", label: t("dash.radioLink"),        desc: t("dash.radioLinkDesc"),        color: "text-orange-500" },
+                { icon: Gamepad2, to: "/games",              label: t("dash.playGamesLink"),    desc: t("dash.playGamesLinkDesc"),    color: "text-green-500" },
+              ].map((item) => (
+                <Link key={item.to} to={item.to} onClick={() => playSound("navigate")} className="group block">
+                  <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center transition-all hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5">
+                    <div className="rounded-xl bg-primary/10 p-3">
+                      <item.icon className={`h-6 w-6 ${item.color}`} aria-hidden="true" />
+                    </div>
+                    <p className="text-sm font-bold">{item.label}</p>
+                    <p className="text-xs text-muted-foreground leading-tight">{item.desc}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Leaderboard link */}
         <Link to="/leaderboard" className="mb-8 block">
           <Card className="transition-shadow hover:shadow-lg">
@@ -350,7 +390,7 @@ export default function Dashboard() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-base text-muted-foreground">
-                        {format(new Date(entry.created_at), "MMM d, yyyy")}
+                        {format(new Date(entry.created_at), "MMM d, yyyy", { locale: DATE_LOCALES[lang] ?? enUS })}
                       </TableCell>
                     </TableRow>
                   ))}

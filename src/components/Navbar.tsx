@@ -6,7 +6,7 @@ import { useSound } from "@/contexts/SoundContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX } from "lucide-react";
+import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX, Mic2, Tv, Radio } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useUnreadCount } from "@/hooks/useMessages";
 import { usePoints } from "@/hooks/usePoints";
@@ -77,6 +77,9 @@ export function Navbar() {
     { to: "/services", label: t("nav.services") },
     { to: "/content", label: t("nav.content") },
     { to: "/community", label: t("nav.community") },
+    { to: "/community/voice-rooms", label: t("nav.voiceRooms") },
+    { to: "/services/live-tv", label: t("nav.liveTV") },
+    { to: "/services/live-radio", label: t("nav.liveRadio") },
     { to: "/games", label: t("nav.games") },
     { to: "/assistive-products", label: t("nav.assistiveProducts") },
     { to: "/professional-tools", label: t("nav.professionalTools") },
@@ -112,6 +115,14 @@ export function Navbar() {
         { to: "/professional-tools", label: t("nav.professionalTools") },
         { to: "/news", label: t("nav.news") },
         { to: "/contact", label: t("nav.contact") },
+      ],
+    },
+    {
+      label: t("nav.explore"),
+      links: [
+        { to: "/community/voice-rooms", label: t("nav.voiceRooms") },
+        { to: "/services/live-tv",      label: t("nav.liveTV") },
+        { to: "/services/live-radio",   label: t("nav.liveRadio") },
       ],
     },
   ];

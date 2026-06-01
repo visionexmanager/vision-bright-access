@@ -47,6 +47,7 @@ const BusinessEconomy = lazy(() => import("./pages/BusinessEconomy"));
 const NutritionExpert = lazy(() => import("./pages/NutritionExpert"));
 const Community = lazy(() => import("./pages/Community"));
 const VoiceRoom = lazy(() => import("./pages/VoiceRoom"));
+const VoiceRooms = lazy(() => import("./pages/VoiceRooms"));
 const CoinsStore = lazy(() => import("./pages/CoinsStore"));
 const News = lazy(() => import("./pages/News"));
 const Messages = lazy(() => import("./pages/Messages"));
@@ -231,7 +232,9 @@ function AppRoutes() {
                     <Route path="/games/velocity-racing" element={<VelocityXRacing />} />
                     <Route path="/games/akinator" element={<Akinator />} />
                     <Route path="/community" element={<Community />} />
+                    <Route path="/community/voice-rooms" element={<VoiceRooms />} />
                     <Route path="/community/room/:roomId" element={<VoiceRoom />} />
+                    <Route path="/community/voice-room/:roomId" element={<VoiceRoom />} />
                     <Route path="/coins-store" element={<CoinsStore />} />
                     <Route path="/news" element={<News />} />
                     <Route path="/messages" element={<Messages />} />

@@ -330,7 +330,7 @@ export default function Services() {
                         {t("services.tvDesc") || "160+ قناة عربية وعالمية • أخبار • رياضة • ترفيه • دينية • أطفال وأكثر"}
                       </p>
                       <div className="flex flex-wrap gap-1.5 pt-1">
-                        {["إخبارية","خليجية","رياضية","ترفيهية","دولية"].map(cat => (
+                        {[t("services.tagNews"), t("services.tagGulf"), t("services.tagSports"), t("services.tagEntertainment"), t("services.tagInternational")].map(cat => (
                           <span key={cat} className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-medium text-blue-300 border border-blue-500/20">{cat}</span>
                         ))}
                       </div>
@@ -369,7 +369,7 @@ export default function Services() {
                         {t("services.radioDesc") || "100+ محطة إذاعية • قرآن كريم • موسيقى • أخبار • دولية وأكثر"}
                       </p>
                       <div className="flex flex-wrap gap-1.5 pt-1">
-                        {["قرآنية","موسيقى","إخبارية","خليجية","دولية"].map(cat => (
+                        {[t("services.tagQuran"), t("services.tagMusic"), t("services.tagNews"), t("services.tagGulf"), t("services.tagInternational")].map(cat => (
                           <span key={cat} className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-medium text-orange-300 border border-orange-500/20">{cat}</span>
                         ))}
                       </div>

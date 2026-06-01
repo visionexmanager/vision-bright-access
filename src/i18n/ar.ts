@@ -4170,7 +4170,66 @@ const ar: Record<string, string> = {
   "sim.noc.btn.playAgain": "العب مرة أخرى",
   "sim.noc.report.budget": "الميزانية",
   "sim.noc.incident.chooseResponse": "اختر الرد:",
+  "home.highlight.trial":       "30 يوماً تجربة مجانية",
+  "home.highlight.noCard":      "بدون بطاقة ائتمان",
+  "home.highlight.allFeatures": "جميع الميزات مشمولة",
   "community.opening": "يفتح قريباً…",
+
+  // Services page — category tags for media cards
+  "services.tagNews":           "إخبارية",
+  "services.tagGulf":           "خليجية",
+  "services.tagSports":         "رياضية",
+  "services.tagEntertainment":  "ترفيهية",
+  "services.tagInternational":  "دولية",
+  "services.tagQuran":          "قرآنية",
+  "services.tagMusic":          "موسيقى",
+
+  // TV/Radio hook toast messages
+  "tv.toast.loginRequired":     "يجب تسجيل الدخول أولاً",
+  "tv.toast.subError":          "خطأ أثناء الاشتراك: {msg}",
+  "tv.toast.alreadySubscribed": "لديك اشتراك نشط بالفعل",
+  "tv.toast.insufficientVX":    "رصيد VX غير كافٍ",
+  "tv.toast.planNotFound":      "خطة الاشتراك غير موجودة",
+  "tv.toast.notAuthenticated":  "يجب تسجيل الدخول أولاً",
+  "tv.toast.subFailed":         "فشل الاشتراك",
+  "tv.toast.subscribed":        "تم الاشتراك! تم خصم {vx} VX",
+  "tv.toast.streamError":       "تعذر الوصول إلى البث: {msg}",
+  "tv.toast.subExpired":        "اشتراكك منتهٍ، يرجى التجديد",
+  "tv.toast.channelNotFound":   "القناة غير متاحة حالياً",
+  "tv.toast.stationNotFound":   "المحطة غير متاحة حالياً",
+  "tv.toast.streamFailed":      "تعذر تشغيل هذا المحتوى",
+
+  // Navbar — media & rooms
+  "nav.voiceRooms":  "الغرف الصوتية",
+  "nav.liveTV":      "VisionTV",
+  "nav.liveRadio":   "VisionRadio",
+
+  // Dashboard — quick links
+  "dash.quickLinks":          "وصول سريع",
+  "dash.voiceRoomsLink":      "الغرف الصوتية",
+  "dash.voiceRoomsLinkDesc":  "انضم أو أنشئ غرفة صوتية مباشرة",
+  "dash.tvLink":              "VisionTV",
+  "dash.tvLinkDesc":          "شاهد القنوات التلفزيونية المباشرة",
+  "dash.radioLink":           "VisionRadio",
+  "dash.radioLinkDesc":       "استمع للإذاعات المباشرة",
+  "dash.playGamesLink":       "الألعاب",
+  "dash.playGamesLinkDesc":   "العب واكسب عملات VX",
+
+  // Voice Rooms page
+  "vrooms.title":          "الغرف الصوتية",
+  "vrooms.subtitle":       "انضم لغرفة مباشرة أو أنشئ غرفتك الخاصة",
+  "vrooms.create":         "إنشاء غرفة",
+  "vrooms.empty":          "لا توجد غرف متاحة الآن",
+  "vrooms.emptyDesc":      "كن الأول وأنشئ غرفة صوتية جديدة!",
+  "vrooms.loading":        "جاري تحميل الغرف…",
+  "vrooms.members":        "{n} عضو",
+  "vrooms.membersPlural":  "{n} أعضاء",
+  "vrooms.join":           "انضم",
+  "vrooms.locked":         "خاصة",
+  "vrooms.stageMode":      "خشبة مسرح",
+  "vrooms.searchPlaceholder": "ابحث عن غرفة…",
+  "vrooms.owner":          "المالك",
+  "vrooms.live":           "مباشر",
 
   // Services page — media section
   "services.mediaTitle":   "بث مباشر",
