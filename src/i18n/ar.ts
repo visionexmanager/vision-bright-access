@@ -2255,6 +2255,10 @@ const ar: Record<string, string> = {
   "footer.link.professionalTools": "الأدوات المهنية",
   "footer.link.academy": "الأكاديمية",
   "footer.link.community": "المجتمع",
+  "footer.link.voiceRooms":     "الغرف الصوتية",
+  "footer.link.liveTV":         "VisionTV",
+  "footer.link.liveRadio":      "VisionRadio",
+  "footer.link.purchaseHistory":"سجل المشتريات",
   "footer.link.leaderboard": "المتصدرون",
   "footer.link.assistiveProducts": "منتجات مساعِدة",
   "footer.link.privacyPolicy": "سياسة الخصوصية",
@@ -4183,6 +4187,75 @@ const ar: Record<string, string> = {
   "services.tagInternational":  "دولية",
   "services.tagQuran":          "قرآنية",
   "services.tagMusic":          "موسيقى",
+
+  // Academy page
+  "academy.step1.title":   "ما اسمك؟",
+  "academy.step1.sub":     "أخبرنا باسمك للبدء",
+  "academy.gender.male":   "أنا ولد ♂",
+  "academy.gender.female": "أنا بنت ♀",
+  "academy.step2.title":   "من أي بلد أنت؟",
+  "academy.step3.title":   "ما مستواك الدراسي؟",
+  "academy.next":          "متابعة",
+  "academy.country.lb":    "لبنان",
+  "academy.country.eg":    "مصر",
+  "academy.country.sa":    "السعودية",
+  "academy.country.tr":    "تركيا",
+  "academy.country.us":    "أمريكا",
+  "academy.country.other": "بلد آخر",
+  "academy.level.primary": "ابتدائي",
+  "academy.level.middle":  "متوسط",
+  "academy.level.high":    "ثانوي / بكالوريا",
+  "academy.level.uni":     "جامعي / دراسات",
+  "academy.welcome.male":  "أهلاً بالبطل {name} ✨",
+  "academy.welcome.female":"أهلاً بالبطلة {name} ✨",
+  "academy.curriculum":    "منهاج {country}",
+  "academy.compass.title": "بوصلة المستقبل لـ {name}",
+  "academy.aptitude.title":"اختبار الميول لعام 2026",
+  "academy.aptitude.desc": "اكتشف شخصيتك المهنية عبر 8 أسئلة تفاعلية ومنير يحلل نتائجك بالذكاء الاصطناعي!",
+  "academy.jobs.title":    "سوق العمل العالمي",
+  "academy.jobs.desc":     "اكتشف الرواتب والوظائف المطلوبة في {country} وبالعالم هذا العام.",
+  "academy.chat.intro":    "يا {name}، أنا منير 🧠 اسألني أي شيء عن دروسك أو مستقبلك المهني!",
+  "academy.chat.placeholder": "اسأل منير أي شيء عن دروسك أو مستقبلك...",
+  "academy.chat.thinking": "يكتب...",
+  "academy.chat.guidance": "توجيه أكاديمي ذكي",
+  "academy.voice.text":    "وضع النص",
+  "academy.voice.call":    "تحدث مع منير",
+  "academy.my.classroom":  "غرفتي الدراسية",
+  "academy.assistant.name":"منير — المساعد الأكاديمي",
+  "academy.munir.level":   "منير — مساعد {level}",
+  "academy.xp.level":      "مستوى {name}",
+  "academy.xp.rising":     "النابغة الصاعد",
+  "academy.xp.next":       "المستوى التالي",
+  "academy.xp.study":      "أيام الدراسة",
+  "academy.xp.score":      "أفضل نقاط",
+  "academy.quick.title":   "مراجعة سريعة",
+  "academy.name.placeholder": "اسمي هو...",
+  "academy.error":         "حدث خطأ، حاول مرة أخرى.",
+
+  // VIP Diamond tier
+  "dash.rankDiamond": "ماسي",
+  "dash.vipMax": "وصلت للمستوى الأعلى — أنت في القمة!",
+
+  // Purchase history
+  "nav.purchaseHistory":  "سجل المشتريات",
+  "profile.purchaseHistory": "سجل المشتريات",
+
+  // News updated
+  "news.item1.date": "١ يونيو ٢٠٢٦",
+  "news.item2.date": "٢٨ مايو ٢٠٢٦",
+  "news.item3.date": "٢٥ مايو ٢٠٢٦",
+  "news.item4.date": "٢٠ مايو ٢٠٢٦",
+
+  // Games trial
+  "games.trialPlay": "العب مجاناً (تجربة)",
+  "games.trialDesc": "مجاني خلال فترة التجربة المجانية ٣٠ يوماً",
+
+  // VoiceRooms link in community
+  "community.browseRooms": "تصفح جميع الغرف",
+
+  // CoinsStore earn ways
+  "coins.earningTitle": "طرق كسب VX",
+  "coins.earningDesc":  "أكمل الأنشطة يومياً لكسب عملات VX مجاناً",
 
   // TV/Radio hook toast messages
   "tv.toast.loginRequired":     "يجب تسجيل الدخول أولاً",

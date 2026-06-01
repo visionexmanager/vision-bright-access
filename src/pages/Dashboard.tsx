@@ -37,10 +37,11 @@ import { toast } from "@/hooks/use-toast";
 import dashboardImg from "@/assets/dashboard-illustration.jpg";
 
 const VIP_TIERS = [
-  { name: "rankBronze", min: 0, next: 10000, color: "text-amber-700 dark:text-amber-500" },
-  { name: "rankSilver", min: 10000, next: 50000, color: "text-slate-600 dark:text-slate-300" },
-  { name: "rankGold", min: 50000, next: 100000, color: "text-yellow-700 dark:text-yellow-400" },
+  { name: "rankBronze",   min: 0,      next: 10000,  color: "text-amber-700 dark:text-amber-500" },
+  { name: "rankSilver",   min: 10000,  next: 50000,  color: "text-slate-600 dark:text-slate-300" },
+  { name: "rankGold",     min: 50000,  next: 100000, color: "text-yellow-700 dark:text-yellow-400" },
   { name: "rankPlatinum", min: 100000, next: 200000, color: "text-cyan-700 dark:text-cyan-400" },
+  { name: "rankDiamond",  min: 200000, next: null,   color: "text-blue-500 dark:text-blue-300" },
 ];
 
 function getTier(points: number) {
@@ -235,8 +236,8 @@ export default function Dashboard() {
               )}
             </div>
             <Progress value={progressPct} className="h-3" aria-label={`VIP progress: ${totalPoints} of ${nextTier?.min ?? 'max'} points`} />
-            {!nextTier && (
-              <p className="mt-2 text-sm text-muted-foreground">{t("dash.vipComingSoon")}</p>
+            {!nextTier && tier.name === "rankDiamond" && (
+              <p className="mt-2 text-sm font-semibold text-blue-500">🏆 {t("dash.vipMax")}</p>
             )}
           </CardContent>
         </Card>
@@ -252,7 +253,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { icon: Mic2,     to: "/community",          label: t("dash.voiceRoomsLink"),  desc: t("dash.voiceRoomsLinkDesc"),  color: "text-violet-500" },
+                { icon: Mic2,     to: "/community/voice-rooms", label: t("dash.voiceRoomsLink"),  desc: t("dash.voiceRoomsLinkDesc"),  color: "text-violet-500" },
                 { icon: Tv,       to: "/services/live-tv",   label: t("dash.tvLink"),           desc: t("dash.tvLinkDesc"),           color: "text-blue-500" },
                 { icon: Radio,    to: "/services/live-radio", label: t("dash.radioLink"),        desc: t("dash.radioLinkDesc"),        color: "text-orange-500" },
                 { icon: Gamepad2, to: "/games",              label: t("dash.playGamesLink"),    desc: t("dash.playGamesLinkDesc"),    color: "text-green-500" },

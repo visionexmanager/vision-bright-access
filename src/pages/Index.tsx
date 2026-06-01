@@ -3,7 +3,7 @@ import { AdBanner } from "@/components/AdBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowRight, Eye, ShoppingBag, BookOpen, Sparkles, UserPlus, Zap, Gift, TrendingUp, Tv, Radio, Mic2, Gamepad2, CheckCircle } from "lucide-react";
+import { ArrowRight, Eye, ShoppingBag, BookOpen, Sparkles, UserPlus, Zap, Gift, TrendingUp, Tv, Radio, Mic2, Gamepad2, CheckCircle, Lock } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSound } from "@/contexts/SoundContext";
@@ -18,13 +18,13 @@ export default function Index() {
   if (!loading && user) return <Navigate to="/dashboard" replace />;
 
   const features = [
-    { icon: ShoppingBag, title: t("home.feature.marketplace"), desc: t("home.feature.marketplaceDesc"), to: "/bazaar" },
-    { icon: Eye, title: t("home.feature.services"), desc: t("home.feature.servicesDesc"), to: "/services" },
-    { icon: BookOpen, title: t("home.feature.content"), desc: t("home.feature.contentDesc"), to: "/content" },
-    { icon: Tv, title: t("nav.liveTV"), desc: t("services.tvDesc"), to: "/services/live-tv" },
-    { icon: Radio, title: t("nav.liveRadio"), desc: t("services.radioDesc"), to: "/services/live-radio" },
-    { icon: Mic2, title: t("nav.voiceRooms"), desc: t("vrooms.subtitle"), to: "/community/voice-rooms" },
-    { icon: Gamepad2, title: t("nav.games"), desc: t("home.feature.contentDesc"), to: "/games" },
+    { icon: ShoppingBag, title: t("home.feature.marketplace"), desc: t("home.feature.marketplaceDesc"), to: "/bazaar",                   requiresAuth: false },
+    { icon: Eye,         title: t("home.feature.services"),    desc: t("home.feature.servicesDesc"),    to: "/services",                  requiresAuth: false },
+    { icon: BookOpen,    title: t("home.feature.content"),     desc: t("home.feature.contentDesc"),     to: "/content",                   requiresAuth: false },
+    { icon: Tv,          title: t("nav.liveTV"),               desc: t("services.tvDesc"),               to: "/services/live-tv",          requiresAuth: true },
+    { icon: Radio,       title: t("nav.liveRadio"),            desc: t("services.radioDesc"),            to: "/services/live-radio",       requiresAuth: true },
+    { icon: Mic2,        title: t("nav.voiceRooms"),           desc: t("vrooms.subtitle"),               to: "/community/voice-rooms",     requiresAuth: true },
+    { icon: Gamepad2,    title: t("nav.games"),                desc: t("home.feature.contentDesc"),      to: "/games",                     requiresAuth: true },
   ];
 
   const steps = [
@@ -119,10 +119,17 @@ export default function Index() {
             {features.map((f, i) => {
               const Icon = f.icon;
               const isFirst = i === 0;
+              const locked = !user && f.requiresAuth;
               return (
                 <StaggerItem key={f.title} className={isFirst ? "sm:col-span-2 lg:col-span-2" : ""}>
-                  <Link to={f.to} className="group" onClick={() => playSound("navigate")}>
-                    <Card className={`h-full transition-shadow hover:shadow-lg group-focus-visible:ring-4 group-focus-visible:ring-ring ${isFirst ? "bg-primary/5 border-primary/20" : ""}`}>
+                  <Link to={locked ? "/signup" : f.to} className="group" onClick={() => playSound("navigate")}>
+                    <Card className={`h-full transition-shadow hover:shadow-lg group-focus-visible:ring-4 group-focus-visible:ring-ring relative ${isFirst ? "bg-primary/5 border-primary/20" : ""}`}>
+                      {locked && (
+                        <div className="absolute top-3 end-3 flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground border border-border">
+                          <Lock className="h-2.5 w-2.5" />
+                          {t("home.getStarted")}
+                        </div>
+                      )}
                       <CardContent className={`flex flex-col items-start gap-3 ${isFirst ? "p-8" : "p-6"}`}>
                         <div className={`rounded-xl ${isFirst ? "bg-primary/15 p-4" : "bg-primary/10 p-3"}`}>
                           <Icon className={`text-primary ${isFirst ? "h-9 w-9" : "h-7 w-7"}`} aria-hidden="true" />

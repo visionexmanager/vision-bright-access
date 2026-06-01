@@ -66,6 +66,7 @@ const LEARNING_SERVICES = [
   { icon: Sparkles,    name: "svc.skinTitle",          desc: "svc.skinDesc",          vx: 800,     to: "/services/skin-care",           color: "bg-orange-500/10 text-orange-600 dark:text-orange-400" },    // $0.80
   { icon: Users,       name: "svc.socialTitle",        desc: "svc.socialDesc",        vx: 1_000,   to: "/services/social-guide",        color: "bg-teal-500/10 text-teal-600 dark:text-teal-400" },          // $1
   { icon: Truck,       name: "delivery.serviceTitle",  desc: "delivery.serviceDesc",  vx: 1_500,   to: "/services/delivery",            color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" },          // $1.50
+  { icon: Plane,       name: "svc.travelTitle",        desc: "svc.travelDesc",        vx: 500,     to: "/services/shared-trip",         color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" },          // $0.50
   { icon: Dumbbell,    name: "svc.sportsTitle",        desc: "svc.sportsDesc",        vx: 2_000,   to: "/services/sports-coach",        color: "bg-lime-500/10 text-lime-600 dark:text-lime-400" },          // $2
   { icon: Heart,       name: "oasis.serviceTitle",     desc: "oasis.serviceDesc",     vx: 3_000,   to: "/services/empathy-oasis",       color: "bg-rose-500/10 text-rose-600 dark:text-rose-400" },          // $3
   { icon: Heart,       name: "nutrition.serviceTitle", desc: "nutrition.serviceDesc", vx: 4_000,   to: "/services/nutrition",           color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" }, // $4
@@ -281,9 +282,9 @@ export default function Services() {
                               size="sm"
                               className="text-xs"
                               onClick={() => handleStartSim(sim)}
-                              aria-label={`${done ? (t("simulations.replay") || "Replay") : (t("simulations.start") || "Start")} ${sim.title}`}
+                              aria-label={`${done ? t("summary.replay") : t("summary.start")} ${sim.title}`}
                             >
-                              {done ? (t("simulations.replay") || "Replay") : (t("simulations.start") || "Start")}
+                              {done ? t("summary.replay") : t("summary.start")}
                               <ArrowRight className="ms-1 h-3.5 w-3.5" aria-hidden="true" />
                             </Button>
                           </div>

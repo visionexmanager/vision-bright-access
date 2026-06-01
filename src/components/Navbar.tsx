@@ -71,18 +71,16 @@ export function Navbar() {
     }
   }, []);
 
+  // Desktop: keep only the most important links to avoid overcrowding
   const primaryNavLinks = [
     { to: "/", label: t("nav.home") },
     { to: "/bazaar", label: "VXBazaar" },
     { to: "/services", label: t("nav.services") },
     { to: "/content", label: t("nav.content") },
-    { to: "/community", label: t("nav.community") },
     { to: "/community/voice-rooms", label: t("nav.voiceRooms") },
     { to: "/services/live-tv", label: t("nav.liveTV") },
     { to: "/services/live-radio", label: t("nav.liveRadio") },
     { to: "/games", label: t("nav.games") },
-    { to: "/assistive-products", label: t("nav.assistiveProducts") },
-    { to: "/professional-tools", label: t("nav.professionalTools") },
     { to: "/news", label: t("nav.news") },
   ];
 
@@ -98,15 +96,18 @@ export function Navbar() {
         { to: "/", label: t("nav.home") },
         { to: "/bazaar", label: "VXBazaar" },
         { to: "/services", label: t("nav.services") },
+        { to: "/content", label: t("nav.content") },
         { to: "/assistive-products", label: t("nav.assistiveProducts") },
       ],
     },
     {
       label: t("nav.explore"),
       links: [
-        { to: "/content", label: t("nav.content") },
         { to: "/games", label: t("nav.games") },
         { to: "/community", label: t("nav.community") },
+        { to: "/community/voice-rooms", label: t("nav.voiceRooms") },
+        { to: "/services/live-tv",      label: t("nav.liveTV") },
+        { to: "/services/live-radio",   label: t("nav.liveRadio") },
       ],
     },
     {
@@ -115,14 +116,8 @@ export function Navbar() {
         { to: "/professional-tools", label: t("nav.professionalTools") },
         { to: "/news", label: t("nav.news") },
         { to: "/contact", label: t("nav.contact") },
-      ],
-    },
-    {
-      label: t("nav.explore"),
-      links: [
-        { to: "/community/voice-rooms", label: t("nav.voiceRooms") },
-        { to: "/services/live-tv",      label: t("nav.liveTV") },
-        { to: "/services/live-radio",   label: t("nav.liveRadio") },
+        { to: "/profile", label: t("nav.profile") },
+        { to: "/purchase-history", label: t("nav.purchaseHistory") },
       ],
     },
   ];
@@ -252,9 +247,28 @@ export function Navbar() {
         </div>
 
         {/* Mobile toggle */}
-        <div className="flex items-center gap-2 lg:hidden">
+        <div className="flex items-center gap-1.5 lg:hidden">
           <ThemeToggle />
           <LanguageSwitcher />
+          {user && (
+            <Link to="/messages" onClick={() => setMenuOpen(false)}>
+              <Button variant="ghost" size="icon" className="relative" aria-label={t("msg.title")}>
+                <MessageCircle className="h-5 w-5" />
+                {unreadMessages > 0 && (
+                  <Badge variant="destructive" className="absolute -end-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]">
+                    {unreadMessages}
+                  </Badge>
+                )}
+              </Button>
+            </Link>
+          )}
+          {user && (
+            <Link to="/profile" onClick={() => setMenuOpen(false)}>
+              <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
+                <User className="h-5 w-5" />
+              </Button>
+            </Link>
+          )}
           <Button
             ref={toggleRef}
             variant="ghost"
@@ -302,6 +316,12 @@ export function Navbar() {
           <div className="mt-3 flex flex-col gap-2">
             {user ? (
               <>
+                {/* VX Balance in mobile */}
+                <Link to="/coins-store" onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors justify-center">
+                  <Coins className="h-4 w-4" />
+                  {totalPoints.toLocaleString()} VX
+                </Link>
                 {isAdmin && (
                   <Link to="/admin" onClick={() => setMenuOpen(false)}>
                     <Button variant="outline" size="lg" className="w-full text-base">

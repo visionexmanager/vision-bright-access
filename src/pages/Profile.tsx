@@ -16,8 +16,9 @@ import { Separator } from "@/components/ui/separator";
 import { Navigate } from "react-router-dom";
 import {
   Camera, Save, Trophy, Star, Flame, Target,
-  Gamepad2, BookOpen, Users, TrendingUp, Award, Coins,
+  Gamepad2, BookOpen, Users, TrendingUp, Award, Coins, ShoppingBag, ArrowRight,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { usePoints } from "@/hooks/usePoints";
 import { useAchievements, ACHIEVEMENTS } from "@/hooks/useAchievements";
@@ -307,6 +308,22 @@ export default function Profile() {
             );
           })}
         </div>
+
+        {/* Purchase History link */}
+        <Link to="/purchase-history" className="mb-8 block group">
+          <div className="flex items-center justify-between rounded-xl border border-border bg-card px-5 py-4 transition-all hover:border-primary/40 hover:shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary/10 p-2">
+                <ShoppingBag className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold">{t("profile.purchaseHistory")}</p>
+                <p className="text-xs text-muted-foreground">{t("nav.purchaseHistory")}</p>
+              </div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+          </div>
+        </Link>
 
         {/* Level Progression */}
         <h2 className="mb-4 text-xl font-bold flex items-center gap-2">

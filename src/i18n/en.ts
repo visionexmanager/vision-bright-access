@@ -133,6 +133,7 @@ const en: Record<string, string> = {
   "dash.vipTier": "VIP Tier",
   "dash.vipProgress": "{current} / {next} pts to next tier",
   "dash.vipComingSoon": "VIP subscriptions coming soon!",
+  "dash.vipMax": "Maximum rank reached — you're at the top!",
   "dash.spendPoints": "Spend Points",
   "dash.spendDesc": "Use your points for discounts in the Marketplace cart",
   "leader.title": "Leaderboard",
@@ -2241,6 +2242,10 @@ const en: Record<string, string> = {
   "footer.link.community": "Community",
   "footer.link.leaderboard": "Leaderboard",
   "footer.link.assistiveProducts": "Assistive Products",
+  "footer.link.voiceRooms":     "Voice Rooms",
+  "footer.link.liveTV":         "VisionTV",
+  "footer.link.liveRadio":      "VisionRadio",
+  "footer.link.purchaseHistory":"Purchase History",
   "footer.link.privacyPolicy": "Privacy Policy",
   "footer.link.termsOfUse": "Terms of Use",
   "footer.link.communityGuidelines": "Community Guidelines",
@@ -4156,6 +4161,74 @@ const en: Record<string, string> = {
 
   // Community countdown
   "community.opening": "Opening…",
+
+  // Academy page
+  "academy.step1.title":   "What's your name?",
+  "academy.step1.sub":     "Tell us your name to get started",
+  "academy.gender.male":   "I'm a boy ♂",
+  "academy.gender.female": "I'm a girl ♀",
+  "academy.step2.title":   "Which country are you from?",
+  "academy.step3.title":   "What is your study level?",
+  "academy.next":          "Continue",
+  "academy.country.lb":    "Lebanon",
+  "academy.country.eg":    "Egypt",
+  "academy.country.sa":    "Saudi Arabia",
+  "academy.country.tr":    "Turkey",
+  "academy.country.us":    "United States",
+  "academy.country.other": "Other",
+  "academy.level.primary": "Primary",
+  "academy.level.middle":  "Middle School",
+  "academy.level.high":    "High School / Baccalaureate",
+  "academy.level.uni":     "University / Graduate Studies",
+  "academy.welcome.male":  "Welcome, champion, {name}",
+  "academy.welcome.female":"Welcome, champion, {name}",
+  "academy.curriculum":    "{country} curriculum",
+  "academy.compass.title": "Future Compass for {name}",
+  "academy.aptitude.title":"2026 Career Aptitude Test",
+  "academy.aptitude.desc": "Discover your career personality through 8 interactive questions analyzed by AI!",
+  "academy.jobs.title":    "Global Job Market",
+  "academy.jobs.desc":     "Discover salaries and in-demand jobs in {country} and worldwide this year.",
+  "academy.chat.intro":    "Hi {name}, I'm Munir 🧠 Ask me anything about your studies or career!",
+  "academy.chat.placeholder": "Ask Munir anything about your studies or future...",
+  "academy.chat.thinking": "Thinking...",
+  "academy.chat.guidance": "Smart Academic Guidance",
+  "academy.voice.text":    "Text Mode",
+  "academy.voice.call":    "Talk to Munir",
+  "academy.my.classroom":  "My Classroom",
+  "academy.assistant.name":"Munir — Academic Assistant",
+  "academy.munir.level":   "Munir — {level} Guide",
+  "academy.xp.level":      "Level {name}",
+  "academy.xp.rising":     "Rising Star",
+  "academy.xp.next":       "Next level",
+  "academy.xp.study":      "Study Days",
+  "academy.xp.score":      "Best Score",
+  "academy.quick.title":   "Quick Study",
+  "academy.name.placeholder": "My name is...",
+  "academy.error":         "An error occurred, please try again.",
+
+  // VIP Diamond tier
+  "dash.rankDiamond": "Diamond",
+
+  // Purchase history
+  "nav.purchaseHistory":  "Purchase History",
+  "profile.purchaseHistory": "Purchase History",
+
+  // News updated
+  "news.item1.date": "Jun 1, 2026",
+  "news.item2.date": "May 28, 2026",
+  "news.item3.date": "May 25, 2026",
+  "news.item4.date": "May 20, 2026",
+
+  // Games trial
+  "games.trialPlay": "Play Free (Trial)",
+  "games.trialDesc": "Free during your 30-day trial",
+
+  // VoiceRooms link in community
+  "community.browseRooms": "Browse All Rooms",
+
+  // CoinsStore earn ways
+  "coins.earningTitle": "Ways to Earn VX",
+  "coins.earningDesc":  "Complete activities daily to earn VX coins for free",
 
   // TV/Radio hook toast messages
   "tv.toast.loginRequired":     "Please log in first",

@@ -13,6 +13,7 @@ import { Search, Filter, Coins } from "lucide-react";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { GAMING_PRICES, formatVX } from "@/systems/pricingSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
+import { useTrial } from "@/hooks/useTrial";
 import { toast } from "@/hooks/use-toast";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import gamesImg from "@/assets/games-illustration.jpg";
@@ -47,6 +48,7 @@ export default function Games() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { balance, spendVX } = useVXWallet();
+  const { isOnTrial } = useTrial();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
 
@@ -143,7 +145,13 @@ export default function Games() {
                   onClick={async () => {
                     if (!user) {
                       toast({ title: t("vx.loginRequired"), variant: "destructive" });
-                      navigate("/login");
+                      navigate("/signup");
+                      return;
+                    }
+                    // Trial users play free
+                    if (isOnTrial) {
+                      playSound("start");
+                      navigate(game.to);
                       return;
                     }
                     const ok = await spendVX(GAMING_PRICES.singlePlay, "game", game.title, game.to);
@@ -179,7 +187,7 @@ export default function Games() {
                       </CardDescription>
                       <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary" aria-hidden="true">
                         <Coins className="h-3.5 w-3.5" />
-                        {formatVX(GAMING_PRICES.singlePlay)}
+                        {isOnTrial ? t("games.trialPlay") : formatVX(GAMING_PRICES.singlePlay)}
                       </div>
                     </div>
                   </Card>

@@ -149,7 +149,7 @@ export default function VoiceRooms() {
                 <div className="flex items-center gap-2 pt-1">
                   <span className="flex items-center gap-1.5 text-xs text-violet-300/60">
                     <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-                    {rooms.length} {rooms.length === 1 ? t("vrooms.members").replace("{n}", "") : t("vrooms.membersPlural").replace("{n}", String(rooms.length)).replace("أعضاء", "rooms").replace("members", "rooms")} {t("vrooms.live")}
+                    {rooms.length} {t("vrooms.live")}
                   </span>
                 </div>
               </div>
@@ -279,9 +279,7 @@ export default function VoiceRooms() {
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Users className="w-3.5 h-3.5" />
-                          {room.member_count} {room.member_count === 1
-                            ? t("vrooms.members").replace("{n}", "")
-                            : t("vrooms.membersPlural").replace("{n}", "")}
+                          {room.member_count}
                         </span>
                         {room.owner_name && (
                           <span className="truncate max-w-[120px]">
