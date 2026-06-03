@@ -774,7 +774,7 @@ export default function NutritionExpert() {
                     {previewUrl && (
                       <img
                         src={previewUrl}
-                        alt="Meal preview"
+                        alt={t("nutrition.mealPreview")}
                         className="w-full max-w-xs mx-auto rounded-2xl object-cover aspect-square border-2 border-emerald-300"
                       />
                     )}

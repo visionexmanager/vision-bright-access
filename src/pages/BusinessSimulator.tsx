@@ -178,12 +178,12 @@ export default function BusinessSimulator() {
                     </div>
                   </div>
 
-                  <h2 className="text-lg font-bold leading-tight">{sim.title}</h2>
-                  <p className="text-sm text-muted-foreground line-clamp-3">{sim.description}</p>
+                  <h2 className="text-lg font-bold leading-tight">{t(`sim.${sim.slug}.title`) || sim.title}</h2>
+                  <p className="text-sm text-muted-foreground line-clamp-3">{t(`sim.${sim.slug}.desc`) || sim.description}</p>
 
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{sim.subcategory}</Badge>
-                    <Badge variant="outline" className={difficultyColor[sim.difficulty] || ""}>{sim.difficulty}</Badge>
+                    <Badge variant="outline" className={difficultyColor[sim.difficulty] || ""}>{t(`cat.${sim.difficulty}`) || sim.difficulty}</Badge>
                   </div>
 
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">

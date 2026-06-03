@@ -271,17 +271,17 @@ export default function SimulationsSummary() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-foreground">{sim.title}</h3>
+                            <h3 className="font-semibold text-foreground">{t(`sim.${sim.slug}.title`) || sim.title}</h3>
                             {done && <CheckCircle className="h-5 w-5 text-green-500" />}
                           </div>
                           <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                            {sim.description}
+                            {t(`sim.${sim.slug}.desc`) || sim.description}
                           </p>
                         </div>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <Badge className={difficultyColor(sim.difficulty)} variant="outline">
-                          {sim.difficulty}
+                          {t(`cat.${sim.difficulty}`) || sim.difficulty}
                         </Badge>
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" /> {sim.estimated_duration} min

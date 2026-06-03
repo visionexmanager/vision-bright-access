@@ -3,7 +3,7 @@ import { AdBanner } from "@/components/AdBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowRight, Eye, ShoppingBag, BookOpen, Sparkles, UserPlus, Zap, Gift, TrendingUp, Tv, Radio, Mic2, Gamepad2, CheckCircle, Lock } from "lucide-react";
+import { ArrowRight, Eye, ShoppingBag, BookOpen, Sparkles, UserPlus, Zap, Gift, TrendingUp, Gamepad2, CheckCircle, Lock } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSound } from "@/contexts/SoundContext";
@@ -21,9 +21,6 @@ export default function Index() {
     { icon: ShoppingBag, title: t("home.feature.marketplace"), desc: t("home.feature.marketplaceDesc"), to: "/bazaar",                   requiresAuth: false },
     { icon: Eye,         title: t("home.feature.services"),    desc: t("home.feature.servicesDesc"),    to: "/services",                  requiresAuth: false },
     { icon: BookOpen,    title: t("home.feature.content"),     desc: t("home.feature.contentDesc"),     to: "/content",                   requiresAuth: false },
-    { icon: Tv,          title: t("nav.liveTV"),               desc: t("services.tvDesc"),               to: "/services/live-tv",          requiresAuth: true },
-    { icon: Radio,       title: t("nav.liveRadio"),            desc: t("services.radioDesc"),            to: "/services/live-radio",       requiresAuth: true },
-    { icon: Mic2,        title: t("nav.voiceRooms"),           desc: t("vrooms.subtitle"),               to: "/community/voice-rooms",     requiresAuth: true },
     { icon: Gamepad2,    title: t("nav.games"),                desc: t("home.feature.contentDesc"),      to: "/games",                     requiresAuth: true },
   ];
 

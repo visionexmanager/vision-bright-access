@@ -16,6 +16,7 @@ import {
 import { VoiceChat } from "@/components/VoiceChat";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/academy-chat`;
 
@@ -103,11 +104,15 @@ export default function Academy() {
     const apiMessages = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const bearerToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${bearerToken}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ messages: apiMessages, studentProfile: profile }),
         signal: controller.signal,

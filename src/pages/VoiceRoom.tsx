@@ -716,6 +716,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     const next = muted; // muted=true means we're about to unmute
     await localParticipant.setMicrophoneEnabled(next);
     setMuted(!next);
+    playMuteSound(next); // next=true → unmuting, next=false → muting
     addEvent(next ? "🎙️" : "🔇", `${t("vroom.you")}: ${next ? t("vroom.unmute") : t("vroom.mute")}`);
   };
 
@@ -944,7 +945,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               <button
                 className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => setRoomBanners((prev) => prev.filter((x) => x.id !== b.id))}
-                aria-label="Dismiss"
+                aria-label={t("common.dismiss")}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -1216,7 +1217,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
                   <span className="text-[10px] text-muted-foreground mb-0.5">{msg.senderName}</span>
                   {imgMatch ? (
                     <a href={imgMatch[1]} target="_blank" rel="noopener noreferrer">
-                      <img src={imgMatch[1]} alt="shared" className="max-w-[200px] max-h-[150px] rounded-xl object-cover border" />
+                      <img src={imgMatch[1]} alt={t("vroom.sharedImage")} className="max-w-[200px] max-h-[150px] rounded-xl object-cover border" />
                     </a>
                   ) : fileMatch ? (
                     <a href={fileMatch[2]} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 transition-colors">
@@ -1615,6 +1616,28 @@ function playJoinLeaveSound(joined: boolean) {
   }
 }
 
+// ── Mute / Unmute audio feedback ──────────────────────────────────
+// unmuting=true → two ascending tones (ON)
+// unmuting=false → two descending tones (OFF)
+function playMuteSound(unmuting: boolean) {
+  try {
+    const ctx = new AudioContext();
+    const freqs: [number, number] = unmuting ? [400, 650] : [650, 350];
+    freqs.forEach((freq, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.12, ctx.currentTime + i * 0.09);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.09 + 0.12);
+      o.connect(g).connect(ctx.destination);
+      o.start(ctx.currentTime + i * 0.09);
+      o.stop(ctx.currentTime + i * 0.09 + 0.14);
+    });
+    setTimeout(() => ctx.close().catch(() => {}), 500);
+  } catch { /* ignore */ }
+}
+
 // ── Reaction sounds ────────────────────────────────────────────────
 // Helpers
 function _noiseBuf(ctx: AudioContext, dur: number) {
@@ -1891,9 +1914,9 @@ function playReactionSound(emoji: string) {
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
       o.start(now); o.stop(now + 0.4);
 
-    // ── Thumbs down / Boo 👎💀🙄😒 ───────────────────────────────
+    // ── Thumbs down / Boo 👎🙄😒 ────────────────────────────────
     // Sad descending trombone-like glide
-    } else if (["👎","💀","🙄","😒"].includes(emoji)) {
+    } else if (["👎","🙄","😒"].includes(emoji)) {
       const o = _osc(ctx, "sawtooth", 220);
       const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 800;
       const g = _gain(ctx);
@@ -1905,8 +1928,8 @@ function playReactionSound(emoji: string) {
       o.start(now); o.stop(now + 0.6);
 
     // ── Skull 💀 ───────────────────────────────────────────────────
+    // Eerie two-tone descending minor interval
     } else if (emoji === "💀") {
-      // Eerie descending tone
       [220, 277].forEach((freq, i) => {
         const o = _osc(ctx, "sine", freq);
         const g = _gain(ctx);
@@ -1917,6 +1940,34 @@ function playReactionSound(emoji: string) {
         g.gain.exponentialRampToValueAtTime(0.001, now + 0.72);
         o.start(now + i * 0.03); o.stop(now + 0.75);
       });
+
+    // ── Cry / Sob 😢😭🥺 ──────────────────────────────────────────
+    // Soft sniff + descending vocal sob
+    } else if (["😢","😭","🥺"].includes(emoji)) {
+      // Sniff: short noise burst
+      const sniff = ctx.createBufferSource();
+      sniff.buffer = _noiseBuf(ctx, 0.12);
+      const nhp = ctx.createBiquadFilter(); nhp.type = "highpass"; nhp.frequency.value = 1800;
+      const ng = _gain(ctx);
+      sniff.connect(nhp); nhp.connect(ng); ng.connect(ctx.destination);
+      ng.gain.setValueAtTime(0.06, now);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      sniff.start(now);
+      // Sob: voiced falling pitch "oh~" with vibrato-like tremolo
+      const voc = _osc(ctx, "sawtooth", 260);
+      const f1 = _bpf(ctx, 700, 7);
+      const f2 = _bpf(ctx, 1100, 5);
+      const venv = _gain(ctx);
+      voc.connect(f1); voc.connect(f2);
+      f1.connect(venv); f2.connect(venv);
+      venv.connect(ctx.destination);
+      voc.frequency.setValueAtTime(260, now + 0.05);
+      voc.frequency.linearRampToValueAtTime(160, now + 0.55);
+      venv.gain.setValueAtTime(0, now + 0.05);
+      venv.gain.linearRampToValueAtTime(0.18, now + 0.12);
+      venv.gain.setValueAtTime(0.18, now + 0.38);
+      venv.gain.exponentialRampToValueAtTime(0.001, now + 0.58);
+      voc.start(now + 0.05); voc.stop(now + 0.62);
 
     // ── Hand gestures 🙏🫡✌️🤞🤙 ──────────────────────────────────
     // Gentle soft chime

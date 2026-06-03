@@ -268,7 +268,7 @@ export default function Services() {
                         <CardContent className="p-4">
                           <div className="mb-1 flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className={`text-xs ${DIFFICULTY_COLOR[sim.difficulty] ?? ""}`}>
-                              {sim.difficulty}
+                              {t(`cat.${sim.difficulty}`) || sim.difficulty}
                             </Badge>
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
                               <Clock className="h-3 w-3" aria-hidden="true" />
@@ -277,8 +277,8 @@ export default function Services() {
                             </span>
                             {done && <span className="sr-only">{t("services.completed")}</span>}
                           </div>
-                          <h3 className="font-semibold text-foreground">{sim.title}</h3>
-                          <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{sim.description}</p>
+                          <h3 className="font-semibold text-foreground">{t(`sim.${sim.slug}.title`) || sim.title}</h3>
+                          <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{t(`sim.${sim.slug}.desc`) || sim.description}</p>
                           <div className="mt-3 flex items-center justify-between gap-2">
                             <span className="flex items-center gap-1 text-xs font-semibold text-primary">
                               <Coins className="h-3.5 w-3.5" aria-hidden="true" />

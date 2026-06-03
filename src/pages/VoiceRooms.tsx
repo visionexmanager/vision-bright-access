@@ -47,9 +47,10 @@ export default function VoiceRooms() {
     const { data, error } = await supabase
       .from("voice_rooms")
       .select(`
-        id, name, topic, is_private, room_mode, created_at, owner_id,
+        id, room_name, room_topic, is_private, room_mode, created_at, owner_id,
         voice_room_members(count)
       `)
+      .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -71,8 +72,8 @@ export default function VoiceRooms() {
 
     const roomList: VoiceRoom[] = (data ?? []).map((r: any) => ({
       id: r.id,
-      name: r.name,
-      topic: r.topic,
+      name: r.room_name,
+      topic: r.room_topic,
       is_private: r.is_private,
       room_mode: r.room_mode,
       member_count: r.voice_room_members?.[0]?.count ?? 0,
@@ -105,12 +106,12 @@ export default function VoiceRooms() {
     setCreating(true);
     const { data, error } = await supabase
       .from("voice_rooms")
-      .insert({ name, owner_id: user.id, is_private: false, room_mode: "conversation" })
+      .insert({ room_name: name, owner_id: user.id, is_private: false, room_mode: "conversation" })
       .select("id")
       .single();
     setCreating(false);
     if (error || !data) {
-      toast({ title: "Failed to create room", variant: "destructive" });
+      toast({ title: t("vroom.tokenError") || "Failed to create room", variant: "destructive" });
       return;
     }
     playSound("navigate");

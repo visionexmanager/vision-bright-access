@@ -5,7 +5,7 @@ const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") || "";
   const allowed =
-    ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost")
+    ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")
       ? origin
       : ALLOWED_ORIGINS[0];
   return {

@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import {
   MessageSquare, Send, Store, ShoppingCart, X, Plus, ArrowLeft,
   Coins, Crown, Package, Settings, Trash2, ImagePlus, CheckCircle2,
+  Search, Share2, ArrowUpDown, Clock, ChevronDown,
 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -130,7 +131,7 @@ export default function VXBazaar() {
   const { user } = useAuth();
   const { totalPoints } = usePoints();
   const { isOnTrial } = useTrial();
-  const { t } = useLanguage();
+  const { t, dir } = useLanguage();
   const queryClient = useQueryClient();
   const { addToCart } = useCart();
   const { playSound } = useSound();
@@ -140,6 +141,9 @@ export default function VXBazaar() {
   const [activeShop, setActiveShop] = useState<Shop | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [shopSearch, setShopSearch] = useState("");
+  const [shopSort, setShopSort] = useState<"newest" | "tier" | "products">("newest");
+  const [productSearch, setProductSearch] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [createForm, setCreateForm] = useState({
     name: "", tier: "kiosk" as Tier, description: "",
@@ -294,7 +298,11 @@ export default function VXBazaar() {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
           body: JSON.stringify({ messages: [{ role: "system", content: context }, { role: "user", content: userMsg }] }),
         }
       );
