@@ -1,6 +1,13 @@
 import { Layout } from "@/components/Layout";
 import { Copyright, FileText, AlertTriangle, RefreshCw, ShieldAlert } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { PolicyCrossLinks } from "@/components/PolicyCrossLinks";
+
+const CROSS_LINKS = [
+  { to: "/terms-of-use",       labelKey: "footer.link.termsOfUse" },
+  { to: "/marketplace-policy", labelKey: "footer.link.marketplacePolicy" },
+  { to: "/enforcement-appeals",labelKey: "footer.link.enforcementAppeals" },
+];
 
 const NOTICE_ITEMS = [1, 2, 3, 4, 5];
 const COUNTER_ITEMS = [1, 2, 3, 4];
@@ -122,6 +129,8 @@ export default function IntellectualProperty() {
             — {t("legal.ip.contactSubject")}
           </p>
         </div>
+
+        <PolicyCrossLinks links={CROSS_LINKS} />
       </section>
     </Layout>
   );

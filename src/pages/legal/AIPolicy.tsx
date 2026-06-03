@@ -1,6 +1,13 @@
 import { Layout } from "@/components/Layout";
 import { Brain, AlertTriangle, CheckCircle2, ShieldAlert, Zap, Eye, FileText, MessageSquare } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { PolicyCrossLinks } from "@/components/PolicyCrossLinks";
+
+const CROSS_LINKS = [
+  { to: "/terms-of-use",        labelKey: "footer.link.termsOfUse" },
+  { to: "/privacy-policy",      labelKey: "footer.link.privacyPolicy" },
+  { to: "/enforcement-appeals", labelKey: "footer.link.enforcementAppeals" },
+];
 
 const AI_FEATURES = [
   "assistant", "academy", "nutrition", "radar", "ocr", "enrich", "meal", "realtime",
@@ -145,6 +152,8 @@ export default function AIPolicy() {
           <a href="mailto:hello@visionex.app" className="text-primary underline">hello@visionex.app</a>{" "}
           {t("legal.ai.reportSubject")}
         </div>
+
+        <PolicyCrossLinks links={CROSS_LINKS} />
       </section>
     </Layout>
   );

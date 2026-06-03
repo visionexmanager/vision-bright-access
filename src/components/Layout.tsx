@@ -33,13 +33,22 @@ const FOOTER_LINKS = {
     { to: "/academy",                 labelKey: "footer.link.academy" },
     { to: "/purchase-history",        labelKey: "footer.link.purchaseHistory" },
   ],
-  legal: [
-    { to: "/privacy-policy", labelKey: "footer.link.privacyPolicy" },
-    { to: "/terms-of-use", labelKey: "footer.link.termsOfUse" },
+  legalCore: [
+    { to: "/privacy-policy",       labelKey: "footer.link.privacyPolicy" },
+    { to: "/terms-of-use",         labelKey: "footer.link.termsOfUse" },
     { to: "/community-guidelines", labelKey: "footer.link.communityGuidelines" },
-    { to: "/marketplace-policy", labelKey: "footer.link.marketplacePolicy" },
-    { to: "/accessibility", labelKey: "footer.link.accessibility" },
-    { to: "/legal-disclaimer", labelKey: "footer.link.legalDisclaimer" },
+    { to: "/legal-disclaimer",     labelKey: "footer.link.legalDisclaimer" },
+    { to: "/accessibility",        labelKey: "footer.link.accessibility" },
+  ],
+  legalMarket: [
+    { to: "/marketplace-policy",    labelKey: "footer.link.marketplacePolicy" },
+    { to: "/buyer-protection",      labelKey: "footer.link.buyerProtection" },
+    { to: "/vx-coins-policy",       labelKey: "footer.link.vxCoinsPolicy" },
+    { to: "/intellectual-property", labelKey: "footer.link.intellectualProperty" },
+  ],
+  legalPlatform: [
+    { to: "/ai-policy",           labelKey: "footer.link.aiPolicy" },
+    { to: "/enforcement-appeals", labelKey: "footer.link.enforcementAppeals" },
   ],
 };
 
@@ -113,24 +122,67 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          {/* Copyright + Legal links strip */}
-          <div className="mt-8 border-t pt-5">
-            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-              <small className="text-sm text-muted-foreground">
-                {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
-              </small>
-              <nav aria-label={t("footer.legalLinks")} className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-                {FOOTER_LINKS.legal.map((l) => (
-                  <Link
-                    key={l.to}
-                    to={l.to}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
-                  >
-                    {t(l.labelKey)}
-                  </Link>
-                ))}
-              </nav>
+          {/* Legal Policy Groups */}
+          <div className="mt-8 border-t pt-6">
+            <div className="grid gap-6 sm:grid-cols-3">
+              {/* Legal Core */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t("footer.legal")}
+                </p>
+                <ul className="space-y-1.5">
+                  {FOOTER_LINKS.legalCore.map((l) => (
+                    <li key={l.to}>
+                      <Link to={l.to} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        {t(l.labelKey)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {/* Marketplace */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t("footer.marketplace")}
+                </p>
+                <ul className="space-y-1.5">
+                  {FOOTER_LINKS.legalMarket.map((l) => (
+                    <li key={l.to}>
+                      <Link to={l.to} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        {t(l.labelKey)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {/* Platform Governance */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t("footer.platform")}
+                </p>
+                <ul className="space-y-1.5">
+                  {FOOTER_LINKS.legalPlatform.map((l) => (
+                    <li key={l.to}>
+                      <Link to={l.to} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        {t(l.labelKey)}
+                      </Link>
+                    </li>
+                  ))}
+                  <li>
+                    <Link to="/legal" className="text-xs font-semibold text-primary hover:underline transition-colors">
+                      {t("footer.link.legalCenter")} →
+                    </Link>
+                  </li>
+                </ul>
+              </div>
             </div>
+          </div>
+
+          {/* Copyright strip */}
+          <div className="mt-6 border-t pt-4">
+            <small className="block text-center text-xs text-muted-foreground">
+              {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
+            </small>
           </div>
         </div>
       </footer>

@@ -116,6 +116,7 @@ const VXCoinsPolicy = lazy(() => import("./pages/legal/VXCoinsPolicy"));
 const BuyerProtection = lazy(() => import("./pages/legal/BuyerProtection"));
 const IntellectualProperty = lazy(() => import("./pages/legal/IntellectualProperty"));
 const EnforcementAppeals = lazy(() => import("./pages/legal/EnforcementAppeals"));
+const LegalCenter = lazy(() => import("./pages/legal/LegalCenter"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -259,6 +260,7 @@ function AppRoutes() {
                     <Route path="/buyer-protection" element={<BuyerProtection />} />
                     <Route path="/intellectual-property" element={<IntellectualProperty />} />
                     <Route path="/enforcement-appeals" element={<EnforcementAppeals />} />
+                    <Route path="/legal" element={<LegalCenter />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
