@@ -13,9 +13,16 @@
   <url><loc>https://visionex.app/login</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://visionex.app/signup</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://visionex.app/contact</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://visionex.app/privacy-policy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
-  <url><loc>https://visionex.app/terms-of-use</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
-  <url><loc>https://visionex.app/accessibility</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://visionex.app/legal</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://visionex.app/privacy-policy</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://visionex.app/terms-of-use</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
   <url><loc>https://visionex.app/community-guidelines</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
-  <url><loc>https://visionex.app/marketplace-policy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://visionex.app/accessibility</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://visionex.app/legal-disclaimer</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://visionex.app/marketplace-policy</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://visionex.app/buyer-protection</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://visionex.app/vx-coins-policy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://visionex.app/intellectual-property</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://visionex.app/ai-policy</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://visionex.app/enforcement-appeals</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
 </urlset>
