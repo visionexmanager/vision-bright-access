@@ -111,6 +111,11 @@ const MarketplacePolicy = lazy(() => import("./pages/legal/MarketplacePolicy"));
 const CommunityGuidelines = lazy(() => import("./pages/legal/CommunityGuidelines"));
 const AccessibilityStatement = lazy(() => import("./pages/legal/AccessibilityStatement"));
 const LegalDisclaimer = lazy(() => import("./pages/legal/LegalDisclaimer"));
+const AIPolicy = lazy(() => import("./pages/legal/AIPolicy"));
+const VXCoinsPolicy = lazy(() => import("./pages/legal/VXCoinsPolicy"));
+const BuyerProtection = lazy(() => import("./pages/legal/BuyerProtection"));
+const IntellectualProperty = lazy(() => import("./pages/legal/IntellectualProperty"));
+const EnforcementAppeals = lazy(() => import("./pages/legal/EnforcementAppeals"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -249,6 +254,11 @@ function AppRoutes() {
                     <Route path="/community-guidelines" element={<CommunityGuidelines />} />
                     <Route path="/accessibility" element={<AccessibilityStatement />} />
                     <Route path="/legal-disclaimer" element={<LegalDisclaimer />} />
+                    <Route path="/ai-policy" element={<AIPolicy />} />
+                    <Route path="/vx-coins-policy" element={<VXCoinsPolicy />} />
+                    <Route path="/buyer-protection" element={<BuyerProtection />} />
+                    <Route path="/intellectual-property" element={<IntellectualProperty />} />
+                    <Route path="/enforcement-appeals" element={<EnforcementAppeals />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
