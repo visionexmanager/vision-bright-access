@@ -1,5 +1,11 @@
-import { ReactNode, useEffect, lazy, Suspense } from "react";
+import { ReactNode, useEffect, lazy, Suspense, createContext, useContext } from "react";
 import { ChevronRight, Scale } from "lucide-react";
+
+/* ── Embedded mode — suppresses Navbar/Footer when rendering inside a Sheet ── */
+const EmbeddedCtx = createContext(false);
+export const EmbeddedLayout = ({ children }: { children: ReactNode }) => (
+  <EmbeddedCtx.Provider value={true}>{children}</EmbeddedCtx.Provider>
+);
 import { Link, useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { NewsletterSubscribe } from "./NewsletterSubscribe";
@@ -36,12 +42,17 @@ const FOOTER_LINKS = {
 export function Layout({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
   const { pathname } = useLocation();
+  const isEmbedded = useContext(EmbeddedCtx);
   useMessageNotifications();
 
   useEffect(() => {
+    if (isEmbedded) return;
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     document.getElementById("main-content")?.focus();
-  }, [pathname]);
+  }, [pathname, isEmbedded]);
+
+  /* In embedded mode (inside LegalCenter Sheet) — render content only */
+  if (isEmbedded) return <>{children}</>;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -51,10 +62,8 @@ export function Layout({ children }: { children: ReactNode }) {
       <Navbar />
       <TrialBanner />
       <main id="main-content" tabIndex={-1} aria-label={t("nav.mainContent") || "Main content"} className="flex-1 animate-page-in">
-        {/* Legal sub-page breadcrumb — auto-injected on all individual policy pages */}
-        {["/privacy-policy","/terms-of-use","/community-guidelines","/accessibility",
-          "/legal-disclaimer","/marketplace-policy","/buyer-protection","/vx-coins-policy",
-          "/intellectual-property","/ai-policy","/enforcement-appeals"].includes(pathname) && (
+        {/* Legal sub-page breadcrumb — no longer shown (pages redirect to /legal) */}
+        {false && ["/privacy-policy"].includes(pathname) && (
           <div className="border-b bg-muted/30">
             <div className="section-container py-2.5">
               <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground">

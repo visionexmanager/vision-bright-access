@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import { ErrorBoundary, PageErrorBoundary } from "@/components/ErrorBoundary";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -104,18 +104,7 @@ const FashionDesigner = lazy(() => import("./pages/games/FashionDesigner"));
 const VelocityXRacing = lazy(() => import("./pages/games/VelocityXRacing"));
 const Akinator = lazy(() => import("./pages/games/Akinator"));
 
-// Legal pages
-const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
-const TermsOfUse = lazy(() => import("./pages/legal/TermsOfUse"));
-const MarketplacePolicy = lazy(() => import("./pages/legal/MarketplacePolicy"));
-const CommunityGuidelines = lazy(() => import("./pages/legal/CommunityGuidelines"));
-const AccessibilityStatement = lazy(() => import("./pages/legal/AccessibilityStatement"));
-const LegalDisclaimer = lazy(() => import("./pages/legal/LegalDisclaimer"));
-const AIPolicy = lazy(() => import("./pages/legal/AIPolicy"));
-const VXCoinsPolicy = lazy(() => import("./pages/legal/VXCoinsPolicy"));
-const BuyerProtection = lazy(() => import("./pages/legal/BuyerProtection"));
-const IntellectualProperty = lazy(() => import("./pages/legal/IntellectualProperty"));
-const EnforcementAppeals = lazy(() => import("./pages/legal/EnforcementAppeals"));
+// Legal — all policies are now rendered inline inside LegalCenter via Sheet
 const LegalCenter = lazy(() => import("./pages/legal/LegalCenter"));
 
 // Admin pages
@@ -248,19 +237,19 @@ function AppRoutes() {
                     <Route path="/purchase-history" element={<PurchaseHistory />} />
                     <Route path="/professional-tools" element={<ProfessionalTools />} />
                     <Route path="/professional-tools/:toolId" element={<ToolDetail />} />
-                    {/* Legal pages */}
-                    <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                    <Route path="/terms-of-use" element={<TermsOfUse />} />
-                    <Route path="/marketplace-policy" element={<MarketplacePolicy />} />
-                    <Route path="/community-guidelines" element={<CommunityGuidelines />} />
-                    <Route path="/accessibility" element={<AccessibilityStatement />} />
-                    <Route path="/legal-disclaimer" element={<LegalDisclaimer />} />
-                    <Route path="/ai-policy" element={<AIPolicy />} />
-                    <Route path="/vx-coins-policy" element={<VXCoinsPolicy />} />
-                    <Route path="/buyer-protection" element={<BuyerProtection />} />
-                    <Route path="/intellectual-property" element={<IntellectualProperty />} />
-                    <Route path="/enforcement-appeals" element={<EnforcementAppeals />} />
+                    {/* Legal — all policies accessible only through /legal (LegalCenter) */}
                     <Route path="/legal" element={<LegalCenter />} />
+                    <Route path="/privacy-policy"        element={<Navigate to="/legal" replace />} />
+                    <Route path="/terms-of-use"          element={<Navigate to="/legal" replace />} />
+                    <Route path="/marketplace-policy"    element={<Navigate to="/legal" replace />} />
+                    <Route path="/community-guidelines"  element={<Navigate to="/legal" replace />} />
+                    <Route path="/accessibility"         element={<Navigate to="/legal" replace />} />
+                    <Route path="/legal-disclaimer"      element={<Navigate to="/legal" replace />} />
+                    <Route path="/ai-policy"             element={<Navigate to="/legal" replace />} />
+                    <Route path="/vx-coins-policy"       element={<Navigate to="/legal" replace />} />
+                    <Route path="/buyer-protection"      element={<Navigate to="/legal" replace />} />
+                    <Route path="/intellectual-property" element={<Navigate to="/legal" replace />} />
+                    <Route path="/enforcement-appeals"   element={<Navigate to="/legal" replace />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
