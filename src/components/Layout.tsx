@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, lazy, Suspense } from "react";
+import { ChevronRight, Scale } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { NewsletterSubscribe } from "./NewsletterSubscribe";
@@ -50,6 +51,23 @@ export function Layout({ children }: { children: ReactNode }) {
       <Navbar />
       <TrialBanner />
       <main id="main-content" tabIndex={-1} aria-label={t("nav.mainContent") || "Main content"} className="flex-1 animate-page-in">
+        {/* Legal sub-page breadcrumb — auto-injected on all individual policy pages */}
+        {["/privacy-policy","/terms-of-use","/community-guidelines","/accessibility",
+          "/legal-disclaimer","/marketplace-policy","/buyer-protection","/vx-coins-policy",
+          "/intellectual-property","/ai-policy","/enforcement-appeals"].includes(pathname) && (
+          <div className="border-b bg-muted/30">
+            <div className="section-container py-2.5">
+              <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Scale className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                <Link to="/legal" className="font-medium text-primary hover:underline underline-offset-2">
+                  {t("footer.link.legalCenter")}
+                </Link>
+                <ChevronRight className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span className="truncate capitalize">{pathname.replace(/^\//, "").replace(/-/g, " ")}</span>
+              </nav>
+            </div>
+          </div>
+        )}
         {children}
       </main>
 

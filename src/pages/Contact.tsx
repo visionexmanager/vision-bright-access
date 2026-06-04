@@ -88,7 +88,7 @@ export default function Contact() {
 
   return (
     <Layout>
-      <section className="section-container py-10" aria-labelledby="contact-heading">
+      <section className="section-container py-12" aria-labelledby="contact-heading">
         <h1 id="contact-heading" className="mb-2 text-3xl font-bold">
           {t("contact.title")}
         </h1>

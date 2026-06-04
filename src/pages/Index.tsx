@@ -19,7 +19,7 @@ export default function Index() {
     { icon: ShoppingBag, title: t("home.feature.marketplace"), desc: t("home.feature.marketplaceDesc"), to: "/bazaar",                   requiresAuth: false },
     { icon: Eye,         title: t("home.feature.services"),    desc: t("home.feature.servicesDesc"),    to: "/services",                  requiresAuth: false },
     { icon: BookOpen,    title: t("home.feature.content"),     desc: t("home.feature.contentDesc"),     to: "/content",                   requiresAuth: false },
-    { icon: Gamepad2,    title: t("nav.games"),                desc: t("home.feature.contentDesc"),      to: "/games",                     requiresAuth: true },
+    { icon: Gamepad2,    title: t("nav.games"),                desc: t("dash.playGamesLinkDesc"),        to: "/games",                     requiresAuth: true },
   ];
 
   const steps = [
@@ -114,7 +114,7 @@ export default function Index() {
       <section className="py-20" aria-labelledby="features-heading">
         <div className="section-container">
           <AnimatedSection>
-            <h2 id="features-heading" className="mb-10 text-center text-3xl font-bold">{t("home.featuresTitle")}</h2>
+            <h2 id="features-heading" className="mb-12 text-center text-3xl font-bold">{t("home.featuresTitle")}</h2>
           </AnimatedSection>
           <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((f, i) => {
@@ -153,7 +153,7 @@ export default function Index() {
                         <p className={`text-muted-foreground ${isFirst ? "" : "text-sm"}`}>{f.desc}</p>
                         {isFirst && (
                           <span className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                            {t("home.exploreMarketplace")} <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                            {t("footer.link.bazaar")} <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                           </span>
                         )}
                       </CardContent>
@@ -166,18 +166,18 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Points CTA */}
-      <section className="bg-muted/50 px-4 py-12 text-center" aria-labelledby="points-heading">
+      {/* Points CTA — distinct bg breaks the muted/50 alternation pattern */}
+      <section className="border-t border-primary/10 bg-primary/5 px-4 py-12 text-center" aria-labelledby="points-heading">
         <AnimatedSection className="mx-auto max-w-2xl">
           <h2 id="points-heading" className="mb-4 text-3xl font-bold">{t("home.pointsTitle")}</h2>
-          <p className="mb-6 text-lg text-muted-foreground">{t("home.pointsDesc")}</p>
+          <p className="mb-6 text-muted-foreground">{t("home.pointsDesc")}</p>
           {user ? (
             <Link to="/dashboard">
-              <Button size="lg" className="text-lg px-8 py-6 font-semibold" onClick={() => playSound("navigate")}>{t("nav.dashboard")} <ArrowRight className="ms-2 h-5 w-5" /></Button>
+              <Button size="default" className="font-semibold" onClick={() => playSound("navigate")}>{t("nav.dashboard")} <ArrowRight className="ms-2 h-4 w-4" /></Button>
             </Link>
           ) : (
             <Link to="/signup">
-              <Button size="lg" className="text-lg px-8 py-6 font-semibold" onClick={() => playSound("navigate")}>{t("home.claimPoints")}</Button>
+              <Button size="default" className="font-semibold" onClick={() => playSound("navigate")}>{t("home.claimPoints")}</Button>
             </Link>
           )}
         </AnimatedSection>

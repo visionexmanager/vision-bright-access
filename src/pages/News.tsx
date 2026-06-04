@@ -66,26 +66,38 @@ export default function News() {
 
         <WatchAdButton variant="banner" className="mb-6" />
 
+        {/* Featured first item */}
         <StaggerGrid className="grid gap-6">
-          {NEWS_ITEMS.map((item, i) => (
-            <StaggerItem key={i}>
-              <Card className="transition-shadow hover:shadow-lg">
-                <CardHeader className="flex-row items-center gap-4">
-                  {item.icon}
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{t(item.titleKey)}</CardTitle>
-                    <CardDescription className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline">{t(item.categoryKey)}</Badge>
-                      <span className="text-xs">{format(item.date, "PPP", { locale })}</span>
-                    </CardDescription>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">{t(item.descKey)}</p>
-                </CardContent>
-              </Card>
-            </StaggerItem>
-          ))}
+          {NEWS_ITEMS.map((item, i) => {
+            const isFeatured = i === 0;
+            return (
+              <StaggerItem key={i}>
+                <Card className={`transition-shadow hover:shadow-md ${isFeatured ? "border-primary/20 bg-primary/5" : ""}`}>
+                  <CardHeader className={`flex-row items-start gap-4 ${isFeatured ? "pb-3" : ""}`}>
+                    <div className={`shrink-0 rounded-xl p-3 ${isFeatured ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
+                      {isFeatured
+                        ? <span className="block [&>svg]:h-7 [&>svg]:w-7 [&>svg]:text-current">{item.icon}</span>
+                        : <span className="block [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-primary">{item.icon}</span>
+                      }
+                    </div>
+                    <div className="flex-1">
+                      {isFeatured && (
+                        <Badge className="mb-2 text-xs">{t("news.featured") || "Latest"}</Badge>
+                      )}
+                      <CardTitle className={isFeatured ? "text-xl" : "text-lg"}>{t(item.titleKey)}</CardTitle>
+                      <CardDescription className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">{t(item.categoryKey)}</Badge>
+                        <span className="text-xs">{format(item.date, "PPP", { locale })}</span>
+                      </CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className={`text-muted-foreground ${isFeatured ? "text-base" : "text-sm"}`}>{t(item.descKey)}</p>
+                  </CardContent>
+                </Card>
+              </StaggerItem>
+            );
+          })}
         </StaggerGrid>
       </section>
     </Layout>

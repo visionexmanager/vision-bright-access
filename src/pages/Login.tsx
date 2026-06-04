@@ -11,6 +11,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { SocialAuthButtons } from "@/components/SocialAuthButtons";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
+import { ShoppingBag, Zap, Globe, Trophy } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -35,10 +36,42 @@ export default function Login() {
     }
   };
 
+  const highlights = [
+    { icon: ShoppingBag, key: "home.feature.marketplace" },
+    { icon: Zap,         key: "home.feature.services"    },
+    { icon: Globe,       key: "home.feature.content"     },
+    { icon: Trophy,      key: "leader.title"              },
+  ];
+
   return (
     <Layout>
       <div className="flex min-h-[70vh] items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md">
+        <div className="w-full max-w-4xl lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center">
+
+          {/* Brand panel — visible only on large screens */}
+          <div className="hidden lg:flex flex-col gap-8">
+            <div>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" aria-hidden="true" />
+                {t("home.badge")}
+              </div>
+              <h2 className="text-3xl font-bold leading-tight">{t("home.title")}<span className="text-primary">{t("home.titleHighlight")}</span></h2>
+              <p className="mt-3 text-muted-foreground">{t("home.subtitle")}</p>
+            </div>
+            <ul className="space-y-4">
+              {highlights.map(({ icon: Icon, key }) => (
+                <li key={key} className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                    <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+                  </div>
+                  <span className="text-sm font-medium">{t(key as Parameters<typeof t>[0])}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Form card */}
+          <Card className="w-full max-w-md mx-auto">
           <CardHeader className="text-center">
             <CardTitle className="text-3xl">{t("auth.loginTitle")}</CardTitle>
             <CardDescription className="text-base">{t("auth.loginSubtitle")}</CardDescription>
@@ -68,7 +101,8 @@ export default function Login() {
               <Link to="/signup" className="font-semibold text-primary underline underline-offset-4">{t("nav.signup")}</Link>
             </p>
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       </div>
     </Layout>
   );
