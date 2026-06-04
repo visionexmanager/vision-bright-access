@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,22 @@ export default function Signup() {
   const { t } = useLanguage();
   const deviceId = useDeviceId();
   const { user, loading: authLoading } = useAuth();
+
+  const passwordStrength = useMemo(() => {
+    if (!password) return 0;
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password) || /[0-9]/.test(password)) score++;
+    if (password.length >= 12 && /[^A-Za-z0-9]/.test(password)) score++;
+    return Math.min(score + (password.length >= 6 ? 1 : 0), 3) as 0 | 1 | 2 | 3;
+  }, [password]);
+
+  const strengthMeta = [
+    { label: "", color: "" },
+    { label: t("auth.passWeak") || "Weak",   color: "bg-red-500"    },
+    { label: t("auth.passFair") || "Fair",   color: "bg-yellow-500" },
+    { label: t("auth.passStrong") || "Strong", color: "bg-green-500"  },
+  ];
 
   if (!authLoading && user) return <Navigate to="/dashboard" replace />;
 
@@ -100,7 +116,22 @@ export default function Signup() {
               </div>
               <div>
                 <Label htmlFor="password" className="text-base">{t("auth.password")}</Label>
-                <Input id="password" type="password" required minLength={6} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-12 text-base" aria-required="true" />
+                <Input id="password" type="password" required minLength={6} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-12 text-base" aria-required="true" aria-describedby="password-strength" />
+                {password.length > 0 && (
+                  <div id="password-strength" className="mt-2 space-y-1" aria-live="polite">
+                    <div className="flex gap-1" role="presentation">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i <= passwordStrength ? strengthMeta[passwordStrength].color : "bg-muted"}`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {strengthMeta[passwordStrength].label}
+                    </p>
+                  </div>
+                )}
               </div>
               {/* Consent */}
               <div className="flex items-start gap-3">

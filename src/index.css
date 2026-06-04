@@ -182,7 +182,7 @@
   @media (min-width: 1024px) { body { font-size: 17px; } }
   @media (min-width: 1280px) { body { font-size: 18px; } }
 
-  /* ── Headings ───────────────────────────────────────────────────────────── */
+  /* ── Headings — tighter tracking creates premium, designed feel ─────────── */
   h1, h2, h3, h4, h5, h6 {
     /* Latin headings: Space Grotesk. Arabic headings: Cairo (900 weight = bold). */
     font-family: 'Space Grotesk', 'Cairo', 'Noto Sans Devanagari', 'PingFang SC', system-ui, sans-serif;
@@ -191,6 +191,10 @@
     /* letter-spacing only for Latin — Arabic script must NOT have tracking */
     letter-spacing: -0.01em;
   }
+  /* Progressive tightening by scale — hallmark of premium type systems */
+  h1 { letter-spacing: -0.025em; line-height: 1.1; }
+  h2 { letter-spacing: -0.018em; }
+  h3 { letter-spacing: -0.012em; }
 
   /* In RTL (Arabic/Urdu), disable letter-spacing — it breaks Arabic ligatures */
   [dir="rtl"] h1,
@@ -297,6 +301,22 @@
       background: white;
       color: black;
     }
+  }
+}
+
+/* ── Design System Utilities ────────────────────────────────────────────── */
+@layer components {
+  /* Hover tiers — use consistently to signal interaction level:
+     L1: informational cards (no translate, minimal shadow)
+     L2: navigation cards (subtle lift)
+     L3: primary interactive / purchase cards (clear lift)  */
+  .card-hover-l1 { @apply transition-shadow hover:shadow-sm; }
+  .card-hover-l2 { @apply transition-all hover:shadow-md; }
+  .card-hover-l3 { @apply transition-all hover:shadow-md hover:-translate-y-0.5; }
+
+  /* Section heading — consistent label above h2 titles */
+  .section-label {
+    @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider;
   }
 }
 

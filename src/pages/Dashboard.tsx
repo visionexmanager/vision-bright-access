@@ -26,9 +26,6 @@ import {
   ShoppingCart,
   Sparkles,
   Trophy,
-  Mic2,
-  Tv,
-  Radio,
   Gamepad2,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -253,10 +250,10 @@ export default function Dashboard() {
           <CardContent>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { icon: Mic2,     to: "/community/voice-rooms", label: t("dash.voiceRoomsLink"),  desc: t("dash.voiceRoomsLinkDesc"),  color: "text-violet-500" },
-                { icon: Tv,       to: "/services/live-tv",   label: t("dash.tvLink"),           desc: t("dash.tvLinkDesc"),           color: "text-blue-500" },
-                { icon: Radio,    to: "/services/live-radio", label: t("dash.radioLink"),        desc: t("dash.radioLinkDesc"),        color: "text-orange-500" },
-                { icon: Gamepad2, to: "/games",              label: t("dash.playGamesLink"),    desc: t("dash.playGamesLinkDesc"),    color: "text-green-500" },
+                { icon: Gamepad2,     to: "/games",       label: t("dash.playGamesLink"),        desc: t("dash.playGamesLinkDesc"),       color: "text-green-500"  },
+                { icon: Trophy,       to: "/leaderboard", label: t("leader.title"),               desc: t("leader.subtitle"),              color: "text-yellow-500" },
+                { icon: ShoppingCart, to: "/bazaar",      label: "VXBazaar",                      desc: t("home.feature.marketplaceDesc"), color: "text-primary"    },
+                { icon: BookOpen,     to: "/academy",     label: t("footer.link.academy"),        desc: t("services.catLearn"),            color: "text-blue-500"   },
               ].map((item) => (
                 <Link key={item.to} to={item.to} onClick={() => playSound("navigate")} className="group block">
                   <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center transition-all hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5">

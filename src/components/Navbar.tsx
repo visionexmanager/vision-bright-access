@@ -5,8 +5,15 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useSound } from "@/contexts/SoundContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX, Mic2, Tv, Radio } from "lucide-react";
+import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useUnreadCount } from "@/hooks/useMessages";
 import { usePoints } from "@/hooks/usePoints";
@@ -77,9 +84,6 @@ export function Navbar() {
     { to: "/bazaar", label: "VXBazaar" },
     { to: "/services", label: t("nav.services") },
     { to: "/content", label: t("nav.content") },
-    { to: "/community/voice-rooms", label: t("nav.voiceRooms") },
-    { to: "/services/live-tv", label: t("nav.liveTV") },
-    { to: "/services/live-radio", label: t("nav.liveRadio") },
     { to: "/games", label: t("nav.games") },
     { to: "/news", label: t("nav.news") },
   ];
@@ -105,9 +109,6 @@ export function Navbar() {
       links: [
         { to: "/games", label: t("nav.games") },
         { to: "/community", label: t("nav.community") },
-        { to: "/community/voice-rooms", label: t("nav.voiceRooms") },
-        { to: "/services/live-tv",      label: t("nav.liveTV") },
-        { to: "/services/live-radio",   label: t("nav.liveRadio") },
       ],
     },
     {
@@ -179,33 +180,16 @@ export function Navbar() {
             </Link>
           )}
           {user && (
-            <>
-              <Link to="/messages">
-                <Button variant="ghost" size="icon" className="relative" aria-label={t("msg.title")}>
-                  <MessageCircle className="h-5 w-5" />
-                  {unreadMessages > 0 && (
-                    <Badge variant="destructive" className="absolute -end-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]">
-                      {unreadMessages}
-                    </Badge>
-                  )}
-                </Button>
-              </Link>
-              <Link to="/wishlist" className="hidden xl:inline-flex">
-                <Button variant="ghost" size="icon" aria-label={t("nav.wishlist")}>
-                  <Heart className="h-5 w-5" />
-                </Button>
-              </Link>
-              <Link to="/profile">
-                <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
-                  <User className="h-5 w-5" />
-                </Button>
-              </Link>
-              <Link to="/settings" className="hidden xl:inline-flex">
-                <Button variant="ghost" size="icon" aria-label={t("nav.settings")}>
-                  <Settings className="h-5 w-5" />
-                </Button>
-              </Link>
-            </>
+            <Link to="/messages">
+              <Button variant="ghost" size="icon" className="relative" aria-label={t("msg.title")}>
+                <MessageCircle className="h-5 w-5" />
+                {unreadMessages > 0 && (
+                  <Badge variant="destructive" className="absolute -end-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]">
+                    {unreadMessages}
+                  </Badge>
+                )}
+              </Button>
+            </Link>
           )}
           {user ? (
             <>
@@ -221,14 +205,38 @@ export function Navbar() {
                   {t("nav.dashboard")}
                 </Button>
               </Link>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={signOut}
-                aria-label={t("nav.signout")}
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
+              {/* Profile dropdown — consolidates Profile, Wishlist, Settings, Logout */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
+                      <User className="h-4 w-4" aria-hidden="true" /> {t("nav.profile")}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/wishlist" className="flex items-center gap-2 cursor-pointer">
+                      <Heart className="h-4 w-4" aria-hidden="true" /> {t("nav.wishlist")}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings" className="flex items-center gap-2 cursor-pointer">
+                      <Settings className="h-4 w-4" aria-hidden="true" /> {t("nav.settings")}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={signOut}
+                    className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="h-4 w-4" aria-hidden="true" /> {t("nav.signout")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
             <>

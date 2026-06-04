@@ -25,30 +25,10 @@ const FOOTER_LINKS = {
   more: [
     { to: "/professional-tools",      labelKey: "footer.link.professionalTools" },
     { to: "/community",               labelKey: "footer.link.community" },
-    { to: "/community/voice-rooms",   labelKey: "footer.link.voiceRooms" },
-    { to: "/services/live-tv",        labelKey: "footer.link.liveTV" },
-    { to: "/services/live-radio",     labelKey: "footer.link.liveRadio" },
     { to: "/leaderboard",             labelKey: "footer.link.leaderboard" },
     { to: "/assistive-products",      labelKey: "footer.link.assistiveProducts" },
     { to: "/academy",                 labelKey: "footer.link.academy" },
     { to: "/purchase-history",        labelKey: "footer.link.purchaseHistory" },
-  ],
-  legalCore: [
-    { to: "/privacy-policy",       labelKey: "footer.link.privacyPolicy" },
-    { to: "/terms-of-use",         labelKey: "footer.link.termsOfUse" },
-    { to: "/community-guidelines", labelKey: "footer.link.communityGuidelines" },
-    { to: "/legal-disclaimer",     labelKey: "footer.link.legalDisclaimer" },
-    { to: "/accessibility",        labelKey: "footer.link.accessibility" },
-  ],
-  legalMarket: [
-    { to: "/marketplace-policy",    labelKey: "footer.link.marketplacePolicy" },
-    { to: "/buyer-protection",      labelKey: "footer.link.buyerProtection" },
-    { to: "/vx-coins-policy",       labelKey: "footer.link.vxCoinsPolicy" },
-    { to: "/intellectual-property", labelKey: "footer.link.intellectualProperty" },
-  ],
-  legalPlatform: [
-    { to: "/ai-policy",           labelKey: "footer.link.aiPolicy" },
-    { to: "/enforcement-appeals", labelKey: "footer.link.enforcementAppeals" },
   ],
 };
 
@@ -73,116 +53,69 @@ export function Layout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t bg-card" role="contentinfo">
-        <div className="section-container py-8">
-          <NewsletterSubscribe />
+      <footer className="bg-card" role="contentinfo">
+        {/* Brand accent line — anchors footer visually to the product color */}
+        <div className="h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" aria-hidden="true" />
+        <div className="border-t border-border/60">
+          <div className="section-container py-8">
+            <NewsletterSubscribe />
 
-          {/* Sitemap columns: 3 columns (Brand + Pages + More) */}
-          <div className="mt-8 grid gap-8 sm:grid-cols-3">
-            {/* Brand */}
-            <div>
-              <img
-                src={logo}
-                alt="VisionEx logo"
-                className="h-9 w-auto object-contain mb-3"
-                width={240}
-                height={160}
-              />
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {t("footer.brandDesc")}
-              </p>
-            </div>
-
-            {/* Main pages */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">{t("footer.pages")}</h3>
-              <ul className="space-y-2">
-                {FOOTER_LINKS.pages.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                      {t(l.labelKey)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* More */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">{t("footer.more")}</h3>
-              <ul className="space-y-2">
-                {FOOTER_LINKS.more.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                      {t(l.labelKey)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Legal Policy Groups */}
-          <div className="mt-8 border-t pt-6">
-            <div className="grid gap-6 sm:grid-cols-3">
-              {/* Legal Core */}
+            {/* Sitemap columns */}
+            <div className="mt-8 grid gap-8 sm:grid-cols-3">
+              {/* Brand */}
               <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t("footer.legal")}
+                <Link to="/" className="inline-block mb-1" aria-label="VisionEx home">
+                  <img
+                    src={logo}
+                    alt="VisionEx logo"
+                    className="h-10 w-auto object-contain"
+                    width={240}
+                    height={160}
+                  />
+                </Link>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                  {t("footer.brandDesc")}
                 </p>
-                <ul className="space-y-1.5">
-                  {FOOTER_LINKS.legalCore.map((l) => (
+              </div>
+
+              {/* Main pages */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("footer.pages")}</p>
+                <ul className="space-y-2">
+                  {FOOTER_LINKS.pages.map((l) => (
                     <li key={l.to}>
-                      <Link to={l.to} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                         {t(l.labelKey)}
                       </Link>
                     </li>
                   ))}
                 </ul>
               </div>
-              {/* Marketplace */}
+
+              {/* More */}
               <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t("footer.marketplace")}
-                </p>
-                <ul className="space-y-1.5">
-                  {FOOTER_LINKS.legalMarket.map((l) => (
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("footer.more")}</p>
+                <ul className="space-y-2">
+                  {FOOTER_LINKS.more.map((l) => (
                     <li key={l.to}>
-                      <Link to={l.to} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                         {t(l.labelKey)}
                       </Link>
                     </li>
                   ))}
-                </ul>
-              </div>
-              {/* Platform Governance */}
-              <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t("footer.platform")}
-                </p>
-                <ul className="space-y-1.5">
-                  {FOOTER_LINKS.legalPlatform.map((l) => (
-                    <li key={l.to}>
-                      <Link to={l.to} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                        {t(l.labelKey)}
-                      </Link>
-                    </li>
-                  ))}
-                  <li>
-                    <Link to="/legal" className="text-xs font-semibold text-primary hover:underline transition-colors">
-                      {t("footer.link.legalCenter")} →
-                    </Link>
-                  </li>
                 </ul>
               </div>
             </div>
-          </div>
 
-          {/* Copyright strip */}
-          <div className="mt-6 border-t pt-4">
-            <small className="block text-center text-xs text-muted-foreground">
-              {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
-            </small>
+            {/* Bottom bar: legal + copyright in one row */}
+            <div className="mt-8 border-t pt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+              <Link to="/legal" className="text-xs font-semibold text-primary hover:underline transition-colors">
+                {t("footer.link.legalCenter")} →
+              </Link>
+              <small className="text-xs text-muted-foreground">
+                {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
+              </small>
+            </div>
           </div>
         </div>
       </footer>

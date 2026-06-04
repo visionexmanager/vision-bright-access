@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Mail } from "lucide-react";
+import { Send, Mail, Clock, MessageSquare } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -94,13 +94,29 @@ export default function Contact() {
         </h1>
         <p className="mb-6 text-lg text-muted-foreground">{t("contact.subtitle")}</p>
 
-        <div className="mb-8 flex items-center gap-3 rounded-lg border bg-muted/50 px-5 py-4">
-          <Mail className="h-5 w-5 shrink-0 text-primary" />
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{t("contact.emailUs") || "Email us directly"}</p>
-            <a href="mailto:hello@visionex.app" className="text-base font-semibold text-primary hover:underline">
-              hello@visionex.app
-            </a>
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+            <Mail className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <div>
+              <p className="text-xs text-muted-foreground">{t("contact.emailUs") || "Email us"}</p>
+              <a href="mailto:hello@visionex.app" className="text-sm font-semibold text-primary hover:underline">
+                hello@visionex.app
+              </a>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+            <Clock className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <div>
+              <p className="text-xs text-muted-foreground">{t("contact.responseLabel") || "Response time"}</p>
+              <p className="text-sm font-semibold">{t("contact.responseTime") || "Within 24 hours"}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+            <MessageSquare className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <div>
+              <p className="text-xs text-muted-foreground">{t("contact.supportLabel") || "Support"}</p>
+              <p className="text-sm font-semibold">{t("contact.supportHours") || "7 days / week"}</p>
+            </div>
           </div>
         </div>
 
