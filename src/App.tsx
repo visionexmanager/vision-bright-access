@@ -126,6 +126,7 @@ const AdminBazaar = lazy(() => import("./pages/admin/AdminBazaar"));
 const AdminTV = lazy(() => import("./pages/admin/AdminTV"));
 const AdminRadio = lazy(() => import("./pages/admin/AdminRadio"));
 const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
+const AdminNews = lazy(() => import("./pages/admin/AdminNews"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -269,6 +270,7 @@ function AppRoutes() {
                     <Route path="/admin/tv" element={<AdminRoute><AdminTV /></AdminRoute>} />
                     <Route path="/admin/radio" element={<AdminRoute><AdminRadio /></AdminRoute>} />
                     <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
+                    <Route path="/admin/news" element={<AdminRoute><AdminNews /></AdminRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
       </Suspense>
