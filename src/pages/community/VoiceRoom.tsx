@@ -2171,6 +2171,239 @@ function playReactionSound(emoji: string) {
         o.start(now + i * 0.1); o.stop(now + i * 0.1 + 0.5);
       });
 
+    // ── Happy / Kind 😊🥹😇 ──────────────────────────────────────
+    // Warm soft rising two-tone — gentle and positive
+    } else if (["😊","🥹","😇"].includes(emoji)) {
+      [523, 659].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.12);
+        g.gain.linearRampToValueAtTime(0.11, now + i * 0.12 + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.45);
+        o.start(now + i * 0.12); o.stop(now + i * 0.12 + 0.5);
+      });
+
+    // ── Star-struck 🤩 ───────────────────────────────────────────
+    // Three rapid high ascending sparkles
+    } else if (emoji === "🤩") {
+      [1047, 1319, 1760].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.07);
+        g.gain.linearRampToValueAtTime(0.12, now + i * 0.07 + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.32);
+        o.start(now + i * 0.07); o.stop(now + i * 0.07 + 0.36);
+      });
+
+    // ── Cool / Smug 😎😏 ─────────────────────────────────────────
+    // Smooth sawtooth descend — laid-back, confident
+    } else if (["😎","😏"].includes(emoji)) {
+      const o = _osc(ctx, "sawtooth", 330);
+      const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 900;
+      const g = _gain(ctx);
+      o.connect(lp); lp.connect(g); g.connect(ctx.destination);
+      o.frequency.setValueAtTime(330, now);
+      o.frequency.linearRampToValueAtTime(220, now + 0.35);
+      g.gain.setValueAtTime(0.13, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+      o.start(now); o.stop(now + 0.4);
+
+    // ── Thinking / Skeptical 🤔🤨 ────────────────────────────────
+    // Slow rise then hang — "hmm?" questioning inflection
+    } else if (["🤔","🤨"].includes(emoji)) {
+      const o = _osc(ctx, "sine", 380);
+      const g = _gain(ctx);
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.setValueAtTime(380, now);
+      o.frequency.linearRampToValueAtTime(480, now + 0.25);
+      g.gain.setValueAtTime(0.11, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+      o.start(now); o.stop(now + 0.45);
+
+    // ── Sleepy / Yawning 😴🥱 ────────────────────────────────────
+    // Long slow descend — drooping, tired
+    } else if (["😴","🥱"].includes(emoji)) {
+      const o = _osc(ctx, "sine", 340);
+      const g = _gain(ctx);
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.setValueAtTime(340, now);
+      o.frequency.linearRampToValueAtTime(170, now + 0.65);
+      g.gain.setValueAtTime(0.1, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.68);
+      o.start(now); o.stop(now + 0.72);
+
+    // ── Awkward / Melting 😬🫠 ────────────────────────────────────
+    // Wavering unsteady pitch — uneasy, uncomfortable
+    } else if (["😬","🫠"].includes(emoji)) {
+      const o = _osc(ctx, "sine", 280);
+      const g = _gain(ctx);
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.setValueAtTime(280, now);
+      o.frequency.linearRampToValueAtTime(315, now + 0.12);
+      o.frequency.linearRampToValueAtTime(255, now + 0.26);
+      o.frequency.linearRampToValueAtTime(295, now + 0.40);
+      g.gain.setValueAtTime(0.1, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.46);
+      o.start(now); o.stop(now + 0.5);
+
+    // ── Expressionless 😐😑 ───────────────────────────────────────
+    // Single flat mid blip — deadpan, no emotion
+    } else if (["😐","😑"].includes(emoji)) {
+      const o = _osc(ctx, "sine", 400);
+      const g = _gain(ctx);
+      o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      o.start(now); o.stop(now + 0.25);
+
+    // ── Silent / Hush 🤐😶🤫 ─────────────────────────────────────
+    // Soft high-pass noise — a breath of "shhh"
+    } else if (["🤐","😶","🤫"].includes(emoji)) {
+      const nsrc = ctx.createBufferSource();
+      nsrc.buffer = _noiseBuf(ctx, 0.2);
+      const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 3500;
+      const g = _gain(ctx);
+      nsrc.connect(hp); hp.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.07, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      nsrc.start(now);
+
+    // ── Giggle 🤭 ─────────────────────────────────────────────────
+    // Two muffled vocal bursts — hand-covered snicker
+    } else if (emoji === "🤭") {
+      for (let i = 0; i < 2; i++) {
+        const t0 = now + i * 0.14;
+        const src = _osc(ctx, "sawtooth", 280);
+        const f1 = _bpf(ctx, 700, 6);
+        const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1600;
+        const env = _gain(ctx);
+        src.connect(f1); f1.connect(lp); lp.connect(env); env.connect(ctx.destination);
+        env.gain.setValueAtTime(0, t0);
+        env.gain.linearRampToValueAtTime(0.13, t0 + 0.02);
+        env.gain.exponentialRampToValueAtTime(0.001, t0 + 0.11);
+        src.start(t0); src.stop(t0 + 0.13);
+      }
+
+    // ── Idea 💡 ───────────────────────────────────────────────────
+    // Bright ascending three-note ping — "ding! lightbulb"
+    } else if (emoji === "💡") {
+      [660, 880, 1320].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.055);
+        g.gain.linearRampToValueAtTime(0.12 / (i * 0.4 + 1), now + i * 0.055 + 0.007);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.055 + 0.4);
+        o.start(now + i * 0.055); o.stop(now + i * 0.055 + 0.44);
+      });
+
+    // ── Moon 🌙 ───────────────────────────────────────────────────
+    // Soft descending night chime — quiet, dreamy
+    } else if (emoji === "🌙") {
+      [523, 392, 330].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.15);
+        g.gain.linearRampToValueAtTime(0.08, now + i * 0.15 + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.55);
+        o.start(now + i * 0.15); o.stop(now + i * 0.15 + 0.6);
+      });
+
+    // ── Game controller 🎮 ───────────────────────────────────────
+    // 8-bit ascending jingle — square wave start tune
+    } else if (emoji === "🎮") {
+      [330, 392, 494, 659].forEach((freq, i) => {
+        const o = _osc(ctx, "square", freq);
+        const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1200;
+        const g = _gain(ctx);
+        o.connect(lp); lp.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.08);
+        g.gain.linearRampToValueAtTime(0.1, now + i * 0.08 + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.07);
+        o.start(now + i * 0.08); o.stop(now + i * 0.08 + 0.09);
+      });
+
+    // ── Sports / Ball ⚽🏀 ───────────────────────────────────────
+    // Three quick low thumps — ball bouncing on floor
+    } else if (["⚽","🏀"].includes(emoji)) {
+      [0, 0.13, 0.22].forEach((dt, i) => {
+        const nsrc = ctx.createBufferSource();
+        nsrc.buffer = _noiseBuf(ctx, 0.09);
+        const bp = _bpf(ctx, 110 - i * 18, 4);
+        const g = _gain(ctx);
+        nsrc.connect(bp); bp.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.38 - i * 0.1, now + dt);
+        g.gain.exponentialRampToValueAtTime(0.001, now + dt + 0.09);
+        nsrc.start(now + dt);
+      });
+
+    // ── Food / Sweet 🍕🍔🧁🍭 ───────────────────────────────────
+    // Lip-smack pop + sweet high ding — playful nom
+    } else if (["🍕","🍔","🧁","🍭"].includes(emoji)) {
+      const nsrc = ctx.createBufferSource();
+      nsrc.buffer = _noiseBuf(ctx, 0.05);
+      const bp = _bpf(ctx, 800, 1.2);
+      const ng = _gain(ctx);
+      nsrc.connect(bp); bp.connect(ng); ng.connect(ctx.destination);
+      ng.gain.setValueAtTime(0.42, now);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+      nsrc.start(now);
+      const ding = _osc(ctx, "sine", 880);
+      const dg = _gain(ctx);
+      ding.connect(dg); dg.connect(ctx.destination);
+      dg.gain.setValueAtTime(0, now + 0.05);
+      dg.gain.linearRampToValueAtTime(0.1, now + 0.062);
+      dg.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      ding.start(now + 0.05); ding.stop(now + 0.38);
+
+    // ── Frog 🐸 ───────────────────────────────────────────────────
+    // Low two-pulse ribbit — deep voiced oscillator
+    } else if (emoji === "🐸") {
+      for (let i = 0; i < 2; i++) {
+        const t0 = now + i * 0.16;
+        const o = _osc(ctx, "sine", 150);
+        const f1 = _bpf(ctx, 400, 5);
+        const env = _gain(ctx);
+        o.connect(f1); f1.connect(env); env.connect(ctx.destination);
+        o.frequency.setValueAtTime(150, t0);
+        o.frequency.linearRampToValueAtTime(200, t0 + 0.06);
+        o.frequency.linearRampToValueAtTime(140, t0 + 0.12);
+        env.gain.setValueAtTime(0, t0);
+        env.gain.linearRampToValueAtTime(0.18, t0 + 0.015);
+        env.gain.exponentialRampToValueAtTime(0.001, t0 + 0.13);
+        o.start(t0); o.stop(t0 + 0.15);
+      }
+
+    // ── Cute Animals 🐶😺🐧🦊 ────────────────────────────────────
+    // Quick up-down chirp — small animal sound
+    } else if (["🐶","😺","🐧","🦊"].includes(emoji)) {
+      const baseFreq = (emoji === "🐶") ? 380 : 560;
+      const o = _osc(ctx, "sine", baseFreq);
+      const g = _gain(ctx);
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.setValueAtTime(baseFreq, now);
+      o.frequency.linearRampToValueAtTime(baseFreq * 1.5, now + 0.07);
+      o.frequency.linearRampToValueAtTime(baseFreq * 0.9, now + 0.16);
+      g.gain.setValueAtTime(0.13, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      o.start(now); o.stop(now + 0.22);
+
+    // ── Unicorn 🦄 ────────────────────────────────────────────────
+    // Magical glittery ascending sparkle — whimsical and bright
+    } else if (emoji === "🦄") {
+      [1047, 1319, 1568, 2093, 2637].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.06);
+        g.gain.linearRampToValueAtTime(0.1 / (i * 0.15 + 1), now + i * 0.06 + 0.007);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.38);
+        o.start(now + i * 0.06); o.stop(now + i * 0.06 + 0.42);
+      });
+
     // ── Default: soft blip ─────────────────────────────────────────
     } else {
       const o = _osc(ctx, "sine", 640);
