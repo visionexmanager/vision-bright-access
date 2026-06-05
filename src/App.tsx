@@ -106,6 +106,7 @@ const Akinator = lazy(() => import("./pages/games/Akinator"));
 
 // Legal — all policies are now rendered inline inside LegalCenter via Sheet
 const LegalCenter = lazy(() => import("./pages/legal/LegalCenter"));
+const About = lazy(() => import("./pages/About"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -166,6 +167,7 @@ function AppRoutes() {
                     <Route path="/academy" element={<Academy />} />
                     <Route path="/content" element={<Content />} />
                     <Route path="/contact" element={<Contact />} />
+                    <Route path="/about" element={<About />} />
                     <Route path="/leaderboard" element={<Leaderboard />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/product/:id" element={<ProductDetail />} />

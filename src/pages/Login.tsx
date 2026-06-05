@@ -17,6 +17,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{email?: string; password?: string}>({});
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { user, loading: authLoading } = useAuth();
@@ -25,6 +26,12 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Inline field validation — purely visual, no auth logic change
+    const errs: typeof fieldErrors = {};
+    if (!email.trim()) errs.email = t("auth.emailRequired") || "Email is required";
+    if (!password)     errs.password = t("auth.passwordRequired") || "Password is required";
+    if (Object.keys(errs).length) { setFieldErrors(errs); return; }
+    setFieldErrors({});
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -81,11 +88,19 @@ export default function Login() {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <Label htmlFor="email" className="text-base">{t("auth.email")}</Label>
-                <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 h-12 text-base" aria-required="true" />
+                <Input id="email" type="email" required autoComplete="email" value={email}
+                  onChange={(e) => { setEmail(e.target.value); if (fieldErrors.email) setFieldErrors(p => ({...p, email: undefined})); }}
+                  className={`mt-1 h-12 text-base ${fieldErrors.email ? "border-destructive" : ""}`}
+                  aria-required="true" aria-describedby={fieldErrors.email ? "login-email-err" : undefined} />
+                {fieldErrors.email && <p id="login-email-err" className="mt-1 text-xs text-destructive" role="alert">{fieldErrors.email}</p>}
               </div>
               <div>
                 <Label htmlFor="password" className="text-base">{t("auth.password")}</Label>
-                <Input id="password" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-12 text-base" aria-required="true" />
+                <Input id="password" type="password" required autoComplete="current-password" value={password}
+                  onChange={(e) => { setPassword(e.target.value); if (fieldErrors.password) setFieldErrors(p => ({...p, password: undefined})); }}
+                  className={`mt-1 h-12 text-base ${fieldErrors.password ? "border-destructive" : ""}`}
+                  aria-required="true" aria-describedby={fieldErrors.password ? "login-pw-err" : undefined} />
+                {fieldErrors.password && <p id="login-pw-err" className="mt-1 text-xs text-destructive" role="alert">{fieldErrors.password}</p>}
               </div>
               <div className="flex justify-end">
                 <Link to="/forgot-password" className="text-sm text-primary underline underline-offset-4">

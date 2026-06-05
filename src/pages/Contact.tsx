@@ -41,6 +41,7 @@ export default function Contact() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -56,9 +57,14 @@ export default function Contact() {
     e.preventDefault();
     const parsed = requestSchema.safeParse(form);
     if (!parsed.success) {
-      toast({ title: t("contact.error"), variant: "destructive" });
+      const errs: Record<string, string> = {};
+      parsed.error.errors.forEach((e) => {
+        if (e.path[0]) errs[String(e.path[0])] = e.message;
+      });
+      setFieldErrors(errs);
       return;
     }
+    setFieldErrors({});
 
     setLoading(true);
     const { error } = await supabase.functions.invoke("contact-form", {
@@ -132,9 +138,11 @@ export default function Contact() {
                   required
                   maxLength={100}
                   value={form.fullName}
-                  onChange={(e) => set("fullName", e.target.value)}
-                  className="text-base"
+                  onChange={(e) => { set("fullName", e.target.value); if (fieldErrors.fullName) setFieldErrors(p => ({...p, fullName: ""})); }}
+                  className={`text-base ${fieldErrors.fullName ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  aria-describedby={fieldErrors.fullName ? "fullName-error" : undefined}
                 />
+                {fieldErrors.fullName && <p id="fullName-error" className="mt-1 text-xs text-destructive" role="alert">{fieldErrors.fullName}</p>}
               </div>
 
               <div className="flex flex-col gap-2">
@@ -147,9 +155,11 @@ export default function Contact() {
                   required
                   maxLength={255}
                   value={form.email}
-                  onChange={(e) => set("email", e.target.value)}
-                  className="text-base"
+                  onChange={(e) => { set("email", e.target.value); if (fieldErrors.email) setFieldErrors(p => ({...p, email: ""})); }}
+                  className={`text-base ${fieldErrors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  aria-describedby={fieldErrors.email ? "email-error" : undefined}
                 />
+                {fieldErrors.email && <p id="email-error" className="mt-1 text-xs text-destructive" role="alert">{fieldErrors.email}</p>}
               </div>
 
               <div className="flex flex-col gap-2">
@@ -198,9 +208,11 @@ export default function Contact() {
                   maxLength={2000}
                   rows={5}
                   value={form.message}
-                  onChange={(e) => set("message", e.target.value)}
-                  className="text-base"
+                  onChange={(e) => { set("message", e.target.value); if (fieldErrors.message) setFieldErrors(p => ({...p, message: ""})); }}
+                  className={`text-base ${fieldErrors.message ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  aria-describedby={fieldErrors.message ? "message-error" : undefined}
                 />
+                {fieldErrors.message && <p id="message-error" className="mt-1 text-xs text-destructive" role="alert">{fieldErrors.message}</p>}
               </div>
 
               <Button

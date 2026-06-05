@@ -21,6 +21,7 @@ export default function Signup() {
   const [displayName, setDisplayName] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{name?: string; email?: string; password?: string}>({});
   const navigate = useNavigate();
   const { t } = useLanguage();
   const deviceId = useDeviceId();
@@ -46,14 +47,13 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
-      toast.error(t("auth.passwordTooShort") || "Password must be at least 6 characters");
-      return;
-    }
-    if (!displayName.trim()) {
-      toast.error(t("auth.nameRequired"));
-      return;
-    }
+    // Inline field validation — visual only, no auth logic change
+    const errs: typeof fieldErrors = {};
+    if (!displayName.trim()) errs.name     = t("auth.nameRequired") || "Name is required";
+    if (!email.trim())       errs.email    = t("auth.emailRequired") || "Email is required";
+    if (password.length < 6) errs.password = t("auth.passwordTooShort") || "Min 6 characters";
+    if (Object.keys(errs).length) { setFieldErrors(errs); return; }
+    setFieldErrors({});
     if (!agreed) {
       toast.error(t("signup.mustAgree"));
       return;
@@ -143,11 +143,19 @@ export default function Signup() {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <Label htmlFor="name" className="text-base">{t("auth.displayName")}</Label>
-                <Input id="name" type="text" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="mt-1 h-12 text-base" aria-required="true" />
+                <Input id="name" type="text" required value={displayName}
+                  onChange={(e) => { setDisplayName(e.target.value); if (fieldErrors.name) setFieldErrors(p => ({...p, name: undefined})); }}
+                  className={`mt-1 h-12 text-base ${fieldErrors.name ? "border-destructive" : ""}`}
+                  aria-required="true" aria-describedby={fieldErrors.name ? "su-name-err" : undefined} />
+                {fieldErrors.name && <p id="su-name-err" className="mt-1 text-xs text-destructive" role="alert">{fieldErrors.name}</p>}
               </div>
               <div>
                 <Label htmlFor="email" className="text-base">{t("auth.email")}</Label>
-                <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 h-12 text-base" aria-required="true" />
+                <Input id="email" type="email" required autoComplete="email" value={email}
+                  onChange={(e) => { setEmail(e.target.value); if (fieldErrors.email) setFieldErrors(p => ({...p, email: undefined})); }}
+                  className={`mt-1 h-12 text-base ${fieldErrors.email ? "border-destructive" : ""}`}
+                  aria-required="true" aria-describedby={fieldErrors.email ? "su-email-err" : undefined} />
+                {fieldErrors.email && <p id="su-email-err" className="mt-1 text-xs text-destructive" role="alert">{fieldErrors.email}</p>}
               </div>
               <div>
                 <Label htmlFor="password" className="text-base">{t("auth.password")}</Label>
