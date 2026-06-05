@@ -1685,9 +1685,9 @@ function playReactionSound(emoji: string) {
         src.start(t0); src.stop(t0 + 0.15);
       }
 
-    // ── Clap 👏🙌💪🫶 ──────────────────────────────────────────────
+    // ── Clap 👏🙌 ──────────────────────────────────────────────────
     // Realistic hand clap: noise through stacked resonant bands
-    } else if (["👏","🙌","🤜","🤛","💪","🫶"].includes(emoji)) {
+    } else if (["👏","🙌"].includes(emoji)) {
       for (let c = 0; c < 3; c++) {
         const t0 = now + c * 0.22;
         const src = ctx.createBufferSource();
@@ -1705,9 +1705,33 @@ function playReactionSound(emoji: string) {
         src.start(t0);
       }
 
-    // ── Heart ❤️🥰😍💕💗💓💞🫂🌸 ─────────────────────────────────
+    // ── Power / Impact 💪🤜🤛 ──────────────────────────────────────
+    // Sharp noise punch + bass thump — "POW" energy, not applause
+    } else if (["💪","🤜","🤛"].includes(emoji)) {
+      // Impact crack: wide-band noise burst
+      const nsrc = ctx.createBufferSource();
+      nsrc.buffer = _noiseBuf(ctx, 0.14);
+      const ibp = _bpf(ctx, 900, 1.8);
+      const ng = _gain(ctx);
+      nsrc.connect(ibp); ibp.connect(ng); ng.connect(ctx.destination);
+      ng.gain.setValueAtTime(0.65, now);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      nsrc.start(now);
+      // Deep bass thump underneath
+      const boom = _osc(ctx, "sine", 90);
+      const bg = _gain(ctx);
+      boom.connect(bg); bg.connect(ctx.destination);
+      boom.frequency.setValueAtTime(90, now);
+      boom.frequency.exponentialRampToValueAtTime(28, now + 0.28);
+      bg.gain.setValueAtTime(0.42, now);
+      bg.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
+      boom.start(now); boom.stop(now + 0.32);
+
+    // ── Heart ❤️🥰😍💕💗💓💞🫂🫶 ───────────────────────────────────
     // Realistic heartbeat: lub-DUB two-thump pattern
-    } else if (["❤️","🥰","😍","💕","💗","💓","💞","🫂","🌸"].includes(emoji)) {
+    // 🫶 (heart hands) moved here from clap group — it's love, not applause
+    // 🌸 (cherry blossom) removed — it's nature, not romantic
+    } else if (["❤️","🥰","😍","💕","💗","💓","💞","🫂","🫶"].includes(emoji)) {
       const beats = [[0, 65, 0.28], [0.18, 55, 0.22], [0.72, 65, 0.28], [0.90, 55, 0.22]] as [number,number,number][];
       beats.forEach(([dt, freq, dur]) => {
         const o = _osc(ctx, "sine", freq);
@@ -1969,9 +1993,9 @@ function playReactionSound(emoji: string) {
       venv.gain.exponentialRampToValueAtTime(0.001, now + 0.58);
       voc.start(now + 0.05); voc.stop(now + 0.62);
 
-    // ── Hand gestures 🙏🫡✌️🤞🤙 ──────────────────────────────────
-    // Gentle soft chime
-    } else if (["🙏","🫡","✌️","🤞","🤙","🙋","🤦","🤷"].includes(emoji)) {
+    // ── Gesture / Respectful 🙏🫡✌️🤞🤙🙋 ───────────────────────────
+    // Gentle rising two-tone chime (positive, acknowledging)
+    } else if (["🙏","🫡","✌️","🤞","🤙","🙋"].includes(emoji)) {
       [660, 990].forEach((freq, i) => {
         const o = _osc(ctx, "sine", freq);
         const g = _gain(ctx);
@@ -1980,6 +2004,171 @@ function playReactionSound(emoji: string) {
         g.gain.linearRampToValueAtTime(0.1, now + i * 0.08 + 0.01);
         g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.4);
         o.start(now + i * 0.08); o.stop(now + i * 0.08 + 0.45);
+      });
+
+    // ── Facepalm 🤦 ────────────────────────────────────────────────
+    // Thud + comedic descending tone — "ugh/oh no"
+    } else if (emoji === "🤦") {
+      // Dull thud (hand on forehead)
+      const tsrc = ctx.createBufferSource();
+      tsrc.buffer = _noiseBuf(ctx, 0.1);
+      const tlp = ctx.createBiquadFilter(); tlp.type = "lowpass"; tlp.frequency.value = 500;
+      const tg = _gain(ctx);
+      tsrc.connect(tlp); tlp.connect(tg); tg.connect(ctx.destination);
+      tg.gain.setValueAtTime(0.45, now);
+      tg.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      tsrc.start(now);
+      // Descending comedic "wah-wah" glide
+      const wah = _osc(ctx, "sawtooth", 320);
+      const wlp = ctx.createBiquadFilter(); wlp.type = "lowpass"; wlp.frequency.value = 600;
+      const wg = _gain(ctx);
+      wah.connect(wlp); wlp.connect(wg); wg.connect(ctx.destination);
+      wah.frequency.setValueAtTime(320, now + 0.05);
+      wah.frequency.linearRampToValueAtTime(100, now + 0.38);
+      wg.gain.setValueAtTime(0.14, now + 0.05);
+      wg.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+      wah.start(now + 0.05); wah.stop(now + 0.45);
+
+    // ── Shrug 🤷 ──────────────────────────────────────────────────
+    // Rising-then-falling question-mark tone — "I dunno"
+    } else if (emoji === "🤷") {
+      const o = _osc(ctx, "sine", 420);
+      const g = _gain(ctx);
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.setValueAtTime(420, now);
+      o.frequency.linearRampToValueAtTime(560, now + 0.14);
+      o.frequency.linearRampToValueAtTime(380, now + 0.32);
+      g.gain.setValueAtTime(0.13, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+      o.start(now); o.stop(now + 0.4);
+
+    // ── Wave / Bye 👋 ──────────────────────────────────────────────
+    // Friendly descending two-tone — warmth going down (like waving)
+    } else if (emoji === "👋") {
+      [880, 660].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.14);
+        g.gain.linearRampToValueAtTime(0.13, now + i * 0.14 + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.14 + 0.42);
+        o.start(now + i * 0.14); o.stop(now + i * 0.14 + 0.48);
+      });
+
+    // ── Handshake / Deal 🤝 ────────────────────────────────────────
+    // Firm bass thump + confirmation ding — solid agreement sound
+    } else if (emoji === "🤝") {
+      // Firm handshake thump
+      const nsrc = ctx.createBufferSource();
+      nsrc.buffer = _noiseBuf(ctx, 0.1);
+      const nlp = ctx.createBiquadFilter(); nlp.type = "lowpass"; nlp.frequency.value = 700;
+      const ng = _gain(ctx);
+      nsrc.connect(nlp); nlp.connect(ng); ng.connect(ctx.destination);
+      ng.gain.setValueAtTime(0.38, now);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      nsrc.start(now);
+      const bass = _osc(ctx, "sine", 110);
+      const bg = _gain(ctx);
+      bass.connect(bg); bg.connect(ctx.destination);
+      bass.frequency.setValueAtTime(110, now);
+      bass.frequency.linearRampToValueAtTime(48, now + 0.16);
+      bg.gain.setValueAtTime(0.32, now);
+      bg.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      bass.start(now); bass.stop(now + 0.2);
+      // Confirmation ding (deal made!)
+      const ding = _osc(ctx, "sine", 1046);
+      const dg = _gain(ctx);
+      ding.connect(dg); dg.connect(ctx.destination);
+      dg.gain.setValueAtTime(0, now + 0.07);
+      dg.gain.linearRampToValueAtTime(0.12, now + 0.085);
+      dg.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+      ding.start(now + 0.07); ding.stop(now + 0.45);
+
+    // ── Ghost 👻 ──────────────────────────────────────────────────
+    // Haunting "woooooo" — pitch-bending sine + breathy filtered noise
+    } else if (emoji === "👻") {
+      const osc = _osc(ctx, "sine", 310);
+      const env = _gain(ctx);
+      osc.connect(env); env.connect(ctx.destination);
+      osc.frequency.setValueAtTime(310, now);
+      osc.frequency.linearRampToValueAtTime(225, now + 0.38);
+      osc.frequency.linearRampToValueAtTime(270, now + 0.72);
+      env.gain.setValueAtTime(0, now);
+      env.gain.linearRampToValueAtTime(0.17, now + 0.18);
+      env.gain.setValueAtTime(0.17, now + 0.5);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.76);
+      osc.start(now); osc.stop(now + 0.8);
+      // Breathy undertone
+      const nsrc = ctx.createBufferSource();
+      nsrc.buffer = _noiseBuf(ctx, 0.78);
+      const nlp = ctx.createBiquadFilter(); nlp.type = "lowpass"; nlp.frequency.value = 450;
+      const ng = _gain(ctx);
+      nsrc.connect(nlp); nlp.connect(ng); ng.connect(ctx.destination);
+      ng.gain.setValueAtTime(0, now);
+      ng.gain.linearRampToValueAtTime(0.07, now + 0.2);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 0.76);
+      nsrc.start(now);
+
+    // ── Robot / Alien 🤖👽 ────────────────────────────────────────
+    // 3 stepped electronic pulses — unmistakably digital/mechanical
+    } else if (["🤖","👽"].includes(emoji)) {
+      [660, 880, 550].forEach((freq, i) => {
+        const o = _osc(ctx, "square", freq);
+        const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1600;
+        const g = _gain(ctx);
+        o.connect(lp); lp.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.1);
+        g.gain.linearRampToValueAtTime(0.13, now + i * 0.1 + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.09);
+        o.start(now + i * 0.1); o.stop(now + i * 0.1 + 0.11);
+      });
+
+    // ── Ice / Snow ❄️ ──────────────────────────────────────────────
+    // High crystalline tinkle — glass wind-chime quality
+    } else if (emoji === "❄️") {
+      [2093, 2637, 3136, 2349].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.07);
+        g.gain.linearRampToValueAtTime(0.1 / (i * 0.2 + 1), now + i * 0.07 + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.38);
+        o.start(now + i * 0.07); o.stop(now + i * 0.07 + 0.42);
+      });
+
+    // ── Dance 💃🕺 ────────────────────────────────────────────────
+    // 3 kick drum hits + musical note — rhythmic, energetic
+    } else if (["💃","🕺"].includes(emoji)) {
+      [0, 0.14, 0.28].forEach((dt) => {
+        const nsrc = ctx.createBufferSource();
+        nsrc.buffer = _noiseBuf(ctx, 0.1);
+        const bp = _bpf(ctx, 180, 3.5);
+        const g = _gain(ctx);
+        nsrc.connect(bp); bp.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.32, now + dt);
+        g.gain.exponentialRampToValueAtTime(0.001, now + dt + 0.1);
+        nsrc.start(now + dt);
+      });
+      // Melodic hit at the end
+      const note = _osc(ctx, "sine", 523);
+      const ng = _gain(ctx);
+      note.connect(ng); ng.connect(ctx.destination);
+      ng.gain.setValueAtTime(0, now + 0.3);
+      ng.gain.linearRampToValueAtTime(0.15, now + 0.315);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 0.68);
+      note.start(now + 0.3); note.stop(now + 0.72);
+
+    // ── Nature / Blossom 🌸🌺🌻🌈🍀🦋☀️ ─────────────────────────
+    // Soft sparkle chime — delicate, natural, not hearts
+    } else if (["🌸","🌺","🌻","🌈","🍀","🦋","☀️"].includes(emoji)) {
+      [1047, 1319, 1568].forEach((freq, i) => {
+        const o = _osc(ctx, "sine", freq);
+        const g = _gain(ctx);
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, now + i * 0.1);
+        g.gain.linearRampToValueAtTime(0.09, now + i * 0.1 + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.45);
+        o.start(now + i * 0.1); o.stop(now + i * 0.1 + 0.5);
       });
 
     // ── Default: soft blip ─────────────────────────────────────────
