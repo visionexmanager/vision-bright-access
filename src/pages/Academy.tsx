@@ -243,7 +243,7 @@ export default function Academy() {
 
               {step === 2 && (
                 <div className="space-y-8 animate-in fade-in duration-500">
-                  <Globe className="w-20 h-20 mx-auto text-emerald-500 animate-pulse" />
+                  <Globe className="w-20 h-20 mx-auto text-emerald-500" />
                   <h2 className="text-3xl md:text-4xl font-black text-foreground">{t("academy.step2.title")}</h2>
                   <div className="grid grid-cols-2 gap-4">
                     {COUNTRIES.map((c) => {
@@ -292,7 +292,7 @@ export default function Academy() {
                 size="lg"
                 className="mt-12 w-full py-6 rounded-2xl font-black text-xl"
               >
-                {t("academy.next")} <ArrowRight className="w-6 h-6 rotate-180 ms-2" />
+                {t("academy.next")} <ArrowRight className="w-6 h-6 ms-2" />
               </Button>
             </div>
           </div>

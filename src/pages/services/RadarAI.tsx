@@ -177,7 +177,7 @@ export default function RadarAI() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-4xl px-4 py-10">
+      <section className="mx-auto max-w-4xl px-4 py-12">
         {/* Header */}
         <AnimatedSection variants={scaleFade} className="mb-8 text-center">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-4">

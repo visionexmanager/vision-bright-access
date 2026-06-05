@@ -50,7 +50,7 @@ export default function LiveRadio() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8" dir={dir}>
+      <div className="max-w-7xl mx-auto px-4 py-12 space-y-8" dir={dir}>
 
         {/* Hero */}
         <div className="relative rounded-2xl overflow-hidden bg-gradient-to-l from-orange-900/80 via-orange-800/50 to-slate-900 p-8 border border-orange-500/20">

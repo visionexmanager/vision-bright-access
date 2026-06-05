@@ -68,7 +68,7 @@ export default function CareerHub() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-5xl px-4 py-10">
+      <section className="mx-auto max-w-5xl px-4 py-12">
         <AnimatedSection variants={scaleFade}>
           <div className="relative mb-10 overflow-hidden rounded-2xl">
             <img src={heroImg} alt="" role="presentation" className="h-44 w-full object-cover sm:h-52" width={800} height={512} loading="lazy" />

@@ -286,7 +286,7 @@ export default function OCRScan() {
 
   return (
     <Layout>
-      <section className="section-container py-10" aria-labelledby="ocr-heading">
+      <section className="section-container py-12" aria-labelledby="ocr-heading">
         <AnimatedSection variants={scaleFade}>
           {/* Header */}
           <div className="mb-8 flex flex-col gap-2">
