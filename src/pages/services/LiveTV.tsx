@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tv, Search, Star, Lock, ChevronLeft, ChevronRight, RefreshCw, LogIn } from "lucide-react";
 import { useTVSubscription } from "@/hooks/useTVSubscription";
 import { useTrial } from "@/hooks/useTrial";
+import { useAuth } from "@/contexts/AuthContext";
 import { ChannelCard } from "@/components/tv/ChannelCard";
 import { TVSubscriptionStatus } from "@/components/tv/TVSubscriptionStatus";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -17,6 +18,7 @@ export default function LiveTV() {
   const navigate = useNavigate();
   const { t, dir, lang } = useLanguage();
   const isRTL = dir === "rtl";
+  const { user, loading: authLoading } = useAuth();
 
   const {
     subscription, isSubscribed, daysRemaining,
@@ -164,16 +166,17 @@ export default function LiveTV() {
         </div>
 
         {/* Channel grid */}
-        {!isLoading && channels.length === 0 && !query ? (
-          // No channels loaded — either not logged in, or DB is empty
-          <div className="text-center py-16 text-muted-foreground">
-            <Lock className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>{t("liveTV.loginToView")}</p>
-          </div>
-        ) : isLoading ? (
+        {authLoading || isLoading ? (
+          // Auth or data still loading — show spinner, never show empty state
           <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
             <RefreshCw className="w-5 h-5 animate-spin" />
             {t("liveTV.loading")}
+          </div>
+        ) : !user ? (
+          // Definitely not logged in
+          <div className="text-center py-16 text-muted-foreground">
+            <Lock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>{t("liveTV.loginToView")}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">

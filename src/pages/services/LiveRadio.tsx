@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Radio, Search, Star, ChevronLeft, ChevronRight, RefreshCw, Lock } from "lucide-react";
 import { useRadioSubscription } from "@/hooks/useRadioSubscription";
 import { useTrial } from "@/hooks/useTrial";
+import { useAuth } from "@/contexts/AuthContext";
 import { StationCard } from "@/components/radio/StationCard";
 import { RadioSubscriptionStatus } from "@/components/radio/RadioSubscriptionStatus";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -17,6 +18,7 @@ export default function LiveRadio() {
   const navigate = useNavigate();
   const { t, dir } = useLanguage();
   const isRTL = dir === "rtl";
+  const { user, loading: authLoading } = useAuth();
 
   const {
     subscription, isSubscribed, daysRemaining,
@@ -163,15 +165,15 @@ export default function LiveRadio() {
         </div>
 
         {/* Station grid */}
-        {!isLoading && stations.length === 0 && !query ? (
-          <div className="text-center py-16 text-muted-foreground">
-            <Lock className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>{t("liveRadio.loginToView")}</p>
-          </div>
-        ) : isLoading ? (
+        {authLoading || isLoading ? (
           <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
             <RefreshCw className="w-5 h-5 animate-spin" />
             {t("liveRadio.loading")}
+          </div>
+        ) : !user ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <Lock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>{t("liveRadio.loginToView")}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
