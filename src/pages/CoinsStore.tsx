@@ -79,14 +79,18 @@ export default function CoinsStore() {
           </div>
         )}
 
-        {/* Purchase packages — visually de-emphasised with Coming Soon */}
-        <div className="mb-4 flex items-center gap-2">
-          <h2 className="text-lg font-semibold text-muted-foreground">{t("coins.purchaseTitle")}</h2>
-          <Badge variant="outline" className="text-xs gap-1 text-muted-foreground border-muted-foreground/30">
-            <Clock className="h-3 w-3" /> {t("coins.comingSoonDesc")}
-          </Badge>
+        {/* Purchase packages — coming soon, clearly separated */}
+        <div className="mb-4 flex items-center gap-3">
+          <div className="h-px flex-1 bg-border" aria-hidden="true" />
+          <div className="flex items-center gap-2 shrink-0">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("coins.purchaseTitle")}</h2>
+            <Badge variant="outline" className="text-xs gap-1 text-muted-foreground border-muted-foreground/30">
+              <Clock className="h-3 w-3" aria-hidden="true" /> {t("coins.comingSoonDesc")}
+            </Badge>
+          </div>
+          <div className="h-px flex-1 bg-border" aria-hidden="true" />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 opacity-50 pointer-events-none select-none">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 opacity-40 pointer-events-none select-none">
           {COIN_PACKAGES.map((pkg) => {
             const { fee, total } = calculatePackageTotal(pkg.price);
             return (

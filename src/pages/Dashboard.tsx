@@ -27,6 +27,7 @@ import {
   Sparkles,
   Trophy,
   Gamepad2,
+  Users,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ar as arLocale, enUS, es, de, pt, zhCN, tr, fr, ru } from "date-fns/locale";
@@ -250,10 +251,10 @@ export default function Dashboard() {
           <CardContent>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { icon: Gamepad2,     to: "/games",       label: t("dash.playGamesLink"),        desc: t("dash.playGamesLinkDesc"),       color: "text-green-500"  },
-                { icon: Trophy,       to: "/leaderboard", label: t("leader.title"),               desc: t("leader.subtitle"),              color: "text-yellow-500" },
-                { icon: ShoppingCart, to: "/bazaar",      label: "VXBazaar",                      desc: t("home.feature.marketplaceDesc"), color: "text-primary"    },
-                { icon: BookOpen,     to: "/academy",     label: t("footer.link.academy"),        desc: t("services.catLearn"),            color: "text-blue-500"   },
+                { icon: Gamepad2,     to: "/games",       label: t("dash.playGamesLink"),        desc: t("dash.playGamesLinkDesc"),       color: "text-green-500"   },
+                { icon: Users,        to: "/community",   label: t("footer.link.community"),     desc: t("home.feature.servicesDesc"),    color: "text-violet-500"  },
+                { icon: ShoppingCart, to: "/bazaar",      label: "VXBazaar",                      desc: t("home.feature.marketplaceDesc"), color: "text-primary"     },
+                { icon: BookOpen,     to: "/academy",     label: t("footer.link.academy"),        desc: t("services.catLearn"),            color: "text-blue-500"    },
               ].map((item) => (
                 <Link key={item.to} to={item.to} onClick={() => playSound("navigate")} className="group block">
                   <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center transition-all hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5">

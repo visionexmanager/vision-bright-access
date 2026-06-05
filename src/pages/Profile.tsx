@@ -173,7 +173,7 @@ export default function Profile() {
 
   return (
     <Layout>
-      <section className="section-container py-10">
+      <section className="section-container py-12">
         {/* Hero Card */}
         <Card className="mb-8 overflow-hidden">
           <div className="h-32 bg-gradient-to-r from-primary/80 via-primary/50 to-accent/40" />
@@ -216,9 +216,6 @@ export default function Profile() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   {t("profile.memberSince")} {memberSince}
                 </p>
-
-                {/* Earn VX */}
-                <WatchAdButton variant="card" className="mb-6" />
 
                 {/* Coins Balance */}
                 <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
@@ -274,6 +271,9 @@ export default function Profile() {
             </Card>
           ))}
         </div>
+
+        {/* Earn VX — after stats, before achievements */}
+        <WatchAdButton variant="card" className="mb-8" />
 
         {/* Achievements */}
         <h2 className="mb-4 text-xl font-bold flex items-center gap-2">
