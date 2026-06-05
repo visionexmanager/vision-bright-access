@@ -4,7 +4,7 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Radio, Search, Star, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { Radio, Search, Star, ChevronLeft, ChevronRight, RefreshCw, Lock } from "lucide-react";
 import { useRadioSubscription } from "@/hooks/useRadioSubscription";
 import { useTrial } from "@/hooks/useTrial";
 import { StationCard } from "@/components/radio/StationCard";
@@ -163,7 +163,12 @@ export default function LiveRadio() {
         </div>
 
         {/* Station grid */}
-        {isLoading ? (
+        {!isLoading && stations.length === 0 && !query ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <Lock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>{t("liveRadio.loginToView")}</p>
+          </div>
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
             <RefreshCw className="w-5 h-5 animate-spin" />
             {t("liveRadio.loading")}

@@ -4,7 +4,7 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tv, Search, Star, Lock, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { Tv, Search, Star, Lock, ChevronLeft, ChevronRight, RefreshCw, LogIn } from "lucide-react";
 import { useTVSubscription } from "@/hooks/useTVSubscription";
 import { useTrial } from "@/hooks/useTrial";
 import { ChannelCard } from "@/components/tv/ChannelCard";
@@ -164,7 +164,13 @@ export default function LiveTV() {
         </div>
 
         {/* Channel grid */}
-        {isLoading ? (
+        {!isLoading && channels.length === 0 && !query ? (
+          // No channels loaded — either not logged in, or DB is empty
+          <div className="text-center py-16 text-muted-foreground">
+            <Lock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>{t("liveTV.loginToView")}</p>
+          </div>
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
             <RefreshCw className="w-5 h-5 animate-spin" />
             {t("liveTV.loading")}

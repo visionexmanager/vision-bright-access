@@ -4659,6 +4659,10 @@ const ar: Record<string, string> = {
   "liveTV.all":                 "الكل",
   "liveTV.loading":             "جاري تحميل القنوات…",
   "liveTV.noResults":           "لا توجد قنوات مطابقة للبحث",
+  "liveTV.notSubscribed":       "غير مشترك",
+  "liveTV.expired":             "انتهى الاشتراك",
+  "liveTV.expiresIn":           "ينتهي خلال {n}",
+  "liveTV.loginToView":         "سجّل دخولك لتصفح القنوات",
 
   // VisionRadio
   "liveRadio.heroDesc":           "بث مباشر لمئات المحطات الإذاعية · أخبار · موسيقى · قرآن · رياضة",
@@ -4671,6 +4675,10 @@ const ar: Record<string, string> = {
   "liveRadio.all":                "الكل",
   "liveRadio.loading":            "جاري تحميل المحطات…",
   "liveRadio.noResults":          "لا توجد محطات مطابقة للبحث",
+  "liveRadio.notSubscribed":      "غير مشترك",
+  "liveRadio.expired":            "انتهى الاشتراك",
+  "liveRadio.expiresIn":          "ينتهي خلال {n}",
+  "liveRadio.loginToView":        "سجّل دخولك لتصفح المحطات",
 
   // ── المنتجات المساعِدة ────────────────────────────────────────────────────
   "vep.searchPlaceholder":  "ابحث عن منتج…",

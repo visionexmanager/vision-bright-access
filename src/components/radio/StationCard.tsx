@@ -1,5 +1,6 @@
 import { Radio, Play, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
 import type { RadioStation } from "@/hooks/useRadioSubscription";
 
 type Props = {
@@ -18,21 +19,32 @@ const bitrateColor: Record<string, string> = {
 };
 
 export function StationCard({ station, isSubscribed, isSelected, onClick }: Props) {
+  const { dir } = useLanguage();
+  const isRTL = dir === "rtl";
+
+  const displayName  = isRTL ? (station.name_ar || station.name) : (station.name || station.name_ar);
+  const displayGenre = station.genre
+    ? isRTL
+      ? (station.genre.name_ar || station.genre.name)
+      : (station.genre.name    || station.genre.name_ar)
+    : null;
+
   return (
     <button
       onClick={() => onClick(station)}
       className={cn(
-        "relative flex items-center gap-3 w-full rounded-xl p-3 text-right transition-all duration-200 border",
+        "relative flex items-center gap-3 w-full rounded-xl p-3 transition-all duration-200 border",
+        isRTL ? "text-right" : "text-left",
         "hover:scale-[1.02] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
         isSelected
           ? "border-orange-500 bg-orange-500/10 shadow-md shadow-orange-500/20"
           : "border-border bg-card hover:border-orange-400/40 hover:bg-muted/50"
       )}
-      aria-label={`${station.name_ar} — ${station.bitrate} kbps`}
+      aria-label={`${displayName} — ${station.bitrate} kbps`}
     >
       {/* Playing pulse indicator */}
       {isSelected && (
-        <span className="absolute top-2 left-2 flex gap-0.5 items-end h-4">
+        <span className={cn("absolute top-2 flex gap-0.5 items-end h-4", isRTL ? "left-2" : "right-2")}>
           {[0, 0.15, 0.3].map(delay => (
             <span
               key={delay}
@@ -46,17 +58,17 @@ export function StationCard({ station, isSubscribed, isSelected, onClick }: Prop
       {/* Logo / fallback */}
       <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
         {station.logo_url ? (
-          <img src={station.logo_url} alt={station.name_ar} className="w-full h-full object-cover" />
+          <img src={station.logo_url} alt={displayName} className="w-full h-full object-cover" />
         ) : (
           <Radio className="w-6 h-6 text-muted-foreground" />
         )}
       </div>
 
       {/* Info */}
-      <div className="flex-1 min-w-0 text-right">
-        <p className="font-semibold text-sm truncate text-foreground">{station.name_ar}</p>
-        {station.genre && (
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">{station.genre.name_ar}</p>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-sm truncate text-foreground">{displayName}</p>
+        {displayGenre && (
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">{displayGenre}</p>
         )}
       </div>
 

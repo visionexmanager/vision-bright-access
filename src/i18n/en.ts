@@ -4641,6 +4641,10 @@ const en: Record<string, string> = {
   "liveTV.all":                 "All",
   "liveTV.loading":             "Loading channels…",
   "liveTV.noResults":           "No channels match your search",
+  "liveTV.notSubscribed":       "Not subscribed",
+  "liveTV.expired":             "Subscription expired",
+  "liveTV.expiresIn":           "Expires in {n}",
+  "liveTV.loginToView":         "Log in to browse channels",
 
   // VisionRadio
   "liveRadio.heroDesc":           "Live stream of hundreds of radio stations · News · Music · Quran · Sports",
@@ -4653,6 +4657,10 @@ const en: Record<string, string> = {
   "liveRadio.all":                "All",
   "liveRadio.loading":            "Loading stations…",
   "liveRadio.noResults":          "No stations match your search",
+  "liveRadio.notSubscribed":      "Not subscribed",
+  "liveRadio.expired":            "Subscription expired",
+  "liveRadio.expiresIn":          "Expires in {n}",
+  "liveRadio.loginToView":        "Log in to browse stations",
 
   // ── AssistiveProducts ───────────────────────────────────────────────────────
   "vep.searchPlaceholder":  "Search products…",

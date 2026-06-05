@@ -71,8 +71,12 @@ export function useRadioSubscription() {
     },
   });
 
+  // queryKey includes user?.id so the cache is invalidated when auth state changes.
+  // enabled: !!user prevents a stale empty-array result from being cached before
+  // the Supabase session is established (radio_stations RLS requires authenticated role).
   const { data: stations = [], isLoading: stLoading } = useQuery<RadioStation[]>({
-    queryKey: ["radio-stations"],
+    queryKey: ["radio-stations", user?.id ?? "guest"],
+    enabled: !!user,
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -86,7 +90,8 @@ export function useRadioSubscription() {
   });
 
   const { data: genres = [] } = useQuery<RadioGenre[]>({
-    queryKey: ["radio-genres"],
+    queryKey: ["radio-genres", user?.id ?? "guest"],
+    enabled: !!user,
     staleTime: 10 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
