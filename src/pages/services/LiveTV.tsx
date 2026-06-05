@@ -4,7 +4,7 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tv, Search, Star, Lock, ChevronLeft, ChevronRight, RefreshCw, LogIn } from "lucide-react";
+import { Tv, Search, Lock, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useTVSubscription } from "@/hooks/useTVSubscription";
 import { useTrial } from "@/hooks/useTrial";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,8 +39,6 @@ export default function LiveTV() {
     );
     return list;
   }, [channels, activeSlug, query]);
-
-  const featured = channels.filter(c => c.is_featured).slice(0, 6);
 
   const handleChannelClick = (channel: TVChannel) => {
     navigate(`/services/live-tv/watch/${channel.id}`);
@@ -90,36 +88,6 @@ export default function LiveTV() {
             )}
           </div>
         </div>
-
-        {/* Featured */}
-        {featured.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-              <h2 className="font-bold text-lg text-foreground">{t("liveTV.featured")}</h2>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-              {featured.map(ch => (
-                <button
-                  key={ch.id}
-                  onClick={() => handleChannelClick(ch)}
-                  className={cn(
-                    "relative flex flex-col items-center justify-center gap-2 rounded-xl p-3 border transition-all hover:scale-105",
-                    "border-border bg-card hover:border-blue-400/40 hover:shadow-md"
-                  )}
-                >
-                  {ch.logo_url
-                    ? <img src={ch.logo_url} alt={ch.name_ar} className="w-12 h-12 object-contain rounded-lg bg-muted p-0.5" />
-                    : <Tv className="w-10 h-10 text-muted-foreground" />
-                  }
-                  <span className="text-xs font-medium text-center text-foreground line-clamp-2">
-                    {isRTL ? ch.name_ar : ch.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
         {/* Search */}
         <div className="relative max-w-md">

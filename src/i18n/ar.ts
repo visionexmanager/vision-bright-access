@@ -4663,6 +4663,10 @@ const ar: Record<string, string> = {
   "liveTV.expired":             "انتهى الاشتراك",
   "liveTV.expiresIn":           "ينتهي خلال {n}",
   "liveTV.loginToView":         "سجّل دخولك لتصفح القنوات",
+  "liveTV.channelList":         "القنوات",
+  "liveTV.noChannels":          "لا توجد قنوات",
+  "liveTV.loadingChannels":     "جاري تحميل القناة…",
+  "liveTV.officialWebsite":     "الموقع الرسمي ↗",
 
   // VisionRadio
   "liveRadio.heroDesc":           "بث مباشر لمئات المحطات الإذاعية · أخبار · موسيقى · قرآن · رياضة",
@@ -4679,6 +4683,28 @@ const ar: Record<string, string> = {
   "liveRadio.expired":            "انتهى الاشتراك",
   "liveRadio.expiresIn":          "ينتهي خلال {n}",
   "liveRadio.loginToView":        "سجّل دخولك لتصفح المحطات",
+  "liveRadio.stationList":        "المحطات",
+  "liveRadio.noStations":         "لا توجد محطات",
+  "liveRadio.loadingStation":     "جاري تحميل المحطة…",
+  "liveRadio.officialWebsite":    "الموقع الرسمي ↗",
+
+  // Player
+  "player.loading":       "جاري تحميل البث…",
+  "player.live":          "مباشر",
+  "player.officialSrc":   "بث مباشر رسمي",
+  "player.error":         "البث غير متاح",
+  "player.retry":         "إعادة المحاولة",
+  "player.noSource":      "لا يوجد مصدر بث",
+  "player.openSource":    "فتح المصدر الرسمي",
+  "player.externalDesc":  "البث متاح على الموقع الرسمي للقناة",
+  "player.newTab":        "سيُفتح في تبويب جديد · محتوى مرخَّص من المصدر الرسمي",
+  "player.onAir":         "يبث الآن",
+  "player.paused":        "متوقف",
+  "player.errConnect":    "تعذّر الاتصال بمحطة البث",
+  "player.errPlay":       "تعذّر تشغيل البث",
+  "player.errLoad":       "تعذّر تحميل المشغّل",
+  "player.noHls":         "المتصفح لا يدعم HLS",
+  "player.toggleList":    "إظهار/إخفاء قائمة القنوات",
 
   // ── المنتجات المساعِدة ────────────────────────────────────────────────────
   "vep.searchPlaceholder":  "ابحث عن منتج…",

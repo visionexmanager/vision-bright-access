@@ -4645,6 +4645,10 @@ const en: Record<string, string> = {
   "liveTV.expired":             "Subscription expired",
   "liveTV.expiresIn":           "Expires in {n}",
   "liveTV.loginToView":         "Log in to browse channels",
+  "liveTV.channelList":         "Channels",
+  "liveTV.noChannels":          "No channels",
+  "liveTV.loadingChannels":     "Loading channel…",
+  "liveTV.officialWebsite":     "Official website ↗",
 
   // VisionRadio
   "liveRadio.heroDesc":           "Live stream of hundreds of radio stations · News · Music · Quran · Sports",
@@ -4661,6 +4665,28 @@ const en: Record<string, string> = {
   "liveRadio.expired":            "Subscription expired",
   "liveRadio.expiresIn":          "Expires in {n}",
   "liveRadio.loginToView":        "Log in to browse stations",
+  "liveRadio.stationList":        "Stations",
+  "liveRadio.noStations":         "No stations",
+  "liveRadio.loadingStation":     "Loading station…",
+  "liveRadio.officialWebsite":    "Official website ↗",
+
+  // Player (OfficialStreamPlayer — shared TV & Radio)
+  "player.loading":       "Loading stream…",
+  "player.live":          "LIVE",
+  "player.officialSrc":   "Official live stream",
+  "player.error":         "Stream unavailable",
+  "player.retry":         "Retry",
+  "player.noSource":      "No stream source",
+  "player.openSource":    "Open Official Source",
+  "player.externalDesc":  "Stream is available on the official site",
+  "player.newTab":        "Opens in new tab · licensed content from official source",
+  "player.onAir":         "On air",
+  "player.paused":        "Paused",
+  "player.errConnect":    "Could not connect to stream",
+  "player.errPlay":       "Could not play stream",
+  "player.errLoad":       "Could not load player",
+  "player.noHls":         "Browser does not support HLS",
+  "player.toggleList":    "Toggle channel list",
 
   // ── AssistiveProducts ───────────────────────────────────────────────────────
   "vep.searchPlaceholder":  "Search products…",
