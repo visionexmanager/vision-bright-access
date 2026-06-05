@@ -268,6 +268,7 @@ const ar: Record<string, string> = {
   "services.catSims": "محاكاة الأعمال",
   "services.catPro": "الخدمات الاحترافية",
   "services.catLearn": "خدمات التعلم",
+  "services.catMedia": "خدمات الإعلام",
   "services.filterLabel": "تصفية الخدمات حسب الفئة",
   "services.simsTitle": "محاكاة الأعمال",
   "services.simsDesc": "سيناريوهات عملية تتيح لك تجربة إدارة مشاريع حقيقية — من الزراعة والتصنيع إلى التقنية والتجارة.",

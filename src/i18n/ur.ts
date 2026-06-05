@@ -247,6 +247,7 @@ const ur: Record<string, string> = {
   "services.catSims": "کاروباری سمیولیشنز",
   "services.catPro": "پیشہ ورانہ خدمات",
   "services.catLearn": "تعلیمی خدمات",
+  "services.catMedia": "میڈیا سروسز",
   "services.filterLabel": "زمرے کے لحاظ سے خدمات فلٹر کریں",
   "services.simsTitle": "کاروباری سمیولیشنز",
   "services.simsDesc": "عملی کاروباری منظرنامے جو آپ کو حقیقی آپریشنز کا تجربہ دیتے ہیں۔",

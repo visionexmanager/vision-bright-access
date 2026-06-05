@@ -11,7 +11,7 @@ import {
   ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video,
   Coins, Scissors, Scale, Stethoscope, Brain, Sparkles, Users,
   Dumbbell, Plane, ScanLine, Globe, Cpu, CheckCircle, Clock, Trophy, FileText,
-  MapPin,
+  MapPin, Tv, Radio, Wifi,
 } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
 import { Link, useNavigate } from "react-router-dom";
@@ -31,7 +31,7 @@ import { toast } from "@/hooks/use-toast";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
 // ── Types ──────────────────────────────────────────────────────────────
-type Category = "all" | "simulations" | "professional" | "learning";
+type Category = "all" | "simulations" | "professional" | "learning" | "media";
 
 interface SimRow {
   id: string;
@@ -159,15 +159,18 @@ export default function Services() {
     { id: "simulations",  label: t("services.catSims"),  icon: <Cpu className="h-4 w-4" aria-hidden="true" /> },
     { id: "professional", label: t("services.catPro"),   icon: <Briefcase className="h-4 w-4" aria-hidden="true" /> },
     { id: "learning",     label: t("services.catLearn"), icon: <GraduationCap className="h-4 w-4" aria-hidden="true" /> },
+    { id: "media",        label: t("services.catMedia"), icon: <Tv className="h-4 w-4" aria-hidden="true" /> },
   ];
 
   const showSims  = activeCategory === "all" || activeCategory === "simulations";
   const showPro   = activeCategory === "all" || activeCategory === "professional";
   const showLearn = activeCategory === "all" || activeCategory === "learning";
+  const showMedia = activeCategory === "all" || activeCategory === "media";
 
   const simsHeadingId  = `${uid}-sims`;
   const proHeadingId   = `${uid}-pro`;
   const learnHeadingId = `${uid}-learn`;
+  const mediaHeadingId = `${uid}-media`;
 
   return (
     <Layout>
@@ -361,6 +364,151 @@ export default function Services() {
                 );
               })}
             </StaggerGrid>
+          </AnimatedSection>
+        )}
+
+        {/* ── Media Services ───────────────────────────────────────── */}
+        {showMedia && (
+          <AnimatedSection className="mb-12" aria-labelledby={mediaHeadingId}>
+            {/* Section header */}
+            <div className="mb-6">
+              <div aria-hidden="true" className="mb-1 inline-flex items-center gap-2 rounded-full bg-purple-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                <Tv className="h-3.5 w-3.5" aria-hidden="true" /> {t("services.catMedia")}
+              </div>
+              <h2 id={mediaHeadingId} className="text-2xl font-bold text-foreground">{t("services.mediaHeading")}</h2>
+              <p className="mt-1 text-muted-foreground max-w-xl">{t("services.mediaDesc")}</p>
+            </div>
+
+            {/* Two feature cards side by side */}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2" role="list">
+
+              {/* ── VisionTV ── */}
+              <StaggerItem role="listitem">
+                <Link
+                  to="/services/live-tv"
+                  onClick={() => playSound("navigate")}
+                  className="group block h-full"
+                  aria-label={t("nav.liveTV")}
+                >
+                  <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-blue-500/20">
+                    {/* Gradient banner */}
+                    <div className="relative h-32 bg-gradient-to-br from-blue-700 via-blue-500 to-blue-400 overflow-hidden">
+                      {/* Decorative circles */}
+                      <div className="absolute -top-6 -right-6 h-28 w-28 rounded-full bg-white/10" aria-hidden="true" />
+                      <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/10" aria-hidden="true" />
+                      {/* Live badge */}
+                      <div className="absolute top-3 start-3 flex items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-md">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" aria-hidden="true" />
+                        LIVE
+                      </div>
+                      {/* Signal icon */}
+                      <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                        <Tv className="h-16 w-16 text-white/30 group-hover:text-white/40 transition-colors" />
+                      </div>
+                      {/* Wifi signal dots (decorative) */}
+                      <div className="absolute bottom-3 end-3 flex items-end gap-0.5" aria-hidden="true">
+                        {[2, 3, 4, 5].map((h) => (
+                          <div key={h} className="w-1 rounded-full bg-white/60" style={{ height: `${h * 3}px` }} />
+                        ))}
+                      </div>
+                    </div>
+
+                    <CardContent className="p-5">
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-lg font-bold text-foreground">{t("nav.liveTV")}</h3>
+                          <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">{t("liveTV.heroDesc")}</p>
+                        </div>
+                        <div className="shrink-0 rounded-lg bg-blue-500/10 p-2">
+                          <Tv className="h-5 w-5 text-blue-500" aria-hidden="true" />
+                        </div>
+                      </div>
+                      {/* Feature pills */}
+                      <div className="mb-4 flex flex-wrap gap-1.5" aria-label="Features">
+                        {["HD & 4K", "Sports", "News", "Movies"].map((f) => (
+                          <span key={f} className="inline-flex items-center gap-1 rounded-full border border-blue-500/20 bg-blue-500/5 px-2 py-0.5 text-xs text-blue-600 dark:text-blue-400">
+                            <Wifi className="h-2.5 w-2.5" aria-hidden="true" /> {f}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">{t("services.mediaTitle")}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500 px-3 py-1 text-xs font-semibold text-white transition-all group-hover:bg-blue-600">
+                          {t("liveTV.subscribeNow")}
+                          <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </StaggerItem>
+
+              {/* ── VisionRadio ── */}
+              <StaggerItem role="listitem">
+                <Link
+                  to="/services/live-radio"
+                  onClick={() => playSound("navigate")}
+                  className="group block h-full"
+                  aria-label={t("nav.liveRadio")}
+                >
+                  <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-orange-500/20">
+                    {/* Gradient banner */}
+                    <div className="relative h-32 bg-gradient-to-br from-orange-600 via-orange-500 to-amber-400 overflow-hidden">
+                      {/* Decorative circles */}
+                      <div className="absolute -top-6 -right-6 h-28 w-28 rounded-full bg-white/10" aria-hidden="true" />
+                      <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/10" aria-hidden="true" />
+                      {/* Live badge */}
+                      <div className="absolute top-3 start-3 flex items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-md">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" aria-hidden="true" />
+                        LIVE
+                      </div>
+                      {/* Radio icon */}
+                      <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                        <Radio className="h-16 w-16 text-white/30 group-hover:text-white/40 transition-colors" />
+                      </div>
+                      {/* Animated audio-wave bars */}
+                      <div className="absolute bottom-3 end-3 flex items-end gap-0.5" aria-hidden="true">
+                        {[3, 5, 4, 6, 3, 5].map((h, i) => (
+                          <div
+                            key={i}
+                            className="w-1 rounded-full bg-white/70 animate-pulse"
+                            style={{ height: `${h * 3}px`, animationDelay: `${i * 0.1}s` }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <CardContent className="p-5">
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-lg font-bold text-foreground">{t("nav.liveRadio")}</h3>
+                          <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">{t("liveRadio.heroDesc")}</p>
+                        </div>
+                        <div className="shrink-0 rounded-lg bg-orange-500/10 p-2">
+                          <Radio className="h-5 w-5 text-orange-500" aria-hidden="true" />
+                        </div>
+                      </div>
+                      {/* Feature pills */}
+                      <div className="mb-4 flex flex-wrap gap-1.5" aria-label="Features">
+                        {["Music", "News", "Quran", "Sports"].map((f) => (
+                          <span key={f} className="inline-flex items-center gap-1 rounded-full border border-orange-500/20 bg-orange-500/5 px-2 py-0.5 text-xs text-orange-600 dark:text-orange-400">
+                            <Radio className="h-2.5 w-2.5" aria-hidden="true" /> {f}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">{t("services.mediaTitle")}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-orange-500 px-3 py-1 text-xs font-semibold text-white transition-all group-hover:bg-orange-600">
+                          {t("liveRadio.subscribeNow")}
+                          <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </StaggerItem>
+
+            </div>
           </AnimatedSection>
         )}
 

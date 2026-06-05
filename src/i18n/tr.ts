@@ -264,6 +264,7 @@ const tr: Record<string, string> = {
   "services.catSims": "İş simülasyonları",
   "services.catPro": "Profesyonel hizmetler",
   "services.catLearn": "Öğrenme hizmetleri",
+  "services.catMedia": "Medya Hizmetleri",
   "services.filterLabel": "Hizmetleri kategoriye göre filtrele",
   "services.simsTitle": "İş simülasyonları",
   "services.simsDesc": "Çiftçilikten üretime, teknolojiden ticarete gerçek operasyonları deneyimlemenizi sağlayan uygulamalı iş senaryoları.",

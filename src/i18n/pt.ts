@@ -264,6 +264,7 @@ const pt: Record<string, string> = {
   "services.catSims": "Simulações de negócios",
   "services.catPro": "Serviços profissionais",
   "services.catLearn": "Serviços de aprendizagem",
+  "services.catMedia": "Serviços de Mídia",
   "services.filterLabel": "Filtrar serviços por categoria",
   "services.simsTitle": "Simulações de negócios",
   "services.simsDesc": "Cenários de negócios práticos que permitem vivenciar operações reais — desde agricultura e manufatura até tecnologia e comércio.",

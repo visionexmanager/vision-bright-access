@@ -264,6 +264,7 @@ const zh: Record<string, string> = {
   "services.catSims": "商业模拟",
   "services.catPro": "专业服务",
   "services.catLearn": "学习服务",
+  "services.catMedia": "媒体服务",
   "services.filterLabel": "按类别筛选服务",
   "services.simsTitle": "商业模拟",
   "services.simsDesc": "让您体验真实运营的实践商业场景——从农业和制造业到科技和贸易。",

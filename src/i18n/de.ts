@@ -2138,6 +2138,7 @@ const de: Record<string, string> = {
   "delivery.schedule.title": "Fahrtzeit",
   "services.catAll": "Alle Dienste",
   "services.catLearn": "Lerndienstleistungen",
+  "services.catMedia": "Mediendienste",
   "services.catPro": "Professionelle Dienste",
   "services.catSims": "Business-Simulationen",
   "services.completed": "Abgeschlossen",

@@ -247,6 +247,7 @@ const hi: Record<string, string> = {
   "services.catSims": "व्यापार सिमुलेशन",
   "services.catPro": "पेशेवर सेवाएँ",
   "services.catLearn": "शिक्षण सेवाएँ",
+  "services.catMedia": "मीडिया सेवाएं",
   "services.filterLabel": "श्रेणी के अनुसार सेवाएँ फ़िल्टर करें",
   "services.simsTitle": "व्यापार सिमुलेशन",
   "services.simsDesc": "व्यावहारिक व्यापार परिदृश्य जो आपको वास्तविक संचालन का अनुभव देते हैं।",
