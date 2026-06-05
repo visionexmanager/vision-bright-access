@@ -126,6 +126,7 @@ const ar: Record<string, string> = {
   "dash.rankBronze": "برونزي",
   "dash.rankPlatinum": "بلاتيني",
   "dash.history": "سجل النقاط",
+  "dash.historyLinkDesc": "عرض سجل نشاطك الكامل",
   "dash.noActivity": "لا يوجد نشاط بعد. ابدأ بالتصفح لكسب النقاط!",
   "dash.activity": "النشاط",
   "dash.points": "النقاط",

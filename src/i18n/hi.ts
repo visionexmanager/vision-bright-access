@@ -135,6 +135,7 @@ const hi: Record<string, string> = {
   "dash.rankBronze": "कांस्य",
   "dash.rankPlatinum": "प्लैटिनम",
   "dash.history": "पॉइंट्स इतिहास",
+  "dash.historyLinkDesc": "अपना पूरा गतिविधि लॉग देखें",
   "dash.noActivity": "अभी तक कोई गतिविधि नहीं। पॉइंट्स कमाने के लिए एक्सप्लोर शुरू करें!",
   "dash.activity": "गतिविधि",
   "dash.points": "पॉइंट्स",

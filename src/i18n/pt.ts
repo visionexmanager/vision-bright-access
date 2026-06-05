@@ -124,6 +124,7 @@ const pt: Record<string, string> = {
   "dash.rankBronze": "Bronze",
   "dash.rankPlatinum": "Platina",
   "dash.history": "Histórico de Pontos",
+  "dash.historyLinkDesc": "Ver seu registro de atividades completo",
   "dash.noActivity": "Nenhuma atividade ainda. Comece a explorar para ganhar pontos!",
   "dash.activity": "Atividade",
   "dash.points": "Pontos",

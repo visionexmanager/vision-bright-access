@@ -13,21 +13,44 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Navigate } from "react-router-dom";
 import {
   Camera, Save, Trophy, Star, Flame, Target,
-  Gamepad2, BookOpen, Users, TrendingUp, Award, Coins, ShoppingBag, ArrowRight,
+  Gamepad2, BookOpen, Users, TrendingUp, Award, Coins, ShoppingBag, ArrowRight, Clock,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { ar as arLocale, enUS, es, de, pt, zhCN, tr, fr, ru } from "date-fns/locale";
 import { usePoints } from "@/hooks/usePoints";
 import { useAchievements, ACHIEVEMENTS } from "@/hooks/useAchievements";
 import { calculateLevel, calculateStage, getStageIcon, STAGE_ICONS } from "@/systems/levelSystem";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
+const DATE_LOCALES: Record<string, Locale> = {
+  ar: arLocale, es, de, pt, zh: zhCN, tr, fr, ru,
+  en: enUS, ur: arLocale, hi: enUS,
+};
+
+function translateReason(reason: string, t: (key: string) => string): string {
+  const lower = reason.toLowerCase();
+  if (lower.includes("daily login") || lower.includes("login bonus")) return t("dash.reason.dailyLogin");
+  if (lower.includes("watched an ad") || (lower.includes("watch") && lower.includes("ad"))) return t("dash.reason.watchedAd");
+  if (lower.includes("vx purchase") || lower.includes("purchase")) return t("dash.reason.vxPurchase");
+  if (lower.includes("bazaar") || lower.includes("rent") || lower.includes("trial billing")) return t("dash.reason.trialBilling");
+  if (lower.includes("admin") && (lower.includes("grant") || lower.includes("credit"))) return t("dash.reason.adminGrant");
+  if (lower.includes("admin") && (lower.includes("deduct") || lower.includes("penalty"))) return t("dash.reason.adminDeduction");
+  if (lower.includes("quiz")) return t("dash.reason.quiz");
+  if (lower.includes("memory")) return t("dash.reason.memory");
+  if (lower.includes("word") || lower.includes("puzzle")) return t("dash.reason.wordPuzzle");
+  if (lower.includes("simulation") || lower.includes("sim")) return t("dash.reason.simulation");
+  return reason;
+}
+
 export default function Profile() {
   const { user, loading: authLoading } = useAuth();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -36,7 +59,7 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const { totalPoints, loadingTotal } = usePoints();
+  const { totalPoints, history, loadingTotal, loadingHistory } = usePoints();
   const { unlocked, completedCount, loading: achLoading } = useAchievements();
 
   // Profile data
@@ -324,6 +347,48 @@ export default function Profile() {
             <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
           </div>
         </Link>
+
+        {/* Activity History */}
+        <h2 className="mb-4 text-xl font-bold flex items-center gap-2">
+          <Clock className="h-5 w-5 text-primary" />
+          {t("dash.history")}
+        </h2>
+        <Card className="mb-8">
+          <CardContent className="p-0">
+            {loadingHistory ? (
+              <div className="space-y-3 p-6">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+              </div>
+            ) : history.length === 0 ? (
+              <p className="py-10 text-center text-muted-foreground">{t("dash.noActivity")}</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("dash.activity")}</TableHead>
+                    <TableHead>{t("dash.points")}</TableHead>
+                    <TableHead>{t("dash.date")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {history.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="font-medium">{translateReason(entry.reason, t)}</TableCell>
+                      <TableCell>
+                        <Badge variant={entry.points > 0 ? "default" : "destructive"}>
+                          {entry.points > 0 ? "+" : ""}{entry.points}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {format(new Date(entry.created_at), "MMM d, yyyy", { locale: DATE_LOCALES[lang] ?? enUS })}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Level Progression */}
         <h2 className="mb-4 text-xl font-bold flex items-center gap-2">

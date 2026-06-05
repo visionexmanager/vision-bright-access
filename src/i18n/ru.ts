@@ -124,6 +124,7 @@ const ru: Record<string, string> = {
   "dash.rankBronze": "Бронза",
   "dash.rankPlatinum": "Платина",
   "dash.history": "История баллов",
+  "dash.historyLinkDesc": "Посмотреть полный журнал активности",
   "dash.noActivity": "Пока нет активности. Начните исследовать, чтобы заработать баллы!",
   "dash.activity": "Активность",
   "dash.points": "Баллы",

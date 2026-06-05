@@ -124,6 +124,7 @@ const tr: Record<string, string> = {
   "dash.rankBronze": "Bronz",
   "dash.rankPlatinum": "Platin",
   "dash.history": "Puan Geçmişi",
+  "dash.historyLinkDesc": "Tam etkinlik günlüğünü görüntüle",
   "dash.noActivity": "Henüz etkinlik yok. Puan kazanmak için keşfetmeye başla!",
   "dash.activity": "Etkinlik",
   "dash.points": "Puanlar",

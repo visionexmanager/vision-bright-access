@@ -124,6 +124,7 @@ const zh: Record<string, string> = {
   "dash.rankBronze": "青铜",
   "dash.rankPlatinum": "白金",
   "dash.history": "积分历史",
+  "dash.historyLinkDesc": "查看完整活动记录",
   "dash.noActivity": "暂无活动。开始探索以赚取积分！",
   "dash.activity": "活动",
   "dash.points": "积分",

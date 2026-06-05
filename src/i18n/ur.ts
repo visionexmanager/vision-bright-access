@@ -135,6 +135,7 @@ const ur: Record<string, string> = {
   "dash.rankBronze": "کانسہ",
   "dash.rankPlatinum": "پلاٹینم",
   "dash.history": "پوائنٹس کی تاریخ",
+  "dash.historyLinkDesc": "اپنا مکمل سرگرمی لاگ دیکھیں",
   "dash.noActivity": "ابھی تک کوئی سرگرمی نہیں۔ پوائنٹس کمانے کے لیے دریافت شروع کریں!",
   "dash.activity": "سرگرمی",
   "dash.points": "پوائنٹس",
