@@ -38,14 +38,18 @@ type UrlType = "youtube" | "hls" | "audio" | "external";
 function detectType(url: string): UrlType {
   if (!url) return "external";
   if (url.includes("youtube.com/embed") || url.includes("youtu.be")) return "youtube";
-  if (url.match(/\.(m3u8)(\?|$)/i) || url.includes("hls")) return "hls";
+  // Audio-specific keywords checked BEFORE generic HLS so radio streams
+  // don't accidentally go to the video HLS player.
   if (
     url.match(/\.(mp3|aac|ogg|opus|flac|wav)(\?|$)/i) ||
     url.includes("icecast") || url.includes("shoutcast") ||
-    url.includes("/stream") || url.includes("radiojar") ||
-    url.includes("zeno.fm") || url.includes("infomaniak") ||
-    url.includes("bbcmedia") || url.includes("zenapi")
+    url.includes("radiojar") || url.includes("zeno.fm") ||
+    url.includes("infomaniak") || url.includes("bbcmedia") ||
+    url.includes("zenapi") || url.includes("lstn.lv") ||
+    url.includes("streamtheworld") || url.includes("sslstream") ||
+    url.includes("stream.srg-ssr")
   ) return "audio";
+  if (url.match(/\.(m3u8)(\?|$)/i) || url.includes("hls")) return "hls";
   return "external";
 }
 
@@ -399,7 +403,9 @@ export function OfficialStreamPlayer({ url, name, logo, isTV = false, onError }:
   const type = detectType(url);
 
   if (type === "youtube") return <YouTubePlayer url={url} name={name} t={t} />;
-  if (type === "hls")     return <HLSPlayer     url={url} name={name} logo={logo} t={t} onError={onError} />;
-  if (type === "audio")   return <AudioPlayer   url={url} name={name} logo={logo} t={t} onError={onError} />;
+  // HLS radio streams (isTV=false) → AudioPlayer UI; TV HLS → video HLSPlayer
+  if (type === "hls" && isTV)  return <HLSPlayer   url={url} name={name} logo={logo} t={t} onError={onError} />;
+  if (type === "hls" && !isTV) return <AudioPlayer url={url} name={name} logo={logo} t={t} onError={onError} />;
+  if (type === "audio")        return <AudioPlayer url={url} name={name} logo={logo} t={t} onError={onError} />;
   return <ExternalPlayer url={url} name={name} isTV={isTV} t={t} />;
 }
