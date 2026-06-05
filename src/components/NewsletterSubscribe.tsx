@@ -191,11 +191,17 @@ export function NewsletterSubscribe() {
             </div>
           </div>
 
+          {/* Separator */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" aria-hidden="true" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("newsletter.selectNews") || "Platform News"}
+            </span>
+            <div className="h-px flex-1 bg-border" aria-hidden="true" />
+          </div>
+
           {/* News categories section */}
           <div>
-            <p className="mb-3 text-sm font-medium text-foreground">
-              {t("newsletter.selectNews") || "أخبار المنصة"}
-            </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {NEWS_INTERESTS.map((item) => (
                 <Label

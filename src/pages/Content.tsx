@@ -45,7 +45,8 @@ const typeIcons = {
   media: MonitorPlay,
 };
 
-const ctaLabels: Record<string, string> = {
+// Resolved inside component with t() — see getCtaLabel()
+const CTA_FALLBACKS: Record<string, string> = {
   course: "Enroll Now",
   article: "Read Article",
   podcast: "Listen",
@@ -60,6 +61,13 @@ const difficultyStyle: Record<string, string> = {
 
 export default function Content() {
   const { t } = useLanguage();
+
+  // Returns translated CTA, falls back to English if key not in translation file
+  const getCtaLabel = (type: string) => {
+    const key = `content.cta.${type}` as Parameters<typeof t>[0];
+    const result = t(key);
+    return result === key ? (CTA_FALLBACKS[type] ?? type) : result;
+  };
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
   const { spendVX } = useVXWallet();
@@ -193,11 +201,11 @@ export default function Content() {
                           <Button
                             className="w-full text-base font-semibold"
                             onClick={() => handleCta(item)}
-                            aria-label={`${ctaLabels[item.type] ?? "View"}: ${item.title}`}
+                            aria-label={`${getCtaLabel(item.type) ?? "View"}: ${item.title}`}
                           >
                             {item.type === "podcast" && <Mic className="me-1 h-4 w-4" aria-hidden="true" />}
                             {item.type === "media" && <Play className="me-1 h-4 w-4" aria-hidden="true" />}
-                            {ctaLabels[item.type] ?? "View"}
+                            {getCtaLabel(item.type) ?? "View"}
                           </Button>
                         </div>
                       </CardContent>

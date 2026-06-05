@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { KeyRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -102,6 +103,9 @@ export default function ResetPassword() {
       <div className="flex min-h-[70vh] items-center justify-center px-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+              <KeyRound className="h-7 w-7 text-primary" aria-hidden="true" />
+            </div>
             <CardTitle className="text-3xl">{t("auth.resetPassword") || "Reset Password"}</CardTitle>
             <CardDescription className="text-base">
               {t("auth.enterNewPassword") || "Enter your new password below"}

@@ -1,5 +1,4 @@
 import { ReactNode, useEffect, lazy, Suspense, createContext, useContext } from "react";
-import { ChevronRight, Scale } from "lucide-react";
 
 /* ── Embedded mode — suppresses Navbar/Footer when rendering inside a Sheet ── */
 const EmbeddedCtx = createContext(false);
@@ -62,21 +61,6 @@ export function Layout({ children }: { children: ReactNode }) {
       <Navbar />
       <TrialBanner />
       <main id="main-content" tabIndex={-1} aria-label={t("nav.mainContent") || "Main content"} className="flex-1 animate-page-in">
-        {/* Legal sub-page breadcrumb — no longer shown (pages redirect to /legal) */}
-        {false && ["/privacy-policy"].includes(pathname) && (
-          <div className="border-b bg-muted/30">
-            <div className="section-container py-2.5">
-              <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Scale className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
-                <Link to="/legal" className="font-medium text-primary hover:underline underline-offset-2">
-                  {t("footer.link.legalCenter")}
-                </Link>
-                <ChevronRight className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span className="truncate capitalize">{pathname.replace(/^\//, "").replace(/-/g, " ")}</span>
-              </nav>
-            </div>
-          </div>
-        )}
         {children}
       </main>
 
