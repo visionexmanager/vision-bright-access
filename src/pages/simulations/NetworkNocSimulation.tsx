@@ -18,7 +18,8 @@ import { useGameAudio } from "@/hooks/useGameAudio";
 import { useScreenReader } from "@/hooks/useScreenReader";
 import {
   Wifi, AlertTriangle, CheckCircle2, Activity, Server, Shield, Gauge,
-  RotateCcw, Trophy, Terminal, DollarSign, Users, Zap, ArrowLeft } from "lucide-react";
+  RotateCcw, Trophy, Terminal, DollarSign, Users, Zap,
+} from "lucide-react";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { SimulationScene } from "@/components/SimulationScene";
 
@@ -61,8 +62,6 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   const [log, setLog] = useState<string[]>([]);
   const [currentIncident, setCurrentIncident] = useState<IncidentType | null>(null);
   const [responseChoices, setResponseChoices] = useState<{ label: string; score: number; effect: string }[]>([]);
-  const [incidentTimer, setIncidentTimer] = useState(0); // seconds to respond
-  const [timerActive, setTimerActive] = useState(false);
 
   useEffect(() => {
     if (!savedProgress) return;
@@ -76,28 +75,6 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   const totalCost = monitoringCost + redundancyCost + teamCost;
 
   const detectionSpeed = monitoringLevel === "basic" ? 0.6 : monitoringLevel === "advanced" ? 0.85 : 0.98;
-
-  // Timer countdown for incident response
-  useEffect(() => {
-    if (!timerActive || incidentTimer <= 0) return;
-    const timer = setTimeout(() => setIncidentTimer(v => v - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [timerActive, incidentTimer]);
-
-  // Auto-resolve if timer hits 0 (with penalty)
-  useEffect(() => {
-    if (timerActive && incidentTimer <= 0 && currentIncident) {
-      setTimerActive(false);
-      setLog(prev => [`⏱️ [TIMEOUT] ${currentIncident.name} — Response too slow! Uptime degraded.`, ...prev]);
-      setUptime(prev => Math.max(95, prev - 0.4));
-      setTotalMissed(prev => prev + 1);
-      const nextIdx = incidentIndex + 1;
-      setIncidentIndex(nextIdx);
-      setCurrentIncident(null);
-      setStage("monitoring");
-      setTimeout(() => triggerIncident(nextIdx), 800);
-    }
-  }, [incidentTimer, timerActive, currentIncident]);
 
   const startMonitoring = () => {
     playSound("scan");
@@ -132,11 +109,6 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
     setCurrentIncident(incident);
     setStage("incident");
     setLog(prev => [`🚨 [ALERT] ${incident.name} — ${incident.severity.toUpperCase()} — ${incident.affectedUsers} users affected`, ...prev]);
-
-    // Timer: critical=20s, high=30s, medium=45s, low=60s
-    const timeLimit = incident.severity === "critical" ? 20 : incident.severity === "high" ? 30 : incident.severity === "medium" ? 45 : 60;
-    setIncidentTimer(timeLimit);
-    setTimerActive(true);
 
     const choices = generateChoices(incident);
     setResponseChoices(choices);
@@ -179,15 +151,11 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   };
 
   const handleResponse = (choice: { label: string; score: number; effect: string }) => {
-    setTimerActive(false);
     const isOptimal = choice.score >= 20;
-    // Bonus points for fast response
-    const timeBonus = incidentTimer > 20 ? 5 : incidentTimer > 10 ? 2 : 0;
-    const finalPts = choice.score + timeBonus;
     playSound(isOptimal ? "correct" : "ding");
-    announce(`Incident resolved. ${choice.effect} +${finalPts} points.`);
+    announce(`Incident resolved. ${choice.effect} +${choice.score} points.`);
 
-    setScore(prev => prev + finalPts);
+    setScore(prev => prev + choice.score);
     setTotalResolved(prev => prev + 1);
     setUptime(prev => Math.min(99.99, prev + 0.1));
     setMttr(prev => Math.round((prev * (totalResolved) + (choice.score >= 15 ? 5 : 15)) / (totalResolved + 1)));
@@ -282,15 +250,9 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   if (stage === "incident" && currentIncident) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold flex items-center gap-2"><AlertTriangle className="h-6 w-6 text-destructive animate-pulse" aria-hidden="true" /> {t("sim.noc.activeIncident")}</h2>
-          <div className="flex items-center gap-2">
-            <Badge variant={incidentTimer <= 10 ? "destructive" : "outline"}
-              className={incidentTimer <= 5 ? "animate-pulse" : ""}>
-              ⏱️ {incidentTimer}s
-            </Badge>
-            <Badge variant="secondary" role="status" aria-live="polite">{t("sim.noc.score")}: {score}</Badge>
-          </div>
+          <Badge variant="secondary" role="status" aria-live="polite">{t("sim.noc.score")}: {score}</Badge>
         </div>
 
         <Card className={`border-2 ${severityColor[currentIncident.severity]}`} role="alert" aria-label={`${currentIncident.severity} severity incident: ${currentIncident.name}`}>

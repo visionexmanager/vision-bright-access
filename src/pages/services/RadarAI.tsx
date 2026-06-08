@@ -10,9 +10,8 @@ import { AnimatedSection, scaleFade } from "@/components/AnimatedSection";
 import {
   Camera, Upload, Volume2, VolumeX, Loader2, Eye,
   AlertTriangle, Users, FileText, MapPin, Lightbulb, ScanLine,
-  RotateCcw, RefreshCw, Phone,
+  RotateCcw, RefreshCw,
 } from "lucide-react";
-import { VoiceChat } from "@/components/VoiceChat";
 
 type RadarResult = {
   overview: string;
@@ -47,7 +46,6 @@ export default function RadarAI() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(false);
-  const [voiceMode, setVoiceMode] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -179,7 +177,7 @@ export default function RadarAI() {
 
   return (
     <Layout>
-      <section className="mx-auto max-w-4xl px-4 py-12">
+      <section className="mx-auto max-w-4xl px-4 py-10">
         {/* Header */}
         <AnimatedSection variants={scaleFade} className="mb-8 text-center">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-4">
@@ -193,27 +191,7 @@ export default function RadarAI() {
             <Badge variant="secondary">📷 {t("radar.badgeCamera")}</Badge>
             <Badge variant="secondary">♿ {t("radar.badgeAccessible")}</Badge>
           </div>
-          <div className="mt-4">
-            <Button
-              variant={voiceMode ? "default" : "outline"}
-              className="gap-2"
-              onClick={() => setVoiceMode(v => !v)}
-            >
-              <Phone className="h-4 w-4" />
-              {voiceMode ? t("ai.voiceMode") : t("ai.voiceMode")}
-            </Button>
-          </div>
         </AnimatedSection>
-
-        {voiceMode && (
-          <AnimatedSection className="mb-6">
-            <VoiceChat
-              assistant="radar"
-              assistantName="Radar AI Voice"
-              className="max-w-lg mx-auto"
-            />
-          </AnimatedSection>
-        )}
 
         {/* Camera view */}
         {cameraActive && (

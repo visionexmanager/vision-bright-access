@@ -5,9 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useGameSounds } from "@/hooks/useGameSounds";
-import { useHighScore } from "@/hooks/useHighScore";
-import { GameHeader } from "@/components/game/GameHeader";
-import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import heroImg from "@/assets/game-hangman.jpg";
@@ -18,13 +15,7 @@ import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
 
-const WORDS = [
-  "VISIONEX","PLATFORM","KEYBOARD","SCIENCE","MONITOR","BROWSER","NETWORK",
-  "DIGITAL","PRIVACY","STORAGE","ACCESSIBLE","LANGUAGE","COMMUNITY",
-  "SERVICES","DASHBOARD","LEARNING","CREATIVITY","ADVENTURE","KNOWLEDGE",
-  "DISCOVERY","CHALLENGE","EXCELLENCE","INNOVATION","TECHNOLOGY","EDUCATION",
-  "MARKETPLACE","SIMULATION","ACHIEVEMENT","EXPERIENCE","DEVELOPMENT",
-];
+const WORDS = ["VISIONEX","PLATFORM","KEYBOARD","SCIENCE","MONITOR","BROWSER","NETWORK","DIGITAL","PRIVACY","STORAGE"];
 const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const MAX_WRONG = 6;
 
@@ -211,20 +202,11 @@ export default function Hangman() {
         <div className="relative mb-8 overflow-hidden rounded-2xl">
           <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-          <div className="absolute bottom-4 start-4 end-4 text-center">
+          <div className="absolute bottom-4 left-4 right-4 text-center">
             <h1 className="text-3xl font-bold">{t("hangman.title")}</h1>
             <p className="text-muted-foreground mt-1">{t("hangman.subtitle")}</p>
           </div>
         </div>
-        <GameHeader
-          title={t("hangman.title")}
-          extra={
-            <HowToPlay
-              titleKey="hangman.title"
-              steps={["hangman.howTo.1","hangman.howTo.2","hangman.howTo.3","hangman.howTo.4"]}
-            />
-          }
-        />
         <div className="flex rounded-lg overflow-hidden border mb-6">
           <button onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
           <button onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>

@@ -18,8 +18,11 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-const trialExpiresAtFromNow = () =>
-  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+const trialExpiresAtFromNow = () => {
+  const expiresAt = new Date();
+  expiresAt.setMonth(expiresAt.getMonth() + 1);
+  return expiresAt.toISOString();
+};
 
 async function ensureUserEntitlements(user: User) {
   const displayName =

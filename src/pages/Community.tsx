@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import {
   Mic, Users, Radio, Globe, Trash2, Loader2, LogIn,
   Lock, Share2, Check, X, Pencil, PowerOff, Power,
-  Calendar, Clock, Bell, ExternalLink,
+  Calendar, Clock, Bell,
 } from "lucide-react";
 import { VOICE_ROOM_CONFIGS } from "@/systems/voiceRoomSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
@@ -192,11 +192,11 @@ export default function Community() {
   const joinRoom = (roomId: string) => {
     if (!user) return;
     playSound("navigate");
-    navigate(`/community/voice-room/${roomId}`);
+    navigate(`/community/room/${roomId}`);
   };
 
   const shareRoom = (roomId: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}/community/voice-room/${roomId}`);
+    navigator.clipboard.writeText(`${window.location.origin}/community/room/${roomId}`);
     toast({ title: t("vroom.linkCopied") });
   };
 
@@ -273,7 +273,7 @@ export default function Community() {
       playSound("success");
       toast({ title: t("community.roomCreated") });
       fetchRooms();
-      if (data?.id) navigate(`/community/voice-room/${data.id}`);
+      if (data?.id) navigate(`/community/room/${data.id}`);
     }
     setCreating(null);
   };
@@ -627,7 +627,7 @@ export default function Community() {
           <div className="relative mb-10 overflow-hidden rounded-2xl">
             <img src={communityImg} alt="" role="presentation" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-            <div className="absolute bottom-6 start-6 end-6 text-center">
+            <div className="absolute bottom-6 left-6 right-6 text-center">
               <h1 className="text-4xl font-bold tracking-tight">{t("community.title")}</h1>
               <p className="mt-2 text-lg text-muted-foreground">{t("community.subtitle")}</p>
             </div>
@@ -639,17 +639,11 @@ export default function Community() {
         {/* Active default rooms */}
         {activeDefaults.length > 0 && (
           <div className="mb-12">
-            <div className="mb-4 flex items-center justify-between gap-4 flex-wrap">
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <Radio className="h-6 w-6 text-primary" />
-                {t("community.voiceRooms")}
-                {isAdmin && <Badge variant="outline" className="text-xs text-primary border-primary/40 ms-2">{t("vroom.adminMode")}</Badge>}
-              </h2>
-              <Link to="/community/voice-rooms" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
-                <ExternalLink className="h-4 w-4" />
-                {t("community.browseRooms")}
-              </Link>
-            </div>
+            <h2 className="mb-4 text-2xl font-bold flex items-center gap-2">
+              <Radio className="h-6 w-6 text-primary" />
+              {t("community.voiceRooms")}
+              {isAdmin && <Badge variant="outline" className="text-xs text-primary border-primary/40 ms-2">{t("vroom.adminMode")}</Badge>}
+            </h2>
             <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {activeDefaults.map(renderActiveDefaultCard)}
             </StaggerGrid>

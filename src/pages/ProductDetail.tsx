@@ -95,7 +95,7 @@ export default function ProductDetail() {
 
   return (
     <Layout>
-      <section className="section-container py-12" aria-labelledby="product-heading">
+      <section className="section-container py-8" aria-labelledby="product-heading">
         <nav className="mb-6 flex items-center gap-2 text-base" aria-label="Breadcrumb">
           <Link to="/marketplace" className="text-primary underline-offset-4 hover:underline font-medium">
             {t("market.title")}
@@ -197,7 +197,7 @@ export default function ProductDetail() {
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {related.map((rp) => (
                 <Link key={rp.id} to={`/product/${rp.id}`} className="group">
-                  <Card className="transition-shadow group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-ring">
+                  <Card className="transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">
                     <CardContent className="flex items-center gap-4 p-5">
                       <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-3xl">{rp.image}</div>
                       <div className="min-w-0 flex-1">

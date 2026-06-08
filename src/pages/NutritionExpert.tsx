@@ -16,9 +16,8 @@ import {
   Utensils, Apple, Scale, Activity, Calculator,
   Camera, Volume2, UserPlus, ArrowLeft, Heart,
   Salad, Beef, Egg, Loader2, Star, Plus, Trash2,
-  BookOpen, Flame, Sparkles, Download, Save, FolderOpen, Clock, X, Phone
+  BookOpen, Flame, Sparkles, Download, Save, FolderOpen, Clock, X
 } from "lucide-react";
-import { VoiceChat } from "@/components/VoiceChat";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
@@ -74,7 +73,6 @@ export default function NutritionExpert() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
   const [step, setStep] = useState<Step>("reception");
-  const [voiceMode, setVoiceMode] = useState(false);
   const [userData, setUserData] = useState({ name: "", weight: "", height: "", goal: "" });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [mealResult, setMealResult] = useState<MealAnalysis | null>(null);
@@ -416,27 +414,14 @@ export default function NutritionExpert() {
                 VISIONEX <span className="text-emerald-200 text-sm">HEALTH</span>
               </h1>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/20 rounded-2xl h-12 w-12"
-                onClick={() => speak(t("nutrition.headerVoice"), lang)}
-              >
-                <Volume2 size={22} />
-              </Button>
-              {step === "clinic" && (
-                <Button
-                  variant={voiceMode ? "default" : "ghost"}
-                  size="icon"
-                  className={voiceMode ? "rounded-2xl h-12 w-12" : "text-white hover:bg-white/20 rounded-2xl h-12 w-12"}
-                  onClick={() => setVoiceMode(v => !v)}
-                  title="Voice Chat"
-                >
-                  <Phone size={22} />
-                </Button>
-              )}
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/20 rounded-2xl h-12 w-12"
+              onClick={() => speak(t("nutrition.headerVoice"), lang)}
+            >
+              <Volume2 size={22} />
+            </Button>
           </div>
         </header>
 
@@ -524,15 +509,6 @@ export default function NutritionExpert() {
 
           {step === "clinic" && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-10 duration-700">
-              {voiceMode && (
-                <div className="lg:col-span-12">
-                  <VoiceChat
-                    assistant="nutrition"
-                    assistantName="Visionex Health AI"
-                    className="max-w-2xl mx-auto"
-                  />
-                </div>
-              )}
               {/* Sidebar - Body stats */}
               <div className="lg:col-span-4 space-y-4">
                 <Card className="rounded-[30px] shadow-xl">
@@ -798,7 +774,7 @@ export default function NutritionExpert() {
                     {previewUrl && (
                       <img
                         src={previewUrl}
-                        alt={t("nutrition.mealPreview")}
+                        alt="Meal preview"
                         className="w-full max-w-xs mx-auto rounded-2xl object-cover aspect-square border-2 border-emerald-300"
                       />
                     )}

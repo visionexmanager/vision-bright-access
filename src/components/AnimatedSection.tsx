@@ -19,7 +19,41 @@ export const slideRight:Variants = { _variant: "slide-right" };
 // Stagger container / item presets kept for API compatibility
 export const staggerContainer: Variants = { _variant: "stagger" };
 
-// Animation CSS is now in index.css (no runtime injection needed)
+// ─── CSS injected once ────────────────────────────────────────────────────────
+const CSS = `
+[data-anim] {
+  opacity: 0;
+  will-change: opacity, transform;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+[data-anim="fade-up"]    { transform: translateY(24px); }
+[data-anim="scale-fade"] { transform: scale(0.96); }
+[data-anim="slide-left"] { transform: translateX(-30px); }
+[data-anim="slide-right"]{ transform: translateX(30px); }
+
+[data-anim].anim-visible {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* Respect reduced-motion: show immediately, no animation */
+@media (prefers-reduced-motion: reduce) {
+  [data-anim] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+`;
+
+let styleInjected = false;
+function ensureStyle() {
+  if (styleInjected || typeof document === "undefined") return;
+  styleInjected = true;
+  const s = document.createElement("style");
+  s.textContent = CSS;
+  document.head.appendChild(s);
+}
 
 // One shared observer for the whole app
 let observer: IntersectionObserver | null = null;
@@ -54,6 +88,7 @@ export function AnimatedSection({
   const variant = (variants._variant as string) ?? "fade-up";
 
   useEffect(() => {
+    ensureStyle();
     const el = ref.current;
     if (!el) return;
     const obs = getObserver();

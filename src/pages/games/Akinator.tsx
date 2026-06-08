@@ -6,9 +6,6 @@ import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useGameSounds } from "@/hooks/useGameSounds";
-import { useHighScore } from "@/hooks/useHighScore";
-import { GameHeader } from "@/components/game/GameHeader";
-import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useCallback, useMemo } from "react";
 
 // ── Character database ────────────────────────────────────────────────────────
@@ -16,7 +13,7 @@ interface Character {
   id: string;
   nameKey: string;
   emoji: string;
-  traits: Record<string, boolean | undefined>;
+  traits: Record<string, boolean>;
 }
 
 const CHARACTERS: Character[] = [
@@ -44,16 +41,7 @@ const CHARACTERS: Character[] = [
   { id: "wolverine",      nameKey: "akinator.char.wolverine",     emoji: "⚔️", traits: { isReal:false, isMale:true,  isFemale:false, hasMagic:false, hasPhysicalPowers:true,  isFromBook:false, isFromMovie:true,  isFromComic:true,  isFromAnimated:true,  isFromGame:true,  isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:false, isYoung:false, isCreature:false, flies:false, isHistorical:false, isClever:false, isLeader:false, usesWeapon:true  }},
   { id: "shrek",          nameKey: "akinator.char.shrek",         emoji: "🟢", traits: { isReal:false, isMale:true,  isFemale:false, hasMagic:false, hasPhysicalPowers:true,  isFromBook:false, isFromMovie:true,  isFromComic:false, isFromAnimated:true,  isFromGame:false, isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:false, isYoung:false, isCreature:true,  flies:false, isHistorical:false, isClever:false, isLeader:false, usesWeapon:false }},
   { id: "dumbledore",     nameKey: "akinator.char.dumbledore",    emoji: "⭐", traits: { isReal:false, isMale:true,  isFemale:false, hasMagic:true,  hasPhysicalPowers:false, isFromBook:true,  isFromMovie:true,  isFromComic:false, isFromAnimated:false, isFromGame:false, isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:true,  isYoung:false, isCreature:false, flies:false, isHistorical:false, isClever:true,  isLeader:true,  usesWeapon:true  }},
-  { id: "indiana_jones",  nameKey: "akinator.char.indianaJones",  emoji: "🎩", traits: { isReal:false, isMale:true,  isFemale:false, hasMagic:false, hasPhysicalPowers:false, isFromBook:false, isFromMovie:true,  isFromComic:false, isFromAnimated:false, isFromGame:true,  isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:false, isYoung:false, isCreature:false, flies:false, isHistorical:false, isClever:true,  isLeader:false, usesWeapon:true,  isArab:false, isSports:false, isScientist:false }},
-  // ── Arabic & Islamic world characters ─────────────────────────────────────────
-  { id: "ibne_khaldun",   nameKey: "akinator.char.ibneKhaldun",   emoji: "📜", traits: { isReal:true,  isMale:true,  isFemale:false, hasMagic:false, hasPhysicalPowers:false, isFromBook:true,  isFromMovie:false, isFromComic:false, isFromAnimated:false, isFromGame:false, isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:true,  isYoung:false, isCreature:false, flies:false, isHistorical:true,  isClever:true,  isLeader:false, usesWeapon:false, isArab:true,  isSports:false, isScientist:true  }},
-  { id: "saladin",        nameKey: "akinator.char.saladin",        emoji: "⚔️", traits: { isReal:true,  isMale:true,  isFemale:false, hasMagic:false, hasPhysicalPowers:false, isFromBook:false, isFromMovie:true,  isFromComic:false, isFromAnimated:false, isFromGame:true,  isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:false, isYoung:false, isCreature:false, flies:false, isHistorical:true,  isClever:true,  isLeader:true,  usesWeapon:true,  isArab:true,  isSports:false, isScientist:false }},
-  { id: "rumi",           nameKey: "akinator.char.rumi",           emoji: "🌹", traits: { isReal:true,  isMale:true,  isFemale:false, hasMagic:false, hasPhysicalPowers:false, isFromBook:true,  isFromMovie:false, isFromComic:false, isFromAnimated:false, isFromGame:false, isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:true,  isYoung:false, isCreature:false, flies:false, isHistorical:true,  isClever:true,  isLeader:false, usesWeapon:false, isArab:true,  isSports:false, isScientist:false }},
-  { id: "avicenna",       nameKey: "akinator.char.avicenna",       emoji: "🏥", traits: { isReal:true,  isMale:true,  isFemale:false, hasMagic:false, hasPhysicalPowers:false, isFromBook:true,  isFromMovie:false, isFromComic:false, isFromAnimated:false, isFromGame:false, isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:true,  isYoung:false, isCreature:false, flies:false, isHistorical:true,  isClever:true,  isLeader:false, usesWeapon:false, isArab:true,  isSports:false, isScientist:true  }},
-  // ── Sports celebrities ─────────────────────────────────────────────────────────
-  { id: "muhammad_ali",   nameKey: "akinator.char.muhammadAli",   emoji: "🥊", traits: { isReal:true,  isMale:true,  isFemale:false, hasMagic:false, hasPhysicalPowers:true,  isFromBook:false, isFromMovie:true,  isFromComic:false, isFromAnimated:false, isFromGame:true,  isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:false, isYoung:false, isCreature:false, flies:false, isHistorical:true,  isClever:true,  isLeader:false, usesWeapon:false, isArab:false, isSports:true,  isScientist:false }},
-  { id: "ronaldo",        nameKey: "akinator.char.ronaldo",        emoji: "⚽", traits: { isReal:true,  isMale:true,  isFemale:false, hasMagic:false, hasPhysicalPowers:true,  isFromBook:false, isFromMovie:false, isFromComic:false, isFromAnimated:false, isFromGame:true,  isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:false, isYoung:false, isCreature:false, flies:false, isHistorical:false, isClever:false, isLeader:false, usesWeapon:false, isArab:false, isSports:true,  isScientist:false }},
-  { id: "messi",          nameKey: "akinator.char.messi",          emoji: "🌟", traits: { isReal:true,  isMale:true,  isFemale:false, hasMagic:false, hasPhysicalPowers:true,  isFromBook:false, isFromMovie:false, isFromComic:false, isFromAnimated:false, isFromGame:true,  isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:false, isYoung:false, isCreature:false, flies:false, isHistorical:false, isClever:false, isLeader:false, usesWeapon:false, isArab:false, isSports:true,  isScientist:false }},
+  { id: "indiana_jones",  nameKey: "akinator.char.indianaJones",  emoji: "🎩", traits: { isReal:false, isMale:true,  isFemale:false, hasMagic:false, hasPhysicalPowers:false, isFromBook:false, isFromMovie:true,  isFromComic:false, isFromAnimated:false, isFromGame:true,  isHero:true,  isVillain:false, wearsSpecialCostume:false, isOld:false, isYoung:false, isCreature:false, flies:false, isHistorical:false, isClever:true,  isLeader:false, usesWeapon:true  }},
 ];
 
 // ── Questions ─────────────────────────────────────────────────────────────────
@@ -80,9 +68,6 @@ const QUESTIONS: Question[] = [
   { id: "akinator.q.leader",         trait: "isLeader"          },
   { id: "akinator.q.young",          trait: "isYoung"           },
   { id: "akinator.q.weapon",         trait: "usesWeapon"        },
-  { id: "akinator.q.arab",           trait: "isArab"            },
-  { id: "akinator.q.sports",         trait: "isSports"          },
-  { id: "akinator.q.scientist",      trait: "isScientist"       },
 ];
 
 // answer weight: yes=1, probYes=0.6, dontKnow=0, probNo=-0.6, no=-1
@@ -123,7 +108,6 @@ export default function Akinator() {
   const { t } = useLanguage();
   const { playSound } = useSound();
   const { akinatorReveal, akinatorThink, akinatorCorrect, akinatorWrong } = useGameSounds();
-  const { highScore, updateHighScore } = useHighScore("akinator");
 
   const [phase, setPhase] = useState<Phase>("intro");
   const [answers, setAnswers] = useState<{ trait: string; weight: number }[]>([]);
@@ -223,23 +207,14 @@ export default function Akinator() {
       <section className="mx-auto max-w-2xl px-4 py-10" aria-label={t("akinator.title")}>
 
         {/* Hero */}
-        <div className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-violet-900 via-purple-800 to-indigo-900 dark:from-violet-950 dark:via-purple-900 dark:to-indigo-950">
+        <div className="relative mb-8 overflow-hidden rounded-2xl bg-gradient-to-br from-violet-900 via-purple-800 to-indigo-900 dark:from-violet-950 dark:via-purple-900 dark:to-indigo-950">
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 30% 50%, #a855f7 0%, transparent 60%), radial-gradient(circle at 70% 30%, #6366f1 0%, transparent 60%)" }} />
-          <div className="relative px-6 py-10 text-center">
+          <div className="relative px-6 py-12 text-center">
             <div className="text-7xl mb-4" role="img" aria-hidden="true">🔮</div>
             <h1 className="text-3xl font-bold text-white">{t("akinator.title")}</h1>
             <p className="mt-2 text-purple-200">{t("akinator.subtitle")}</p>
           </div>
         </div>
-        <GameHeader
-          title={t("akinator.title")}
-          extra={
-            <HowToPlay
-              titleKey="akinator.title"
-              steps={["akinator.howTo.1","akinator.howTo.2","akinator.howTo.3","akinator.howTo.4"]}
-            />
-          }
-        />
 
         {/* ── INTRO ───────────────────────────────────────────── */}
         {phase === "intro" && (

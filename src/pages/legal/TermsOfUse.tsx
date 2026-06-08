@@ -1,16 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { ScrollText } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { PolicyCrossLinks } from "@/components/PolicyCrossLinks";
-
-const CROSS_LINKS = [
-  { to: "/privacy-policy",       labelKey: "footer.link.privacyPolicy" },
-  { to: "/ai-policy",            labelKey: "footer.link.aiPolicy" },
-  { to: "/vx-coins-policy",      labelKey: "footer.link.vxCoinsPolicy" },
-  { to: "/buyer-protection",     labelKey: "footer.link.buyerProtection" },
-  { to: "/intellectual-property",labelKey: "footer.link.intellectualProperty" },
-  { to: "/enforcement-appeals",  labelKey: "footer.link.enforcementAppeals" },
-];
 
 const sections = [
   "platform",
@@ -74,8 +64,6 @@ export default function TermsOfUse() {
             </a>
           </p>
         </div>
-
-        <PolicyCrossLinks links={CROSS_LINKS} />
       </section>
     </Layout>
   );

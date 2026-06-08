@@ -1,21 +1,5 @@
 import { Component, ReactNode } from "react";
 
-// Checks error and its cause chain for chunk-load failures across all browsers.
-function isChunkLoadError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const e = error as { message?: string; name?: string; stack?: string; cause?: unknown };
-  const text = `${e.message ?? ""} ${e.stack ?? ""}`;
-  if (
-    text.includes("Failed to fetch dynamically imported module") ||
-    text.includes("Importing a module script failed") ||
-    text.includes("Unable to preload CSS") ||
-    e.name === "ChunkLoadError"
-  ) return true;
-  // Walk the cause chain (Firefox wraps errors)
-  if (e.cause) return isChunkLoadError(e.cause);
-  return false;
-}
-
 interface Props { children: ReactNode; resetKey?: string }
 interface State { error: Error | null }
 
@@ -135,26 +119,11 @@ export class PageErrorBoundary extends Component<PageProps, PageState> {
   }
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
-    if (isChunkLoadError(error)) {
-      // Stale deployment: old chunk URL no longer exists after a new build.
-      // Use location.href for a true hard reload that bypasses the cache.
-      const RELOAD_KEY = "vx_chunk_reload";
-      if (!sessionStorage.getItem(RELOAD_KEY)) {
-        sessionStorage.setItem(RELOAD_KEY, "1");
-        window.location.href = window.location.href;
-        return;
-      }
-      // Second failure after reload — clear the flag so future sessions can retry.
-      sessionStorage.removeItem(RELOAD_KEY);
-    }
-
     console.error("[PageErrorBoundary]", error, info.componentStack);
   }
 
   render() {
     if (this.state.error) {
-      const chunkError = isChunkLoadError(this.state.error);
-
       return (
         <div
           role="alert"
@@ -172,16 +141,14 @@ export class PageErrorBoundary extends Component<PageProps, PageState> {
           }}
         >
           <h2 style={{ fontSize: "1.25rem", fontWeight: 700 }}>
-            {chunkError ? "Updating…" : "This page encountered an error"}
+            This page encountered an error
           </h2>
           <p style={{ color: "#666", maxWidth: 400, fontSize: "0.9rem" }}>
-            {chunkError
-              ? "A new version of the app was deployed. Reloading…"
-              : this.state.error.message}
+            {this.state.error.message}
           </p>
           <div style={{ display: "flex", gap: "1rem" }}>
             <button
-              onClick={() => { sessionStorage.removeItem("vx_chunk_reload"); window.location.href = "/"; }}
+              onClick={() => window.location.href = "/"}
               style={{
                 padding: "0.5rem 1.25rem",
                 background: "#2563eb",
@@ -195,7 +162,7 @@ export class PageErrorBoundary extends Component<PageProps, PageState> {
               Home
             </button>
             <button
-              onClick={() => { sessionStorage.removeItem("vx_chunk_reload"); window.location.reload(); }}
+              onClick={() => this.setState({ error: null })}
               style={{
                 padding: "0.5rem 1.25rem",
                 background: "#e5e7eb",
@@ -206,7 +173,7 @@ export class PageErrorBoundary extends Component<PageProps, PageState> {
                 fontSize: "0.9rem",
               }}
             >
-              {chunkError ? "Reload now" : "Try again"}
+              Try again
             </button>
           </div>
         </div>

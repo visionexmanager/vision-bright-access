@@ -13,7 +13,6 @@ import { Search, Filter, Coins } from "lucide-react";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { GAMING_PRICES, formatVX } from "@/systems/pricingSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
-import { useTrial } from "@/hooks/useTrial";
 import { toast } from "@/hooks/use-toast";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import gamesImg from "@/assets/games-illustration.jpg";
@@ -40,17 +39,7 @@ import velocityImg from "@/assets/game-velocity.jpg";
 
 import akinatorImg from "@/assets/game-logiquest.jpg";
 
-// 5 semantic categories instead of 19 per-game categories
-type Category = "All" | "Brain" | "Action" | "Creative" | "Cards" | "Strategy";
-
-const CATEGORY_LABELS: Record<Category, string> = {
-  All:      "",
-  Brain:    "🧠 Brain",
-  Action:   "⚡ Action",
-  Creative: "🎨 Creative",
-  Cards:    "🃏 Cards & Dice",
-  Strategy: "🔮 Strategy",
-};
+type Category = "All" | "Quiz" | "Memory" | "Word" | "Adventure" | "Cooking" | "Cards" | "Cyber" | "Logic" | "Trading" | "Action" | "Classic" | "Dice" | "Tech" | "Music" | "Creative" | "Racing" | "Design" | "Mystery";
 
 export default function Games() {
   const { t } = useLanguage();
@@ -58,35 +47,34 @@ export default function Games() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { balance, spendVX } = useVXWallet();
-  const { isOnTrial } = useTrial();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
 
   const games = useMemo(() => [
-    { to: "/games/quiz-challenge",   img: quizImg,       title: t("games.quiz.title"),       desc: t("games.quiz.desc"),       badge: t("games.quiz.badge"),       category: "Brain"    as Category },
-    { to: "/games/memory",           img: memoryImg,     title: t("games.memory.title"),     desc: t("games.memory.desc"),     badge: t("games.memory.badge"),     category: "Brain"    as Category },
-    { to: "/games/word-puzzle",      img: wordImg,       title: t("games.word.title"),       desc: t("games.word.desc"),       badge: t("games.word.badge"),       category: "Brain"    as Category },
-    { to: "/games/hangman",          img: hangmanImg,    title: t("games.hangman.title"),    desc: t("games.hangman.desc"),    badge: t("games.hangman.badge"),    category: "Brain"    as Category },
-    { to: "/games/akinator",         img: akinatorImg,   title: t("games.akinator.title"),   desc: t("games.akinator.desc"),   badge: t("games.akinator.badge"),   category: "Brain"    as Category },
-    { to: "/games/jungle-survival",  img: jungleImg,     title: t("games.jungle.title"),     desc: t("games.jungle.desc"),     badge: t("games.jungle.badge"),     category: "Action"   as Category },
-    { to: "/games/neon-breach",      img: neonbreachImg, title: t("games.neonbreach.title"), desc: t("games.neonbreach.desc"), badge: t("games.neonbreach.badge"), category: "Action"   as Category },
-    { to: "/games/tactical-strike",  img: tacticalImg,   title: t("games.tactical.title"),   desc: t("games.tactical.desc"),   badge: t("games.tactical.badge"),   category: "Action"   as Category },
-    { to: "/games/velocity-racing",  img: velocityImg,   title: t("games.velocity.title"),   desc: t("games.velocity.desc"),   badge: t("games.velocity.badge"),   category: "Action"   as Category },
-    { to: "/games/star-chef",        img: starchefImg,   title: t("games.starchef.title"),   desc: t("games.starchef.desc"),   badge: t("games.starchef.badge"),   category: "Creative" as Category },
-    { to: "/games/dream-home",       img: dreamhomeImg,  title: t("games.dreamhome.title"),  desc: t("games.dreamhome.desc"),  badge: t("games.dreamhome.badge"),  category: "Creative" as Category },
-    { to: "/games/music-ear",        img: earmasterImg,  title: t("games.earmaster.title"),  desc: t("games.earmaster.desc"),  badge: t("games.earmaster.badge"),  category: "Creative" as Category },
-    { to: "/games/fashion-designer", img: fashionImg,    title: t("games.fashion.title"),    desc: t("games.fashion.desc"),    badge: t("games.fashion.badge"),    category: "Creative" as Category },
-    { to: "/games/uno-ultra",        img: unoImg,        title: t("games.uno.title"),        desc: t("games.uno.desc"),        badge: t("games.uno.badge"),        category: "Cards"    as Category },
-    { to: "/games/dominoes",         img: dominoesImg,   title: t("games.dominoes.title"),   desc: t("games.dominoes.desc"),   badge: t("games.dominoes.badge"),   category: "Cards"    as Category },
-    { to: "/games/farkle",           img: farkleImg,     title: t("games.farkle.title"),     desc: t("games.farkle.desc"),     badge: t("games.farkle.badge"),     category: "Cards"    as Category },
-    { to: "/games/briscola",         img: briscolaImg,   title: t("games.briscola.title"),   desc: t("games.briscola.desc"),   badge: t("games.briscola.badge"),   category: "Cards"    as Category },
-    { to: "/games/card-99",          img: card99Img,     title: t("games.card99.title"),     desc: t("games.card99.desc"),     badge: t("games.card99.badge"),     category: "Cards"    as Category },
-    { to: "/games/logiquest",        img: logiquestImg,  title: t("games.logiquest.title"),  desc: t("games.logiquest.desc"),  badge: t("games.logiquest.badge"),  category: "Strategy" as Category },
-    { to: "/games/trade-tycoon",     img: tradetycoonImg,title: t("games.tradetycoon.title"),desc: t("games.tradetycoon.desc"),badge: t("games.tradetycoon.badge"),category: "Strategy" as Category },
-    { to: "/games/laptop-tech",      img: laptoptechImg, title: t("games.laptoptech.title"), desc: t("games.laptoptech.desc"), badge: t("games.laptoptech.badge"), category: "Strategy" as Category },
+    { to: "/games/quiz-challenge", img: quizImg, title: t("games.quiz.title"), desc: t("games.quiz.desc"), badge: t("games.quiz.badge"), category: "Quiz" as Category },
+    { to: "/games/memory", img: memoryImg, title: t("games.memory.title"), desc: t("games.memory.desc"), badge: t("games.memory.badge"), category: "Memory" as Category },
+    { to: "/games/word-puzzle", img: wordImg, title: t("games.word.title"), desc: t("games.word.desc"), badge: t("games.word.badge"), category: "Word" as Category },
+    { to: "/games/hangman", img: hangmanImg, title: t("games.hangman.title"), desc: t("games.hangman.desc"), badge: t("games.hangman.badge"), category: "Word" as Category },
+    { to: "/games/jungle-survival", img: jungleImg, title: t("games.jungle.title"), desc: t("games.jungle.desc"), badge: t("games.jungle.badge"), category: "Adventure" as Category },
+    { to: "/games/star-chef", img: starchefImg, title: t("games.starchef.title"), desc: t("games.starchef.desc"), badge: t("games.starchef.badge"), category: "Cooking" as Category },
+    { to: "/games/uno-ultra", img: unoImg, title: t("games.uno.title"), desc: t("games.uno.desc"), badge: t("games.uno.badge"), category: "Cards" as Category },
+    { to: "/games/neon-breach", img: neonbreachImg, title: t("games.neonbreach.title"), desc: t("games.neonbreach.desc"), badge: t("games.neonbreach.badge"), category: "Cyber" as Category },
+    { to: "/games/logiquest", img: logiquestImg, title: t("games.logiquest.title"), desc: t("games.logiquest.desc"), badge: t("games.logiquest.badge"), category: "Logic" as Category },
+    { to: "/games/trade-tycoon", img: tradetycoonImg, title: t("games.tradetycoon.title"), desc: t("games.tradetycoon.desc"), badge: t("games.tradetycoon.badge"), category: "Trading" as Category },
+    { to: "/games/tactical-strike", img: tacticalImg, title: t("games.tactical.title"), desc: t("games.tactical.desc"), badge: t("games.tactical.badge"), category: "Action" as Category },
+    { to: "/games/dominoes", img: dominoesImg, title: t("games.dominoes.title"), desc: t("games.dominoes.desc"), badge: t("games.dominoes.badge"), category: "Classic" as Category },
+    { to: "/games/farkle", img: farkleImg, title: t("games.farkle.title"), desc: t("games.farkle.desc"), badge: t("games.farkle.badge"), category: "Dice" as Category },
+    { to: "/games/briscola", img: briscolaImg, title: t("games.briscola.title"), desc: t("games.briscola.desc"), badge: t("games.briscola.badge"), category: "Cards" as Category },
+    { to: "/games/card-99", img: card99Img, title: t("games.card99.title"), desc: t("games.card99.desc"), badge: t("games.card99.badge"), category: "Cards" as Category },
+    { to: "/games/dream-home", img: dreamhomeImg, title: t("games.dreamhome.title"), desc: t("games.dreamhome.desc"), badge: t("games.dreamhome.badge"), category: "Design" as Category },
+    { to: "/games/laptop-tech", img: laptoptechImg, title: t("games.laptoptech.title"), desc: t("games.laptoptech.desc"), badge: t("games.laptoptech.badge"), category: "Tech" as Category },
+    { to: "/games/music-ear", img: earmasterImg, title: t("games.earmaster.title"), desc: t("games.earmaster.desc"), badge: t("games.earmaster.badge"), category: "Music" as Category },
+    { to: "/games/fashion-designer", img: fashionImg, title: t("games.fashion.title"), desc: t("games.fashion.desc"), badge: t("games.fashion.badge"), category: "Creative" as Category },
+    { to: "/games/velocity-racing", img: velocityImg, title: t("games.velocity.title"), desc: t("games.velocity.desc"), badge: t("games.velocity.badge"), category: "Racing" as Category },
+    { to: "/games/akinator",        img: akinatorImg, title: t("games.akinator.title"), desc: t("games.akinator.desc"), badge: t("games.akinator.badge"), category: "Mystery" as Category },
   ], [t]);
 
-  const categories: Category[] = ["All", "Brain", "Action", "Creative", "Cards", "Strategy"];
+  const categories: Category[] = ["All", ...Array.from(new Set(games.map(g => g.category))).sort() as Category[]];
 
   const filtered = useMemo(() => {
     return games.filter((g) => {
@@ -103,7 +91,7 @@ export default function Games() {
           <div className="relative mb-10 overflow-hidden rounded-2xl">
             <img src={gamesImg} alt="" role="presentation" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-            <div className="absolute bottom-6 start-6 end-6 text-center">
+            <div className="absolute bottom-6 left-6 right-6 text-center">
               <h1 className="text-4xl font-bold tracking-tight">{t("games.title")}</h1>
               <p className="mt-2 text-lg text-muted-foreground">{t("games.subtitle")}</p>
             </div>
@@ -136,7 +124,7 @@ export default function Games() {
                 className="text-xs"
               >
                 {cat === "All" && <Filter className="mr-1 h-3.5 w-3.5" aria-hidden="true" />}
-                {cat === "All" ? t("services.catAll") : CATEGORY_LABELS[cat]} {cat !== "All" && `(${games.filter(g => g.category === cat).length})`}
+                {cat === "All" ? t("cat.All") : t(`games.cat.${cat}`)} {cat !== "All" && `(${games.filter(g => g.category === cat).length})`}
               </Button>
             ))}
           </div>
@@ -155,13 +143,7 @@ export default function Games() {
                   onClick={async () => {
                     if (!user) {
                       toast({ title: t("vx.loginRequired"), variant: "destructive" });
-                      navigate("/signup");
-                      return;
-                    }
-                    // Trial users play free
-                    if (isOnTrial) {
-                      playSound("start");
-                      navigate(game.to);
+                      navigate("/login");
                       return;
                     }
                     const ok = await spendVX(GAMING_PRICES.singlePlay, "game", game.title, game.to);
@@ -197,7 +179,7 @@ export default function Games() {
                       </CardDescription>
                       <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary" aria-hidden="true">
                         <Coins className="h-3.5 w-3.5" />
-                        {isOnTrial ? t("games.trialPlay") : formatVX(GAMING_PRICES.singlePlay)}
+                        {formatVX(GAMING_PRICES.singlePlay)}
                       </div>
                     </div>
                   </Card>

@@ -5,9 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useGameSounds } from "@/hooks/useGameSounds";
-import { useHighScore } from "@/hooks/useHighScore";
-import { GameHeader } from "@/components/game/GameHeader";
-import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useCallback } from "react";
 import heroImg from "@/assets/game-dominoes.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -208,7 +205,7 @@ export default function Dominoes() {
         <div className="relative mb-6 overflow-hidden rounded-2xl">
           <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-          <div className="absolute bottom-4 start-4 end-4 text-center">
+          <div className="absolute bottom-4 left-4 right-4 text-center">
             <h1 className="text-3xl font-bold">{t("dominoes.title")}</h1>
             <Badge className="mt-2">{t("dominoes.score")}: 0</Badge>
           </div>

@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { supabase } from "@/integrations/supabase/client";
 
 type Message = {
   id: string;
@@ -48,17 +47,11 @@ export function useAIChat() {
       }));
 
       try {
-        // Get the current user session JWT — required since ai-chat now demands auth.
-        // Falls back to anon key so the server returns a proper 401 rather than crashing.
-        const { data: { session } } = await supabase.auth.getSession();
-        const bearerToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
         const resp = await fetch(CHAT_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${bearerToken}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
             messages: apiMessages,

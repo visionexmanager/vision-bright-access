@@ -1,15 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { ShoppingBag, ShieldX, AlertTriangle, CheckCircle2, Gavel } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { PolicyCrossLinks } from "@/components/PolicyCrossLinks";
-
-const CROSS_LINKS = [
-  { to: "/buyer-protection",      labelKey: "footer.link.buyerProtection" },
-  { to: "/vx-coins-policy",       labelKey: "footer.link.vxCoinsPolicy" },
-  { to: "/intellectual-property", labelKey: "footer.link.intellectualProperty" },
-  { to: "/terms-of-use",          labelKey: "footer.link.termsOfUse" },
-  { to: "/enforcement-appeals",   labelKey: "footer.link.enforcementAppeals" },
-];
 
 const PROHIBITED = [
   { emoji: "🚫", key: "alcohol" },
@@ -153,8 +144,6 @@ export default function MarketplacePolicy() {
           <strong>{t("legal.market.updatesLabel")}</strong> {t("legal.market.updatesBody")}{" "}
           <a href="mailto:hello@visionex.app" className="text-primary underline">hello@visionex.app</a>.
         </div>
-
-        <PolicyCrossLinks links={CROSS_LINKS} />
       </section>
     </Layout>
   );

@@ -8,7 +8,7 @@ export type VoiceTranscript = {
   text: string;
 };
 
-export type AssistantType = "visionex" | "munir" | "nutrition" | "radar" | "ocr" | "mentor";
+export type AssistantType = "visionex" | "munir" | "nutrition";
 
 export function useVoiceChat(assistant: AssistantType = "visionex") {
   const [status, setStatus] = useState<VoiceStatus>("idle");
@@ -111,7 +111,7 @@ export function useVoiceChat(assistant: AssistantType = "visionex") {
       await pc.setLocalDescription(offer);
 
       const sdpRes = await fetch(
-        `https://api.openai.com/v1/realtime?model=gpt-realtime-2`,
+        `https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview`,
         {
           method: "POST",
           headers: {

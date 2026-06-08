@@ -2,9 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAIChat } from "@/hooks/useAIChat";
-import { Bot, X, Send, Lightbulb, Phone } from "lucide-react";
+import { Bot, X, Send, Lightbulb } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { VoiceChat } from "@/components/VoiceChat";
 
 interface SimulationMentorProps {
   simulationTitle: string;
@@ -14,7 +13,6 @@ interface SimulationMentorProps {
 export function SimulationMentor({ simulationTitle, currentStepTitle }: SimulationMentorProps) {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
-  const [voiceMode, setVoiceMode] = useState(false);
   const [input, setInput] = useState("");
   const { messages, isLoading, sendMessage, clearMessages } = useAIChat();
 
@@ -70,33 +68,13 @@ export function SimulationMentor({ simulationTitle, currentStepTitle }: Simulati
           <Lightbulb className="h-5 w-5 text-primary" />
           <span className="font-semibold text-sm">{t("bsim.mentor.label")}</span>
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant={voiceMode ? "default" : "ghost"}
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setVoiceMode(v => !v)}
-            title="Voice Chat"
-          >
-            <Phone className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(false)}>
+          <X className="h-4 w-4" />
+        </Button>
       </div>
 
-      {/* Voice mode */}
-      {voiceMode && (
-        <VoiceChat
-          assistant="mentor"
-          assistantName={t("bsim.mentor.label")}
-          className="flex-1 rounded-none border-0 shadow-none"
-        />
-      )}
-
       {/* Messages */}
-      <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${voiceMode ? "hidden" : ""}`} aria-live="polite">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" aria-live="polite">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
             <Bot className="h-10 w-10 text-muted-foreground/40" />
@@ -146,8 +124,8 @@ export function SimulationMentor({ simulationTitle, currentStepTitle }: Simulati
         )}
       </div>
 
-      {/* Input — hidden in voice mode */}
-      <div className={`border-t px-3 py-3 shrink-0 ${voiceMode ? "hidden" : ""}`}>
+      {/* Input */}
+      <div className="border-t px-3 py-3 shrink-0">
         <div className="flex items-end gap-2">
           <textarea
             value={input}

@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -10,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, Wrench, Flame, Cpu, Battery, MemoryStick, Fan, Monitor, Zap, RotateCcw, Thermometer, AlertTriangle, ArrowLeft } from "lucide-react";
+import { CheckCircle2, XCircle, Wrench, Flame, Cpu, Battery, MemoryStick, Fan, Monitor, Zap, RotateCcw, Thermometer, AlertTriangle } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { FinancialBar } from "@/components/SimulationCharts";
 import { useAuth } from "@/contexts/AuthContext";

@@ -1,11 +1,11 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
 function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") || "";
   const allowed =
-    ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")
+    ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost")
       ? origin
       : ALLOWED_ORIGINS[0];
   return {
@@ -41,52 +41,13 @@ const SYSTEM_PROMPT_AR = `أنت محرك OCR متقدم (التعرف الضو�
 7. اكتشف اللغة الأساسية للوثيقة.
 8. أعد مستوى الثقة: مرتفع / متوسط / منخفض بناءً على جودة الصورة.`;
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // ── Require a valid Supabase session ──────────────────────────────
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Authorization required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ── Rate limiting: 20 scans / user / day ──────────────────────────
-    const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-    const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", {
-      _user_id: user.id,
-      _function_name: "ocr-scan",
-    });
-    if (allowed === false) {
-      return new Response(
-        JSON.stringify({ error: "Daily limit reached (20 scans/day). Try again tomorrow." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 

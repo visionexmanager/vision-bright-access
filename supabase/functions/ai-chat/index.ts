@@ -1,10 +1,10 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
 function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") || "";
-  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")
+  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost")
     ? origin
     : ALLOWED_ORIGINS[0];
   return {
@@ -55,52 +55,13 @@ When discussing assistive products, mention key specs like: connectivity, compat
 - Never interrupt the user's browsing experience
 - Support both visually impaired users and sighted users equally`;
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // ── Require a valid Supabase session ──────────────────────────────
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Authorization required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ── Rate limiting: 60 requests / user / day ────────────────────────
-    const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-    const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", {
-      _user_id: user.id,
-      _function_name: "ai-chat",
-    });
-    if (allowed === false) {
-      return new Response(
-        JSON.stringify({ error: "Daily limit reached (60 messages/day). Try again tomorrow." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const { messages, context } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {

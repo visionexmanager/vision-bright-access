@@ -1,10 +1,10 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
 function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") || "";
-  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")
+  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost")
     ? origin
     : ALLOWED_ORIGINS[0];
   return {
@@ -30,29 +30,13 @@ Communication Style:
 
 When speaking Arabic, use a clear, friendly Modern Standard Arabic.`;
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Authorization required" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) {
       return new Response(JSON.stringify({ error: "OPENAI_API_KEY not configured" }), {
@@ -62,69 +46,55 @@ Deno.serve(async (req) => {
 
     const { voice = "alloy", assistant = "visionex" } = await req.json().catch(() => ({}));
 
-    // New voice names (gpt-realtime-2): ash, ballad, coral, sage, verse, cedar, marin
+    // Pick voice based on assistant
     const voiceMap: Record<string, string> = {
-      visionex:  voice || "sage",   // thoughtful, clear — general assistant
-      munir:     "cedar",           // Arabic-friendly deep voice for منير
-      nutrition: "coral",           // warm voice for nutrition expert
-      radar:     "ash",             // clear for visual scene description
-      ocr:       "ash",             // clear for reading text aloud
-      mentor:    "verse",           // confident for business mentor
+      visionex: voice || "alloy",
+      munir: "echo",     // Arabic-friendly deep voice for منير
+      nutrition: "nova", // Warm voice for nutrition expert
     };
 
-    const selectedVoice = voiceMap[assistant] || "sage";
+    const selectedVoice = voiceMap[assistant] || "alloy";
 
     const instructionsMap: Record<string, string> = {
       visionex: VISIONEX_VOICE_INSTRUCTIONS,
       munir: `أنت "منير" — مساعد أكاديمي صوتي ذكي في أكاديمية VisionEx. تتحدث بلهجة عربية ودودة ومبسطة. أجب دائماً بالعربية. كن مشجعاً وصبوراً. اشرح الأفكار بجمل قصيرة وواضحة.`,
-      nutrition: `You are a friendly nutrition voice assistant for Visionex Health. Help users with meal analysis, diet planning, calorie tracking, and healthy eating advice. Keep responses short and conversational. Speak in the same language as the user.`,
-      radar: `You are Radar AI — a voice assistant for the Visionex visual scene analyzer. Help visually impaired users understand image analysis results, describe scenes in detail, and answer questions about what was detected in the image. Keep responses clear and concise. Speak in the same language as the user.`,
-      ocr: `You are the Visionex OCR assistant. Help users with text extracted from images and documents — read it aloud, summarize it, translate it, or answer questions about it. Keep responses clear and concise. Speak in the same language as the user.`,
-      mentor: `You are a Business Mentor AI on the Visionex platform. Guide users through interactive business simulations, explain real-world business concepts, give practical hints without spoiling the full answer, and keep learners motivated. Speak naturally and conversationally — short sentences, no bullet points. Respond in the same language the user speaks.`,
+      nutrition: `You are a friendly nutrition voice assistant for Visionex. Help users with meal analysis, diet planning, and healthy eating advice. Keep responses short and conversational.`,
     };
 
-    // Create ephemeral session token via new client_secrets endpoint (gpt-realtime-2)
-    const response = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
+    // Create ephemeral session token
+    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        session: {
-          type: "realtime",
-          model: "gpt-realtime-2",
-          modalities: ["text", "audio"],
-          voice: selectedVoice,
-          instructions: instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS,
-          input_audio_transcription: { model: "whisper-1" },
-          turn_detection: {
-            type: "server_vad",
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 600,
-          },
+        model: "gpt-4o-realtime-preview",
+        voice: selectedVoice,
+        instructions: instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS,
+        input_audio_transcription: { model: "whisper-1" },
+        turn_detection: {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 600,
         },
       }),
     });
 
     if (!response.ok) {
       const err = await response.text();
-      console.error("OpenAI Realtime session error:", response.status, err);
-      let openaiError = "Failed to create realtime session";
-      try { openaiError = JSON.parse(err)?.error?.message || openaiError; } catch {}
-      return new Response(JSON.stringify({ error: openaiError, status: response.status }), {
+      console.error("OpenAI Realtime session error:", err);
+      return new Response(JSON.stringify({ error: "Failed to create realtime session" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const session = await response.json();
-    // New API returns { value: "ephemeral-key" } at root; old returned { client_secret: { value } }
-    const ephemeralValue = session.value ?? session.client_secret?.value;
 
     return new Response(JSON.stringify({
-      client_secret: { value: ephemeralValue },
-      session_id: session.id ?? "session",
+      client_secret: session.client_secret,
+      session_id: session.id,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

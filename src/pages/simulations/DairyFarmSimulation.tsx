@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -10,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, Milk, Thermometer, RotateCcw, TrendingUp, DollarSign, Heart, Droplets, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Milk, Thermometer, RotateCcw, TrendingUp, DollarSign, Heart, Droplets } from "lucide-react";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,8 +47,6 @@ export function DairyFarmSimulation({ simulationId }: Props) {
   const [cowHealth, setCowHealth] = useState(85);
   const [dailyYield, setDailyYield] = useState(0);
   const [events, setEvents] = useState<string[]>([]);
-  const [dailyLog, setDailyLog] = useState<{ day: number; yield_: number; rev: number; event: string }[]>([]);
-  const [marketPrice, setMarketPrice] = useState(1.0); // daily price multiplier
 
   useEffect(() => {
     if (!savedProgress) return;
@@ -99,15 +96,12 @@ export function DairyFarmSimulation({ simulationId }: Props) {
     setStage("production");
     setDay(1);
     const m = calcMetrics();
-    const startEvent = t("sim.dairyfarm.event.started").replace("{count}", String(herdSize));
     setDailyYield(m.yield_);
     setMilkQuality(m.quality);
     setCowHealth(m.health);
     setRevenue(m.dailyRevenue);
     setCosts(m.dailyCost);
-    setEvents([startEvent]);
-    setDailyLog([{ day: 1, yield_: m.yield_, rev: m.dailyRevenue, event: startEvent }]);
-    setMarketPrice(1.0);
+    setEvents([t("sim.dairyfarm.event.started").replace("{count}", String(herdSize))]);
   };
 
   const advanceDay = () => {
@@ -115,13 +109,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
     setDay(newDay);
     playSound("tick");
 
-    // Market price fluctuates ±15% each day
-    const newPrice = Math.max(0.7, Math.min(1.4, marketPrice + (Math.random() - 0.48) * 0.15));
-    setMarketPrice(newPrice);
-
     const m = calcMetrics();
-    const adjustedRevenue = Math.round(m.dailyRevenue * newPrice);
-
     // Random events
     const rand = Math.random();
     let eventMsg = "";
@@ -134,7 +122,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
       m.health = Math.max(40, m.health - 10);
     } else if (rand < 0.25) {
       eventMsg = t("sim.dairyfarm.event.demandSurge").replace("{day}", String(newDay));
-      revenueBonus = Math.round(adjustedRevenue * 0.2);
+      revenueBonus = Math.round(m.dailyRevenue * 0.2);
     } else if (rand < 0.35) {
       eventMsg = t("sim.dairyfarm.event.maintenance").replace("{day}", String(newDay));
       costBonus = 80;
@@ -145,14 +133,12 @@ export function DairyFarmSimulation({ simulationId }: Props) {
       eventMsg = t("sim.dairyfarm.event.normal").replace("{day}", String(newDay));
     }
 
-    const dayRev = adjustedRevenue + revenueBonus;
     setDailyYield(m.yield_);
     setMilkQuality(m.quality);
     setCowHealth(m.health);
-    setRevenue(prev => prev + dayRev);
+    setRevenue(prev => prev + m.dailyRevenue + revenueBonus);
     setCosts(prev => prev + m.dailyCost + costBonus);
     setEvents(prev => [eventMsg, ...prev.slice(0, 5)]);
-    setDailyLog(prev => [...prev, { day: newDay, yield_: m.yield_, rev: dayRev, event: eventMsg }]);
 
     if (newDay >= 7) {
       finishSim(m);
@@ -198,8 +184,6 @@ export function DairyFarmSimulation({ simulationId }: Props) {
     setCowHealth(85);
     setDailyYield(0);
     setEvents([]);
-    setDailyLog([]);
-    setMarketPrice(1.0);
   };
 
   const profit = revenue - costs;
@@ -304,36 +288,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
           </CardContent>
         </Card>
 
-        {/* Market Price Indicator */}
-        <Card className={`border-l-4 ${marketPrice >= 1.1 ? "border-l-green-500" : marketPrice <= 0.9 ? "border-l-destructive" : "border-l-primary"}`}>
-          <CardContent className="py-3 flex items-center justify-between">
-            <span className="text-sm font-medium">{t("sim.dairyfarm.market") ?? "Market Price"}</span>
-            <span className={`font-bold ${marketPrice >= 1.1 ? "text-green-500" : marketPrice <= 0.9 ? "text-destructive" : "text-primary"}`}>
-              {(marketPrice * 100).toFixed(0)}% {marketPrice >= 1.1 ? "▲" : marketPrice <= 0.9 ? "▼" : "—"}
-            </span>
-          </CardContent>
-        </Card>
-
-        {/* Daily Log */}
-        {dailyLog.length > 1 && (
-          <Card>
-            <CardContent className="pt-4">
-              <p className="text-sm font-semibold mb-2">📊 {t("sim.dairyfarm.history.title") ?? "Daily Log"}</p>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {[...dailyLog].reverse().map(d => (
-                  <div key={d.day} className="flex items-center justify-between text-xs text-muted-foreground border-b border-border/50 pb-1">
-                    <span>Day {d.day}</span>
-                    <span>{d.yield_}L</span>
-                    <span className="text-green-600">+${d.rev}</span>
-                    <span className="max-w-[120px] truncate">{d.event.replace(/Day \d+: /,'')}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Button onClick={advanceDay} className="w-full text-base" size="lg" disabled={day >= 7}>
+        <Button onClick={advanceDay} className="w-full text-base" size="lg" disabled={day >= 7} aria-label={day < 7 ? t("sim.dairyfarm.btn.advanceDay").replace("{day}", String(day + 1)) : t("sim.dairyfarm.btn.finishing")}>
           {day < 7 ? t("sim.dairyfarm.btn.advanceDay").replace("{day}", String(day + 1)) : t("sim.dairyfarm.btn.finishing")}
         </Button>
       </div>

@@ -2,8 +2,6 @@ import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTrial } from "@/hooks/useTrial";
-import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 
 export type TVSubscription = {
@@ -23,7 +21,6 @@ export type TVChannel = {
   description:    string | null;
   description_ar: string | null;
   logo_url:       string | null;
-  official_url:   string | null;
   category_id:    string | null;
   quality:        string;
   language:       string;
@@ -56,8 +53,6 @@ export type TVPlan = {
 export function useTVSubscription() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { isOnTrial, trialDaysLeft } = useTrial();
-  const { t } = useLanguage();
 
   const { data: subscription, isLoading: subLoading } = useQuery<TVSubscription | null>({
     queryKey: ["tv-subscription", user?.id],
@@ -70,12 +65,8 @@ export function useTVSubscription() {
     },
   });
 
-  // queryKey includes user?.id so the cache is invalidated when auth state changes.
-  // enabled: !!user prevents a stale empty-array result from being cached before
-  // the Supabase session is established (tv_channels RLS requires authenticated role).
   const { data: channels = [], isLoading: chLoading } = useQuery<TVChannel[]>({
-    queryKey: ["tv-channels", user?.id ?? "guest"],
-    enabled: !!user,
+    queryKey: ["tv-channels"],
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -89,8 +80,7 @@ export function useTVSubscription() {
   });
 
   const { data: categories = [] } = useQuery<TVCategory[]>({
-    queryKey: ["tv-categories", user?.id ?? "guest"],
-    enabled: !!user,
+    queryKey: ["tv-categories"],
     staleTime: 10 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -116,13 +106,13 @@ export function useTVSubscription() {
     },
   });
 
-  const isSubscribed = isOnTrial || !!(
+  const isSubscribed = !!(
     subscription &&
     subscription.status === "active" &&
     new Date(subscription.expires_at) > new Date()
   );
 
-  // Returns days remaining — show trial days when user has no paid subscription
+  // Returns days remaining (fractional) or 0
   const daysRemaining = subscription
     ? Math.max(
         0,
@@ -130,37 +120,37 @@ export function useTVSubscription() {
           (new Date(subscription.expires_at).getTime() - Date.now()) / 86_400_000
         )
       )
-    : isOnTrial ? trialDaysLeft : 0;
+    : 0;
 
   const subscribe = useCallback(
     async (planId: string): Promise<boolean> => {
       if (!user) {
-        toast.error(t("tv.toast.loginRequired"));
+        toast.error("يجب تسجيل الدخول أولاً");
         return false;
       }
       const { data, error } = await supabase.rpc("subscribe_tv", { _plan_id: planId });
       if (error) {
-        toast.error(t("tv.toast.subError").replace("{msg}", error.message));
+        toast.error("حدث خطأ أثناء الاشتراك: " + error.message);
         return false;
       }
       const result = data as { success: boolean; error?: string; vx_deducted?: number };
       if (!result.success) {
-        const msgKey: Record<string, string> = {
-          already_subscribed: "tv.toast.alreadySubscribed",
-          insufficient_vx:    "tv.toast.insufficientVX",
-          plan_not_found:     "tv.toast.planNotFound",
-          not_authenticated:  "tv.toast.notAuthenticated",
+        const msgs: Record<string, string> = {
+          already_subscribed:   "لديك اشتراك نشط بالفعل",
+          insufficient_vx:      "رصيد VX غير كافٍ",
+          plan_not_found:       "خطة الاشتراك غير موجودة",
+          not_authenticated:    "يجب تسجيل الدخول أولاً",
         };
-        toast.error(t(msgKey[result.error ?? ""] ?? "tv.toast.subFailed"));
+        toast.error(msgs[result.error ?? ""] ?? "فشل الاشتراك");
         return false;
       }
-      toast.success(t("tv.toast.subscribed").replace("{vx}", (result.vx_deducted ?? 0).toLocaleString()));
+      toast.success(`تم الاشتراك! تم خصم ${result.vx_deducted?.toLocaleString()} VX`);
       queryClient.invalidateQueries({ queryKey: ["tv-subscription", user.id] });
       queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
       queryClient.invalidateQueries({ queryKey: ["points-history", user.id] });
       return true;
     },
-    [user, queryClient, t]
+    [user, queryClient]
   );
 
   const getStreamToken = useCallback(
@@ -170,22 +160,22 @@ export function useTVSubscription() {
         _channel_id: channelId,
       });
       if (error) {
-        toast.error(t("tv.toast.streamError").replace("{msg}", error.message));
+        toast.error("تعذر الوصول إلى البث: " + error.message);
         return null;
       }
       const result = data as { success: boolean; token?: string; error?: string };
       if (!result.success) {
-        const msgKey: Record<string, string> = {
-          no_active_subscription: "tv.toast.subExpired",
-          channel_not_found:      "tv.toast.channelNotFound",
-          not_authenticated:      "tv.toast.notAuthenticated",
+        const msgs: Record<string, string> = {
+          no_active_subscription: "اشتراكك منتهٍ، يرجى التجديد",
+          channel_not_found:      "القناة غير متاحة حالياً",
+          not_authenticated:      "يجب تسجيل الدخول أولاً",
         };
-        toast.error(t(msgKey[result.error ?? ""] ?? "tv.toast.streamFailed"));
+        toast.error(msgs[result.error ?? ""] ?? "تعذر تشغيل القناة");
         return null;
       }
       return result.token ?? null;
     },
-    [user, t]
+    [user]
   );
 
   return {

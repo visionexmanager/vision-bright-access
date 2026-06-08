@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Navigate, Link } from "react-router-dom";
 import {
@@ -25,19 +26,16 @@ import {
   ShoppingCart,
   Sparkles,
   Trophy,
-  Gamepad2,
-  Users,
-  Clock,
 } from "lucide-react";
+import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import dashboardImg from "@/assets/dashboard-illustration.jpg";
 
 const VIP_TIERS = [
-  { name: "rankBronze",   min: 0,      next: 10000,  color: "text-amber-700 dark:text-amber-500" },
-  { name: "rankSilver",   min: 10000,  next: 50000,  color: "text-slate-600 dark:text-slate-300" },
-  { name: "rankGold",     min: 50000,  next: 100000, color: "text-yellow-700 dark:text-yellow-400" },
+  { name: "rankBronze", min: 0, next: 10000, color: "text-amber-700 dark:text-amber-500" },
+  { name: "rankSilver", min: 10000, next: 50000, color: "text-slate-600 dark:text-slate-300" },
+  { name: "rankGold", min: 50000, next: 100000, color: "text-yellow-700 dark:text-yellow-400" },
   { name: "rankPlatinum", min: 100000, next: 200000, color: "text-cyan-700 dark:text-cyan-400" },
-  { name: "rankDiamond",  min: 200000, next: null,   color: "text-blue-500 dark:text-blue-300" },
 ];
 
 function getTier(points: number) {
@@ -47,10 +45,24 @@ function getTier(points: number) {
   return { ...VIP_TIERS[0], index: 0 };
 }
 
+function translateReason(reason: string, t: (key: string) => string): string {
+  const lower = reason.toLowerCase();
+  if (lower.includes("daily login") || lower.includes("login bonus")) return t("dash.reason.dailyLogin");
+  if (lower.includes("watched an ad") || (lower.includes("watch") && lower.includes("ad"))) return t("dash.reason.watchedAd");
+  if (lower.includes("vx purchase") || lower.includes("purchase")) return t("dash.reason.vxPurchase");
+  if (lower.includes("bazaar") || lower.includes("rent") || lower.includes("trial billing")) return t("dash.reason.trialBilling");
+  if (lower.includes("admin") && (lower.includes("grant") || lower.includes("credit"))) return t("dash.reason.adminGrant");
+  if (lower.includes("admin") && (lower.includes("deduct") || lower.includes("penalty"))) return t("dash.reason.adminDeduction");
+  if (lower.includes("quiz")) return t("dash.reason.quiz");
+  if (lower.includes("memory")) return t("dash.reason.memory");
+  if (lower.includes("word") || lower.includes("puzzle")) return t("dash.reason.wordPuzzle");
+  if (lower.includes("simulation") || lower.includes("sim")) return t("dash.reason.simulation");
+  return reason;
+}
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
-  const { totalPoints, history, loadingTotal } = usePoints();
+  const { totalPoints, history, loadingTotal, loadingHistory } = usePoints();
   const { earnPoints, checkDailyLogin, getTodayAdCount } = useEarnPoints();
   const { t } = useLanguage();
   const { playSound } = useSound();
@@ -126,7 +138,7 @@ export default function Dashboard() {
         <div className="relative mb-8 overflow-hidden rounded-2xl">
           <img src={dashboardImg} alt="" role="presentation" className="h-36 w-full object-cover sm:h-44" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
-          <div className="absolute bottom-4 start-6 end-6">
+          <div className="absolute bottom-4 left-6 right-6">
             <h1 className="text-3xl font-bold">{t("dash.title")}</h1>
             <p className="text-lg text-muted-foreground">
               {t("dash.welcome").replace("{name}", user.user_metadata?.display_name || user.email || "")}
@@ -213,39 +225,9 @@ export default function Dashboard() {
               )}
             </div>
             <Progress value={progressPct} className="h-3" aria-label={`VIP progress: ${totalPoints} of ${nextTier?.min ?? 'max'} points`} />
-            {!nextTier && tier.name === "rankDiamond" && (
-              <p className="mt-2 text-sm font-semibold text-blue-500">🏆 {t("dash.vipMax")}</p>
+            {!nextTier && (
+              <p className="mt-2 text-sm text-muted-foreground">{t("dash.vipComingSoon")}</p>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Quick Access */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Sparkles className="h-6 w-6 text-primary" aria-hidden="true" />
-              {t("dash.quickLinks")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                { icon: Gamepad2,     to: "/games",       label: t("dash.playGamesLink"),        desc: t("dash.playGamesLinkDesc"),       color: "text-green-500"   },
-                { icon: Users,        to: "/community",   label: t("footer.link.community"),     desc: t("home.feature.servicesDesc"),    color: "text-violet-500"  },
-                { icon: ShoppingCart, to: "/bazaar",      label: "VXBazaar",                      desc: t("home.feature.marketplaceDesc"), color: "text-primary"     },
-                { icon: BookOpen,     to: "/academy",     label: t("footer.link.academy"),        desc: t("services.catLearn"),            color: "text-blue-500"    },
-              ].map((item) => (
-                <Link key={item.to} to={item.to} onClick={() => playSound("navigate")} className="group block">
-                  <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center transition-all hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5">
-                    <div className="rounded-xl bg-primary/10 p-3">
-                      <item.icon className={`h-6 w-6 ${item.color}`} aria-hidden="true" />
-                    </div>
-                    <p className="text-sm font-bold">{item.label}</p>
-                    <p className="text-xs text-muted-foreground leading-tight">{item.desc}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
           </CardContent>
         </Card>
 
@@ -333,21 +315,50 @@ export default function Dashboard() {
           <AchievementsPanel />
         </div>
 
-        {/* Activity History link */}
-        <Link to="/profile" className="block" onClick={() => playSound("navigate")}>
-          <Card className="transition-shadow hover:shadow-lg">
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className="rounded-xl bg-primary/10 p-3">
-                <Clock className="h-7 w-7 text-primary" aria-hidden="true" />
+        {/* Points history */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">{t("dash.history")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingHistory ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
               </div>
-              <div className="flex-1">
-                <p className="text-lg font-bold">{t("dash.history")}</p>
-                <p className="text-sm text-muted-foreground">{t("dash.historyLinkDesc")}</p>
-              </div>
-              <Badge variant="secondary" className="text-base">{history.length}</Badge>
-            </CardContent>
-          </Card>
-        </Link>
+            ) : history.length === 0 ? (
+              <p className="py-8 text-center text-muted-foreground">
+                {t("dash.noActivity")}
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-base">{t("dash.activity")}</TableHead>
+                    <TableHead className="text-base">{t("dash.points")}</TableHead>
+                    <TableHead className="text-base">{t("dash.date")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {history.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="text-base font-medium">{translateReason(entry.reason, t)}</TableCell>
+                      <TableCell>
+                        <Badge variant={entry.points > 0 ? "default" : "destructive"} className="text-sm">
+                          {entry.points > 0 ? "+" : ""}{entry.points}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-base text-muted-foreground">
+                        {format(new Date(entry.created_at), "MMM d, yyyy")}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {showAd && (

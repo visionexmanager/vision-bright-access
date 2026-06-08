@@ -15,21 +15,14 @@ import {
 } from "lucide-react";
 import { VoiceChat } from "@/components/VoiceChat";
 import { WatchAdButton } from "@/components/WatchAdButton";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { supabase } from "@/integrations/supabase/client";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/academy-chat`;
 
-const speak = (text: string, lang: string) => {
+const speak = (text: string) => {
   if ("speechSynthesis" in window) {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    const langMap: Record<string, string> = {
-      ar: "ar-SA", en: "en-US", es: "es-ES", de: "de-DE",
-      fr: "fr-FR", pt: "pt-BR", zh: "zh-CN", tr: "tr-TR",
-      ru: "ru-RU", hi: "hi-IN", ur: "ur-PK",
-    };
-    utterance.lang = langMap[lang] ?? "en-US";
+    utterance.lang = "ar-SA";
     utterance.rate = 0.9;
     window.speechSynthesis.speak(utterance);
   }
@@ -48,25 +41,10 @@ type StudentProfile = {
   level: string;
 };
 
+const countries = ["لبنان", "مصر", "السعودية", "تركيا", "أمريكا", "بلد آخر"];
+const levels = ["ابتدائي", "متوسط", "ثانوي / بكالوريا", "جامعي / دراسات"];
+
 export default function Academy() {
-  const { t, lang } = useLanguage();
-
-  const COUNTRIES = [
-    { key: "academy.country.lb", value: "Lebanon" },
-    { key: "academy.country.eg", value: "Egypt" },
-    { key: "academy.country.sa", value: "Saudi Arabia" },
-    { key: "academy.country.tr", value: "Turkey" },
-    { key: "academy.country.us", value: "United States" },
-    { key: "academy.country.other", value: "Other" },
-  ];
-
-  const LEVELS = [
-    { key: "academy.level.primary", value: "Primary" },
-    { key: "academy.level.middle",  value: "Middle School" },
-    { key: "academy.level.high",    value: "High School" },
-    { key: "academy.level.uni",     value: "University" },
-  ];
-
   const [step, setStep] = useState(1);
   const [voiceMode, setVoiceMode] = useState(false);
   const [profile, setProfile] = useState<StudentProfile>({
@@ -76,6 +54,7 @@ export default function Academy() {
     level: "",
   });
 
+  // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -104,23 +83,22 @@ export default function Academy() {
     const apiMessages = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const bearerToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${bearerToken}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: apiMessages, studentProfile: profile }),
+        body: JSON.stringify({
+          messages: apiMessages,
+          studentProfile: profile,
+        }),
         signal: controller.signal,
       });
 
       if (!resp.ok) {
         const errData = await resp.json().catch(() => ({}));
-        throw new Error(errData.error || `Error (${resp.status})`);
+        throw new Error(errData.error || `خطأ (${resp.status})`);
       }
 
       if (!resp.body) throw new Error("No response body");
@@ -163,14 +141,34 @@ export default function Academy() {
           }
         }
       }
+
+      // Flush remaining
+      if (textBuffer.trim()) {
+        for (let raw of textBuffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (raw.startsWith(":") || raw.trim() === "") continue;
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantSoFar += content;
+              setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: assistantSoFar } : m));
+            }
+          } catch { /* ignore */ }
+        }
+      }
     } catch (e: any) {
       if (e.name === "AbortError") return;
-      setMessages(prev => [...prev, { id: assistantId, role: "assistant", content: `⚠️ ${e.message || t("academy.error")}` }]);
+      setMessages(prev => [...prev, { id: assistantId, role: "assistant", content: `⚠️ ${e.message || "حدث خطأ، حاول مرة أخرى."}` }]);
     } finally {
       setIsLoading(false);
       abortRef.current = null;
     }
-  }, [messages, profile, isLoading, t]);
+  }, [messages, profile, isLoading]);
 
   const clearChat = () => {
     abortRef.current?.abort();
@@ -181,13 +179,12 @@ export default function Academy() {
   const handleNext = () => {
     if (step === 1) {
       const greet = profile.gender === "male"
-        ? t("academy.welcome.male").replace("{name}", profile.name)
-        : t("academy.welcome.female").replace("{name}", profile.name);
-      speak(greet, lang);
+        ? `أهلاً بك يا بطل، ${profile.name}`
+        : `أهلاً بكِ يا بطلة، ${profile.name}`;
+      speak(greet);
     }
     if (step === 3) {
-      const msg = t("academy.curriculum").replace("{country}", profile.country) + " " + t("academy.next");
-      speak(msg, lang);
+      speak(`ممتاز، منهاج الـ ${profile.level} في ${profile.country} جاهز لك الآن.`);
     }
     setStep(step + 1);
   };
@@ -196,10 +193,6 @@ export default function Academy() {
     (step === 1 && !profile.name) ||
     (step === 2 && !profile.country) ||
     (step === 3 && !profile.level);
-
-  const displayName = profile.gender === "male"
-    ? t("academy.welcome.male").replace("{name}", profile.name)
-    : t("academy.welcome.female").replace("{name}", profile.name);
 
   return (
     <Layout>
@@ -215,12 +208,12 @@ export default function Academy() {
                   <div className="w-24 h-24 bg-primary rounded-3xl flex items-center justify-center mx-auto text-primary-foreground shadow-2xl rotate-3">
                     <User className="w-12 h-12" />
                   </div>
-                  <h2 className="text-3xl md:text-4xl font-black text-foreground tracking-tight">{t("academy.step1.title")}</h2>
+                  <h2 className="text-3xl md:text-4xl font-black text-foreground tracking-tight">شو اسمك يا بطل؟</h2>
                   <Input
                     value={profile.name}
                     onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                     className="text-center text-xl md:text-2xl py-6 rounded-2xl"
-                    placeholder={t("academy.name.placeholder")}
+                    placeholder="اسمي هو..."
                   />
                   <div className="flex gap-4 justify-center">
                     <Button
@@ -228,14 +221,14 @@ export default function Academy() {
                       className="flex-1 py-6 text-lg font-bold rounded-2xl"
                       onClick={() => setProfile({ ...profile, gender: "male" })}
                     >
-                      {t("academy.gender.male")}
+                      أنا ولد ♂
                     </Button>
                     <Button
                       variant={profile.gender === "female" ? "default" : "outline"}
                       className={`flex-1 py-6 text-lg font-bold rounded-2xl ${profile.gender === "female" ? "bg-pink-500 hover:bg-pink-600 border-pink-500" : ""}`}
                       onClick={() => setProfile({ ...profile, gender: "female" })}
                     >
-                      {t("academy.gender.female")}
+                      أنا بنت ♀
                     </Button>
                   </div>
                 </div>
@@ -243,22 +236,19 @@ export default function Academy() {
 
               {step === 2 && (
                 <div className="space-y-8 animate-in fade-in duration-500">
-                  <Globe className="w-20 h-20 mx-auto text-emerald-500" />
-                  <h2 className="text-3xl md:text-4xl font-black text-foreground">{t("academy.step2.title")}</h2>
+                  <Globe className="w-20 h-20 mx-auto text-emerald-500 animate-pulse" />
+                  <h2 className="text-3xl md:text-4xl font-black text-foreground">من أي بلد عم تتابعنا؟</h2>
                   <div className="grid grid-cols-2 gap-4">
-                    {COUNTRIES.map((c) => {
-                      const label = t(c.key);
-                      return (
-                        <Button
-                          key={c.key}
-                          variant={profile.country === label ? "default" : "outline"}
-                          className="p-4 h-auto rounded-2xl font-bold text-base"
-                          onClick={() => setProfile({ ...profile, country: label })}
-                        >
-                          {label}
-                        </Button>
-                      );
-                    })}
+                    {countries.map((c) => (
+                      <Button
+                        key={c}
+                        variant={profile.country === c ? "default" : "outline"}
+                        className="p-4 h-auto rounded-2xl font-bold text-base"
+                        onClick={() => setProfile({ ...profile, country: c })}
+                      >
+                        {c}
+                      </Button>
+                    ))}
                   </div>
                 </div>
               )}
@@ -266,22 +256,19 @@ export default function Academy() {
               {step === 3 && (
                 <div className="space-y-8 animate-in zoom-in-95 duration-500">
                   <GraduationCap className="w-20 h-20 mx-auto text-orange-500" />
-                  <h2 className="text-3xl md:text-4xl font-black text-foreground">{t("academy.step3.title")}</h2>
+                  <h2 className="text-3xl md:text-4xl font-black text-foreground">شو مستواك الدراسي؟</h2>
                   <div className="grid grid-cols-1 gap-3">
-                    {LEVELS.map((l) => {
-                      const label = t(l.key);
-                      return (
-                        <Button
-                          key={l.key}
-                          variant={profile.level === label ? "default" : "outline"}
-                          className="p-5 h-auto rounded-2xl text-start flex justify-between items-center text-lg"
-                          onClick={() => setProfile({ ...profile, level: label })}
-                        >
-                          <span className="font-bold">{label}</span>
-                          {profile.level === label && <Star className="fill-yellow-400 text-yellow-400 w-5 h-5" />}
-                        </Button>
-                      );
-                    })}
+                    {levels.map((l) => (
+                      <Button
+                        key={l}
+                        variant={profile.level === l ? "default" : "outline"}
+                        className="p-5 h-auto rounded-2xl text-start flex justify-between items-center text-lg"
+                        onClick={() => setProfile({ ...profile, level: l })}
+                      >
+                        <span className="font-bold">{l}</span>
+                        {profile.level === l && <Star className="fill-yellow-400 text-yellow-400 w-5 h-5" />}
+                      </Button>
+                    ))}
                   </div>
                 </div>
               )}
@@ -292,7 +279,7 @@ export default function Academy() {
                 size="lg"
                 className="mt-12 w-full py-6 rounded-2xl font-black text-xl"
               >
-                {t("academy.next")} <ArrowRight className="w-6 h-6 ms-2" />
+                متابعة الرحلة <ArrowRight className="w-6 h-6 rotate-180 ms-2" />
               </Button>
             </div>
           </div>
@@ -308,12 +295,12 @@ export default function Academy() {
                   <User className="w-10 h-10" />
                 </div>
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-black text-foreground">{displayName}</h1>
+                  <h1 className="text-2xl md:text-3xl font-black text-foreground">
+                    أهلاً {profile.gender === "male" ? "بالبطل" : "بالبطلة"} {profile.name} ✨
+                  </h1>
                   <div className="flex gap-3 mt-2">
                     <span className="px-3 py-1 bg-primary/10 text-primary rounded-lg text-xs font-bold border border-primary/20">{profile.level}</span>
-                    <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-500/20">
-                      {t("academy.curriculum").replace("{country}", profile.country)}
-                    </span>
+                    <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-500/20">منهاج {profile.country}</span>
                   </div>
                 </div>
               </div>
@@ -322,7 +309,7 @@ export default function Academy() {
                   variant="outline"
                   size="icon"
                   className="h-14 w-14 rounded-2xl"
-                  onClick={() => speak(displayName, lang)}
+                  onClick={() => speak(`أهلاً بك يا ${profile.name}. أنا هنا لأرشدك في دروسك وفي اختيار مهنة المستقبل.`)}
                 >
                   <Volume2 className="w-6 h-6" />
                 </Button>
@@ -331,11 +318,10 @@ export default function Academy() {
                   className="px-6 py-4 h-auto rounded-2xl font-bold"
                   onClick={() => setVoiceMode(v => !v)}
                 >
-                  <Phone className="w-5 h-5 me-2" />
-                  {voiceMode ? t("academy.voice.text") : t("academy.voice.call")}
+                  <Phone className="w-5 h-5 me-2" /> {voiceMode ? "وضع النص" : "تحدث مع منير"}
                 </Button>
                 <Button className="px-8 py-4 h-auto rounded-2xl font-bold">
-                  <LayoutDashboard className="w-5 h-5 me-2" /> {t("academy.my.classroom")}
+                  <LayoutDashboard className="w-5 h-5 me-2" /> غرفتي الدراسية
                 </Button>
               </div>
             </header>
@@ -345,7 +331,7 @@ export default function Academy() {
               <div className="mb-6">
                 <VoiceChat
                   assistant="munir"
-                  assistantName={t("academy.assistant.name")}
+                  assistantName='منير — المساعد الأكاديمي'
                   className="max-w-lg mx-auto"
                 />
               </div>
@@ -354,54 +340,47 @@ export default function Academy() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Main Content */}
               <div className="lg:col-span-8 space-y-8">
+                {/* Career Aptitude Test or Guidance */}
                 {showAptitudeTest ? (
                   <CareerAptitudeTest profile={profile} onClose={() => setShowAptitudeTest(false)} />
                 ) : (
-                  <div className="bg-card p-8 rounded-3xl border border-border shadow-lg">
-                    <div className="flex items-center gap-4 mb-10 border-b border-border pb-6">
-                      <div className="p-4 bg-orange-500/10 text-orange-500 rounded-2xl"><Compass /></div>
-                      <h2 className="text-2xl font-black text-foreground tracking-tight">
-                        {t("academy.compass.title").replace("{name}", profile.name)}
-                      </h2>
+                <div className="bg-card p-8 rounded-3xl border border-border shadow-lg">
+                  <div className="flex items-center gap-4 mb-10 border-b border-border pb-6">
+                    <div className="p-4 bg-orange-500/10 text-orange-500 rounded-2xl"><Compass /></div>
+                    <h2 className="text-2xl font-black text-foreground tracking-tight">بوصلة المستقبل لـ {profile.name}</h2>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div
+                      className="p-8 bg-muted/50 rounded-3xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
+                      onClick={() => setShowAptitudeTest(true)}
+                    >
+                      <BrainCircuit className="w-12 h-12 text-primary mb-6 group-hover:scale-110 transition-transform" />
+                      <h4 className="font-bold text-xl mb-3 text-foreground">اختبار الميول لعام 2026</h4>
+                      <p className="text-muted-foreground text-sm leading-relaxed">اكتشف شخصيتك المهنية عبر 8 أسئلة تفاعلية ومنير يحلل نتائجك بالذكاء الاصطناعي!</p>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div
-                        className="p-8 bg-muted/50 rounded-3xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
-                        onClick={() => setShowAptitudeTest(true)}
-                      >
-                        <BrainCircuit className="w-12 h-12 text-primary mb-6 group-hover:scale-110 transition-transform" />
-                        <h4 className="font-bold text-xl mb-3 text-foreground">{t("academy.aptitude.title")}</h4>
-                        <p className="text-muted-foreground text-sm leading-relaxed">{t("academy.aptitude.desc")}</p>
-                      </div>
-                      <div
-                        className="p-8 bg-muted/50 rounded-3xl border-2 border-dashed border-border hover:border-orange-500 hover:bg-orange-500/5 transition-all cursor-pointer group"
-                        onClick={() => sendMessage(t("academy.jobs.desc").replace("{country}", profile.country))}
-                      >
-                        <Briefcase className="w-12 h-12 text-orange-500 mb-6 group-hover:scale-110 transition-transform" />
-                        <h4 className="font-bold text-xl mb-3 text-foreground">{t("academy.jobs.title")}</h4>
-                        <p className="text-muted-foreground text-sm leading-relaxed">
-                          {t("academy.jobs.desc").replace("{country}", profile.country)}
-                        </p>
-                      </div>
+                    <div
+                      className="p-8 bg-muted/50 rounded-3xl border-2 border-dashed border-border hover:border-orange-500 hover:bg-orange-500/5 transition-all cursor-pointer group"
+                      onClick={() => sendMessage(`شو هي الوظائف المطلوبة والرواتب في ${profile.country} لعام 2026؟`)}
+                    >
+                      <Briefcase className="w-12 h-12 text-orange-500 mb-6 group-hover:scale-110 transition-transform" />
+                      <h4 className="font-bold text-xl mb-3 text-foreground">سوق العمل العالمي</h4>
+                      <p className="text-muted-foreground text-sm leading-relaxed">اكتشف شو هي الرواتب والوظائف المطلوبة بـ {profile.country} وبالعالم لهيدي السنة.</p>
                     </div>
                   </div>
+                </div>
                 )}
 
                 <WatchAdButton variant="banner" className="my-6" />
 
-                {/* Smart Assistant Chat */}
+                {/* Smart Assistant Chat - NOW FUNCTIONAL */}
                 <div className="bg-foreground rounded-3xl p-6 md:p-10 text-background relative shadow-2xl overflow-hidden">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
-                        <Lightbulb className="w-8 h-8" />
-                      </div>
+                      <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg"><Lightbulb className="w-8 h-8" /></div>
                       <div>
-                        <h3 className="text-2xl font-black">
-                          {t("academy.munir.level").replace("{level}", profile.level)}
-                        </h3>
+                        <h3 className="text-2xl font-black">منير — مساعد {profile.level}</h3>
                         <p className="text-primary text-xs font-bold uppercase tracking-widest">
-                          {isLoading ? t("academy.chat.thinking") : t("academy.chat.guidance")}
+                          {isLoading ? "يكتب..." : "توجيه أكاديمي ذكي"}
                         </p>
                       </div>
                     </div>
@@ -424,21 +403,28 @@ export default function Academy() {
                   >
                     {messages.length === 0 ? (
                       <p className="text-lg md:text-xl leading-relaxed font-medium text-center py-8 text-background/70">
-                        {t("academy.chat.intro").replace("{name}", profile.name)}
+                        يا {profile.name}، أنا منير 🧠 اسألني أي شي عن دروسك أو مستقبلك المهني وأنا بساعدك!
                       </p>
                     ) : (
                       messages.map((msg) => (
-                        <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-start" : "justify-end"}`}>
-                          <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm md:text-base ${
-                            msg.role === "user"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-background/10 text-background border border-background/10"
-                          }`}>
+                        <div
+                          key={msg.id}
+                          className={`flex ${msg.role === "user" ? "justify-start" : "justify-end"}`}
+                        >
+                          <div
+                            className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm md:text-base ${
+                              msg.role === "user"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-background/10 text-background border border-background/10"
+                            }`}
+                          >
                             {msg.role === "assistant" ? (
                               <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                                 <ReactMarkdown>{msg.content}</ReactMarkdown>
                               </div>
-                            ) : msg.content}
+                            ) : (
+                              msg.content
+                            )}
                           </div>
                         </div>
                       ))
@@ -453,10 +439,16 @@ export default function Academy() {
                   </div>
 
                   {/* Input */}
-                  <form className="relative" onSubmit={(e) => { e.preventDefault(); sendMessage(chatInput); }}>
+                  <form
+                    className="relative"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      sendMessage(chatInput);
+                    }}
+                  >
                     <input
                       className="w-full p-5 pe-16 bg-background/10 rounded-2xl outline-none focus:ring-4 focus:ring-primary/50 text-background placeholder:text-background/30 transition-all text-base"
-                      placeholder={t("academy.chat.placeholder")}
+                      placeholder="اسأل منير أي شي عن دروسك أو مستقبلك..."
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       disabled={isLoading}
@@ -480,24 +472,25 @@ export default function Academy() {
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-10 rounded-3xl text-white shadow-2xl relative overflow-hidden">
                   <Rocket className="absolute -left-4 -bottom-4 w-32 h-32 opacity-10 -rotate-12" />
                   <h4 className="text-2xl font-black mb-4 tracking-tight flex items-center gap-2">
-                    <Star className="text-yellow-400 w-6 h-6 fill-yellow-400" />
-                    {t("academy.xp.level").replace("{name}", profile.name)}
+                    <Star className="text-yellow-400 w-6 h-6 fill-yellow-400" /> مستوى {profile.name}
                   </h4>
                   <div className="space-y-4">
                     <div className="flex justify-between text-xs font-bold opacity-80 uppercase tracking-widest">
-                      <span>{t("academy.xp.rising")}</span>
+                      <span>النابغة الصاعد</span>
                       <span>150 / 1000 XP</span>
                     </div>
                     <div className="w-full bg-white/20 h-3 rounded-full overflow-hidden border border-white/10">
                       <div className="w-[15%] h-full bg-yellow-400 rounded-full" />
                     </div>
                   </div>
+                  <p className="mt-8 text-sm opacity-80 leading-relaxed italic">باقي ٥ مهام وبنفتح قسم "المختبر الافتراضي" الحارق!</p>
                 </div>
 
                 {/* Scanner */}
                 <div className="bg-emerald-500 p-8 rounded-3xl text-white flex flex-col items-center gap-4 shadow-xl group cursor-pointer hover:bg-emerald-600 transition-all">
                   <Search className="w-12 h-12 group-hover:scale-125 transition-transform" />
-                  <span className="font-black text-xl tracking-tight">{t("academy.quick.title")}</span>
+                  <span className="font-black text-xl tracking-tight">الماسح النفاث للدروس</span>
+                  <p className="text-xs text-center text-emerald-100">صور كتابك.. ومنير بيلخصه بثواني!</p>
                 </div>
               </div>
             </div>

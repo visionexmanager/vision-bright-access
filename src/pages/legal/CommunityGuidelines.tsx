@@ -1,13 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { Users, Heart, ShieldAlert, Mic, ShoppingBag, Coins, Gavel, CheckCircle2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { PolicyCrossLinks } from "@/components/PolicyCrossLinks";
-
-const CROSS_LINKS = [
-  { to: "/enforcement-appeals", labelKey: "footer.link.enforcementAppeals" },
-  { to: "/terms-of-use",        labelKey: "footer.link.termsOfUse" },
-  { to: "/marketplace-policy",  labelKey: "footer.link.marketplacePolicy" },
-];
 
 const PRINCIPLES = [
   {
@@ -140,8 +133,6 @@ export default function CommunityGuidelines() {
           <a href="mailto:hello@visionex.app" className="text-primary underline">hello@visionex.app</a>{" "}
           {t("legal.community.appealsBody2")}
         </div>
-
-        <PolicyCrossLinks links={CROSS_LINKS} />
       </section>
     </Layout>
   );

@@ -5,13 +5,6 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useSound } from "@/contexts/SoundContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -78,13 +71,15 @@ export function Navbar() {
     }
   }, []);
 
-  // Desktop: keep only the most important links to avoid overcrowding
   const primaryNavLinks = [
     { to: "/", label: t("nav.home") },
     { to: "/bazaar", label: "VXBazaar" },
     { to: "/services", label: t("nav.services") },
     { to: "/content", label: t("nav.content") },
+    { to: "/community", label: t("nav.community") },
     { to: "/games", label: t("nav.games") },
+    { to: "/assistive-products", label: t("nav.assistiveProducts") },
+    { to: "/professional-tools", label: t("nav.professionalTools") },
     { to: "/news", label: t("nav.news") },
   ];
 
@@ -100,13 +95,13 @@ export function Navbar() {
         { to: "/", label: t("nav.home") },
         { to: "/bazaar", label: "VXBazaar" },
         { to: "/services", label: t("nav.services") },
-        { to: "/content", label: t("nav.content") },
         { to: "/assistive-products", label: t("nav.assistiveProducts") },
       ],
     },
     {
       label: t("nav.explore"),
       links: [
+        { to: "/content", label: t("nav.content") },
         { to: "/games", label: t("nav.games") },
         { to: "/community", label: t("nav.community") },
       ],
@@ -117,8 +112,6 @@ export function Navbar() {
         { to: "/professional-tools", label: t("nav.professionalTools") },
         { to: "/news", label: t("nav.news") },
         { to: "/contact", label: t("nav.contact") },
-        { to: "/profile", label: t("nav.profile") },
-        { to: "/purchase-history", label: t("nav.purchaseHistory") },
       ],
     },
   ];
@@ -180,16 +173,33 @@ export function Navbar() {
             </Link>
           )}
           {user && (
-            <Link to="/messages">
-              <Button variant="ghost" size="icon" className="relative" aria-label={t("msg.title")}>
-                <MessageCircle className="h-5 w-5" />
-                {unreadMessages > 0 && (
-                  <Badge variant="destructive" className="absolute -end-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]">
-                    {unreadMessages}
-                  </Badge>
-                )}
-              </Button>
-            </Link>
+            <>
+              <Link to="/messages">
+                <Button variant="ghost" size="icon" className="relative" aria-label={t("msg.title")}>
+                  <MessageCircle className="h-5 w-5" />
+                  {unreadMessages > 0 && (
+                    <Badge variant="destructive" className="absolute -end-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]">
+                      {unreadMessages}
+                    </Badge>
+                  )}
+                </Button>
+              </Link>
+              <Link to="/wishlist" className="hidden xl:inline-flex">
+                <Button variant="ghost" size="icon" aria-label={t("nav.wishlist")}>
+                  <Heart className="h-5 w-5" />
+                </Button>
+              </Link>
+              <Link to="/profile">
+                <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
+                  <User className="h-5 w-5" />
+                </Button>
+              </Link>
+              <Link to="/settings" className="hidden xl:inline-flex">
+                <Button variant="ghost" size="icon" aria-label={t("nav.settings")}>
+                  <Settings className="h-5 w-5" />
+                </Button>
+              </Link>
+            </>
           )}
           {user ? (
             <>
@@ -205,38 +215,14 @@ export function Navbar() {
                   {t("nav.dashboard")}
                 </Button>
               </Link>
-              {/* Profile dropdown — consolidates Profile, Wishlist, Settings, Logout */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
-                    <User className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
-                      <User className="h-4 w-4" aria-hidden="true" /> {t("nav.profile")}
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/wishlist" className="flex items-center gap-2 cursor-pointer">
-                      <Heart className="h-4 w-4" aria-hidden="true" /> {t("nav.wishlist")}
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/settings" className="flex items-center gap-2 cursor-pointer">
-                      <Settings className="h-4 w-4" aria-hidden="true" /> {t("nav.settings")}
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={signOut}
-                    className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
-                  >
-                    <LogOut className="h-4 w-4" aria-hidden="true" /> {t("nav.signout")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={signOut}
+                aria-label={t("nav.signout")}
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
             </>
           ) : (
             <>
@@ -255,28 +241,9 @@ export function Navbar() {
         </div>
 
         {/* Mobile toggle */}
-        <div className="flex items-center gap-1.5 lg:hidden">
+        <div className="flex items-center gap-2 lg:hidden">
           <ThemeToggle />
           <LanguageSwitcher />
-          {user && (
-            <Link to="/messages" onClick={() => setMenuOpen(false)}>
-              <Button variant="ghost" size="icon" className="relative" aria-label={t("msg.title")}>
-                <MessageCircle className="h-5 w-5" />
-                {unreadMessages > 0 && (
-                  <Badge variant="destructive" className="absolute -end-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]">
-                    {unreadMessages}
-                  </Badge>
-                )}
-              </Button>
-            </Link>
-          )}
-          {user && (
-            <Link to="/profile" onClick={() => setMenuOpen(false)}>
-              <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
-                <User className="h-5 w-5" />
-              </Button>
-            </Link>
-          )}
           <Button
             ref={toggleRef}
             variant="ghost"
@@ -324,12 +291,6 @@ export function Navbar() {
           <div className="mt-3 flex flex-col gap-2">
             {user ? (
               <>
-                {/* VX Balance in mobile */}
-                <Link to="/coins-store" onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors justify-center">
-                  <Coins className="h-4 w-4" />
-                  {totalPoints.toLocaleString()} VX
-                </Link>
                 {isAdmin && (
                   <Link to="/admin" onClick={() => setMenuOpen(false)}>
                     <Button variant="outline" size="lg" className="w-full text-base">
