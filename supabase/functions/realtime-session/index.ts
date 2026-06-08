@@ -72,9 +72,11 @@ serve(async (req) => {
         session: {
           type: "realtime",
           model: "gpt-realtime-2",
-          voice: selectedVoice,
           instructions: instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS,
-          input_audio_transcription: { model: "whisper-1" },
+          audio: {
+            output: { voice: selectedVoice },
+            input: { transcription: { model: "gpt-4o-mini" } },
+          },
           turn_detection: {
             type: "server_vad",
             threshold: 0.5,
