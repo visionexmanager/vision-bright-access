@@ -9,6 +9,7 @@ import { useTVSubscription } from "@/hooks/useTVSubscription";
 import { useTrial } from "@/hooks/useTrial";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChannelCard } from "@/components/tv/ChannelCard";
+import { detectType } from "@/components/OfficialStreamPlayer";
 import { TVSubscriptionStatus } from "@/components/tv/TVSubscriptionStatus";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,12 @@ export default function LiveTV() {
   }, [channels, activeSlug, query]);
 
   const handleChannelClick = (channel: TVChannel) => {
-    navigate(`/services/live-tv/watch/${channel.id}`);
+    const urlType = detectType(channel.official_url ?? "");
+    if (urlType === "external" && channel.official_url) {
+      window.open(channel.official_url, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(`/services/live-tv/watch/${channel.id}`);
+    }
   };
 
   const catLabel = (cat: { name: string; name_ar: string }) =>

@@ -33,9 +33,9 @@ async function loadHls() {
   });
 }
 
-type UrlType = "youtube" | "hls" | "audio" | "external";
+export type UrlType = "youtube" | "hls" | "audio" | "external";
 
-function detectType(url: string): UrlType {
+export function detectType(url: string): UrlType {
   if (!url) return "external";
   if (url.includes("youtube.com/embed") || url.includes("youtu.be")) return "youtube";
   // Audio-specific keywords checked BEFORE generic HLS so radio streams

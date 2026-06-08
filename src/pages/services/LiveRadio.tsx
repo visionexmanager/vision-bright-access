@@ -9,6 +9,7 @@ import { useRadioSubscription } from "@/hooks/useRadioSubscription";
 import { useTrial } from "@/hooks/useTrial";
 import { useAuth } from "@/contexts/AuthContext";
 import { StationCard } from "@/components/radio/StationCard";
+import { detectType } from "@/components/OfficialStreamPlayer";
 import { RadioSubscriptionStatus } from "@/components/radio/RadioSubscriptionStatus";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,12 @@ export default function LiveRadio() {
   }, [stations, activeSlug, query]);
 
   const handleStationClick = (station: RadioStation) => {
-    navigate(`/services/live-radio/listen/${station.id}`);
+    const urlType = detectType(station.official_url ?? "");
+    if (urlType === "external" && station.official_url) {
+      window.open(station.official_url, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(`/services/live-radio/listen/${station.id}`);
+    }
   };
 
   const genreLabel = (g: { name: string; name_ar: string }) =>

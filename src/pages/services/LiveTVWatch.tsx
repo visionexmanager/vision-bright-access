@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, LayoutGrid, Loader2 } from "lucide-react";
 import { useTVSubscription } from "@/hooks/useTVSubscription";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { OfficialStreamPlayer } from "@/components/OfficialStreamPlayer";
+import { OfficialStreamPlayer, detectType } from "@/components/OfficialStreamPlayer";
 import { ChannelCard } from "@/components/tv/ChannelCard";
 import { cn } from "@/lib/utils";
 import type { TVChannel } from "@/hooks/useTVSubscription";
@@ -184,7 +184,14 @@ export default function LiveTVWatch() {
                       channel={ch}
                       isSubscribed
                       isSelected={ch.id === channelId}
-                      onClick={(c: TVChannel) => navigate(`/services/live-tv/watch/${c.id}`)}
+                      onClick={(c: TVChannel) => {
+                        const urlType = detectType(c.official_url ?? "");
+                        if (urlType === "external" && c.official_url) {
+                          window.open(c.official_url, "_blank", "noopener,noreferrer");
+                        } else {
+                          navigate(`/services/live-tv/watch/${c.id}`);
+                        }
+                      }}
                     />
                   ))
                 )}

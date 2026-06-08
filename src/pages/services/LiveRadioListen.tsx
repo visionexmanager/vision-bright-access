@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, LayoutGrid, Loader2 } from "lucide-react";
 import { useRadioSubscription } from "@/hooks/useRadioSubscription";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { OfficialStreamPlayer } from "@/components/OfficialStreamPlayer";
+import { OfficialStreamPlayer, detectType } from "@/components/OfficialStreamPlayer";
 import { StationCard } from "@/components/radio/StationCard";
 import { cn } from "@/lib/utils";
 import type { RadioStation } from "@/hooks/useRadioSubscription";
@@ -191,7 +191,14 @@ export default function LiveRadioListen() {
                       station={st}
                       isSubscribed
                       isSelected={st.id === stationId}
-                      onClick={(s: RadioStation) => navigate(`/services/live-radio/listen/${s.id}`)}
+                      onClick={(s: RadioStation) => {
+                        const urlType = detectType(s.official_url ?? "");
+                        if (urlType === "external" && s.official_url) {
+                          window.open(s.official_url, "_blank", "noopener,noreferrer");
+                        } else {
+                          navigate(`/services/live-radio/listen/${s.id}`);
+                        }
+                      }}
                     />
                   ))
                 )}
