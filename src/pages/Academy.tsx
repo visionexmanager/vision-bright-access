@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Input } from "@/components/ui/input";
@@ -7,11 +7,10 @@ import { Progress } from "@/components/ui/progress";
 import ReactMarkdown from "react-markdown";
 import CareerAptitudeTest from "@/components/CareerAptitudeTest";
 import PomodoroTimer from "@/components/PomodoroTimer";
-import { useState } from "react";
 import {
   User, Globe, GraduationCap, ArrowRight, Compass,
   Briefcase, Rocket, Star, BrainCircuit,
-  Zap, Lightbulb, Volume2, LayoutDashboard, Search,
+  Zap, Lightbulb, Volume2, Search,
   Loader2, Send, Trash2, Phone, BookOpen
 } from "lucide-react";
 import { VoiceChat } from "@/components/VoiceChat";

@@ -30,8 +30,7 @@ import type {
 export async function getAcademyProfile(
   userId: string
 ): Promise<AcademyProfileRow | null> {
-  const { data, error } = await supabase
-    .from("academy_profiles")
+  const { data, error } = await (supabase.from("academy_profiles") as any)
     .select("*")
     .eq("user_id", userId)
     .maybeSingle();
@@ -56,8 +55,7 @@ export async function saveAcademyProfile(
     level:   profile.level,
   };
 
-  const { data, error } = await supabase
-    .from("academy_profiles")
+  const { data, error } = await (supabase.from("academy_profiles") as any)
     .upsert(payload, { onConflict: "user_id" })
     .select()
     .single();
@@ -73,8 +71,7 @@ export async function updateAcademyProfile(
   userId: string,
   updates: AcademyProfileUpdate
 ): Promise<void> {
-  const { error } = await supabase
-    .from("academy_profiles")
+  const { error } = await (supabase.from("academy_profiles") as any)
     .update(updates)
     .eq("user_id", userId);
 
@@ -98,8 +95,7 @@ export async function getRecentChatHistory(
   userId: string,
   limit = 50
 ): Promise<AcademyChatSessionRow[]> {
-  const { data, error } = await supabase
-    .from("academy_chat_sessions")
+  const { data, error } = await (supabase.from("academy_chat_sessions") as any)
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
@@ -117,8 +113,7 @@ export async function getSessionMessages(
   userId: string,
   sessionId: string
 ): Promise<AcademyChatSessionRow[]> {
-  const { data, error } = await supabase
-    .from("academy_chat_sessions")
+  const { data, error } = await (supabase.from("academy_chat_sessions") as any)
     .select("*")
     .eq("user_id", userId)
     .eq("session_id", sessionId)
@@ -134,8 +129,7 @@ export async function getSessionMessages(
 export async function saveChatMessage(
   message: AcademyChatSessionInsert
 ): Promise<void> {
-  const { error } = await supabase
-    .from("academy_chat_sessions")
+  const { error } = await (supabase.from("academy_chat_sessions") as any)
     .insert(message);
 
   if (error) {
@@ -161,8 +155,7 @@ export async function saveChatMessagePair(params: {
     { user_id: userId, session_id: sessionId, role: "assistant",  content: assistantContent },
   ];
 
-  const { error } = await supabase
-    .from("academy_chat_sessions")
+  const { error } = await (supabase.from("academy_chat_sessions") as any)
     .insert(messages);
 
   if (error) {
@@ -177,8 +170,7 @@ export async function clearChatSession(
   userId: string,
   sessionId: string
 ): Promise<void> {
-  const { error } = await supabase
-    .from("academy_chat_sessions")
+  const { error } = await (supabase.from("academy_chat_sessions") as any)
     .delete()
     .eq("user_id", userId)
     .eq("session_id", sessionId);
@@ -230,8 +222,7 @@ export async function awardAcademyXP(
  */
 export async function hasDailyLoginXPToday(userId: string): Promise<boolean> {
   const today = new Date().toISOString().slice(0, 10);
-  const { data } = await supabase
-    .from("academy_xp_events")
+  const { data } = await (supabase.from("academy_xp_events") as any)
     .select("id")
     .eq("user_id", userId)
     .eq("reason", "academy_daily_login")
