@@ -44,16 +44,16 @@ serve(async (req) => {
       });
     }
 
-    const { voice = "alloy", assistant = "visionex" } = await req.json().catch(() => ({}));
+    const { voice = "sage", assistant = "visionex" } = await req.json().catch(() => ({}));
 
-    // Pick voice based on assistant
+    // New voice names for gpt-realtime-2: sage, cedar, coral, ash, verse, ballad, marin
     const voiceMap: Record<string, string> = {
-      visionex: voice || "alloy",
-      munir: "echo",     // Arabic-friendly deep voice for منير
-      nutrition: "nova", // Warm voice for nutrition expert
+      visionex:  voice || "sage",
+      munir:     "cedar",
+      nutrition: "coral",
     };
 
-    const selectedVoice = voiceMap[assistant] || "alloy";
+    const selectedVoice = voiceMap[assistant] || "sage";
 
     const instructionsMap: Record<string, string> = {
       visionex: VISIONEX_VOICE_INSTRUCTIONS,
@@ -61,40 +61,47 @@ serve(async (req) => {
       nutrition: `You are a friendly nutrition voice assistant for Visionex. Help users with meal analysis, diet planning, and healthy eating advice. Keep responses short and conversational.`,
     };
 
-    // Create ephemeral session token
-    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+    // gpt-realtime-2 uses /v1/realtime/client_secrets with nested session object
+    const response = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-realtime-preview",
-        voice: selectedVoice,
-        instructions: instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS,
-        input_audio_transcription: { model: "whisper-1" },
-        turn_detection: {
-          type: "server_vad",
-          threshold: 0.5,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 600,
+        session: {
+          type: "realtime",
+          model: "gpt-realtime-2",
+          voice: selectedVoice,
+          instructions: instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS,
+          input_audio_transcription: { model: "whisper-1" },
+          turn_detection: {
+            type: "server_vad",
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 600,
+          },
         },
       }),
     });
 
     if (!response.ok) {
       const err = await response.text();
-      console.error("OpenAI Realtime session error:", err);
-      return new Response(JSON.stringify({ error: "Failed to create realtime session" }), {
+      console.error("OpenAI Realtime session error:", response.status, err);
+      let openaiError = "Failed to create realtime session";
+      try { openaiError = JSON.parse(err)?.error?.message || openaiError; } catch {}
+      return new Response(JSON.stringify({ error: openaiError, status: response.status }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const session = await response.json();
+    // New API returns { value: "ephemeral-key" } at root
+    const ephemeralValue = session.value ?? session.client_secret?.value;
 
     return new Response(JSON.stringify({
-      client_secret: session.client_secret,
-      session_id: session.id,
+      client_secret: { value: ephemeralValue },
+      session_id: session.id ?? "session",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
