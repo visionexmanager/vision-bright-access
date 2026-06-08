@@ -106,8 +106,10 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const err = await response.text();
-      console.error("OpenAI Realtime session error:", err);
-      return new Response(JSON.stringify({ error: "Failed to create realtime session" }), {
+      console.error("OpenAI Realtime session error:", response.status, err);
+      let openaiError = "Failed to create realtime session";
+      try { openaiError = JSON.parse(err)?.error?.message || openaiError; } catch {}
+      return new Response(JSON.stringify({ error: openaiError, status: response.status }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
