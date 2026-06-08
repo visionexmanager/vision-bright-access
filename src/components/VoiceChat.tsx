@@ -2,8 +2,9 @@ import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mic, MicOff, PhoneOff, Volume2, Loader2, RotateCcw } from "lucide-react";
+import { Mic, PhoneOff, Volume2, Loader2, RotateCcw } from "lucide-react";
 import { useVoiceChat, AssistantType, VoiceStatus } from "@/hooks/useVoiceChat";
+import { useLanguage } from "@/hooks/useLanguage";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -12,15 +13,16 @@ type Props = {
   className?: string;
 };
 
-const STATUS_CONFIG: Record<VoiceStatus, { label: string; color: string }> = {
-  idle:       { label: "غير متصل",  color: "bg-gray-400" },
-  connecting: { label: "جاري الاتصال...", color: "bg-yellow-400 animate-pulse" },
-  listening:  { label: "يستمع...",  color: "bg-green-500 animate-pulse" },
-  speaking:   { label: "يتحدث...",  color: "bg-blue-500 animate-pulse" },
-  error:      { label: "خطأ",       color: "bg-red-500" },
+const STATUS_COLOR: Record<VoiceStatus, string> = {
+  idle:       "bg-gray-400",
+  connecting: "bg-yellow-400 animate-pulse",
+  listening:  "bg-green-500 animate-pulse",
+  speaking:   "bg-blue-500 animate-pulse",
+  error:      "bg-red-500",
 };
 
 export function VoiceChat({ assistant = "visionex", assistantName = "Visionex AI", className }: Props) {
+  const { t } = useLanguage();
   const { status, transcripts, error, connect, disconnect, clearTranscripts } = useVoiceChat(assistant);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isConnected = status !== "idle" && status !== "error";
@@ -36,7 +38,8 @@ export function VoiceChat({ assistant = "visionex", assistantName = "Visionex AI
     else connect();
   };
 
-  const { label, color } = STATUS_CONFIG[status];
+  const statusLabel = t(`voice.status.${status}`);
+  const color = STATUS_COLOR[status];
 
   return (
     <div className={cn("flex flex-col rounded-2xl border bg-background shadow-lg", className)}>
@@ -45,7 +48,7 @@ export function VoiceChat({ assistant = "visionex", assistantName = "Visionex AI
         <div className="flex items-center gap-2">
           <div className={cn("h-2.5 w-2.5 rounded-full", color)} />
           <span className="font-semibold text-sm">{assistantName}</span>
-          <Badge variant="secondary" className="text-xs">{label}</Badge>
+          <Badge variant="secondary" className="text-xs">{statusLabel}</Badge>
         </div>
         {transcripts.length > 0 && (
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearTranscripts}>
@@ -59,9 +62,7 @@ export function VoiceChat({ assistant = "visionex", assistantName = "Visionex AI
         <div ref={scrollRef} className="space-y-3 p-4">
           {transcripts.length === 0 && (
             <div className="text-center text-sm text-muted-foreground py-8">
-              {isConnected
-                ? "ابدأ الحديث... الميكروفون مفتوح"
-                : "اضغط على الميكروفون لبدء المحادثة الصوتية"}
+              {isConnected ? t("voice.activePrompt") : t("voice.startPrompt")}
             </div>
           )}
           {transcripts.map((t, i) => (
@@ -123,7 +124,7 @@ export function VoiceChat({ assistant = "visionex", assistantName = "Visionex AI
       </div>
 
       <p className="pb-3 text-center text-xs text-muted-foreground">
-        {isConnected ? "اضغط لإنهاء المحادثة" : "اضغط لبدء المحادثة الصوتية"}
+        {isConnected ? t("voice.endPrompt") : t("voice.beginPrompt")}
       </p>
     </div>
   );
