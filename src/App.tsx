@@ -13,6 +13,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SoundProvider } from "@/contexts/SoundContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { AdminRoute } from "@/components/AdminRoute";
+import { AuthGuard } from "@/components/AuthGuard";
 import { PageTracker } from "@/components/PageTracker";
 
 // Lazy-loaded pages for code splitting
@@ -166,7 +167,7 @@ function AppRoutes() {
                     <Route path="/bazaar" element={<VXBazaar />} />
                     <Route path="/marketplace" element={<VXBazaar />} />
                     <Route path="/services" element={<Services />} />
-                    <Route path="/academy" element={<Academy />} />
+                    <Route path="/academy" element={<AuthGuard><Academy /></AuthGuard>} />
                     <Route path="/content" element={<Content />} />
                     <Route path="/contact" element={<Contact />} />
                     <Route path="/leaderboard" element={<Leaderboard />} />
