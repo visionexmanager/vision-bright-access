@@ -3743,6 +3743,13 @@ const de: Record<string, string> = {
   "vep.country.SE": "Schweden",
   "vep.country.PL": "Polen",
   "vep.country.MX": "Mexiko",
+  "vep.searchPlaceholder":  "Produkte suchen…",
+  "vep.filterAll":          "Alle Typen",
+  "vep.selectAll":          "Alle auswählen",
+  "vep.deselectAll":        "Alle abwählen",
+  "vep.productsTotal":      "Produkte",
+  "vep.whatsappBtn":        "Anfrage über WhatsApp senden",
+  "vep.priceDisclaimer":    "* Die Preise sind ungefähre Spannen (2024–2025) und variieren je nach Händler, Region und Modell. Kontaktieren Sie uns für genaue Angebote.",
 
   // Detergent Lab
   "sim.detergent.error.totalExceeds": "Der Gesamtprozentsatz überschreitet 100%!",

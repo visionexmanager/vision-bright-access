@@ -3736,6 +3736,13 @@ const ur: Record<string, string> = {
   "vep.country.SE": "سویڈن",
   "vep.country.PL": "پولینڈ",
   "vep.country.MX": "میکسیکو",
+  "vep.searchPlaceholder":  "مصنوعات تلاش کریں…",
+  "vep.filterAll":          "تمام اقسام",
+  "vep.selectAll":          "سب منتخب کریں",
+  "vep.deselectAll":        "سب کی منتخب ہٹائیں",
+  "vep.productsTotal":      "مصنوعات",
+  "vep.whatsappBtn":        "واٹس ایپ کے ذریعے استفسار بھیجیں",
+  "vep.priceDisclaimer":    "* قیمتیں تقریبی حدود (2024–2025) ہیں اور خوردہ فروش، علاقے اور ماڈل کے حساب سے مختلف ہوتی ہیں۔ درست قیمت کے لیے ہم سے رابطہ کریں۔",
 
   "sim.detergent.error.totalExceeds": "کل فیصد 100% سے تجاوز کر گیا!",
   "sim.detergent.warning.exceeds": "⚠️ کل 100% سے زیادہ ہے ({pct}%)",
