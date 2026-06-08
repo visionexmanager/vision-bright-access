@@ -19,6 +19,8 @@ import { useCart } from "@/contexts/CartContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useAmbientSound } from "@/hooks/useAmbientSound";
 import { WatchAdButton } from "@/components/WatchAdButton";
+import { aiService } from "@/services/ai/aiService";
+import { parseSSEResponse } from "@/lib/api/useSSEStream";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tier = "kiosk" | "boutique" | "store" | "flagship";
@@ -290,38 +292,14 @@ export default function VXBazaar() {
         inStockProducts.map(p => `${p.name} ($${p.price})`).join(", ") || "none listed yet"
       }. Be brief and helpful.`;
 
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-          body: JSON.stringify({ messages: [{ role: "system", content: context }, { role: "user", content: userMsg }] }),
-        }
-      );
+      const response = await aiService.streamChat([
+        { role: "system",  content: context },
+        { role: "user",    content: userMsg },
+      ]);
 
       let reply = t("bazaar.chatUnavailable");
-      if (resp.ok && resp.body) {
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let full = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          let nl: number;
-          while ((nl = buffer.indexOf("\n")) !== -1) {
-            const line = buffer.slice(0, nl).replace(/\r$/, "");
-            buffer = buffer.slice(nl + 1);
-            if (!line.startsWith("data: ")) continue;
-            const json = line.slice(6).trim();
-            if (json === "[DONE]") break;
-            try {
-              const c = JSON.parse(json).choices?.[0]?.delta?.content;
-              if (c) full += c;
-            } catch { /* */ }
-          }
-        }
+      if (response.ok) {
+        const full = await parseSSEResponse(response, () => {});
         if (full) reply = full;
       }
       setMessages(prev => [...prev, { text: reply, sender: "seller" }]);

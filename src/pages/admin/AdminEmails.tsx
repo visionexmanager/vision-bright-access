@@ -8,8 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { callSendEmail } from "@/lib/api/edgeFunctions";
 import { ArrowLeft, Send, Mail, Users, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -337,28 +337,10 @@ export default function AdminEmails() {
 
     setSending(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({
-          type: tab === "newsletter" ? "newsletter" : "single",
-          subject,
-          html,
-          from: sender,
-          to: tab === "single" ? [singleEmail] : undefined,
-          topic: tab === "newsletter" ? topic : undefined,
-        }),
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || t("admin.emails.sendFailed"));
+      const to = tab === "single" ? [singleEmail] : [];
+      const result = await callSendEmail({ to, subject, html }) as { sent: number; failed?: number };
       toast.success(t("admin.emails.sentSuccess").replace("{count}", String(result.sent)));
-      if (result.failed > 0) toast.warning(`فشل إرسال ${result.failed} إيميل`);
+      if ((result.failed ?? 0) > 0) toast.warning(`فشل إرسال ${result.failed} إيميل`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("admin.vx.genericError"));
     } finally {
