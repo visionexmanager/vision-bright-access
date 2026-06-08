@@ -64,9 +64,12 @@ Deno.serve(async (req) => {
 
     // Pick voice based on assistant
     const voiceMap: Record<string, string> = {
-      visionex: voice || "alloy",
-      munir: "echo",     // Arabic-friendly deep voice for منير
-      nutrition: "nova", // Warm voice for nutrition expert
+      visionex:  voice || "alloy",
+      munir:     "echo",   // Arabic-friendly deep voice for منير
+      nutrition: "nova",   // Warm voice for nutrition expert
+      radar:     "alloy",  // Visual scene assistant
+      ocr:       "alloy",  // Text reading assistant
+      mentor:    "onyx",   // Business mentor — confident voice
     };
 
     const selectedVoice = voiceMap[assistant] || "alloy";
@@ -74,7 +77,10 @@ Deno.serve(async (req) => {
     const instructionsMap: Record<string, string> = {
       visionex: VISIONEX_VOICE_INSTRUCTIONS,
       munir: `أنت "منير" — مساعد أكاديمي صوتي ذكي في أكاديمية VisionEx. تتحدث بلهجة عربية ودودة ومبسطة. أجب دائماً بالعربية. كن مشجعاً وصبوراً. اشرح الأفكار بجمل قصيرة وواضحة.`,
-      nutrition: `You are a friendly nutrition voice assistant for Visionex. Help users with meal analysis, diet planning, and healthy eating advice. Keep responses short and conversational.`,
+      nutrition: `You are a friendly nutrition voice assistant for Visionex Health. Help users with meal analysis, diet planning, calorie tracking, and healthy eating advice. Keep responses short and conversational. Speak in the same language as the user.`,
+      radar: `You are Radar AI — a voice assistant for the Visionex visual scene analyzer. Help visually impaired users understand image analysis results, describe scenes in detail, and answer questions about what was detected in the image. Keep responses clear and concise. Speak in the same language as the user.`,
+      ocr: `You are the Visionex OCR assistant. Help users with text extracted from images and documents — read it aloud, summarize it, translate it, or answer questions about it. Keep responses clear and concise. Speak in the same language as the user.`,
+      mentor: `You are a Business Mentor AI on the Visionex platform. Guide users through interactive business simulations, explain real-world business concepts, give practical hints without spoiling the full answer, and keep learners motivated. Speak naturally and conversationally — short sentences, no bullet points. Respond in the same language the user speaks.`,
     };
 
     // Create ephemeral session token

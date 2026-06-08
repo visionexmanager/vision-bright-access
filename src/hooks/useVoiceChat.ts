@@ -8,7 +8,7 @@ export type VoiceTranscript = {
   text: string;
 };
 
-export type AssistantType = "visionex" | "munir" | "nutrition";
+export type AssistantType = "visionex" | "munir" | "nutrition" | "radar" | "ocr" | "mentor";
 
 export function useVoiceChat(assistant: AssistantType = "visionex") {
   const [status, setStatus] = useState<VoiceStatus>("idle");

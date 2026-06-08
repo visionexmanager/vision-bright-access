@@ -10,8 +10,9 @@ import { AnimatedSection, scaleFade } from "@/components/AnimatedSection";
 import {
   Camera, Upload, Volume2, VolumeX, Loader2, Eye,
   AlertTriangle, Users, FileText, MapPin, Lightbulb, ScanLine,
-  RotateCcw, RefreshCw,
+  RotateCcw, RefreshCw, Phone,
 } from "lucide-react";
+import { VoiceChat } from "@/components/VoiceChat";
 
 type RadarResult = {
   overview: string;
@@ -46,6 +47,7 @@ export default function RadarAI() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -191,7 +193,27 @@ export default function RadarAI() {
             <Badge variant="secondary">📷 {t("radar.badgeCamera")}</Badge>
             <Badge variant="secondary">♿ {t("radar.badgeAccessible")}</Badge>
           </div>
+          <div className="mt-4">
+            <Button
+              variant={voiceMode ? "default" : "outline"}
+              className="gap-2"
+              onClick={() => setVoiceMode(v => !v)}
+            >
+              <Phone className="h-4 w-4" />
+              {voiceMode ? t("ai.voiceMode") : t("ai.voiceMode")}
+            </Button>
+          </div>
         </AnimatedSection>
+
+        {voiceMode && (
+          <AnimatedSection className="mb-6">
+            <VoiceChat
+              assistant="radar"
+              assistantName="Radar AI Voice"
+              className="max-w-lg mx-auto"
+            />
+          </AnimatedSection>
+        )}
 
         {/* Camera view */}
         {cameraActive && (

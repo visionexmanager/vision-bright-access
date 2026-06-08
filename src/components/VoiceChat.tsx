@@ -2,8 +2,9 @@ import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mic, MicOff, PhoneOff, Volume2, Loader2, RotateCcw } from "lucide-react";
+import { Mic, PhoneOff, Volume2, Loader2, RotateCcw } from "lucide-react";
 import { useVoiceChat, AssistantType, VoiceStatus } from "@/hooks/useVoiceChat";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -12,18 +13,19 @@ type Props = {
   className?: string;
 };
 
-const STATUS_CONFIG: Record<VoiceStatus, { label: string; color: string }> = {
-  idle:       { label: "غير متصل",  color: "bg-gray-400" },
-  connecting: { label: "جاري الاتصال...", color: "bg-yellow-400 animate-pulse" },
-  listening:  { label: "يستمع...",  color: "bg-green-500 animate-pulse" },
-  speaking:   { label: "يتحدث...",  color: "bg-blue-500 animate-pulse" },
-  error:      { label: "خطأ",       color: "bg-red-500" },
-};
-
 export function VoiceChat({ assistant = "visionex", assistantName = "Visionex AI", className }: Props) {
+  const { t } = useLanguage();
   const { status, transcripts, error, connect, disconnect, clearTranscripts } = useVoiceChat(assistant);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isConnected = status !== "idle" && status !== "error";
+
+  const STATUS_CONFIG: Record<VoiceStatus, { label: string; color: string }> = {
+    idle:       { label: t("voice.status.idle"),       color: "bg-gray-400" },
+    connecting: { label: t("voice.status.connecting"), color: "bg-yellow-400 animate-pulse" },
+    listening:  { label: t("voice.status.listening"),  color: "bg-green-500 animate-pulse" },
+    speaking:   { label: t("voice.status.speaking"),   color: "bg-blue-500 animate-pulse" },
+    error:      { label: t("voice.status.error"),      color: "bg-red-500" },
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -59,25 +61,23 @@ export function VoiceChat({ assistant = "visionex", assistantName = "Visionex AI
         <div ref={scrollRef} className="space-y-3 p-4">
           {transcripts.length === 0 && (
             <div className="text-center text-sm text-muted-foreground py-8">
-              {isConnected
-                ? "ابدأ الحديث... الميكروفون مفتوح"
-                : "اضغط على الميكروفون لبدء المحادثة الصوتية"}
+              {isConnected ? t("voice.activePrompt") : t("voice.startPrompt")}
             </div>
           )}
-          {transcripts.map((t, i) => (
-            <div key={i} className={cn("flex", t.role === "user" ? "justify-end" : "justify-start")}>
+          {transcripts.map((tr, i) => (
+            <div key={i} className={cn("flex", tr.role === "user" ? "justify-end" : "justify-start")}>
               <div className={cn(
                 "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                t.role === "user"
+                tr.role === "user"
                   ? "bg-primary text-primary-foreground rounded-br-sm"
                   : "bg-muted rounded-bl-sm"
               )}>
-                {t.role === "assistant" && (
+                {tr.role === "assistant" && (
                   <div className="flex items-center gap-1 mb-1 text-xs text-muted-foreground">
                     <Volume2 className="h-3 w-3" /> {assistantName}
                   </div>
                 )}
-                {t.text}
+                {tr.text}
               </div>
             </div>
           ))}
@@ -93,13 +93,12 @@ export function VoiceChat({ assistant = "visionex", assistantName = "Visionex AI
 
       {/* Controls */}
       <div className="flex items-center justify-center gap-4 border-t p-4">
-        {/* Visual indicator */}
         <div className={cn(
           "flex h-16 w-16 items-center justify-center rounded-full transition-all duration-300",
           status === "listening" && "bg-green-100 ring-4 ring-green-300 dark:bg-green-950",
-          status === "speaking" && "bg-blue-100 ring-4 ring-blue-300 dark:bg-blue-950",
+          status === "speaking"  && "bg-blue-100 ring-4 ring-blue-300 dark:bg-blue-950",
           status === "connecting" && "bg-yellow-100 dark:bg-yellow-950",
-          status === "idle" || status === "error" ? "bg-muted" : ""
+          (status === "idle" || status === "error") && "bg-muted"
         )}>
           {status === "connecting" ? (
             <Loader2 className="h-7 w-7 animate-spin text-yellow-500" />
@@ -111,9 +110,7 @@ export function VoiceChat({ assistant = "visionex", assistantName = "Visionex AI
               size="icon"
               className={cn(
                 "h-14 w-14 rounded-full text-white transition-all",
-                isConnected
-                  ? "bg-red-500 hover:bg-red-600"
-                  : "bg-primary hover:bg-primary/90"
+                isConnected ? "bg-red-500 hover:bg-red-600" : "bg-primary hover:bg-primary/90"
               )}
             >
               {isConnected ? <PhoneOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
@@ -123,7 +120,7 @@ export function VoiceChat({ assistant = "visionex", assistantName = "Visionex AI
       </div>
 
       <p className="pb-3 text-center text-xs text-muted-foreground">
-        {isConnected ? "اضغط لإنهاء المحادثة" : "اضغط لبدء المحادثة الصوتية"}
+        {isConnected ? t("voice.endPrompt") : t("voice.startPrompt")}
       </p>
     </div>
   );
