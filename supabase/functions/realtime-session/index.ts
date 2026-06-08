@@ -62,17 +62,17 @@ Deno.serve(async (req) => {
 
     const { voice = "alloy", assistant = "visionex" } = await req.json().catch(() => ({}));
 
-    // Pick voice based on assistant
+    // New voice names (gpt-realtime-2): ash, ballad, coral, sage, verse, cedar, marin
     const voiceMap: Record<string, string> = {
-      visionex:  voice || "alloy",
-      munir:     "echo",   // Arabic-friendly deep voice for منير
-      nutrition: "nova",   // Warm voice for nutrition expert
-      radar:     "alloy",  // Visual scene assistant
-      ocr:       "alloy",  // Text reading assistant
-      mentor:    "onyx",   // Business mentor — confident voice
+      visionex:  voice || "sage",   // thoughtful, clear — general assistant
+      munir:     "cedar",           // Arabic-friendly deep voice for منير
+      nutrition: "coral",           // warm voice for nutrition expert
+      radar:     "ash",             // clear for visual scene description
+      ocr:       "ash",             // clear for reading text aloud
+      mentor:    "verse",           // confident for business mentor
     };
 
-    const selectedVoice = voiceMap[assistant] || "alloy";
+    const selectedVoice = voiceMap[assistant] || "sage";
 
     const instructionsMap: Record<string, string> = {
       visionex: VISIONEX_VOICE_INSTRUCTIONS,
@@ -83,23 +83,27 @@ Deno.serve(async (req) => {
       mentor: `You are a Business Mentor AI on the Visionex platform. Guide users through interactive business simulations, explain real-world business concepts, give practical hints without spoiling the full answer, and keep learners motivated. Speak naturally and conversationally — short sentences, no bullet points. Respond in the same language the user speaks.`,
     };
 
-    // Create ephemeral session token
-    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+    // Create ephemeral session token via new client_secrets endpoint (gpt-realtime-2)
+    const response = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-realtime-preview",
-        voice: selectedVoice,
-        instructions: instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS,
-        input_audio_transcription: { model: "whisper-1" },
-        turn_detection: {
-          type: "server_vad",
-          threshold: 0.5,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 600,
+        session: {
+          type: "realtime",
+          model: "gpt-realtime-2",
+          modalities: ["text", "audio"],
+          voice: selectedVoice,
+          instructions: instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS,
+          input_audio_transcription: { model: "whisper-1" },
+          turn_detection: {
+            type: "server_vad",
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 600,
+          },
         },
       }),
     });
@@ -115,10 +119,12 @@ Deno.serve(async (req) => {
     }
 
     const session = await response.json();
+    // New API returns { value: "ephemeral-key" } at root; old returned { client_secret: { value } }
+    const ephemeralValue = session.value ?? session.client_secret?.value;
 
     return new Response(JSON.stringify({
-      client_secret: session.client_secret,
-      session_id: session.id,
+      client_secret: { value: ephemeralValue },
+      session_id: session.id ?? "session",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
