@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -30,13 +30,34 @@ Communication Style:
 
 When speaking Arabic, use a clear, friendly Modern Standard Arabic.`;
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Auth check — require user JWT
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    );
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace("Bearer ", ""),
+    );
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) {
       return new Response(JSON.stringify({ error: "OPENAI_API_KEY not configured" }), {
@@ -46,11 +67,14 @@ serve(async (req) => {
 
     const { voice = "sage", assistant = "visionex" } = await req.json().catch(() => ({}));
 
-    // New voice names for gpt-realtime-2: sage, cedar, coral, ash, verse, ballad, marin
+    // Voice map for gpt-realtime-2: sage, cedar, coral, ash, verse, ballad, marin
     const voiceMap: Record<string, string> = {
       visionex:  voice || "sage",
       munir:     "cedar",
       nutrition: "coral",
+      radar:     "ash",
+      ocr:       "verse",
+      mentor:    "ballad",
     };
 
     const selectedVoice = voiceMap[assistant] || "sage";
@@ -59,6 +83,9 @@ serve(async (req) => {
       visionex: VISIONEX_VOICE_INSTRUCTIONS,
       munir: `أنت "منير" — مساعد أكاديمي صوتي ذكي في أكاديمية VisionEx. تتحدث بلهجة عربية ودودة ومبسطة. أجب دائماً بالعربية. كن مشجعاً وصبوراً. اشرح الأفكار بجمل قصيرة وواضحة.`,
       nutrition: `You are a friendly nutrition voice assistant for Visionex. Help users with meal analysis, diet planning, and healthy eating advice. Keep responses short and conversational.`,
+      radar: `You are Radar AI — a visual intelligence voice assistant for Visionex. You help visually impaired users understand images, identify objects, read text in images, and describe environments. Speak clearly and concisely. Respond in the same language the user uses.`,
+      ocr: `You are an OCR voice assistant for Visionex. Help users extract and understand text from images. Guide them through the scanning process with clear, simple voice instructions. Respond in the same language the user uses.`,
+      mentor: `You are Mentor AI — a personal growth and learning voice coach on Visionex. Guide users through skill development, answer educational questions, and motivate them with warm, encouraging advice. Keep responses short and conversational.`,
     };
 
     // gpt-realtime-2 uses /v1/realtime/client_secrets with nested session object
@@ -98,7 +125,6 @@ serve(async (req) => {
     }
 
     const session = await response.json();
-    // New API returns { value: "ephemeral-key" } at root
     const ephemeralValue = session.value ?? session.client_secret?.value;
 
     return new Response(JSON.stringify({

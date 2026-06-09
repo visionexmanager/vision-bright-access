@@ -12,6 +12,7 @@ import {
 } from "@/services/voice/voiceService";
 import type { AssistantType } from "@/lib/types";
 
+export type { AssistantType };
 export type { VoiceSessionStatus as VoiceStatus };
 
 export type VoiceTranscript = {
