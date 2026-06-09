@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Navigate, Link } from "react-router-dom";
 import {
@@ -30,7 +29,6 @@ import {
   Users,
   Clock,
 } from "lucide-react";
-import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import dashboardImg from "@/assets/dashboard-illustration.jpg";
 
@@ -49,24 +47,9 @@ function getTier(points: number) {
   return { ...VIP_TIERS[0], index: 0 };
 }
 
-function translateReason(reason: string, t: (key: string) => string): string {
-  const lower = reason.toLowerCase();
-  if (lower.includes("daily login") || lower.includes("login bonus")) return t("dash.reason.dailyLogin");
-  if (lower.includes("watched an ad") || (lower.includes("watch") && lower.includes("ad"))) return t("dash.reason.watchedAd");
-  if (lower.includes("vx purchase") || lower.includes("purchase")) return t("dash.reason.vxPurchase");
-  if (lower.includes("bazaar") || lower.includes("rent") || lower.includes("trial billing")) return t("dash.reason.trialBilling");
-  if (lower.includes("admin") && (lower.includes("grant") || lower.includes("credit"))) return t("dash.reason.adminGrant");
-  if (lower.includes("admin") && (lower.includes("deduct") || lower.includes("penalty"))) return t("dash.reason.adminDeduction");
-  if (lower.includes("quiz")) return t("dash.reason.quiz");
-  if (lower.includes("memory")) return t("dash.reason.memory");
-  if (lower.includes("word") || lower.includes("puzzle")) return t("dash.reason.wordPuzzle");
-  if (lower.includes("simulation") || lower.includes("sim")) return t("dash.reason.simulation");
-  return reason;
-}
-
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
-  const { totalPoints, history, loadingTotal, loadingHistory } = usePoints();
+  const { totalPoints, history, loadingTotal } = usePoints();
   const { earnPoints, checkDailyLogin, getTodayAdCount } = useEarnPoints();
   const { t } = useLanguage();
   const { playSound } = useSound();
@@ -368,50 +351,6 @@ export default function Dashboard() {
           <AchievementsPanel />
         </div>
 
-        {/* Points history */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">{t("dash.history")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loadingHistory ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            ) : history.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">
-                {t("dash.noActivity")}
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-base">{t("dash.activity")}</TableHead>
-                    <TableHead className="text-base">{t("dash.points")}</TableHead>
-                    <TableHead className="text-base">{t("dash.date")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {history.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="text-base font-medium">{translateReason(entry.reason, t)}</TableCell>
-                      <TableCell>
-                        <Badge variant={entry.points > 0 ? "default" : "destructive"} className="text-sm">
-                          {entry.points > 0 ? "+" : ""}{entry.points}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-base text-muted-foreground">
-                        {format(new Date(entry.created_at), "MMM d, yyyy")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       {showAd && (
