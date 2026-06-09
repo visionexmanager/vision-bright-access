@@ -7,6 +7,15 @@ import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/componen
 import newsImg from "@/assets/news-illustration.jpg";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
+export const CATEGORY_TOPIC: Record<string, string> = {
+  technology:    "news-technology",
+  ai:            "news-ai",
+  community:     "news-community",
+  accessibility: "news-accessibility",
+  platform:      "news-platform",
+  marketplace:   "news-marketplace",
+};
+
 const NEWS_ITEMS = [
   { icon: <Cpu className="h-6 w-6 text-primary" />, titleKey: "news.item1.title", descKey: "news.item1.desc", categoryKey: "news.cat.technology", date: "2026-04-08" },
   { icon: <Accessibility className="h-6 w-6 text-primary" />, titleKey: "news.item2.title", descKey: "news.item2.desc", categoryKey: "news.cat.accessibility", date: "2026-04-07" },

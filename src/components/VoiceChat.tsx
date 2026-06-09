@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic, PhoneOff, Volume2, Loader2, RotateCcw } from "lucide-react";
 import { useVoiceChat, AssistantType, VoiceStatus } from "@/hooks/useVoiceChat";
-import { useLanguage } from "@/hooks/useLanguage";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 
 type Props = {

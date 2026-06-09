@@ -1,4 +1,10 @@
-import { ReactNode, useEffect, lazy, Suspense } from "react";
+import { ReactNode, useEffect, lazy, Suspense, createContext, useContext } from "react";
+
+/* ── Embedded mode — suppresses Navbar/Footer when rendering inside a Sheet ── */
+const EmbeddedCtx = createContext(false);
+export const EmbeddedLayout = ({ children }: { children: ReactNode }) => (
+  <EmbeddedCtx.Provider value={true}>{children}</EmbeddedCtx.Provider>
+);
 import { Link, useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { NewsletterSubscribe } from "./NewsletterSubscribe";
@@ -21,33 +27,32 @@ const FOOTER_LINKS = {
     { to: "/games", labelKey: "footer.link.games" },
     { to: "/news", labelKey: "footer.link.news" },
     { to: "/contact", labelKey: "footer.link.contact" },
+    { to: "/about",   labelKey: "footer.link.about"   },
   ],
   more: [
-    { to: "/professional-tools", labelKey: "footer.link.professionalTools" },
-    { to: "/academy", labelKey: "footer.link.academy" },
-    { to: "/community", labelKey: "footer.link.community" },
-    { to: "/leaderboard", labelKey: "footer.link.leaderboard" },
-    { to: "/assistive-products", labelKey: "footer.link.assistiveProducts" },
-  ],
-  legal: [
-    { to: "/privacy-policy", labelKey: "footer.link.privacyPolicy" },
-    { to: "/terms-of-use", labelKey: "footer.link.termsOfUse" },
-    { to: "/community-guidelines", labelKey: "footer.link.communityGuidelines" },
-    { to: "/marketplace-policy", labelKey: "footer.link.marketplacePolicy" },
-    { to: "/accessibility", labelKey: "footer.link.accessibility" },
-    { to: "/legal-disclaimer", labelKey: "footer.link.legalDisclaimer" },
+    { to: "/professional-tools",      labelKey: "footer.link.professionalTools" },
+    { to: "/community",               labelKey: "footer.link.community" },
+    { to: "/leaderboard",             labelKey: "footer.link.leaderboard" },
+    { to: "/assistive-products",      labelKey: "footer.link.assistiveProducts" },
+    { to: "/academy",                 labelKey: "footer.link.academy" },
+    { to: "/purchase-history",        labelKey: "footer.link.purchaseHistory" },
   ],
 };
 
 export function Layout({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
   const { pathname } = useLocation();
+  const isEmbedded = useContext(EmbeddedCtx);
   useMessageNotifications();
 
   useEffect(() => {
+    if (isEmbedded) return;
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     document.getElementById("main-content")?.focus();
-  }, [pathname]);
+  }, [pathname, isEmbedded]);
+
+  /* In embedded mode (inside LegalCenter Sheet) — render content only */
+  if (isEmbedded) return <>{children}</>;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -60,72 +65,68 @@ export function Layout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t bg-card" role="contentinfo">
-        <div className="section-container py-8">
-          <NewsletterSubscribe />
+      <footer className="bg-card" role="contentinfo">
+        {/* Brand accent line — anchors footer visually to the product color */}
+        <div className="h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" aria-hidden="true" />
+        <div className="border-t border-border/60">
+          <div className="section-container py-8">
+            <NewsletterSubscribe />
 
-          {/* Sitemap columns: 3 columns (Brand + Pages + More) */}
-          <div className="mt-8 grid gap-8 sm:grid-cols-3">
-            {/* Brand */}
-            <div>
-              <img
-                src={logo}
-                alt="VisionEx logo"
-                className="h-9 w-auto object-contain mb-3"
-                width={240}
-                height={160}
-              />
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {t("footer.brandDesc")}
-              </p>
+            {/* Sitemap columns */}
+            <div className="mt-8 grid gap-8 sm:grid-cols-3">
+              {/* Brand */}
+              <div>
+                <Link to="/" className="inline-block mb-1" aria-label="VisionEx home">
+                  <img
+                    src={logo}
+                    alt="VisionEx logo"
+                    className="h-10 w-auto object-contain"
+                    width={240}
+                    height={160}
+                  />
+                </Link>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                  {t("footer.brandDesc")}
+                </p>
+              </div>
+
+              {/* Main pages */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("footer.pages")}</p>
+                <ul className="space-y-2">
+                  {FOOTER_LINKS.pages.map((l) => (
+                    <li key={l.to}>
+                      <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        {t(l.labelKey)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* More */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("footer.more")}</p>
+                <ul className="space-y-2">
+                  {FOOTER_LINKS.more.map((l) => (
+                    <li key={l.to}>
+                      <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        {t(l.labelKey)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
-            {/* Main pages */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">{t("footer.pages")}</h3>
-              <ul className="space-y-2">
-                {FOOTER_LINKS.pages.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                      {t(l.labelKey)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* More */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">{t("footer.more")}</h3>
-              <ul className="space-y-2">
-                {FOOTER_LINKS.more.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                      {t(l.labelKey)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Copyright + Legal links strip */}
-          <div className="mt-8 border-t pt-5">
-            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-              <small className="text-sm text-muted-foreground">
+            {/* Bottom bar: legal + copyright in one row */}
+            <div className="mt-8 border-t pt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+              <Link to="/legal" className="text-xs font-semibold text-primary hover:underline transition-colors">
+                {t("footer.link.legalCenter")} →
+              </Link>
+              <small className="text-xs text-muted-foreground">
                 {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
               </small>
-              <nav aria-label={t("footer.legalLinks")} className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-                {FOOTER_LINKS.legal.map((l) => (
-                  <Link
-                    key={l.to}
-                    to={l.to}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
-                  >
-                    {t(l.labelKey)}
-                  </Link>
-                ))}
-              </nav>
             </div>
           </div>
         </div>
