@@ -144,7 +144,7 @@ export interface DietPlanResponse {
 
 // ── Voice / Realtime ──────────────────────────────────────────────────────────
 
-export type AssistantType = "visionex" | "munir" | "nutrition";
+export type AssistantType = "visionex" | "munir" | "nutrition" | "radar" | "ocr" | "mentor";
 
 export type VoiceStatus = "idle" | "connecting" | "listening" | "speaking" | "error";
 
