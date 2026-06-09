@@ -275,7 +275,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
 
   return (
     <div className="space-y-6">
-      <SimulationScene slug="egg-incubator" isActive={day > 0} isComplete={completed} />
+      <SimulationScene slug="egg-incubator" isActive={state.day > 0} isComplete={completed} />
       <Button asChild variant="ghost" className="mb-2">
         <Link to="/business-simulator">
           <ArrowLeft className="mr-2 h-4 w-4" />

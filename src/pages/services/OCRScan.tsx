@@ -14,8 +14,9 @@ import { OCR_PRICES, formatVX } from "@/systems/pricingSystem";
 import {
   ScanText, Upload, Volume2, VolumeX, Copy, Download,
   FileText, Loader2, RotateCcw, Check, AlertCircle,
-  Coins, Zap, Package, Layers, History, Trash2,
+  Coins, Zap, Package, Layers, History, Trash2, Phone,
 } from "lucide-react";
+import { VoiceChat } from "@/components/VoiceChat";
 
 // ── Types ────────────────────────────────────────────────────────────────
 type OCRMode = "single" | "single_audio" | "pdf" | "bundle";
@@ -108,6 +109,7 @@ export default function OCRScan() {
   const [showHistory, setShowHistory] = useState(false);
   const [bundleUsed, setBundleUsed] = useState(0);
   const [bundleActive, setBundleActive] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -286,7 +288,7 @@ export default function OCRScan() {
 
   return (
     <Layout>
-      <section className="section-container py-10" aria-labelledby="ocr-heading">
+      <section className="section-container py-12" aria-labelledby="ocr-heading">
         <AnimatedSection variants={scaleFade}>
           {/* Header */}
           <div className="mb-8 flex flex-col gap-2">
@@ -301,6 +303,15 @@ export default function OCRScan() {
                 </div>
                 <p className="text-muted-foreground">{t("ocr.subtitle")}</p>
               </div>
+              <Button
+                variant={voiceMode ? "default" : "outline"}
+                size="sm"
+                className="gap-2 mt-1"
+                onClick={() => setVoiceMode(v => !v)}
+              >
+                <Phone className="h-4 w-4" />
+                {t("ai.voiceMode")}
+              </Button>
             </div>
 
             {/* Balance + bundle status */}
@@ -318,6 +329,16 @@ export default function OCRScan() {
             </div>
           </div>
         </AnimatedSection>
+
+        {voiceMode && (
+          <AnimatedSection className="mb-6">
+            <VoiceChat
+              assistant="ocr"
+              assistantName="OCR AI Voice"
+              className="max-w-lg mx-auto"
+            />
+          </AnimatedSection>
+        )}
 
         <div className="grid gap-8 lg:grid-cols-3">
           {/* ── Left: upload + options ───────────────────────────────── */}

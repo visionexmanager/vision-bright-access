@@ -36,6 +36,9 @@ export default function ForgotPassword() {
       <div className="flex min-h-[70vh] items-center justify-center px-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+              <Mail className="h-7 w-7 text-primary" aria-hidden="true" />
+            </div>
             <CardTitle className="text-3xl">{t("auth.forgotPassword") || "Forgot Password"}</CardTitle>
             <CardDescription className="text-base">
               {t("auth.forgotPasswordDesc") || "Enter your email and we'll send you a reset link"}

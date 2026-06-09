@@ -2,6 +2,8 @@ import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrial } from "@/hooks/useTrial";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 
 export type RadioSubscription = {
@@ -21,6 +23,7 @@ export type RadioStation = {
   description:    string | null;
   description_ar: string | null;
   logo_url:       string | null;
+  official_url:   string | null;
   genre_id:       string | null;
   bitrate:        string;
   language:       string;
@@ -54,6 +57,8 @@ export type RadioPlan = {
 export function useRadioSubscription() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isOnTrial, trialDaysLeft } = useTrial();
+  const { t } = useLanguage();
 
   const { data: subscription, isLoading: subLoading } = useQuery<RadioSubscription | null>({
     queryKey: ["radio-subscription", user?.id],
@@ -66,8 +71,12 @@ export function useRadioSubscription() {
     },
   });
 
+  // queryKey includes user?.id so the cache is invalidated when auth state changes.
+  // enabled: !!user prevents a stale empty-array result from being cached before
+  // the Supabase session is established (radio_stations RLS requires authenticated role).
   const { data: stations = [], isLoading: stLoading } = useQuery<RadioStation[]>({
-    queryKey: ["radio-stations"],
+    queryKey: ["radio-stations", user?.id ?? "guest"],
+    enabled: !!user,
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -81,7 +90,8 @@ export function useRadioSubscription() {
   });
 
   const { data: genres = [] } = useQuery<RadioGenre[]>({
-    queryKey: ["radio-genres"],
+    queryKey: ["radio-genres", user?.id ?? "guest"],
+    enabled: !!user,
     staleTime: 10 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -107,7 +117,7 @@ export function useRadioSubscription() {
     },
   });
 
-  const isSubscribed = !!(
+  const isSubscribed = isOnTrial || !!(
     subscription &&
     subscription.status === "active" &&
     new Date(subscription.expires_at) > new Date()
@@ -120,37 +130,37 @@ export function useRadioSubscription() {
           (new Date(subscription.expires_at).getTime() - Date.now()) / 86_400_000
         )
       )
-    : 0;
+    : isOnTrial ? trialDaysLeft : 0;
 
   const subscribe = useCallback(
     async (planId: string): Promise<boolean> => {
       if (!user) {
-        toast.error("يجب تسجيل الدخول أولاً");
+        toast.error(t("tv.toast.loginRequired"));
         return false;
       }
       const { data, error } = await supabase.rpc("subscribe_radio", { _plan_id: planId });
       if (error) {
-        toast.error("حدث خطأ أثناء الاشتراك: " + error.message);
+        toast.error(t("tv.toast.subError").replace("{msg}", error.message));
         return false;
       }
       const result = data as { success: boolean; error?: string; vx_deducted?: number };
       if (!result.success) {
-        const msgs: Record<string, string> = {
-          already_subscribed:   "لديك اشتراك نشط بالفعل",
-          insufficient_vx:      "رصيد VX غير كافٍ",
-          plan_not_found:       "خطة الاشتراك غير موجودة",
-          not_authenticated:    "يجب تسجيل الدخول أولاً",
+        const msgKey: Record<string, string> = {
+          already_subscribed: "tv.toast.alreadySubscribed",
+          insufficient_vx:    "tv.toast.insufficientVX",
+          plan_not_found:     "tv.toast.planNotFound",
+          not_authenticated:  "tv.toast.notAuthenticated",
         };
-        toast.error(msgs[result.error ?? ""] ?? "فشل الاشتراك");
+        toast.error(t(msgKey[result.error ?? ""] ?? "tv.toast.subFailed"));
         return false;
       }
-      toast.success(`تم الاشتراك! تم خصم ${result.vx_deducted?.toLocaleString()} VX`);
+      toast.success(t("tv.toast.subscribed").replace("{vx}", (result.vx_deducted ?? 0).toLocaleString()));
       queryClient.invalidateQueries({ queryKey: ["radio-subscription", user.id] });
       queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
       queryClient.invalidateQueries({ queryKey: ["points-history", user.id] });
       return true;
     },
-    [user, queryClient]
+    [user, queryClient, t]
   );
 
   const getStreamToken = useCallback(
@@ -160,22 +170,22 @@ export function useRadioSubscription() {
         _station_id: stationId,
       });
       if (error) {
-        toast.error("تعذر الوصول إلى البث: " + error.message);
+        toast.error(t("tv.toast.streamError").replace("{msg}", error.message));
         return null;
       }
       const result = data as { success: boolean; token?: string; error?: string };
       if (!result.success) {
-        const msgs: Record<string, string> = {
-          no_active_subscription: "اشتراكك منتهٍ، يرجى التجديد",
-          station_not_found:      "المحطة غير متاحة حالياً",
-          not_authenticated:      "يجب تسجيل الدخول أولاً",
+        const msgKey: Record<string, string> = {
+          no_active_subscription: "tv.toast.subExpired",
+          station_not_found:      "tv.toast.stationNotFound",
+          not_authenticated:      "tv.toast.notAuthenticated",
         };
-        toast.error(msgs[result.error ?? ""] ?? "تعذر تشغيل المحطة");
+        toast.error(t(msgKey[result.error ?? ""] ?? "tv.toast.streamFailed"));
         return null;
       }
       return result.token ?? null;
     },
-    [user]
+    [user, t]
   );
 
   return {

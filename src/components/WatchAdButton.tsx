@@ -65,7 +65,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
   if (variant === "float") {
     return (
       <>
-        <div className={`fixed bottom-6 left-6 z-40 ${className}`}>
+        <div className={`fixed bottom-6 start-6 z-40 ${className}`}>
           <Button
             onClick={() => { setAdKey((k) => k + 1); setShowAd(true); }}
             disabled={exhausted}

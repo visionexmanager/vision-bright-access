@@ -120,15 +120,15 @@ export default function ServiceRequestPage({
 
   return (
     <Layout>
-      <section className="mx-auto max-w-5xl px-4 py-10">
+      <section className="mx-auto max-w-5xl px-4 py-12">
         {/* Hero */}
         <AnimatedSection variants={scaleFade}>
           <div className="relative mb-10 overflow-hidden rounded-2xl">
             <img src={heroImage} alt="" role="presentation" className="h-52 w-full object-cover sm:h-64" loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-            <div className="absolute bottom-6 left-6 right-6">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20 mb-3">
-                <Icon className="h-7 w-7 text-primary" />
+            <div className="absolute bottom-6 start-6 end-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary mb-3 shadow-sm shadow-primary/30">
+                <Icon className="h-7 w-7 text-primary-foreground" />
               </div>
               <h1 className="text-3xl font-bold sm:text-4xl">{translateText(title)}</h1>
               <p className="mt-1 text-lg text-muted-foreground">{translateText(subtitle)}</p>
@@ -168,7 +168,7 @@ export default function ServiceRequestPage({
                 <button
                   type="button"
                   onClick={() => setSelectedPkg(pkg)}
-                  className={`w-full text-left rounded-2xl border-2 p-5 transition-all hover:shadow-lg focus-visible:ring-2 focus-visible:ring-primary ${
+                  className={`w-full text-start rounded-2xl border-2 p-5 transition-all hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary ${
                     selected
                       ? "border-primary bg-primary/5 shadow-lg"
                       : "border-border bg-card hover:border-primary/40"

@@ -11,14 +11,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Mail, Send, CheckCircle2, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
-const INTERESTS = [
-  { key: "products", labelKey: "newsletter.topic.products", emoji: "🛍️" },
-  { key: "services", labelKey: "newsletter.topic.services", emoji: "🔧" },
-  { key: "courses", labelKey: "newsletter.topic.courses", emoji: "📚" },
-  { key: "games", labelKey: "newsletter.topic.games", emoji: "🎮" },
-  { key: "tech-news", labelKey: "newsletter.topic.techNews", emoji: "💻" },
+const PLATFORM_INTERESTS = [
+  { key: "products",    labelKey: "newsletter.topic.products",   emoji: "🛍️" },
+  { key: "services",    labelKey: "newsletter.topic.services",   emoji: "🔧" },
+  { key: "courses",     labelKey: "newsletter.topic.courses",    emoji: "📚" },
+  { key: "games",       labelKey: "newsletter.topic.games",      emoji: "🎮" },
+  { key: "tech-news",   labelKey: "newsletter.topic.techNews",   emoji: "💻" },
   { key: "global-news", labelKey: "newsletter.topic.globalNews", emoji: "🌍" },
 ] as const;
+
+// News-specific categories — each maps to a news_articles.category value
+const NEWS_INTERESTS = [
+  { key: "news-technology",    catKey: "news.cat.technology",    emoji: "🔬" },
+  { key: "news-ai",            catKey: "news.cat.ai",            emoji: "🤖" },
+  { key: "news-community",     catKey: "news.cat.community",     emoji: "🌐" },
+  { key: "news-accessibility", catKey: "news.cat.accessibility", emoji: "♿" },
+] as const;
+
+const INTERESTS = [...PLATFORM_INTERESTS];
 
 const LS_KEY = "vx_newsletter_subscribed";
 const LS_DISMISSED_KEY = "vx_newsletter_thankyou_dismissed";
@@ -176,6 +186,39 @@ export function NewsletterSubscribe() {
                   />
                   <span>{item.emoji}</span>
                   <span>{t(item.labelKey)}</span>
+                </Label>
+              ))}
+            </div>
+          </div>
+
+          {/* Separator */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" aria-hidden="true" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("newsletter.selectNews") || "Platform News"}
+            </span>
+            <div className="h-px flex-1 bg-border" aria-hidden="true" />
+          </div>
+
+          {/* News categories section */}
+          <div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {NEWS_INTERESTS.map((item) => (
+                <Label
+                  key={item.key}
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                    topics.includes(item.key)
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <Checkbox
+                    checked={topics.includes(item.key)}
+                    onCheckedChange={() => toggleTopic(item.key)}
+                    className="sr-only"
+                  />
+                  <span>{item.emoji}</span>
+                  <span>{t(item.catKey)}</span>
                 </Label>
               ))}
             </div>

@@ -6,6 +6,9 @@ import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useGameSounds } from "@/hooks/useGameSounds";
+import { useHighScore } from "@/hooks/useHighScore";
+import { GameHeader } from "@/components/game/GameHeader";
+import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useCallback } from "react";
 import heroImg from "@/assets/game-velocity.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -47,7 +50,7 @@ function RaceControls({
         <div className="flex justify-center gap-3 flex-wrap">
           <Button size="lg" onClick={onAccelerate}>⬆️ {t("velocity.gas")}</Button>
           <Button size="lg" variant="destructive" onClick={onBrake}>⬇️ {t("velocity.brake")}</Button>
-          <Button size="lg" variant="secondary" onClick={onNitro} disabled={fuel < 20}>🔥 Nitro</Button>
+          <Button size="lg" variant="secondary" onClick={onNitro} disabled={fuel < 20}>{t("velocity.nitro")}</Button>
         </div>
       </CardContent>
     </Card>
@@ -117,26 +120,79 @@ function useRaceEngine(onFinish: (distance: number, fuel: number) => void) {
   return { speed, distance, fuel, lap, racing, finished, start, accelerate, brake, nitro };
 }
 
+const TRACK_EVENTS = ["oilSpill", "shortcut", "headwind", "drafting"] as const;
+type TrackEvent = typeof TRACK_EVENTS[number];
+
 function VelocitySolo({ track }: { track: string }) {
   const { t } = useLanguage();
-  const race = useRaceEngine(() => {});
+  const { highScore, updateHighScore } = useHighScore("velocity");
+  const [currentEvent, setCurrentEvent] = useState<TrackEvent | null>(null);
+  const [newRecord, setNewRecord] = useState(false);
+
+  const onFinish = useCallback((distance: number, fuel: number) => {
+    const score = Math.round(distance) + (fuel > 0 ? 500 : 0);
+    const isNew = updateHighScore(score);
+    setNewRecord(isNew);
+  }, [updateHighScore]);
+
+  const race = useRaceEngine(onFinish);
+
+  // Keyboard controls
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (!race.racing) return;
+      if (e.key === "ArrowUp")   { e.preventDefault(); race.accelerate(); }
+      if (e.key === "ArrowDown") { e.preventDefault(); race.brake(); }
+      if (e.key === " ")         { e.preventDefault(); race.nitro(); }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [race.racing, race.accelerate, race.brake, race.nitro]);
+
+  // Random track events every ~6 seconds
+  useEffect(() => {
+    if (!race.racing) return;
+    const interval = setInterval(() => {
+      const ev = TRACK_EVENTS[Math.floor(Math.random() * TRACK_EVENTS.length)];
+      setCurrentEvent(ev);
+      setTimeout(() => setCurrentEvent(null), 3000);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [race.racing]);
 
   if (!race.racing && !race.finished) {
-    return <Card><CardContent className="pt-6 text-center"><Button size="lg" onClick={race.start}>🏁 {t("velocity.start")}</Button></CardContent></Card>;
-  }
-
-  if (race.finished) {
     return (
       <Card><CardContent className="pt-6 text-center space-y-4">
-        <p className="text-5xl">{race.fuel > 0 ? "🏆" : "⛽"}</p>
-        <p className="text-2xl font-bold">{race.fuel > 0 ? t("velocity.finished") : t("velocity.outOfFuel")}</p>
-        <p>{t("velocity.distance")}: {Math.round(race.distance)}m</p>
-        <Button size="lg" onClick={race.start}>{t("velocity.restart")}</Button>
+        <p className="text-muted-foreground text-sm">{t("velocity.keyboard")}</p>
+        <Button size="lg" onClick={() => { race.start(); setNewRecord(false); }}>🏁 {t("velocity.start")}</Button>
       </CardContent></Card>
     );
   }
 
-  return <RaceControls distance={race.distance} fuel={race.fuel} onAccelerate={race.accelerate} onBrake={race.brake} onNitro={race.nitro} />;
+  if (race.finished) {
+    const score = Math.round(race.distance) + (race.fuel > 0 ? 500 : 0);
+    return (
+      <Card><CardContent className="pt-6 text-center space-y-4">
+        <p className="text-5xl">{race.fuel > 0 ? "🏆" : "⛽"}</p>
+        {newRecord && <p className="text-primary font-bold animate-bounce">{t("games.newRecord")}</p>}
+        <p className="text-2xl font-bold">{race.fuel > 0 ? t("velocity.finished") : t("velocity.outOfFuel")}</p>
+        <p>{t("velocity.distance")}: {Math.round(race.distance)}m · Score: {score}</p>
+        <p className="text-muted-foreground">{t("games.highScore")}: {highScore}</p>
+        <Button size="lg" onClick={() => { race.start(); setNewRecord(false); }}>{t("velocity.restart")}</Button>
+      </CardContent></Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {currentEvent && (
+        <div className="rounded-xl border border-amber-400/40 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-2 text-center text-sm font-semibold animate-in fade-in duration-300">
+          {t(`velocity.event.${currentEvent}`)}
+        </div>
+      )}
+      <RaceControls distance={race.distance} fuel={race.fuel} onAccelerate={race.accelerate} onBrake={race.brake} onNitro={race.nitro} />
+    </div>
+  );
 }
 
 function VelocityMulti() {
@@ -194,6 +250,7 @@ function VelocityMulti() {
 
 export default function VelocityXRacing() {
   const { t } = useLanguage();
+  const { highScore } = useHighScore("velocity");
   const [mode, setMode] = useState<"solo" | "multi">("solo");
   const [track] = useState(() => TRACKS[Math.floor(Math.random() * TRACKS.length)]);
 
@@ -203,11 +260,21 @@ export default function VelocityXRacing() {
         <div className="relative mb-6 overflow-hidden rounded-2xl">
           <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4 text-center">
+          <div className="absolute bottom-4 start-4 end-4 text-center">
             <h1 className="text-3xl font-bold">🏎️ {t("velocity.title")}</h1>
             <p className="text-muted-foreground">{track}</p>
           </div>
         </div>
+        <GameHeader
+          title={t("velocity.title")}
+          highScore={highScore}
+          extra={
+            <HowToPlay
+              titleKey="velocity.title"
+              steps={["velocity.howTo.1","velocity.howTo.2","velocity.howTo.3","velocity.howTo.4","velocity.howTo.5"]}
+            />
+          }
+        />
         <div className="flex rounded-lg overflow-hidden border mb-6">
           <button onClick={() => setMode("solo")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
           <button onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>

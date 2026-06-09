@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -10,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, RotateCcw, DollarSign, Star, FlaskConical, Sparkles, Heart } from "lucide-react";
+import { CheckCircle2, RotateCcw, DollarSign, Star, FlaskConical, Sparkles, Heart, ArrowLeft } from "lucide-react";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,6 +49,24 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
 
   const [stage, setStage] = useState<Stage>("creation");
   const [score, setScore] = useState(0);
+
+  // Saved formulas
+  const [savedFormulas, setSavedFormulas] = useState<{ name: string; notes: Record<string, number> }[]>(() => {
+    try { return JSON.parse(localStorage.getItem("vx_perfume_formulas") ?? "[]"); } catch { return []; }
+  });
+
+  const saveFormula = () => {
+    if (!perfumeName || Object.keys(selectedNotes).length < 2) return;
+    const updated = [...savedFormulas.filter(f => f.name !== perfumeName), { name: perfumeName, notes: selectedNotes }];
+    setSavedFormulas(updated);
+    try { localStorage.setItem("vx_perfume_formulas", JSON.stringify(updated)); } catch {}
+    toast.success(`Formula "${perfumeName}" saved!`);
+  };
+
+  const loadFormula = (f: { name: string; notes: Record<string, number> }) => {
+    setPerfumeName(f.name);
+    setSelectedNotes(f.notes);
+  };
 
   // Creation
   const [perfumeName, setPerfumeName] = useState("");
@@ -359,6 +378,25 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
       </Card>
 
             <SimulationMentor simulationTitle="Perfume Lab" currentStepTitle="" />
+
+      {/* Save/Load Formula */}
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1"
+          onClick={saveFormula}
+          disabled={!perfumeName || Object.keys(selectedNotes).length < 2}>
+          💾 Save Formula
+        </Button>
+        {savedFormulas.length > 0 && (
+          <div className="flex flex-wrap gap-1 flex-1">
+            {savedFormulas.slice(-3).map(f => (
+              <Button key={f.name} variant="ghost" size="sm" className="text-xs h-8"
+                onClick={() => loadFormula(f)}>
+                📂 {f.name.slice(0, 10)}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <Button onClick={launchToMarket} className="w-full text-base" size="lg" disabled={Object.keys(selectedNotes).length < 3} aria-label="Launch to Market">
         🚀 Launch to Market
