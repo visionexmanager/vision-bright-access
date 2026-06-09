@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Loader2, AlertCircle, Volume2, VolumeX, Pause, Play, RotateCcw, Radio, Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { callRadioStreamToken } from "@/lib/api/edgeFunctions";
 
 type Props = {
   token:       string;
@@ -51,8 +51,6 @@ export function RadioPlayer({ token, stationName, stationLogo, onError }: Props)
   const [volume,   setVolume]   = useState(80);
   const [bitrate,  setBitrate]  = useState<string | null>(null);
 
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-
   const handleError = useCallback(
     (msg: string) => {
       setErrMsg(msg);
@@ -70,30 +68,17 @@ export function RadioPlayer({ token, stationName, stationLogo, onError }: Props)
       setErrMsg(null);
       setPlaying(false);
 
-      // Exchange token for real stream URL via edge function
+      // Exchange token for real stream URL via API service layer
       let streamInfo: StreamInfo;
       try {
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/radio-stream-token`, {
-          method: "POST",
-          headers: {
-            "Content-Type":  "application/json",
-            "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token ?? ""}`,
-            "apikey":        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
-          },
-          body: JSON.stringify({ token }),
-        });
-        const json = await res.json();
-        if (!res.ok || json.error) {
-          handleError(
-            json.error === "subscription_expired"
-              ? "انتهى اشتراكك، يرجى التجديد"
-              : "تعذر تحميل البث"
-          );
-          return;
-        }
-        streamInfo = json as StreamInfo;
-      } catch {
-        handleError("لا يمكن الاتصال بالخادم");
+        streamInfo = await callRadioStreamToken(token) as StreamInfo;
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "";
+        handleError(
+          msg === "subscription_expired"
+            ? "انتهى اشتراكك، يرجى التجديد"
+            : "تعذر تحميل البث"
+        );
         return;
       }
 

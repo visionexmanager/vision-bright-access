@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import ReactMarkdown from "react-markdown";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
@@ -11,8 +10,8 @@ import {
   Sparkles, CheckCircle2, Target, History, Trash2, Save, Clock,
   Share2, Copy, Twitter, Facebook, Link2
 } from "lucide-react";
-
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/academy-chat`;
+import { aiService } from "@/services/ai/aiService";
+import { parseSSEResponse } from "@/lib/api/useSSEStream";
 
 interface StudentProfile {
   name: string;
@@ -255,44 +254,16 @@ ${summary}
 بناءً على إجاباتي، حلل شخصيتي واقترح لي أفضل 5 مهن مناسبة لي مع شرح لماذا تناسبني كل مهنة. اكتب التحليل بأسلوب ودّي ومشجع مناسب لعمري. أضف نصائح عملية لكل مهنة. استخدم إيموجي مناسبة.${lang !== "ar" ? `\n\nPlease respond in the language with code "${lang}".` : ""}`;
 
     try {
-      const res = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ""}`,
-        },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: prompt }],
-          studentProfile: profile,
-        }),
+      const response = await aiService.streamAcademyChat(
+        [{ role: "user", content: prompt }],
+        { name: profile.name, gender: profile.gender, country: profile.country, level: profile.level }
+      );
+
+      if (!response.ok) throw new Error("API error");
+
+      await parseSSEResponse(response, (_token, accumulated) => {
+        setResult(accumulated);
       });
-
-      if (!res.ok) throw new Error("API error");
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let fullText = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n").filter(l => l.startsWith("data: "));
-          for (const line of lines) {
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                fullText += content;
-                setResult(fullText);
-              }
-            } catch { /* skip */ }
-          }
-        }
-      }
     } catch {
       setResult(null);
       toast.error(t("aptitude.saveFailed"));

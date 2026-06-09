@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -17,10 +17,14 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t } = useLanguage();
   const { user, loading: authLoading } = useAuth();
 
-  if (!authLoading && user) return <Navigate to="/dashboard" replace />;
+  // Respect returnTo param set by AuthGuard
+  const returnTo = searchParams.get("returnTo") ?? "/dashboard";
+
+  if (!authLoading && user) return <Navigate to={decodeURIComponent(returnTo)} replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +35,7 @@ export default function Login() {
       toast.error(error.message);
     } else {
       toast.success(t("auth.welcomeBack"));
-      navigate("/dashboard");
+      navigate(decodeURIComponent(returnTo));
     }
   };
 

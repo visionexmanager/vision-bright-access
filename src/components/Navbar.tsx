@@ -83,6 +83,7 @@ export function Navbar() {
     { to: "/", label: t("nav.home") },
     { to: "/bazaar", label: "VXBazaar" },
     { to: "/services", label: t("nav.services") },
+    { to: "/academy", label: t("footer.link.academy") },
     { to: "/content", label: t("nav.content") },
     { to: "/games", label: t("nav.games") },
     { to: "/news", label: t("nav.news") },
@@ -107,6 +108,8 @@ export function Navbar() {
     {
       label: t("nav.explore"),
       links: [
+        { to: "/academy", label: t("footer.link.academy") },
+        { to: "/content", label: t("nav.content") },
         { to: "/games", label: t("nav.games") },
         { to: "/community", label: t("nav.community") },
       ],
