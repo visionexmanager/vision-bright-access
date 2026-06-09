@@ -26,16 +26,20 @@ import {
   ShoppingCart,
   Sparkles,
   Trophy,
+  Gamepad2,
+  Users,
+  Clock,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import dashboardImg from "@/assets/dashboard-illustration.jpg";
 
 const VIP_TIERS = [
-  { name: "rankBronze", min: 0, next: 10000, color: "text-amber-700 dark:text-amber-500" },
-  { name: "rankSilver", min: 10000, next: 50000, color: "text-slate-600 dark:text-slate-300" },
-  { name: "rankGold", min: 50000, next: 100000, color: "text-yellow-700 dark:text-yellow-400" },
+  { name: "rankBronze",   min: 0,      next: 10000,  color: "text-amber-700 dark:text-amber-500" },
+  { name: "rankSilver",   min: 10000,  next: 50000,  color: "text-slate-600 dark:text-slate-300" },
+  { name: "rankGold",     min: 50000,  next: 100000, color: "text-yellow-700 dark:text-yellow-400" },
   { name: "rankPlatinum", min: 100000, next: 200000, color: "text-cyan-700 dark:text-cyan-400" },
+  { name: "rankDiamond",  min: 200000, next: null,   color: "text-blue-500 dark:text-blue-300" },
 ];
 
 function getTier(points: number) {
@@ -208,6 +212,52 @@ export default function Dashboard() {
           </Card>
         </StaggerGrid>
 
+        {/* Quick Access */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Sparkles className="h-6 w-6 text-primary" aria-hidden="true" />
+              {t("dash.quickLinks")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { icon: Gamepad2,     to: "/games",       label: t("dash.playGamesLink"),        desc: t("dash.playGamesLinkDesc"),       color: "text-green-500"   },
+                { icon: Users,        to: "/community",   label: t("footer.link.community"),     desc: t("home.feature.servicesDesc"),    color: "text-violet-500"  },
+                { icon: ShoppingCart, to: "/bazaar",      label: "VXBazaar",                      desc: t("home.feature.marketplaceDesc"), color: "text-primary"     },
+                { icon: BookOpen,     to: "/academy",     label: t("footer.link.academy"),        desc: t("services.catLearn"),            color: "text-blue-500"    },
+              ].map((item) => (
+                <Link key={item.to} to={item.to} onClick={() => playSound("navigate")} className="group block">
+                  <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center transition-all hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5">
+                    <div className="rounded-xl bg-primary/10 p-3">
+                      <item.icon className={`h-6 w-6 ${item.color}`} aria-hidden="true" />
+                    </div>
+                    <p className="text-sm font-bold">{item.label}</p>
+                    <p className="text-xs text-muted-foreground leading-tight">{item.desc}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Activity History shortcut */}
+        <Link to="/profile" className="mb-8 block" onClick={() => playSound("navigate")}>
+          <Card className="transition-shadow hover:shadow-lg">
+            <CardContent className="flex items-center gap-4 p-6">
+              <div className="rounded-xl bg-primary/10 p-3">
+                <Clock className="h-7 w-7 text-primary" aria-hidden="true" />
+              </div>
+              <div className="flex-1">
+                <p className="text-lg font-bold">{t("dash.history")}</p>
+                <p className="text-sm text-muted-foreground">{t("dash.historyLinkDesc")}</p>
+              </div>
+              <Badge variant="secondary" className="text-base">{history.length}</Badge>
+            </CardContent>
+          </Card>
+        </Link>
+
         {/* VIP Progress */}
         <Card className="mb-8">
           <CardContent className="p-6">
@@ -225,7 +275,10 @@ export default function Dashboard() {
               )}
             </div>
             <Progress value={progressPct} className="h-3" aria-label={`VIP progress: ${totalPoints} of ${nextTier?.min ?? 'max'} points`} />
-            {!nextTier && (
+            {!nextTier && tier.name === "rankDiamond" && (
+              <p className="mt-2 text-sm font-semibold text-blue-500">🏆 {t("dash.vipMax")}</p>
+            )}
+            {!nextTier && tier.name !== "rankDiamond" && (
               <p className="mt-2 text-sm text-muted-foreground">{t("dash.vipComingSoon")}</p>
             )}
           </CardContent>
