@@ -13,6 +13,11 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Inter", "Cairo", "Noto Sans Devanagari", "PingFang SC", "Microsoft YaHei", "system-ui", "sans-serif"],
+        heading: ["Space Grotesk", "Cairo", "Noto Sans Devanagari", "system-ui", "sans-serif"],
+        arabic: ["Cairo", "system-ui", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
