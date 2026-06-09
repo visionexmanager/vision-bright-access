@@ -4629,8 +4629,10 @@ const ar: Record<string, string> = {
   "dash.tvLinkDesc":          "شاهد القنوات التلفزيونية المباشرة",
   "dash.radioLink":           "VisionRadio",
   "dash.radioLinkDesc":       "استمع للإذاعات المباشرة",
-  "dash.playGamesLink":       "الألعاب",
-  "dash.playGamesLinkDesc":   "العب واكسب عملات VX",
+  "dash.playGamesLink":       "العب الآن",
+  "dash.playGamesLinkDesc":   "تنافس، فز واكسب عملات VX",
+  "dash.vxbazaarDesc":        "افتح متجرك الخاص وابيع وتشتري مباشرة",
+  "dash.academyDesc":         "اختر تخصصك وطوّر مهاراتك أكثر",
 
   // Voice Rooms page
   "vrooms.title":          "الغرف الصوتية",

@@ -4602,8 +4602,10 @@ const en: Record<string, string> = {
   "dash.tvLinkDesc":          "Watch live TV channels",
   "dash.radioLink":           "VisionRadio",
   "dash.radioLinkDesc":       "Listen to live radio stations",
-  "dash.playGamesLink":       "Games",
-  "dash.playGamesLinkDesc":   "Play and earn VX coins",
+  "dash.playGamesLink":       "Play Games",
+  "dash.playGamesLinkDesc":   "Compete, win & earn VX coins",
+  "dash.vxbazaarDesc":        "Run your own store — buy & sell directly",
+  "dash.academyDesc":         "Find your specialty & grow further",
 
   // Voice Rooms page
   "vrooms.title":          "Voice Rooms",
