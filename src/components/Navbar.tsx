@@ -119,7 +119,7 @@ export function Navbar() {
       links: [
         { to: "/professional-tools", label: t("nav.professionalTools") },
         { to: "/news", label: t("nav.news") },
-        { to: "/contact", label: t("nav.contact") },
+        { to: "/contact-us", label: t("nav.contact") },
         { to: "/profile", label: t("nav.profile") },
         { to: "/purchase-history", label: t("nav.purchaseHistory") },
       ],

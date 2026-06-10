@@ -26,7 +26,7 @@ const FOOTER_LINKS = {
     { to: "/content", labelKey: "footer.link.content" },
     { to: "/games", labelKey: "footer.link.games" },
     { to: "/news", labelKey: "footer.link.news" },
-    { to: "/contact", labelKey: "footer.link.contact" },
+    { to: "/contact-us", labelKey: "footer.link.contact" },
   ],
   more: [
     { to: "/professional-tools",      labelKey: "footer.link.professionalTools" },

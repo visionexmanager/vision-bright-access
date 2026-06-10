@@ -27,7 +27,7 @@ const VXBazaar = lazy(() => import("./pages/VXBazaar"));
 const Services = lazy(() => import("./pages/Services"));
 const Academy = lazy(() => import("./pages/Academy"));
 const Content = lazy(() => import("./pages/Content"));
-const Contact = lazy(() => import("./pages/Contact"));
+const ContactUs = lazy(() => import("./pages/ContactUs"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
@@ -172,7 +172,8 @@ function AppRoutes() {
                     <Route path="/services" element={<Services />} />
                     <Route path="/academy" element={<AuthGuard><Academy /></AuthGuard>} />
                     <Route path="/content" element={<Content />} />
-                    <Route path="/contact" element={<Contact />} />
+                    <Route path="/contact-us" element={<ContactUs />} />
+                    <Route path="/contact" element={<Navigate to="/contact-us" replace />} />
                     <Route path="/leaderboard" element={<Leaderboard />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/product/:id" element={<ProductDetail />} />
