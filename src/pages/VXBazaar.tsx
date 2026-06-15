@@ -2,13 +2,16 @@ import { useState, useCallback, useMemo } from "react";
 import {
   MessageSquare, Send, Store, ShoppingCart, X, Plus, ArrowLeft,
   Coins, Crown, Package, Settings, Trash2, ImagePlus, CheckCircle2,
-  BarChart3, Bell, Filter, Flag, Heart, Mail, ShieldCheck, Star, Truck,
+  BarChart3, Bell, Flag, Heart, Mail, ShieldCheck, Star, Truck,
+  CreditCard, DollarSign, Search, Save, Smartphone,
 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
@@ -16,7 +19,6 @@ import { useTrial } from "@/hooks/useTrial";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useCart } from "@/contexts/CartContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useAmbientSound } from "@/hooks/useAmbientSound";
 import { WatchAdButton } from "@/components/WatchAdButton";
@@ -45,6 +47,12 @@ interface Shop {
   vacation_mode?: boolean | null;
   trust_score?: number | null;
   response_rate?: number | null;
+  stripe_account_id?: string | null;
+  stripe_onboarding_complete?: boolean | null;
+  order_notifications?: boolean | null;
+  message_notifications?: boolean | null;
+  review_notifications?: boolean | null;
+  low_stock_notifications?: boolean | null;
 }
 
 interface BazaarProduct {
@@ -69,6 +77,21 @@ interface BazaarProduct {
   views_count?: number | null;
   cart_count?: number | null;
   sold_count?: number | null;
+  price_vx?: number | null;
+  price_usd?: number | null;
+  accepts_vx?: boolean | null;
+  accepts_cash?: boolean | null;
+}
+
+interface BazaarOrder {
+  id: string;
+  buyer_id: string;
+  shop_id: string;
+  payment_method: "vx" | "cash";
+  status: string;
+  total_vx: number | null;
+  total_usd: number | null;
+  created_at: string;
 }
 
 interface ChatMessage {
@@ -84,19 +107,6 @@ interface BazaarReview {
   rating: number;
   comment: string | null;
   verified_purchase: boolean | null;
-  created_at: string;
-}
-
-interface BazaarDispute {
-  id: string;
-  product_id: string | null;
-  shop_id: string;
-  buyer_id: string;
-  reason: string;
-  description: string;
-  status: string;
-  seller_response: string | null;
-  resolution: string | null;
   created_at: string;
 }
 
@@ -207,8 +217,10 @@ export default function VXBazaar() {
   const { isOnTrial } = useTrial();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
-  const { addToCart } = useCart();
   const { playSound } = useSound();
+  // Generated Supabase types will include these tables after the production migration is applied.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
   useAmbientSound("marketplace");
 
   const [view, setView] = useState<View>("street");
@@ -223,6 +235,9 @@ export default function VXBazaar() {
   const [productCategoryFilter, setProductCategoryFilter] = useState("all");
   const [productTypeFilter, setProductTypeFilter] = useState<"all" | ProductType>("all");
   const [selectedProduct, setSelectedProduct] = useState<BazaarProduct | null>(null);
+  const [bazaarCart, setBazaarCart] = useState<Record<string, number>>({});
+  const [checkoutLoading, setCheckoutLoading] = useState<"vx" | "cash" | null>(null);
+  const [settingsSaving, setSettingsSaving] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
   const [disputeForm, setDisputeForm] = useState({ product_id: "", reason: DISPUTE_REASONS[0], description: "" });
   const [createForm, setCreateForm] = useState({
@@ -231,10 +246,10 @@ export default function VXBazaar() {
     email_notifications: true, whatsapp_notifications: false, whatsapp_number: "",
   });
   const [productForm, setProductForm] = useState({
-    name: "", description: "", price: "", image: "", shelf_position: "Front Window",
+    name: "", description: "", price_vx: "", price_usd: "", image: "", shelf_position: "Front Window",
     category: "assistive", product_type: "physical" as ProductType, alt_text: "",
     stock_qty: "1", delivery_time: "", shipping_from: "", shipping_cost: "0",
-    return_policy: "", is_accessible: true,
+    return_policy: "", is_accessible: true, accepts_vx: true, accepts_cash: false,
   });
   const tierLabel = (tier: Tier) => t(`bazaar.tier.${tier}`);
   const shelfLabel = (position: string | null) => position ? t(`bazaar.shelf.${SHELF_KEY[position] ?? "frontWindow"}`) : "";
@@ -266,6 +281,26 @@ export default function VXBazaar() {
     },
   });
 
+  const { data: reviews = [] } = useQuery({
+    queryKey: ["bazaar-reviews", activeShop?.id],
+    enabled: !!activeShop,
+    queryFn: async () => {
+      const { data, error } = await db.from("bazaar_reviews").select("*").eq("shop_id", activeShop!.id).order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as BazaarReview[];
+    },
+  });
+
+  const { data: sellerOrders = [] } = useQuery({
+    queryKey: ["bazaar-seller-orders", activeShop?.id],
+    enabled: !!activeShop && activeShop.owner_id === user?.id,
+    queryFn: async () => {
+      const { data, error } = await db.from("bazaar_orders").select("*").eq("shop_id", activeShop!.id).order("created_at", { ascending: false }).limit(50);
+      if (error) throw error;
+      return data as BazaarOrder[];
+    },
+  });
+
   const myShop = shops.find(s => s.owner_id === user?.id);
   const isOwner = activeShop?.owner_id === user?.id;
 
@@ -275,7 +310,7 @@ export default function VXBazaar() {
       const tierCfg = TIER_CONFIG[createForm.tier];
       if (!isOnTrial && totalPoints < tierCfg.setupCost) throw new Error("insufficient_points");
 
-      const { error: shopError } = await supabase.from("bazaar_shops").insert({
+      const { error: shopError } = await db.from("bazaar_shops").insert({
         owner_id: user!.id,
         name: createForm.name.trim(),
         tier: createForm.tier,
@@ -284,6 +319,9 @@ export default function VXBazaar() {
         sign_style: createForm.sign_style,
         country: createForm.country || null,
         is_active: true,
+        email_notifications: createForm.email_notifications,
+        whatsapp_notifications: createForm.whatsapp_notifications,
+        whatsapp_number: createForm.whatsapp_number.trim() || null,
       });
       if (shopError) throw shopError;
 
@@ -319,26 +357,49 @@ export default function VXBazaar() {
       if (activeProducts.length >= tierCfg.maxProducts)
         throw new Error("max_products");
 
-      const { error } = await supabase.from("bazaar_products").insert({
+      const acceptsVx = productForm.accepts_vx && !!productForm.price_vx;
+      const acceptsCash = productForm.accepts_cash && !!productForm.price_usd;
+      if (!acceptsVx && !acceptsCash) throw new Error("payment_required");
+      const { error } = await db.from("bazaar_products").insert({
         shop_id: activeShop.id,
         name: productForm.name.trim(),
         description: productForm.description.trim() || null,
-        price: parseFloat(productForm.price),
+        price: acceptsVx ? parseInt(productForm.price_vx, 10) : parseFloat(productForm.price_usd),
+        price_vx: acceptsVx ? parseInt(productForm.price_vx, 10) : null,
+        price_usd: acceptsCash ? parseFloat(productForm.price_usd) : null,
+        accepts_vx: acceptsVx,
+        accepts_cash: acceptsCash,
         image: productForm.image.trim() || null,
         shelf_position: productForm.shelf_position,
-        in_stock: true,
+        category: productForm.category,
+        product_type: productForm.product_type,
+        alt_text: productForm.alt_text.trim() || null,
+        stock_qty: Math.max(0, parseInt(productForm.stock_qty, 10) || 0),
+        delivery_time: productForm.delivery_time.trim() || null,
+        shipping_from: productForm.shipping_from.trim() || null,
+        shipping_cost: Math.max(0, parseFloat(productForm.shipping_cost) || 0),
+        return_policy: productForm.return_policy.trim() || null,
+        is_accessible: productForm.is_accessible,
+        in_stock: (parseInt(productForm.stock_qty, 10) || 0) > 0,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       refetchProducts();
-      setProductForm({ name: "", description: "", price: "", image: "", shelf_position: "Front Window" });
+      setProductForm({
+        name: "", description: "", price_vx: "", price_usd: "", image: "", shelf_position: "Front Window",
+        category: "assistive", product_type: "physical", alt_text: "", stock_qty: "1",
+        delivery_time: "", shipping_from: "", shipping_cost: "0", return_policy: "",
+        is_accessible: true, accepts_vx: true, accepts_cash: false,
+      });
       toast({ title: t("bazaar.productAdded") });
       playSound("click");
     },
     onError: (e: Error) => {
       if (e.message === "max_products")
         toast({ title: t("bazaar.maxProductsReached"), variant: "destructive" });
+      else if (e.message === "payment_required")
+        toast({ title: "Choose a VX or cash price", variant: "destructive" });
       else
         toast({ title: t("bazaar.addProductFailed"), variant: "destructive" });
     },
@@ -349,6 +410,173 @@ export default function VXBazaar() {
     await supabase.from("bazaar_products").delete().eq("id", id);
     refetchProducts();
     toast({ title: t("bazaar.productRemoved") });
+  };
+
+  const filteredShops = useMemo(() => shops.filter(shop => {
+    const query = shopSearch.trim().toLowerCase();
+    return (!query || shop.name.toLowerCase().includes(query) || shop.description?.toLowerCase().includes(query))
+      && (shopTierFilter === "all" || shop.tier === shopTierFilter)
+      && (shopCountryFilter === "all" || shop.country === shopCountryFilter);
+  }), [shops, shopSearch, shopTierFilter, shopCountryFilter]);
+
+  const filteredProducts = useMemo(() => activeProducts.filter(product => {
+    const query = productSearch.trim().toLowerCase();
+    return product.in_stock
+      && (!query || product.name.toLowerCase().includes(query) || product.description?.toLowerCase().includes(query))
+      && (productCategoryFilter === "all" || product.category === productCategoryFilter)
+      && (productTypeFilter === "all" || product.product_type === productTypeFilter);
+  }), [activeProducts, productSearch, productCategoryFilter, productTypeFilter]);
+
+  const cartItems = useMemo(() => activeProducts
+    .filter(product => bazaarCart[product.id])
+    .map(product => ({ product, quantity: bazaarCart[product.id] })), [activeProducts, bazaarCart]);
+  const cartVxTotal = cartItems.reduce((sum, item) => sum + Number(item.product.price_vx || 0) * item.quantity, 0);
+  const cartCashTotal = cartItems.reduce((sum, item) => sum + Number(item.product.price_usd || 0) * item.quantity, 0);
+  const cartSupportsVx = cartItems.length > 0 && cartItems.every(item => item.product.accepts_vx && item.product.price_vx);
+  const cartSupportsCash = cartItems.length > 0 && cartItems.every(item => item.product.accepts_cash && item.product.price_usd);
+
+  const addBazaarItem = async (product: BazaarProduct) => {
+    if (!user) {
+      toast({ title: "Sign in to shop", variant: "destructive" });
+      return;
+    }
+    setBazaarCart(current => ({
+      ...current,
+      [product.id]: Math.min(Number(product.stock_qty || 1), (current[product.id] || 0) + 1),
+    }));
+    await db.from("bazaar_product_interactions").insert({
+      product_id: product.id, shop_id: product.shop_id, actor_id: user.id, interaction_type: "add_to_cart",
+    });
+    void supabase.functions.invoke("bazaar-notify-seller", {
+      body: { shopId: product.shop_id, productId: product.id, eventType: "add_to_cart" },
+    });
+    playSound("points");
+  };
+
+  const checkoutVX = async () => {
+    if (!activeShop || !user || !cartSupportsVx) return;
+    setCheckoutLoading("vx");
+    const { data, error } = await db.rpc("create_bazaar_vx_order", {
+      _shop_id: activeShop.id,
+      _items: cartItems.map(item => ({ product_id: item.product.id, quantity: item.quantity })),
+      _buyer_note: null,
+    });
+    setCheckoutLoading(null);
+    if (error) {
+      toast({ title: error.message || "VX checkout failed", variant: "destructive" });
+      return;
+    }
+    setBazaarCart({});
+    await refetchProducts();
+    queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
+    void supabase.functions.invoke("bazaar-notify-seller", {
+      body: { shopId: activeShop.id, eventType: "order_paid", message: `VX order ${String(data).slice(0, 8)} has been paid.` },
+    });
+    toast({ title: `Order ${String(data).slice(0, 8)} paid with VX` });
+    playSound("success");
+  };
+
+  const checkoutCash = async () => {
+    if (!activeShop || !user || !cartSupportsCash) return;
+    setCheckoutLoading("cash");
+    const { data, error } = await supabase.functions.invoke("bazaar-checkout", {
+      body: {
+        shopId: activeShop.id,
+        items: cartItems.map(item => ({ productId: item.product.id, quantity: item.quantity })),
+        returnUrl: `${window.location.origin}${window.location.pathname}`,
+      },
+    });
+    setCheckoutLoading(null);
+    if (error || !data?.checkoutUrl) {
+      toast({ title: data?.error || error?.message || "Cash checkout is not configured", variant: "destructive" });
+      return;
+    }
+    window.location.assign(data.checkoutUrl);
+  };
+
+  const toggleWishlist = async (product: BazaarProduct) => {
+    if (!user) return toast({ title: "Sign in to save products", variant: "destructive" });
+    const { error } = await db.from("bazaar_wishlists").upsert({ user_id: user.id, product_id: product.id });
+    if (error) return toast({ title: error.message, variant: "destructive" });
+    await db.from("bazaar_product_interactions").insert({
+      product_id: product.id, shop_id: product.shop_id, actor_id: user.id, interaction_type: "wishlist",
+    });
+    void supabase.functions.invoke("bazaar-notify-seller", {
+      body: { shopId: product.shop_id, productId: product.id, eventType: "wishlist" },
+    });
+    toast({ title: "Saved to wishlist" });
+  };
+
+  const submitReview = async () => {
+    if (!user || !selectedProduct || !activeShop) return;
+    const { error } = await db.from("bazaar_reviews").upsert({
+      product_id: selectedProduct.id,
+      shop_id: activeShop.id,
+      reviewer_id: user.id,
+      rating: reviewForm.rating,
+      comment: reviewForm.comment.trim() || null,
+    }, { onConflict: "product_id,reviewer_id" });
+    if (error) return toast({ title: error.message, variant: "destructive" });
+    queryClient.invalidateQueries({ queryKey: ["bazaar-reviews", activeShop.id] });
+    void supabase.functions.invoke("bazaar-notify-seller", {
+      body: { shopId: activeShop.id, productId: selectedProduct.id, eventType: "review", message: reviewForm.comment },
+    });
+    setReviewForm({ rating: 5, comment: "" });
+    toast({ title: "Review published" });
+  };
+
+  const submitDispute = async () => {
+    if (!user || !selectedProduct || !activeShop || !disputeForm.description.trim()) return;
+    const { error } = await db.from("bazaar_disputes").insert({
+      product_id: selectedProduct.id,
+      shop_id: activeShop.id,
+      buyer_id: user.id,
+      reason: disputeForm.reason,
+      description: disputeForm.description.trim(),
+    });
+    if (error) return toast({ title: error.message, variant: "destructive" });
+    void supabase.functions.invoke("bazaar-notify-seller", {
+      body: {
+        shopId: activeShop.id,
+        productId: selectedProduct.id,
+        eventType: "dispute",
+        message: `${disputeForm.reason}: ${disputeForm.description}`,
+      },
+    });
+    setDisputeForm({ product_id: "", reason: DISPUTE_REASONS[0], description: "" });
+    toast({ title: "Support case opened" });
+  };
+
+  const saveShopSettings = async () => {
+    if (!activeShop || !isOwner) return;
+    setSettingsSaving(true);
+    const { error } = await db.from("bazaar_shops").update({
+      email_notifications: activeShop.email_notifications !== false,
+      whatsapp_notifications: !!activeShop.whatsapp_notifications,
+      whatsapp_number: activeShop.whatsapp_number?.trim() || null,
+      order_notifications: activeShop.order_notifications !== false,
+      message_notifications: activeShop.message_notifications !== false,
+      review_notifications: activeShop.review_notifications !== false,
+      low_stock_notifications: activeShop.low_stock_notifications !== false,
+    }).eq("id", activeShop.id);
+    setSettingsSaving(false);
+    if (error) return toast({ title: error.message, variant: "destructive" });
+    queryClient.invalidateQueries({ queryKey: ["bazaar-shops"] });
+    toast({ title: "Notification settings saved" });
+  };
+
+  const connectStripe = async () => {
+    if (!activeShop) return;
+    const { data, error } = await supabase.functions.invoke("bazaar-stripe-connect", {
+      body: { shopId: activeShop.id, returnUrl: `${window.location.origin}${window.location.pathname}` },
+    });
+    if (data?.complete) {
+      setActiveShop({ ...activeShop, stripe_onboarding_complete: true });
+      queryClient.invalidateQueries({ queryKey: ["bazaar-shops"] });
+      return toast({ title: "Stripe payouts are connected" });
+    }
+    if (error || !data?.url) return toast({ title: data?.error || "Stripe Connect is not configured", variant: "destructive" });
+    window.location.assign(data.url);
   };
 
   // ── Enter shop ────────────────────────────────────────────────────────
@@ -371,6 +599,11 @@ export default function VXBazaar() {
     playSound("send");
     setMessages(prev => [...prev, { text: userMsg, sender: "user" }]);
     setChatLoading(true);
+    if (activeShop && user && activeShop.owner_id !== user.id) {
+      void supabase.functions.invoke("bazaar-notify-seller", {
+        body: { shopId: activeShop.id, eventType: "message", message: userMsg },
+      });
+    }
 
     try {
       const inStockProducts = activeProducts.filter(p => p.in_stock);
@@ -460,6 +693,24 @@ export default function VXBazaar() {
                 )}
               </div>
 
+              <div className="relative z-10 mx-auto mb-5 grid max-w-4xl gap-2 px-4 md:grid-cols-[1fr_160px_180px]">
+                <div className="relative">
+                  <Search className="absolute start-3 top-2.5 h-4 w-4 text-stone-500" />
+                  <Input value={shopSearch} onChange={event => setShopSearch(event.target.value)}
+                    placeholder="Search shops" className="border-white/15 bg-black/30 ps-9 text-white" />
+                </div>
+                <select value={shopTierFilter} onChange={event => setShopTierFilter(event.target.value as "all" | Tier)}
+                  className="rounded-md border border-white/15 bg-stone-950 px-3 text-sm text-white">
+                  <option value="all">All shop sizes</option>
+                  {(Object.keys(TIER_CONFIG) as Tier[]).map(tier => <option key={tier} value={tier}>{tierLabel(tier)}</option>)}
+                </select>
+                <select value={shopCountryFilter} onChange={event => setShopCountryFilter(event.target.value)}
+                  className="rounded-md border border-white/15 bg-stone-950 px-3 text-sm text-white">
+                  <option value="all">All countries</option>
+                  {COUNTRIES.map(country => <option key={country.code} value={country.code}>{country.name}</option>)}
+                </select>
+              </div>
+
               {/* Street lanterns (decorative) */}
               <div className="relative z-10 flex justify-around px-8 mb-2">
                 {[...Array(5)].map((_, i) => (
@@ -473,7 +724,7 @@ export default function VXBazaar() {
               {/* Shops street */}
               {shopsLoading ? (
                   <div className="flex justify-center py-20 text-stone-500">{t("bazaar.loadingShops")}</div>
-              ) : shops.length === 0 ? (
+              ) : filteredShops.length === 0 ? (
                 <div className="relative z-10 flex flex-col items-center gap-4 py-20 text-center text-stone-500">
                   <Store className="h-16 w-16 opacity-20" />
                   <p className="text-lg text-stone-400">{t("bazaar.noShops")}</p>
@@ -487,7 +738,7 @@ export default function VXBazaar() {
                 <div className="relative z-10">
                   {/* Building tops strip */}
                   <div className="flex gap-8 overflow-x-hidden px-8">
-                    {shops.map(shop => {
+                    {filteredShops.map(shop => {
                       const cfg = TIER_CONFIG[shop.tier];
                       return (
                         <div key={shop.id + "-top"} className="min-w-[300px] md:min-w-[360px] flex-shrink-0">
@@ -524,7 +775,7 @@ export default function VXBazaar() {
 
                   {/* Shop facades row */}
                   <div className="flex gap-8 overflow-x-auto pb-0 px-8 snap-x snap-mandatory scrollbar-thin scrollbar-track-stone-900 scrollbar-thumb-amber-600">
-                    {shops.map(shop => {
+                    {filteredShops.map(shop => {
                       const sign = SIGN_STYLES[shop.sign_style] ?? SIGN_STYLES.neon;
                       return (
                         <div
@@ -637,9 +888,15 @@ export default function VXBazaar() {
                       )}
                     </div>
                     {activeShop.description && <p className="mt-1 text-sm text-stone-300">{activeShop.description}</p>}
-                      <p className="mt-1 text-xs text-stone-500">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="flex items-center gap-1 text-emerald-300"><ShieldCheck className="h-3.5 w-3.5" /> {activeShop.trust_score ?? 70}% trust</span>
+                      <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" /> {
+                        reviews.length ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1) : "New"
+                      }</span>
+                    </div>
+                    <p className="mt-1 text-xs text-stone-500">
                         {t("bazaar.itemsInStock").replace("{count}", String(activeProducts.filter(p => p.in_stock).length))}
-                      </p>
+                    </p>
                   </div>
                   <button
                     onClick={() => { setView("street"); setActiveShop(null); playSound("close"); }}
@@ -652,48 +909,64 @@ export default function VXBazaar() {
 
                 {/* Products grid */}
                 <div className="flex-1">
-                  {activeProducts.filter(p => p.in_stock).length === 0 ? (
+                  <div className="mb-4 grid gap-2 md:grid-cols-[1fr_180px_160px]">
+                    <div className="relative">
+                      <Search className="absolute start-3 top-2.5 h-4 w-4 text-stone-400" />
+                      <Input value={productSearch} onChange={event => setProductSearch(event.target.value)}
+                        placeholder="Search products" className="border-white/20 bg-black/50 ps-9 text-white" />
+                    </div>
+                    <select value={productCategoryFilter} onChange={event => setProductCategoryFilter(event.target.value)}
+                      className="rounded-md border border-white/20 bg-stone-950 px-3 text-sm">
+                      <option value="all">All categories</option>
+                      {PRODUCT_CATEGORIES.map(category => <option key={category.key} value={category.key}>{category.label}</option>)}
+                    </select>
+                    <select value={productTypeFilter} onChange={event => setProductTypeFilter(event.target.value as "all" | ProductType)}
+                      className="rounded-md border border-white/20 bg-stone-950 px-3 text-sm">
+                      <option value="all">All types</option>
+                      {PRODUCT_TYPES.map(type => <option key={type.key} value={type.key}>{type.label}</option>)}
+                    </select>
+                  </div>
+                  {filteredProducts.length === 0 ? (
                     <div className="flex flex-col items-center gap-3 py-16 text-center text-stone-400">
                       <Package className="h-12 w-12 opacity-30" />
                       <p>{isOwner ? t("bazaar.noProductsOwner") : t("bazaar.noProductsVisitor")}</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                      {activeProducts.filter(p => p.in_stock).map(item => {
-                        const handleAddToCart = () => {
-                          addToCart({
-                            id: item.id,
-                            name: item.name,
-                            description: item.description ?? "",
-                            price: Number(item.price),
-                            category: "bazaar",
-                            points: 0,
-                            image: item.image ?? "",
-                            rating: 0,
-                            inStock: item.in_stock,
-                          });
-                          toast({ title: t("market.addedToCart") });
-                          playSound("points");
-                        };
+                      {filteredProducts.map(item => {
+                        const productReviews = reviews.filter(review => review.product_id === item.id);
+                        const rating = productReviews.length
+                          ? productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length
+                          : 0;
                         return (
-                        <div
-                          className="rounded-xl bg-white/10 border border-white/20 backdrop-blur-md p-4 text-center transition-transform hover:scale-[1.04]"
-                        >
+                        <div key={item.id} className="relative rounded-lg bg-white/10 border border-white/20 backdrop-blur-md p-4 text-center transition-transform hover:-translate-y-1">
+                          <button onClick={() => toggleWishlist(item)} aria-label="Save to wishlist"
+                            className="absolute end-2 top-2 z-10 rounded-full bg-black/60 p-2 text-white hover:text-rose-400">
+                            <Heart className="h-4 w-4" />
+                          </button>
                           {item.image ? (
-                            <img src={item.image} alt={item.name} className="mb-3 h-28 w-full rounded-lg object-cover" />
+                            <button className="block w-full" onClick={() => setSelectedProduct(item)}>
+                              <img src={item.image} alt={item.alt_text || item.name} className="mb-3 h-28 w-full rounded object-cover" />
+                            </button>
                           ) : (
                             <div className="mb-3 flex h-28 items-center justify-center rounded-lg bg-white/5">
                               <Package className="h-8 w-8 opacity-30" />
                             </div>
                           )}
                           <h4 className="font-bold text-sm">{item.name}</h4>
+                          <div className="mt-1 flex items-center justify-center gap-1 text-xs text-amber-300">
+                            <Star className="h-3 w-3 fill-current" /> {rating ? rating.toFixed(1) : "New"} ({productReviews.length})
+                          </div>
                           {item.description && <p className="mt-1 text-[11px] text-stone-400 line-clamp-2">{item.description}</p>}
-                          <p className="mt-2 font-black text-amber-400">${item.price}</p>
+                          <div className="mt-2 flex flex-wrap justify-center gap-2 font-black">
+                            {item.accepts_vx && item.price_vx && <span className="text-amber-400">{Number(item.price_vx).toLocaleString()} VX</span>}
+                            {item.accepts_cash && item.price_usd && <span className="text-emerald-400">${Number(item.price_usd).toFixed(2)}</span>}
+                          </div>
                           {item.shelf_position && (
                             <p className="mt-0.5 text-[10px] uppercase text-stone-500 italic">{shelfLabel(item.shelf_position)}</p>
                           )}
                           <button
-                            onClick={handleAddToCart}
+                            onClick={() => addBazaarItem(item)}
                             className="mt-3 w-full rounded-full bg-amber-500 py-1.5 text-xs font-bold text-black hover:bg-amber-400 active:scale-95 transition-all flex items-center justify-center gap-1"
                           >
                             <ShoppingCart className="h-3.5 w-3.5" /> {t("market.addToCart")}
@@ -704,6 +977,36 @@ export default function VXBazaar() {
                     </div>
                   )}
                 </div>
+
+                {cartItems.length > 0 && (
+                  <div className="mt-6 border border-white/15 bg-black/70 p-4 backdrop-blur-md">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-bold"><ShoppingCart className="me-2 inline h-4 w-4" />{cartItems.length} items</p>
+                        <p className="text-xs text-stone-400">
+                          {cartSupportsVx && `${cartVxTotal.toLocaleString()} VX`}
+                          {cartSupportsVx && cartSupportsCash && " / "}
+                          {cartSupportsCash && `$${cartCashTotal.toFixed(2)}`}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" onClick={() => setBazaarCart({})}>Clear</Button>
+                        {cartSupportsVx && (
+                          <Button onClick={checkoutVX} disabled={checkoutLoading !== null || totalPoints < cartVxTotal}
+                            className="bg-amber-500 text-black hover:bg-amber-400">
+                            <Coins className="me-2 h-4 w-4" />{checkoutLoading === "vx" ? "Processing..." : "Pay with VX"}
+                          </Button>
+                        )}
+                        {cartSupportsCash && (
+                          <Button onClick={checkoutCash} disabled={checkoutLoading !== null}
+                            className="bg-emerald-600 hover:bg-emerald-500">
+                            <CreditCard className="me-2 h-4 w-4" />{checkoutLoading === "cash" ? "Opening..." : "Pay securely"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Action buttons */}
                 <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -735,6 +1038,86 @@ export default function VXBazaar() {
                 </div>
               </div>
 
+              <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+                {[
+                  { label: "Orders", value: sellerOrders.length, icon: Package },
+                  { label: "Paid", value: sellerOrders.filter(order => order.status === "paid").length, icon: CheckCircle2 },
+                  { label: "VX revenue", value: sellerOrders.reduce((sum, order) => sum + Number(order.total_vx || 0), 0).toLocaleString(), icon: Coins },
+                  { label: "Cash revenue", value: `$${sellerOrders.reduce((sum, order) => sum + Number(order.total_usd || 0), 0).toFixed(2)}`, icon: DollarSign },
+                ].map(stat => (
+                  <div key={stat.label} className="border border-white/10 bg-white/5 p-3">
+                    <stat.icon className="mb-2 h-4 w-4 text-emerald-400" />
+                    <p className="text-xl font-black">{stat.value}</p>
+                    <p className="text-xs text-stone-400">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mb-8 border border-white/10 bg-white/5 p-5">
+                <h3 className="mb-4 flex items-center gap-2 font-bold"><Bell className="h-4 w-4 text-amber-400" /> Seller notifications</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="flex items-center justify-between gap-3 text-sm">
+                    <span className="flex items-center gap-2"><Mail className="h-4 w-4" /> Email</span>
+                    <Switch checked={activeShop.email_notifications !== false}
+                      onCheckedChange={checked => setActiveShop({ ...activeShop, email_notifications: checked })} />
+                  </label>
+                  <label className="flex items-center justify-between gap-3 text-sm">
+                    <span className="flex items-center gap-2"><Smartphone className="h-4 w-4" /> WhatsApp</span>
+                    <Switch checked={!!activeShop.whatsapp_notifications}
+                      onCheckedChange={checked => setActiveShop({ ...activeShop, whatsapp_notifications: checked })} />
+                  </label>
+                </div>
+                <Input value={activeShop.whatsapp_number || ""}
+                  onChange={event => setActiveShop({ ...activeShop, whatsapp_number: event.target.value })}
+                  placeholder="+965..." className="mt-3 border-white/20 bg-black/20 text-white" />
+                <p className="mt-1 text-xs text-stone-500">Use the full international number with country code.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {([
+                    ["Orders and payments", "order_notifications"],
+                    ["Buyer messages", "message_notifications"],
+                    ["Reviews", "review_notifications"],
+                    ["Low stock", "low_stock_notifications"],
+                  ] as const).map(([label, key]) => (
+                    <label key={key} className="flex items-center justify-between gap-3 text-sm text-stone-300">
+                      {label}
+                      <Switch checked={activeShop[key] !== false}
+                        onCheckedChange={checked => setActiveShop({ ...activeShop, [key]: checked })} />
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button onClick={saveShopSettings} disabled={settingsSaving} className="bg-emerald-600 hover:bg-emerald-500">
+                    <Save className="me-2 h-4 w-4" />{settingsSaving ? "Saving..." : "Save settings"}
+                  </Button>
+                  <Button variant="outline" onClick={connectStripe} className="border-white/20">
+                    <CreditCard className="me-2 h-4 w-4" />
+                    {activeShop.stripe_onboarding_complete ? "Stripe connected" : "Connect cash payouts"}
+                  </Button>
+                </div>
+              </div>
+
+              {sellerOrders.length > 0 && (
+                <div className="mb-8 border border-white/10 bg-white/5 p-5">
+                  <h3 className="mb-3 flex items-center gap-2 font-bold"><BarChart3 className="h-4 w-4 text-blue-400" /> Recent orders</h3>
+                  <div className="space-y-2">
+                    {sellerOrders.slice(0, 8).map(order => (
+                      <div key={order.id} className="flex items-center justify-between border-b border-white/10 py-2 text-sm last:border-0">
+                        <div>
+                          <p className="font-semibold">#{order.id.slice(0, 8)}</p>
+                          <p className="text-xs text-stone-500">{new Date(order.created_at).toLocaleString()}</p>
+                        </div>
+                        <div className="text-end">
+                          <Badge variant="outline">{order.status}</Badge>
+                          <p className="mt-1 font-bold text-emerald-300">
+                            {order.payment_method === "vx" ? `${Number(order.total_vx || 0).toLocaleString()} VX` : `$${Number(order.total_usd || 0).toFixed(2)}`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Add product form */}
               <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
                   <h3 className="mb-4 font-bold text-white flex items-center gap-2"><Plus className="h-4 w-4 text-emerald-400" /> {t("bazaar.addProduct")}</h3>
@@ -763,34 +1146,56 @@ export default function VXBazaar() {
                       maxLength={300}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label htmlFor="product-price" className="sr-only">{t("bazaar.priceRequired")}</label>
-                      <Input
-                        id="product-price"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={productForm.price}
-                        onChange={e => setProductForm(p => ({ ...p, price: e.target.value }))}
-                        placeholder={t("bazaar.pricePlaceholder")}
-                        aria-required="true"
-                        className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
-                      />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="border border-white/10 p-3">
+                      <label className="mb-2 flex items-center justify-between text-sm font-semibold">
+                        <span className="flex items-center gap-2"><Coins className="h-4 w-4 text-amber-400" /> VX price</span>
+                        <Switch checked={productForm.accepts_vx} onCheckedChange={checked => setProductForm(p => ({ ...p, accepts_vx: checked }))} />
+                      </label>
+                      <Input type="number" min="1" step="1" value={productForm.price_vx}
+                        onChange={e => setProductForm(p => ({ ...p, price_vx: e.target.value }))}
+                        placeholder="Price in VX" disabled={!productForm.accepts_vx}
+                        className="bg-white/10 border-white/20 text-white" />
                     </div>
-                    <div>
-                      <label htmlFor="product-shelf" className="sr-only">{t("bazaar.shelfPosition")}</label>
-                      <select
-                        id="product-shelf"
-                        value={productForm.shelf_position}
-                        onChange={e => setProductForm(p => ({ ...p, shelf_position: e.target.value }))}
-                        className="rounded-md border border-white/20 bg-stone-900 text-white text-sm px-3 py-2 w-full"
-                        aria-label={t("bazaar.shelfPosition")}
-                      >
-                        {SHELF_POSITIONS.map(pos => <option key={pos} value={pos}>{shelfLabel(pos)}</option>)}
-                      </select>
+                    <div className="border border-white/10 p-3">
+                      <label className="mb-2 flex items-center justify-between text-sm font-semibold">
+                        <span className="flex items-center gap-2"><DollarSign className="h-4 w-4 text-emerald-400" /> Cash price</span>
+                        <Switch checked={productForm.accepts_cash} onCheckedChange={checked => setProductForm(p => ({ ...p, accepts_cash: checked }))} />
+                      </label>
+                      <Input type="number" min="0.5" step="0.01" value={productForm.price_usd}
+                        onChange={e => setProductForm(p => ({ ...p, price_usd: e.target.value }))}
+                        placeholder="USD price" disabled={!productForm.accepts_cash}
+                        className="bg-white/10 border-white/20 text-white" />
                     </div>
                   </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <select value={productForm.category} onChange={e => setProductForm(p => ({ ...p, category: e.target.value }))}
+                      className="rounded-md border border-white/20 bg-stone-900 px-3 py-2 text-sm text-white">
+                      {PRODUCT_CATEGORIES.map(category => <option key={category.key} value={category.key}>{category.label}</option>)}
+                    </select>
+                    <select value={productForm.product_type} onChange={e => setProductForm(p => ({ ...p, product_type: e.target.value as ProductType }))}
+                      className="rounded-md border border-white/20 bg-stone-900 px-3 py-2 text-sm text-white">
+                      {PRODUCT_TYPES.map(type => <option key={type.key} value={type.key}>{type.label}</option>)}
+                    </select>
+                    <Input type="number" min="0" value={productForm.stock_qty}
+                      onChange={e => setProductForm(p => ({ ...p, stock_qty: e.target.value }))}
+                      placeholder="Stock" className="bg-white/10 border-white/20 text-white" />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <select value={productForm.shelf_position} onChange={e => setProductForm(p => ({ ...p, shelf_position: e.target.value }))}
+                      className="rounded-md border border-white/20 bg-stone-900 px-3 py-2 text-sm text-white">
+                      {SHELF_POSITIONS.map(pos => <option key={pos} value={pos}>{shelfLabel(pos)}</option>)}
+                    </select>
+                    <Input value={productForm.delivery_time} onChange={e => setProductForm(p => ({ ...p, delivery_time: e.target.value }))}
+                      placeholder="Delivery time" className="bg-white/10 border-white/20 text-white" />
+                    <Input value={productForm.shipping_from} onChange={e => setProductForm(p => ({ ...p, shipping_from: e.target.value }))}
+                      placeholder="Ships from" className="bg-white/10 border-white/20 text-white" />
+                    <Input type="number" min="0" step="0.01" value={productForm.shipping_cost}
+                      onChange={e => setProductForm(p => ({ ...p, shipping_cost: e.target.value }))}
+                      placeholder="Shipping USD" className="bg-white/10 border-white/20 text-white" />
+                  </div>
+                  <Textarea value={productForm.return_policy} onChange={e => setProductForm(p => ({ ...p, return_policy: e.target.value }))}
+                    placeholder="Return policy" className="bg-white/10 border-white/20 text-white" rows={2} />
                   <div className="flex items-center gap-2">
                     <ImagePlus className="h-4 w-4 text-stone-400 shrink-0" />
                     <Input
@@ -800,9 +1205,15 @@ export default function VXBazaar() {
                       className="bg-white/10 border-white/20 text-white placeholder:text-stone-500"
                     />
                   </div>
+                  <Input value={productForm.alt_text} onChange={e => setProductForm(p => ({ ...p, alt_text: e.target.value }))}
+                    placeholder="Image description for screen readers" className="bg-white/10 border-white/20 text-white" />
+                  <label className="flex items-center justify-between text-sm text-stone-300">
+                    Mark as accessible product
+                    <Switch checked={productForm.is_accessible} onCheckedChange={checked => setProductForm(p => ({ ...p, is_accessible: checked }))} />
+                  </label>
                   <Button
                     onClick={() => addProductMutation.mutate()}
-                    disabled={!productForm.name.trim() || !productForm.price || addProductMutation.isPending}
+                    disabled={!productForm.name.trim() || (!productForm.price_vx && !productForm.price_usd) || addProductMutation.isPending}
                     className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
                   >
                     {addProductMutation.isPending ? t("bazaar.adding") : t("bazaar.addProduct")}
@@ -829,7 +1240,12 @@ export default function VXBazaar() {
                           )}
                           <div>
                             <p className="font-semibold text-sm text-white">{item.name}</p>
-                            <p className="text-xs text-stone-400">${item.price} · {shelfLabel(item.shelf_position)}</p>
+                            <p className="text-xs text-stone-400">
+                              {item.accepts_vx && item.price_vx ? `${Number(item.price_vx).toLocaleString()} VX` : ""}
+                              {item.accepts_vx && item.accepts_cash ? " / " : ""}
+                              {item.accepts_cash && item.price_usd ? `$${Number(item.price_usd).toFixed(2)}` : ""}
+                              {" · "}{item.stock_qty ?? 0} in stock
+                            </p>
                           </div>
                         </div>
                         <button
@@ -1019,6 +1435,29 @@ export default function VXBazaar() {
                   <span className="text-xs text-stone-500">{t("bazaar.themeColorHint")}</span>
                 </div>
 
+                <div className="border-t border-white/10 pt-5">
+                  <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-stone-300">
+                    <Bell className="h-4 w-4 text-amber-400" /> Seller notifications
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2"><Mail className="h-4 w-4" /> Email</span>
+                      <Switch checked={createForm.email_notifications}
+                        onCheckedChange={checked => setCreateForm(form => ({ ...form, email_notifications: checked }))} />
+                    </label>
+                    <label className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2"><Smartphone className="h-4 w-4" /> WhatsApp</span>
+                      <Switch checked={createForm.whatsapp_notifications}
+                        onCheckedChange={checked => setCreateForm(form => ({ ...form, whatsapp_notifications: checked }))} />
+                    </label>
+                  </div>
+                  {createForm.whatsapp_notifications && (
+                    <Input value={createForm.whatsapp_number}
+                      onChange={event => setCreateForm(form => ({ ...form, whatsapp_number: event.target.value }))}
+                      placeholder="WhatsApp number, e.g. +965..." className="mt-3 bg-white/10 border-white/20 text-white" />
+                  )}
+                </div>
+
                 {/* Cost summary */}
                 {isOnTrial ? (
                   <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
@@ -1059,6 +1498,93 @@ export default function VXBazaar() {
               </div>
             </div>
           )}
+
+          <Dialog open={!!selectedProduct} onOpenChange={open => !open && setSelectedProduct(null)}>
+            <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-stone-700 bg-stone-950 text-white">
+              {selectedProduct && (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="pe-8 text-2xl">{selectedProduct.name}</DialogTitle>
+                    <DialogDescription className="text-stone-400">
+                      {selectedProduct.description || "No description provided."}
+                    </DialogDescription>
+                  </DialogHeader>
+                  {selectedProduct.image && (
+                    <img src={selectedProduct.image} alt={selectedProduct.alt_text || selectedProduct.name}
+                      className="max-h-72 w-full rounded object-cover" />
+                  )}
+                  <div className="grid gap-3 text-sm sm:grid-cols-2">
+                    <div className="border border-white/10 p-3">
+                      <p className="text-xs text-stone-500">Payment options</p>
+                      <div className="mt-1 flex flex-wrap gap-3 font-black">
+                        {selectedProduct.accepts_vx && selectedProduct.price_vx && <span className="text-amber-400">{Number(selectedProduct.price_vx).toLocaleString()} VX</span>}
+                        {selectedProduct.accepts_cash && selectedProduct.price_usd && <span className="text-emerald-400">${Number(selectedProduct.price_usd).toFixed(2)}</span>}
+                      </div>
+                    </div>
+                    <div className="border border-white/10 p-3">
+                      <p className="text-xs text-stone-500">Availability</p>
+                      <p className="mt-1 font-semibold">{selectedProduct.stock_qty ?? 0} in stock</p>
+                    </div>
+                    <div className="border border-white/10 p-3">
+                      <p className="flex items-center gap-2 font-semibold"><Truck className="h-4 w-4" /> Delivery</p>
+                      <p className="mt-1 text-stone-400">{selectedProduct.delivery_time || "Contact seller"}{selectedProduct.shipping_from ? ` from ${selectedProduct.shipping_from}` : ""}</p>
+                    </div>
+                    <div className="border border-white/10 p-3">
+                      <p className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-4 w-4" /> Returns</p>
+                      <p className="mt-1 text-stone-400">{selectedProduct.return_policy || "Contact seller before purchase"}</p>
+                    </div>
+                  </div>
+                  <Button onClick={() => addBazaarItem(selectedProduct)} className="w-full bg-amber-500 text-black hover:bg-amber-400">
+                    <ShoppingCart className="me-2 h-4 w-4" /> Add to bazaar cart
+                  </Button>
+                  <div className="border-t border-white/10 pt-4">
+                    <h4 className="mb-3 font-bold">Buyer reviews</h4>
+                    <div className="mb-4 max-h-36 space-y-2 overflow-y-auto">
+                      {reviews.filter(review => review.product_id === selectedProduct.id).length === 0 ? (
+                        <p className="text-sm text-stone-500">No reviews yet.</p>
+                      ) : reviews.filter(review => review.product_id === selectedProduct.id).map(review => (
+                        <div key={review.id} className="border-b border-white/10 pb-2 text-sm">
+                          <p className="text-amber-300">{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>
+                          {review.comment && <p className="text-stone-300">{review.comment}</p>}
+                        </div>
+                      ))}
+                    </div>
+                    {user && !isOwner && (
+                      <div className="space-y-2">
+                        <select value={reviewForm.rating} onChange={event => setReviewForm(form => ({ ...form, rating: Number(event.target.value) }))}
+                          className="w-full rounded-md border border-white/20 bg-stone-900 px-3 py-2 text-sm">
+                          {[5, 4, 3, 2, 1].map(rating => <option key={rating} value={rating}>{rating} stars</option>)}
+                        </select>
+                        <Textarea value={reviewForm.comment} onChange={event => setReviewForm(form => ({ ...form, comment: event.target.value }))}
+                          placeholder="Share your experience" className="border-white/20 bg-white/5 text-white" />
+                        <Button variant="outline" onClick={submitReview} className="border-white/20">Publish review</Button>
+                      </div>
+                    )}
+                  </div>
+                  {user && !isOwner && (
+                    <details className="border-t border-white/10 pt-4">
+                      <summary className="cursor-pointer text-sm font-semibold text-red-300">
+                        <Flag className="me-2 inline h-4 w-4" /> Open buyer support case
+                      </summary>
+                      <div className="mt-3 space-y-2">
+                        <select value={disputeForm.reason}
+                          onChange={event => setDisputeForm(form => ({ ...form, reason: event.target.value }))}
+                          className="w-full rounded-md border border-white/20 bg-stone-900 px-3 py-2 text-sm">
+                          {DISPUTE_REASONS.map(reason => <option key={reason} value={reason}>{reason}</option>)}
+                        </select>
+                        <Textarea value={disputeForm.description}
+                          onChange={event => setDisputeForm(form => ({ ...form, description: event.target.value }))}
+                          placeholder="Describe the issue clearly" className="border-white/20 bg-white/5 text-white" />
+                        <Button variant="destructive" onClick={submitDispute} disabled={!disputeForm.description.trim()}>
+                          Submit support case
+                        </Button>
+                      </div>
+                    </details>
+                  )}
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
 
         </>
       </div>

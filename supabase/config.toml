@@ -1,1 +1,4 @@
 project_id = "nnyxtaftwispowolajpl"
+
+[functions.bazaar-stripe-webhook]
+verify_jwt = false

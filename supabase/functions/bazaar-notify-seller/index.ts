@@ -1,7 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
-type BazaarEventType = "message" | "add_to_cart" | "wishlist" | "dispute" | "review" | "report";
+type BazaarEventType =
+  | "message" | "add_to_cart" | "wishlist" | "dispute" | "review" | "report"
+  | "order_paid" | "order_status" | "low_stock";
 
 interface NotifyPayload {
   shopId: string;
@@ -18,6 +20,9 @@ const EVENT_LABELS: Record<BazaarEventType, string> = {
   dispute: "New buyer support case",
   review: "New product review",
   report: "Product report",
+  order_paid: "New paid order",
+  order_status: "Order status changed",
+  low_stock: "Low stock alert",
 };
 
 Deno.serve(async (req) => {
@@ -33,7 +38,8 @@ Deno.serve(async (req) => {
     );
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const isInternal = authHeader === `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
+    if (!user && !isInternal) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -55,7 +61,7 @@ Deno.serve(async (req) => {
 
     const { data: shop, error: shopError } = await serviceClient
       .from("bazaar_shops")
-      .select("id, owner_id, name, email_notifications, whatsapp_notifications, whatsapp_number")
+      .select("id, owner_id, name, email_notifications, whatsapp_notifications, whatsapp_number, order_notifications, message_notifications, review_notifications, low_stock_notifications")
       .eq("id", payload.shopId)
       .maybeSingle();
 
@@ -67,7 +73,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (shop.owner_id === user.id) {
+    if (user && shop.owner_id === user.id) {
       return new Response(JSON.stringify({ skipped: true, reason: "owner_event" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -83,7 +89,19 @@ Deno.serve(async (req) => {
       productName = product?.name ?? "";
     }
 
-    const buyer = payload.buyerName || user.email || "A buyer";
+    const eventEnabled =
+      (payload.eventType === "message" && shop.message_notifications !== false)
+      || (payload.eventType === "review" && shop.review_notifications !== false)
+      || ((payload.eventType === "order_paid" || payload.eventType === "order_status") && shop.order_notifications !== false)
+      || (payload.eventType === "low_stock" && shop.low_stock_notifications !== false)
+      || !["message", "review", "order_paid", "order_status", "low_stock"].includes(payload.eventType);
+    if (!eventEnabled) {
+      return new Response(JSON.stringify({ skipped: true, reason: "event_disabled" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const buyer = payload.buyerName || user?.email || "A buyer";
     const title = `${EVENT_LABELS[payload.eventType]} · ${shop.name}`;
     const bodyParts = [
       `${buyer} interacted with ${productName || "your shop"}.`,
@@ -96,7 +114,7 @@ Deno.serve(async (req) => {
       title,
       body,
       type: payload.eventType === "dispute" || payload.eventType === "report" ? "warning" : "info",
-      sent_by: user.id,
+      sent_by: user?.id || null,
     });
 
     const result = { inApp: true, email: "skipped", whatsapp: "skipped" };
