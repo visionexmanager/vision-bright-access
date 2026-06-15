@@ -18,6 +18,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { playReactionSound } from "@/utils/reactionSounds";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -353,6 +354,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
         setTimeout(() => setFloatingReactions((prev) => prev.filter((item) => item.id !== id)), 2600);
         // Notify others (not yourself) who sent the reaction
         if (payload.senderId !== currentUserId) {
+          playReactionSound(payload.emoji);
           toast({ title: `${payload.senderName || payload.senderId} ${payload.emoji}`, duration: 2500 });
         }
       })
@@ -417,6 +419,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
   };
 
   const sendReaction = (emoji: string) => {
+    playReactionSound(emoji);
     broadcastChRef.current?.send({
       type: "broadcast",
       event: "reaction",

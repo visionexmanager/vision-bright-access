@@ -47,6 +47,7 @@ import { SpeakerQueuePanel } from "@/components/voice-room/SpeakerQueuePanel";
 import type { QueueEntry } from "@/components/voice-room/SpeakerQueuePanel";
 import { VoiceEffectsPanel } from "@/components/voice-room/VoiceEffectsPanel";
 import type { VoiceEffectType } from "@/components/voice-room/VoiceEffectsPanel";
+import { playReactionSound as playRealisticReactionSound } from "@/utils/reactionSounds";
 
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
 
@@ -445,7 +446,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         setTimeout(() => setFloatingReactions((prev) => prev.filter((item) => item.id !== id)), 2600);
         addEvent(payload.emoji, `${payload.senderName || payload.senderId} ${payload.emoji}`);
         if (payload.senderId !== currentUserId) {
-          playReactionSound(payload.emoji);
+          playRealisticReactionSound(payload.emoji);
           toast({ title: `${payload.senderName || payload.senderId} ${payload.emoji}`, duration: 2500 });
         }
       })
@@ -754,7 +755,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   };
 
   const sendReaction = (emoji: string) => {
-    playReactionSound(emoji);
+    playRealisticReactionSound(emoji);
     broadcastChRef.current?.send({
       type: "broadcast",
       event: "reaction",
