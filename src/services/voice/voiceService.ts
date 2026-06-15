@@ -47,13 +47,14 @@ const OPENAI_REALTIME_URL = "https://api.openai.com/v1/realtime?model=gpt-realti
  */
 export async function createVoiceSession(
   assistant: AssistantType,
-  callbacks: VoiceSessionCallbacks
+  callbacks: VoiceSessionCallbacks,
+  assistantId?: string,
 ): Promise<VoiceSession> {
   const { onStatus, onTranscript, onError } = callbacks;
 
   // ── 1. Get ephemeral key from our edge function ───────────────────────────
   onStatus("connecting");
-  const sessionData = await aiService.getRealtimeSession(assistant);
+  const sessionData = await aiService.getRealtimeSession(assistant, undefined, assistantId);
   const ephemeralKey = sessionData.client_secret?.value;
   if (!ephemeralKey) throw new Error("No ephemeral key received from session");
 

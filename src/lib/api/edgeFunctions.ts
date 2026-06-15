@@ -28,6 +28,10 @@ import type {
   DietPlanResponse,
   RealtimeSessionResponse,
   AssistantType,
+  VisionAnalysisResponse,
+  GeneratedPlanResponse,
+  SearchResponse,
+  ModerationResult,
 } from "@/lib/types";
 
 // ── Internal helpers ─────────────────────────────────────────────────────────
@@ -116,16 +120,22 @@ export async function callAcademyChat(
 }
 
 /**
- * ai-chat — SSE streaming, anon key sufficient
+ * ai-chat — SSE streaming.
+ *
+ * `assistantId` selects a registry-driven domain assistant (legal, medical, …).
+ * Domain assistants are gated behind login, so they use the user JWT; the
+ * default Visionex assistant keeps the original anon behavior.
  */
 export async function callAIChat(
   body: {
     messages: Array<{ role: string; content: string }>;
     context?: Record<string, unknown>;
+    assistantId?: string;
   },
   signal?: AbortSignal
 ): Promise<Response> {
-  return callEdge({ fn: "ai-chat", body, auth: "anon", stream: true, signal });
+  const auth: AuthMode = body.assistantId ? "user-jwt" : "anon";
+  return callEdge({ fn: "ai-chat", body, auth, stream: true, signal });
 }
 
 /**
@@ -133,11 +143,12 @@ export async function callAIChat(
  */
 export async function callRealtimeSession(
   assistant: AssistantType = "visionex",
-  voice?: string
+  voice?: string,
+  assistantId?: string,
 ): Promise<RealtimeSessionResponse> {
   return callEdge({
     fn: "realtime-session",
-    body: { assistant, ...(voice ? { voice } : {}) },
+    body: { assistant, ...(voice ? { voice } : {}), ...(assistantId ? { assistantId } : {}) },
     auth: "user-jwt",
   }) as Promise<RealtimeSessionResponse>;
 }
@@ -204,6 +215,83 @@ export async function callOCRScan(
     auth: "user-jwt",
     signal,
   }) as Promise<OCRResponse>;
+}
+
+/**
+ * analyze-image — registry-driven vision analysis (skin, hair, …).
+ * Requires user JWT. Returns the universal VisionAnalysis schema.
+ */
+export async function callVisionAnalyst(
+  analystId: string,
+  image: string,
+  lang: string = "en",
+  signal?: AbortSignal,
+): Promise<VisionAnalysisResponse> {
+  return callEdge({
+    fn: "analyze-image",
+    body: { analystId, image, lang },
+    auth: "user-jwt",
+    signal,
+  }) as Promise<VisionAnalysisResponse>;
+}
+
+/**
+ * ai-generate — registry-driven structured generation (training plan,
+ * travel itinerary, …). Requires user JWT. Returns the universal GeneratedPlan schema.
+ */
+export async function callGenerate(
+  generatorId: string,
+  params: Record<string, string>,
+  lang: string = "en",
+  signal?: AbortSignal,
+): Promise<GeneratedPlanResponse> {
+  return callEdge({
+    fn: "ai-generate",
+    body: { generatorId, params, lang },
+    auth: "user-jwt",
+    signal,
+  }) as Promise<GeneratedPlanResponse>;
+}
+
+/**
+ * ai-search — semantic (RAG) search over products / content. Anon-friendly.
+ * `source` optionally restricts to "products" or "content_items".
+ */
+export async function callAISearch<T = Record<string, unknown>>(
+  query: string,
+  source?: string,
+  limit = 8,
+  signal?: AbortSignal,
+): Promise<SearchResponse<T>> {
+  return callEdge({
+    fn: "ai-search",
+    body: { query, source, limit },
+    auth: "anon",
+    signal,
+  }) as Promise<SearchResponse<T>>;
+}
+
+/**
+ * moderate-content — flag user-generated text via the moderation model.
+ * Requires user JWT (called at content-creation points).
+ */
+export async function callModerate(text: string): Promise<ModerationResult> {
+  return callEdge({
+    fn: "moderate-content",
+    body: { text },
+    auth: "user-jwt",
+  }) as Promise<ModerationResult>;
+}
+
+/**
+ * embed-content — (re)build embeddings for products / content. Admin only.
+ */
+export async function callEmbedContent(sourceTable?: string): Promise<{ ok: boolean; embedded: Record<string, number> }> {
+  return callEdge({
+    fn: "embed-content",
+    body: sourceTable ? { source_table: sourceTable } : {},
+    auth: "admin-jwt",
+  }) as Promise<{ ok: boolean; embedded: Record<string, number> }>;
 }
 
 /**

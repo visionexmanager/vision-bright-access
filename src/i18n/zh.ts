@@ -2845,6 +2845,8 @@ const zh: Record<string, string> = {
   "legal.disclaimer.law.body": "本免责声明和平台相关争议受适用的数字服务法管辖。不同司法管辖区的用户可能拥有当地消费者保护、数据隐私和数字服务法律规定的其他权利，但本免责声明不会推翻这些权利。根据强制性法律不得放弃的权利不受任何限制。",
   "legal.disclaimer.contact.title": "法律事务联系",
   "legal.disclaimer.contact.body": "如需法律咨询、版权或知识产权请求或法律合规问题，请通过 hello@visionex.app 联系我们。我们的目标是在 30 个工作日内回复正式的法律询问。",
+  "legal.disclaimer.noAffiliation.title": "No Government or Company Affiliation",
+  "legal.disclaimer.noAffiliation.body": "Visionex is an independent digital platform. Unless expressly stated in writing, Visionex is not owned, operated, sponsored, endorsed by, certified by, or officially affiliated with any government, public authority, regulator, ministry, municipality, international organization, technology provider, payment provider, advertising network, marketplace, brand, or other company. References to third-party names, services, standards, laws, or providers are for identification, interoperability, compliance, or informational purposes only and do not imply partnership, agency, endorsement, certification, or official status.",
   "legal.market.title": "VXBazaar 市场政策",
   "legal.market.intro1": "VXBazaar 是一个托管在 Visionex 上的包容性市场，旨在为卖家提供支持并为多元化的全球社区提供服务，包括有视力障碍和无障碍需求的用户。所有卖家和买家都必须遵守此政策，以维护安全、尊重和合法的市场环境。",
   "legal.market.intro2": "Visionex作为促进买家和卖家之间联系的平台。卖家对其列表的合法性和准确性承担全部责任。",

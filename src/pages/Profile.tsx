@@ -18,7 +18,7 @@ import { Navigate, Link, useNavigate } from "react-router-dom";
 import {
   Camera, Save, Trophy, Star, Flame, Target,
   Gamepad2, BookOpen, Users, TrendingUp, Award, Coins, ShoppingBag, ArrowRight, Clock,
-  MessageCircle, Search, Send,
+  MessageCircle, Search, Send, FileText, Paperclip,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -49,6 +49,20 @@ function translateReason(reason: string, t: (key: string) => string): string {
   if (lower.includes("simulation") || lower.includes("sim")) return t("dash.reason.simulation");
   return reason;
 }
+
+const REQUEST_STATUS_KEYS: Record<string, string> = {
+  pending:     "contact.status.pending",
+  in_progress: "contact.status.in_progress",
+  resolved:    "contact.status.resolved",
+  closed:      "contact.status.closed",
+};
+
+const REQUEST_STATUS_STYLES: Record<string, string> = {
+  pending:     "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  in_progress: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  resolved:    "bg-green-500/15 text-green-600 dark:text-green-400",
+  closed:      "bg-muted text-muted-foreground",
+};
 
 export default function Profile() {
   const { user, loading: authLoading } = useAuth();
@@ -105,6 +119,22 @@ export default function Profile() {
         mealsLogged: mealRes.data?.length || 0,
         wishlistItems: wishRes.data?.length || 0,
       };
+    },
+  });
+
+  // User's submitted service requests (contact form)
+  const { data: serviceRequests = [], isLoading: requestsLoading } = useQuery({
+    queryKey: ["service-requests", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("service_requests")
+        .select("id, service_type, status, created_at, attachment_url")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -414,6 +444,71 @@ export default function Profile() {
             <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
           </div>
         </Link>
+
+        {/* Service Requests */}
+        <h2 className="mb-4 text-xl font-bold flex items-center gap-2">
+          <FileText className="h-5 w-5 text-primary" />
+          {t("profile.requestsTitle")}
+        </h2>
+        <Card className="mb-8">
+          <CardContent className="p-0">
+            {requestsLoading ? (
+              <div className="space-y-3 p-6">
+                {[1, 2].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+              </div>
+            ) : serviceRequests.length === 0 ? (
+              <div className="py-10 text-center text-muted-foreground">
+                <p className="mb-3">{t("profile.requestsEmpty")}</p>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/contact-us">{t("contact.title")}</Link>
+                </Button>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("contact.serviceType")}</TableHead>
+                    <TableHead>{t("profile.requestStatus")}</TableHead>
+                    <TableHead>{t("dash.date")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {serviceRequests.map((req) => (
+                    <TableRow key={req.id}>
+                      <TableCell className="font-medium">
+                        <span className="inline-flex items-center gap-2">
+                          {req.service_type}
+                          {req.attachment_url && (
+                            <a
+                              href={req.attachment_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={t("contact.attachment")}
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <Paperclip className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`border-transparent ${REQUEST_STATUS_STYLES[req.status] ?? "bg-muted text-muted-foreground"}`}
+                        >
+                          {REQUEST_STATUS_KEYS[req.status] ? t(REQUEST_STATUS_KEYS[req.status]) : req.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {format(new Date(req.created_at), "MMM d, yyyy", { locale: DATE_LOCALES[lang] ?? enUS })}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Activity History */}
         <h2 className="mb-4 text-xl font-bold flex items-center gap-2">

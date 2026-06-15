@@ -445,6 +445,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         setTimeout(() => setFloatingReactions((prev) => prev.filter((item) => item.id !== id)), 2600);
         addEvent(payload.emoji, `${payload.senderName || payload.senderId} ${payload.emoji}`);
         if (payload.senderId !== currentUserId) {
+          playReactionSound(payload.emoji);
           toast({ title: `${payload.senderName || payload.senderId} ${payload.emoji}`, duration: 2500 });
         }
       })

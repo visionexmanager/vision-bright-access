@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { full_name, email, phone, service_type, message, user_id } = body;
+    const { full_name, email, phone, service_type, message, user_id, attachment_url } = body;
 
     // ── Input validation ───────────────────────────────────────────────
     if (!full_name || !email || !service_type || !message) {
@@ -46,7 +46,9 @@ Deno.serve(async (req) => {
       typeof email        !== "string" || email.length        > 255  ||
       typeof service_type !== "string" || service_type.length > 100  ||
       typeof message      !== "string" || message.length      > 2000 ||
-      (phone !== undefined && (typeof phone !== "string" || phone.length > 30))
+      (phone !== undefined && phone !== null && (typeof phone !== "string" || phone.length > 30)) ||
+      (attachment_url !== undefined && attachment_url !== null &&
+        (typeof attachment_url !== "string" || attachment_url.length > 500))
     ) {
       return new Response(JSON.stringify({ error: "Invalid or oversized field" }), {
         status: 400,
@@ -73,6 +75,7 @@ Deno.serve(async (req) => {
       phone:        phone?.trim() || null,
       service_type: service_type.trim(),
       message:      message.trim(),
+      attachment_url: attachment_url || null,
     });
 
     if (error) {

@@ -14,6 +14,7 @@ const clauses = [
   "liability",
   "availability",
   "law",
+  "noAffiliation",
   "contact",
 ];
 

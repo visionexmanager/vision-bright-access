@@ -55,7 +55,12 @@ export type EdgeFunctionName =
   | "tv-stream-token"
   | "send-email"
   | "contact-form"
-  | "trial-billing";
+  | "trial-billing"
+  | "analyze-image"
+  | "ai-generate"
+  | "ai-search"
+  | "embed-content"
+  | "moderate-content";
 
 export type AuthMode = "anon" | "user-jwt" | "admin-jwt" | "cron-secret";
 
@@ -140,6 +145,62 @@ export interface DietPlan {
 
 export interface DietPlanResponse {
   plan: DietPlan;
+}
+
+// ── Vision Analysis (universal schema) ─────────────────────────────────────────
+
+export interface VisionFinding {
+  label: string;
+  detail: string;
+}
+
+export interface VisionAnalysis {
+  summary: string;
+  findings: VisionFinding[];
+  recommendations: string[];
+  caution: string;
+}
+
+export interface VisionAnalysisResponse {
+  analysis: VisionAnalysis;
+}
+
+// ── Structured Generation (universal schema) ────────────────────────────────────
+
+export interface GeneratedSection {
+  heading: string;
+  items: string[];
+}
+
+export interface GeneratedPlan {
+  title: string;
+  summary: string;
+  sections: GeneratedSection[];
+  tips: string[];
+}
+
+export interface GeneratedPlanResponse {
+  result: GeneratedPlan;
+}
+
+// ── Semantic Search (RAG) ───────────────────────────────────────────────────────
+
+export interface SearchResult<T = Record<string, unknown>> {
+  source_table: string;
+  id: string;
+  similarity: number;
+  item: T;
+}
+
+export interface SearchResponse<T = Record<string, unknown>> {
+  results: SearchResult<T>[];
+}
+
+// ── Moderation ──────────────────────────────────────────────────────────────────
+
+export interface ModerationResult {
+  flagged: boolean;
+  categories: string[];
 }
 
 // ── Voice / Realtime ──────────────────────────────────────────────────────────

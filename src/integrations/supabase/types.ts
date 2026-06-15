@@ -483,6 +483,7 @@ export type Database = {
       }
       service_requests: {
         Row: {
+          attachment_url: string | null
           created_at: string
           email: string
           full_name: string
@@ -494,6 +495,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          attachment_url?: string | null
           created_at?: string
           email: string
           full_name: string
@@ -505,6 +507,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          attachment_url?: string | null
           created_at?: string
           email?: string
           full_name?: string

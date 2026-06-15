@@ -1,18 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
-
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get("Origin") || "";
-  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")
-    ? origin
-    : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowed,
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  };
-}
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { getAssistant } from "../_shared/assistants.ts";
+import { streamChatCompletion, ProviderError, type AIProvider } from "../_shared/aiProvider.ts";
 
 const SYSTEM_PROMPT = `You are Visionex AI — a friendly, knowledgeable assistant for the Visionex platform, an inclusive platform focused on accessibility for visually impaired and blind users.
 
@@ -101,7 +90,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { messages, context } = await req.json();
+    const { messages, context, assistantId } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(
@@ -110,20 +99,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured");
-    }
-
-    // Build context-aware system prompt
+    // ── Resolve provider, model, and system prompt ─────────────────────
+    let provider: AIProvider = "openai";
+    let model = "gpt-4o";
     let systemPrompt = SYSTEM_PROMPT;
 
-    const isSimulation = context?.productName?.startsWith("Business Simulation:");
-    if (isSimulation) {
-      // Override to full Business Mentor mode
-      const simName = context.productName.replace("Business Simulation:", "").trim();
-      const stepInfo = context.currentStep ? `\nCurrent step / stage: ${context.currentStep}` : "";
-      systemPrompt = `You are a Business Mentor AI on the Visionex platform, specializing in guiding users through interactive business simulations.
+    const assistant = getAssistant(assistantId);
+    if (assistant) {
+      // Registry-driven domain assistant (legal, medical, sports, …)
+      provider = assistant.provider;
+      model = assistant.model;
+      systemPrompt = assistant.systemPrompt;
+      if (context?.language) {
+        systemPrompt += `\n\nUser's preferred language: ${context.language}. Respond in this language.`;
+      }
+    } else {
+      // Default Visionex assistant + Business Simulation mentor mode
+      const isSimulation = context?.productName?.startsWith("Business Simulation:");
+      if (isSimulation) {
+        const simName = context.productName.replace("Business Simulation:", "").trim();
+        const stepInfo = context.currentStep ? `\nCurrent step / stage: ${context.currentStep}` : "";
+        systemPrompt = `You are a Business Mentor AI on the Visionex platform, specializing in guiding users through interactive business simulations.
 
 ## Your Role
 Help the user learn real-world business skills through the "${simName}" simulation. You are their personal mentor — knowledgeable, encouraging, and practical.
@@ -145,52 +141,50 @@ Simulation: ${simName}${stepInfo}
 - Adapt to the user's language level
 - Respond in the same language the user writes in
 - Keep responses concise (2–4 sentences for hints, longer for concept explanations)`;
-    } else {
-      if (context?.currentPage) {
-        systemPrompt += `\n\n## Current Context\nThe user is currently on: ${context.currentPage}`;
+      } else {
+        if (context?.currentPage) {
+          systemPrompt += `\n\n## Current Context\nThe user is currently on: ${context.currentPage}`;
+        }
+        if (context?.productName) {
+          systemPrompt += `\nThey are viewing the product: ${context.productName}`;
+        }
       }
-      if (context?.productName) {
-        systemPrompt += `\nThey are viewing the product: ${context.productName}`;
+      if (context?.language) {
+        systemPrompt += `\nUser's preferred language: ${context.language}. Respond in this language.`;
       }
     }
-    if (context?.language) {
-      systemPrompt += `\nUser's preferred language: ${context.language}. Respond in this language.`;
-    }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        stream: true,
-      }),
-    });
+    // ── Stream via the unified provider layer ──────────────────────────
+    const cleanMessages = messages.map((m: { role: string; content: string }) => ({
+      role: m.role === "assistant" ? "assistant" as const : "user" as const,
+      content: m.content,
+    }));
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    try {
+      const stream = await streamChatCompletion({
+        provider,
+        model,
+        system: systemPrompt,
+        messages: cleanMessages,
+      });
+      return new Response(stream, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    } catch (e) {
+      if (e instanceof ProviderError) {
+        if (e.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "AI service temporarily unavailable" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errText = await response.text();
-      console.error("OpenAI API error:", response.status, errText);
-      return new Response(
-        JSON.stringify({ error: "AI service temporarily unavailable" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      throw e;
     }
-
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
   } catch (e) {
     console.error("ai-chat error:", e);
     return new Response(

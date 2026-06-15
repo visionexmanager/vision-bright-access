@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAssistant } from "../_shared/assistants.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -65,9 +66,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { voice = "sage", assistant = "visionex" } = await req.json().catch(() => ({}));
+    const { voice, assistant = "visionex", assistantId } = await req.json().catch(() => ({}));
 
-    // Voice map for gpt-realtime-2: sage, cedar, coral, ash, verse, ballad, marin
+    // gpt-realtime-2 voices: sage, cedar, coral, ash, verse, ballad, marin
+    const VOICES = ["sage", "cedar", "coral", "ash", "verse", "ballad", "marin"];
+
     const voiceMap: Record<string, string> = {
       visionex:  voice || "sage",
       munir:     "cedar",
@@ -77,8 +80,6 @@ Deno.serve(async (req) => {
       mentor:    "ballad",
     };
 
-    const selectedVoice = voiceMap[assistant] || "sage";
-
     const instructionsMap: Record<string, string> = {
       visionex: VISIONEX_VOICE_INSTRUCTIONS,
       munir: `أنت "منير" — مساعد أكاديمي صوتي ذكي في أكاديمية VisionEx. تتحدث بلهجة عربية ودودة ومبسطة. أجب دائماً بالعربية. كن مشجعاً وصبوراً. اشرح الأفكار بجمل قصيرة وواضحة.`,
@@ -87,6 +88,19 @@ Deno.serve(async (req) => {
       ocr: `You are an OCR voice assistant for Visionex. Help users extract and understand text from images. Guide them through the scanning process with clear, simple voice instructions. Respond in the same language the user uses.`,
       mentor: `You are Mentor AI — a personal growth and learning voice coach on Visionex. Guide users through skill development, answer educational questions, and motivate them with warm, encouraging advice. Keep responses short and conversational.`,
     };
+
+    // A registry-driven domain assistant (legal, medical, …) overrides the built-ins.
+    const registered = getAssistant(assistantId);
+    let selectedVoice: string;
+    let instructions: string;
+    if (registered) {
+      const h = [...String(assistantId)].reduce((a, c) => a + c.charCodeAt(0), 0);
+      selectedVoice = voice || VOICES[h % VOICES.length];
+      instructions = `${registered.systemPrompt}\n\nVOICE MODE: You are speaking out loud, not writing. Keep responses short and conversational, use natural sentences (no bullet lists or markdown), and respond in the user's language.`;
+    } else {
+      selectedVoice = voiceMap[assistant] || "sage";
+      instructions = instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS;
+    }
 
     // gpt-realtime-2 uses /v1/realtime/client_secrets with nested session object
     const response = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
@@ -99,7 +113,7 @@ Deno.serve(async (req) => {
         session: {
           type: "realtime",
           model: "gpt-realtime-2",
-          instructions: instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS,
+          instructions,
           audio: {
             output: { voice: selectedVoice },
             input: { transcription: { model: "gpt-4o-mini" } },

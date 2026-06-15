@@ -20,7 +20,7 @@ export type VoiceTranscript = {
   text: string;
 };
 
-export function useVoiceChat(assistant: AssistantType = "visionex") {
+export function useVoiceChat(assistant: AssistantType = "visionex", assistantId?: string) {
   const [status,      setStatus]      = useState<VoiceSessionStatus>("idle");
   const [transcripts, setTranscripts] = useState<VoiceTranscript[]>([]);
   const [error,       setError]       = useState<string | null>(null);
@@ -34,14 +34,14 @@ export function useVoiceChat(assistant: AssistantType = "visionex") {
         onTranscript: (role, text) =>
           setTranscripts((prev) => [...prev, { role, text }]),
         onError:      (msg) => setError(msg),
-      });
+      }, assistantId);
       sessionRef.current = session;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Connection failed";
       setError(msg);
       setStatus("error");
     }
-  }, [assistant]);
+  }, [assistant, assistantId]);
 
   const disconnect = useCallback(() => {
     sessionRef.current?.disconnect();

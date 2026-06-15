@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   assistant?: AssistantType;
+  /** Registry-driven domain assistant id (legal-advisor, …); overrides `assistant`. */
+  assistantId?: string;
   assistantName?: string;
   className?: string;
 };
@@ -21,9 +23,9 @@ const STATUS_COLOR: Record<VoiceStatus, string> = {
   error:      "bg-red-500",
 };
 
-export function VoiceChat({ assistant = "visionex", assistantName = "Visionex AI", className }: Props) {
+export function VoiceChat({ assistant = "visionex", assistantId, assistantName = "Visionex AI", className }: Props) {
   const { t } = useLanguage();
-  const { status, transcripts, error, connect, disconnect, clearTranscripts } = useVoiceChat(assistant);
+  const { status, transcripts, error, connect, disconnect, clearTranscripts } = useVoiceChat(assistant, assistantId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isConnected = status !== "idle" && status !== "error";
 

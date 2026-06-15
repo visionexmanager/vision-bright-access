@@ -16,6 +16,11 @@ import { useSound } from "@/contexts/SoundContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CheckCircle2, Coins, ArrowRight, LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import { ServiceAssistant } from "@/components/ServiceAssistant";
+import { ImageAnalyst } from "@/components/ImageAnalyst";
+import { PlanGenerator } from "@/components/PlanGenerator";
+import { getServiceAssistant } from "@/services/ai/serviceAssistants";
+import { getServiceCapabilities } from "@/services/ai/serviceCapabilities";
 
 export interface ServicePackage {
   name: string;
@@ -43,12 +48,16 @@ export default function ServiceRequestPage({
   const { isOnTrial } = useTrial();
   const queryClient = useQueryClient();
   const { playSound } = useSound();
-  const { t, translateText } = useLanguage();
+  const { t, translateText, lang } = useLanguage();
 
   const [selectedPkg, setSelectedPkg] = useState<ServicePackage | null>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  // AI advisor + extra capabilities for this service (logged-in users only).
+  const assistant = getServiceAssistant(serviceType);
+  const capabilities = getServiceCapabilities(serviceType);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,6 +161,31 @@ export default function ServiceRequestPage({
             ))}
           </div>
         </AnimatedSection>
+
+        {/* AI Advisor + capabilities (logged-in users only) */}
+        {user && (assistant || capabilities) && (
+          <AnimatedSection>
+            <div className="mb-10 space-y-4">
+              {assistant && (
+                <ServiceAssistant
+                  assistantId={assistant.id}
+                  assistantName={assistant.name}
+                  title={title}
+                />
+              )}
+              {capabilities?.vision && (
+                <ImageAnalyst
+                  analystId={capabilities.vision.analystId}
+                  name={assistant?.name ?? title}
+                  hint={lang === "ar" ? capabilities.vision.hintAr : capabilities.vision.hintEn}
+                />
+              )}
+              {capabilities?.generator && (
+                <PlanGenerator capability={capabilities.generator} />
+              )}
+            </div>
+          </AnimatedSection>
+        )}
 
         {/* Packages */}
         <AnimatedSection>

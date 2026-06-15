@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   MessageSquare, Send, Store, ShoppingCart, X, Plus, ArrowLeft,
   Coins, Crown, Package, Settings, Trash2, ImagePlus, CheckCircle2,
+  BarChart3, Bell, Filter, Flag, Heart, Mail, ShieldCheck, Star, Truck,
 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import { parseSSEResponse } from "@/lib/api/useSSEStream";
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tier = "kiosk" | "boutique" | "store" | "flagship";
 type View = "street" | "inside" | "chat" | "create" | "manage";
+type ProductType = "physical" | "digital" | "service";
 
 interface Shop {
   id: string;
@@ -37,6 +39,12 @@ interface Shop {
   sign_style: string;
   country: string | null;
   is_active: boolean;
+  email_notifications?: boolean | null;
+  whatsapp_notifications?: boolean | null;
+  whatsapp_number?: string | null;
+  vacation_mode?: boolean | null;
+  trust_score?: number | null;
+  response_rate?: number | null;
 }
 
 interface BazaarProduct {
@@ -48,11 +56,48 @@ interface BazaarProduct {
   image: string | null;
   shelf_position: string | null;
   in_stock: boolean;
+  category?: string | null;
+  product_type?: ProductType | null;
+  alt_text?: string | null;
+  stock_qty?: number | null;
+  delivery_time?: string | null;
+  shipping_from?: string | null;
+  shipping_cost?: number | null;
+  return_policy?: string | null;
+  is_accessible?: boolean | null;
+  is_featured?: boolean | null;
+  views_count?: number | null;
+  cart_count?: number | null;
+  sold_count?: number | null;
 }
 
 interface ChatMessage {
   text: string;
   sender: "user" | "seller";
+}
+
+interface BazaarReview {
+  id: string;
+  product_id: string;
+  shop_id: string;
+  reviewer_id: string;
+  rating: number;
+  comment: string | null;
+  verified_purchase: boolean | null;
+  created_at: string;
+}
+
+interface BazaarDispute {
+  id: string;
+  product_id: string | null;
+  shop_id: string;
+  buyer_id: string;
+  reason: string;
+  description: string;
+  status: string;
+  seller_response: string | null;
+  resolution: string | null;
+  created_at: string;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -79,6 +124,34 @@ const SHELF_KEY: Record<string, string> = {
   "Clearance Rack": "clearanceRack",
 };
 const DEFAULT_BG = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=1200";
+
+const PRODUCT_CATEGORIES = [
+  { key: "assistive", label: "Assistive Tech" },
+  { key: "digital", label: "Digital Tools" },
+  { key: "education", label: "Education" },
+  { key: "services", label: "Services" },
+  { key: "electronics", label: "Electronics" },
+  { key: "home", label: "Home" },
+  { key: "fashion", label: "Fashion" },
+  { key: "health", label: "Health & Wellness" },
+  { key: "creative", label: "Creative Assets" },
+  { key: "handmade", label: "Handmade" },
+  { key: "business", label: "Business Services" },
+];
+
+const PRODUCT_TYPES: { key: ProductType; label: string }[] = [
+  { key: "physical", label: "Physical" },
+  { key: "digital", label: "Digital" },
+  { key: "service", label: "Service" },
+];
+
+const DISPUTE_REASONS = [
+  "Not received",
+  "Different from description",
+  "Seller not responding",
+  "Technical delivery issue",
+  "Fraud concern",
+];
 
 const COUNTRIES: { code: string; name: string; flag: string }[] = [
   { code: "SA", name: "Saudi Arabia",     flag: "🇸🇦" },
@@ -143,12 +216,25 @@ export default function VXBazaar() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [shopSearch, setShopSearch] = useState("");
+  const [shopTierFilter, setShopTierFilter] = useState<"all" | Tier>("all");
+  const [shopCountryFilter, setShopCountryFilter] = useState("all");
+  const [productSearch, setProductSearch] = useState("");
+  const [productCategoryFilter, setProductCategoryFilter] = useState("all");
+  const [productTypeFilter, setProductTypeFilter] = useState<"all" | ProductType>("all");
+  const [selectedProduct, setSelectedProduct] = useState<BazaarProduct | null>(null);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
+  const [disputeForm, setDisputeForm] = useState({ product_id: "", reason: DISPUTE_REASONS[0], description: "" });
   const [createForm, setCreateForm] = useState({
     name: "", tier: "kiosk" as Tier, description: "",
     theme_color: "#f59e0b", sign_style: "neon", country: "",
+    email_notifications: true, whatsapp_notifications: false, whatsapp_number: "",
   });
   const [productForm, setProductForm] = useState({
     name: "", description: "", price: "", image: "", shelf_position: "Front Window",
+    category: "assistive", product_type: "physical" as ProductType, alt_text: "",
+    stock_qty: "1", delivery_time: "", shipping_from: "", shipping_cost: "0",
+    return_policy: "", is_accessible: true,
   });
   const tierLabel = (tier: Tier) => t(`bazaar.tier.${tier}`);
   const shelfLabel = (position: string | null) => position ? t(`bazaar.shelf.${SHELF_KEY[position] ?? "frontWindow"}`) : "";

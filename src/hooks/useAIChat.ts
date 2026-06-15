@@ -21,7 +21,8 @@ export type RateLimitInfo = {
   cooldownSeconds: number;
 };
 
-export function useAIChat() {
+export function useAIChat(options?: { assistantId?: string }) {
+  const assistantId = options?.assistantId;
   const [messages, setMessages]     = useState<Message[]>([]);
   const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo>({
     isRateLimited: false,
@@ -62,6 +63,7 @@ export function useAIChat() {
           {
             currentPage: pathname,
             language:    lang,
+            ...(assistantId ? { assistantId } : {}),
             ...(productContext || {}),
           },
           controller.signal
@@ -98,7 +100,7 @@ export function useAIChat() {
         abortRef.current = null;
       }
     },
-    [messages, lang, pathname, consumeStream]
+    [messages, lang, pathname, consumeStream, assistantId]
   );
 
   const startCooldown = useCallback(() => {

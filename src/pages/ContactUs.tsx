@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Mail, Clock, MessageSquare, CheckCircle2 } from "lucide-react";
+import { Send, Mail, Clock, MessageSquare, CheckCircle2, MessageCircle, Paperclip, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +31,12 @@ const serviceTypes = [
 
 const MESSAGE_MAX = 2000;
 
+const WHATSAPP_NUMBER  = "96170750609";
+const WHATSAPP_DISPLAY = "+961 70 750 609";
+
+const ATTACHMENT_TYPES    = ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"];
+const ATTACHMENT_MAX_SIZE = 5 * 1024 * 1024; // matches the storage bucket limit
+
 const requestSchema = z.object({
   fullName: z.string().trim().min(1).max(100),
   email: z.string().trim().email().max(255),
@@ -45,6 +51,8 @@ export default function ContactUs() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -63,6 +71,27 @@ export default function ContactUs() {
   const set = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ATTACHMENT_TYPES.includes(file.type)) {
+      toast({ title: t("contact.fileTypeUnsupported"), variant: "destructive" });
+      e.target.value = "";
+      return;
+    }
+    if (file.size > ATTACHMENT_MAX_SIZE) {
+      toast({ title: t("contact.fileTooLarge"), variant: "destructive" });
+      e.target.value = "";
+      return;
+    }
+    setAttachment(file);
+  };
+
+  const clearAttachment = () => {
+    setAttachment(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = requestSchema.safeParse(form);
@@ -77,6 +106,23 @@ export default function ContactUs() {
     setFieldErrors({});
 
     setLoading(true);
+
+    // Upload the attachment first so its public URL goes with the request
+    let attachmentUrl: string | null = null;
+    if (attachment) {
+      const ext = attachment.name.split(".").pop()?.toLowerCase() || "bin";
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("contact-attachments")
+        .upload(path, attachment);
+      if (uploadError) {
+        setLoading(false);
+        toast({ title: t("contact.error"), variant: "destructive" });
+        return;
+      }
+      attachmentUrl = supabase.storage.from("contact-attachments").getPublicUrl(path).data.publicUrl;
+    }
+
     const { error } = await supabase.functions.invoke("contact-form", {
       body: {
         user_id: user?.id ?? null,
@@ -85,6 +131,7 @@ export default function ContactUs() {
         phone: parsed.data.phone || null,
         service_type: t(parsed.data.serviceType),
         message: parsed.data.message,
+        attachment_url: attachmentUrl,
       },
     });
 
@@ -100,6 +147,7 @@ export default function ContactUs() {
       description: t("contact.successDesc"),
     });
     setForm({ fullName: "", email: user?.email ?? "", phone: "", serviceType: "", message: "" });
+    clearAttachment();
     setSubmitted(true);
   };
 
@@ -111,6 +159,21 @@ export default function ContactUs() {
           <p className="text-xs text-muted-foreground">{t("contact.emailUs")}</p>
           <a href="mailto:hello@visionex.app" className="text-sm font-semibold text-primary hover:underline">
             hello@visionex.app
+          </a>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+        <MessageCircle className="h-4 w-4 shrink-0 text-green-500" aria-hidden="true" />
+        <div>
+          <p className="text-xs text-muted-foreground">{t("contact.whatsapp")}</p>
+          <a
+            href={`https://wa.me/${WHATSAPP_NUMBER}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-semibold text-primary hover:underline"
+            dir="ltr"
+          >
+            {WHATSAPP_DISPLAY}
           </a>
         </div>
       </div>
@@ -252,6 +315,46 @@ export default function ContactUs() {
                   {fieldErrors.message && <p id="message-error" className="mt-1 text-xs text-destructive" role="alert">{fieldErrors.message}</p>}
                 </div>
 
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="attachment" className="text-base font-semibold">
+                    {t("contact.attachment")}
+                  </Label>
+                  {attachment ? (
+                    <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
+                      <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <span className="flex-1 truncate text-sm">{attachment.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={clearAttachment}
+                        aria-label={t("contact.removeFile")}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileRef.current?.click()}
+                      className="justify-start font-normal text-muted-foreground"
+                    >
+                      <Paperclip className="me-2 h-4 w-4" aria-hidden="true" />
+                      {t("contact.attachmentHint")}
+                    </Button>
+                  )}
+                  <input
+                    ref={fileRef}
+                    id="attachment"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                </div>
+
                 <Button
                   type="submit"
                   size="lg"
@@ -267,7 +370,7 @@ export default function ContactUs() {
           </Card>
 
           {/* Contact info — side column on desktop, stacked below form on mobile */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
             {infoCards}
           </div>
         </div>

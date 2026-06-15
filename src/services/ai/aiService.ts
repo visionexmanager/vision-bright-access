@@ -18,6 +18,10 @@ import {
   callGenerateDietPlan,
   callOCRScan,
   callRealtimeSession,
+  callVisionAnalyst,
+  callGenerate,
+  callAISearch,
+  callModerate,
 } from "@/lib/api/edgeFunctions";
 
 import type {
@@ -27,6 +31,10 @@ import type {
   DietPlanResponse,
   OCRResponse,
   RealtimeSessionResponse,
+  VisionAnalysisResponse,
+  GeneratedPlanResponse,
+  SearchResponse,
+  ModerationResult,
 } from "@/lib/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -42,6 +50,8 @@ export interface ChatContext {
   productName?: string;
   currentStep?: string;
   shopContext?: string;
+  /** Selects a registry-driven domain assistant (e.g. "legal-advisor"). */
+  assistantId?: string;
 }
 
 // ── General Chat (ai-chat edge function) ─────────────────────────────────────
@@ -61,6 +71,7 @@ async function streamChat(
     {
       messages: messages.map(({ role, content }) => ({ role, content })),
       context: context as Record<string, unknown>,
+      assistantId: context?.assistantId,
     },
     signal
   );
@@ -140,6 +151,69 @@ async function ocrScan(
   return callOCRScan(image, lang, hint, signal);
 }
 
+// ── Vision Analysts (analyze-image edge function) ──────────────────────────────
+
+/**
+ * Analyze an image with a registry-driven analyst (e.g. "skin-care", "hair-care").
+ * Returns the universal VisionAnalysis schema. Requires user JWT.
+ */
+async function analyzeWithAnalyst(
+  analystId: string,
+  image: string,
+  lang: string = "ar",
+  signal?: AbortSignal,
+): Promise<VisionAnalysisResponse> {
+  return callVisionAnalyst(analystId, image, lang, signal);
+}
+
+// ── Structured Generators (ai-generate edge function) ──────────────────────────
+
+/**
+ * Generate a structured plan with a registry-driven generator
+ * (e.g. "training-plan", "travel-itinerary"). Requires user JWT.
+ */
+async function generatePlan(
+  generatorId: string,
+  params: Record<string, string>,
+  lang: string = "ar",
+  signal?: AbortSignal,
+): Promise<GeneratedPlanResponse> {
+  return callGenerate(generatorId, params, lang, signal);
+}
+
+// ── Summarization (ai-generate edge function, "content-summary") ───────────────
+
+/** Summarize text into the universal GeneratedPlan structure. Requires user JWT. */
+async function summarizeText(
+  text: string,
+  lang: string = "ar",
+  signal?: AbortSignal,
+): Promise<GeneratedPlanResponse> {
+  return callGenerate("content-summary", { text }, lang, signal);
+}
+
+// ── Semantic Search (ai-search edge function) ──────────────────────────────────
+
+/**
+ * Semantic search over products / content via embeddings.
+ * `source` optionally restricts to "products" or "content_items".
+ */
+async function search<T = Record<string, unknown>>(
+  query: string,
+  source?: string,
+  limit = 8,
+  signal?: AbortSignal,
+): Promise<SearchResponse<T>> {
+  return callAISearch<T>(query, source, limit, signal);
+}
+
+// ── Moderation (moderate-content edge function) ────────────────────────────────
+
+/** Flag user-generated text. Returns { flagged, categories }. Requires user JWT. */
+async function moderate(text: string): Promise<ModerationResult> {
+  return callModerate(text);
+}
+
 // ── Voice / Realtime ──────────────────────────────────────────────────────────
 
 /**
@@ -148,9 +222,10 @@ async function ocrScan(
  */
 async function getRealtimeSession(
   assistant: AssistantType = "visionex",
-  voice?: string
+  voice?: string,
+  assistantId?: string,
 ): Promise<RealtimeSessionResponse> {
-  return callRealtimeSession(assistant, voice);
+  return callRealtimeSession(assistant, voice, assistantId);
 }
 
 // ── Exported service object ───────────────────────────────────────────────────
@@ -163,4 +238,9 @@ export const aiService = {
   generateDietPlan,
   ocrScan,
   getRealtimeSession,
+  analyzeWithAnalyst,
+  generatePlan,
+  search,
+  moderate,
+  summarizeText,
 } as const;
