@@ -11,6 +11,7 @@ import { WatchAdButton } from "@/components/WatchAdButton";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ar as arLocale, enUS, es, de, pt, zhCN, tr, fr, ru } from "date-fns/locale";
+import { AITaskPanel } from "@/components/AITaskPanel";
 
 const DATE_LOCALES: Record<string, Locale> = {
   ar: arLocale, es, de, pt, zh: zhCN, tr, fr, ru,
@@ -176,6 +177,21 @@ export default function News() {
               <RefreshCw className="me-2 h-4 w-4" aria-hidden="true" />
               {t("services.catAll")}
             </Button>
+          </div>
+        )}
+        {!loading && filtered.length > 0 && (
+          <div className="mt-8">
+            <AITaskPanel
+              assistantId="content-guide"
+              title={lang === "ar" ? "موجز الأخبار الذكي" : "AI news brief"}
+              description={lang === "ar" ? "يلخص الأخبار الظاهرة ويشرح المصطلحات دون إضافة معلومات غير موجودة." : "Summarizes visible stories and explains terms without inventing facts."}
+              actions={[
+                { label: lang === "ar" ? "ملخص سريع" : "Quick brief", prompt: lang === "ar" ? "لخص الأخبار الحالية في نقاط قصيرة." : "Summarize the current stories in short bullet points." },
+                { label: lang === "ar" ? "شرح مبسط" : "Plain language", prompt: lang === "ar" ? "اشرح أهم الأخبار بلغة بسيطة جدا." : "Explain the most important stories in very simple language." },
+                { label: lang === "ar" ? "قارن المواضيع" : "Compare topics", prompt: lang === "ar" ? "قارن موضوعات الأخبار وحدد الروابط بينها اعتمادا على النص فقط." : "Compare the story topics and identify connections using only the supplied text." },
+              ]}
+              context={{ category: activeCategory, stories: filtered }}
+            />
           </div>
         )}
       </section>

@@ -24,6 +24,7 @@ import { useAmbientSound } from "@/hooks/useAmbientSound";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import { aiService } from "@/services/ai/aiService";
 import { parseSSEResponse } from "@/lib/api/useSSEStream";
+import { AITaskPanel } from "@/components/AITaskPanel";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tier = "kiosk" | "boutique" | "store" | "flagship";
@@ -1121,6 +1122,22 @@ export default function VXBazaar() {
               {/* Add product form */}
               <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
                   <h3 className="mb-4 font-bold text-white flex items-center gap-2"><Plus className="h-4 w-4 text-emerald-400" /> {t("bazaar.addProduct")}</h3>
+                <div className="mb-4 text-foreground">
+                  <AITaskPanel
+                    assistantId="bazaar-copilot"
+                    title="VXBazaar AI listing copilot"
+                    description="Improve the listing, pricing approach, accessibility text, and buyer clarity."
+                    actions={[
+                      { label: "Write listing", prompt: "Write an accurate, persuasive product description ready to publish. Keep it under 300 characters." },
+                      { label: "Accessible alt text", prompt: "Write concise image alt text from the supplied product details. If no image details are supplied, ask what is visible instead of inventing it." },
+                      { label: "Pricing review", prompt: "Review the VX and cash pricing approach. Explain assumptions; do not claim live market data." },
+                      { label: "Trust check", prompt: "Review this listing for missing details, risky claims, or trust issues and give a short checklist." },
+                    ]}
+                    context={{ shop: activeShop?.name, product: productForm }}
+                    onUseResult={(value) => setProductForm(form => ({ ...form, description: value.slice(0, 300) }))}
+                    compact
+                  />
+                </div>
                 <div className="space-y-3">
                   <div>
                     <label htmlFor="product-name" className="sr-only">{t("bazaar.productNameRequired")}</label>

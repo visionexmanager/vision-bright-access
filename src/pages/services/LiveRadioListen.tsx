@@ -9,6 +9,7 @@ import { OfficialStreamPlayer, detectType } from "@/components/OfficialStreamPla
 import { StationCard } from "@/components/radio/StationCard";
 import { cn } from "@/lib/utils";
 import type { RadioStation } from "@/hooks/useRadioSubscription";
+import { AITaskPanel } from "@/components/AITaskPanel";
 
 export default function LiveRadioListen() {
   const { stationId } = useParams<{ stationId: string }>();
@@ -133,6 +134,20 @@ export default function LiveRadioListen() {
                   </div>
                 </div>
               </div>
+            )}
+            {currentStation && (
+              <AITaskPanel
+                assistantId="media-companion"
+                title={isRTL ? "مرافق الراديو الذكي" : "AI radio companion"}
+                description={isRTL ? "اشرح المحطة أو الصق نص البرنامج لتلخيصه وترجمته." : "Explore the station, or paste program text to summarize and translate it."}
+                actions={[
+                  { label: isRTL ? "اشرح المحطة" : "Explain station", prompt: isRTL ? "اشرح نوع هذه المحطة ومحتواها المتوقع من البيانات المتوفرة فقط." : "Explain this station and its likely programming using only the supplied metadata." },
+                  { label: isRTL ? "ملخص قابل للوصول" : "Accessible summary", prompt: isRTL ? "أعد كتابة وصف المحطة بوضوح وباختصار لمستخدم قارئ الشاشة." : "Rewrite the station description clearly and concisely for a screen-reader user." },
+                ]}
+                context={{ name: stName(currentStation), description: stDesc(currentStation), genre: currentStation.genre, country: currentStation.country, bitrate: currentStation.bitrate }}
+                placeholder={isRTL ? "الصق نص البرنامج أو ملاحظاتك..." : "Paste program text or your notes..."}
+                compact
+              />
             )}
           </div>
 

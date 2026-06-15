@@ -24,6 +24,7 @@ import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { WatchAdButton } from "@/components/WatchAdButton";
+import { AITaskPanel } from "@/components/AITaskPanel";
 
 type ContentItem = {
   id: string;
@@ -218,6 +219,19 @@ export default function Content() {
           ))}
 
         </Tabs>
+        <div className="mt-8">
+          <AITaskPanel
+            assistantId="content-guide"
+            title="AI content guide"
+            description="Summarize, simplify, or turn the visible library into a learning path."
+            actions={[
+              { label: "Recommend next", prompt: "Recommend the best next item and explain why." },
+              { label: "Learning path", prompt: "Build a short learning path from these items, from easiest to hardest." },
+              { label: "Accessible overview", prompt: "Give a concise, screen-reader-friendly overview of the available content." },
+            ]}
+            context={{ activeTab: tab, items: filterItems(tab).map(({ title, description, type, category, level }) => ({ title, description, type, category, level })) }}
+          />
+        </div>
       </section>
     </Layout>
   );

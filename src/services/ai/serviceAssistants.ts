@@ -31,6 +31,15 @@ export const SERVICE_ASSISTANTS: Record<string, ServiceAssistantMeta> = {
   "import-purchasing": { name: "Import & Purchasing AI" },
   "professional-training": { name: "Professional Training AI" },
   "global-studio": { name: "Global Studio AI" },
+  "bazaar-copilot": { name: "VXBazaar Copilot" },
+  "delivery-planner": { name: "Accessible Route Planner AI" },
+  "shared-trip-planner": { name: "Shared Trip Planner AI" },
+  "business-analyst": { name: "Business Analyst AI" },
+  "content-guide": { name: "Content Accessibility AI" },
+  "message-assistant": { name: "Message Assistant AI" },
+  "media-companion": { name: "Live Media Companion AI" },
+  "voice-room-assistant": { name: "Voice Room Assistant AI" },
+  "simulation-mentor": { name: "Simulation Mentor AI" },
 };
 
 /**

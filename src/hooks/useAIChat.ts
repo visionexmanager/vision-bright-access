@@ -35,6 +35,23 @@ export function useAIChat(options?: { assistantId?: string }) {
 
   const { consumeStream, isStreaming } = useSSEStream();
 
+  const startCooldown = useCallback(() => {
+    const COOLDOWN = 30;
+    setRateLimitInfo({ isRateLimited: true, cooldownSeconds: COOLDOWN });
+    if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+    let remaining = COOLDOWN;
+    cooldownTimerRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(cooldownTimerRef.current!);
+        cooldownTimerRef.current = null;
+        setRateLimitInfo({ isRateLimited: false, cooldownSeconds: 0 });
+      } else {
+        setRateLimitInfo({ isRateLimited: true, cooldownSeconds: remaining });
+      }
+    }, 1000);
+  }, []);
+
   const sendMessage = useCallback(
     async (
       input: string,
@@ -50,7 +67,7 @@ export function useAIChat(options?: { assistantId?: string }) {
 
       const controller  = new AbortController();
       abortRef.current  = controller;
-      const assistantId = crypto.randomUUID();
+      const responseId = crypto.randomUUID();
 
       const apiMessages = [...messages, userMsg].map((m) => ({
         role:    m.role as "user" | "assistant",
@@ -73,12 +90,12 @@ export function useAIChat(options?: { assistantId?: string }) {
           onToken: (_token, accumulated) => {
             setMessages((prev) => {
               const last = prev[prev.length - 1];
-              if (last?.id === assistantId) {
+              if (last?.id === responseId) {
                 return prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: accumulated } : m
+                  m.id === responseId ? { ...m, content: accumulated } : m
                 );
               }
-              return [...prev, { id: assistantId, role: "assistant", content: accumulated }];
+              return [...prev, { id: responseId, role: "assistant", content: accumulated }];
             });
           },
           onError: (err, isRateLimit) => {
@@ -100,25 +117,8 @@ export function useAIChat(options?: { assistantId?: string }) {
         abortRef.current = null;
       }
     },
-    [messages, lang, pathname, consumeStream, assistantId]
+    [messages, lang, pathname, consumeStream, assistantId, startCooldown]
   );
-
-  const startCooldown = useCallback(() => {
-    const COOLDOWN = 30;
-    setRateLimitInfo({ isRateLimited: true, cooldownSeconds: COOLDOWN });
-    if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
-    let remaining = COOLDOWN;
-    cooldownTimerRef.current = setInterval(() => {
-      remaining -= 1;
-      if (remaining <= 0) {
-        clearInterval(cooldownTimerRef.current!);
-        cooldownTimerRef.current = null;
-        setRateLimitInfo({ isRateLimited: false, cooldownSeconds: 0 });
-      } else {
-        setRateLimitInfo({ isRateLimited: true, cooldownSeconds: remaining });
-      }
-    }, 1000);
-  }, []);
 
   const clearMessages = useCallback(() => {
     abortRef.current?.abort();

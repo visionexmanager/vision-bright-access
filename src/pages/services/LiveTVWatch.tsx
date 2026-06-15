@@ -9,6 +9,7 @@ import { OfficialStreamPlayer, detectType } from "@/components/OfficialStreamPla
 import { ChannelCard } from "@/components/tv/ChannelCard";
 import { cn } from "@/lib/utils";
 import type { TVChannel } from "@/hooks/useTVSubscription";
+import { AITaskPanel } from "@/components/AITaskPanel";
 
 export default function LiveTVWatch() {
   const { channelId } = useParams<{ channelId: string }>();
@@ -125,6 +126,20 @@ export default function LiveTVWatch() {
                   </div>
                 </div>
               </div>
+            )}
+            {currentChannel && (
+              <AITaskPanel
+                assistantId="media-companion"
+                title={isRTL ? "مرافق التلفزيون الذكي" : "AI TV companion"}
+                description={isRTL ? "اشرح معلومات القناة أو الصق نص الترجمة لتلخيصه وترجمته." : "Explore channel information, or paste captions to summarize and translate them."}
+                actions={[
+                  { label: isRTL ? "اشرح القناة" : "Explain channel", prompt: isRTL ? "اشرح معلومات هذه القناة وما المتوقع من محتواها اعتمادا على البيانات المتوفرة فقط." : "Explain this channel and its likely content using only the supplied metadata." },
+                  { label: isRTL ? "تبسيط الوصف" : "Simplify description", prompt: isRTL ? "أعد كتابة وصف القناة بلغة بسيطة مناسبة لقارئ الشاشة." : "Rewrite the channel description in simple screen-reader-friendly language." },
+                ]}
+                context={{ name: chName(currentChannel), description: chDesc(currentChannel), category: currentChannel.category, country: currentChannel.country, quality: currentChannel.quality }}
+                placeholder={isRTL ? "الصق الترجمة أو ملاحظات البرنامج للتلخيص..." : "Paste captions or program notes to summarize..."}
+                compact
+              />
             )}
           </div>
 

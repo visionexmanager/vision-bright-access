@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { AITaskPanel } from "@/components/AITaskPanel";
 
 const DeliveryMap = lazy(() => import("@/components/DeliveryMap"));
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
@@ -496,6 +497,28 @@ export default function Delivery() {
               </Suspense>
             </div>
           )}
+          <div className="mt-8">
+            <AITaskPanel
+              assistantId="delivery-planner"
+              title={lang === "ar" ? "مخطط الرحلة الذكي" : "AI trip planner"}
+              description={lang === "ar" ? "يراجع بيانات الرحلة ويقترح تعليمات وصول وتجهيزات مناسبة." : "Reviews this trip and suggests accessible pickup and preparation guidance."}
+              actions={[
+                { label: lang === "ar" ? "خطط الرحلة" : "Plan trip", prompt: lang === "ar" ? "حلل هذه الرحلة واقترح خطة واضحة من الاستلام إلى الوصول." : "Analyze this trip and provide a clear pickup-to-arrival plan." },
+                { label: lang === "ar" ? "احتياجات الوصول" : "Accessibility", prompt: lang === "ar" ? "اقترح ترتيبات وصول مناسبة لشخص كفيف أو ضعيف بصر في هذه الرحلة." : "Suggest accessibility arrangements for a blind or low-vision passenger." },
+                { label: lang === "ar" ? "راجع التكلفة" : "Review cost", prompt: lang === "ar" ? "اشرح تقدير الوقت والتكلفة والعوامل التي يجب التحقق منها." : "Explain the time and cost estimate and what should be verified." },
+              ]}
+              context={{
+                serviceType,
+                from: location.from,
+                to: location.to,
+                distanceKm: tripInfo?.distance.toFixed(1),
+                estimatedMinutes: tripInfo?.minutes,
+                estimatedPriceUsd: tripInfo?.price.toFixed(2),
+                paymentMethod,
+                scheduledAt: isScheduled && scheduledDate ? `${format(scheduledDate, "yyyy-MM-dd")} ${scheduledTime}` : "now",
+              }}
+            />
+          </div>
         </main>
 
         <footer className="fixed bottom-6 w-full px-6 flex justify-between items-center pointer-events-none z-50">

@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MapPin, Car, Truck, Clock, Navigation } from "lucide-react";
+import { AITaskPanel } from "@/components/AITaskPanel";
 
 const DeliveryMap = lazy(() => import("@/components/DeliveryMap"));
 
@@ -75,6 +76,19 @@ export default function SharedTrip() {
               </div>
             </div>
           </div>
+
+          <AITaskPanel
+            assistantId="shared-trip-planner"
+            title={t("sharedTrip.aiTitle") === "sharedTrip.aiTitle" ? "AI shared-trip planner" : t("sharedTrip.aiTitle")}
+            description={t("sharedTrip.aiDesc") === "sharedTrip.aiDesc" ? "Coordinate meeting points, safety, cost sharing, and accessibility." : t("sharedTrip.aiDesc")}
+            actions={[
+              { label: "Meeting plan", prompt: "Create a practical meeting and coordination plan for this shared trip." },
+              { label: "Safety checklist", prompt: "Create a short safety and identity-verification checklist for the passengers." },
+              { label: "Accessibility", prompt: "Suggest accessibility arrangements for blind or low-vision passengers." },
+            ]}
+            context={trip}
+            compact
+          />
 
           <p className="text-center text-sm text-muted-foreground">
             {t("sharedTrip.poweredBy")}

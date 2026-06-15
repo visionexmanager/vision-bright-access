@@ -33,6 +33,13 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AITaskPanel } from "@/components/AITaskPanel";
+
+interface MessageSearchProfile {
+  user_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+}
 
 export default function Messages() {
   const { user, loading: authLoading } = useAuth();
@@ -266,6 +273,22 @@ function ChatView({
           <Send className="h-4 w-4" />
         </Button>
       </div>
+      <div className="border-t p-3">
+        <AITaskPanel
+          assistantId="message-assistant"
+          title="AI writing assistant"
+          description="Rewrite, translate, or suggest a reply. Nothing is sent automatically."
+          actions={[
+            { label: "Suggest reply", prompt: "Suggest a concise, friendly reply to the latest message." },
+            { label: "Professional tone", prompt: `Rewrite this draft professionally: ${text}` },
+            { label: "Translate", prompt: `Translate this draft to the other person's likely language, preserving meaning: ${text}` },
+            { label: "Scam check", prompt: "Review the conversation for common scam pressure or requests for sensitive information. Be cautious and factual." },
+          ]}
+          context={{ draft: text, recentMessages: messages.slice(-8).map(message => ({ mine: message.sender_id === userId, content: message.content })) }}
+          onUseResult={setText}
+          compact
+        />
+      </div>
     </Card>
   );
 }
@@ -280,7 +303,7 @@ function NewConversationDialog({
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<MessageSearchProfile[]>([]);
   const [searching, setSearching] = useState(false);
 
   const handleSearch = async () => {

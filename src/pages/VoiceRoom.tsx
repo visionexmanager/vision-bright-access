@@ -40,6 +40,7 @@ import {
   Unlock, UserX, Users, Volume2, WifiOff, X,
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
+import { AITaskPanel } from "@/components/AITaskPanel";
 
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
 
@@ -613,6 +614,20 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, currentUserId, roomI
           </button>
         </div>
       </div>
+
+      <AITaskPanel
+        assistantId="voice-room-assistant"
+        title="AI room assistant"
+        description="Paste consensual captions or notes to summarize, translate, or extract action items. Audio is not recorded."
+        actions={[
+          { label: "Discussion outline", prompt: "Create a neutral discussion outline for this room based on its participants and any notes I provide." },
+          { label: "Action items", prompt: "Extract decisions and action items from the notes I provide. Do not invent missing discussion." },
+          { label: "Moderation wording", prompt: "Suggest a calm, neutral moderation message for keeping the room respectful and on topic." },
+        ]}
+        context={{ participantCount: participants.length, participants: participants.map(participant => participant.name || participant.identity) }}
+        placeholder="Paste captions or private notes only with participant consent..."
+        compact
+      />
 
       {/* Controls */}
       <div className="flex items-center justify-center gap-4 pt-2 flex-wrap">

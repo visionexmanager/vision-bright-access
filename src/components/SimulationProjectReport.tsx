@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { SimProject } from "@/data/simulationProjects";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { AITaskPanel } from "@/components/AITaskPanel";
 
 interface Props {
   project: SimProject;
@@ -160,6 +161,18 @@ export function SimulationProjectReport({
           <p className="text-sm text-muted-foreground leading-relaxed">{getFeedback()}</p>
         </CardContent>
       </Card>
+
+      <AITaskPanel
+        assistantId="simulation-mentor"
+        title={isAr ? "مراجعة المدرب الذكي" : "AI mentor review"}
+        description={isAr ? "تحليل شخصي للنتيجة مع تحدٍ تالٍ مناسب." : "A personalized debrief with a focused next challenge."}
+        actions={[
+          { label: isAr ? "حلل أدائي" : "Analyze performance", prompt: isAr ? "حلل أدائي وحدد نقطة قوة وخطأين قابلين للتحسين." : "Analyze my performance, naming one strength and two improvements." },
+          { label: isAr ? "التحدي التالي" : "Next challenge", prompt: isAr ? "اقترح تحديا عمليا تاليا يناسب نتيجتي." : "Create one practical next challenge matched to my score." },
+        ]}
+        context={{ simulationTitle, projectTitle, clientName, score: normalizedScore, objectives, deliverables, feedback: getFeedback() }}
+        compact
+      />
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3 pb-6">

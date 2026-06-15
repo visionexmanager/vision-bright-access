@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
+import { AITaskPanel } from "@/components/AITaskPanel";
 
 const speak = (text: string, lang: string) => {
   if ("speechSynthesis" in window) {
@@ -477,6 +478,24 @@ export default function BusinessEconomy() {
               </div>
             </div>
           )}
+          <AITaskPanel
+            assistantId="business-analyst"
+            title={lang === "ar" ? "محلل الأعمال الذكي" : "AI business analyst"}
+            description={lang === "ar" ? "يشرح أرقام المشروع ويختبر سيناريوهات النمو والمخاطر." : "Explains the project numbers and tests growth and risk scenarios."}
+            actions={[
+              { label: lang === "ar" ? "حلل المشروع" : "Analyze project", prompt: lang === "ar" ? "حلل جدوى المشروع بناء على الأرقام الحالية ووضح الافتراضات والمخاطر." : "Analyze feasibility from the current figures and explain assumptions and risks." },
+              { label: lang === "ar" ? "سيناريو نمو 10%" : "10% growth scenario", prompt: lang === "ar" ? "احسب واشرح سيناريو زيادة الإيراد 10% مع بقاء التكاليف كما هي." : "Explain a scenario where revenue grows 10% while costs stay fixed." },
+              { label: lang === "ar" ? "خطة 90 يوم" : "90-day plan", prompt: lang === "ar" ? "أنشئ خطة تشغيل عملية لأول 90 يوما لهذا المشروع." : "Create a practical first-90-days operating plan." },
+            ]}
+            context={{
+              projectName,
+              sector,
+              initialBudget: budget,
+              monthlyCost,
+              monthlyRevenue,
+              analysis: result,
+            }}
+          />
         </main>
       </div>
     </Layout>
