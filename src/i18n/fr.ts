@@ -93,7 +93,7 @@ export const translations: Record<string, string> = {
   "auth.noAccount": "Vous n'avez pas de compte ?",
   "auth.hasAccount": "Vous avez déjà un compte ?",
   "auth.welcomeBack": "Bienvenue de nouveau !",
-  "auth.accountCreated": "Compte créé ! Vérifiez votre e-mail pour confirmer, ou connectez-vous maintenant.",
+  "auth.accountCreated": "Compte créé ! Connexion en cours.",
   "auth.orContinueWith": "ou continuer avec",
   "auth.forgotPassword": "Mot de passe oublié ?",
   "auth.forgotPasswordDesc": "Entrez votre e-mail et nous vous enverrons un lien de réinitialisation",

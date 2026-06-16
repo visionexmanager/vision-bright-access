@@ -93,7 +93,7 @@ export const translations: Record<string, string> = {
   "auth.noAccount": "没有账户？",
   "auth.hasAccount": "已有账户？",
   "auth.welcomeBack": "欢迎回来！",
-  "auth.accountCreated": "账户已创建！请检查您的电子邮件以确认，或立即登录。",
+  "auth.accountCreated": "账户已创建！正在为你登录。",
   "auth.orContinueWith": "或继续使用",
   "auth.forgotPassword": "忘记密码？",
   "auth.forgotPasswordDesc": "输入您的邮箱，我们将发送重置链接",

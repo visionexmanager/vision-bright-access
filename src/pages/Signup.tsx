@@ -56,9 +56,7 @@ export default function Signup() {
     ].filter(Boolean).join(" ").toLowerCase();
 
     if (raw.includes("over_email_send_rate_limit") || raw.includes("email rate limit")) {
-      return lang === "ar"
-        ? "تم تجاوز حد إرسال رسائل التأكيد مؤقتًا. جرّب بعد دقائق، أو تواصل مع الدعم إذا استمرت المشكلة."
-        : "Confirmation emails are temporarily rate-limited. Please try again in a few minutes, or contact support if it continues.";
+      return lang === "ar" ? "تعذر إنشاء الحساب. حاول مرة أخرى." : "Could not create the account. Please try again.";
     }
 
     if (raw.includes("already registered") || raw.includes("user already")) {

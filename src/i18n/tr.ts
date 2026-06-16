@@ -93,7 +93,7 @@ export const translations: Record<string, string> = {
   "auth.noAccount": "Hesabın yok mu?",
   "auth.hasAccount": "Zaten bir hesabın var mı?",
   "auth.welcomeBack": "Tekrar hoş geldin!",
-  "auth.accountCreated": "Hesap oluşturuldu! Onaylamak için e-postanı kontrol et veya şimdi giriş yap.",
+  "auth.accountCreated": "Hesap oluşturuldu! Şimdi oturum açılıyor.",
   "auth.orContinueWith": "veya şununla devam et",
   "auth.forgotPassword": "Şifreni mi unuttun?",
   "auth.forgotPasswordDesc": "E-postanı gir, sana sıfırlama bağlantısı gönderelim",
