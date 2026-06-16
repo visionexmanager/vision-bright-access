@@ -23,7 +23,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{name?: string; email?: string; password?: string}>({});
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const deviceId = useDeviceId();
   const { user, loading: authLoading } = useAuth();
 
@@ -45,9 +45,38 @@ export default function Signup() {
 
   if (!authLoading && user) return <Navigate to="/dashboard" replace />;
 
+  const getSignupErrorMessage = (error: { message?: string; code?: string | number; error_code?: string; msg?: string; name?: string; status?: number }) => {
+    const raw = [
+      error.code,
+      error.error_code,
+      error.msg,
+      error.name,
+      error.message,
+      error.status,
+    ].filter(Boolean).join(" ").toLowerCase();
+
+    if (raw.includes("over_email_send_rate_limit") || raw.includes("email rate limit")) {
+      return lang === "ar"
+        ? "تم تجاوز حد إرسال رسائل التأكيد مؤقتًا. جرّب بعد دقائق، أو تواصل مع الدعم إذا استمرت المشكلة."
+        : "Confirmation emails are temporarily rate-limited. Please try again in a few minutes, or contact support if it continues.";
+    }
+
+    if (raw.includes("already registered") || raw.includes("user already")) {
+      return lang === "ar"
+        ? "هذا البريد مسجل بالفعل. جرّب تسجيل الدخول أو استعادة كلمة المرور."
+        : "This email is already registered. Try logging in or resetting your password.";
+    }
+
+    if (raw.includes("invalid email")) {
+      return lang === "ar" ? "صيغة البريد الإلكتروني غير صحيحة." : "The email address format is invalid.";
+    }
+
+    return error.message || (lang === "ar" ? "تعذر إنشاء الحساب. حاول مرة أخرى." : "Could not create the account. Please try again.");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Inline field validation — visual only, no auth logic change
+    // Inline field validation - visual only, no auth logic change
     const errs: typeof fieldErrors = {};
     if (!displayName.trim()) errs.name     = t("auth.nameRequired") || "Name is required";
     if (!email.trim())       errs.email    = t("auth.emailRequired") || "Email is required";
@@ -60,39 +89,50 @@ export default function Signup() {
     }
     setLoading(true);
 
-    // Device ban check (best-effort — don't block signup if RPC fails)
-    if (deviceId) {
-      const { data: isBanned } = await supabase.rpc("is_device_banned", { _device_id: deviceId });
-      if (isBanned) {
-        setLoading(false);
-        toast.error(t("signup.deviceBanned"));
+    try {
+      // Device ban check (best-effort - don't block signup if RPC fails)
+      if (deviceId) {
+        const { data: isBanned, error: deviceError } = await supabase.rpc("is_device_banned", { _device_id: deviceId });
+        if (deviceError) {
+          console.warn("Device ban check failed; continuing signup.", deviceError);
+        }
+        if (isBanned) {
+          toast.error(t("signup.deviceBanned"));
+          return;
+        }
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+          data: { display_name: displayName.trim() },
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+      if (error) {
+        toast.error(getSignupErrorMessage(error));
         return;
       }
-    }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { display_name: displayName.trim() },
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
       // Record device fingerprint and enforce one-trial-per-device rule
       if (deviceId && data.user) {
-        const uid = data.user.id;
-        await supabase.rpc("record_device_fingerprint", {
+        const { error: fingerprintError } = await supabase.rpc("record_device_fingerprint", {
           _device_id: deviceId,
-          _user_id: uid,
+          _user_id: data.user.id,
           _user_agent: navigator.userAgent,
         });
+        if (fingerprintError) {
+          console.warn("Device fingerprint recording failed after signup.", fingerprintError);
+        }
       }
+
       toast.success(t("auth.accountCreated"));
       navigate("/dashboard");
+    } catch (error) {
+      toast.error(getSignupErrorMessage(error instanceof Error ? error : { message: String(error) }));
+    } finally {
+      setLoading(false);
     }
   };
 
