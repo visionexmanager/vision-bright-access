@@ -48,7 +48,7 @@ export default function ServiceRequestPage({
   const { isOnTrial } = useTrial();
   const queryClient = useQueryClient();
   const { playSound } = useSound();
-  const { t, translateText, lang } = useLanguage();
+  const { t, translateText } = useLanguage();
 
   const [selectedPkg, setSelectedPkg] = useState<ServicePackage | null>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
@@ -177,7 +177,7 @@ export default function ServiceRequestPage({
                 <ImageAnalyst
                   analystId={capabilities.vision.analystId}
                   name={assistant?.name ?? title}
-                  hint={lang === "ar" ? capabilities.vision.hintAr : capabilities.vision.hintEn}
+                  hint={translateText(capabilities.vision.hintEn)}
                 />
               )}
               {capabilities?.generator && (

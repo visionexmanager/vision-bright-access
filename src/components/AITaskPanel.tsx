@@ -35,7 +35,7 @@ export function AITaskPanel({
   compact = false,
   onUseResult,
 }: AITaskPanelProps) {
-  const { lang, dir } = useLanguage();
+  const { t, lang, dir, translateText } = useLanguage();
   const [input, setInput] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
@@ -67,7 +67,7 @@ export function AITaskPanel({
       await parseSSEResponse(response, (_token, accumulated) => setResult(accumulated), controller.signal);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") return;
-      toast.error(lang === "ar" ? "تعذر تشغيل مساعد الذكاء الاصطناعي" : "AI assistant could not run");
+      toast.error(t("ai.task.failed"));
     } finally {
       setLoading(false);
       abortRef.current = null;
@@ -76,7 +76,7 @@ export function AITaskPanel({
 
   const copyResult = async () => {
     await navigator.clipboard.writeText(result);
-    toast.success(lang === "ar" ? "تم نسخ النتيجة" : "Result copied");
+    toast.success(t("ai.task.copied"));
   };
 
   return (
@@ -84,16 +84,16 @@ export function AITaskPanel({
       <CardHeader className={compact ? "p-4 pb-2" : undefined}>
         <CardTitle className="flex items-center gap-2 text-lg">
           <Sparkles className="h-5 w-5 text-primary" />
-          {title}
+          {translateText(title)}
         </CardTitle>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="text-sm text-muted-foreground">{translateText(description)}</p>
       </CardHeader>
       <CardContent className={compact ? "space-y-3 p-4 pt-2" : "space-y-4"}>
         <div className="flex flex-wrap gap-2">
           {actions.map((action) => (
             <Button key={action.label} type="button" variant="outline" size="sm" onClick={() => void run(action.prompt)} disabled={loading}>
               <Bot className="me-1.5 h-4 w-4" />
-              {action.label}
+              {translateText(action.label)}
             </Button>
           ))}
         </div>
@@ -101,16 +101,16 @@ export function AITaskPanel({
           <Textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder={placeholder ?? (lang === "ar" ? "اطلب مساعدة مخصصة..." : "Ask for tailored help...")}
+            placeholder={placeholder ?? t("ai.task.placeholder")}
             rows={compact ? 2 : 3}
             className="min-h-20 resize-none"
           />
           {loading ? (
-            <Button type="button" variant="outline" size="icon" onClick={() => abortRef.current?.abort()} aria-label={lang === "ar" ? "إيقاف" : "Stop"}>
+            <Button type="button" variant="outline" size="icon" onClick={() => abortRef.current?.abort()} aria-label={t("ai.task.stop")}>
               <Square className="h-4 w-4" />
             </Button>
           ) : (
-            <Button type="button" size="icon" onClick={() => void run(input)} disabled={!input.trim()} aria-label={lang === "ar" ? "إرسال" : "Send"}>
+            <Button type="button" size="icon" onClick={() => void run(input)} disabled={!input.trim()} aria-label={t("ai.task.send")}>
               <Send className="h-4 w-4" />
             </Button>
           )}
@@ -118,7 +118,7 @@ export function AITaskPanel({
         {loading && !result && (
           <div className="flex items-center gap-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {lang === "ar" ? "جاري التحليل..." : "Analyzing..."}
+            {t("ai.task.analyzing")}
           </div>
         )}
         {result && (
@@ -129,12 +129,12 @@ export function AITaskPanel({
             <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
               <Button type="button" variant="ghost" size="sm" onClick={copyResult}>
                 <Copy className="me-1.5 h-4 w-4" />
-                {lang === "ar" ? "نسخ" : "Copy"}
+                {t("ai.task.copy")}
               </Button>
               {onUseResult && (
                 <Button type="button" size="sm" onClick={() => onUseResult(result)}>
                   <Check className="me-1.5 h-4 w-4" />
-                  {lang === "ar" ? "استخدام النتيجة" : "Use result"}
+                  {t("ai.task.useResult")}
                 </Button>
               )}
             </div>

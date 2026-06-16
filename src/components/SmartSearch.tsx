@@ -32,13 +32,13 @@ interface Props {
 }
 
 export function SmartSearch({ source, placeholder, onSelect }: Props) {
-  const { lang } = useLanguage();
-  const isAr = lang === "ar";
+  const { t, dir } = useLanguage();
+  const isAr = dir === "rtl";
   const navigate = useNavigate();
   const { query, setQuery, results, loading } = useSmartSearch<ResultItem>(source);
   const [open, setOpen] = useState(false);
 
-  const ph = placeholder ?? (isAr ? "ابحث بالمعنى…" : "Search by meaning…");
+  const ph = placeholder ?? t("ai.smartSearch.placeholder");
 
   const handleSelect = (r: SearchResult<ResultItem>) => {
     setOpen(false);
@@ -71,7 +71,7 @@ export function SmartSearch({ source, placeholder, onSelect }: Props) {
         >
           {results.length === 0 && !loading && (
             <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-              {isAr ? "لا نتائج" : "No results"}
+              {t("ai.smartSearch.noResults")}
             </p>
           )}
           {results.map((r) => {

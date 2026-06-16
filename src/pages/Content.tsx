@@ -25,6 +25,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import { AITaskPanel } from "@/components/AITaskPanel";
+import { SmartSearch } from "@/components/SmartSearch";
 
 type ContentItem = {
   id: string;
@@ -126,6 +127,12 @@ export default function Content() {
         <AnimatedSection variants={scaleFade}>
           <h1 id="content-heading" className="mb-2 text-3xl font-bold">{t("content.title")}</h1>
           <p className="mb-8 text-lg text-muted-foreground">{t("content.subtitle")}</p>
+        </AnimatedSection>
+
+        <AnimatedSection>
+          <div className="mb-6">
+            <SmartSearch source="content_items" />
+          </div>
         </AnimatedSection>
 
         <Tabs value={tab} onValueChange={setTab}>

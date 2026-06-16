@@ -22,9 +22,8 @@ interface Props {
 }
 
 export function ServiceAssistant({ assistantId, assistantName, title }: Props) {
-  const { lang } = useLanguage();
-  const isRTL = lang === "ar";
-  const isAr = lang === "ar";
+  const { t, dir, translateText } = useLanguage();
+  const isRTL = dir === "rtl";
 
   const [open, setOpen] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
@@ -56,18 +55,14 @@ export function ServiceAssistant({ assistantId, assistantName, title }: Props) {
   };
 
   const tx = {
-    cta: isAr ? `اسأل ${assistantName}` : `Ask ${assistantName}`,
-    intro: isAr
-      ? `مساعد ذكي متخصص في ${title}. اطرح سؤالك وسيرد فوراً.`
-      : `An AI advisor specialized in ${title}. Ask anything and get an instant answer.`,
-    placeholder: isAr ? "اكتب سؤالك هنا…" : "Type your question…",
-    send: isAr ? "إرسال" : "Send",
-    stop: isAr ? "إيقاف" : "Stop",
-    clear: isAr ? "مسح المحادثة" : "Clear chat",
-    voice: isAr ? "محادثة صوتية" : "Voice chat",
-    disclaimer: isAr
-      ? "إجابات الذكاء الاصطناعي إرشادية فقط وقد تحتوي أخطاء."
-      : "AI answers are guidance only and may contain mistakes.",
+    cta: t("ai.service.ask").replace("{assistant}", translateText(assistantName)),
+    intro: t("ai.service.intro").replace("{title}", translateText(title)),
+    placeholder: t("ai.service.placeholder"),
+    send: t("ai.task.send"),
+    stop: t("ai.task.stop"),
+    clear: t("ai.clearChat"),
+    voice: t("ai.service.voice"),
+    disclaimer: t("ai.service.disclaimer"),
   };
 
   if (!open) {
@@ -79,7 +74,7 @@ export function ServiceAssistant({ assistantId, assistantName, title }: Props) {
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="font-semibold">{assistantName}</p>
+              <p className="font-semibold">{translateText(assistantName)}</p>
               <p className="text-sm text-muted-foreground">{tx.intro}</p>
             </div>
           </div>
@@ -99,7 +94,7 @@ export function ServiceAssistant({ assistantId, assistantName, title }: Props) {
         <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary" />
-            <span className="text-sm font-semibold">{assistantName}</span>
+            <span className="text-sm font-semibold">{translateText(assistantName)}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -129,7 +124,7 @@ export function ServiceAssistant({ assistantId, assistantName, title }: Props) {
         {voiceMode && (
           <VoiceChat
             assistantId={assistantId}
-            assistantName={assistantName}
+            assistantName={translateText(assistantName)}
             className="rounded-none border-0 shadow-none"
           />
         )}

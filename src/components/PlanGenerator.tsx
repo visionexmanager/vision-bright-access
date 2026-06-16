@@ -20,9 +20,8 @@ interface Props {
 }
 
 export function PlanGenerator({ capability }: Props) {
-  const { lang } = useLanguage();
-  const isAr = lang === "ar";
-  const isRTL = isAr;
+  const { lang, t, dir, translateText } = useLanguage();
+  const isRTL = dir === "rtl";
 
   const [form, setForm] = useState<Record<string, string>>(() => {
     // Pre-select the first option for select fields.
@@ -36,15 +35,15 @@ export function PlanGenerator({ capability }: Props) {
   const [plan, setPlan] = useState<GeneratedPlan | null>(null);
 
   const tx = {
-    generate: isAr ? "إنشاء" : "Generate",
-    generating: isAr ? "جارٍ الإنشاء…" : "Generating…",
-    tips: isAr ? "نصائح" : "Tips",
-    fillRequired: isAr ? "يرجى تعبئة الحقول المطلوبة." : "Please fill in the required fields.",
-    failed: isAr ? "تعذّر الإنشاء. حاول مجدداً." : "Could not generate. Please try again.",
+    generate: t("ai.plan.generate"),
+    generating: t("ai.plan.generating"),
+    tips: t("ai.plan.tips"),
+    fillRequired: t("ai.plan.fillRequired"),
+    failed: t("ai.plan.failed"),
   };
 
-  const label = (f: GeneratorField) => (isAr ? f.labelAr : f.labelEn);
-  const placeholder = (f: GeneratorField) => (isAr ? f.placeholderAr : f.placeholderEn) ?? "";
+  const label = (f: GeneratorField) => translateText(f.labelEn);
+  const placeholder = (f: GeneratorField) => f.placeholderEn ? translateText(f.placeholderEn) : "";
 
   const setField = (key: string, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -72,7 +71,7 @@ export function PlanGenerator({ capability }: Props) {
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
-          <p className="font-semibold">{isAr ? capability.titleAr : capability.titleEn}</p>
+          <p className="font-semibold">{translateText(capability.titleEn)}</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -89,7 +88,7 @@ export function PlanGenerator({ capability }: Props) {
                   className="h-10 w-full rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   {f.options?.map((o) => (
-                    <option key={o.value} value={o.value}>{isAr ? o.labelAr : o.labelEn}</option>
+                    <option key={o.value} value={o.value}>{translateText(o.labelEn)}</option>
                   ))}
                 </select>
               ) : f.type === "textarea" ? (

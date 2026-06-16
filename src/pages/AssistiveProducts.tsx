@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { openAIChatWithProduct } from "@/components/AIChat";
 import { Link } from "react-router-dom";
 import { AnimatedSection } from "@/components/AnimatedSection";
+import { SmartSearch } from "@/components/SmartSearch";
 
 export default function AssistiveProducts() {
   const { t, lang, dir } = useLanguage();
@@ -154,6 +155,12 @@ export default function AssistiveProducts() {
                 {t("find.title")}
               </Link>
             </div>
+          </div>
+        </AnimatedSection>
+
+        <AnimatedSection>
+          <div className="mb-4">
+            <SmartSearch source="products" />
           </div>
         </AnimatedSection>
 

@@ -30,9 +30,8 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 export function ImageAnalyst({ analystId, name, hint }: Props) {
-  const { lang } = useLanguage();
-  const isAr = lang === "ar";
-  const isRTL = isAr;
+  const { lang, t, dir, translateText } = useLanguage();
+  const isRTL = dir === "rtl";
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [preview, setPreview] = useState<string | null>(null);
@@ -41,14 +40,14 @@ export function ImageAnalyst({ analystId, name, hint }: Props) {
   const [analysis, setAnalysis] = useState<VisionAnalysis | null>(null);
 
   const tx = {
-    choose: isAr ? "اختر صورة" : "Choose photo",
-    analyze: isAr ? "حلّل الصورة" : "Analyze photo",
-    analyzing: isAr ? "جارٍ التحليل…" : "Analyzing…",
-    summary: isAr ? "الخلاصة" : "Summary",
-    findings: isAr ? "الملاحظات" : "Findings",
-    recommendations: isAr ? "التوصيات" : "Recommendations",
-    tooLarge: isAr ? "الصورة كبيرة جداً (الحد 8 ميغابايت)." : "Image is too large (8 MB max).",
-    failed: isAr ? "تعذّر تحليل الصورة. حاول مجدداً." : "Could not analyze the image. Please try again.",
+    choose: t("ai.image.choose"),
+    analyze: t("ai.image.analyze"),
+    analyzing: t("ai.image.analyzing"),
+    summary: t("ai.image.summary"),
+    findings: t("ai.image.findings"),
+    recommendations: t("ai.image.recommendations"),
+    tooLarge: t("ai.image.tooLarge"),
+    failed: t("ai.image.failed"),
   };
 
   const onPick = async (file: File | undefined) => {
@@ -86,7 +85,7 @@ export function ImageAnalyst({ analystId, name, hint }: Props) {
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <p className="font-semibold">{name}</p>
+            <p className="font-semibold">{translateText(name)}</p>
             <p className="text-sm text-muted-foreground">{hint}</p>
           </div>
         </div>

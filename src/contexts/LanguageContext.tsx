@@ -158,16 +158,33 @@ function buildDomTranslationMap(lang: Lang): { map: Map<string, string>; sorted:
   const map = new Map<string, string>();
   if (lang === "en") return { map, sorted: [] };
 
-  // Only commonDomText (≈60 entries) for DOM walking — React handles the rest via t().
+  const enDict = loadedTranslations.en;
+  const langDict = loadedTranslations[lang];
+  if (enDict && langDict) {
+    for (const [key, englishValue] of Object.entries(enDict)) {
+      const translatedValue = langDict[key];
+      if (
+        translatedValue &&
+        translatedValue !== englishValue &&
+        englishValue.length >= 2 &&
+        englishValue.length <= 220 &&
+        !englishValue.includes("{")
+      ) {
+        map.set(englishValue, translatedValue);
+      }
+    }
+  }
+
+  // Keep curated entries as overrides for terse labels and product/data text.
   for (const [englishValue, localized] of Object.entries(commonDomText)) {
     const translatedValue = localized[lang];
     if (translatedValue) map.set(englishValue, translatedValue);
   }
 
-  // Sort ONCE here — longest match first, skip short keys.
+  // Sort ONCE here — longest match first, skip short and templated values.
   // Previously this was done on every translateDomValue() call (O(N log N) per text node).
   const sorted: SortedEntries = [...map.entries()]
-    .filter(([k]) => k.length >= 3)
+    .filter(([k]) => k.length >= 3 && k.length <= 80 && !k.includes("{"))
     .sort((a, b) => b[0].length - a[0].length);
 
   return { map, sorted };
@@ -344,7 +361,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // the page still renders instead of hanging on a spinner forever.
   useEffect(() => {
     setLangReady(false);
-    loadLang(lang)
+    Promise.all(lang === "en" ? [loadLang("en")] : [loadLang(lang), loadLang("en")])
       .then(() => setLangReady(true))
       .catch((err) => {
         console.error(`[i18n] Failed to load language "${lang}":`, err);

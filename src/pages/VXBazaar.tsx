@@ -25,6 +25,7 @@ import { WatchAdButton } from "@/components/WatchAdButton";
 import { aiService } from "@/services/ai/aiService";
 import { parseSSEResponse } from "@/lib/api/useSSEStream";
 import { AITaskPanel } from "@/components/AITaskPanel";
+import { SmartSearch } from "@/components/SmartSearch";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tier = "kiosk" | "boutique" | "store" | "flagship";
@@ -259,6 +260,22 @@ export default function VXBazaar() {
     const country = getCountry(code);
     return country ? `${country.flag} ${t(`vep.country.${country.code}`)}` : "";
   };
+  const applyListingCopilotResult = (value: string) => {
+    const clean = value
+      .replace(/^```(?:\w+)?/i, "")
+      .replace(/```$/i, "")
+      .trim();
+    const lower = clean.toLowerCase();
+    if (/(alt text|image description|screen reader)/.test(lower)) {
+      setProductForm((form) => ({ ...form, alt_text: clean.replace(/^alt text:\s*/i, "").slice(0, 180) }));
+      return;
+    }
+    if (/(return policy|refund|returns)/.test(lower)) {
+      setProductForm((form) => ({ ...form, return_policy: clean.replace(/^return policy:\s*/i, "").slice(0, 300) }));
+      return;
+    }
+    setProductForm((form) => ({ ...form, description: clean.replace(/^description:\s*/i, "").slice(0, 300) }));
+  };
 
   // ── Data fetching ──────────────────────────────────────────────────────
   const { data: shops = [], isLoading: shopsLoading } = useQuery({
@@ -361,6 +378,23 @@ export default function VXBazaar() {
       const acceptsVx = productForm.accepts_vx && !!productForm.price_vx;
       const acceptsCash = productForm.accepts_cash && !!productForm.price_usd;
       if (!acceptsVx && !acceptsCash) throw new Error("payment_required");
+
+      const moderationText = [
+        productForm.name,
+        productForm.description,
+        productForm.alt_text,
+        productForm.return_policy,
+      ].filter(Boolean).join("\n");
+      if (moderationText.trim()) {
+        try {
+          const moderation = await aiService.moderate(moderationText);
+          if (moderation.flagged) throw new Error("content_flagged");
+        } catch (error) {
+          if (error instanceof Error && error.message === "content_flagged") throw error;
+          console.warn("Product moderation unavailable:", error);
+        }
+      }
+
       const { error } = await db.from("bazaar_products").insert({
         shop_id: activeShop.id,
         name: productForm.name.trim(),
@@ -400,7 +434,9 @@ export default function VXBazaar() {
       if (e.message === "max_products")
         toast({ title: t("bazaar.maxProductsReached"), variant: "destructive" });
       else if (e.message === "payment_required")
-        toast({ title: "Choose a VX or cash price", variant: "destructive" });
+        toast({ title: t("bazaar.choosePaymentPrice"), variant: "destructive" });
+      else if (e.message === "content_flagged")
+        toast({ title: t("bazaar.contentFlagged"), variant: "destructive" });
       else
         toast({ title: t("bazaar.addProductFailed"), variant: "destructive" });
     },
@@ -692,6 +728,10 @@ export default function VXBazaar() {
                     )}
                   </div>
                 )}
+              </div>
+
+              <div className="relative z-10 mx-auto mb-4 max-w-4xl px-4">
+                <SmartSearch source="products" />
               </div>
 
               <div className="relative z-10 mx-auto mb-5 grid max-w-4xl gap-2 px-4 md:grid-cols-[1fr_160px_180px]">
@@ -1128,13 +1168,14 @@ export default function VXBazaar() {
                     title="VXBazaar AI listing copilot"
                     description="Improve the listing, pricing approach, accessibility text, and buyer clarity."
                     actions={[
-                      { label: "Write listing", prompt: "Write an accurate, persuasive product description ready to publish. Keep it under 300 characters." },
-                      { label: "Accessible alt text", prompt: "Write concise image alt text from the supplied product details. If no image details are supplied, ask what is visible instead of inventing it." },
+                      { label: "Write listing", prompt: "Return only a publish-ready product description under 300 characters. No markdown, no preface." },
+                      { label: "Accessible alt text", prompt: "Return only one concise image description for screen readers. If image details are missing, ask one short question instead of inventing visible details." },
+                      { label: "Return policy", prompt: "Return only a clear, buyer-friendly return policy under 300 characters using the supplied product and shop context." },
                       { label: "Pricing review", prompt: "Review the VX and cash pricing approach. Explain assumptions; do not claim live market data." },
                       { label: "Trust check", prompt: "Review this listing for missing details, risky claims, or trust issues and give a short checklist." },
                     ]}
                     context={{ shop: activeShop?.name, product: productForm }}
-                    onUseResult={(value) => setProductForm(form => ({ ...form, description: value.slice(0, 300) }))}
+                    onUseResult={applyListingCopilotResult}
                     compact
                   />
                 </div>

@@ -183,12 +183,12 @@ export default function News() {
           <div className="mt-8">
             <AITaskPanel
               assistantId="content-guide"
-              title={lang === "ar" ? "موجز الأخبار الذكي" : "AI news brief"}
-              description={lang === "ar" ? "يلخص الأخبار الظاهرة ويشرح المصطلحات دون إضافة معلومات غير موجودة." : "Summarizes visible stories and explains terms without inventing facts."}
+              title="AI news brief"
+              description="Summarizes visible stories and explains terms without inventing facts."
               actions={[
-                { label: lang === "ar" ? "ملخص سريع" : "Quick brief", prompt: lang === "ar" ? "لخص الأخبار الحالية في نقاط قصيرة." : "Summarize the current stories in short bullet points." },
-                { label: lang === "ar" ? "شرح مبسط" : "Plain language", prompt: lang === "ar" ? "اشرح أهم الأخبار بلغة بسيطة جدا." : "Explain the most important stories in very simple language." },
-                { label: lang === "ar" ? "قارن المواضيع" : "Compare topics", prompt: lang === "ar" ? "قارن موضوعات الأخبار وحدد الروابط بينها اعتمادا على النص فقط." : "Compare the story topics and identify connections using only the supplied text." },
+                { label: "Quick brief", prompt: `Summarize the current stories in short bullet points. Respond in this interface language: ${lang}.` },
+                { label: "Plain language", prompt: `Explain the most important stories in very simple language. Respond in this interface language: ${lang}.` },
+                { label: "Compare topics", prompt: `Compare the story topics and identify connections using only the supplied text. Respond in this interface language: ${lang}.` },
               ]}
               context={{ category: activeCategory, stories: filtered }}
             />

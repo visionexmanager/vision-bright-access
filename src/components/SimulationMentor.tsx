@@ -16,7 +16,9 @@ export function SimulationMentor({ simulationTitle, currentStepTitle }: Simulati
   const [isOpen, setIsOpen] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [input, setInput] = useState("");
-  const { messages, isLoading, sendMessage, clearMessages } = useAIChat();
+  const { messages, isLoading, sendMessage, clearMessages } = useAIChat({
+    assistantId: "simulation-mentor",
+  });
 
   const mentorContext = {
     productName: `Business Simulation: ${simulationTitle}`,
@@ -76,7 +78,8 @@ export function SimulationMentor({ simulationTitle, currentStepTitle }: Simulati
             size="icon"
             className="h-8 w-8"
             onClick={() => setVoiceMode(v => !v)}
-            title="Voice Chat"
+            title={t("ai.service.voice")}
+            aria-label={t("ai.service.voice")}
           >
             <Phone className="h-4 w-4" />
           </Button>
@@ -90,6 +93,7 @@ export function SimulationMentor({ simulationTitle, currentStepTitle }: Simulati
       {voiceMode && (
         <VoiceChat
           assistant="mentor"
+          assistantId="simulation-mentor"
           assistantName={t("bsim.mentor.label")}
           className="flex-1 rounded-none border-0 shadow-none"
         />
