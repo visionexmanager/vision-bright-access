@@ -113,6 +113,17 @@ export default function Signup() {
         return;
       }
 
+      if (!data.session) {
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+        if (loginError) {
+          toast.error(getSignupErrorMessage(loginError));
+          return;
+        }
+      }
+
       // Record device fingerprint and enforce one-trial-per-device rule
       if (deviceId && data.user) {
         const { error: fingerprintError } = await supabase.rpc("record_device_fingerprint", {
