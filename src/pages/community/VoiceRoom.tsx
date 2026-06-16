@@ -11,7 +11,7 @@ import {
   VideoTrack,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, ConnectionState, RemoteAudioTrack, AudioPresets, LocalAudioTrack } from "livekit-client";
+import { Track, ConnectionState, RemoteAudioTrack, AudioPresets, LocalAudioTrack, VideoPresets } from "livekit-client";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -75,14 +75,28 @@ const EXTRA_EMOJIS = [
 ];
 
 // High-quality audio options for the LiveKit room — applied once on connect.
+const CAMERA_CAPTURE_OPTIONS = {
+  resolution: VideoPresets.h720.resolution,
+  frameRate: 30,
+  facingMode: "user" as const,
+};
+
+const CAMERA_PUBLISH_OPTIONS = {
+  videoEncoding: VideoPresets.h720.encoding,
+  simulcast: true,
+};
+
 const ROOM_OPTIONS = {
   audioCaptureDefaults: {
     echoCancellation: true,
     noiseSuppression: true,
     autoGainControl: true,
   },
+  videoCaptureDefaults: CAMERA_CAPTURE_OPTIONS,
   publishDefaults: {
     audioPreset: AudioPresets.musicHighQuality, // 96 kbps, high fidelity
+    videoEncoding: VideoPresets.h720.encoding,
+    simulcast: true,
     dtx: false,  // always transmit, no silence gaps
     red: true,   // redundant encoding for packet-loss resilience
     stopMicTrackOnMute: false,
@@ -106,7 +120,7 @@ function resolveLiveKitUrl() {
 function SpatialAudioRenderer({ currentUserId }: { currentUserId: string }) {
   const audioCtxRef = useRef<AudioContext | null>(null);
   // Map: participantIdentity → { panner, track }
-  const nodesRef = useRef<Map<string, { panner: StereoPannerNode; track: RemoteAudioTrack }>>(
+  const nodesRef = useRef<Map<string, { panner: PannerNode; presence: GainNode; filter: BiquadFilterNode; track: RemoteAudioTrack }>>(
     new Map()
   );
 
@@ -118,12 +132,13 @@ function SpatialAudioRenderer({ currentUserId }: { currentUserId: string }) {
   useEffect(() => {
     const ctx = new AudioContext();
     audioCtxRef.current = ctx;
+    const nodes = nodesRef.current;
     return () => {
       // Restore normal LiveKit audio element playback for every track
-      for (const [, { track }] of nodesRef.current) {
+      for (const [, { track }] of nodes) {
         try { track.setAudioContext(undefined); track.setWebAudioPlugins([]); } catch { /* ignore */ }
       }
-      nodesRef.current.clear();
+      nodes.clear();
       void ctx.close();
     };
   }, []);
@@ -143,20 +158,48 @@ function SpatialAudioRenderer({ currentUserId }: { currentUserId: string }) {
       if (!track) return;
 
       // Spread voices evenly: −0.7 (far left) … 0 (center) … +0.7 (far right)
-      const panValue = total > 1 ? ((idx / (total - 1)) * 2 - 1) * 0.7 : 0;
+      const angle = total > 1 ? -58 + (idx / (total - 1)) * 116 : 0;
+      const radians = (angle * Math.PI) / 180;
+      const x = Math.sin(radians) * 2.6;
+      const z = -Math.cos(radians) * 1.35;
+      const gainValue = total > 1 ? 0.92 - Math.abs(x) * 0.035 : 1;
 
       const existing = nodesRef.current.get(identity);
       if (existing) {
-        existing.panner.pan.setTargetAtTime(panValue, ctx.currentTime, 0.05);
+        existing.panner.positionX.setTargetAtTime(x, ctx.currentTime, 0.08);
+        existing.panner.positionY.setTargetAtTime(0, ctx.currentTime, 0.08);
+        existing.panner.positionZ.setTargetAtTime(z, ctx.currentTime, 0.08);
+        existing.presence.gain.setTargetAtTime(gainValue, ctx.currentTime, 0.08);
       } else {
-        const panner = ctx.createStereoPanner();
-        panner.pan.value = panValue;
+        const filter = ctx.createBiquadFilter();
+        filter.type = "highpass";
+        filter.frequency.value = 85;
+        filter.Q.value = 0.35;
+
+        const panner = ctx.createPanner();
+        panner.panningModel = "HRTF";
+        panner.distanceModel = "inverse";
+        panner.refDistance = 1;
+        panner.maxDistance = 9;
+        panner.rolloffFactor = 0.65;
+        panner.coneInnerAngle = 180;
+        panner.coneOuterAngle = 260;
+        panner.coneOuterGain = 0.55;
+        panner.positionX.value = x;
+        panner.positionY.value = 0;
+        panner.positionZ.value = z;
+        panner.orientationX.value = 0;
+        panner.orientationY.value = 0;
+        panner.orientationZ.value = 1;
+
+        const presence = ctx.createGain();
+        presence.gain.value = gainValue;
         try {
           // setAudioContext → LiveKit mutes the <audio> element and routes
-          //   through ctx.  setWebAudioPlugins inserts: src → panner → ctx.destination
+          //   through ctx.  setWebAudioPlugins inserts: src → filter → panner → presence → ctx.destination
           track.setAudioContext(ctx);
-          track.setWebAudioPlugins([panner]);
-          nodesRef.current.set(identity, { panner, track });
+          track.setWebAudioPlugins([filter, panner, presence]);
+          nodesRef.current.set(identity, { panner, presence, filter, track });
         } catch (e) {
           console.warn("[SpatialAudio] setup failed for", identity, e);
         }
@@ -537,7 +580,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       supabase.removeChannel(ch);
       broadcastChRef.current = null;
     };
-  }, [roomId, currentUserId, t, addEvent]);
+  }, [roomId, currentUserId, t, addEvent, isScreenShareEnabled]);
 
   useEffect(() => {
     if (chatOpen) {
@@ -774,7 +817,16 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     }
     try {
       const next = !isCameraEnabled;
-      await localParticipant.setCameraEnabled(next);
+      await localParticipant.setCameraEnabled(next, CAMERA_CAPTURE_OPTIONS, CAMERA_PUBLISH_OPTIONS);
+      if (next) {
+        const pub = localParticipant.getTrackPublication(Track.Source.Camera);
+        await pub?.track?.mediaStreamTrack?.applyConstraints({
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30, max: 30 },
+          aspectRatio: { ideal: 16 / 9 },
+        });
+      }
       broadcastChRef.current?.send({
         type: "broadcast", event: "camera_toggle",
         payload: { userId: currentUserId, userName: localParticipant.name || currentUserId, on: next },
@@ -891,8 +943,8 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             const isOwn = track.participant.identity === currentUserId;
             const participantName = track.participant.name || track.participant.identity;
             return (
-              <div key={track.participant.identity} className="relative aspect-video rounded-xl bg-black border overflow-hidden">
-                <VideoTrack trackRef={track} />
+              <div key={track.participant.identity} className="relative aspect-video rounded-xl bg-black border overflow-hidden shadow-sm">
+                <VideoTrack trackRef={track} className="h-full w-full object-contain bg-black" />
                 <span className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
                   {participantName} — {t("vroom.sharingScreen")}
                 </span>
@@ -1018,7 +1070,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
           return (
             <div className="flex flex-col gap-3">
               {featuredTrack && (
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-zinc-900 border-2 border-primary shadow-lg shadow-primary/30">
+                <div className="relative aspect-video min-h-[280px] rounded-xl overflow-hidden bg-zinc-900 border-2 border-primary shadow-lg shadow-primary/30 md:min-h-[420px]">
                   <VideoTrack trackRef={featuredTrack} className="w-full h-full object-cover" />
                   <div className="absolute top-2 left-2">
                     <Badge className="gap-1 text-xs bg-primary/80 backdrop-blur">
@@ -1035,7 +1087,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
                   {otherTracks.map((track) => {
                     const name = track.participant.name || track.participant.identity;
                     return (
-                      <div key={track.participant.identity} className="relative flex-shrink-0 w-32 aspect-video rounded-lg overflow-hidden bg-zinc-900 border border-zinc-700/50">
+                      <div key={track.participant.identity} className="relative flex-shrink-0 w-44 aspect-video rounded-lg overflow-hidden bg-zinc-900 border border-zinc-700/50 sm:w-56">
                         <VideoTrack trackRef={track} className="w-full h-full object-cover" />
                         <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1 py-0.5">
                           <span className="text-[10px] text-white truncate block">{name}</span>
@@ -1052,9 +1104,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         return (
           <div className={`grid gap-3 ${
             visibleTracks.length === 1 ? "grid-cols-1" :
-            visibleTracks.length === 2 ? "grid-cols-2" :
-            visibleTracks.length <= 4 ? "grid-cols-2" :
-            "grid-cols-3"
+            visibleTracks.length === 2 ? "grid-cols-1 md:grid-cols-2" :
+            visibleTracks.length <= 4 ? "grid-cols-1 sm:grid-cols-2" :
+            "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
           }`}>
             {visibleTracks.map((track) => {
               const name = track.participant.name || track.participant.identity;
@@ -1063,7 +1115,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               return (
                 <div
                   key={track.participant.identity}
-                  className={`relative aspect-video rounded-xl overflow-hidden bg-zinc-900 border-2 transition-all ${speaking ? "border-primary shadow-lg shadow-primary/20" : "border-zinc-700/50"}`}
+                  className={`relative aspect-video min-h-[210px] rounded-xl overflow-hidden bg-zinc-900 border-2 transition-all sm:min-h-[240px] ${speaking ? "border-primary shadow-lg shadow-primary/20" : "border-zinc-700/50"}`}
                 >
                   <VideoTrack trackRef={track} className="w-full h-full object-cover" />
                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 flex items-center gap-1.5">
