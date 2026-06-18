@@ -9,3 +9,6 @@ enable_confirmations = false
 
 [functions.bazaar-stripe-webhook]
 verify_jwt = false
+
+[functions.ai-chat]
+verify_jwt = false
