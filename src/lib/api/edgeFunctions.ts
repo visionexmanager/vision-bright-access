@@ -123,8 +123,8 @@ export async function callAcademyChat(
  * ai-chat — SSE streaming.
  *
  * `assistantId` selects a registry-driven domain assistant (legal, medical, …).
- * Domain assistants are gated behind login, so they use the user JWT; the
- * default Visionex assistant keeps the original anon behavior.
+ * Domain assistants are gated behind login, while the default Visionex
+ * assistant keeps the original anon behavior.
  */
 export async function callAIChat(
   body: {

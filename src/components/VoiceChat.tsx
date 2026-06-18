@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic, PhoneOff, Volume2, Loader2, RotateCcw } from "lucide-react";
 import { useVoiceChat, AssistantType, VoiceStatus } from "@/hooks/useVoiceChat";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -25,6 +26,7 @@ const STATUS_COLOR: Record<VoiceStatus, string> = {
 
 export function VoiceChat({ assistant = "visionex", assistantId, assistantName = "Visionex AI", className }: Props) {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const { status, transcripts, error, connect, disconnect, clearTranscripts } = useVoiceChat(assistant, assistantId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isConnected = status !== "idle" && status !== "error";
@@ -36,12 +38,14 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
   }, [transcripts]);
 
   const handleToggle = () => {
+    if (!user) return;
     if (isConnected) disconnect();
     else connect();
   };
 
   const statusLabel = t(`voice.status.${status}`);
   const color = STATUS_COLOR[status];
+  const displayError = !user ? t("tv.toast.loginRequired") : error;
 
   return (
     <div className={cn("flex flex-col rounded-2xl border bg-background shadow-lg", className)}>
@@ -88,9 +92,9 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
       </ScrollArea>
 
       {/* Error */}
-      {error && (
+      {displayError && (
         <div className="mx-4 mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950 dark:text-red-400">
-          {error}
+          {displayError}
         </div>
       )}
 
@@ -112,6 +116,7 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
             <Button
               onClick={handleToggle}
               size="icon"
+              disabled={!user}
               className={cn(
                 "h-14 w-14 rounded-full text-white transition-all",
                 isConnected

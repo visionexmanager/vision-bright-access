@@ -34,7 +34,7 @@ export interface VoiceSession {
   sendEvent:  (payload: Record<string, unknown>) => void;
 }
 
-const OPENAI_REALTIME_URL = "https://api.openai.com/v1/realtime?model=gpt-realtime-2";
+const OPENAI_REALTIME_URL = "https://api.openai.com/v1/realtime/calls";
 
 // ── Core session factory ──────────────────────────────────────────────────────
 
@@ -120,7 +120,10 @@ export async function createVoiceSession(
     body: offer.sdp,
   });
 
-  if (!sdpRes.ok) throw new Error("Failed to negotiate WebRTC with OpenAI Realtime");
+  if (!sdpRes.ok) {
+    const details = await sdpRes.text().catch(() => "");
+    throw new Error(details || "Failed to negotiate WebRTC with OpenAI Realtime");
+  }
 
   const answerSdp = await sdpRes.text();
   await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });

@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   BarChart2, Bell, Check, ChevronDown, ChevronUp, Copy, Crown, Hand, Headphones,
-  ImageIcon, LayoutGrid, Loader2, Lock, MessageSquare, Mic, MicOff, Monitor, MonitorOff,
+  ImageIcon, LayoutGrid, Loader2, Lock, Maximize2, MessageSquare, Mic, MicOff, Minimize2, Monitor, MonitorOff,
   Music2, Pencil, PhoneOff, RefreshCw, Send, Settings2, ShieldX, Sparkles, Timer,
   Unlock, Upload, UserX, Users, Users2, Video, VideoOff, Volume2, WifiOff, X,
 } from "lucide-react";
@@ -393,6 +393,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const [showPollCreator, setShowPollCreator] = useState(false);
   const [showEffects, setShowEffects] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const voiceEffectCleanupRef = useRef<(() => void) | null>(null);
 
   // Screen share tracks for all participants
@@ -913,6 +914,116 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   };
 
   const canScreenShare = typeof navigator?.mediaDevices?.getDisplayMedia === "function";
+  const primaryMiniTrack =
+    allCameraTracks.find((track) => track.participant.identity === currentUserId) ||
+    allCameraTracks.find((track) => track.participant.isSpeaking) ||
+    allCameraTracks[0];
+  const primaryMiniName = primaryMiniTrack?.participant.name || primaryMiniTrack?.participant.identity;
+
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50 w-[min(92vw,390px)] overflow-hidden rounded-2xl border border-white/15 bg-zinc-950 text-white shadow-2xl ring-1 ring-black/40">
+        <div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{t("vroom.live")}</p>
+            <p className="text-xs text-white/60">
+              {participants.length} {t("vroom.participants")}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            {!canPlayAudio && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-amber-300 hover:bg-white/10 hover:text-amber-200"
+                onClick={startAudio}
+                aria-label={t("vroom.tapToHear")}
+                title={t("vroom.tapToHear")}
+              >
+                <Volume2 className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-white hover:bg-white/10 hover:text-white"
+              onClick={() => setIsMinimized(false)}
+              aria-label="Restore voice room"
+              title="Restore voice room"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="relative aspect-video bg-zinc-900">
+          {primaryMiniTrack ? (
+            <>
+              <VideoTrack trackRef={primaryMiniTrack} className="h-full w-full object-cover" />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2">
+                <p className="truncate text-xs font-semibold">{primaryMiniName}</p>
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center gap-3 px-4">
+              {participants.slice(0, 4).map((participant) => {
+                const name = participant.name || participant.identity;
+                return (
+                  <div key={participant.sid} className="flex flex-col items-center gap-1">
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-bold ${participant.isSpeaking ? "bg-primary ring-2 ring-primary/40" : "bg-white/10"}`}>
+                      {name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="max-w-16 truncate text-[10px] text-white/70">{name}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {connectionState === ConnectionState.Reconnecting && (
+            <div className="absolute left-2 top-2 flex items-center gap-1.5 rounded-full bg-amber-500/90 px-2 py-1 text-[10px] font-semibold text-white">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {t("vroom.reconnecting")}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-center gap-3 bg-zinc-950 px-3 py-3">
+          <Button
+            size="icon"
+            variant={muted ? "destructive" : "secondary"}
+            className="h-10 w-10 rounded-full"
+            onClick={toggleMic}
+            disabled={!roomPerms.mic && !isOwner}
+            aria-label={muted ? t("vroom.unmute") : t("vroom.mute")}
+          >
+            {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </Button>
+          {(roomPerms.camera || isOwner) && (
+            <Button
+              size="icon"
+              variant="secondary"
+              className={`h-10 w-10 rounded-full ${isCameraEnabled ? "bg-green-500 text-white hover:bg-green-600" : ""}`}
+              onClick={toggleCamera}
+              aria-label={isCameraEnabled ? t("vroom.cameraOn") : t("vroom.cameraOff")}
+            >
+              {isCameraEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+            </Button>
+          )}
+          <Button
+            size="icon"
+            variant="destructive"
+            className="h-10 w-10 rounded-full"
+            onClick={onLeave}
+            aria-label={t("vroom.leaveRoom")}
+          >
+            <PhoneOff className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {spatialAudioEnabled && <SpatialAudioRenderer currentUserId={currentUserId} />}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -935,6 +1046,43 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
           <span className="text-sm font-medium">{t("vroom.reconnecting")}</span>
         </div>
       )}
+
+      <div className="flex flex-col gap-3 rounded-2xl border bg-card/95 px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">{t("vroom.layout")}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {participants.length} {t("vroom.participants")}
+            {allCameraTracks.length > 0 ? ` - ${allCameraTracks.length} ${t("vroom.camera")}` : ""}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 rounded-xl border bg-muted/30 p-1">
+            {(["gallery", "speaker", "cameras"] as LayoutType[]).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLayout(l)}
+                title={t(`vroom.layout${l.charAt(0).toUpperCase() + l.slice(1)}`)}
+                aria-label={t(`vroom.layout${l.charAt(0).toUpperCase() + l.slice(1)}`)}
+                className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${layout === l ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}
+              >
+                {l === "gallery" ? <LayoutGrid className="h-4 w-4" /> : l === "speaker" ? <Sparkles className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+              </button>
+            ))}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 gap-2 rounded-xl"
+            onClick={() => setIsMinimized(true)}
+            aria-label="Minimize voice room"
+            title="Minimize voice room"
+          >
+            <Minimize2 className="h-4 w-4" />
+            Mini
+          </Button>
+        </div>
+      </div>
 
       {/* Screen share tracks */}
       {screenShareTracks.length > 0 && (
@@ -1068,26 +1216,26 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
           const featuredTrack = visibleTracks.find((t) => t.participant.identity === featuredSpeaker.identity);
           const otherTracks = visibleTracks.filter((t) => t.participant.identity !== featuredSpeaker.identity);
           return (
-            <div className="flex flex-col gap-3">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-2 shadow-xl">
               {featuredTrack && (
-                <div className="relative aspect-video min-h-[280px] rounded-xl overflow-hidden bg-zinc-900 border-2 border-primary shadow-lg shadow-primary/30 md:min-h-[420px]">
+                <div className="relative aspect-video min-h-[340px] overflow-hidden rounded-xl border border-primary/70 bg-zinc-900 shadow-lg shadow-primary/25 md:min-h-[520px]">
                   <VideoTrack trackRef={featuredTrack} className="w-full h-full object-cover" />
                   <div className="absolute top-2 left-2">
                     <Badge className="gap-1 text-xs bg-primary/80 backdrop-blur">
                       <Volume2 className="h-3 w-3" /> {t("vroom.featuredSpeaker")}
                     </Badge>
                   </div>
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-4 py-3">
                     <span className="text-sm font-semibold text-white">{featuredSpeaker.name || featuredSpeaker.identity}</span>
                   </div>
                 </div>
               )}
               {otherTracks.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
                   {otherTracks.map((track) => {
                     const name = track.participant.name || track.participant.identity;
                     return (
-                      <div key={track.participant.identity} className="relative flex-shrink-0 w-44 aspect-video rounded-lg overflow-hidden bg-zinc-900 border border-zinc-700/50 sm:w-56">
+                      <div key={track.participant.identity} className="relative aspect-video w-44 flex-shrink-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-900 sm:w-60">
                         <VideoTrack trackRef={track} className="w-full h-full object-cover" />
                         <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1 py-0.5">
                           <span className="text-[10px] text-white truncate block">{name}</span>
@@ -1102,11 +1250,11 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         }
 
         return (
-          <div className={`grid gap-3 ${
+          <div className={`grid rounded-2xl border border-zinc-800 bg-zinc-950 p-2 shadow-xl ${
             visibleTracks.length === 1 ? "grid-cols-1" :
-            visibleTracks.length === 2 ? "grid-cols-1 md:grid-cols-2" :
-            visibleTracks.length <= 4 ? "grid-cols-1 sm:grid-cols-2" :
-            "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+            visibleTracks.length === 2 ? "grid-cols-1 gap-2 md:grid-cols-2" :
+            visibleTracks.length <= 4 ? "grid-cols-1 gap-2 sm:grid-cols-2" :
+            "grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3"
           }`}>
             {visibleTracks.map((track) => {
               const name = track.participant.name || track.participant.identity;
@@ -1115,10 +1263,10 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               return (
                 <div
                   key={track.participant.identity}
-                  className={`relative aspect-video min-h-[210px] rounded-xl overflow-hidden bg-zinc-900 border-2 transition-all sm:min-h-[240px] ${speaking ? "border-primary shadow-lg shadow-primary/20" : "border-zinc-700/50"}`}
+                  className={`relative aspect-video min-h-[280px] overflow-hidden rounded-xl border bg-zinc-900 transition-all sm:min-h-[320px] ${visibleTracks.length === 1 ? "md:min-h-[560px]" : ""} ${speaking ? "border-primary shadow-lg shadow-primary/25" : "border-white/10"}`}
                 >
                   <VideoTrack trackRef={track} className="w-full h-full object-cover" />
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 flex items-center gap-1.5">
+                  <div className="absolute bottom-0 inset-x-0 flex items-center gap-1.5 bg-gradient-to-t from-black/80 to-transparent px-4 py-3">
                     {speaking && (
                       <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
                         <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
@@ -1142,19 +1290,6 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
           <span className="text-sm font-medium text-muted-foreground">
             {participants.length} {t("vroom.participants")}
           </span>
-          {/* Layout selector */}
-          <div className="ms-auto flex items-center gap-1 rounded-lg border p-0.5">
-            {(["gallery", "speaker", "cameras"] as LayoutType[]).map((l) => (
-              <button
-                key={l}
-                onClick={() => setLayout(l)}
-                title={t(`vroom.layout${l.charAt(0).toUpperCase() + l.slice(1)}`)}
-                className={`rounded px-2 py-1 text-xs transition-colors ${layout === l ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {l === "gallery" ? <LayoutGrid className="h-3.5 w-3.5" /> : l === "speaker" ? <Sparkles className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
-              </button>
-            ))}
-          </div>
         </div>
 
         {isStageMode ? (

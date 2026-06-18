@@ -51,11 +51,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // ── Require a valid Supabase session ──────────────────────────────
+    const authPreview = await req.clone().json().catch(() => ({}));
+    const assistantIdForAuth =
+      typeof authPreview.assistantId === "string" ? authPreview.assistantId : undefined;
+
+    // Domain assistants require a real user session; the default assistant can run with anon auth.
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (assistantIdForAuth && !authHeader) {
       return new Response(
-        JSON.stringify({ error: "Authorization required" }),
+        JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -63,11 +67,11 @@ Deno.serve(async (req) => {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
+      authHeader ? { global: { headers: { Authorization: authHeader } } } : undefined
     );
 
     const { data: { user }, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !user) {
+    if ((authErr || !user) && assistantIdForAuth) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -75,19 +79,21 @@ Deno.serve(async (req) => {
     }
 
     // ── Rate limiting: 60 requests / user / day ────────────────────────
-    const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-    const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", {
-      _user_id: user.id,
-      _function_name: "ai-chat",
-    });
-    if (allowed === false) {
-      return new Response(
-        JSON.stringify({ error: "Daily limit reached (60 messages/day). Try again tomorrow." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    if (user) {
+      const serviceClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
+      const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", {
+        _user_id: user.id,
+        _function_name: "ai-chat",
+      });
+      if (allowed === false) {
+        return new Response(
+          JSON.stringify({ error: "Daily limit reached (60 messages/day). Try again tomorrow." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const { messages, context, assistantId } = await req.json();
