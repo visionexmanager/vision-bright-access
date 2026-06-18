@@ -112,6 +112,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         session: {
+          type: "realtime",
           model: "gpt-realtime-2",
           instructions,
           audio: {
