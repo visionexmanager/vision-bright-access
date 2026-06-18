@@ -73,7 +73,21 @@ export async function createVoiceSession(
   // Data channel for OpenAI events
   const dc = pc.createDataChannel("oai-events");
 
-  dc.onopen  = () => onStatus("listening");
+  dc.onopen  = () => {
+    // Configure turn detection after connection (not supported in client_secrets creation)
+    dc.send(JSON.stringify({
+      type: "session.update",
+      session: {
+        turn_detection: {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 600,
+        },
+      },
+    }));
+    onStatus("listening");
+  };
   dc.onclose = () => onStatus("idle");
 
   dc.onmessage = (e) => {

@@ -102,7 +102,8 @@ Deno.serve(async (req) => {
       instructions = instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS;
     }
 
-    // gpt-realtime-2 uses /v1/realtime/client_secrets with nested session object
+    // gpt-realtime-2: /v1/realtime/client_secrets does NOT accept turn_detection.
+    // turn_detection is configured client-side via session.update after WebRTC connects.
     const response = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
       method: "POST",
       headers: {
@@ -111,18 +112,11 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         session: {
-          type: "realtime",
           model: "gpt-realtime-2",
           instructions,
           audio: {
             output: { voice: selectedVoice },
             input: { transcription: { model: "gpt-4o-mini-transcribe" } },
-          },
-          turn_detection: {
-            type: "server_vad",
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 600,
           },
         },
       }),
