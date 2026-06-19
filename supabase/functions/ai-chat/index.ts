@@ -118,6 +118,18 @@ Deno.serve(async (req) => {
       if (context?.language) {
         systemPrompt += `\n\nUser's preferred language: ${context.language}. Respond in this language.`;
       }
+    } else if (context?.voiceMode) {
+      // Voice mode: short, conversational, no markdown
+      systemPrompt = `You are Visionex AI — a warm, friendly voice assistant for VisionEx, a global inclusive platform serving people of all backgrounds and abilities.
+
+VOICE RULES (mandatory — you are speaking, not writing):
+- Reply in 1–3 natural spoken sentences. Never more.
+- Zero bullet points, headers, or markdown.
+- Be warm and conversational, like a helpful human friend.
+- Respond in the same language the user speaks.`;
+      if (context?.language) {
+        systemPrompt += `\nUser's language: ${context.language}. Reply in that language.`;
+      }
     } else {
       // Default Visionex assistant + Business Simulation mentor mode
       const isSimulation = context?.productName?.startsWith("Business Simulation:");
