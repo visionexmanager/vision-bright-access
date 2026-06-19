@@ -60,7 +60,8 @@ export type EdgeFunctionName =
   | "ai-generate"
   | "ai-search"
   | "embed-content"
-  | "moderate-content";
+  | "moderate-content"
+  | "text-to-speech";
 
 export type AuthMode = "anon" | "user-jwt" | "admin-jwt" | "cron-secret";
 

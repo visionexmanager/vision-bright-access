@@ -10,6 +10,26 @@ import { aiService } from "@/services/ai/aiService";
 import { cn } from "@/lib/utils";
 import type { AssistantType } from "@/lib/types";
 
+const BASE_URL  = import.meta.env.VITE_SUPABASE_URL as string;
+const ANON_KEY  = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+
+// Map assistant → OpenAI TTS voice
+const ASSISTANT_VOICE: Record<string, string> = {
+  visionex:  "nova",
+  munir:     "echo",
+  nutrition: "coral",
+  radar:     "alloy",
+  ocr:       "alloy",
+  mentor:    "shimmer",
+};
+
+// SpeechRecognition lang codes
+const SR_LANG: Record<string, string> = {
+  en: "en-US", ar: "ar-SA", es: "es-ES", fr: "fr-FR",
+  de: "de-DE", pt: "pt-BR", tr: "tr-TR", ru: "ru-RU",
+  zh: "zh-CN", ur: "ur-PK", hi: "hi-IN",
+};
+
 type Props = {
   assistant?: AssistantType;
   assistantId?: string;
@@ -27,34 +47,29 @@ const STATUS_COLOR: Record<Status, string> = {
   speaking:  "bg-blue-500 animate-pulse",
 };
 
-const speechLangMap: Record<string, string> = {
-  en: "en-US", ar: "ar-SA", es: "es-ES", fr: "fr-FR",
-  de: "de-DE", pt: "pt-BR", tr: "tr-TR", ru: "ru-RU",
-  zh: "zh-CN", ur: "ur-PK", hi: "hi-IN",
-};
-
-export function VoiceChat({ assistantId, assistantName = "Visionex AI", className }: Props) {
+export function VoiceChat({ assistant = "visionex", assistantId, assistantName = "Visionex AI", className }: Props) {
   const { t, lang } = useLanguage();
-  const { user } = useAuth();
+  const { user }    = useAuth();
   const { consumeStream } = useSSEStream();
 
-  const [status, setStatus]         = useState<Status>("idle");
+  const [status,      setStatus]      = useState<Status>("idle");
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
-  const [muted, setMuted]           = useState(false);
-  const [error, setError]           = useState("");
+  const [muted,       setMuted]       = useState(false);
+  const [error,       setError]       = useState("");
 
   const recognitionRef    = useRef<any>(null);
-  const synthRef          = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef          = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef       = useRef<string | null>(null);
   const messagesRef       = useRef<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const scrollRef         = useRef<HTMLDivElement>(null);
   const abortRef          = useRef<AbortController | null>(null);
   const isListeningRef    = useRef(false);
-  // Stable ref so speak() can call startListening() without a circular dep
   const startListeningRef = useRef<() => void>(() => {});
 
   const hasSpeech = typeof window !== "undefined" &&
     ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
+  // Auto-scroll transcript
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [transcripts]);
@@ -62,28 +77,76 @@ export function VoiceChat({ assistantId, assistantName = "Visionex AI", classNam
   // Cleanup on unmount
   useEffect(() => () => {
     recognitionRef.current?.stop();
-    window.speechSynthesis?.cancel();
+    audioRef.current?.pause();
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
     abortRef.current?.abort();
   }, []);
 
-  const speak = useCallback((text: string) => {
-    if (muted || !text.trim() || typeof window === "undefined") return;
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = speechLangMap[lang] || "en-US";
-    utter.rate = 1;
-    utter.onstart = () => setStatus("speaking");
-    utter.onend   = () => { setStatus("idle"); startListeningRef.current(); };
-    utter.onerror = () => { setStatus("idle"); startListeningRef.current(); };
-    synthRef.current = utter;
-    window.speechSynthesis.speak(utter);
-  }, [muted, lang]);
+  // ── OpenAI TTS ────────────────────────────────────────────────────────────
+  const speak = useCallback(async (text: string) => {
+    if (muted || !text.trim()) return;
+    setStatus("speaking");
 
+    // Stop any current audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+
+    const voice = ASSISTANT_VOICE[assistant] || "nova";
+
+    try {
+      const res = await fetch(`${BASE_URL}/functions/v1/text-to-speech`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": ANON_KEY,
+          "Authorization": `Bearer ${ANON_KEY}`,
+        },
+        body: JSON.stringify({ text, voice }),
+      });
+
+      if (!res.ok) throw new Error(`TTS ${res.status}`);
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
+
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        audioUrlRef.current = null;
+        audioRef.current    = null;
+        setStatus("idle");
+        startListeningRef.current();
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        audioUrlRef.current = null;
+        audioRef.current    = null;
+        setStatus("idle");
+        startListeningRef.current();
+      };
+
+      await audio.play();
+    } catch {
+      setStatus("idle");
+      startListeningRef.current();
+    }
+  }, [muted, assistant]);
+
+  // ── Send text to AI, stream response, then speak ──────────────────────────
   const sendToAI = useCallback(async (userText: string) => {
     setStatus("thinking");
     messagesRef.current = [...messagesRef.current, { role: "user", content: userText }];
 
-    const ctrl = new AbortController();
+    const ctrl    = new AbortController();
     abortRef.current = ctrl;
     const replyId = crypto.randomUUID();
     let accumulated = "";
@@ -106,10 +169,7 @@ export function VoiceChat({ assistantId, assistantName = "Visionex AI", classNam
             return [...prev, { role: "assistant" as const, text: acc, _id: replyId }];
           });
         },
-        onError: (err) => {
-          setError(err.message);
-          setStatus("idle");
-        },
+        onError: (err) => { setError(err.message); setStatus("idle"); },
       });
 
       if (accumulated) {
@@ -124,19 +184,19 @@ export function VoiceChat({ assistantId, assistantName = "Visionex AI", classNam
     }
   }, [lang, assistantId, consumeStream, speak]);
 
+  // ── Speech Recognition ────────────────────────────────────────────────────
   const startListening = useCallback(() => {
     if (!hasSpeech || isListeningRef.current) return;
 
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SR();
-    recognition.lang = speechLangMap[lang] || "en-US";
+    recognition.lang = SR_LANG[lang] || "en-US";
     recognition.interimResults = false;
     recognition.continuous = false;
 
     recognition.onstart  = () => { setStatus("listening"); isListeningRef.current = true; };
     recognition.onend    = () => { isListeningRef.current = false; };
     recognition.onerror  = () => { isListeningRef.current = false; setStatus("idle"); };
-
     recognition.onresult = (e: any) => {
       const text = e.results[0][0].transcript.trim();
       if (!text) { setStatus("idle"); return; }
@@ -148,9 +208,9 @@ export function VoiceChat({ assistantId, assistantName = "Visionex AI", classNam
     recognition.start();
   }, [hasSpeech, lang, sendToAI]);
 
-  // Keep the ref current so speak() always calls the latest startListening
   useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleMicToggle = () => {
     if (!user) { setError(t("tv.toast.loginRequired")); return; }
     if (!hasSpeech) { setError("Speech recognition not supported in this browser"); return; }
@@ -165,13 +225,19 @@ export function VoiceChat({ assistantId, assistantName = "Visionex AI", classNam
   };
 
   const handleMuteToggle = () => {
-    if (!muted) window.speechSynthesis?.cancel();
+    if (!muted) {
+      audioRef.current?.pause();
+      if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
+      audioRef.current = null;
+    }
     setMuted(m => !m);
   };
 
   const handleClear = () => {
     recognitionRef.current?.stop();
-    window.speechSynthesis?.cancel();
+    audioRef.current?.pause();
+    if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
+    audioRef.current = null;
     abortRef.current?.abort();
     messagesRef.current = [];
     setTranscripts([]);
@@ -180,7 +246,7 @@ export function VoiceChat({ assistantId, assistantName = "Visionex AI", classNam
   };
 
   const statusLabel: Record<Status, string> = {
-    idle:     t("voice.status.idle"),
+    idle:      t("voice.status.idle"),
     listening: t("voice.status.listening"),
     thinking:  t("voice.status.connecting"),
     speaking:  t("voice.status.speaking"),
@@ -250,7 +316,7 @@ export function VoiceChat({ assistantId, assistantName = "Visionex AI", classNam
           status === "listening" && "bg-green-100 ring-4 ring-green-300 dark:bg-green-950",
           status === "speaking"  && "bg-blue-100 ring-4 ring-blue-300 dark:bg-blue-950",
           status === "thinking"  && "bg-yellow-100 ring-4 ring-yellow-200 dark:bg-yellow-950",
-          (status === "idle")    && "bg-muted",
+          status === "idle"      && "bg-muted",
         )}>
           <Button
             onClick={handleMicToggle}
