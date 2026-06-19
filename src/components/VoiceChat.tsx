@@ -5,49 +5,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic, MicOff, Volume2, VolumeX, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSSEStream } from "@/lib/api/useSSEStream";
-import { aiService } from "@/services/ai/aiService";
 import { cn } from "@/lib/utils";
 import type { AssistantType } from "@/lib/types";
 
 const BASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
-const ASSISTANT_VOICE: Record<string, string> = {
-  visionex:  "nova",
-  munir:     "echo",
-  nutrition: "coral",
-  radar:     "alloy",
-  ocr:       "alloy",
-  mentor:    "shimmer",
-};
-
 const SR_LANG: Record<string, string> = {
   en: "en-US", ar: "ar-SA", es: "es-ES", fr: "fr-FR",
   de: "de-DE", pt: "pt-BR", tr: "tr-TR", ru: "ru-RU",
   zh: "zh-CN", ur: "ur-PK", hi: "hi-IN",
 };
-
-// Split buffered text into complete sentences + remainder
-// Handles Arabic (؟ ، .) and Latin (. ! ?) punctuation
-function extractSentences(buf: string): { ready: string[]; remaining: string } {
-  const boundary = /[.!?؟\n]/;
-  let last = -1;
-  for (let i = 0; i < buf.length; i++) {
-    if (boundary.test(buf[i])) last = i;
-  }
-  if (last === -1) return { ready: [], remaining: buf };
-
-  const done  = buf.slice(0, last + 1);
-  const remaining = buf.slice(last + 1).trimStart();
-  // Split by punctuation, keep only non-trivial sentences
-  const ready = done
-    .split(/[.!?؟\n]+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 3);
-
-  return { ready, remaining };
-}
 
 type Props = {
   assistant?: AssistantType;
@@ -56,7 +24,7 @@ type Props = {
   className?: string;
 };
 
-type Transcript = { role: "user" | "assistant"; text: string; _id?: string };
+type Transcript = { role: "user" | "assistant"; text: string };
 type Status = "idle" | "listening" | "thinking" | "speaking";
 
 const STATUS_COLOR: Record<Status, string> = {
@@ -66,235 +34,139 @@ const STATUS_COLOR: Record<Status, string> = {
   speaking:  "bg-blue-500 animate-pulse",
 };
 
-interface AudioSegment {
-  url: string | null;
-  ready: boolean;   // true = URL filled or errored
-  error: boolean;
-}
-
 export function VoiceChat({
   assistant = "visionex",
   assistantId,
   assistantName = "Visionex AI",
   className,
 }: Props) {
-  const { t, lang }        = useLanguage();
-  const { user }           = useAuth();
-  const { consumeStream }  = useSSEStream();
+  const { t, lang }  = useLanguage();
+  const { user }     = useAuth();
 
   const [status,      setStatus]      = useState<Status>("idle");
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [muted,       setMuted]       = useState(false);
   const [error,       setError]       = useState("");
 
-  // ── Refs ──────────────────────────────────────────────────────────────────
   const recognitionRef    = useRef<any>(null);
   const scrollRef         = useRef<HTMLDivElement>(null);
   const messagesRef       = useRef<Array<{ role: "user" | "assistant"; content: string }>>([]);
-  const aiAbortRef        = useRef<AbortController | null>(null);
-  const ttsAbortRef       = useRef<AbortController | null>(null);
+  const abortRef          = useRef<AbortController | null>(null);
+  const audioRef          = useRef<HTMLAudioElement | null>(null);
   const isListeningRef    = useRef(false);
+  const muteRef           = useRef(false);
   const startListeningRef = useRef<() => void>(() => {});
-
-  // Live streaming audio queue state
-  const segmentsRef       = useRef<AudioSegment[]>([]);
-  const playHeadRef       = useRef(0);         // index of next segment to play
-  const isPlayingRef      = useRef(false);     // is an <audio> currently playing?
-  const isGeneratingRef   = useRef(false);     // is the AI still streaming?
-  const currentAudioRef   = useRef<HTMLAudioElement | null>(null);
-  const muteRef           = useRef(false);     // shadow of `muted` for callbacks
 
   const hasSpeech = typeof window !== "undefined" &&
     ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
-  // Keep muteRef in sync
   useEffect(() => { muteRef.current = muted; }, [muted]);
 
-  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [transcripts]);
 
-  // Cleanup on unmount
   useEffect(() => () => {
     recognitionRef.current?.stop();
-    currentAudioRef.current?.pause();
-    aiAbortRef.current?.abort();
-    ttsAbortRef.current?.abort();
+    stopAudio();
+    abortRef.current?.abort();
   }, []);
 
-  // ── Audio queue player ────────────────────────────────────────────────────
-  // Called every time a segment becomes ready or a segment finishes playing.
-  function tryPlayNext() {
-    if (muteRef.current) return;
-    if (isPlayingRef.current) return;
-
-    const segments = segmentsRef.current;
-    const idx      = playHeadRef.current;
-
-    if (idx >= segments.length) {
-      // No segments yet — if AI is done and nothing queued, reset
-      if (!isGeneratingRef.current) {
-        setStatus("idle");
-        startListeningRef.current();
-      }
-      return;
+  function stopAudio() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    if (audioRef.current) {
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
+      audioRef.current.pause();
+      audioRef.current = null;
     }
-
-    const seg = segments[idx];
-    if (!seg.ready) return;  // Still fetching this segment
-
-    if (seg.error || !seg.url) {
-      // Skip broken segment
-      playHeadRef.current++;
-      tryPlayNext();
-      return;
-    }
-
-    isPlayingRef.current = true;
-    setStatus("speaking");
-
-    const audio = new Audio(seg.url);
-    currentAudioRef.current = audio;
-
-    const advance = () => {
-      URL.revokeObjectURL(seg.url!);
-      seg.url = null;
-      isPlayingRef.current    = false;
-      currentAudioRef.current = null;
-      playHeadRef.current++;
-      tryPlayNext();
-    };
-    audio.onended = advance;
-    audio.onerror = advance;
-
-    audio.play().catch(advance);
   }
 
-  // Fetch TTS for one sentence, fill its slot, then tryPlayNext
-  async function fetchSegment(text: string, idx: number, voice: string, signal: AbortSignal) {
-    const seg = segmentsRef.current[idx];
+  // ── Call gpt-4o-audio-preview → returns transcript + base64 MP3 ──────────
+  const sendToAI = useCallback(async (userText: string) => {
+    stopAudio();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    setStatus("thinking");
+    messagesRef.current = [...messagesRef.current, { role: "user", content: userText }];
+
     try {
-      const res = await fetch(`${BASE_URL}/functions/v1/text-to-speech`, {
+      const res = await fetch(`${BASE_URL}/functions/v1/ai-voice-chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           apikey: ANON_KEY,
           Authorization: `Bearer ${ANON_KEY}`,
         },
-        body: JSON.stringify({ text, voice }),
-        signal,
+        body: JSON.stringify({
+          messages:    messagesRef.current,
+          assistant,
+          assistantId,
+          language:    lang,
+        }),
+        signal: ctrl.signal,
       });
 
-      if (signal.aborted) { seg.error = true; seg.ready = true; return; }
-      if (!res.ok) throw new Error(`TTS ${res.status}`);
-
-      const blob = await res.blob();
-      if (signal.aborted) { seg.error = true; seg.ready = true; return; }
-
-      seg.url   = URL.createObjectURL(blob);
-      seg.ready = true;
-    } catch {
-      seg.error = true;
-      seg.ready = true;
-    }
-    tryPlayNext();
-  }
-
-  // Allocate a slot and fire fetchSegment in background
-  function queueSentence(text: string, voice: string, signal: AbortSignal) {
-    if (muteRef.current) return;
-    const idx = segmentsRef.current.length;
-    segmentsRef.current.push({ url: null, ready: false, error: false });
-    fetchSegment(text, idx, voice, signal);
-  }
-
-  // Tear down everything mid-conversation
-  function stopAll() {
-    aiAbortRef.current?.abort();
-    ttsAbortRef.current?.abort();
-    currentAudioRef.current?.pause();
-    // Revoke any pending blob URLs
-    for (const seg of segmentsRef.current) {
-      if (seg.url) URL.revokeObjectURL(seg.url);
-    }
-    segmentsRef.current   = [];
-    playHeadRef.current   = 0;
-    isPlayingRef.current  = false;
-    isGeneratingRef.current = false;
-    currentAudioRef.current = null;
-  }
-
-  // ── Send text to AI — stream sentence-by-sentence to TTS ─────────────────
-  const sendToAI = useCallback(async (userText: string) => {
-    stopAll();
-
-    const aiCtrl  = new AbortController();
-    const ttsCtrl = new AbortController();
-    aiAbortRef.current  = aiCtrl;
-    ttsAbortRef.current = ttsCtrl;
-
-    isGeneratingRef.current = true;
-    setStatus("thinking");
-
-    messagesRef.current = [...messagesRef.current, { role: "user", content: userText }];
-
-    const replyId   = crypto.randomUUID();
-    let accumulated = "";
-    let sentBuf     = "";   // unspoken text buffer
-    const voice     = ASSISTANT_VOICE[assistant] || "nova";
-
-    try {
-      const response = await aiService.streamChat(
-        messagesRef.current,
-        { language: lang, ...(assistantId ? { assistantId } : {}) },
-        aiCtrl.signal
-      );
-
-      await consumeStream(response, {
-        onToken: (tok, acc) => {
-          accumulated = acc;
-          sentBuf += tok;
-
-          // Update transcript live
-          setTranscripts(prev => {
-            const last = prev[prev.length - 1];
-            if (last?.role === "assistant" && last._id === replyId)
-              return prev.map((m, i) => i === prev.length - 1 ? { ...m, text: acc } : m);
-            return [...prev, { role: "assistant" as const, text: acc, _id: replyId }];
-          });
-
-          // Queue complete sentences immediately
-          const { ready, remaining } = extractSentences(sentBuf);
-          sentBuf = remaining;
-          for (const s of ready) queueSentence(s, voice, ttsCtrl.signal);
-        },
-        onError: (err) => { setError(err.message); setStatus("idle"); },
-      });
-
-      // Flush any remaining text after stream ends
-      if (sentBuf.trim().length > 2) {
-        queueSentence(sentBuf.trim(), voice, ttsCtrl.signal);
+      if (ctrl.signal.aborted) return;
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(e.error || "Voice chat error");
       }
 
-      if (accumulated) {
-        messagesRef.current = [...messagesRef.current, { role: "assistant", content: accumulated }];
+      const { transcript, audio: audioB64 } = await res.json() as {
+        transcript: string;
+        audio: string | null;
+      };
+
+      if (ctrl.signal.aborted) return;
+
+      if (transcript) {
+        messagesRef.current = [...messagesRef.current, { role: "assistant", content: transcript }];
+        setTranscripts(prev => [...prev, { role: "assistant", text: transcript }]);
       }
-    } catch (e) {
-      if (e instanceof Error && e.name === "AbortError") return;
-      setStatus("idle");
-    } finally {
-      isGeneratingRef.current = false;
-      // If nothing was queued at all (muted / empty), reset
-      if (segmentsRef.current.length === 0) {
+
+      if (!audioB64 || muteRef.current) {
         setStatus("idle");
         startListeningRef.current();
-      } else {
-        // In case all segments were already ready before we got here
-        tryPlayNext();
+        return;
       }
+
+      // Decode base64 MP3 and play
+      const binary = atob(audioB64);
+      const bytes  = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "audio/mpeg" });
+      const url  = URL.createObjectURL(blob);
+
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      setStatus("speaking");
+
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+        setStatus("idle");
+        startListeningRef.current();
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+        setStatus("idle");
+        startListeningRef.current();
+      };
+
+      await audio.play();
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+      const msg = e instanceof Error ? e.message : "Error";
+      setError(msg);
+      setStatus("idle");
+    } finally {
+      if (abortRef.current === ctrl) abortRef.current = null;
     }
-  }, [lang, assistantId, consumeStream, assistant]);
+  }, [assistant, assistantId, lang]);
 
   // ── Speech Recognition ────────────────────────────────────────────────────
   const startListening = useCallback(() => {
@@ -324,8 +196,8 @@ export function VoiceChat({
 
   // ── UI handlers ───────────────────────────────────────────────────────────
   const handleMicToggle = () => {
-    if (!user)       { setError(t("tv.toast.loginRequired")); return; }
-    if (!hasSpeech)  { setError("Speech recognition not supported in this browser"); return; }
+    if (!user)      { setError(t("tv.toast.loginRequired")); return; }
+    if (!hasSpeech) { setError("Speech recognition not supported in this browser"); return; }
     setError("");
 
     if (status === "listening") {
@@ -337,15 +209,13 @@ export function VoiceChat({
   };
 
   const handleMuteToggle = () => {
-    if (!muted) {
-      currentAudioRef.current?.pause();
-    }
+    if (!muted) stopAudio();
     setMuted(m => !m);
   };
 
   const handleClear = () => {
     recognitionRef.current?.stop();
-    stopAll();
+    stopAudio();
     messagesRef.current = [];
     setTranscripts([]);
     setStatus("idle");
