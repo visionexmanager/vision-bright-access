@@ -34,7 +34,7 @@ export interface VoiceSession {
   sendEvent:  (payload: Record<string, unknown>) => void;
 }
 
-const OPENAI_REALTIME_URL = "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview";
+const OPENAI_REALTIME_URL = "https://api.openai.com/v1/realtime/calls";
 
 // ── Core session factory ──────────────────────────────────────────────────────
 
@@ -84,15 +84,18 @@ export async function createVoiceSession(
           onStatus("listening");
           break;
         case "response.audio.started":
+        case "response.output_audio.started":
           onStatus("speaking");
           break;
         case "response.audio.done":
+        case "response.output_audio.done":
           onStatus("listening");
           break;
         case "conversation.item.input_audio_transcription.completed":
           onTranscript("user", (event.transcript as string) || "");
           break;
         case "response.audio_transcript.done":
+        case "response.output_audio_transcript.done":
           onTranscript("assistant", (event.transcript as string) || "");
           break;
         case "error": {

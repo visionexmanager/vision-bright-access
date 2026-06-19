@@ -122,17 +122,10 @@ export function useAIChat(options?: { assistantId?: string }) {
           controller.signal
         );
 
+        let completedReply = "";
         await consumeStream(response, {
           onToken: (_token, accumulated) => {
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.id === responseId) {
-                return prev.map((m) =>
-                  m.id === responseId ? { ...m, content: accumulated } : m
-                );
-              }
-              return [...prev, { id: responseId, role: "assistant", content: accumulated }];
-            });
+            completedReply = accumulated;
           },
           onError: (err, isRateLimit) => {
             if (isRateLimit) startCooldown();
@@ -142,6 +135,12 @@ export function useAIChat(options?: { assistantId?: string }) {
             ]);
           },
         });
+        if (completedReply.trim()) {
+          setMessages((prev) => [
+            ...prev,
+            { id: responseId, role: "assistant", content: completedReply },
+          ]);
+        }
       } catch (e: unknown) {
         if (e instanceof Error && e.name === "AbortError") return;
         const msg = e instanceof Error ? e.message : "Something went wrong.";

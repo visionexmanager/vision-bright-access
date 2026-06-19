@@ -68,11 +68,10 @@ Deno.serve(async (req) => {
 
     const { voice, assistant = "visionex", assistantId } = await req.json().catch(() => ({}));
 
-    // gpt-4o-realtime-preview supported voices
-    const VOICES = ["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"];
+    const VOICES = ["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "marin", "cedar"];
 
     const voiceMap: Record<string, string> = {
-      visionex:  voice || "sage",
+      visionex:  voice || "marin",
       munir:     "echo",
       nutrition: "coral",
       radar:     "ash",
@@ -102,23 +101,41 @@ Deno.serve(async (req) => {
       instructions = instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS;
     }
 
-    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+    const response = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
-        "OpenAI-Beta": "realtime=v1",
+        "OpenAI-Safety-Identifier": user.id,
       },
       body: JSON.stringify({
-        model: "gpt-4o-realtime-preview",
-        voice: selectedVoice,
-        instructions,
-        input_audio_transcription: { model: "whisper-1" },
-        turn_detection: {
-          type: "server_vad",
-          threshold: 0.5,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 600,
+        expires_after: {
+          anchor: "created_at",
+          seconds: 600,
+        },
+        session: {
+          type: "realtime",
+          model: "gpt-realtime-2",
+          instructions,
+          audio: {
+            input: {
+              transcription: { model: "gpt-4o-transcribe" },
+              turn_detection: {
+                type: "server_vad",
+                threshold: 0.5,
+                prefix_padding_ms: 300,
+                silence_duration_ms: 500,
+                create_response: true,
+                interrupt_response: true,
+              },
+            },
+            output: {
+              voice: selectedVoice,
+            },
+          },
+          reasoning: {
+            effort: "minimal",
+          },
         },
       }),
     });
@@ -135,12 +152,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const session = await response.json();
-    const ephemeralValue = session.value ?? session.client_secret?.value;
+    const clientSecret = await response.json();
+    const ephemeralValue = clientSecret.value ?? clientSecret.client_secret?.value;
 
     return new Response(JSON.stringify({
-      client_secret: { value: ephemeralValue },
-      session_id: session.id ?? "session",
+      client_secret: { value: ephemeralValue, expires_at: clientSecret.expires_at },
+      session_id: clientSecret.session?.id ?? "session",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
