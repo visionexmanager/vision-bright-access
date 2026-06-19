@@ -34,7 +34,7 @@ export interface VoiceSession {
   sendEvent:  (payload: Record<string, unknown>) => void;
 }
 
-const OPENAI_REALTIME_URL = "https://api.openai.com/v1/realtime/calls";
+const OPENAI_REALTIME_URL = "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview";
 
 // ── Core session factory ──────────────────────────────────────────────────────
 
