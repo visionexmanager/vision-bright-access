@@ -63,6 +63,7 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
   const messagesRef       = useRef<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const scrollRef         = useRef<HTMLDivElement>(null);
   const abortRef          = useRef<AbortController | null>(null);
+  const ttsAbortRef       = useRef<AbortController | null>(null);
   const isListeningRef    = useRef(false);
   const startListeningRef = useRef<() => void>(() => {});
 
@@ -77,18 +78,18 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
   // Cleanup on unmount
   useEffect(() => () => {
     recognitionRef.current?.stop();
-    audioRef.current?.pause();
-    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    stopAudio();
     abortRef.current?.abort();
+    ttsAbortRef.current?.abort();
   }, []);
 
-  // ── OpenAI TTS ────────────────────────────────────────────────────────────
-  const speak = useCallback(async (text: string) => {
-    if (muted || !text.trim()) return;
-    setStatus("speaking");
-
-    // Stop any current audio
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function stopAudio() {
+    ttsAbortRef.current?.abort();
+    ttsAbortRef.current = null;
     if (audioRef.current) {
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
       audioRef.current.pause();
       audioRef.current = null;
     }
@@ -96,8 +97,20 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     }
+  }
 
+  // ── OpenAI TTS — one audio at a time ─────────────────────────────────────
+  const speak = useCallback(async (text: string) => {
+    if (muted || !text.trim()) return;
+
+    // Cancel any in-flight TTS fetch and stop current playback
+    stopAudio();
+
+    const ctrl = new AbortController();
+    ttsAbortRef.current = ctrl;
     const voice = ASSISTANT_VOICE[assistant] || "nova";
+
+    setStatus("speaking");
 
     try {
       const res = await fetch(`${BASE_URL}/functions/v1/text-to-speech`, {
@@ -108,34 +121,37 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
           "Authorization": `Bearer ${ANON_KEY}`,
         },
         body: JSON.stringify({ text, voice }),
+        signal: ctrl.signal,
       });
 
+      if (ctrl.signal.aborted) return;
       if (!res.ok) throw new Error(`TTS ${res.status}`);
 
       const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
+      if (ctrl.signal.aborted) return;
+
+      const url   = URL.createObjectURL(blob);
       audioUrlRef.current = url;
 
       const audio = new Audio(url);
       audioRef.current = audio;
 
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
-        audioUrlRef.current = null;
-        audioRef.current    = null;
-        setStatus("idle");
-        startListeningRef.current();
+      const cleanup = () => {
+        if (audioRef.current === audio) {
+          URL.revokeObjectURL(url);
+          audioUrlRef.current = null;
+          audioRef.current    = null;
+          ttsAbortRef.current = null;
+          setStatus("idle");
+          startListeningRef.current();
+        }
       };
-      audio.onerror = () => {
-        URL.revokeObjectURL(url);
-        audioUrlRef.current = null;
-        audioRef.current    = null;
-        setStatus("idle");
-        startListeningRef.current();
-      };
+      audio.onended = cleanup;
+      audio.onerror = cleanup;
 
       await audio.play();
-    } catch {
+    } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") return;
       setStatus("idle");
       startListeningRef.current();
     }
@@ -225,19 +241,13 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
   };
 
   const handleMuteToggle = () => {
-    if (!muted) {
-      audioRef.current?.pause();
-      if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
-      audioRef.current = null;
-    }
+    if (!muted) stopAudio();
     setMuted(m => !m);
   };
 
   const handleClear = () => {
     recognitionRef.current?.stop();
-    audioRef.current?.pause();
-    if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
-    audioRef.current = null;
+    stopAudio();
     abortRef.current?.abort();
     messagesRef.current = [];
     setTranscripts([]);
