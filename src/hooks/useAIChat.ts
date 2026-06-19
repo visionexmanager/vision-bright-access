@@ -5,10 +5,18 @@
  * useSSEStream (shared SSE parser) — no direct fetch allowed here.
  */
 import { useState, useCallback, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSSEStream } from "@/lib/api/useSSEStream";
 import { aiService } from "@/services/ai/aiService";
+import {
+  buildCompanionPageContext,
+  loadCompanionMemory,
+  runCompanionTool,
+  saveCompanionMemory,
+  setCompanionMemoryEnabled,
+  type CompanionMemory,
+} from "@/lib/ai/companion";
 
 type Message = {
   id: string;
@@ -24,6 +32,7 @@ export type RateLimitInfo = {
 export function useAIChat(options?: { assistantId?: string }) {
   const assistantId = options?.assistantId;
   const [messages, setMessages]     = useState<Message[]>([]);
+  const [memory, setMemory] = useState<CompanionMemory>(() => loadCompanionMemory());
   const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo>({
     isRateLimited: false,
     cooldownSeconds: 0,
@@ -32,6 +41,7 @@ export function useAIChat(options?: { assistantId?: string }) {
   const cooldownTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const { lang }          = useLanguage();
   const { pathname }      = useLocation();
+  const navigate          = useNavigate();
 
   const { consumeStream, isStreaming } = useSSEStream();
 
@@ -75,11 +85,37 @@ export function useAIChat(options?: { assistantId?: string }) {
       }));
 
       try {
+        const pageContext = buildCompanionPageContext();
+        const toolResult = runCompanionTool(input, pageContext);
+
+        if (toolResult.handled) {
+          if (toolResult.navigateTo) navigate(toolResult.navigateTo);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: toolResult.message || "تم.",
+            },
+          ]);
+          setMemory(loadCompanionMemory());
+          return;
+        }
+
         const response = await aiService.streamChat(
           apiMessages,
           {
             currentPage: pathname,
             language:    lang,
+            pageContext,
+            companionMemory: memory.enabled ? memory.notes : [],
+            companionCapabilities: [
+              "navigate_sections",
+              "summarize_current_page",
+              "compare_known_products",
+              "remember_user_preferences_when_explicitly_asked",
+            ],
+            ...(toolResult.context || {}),
             ...(assistantId ? { assistantId } : {}),
             ...(productContext || {}),
           },
@@ -102,7 +138,7 @@ export function useAIChat(options?: { assistantId?: string }) {
             if (isRateLimit) startCooldown();
             setMessages((prev) => [
               ...prev,
-              { id: assistantId, role: "assistant", content: `⚠️ ${err.message}` },
+              { id: crypto.randomUUID(), role: "assistant", content: `⚠️ ${err.message}` },
             ]);
           },
         });
@@ -111,13 +147,13 @@ export function useAIChat(options?: { assistantId?: string }) {
         const msg = e instanceof Error ? e.message : "Something went wrong.";
         setMessages((prev) => [
           ...prev,
-          { id: assistantId, role: "assistant", content: `⚠️ ${msg}` },
+          { id: crypto.randomUUID(), role: "assistant", content: `⚠️ ${msg}` },
         ]);
       } finally {
         abortRef.current = null;
       }
     },
-    [messages, lang, pathname, consumeStream, assistantId, startCooldown]
+    [messages, lang, pathname, consumeStream, assistantId, startCooldown, memory.enabled, memory.notes, navigate]
   );
 
   const clearMessages = useCallback(() => {
@@ -129,10 +165,23 @@ export function useAIChat(options?: { assistantId?: string }) {
     abortRef.current?.abort();
   }, []);
 
+  const toggleMemory = useCallback(() => {
+    setMemory((current) => setCompanionMemoryEnabled(!current.enabled));
+  }, []);
+
+  const clearMemory = useCallback(() => {
+    const next = { enabled: memory.enabled, notes: [] };
+    saveCompanionMemory(next);
+    setMemory(next);
+  }, [memory.enabled]);
+
   return {
     messages,
     isLoading: isStreaming,
     rateLimitInfo,
+    memory,
+    toggleMemory,
+    clearMemory,
     sendMessage,
     clearMessages,
     stopGeneration,

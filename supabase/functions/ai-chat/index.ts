@@ -130,6 +130,12 @@ VOICE RULES (mandatory — you are speaking, not writing):
       if (context?.language) {
         systemPrompt += `\nUser's language: ${context.language}. Reply in that language.`;
       }
+      if (context?.pageContext) {
+        systemPrompt += `\nCurrent page context: ${JSON.stringify(context.pageContext)}`;
+      }
+      if (Array.isArray(context?.companionMemory) && context.companionMemory.length > 0) {
+        systemPrompt += `\nRelevant saved user preferences: ${context.companionMemory.join("; ")}`;
+      }
     } else {
       // Default Visionex assistant + Business Simulation mentor mode
       const isSimulation = context?.productName?.startsWith("Business Simulation:");
@@ -161,6 +167,21 @@ Simulation: ${simName}${stepInfo}
       } else {
         if (context?.currentPage) {
           systemPrompt += `\n\n## Current Context\nThe user is currently on: ${context.currentPage}`;
+        }
+        if (context?.pageContext) {
+          systemPrompt += `\n\n## Live Page Context\n${JSON.stringify(context.pageContext, null, 2)}`;
+        }
+        if (Array.isArray(context?.companionMemory) && context.companionMemory.length > 0) {
+          systemPrompt += `\n\n## User-Approved Memory\nUse these saved preferences only when relevant:\n- ${context.companionMemory.join("\n- ")}`;
+        }
+        if (Array.isArray(context?.companionCapabilities) && context.companionCapabilities.length > 0) {
+          systemPrompt += `\n\n## Companion Capabilities\nThe client can support: ${context.companionCapabilities.join(", ")}. If the user asks for navigation or saved preferences, acknowledge the action naturally.`;
+        }
+        if (context?.toolIntent) {
+          systemPrompt += `\n\n## Tool Intent\nThe client detected this intent: ${context.toolIntent}`;
+        }
+        if (Array.isArray(context?.productMatches) && context.productMatches.length > 0) {
+          systemPrompt += `\n\n## Known Product Matches\nUse these known Visionex products before giving general recommendations:\n${JSON.stringify(context.productMatches, null, 2)}`;
         }
         if (context?.productName) {
           systemPrompt += `\nThey are viewing the product: ${context.productName}`;

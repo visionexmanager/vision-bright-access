@@ -50,6 +50,13 @@ export interface ChatContext {
   productName?: string;
   currentStep?: string;
   shopContext?: string;
+  voiceMode?: boolean;
+  pageContext?: Record<string, unknown>;
+  companionMemory?: string[];
+  companionCapabilities?: string[];
+  toolIntent?: string;
+  productMatches?: Array<Record<string, unknown>>;
+  pageSnapshot?: Record<string, unknown>;
   /** Selects a registry-driven domain assistant (e.g. "legal-advisor"). */
   assistantId?: string;
 }

@@ -2,12 +2,37 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAIChat } from "@/hooks/useAIChat";
-import { Bot, X, Send, Trash2, Square, Mic, MicOff, Timer, Phone } from "lucide-react";
+import { Bot, X, Send, Trash2, Square, Mic, MicOff, Timer, Phone, Brain, MapPinned, Sparkles } from "lucide-react";
 import { VoiceChat } from "@/components/VoiceChat";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
 
 export type AIChatOpenEvent = CustomEvent<{ productName: string; prompt: string }>;
+
+type SpeechRecognitionEventLike = {
+  results: ArrayLike<ArrayLike<{ transcript: string }>>;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechWindow = Window & {
+  SpeechRecognition?: new () => SpeechRecognitionLike;
+  webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+};
+
+const speechLangMap: Record<string, string> = {
+  en: "en-US", ar: "ar-SA", es: "es-ES", fr: "fr-FR",
+  de: "de-DE", pt: "pt-BR", tr: "tr-TR", ru: "ru-RU", zh: "zh-CN",
+};
 
 declare global {
   interface WindowEventMap {
@@ -24,19 +49,23 @@ export function AIChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [input, setInput] = useState("");
-  const { messages, isLoading, rateLimitInfo, sendMessage, clearMessages, stopGeneration } = useAIChat();
+  const {
+    messages,
+    isLoading,
+    rateLimitInfo,
+    memory,
+    toggleMemory,
+    clearMemory,
+    sendMessage,
+    clearMessages,
+    stopGeneration,
+  } = useAIChat();
   const prevRateLimitedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const [isListening, setIsListening] = useState(false);
   const isRTL = lang === "ar";
-
-  // Speech recognition language mapping
-  const speechLangMap: Record<string, string> = {
-    en: "en-US", ar: "ar-SA", es: "es-ES", fr: "fr-FR",
-    de: "de-DE", pt: "pt-BR", tr: "tr-TR", ru: "ru-RU", zh: "zh-CN",
-  };
 
   const hasSpeechRecognition = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
@@ -49,13 +78,15 @@ export function AIChat() {
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const speechWindow = window as SpeechWindow;
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
     const recognition = new SpeechRecognition();
     recognition.lang = speechLangMap[lang] || "en-US";
     recognition.interimResults = false;
     recognition.continuous = false;
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       if (transcript.trim()) {
         setInput(transcript);
@@ -137,6 +168,17 @@ export function AIChat() {
     t("ai.suggestion2"),
     t("ai.suggestion3"),
   ];
+  const quickActions = isRTL
+    ? [
+        { label: "لخص الصفحة", prompt: "لخص الصفحة الحالية بشكل مختصر وواضح." },
+        { label: "افتح السوق", prompt: "افتح قسم السوق" },
+        { label: "قارن منتجات", prompt: "قارن أفضل المنتجات المساعدة المناسبة لي." },
+      ]
+    : [
+        { label: "Summarize", prompt: "Summarize the current page clearly and briefly." },
+        { label: "Open store", prompt: "Open the marketplace section" },
+        { label: "Compare", prompt: "Compare the best assistive products for me." },
+      ];
 
   return (
     <>
@@ -179,6 +221,28 @@ export function AIChat() {
               >
                 <Phone className="h-4 w-4" />
               </Button>
+              <Button
+                variant={memory.enabled ? "secondary" : "ghost"}
+                size="icon"
+                className="h-8 w-8"
+                onClick={toggleMemory}
+                aria-label={memory.enabled ? "Memory on" : "Memory off"}
+                title={memory.enabled ? "Memory on" : "Memory off"}
+              >
+                <Brain className="h-4 w-4" />
+              </Button>
+              {memory.notes.length > 0 && !voiceMode && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={clearMemory}
+                  aria-label="Clear assistant memory"
+                  title="Clear assistant memory"
+                >
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+              )}
               {messages.length > 0 && !voiceMode && (
                 <Button
                   variant="ghost"
@@ -221,6 +285,20 @@ export function AIChat() {
                   <p className="text-xs text-muted-foreground mt-1">{t("ai.welcomeSubtitle")}</p>
                 </div>
                 <div className="flex flex-col gap-2 w-full max-w-xs">
+                  <div className="grid grid-cols-3 gap-2">
+                    {quickActions.map((action) => (
+                      <button
+                        key={action.label}
+                        onClick={() => sendMessage(action.prompt)}
+                        className="flex min-h-10 items-center justify-center gap-1 rounded-lg border bg-background px-2 text-[11px] font-medium hover:bg-muted"
+                      >
+                        {action.label === "Open store" || action.label === "افتح السوق"
+                          ? <MapPinned className="h-3.5 w-3.5 shrink-0" />
+                          : <Sparkles className="h-3.5 w-3.5 shrink-0" />}
+                        <span className="truncate">{action.label}</span>
+                      </button>
+                    ))}
+                  </div>
                   {suggestions.map((s, i) => (
                     <button
                       key={i}

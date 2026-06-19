@@ -7,8 +7,10 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSSEStream } from "@/lib/api/useSSEStream";
 import { aiService } from "@/services/ai/aiService";
+import type { ChatContext } from "@/services/ai/aiService";
 import { cn } from "@/lib/utils";
 import type { AssistantType } from "@/lib/types";
+import { buildCompanionPageContext, loadCompanionMemory } from "@/lib/ai/companion";
 
 const BASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -48,6 +50,27 @@ type Status = "idle" | "listening" | "thinking" | "speaking";
 
 interface Segment { url: string | null; ready: boolean; error: boolean }
 
+type SpeechRecognitionEventLike = {
+  results: ArrayLike<ArrayLike<{ transcript: string }>>;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechWindow = Window & {
+  SpeechRecognition?: new () => SpeechRecognitionLike;
+  webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+};
+
 export function VoiceChat({ assistant = "visionex", assistantId, assistantName = "Visionex AI", className }: Props) {
   const { t, lang }       = useLanguage();
   const { user }          = useAuth();
@@ -58,7 +81,7 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
   const [muted,       setMuted]       = useState(false);
   const [error,       setError]       = useState("");
 
-  const recognitionRef    = useRef<any>(null);
+  const recognitionRef    = useRef<SpeechRecognitionLike | null>(null);
   const scrollRef         = useRef<HTMLDivElement>(null);
   const messagesRef       = useRef<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const aiAbortRef        = useRef<AbortController | null>(null);
@@ -185,9 +208,24 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
     const voice     = ASSISTANT_VOICE[assistant] || "nova";
 
     try {
+      const pageContext = buildCompanionPageContext();
+      const memory = loadCompanionMemory();
+      const context: ChatContext = {
+        language: lang,
+        voiceMode: true,
+        pageContext,
+        companionMemory: memory.enabled ? memory.notes : [],
+        companionCapabilities: [
+          "spoken_conversation",
+          "page_aware_answers",
+          "short_interruptible_responses",
+        ],
+        ...(assistantId ? { assistantId } : {}),
+      };
+
       const response = await aiService.streamChat(
         messagesRef.current,
-        { language: lang, voiceMode: true, ...(assistantId ? { assistantId } : {}) } as any,
+        context,
         aiCtrl.signal
       );
 
@@ -235,7 +273,9 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
   // ── Speech Recognition ────────────────────────────────────────────────────
   const startListening = useCallback(() => {
     if (!hasSpeech || isListeningRef.current) return;
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const speechWindow = window as SpeechWindow;
+    const SR = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+    if (!SR) return;
     const r = new SR();
     r.lang = SR_LANG[lang] || "en-US";
     r.interimResults = false;
@@ -243,7 +283,7 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
     r.onstart  = () => { setStatus("listening"); isListeningRef.current = true; };
     r.onend    = () => { isListeningRef.current = false; };
     r.onerror  = () => { isListeningRef.current = false; setStatus("idle"); };
-    r.onresult = (e: any) => {
+    r.onresult = (e) => {
       const text = e.results[0][0].transcript.trim();
       if (!text) { setStatus("idle"); return; }
       setTranscripts(prev => [...prev, { role: "user", text }]);
