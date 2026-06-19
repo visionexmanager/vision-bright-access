@@ -65,9 +65,6 @@ Deno.serve(async (req) => {
       roomJoin: true,
       room: roomId,
       canPublish: true,
-      // All sources allowed for every participant — microphone, camera, and screen share.
-      // Any user (not just the owner) may share their screen.
-      canPublishSources: ["microphone", "camera", "screen_share", "screen_share_audio"],
       canSubscribe: true,
       canPublishData: true,
     });
