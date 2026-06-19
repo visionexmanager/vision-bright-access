@@ -112,6 +112,12 @@ function resolveLiveKitUrl() {
   return url;
 }
 
+type LiveKitSessionResponse = {
+  token?: string;
+  url?: string;
+  error?: string;
+};
+
 // ── Spatial audio renderer ─────────────────────────────────────────
 // Uses LiveKit's @internal Web Audio plugin API to route each remote
 // participant's mic through a StereoPannerNode, spreading voices across
@@ -2620,6 +2626,7 @@ export default function VoiceRoom() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roomName, setRoomName] = useState("");
+  const [livekitUrl, setLivekitUrl] = useState(resolveLiveKitUrl);
   const [roomTopic, setRoomTopic] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [ownerId, setOwnerId] = useState<string | null>(null);
@@ -2641,9 +2648,13 @@ export default function VoiceRoom() {
 
   const leftIntentionally = useRef(false);
   const roomTopicRef = useRef(roomTopic);
-  const livekitUrl = resolveLiveKitUrl();
 
   useEffect(() => { roomTopicRef.current = roomTopic; }, [roomTopic]);
+
+  const applyLiveKitSession = useCallback((session: LiveKitSessionResponse) => {
+    if (session.url) setLivekitUrl(session.url.trim().replace(/^["']|["']$/g, ""));
+    if (session.token) setToken(session.token);
+  }, []);
 
   const cleanup = useCallback(async () => {
     if (user && roomId) {
@@ -2702,14 +2713,19 @@ export default function VoiceRoom() {
         userName: user.user_metadata?.display_name || user.email,
       },
     });
-    if (fnErr || !data?.token) {
-      toast({ title: t("vroom.tokenError"), variant: "destructive" });
+    const session = data as LiveKitSessionResponse | null;
+    if (fnErr || !session?.token) {
+      toast({
+        title: t("vroom.tokenError"),
+        description: fnErr?.message || session?.error,
+        variant: "destructive",
+      });
       return;
     }
-    setToken(data.token);
+    applyLiveKitSession(session);
     setConnectionKey((k) => k + 1);
     setConnectionLost(false);
-  }, [user, roomId, t]);
+  }, [user, roomId, t, applyLiveKitSession]);
 
   useEffect(() => {
     // Wait for Supabase auth to fully resolve before acting.  Without this guard,
@@ -2810,10 +2826,11 @@ export default function VoiceRoom() {
         },
       });
 
-      if (fnErr || !data?.token) {
-        setError(fnErr?.message || t("vroom.tokenError"));
+      const session = data as LiveKitSessionResponse | null;
+      if (fnErr || !session?.token) {
+        setError(fnErr?.message || session?.error || t("vroom.tokenError"));
       } else {
-        setToken(data.token);
+        applyLiveKitSession(session);
       }
       setLoading(false);
     };
@@ -2935,10 +2952,11 @@ export default function VoiceRoom() {
     const { data, error: fnErr } = await supabase.functions.invoke("livekit-token", {
       body: { roomId, userId: user.id, userName: user.user_metadata?.display_name || user.email },
     });
-    if (fnErr || !data?.token) {
-      setError(fnErr?.message || t("vroom.tokenError"));
+    const session = data as LiveKitSessionResponse | null;
+    if (fnErr || !session?.token) {
+      setError(fnErr?.message || session?.error || t("vroom.tokenError"));
     } else {
-      setToken(data.token);
+      applyLiveKitSession(session);
     }
     setLoading(false);
   };

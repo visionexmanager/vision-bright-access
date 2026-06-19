@@ -43,9 +43,14 @@ Deno.serve(async (req) => {
 
     const apiKey = Deno.env.get("LIVEKIT_API_KEY");
     const apiSecret = Deno.env.get("LIVEKIT_API_SECRET");
+    const livekitUrl = Deno.env.get("LIVEKIT_URL")?.trim().replace(/^["']|["']$/g, "");
 
     if (!apiKey || !apiSecret) {
       throw new Error("LiveKit credentials not configured on server");
+    }
+
+    if (!livekitUrl || !livekitUrl.startsWith("wss://")) {
+      throw new Error("LiveKit URL not configured on server");
     }
 
     if (!roomId || !userId) {
@@ -71,7 +76,7 @@ Deno.serve(async (req) => {
 
     const token = await at.toJwt();
 
-    return new Response(JSON.stringify({ token }), {
+    return new Response(JSON.stringify({ token, url: livekitUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
