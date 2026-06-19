@@ -107,6 +107,7 @@ Deno.serve(async (req) => {
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
+        "OpenAI-Beta": "realtime=v1",
       },
       body: JSON.stringify({
         model: "gpt-4o-realtime-preview",
@@ -125,11 +126,11 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       const err = await response.text();
       console.error("OpenAI Realtime session error:", response.status, err);
-      let openaiError = "Failed to create realtime session";
-      try { openaiError = JSON.parse(err)?.error?.message || openaiError; } catch {
-        // Keep the generic message when OpenAI returns a non-JSON error body.
+      let openaiError = `[${response.status}] Failed to create realtime session`;
+      try { openaiError = `[${response.status}] ${JSON.parse(err)?.error?.message || err}`; } catch {
+        openaiError = `[${response.status}] ${err.slice(0, 200)}`;
       }
-      return new Response(JSON.stringify({ error: openaiError, status: response.status }), {
+      return new Response(JSON.stringify({ error: openaiError }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

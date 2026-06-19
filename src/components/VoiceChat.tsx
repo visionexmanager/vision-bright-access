@@ -1,90 +1,235 @@
-import { useEffect, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mic, PhoneOff, Volume2, Loader2, RotateCcw } from "lucide-react";
-import { useVoiceChat, AssistantType, VoiceStatus } from "@/hooks/useVoiceChat";
+import { Mic, MicOff, Volume2, VolumeX, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSEStream } from "@/lib/api/useSSEStream";
+import { aiService } from "@/services/ai/aiService";
 import { cn } from "@/lib/utils";
+import type { AssistantType } from "@/lib/types";
 
 type Props = {
   assistant?: AssistantType;
-  /** Registry-driven domain assistant id (legal-advisor, …); overrides `assistant`. */
   assistantId?: string;
   assistantName?: string;
   className?: string;
 };
 
-const STATUS_COLOR: Record<VoiceStatus, string> = {
-  idle:       "bg-gray-400",
-  connecting: "bg-yellow-400 animate-pulse",
-  listening:  "bg-green-500 animate-pulse",
-  speaking:   "bg-blue-500 animate-pulse",
-  error:      "bg-red-500",
+type Transcript = { role: "user" | "assistant"; text: string; _id?: string };
+type Status = "idle" | "listening" | "thinking" | "speaking";
+
+const STATUS_COLOR: Record<Status, string> = {
+  idle:      "bg-gray-400",
+  listening: "bg-green-500 animate-pulse",
+  thinking:  "bg-yellow-400 animate-pulse",
+  speaking:  "bg-blue-500 animate-pulse",
 };
 
-export function VoiceChat({ assistant = "visionex", assistantId, assistantName = "Visionex AI", className }: Props) {
-  const { t } = useLanguage();
+const speechLangMap: Record<string, string> = {
+  en: "en-US", ar: "ar-SA", es: "es-ES", fr: "fr-FR",
+  de: "de-DE", pt: "pt-BR", tr: "tr-TR", ru: "ru-RU",
+  zh: "zh-CN", ur: "ur-PK", hi: "hi-IN",
+};
+
+export function VoiceChat({ assistantId, assistantName = "Visionex AI", className }: Props) {
+  const { t, lang } = useLanguage();
   const { user } = useAuth();
-  const { status, transcripts, error, connect, disconnect, clearTranscripts } = useVoiceChat(assistant, assistantId);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const isConnected = status !== "idle" && status !== "error";
+  const { consumeStream } = useSSEStream();
+
+  const [status, setStatus]         = useState<Status>("idle");
+  const [transcripts, setTranscripts] = useState<Transcript[]>([]);
+  const [muted, setMuted]           = useState(false);
+  const [error, setError]           = useState("");
+
+  const recognitionRef    = useRef<any>(null);
+  const synthRef          = useRef<SpeechSynthesisUtterance | null>(null);
+  const messagesRef       = useRef<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const scrollRef         = useRef<HTMLDivElement>(null);
+  const abortRef          = useRef<AbortController | null>(null);
+  const isListeningRef    = useRef(false);
+  // Stable ref so speak() can call startListening() without a circular dep
+  const startListeningRef = useRef<() => void>(() => {});
+
+  const hasSpeech = typeof window !== "undefined" &&
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [transcripts]);
 
-  const handleToggle = () => {
-    if (!user) return;
-    if (isConnected) disconnect();
-    else connect();
+  // Cleanup on unmount
+  useEffect(() => () => {
+    recognitionRef.current?.stop();
+    window.speechSynthesis?.cancel();
+    abortRef.current?.abort();
+  }, []);
+
+  const speak = useCallback((text: string) => {
+    if (muted || !text.trim() || typeof window === "undefined") return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = speechLangMap[lang] || "en-US";
+    utter.rate = 1;
+    utter.onstart = () => setStatus("speaking");
+    utter.onend   = () => { setStatus("idle"); startListeningRef.current(); };
+    utter.onerror = () => { setStatus("idle"); startListeningRef.current(); };
+    synthRef.current = utter;
+    window.speechSynthesis.speak(utter);
+  }, [muted, lang]);
+
+  const sendToAI = useCallback(async (userText: string) => {
+    setStatus("thinking");
+    messagesRef.current = [...messagesRef.current, { role: "user", content: userText }];
+
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    const replyId = crypto.randomUUID();
+    let accumulated = "";
+
+    try {
+      const response = await aiService.streamChat(
+        messagesRef.current,
+        { language: lang, ...(assistantId ? { assistantId } : {}) },
+        ctrl.signal
+      );
+
+      await consumeStream(response, {
+        onToken: (_tok, acc) => {
+          accumulated = acc;
+          setTranscripts(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last._id === replyId) {
+              return prev.map((m, i) => i === prev.length - 1 ? { ...m, text: acc } : m);
+            }
+            return [...prev, { role: "assistant" as const, text: acc, _id: replyId }];
+          });
+        },
+        onError: (err) => {
+          setError(err.message);
+          setStatus("idle");
+        },
+      });
+
+      if (accumulated) {
+        messagesRef.current = [...messagesRef.current, { role: "assistant", content: accumulated }];
+        speak(accumulated);
+      }
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+      setStatus("idle");
+    } finally {
+      abortRef.current = null;
+    }
+  }, [lang, assistantId, consumeStream, speak]);
+
+  const startListening = useCallback(() => {
+    if (!hasSpeech || isListeningRef.current) return;
+
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SR();
+    recognition.lang = speechLangMap[lang] || "en-US";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onstart  = () => { setStatus("listening"); isListeningRef.current = true; };
+    recognition.onend    = () => { isListeningRef.current = false; };
+    recognition.onerror  = () => { isListeningRef.current = false; setStatus("idle"); };
+
+    recognition.onresult = (e: any) => {
+      const text = e.results[0][0].transcript.trim();
+      if (!text) { setStatus("idle"); return; }
+      setTranscripts(prev => [...prev, { role: "user", text }]);
+      sendToAI(text);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, [hasSpeech, lang, sendToAI]);
+
+  // Keep the ref current so speak() always calls the latest startListening
+  useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
+
+  const handleMicToggle = () => {
+    if (!user) { setError(t("tv.toast.loginRequired")); return; }
+    if (!hasSpeech) { setError("Speech recognition not supported in this browser"); return; }
+    setError("");
+
+    if (status === "listening") {
+      recognitionRef.current?.stop();
+      setStatus("idle");
+    } else if (status === "idle") {
+      startListening();
+    }
   };
 
-  const statusLabel = t(`voice.status.${status}`);
-  const color = STATUS_COLOR[status];
-  const displayError = !user ? t("tv.toast.loginRequired") : error;
+  const handleMuteToggle = () => {
+    if (!muted) window.speechSynthesis?.cancel();
+    setMuted(m => !m);
+  };
+
+  const handleClear = () => {
+    recognitionRef.current?.stop();
+    window.speechSynthesis?.cancel();
+    abortRef.current?.abort();
+    messagesRef.current = [];
+    setTranscripts([]);
+    setStatus("idle");
+    setError("");
+  };
+
+  const statusLabel: Record<Status, string> = {
+    idle:     t("voice.status.idle"),
+    listening: t("voice.status.listening"),
+    thinking:  t("voice.status.connecting"),
+    speaking:  t("voice.status.speaking"),
+  };
 
   return (
     <div className={cn("flex flex-col rounded-2xl border bg-background shadow-lg", className)}>
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className={cn("h-2.5 w-2.5 rounded-full", color)} />
+          <div className={cn("h-2.5 w-2.5 rounded-full transition-colors", STATUS_COLOR[status])} />
           <span className="font-semibold text-sm">{assistantName}</span>
-          <Badge variant="secondary" className="text-xs">{statusLabel}</Badge>
+          <Badge variant="secondary" className="text-xs">{statusLabel[status]}</Badge>
         </div>
-        {transcripts.length > 0 && (
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearTranscripts}>
-            <RotateCcw className="h-3 w-3" />
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleMuteToggle}
+            aria-label={muted ? "Unmute" : "Mute"}>
+            {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
           </Button>
-        )}
+          {transcripts.length > 0 && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleClear}>
+              <RotateCcw className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Transcript area */}
+      {/* Transcript */}
       <ScrollArea className="flex-1 min-h-[200px] max-h-[320px]">
         <div ref={scrollRef} className="space-y-3 p-4">
           {transcripts.length === 0 && (
             <div className="text-center text-sm text-muted-foreground py-8">
-              {isConnected ? t("voice.activePrompt") : t("voice.startPrompt")}
+              {status !== "idle" ? t("voice.activePrompt") : t("voice.startPrompt")}
             </div>
           )}
-          {transcripts.map((t, i) => (
-            <div key={i} className={cn("flex", t.role === "user" ? "justify-end" : "justify-start")}>
+          {transcripts.map((tr, i) => (
+            <div key={i} className={cn("flex", tr.role === "user" ? "justify-end" : "justify-start")}>
               <div className={cn(
                 "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                t.role === "user"
+                tr.role === "user"
                   ? "bg-primary text-primary-foreground rounded-br-sm"
                   : "bg-muted rounded-bl-sm"
               )}>
-                {t.role === "assistant" && (
+                {tr.role === "assistant" && (
                   <div className="flex items-center gap-1 mb-1 text-xs text-muted-foreground">
                     <Volume2 className="h-3 w-3" /> {assistantName}
                   </div>
                 )}
-                {t.text}
+                {tr.text}
               </div>
             </div>
           ))}
@@ -92,47 +237,37 @@ export function VoiceChat({ assistant = "visionex", assistantId, assistantName =
       </ScrollArea>
 
       {/* Error */}
-      {displayError && (
+      {error && (
         <div className="mx-4 mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950 dark:text-red-400">
-          {displayError}
+          {error}
         </div>
       )}
 
       {/* Controls */}
-      <div className="flex items-center justify-center gap-4 border-t p-4">
-        {/* Visual indicator */}
+      <div className="flex flex-col items-center gap-2 border-t p-4">
         <div className={cn(
           "flex h-16 w-16 items-center justify-center rounded-full transition-all duration-300",
           status === "listening" && "bg-green-100 ring-4 ring-green-300 dark:bg-green-950",
-          status === "speaking" && "bg-blue-100 ring-4 ring-blue-300 dark:bg-blue-950",
-          status === "connecting" && "bg-yellow-100 dark:bg-yellow-950",
-          status === "idle" || status === "error" ? "bg-muted" : ""
+          status === "speaking"  && "bg-blue-100 ring-4 ring-blue-300 dark:bg-blue-950",
+          status === "thinking"  && "bg-yellow-100 ring-4 ring-yellow-200 dark:bg-yellow-950",
+          (status === "idle")    && "bg-muted",
         )}>
-          {status === "connecting" ? (
-            <Loader2 className="h-7 w-7 animate-spin text-yellow-500" />
-          ) : status === "speaking" ? (
-            <Volume2 className="h-7 w-7 text-blue-500" />
-          ) : (
-            <Button
-              onClick={handleToggle}
-              size="icon"
-              disabled={!user}
-              className={cn(
-                "h-14 w-14 rounded-full text-white transition-all",
-                isConnected
-                  ? "bg-red-500 hover:bg-red-600"
-                  : "bg-primary hover:bg-primary/90"
-              )}
-            >
-              {isConnected ? <PhoneOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-            </Button>
-          )}
+          <Button
+            onClick={handleMicToggle}
+            size="icon"
+            disabled={status === "thinking" || status === "speaking"}
+            className={cn(
+              "h-14 w-14 rounded-full text-white transition-all",
+              status === "listening" ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-primary hover:bg-primary/90"
+            )}
+          >
+            {status === "listening" ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+          </Button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          {status === "listening" ? t("voice.endPrompt") : t("voice.beginPrompt")}
+        </p>
       </div>
-
-      <p className="pb-3 text-center text-xs text-muted-foreground">
-        {isConnected ? t("voice.endPrompt") : t("voice.beginPrompt")}
-      </p>
     </div>
   );
 }
