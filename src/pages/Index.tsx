@@ -3,7 +3,7 @@ import { AdBanner } from "@/components/AdBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowRight, Eye, ShoppingBag, BookOpen, UserPlus, Zap, Gift, TrendingUp, Gamepad2, CheckCircle, Lock } from "lucide-react";
+import { ArrowRight, Bot, Eye, Radio, ShoppingBag, BookOpen, UserPlus, Users, Zap, Gift, TrendingUp, Gamepad2, CheckCircle, Lock } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSound } from "@/contexts/SoundContext";
@@ -20,6 +20,9 @@ export default function Index() {
     { icon: ShoppingBag, title: t("home.feature.marketplace"), desc: t("home.feature.marketplaceDesc"), to: "/bazaar",                   requiresAuth: false },
     { icon: Eye,         title: t("home.feature.services"),    desc: t("home.feature.servicesDesc"),    to: "/services",                  requiresAuth: false },
     { icon: BookOpen,    title: t("home.feature.content"),     desc: t("home.feature.contentDesc"),     to: "/content",                   requiresAuth: false },
+    { icon: Radio,       title: t("home.feature.entertainment"), desc: t("home.feature.entertainmentDesc"), to: "/services",              requiresAuth: false },
+    { icon: Users,       title: t("home.feature.community"),    desc: t("home.feature.communityDesc"),    to: "/community",                requiresAuth: true },
+    { icon: Bot,         title: t("home.feature.ai"),           desc: t("home.feature.aiDesc"),           to: "/dashboard",                requiresAuth: true },
     { icon: Gamepad2,    title: t("nav.games"),                desc: t("dash.playGamesLinkDesc"),        to: "/games",                     requiresAuth: true },
   ];
 
