@@ -194,7 +194,7 @@ export function AIChat() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() => setIsOpen(false)}
+                onClick={() => { clearMessages(); setIsOpen(false); }}
                 aria-label={t("ai.closeChat")}
               >
                 <X className="h-4 w-4" />

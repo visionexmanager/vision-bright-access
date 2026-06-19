@@ -4,7 +4,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useSound } from "@/contexts/SoundContext";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,9 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, MessageCircle, Settings, Volume2, VolumeX } from "lucide-react";
+import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, Settings, Volume2, VolumeX } from "lucide-react";
 import logo from "@/assets/logo.png";
-import { useUnreadCount } from "@/hooks/useMessages";
 import { usePoints } from "@/hooks/usePoints";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
@@ -29,7 +27,6 @@ export function Navbar() {
   const { t } = useLanguage();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const unreadMessages = useUnreadCount();
   const { enabled: soundEnabled, setEnabled: setSoundEnabled, playSound } = useSound();
   const { totalPoints } = usePoints();
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -182,18 +179,6 @@ export function Navbar() {
               <span>{totalPoints.toLocaleString()} VX</span>
             </Link>
           )}
-          {user && (
-            <Link to="/messages">
-              <Button variant="ghost" size="icon" className="relative" aria-label={t("msg.title")}>
-                <MessageCircle className="h-5 w-5" />
-                {unreadMessages > 0 && (
-                  <Badge variant="destructive" className="absolute -end-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]">
-                    {unreadMessages}
-                  </Badge>
-                )}
-              </Button>
-            </Link>
-          )}
           {user ? (
             <>
               {isAdmin && (
@@ -261,18 +246,6 @@ export function Navbar() {
         <div className="flex items-center gap-1.5 lg:hidden">
           <ThemeToggle />
           <LanguageSwitcher />
-          {user && (
-            <Link to="/messages" onClick={() => setMenuOpen(false)}>
-              <Button variant="ghost" size="icon" className="relative" aria-label={t("msg.title")}>
-                <MessageCircle className="h-5 w-5" />
-                {unreadMessages > 0 && (
-                  <Badge variant="destructive" className="absolute -end-1 -top-1 h-5 min-w-[1.25rem] px-1 text-[10px]">
-                    {unreadMessages}
-                  </Badge>
-                )}
-              </Button>
-            </Link>
-          )}
           {user && (
             <Link to="/profile" onClick={() => setMenuOpen(false)}>
               <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>

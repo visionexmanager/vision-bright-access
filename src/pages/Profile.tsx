@@ -382,6 +382,19 @@ export default function Profile() {
           })}
         </div>
 
+        {/* Messages inbox link */}
+        <Link to="/messages" className="mb-4 block group">
+          <div className="flex items-center justify-between rounded-xl border border-border bg-card px-5 py-4 transition-all hover:border-primary/40 hover:shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary/10 p-2">
+                <MessageCircle className="h-5 w-5 text-primary" />
+              </div>
+              <span className="font-semibold">{t("msg.title")}</span>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
+          </div>
+        </Link>
+
         {/* Send Message to User */}
         <h2 className="mb-4 text-xl font-bold flex items-center gap-2">
           <MessageCircle className="h-5 w-5 text-primary" />

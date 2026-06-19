@@ -4,7 +4,7 @@
  * Uses aiService.streamChat() (AI Service Layer) +
  * useSSEStream (shared SSE parser) — no direct fetch allowed here.
  */
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSSEStream } from "@/lib/api/useSSEStream";
@@ -21,29 +21,9 @@ export type RateLimitInfo = {
   cooldownSeconds: number;
 };
 
-const HISTORY_KEY = "vx_ai_chat_history";
-const MAX_STORED = 40; // keep last 40 messages
-
-function loadHistory(): Message[] {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    return raw ? (JSON.parse(raw) as Message[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveHistory(msgs: Message[]) {
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(msgs.slice(-MAX_STORED)));
-  } catch {
-    // storage quota exceeded — ignore
-  }
-}
-
 export function useAIChat(options?: { assistantId?: string }) {
   const assistantId = options?.assistantId;
-  const [messages, setMessages]     = useState<Message[]>(() => loadHistory());
+  const [messages, setMessages]     = useState<Message[]>([]);
   const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo>({
     isRateLimited: false,
     cooldownSeconds: 0,
@@ -54,11 +34,6 @@ export function useAIChat(options?: { assistantId?: string }) {
   const { pathname }      = useLocation();
 
   const { consumeStream, isStreaming } = useSSEStream();
-
-  // Persist messages to localStorage whenever they change
-  useEffect(() => {
-    saveHistory(messages);
-  }, [messages]);
 
   const startCooldown = useCallback(() => {
     const COOLDOWN = 30;
@@ -148,7 +123,6 @@ export function useAIChat(options?: { assistantId?: string }) {
   const clearMessages = useCallback(() => {
     abortRef.current?.abort();
     setMessages([]);
-    localStorage.removeItem(HISTORY_KEY);
   }, []);
 
   const stopGeneration = useCallback(() => {
