@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,13 +12,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CollapsibleTableCard } from "@/components/ui/collapsible-table-card";
 import { Navigate, Link, useNavigate } from "react-router-dom";
 import {
   Camera, Save, Trophy, Star, Flame, Target,
   Gamepad2, BookOpen, Users, TrendingUp, Award, Coins, ShoppingBag, ArrowRight, Clock,
-  MessageCircle, Search, Send, FileText, Paperclip,
+  MessageCircle, Search, Send, FileText, Paperclip, Calendar,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -29,6 +29,7 @@ import { calculateLevel, calculateStage, getStageIcon, STAGE_ICONS } from "@/sys
 import { WatchAdButton } from "@/components/WatchAdButton";
 import { findOrCreateConversation } from "@/hooks/useMessages";
 import { toast as sonnerToast } from "sonner";
+import { formatVX } from "@/systems/pricingSystem";
 
 const DATE_LOCALES: Record<string, Locale> = {
   ar: arLocale, es, de, pt, zh: zhCN, tr, fr, ru,
@@ -138,6 +139,20 @@ export default function Profile() {
     },
   });
 
+  const { data: purchases = [], isLoading: purchasesLoading } = useQuery({
+    queryKey: ["vx-purchases", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vx_purchases")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   useEffect(() => {
     if (profile) {
       setDisplayName(profile.display_name || "");
@@ -165,6 +180,18 @@ export default function Profile() {
   const memberSince = user.created_at
     ? new Date(user.created_at).toLocaleDateString()
     : "—";
+  const totalSpent = purchases.reduce((sum, purchase) => sum + purchase.amount, 0);
+  const purchaseTypeColors: Record<string, string> = {
+    game: "bg-purple-500/15 text-purple-700 dark:text-purple-300",
+    course: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+    article: "bg-green-500/15 text-green-700 dark:text-green-300",
+    simulation: "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+    service: "bg-pink-500/15 text-pink-700 dark:text-pink-300",
+    bazaar_shop: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    bazaar_order: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  };
+  const expandTableLabel = lang === "ar" ? "توسيع الجدول" : "Expand table";
+  const collapseTableLabel = lang === "ar" ? "طي الجدول" : "Collapse table";
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -442,29 +469,93 @@ export default function Profile() {
           </CardContent>
         </Card>
 
-        {/* Purchase History link */}
-        <Link to="/purchase-history" className="mb-8 block group">
-          <div className="flex items-center justify-between rounded-xl border border-border bg-card px-5 py-4 transition-all hover:border-primary/40 hover:shadow-md">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-primary/10 p-2">
-                <ShoppingBag className="h-5 w-5 text-primary" />
-              </div>
+        {/* Purchase History */}
+        <h2 id="purchase-history" className="mb-4 text-xl font-bold flex items-center gap-2">
+          <ShoppingBag className="h-5 w-5 text-primary" />
+          {t("purchaseHistory.title")}
+        </h2>
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <Coins className="h-5 w-5 text-yellow-500" aria-hidden="true" />
               <div>
-                <p className="font-semibold">{t("profile.purchaseHistory")}</p>
-                <p className="text-xs text-muted-foreground">{t("nav.purchaseHistory")}</p>
+                <p className="text-xs text-muted-foreground">{t("purchaseHistory.totalSpent")}</p>
+                <p className="text-lg font-bold text-primary">{formatVX(totalSpent)}</p>
               </div>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-          </div>
-        </Link>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <Calendar className="h-5 w-5 text-blue-500" aria-hidden="true" />
+              <div>
+                <p className="text-xs text-muted-foreground">{t("purchaseHistory.transactions")}</p>
+                <p className="text-lg font-bold">{purchases.length}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <CollapsibleTableCard
+          className="mb-8"
+          title={t("purchaseHistory.allPurchases")}
+          summary={`${purchases.length} ${t("purchaseHistory.transactions")}`}
+          expandLabel={expandTableLabel}
+          collapseLabel={collapseTableLabel}
+        >
+            {purchasesLoading ? (
+              <div className="space-y-3 p-6">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+              </div>
+            ) : purchases.length === 0 ? (
+              <div className="py-10 text-center text-muted-foreground">
+                <ShoppingBag className="mx-auto mb-3 h-12 w-12 opacity-30" aria-hidden="true" />
+                <p>{t("purchaseHistory.empty")}</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("purchaseHistory.colItem")}</TableHead>
+                    <TableHead>{t("purchaseHistory.colType")}</TableHead>
+                    <TableHead>{t("purchaseHistory.colAmount")}</TableHead>
+                    <TableHead>{t("purchaseHistory.colDate")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {purchases.map((purchase) => (
+                    <TableRow key={purchase.id}>
+                      <TableCell className="font-medium">{purchase.item_name || purchase.item_type}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`border-transparent ${purchaseTypeColors[purchase.item_type] ?? "bg-muted text-muted-foreground"}`}
+                        >
+                          {purchase.item_type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-semibold text-primary">{formatVX(purchase.amount)}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {format(new Date(purchase.created_at), "MMM d, yyyy", { locale: DATE_LOCALES[lang] ?? enUS })}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+        </CollapsibleTableCard>
 
         {/* Service Requests */}
         <h2 className="mb-4 text-xl font-bold flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
           {t("profile.requestsTitle")}
         </h2>
-        <Card className="mb-8">
-          <CardContent className="p-0">
+        <CollapsibleTableCard
+          className="mb-8"
+          title={t("profile.requestsTitle")}
+          summary={`${serviceRequests.length} ${t("profile.requestsTitle")}`}
+          defaultOpen={serviceRequests.length > 0}
+          expandLabel={expandTableLabel}
+          collapseLabel={collapseTableLabel}
+        >
             {requestsLoading ? (
               <div className="space-y-3 p-6">
                 {[1, 2].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
@@ -520,16 +611,21 @@ export default function Profile() {
                 </TableBody>
               </Table>
             )}
-          </CardContent>
-        </Card>
+        </CollapsibleTableCard>
 
         {/* Activity History */}
         <h2 className="mb-4 text-xl font-bold flex items-center gap-2">
           <Clock className="h-5 w-5 text-primary" />
           {t("dash.history")}
         </h2>
-        <Card className="mb-8">
-          <CardContent className="p-0">
+        <CollapsibleTableCard
+          className="mb-8"
+          title={t("dash.history")}
+          summary={`${history.length} ${t("dash.activity")}`}
+          defaultOpen={history.length > 0}
+          expandLabel={expandTableLabel}
+          collapseLabel={collapseTableLabel}
+        >
             {loadingHistory ? (
               <div className="space-y-3 p-6">
                 {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
@@ -562,8 +658,7 @@ export default function Profile() {
                 </TableBody>
               </Table>
             )}
-          </CardContent>
-        </Card>
+        </CollapsibleTableCard>
 
         {/* Level Progression */}
         <h2 className="mb-4 text-xl font-bold flex items-center gap-2">

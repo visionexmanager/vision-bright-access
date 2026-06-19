@@ -53,7 +53,6 @@ const CoinsStore = lazy(() => import("./pages/CoinsStore"));
 const News = lazy(() => import("./pages/News"));
 const Messages = lazy(() => import("./pages/Messages"));
 const Settings = lazy(() => import("./pages/Settings"));
-const PurchaseHistory = lazy(() => import("./pages/PurchaseHistory"));
 const ProfessionalTools = lazy(() => import("./pages/ProfessionalTools"));
 const ToolDetail = lazy(() => import("./pages/ToolDetail"));
 
@@ -243,7 +242,7 @@ function AppRoutes() {
                     <Route path="/news" element={<News />} />
                     <Route path="/messages" element={<Messages />} />
                     <Route path="/settings" element={<Settings />} />
-                    <Route path="/purchase-history" element={<PurchaseHistory />} />
+                    <Route path="/purchase-history" element={<Navigate to="/profile#purchase-history" replace />} />
                     <Route path="/professional-tools" element={<ProfessionalTools />} />
                     <Route path="/professional-tools/:toolId" element={<ToolDetail />} />
                     {/* Legal — all policies accessible through /legal (LegalCenter) */}

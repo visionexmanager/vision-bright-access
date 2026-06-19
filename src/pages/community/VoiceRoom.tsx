@@ -275,22 +275,33 @@ function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick
   const isMuted = !tracks.some((tr) => tr.publication?.isMuted === false && tr.publication?.isEnabled);
   const isSpeaking = participant.isSpeaking;
   const displayName = participant.name || participant.identity;
+  const participantState = [
+    isMe ? t("vroom.you") : "",
+    isSpeaking ? t("voice.status.speaking") : "",
+    isMuted ? t("vroom.mute") : t("vroom.unmute"),
+    isRaisingHand ? t("vroom.raisedHand") : "",
+  ].filter(Boolean).join(", ");
 
   return (
-    <div className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 transition-all ${isSpeaking ? "border-primary bg-primary/5 shadow-md" : "border-border bg-muted/30"}`}>
+    <div
+      role="listitem"
+      aria-label={`${displayName}. ${participantState}`}
+      className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 transition-all ${isSpeaking ? "border-primary bg-primary/5 shadow-md" : "border-border bg-muted/30"}`}
+    >
       {isRaisingHand && (
         <span className="absolute -top-2 -right-2 text-lg animate-bounce z-10 select-none">✋</span>
       )}
       <div className={`relative flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-primary-foreground ${isSpeaking ? "bg-primary" : "bg-muted-foreground/30"}`}>
-        {displayName.charAt(0).toUpperCase()}
+        <span aria-hidden="true">{displayName.charAt(0).toUpperCase()}</span>
         {isSpeaking && (
-          <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-            <Volume2 className="h-2.5 w-2.5 text-primary-foreground" />
+          <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary" aria-hidden="true">
+            <Volume2 className="h-2.5 w-2.5 text-primary-foreground" aria-hidden="true" />
           </span>
         )}
       </div>
       <span className="max-w-[80px] truncate text-xs font-medium">{displayName}</span>
-      {isMuted && <MicOff className="h-3.5 w-3.5 text-muted-foreground" />}
+      <span className="sr-only">{participantState}</span>
+      {isMuted && <MicOff className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />}
 
       {canModerate && !isMe && (
         <div className="flex gap-1 mt-1">
@@ -381,6 +392,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const [unreadNotifs, setUnreadNotifs] = useState(0);
   const [roomEvents, setRoomEvents] = useState<RoomActivityEvent[]>([]);
   const [roomBanners, setRoomBanners] = useState<{ id: string; icon: string; text: string }[]>([]);
+  const [screenReaderAnnouncement, setScreenReaderAnnouncement] = useState("");
   const notifEndRef = useRef<HTMLDivElement>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -417,9 +429,15 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
 
   useEffect(() => { localParticipantRef.current = localParticipant; }, [localParticipant]);
 
+  const announce = useCallback((text: string) => {
+    setScreenReaderAnnouncement("");
+    window.setTimeout(() => setScreenReaderAnnouncement(text), 30);
+  }, []);
+
   const addEvent = useCallback((icon: string, text: string) => {
     const id = Math.random().toString(36).slice(2);
     setRoomEvents((prev) => [...prev.slice(-99), { id, icon, text, ts: Date.now() }]);
+    announce(text);
     setNotifOpen((open) => {
       if (!open) setUnreadNotifs((n) => n + 1);
       return open;
@@ -427,7 +445,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     // Show banner — max 4 visible at once, auto-dismiss after 4s
     setRoomBanners((prev) => [...prev.slice(-3), { id, icon, text }]);
     setTimeout(() => setRoomBanners((prev) => prev.filter((b) => b.id !== id)), 4000);
-  }, []);
+  }, [announce]);
 
   // Auto-scroll notifications panel
   useEffect(() => {
@@ -760,6 +778,22 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       .slice(0, 10);
   }, [participants, raisedHands, currentUserId]);
 
+  const activeSpeakerNames = useMemo(
+    () => participants.filter((p) => p.isSpeaking).map((p) => p.name || p.identity).sort(),
+    [participants],
+  );
+  const activeSpeakersRef = useRef("");
+
+  useEffect(() => {
+    const names = activeSpeakerNames.join(", ");
+    if (names && names !== activeSpeakersRef.current) {
+      activeSpeakersRef.current = names;
+      announce(`${t("voice.status.speaking")}: ${names}`);
+    } else if (!names) {
+      activeSpeakersRef.current = "";
+    }
+  }, [activeSpeakerNames, announce, t]);
+
   const toggleMic = async () => {
     if (!roomPerms.mic && muted && !isOwner) {
       toast({ title: t("vroom.permDisabledByOwner"), variant: "destructive" });
@@ -919,6 +953,42 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     }
   };
 
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTyping =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (isTyping || event.altKey || event.ctrlKey || event.metaKey) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "m") {
+        event.preventDefault();
+        void toggleMic();
+      } else if (key === "h") {
+        event.preventDefault();
+        void toggleHand();
+      } else if (key === "c" && (roomPerms.chat || isOwner)) {
+        event.preventDefault();
+        setChatOpen((open) => !open);
+      } else if (key === "n") {
+        event.preventDefault();
+        setNotifOpen((open) => !open);
+      } else if (event.key === "Escape") {
+        setChatOpen(false);
+        setNotifOpen(false);
+        setShowEmojiPicker(false);
+        setShowEffects(false);
+        setShowQueue(false);
+        setShowRoomControls(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [isOwner, roomPerms.chat, toggleHand, toggleMic]);
+
   const canScreenShare = typeof navigator?.mediaDevices?.getDisplayMedia === "function";
   const primaryMiniTrack =
     allCameraTracks.find((track) => track.participant.identity === currentUserId) ||
@@ -1032,7 +1102,13 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" aria-describedby="voice-room-shortcuts">
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {screenReaderAnnouncement}
+      </div>
+      <div className="sr-only" id="voice-room-shortcuts">
+        Keyboard shortcuts: M mute or unmute, H raise or lower hand, C open chat, N open notifications, Escape close panels.
+      </div>
       {/* Mobile audio unlock — shown when browser blocks autoplay (iOS Safari, etc.) */}
       {!canPlayAudio && (
         <button
@@ -1304,7 +1380,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               <p className="text-xs font-semibold text-primary mb-2 flex items-center gap-1.5">
                 <Crown className="h-3.5 w-3.5" /> {t("vroom.stageArea")}
               </p>
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6" role="list" aria-label={t("vroom.stageArea")}>
                 {participants.filter((p) => stageMembers.has(p.identity)).map((p) => (
                   <ParticipantTile key={p.sid} participant={p} canModerate={canModerate} isMe={p.identity === currentUserId} isRaisingHand={raisedHands.has(p.identity)} onKick={onKick} onBan={onBan} t={t} />
                 ))}
@@ -1314,7 +1390,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5" /> {t("vroom.audienceArea")}
               </p>
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6" role="list" aria-label={t("vroom.audienceArea")}>
                 {participants.filter((p) => !stageMembers.has(p.identity)).map((p) => (
                   <ParticipantTile key={p.sid} participant={p} canModerate={canModerate} isMe={p.identity === currentUserId} isRaisingHand={raisedHands.has(p.identity)} onKick={onKick} onBan={onBan} t={t} />
                 ))}
@@ -1322,7 +1398,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             </div>
           </>
         ) : (
-          <div className={`grid gap-3 ${
+          <div role="list" aria-label={t("vroom.participants")} className={`grid gap-3 ${
             layout === "gallery"
               ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
               : layout === "cameras"
@@ -1345,7 +1421,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         )}
 
         {/* Floating reactions overlay */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
           {floatingReactions.map((r) => (
             <div
               key={r.id}
@@ -1370,13 +1446,13 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               <X className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          <div className="flex-1 overflow-y-auto p-2 space-y-0.5" role="log" aria-live="polite" aria-relevant="additions text">
             {roomEvents.length === 0 && (
               <p className="text-center text-xs text-muted-foreground py-4">{t("vroom.notificationsEmpty")}</p>
             )}
             {roomEvents.map((ev) => (
               <div key={ev.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-muted/40 transition-colors">
-                <span className="text-base leading-none shrink-0">{ev.icon}</span>
+                <span className="text-base leading-none shrink-0" aria-hidden="true">{ev.icon}</span>
                 <span className="flex-1 text-muted-foreground leading-snug">{ev.text}</span>
                 <span className="shrink-0 text-[10px] text-muted-foreground/50">
                   {new Date(ev.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -1400,7 +1476,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               <X className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px]">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px]" role="log" aria-live="polite" aria-relevant="additions text">
             {chatMessages.length === 0 && (
               <p className="text-center text-xs text-muted-foreground py-4">{t("vroom.chatEmpty")}</p>
             )}
@@ -1408,7 +1484,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               const imgMatch = msg.text.match(/^\[img\](.*)\[\/img\]$/);
               const fileMatch = msg.text.match(/^\[file\](.*)\|(.*)\[\/file\]$/);
               return (
-                <div key={msg.id} className={`flex flex-col ${msg.senderId === currentUserId ? "items-end" : "items-start"}`}>
+                <div key={msg.id} className={`flex flex-col ${msg.senderId === currentUserId ? "items-end" : "items-start"}`} role="article" aria-label={`${msg.senderName}, ${new Date(msg.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}>
                   <span className="text-[10px] text-muted-foreground mb-0.5">{msg.senderName}</span>
                   {imgMatch ? (
                     <a href={imgMatch[1]} target="_blank" rel="noopener noreferrer">
@@ -1437,10 +1513,11 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               accept="image/*,application/pdf,text/plain"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) shareFile(f); e.target.value = ""; }}
             />
-            <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={() => fileInputRef.current?.click()} title={t("vroom.uploadFile")}>
-              <Upload className="h-4 w-4" />
+            <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={() => fileInputRef.current?.click()} title={t("vroom.uploadFile")} aria-label={t("vroom.uploadFile")}>
+              <Upload className="h-4 w-4" aria-hidden="true" />
             </Button>
             <input
+              aria-label={t("vroom.chat")}
               className="flex-1 rounded-lg border bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/40"
               placeholder={t("vroom.chatPlaceholder")}
               value={chatInput}
@@ -1448,8 +1525,8 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
               maxLength={300}
             />
-            <Button size="icon" className="h-9 w-9 shrink-0" onClick={sendChatMessage} disabled={!chatInput.trim()}>
-              <Send className="h-4 w-4" />
+            <Button size="icon" className="h-9 w-9 shrink-0" onClick={sendChatMessage} disabled={!chatInput.trim()} aria-label={t("vroom.chat")}>
+              <Send className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
         </div>
@@ -1595,6 +1672,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
           onClick={toggleMic}
           disabled={!roomPerms.mic && !isOwner}
           aria-label={muted ? t("vroom.unmute") : t("vroom.mute")}
+          aria-pressed={!muted}
           title={!roomPerms.mic && !isOwner ? t("vroom.permDisabledByOwner") : undefined}
         >
           {muted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
@@ -1608,6 +1686,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               className={`h-14 w-14 rounded-full p-0 transition-colors ${isCameraEnabled ? "bg-green-500 hover:bg-green-600 border-green-500 text-white" : "border-muted-foreground/40"}`}
               onClick={toggleCamera}
               aria-label={isCameraEnabled ? t("vroom.cameraOn") : t("vroom.cameraOff")}
+              aria-pressed={isCameraEnabled}
               title={isCameraEnabled ? t("vroom.cameraOn") : t("vroom.cameraOff")}
             >
               {isCameraEnabled ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
@@ -1623,6 +1702,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
           className={`h-14 w-14 rounded-full p-0 transition-colors ${handRaised ? "bg-amber-500 hover:bg-amber-600 border-amber-500 text-white" : ""}`}
           onClick={toggleHand}
           aria-label={handRaised ? t("vroom.lowerHand") : t("vroom.raiseHand")}
+          aria-pressed={handRaised}
           title={handRaised ? t("vroom.lowerHand") : t("vroom.raiseHand")}
         >
           <Hand className="h-6 w-6" />
@@ -1649,6 +1729,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             className={`h-14 w-14 rounded-full p-0 transition-colors ${isScreenShareEnabled ? "bg-blue-500 hover:bg-blue-600 border-blue-500 text-white" : ""}`}
             onClick={toggleScreenShare}
             aria-label={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+            aria-pressed={isScreenShareEnabled}
             title={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
           >
             <Monitor className="h-6 w-6" />
@@ -1663,6 +1744,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               className={`h-14 w-14 rounded-full p-0 transition-colors ${audioShareEnabled ? "bg-teal-500 hover:bg-teal-600 border-teal-500 text-white" : ""}`}
               onClick={toggleAudioShare}
               aria-label={t("vroom.audioShare")}
+              aria-pressed={audioShareEnabled}
               title={t("vroom.audioShare")}
             >
               <Music2 className="h-6 w-6" />
@@ -1678,6 +1760,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             className={`h-14 w-14 rounded-full p-0 transition-colors ${showEffects || voiceEffect !== "none" ? "bg-indigo-500 border-indigo-500 text-white" : ""}`}
             onClick={() => setShowEffects((v) => !v)}
             aria-label={t("vroom.voiceEffects")}
+            aria-expanded={showEffects}
             title={t("vroom.voiceEffects")}
           >
             <Sparkles className="h-6 w-6" />
@@ -1692,6 +1775,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             className={`h-14 w-14 rounded-full p-0 transition-colors ${cameraBlurred ? "bg-slate-500 border-slate-500 text-white" : ""}`}
             onClick={toggleCameraBlur}
             aria-label={cameraBlurred ? t("vroom.cameraBlurOn") : t("vroom.cameraBlurOff")}
+            aria-pressed={cameraBlurred}
             title={cameraBlurred ? t("vroom.cameraBlurOn") : t("vroom.cameraBlurOff")}
           >
             <ImageIcon className="h-6 w-6" />
@@ -1706,6 +1790,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             className={`h-14 w-14 rounded-full p-0 transition-colors ${showPollCreator || activePoll ? "bg-green-500 border-green-500 text-white" : ""}`}
             onClick={() => setShowPollCreator((v) => !v)}
             aria-label={t("vroom.createPoll")}
+            aria-expanded={showPollCreator}
             title={t("vroom.createPoll")}
           >
             <BarChart2 className="h-6 w-6" />
@@ -1721,6 +1806,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               className={`h-14 w-14 rounded-full p-0 transition-colors ${showQueue ? "bg-amber-500 border-amber-500 text-white" : ""}`}
               onClick={() => setShowQueue((v) => !v)}
               aria-label={t("vroom.speakerQueue")}
+              aria-expanded={showQueue}
               title={t("vroom.speakerQueue")}
             >
               <Users2 className="h-6 w-6" />
@@ -1741,6 +1827,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             className={`h-14 w-14 rounded-full p-0 transition-colors ${notifOpen ? "bg-amber-500 border-amber-500 text-white" : ""}`}
             onClick={() => setNotifOpen((v) => !v)}
             aria-label={t("vroom.notifications")}
+            aria-expanded={notifOpen}
             title={t("vroom.notifications")}
           >
             <Bell className="h-6 w-6" />
@@ -1760,6 +1847,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             className={`h-14 w-14 rounded-full p-0 transition-colors ${chatOpen ? "bg-primary border-primary text-primary-foreground" : ""}`}
             onClick={() => setChatOpen((v) => !v)}
             aria-label={t("vroom.chat")}
+            aria-expanded={chatOpen}
             title={t("vroom.chat")}
           >
             <MessageSquare className="h-6 w-6" />

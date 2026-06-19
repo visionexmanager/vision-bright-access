@@ -52,6 +52,7 @@ export interface ChatContext {
   shopContext?: string;
   voiceMode?: boolean;
   pageContext?: Record<string, unknown>;
+  companionMemoryEnabled?: boolean;
   companionMemory?: string[];
   companionCapabilities?: string[];
   toolIntent?: string;

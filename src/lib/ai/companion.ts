@@ -1,5 +1,6 @@
 import { accessibilityProducts, generalProducts } from "@/data/products";
 import { assistiveCategories } from "@/data/assistiveProducts";
+import { supabase } from "@/integrations/supabase/client";
 
 export type CompanionMemory = {
   enabled: boolean;
@@ -82,6 +83,7 @@ export function setCompanionMemoryEnabled(enabled: boolean): CompanionMemory {
   const memory = loadCompanionMemory();
   const next = { ...memory, enabled };
   saveCompanionMemory(next);
+  void syncServerMemoryEnabled(enabled).catch(() => {});
   return next;
 }
 
@@ -93,6 +95,25 @@ export function rememberCompanionNote(note: string): CompanionMemory {
   const next = { ...memory, notes: notes.slice(0, MAX_NOTES) };
   saveCompanionMemory(next);
   return next;
+}
+
+export async function syncServerMemoryEnabled(enabled: boolean) {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return;
+  await (supabase.from("ai_user_memory") as any).upsert(
+    {
+      user_id: data.user.id,
+      memory_enabled: enabled,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
+}
+
+export async function clearServerCompanionMemory() {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return;
+  await (supabase.from("ai_user_memory") as any).delete().eq("user_id", data.user.id);
 }
 
 export function buildCompanionPageContext(): CompanionPageContext {

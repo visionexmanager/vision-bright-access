@@ -326,10 +326,12 @@ export default function VXBazaar() {
   // ── Create shop ────────────────────────────────────────────────────────
   const createShopMutation = useMutation({
     mutationFn: async () => {
+      if (!user) throw new Error("not_authenticated");
+
       const tierCfg = TIER_CONFIG[createForm.tier];
       if (!isOnTrial && totalPoints < tierCfg.setupCost) throw new Error("insufficient_points");
 
-      const { error: shopError } = await db.from("bazaar_shops").insert({
+      const shopPayload = {
         owner_id: user!.id,
         name: createForm.name.trim(),
         tier: createForm.tier,
@@ -341,8 +343,20 @@ export default function VXBazaar() {
         email_notifications: createForm.email_notifications,
         whatsapp_notifications: createForm.whatsapp_notifications,
         whatsapp_number: createForm.whatsapp_number.trim() || null,
-      });
-      if (shopError) throw shopError;
+      };
+
+      const { error: shopError } = await db.from("bazaar_shops").insert(shopPayload);
+      const missingColumn =
+        shopError?.code === "PGRST204" ||
+        /column|schema cache|could not find/i.test(shopError?.message ?? "");
+
+      if (shopError && missingColumn) {
+        const { email_notifications, whatsapp_notifications, whatsapp_number, ...basePayload } = shopPayload;
+        const { error: retryError } = await db.from("bazaar_shops").insert(basePayload);
+        if (retryError) throw retryError;
+      } else if (shopError) {
+        throw shopError;
+      }
 
       if (!isOnTrial) {
         const { error: spendError } = await supabase.rpc("spend_vx", {
@@ -363,8 +377,10 @@ export default function VXBazaar() {
     onError: (e: Error) => {
       if (e.message === "insufficient_points")
         toast({ title: t("bazaar.notEnoughVX"), variant: "destructive" });
+      else if (e.message === "not_authenticated")
+        toast({ title: t("bazaar.loginToOpen"), variant: "destructive" });
       else
-        toast({ title: t("bazaar.createFailed"), variant: "destructive" });
+        toast({ title: t("bazaar.createFailed"), description: e.message, variant: "destructive" });
     },
   });
 
@@ -1540,7 +1556,7 @@ export default function VXBazaar() {
 
                 <Button
                   onClick={() => createShopMutation.mutate()}
-                  disabled={!createForm.name.trim() || createShopMutation.isPending || (!isOnTrial && totalPoints < TIER_CONFIG[createForm.tier].setupCost)}
+                  disabled={!user || !createForm.name.trim() || createShopMutation.isPending || (!isOnTrial && totalPoints < TIER_CONFIG[createForm.tier].setupCost)}
                   className="w-full bg-amber-500 text-black hover:bg-amber-400 font-black py-5 text-base"
                 >
                   {createShopMutation.isPending

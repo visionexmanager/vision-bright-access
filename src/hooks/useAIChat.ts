@@ -11,6 +11,7 @@ import { useSSEStream } from "@/lib/api/useSSEStream";
 import { aiService } from "@/services/ai/aiService";
 import {
   buildCompanionPageContext,
+  clearServerCompanionMemory,
   loadCompanionMemory,
   runCompanionTool,
   saveCompanionMemory,
@@ -108,6 +109,7 @@ export function useAIChat(options?: { assistantId?: string }) {
             currentPage: pathname,
             language:    lang,
             pageContext,
+            companionMemoryEnabled: memory.enabled,
             companionMemory: memory.enabled ? memory.notes : [],
             companionCapabilities: [
               "navigate_sections",
@@ -171,6 +173,7 @@ export function useAIChat(options?: { assistantId?: string }) {
   const clearMemory = useCallback(() => {
     const next = { enabled: memory.enabled, notes: [] };
     saveCompanionMemory(next);
+    void clearServerCompanionMemory();
     setMemory(next);
   }, [memory.enabled]);
 

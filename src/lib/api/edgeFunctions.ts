@@ -134,7 +134,8 @@ export async function callAIChat(
   },
   signal?: AbortSignal
 ): Promise<Response> {
-  const auth: AuthMode = body.assistantId ? "user-jwt" : "anon";
+  const { data } = await supabase.auth.getSession();
+  const auth: AuthMode = body.assistantId || data.session ? "user-jwt" : "anon";
   return callEdge({ fn: "ai-chat", body, auth, stream: true, signal });
 }
 

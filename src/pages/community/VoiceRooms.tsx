@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -123,6 +123,13 @@ export default function VoiceRooms() {
     navigate(`/community/voice-room/${room.id}`);
   };
 
+  const handleRoomKeyDown = (event: KeyboardEvent, room: VoiceRoom) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleJoin(room);
+    }
+  };
+
   const filtered = rooms.filter(r =>
     !query.trim() ||
     r.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -241,14 +248,18 @@ export default function VoiceRooms() {
             {filtered.map(room => (
               <StaggerItem key={room.id}>
                 <Card
-                  className="group overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 cursor-pointer border-border hover:border-violet-400/40"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${t("vrooms.join")} ${room.name}${room.topic ? `, ${room.topic}` : ""}. ${room.member_count} ${t("vrooms.live")}`}
+                  className="group overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 cursor-pointer border-border hover:border-violet-400/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                   onClick={() => handleJoin(room)}
+                  onKeyDown={(event) => handleRoomKeyDown(event, room)}
                 >
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="shrink-0 w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-400/20 flex items-center justify-center">
-                          <Mic2 className="w-5 h-5 text-violet-400" />
+                          <Mic2 className="w-5 h-5 text-violet-400" aria-hidden="true" />
                         </div>
                         <div className="min-w-0">
                           <p className="font-bold text-foreground truncate">{room.name}</p>
@@ -260,7 +271,7 @@ export default function VoiceRooms() {
                       <div className="flex items-center gap-1.5 shrink-0">
                         {room.is_private && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-amber-500/40 text-amber-400">
-                            <Lock className="w-2.5 h-2.5 me-1" />
+                            <Lock className="w-2.5 h-2.5 me-1" aria-hidden="true" />
                             {t("vrooms.locked")}
                           </Badge>
                         )}
@@ -279,7 +290,7 @@ export default function VoiceRooms() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <Users className="w-3.5 h-3.5" />
+                          <Users className="w-3.5 h-3.5" aria-hidden="true" />
                           {room.member_count}
                         </span>
                         {room.owner_name && (
@@ -290,7 +301,7 @@ export default function VoiceRooms() {
                       </div>
                       <Button
                         size="sm"
-                        className="bg-violet-600 hover:bg-violet-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="bg-violet-600 hover:bg-violet-500 text-white text-xs opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
                         onClick={e => { e.stopPropagation(); handleJoin(room); }}
                       >
                         {t("vrooms.join")}

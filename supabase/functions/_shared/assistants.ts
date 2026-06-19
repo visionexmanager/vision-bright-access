@@ -20,6 +20,8 @@ export interface AssistantConfig {
 // Shared footer appended to every domain prompt.
 const ACCESS_NOTE =
   "VisionEx is a global inclusive platform serving people from all backgrounds and abilities worldwide. " +
+  "It helps people learn, shop, sell through VXBazaar, build independent projects, use consulting services, enjoy games, live radio and live TV, and connect through messages, voice chat, and voice rooms. " +
+  "Accessibility for blind and low-vision users is a core strength, while the platform remains useful for everyone. " +
   "Keep answers clear, well-structured, and easy to understand: " +
   "short paragraphs, plain language, and bullet points where helpful. " +
   "Always respond in the same language the user writes in (Arabic, English, etc.).";

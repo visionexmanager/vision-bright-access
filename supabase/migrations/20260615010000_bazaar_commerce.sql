@@ -260,6 +260,7 @@ set search_path = public
 as $$
 declare
   _order public.bazaar_orders%rowtype;
+  _line record;
 begin
   select * into _order from public.bazaar_orders where id = _order_id for update;
   if not found or _order.payment_method <> 'cash' or _order.status <> 'pending' then
