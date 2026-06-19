@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Bell, BellOff, BellRing, Clock, Plus, Trash2, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { speakText } from "@/lib/audio/speech";
 
 interface MealReminder {
   id: string;
@@ -76,16 +77,12 @@ export default function MealReminders() {
                 body: t("mealReminders.notifyBody"),
                 icon: "/placeholder.svg",
               });
-            } catch {}
+            } catch {
+              // Browser notifications can fail when blocked by the OS/browser.
+            }
           }
 
-          // Voice
-          if ("speechSynthesis" in window) {
-            const u = new SpeechSynthesisUtterance(t("mealReminders.reminderTitle").replace("{label}", label));
-            u.lang = lang === "ar" ? "ar-SA" : lang;
-            u.rate = 0.9;
-            window.speechSynthesis.speak(u);
-          }
+          speakText(t("mealReminders.reminderTitle").replace("{label}", label), lang, { rate: 0.9 });
         }
       });
     };

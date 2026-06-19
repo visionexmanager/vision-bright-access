@@ -130,7 +130,13 @@ export function ServiceAssistant({ assistantId, assistantName, title }: Props) {
         )}
 
         {/* Messages */}
-        <div className={`max-h-[420px] min-h-[200px] space-y-3 overflow-y-auto px-4 py-3 ${voiceMode ? "hidden" : ""}`} aria-live="polite">
+        <div
+          className={`max-h-[420px] min-h-[200px] space-y-3 overflow-y-auto px-4 py-3 ${voiceMode ? "hidden" : ""}`}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-atomic="false"
+        >
           {messages.length === 0 && (
             <div className="flex h-full flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
               <Bot className="h-10 w-10 opacity-40" />

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { VoiceChat } from "@/components/VoiceChat";
 import { WatchAdButton } from "@/components/WatchAdButton";
+import { speakText } from "@/lib/audio/speech";
 
 // ── New hooks (DB-backed) ────────────────────────────────────────────────────
 import { useAcademyProfile } from "@/hooks/academy/useAcademyProfile";
@@ -47,13 +48,7 @@ function getXPLevel(xp: number) {
 
 // ── TTS helper ───────────────────────────────────────────────────────────────
 const speak = (text: string) => {
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-    const utt  = new SpeechSynthesisUtterance(text);
-    utt.lang   = "ar-SA";
-    utt.rate   = 0.9;
-    window.speechSynthesis.speak(utt);
-  }
+  speakText(text, "ar", { rate: 0.9 });
 };
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -375,7 +370,10 @@ export default function Academy() {
                   <div
                     ref={scrollRef}
                     className="bg-background/5 backdrop-blur-xl rounded-3xl border border-background/10 mb-6 max-h-[400px] min-h-[180px] overflow-y-auto p-4 md:p-6 space-y-4"
+                    role="log"
                     aria-live="polite"
+                    aria-relevant="additions"
+                    aria-atomic="false"
                     aria-label="محادثة مع منير"
                   >
                     {isLoadingHistory ? (

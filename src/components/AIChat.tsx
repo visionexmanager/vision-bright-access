@@ -276,7 +276,13 @@ export function AIChat() {
           )}
 
           {/* Messages area — hidden in voice mode */}
-          <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${voiceMode ? "hidden" : ""}`} aria-live="polite">
+          <div
+            className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${voiceMode ? "hidden" : ""}`}
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+            aria-atomic="false"
+          >
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
                 <Bot className="h-12 w-12 text-muted-foreground/40" />

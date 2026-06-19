@@ -12,6 +12,7 @@ import {
   Play, Pause, RotateCcw, ChevronRight,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { speakText } from "@/lib/audio/speech";
 
 // 4-7-8 breathing technique
 const PHASES = [
@@ -28,6 +29,9 @@ const TONES = {
   ground:  { freq: 174, emoji: "🌿", key: "oasis.tone.ground" },
 } as const;
 type ToneKey = keyof typeof TONES;
+type AudioWindow = Window & {
+  webkitAudioContext?: typeof AudioContext;
+};
 
 export default function EmpathyOasis() {
   const { user } = useAuth();
@@ -112,7 +116,9 @@ export default function EmpathyOasis() {
   const playTone = useCallback((key: ToneKey) => {
     if (activeTone) stopTone();
     toneSec.current = 0;
-    const ctx  = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioCtor = window.AudioContext || (window as AudioWindow).webkitAudioContext;
+    if (!AudioCtor) return;
+    const ctx = new AudioCtor();
     const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
@@ -138,20 +144,18 @@ export default function EmpathyOasis() {
   const [speaking, setSpeaking] = useState(false);
 
   const speak = useCallback((text: string) => {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang  = lang === "ar" ? "ar-SA" : lang;
-    utter.rate  = 0.85;
-    utter.onstart = () => setSpeaking(true);
-    utter.onend   = () => {
+    setSpeaking(true);
+    speakText(text, lang, {
+      rate: 0.85,
+      onEnd: () => {
       setSpeaking(false);
       if (user) {
         supabase.from("oasis_sessions").insert({
           user_id: user.id, session_type: "affirmation", duration_seconds: 5,
         });
       }
-    };
-    window.speechSynthesis.speak(utter);
+      },
+    });
   }, [lang, user]);
 
   const nextAffirmation = useCallback(() => {

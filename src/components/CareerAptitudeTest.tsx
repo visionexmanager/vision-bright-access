@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { aiService } from "@/services/ai/aiService";
 import { parseSSEResponse } from "@/lib/api/useSSEStream";
+import type { Json } from "@/integrations/supabase/types";
 
 interface StudentProfile {
   name: string;
@@ -149,9 +150,9 @@ export default function CareerAptitudeTest({ profile, onClose }: Props) {
     setSaving(true);
     const { error } = await supabase.from("aptitude_results").insert({
       user_id: user.id,
-      answers: answers as any,
+      answers: answers as Json,
       analysis_text: result,
-      student_profile: profile as any,
+      student_profile: profile as unknown as Json,
     });
     setSaving(false);
     if (error) {
@@ -261,9 +262,8 @@ ${summary}
 
       if (!response.ok) throw new Error("API error");
 
-      await parseSSEResponse(response, (_token, accumulated) => {
-        setResult(accumulated);
-      });
+      const full = await parseSSEResponse(response, () => {});
+      setResult(full);
     } catch {
       setResult(null);
       toast.error(t("aptitude.saveFailed"));

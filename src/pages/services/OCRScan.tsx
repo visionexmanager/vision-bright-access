@@ -17,6 +17,7 @@ import {
   Coins, Zap, Package, Layers, History, Trash2, Phone,
 } from "lucide-react";
 import { VoiceChat } from "@/components/VoiceChat";
+import { cancelSpeech, speakText } from "@/lib/audio/speech";
 
 // ── Types ────────────────────────────────────────────────────────────────
 type OCRMode = "single" | "single_audio" | "pdf" | "bundle";
@@ -43,20 +44,11 @@ interface HistoryEntry {
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 function speak(text: string, lang: string) {
-  if (!("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = lang === "ar" ? "ar-SA"
-    : lang === "ur"  ? "ur-PK"
-    : lang === "hi"  ? "hi-IN"
-    : "en-US";
-  utt.rate = 0.85;
-  utt.volume = 1;
-  window.speechSynthesis.speak(utt);
+  speakText(text, lang, { rate: 0.85 });
 }
 
 function stopSpeak() {
-  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  cancelSpeech();
 }
 
 function downloadTxt(text: string, fileName: string) {
@@ -82,7 +74,9 @@ function loadHistory(): HistoryEntry[] {
 function saveHistory(entries: HistoryEntry[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, 20)));
-  } catch {}
+  } catch {
+    // Ignore storage failures in private browsing or full storage conditions.
+  }
 }
 
 const CONFIDENCE_STYLE: Record<ConfidenceLevel, string> = {
@@ -525,7 +519,7 @@ export default function OCRScan() {
 
             {/* Results */}
             {result && !scanning && (
-              <div className="space-y-4" aria-live="polite" aria-label={t("ocr.resultsLabel")}>
+              <div className="space-y-4" aria-label={t("ocr.resultsLabel")}>
                 {/* Meta row */}
                 <Card>
                   <CardContent className="flex flex-wrap items-center gap-3 p-4">

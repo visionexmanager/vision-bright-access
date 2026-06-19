@@ -64,7 +64,8 @@ export function AITaskPanel({
         { assistantId, language: lang, currentPage: window.location.pathname },
         controller.signal,
       );
-      await parseSSEResponse(response, (_token, accumulated) => setResult(accumulated), controller.signal);
+      const full = await parseSSEResponse(response, () => {}, controller.signal);
+      setResult(full);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") return;
       toast.error(t("ai.task.failed"));

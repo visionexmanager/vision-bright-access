@@ -15,19 +15,14 @@ import {
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { AITaskPanel } from "@/components/AITaskPanel";
+import { speakText } from "@/lib/audio/speech";
 
 const DeliveryMap = lazy(() => import("@/components/DeliveryMap"));
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
 const DriverRating = lazy(() => import("@/components/DriverRating"));
 
 const speak = (text: string, lang: string) => {
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang === "ar" ? "ar-SA" : lang;
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
-  }
+  speakText(text, lang, { rate: 0.9 });
 };
 
 type ServiceType = "ride" | "package";

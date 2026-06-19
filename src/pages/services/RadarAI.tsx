@@ -13,6 +13,7 @@ import {
   RotateCcw, RefreshCw, Phone,
 } from "lucide-react";
 import { VoiceChat } from "@/components/VoiceChat";
+import { cancelSpeech, speakText } from "@/lib/audio/speech";
 
 type RadarResult = {
   overview: string;
@@ -25,17 +26,11 @@ type RadarResult = {
 };
 
 function speak(text: string, lang: string) {
-  if (!("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = lang === "ar" ? "ar-SA" : "en-US";
-  utt.rate = 0.9;
-  utt.volume = 1;
-  window.speechSynthesis.speak(utt);
+  speakText(text, lang, { rate: 0.9 });
 }
 
 function stopSpeak() {
-  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  cancelSpeech();
 }
 
 export default function RadarAI() {
@@ -159,9 +154,7 @@ export default function RadarAI() {
       `${t("radar.speechTip")} ${result.accessibility_tip}`,
     ].join(". ");
     setIsSpeaking(true);
-    speak(full, lang);
-    const utt = new SpeechSynthesisUtterance(full);
-    utt.onend = () => setIsSpeaking(false);
+    speakText(full, lang, { rate: 0.9, onEnd: () => setIsSpeaking(false) });
   };
 
   const handleStopSpeak = () => {

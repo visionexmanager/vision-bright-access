@@ -26,6 +26,7 @@ import { aiService } from "@/services/ai/aiService";
 import { parseSSEResponse } from "@/lib/api/useSSEStream";
 import { AITaskPanel } from "@/components/AITaskPanel";
 import { SmartSearch } from "@/components/SmartSearch";
+import { speakText } from "@/lib/audio/speech";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Tier = "kiosk" | "boutique" | "store" | "flagship";
@@ -217,7 +218,7 @@ export default function VXBazaar() {
   const { user } = useAuth();
   const { totalPoints } = usePoints();
   const { isOnTrial } = useTrial();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
   const { playSound } = useSound();
   // Generated Supabase types will include these tables after the production migration is applied.
@@ -622,11 +623,8 @@ export default function VXBazaar() {
     setMessages([{ text: t("bazaar.chatWelcome").replace("{shop}", shop.name), sender: "seller" }]);
     setView("inside");
     playSound("open");
-    if ("speechSynthesis" in window) {
-      const msg = new SpeechSynthesisUtterance(t("bazaar.speechWelcome").replace("{shop}", shop.name));
-      window.speechSynthesis.speak(msg);
-    }
-  }, [playSound, t]);
+    speakText(t("bazaar.speechWelcome").replace("{shop}", shop.name), lang, { rate: 0.9 });
+  }, [lang, playSound, t]);
 
   // ── AI Chat ───────────────────────────────────────────────────────────
   const sendMessage = async () => {

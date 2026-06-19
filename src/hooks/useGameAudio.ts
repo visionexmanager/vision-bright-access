@@ -1,4 +1,5 @@
 import { useCallback, useRef, useEffect } from "react";
+import { cancelSpeech, speakText } from "@/lib/audio/speech";
 
 // Web Audio API sound effect generator - no external dependencies
 const audioCtxRef = { current: null as AudioContext | null };
@@ -171,7 +172,9 @@ const SOUNDS: Record<SoundType, () => void> = {
       g.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.3);
-    } catch {}
+    } catch {
+      // Ignore sound effect failures when audio is unavailable.
+    }
   },
 };
 
@@ -196,17 +199,8 @@ export function useGameTTS() {
   const enabledRef = useRef(true);
 
   const speak = useCallback((text: string, lang = "en") => {
-    if (!enabledRef.current || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    const langMap: Record<string, string> = {
-      ar: "ar-SA", es: "es-ES", de: "de-DE", fr: "fr-FR",
-      pt: "pt-BR", tr: "tr-TR", ru: "ru-RU", zh: "zh-CN", en: "en-US",
-    };
-    utterance.lang = langMap[lang] || "en-US";
-    utterance.rate = 0.9;
-    utterance.volume = 0.8;
-    window.speechSynthesis.speak(utterance);
+    if (!enabledRef.current) return;
+    speakText(text, lang, { rate: 0.9, volume: 0.8 });
   }, []);
 
   const setEnabled = useCallback((enabled: boolean) => {
@@ -214,7 +208,7 @@ export function useGameTTS() {
   }, []);
 
   const stop = useCallback(() => {
-    window.speechSynthesis?.cancel();
+    cancelSpeech();
   }, []);
 
   return { speak, setEnabled, stop, enabledRef };

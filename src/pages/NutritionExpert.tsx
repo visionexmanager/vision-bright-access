@@ -25,15 +25,11 @@ import jsPDF from "jspdf";
 import { Progress } from "@/components/ui/progress";
 import WeeklyCalorieReport from "@/components/WeeklyCalorieReport";
 import MealReminders from "@/components/MealReminders";
+import { speakText } from "@/lib/audio/speech";
+import type { Json } from "@/integrations/supabase/types";
 
 const speak = (text: string, lang: string) => {
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = lang === "ar" ? "ar-SA" : lang;
-    u.rate = 0.9;
-    window.speechSynthesis.speak(u);
-  }
+  speakText(text, lang, { rate: 0.9 });
 };
 
 type Step = "reception" | "clinic";
@@ -130,8 +126,8 @@ export default function NutritionExpert() {
       const { error } = await supabase.from("diet_plans").insert({
         user_id: user.id,
         plan_name: planName,
-        user_data: userData as any,
-        plan: dietPlan as any,
+        user_data: userData as unknown as Json,
+        plan: dietPlan as unknown as Json,
         calorie_goal: calories || 0,
       });
       if (error) throw error;
@@ -272,7 +268,7 @@ export default function NutritionExpert() {
         ingredients: mealResult.ingredients,
         rating: mealResult.rating,
         meal_type: "analyzed",
-      } as any);
+      } as unknown as Json);
       if (error) throw error;
       toast.success(t("nutrition.mealSaved"));
       fetchMealLogs();
@@ -294,7 +290,7 @@ export default function NutritionExpert() {
         meal_type: manualMeal.type,
         ingredients: [],
         rating: 5,
-      } as any);
+      } as unknown as Json);
       if (error) throw error;
       toast.success(t("nutrition.mealSaved"));
       setManualMeal({ name: "", calories: "", type: "other" });

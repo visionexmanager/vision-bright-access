@@ -104,26 +104,25 @@ export function useAcademyChat(
         );
 
         await consumeStream(response, {
-          onToken: (token, accumulated) => {
+          onToken: (_token, accumulated) => {
             accumulatedText = accumulated;
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.id === assistantId) {
-                return prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: accumulated } : m
-                );
-              }
-              return [...prev, { id: assistantId, role: "assistant", content: accumulated }];
-            });
           },
 
           onDone: async (fullText) => {
+            const finalText = fullText || accumulatedText;
+            if (finalText.trim()) {
+              setMessages((prev) => [
+                ...prev,
+                { id: assistantId, role: "assistant", content: finalText },
+              ]);
+            }
+
             // Persist to DB (non-blocking)
             saveChatMessagePair({
               userId:           user.id,
               sessionId,
               userContent:      pendingUserMsg.current,
-              assistantContent: fullText,
+              assistantContent: finalText,
             }).catch(console.warn);
 
             // Award XP

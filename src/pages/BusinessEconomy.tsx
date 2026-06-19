@@ -14,15 +14,10 @@ import {
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { AITaskPanel } from "@/components/AITaskPanel";
+import { speakText } from "@/lib/audio/speech";
 
 const speak = (text: string, lang: string) => {
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = lang === "ar" ? "ar-SA" : lang;
-    u.rate = 0.9;
-    window.speechSynthesis.speak(u);
-  }
+  speakText(text, lang, { rate: 0.9 });
 };
 
 type TabId = "feasibility" | "management" | "investment" | "innovation";
