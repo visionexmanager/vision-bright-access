@@ -1,17 +1,17 @@
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 
-// Voice-optimised system prompts — short, conversational, NO markdown
+// Voice-optimised system prompts — short conversational sentences, no markdown
 const VOICE_PROMPTS: Record<string, string> = {
-  visionex: `You are Visionex AI — a warm, expressive voice assistant for VisionEx, a global inclusive platform serving people from all backgrounds and abilities worldwide.
+  visionex: `You are Visionex AI — a warm, expressive voice assistant for VisionEx, a global inclusive platform serving people of all backgrounds and abilities worldwide.
 
 VOICE RULES (mandatory):
 - Reply in 1–3 natural spoken sentences. Never more.
 - Zero bullet points, headers, or markdown — you are speaking, not writing.
 - Be warm, friendly, and expressive — like a helpful human friend.
-- Match the user's language exactly (Arabic → reply in Arabic, English → English, etc.).
-- For Arabic: use clear, friendly Modern Standard Arabic with natural pauses.
-- If asked something you don't know, say so in one sentence and offer to help differently.`,
+- Match the user's language exactly.
+- For Arabic: use clear, friendly Modern Standard Arabic.
+- If you don't know something, say so briefly in one sentence.`,
 
   munir: `أنت "منير" — مساعد أكاديمي صوتي في أكاديمية VisionEx.
 
@@ -22,33 +22,26 @@ VOICE RULES (mandatory):
 - أجب دائماً بالعربية الفصحى المبسطة.`,
 
   nutrition: `You are a friendly nutrition voice assistant for VisionEx.
+VOICE RULES: 1–2 sentences only, conversational and warm, no formatting, match the user's language.`,
 
-VOICE RULES:
-- 1–2 sentences only. Conversational, warm, practical.
-- No bullet points or formatting.
-- Speak like a knowledgeable friend, not a doctor's report.
-- Match the user's language.`,
+  radar: `You are Radar AI — a visual intelligence voice assistant for VisionEx.
+VOICE RULES: 1–3 sentences, clear and calm, no lists or formatting, match the user's language.`,
 
-  radar: `You are Radar AI — a visual intelligence voice assistant for VisionEx, helping users understand images and their environment.
-
-VOICE RULES:
-- 1–3 sentences. Clear, calm, descriptive.
-- No lists or formatting — speak naturally.
-- Match the user's language.`,
-
-  ocr: `You are an OCR voice assistant for VisionEx, helping users extract and understand text from images.
-
-VOICE RULES:
-- 1–2 sentences. Clear and direct.
-- No formatting — speak naturally.
-- Match the user's language.`,
+  ocr: `You are an OCR voice assistant for VisionEx.
+VOICE RULES: 1–2 sentences, clear and direct, no formatting, match the user's language.`,
 
   mentor: `You are Mentor AI — a personal growth voice coach on VisionEx.
+VOICE RULES: 1–3 motivating sentences, warm and encouraging, no bullet points, match the user's language.`,
+};
 
-VOICE RULES:
-- 1–3 motivating sentences. Warm, encouraging, human.
-- No bullet points or markdown.
-- Match the user's language.`,
+// TTS voice style instructions — makes gpt-4o-mini-tts expressive and natural
+const VOICE_STYLE: Record<string, string> = {
+  visionex:  "Speak warmly and naturally, like a caring helpful friend. Use a conversational rhythm with gentle pauses. Sound genuinely engaged and interested in helping.",
+  munir:     "تحدث بأسلوب مشجع ودافئ كالمعلم الصبور المحب. استخدم نبرة واضحة وطبيعية مع توقفات لطيفة.",
+  nutrition: "Speak with warmth and positivity, like a knowledgeable health-conscious friend. Sound energetic and encouraging.",
+  radar:     "Speak clearly and calmly with a measured, precise pace. Sound helpful and confident.",
+  ocr:       "Speak clearly and efficiently. Sound precise and helpful.",
+  mentor:    "Speak with genuine inspiration and warmth, like an encouraging life coach. Sound uplifting and motivating.",
 };
 
 const ASSISTANT_VOICE: Record<string, string> = {
@@ -86,9 +79,9 @@ Deno.serve(async (req) => {
   }
 
   let messages: Array<{ role: string; content: string }> = [];
-  let assistant = "visionex";
+  let assistant  = "visionex";
   let assistantId: string | undefined;
-  let language = "en";
+  let language   = "en";
 
   try {
     const body = await req.json();
@@ -102,69 +95,90 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Resolve system prompt
+  // Resolve per-assistant config
   let systemPrompt = VOICE_PROMPTS[assistant] || VOICE_PROMPTS["visionex"];
   let voice        = ASSISTANT_VOICE[assistant] || "nova";
+  let voiceStyle   = VOICE_STYLE[assistant]     || VOICE_STYLE["visionex"];
 
-  // Registry-driven assistant (e.g. "legal-advisor")
   if (assistantId) {
     const reg = getAssistant(assistantId);
     if (reg) {
       systemPrompt = `${reg.systemPrompt}\n\nVOICE MODE — MANDATORY:\n- Reply in 1–3 natural spoken sentences only.\n- No bullet points, no markdown, no lists.\n- Speak conversationally, like a knowledgeable friend.\n- Respond in the same language the user speaks.`;
       const h = [...String(assistantId)].reduce((a, c) => a + c.charCodeAt(0), 0);
       const voices = ["nova", "alloy", "echo", "coral", "shimmer", "sage"];
-      voice = voices[h % voices.length];
+      voice      = voices[h % voices.length];
+      voiceStyle = "Speak warmly and naturally, like a knowledgeable expert friend. Use natural conversational rhythm.";
     }
   }
 
-  // Add language hint to system prompt
   const langHint = language !== "en"
-    ? `\n\nIMPORTANT: The user's interface language is "${language}". Reply in that language unless the user writes in a different one.`
+    ? `\n\nIMPORTANT: The user's interface language is "${language}". Reply in that language unless the user writes differently.`
     : "";
 
-  const openaiMessages = [
-    { role: "system", content: systemPrompt + langHint },
-    ...messages.map(({ role, content }) => ({ role, content })),
-  ];
+  // ── Step 1: Get text response from gpt-4.1 ───────────────────────────────
+  const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4.1",
+      messages: [
+        { role: "system", content: systemPrompt + langHint },
+        ...messages.map(({ role, content }) => ({ role, content })),
+      ],
+      max_tokens: 200,
+      temperature: 0.8,
+    }),
+  });
 
-  try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-audio-preview",
-        modalities: ["text", "audio"],
-        audio: { voice, format: "mp3" },
-        messages: openaiMessages,
-        max_tokens: 300,
-        temperature: 0.8,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      console.error("OpenAI audio error:", res.status, err);
-      return new Response(JSON.stringify({ error: `OpenAI error: ${res.status}` }), {
-        status: 502, headers: { ...cors, "Content-Type": "application/json" },
-      });
-    }
-
-    const data = await res.json();
-    const message   = data.choices?.[0]?.message;
-    const audioObj  = message?.audio;
-    const transcript = audioObj?.transcript || message?.content || "";
-    const audioB64   = audioObj?.data || null;
-
-    return new Response(JSON.stringify({ transcript, audio: audioB64 }), {
-      headers: { ...cors, "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("ai-voice-chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...cors, "Content-Type": "application/json" },
+  if (!chatRes.ok) {
+    const err = await chatRes.text();
+    console.error("Chat error:", chatRes.status, err);
+    return new Response(JSON.stringify({ error: `Chat error: ${chatRes.status}` }), {
+      status: 502, headers: { ...cors, "Content-Type": "application/json" },
     });
   }
+
+  const chatData   = await chatRes.json();
+  const transcript = chatData.choices?.[0]?.message?.content as string || "";
+
+  if (!transcript) {
+    return new Response(JSON.stringify({ transcript: "", audio: null }), {
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  }
+
+  // ── Step 2: Convert to expressive speech with gpt-4o-mini-tts ───────────
+  const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini-tts",
+      input: transcript,
+      voice,
+      instructions: voiceStyle,
+      response_format: "mp3",
+    }),
+  });
+
+  if (!ttsRes.ok) {
+    const err = await ttsRes.text();
+    console.error("TTS error:", ttsRes.status, err);
+    // Return text-only so the client can still show the response
+    return new Response(JSON.stringify({ transcript, audio: null }), {
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  }
+
+  const audioBytes = await ttsRes.arrayBuffer();
+  const audioB64   = btoa(String.fromCharCode(...new Uint8Array(audioBytes)));
+
+  return new Response(JSON.stringify({ transcript, audio: audioB64 }), {
+    headers: { ...cors, "Content-Type": "application/json" },
+  });
 });
