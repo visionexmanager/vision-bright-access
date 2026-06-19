@@ -5,12 +5,25 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic, MicOff, Volume2, VolumeX, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSEStream } from "@/lib/api/useSSEStream";
+import { aiService } from "@/services/ai/aiService";
 import { cn } from "@/lib/utils";
 import type { AssistantType } from "@/lib/types";
 
-const BASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const BASE_URL  = import.meta.env.VITE_SUPABASE_URL as string;
+const ANON_KEY  = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
+// Map assistant → OpenAI TTS voice
+const ASSISTANT_VOICE: Record<string, string> = {
+  visionex:  "nova",
+  munir:     "echo",
+  nutrition: "coral",
+  radar:     "alloy",
+  ocr:       "alloy",
+  mentor:    "shimmer",
+};
+
+// SpeechRecognition lang codes
 const SR_LANG: Record<string, string> = {
   en: "en-US", ar: "ar-SA", es: "es-ES", fr: "fr-FR",
   de: "de-DE", pt: "pt-BR", tr: "tr-TR", ru: "ru-RU",
@@ -24,7 +37,7 @@ type Props = {
   className?: string;
 };
 
-type Transcript = { role: "user" | "assistant"; text: string };
+type Transcript = { role: "user" | "assistant"; text: string; _id?: string };
 type Status = "idle" | "listening" | "thinking" | "speaking";
 
 const STATUS_COLOR: Record<Status, string> = {
@@ -34,14 +47,10 @@ const STATUS_COLOR: Record<Status, string> = {
   speaking:  "bg-blue-500 animate-pulse",
 };
 
-export function VoiceChat({
-  assistant = "visionex",
-  assistantId,
-  assistantName = "Visionex AI",
-  className,
-}: Props) {
-  const { t, lang }  = useLanguage();
-  const { user }     = useAuth();
+export function VoiceChat({ assistant = "visionex", assistantId, assistantName = "Visionex AI", className }: Props) {
+  const { t, lang } = useLanguage();
+  const { user }    = useAuth();
+  const { consumeStream } = useSSEStream();
 
   const [status,      setStatus]      = useState<Status>("idle");
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
@@ -49,124 +58,147 @@ export function VoiceChat({
   const [error,       setError]       = useState("");
 
   const recognitionRef    = useRef<any>(null);
-  const scrollRef         = useRef<HTMLDivElement>(null);
-  const messagesRef       = useRef<Array<{ role: "user" | "assistant"; content: string }>>([]);
-  const abortRef          = useRef<AbortController | null>(null);
   const audioRef          = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef       = useRef<string | null>(null);
+  const messagesRef       = useRef<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const scrollRef         = useRef<HTMLDivElement>(null);
+  const abortRef          = useRef<AbortController | null>(null);
+  const ttsAbortRef       = useRef<AbortController | null>(null);
   const isListeningRef    = useRef(false);
-  const muteRef           = useRef(false);
   const startListeningRef = useRef<() => void>(() => {});
 
   const hasSpeech = typeof window !== "undefined" &&
     ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
-  useEffect(() => { muteRef.current = muted; }, [muted]);
-
+  // Auto-scroll transcript
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [transcripts]);
 
+  // Cleanup on unmount
   useEffect(() => () => {
     recognitionRef.current?.stop();
     stopAudio();
     abortRef.current?.abort();
+    ttsAbortRef.current?.abort();
   }, []);
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
   function stopAudio() {
-    abortRef.current?.abort();
-    abortRef.current = null;
+    ttsAbortRef.current?.abort();
+    ttsAbortRef.current = null;
     if (audioRef.current) {
       audioRef.current.onended = null;
       audioRef.current.onerror = null;
       audioRef.current.pause();
       audioRef.current = null;
     }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
   }
 
-  // ── Call gpt-4o-audio-preview → returns transcript + base64 MP3 ──────────
-  const sendToAI = useCallback(async (userText: string) => {
-    stopAudio();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
+  // ── OpenAI TTS — one audio at a time ─────────────────────────────────────
+  const speak = useCallback(async (text: string) => {
+    if (muted || !text.trim()) return;
 
-    setStatus("thinking");
-    messagesRef.current = [...messagesRef.current, { role: "user", content: userText }];
+    // Cancel any in-flight TTS fetch and stop current playback
+    stopAudio();
+
+    const ctrl = new AbortController();
+    ttsAbortRef.current = ctrl;
+    const voice = ASSISTANT_VOICE[assistant] || "nova";
+
+    setStatus("speaking");
 
     try {
-      const res = await fetch(`${BASE_URL}/functions/v1/ai-voice-chat`, {
+      const res = await fetch(`${BASE_URL}/functions/v1/text-to-speech`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          apikey: ANON_KEY,
-          Authorization: `Bearer ${ANON_KEY}`,
+          "apikey": ANON_KEY,
+          "Authorization": `Bearer ${ANON_KEY}`,
         },
-        body: JSON.stringify({
-          messages:    messagesRef.current,
-          assistant,
-          assistantId,
-          language:    lang,
-        }),
+        body: JSON.stringify({ text, voice }),
         signal: ctrl.signal,
       });
 
       if (ctrl.signal.aborted) return;
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        throw new Error(e.error || "Voice chat error");
-      }
+      if (!res.ok) throw new Error(`TTS ${res.status}`);
 
-      const { transcript, audio: audioB64 } = await res.json() as {
-        transcript: string;
-        audio: string | null;
-      };
-
+      const blob = await res.blob();
       if (ctrl.signal.aborted) return;
 
-      if (transcript) {
-        messagesRef.current = [...messagesRef.current, { role: "assistant", content: transcript }];
-        setTranscripts(prev => [...prev, { role: "assistant", text: transcript }]);
-      }
-
-      if (!audioB64 || muteRef.current) {
-        setStatus("idle");
-        startListeningRef.current();
-        return;
-      }
-
-      // Decode base64 MP3 and play
-      const binary = atob(audioB64);
-      const bytes  = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: "audio/mpeg" });
-      const url  = URL.createObjectURL(blob);
+      const url   = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
 
       const audio = new Audio(url);
       audioRef.current = audio;
-      setStatus("speaking");
 
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-        setStatus("idle");
-        startListeningRef.current();
+      const cleanup = () => {
+        if (audioRef.current === audio) {
+          URL.revokeObjectURL(url);
+          audioUrlRef.current = null;
+          audioRef.current    = null;
+          ttsAbortRef.current = null;
+          setStatus("idle");
+          startListeningRef.current();
+        }
       };
-      audio.onerror = () => {
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-        setStatus("idle");
-        startListeningRef.current();
-      };
+      audio.onended = cleanup;
+      audio.onerror = cleanup;
 
       await audio.play();
+    } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") return;
+      setStatus("idle");
+      startListeningRef.current();
+    }
+  }, [muted, assistant]);
+
+  // ── Send text to AI, stream response, then speak ──────────────────────────
+  const sendToAI = useCallback(async (userText: string) => {
+    setStatus("thinking");
+    messagesRef.current = [...messagesRef.current, { role: "user", content: userText }];
+
+    const ctrl    = new AbortController();
+    abortRef.current = ctrl;
+    const replyId = crypto.randomUUID();
+    let accumulated = "";
+
+    try {
+      const response = await aiService.streamChat(
+        messagesRef.current,
+        { language: lang, ...(assistantId ? { assistantId } : {}) },
+        ctrl.signal
+      );
+
+      await consumeStream(response, {
+        onToken: (_tok, acc) => {
+          accumulated = acc;
+          setTranscripts(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last._id === replyId) {
+              return prev.map((m, i) => i === prev.length - 1 ? { ...m, text: acc } : m);
+            }
+            return [...prev, { role: "assistant" as const, text: acc, _id: replyId }];
+          });
+        },
+        onError: (err) => { setError(err.message); setStatus("idle"); },
+      });
+
+      if (accumulated) {
+        messagesRef.current = [...messagesRef.current, { role: "assistant", content: accumulated }];
+        speak(accumulated);
+      }
     } catch (e: unknown) {
       if (e instanceof Error && e.name === "AbortError") return;
-      const msg = e instanceof Error ? e.message : "Error";
-      setError(msg);
       setStatus("idle");
     } finally {
-      if (abortRef.current === ctrl) abortRef.current = null;
+      abortRef.current = null;
     }
-  }, [assistant, assistantId, lang]);
+  }, [lang, assistantId, consumeStream, speak]);
 
   // ── Speech Recognition ────────────────────────────────────────────────────
   const startListening = useCallback(() => {
@@ -194,9 +226,9 @@ export function VoiceChat({
 
   useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
 
-  // ── UI handlers ───────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleMicToggle = () => {
-    if (!user)      { setError(t("tv.toast.loginRequired")); return; }
+    if (!user) { setError(t("tv.toast.loginRequired")); return; }
     if (!hasSpeech) { setError("Speech recognition not supported in this browser"); return; }
     setError("");
 
@@ -216,6 +248,7 @@ export function VoiceChat({
   const handleClear = () => {
     recognitionRef.current?.stop();
     stopAudio();
+    abortRef.current?.abort();
     messagesRef.current = [];
     setTranscripts([]);
     setStatus("idle");
@@ -301,9 +334,7 @@ export function VoiceChat({
             disabled={status === "thinking" || status === "speaking"}
             className={cn(
               "h-14 w-14 rounded-full text-white transition-all",
-              status === "listening"
-                ? "bg-red-500 hover:bg-red-600 animate-pulse"
-                : "bg-primary hover:bg-primary/90"
+              status === "listening" ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-primary hover:bg-primary/90"
             )}
           >
             {status === "listening" ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
