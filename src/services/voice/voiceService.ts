@@ -34,7 +34,7 @@ export interface VoiceSession {
   sendEvent:  (payload: Record<string, unknown>) => void;
 }
 
-const OPENAI_REALTIME_URL = "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview";
+const OPENAI_REALTIME_URL = "https://api.openai.com/v1/realtime/calls";
 
 // ── Core session factory ──────────────────────────────────────────────────────
 
@@ -73,7 +73,20 @@ export async function createVoiceSession(
   // Data channel for OpenAI events
   const dc = pc.createDataChannel("oai-events");
 
-  dc.onopen  = () => onStatus("listening");
+  dc.onopen  = () => {
+    dc.send(JSON.stringify({
+      type: "session.update",
+      session: {
+        turn_detection: {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 600,
+        },
+      },
+    }));
+    onStatus("listening");
+  };
   dc.onclose = () => onStatus("idle");
 
   dc.onmessage = (e) => {

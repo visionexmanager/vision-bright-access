@@ -102,22 +102,22 @@ Deno.serve(async (req) => {
       instructions = instructionsMap[assistant] || VISIONEX_VOICE_INSTRUCTIONS;
     }
 
-    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+    // turn_detection is NOT accepted at session creation — send via data channel after connect.
+    const response = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-realtime-preview",
-        voice: selectedVoice,
-        instructions,
-        input_audio_transcription: { model: "whisper-1" },
-        turn_detection: {
-          type: "server_vad",
-          threshold: 0.5,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 600,
+        session: {
+          type: "realtime",
+          model: "gpt-realtime-2",
+          instructions,
+          audio: {
+            output: { voice: selectedVoice },
+            input: { transcription: { model: "gpt-4o-mini-transcribe" } },
+          },
         },
       }),
     });
