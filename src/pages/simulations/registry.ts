@@ -118,6 +118,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.MusicTrainingSimulation,
     }))
   ),
+  "vehicle-diagnostics": lazy(() =>
+    import("@/pages/simulations/VehicleDiagnosticsSimulation").then((m) => ({
+      default: m.VehicleDiagnosticsSimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {

@@ -902,4 +902,42 @@ export const SIM_PROJECTS: Record<string, SimProject> = {
     tags: ["Education", "Arts", "Training Program Management"],
     tagsAr: ["تعليم", "فنون", "إدارة برامج تدريبية"],
   },
+
+  "vehicle-diagnostics": {
+    clientName: "AutoPro Diagnostic Centers",
+    clientNameAr: "مراكز أوتو برو للتشخيص",
+    clientLogo: "🚗",
+    projectTitle: "Ultimate Vehicle Diagnostics & Repair Simulator",
+    projectTitleAr: "محاكاة تشخيص وإصلاح المركبات الاحترافية",
+    scenario:
+      "AutoPro Diagnostic Centers has contracted you as Senior Automotive Diagnostician to work the workshop floor. You will receive vehicles across all categories — cars, heavy trucks, buses, and motorcycles — and use professional OBD-II / SAE J1939 scan tools to read Diagnostic Trouble Codes, isolate root causes using both AI-assisted symptom parsing and guided expert question trees, then execute complete repair workflows. Every diagnosis must be accurate, every tool choice deliberate, and every repair verified with a code-clear and system recalibration before handover.",
+    scenarioAr:
+      "تعاقدت معك مراكز AutoPro للتشخيص كمشخص سيارات أول للعمل في أرضية الورشة. ستستقبل مركبات من جميع الفئات — سيارات وشاحنات ثقيلة وحافلات ودراجات نارية — وتستخدم أدوات مسح OBD-II / SAE J1939 الاحترافية لقراءة رموز أعطال التشخيص وعزل الأسباب الجذرية باستخدام تحليل الأعراض بالذكاء الاصطناعي وأشجار الأسئلة الموجهة ثم تنفيذ سير عمل الإصلاح الكامل.",
+    budget: "Per-Vehicle Repair Authorization",
+    timeline: "Open Workshop Sessions",
+    objectives: [
+      "Accurately diagnose active and pending DTCs across all vehicle types and systems",
+      "Use Mode A (AI) or Mode B (Question Tree) to isolate the root-cause fault",
+      "Select the correct diagnostic tools and execute all repair phases in sequence",
+      "Clear all DTCs and verify system recalibration before vehicle handover",
+    ],
+    objectivesAr: [
+      "تشخيص DTCs النشطة والمعلقة بدقة عبر جميع أنواع المركبات والأنظمة",
+      "استخدام الوضع A (الذكاء الاصطناعي) أو الوضع B (شجرة الأسئلة) لعزل العطل الجذري",
+      "اختيار أدوات التشخيص الصحيحة وتنفيذ جميع مراحل الإصلاح بالتسلسل",
+      "مسح جميع DTCs والتحقق من إعادة معايرة النظام قبل تسليم المركبة",
+    ],
+    deliverables: [
+      "Diagnostic scan report with active and pending DTCs per vehicle",
+      "Repair order with parts list, tool selection, and procedure log",
+      "Post-repair verification: clear codes and confirmed system recalibration",
+    ],
+    deliverablesAr: [
+      "تقرير الفحص التشخيصي مع DTCs النشطة والمعلقة لكل مركبة",
+      "أمر الإصلاح مع قائمة الأجزاء واختيار الأدوات وسجل الإجراءات",
+      "التحقق بعد الإصلاح: مسح الرموز وتأكيد إعادة معايرة النظام",
+    ],
+    tags: ["Automotive", "Diagnostics", "Technical Services", "OBD-II"],
+    tagsAr: ["سيارات", "تشخيص", "خدمات تقنية", "OBD-II"],
+  },
 };
