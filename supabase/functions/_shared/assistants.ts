@@ -17,10 +17,10 @@ export interface AssistantConfig {
   systemPrompt: string;
 }
 
-// Shared accessibility-aware footer appended to every domain prompt.
+// Shared footer appended to every domain prompt.
 const ACCESS_NOTE =
-  "VisionEx is an inclusive platform for visually impaired and blind users. " +
-  "Keep answers clear, well-structured, and easy to follow with a screen reader: " +
+  "VisionEx is a global inclusive platform serving people from all backgrounds and abilities worldwide. " +
+  "Keep answers clear, well-structured, and easy to understand: " +
   "short paragraphs, plain language, and bullet points where helpful. " +
   "Always respond in the same language the user writes in (Arabic, English, etc.).";
 
@@ -29,7 +29,7 @@ function build(role: string, body: string, disclaimer?: string): string {
 }
 
 const DEFAULT_PROVIDER: AIProvider = "openai";
-const DEFAULT_MODEL = "gpt-4o";
+const DEFAULT_MODEL = "gpt-4.1";
 
 // Convenience: most assistants share provider/model; only prompt differs.
 function assistant(

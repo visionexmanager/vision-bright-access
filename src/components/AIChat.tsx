@@ -276,13 +276,13 @@ export function AIChat() {
             <div className="flex items-end gap-2">
               {hasSpeechRecognition && (
                 <Button
-                  size="icon"
                   variant={isListening ? "default" : "ghost"}
-                  className={`h-10 w-10 shrink-0 ${isListening ? "animate-pulse bg-destructive hover:bg-destructive/90" : ""}`}
+                  className={`h-10 shrink-0 gap-1.5 px-2.5 text-xs font-medium ${isListening ? "animate-pulse bg-destructive hover:bg-destructive/90" : ""}`}
                   onClick={toggleListening}
                   aria-label={isListening ? t("ai.stopListening") : t("ai.startListening")}
                 >
                   {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  <span>{isListening ? t("ai.stopListening") : t("ai.startListening")}</span>
                 </Button>
               )}
               <textarea
