@@ -48,7 +48,12 @@ import { SpeakerQueuePanel } from "@/components/voice-room/SpeakerQueuePanel";
 import type { QueueEntry } from "@/components/voice-room/SpeakerQueuePanel";
 import { VoiceEffectsPanel } from "@/components/voice-room/VoiceEffectsPanel";
 import type { VoiceEffectType } from "@/components/voice-room/VoiceEffectsPanel";
-import { playReactionSound as playRealisticReactionSound } from "@/utils/reactionSounds";
+import {
+  playReactionSound as playRealisticReactionSound,
+  setVoiceSpeakingState,
+  preloadReactionSounds,
+  disposeReactionSounds,
+} from "@/utils/reactionSounds";
 import {
   PremiumFloatingReaction,
   createFloatingReaction,
@@ -558,7 +563,14 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       toast({ title: t("vroom.reconnected") });
       addEvent("🔄", t("vroom.reconnected"));
     }
+    // Warm up audio engine as soon as we're connected
+    if (connectionState === ConnectionState.Connected) preloadReactionSounds();
   }, [connectionState, t, addEvent]);
+
+  // Duck reaction sounds while the local participant is speaking
+  useEffect(() => {
+    setVoiceSpeakingState(localParticipant.isSpeaking);
+  }, [localParticipant.isSpeaking]);
 
   // Join/leave notifications
   useEffect(() => {
@@ -2839,6 +2851,7 @@ export default function VoiceRoom() {
   }, []);
 
   const cleanup = useCallback(async () => {
+    disposeReactionSounds();
     if (!user || !roomId) return;
     await supabase.from("voice_room_members").delete().eq("room_id", roomId).eq("user_id", user.id);
     // Delete room when empty (skip default/seeded rooms)
