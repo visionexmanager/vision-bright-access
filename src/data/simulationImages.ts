@@ -46,4 +46,5 @@ export const simulationImages: Record<string, string> = {
   "trade-tycoon": simTrade,
   "laptop-repair": simLaptop,
   "music-training": simMusic,
+  "vehicle-diagnostics": simMobile,
 };

@@ -34,7 +34,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  BarChart2, Bell, Check, ChevronDown, ChevronUp, Copy, Crown, Hand, Headphones,
+  BarChart2, Bell, Bot, Check, ChevronDown, ChevronUp, Copy, Crown, Hand, Headphones,
   ImageIcon, LayoutGrid, Loader2, Lock, Maximize2, MessageSquare, Mic, MicOff, Minimize2, Monitor, MonitorOff,
   Music2, Pencil, PhoneOff, RefreshCw, Send, Settings2, ShieldX, Sparkles, Timer,
   Unlock, Upload, UserX, Users, Users2, Video, VideoOff, Volume2, WifiOff, X,
@@ -280,7 +280,6 @@ function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick
   const displayName = participant.name || participant.identity;
   const participantState = [
     isMe ? t("vroom.you") : "",
-    isSpeaking ? t("voice.status.speaking") : "",
     isMuted ? t("vroom.mute") : t("vroom.unmute"),
     isRaisingHand ? t("vroom.raisedHand") : "",
   ].filter(Boolean).join(", ");
@@ -408,6 +407,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const voiceAiSessionRef = useRef<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const allChatMessagesRef = useRef<ChatMessage[]>([]);
   const playedAiAudioIdsRef = useRef<Set<string>>(new Set());
   // Mobile audio unlock — iOS/Android require a user gesture before playing remote audio
   const { canPlayAudio, startAudio } = useAudioPlayback();
@@ -487,14 +487,19 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     setVoiceAiThinking(true);
     try {
       const cleaned = triggerText.replace(/\bvisionex\b[:,،]?\s*/i, "").trim() || triggerText;
+      const recentChat = allChatMessagesRef.current
+        .filter((m) => m.kind !== "ai")
+        .slice(-20)
+        .map((m) => `${m.senderName}: ${m.text}`)
+        .join("\n");
       const roomContext = [
         `Room: ${roomId}`,
         `Requester: ${senderName}`,
-        "You are a temporary AI participant in a live Visionex voice room.",
-        "Do not claim you recorded the room. You only know the short session context supplied here.",
-        "Answer only because someone called you by name: visionex.",
-        "Keep the reply natural, respectful, concise, and suitable to be heard by everyone in the room.",
-      ].join("\n");
+        "You are Visionex AI, a smart assistant present in this live voice room on the Visionex platform.",
+        "You have been listening to the entire room session and remember everything said so far.",
+        "Only reply when someone calls your name 'visionex'. Be concise, natural, and relevant.",
+        recentChat ? `Full room conversation this session:\n${recentChat}` : "",
+      ].filter(Boolean).join("\n");
 
       const { data, error } = await supabase.functions.invoke("ai-voice-chat", {
         body: {
@@ -658,6 +663,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       })
       .on("broadcast", { event: "chat_message" }, ({ payload }: { payload: ChatMessage }) => {
         setChatMessages((prev) => [...prev, payload]);
+        allChatMessagesRef.current = [...allChatMessagesRef.current, payload].slice(-50);
         addEvent("💬", `${payload.senderName}: ${payload.text.slice(0, 60)}`);
         if (payload.kind === "ai" && payload.audio && !playedAiAudioIdsRef.current.has(payload.id)) {
           playedAiAudioIdsRef.current.add(payload.id);
@@ -699,6 +705,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       supabase.removeChannel(ch);
       broadcastChRef.current = null;
       voiceAiSessionRef.current = [];
+      allChatMessagesRef.current = [];
       playedAiAudioIdsRef.current.clear();
     };
   }, [roomId, currentUserId, t, addEvent, isScreenShareEnabled, playAiAudio]);
@@ -885,13 +892,12 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
 
   useEffect(() => {
     const names = activeSpeakerNames.join(", ");
-    if (names && names !== activeSpeakersRef.current) {
+    if (names) {
       activeSpeakersRef.current = names;
-      announce(`${t("voice.status.speaking")}: ${names}`);
-    } else if (!names) {
+    } else {
       activeSpeakersRef.current = "";
     }
-  }, [activeSpeakerNames, announce, t]);
+  }, [activeSpeakerNames]);
 
   const toggleMic = async () => {
     if (!roomPerms.mic && muted && !isOwner) {
@@ -1751,249 +1757,270 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         </div>
       )}
 
-      {/* Controls */}
-      <div className="flex items-center justify-center gap-4 pt-2 flex-wrap">
-        {isOwner && (
+      {/* Controls — two-row layout for easy navigation */}
+      <div className="flex flex-col gap-2 pt-2">
+        {/* ── Primary row: essential controls + leave ─────────────────── */}
+        <div className="flex items-center justify-center gap-2 rounded-2xl border bg-card px-4 py-3 shadow-sm flex-wrap">
+          {/* Mic */}
           <Button
             size="lg"
-            variant="outline"
-            className={`h-14 w-14 rounded-full p-0 transition-colors ${showRoomControls ? "bg-primary border-primary text-primary-foreground" : ""}`}
-            onClick={() => setShowRoomControls((v) => !v)}
-            title={t("vroom.roomControls")}
-            aria-label={t("vroom.roomControls")}
+            variant={muted ? "destructive" : "outline"}
+            className="h-12 w-12 rounded-full p-0"
+            onClick={toggleMic}
+            disabled={!roomPerms.mic && !isOwner}
+            aria-label={muted ? t("vroom.unmute") : t("vroom.mute")}
+            aria-pressed={!muted}
+            title={!roomPerms.mic && !isOwner ? t("vroom.permDisabledByOwner") : (muted ? t("vroom.unmute") : t("vroom.mute"))}
           >
-            <Settings2 className="h-6 w-6" />
+            {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </Button>
-        )}
-        {canModerate && (
-          <Button
-            size="lg"
-            variant="outline"
-            className="h-14 w-14 rounded-full p-0 text-orange-500 border-orange-300 hover:bg-orange-50 hover:border-orange-500"
-            onClick={muteAll}
-            title={t("vroom.muteAll")}
-            aria-label={t("vroom.muteAll")}
-          >
-            <MicOff className="h-6 w-6" />
-          </Button>
-        )}
-        <Button
-          size="lg"
-          variant={muted ? "destructive" : "outline"}
-          className="h-14 w-14 rounded-full p-0"
-          onClick={toggleMic}
-          disabled={!roomPerms.mic && !isOwner}
-          aria-label={muted ? t("vroom.unmute") : t("vroom.mute")}
-          aria-pressed={!muted}
-          title={!roomPerms.mic && !isOwner ? t("vroom.permDisabledByOwner") : undefined}
-        >
-          {muted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-        </Button>
-        {/* Camera toggle */}
-        {(roomPerms.camera || isOwner) && (
-          <div className="flex flex-col items-center gap-1">
+
+          {/* Camera */}
+          {(roomPerms.camera || isOwner) && (
             <Button
               size="lg"
               variant="outline"
-              className={`h-14 w-14 rounded-full p-0 transition-colors ${isCameraEnabled ? "bg-green-500 hover:bg-green-600 border-green-500 text-white" : "border-muted-foreground/40"}`}
+              className={`h-12 w-12 rounded-full p-0 transition-colors ${isCameraEnabled ? "bg-green-500 hover:bg-green-600 border-green-500 text-white" : ""}`}
               onClick={toggleCamera}
               aria-label={isCameraEnabled ? t("vroom.cameraOn") : t("vroom.cameraOff")}
               aria-pressed={isCameraEnabled}
               title={isCameraEnabled ? t("vroom.cameraOn") : t("vroom.cameraOff")}
             >
-              {isCameraEnabled ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
+              {isCameraEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
             </Button>
-            <span className={`text-[10px] font-semibold ${isCameraEnabled ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
-              {isCameraEnabled ? t("vroom.cameraOn") : t("vroom.cameraOff")}
-            </span>
-          </div>
-        )}
-        <Button
-          size="lg"
-          variant="outline"
-          className={`h-14 w-14 rounded-full p-0 transition-colors ${handRaised ? "bg-amber-500 hover:bg-amber-600 border-amber-500 text-white" : ""}`}
-          onClick={toggleHand}
-          aria-label={handRaised ? t("vroom.lowerHand") : t("vroom.raiseHand")}
-          aria-pressed={handRaised}
-          title={handRaised ? t("vroom.lowerHand") : t("vroom.raiseHand")}
-        >
-          <Hand className="h-6 w-6" />
-        </Button>
+          )}
 
-        {/* Spatial audio toggle */}
-        <Button
-          size="lg"
-          variant="outline"
-          className={`h-14 w-14 rounded-full p-0 transition-colors ${spatialAudioEnabled ? "bg-purple-500 hover:bg-purple-600 border-purple-500 text-white" : ""}`}
-          onClick={() => setSpatialAudioEnabled((v) => !v)}
-          aria-pressed={spatialAudioEnabled}
-          aria-label={t("vroom.spatialAudio")}
-          title={t("vroom.spatialAudio")}
-        >
-          <Headphones className="h-6 w-6" />
-        </Button>
-
-        {/* Screen share */}
-        {canScreenShare && (roomPerms.screen || isOwner) && (
+          {/* Raise hand */}
           <Button
             size="lg"
             variant="outline"
-            className={`h-14 w-14 rounded-full p-0 transition-colors ${isScreenShareEnabled ? "bg-blue-500 hover:bg-blue-600 border-blue-500 text-white" : ""}`}
-            onClick={toggleScreenShare}
-            aria-label={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
-            aria-pressed={isScreenShareEnabled}
-            title={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+            className={`h-12 w-12 rounded-full p-0 transition-colors ${handRaised ? "bg-amber-500 hover:bg-amber-600 border-amber-500 text-white" : ""}`}
+            onClick={toggleHand}
+            aria-label={handRaised ? t("vroom.lowerHand") : t("vroom.raiseHand")}
+            aria-pressed={handRaised}
+            title={handRaised ? t("vroom.lowerHand") : t("vroom.raiseHand")}
           >
-            <Monitor className="h-6 w-6" />
+            <Hand className="h-5 w-5" />
           </Button>
-        )}
-        {/* Audio-only share */}
-        {canScreenShare && (roomPerms.screen || isOwner) && (
-          <div className="flex flex-col items-center gap-1">
+
+          <span className="mx-1 h-8 w-px rounded-full bg-border" aria-hidden="true" />
+
+          {/* Chat */}
+          {(roomPerms.chat || isOwner) && (
+            <div className="relative">
+              <Button
+                size="lg"
+                variant="outline"
+                className={`h-12 w-12 rounded-full p-0 transition-colors ${chatOpen ? "bg-primary border-primary text-primary-foreground" : ""}`}
+                onClick={() => setChatOpen((v) => !v)}
+                aria-label={t("vroom.chat")}
+                aria-expanded={chatOpen}
+                title={t("vroom.chat")}
+              >
+                <MessageSquare className="h-5 w-5" />
+              </Button>
+              {unreadCount > 0 && !chatOpen && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Notifications */}
+          <div className="relative">
             <Button
               size="lg"
               variant="outline"
-              className={`h-14 w-14 rounded-full p-0 transition-colors ${audioShareEnabled ? "bg-teal-500 hover:bg-teal-600 border-teal-500 text-white" : ""}`}
+              className={`h-12 w-12 rounded-full p-0 transition-colors ${notifOpen ? "bg-amber-500 border-amber-500 text-white" : ""}`}
+              onClick={() => setNotifOpen((v) => !v)}
+              aria-label={t("vroom.notifications")}
+              aria-expanded={notifOpen}
+              title={t("vroom.notifications")}
+            >
+              <Bell className="h-5 w-5" />
+            </Button>
+            {unreadNotifs > 0 && !notifOpen && (
+              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+                {unreadNotifs > 9 ? "9+" : unreadNotifs}
+              </span>
+            )}
+          </div>
+
+          {/* Visionex AI */}
+          {(roomPerms.chat || isOwner) && (
+            <Button
+              size="lg"
+              variant={voiceAiEnabled ? "default" : "outline"}
+              className="h-12 w-12 rounded-full p-0"
+              onClick={() => void onActivateVoiceAi()}
+              disabled={voiceAiActivating || voiceAiThinking}
+              aria-label={voiceAiEnabled ? label("vroom.aiEnabled", "Visionex AI active") : label("vroom.aiActivate", "Activate Visionex AI")}
+              title={voiceAiEnabled ? label("vroom.aiEnabledHint", "Say visionex in chat to call AI") : label("vroom.aiActivateHint", "Unlock Visionex AI")}
+            >
+              {voiceAiActivating || voiceAiThinking ? <Loader2 className="h-5 w-5 animate-spin" /> : <Bot className="h-5 w-5" />}
+            </Button>
+          )}
+
+          <span className="mx-1 h-8 w-px rounded-full bg-border" aria-hidden="true" />
+
+          {/* Screen share */}
+          {canScreenShare && (roomPerms.screen || isOwner) && (
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-12 w-12 rounded-full p-0 transition-colors ${isScreenShareEnabled ? "bg-blue-500 hover:bg-blue-600 border-blue-500 text-white" : ""}`}
+              onClick={toggleScreenShare}
+              aria-label={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+              aria-pressed={isScreenShareEnabled}
+              title={isScreenShareEnabled ? t("vroom.stopSharing") : t("vroom.shareScreen")}
+            >
+              <Monitor className="h-5 w-5" />
+            </Button>
+          )}
+
+          {/* Audio-only share */}
+          {canScreenShare && (roomPerms.screen || isOwner) && (
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-12 w-12 rounded-full p-0 transition-colors ${audioShareEnabled ? "bg-teal-500 hover:bg-teal-600 border-teal-500 text-white" : ""}`}
               onClick={toggleAudioShare}
               aria-label={t("vroom.audioShare")}
               aria-pressed={audioShareEnabled}
               title={t("vroom.audioShare")}
             >
-              <Music2 className="h-6 w-6" />
+              <Music2 className="h-5 w-5" />
             </Button>
-            <span className="text-[10px] text-muted-foreground">{t("vroom.audioShare")}</span>
-          </div>
-        )}
-        {/* Voice Effects */}
-        {!isListener && (
-          <Button
-            size="lg"
-            variant="outline"
-            className={`h-14 w-14 rounded-full p-0 transition-colors ${showEffects || voiceEffect !== "none" ? "bg-indigo-500 border-indigo-500 text-white" : ""}`}
-            onClick={() => setShowEffects((v) => !v)}
-            aria-label={t("vroom.voiceEffects")}
-            aria-expanded={showEffects}
-            title={t("vroom.voiceEffects")}
-          >
-            <Sparkles className="h-6 w-6" />
-          </Button>
-        )}
-
-        {/* Camera blur */}
-        {isCameraEnabled && (
-          <Button
-            size="lg"
-            variant="outline"
-            className={`h-14 w-14 rounded-full p-0 transition-colors ${cameraBlurred ? "bg-slate-500 border-slate-500 text-white" : ""}`}
-            onClick={toggleCameraBlur}
-            aria-label={cameraBlurred ? t("vroom.cameraBlurOn") : t("vroom.cameraBlurOff")}
-            aria-pressed={cameraBlurred}
-            title={cameraBlurred ? t("vroom.cameraBlurOn") : t("vroom.cameraBlurOff")}
-          >
-            <ImageIcon className="h-6 w-6" />
-          </Button>
-        )}
-
-        {/* Live Poll */}
-        {isOwner && (
-          <Button
-            size="lg"
-            variant="outline"
-            className={`h-14 w-14 rounded-full p-0 transition-colors ${showPollCreator || activePoll ? "bg-green-500 border-green-500 text-white" : ""}`}
-            onClick={() => setShowPollCreator((v) => !v)}
-            aria-label={t("vroom.createPoll")}
-            aria-expanded={showPollCreator}
-            title={t("vroom.createPoll")}
-          >
-            <BarChart2 className="h-6 w-6" />
-          </Button>
-        )}
-
-        {/* Speaker Queue (owner, stage mode) */}
-        {isOwner && isStageMode && (
-          <div className="relative">
-            <Button
-              size="lg"
-              variant="outline"
-              className={`h-14 w-14 rounded-full p-0 transition-colors ${showQueue ? "bg-amber-500 border-amber-500 text-white" : ""}`}
-              onClick={() => setShowQueue((v) => !v)}
-              aria-label={t("vroom.speakerQueue")}
-              aria-expanded={showQueue}
-              title={t("vroom.speakerQueue")}
-            >
-              <Users2 className="h-6 w-6" />
-            </Button>
-            {speakerQueue.length > 0 && !showQueue && (
-              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
-                {speakerQueue.length}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Notifications toggle */}
-        <div className="relative">
-          <Button
-            size="lg"
-            variant="outline"
-            className={`h-14 w-14 rounded-full p-0 transition-colors ${notifOpen ? "bg-amber-500 border-amber-500 text-white" : ""}`}
-            onClick={() => setNotifOpen((v) => !v)}
-            aria-label={t("vroom.notifications")}
-            aria-expanded={notifOpen}
-            title={t("vroom.notifications")}
-          >
-            <Bell className="h-6 w-6" />
-          </Button>
-          {unreadNotifs > 0 && !notifOpen && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
-              {unreadNotifs > 9 ? "9+" : unreadNotifs}
-            </span>
           )}
+
+          <span className="mx-1 h-8 w-px rounded-full bg-border" aria-hidden="true" />
+
+          {/* Leave room — prominent with label */}
+          <Button
+            size="lg"
+            variant="destructive"
+            className="h-12 rounded-xl px-4 gap-2 font-semibold"
+            onClick={onLeave}
+            aria-label={t("vroom.leaveRoom")}
+            title={t("vroom.leaveRoom")}
+          >
+            <PhoneOff className="h-5 w-5" />
+            <span className="text-sm hidden sm:inline">{t("vroom.leaveRoom")}</span>
+          </Button>
         </div>
 
-        {/* Chat toggle */}
-        {(roomPerms.chat || isOwner) && <div className="relative">
+        {/* ── Secondary row: effects, moderation, advanced ────────────── */}
+        <div className="flex items-center justify-center gap-2 rounded-xl border bg-muted/20 px-3 py-2 flex-wrap">
+          {/* Spatial audio */}
           <Button
-            size="lg"
-            variant="outline"
-            className={`h-14 w-14 rounded-full p-0 transition-colors ${chatOpen ? "bg-primary border-primary text-primary-foreground" : ""}`}
-            onClick={() => setChatOpen((v) => !v)}
-            aria-label={t("vroom.chat")}
-            aria-expanded={chatOpen}
-            title={t("vroom.chat")}
+            size="sm"
+            variant="ghost"
+            className={`h-9 w-9 rounded-full p-0 transition-colors ${spatialAudioEnabled ? "bg-purple-500 hover:bg-purple-600 text-white" : ""}`}
+            onClick={() => setSpatialAudioEnabled((v) => !v)}
+            aria-pressed={spatialAudioEnabled}
+            aria-label={t("vroom.spatialAudio")}
+            title={t("vroom.spatialAudio")}
           >
-            <MessageSquare className="h-6 w-6" />
+            <Headphones className="h-4 w-4" />
           </Button>
-          {unreadCount > 0 && !chatOpen && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
+
+          {/* Voice effects */}
+          {!isListener && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={`h-9 w-9 rounded-full p-0 transition-colors ${showEffects || voiceEffect !== "none" ? "bg-indigo-500 hover:bg-indigo-600 text-white" : ""}`}
+              onClick={() => setShowEffects((v) => !v)}
+              aria-label={t("vroom.voiceEffects")}
+              aria-expanded={showEffects}
+              title={t("vroom.voiceEffects")}
+            >
+              <Sparkles className="h-4 w-4" />
+            </Button>
           )}
-        </div>}
 
-        {(roomPerms.chat || isOwner) && (
-          <Button
-            size="lg"
-            variant={voiceAiEnabled ? "default" : "outline"}
-            className="h-14 w-14 rounded-full p-0"
-            onClick={() => void onActivateVoiceAi()}
-            disabled={voiceAiActivating || voiceAiThinking}
-            aria-label={voiceAiEnabled ? label("vroom.aiEnabled", "Visionex AI is active") : label("vroom.aiActivate", "Activate Visionex AI")}
-            title={voiceAiEnabled ? label("vroom.aiEnabledHint", "Say visionex in chat to call the AI") : label("vroom.aiActivateHint", "Unlock Visionex AI for voice rooms")}
-          >
-            {voiceAiActivating || voiceAiThinking ? <Loader2 className="h-6 w-6 animate-spin" /> : <Sparkles className="h-6 w-6" />}
-          </Button>
-        )}
+          {/* Camera blur */}
+          {isCameraEnabled && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={`h-9 w-9 rounded-full p-0 transition-colors ${cameraBlurred ? "bg-slate-500 hover:bg-slate-600 text-white" : ""}`}
+              onClick={toggleCameraBlur}
+              aria-label={cameraBlurred ? t("vroom.cameraBlurOn") : t("vroom.cameraBlurOff")}
+              aria-pressed={cameraBlurred}
+              title={cameraBlurred ? t("vroom.cameraBlurOn") : t("vroom.cameraBlurOff")}
+            >
+              <ImageIcon className="h-4 w-4" />
+            </Button>
+          )}
 
-        <Button
-          size="lg"
-          variant="destructive"
-          className="h-14 w-14 rounded-full p-0"
-          onClick={onLeave}
-          aria-label={t("vroom.leaveRoom")}
-        >
-          <PhoneOff className="h-6 w-6" />
-        </Button>
+          {/* Moderator / owner tools */}
+          {(isOwner || canModerate) && (
+            <span className="mx-1 h-5 w-px rounded-full bg-border" aria-hidden="true" />
+          )}
+
+          {isOwner && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={`h-9 w-9 rounded-full p-0 transition-colors ${showRoomControls ? "bg-primary hover:bg-primary/90 text-primary-foreground" : ""}`}
+              onClick={() => setShowRoomControls((v) => !v)}
+              title={t("vroom.roomControls")}
+              aria-label={t("vroom.roomControls")}
+            >
+              <Settings2 className="h-4 w-4" />
+            </Button>
+          )}
+
+          {canModerate && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-9 w-9 rounded-full p-0 text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
+              onClick={muteAll}
+              title={t("vroom.muteAll")}
+              aria-label={t("vroom.muteAll")}
+            >
+              <MicOff className="h-4 w-4" />
+            </Button>
+          )}
+
+          {isOwner && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={`h-9 w-9 rounded-full p-0 transition-colors ${showPollCreator || activePoll ? "bg-green-500 hover:bg-green-600 text-white" : ""}`}
+              onClick={() => setShowPollCreator((v) => !v)}
+              aria-label={t("vroom.createPoll")}
+              aria-expanded={showPollCreator}
+              title={t("vroom.createPoll")}
+            >
+              <BarChart2 className="h-4 w-4" />
+            </Button>
+          )}
+
+          {isOwner && isStageMode && (
+            <div className="relative">
+              <Button
+                size="sm"
+                variant="ghost"
+                className={`h-9 w-9 rounded-full p-0 transition-colors ${showQueue ? "bg-amber-500 hover:bg-amber-600 text-white" : ""}`}
+                onClick={() => setShowQueue((v) => !v)}
+                aria-label={t("vroom.speakerQueue")}
+                aria-expanded={showQueue}
+                title={t("vroom.speakerQueue")}
+              >
+                <Users2 className="h-4 w-4" />
+              </Button>
+              {speakerQueue.length > 0 && !showQueue && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white">
+                  {speakerQueue.length}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       <p className="text-center text-xs text-muted-foreground">{t("vroom.hint")}</p>
 
@@ -2874,15 +2901,67 @@ export default function VoiceRoom() {
   }, []);
 
   const cleanup = useCallback(async () => {
-    if (user && roomId) {
-      await supabase.from("voice_room_members").delete().eq("room_id", roomId).eq("user_id", user.id);
-    }
+    if (!user || !roomId) return;
+    await supabase.from("voice_room_members").delete().eq("room_id", roomId).eq("user_id", user.id);
+    // Delete room when empty (skip default/seeded rooms)
+    try {
+      const { count } = await supabase
+        .from("voice_room_members")
+        .select("*", { count: "exact", head: true })
+        .eq("room_id", roomId);
+      if ((count ?? 1) === 0) {
+        const { data: roomRow } = await supabase
+          .from("voice_rooms")
+          .select("is_default")
+          .eq("id", roomId)
+          .single();
+        if (roomRow && !roomRow.is_default) {
+          await supabase.from("voice_rooms").delete().eq("id", roomId);
+        }
+      }
+    } catch { /* non-critical */ }
   }, [user, roomId]);
 
   // Keep cleanup in a ref so the join effect never re-runs just because the
   // cleanup useCallback got a new reference (e.g. after auth session refresh).
   const cleanupRef = useRef(cleanup);
   useEffect(() => { cleanupRef.current = cleanup; }, [cleanup]);
+
+  // Cache the user's access token so the beforeunload handler can use it synchronously
+  const accessTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      accessTokenRef.current = data.session?.access_token ?? null;
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      accessTokenRef.current = session?.access_token ?? null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Remove member on page close / refresh (keepalive fetch survives navigation)
+  useEffect(() => {
+    if (!user || !roomId) return;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+    const handleBeforeUnload = () => {
+      const token = accessTokenRef.current ?? supabaseKey;
+      fetch(
+        `${supabaseUrl}/rest/v1/voice_room_members?room_id=eq.${roomId}&user_id=eq.${user.id}`,
+        {
+          method: "DELETE",
+          keepalive: true,
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [user, roomId]);
 
   const handleKick = useCallback(async (identity: string, name: string) => {
     if (!roomId) return;
@@ -3250,7 +3329,7 @@ export default function VoiceRoom() {
     } else if (minutes > 0) {
       toast({ title: t("vroom.vxMinimum"), duration: 3000 });
     }
-    await cleanup();
+    try { await cleanup(); } catch { /* ensure navigation always happens */ }
     navigate("/community");
   };
 
