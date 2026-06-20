@@ -123,6 +123,11 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.VehicleDiagnosticsSimulation,
     }))
   ),
+  "marine-vessel": lazy(() =>
+    import("@/pages/simulations/MarineVesselSimulation").then((m) => ({
+      default: m.MarineVesselSimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {

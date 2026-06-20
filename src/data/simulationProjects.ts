@@ -940,4 +940,42 @@ export const SIM_PROJECTS: Record<string, SimProject> = {
     tags: ["Automotive", "Diagnostics", "Technical Services", "OBD-II"],
     tagsAr: ["سيارات", "تشخيص", "خدمات تقنية", "OBD-II"],
   },
+
+  "marine-vessel": {
+    clientName: "OceanGate Maritime Operations",
+    clientNameAr: "أوشن جيت للعمليات البحرية",
+    clientLogo: "🚢",
+    projectTitle: "Live Marine Vessel Tracking & Maritime Logistics Simulator",
+    projectTitleAr: "محاكي تتبع السفن البحرية الحية والخدمات اللوجستية البحرية",
+    scenario:
+      "OceanGate Maritime Operations has appointed you as Fleet Operations Commander responsible for a global fleet of 8 commercial vessels. You will monitor real-time vessel positions using AIS data, manage cargo logistics across major world ports, respond to critical operational emergencies — port congestion, tropical storms, mechanical failures, piracy threats, and canal blockages — and coordinate with port authorities, customs, and cargo owners to maintain on-time delivery performance. Every decision you make directly affects voyage costs, delivery schedules, and customer satisfaction scores.",
+    scenarioAr:
+      "عيّنتك OceanGate للعمليات البحرية قائداً لعمليات الأسطول المسؤول عن أسطول عالمي من 8 سفن تجارية. ستراقب مواضع السفن في الوقت الحقيقي باستخدام بيانات AIS، وتدير عمليات الشحن اللوجستية عبر الموانئ العالمية الكبرى، وتستجيب للطوارئ التشغيلية الحرجة — ازدحام الموانئ والعواصف الاستوائية والأعطال الميكانيكية وتهديدات القرصنة وانسداد القنوات — وتنسق مع سلطات الموانئ والجمارك وأصحاب البضائع للحفاظ على أداء التسليم في الوقت المحدد.",
+    budget: "Fleet Operating Budget: $2.4M / Voyage",
+    timeline: "Multi-Voyage Operations",
+    objectives: [
+      "Maintain on-time delivery rate above 90% across all active voyages",
+      "Respond to every operational emergency within the allotted decision window",
+      "Optimize routing decisions to minimize fuel costs and voyage delays",
+      "Achieve a fleet efficiency score of 85% or higher to unlock VX rewards",
+    ],
+    objectivesAr: [
+      "الحفاظ على معدل التسليم في الوقت المحدد فوق 90% عبر جميع الرحلات النشطة",
+      "الاستجابة لكل طارئ تشغيلي ضمن نافذة القرار المخصصة",
+      "تحسين قرارات التوجيه لتقليل تكاليف الوقود وتأخيرات الرحلات",
+      "تحقيق درجة كفاءة الأسطول 85% أو أعلى لفتح مكافآت VX",
+    ],
+    deliverables: [
+      "Fleet operations log with all decisions and outcomes recorded",
+      "Scenario response report per maritime emergency handled",
+      "Final voyage performance score and fleet efficiency rating",
+    ],
+    deliverablesAr: [
+      "سجل عمليات الأسطول مع تسجيل جميع القرارات والنتائج",
+      "تقرير الاستجابة لكل طارئ بحري تمت معالجته",
+      "درجة أداء الرحلة النهائية وتقييم كفاءة الأسطول",
+    ],
+    tags: ["Maritime", "Logistics", "Fleet Management", "Operations"],
+    tagsAr: ["بحري", "لوجستيات", "إدارة أسطول", "عمليات"],
+  },
 };

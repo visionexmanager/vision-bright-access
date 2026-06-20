@@ -11,7 +11,7 @@ import {
   ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video,
   Coins, Scissors, Scale, Stethoscope, Brain, Sparkles, Users,
   Dumbbell, Plane, ScanLine, Globe, Cpu, CheckCircle, Clock, Trophy, FileText,
-  MapPin, Tv, Radio, Wifi, Wrench, Car, Activity, Gauge,
+  MapPin, Tv, Radio, Wifi, Wrench, Car, Activity, Gauge, Anchor, Ship, Navigation,
 } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
 import { Link, useNavigate } from "react-router-dom";
@@ -31,7 +31,7 @@ import { toast } from "@/hooks/use-toast";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
 // ── Types ──────────────────────────────────────────────────────────────
-type Category = "all" | "automotive" | "simulations" | "professional" | "learning" | "media";
+type Category = "all" | "automotive" | "maritime" | "simulations" | "professional" | "learning" | "media";
 
 interface SimRow {
   id: string;
@@ -71,8 +71,9 @@ const PROFESSIONAL_SERVICES = [
   { icon: MonitorSmartphone,name: "services.webDesign",        desc: "services.webDesignDesc",        vx: 130_000, img: webDesignImg,        to: "/services/web-design",        color: CLR.tech  }, // $130
 ] as const;
 
-// Automotive slug excluded from the generic simulations list (it has its own dedicated section)
+// Slugs excluded from the generic simulations list (they have their own dedicated sections)
 const AUTOMOTIVE_SIM_SLUG = "vehicle-diagnostics";
+const MARITIME_SIM_SLUG   = "marine-vessel";
 
 // 1000 VX = $1 USD  |  entry starts at 10 VX ($0.01), scales up meaningfully
 const LEARNING_SERVICES = [
@@ -161,26 +162,31 @@ export default function Services() {
   const TABS: { id: Category; label: string; icon: React.ReactNode }[] = [
     { id: "all",          label: t("services.catAll"),        icon: <Globe className="h-4 w-4" aria-hidden="true" /> },
     { id: "automotive",   label: t("services.catAutomotive"), icon: <Car className="h-4 w-4" aria-hidden="true" /> },
+    { id: "maritime",     label: t("services.catMaritime"),   icon: <Ship className="h-4 w-4" aria-hidden="true" /> },
     { id: "simulations",  label: t("services.catSims"),       icon: <Cpu className="h-4 w-4" aria-hidden="true" /> },
     { id: "professional", label: t("services.catPro"),        icon: <Briefcase className="h-4 w-4" aria-hidden="true" /> },
     { id: "learning",     label: t("services.catLearn"),      icon: <GraduationCap className="h-4 w-4" aria-hidden="true" /> },
     { id: "media",        label: t("services.catMedia"),      icon: <Tv className="h-4 w-4" aria-hidden="true" /> },
   ];
 
-  const showAuto  = activeCategory === "all" || activeCategory === "automotive";
-  const showSims  = activeCategory === "all" || activeCategory === "simulations";
-  const showPro   = activeCategory === "all" || activeCategory === "professional";
-  const showLearn = activeCategory === "all" || activeCategory === "learning";
-  const showMedia = activeCategory === "all" || activeCategory === "media";
+  const showAuto     = activeCategory === "all" || activeCategory === "automotive";
+  const showMaritime = activeCategory === "all" || activeCategory === "maritime";
+  const showSims     = activeCategory === "all" || activeCategory === "simulations";
+  const showPro      = activeCategory === "all" || activeCategory === "professional";
+  const showLearn    = activeCategory === "all" || activeCategory === "learning";
+  const showMedia    = activeCategory === "all" || activeCategory === "media";
 
-  // Vehicle Diagnostics has its own Automotive section — exclude from the generic simulations grid
-  const genericSimulations = simulations.filter(s => s.slug !== AUTOMOTIVE_SIM_SLUG);
+  // These slugs have their own dedicated sections — exclude them from the generic simulations grid
+  const genericSimulations = simulations.filter(
+    s => s.slug !== AUTOMOTIVE_SIM_SLUG && s.slug !== MARITIME_SIM_SLUG
+  );
 
-  const autoHeadingId  = `${uid}-auto`;
-  const simsHeadingId  = `${uid}-sims`;
-  const proHeadingId   = `${uid}-pro`;
-  const learnHeadingId = `${uid}-learn`;
-  const mediaHeadingId = `${uid}-media`;
+  const autoHeadingId     = `${uid}-auto`;
+  const maritimeHeadingId = `${uid}-maritime`;
+  const simsHeadingId     = `${uid}-sims`;
+  const proHeadingId      = `${uid}-pro`;
+  const learnHeadingId    = `${uid}-learn`;
+  const mediaHeadingId    = `${uid}-media`;
 
   return (
     <Layout>
@@ -342,6 +348,83 @@ export default function Services() {
                         </div>
                         <span className="inline-flex items-center gap-1 rounded-full bg-green-600 px-3 py-1 text-xs font-semibold text-white transition-all group-hover:bg-green-500">
                           {t("services.vehicleDiagsStartSim")}
+                          <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </StaggerItem>
+
+            </div>
+          </AnimatedSection>
+        )}
+
+        {/* ── Maritime & Logistics Services ────────────────────────── */}
+        {showMaritime && (
+          <AnimatedSection className="mb-12" aria-labelledby={maritimeHeadingId}>
+            <div className="mb-6">
+              <div aria-hidden="true" className="mb-1 inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-cyan-500">
+                <Ship className="h-3.5 w-3.5" aria-hidden="true" /> {t("services.catMaritime")}
+              </div>
+              <h2 id={maritimeHeadingId} className="text-2xl font-bold text-foreground">{t("services.maritimeTitle")}</h2>
+              <p className="mt-1 text-muted-foreground max-w-xl">{t("services.maritimeDesc")}</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2" role="list">
+
+              {/* Live Marine Vessel Tracking & Maritime Logistics Simulator */}
+              <StaggerItem role="listitem">
+                <Link
+                  to={`/business-simulator/${MARITIME_SIM_SLUG}`}
+                  onClick={() => playSound("navigate")}
+                  className="group block h-full"
+                  aria-label={t("services.marineVessel")}
+                >
+                  <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-cyan-500/20">
+                    <div className="relative h-32 bg-gradient-to-br from-[#020a14] via-[#051220] to-[#0a2040] overflow-hidden">
+                      <div className="absolute -top-6 -right-6 h-28 w-28 rounded-full bg-cyan-500/10" aria-hidden="true" />
+                      <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-blue-500/10" aria-hidden="true" />
+                      {/* Radar sweep animation */}
+                      <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                        <Navigation className="h-16 w-16 text-cyan-400/25 group-hover:text-cyan-400/40 transition-colors" />
+                      </div>
+                      {/* Animated scan line */}
+                      <div className="absolute inset-x-0 h-px bg-cyan-400/30 animate-pulse" style={{ top: "55%" }} aria-hidden="true" />
+                      <div className="absolute top-3 start-3 flex items-center gap-1.5 rounded-full bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 text-[11px] font-bold text-cyan-400">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400" aria-hidden="true" />
+                        {t("services.marineVesselBadge")}
+                      </div>
+                      <div className="absolute bottom-2 end-3 font-mono text-[9px] text-cyan-400/50 space-y-0.5 text-right" aria-hidden="true">
+                        <div>AIS · MMSI · IMO</div>
+                        <div>VISIONEX NAV v2.0</div>
+                      </div>
+                    </div>
+                    <CardContent className="p-5">
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-lg font-bold text-foreground">{t("services.marineVessel")}</h3>
+                          <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">{t("services.marineVesselDesc")}</p>
+                        </div>
+                        <div className="shrink-0 rounded-lg bg-cyan-500/10 p-2">
+                          <Anchor className="h-5 w-5 text-cyan-500" aria-hidden="true" />
+                        </div>
+                      </div>
+                      <div className="mb-4 flex flex-wrap gap-1.5" aria-label="Features">
+                        {["Fleet Tracking", "AIS Data", "Port Logistics", "VX Rewards"].map((f) => (
+                          <span key={f} className="inline-flex items-center rounded-full border border-cyan-500/20 bg-cyan-500/5 px-2 py-0.5 text-xs text-cyan-600 dark:text-cyan-400">
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1 text-xs font-semibold text-primary">
+                          <Coins className="h-3 w-3" aria-hidden="true" />
+                          <span className="sr-only">{t("services.cost")}</span>
+                          {formatVX(300)} / session
+                        </div>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-cyan-600 px-3 py-1 text-xs font-semibold text-white transition-all group-hover:bg-cyan-500">
+                          {t("services.marineVesselStartSim")}
                           <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
                         </span>
                       </div>

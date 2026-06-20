@@ -525,6 +525,8 @@ const SLUG_MAP: Record<string, AmbientType> = {
   "hvac-systems":     "construction",
   "aluminum-glazing": "construction",
   "solar-energy":     "construction",
+  // Maritime operations
+  "marine-vessel": "office",
   // Automotive diagnostics
   "vehicle-diagnostics": "workshop",
   // Light electronics repair

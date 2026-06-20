@@ -584,6 +584,28 @@ const SCENES: Record<string, SceneDef> = {
     label: "🎵 Music Academy",
   },
 
+  // ── MARITIME SCENES ──────────────────────────────────────────────────────────
+  "marine-vessel": {
+    type: "enterprise",
+    sky: "linear-gradient(180deg, #020a14 0%, #051220 45%, #071a30 100%)",
+    horizon: "linear-gradient(180deg, #0a2040 0%, #051220 100%)",
+    structures: [],
+    characters: [
+      { emoji: "🚢", left: 12, bottom: 26, size: 3.6, anim: SWAY },
+      { emoji: "🌊", left: 30, bottom: 22, size: 2.8, anim: `sim-bob 3.2s 0.4s ease-in-out infinite` },
+      { emoji: "⚓", left: 50, bottom: 30, size: 2.5, anim: BOB },
+      { emoji: "📡", left: 66, bottom: 31, size: 2.4, anim: PULSE },
+      { emoji: "🗺️", left: 80, bottom: 30, size: 2.5, anim: SWAY },
+    ],
+    particles: [
+      { emoji: "🌊", left: 8,  delay: 0,   duration: 4.5, size: "1rem"  },
+      { emoji: "💧", left: 42, delay: 1.2, duration: 3.8, size: "0.8rem" },
+      { emoji: "🌊", left: 76, delay: 0.7, duration: 5,   size: "1rem"  },
+    ],
+    activeOverlay: "rgba(0,180,255,0.04)",
+    label: "🚢 Maritime Command",
+  },
+
   // ── AUTOMOTIVE SCENES ────────────────────────────────────────────────────────
   "vehicle-diagnostics": {
     type: "workshop",
