@@ -706,7 +706,7 @@ export function MarineVesselSimulation({ simulationId }: Props) {
   if (phase === "gate") {
     return (
       <div
-        className="min-h-screen bg-[#020a14] text-slate-100 flex items-center justify-center p-4"
+        className="min-h-screen bg-[#020a14] text-slate-100 flex flex-col items-center justify-center p-4"
         role="main"
         aria-labelledby="gate-heading"
       >

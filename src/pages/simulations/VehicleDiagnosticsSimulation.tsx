@@ -641,8 +641,8 @@ export function VehicleDiagnosticsSimulation({ simulationId }: Props) {
   const [model,    setModel]      = useState("");
   const [system,   setSystem]     = useState("");
 
-  const vehicleReady = category && make && year && model && system;
-  const systems      = vehicleReady ? getSystemsForVehicle(category, make) : [];
+  const vehicleReady = !!(category && make && year && model && system);
+  const systems      = (category && make) ? getSystemsForVehicle(category, make) : [];
   const makes        = MANUFACTURERS[category] ?? [];
   const modelList    = MODELS[make] ?? [];
 

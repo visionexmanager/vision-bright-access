@@ -49,6 +49,12 @@ import type { QueueEntry } from "@/components/voice-room/SpeakerQueuePanel";
 import { VoiceEffectsPanel } from "@/components/voice-room/VoiceEffectsPanel";
 import type { VoiceEffectType } from "@/components/voice-room/VoiceEffectsPanel";
 import { playReactionSound as playRealisticReactionSound } from "@/utils/reactionSounds";
+import {
+  PremiumFloatingReaction,
+  createFloatingReaction,
+  FloatingReactionsOverlay,
+  PremiumReactionBar,
+} from "@/components/voice-room/PremiumReactions";
 
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
 
@@ -236,12 +242,6 @@ interface ChatMessage {
   audio?: string | null;
 }
 
-interface FloatingReaction {
-  id: string;
-  emoji: string;
-  x: number;
-  visible: boolean;
-}
 
 interface RoomPerms {
   camera: boolean;
@@ -384,11 +384,10 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const connectionState = useConnectionState();
   const [muted, setMuted] = useState(false);
   const [handRaised, setHandRaised] = useState(false);
-  const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
+  const [floatingReactions, setFloatingReactions] = useState<PremiumFloatingReaction[]>([]);
   const [screenAudioEnabled, setScreenAudioEnabled] = useState(false);
   const [screenShareRestarting, setScreenShareRestarting] = useState(false);
   const [spatialAudioEnabled, setSpatialAudioEnabled] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [showRoomControls, setShowRoomControls] = useState(false);
   const [audioShareEnabled, setAudioShareEnabled] = useState(false);
@@ -601,12 +600,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     const ch = supabase
       .channel(`room-bc-${roomId}`, { config: { broadcast: { self: true } } })
       .on("broadcast", { event: "reaction" }, ({ payload }: { payload: { emoji: string; senderId: string; senderName: string } }) => {
-        const id = Math.random().toString(36).slice(2);
-        const x = 5 + Math.random() * 85;
-        const r: FloatingReaction = { id, emoji: payload.emoji, x, visible: true };
+        const r = createFloatingReaction(payload.emoji);
         setFloatingReactions((prev) => [...prev, r]);
-        setTimeout(() => setFloatingReactions((prev) => prev.map((item) => item.id === id ? { ...item, visible: false } : item)), 1600);
-        setTimeout(() => setFloatingReactions((prev) => prev.filter((item) => item.id !== id)), 2600);
+        setTimeout(() => setFloatingReactions((prev) => prev.filter((item) => item.id !== r.id)), r.speed + 250);
         addEvent(payload.emoji, `${payload.senderName || payload.senderId} ${payload.emoji}`);
         if (payload.senderId !== currentUserId) {
           playRealisticReactionSound(payload.emoji);
@@ -1083,7 +1079,6 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       } else if (event.key === "Escape") {
         setChatOpen(false);
         setNotifOpen(false);
-        setShowEmojiPicker(false);
         setShowEffects(false);
         setShowQueue(false);
         setShowRoomControls(false);
@@ -1526,17 +1521,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         )}
 
         {/* Floating reactions overlay */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          {floatingReactions.map((r) => (
-            <div
-              key={r.id}
-              className={`absolute bottom-0 text-4xl transition-all duration-1000 ease-out select-none ${r.visible ? "-translate-y-24 opacity-100" : "-translate-y-48 opacity-0"}`}
-              style={{ left: `${r.x}%` }}
-            >
-              {r.emoji}
-            </div>
-          ))}
-        </div>
+        <FloatingReactionsOverlay reactions={floatingReactions} />
       </div>
 
       {/* Notifications history panel (bell button) */}
@@ -1650,60 +1635,13 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         </div>
       )}
 
-      {/* Reaction bar + collapsible emoji picker */}
-      <div className="flex flex-col gap-2">
-        {/* Expanded emoji picker */}
-        {showEmojiPicker && (
-          <div className="rounded-xl border bg-card p-3 shadow-md">
-            <div className="flex max-h-44 flex-wrap gap-1 overflow-y-auto">
-              {EXTRA_EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => { sendReaction(emoji); setShowEmojiPicker(false); }}
-                  className="rounded-lg p-1 text-xl leading-none transition-transform hover:scale-125 hover:bg-muted active:scale-95"
-                  aria-label={emoji}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Core reactions + toggle button */}
-        <div className="flex items-center justify-center gap-3 rounded-xl border bg-muted/20 py-2.5 px-4">
-          {REACTIONS.map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => sendReaction(emoji)}
-              className="text-2xl transition-transform hover:scale-125 active:scale-95"
-              aria-label={emoji}
-            >
-              {emoji}
-            </button>
-          ))}
-
-          {/* Divider */}
-          <span className="mx-0.5 h-5 w-px rounded-full bg-border" aria-hidden="true" />
-
-          {/* More emojis toggle */}
-          <button
-            onClick={() => setShowEmojiPicker((v) => !v)}
-            className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-              showEmojiPicker
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-            }`}
-            aria-label={t("vroom.moreReactions")}
-            aria-expanded={showEmojiPicker}
-          >
-            <span className="text-base leading-none">😀</span>
-            {showEmojiPicker
-              ? <ChevronDown className="h-3 w-3" />
-              : <ChevronUp className="h-3 w-3" />}
-          </button>
-        </div>
-      </div>
+      {/* Reaction bar + emoji picker */}
+      <PremiumReactionBar
+        coreReactions={REACTIONS}
+        extraEmojis={EXTRA_EMOJIS}
+        onSendReaction={sendReaction}
+        moreAriaLabel={t("vroom.moreReactions")}
+      />
 
       {/* Room Controls Panel — owner only */}
       {isOwner && showRoomControls && (
