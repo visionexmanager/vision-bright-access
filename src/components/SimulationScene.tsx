@@ -583,6 +583,31 @@ const SCENES: Record<string, SceneDef> = {
     ],
     label: "🎵 Music Academy",
   },
+
+  // ── AUTOMOTIVE SCENES ────────────────────────────────────────────────────────
+  "vehicle-diagnostics": {
+    type: "workshop",
+    sky: "linear-gradient(180deg, #0a0a0f 0%, #0d1117 45%, #111827 100%)",
+    horizon: "linear-gradient(180deg, #1c2533 0%, #111827 100%)",
+    structures: [
+      { shape: "counter", left: 0, bottom: 28, color: "#1e293b" },
+      { shape: "rack",    left: 6, bottom: 29 },
+    ],
+    characters: [
+      { emoji: "🚗", left: 14, bottom: 30, size: 3.2, anim: BOB },
+      { emoji: "🔌", left: 32, bottom: 32, size: 2.5, anim: `sim-bob 2.2s 0.3s ease-in-out infinite` },
+      { emoji: "⚙️", left: 50, bottom: 33, size: 2.6, anim: `sim-spin 4s linear infinite` },
+      { emoji: "🔧", left: 66, bottom: 31, size: 2.4, anim: SWAY },
+      { emoji: "💻", left: 80, bottom: 30, size: 2.8, anim: PULSE },
+    ],
+    particles: [
+      { emoji: "⚡", left: 20, delay: 0,   duration: 2.2, size: "0.9rem" },
+      { emoji: "✨", left: 52, delay: 0.7, duration: 2.8, size: "0.8rem" },
+      { emoji: "⚡", left: 84, delay: 1.4, duration: 2.4, size: "0.8rem" },
+    ],
+    activeOverlay: "rgba(0,255,128,0.04)",
+    label: "🚗 Auto Diagnostics",
+  },
 };
 
 // ── Structure renderers ──────────────────────────────────────────────────────
