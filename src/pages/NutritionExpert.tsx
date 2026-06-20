@@ -569,12 +569,70 @@ export default function NutritionExpert() {
                       <h3 className="text-lg font-black text-foreground">{t("nutrition.dailyLog")}</h3>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm font-bold">
-                        <span className="text-muted-foreground">{totalCalories} / {calorieGoal} {t("nutrition.kcal")}</span>
-                        <span className="text-emerald-600">{Math.round(calorieProgress)}%</span>
+                    {/* Circular progress ring */}
+                    <div className="flex items-center gap-4">
+                      {(() => {
+                        const r = 38;
+                        const circ = 2 * Math.PI * r;
+                        const pct = Math.min(calorieProgress, 100);
+                        const dash = (pct / 100) * circ;
+                        const color = pct >= 100 ? "#ef4444" : pct >= 75 ? "#f97316" : "#10b981";
+                        return (
+                          <svg width="96" height="96" viewBox="0 0 96 96" className="shrink-0 -rotate-90">
+                            <circle cx="48" cy="48" r={r} fill="none" stroke="currentColor" strokeWidth="8" className="text-muted/30" />
+                            <circle cx="48" cy="48" r={r} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
+                              strokeDasharray={`${dash} ${circ}`} style={{ transition: "stroke-dasharray 0.6s ease" }} />
+                          </svg>
+                        );
+                      })()}
+                      <div>
+                        <p className="text-2xl font-black text-foreground">{totalCalories}</p>
+                        <p className="text-xs text-muted-foreground">من {calorieGoal} {t("nutrition.kcal")}</p>
+                        <p className="text-sm font-bold mt-1" style={{ color: calorieProgress >= 100 ? "#ef4444" : "#10b981" }}>
+                          {calorieProgress >= 100 ? "تجاوزت الهدف!" : `متبقي ${calorieGoal - totalCalories} سعرة`}
+                        </p>
                       </div>
-                      <Progress value={calorieProgress} className="h-3 rounded-full" />
+                    </div>
+
+                    {/* Suggest next meal */}
+                    {calorieGoal - totalCalories > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full rounded-xl gap-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                        onClick={() => {
+                          const remaining = calorieGoal - totalCalories;
+                          const goal = userData.goal === "weight-loss" ? "خسارة الوزن" : userData.goal === "muscle-gain" ? "بناء العضلات" : "الصحة العامة";
+                          toast.info("يتم توليد اقتراح الوجبة...");
+                          supabase.functions.invoke("generate-diet-plan", {
+                            body: {
+                              name: userData.name,
+                              weight: userData.weight,
+                              height: userData.height,
+                              goal: userData.goal,
+                              lang,
+                              prompt: `اقترح وجبة واحدة صحية بحوالي ${remaining} سعرة حرارية لشخص هدفه ${goal}. أجب باختصار بالاسم والمكونات الرئيسية فقط.`,
+                            },
+                          }).then(({ data }) => {
+                            if (data?.plan?.meals?.[0]) {
+                              const m = data.plan.meals[0];
+                              toast.success(`اقتراح: ${m.name} — ${m.calories} سعرة`, { duration: 6000 });
+                            }
+                          });
+                        }}
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        اقترح وجبة ({calorieGoal - totalCalories} سعرة متبقية)
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-[30px] shadow-xl">
+                  <CardContent className="p-6 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Plus className="h-5 w-5 text-emerald-600" />
+                      <h3 className="text-lg font-black text-foreground">تسجيل وجبة</h3>
                     </div>
 
                     {/* Quick add */}

@@ -106,15 +106,25 @@ export function useAcademyChat(
         await consumeStream(response, {
           onToken: (_token, accumulated) => {
             accumulatedText = accumulated;
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.id === assistantId) {
+                return [...prev.slice(0, -1), { ...last, content: accumulated }];
+              }
+              return [...prev, { id: assistantId, role: "assistant", content: accumulated, isStreaming: true, timestamp: Date.now() }];
+            });
           },
 
           onDone: async (fullText) => {
             const finalText = fullText || accumulatedText;
             if (finalText.trim()) {
-              setMessages((prev) => [
-                ...prev,
-                { id: assistantId, role: "assistant", content: finalText },
-              ]);
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.id === assistantId) {
+                  return [...prev.slice(0, -1), { ...last, content: finalText, isStreaming: false }];
+                }
+                return [...prev, { id: assistantId, role: "assistant", content: finalText, timestamp: Date.now() }];
+              });
             }
 
             // Persist to DB (non-blocking)

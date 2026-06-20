@@ -51,6 +51,9 @@ export interface ChatMessage {
   id: string;
   role: ChatRole;
   content: string;
+  isStreaming?: boolean;
+  timestamp?: number;
+  feedback?: "up" | "down";
 }
 
 /** Shape stored in Supabase `academy_chat_sessions` table */
