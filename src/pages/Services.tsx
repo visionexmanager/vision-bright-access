@@ -11,7 +11,7 @@ import {
   ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video,
   Coins, Scissors, Scale, Stethoscope, Brain, Sparkles, Users,
   Dumbbell, Plane, ScanLine, Globe, Cpu, CheckCircle, Clock, Trophy, FileText,
-  MapPin, Tv, Radio, Wifi,
+  MapPin, Tv, Radio, Wifi, Wrench,
 } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
 import { Link, useNavigate } from "react-router-dom";
@@ -63,6 +63,7 @@ const CLR = {
 };
 
 const PROFESSIONAL_SERVICES = [
+  { icon: Wrench,           name: "services.carsMaintenance",  desc: "services.carsMaintenanceDesc",  vx: 25_000,  img: consultingImg,       to: "/services/cars-maintenance",  color: CLR.amber }, // $25
   { icon: Headphones,       name: "services.techConsulting",   desc: "services.techConsultingDesc",   vx: 20_000,  img: consultingImg,       to: "/services/tech-consulting",   color: CLR.tech  }, // $20
   { icon: GraduationCap,    name: "services.training",         desc: "services.trainingDesc",         vx: 40_000,  img: trainingImg,         to: "/services/training",          color: CLR.blue  }, // $40
   { icon: Package,          name: "services.importPurchasing", desc: "services.importPurchasingDesc", vx: 60_000,  img: importImg,           to: "/services/import-purchasing", color: CLR.amber }, // $60

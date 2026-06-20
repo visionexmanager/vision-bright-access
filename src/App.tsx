@@ -77,6 +77,7 @@ const RadarAI = lazy(() => import("./pages/services/RadarAI"));
 const EducationalEmpire = lazy(() => import("./pages/services/EducationalEmpire"));
 const EmpathyOasis = lazy(() => import("./pages/services/EmpathyOasis"));
 const OCRScan = lazy(() => import("./pages/services/OCRScan"));
+const CarsMaintenanceService = lazy(() => import("./pages/services/CarsMaintenanceService"));
 const LiveTV = lazy(() => import("./pages/services/LiveTV"));
 const LiveTVWatch = lazy(() => import("./pages/services/LiveTVWatch"));
 const LiveTVSubscribe = lazy(() => import("./pages/services/LiveTVSubscribe"));
@@ -198,6 +199,7 @@ function AppRoutes() {
                     <Route path="/services/import-purchasing" element={<ImportPurchasing />} />
                     <Route path="/services/tech-consulting" element={<TechConsulting />} />
                     <Route path="/services/training" element={<TrainingService />} />
+                    <Route path="/services/cars-maintenance" element={<CarsMaintenanceService />} />
                     <Route path="/services/hair-care" element={<HairCare />} />
                     <Route path="/services/legal-advisor" element={<LegalAdvisor />} />
                     <Route path="/services/medical-support" element={<MedicalSupport />} />

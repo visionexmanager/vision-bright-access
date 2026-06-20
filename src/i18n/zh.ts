@@ -263,6 +263,8 @@ export const translations: Record<string, string> = {
   "services.techConsultingDesc": "为视障用户提供辅助技术、屏幕阅读器、辅助功能工具和自适应解决方案方面的专家指导。",
   "services.training": "培训与设备设置",
   "services.trainingDesc": "个性化培训课程和设备、软件以及辅助工具设置的实操帮助。",
+  "services.carsMaintenance": "汽车保养",
+  "services.carsMaintenanceDesc": "为各类车辆提供专业的汽车诊断、保养和维修咨询服务。",
   "services.cta": "立即开始",
   "services.earn": "赚取 {points} 积分",
   "services.catAll": "所有服务",
