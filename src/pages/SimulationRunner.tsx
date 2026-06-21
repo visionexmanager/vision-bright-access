@@ -3,18 +3,20 @@ import { useParams, Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrial } from "@/hooks/useTrial";
 import { useAchievements } from "@/hooks/useAchievements";
 import { useAmbientSound, getSimulationAmbient } from "@/hooks/useAmbientSound";
+import { useSimulationBilling } from "@/hooks/useSimulationBilling";
 import { supabase } from "@/integrations/supabase/client";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationProjectBrief } from "@/components/SimulationProjectBrief";
 import { SimulationProjectReport } from "@/components/SimulationProjectReport";
 import { getSimulationComponent, hasCustomComponent } from "@/pages/simulations/registry";
 import { SIM_PROJECTS } from "@/data/simulationProjects";
-import { ArrowLeft, Gift, Clock, Star, Zap } from "lucide-react";
+import { ArrowLeft, Gift, Clock, Star, Coins } from "lucide-react";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
 type Simulation = {
@@ -58,6 +60,11 @@ export default function SimulationRunner() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [finalScore, setFinalScore] = useState(0);
   const [finalPoints, setFinalPoints] = useState(0);
+  const billing = useSimulationBilling(
+    simulation?.id,
+    simulation?.title ?? "",
+    phase === "active" && !!simulation
+  );
 
   // Play ambient during brief and active phases; silence during report
   useAmbientSound(phase === "brief" || phase === "active" ? getSimulationAmbient(slug) : null);
@@ -310,18 +317,44 @@ export default function SimulationRunner() {
                 <Star className="h-3 w-3" />
                 {simulation.points} VX
               </Badge>
+              <Badge variant="outline" className="text-xs gap-1">
+                <Coins className="h-3 w-3" />
+                250 VX / 15m
+              </Badge>
+              <Badge variant="outline" className="text-xs gap-1">
+                <Clock className="h-3 w-3" />
+                {billing.remainingMinutes}m left
+              </Badge>
             </div>
           </div>
 
-          <Suspense
-            fallback={
-              <div className="flex min-h-[30vh] items-center justify-center">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              </div>
-            }
-          >
-            <CustomSim simulationId={simulation.id} />
-          </Suspense>
+          {billing.status === "blocked" ? (
+            <Card className="mx-auto max-w-xl border-destructive/40">
+              <CardContent className="space-y-4 p-6 text-center">
+                <Coins className="mx-auto h-10 w-10 text-destructive" />
+                <h2 className="text-xl font-bold">VX required</h2>
+                <p className="text-sm text-muted-foreground">{billing.message}</p>
+                <Button asChild>
+                  <Link to="/coins-store">Go to VX Store</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : billing.status !== "ready" ? (
+            <div className="flex min-h-[30vh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              {billing.isCharging ? "Opening the next 15 minutes..." : "Preparing session billing..."}
+            </div>
+          ) : (
+            <Suspense
+              fallback={
+                <div className="flex min-h-[30vh] items-center justify-center">
+                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                </div>
+              }
+            >
+              <CustomSim simulationId={simulation.id} />
+            </Suspense>
+          )}
         </section>
       </Layout>
     );

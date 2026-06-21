@@ -15,6 +15,7 @@ import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { AdminRoute } from "@/components/AdminRoute";
 import { AuthGuard } from "@/components/AuthGuard";
 import { PageTracker } from "@/components/PageTracker";
+import { GameEconomyGate } from "@/components/game/GameEconomyGate";
 
 // Lazy-loaded pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -179,9 +180,9 @@ function AppRoutes() {
                     <Route path="/product/:id" element={<ProductDetail />} />
                     <Route path="/wishlist" element={<Wishlist />} />
                     <Route path="/games" element={<Games />} />
-                    <Route path="/games/quiz-challenge" element={<QuizChallenge />} />
-                    <Route path="/games/memory" element={<MemoryGame />} />
-                    <Route path="/games/word-puzzle" element={<WordPuzzle />} />
+                    <Route path="/games/quiz-challenge" element={<GameEconomyGate gameTitle="Quiz Challenge"><QuizChallenge /></GameEconomyGate>} />
+                    <Route path="/games/memory" element={<GameEconomyGate gameTitle="Memory Game"><MemoryGame /></GameEconomyGate>} />
+                    <Route path="/games/word-puzzle" element={<GameEconomyGate gameTitle="Word Puzzle"><WordPuzzle /></GameEconomyGate>} />
                     <Route path="/assistive-products" element={<AssistiveProducts />} />
                     <Route path="/business-simulator" element={<BusinessSimulator />} />
                     <Route path="/business-simulator/:slug" element={<SimulationRunner />} />
@@ -218,24 +219,24 @@ function AppRoutes() {
                     <Route path="/services/live-radio" element={<LiveRadio />} />
                     <Route path="/services/live-radio/subscribe" element={<LiveRadioSubscribe />} />
                     <Route path="/services/live-radio/listen/:stationId" element={<LiveRadioListen />} />
-                    <Route path="/games/hangman" element={<Hangman />} />
-                    <Route path="/games/dominoes" element={<Dominoes />} />
-                    <Route path="/games/farkle" element={<FarkleGame />} />
-                    <Route path="/games/jungle-survival" element={<JungleSurvival />} />
-                    <Route path="/games/star-chef" element={<StarChef />} />
-                    <Route path="/games/uno-ultra" element={<UnoUltra />} />
-                    <Route path="/games/neon-breach" element={<NeonBreach />} />
-                    <Route path="/games/logiquest" element={<LogiQuest />} />
-                    <Route path="/games/trade-tycoon" element={<TradeTycoon />} />
-                    <Route path="/games/tactical-strike" element={<TacticalStrike />} />
-                    <Route path="/games/briscola" element={<Briscola />} />
-                    <Route path="/games/card-99" element={<Card99 />} />
-                    <Route path="/games/dream-home" element={<DreamHome />} />
-                    <Route path="/games/laptop-tech" element={<LaptopTechMaster />} />
-                    <Route path="/games/music-ear" element={<MusicEarMaster />} />
-                    <Route path="/games/fashion-designer" element={<FashionDesigner />} />
-                    <Route path="/games/velocity-racing" element={<VelocityXRacing />} />
-                    <Route path="/games/akinator" element={<Akinator />} />
+                    <Route path="/games/hangman" element={<GameEconomyGate gameTitle="Hangman"><Hangman /></GameEconomyGate>} />
+                    <Route path="/games/dominoes" element={<GameEconomyGate gameTitle="Dominoes"><Dominoes /></GameEconomyGate>} />
+                    <Route path="/games/farkle" element={<GameEconomyGate gameTitle="Farkle"><FarkleGame /></GameEconomyGate>} />
+                    <Route path="/games/jungle-survival" element={<GameEconomyGate gameTitle="Jungle Survival"><JungleSurvival /></GameEconomyGate>} />
+                    <Route path="/games/star-chef" element={<GameEconomyGate gameTitle="Star Chef"><StarChef /></GameEconomyGate>} />
+                    <Route path="/games/uno-ultra" element={<GameEconomyGate gameTitle="Uno Ultra"><UnoUltra /></GameEconomyGate>} />
+                    <Route path="/games/neon-breach" element={<GameEconomyGate gameTitle="Neon Breach"><NeonBreach /></GameEconomyGate>} />
+                    <Route path="/games/logiquest" element={<GameEconomyGate gameTitle="LogiQuest"><LogiQuest /></GameEconomyGate>} />
+                    <Route path="/games/trade-tycoon" element={<GameEconomyGate gameTitle="Trade Tycoon"><TradeTycoon /></GameEconomyGate>} />
+                    <Route path="/games/tactical-strike" element={<GameEconomyGate gameTitle="Tactical Strike"><TacticalStrike /></GameEconomyGate>} />
+                    <Route path="/games/briscola" element={<GameEconomyGate gameTitle="Briscola"><Briscola /></GameEconomyGate>} />
+                    <Route path="/games/card-99" element={<GameEconomyGate gameTitle="Card 99"><Card99 /></GameEconomyGate>} />
+                    <Route path="/games/dream-home" element={<GameEconomyGate gameTitle="Dream Home"><DreamHome /></GameEconomyGate>} />
+                    <Route path="/games/laptop-tech" element={<GameEconomyGate gameTitle="Laptop Tech Master"><LaptopTechMaster /></GameEconomyGate>} />
+                    <Route path="/games/music-ear" element={<GameEconomyGate gameTitle="Music Ear Master"><MusicEarMaster /></GameEconomyGate>} />
+                    <Route path="/games/fashion-designer" element={<GameEconomyGate gameTitle="Fashion Designer"><FashionDesigner /></GameEconomyGate>} />
+                    <Route path="/games/velocity-racing" element={<GameEconomyGate gameTitle="Velocity X Racing"><VelocityXRacing /></GameEconomyGate>} />
+                    <Route path="/games/akinator" element={<GameEconomyGate gameTitle="Akinator"><Akinator /></GameEconomyGate>} />
                     <Route path="/community" element={<Community />} />
                     <Route path="/community/voice-rooms" element={<VoiceRooms />} />
                     <Route path="/community/room/:roomId" element={<VoiceRoom />} />

@@ -17,6 +17,7 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const FIREWALL_NODES = ["🔒", "🛡️", "⚡", "🔑", "💾", "🌐", "📡", "🔓"];
 
@@ -25,6 +26,7 @@ function NeonBreachSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
   const { neonBeep, neonGlitch, neonGranted } = useGameSounds();
+  const { settleGameResult } = useGameEconomy();
   const [sequence, setSequence] = useState<number[]>([]);
   const [playerSeq, setPlayerSeq] = useState<number[]>([]);
   const [level, setLevel]   = useState(1);
@@ -51,7 +53,7 @@ function NeonBreachSolo() {
     if (phase !== "input") return;
     const next = [...playerSeq, idx];
     setPlayerSeq(next);
-    if (idx !== sequence[next.length - 1]) { setPhase("gameover"); neonGlitch(); return; }
+    if (idx !== sequence[next.length - 1]) { void settleGameResult("loss", "Neon Breach"); setPhase("gameover"); neonGlitch(); return; }
     neonBeep();
     if (next.length === sequence.length) {
       setScore((s) => s + level * 50); setLevel((l) => l + 1);

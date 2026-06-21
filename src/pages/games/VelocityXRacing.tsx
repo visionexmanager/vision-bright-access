@@ -17,6 +17,7 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const TRACKS = ["🏎️ Monaco GP", "🏁 Neon Sprint", "🌊 Coastal Rush", "🏜️ Desert Blitz"];
 const LAP_DISTANCE = 1000;
@@ -126,6 +127,7 @@ type TrackEvent = typeof TRACK_EVENTS[number];
 function VelocitySolo({ track }: { track: string }) {
   const { t } = useLanguage();
   const { highScore, updateHighScore } = useHighScore("velocity");
+  const { settleGameResult } = useGameEconomy();
   const [currentEvent, setCurrentEvent] = useState<TrackEvent | null>(null);
   const [newRecord, setNewRecord] = useState(false);
 
@@ -133,7 +135,8 @@ function VelocitySolo({ track }: { track: string }) {
     const score = Math.round(distance) + (fuel > 0 ? 500 : 0);
     const isNew = updateHighScore(score);
     setNewRecord(isNew);
-  }, [updateHighScore]);
+    void settleGameResult(fuel > 0 ? "win" : "loss", "Velocity X Racing");
+  }, [settleGameResult, updateHighScore]);
 
   const race = useRaceEngine(onFinish);
 

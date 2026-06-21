@@ -2204,6 +2204,8 @@ export const translations: Record<string, string> = {
   "services.duration": "Dauer:",
   "services.filterLabel": "Dienste nach Kategorie filtern",
   "services.learnDesc": "Entwickle deine Fähigkeiten durch geführtes Training, Musik, Sportcoaching, Karriereentwicklung und Bildungsprogramme.",
+  "services.academyDesc": "Structured learning paths from Visionex for skills, projects, and confident progress.",
+  "services.openLearning": "Open learning",
   "services.learnTitle": "Lerndienstleistungen",
   "services.loadingSims": "Simulationen werden geladen, bitte warten.",
   "services.proDesc": "Beauftrage Expertenarbeit von unserem Team – Webdesign, Marketing, Beratung und mehr.",

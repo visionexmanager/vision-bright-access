@@ -17,6 +17,7 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const WORDS = [
   "VISIONEX","PLATFORM","KEYBOARD","SCIENCE","MONITOR","BROWSER","NETWORK",
@@ -33,6 +34,7 @@ function HangmanSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
   const { hangmanCorrect, hangmanWrong, hangmanWin, hangmanGameOver } = useGameSounds();
+  const { settleGameResult } = useGameEconomy();
   const [word,    setWord]    = useState(() => WORDS[Math.floor(Math.random() * WORDS.length)]);
   const [guessed, setGuessed] = useState<Set<string>>(new Set());
   const [wrong,   setWrong]   = useState(0);
@@ -53,6 +55,11 @@ function HangmanSolo() {
 
   if (won && !lost)  { toast.success(t("hangman.won"),  { id: "hw" }); }
   if (lost)          { toast.error(t("hangman.lost"),   { id: "hl" }); }
+
+  useEffect(() => {
+    if (won && !lost) void settleGameResult("win", "Hangman");
+    if (lost) void settleGameResult("loss", "Hangman");
+  }, [lost, settleGameResult, won]);
 
   const restart = () => { setWord(WORDS[Math.floor(Math.random() * WORDS.length)]); setGuessed(new Set()); setWrong(0); };
 

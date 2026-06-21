@@ -17,6 +17,7 @@ import {
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { WatchAdButton } from "@/components/WatchAdButton";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 interface WordEntry {
   wordKey: string;
@@ -57,6 +58,7 @@ export default function WordPuzzle() {
   const { totalPoints } = usePoints();
   const { playSound, setEnabled: setSoundEnabled, enabledRef: soundEnabledRef } = useGameAudio();
   const { speak, setEnabled: setTTSEnabled, stop: stopTTS, enabledRef: ttsEnabledRef } = useGameTTS();
+  const { settleGameResult } = useGameEconomy();
 
   const [gameWords, setGameWords] = useState<WordEntry[]>([]);
   const [round, setRound] = useState(0);
@@ -87,7 +89,6 @@ export default function WordPuzzle() {
     setRound(0);
     setScore(0);
     setFeedback(null);
-    setPointsAwarded(false);
     setShowHint(false);
     setSelectedLetters([]);
     setAnswer([]);
@@ -128,6 +129,7 @@ export default function WordPuzzle() {
     if (newAnswer.length === currentWord.length) {
       const guess = newAnswer.join("");
       const correct = guess.toUpperCase() === currentWord.toUpperCase() || guess === currentWord;
+      const finalScore = correct ? score + 1 : score;
       
       if (correct) {
         setScore((p) => p + 1);
@@ -146,6 +148,7 @@ export default function WordPuzzle() {
         if (round + 1 < TOTAL_ROUNDS) {
           setRound((p) => p + 1);
         } else {
+          void settleGameResult(finalScore >= Math.ceil(TOTAL_ROUNDS / 2) ? "win" : "loss", "Word Puzzle");
           setGameState("end");
           playSound("complete");
           if (ttsOn) speak(t("games.word.complete"), lang);

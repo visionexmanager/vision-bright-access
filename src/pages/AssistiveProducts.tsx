@@ -241,16 +241,21 @@ export default function AssistiveProducts() {
                         </Badge>
                       )}
                     </span>
-                    <button
-                      onClick={e => { e.stopPropagation(); toggleCategoryAll(category.id); }}
-                      className="text-xs text-primary hover:underline whitespace-nowrap hidden sm:block"
-                    >
-                      {catAllSelected ? (t("vep.deselectAll") ?? "Deselect all") : (t("vep.selectAll") ?? "Select all")}
-                    </button>
                   </div>
                 </AccordionTrigger>
 
                 <AccordionContent className="px-5 pb-5">
+                  <div className="mb-4 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleCategoryAll(category.id)}
+                      className="text-xs text-primary hover:text-primary"
+                    >
+                      {catAllSelected ? (t("vep.deselectAll") ?? "Deselect all") : (t("vep.selectAll") ?? "Select all")}
+                    </Button>
+                  </div>
                   <div className="grid gap-4">
                     {category.products.map(product => {
                       const isSelected = !!selected[product.id];

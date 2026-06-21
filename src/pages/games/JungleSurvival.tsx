@@ -15,6 +15,7 @@ import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 // All 20 scenarios (5 original + 15 new)
 const ALL_SCENARIOS = [
@@ -102,6 +103,7 @@ function JungleSolo() {
   const { playSound } = useSound();
   const { jungleSwish, jungleDanger, jungleSuccess, jungleFail } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("jungle");
+  const { settleGameResult } = useGameEconomy();
   const [scenarios, setScenarios] = useState(() => pickScenarios());
   const [step, setStep] = useState(0);
   const [hp, setHp] = useState(100);
@@ -115,15 +117,17 @@ function JungleSolo() {
     jungleSwish();
     if (newHp <= 0) {
       updateHighScore(score + choice.score);
+      void settleGameResult("loss", "Jungle Survival");
       setGameOver(true); setTimeout(jungleDanger, 200); return;
     }
     if (step + 1 >= scenarios.length) {
       updateHighScore(score + choice.score);
+      void settleGameResult("win", "Jungle Survival");
       setGameOver(true); setTimeout(jungleSuccess, 200); return;
     }
     setStep((s) => s + 1);
     setTimeout(choice.hp >= 0 ? jungleSuccess : jungleFail, 150);
-  }, [hp, step, scenarios, score, playSound]);
+  }, [hp, step, scenarios, score, playSound, settleGameResult]);
 
   const restart = () => {
     setScenarios(pickScenarios());

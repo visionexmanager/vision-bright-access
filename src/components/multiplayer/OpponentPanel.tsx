@@ -1,7 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 import { MPPlayer } from "@/systems/multiplayerSystem";
+import { useEffect } from "react";
 
 interface Props {
   opponent?: MPPlayer;
@@ -40,9 +42,15 @@ interface FinishBannerProps {
 
 export function FinishBanner({ winnerId, myId, players, onRematch }: FinishBannerProps) {
   const { t } = useLanguage();
+  const { settleGameResult } = useGameEconomy();
   const winner = players.find((p) => p.id === winnerId);
   const iWon  = winnerId === myId;
   const isDraw = winnerId === null;
+
+  useEffect(() => {
+    if (!myId || isDraw) return;
+    void settleGameResult(iWon ? "win" : "loss");
+  }, [iWon, isDraw, myId, settleGameResult]);
 
   return (
     <Card className="border-2 border-primary">

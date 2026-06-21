@@ -18,6 +18,7 @@ import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { WatchAdButton } from "@/components/WatchAdButton";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const questions = [
   { id: 1, q: "ما هو أسرع حيوان بري في العالم؟", options: ["الأسد", "الفهد", "الغزال"], correct: 1 },
@@ -158,6 +159,7 @@ export default function QuizChallenge() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { totalPoints } = usePoints();
+  const { settleGameResult } = useGameEconomy();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(10);
@@ -171,14 +173,15 @@ export default function QuizChallenge() {
     wrongSoundRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3");
   }, []);
 
-  const nextQuestion = useCallback(() => {
+  const nextQuestion = useCallback((finalScore = score) => {
     if (currentQuestion + 1 < questions.length) {
       setCurrentQuestion((prev) => prev + 1);
       setTimeLeft(3);
     } else {
+      void settleGameResult(finalScore >= questions.length * 5 ? "win" : "loss", "Quiz Challenge");
       setGameState("end");
     }
-  }, [currentQuestion]);
+  }, [currentQuestion, score, settleGameResult]);
 
 
   useEffect(() => {
@@ -199,14 +202,13 @@ export default function QuizChallenge() {
     } else {
       wrongSoundRef.current?.play().catch(() => {});
     }
-    nextQuestion();
+    nextQuestion(index === questions[currentQuestion].correct ? score + 10 : score);
   };
 
   const restart = () => {
     setScore(0);
     setCurrentQuestion(0);
     setTimeLeft(3);
-    setPointsAwarded(false);
     setGameState("playing");
   };
 

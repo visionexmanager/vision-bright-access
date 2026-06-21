@@ -15,6 +15,7 @@ import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { OpponentPanel, FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const COLORS    = ["🔴", "🟡", "🟢", "🔵"];
 const UNO_CARDS = COLORS.flatMap((c) => Array.from({ length: 5 }, (_, i) => ({ color: c, value: i + 1 })));
@@ -28,6 +29,7 @@ function UnoSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
   const { cardFlip, cardShuffle, cardWin, cardLose } = useGameSounds();
+  const { settleGameResult } = useGameEconomy();
   const [deck, setDeck] = useState(() => [...UNO_CARDS].sort(() => Math.random() - 0.5));
   const [hand, setHand] = useState<UCard[]>(() => deck.slice(0, 7));
   const [pile, setPile] = useState<UCard>(() => deck[7]);
@@ -40,7 +42,8 @@ function UnoSolo() {
     setPile(card);
     const h = hand.filter((_, i) => i !== idx);
     setHand(h); setScore((s) => s + card.value * 10); cardWin();
-  }, [hand, pile, playSound]);
+    if (h.length === 0) void settleGameResult("win", "Uno Ultra");
+  }, [hand, pile, playSound, settleGameResult]);
 
   const draw = () => { setHand([...hand, randomCard()]); cardFlip(); };
   const restart = () => {

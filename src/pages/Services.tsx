@@ -25,13 +25,11 @@ import trainingImg from "@/assets/service-training.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { simulationImages } from "@/data/simulationImages";
 import { SIMULATION_PRICES } from "@/systems/pricingSystem";
-import { useVXWallet } from "@/hooks/useVXWallet";
-import { useTrial } from "@/hooks/useTrial";
 import { toast } from "@/hooks/use-toast";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
 // ── Types ──────────────────────────────────────────────────────────────
-type Category = "all" | "automotive" | "maritime" | "simulations" | "professional" | "learning" | "media";
+type Category = "all" | "simulations" | "professional" | "learning" | "media";
 
 interface SimRow {
   id: string;
@@ -63,7 +61,6 @@ const CLR = {
 };
 
 const PROFESSIONAL_SERVICES = [
-  { icon: Wrench,           name: "services.carsMaintenance",  desc: "services.carsMaintenanceDesc",  vx: 25_000,  img: consultingImg,       to: "/services/cars-maintenance",  color: CLR.amber }, // $25
   { icon: Headphones,       name: "services.techConsulting",   desc: "services.techConsultingDesc",   vx: 20_000,  img: consultingImg,       to: "/services/tech-consulting",   color: CLR.tech  }, // $20
   { icon: GraduationCap,    name: "services.training",         desc: "services.trainingDesc",         vx: 40_000,  img: trainingImg,         to: "/services/training",          color: CLR.blue  }, // $40
   { icon: Package,          name: "services.importPurchasing", desc: "services.importPurchasingDesc", vx: 60_000,  img: importImg,           to: "/services/import-purchasing", color: CLR.amber }, // $60
@@ -71,13 +68,16 @@ const PROFESSIONAL_SERVICES = [
   { icon: MonitorSmartphone,name: "services.webDesign",        desc: "services.webDesignDesc",        vx: 130_000, img: webDesignImg,        to: "/services/web-design",        color: CLR.tech  }, // $130
 ] as const;
 
-// Slugs excluded from the generic simulations list (they have their own dedicated sections)
 const AUTOMOTIVE_SIM_SLUG = "vehicle-diagnostics";
 const MARITIME_SIM_SLUG   = "marine-vessel";
 
 // 1000 VX = $1 USD  |  entry starts at 10 VX ($0.01), scales up meaningfully
-const LEARNING_SERVICES = [
-  { icon: FileText,    name: "ocr.serviceTitle",       desc: "ocr.serviceDesc",       vx: 10,      to: "/services/ocr-scan",            color: CLR.tech  }, // $0.01
+const EDUCATION_SERVICES = [
+  { icon: GraduationCap, name: "services.academy",     desc: "services.academyDesc",  vx: 0,       to: "/academy",                     color: CLR.blue  },
+  { icon: FileText,      name: "ocr.serviceTitle",     desc: "ocr.serviceDesc",       vx: 10,      to: "/services/ocr-scan",            color: CLR.tech  }, // $0.01
+] as const;
+
+const SUPPORT_SERVICES = [
   { icon: Scissors,    name: "svc.hairTitle",          desc: "svc.hairDesc",          vx: 500,     to: "/services/hair-care",           color: CLR.green }, // $0.50
   { icon: Sparkles,    name: "svc.skinTitle",          desc: "svc.skinDesc",          vx: 800,     to: "/services/skin-care",           color: CLR.green }, // $0.80
   { icon: Users,       name: "svc.socialTitle",        desc: "svc.socialDesc",        vx: 1_000,   to: "/services/social-guide",        color: CLR.blue  }, // $1
@@ -98,20 +98,57 @@ const LEARNING_SERVICES = [
   { icon: Globe,       name: "empire.serviceTitle",    desc: "empire.serviceDesc",    vx: 60_000,  to: "/services/educational-empire",  color: CLR.blue  }, // $60
 ] as const;
 
+const ALL_PROFESSIONAL_SERVICES = [...PROFESSIONAL_SERVICES, ...SUPPORT_SERVICES] as const;
+
+const CAR_MAINTENANCE_SIM_CARD = {
+  icon: Wrench,
+  name: "services.carsMaintenance",
+  desc: "services.carsMaintenanceDesc",
+  vx: 25_000,
+  to: "/services/cars-maintenance",
+  color: CLR.amber,
+} as const;
+
 const DIFFICULTY_COLOR: Record<string, string> = {
   Beginner:     "bg-green-600/20 text-green-500 border-green-600/30",
   Intermediate: "bg-yellow-600/20 text-yellow-500 border-yellow-600/30",
   Advanced:     "bg-red-600/20 text-red-500 border-red-600/30",
 };
 
+const SIM_BRIEFS: Record<string, { en: string; ar: string }> = {
+  "egg-incubator": { en: "Control heat and humidity to build a productive hatchery.", ar: "اضبط الحرارة والرطوبة لتبني مشروع تفريخ منتج." },
+  "dairy-farm": { en: "Manage feeding, milking, and herd health in a dairy project.", ar: "أدر التغذية والحلب وصحة القطيع في مشروع ألبان." },
+  "poultry-farm": { en: "Balance feed, health, and production in a poultry farm.", ar: "وازن بين العلف والصحة والإنتاج في مزرعة دواجن." },
+  "cattle-dairy": { en: "Plan pasture, breeding, and milk output for a cattle business.", ar: "خطط للمراعي والتربية وإنتاج الحليب في مشروع ماشية." },
+  "sheep-farm": { en: "Run lambing, shearing, and sales across a sheep season.", ar: "أدر الولادة والجز وبيع الموسم في مشروع أغنام." },
+  "network-noc": { en: "Diagnose live network incidents like an operations engineer.", ar: "شخّص أعطال الشبكات الحية كمهندس عمليات." },
+  "mobile-repair": { en: "Practice phone diagnosis and repair from screen to board.", ar: "تدرّب على تشخيص وصيانة الهاتف من الشاشة إلى اللوحة." },
+  "laptop-repair": { en: "Troubleshoot laptop hardware and system faults step by step.", ar: "حل أعطال اللابتوب والأنظمة خطوة بخطوة." },
+  "perfume-lab": { en: "Blend notes and quality checks into a signature fragrance.", ar: "امزج الروائح واختبر الجودة لصناعة عطر خاص." },
+  "detergent-lab": { en: "Formulate cleaning products with budget and performance in mind.", ar: "اصنع منتجات تنظيف توازن بين التكلفة والأداء." },
+  "skin-care-lab": { en: "Create safe skincare formulas and test real product choices.", ar: "طوّر تركيبات عناية آمنة واختبر قرارات المنتج." },
+  "woodworking": { en: "Plan materials, jobs, and delivery in a woodworking shop.", ar: "خطط للمواد والطلبات والتسليم في ورشة خشب." },
+  "aluminum-glazing": { en: "Move from quote to installation in aluminum and glass work.", ar: "انتقل من التسعير إلى التركيب في أعمال الألمنيوم والزجاج." },
+  "global-kitchen": { en: "Lead menu, staff, and costs during busy kitchen service.", ar: "أدر المنيو والفريق والتكاليف في مطبخ مزدحم." },
+  "chocolate-factory": { en: "Run sourcing, production, and quality in a chocolate factory.", ar: "أدر التوريد والإنتاج والجودة في مصنع شوكولاتة." },
+  "solar-energy": { en: "Size panels, track output, and plan solar project returns.", ar: "احسب الألواح وتتبع الإنتاج وخطط لعائد مشروع شمسي." },
+  "hvac-systems": { en: "Install and maintain HVAC systems for real building needs.", ar: "ركّب وصن أنظمة التكييف حسب احتياج المباني." },
+  "logistics-supply": { en: "Optimize warehouse, fleet, and supplier decisions.", ar: "حسّن قرارات المخزن والأسطول والموردين." },
+  "barber-salon": { en: "Manage bookings, staff, prices, and customer loyalty.", ar: "أدر الحجوزات والفريق والأسعار وولاء العملاء." },
+  "board-surgeon": { en: "Make careful operating-room decisions under time pressure.", ar: "اتخذ قرارات دقيقة داخل غرفة عمليات افتراضية." },
+  "english-journey": { en: "Guide learners through English practice with clear progress.", ar: "قدّم رحلة تعلم إنجليزية بتدرج ونتائج واضحة." },
+  "music-training": { en: "Schedule lessons and grow students toward confident performance.", ar: "نظّم الدروس وطوّر الطلاب نحو أداء واثق." },
+  "trade-tycoon": { en: "Buy, sell, and manage cash flow across active markets.", ar: "اشترِ وبِع وأدر السيولة في أسواق متحركة." },
+  "vehicle-diagnostics": { en: "Diagnose vehicle faults and choose the right repair path.", ar: "شخّص أعطال المركبات واختر مسار الإصلاح المناسب." },
+  "marine-vessel": { en: "Plan vessel operations, navigation, and maritime logistics.", ar: "خطط لتشغيل السفن والملاحة والخدمات البحرية." },
+};
+
 // ── Component ──────────────────────────────────────────────────────────
 export default function Services() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { playSound } = useSound();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { spendVX } = useVXWallet();
-  const { isOnTrial } = useTrial();
   const uid = useId();
 
   const [activeCategory, setActiveCategory] = useState<Category>("all");
@@ -150,36 +187,30 @@ export default function Services() {
 
   const handleStartSim = async (sim: SimRow) => {
     if (!user) { toast({ title: t("services.loginRequired"), variant: "destructive" }); return; }
-    // Trial users play simulations free
-    if (isOnTrial) { navigate(`/business-simulator/${sim.slug}`); return; }
-    // Difficulty multiplier: Beginner=1x, Intermediate=1.2x, Advanced=1.5x
-    const diffMult = sim.difficulty === "Advanced" ? 1.5 : sim.difficulty === "Intermediate" ? 1.2 : 1.0;
-    const cost = Math.round(SIMULATION_PRICES.singleSession * diffMult);
-    const ok = await spendVX(cost, "simulation", sim.title, sim.id);
-    if (ok) navigate(`/business-simulator/${sim.slug}`);
+    navigate(`/business-simulator/${sim.slug}`);
   };
 
   const TABS: { id: Category; label: string; icon: React.ReactNode }[] = [
     { id: "all",          label: t("services.catAll"),        icon: <Globe className="h-4 w-4" aria-hidden="true" /> },
-    { id: "automotive",   label: t("services.catAutomotive"), icon: <Car className="h-4 w-4" aria-hidden="true" /> },
-    { id: "maritime",     label: t("services.catMaritime"),   icon: <Ship className="h-4 w-4" aria-hidden="true" /> },
+    { id: "media",        label: t("services.catMedia"),      icon: <Tv className="h-4 w-4" aria-hidden="true" /> },
+    { id: "learning",     label: t("services.catLearn"),      icon: <GraduationCap className="h-4 w-4" aria-hidden="true" /> },
     { id: "simulations",  label: t("services.catSims"),       icon: <Cpu className="h-4 w-4" aria-hidden="true" /> },
     { id: "professional", label: t("services.catPro"),        icon: <Briefcase className="h-4 w-4" aria-hidden="true" /> },
-    { id: "learning",     label: t("services.catLearn"),      icon: <GraduationCap className="h-4 w-4" aria-hidden="true" /> },
-    { id: "media",        label: t("services.catMedia"),      icon: <Tv className="h-4 w-4" aria-hidden="true" /> },
   ];
 
-  const showAuto     = activeCategory === "all" || activeCategory === "automotive";
-  const showMaritime = activeCategory === "all" || activeCategory === "maritime";
+  const showAuto     = false;
+  const showMaritime = false;
   const showSims     = activeCategory === "all" || activeCategory === "simulations";
   const showPro      = activeCategory === "all" || activeCategory === "professional";
   const showLearn    = activeCategory === "all" || activeCategory === "learning";
   const showMedia    = activeCategory === "all" || activeCategory === "media";
 
-  // These slugs have their own dedicated sections — exclude them from the generic simulations grid
-  const genericSimulations = simulations.filter(
-    s => s.slug !== AUTOMOTIVE_SIM_SLUG && s.slug !== MARITIME_SIM_SLUG
-  );
+  const genericSimulations = simulations;
+  const getSimBrief = (sim: SimRow) => {
+    const brief = SIM_BRIEFS[sim.slug];
+    if (brief) return lang === "ar" ? brief.ar : brief.en;
+    return t(`sim.${sim.slug}.desc`) || sim.description;
+  };
 
   const autoHeadingId     = `${uid}-auto`;
   const maritimeHeadingId = `${uid}-maritime`;
@@ -477,6 +508,32 @@ export default function Services() {
               <p className="py-8 text-center text-muted-foreground">{t("simulations.noResults") || "No simulations available yet."}</p>
             ) : (
               <StaggerGrid className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" role="list">
+                <StaggerItem role="listitem">
+                  <Link
+                    to={CAR_MAINTENANCE_SIM_CARD.to}
+                    onClick={() => playSound("navigate")}
+                    className="group block h-full"
+                    aria-label={`${t(CAR_MAINTENANCE_SIM_CARD.name)} - ${formatVX(CAR_MAINTENANCE_SIM_CARD.vx)}`}
+                  >
+                    <Card className="h-full transition-all hover:shadow-md hover:-translate-y-0.5">
+                      <CardContent className="flex items-start gap-4 p-5">
+                        <div className={`rounded-lg p-3 shrink-0 ${CAR_MAINTENANCE_SIM_CARD.color.split(" ").find((c) => c.startsWith("bg-")) ?? ""}`} aria-hidden="true">
+                          <CAR_MAINTENANCE_SIM_CARD.icon className={`h-5 w-5 ${CAR_MAINTENANCE_SIM_CARD.color.split(" ").filter((c) => !c.startsWith("bg-")).join(" ")}`} aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold">{t(CAR_MAINTENANCE_SIM_CARD.name)}</p>
+                          <p className="mt-0.5 text-sm text-muted-foreground line-clamp-1">{t(CAR_MAINTENANCE_SIM_CARD.desc)}</p>
+                          <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary">
+                            <Coins className="h-3 w-3" aria-hidden="true" />
+                            <span className="sr-only">{t("services.cost")}</span>
+                            {formatVX(CAR_MAINTENANCE_SIM_CARD.vx)}
+                          </div>
+                        </div>
+                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-1 group-hover:text-primary" aria-hidden="true" />
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </StaggerItem>
                 {genericSimulations.map((sim) => {
                   const prog = progressMap[sim.id];
                   const done = prog?.completed;
@@ -513,12 +570,12 @@ export default function Services() {
                             {done && <span className="sr-only">{t("services.completed")}</span>}
                           </div>
                           <h3 className="font-semibold text-foreground">{t(`sim.${sim.slug}.title`) || sim.title}</h3>
-                          <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{t(`sim.${sim.slug}.desc`) || sim.description}</p>
+                          <p className="mt-1 text-sm text-muted-foreground line-clamp-1">{getSimBrief(sim)}</p>
                           <div className="mt-3 flex items-center justify-between gap-2">
                             <span className="flex items-center gap-1 text-xs font-semibold text-primary">
                               <Coins className="h-3.5 w-3.5" aria-hidden="true" />
                               <span className="sr-only">{t("services.cost")}</span>
-                              {isOnTrial ? "🎁 " + t("games.trialPlay") : formatVX(Math.round(SIMULATION_PRICES.singleSession * (sim.difficulty === "Advanced" ? 1.5 : sim.difficulty === "Intermediate" ? 1.2 : 1.0)))}
+                              {formatVX(SIMULATION_PRICES.quarterHour)} / {SIMULATION_PRICES.quarterMinutes}m
                             </span>
                             <Button
                               size="sm"
@@ -553,16 +610,17 @@ export default function Services() {
             </div>
 
             <StaggerGrid className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" role="list">
-              {PROFESSIONAL_SERVICES.map((s) => {
+              {ALL_PROFESSIONAL_SERVICES.map((s) => {
                 const serviceName = t(s.name as Parameters<typeof t>[0]);
                 const serviceDesc = t(s.desc as Parameters<typeof t>[0]);
+                const priceLabel = formatVX(s.vx);
                 return (
                   <StaggerItem key={s.to} role="listitem">
                     <Link
                       to={s.to}
                       onClick={() => playSound("navigate")}
                       className="group block h-full"
-                      aria-label={`${serviceName} — ${formatVX(s.vx)} VX`}
+                      aria-label={`${serviceName} - ${priceLabel}`}
                     >
                       <Card className="h-full transition-all hover:shadow-md hover:-translate-y-0.5">
                         <CardContent className="flex items-start gap-4 p-5">
@@ -575,7 +633,7 @@ export default function Services() {
                             <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary">
                               <Coins className="h-3 w-3" aria-hidden="true" />
                               <span className="sr-only">{t("services.cost")}</span>
-                              {formatVX(s.vx)}
+                              {priceLabel}
                             </div>
                           </div>
                           <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-1 group-hover:text-primary" aria-hidden="true" />
@@ -746,16 +804,17 @@ export default function Services() {
             </div>
 
             <StaggerGrid className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" role="list">
-              {LEARNING_SERVICES.map((s) => {
+              {EDUCATION_SERVICES.map((s) => {
                 const serviceName = t(s.name as Parameters<typeof t>[0]);
                 const serviceDesc = t(s.desc as Parameters<typeof t>[0]);
+                const priceLabel = s.vx > 0 ? formatVX(s.vx) : t("services.openLearning");
                 return (
                   <StaggerItem key={s.to} role="listitem">
                     <Link
                       to={s.to}
                       onClick={() => playSound("navigate")}
                       className="group block h-full"
-                      aria-label={`${serviceName} — ${formatVX(s.vx)} VX`}
+                      aria-label={`${serviceName} - ${priceLabel}`}
                     >
                       <Card className="h-full transition-all hover:shadow-md hover:-translate-y-0.5">
                         <CardContent className="flex items-start gap-4 p-5">
@@ -768,7 +827,7 @@ export default function Services() {
                             <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary">
                               <Coins className="h-3 w-3" aria-hidden="true" />
                               <span className="sr-only">{t("services.cost")}</span>
-                              {formatVX(s.vx)}
+                              {priceLabel}
                             </div>
                           </div>
                           <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-1 group-hover:text-primary" aria-hidden="true" />

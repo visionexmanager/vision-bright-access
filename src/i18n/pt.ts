@@ -293,6 +293,8 @@ export const translations: Record<string, string> = {
   "services.proDesc": "Solicite trabalho especializado da nossa equipe — design web, marketing, consultoria e muito mais.",
   "services.learnTitle": "Serviços de aprendizagem",
   "services.learnDesc": "Desenvolva suas habilidades com treinamento guiado, música, coaching esportivo, desenvolvimento de carreira e programas educacionais.",
+  "services.academyDesc": "Structured learning paths from Visionex for skills, projects, and confident progress.",
+  "services.openLearning": "Open learning",
   "services.loadingSims": "Carregando simulações, por favor aguarde.",
   "services.completed": "Concluído",
   "services.cost": "Custo:",

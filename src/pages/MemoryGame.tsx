@@ -19,6 +19,7 @@ import {
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { WatchAdButton } from "@/components/WatchAdButton";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 // Card data with icons
 const CARD_DATA = [
@@ -60,6 +61,7 @@ export default function MemoryGame() {
   const { totalPoints } = usePoints();
   const { playSound, setEnabled: setSoundEnabled, enabledRef: soundEnabledRef } = useGameAudio();
   const { speak, setEnabled: setTTSEnabled, stop: stopTTS, enabledRef: ttsEnabledRef } = useGameTTS();
+  const { settleGameResult } = useGameEconomy();
 
   const [cards, setCards] = useState<MemCard[]>([]);
   const [flippedIds, setFlippedIds] = useState<number[]>([]);
@@ -84,7 +86,6 @@ export default function MemoryGame() {
     setFlippedIds([]);
     setMoves(0);
     setMatchedCount(0);
-    setPointsAwarded(false);
     setGameState("playing");
     playSound("tick");
   };
@@ -126,10 +127,11 @@ export default function MemoryGame() {
   useEffect(() => {
     if (gameState === "playing" && matchedCount === CARD_DATA.length) {
       setGameState("end");
+      void settleGameResult("win", "Memory Game");
       playSound("complete");
       if (ttsOn) speak(t("games.memory.complete"), lang);
     }
-  }, [matchedCount, gameState, playSound, speak, ttsOn, t, lang]);
+  }, [matchedCount, gameState, playSound, speak, ttsOn, t, lang, settleGameResult]);
 
 
   const handleFlip = (id: number) => {

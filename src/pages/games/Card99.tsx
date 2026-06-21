@@ -15,6 +15,7 @@ import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { OpponentPanel, FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 function cardValue(v: number) { return Math.min(v, 10); }
 function dealHand() { return Array.from({ length: 3 }, () => Math.floor(Math.random() * 13) + 1); }
@@ -25,6 +26,7 @@ function Card99Solo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
   const { cardFlip, cardWin, cardLose } = useGameSounds();
+  const { settleGameResult } = useGameEconomy();
   const [total,    setTotal]    = useState(0);
   const [hand,     setHand]     = useState<number[]>(dealHand);
   const [score,    setScore]    = useState(0);
@@ -34,12 +36,12 @@ function Card99Solo() {
     const card = hand[idx];
     const val  = cardValue(card);
     const next = total + val;
-    if (next > 99) { setGameOver(true); cardLose(); return; }
+    if (next > 99) { void settleGameResult("loss", "Card 99"); setGameOver(true); cardLose(); return; }
     cardFlip();
     setTotal(next); setScore((s) => s + val);
     const newHand = [...hand]; newHand[idx] = Math.floor(Math.random() * 13) + 1;
     setHand(newHand); cardWin();
-  }, [hand, total, playSound]);
+  }, [hand, total, playSound, settleGameResult]);
 
   const restart = () => { setTotal(0); setScore(0); setGameOver(false); setHand(dealHand()); cardFlip(); };
 

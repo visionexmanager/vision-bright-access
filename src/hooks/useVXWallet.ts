@@ -26,14 +26,20 @@ export function useVXWallet() {
   });
 
   const spendVX = useCallback(
-    async (amount: number, itemType: string, itemName: string, itemId?: string) => {
+    async (
+      amount: number,
+      itemType: string,
+      itemName: string,
+      itemId?: string,
+      options?: { chargeDuringTrial?: boolean }
+    ) => {
       if (!user) {
         toast({ title: t("vxWallet.loginRequired"), description: t("vxWallet.loginRequiredDesc"), variant: "destructive" });
         return false;
       }
 
       // Free trial bypasses usage charges while users can still earn VX for later upgrades.
-      if (isOnTrial) {
+      if (isOnTrial && !options?.chargeDuringTrial) {
         toast({ title: t("vxWallet.freeTrialActive"), description: t("vxWallet.freeTrialDesc").replace("{item}", itemName) });
         return true;
       }

@@ -12,8 +12,6 @@ import { useNavigate } from "react-router-dom";
 import { Search, Filter, Coins } from "lucide-react";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { GAMING_PRICES, formatVX } from "@/systems/pricingSystem";
-import { useVXWallet } from "@/hooks/useVXWallet";
-import { useTrial } from "@/hooks/useTrial";
 import { toast } from "@/hooks/use-toast";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import gamesImg from "@/assets/games-illustration.jpg";
@@ -57,8 +55,6 @@ export default function Games() {
   const { playSound } = useSound();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { balance, spendVX } = useVXWallet();
-  const { isOnTrial } = useTrial();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
 
@@ -158,18 +154,8 @@ export default function Games() {
                       navigate("/signup");
                       return;
                     }
-                    // Trial users play free
-                    if (isOnTrial) {
-                      playSound("start");
-                      navigate(game.to);
-                      return;
-                    }
-                    const ok = await spendVX(GAMING_PRICES.singlePlay, "game", game.title, game.to);
-                    if (ok) {
-                      playSound("start");
-                      toast({ title: t("vx.purchaseSuccess"), description: t("vx.deducted").replace("{amount}", GAMING_PRICES.singlePlay.toLocaleString()) });
-                      navigate(game.to);
-                    }
+                    playSound("start");
+                    navigate(game.to);
                   }}
                 >
                   <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 focus-within:ring-2 focus-within:ring-ring">
@@ -197,7 +183,7 @@ export default function Games() {
                       </CardDescription>
                       <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary" aria-hidden="true">
                         <Coins className="h-3.5 w-3.5" />
-                        {isOnTrial ? t("games.trialPlay") : formatVX(GAMING_PRICES.singlePlay)}
+                        {formatVX(GAMING_PRICES.singlePlay)}
                       </div>
                     </div>
                   </Card>

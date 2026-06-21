@@ -3,45 +3,43 @@
  * Rate: 1000 VX = 1 USD
  */
 
-// ── Gaming Zone ──
-// 1000 VX = $1 USD
 export const GAMING_PRICES = {
-  singlePlay:     2,      // $0.002 — entry, nearly free
-  fullGameUnlock: 500,    // $0.50  — unlock one game forever
-  weeklyPass:     2_000,  // $2.00  — unlimited play for a week
+  singlePlay: 2,
+  winReward: 3,
+  lossPenalty: 3,
+  fullGameUnlock: 500,
+  weeklyPass: 2_000,
 } as const;
 
-// ── Academy (Courses) ──
 export const ACADEMY_PRICES = {
-  miniCourse:               2_000,   // $2
-  intermediateCourse:       8_000,   // $8
-  professionalMasterclass:  25_000,  // $25
-  digitalCertificate:       1_500,   // $1.50
+  miniCourse: 2_000,
+  intermediateCourse: 8_000,
+  professionalMasterclass: 25_000,
+  digitalCertificate: 1_500,
 } as const;
 
-// ── Simulators ──
 export const SIMULATION_PRICES = {
-  singleSession:  10,      // $0.01  — entry, try it out
-  monthlyPass:    8_000,   // $8.00  — unlimited sessions for a month
-  lifetimeAccess: 50_000,  // $50.00 — lifetime unlimited access
+  hourlyRate: 1_000,
+  quarterHour: 250,
+  quarterMinutes: 15,
+  singleSession: 250,
+  monthlyPass: 8_000,
+  lifetimeAccess: 50_000,
 } as const;
 
-// ── OCR / Document Scanner ──
 export const OCR_PRICES = {
-  singleScan:      50,   // text extraction only
-  singleScanAudio: 100,  // text + TTS audio
-  pdfDocument:     300,  // PDF up to 5 pages
-  bundleTen:       400,  // 10 scans bundle
+  singleScan: 50,
+  singleScanAudio: 100,
+  pdfDocument: 300,
+  bundleTen: 400,
 } as const;
 
-// ── Earning System ──
 export const EARNING_RATES = {
   watchAd: 2,
   referFriend: 200,
   dailyLogin: 10,
 } as const;
 
-/** Format VX with locale separator */
 export function formatVX(vx: number): string {
   return `${vx.toLocaleString()} VX`;
 }

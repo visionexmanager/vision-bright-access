@@ -15,6 +15,7 @@ import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { OpponentPanel, FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 type Tile = { left: number; right: number };
 
@@ -45,6 +46,7 @@ function DominoesSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
   const { dominoThud, dominoInvalid, dominoSlide } = useGameSounds();
+  const { settleGameResult } = useGameEconomy();
   const [hand,  setHand]  = useState<Tile[]>([]);
   const [board, setBoard] = useState<Tile[]>([]);
   const [score, setScore] = useState(0);
@@ -60,8 +62,10 @@ function DominoesSolo() {
     const tile = hand[idx];
     if (!canPlay(tile, board)) { dominoInvalid(); return; }
     setBoard(place(tile, board));
-    setHand(hand.filter((_, i) => i !== idx));
+    const nextHand = hand.filter((_, i) => i !== idx);
+    setHand(nextHand);
     setScore((s) => s + tile.left + tile.right);
+    if (nextHand.length === 0) void settleGameResult("win", "Dominoes");
     dominoThud();
   };
 

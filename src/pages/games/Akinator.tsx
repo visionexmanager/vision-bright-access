@@ -10,6 +10,7 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useCallback, useMemo } from "react";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 // ── Character database ────────────────────────────────────────────────────────
 interface Character {
@@ -124,6 +125,7 @@ export default function Akinator() {
   const { playSound } = useSound();
   const { akinatorReveal, akinatorThink, akinatorCorrect, akinatorWrong } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("akinator");
+  const { settleGameResult } = useGameEconomy();
 
   const [phase, setPhase] = useState<Phase>("intro");
   const [answers, setAnswers] = useState<{ trait: string; weight: number }[]>([]);
@@ -190,8 +192,9 @@ export default function Akinator() {
 
   const handleCorrect = useCallback(() => {
     setPhase("correct");
+    void settleGameResult("win", "Akinator");
     akinatorCorrect();
-  }, [akinatorCorrect]);
+  }, [akinatorCorrect, settleGameResult]);
 
   const handleWrong = useCallback(() => {
     if (!guessResult) return;
@@ -211,10 +214,11 @@ export default function Akinator() {
         setCurrentQuestion(nextQ);
         setPhase("playing");
       } else {
+        void settleGameResult("loss", "Akinator");
         setPhase("wrong");
       }
     }
-  }, [guessResult, wrongGuesses, topCandidates, questionCount, answeredIds, answers, akinatorWrong]);
+  }, [guessResult, wrongGuesses, topCandidates, questionCount, answeredIds, answers, akinatorWrong, settleGameResult]);
 
   const progress = Math.min((questionCount / MAX_QUESTIONS) * 100, 100);
 
