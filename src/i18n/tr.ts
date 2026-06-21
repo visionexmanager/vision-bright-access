@@ -301,6 +301,7 @@ export const translations: Record<string, string> = {
   "services.loadingSims": "Simülasyonlar yükleniyor, lütfen bekleyin.",
   "services.completed": "Tamamlandı",
   "services.cost": "Maliyet:",
+  "services.startsFrom": "Starts from {price}",
   "services.duration": "Süre:",
   "services.completedOf": "{total} içinden {done} tamamlandı",
   "content.title": "İçerik Merkezi",

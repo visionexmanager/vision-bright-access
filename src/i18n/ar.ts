@@ -306,6 +306,7 @@ export const translations: Record<string, string> = {
   "services.loadingSims": "جاري تحميل المحاكاة، يرجى الانتظار.",
   "services.completed": "مكتمل",
   "services.cost": "التكلفة:",
+  "services.startsFrom": "تبدأ من {price}",
   "services.duration": "المدة:",
   "services.completedOf": "{done} من {total} مكتمل",
   "content.title": "مركز المحتوى",

@@ -619,7 +619,7 @@ export default function Services() {
               {ALL_PROFESSIONAL_SERVICES.map((s) => {
                 const serviceName = t(s.name as Parameters<typeof t>[0]);
                 const serviceDesc = t(s.desc as Parameters<typeof t>[0]);
-                const priceLabel = formatVX(s.vx);
+                const priceLabel = t("services.startsFrom").replace("{price}", formatVX(s.vx));
                 return (
                   <StaggerItem key={s.to} role="listitem">
                     <Link

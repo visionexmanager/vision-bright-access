@@ -301,6 +301,7 @@ export const translations: Record<string, string> = {
   "services.loadingSims": "正在加载模拟，请稍候。",
   "services.completed": "已完成",
   "services.cost": "费用：",
+  "services.startsFrom": "Starts from {price}",
   "services.duration": "时长：",
   "services.completedOf": "{total} 中已完成 {done}",
   "content.title": "内容中心",

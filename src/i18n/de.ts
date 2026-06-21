@@ -2201,6 +2201,7 @@ export const translations: Record<string, string> = {
   "services.completed": "Abgeschlossen",
   "services.completedOf": "{done} von {total} abgeschlossen",
   "services.cost": "Kosten:",
+  "services.startsFrom": "Starts from {price}",
   "services.duration": "Dauer:",
   "services.filterLabel": "Dienste nach Kategorie filtern",
   "services.learnDesc": "Entwickle deine Fähigkeiten durch geführtes Training, Musik, Sportcoaching, Karriereentwicklung und Bildungsprogramme.",

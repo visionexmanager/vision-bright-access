@@ -284,6 +284,7 @@ export const translations: Record<string, string> = {
   "services.loadingSims": "سمیولیشنز لوڈ ہو رہی ہیں، انتظار کریں۔",
   "services.completed": "مکمل",
   "services.cost": "قیمت:",
+  "services.startsFrom": "Starts from {price}",
   "services.duration": "مدت:",
   "services.completedOf": "{total} میں سے {done} مکمل",
   "content.title": "مواد مرکز",

@@ -293,6 +293,7 @@ export const translations: Record<string, string> = {
   "services.loadingSims": "Loading simulations, please wait.",
   "services.completed": "Completed",
   "services.cost": "Cost:",
+  "services.startsFrom": "Starts from {price}",
   "services.duration": "Duration:",
   "services.completedOf": "{done} of {total} completed",
   "content.title": "Content Hub",
