@@ -246,8 +246,6 @@ export const translations: Record<string, string> = {
   "services.techConsultingDesc": "معاون ٹیکنالوجی اور قابل رسائی ٹولز پر ماہرانہ رہنمائی۔",
   "services.training": "تربیت اور آلات کی ترتیب",
   "services.trainingDesc": "ذاتی تربیتی سیشنز اور آلات، سافٹ ویئر ترتیب میں عملی مدد۔",
-  "services.carsMaintenance": "گاڑی کی دیکھ بھال",
-  "services.carsMaintenanceDesc": "تمام قسم کی گاڑیوں کے لیے پیشہ ورانہ تشخیص، دیکھ بھال اور مرمت کی مشاورت۔",
   "services.cta": "شروع کریں",
   "services.earn": "{points} pts کمائیں",
   "services.catAll": "تمام خدمات",

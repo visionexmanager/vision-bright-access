@@ -11,7 +11,7 @@ import {
   ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video,
   Coins, Scissors, Scale, Stethoscope, Brain, Sparkles, Users,
   Dumbbell, Plane, ScanLine, Globe, Cpu, CheckCircle, Clock, Trophy, FileText,
-  MapPin, Tv, Radio, Wifi, Wrench, Car, Activity, Gauge, Anchor, Ship, Navigation,
+  MapPin, Tv, Radio, Wifi, Car, Activity, Anchor, Ship, Navigation,
 } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
 import { Link, useNavigate } from "react-router-dom";
@@ -100,14 +100,6 @@ const SUPPORT_SERVICES = [
 ] as const;
 
 const ALL_PROFESSIONAL_SERVICES = [...PROFESSIONAL_SERVICES, ...SUPPORT_SERVICES] as const;
-
-const CAR_MAINTENANCE_SIM_CARD = {
-  icon: Wrench,
-  name: "services.carsMaintenance",
-  desc: "services.carsMaintenanceDesc",
-  to: "/services/cars-maintenance",
-  color: CLR.amber,
-} as const;
 
 const DIFFICULTY_COLOR: Record<string, string> = {
   Beginner:     "bg-green-600/20 text-green-500 border-green-600/30",
@@ -274,58 +266,6 @@ export default function Services() {
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2" role="list">
-
-              {/* Cars Maintenance */}
-              <StaggerItem role="listitem">
-                <Link
-                  to="/services/cars-maintenance"
-                  onClick={() => playSound("navigate")}
-                  className="group block h-full"
-                  aria-label={t("services.carsMaintenance")}
-                >
-                  <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-amber-500/20">
-                    <div className="relative h-32 bg-gradient-to-br from-amber-700 via-amber-600 to-orange-500 overflow-hidden">
-                      <div className="absolute -top-6 -right-6 h-28 w-28 rounded-full bg-white/10" aria-hidden="true" />
-                      <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/10" aria-hidden="true" />
-                      <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
-                        <Wrench className="h-16 w-16 text-white/25 group-hover:text-white/35 transition-colors" />
-                      </div>
-                      <div className="absolute top-3 start-3 flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-bold text-white">
-                        <Gauge className="h-3 w-3" aria-hidden="true" /> PRO SERVICE
-                      </div>
-                    </div>
-                    <CardContent className="p-5">
-                      <div className="mb-3 flex items-start justify-between gap-2">
-                        <div>
-                          <h3 className="text-lg font-bold text-foreground">{t("services.carsMaintenance")}</h3>
-                          <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">{t("services.carsMaintenanceDesc")}</p>
-                        </div>
-                        <div className="shrink-0 rounded-lg bg-amber-500/10 p-2">
-                          <Wrench className="h-5 w-5 text-amber-500" aria-hidden="true" />
-                        </div>
-                      </div>
-                      <div className="mb-4 flex flex-wrap gap-1.5" aria-label="Coverage">
-                        {["Cars", "Trucks", "Buses", "Motorcycles"].map((v) => (
-                          <span key={v} className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/5 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
-                            {v}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1 text-xs font-semibold text-primary">
-                          <Coins className="h-3 w-3" aria-hidden="true" />
-                          <span className="sr-only">{t("services.cost")}</span>
-                          {formatVX(25_000)}
-                        </div>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white transition-all group-hover:bg-amber-600">
-                          {t("services.cta")}
-                          <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </StaggerItem>
 
               {/* Vehicle Diagnostics & Repair Simulator */}
               <StaggerItem role="listitem">

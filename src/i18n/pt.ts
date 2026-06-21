@@ -263,8 +263,6 @@ export const translations: Record<string, string> = {
   "services.techConsultingDesc": "Orientação especializada em tecnologia assistiva, leitores de tela, ferramentas de acessibilidade e soluções adaptativas para usuários com deficiência visual.",
   "services.training": "Treinamento e Configuração de Dispositivos",
   "services.trainingDesc": "Sessões de treinamento personalizadas e ajuda prática na configuração de dispositivos, software e ferramentas assistivas.",
-  "services.carsMaintenance": "Manutenção de Veículos",
-  "services.carsMaintenanceDesc": "Consultas profissionais de diagnóstico, manutenção e reparação para todos os tipos de veículos.",
   "services.cta": "Começar",
   "services.earn": "Ganhe {points} pts",
   "services.catAll": "Todos os serviços",

@@ -263,8 +263,6 @@ export const translations: Record<string, string> = {
   "services.techConsultingDesc": "Kompetente Beratung zu Assistiver Technologie, Screenreadern, Barrierefreiheitstools und adaptiven Lösungen für sehbehinderte Benutzer.",
   "services.training": "Schulung & Geräteeinrichtung",
   "services.trainingDesc": "Personalisierte Schulungssitzungen und praktische Unterstützung bei der Einrichtung von Geräten, Software und Assistiven Tools.",
-  "services.carsMaintenance": "Fahrzeugwartung",
-  "services.carsMaintenanceDesc": "Professionelle Kfz-Diagnose, Wartung und Reparaturberatung für alle Fahrzeugtypen.",
   "services.cta": "Jetzt starten",
   "services.earn": "{points} Punkte verdienen",
   "content.title": "Inhalts-Hub",

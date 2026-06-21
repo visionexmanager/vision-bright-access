@@ -263,8 +263,6 @@ export const translations: Record<string, string> = {
   "services.techConsultingDesc": "Görme engelli kullanıcılar için yardımcı teknoloji, ekran okuyucular, erişilebilirlik araçları ve adaptif çözümler hakkında uzman rehberliği.",
   "services.training": "Eğitim ve Cihaz Kurulumu",
   "services.trainingDesc": "Cihaz, yazılım ve yardımcı araçların kurulumunda kişiselleştirilmiş eğitim seansları ve uygulamalı yardım.",
-  "services.carsMaintenance": "Araç Bakımı",
-  "services.carsMaintenanceDesc": "Tüm araç tipleri için profesyonel otomotiv teşhis, bakım ve onarım danışmanlığı.",
   "services.cta": "Başlayın",
   "services.earn": "{points} puan kazan",
   "services.catAll": "Tüm hizmetler",
