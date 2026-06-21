@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { isFallbackSimulationId } from "@/data/requiredSimulations";
 
 interface SavePayload {
   current_step: number;
@@ -16,6 +17,17 @@ export async function saveSimulationProgress(
   simulationId: string,
   payload: SavePayload
 ) {
+  if (isFallbackSimulationId(simulationId)) {
+    localStorage.setItem(
+      `visionex:simulation-progress:${userId}:${simulationId}`,
+      JSON.stringify({ id: simulationId, ...payload })
+    );
+    if (payload.completed) {
+      window.dispatchEvent(new Event("simulation-completed"));
+    }
+    return;
+  }
+
   const { data: existing } = await supabase
     .from("simulation_progress")
     .select("id")

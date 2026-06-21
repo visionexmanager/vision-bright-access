@@ -16,6 +16,7 @@ import { SimulationProjectBrief } from "@/components/SimulationProjectBrief";
 import { SimulationProjectReport } from "@/components/SimulationProjectReport";
 import { getSimulationComponent, hasCustomComponent } from "@/pages/simulations/registry";
 import { SIM_PROJECTS } from "@/data/simulationProjects";
+import { getRequiredSimulation, isFallbackSimulationId } from "@/data/requiredSimulations";
 import { ArrowLeft, Gift, Clock, Star, Coins } from "lucide-react";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
@@ -39,6 +40,16 @@ type SimProgress = {
 };
 
 type Phase = "loading" | "brief" | "active" | "report";
+
+function localProgressKey(userId: string, simulationId: string) {
+  return `visionex:simulation-progress:${userId}:${simulationId}`;
+}
+
+function readLocalProgress(userId: string, simulationId: string): SimProgress | null {
+  const raw = localStorage.getItem(localProgressKey(userId, simulationId));
+  if (!raw) return null;
+  return JSON.parse(raw) as SimProgress;
+}
 
 // Legacy registry kept for backwards-compatibility (unused when custom component exists)
 export type SimulationStep = {
@@ -81,6 +92,22 @@ export default function SimulationRunner() {
         .maybeSingle();
 
       if (!simData) {
+        const fallbackSimulation = getRequiredSimulation(slug);
+        if (fallbackSimulation) {
+          setSimulation(fallbackSimulation as Simulation);
+          if (user) {
+            const localProgress = readLocalProgress(user.id, fallbackSimulation.id);
+            if (localProgress) {
+              setProgress(localProgress);
+              setFinalScore(localProgress.score);
+              setFinalPoints(fallbackSimulation.points);
+              setPhase(localProgress.completed ? "report" : "active");
+              return;
+            }
+          }
+          setPhase("brief");
+          return;
+        }
         setPhase("brief"); // will show not-found via null simulation check
         return;
       }
@@ -126,6 +153,14 @@ export default function SimulationRunner() {
 
       if (!simulation || !user) return;
 
+      if (isFallbackSimulationId(simulation.id)) {
+        const latest = readLocalProgress(user.id, simulation.id);
+        setFinalScore(latest?.score ?? 0);
+        setFinalPoints(simulation.points);
+        setTimeout(() => setPhase("report"), 800);
+        return;
+      }
+
       // Re-fetch the latest progress to get the real score
       const { data: latest } = await supabase
         .from("simulation_progress")
@@ -151,19 +186,31 @@ export default function SimulationRunner() {
 
   const handleRestart = useCallback(async () => {
     if (progress) {
-      await supabase
-        .from("simulation_progress")
-        .update({
+      if (user && simulation && isFallbackSimulationId(simulation.id)) {
+        const resetProgress = {
+          id: simulation.id,
           current_step: 0,
-          decisions: [] as unknown as Record<string, unknown>,
+          decisions: [],
           score: 0,
           completed: false,
-        })
-        .eq("id", progress.id);
+        };
+        localStorage.setItem(localProgressKey(user.id, simulation.id), JSON.stringify(resetProgress));
+        setProgress(resetProgress);
+      } else {
+        await supabase
+          .from("simulation_progress")
+          .update({
+            current_step: 0,
+            decisions: [] as unknown as Record<string, unknown>,
+            score: 0,
+            completed: false,
+          })
+          .eq("id", progress.id);
+      }
     }
     setPhase("brief");
     setFinalScore(0);
-  }, [progress]);
+  }, [progress, simulation, user]);
 
   // Loading spinner
   if (phase === "loading") {

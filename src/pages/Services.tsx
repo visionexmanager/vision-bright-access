@@ -24,6 +24,7 @@ import consultingImg from "@/assets/service-consulting.jpg";
 import trainingImg from "@/assets/service-training.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { simulationImages } from "@/data/simulationImages";
+import { includeRequiredSimulations } from "@/data/requiredSimulations";
 import { SIMULATION_PRICES } from "@/systems/pricingSystem";
 import { toast } from "@/hooks/use-toast";
 import { WatchAdButton } from "@/components/WatchAdButton";
@@ -204,7 +205,7 @@ export default function Services() {
   const showLearn    = activeCategory === "all" || activeCategory === "learning";
   const showMedia    = activeCategory === "all" || activeCategory === "media";
 
-  const genericSimulations = simulations;
+  const genericSimulations = includeRequiredSimulations(simulations);
   const getSimBrief = (sim: SimRow) => {
     const brief = SIM_BRIEFS[sim.slug];
     if (brief) return lang === "ar" ? brief.ar : brief.en;

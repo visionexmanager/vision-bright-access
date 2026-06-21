@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import { isFallbackSimulationId } from "@/data/requiredSimulations";
 import { toast } from "sonner";
 
 interface SavedProgress {
@@ -24,6 +25,24 @@ export function useSimulationProgress(simulationId?: string) {
         setLoading(false);
         return;
       }
+
+      if (isFallbackSimulationId(simulationId)) {
+        const raw = localStorage.getItem(`visionex:simulation-progress:${user.id}:${simulationId}`);
+        const data = raw ? (JSON.parse(raw) as SavedProgress) : null;
+        if (data) {
+          setSavedProgress(data);
+          if (!toastShown.current) {
+            toastShown.current = true;
+            const msg = data.completed
+              ? t("sim.progress.alreadyCompleted")
+              : t("sim.progress.welcomeBack").replace("{score}", String(data.score));
+            toast.info(msg, { duration: 4000 });
+          }
+        }
+        setLoading(false);
+        return;
+      }
+
       const { data } = await supabase
         .from("simulation_progress")
         .select("decisions, score, completed, current_step")

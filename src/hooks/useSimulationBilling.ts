@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { SIMULATION_PRICES } from "@/systems/pricingSystem";
+import { isFallbackSimulationId } from "@/data/requiredSimulations";
 
 type BillingStatus = "idle" | "loading" | "ready" | "blocked";
 
@@ -27,14 +28,26 @@ export function useSimulationBilling(
   const persistAtRef = useRef(0);
   const chargingRef = useRef(false);
 
+  const localBillingKey = useMemo(
+    () => (user && simulationId ? `visionex:simulation-billing:${user.id}:${simulationId}` : ""),
+    [simulationId, user]
+  );
+
   const persistUsage = useCallback(async () => {
     if (!user || !simulationId) return;
+    if (isFallbackSimulationId(simulationId)) {
+      localStorage.setItem(
+        localBillingKey,
+        JSON.stringify({ usage_seconds: usageRef.current, paid_seconds: paidRef.current })
+      );
+      return;
+    }
     await supabase
       .from("simulation_progress")
       .update({ usage_seconds: usageRef.current, paid_seconds: paidRef.current })
       .eq("user_id", user.id)
       .eq("simulation_id", simulationId);
-  }, [simulationId, user]);
+  }, [localBillingKey, simulationId, user]);
 
   const ensureQuarter = useCallback(async () => {
     if (!user || !simulationId || chargingRef.current) return false;
@@ -88,6 +101,18 @@ export function useSimulationBilling(
 
       if (!simulationId) return;
       setStatus("loading");
+
+      if (isFallbackSimulationId(simulationId)) {
+        const raw = localStorage.getItem(localBillingKey);
+        const existing = raw ? JSON.parse(raw) : null;
+        usageRef.current = existing?.usage_seconds ?? 0;
+        paidRef.current = existing?.paid_seconds ?? 0;
+        setUsageSeconds(usageRef.current);
+        setPaidSeconds(paidRef.current);
+        persistAtRef.current = usageRef.current;
+        await ensureQuarter();
+        return;
+      }
 
       const { data: existing, error } = await supabase
         .from("simulation_progress")
@@ -143,7 +168,7 @@ export function useSimulationBilling(
     return () => {
       cancelled = true;
     };
-  }, [enabled, ensureQuarter, simulationId, user]);
+  }, [enabled, ensureQuarter, localBillingKey, simulationId, user]);
 
   useEffect(() => {
     if (!enabled || status !== "ready") return;
