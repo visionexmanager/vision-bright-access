@@ -104,7 +104,6 @@ const CAR_MAINTENANCE_SIM_CARD = {
   icon: Wrench,
   name: "services.carsMaintenance",
   desc: "services.carsMaintenanceDesc",
-  vx: 25_000,
   to: "/services/cars-maintenance",
   color: CLR.amber,
 } as const;
@@ -494,6 +493,18 @@ export default function Services() {
               )}
             </div>
 
+            <div role="note" className="mb-5 flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <Coins className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">{t("services.simBillingTitle")}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {t("services.simBillingDesc")
+                    .replace("{quarter}", formatVX(SIMULATION_PRICES.quarterHour))
+                    .replace("{minutes}", String(SIMULATION_PRICES.quarterMinutes))}
+                </p>
+              </div>
+            </div>
+
             {simsLoading ? (
               <div
                 role="status"
@@ -513,7 +524,7 @@ export default function Services() {
                     to={CAR_MAINTENANCE_SIM_CARD.to}
                     onClick={() => playSound("navigate")}
                     className="group block h-full"
-                    aria-label={`${t(CAR_MAINTENANCE_SIM_CARD.name)} - ${formatVX(CAR_MAINTENANCE_SIM_CARD.vx)}`}
+                    aria-label={t(CAR_MAINTENANCE_SIM_CARD.name)}
                   >
                     <Card className="h-full transition-all hover:shadow-md hover:-translate-y-0.5">
                       <CardContent className="flex items-start gap-4 p-5">
@@ -523,11 +534,6 @@ export default function Services() {
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold">{t(CAR_MAINTENANCE_SIM_CARD.name)}</p>
                           <p className="mt-0.5 text-sm text-muted-foreground line-clamp-1">{t(CAR_MAINTENANCE_SIM_CARD.desc)}</p>
-                          <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary">
-                            <Coins className="h-3 w-3" aria-hidden="true" />
-                            <span className="sr-only">{t("services.cost")}</span>
-                            {formatVX(CAR_MAINTENANCE_SIM_CARD.vx)}
-                          </div>
                         </div>
                         <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-1 group-hover:text-primary" aria-hidden="true" />
                       </CardContent>
@@ -575,7 +581,7 @@ export default function Services() {
                             <span className="flex items-center gap-1 text-xs font-semibold text-primary">
                               <Coins className="h-3.5 w-3.5" aria-hidden="true" />
                               <span className="sr-only">{t("services.cost")}</span>
-                              {formatVX(SIMULATION_PRICES.quarterHour)} / {SIMULATION_PRICES.quarterMinutes}m
+                              {t("services.usageBasedBilling")}
                             </span>
                             <Button
                               size="sm"
