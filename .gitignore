@@ -37,3 +37,6 @@ supabase/.temp/
 # One-off utility / fix scripts (not part of the app)
 *.py
 set-supabase-secret.sh
+
+# Codex / AI tool artifacts
+.codex-*
