@@ -212,16 +212,6 @@ export function AIChat() {
             </div>
             <div className="flex items-center gap-1">
               <Button
-                variant={voiceMode ? "default" : "ghost"}
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setVoiceMode(v => !v)}
-                aria-label={t("ai.voiceMode")}
-                title={t("ai.voiceMode")}
-              >
-                <Phone className="h-4 w-4" />
-              </Button>
-              <Button
                 variant={memory.enabled ? "secondary" : "ghost"}
                 size="icon"
                 className="h-8 w-8"
@@ -284,36 +274,11 @@ export function AIChat() {
             aria-atomic="false"
           >
             {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
+              <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
                 <Bot className="h-12 w-12 text-muted-foreground/40" />
                 <div>
                   <p className="font-medium text-sm">{t("ai.welcomeTitle")}</p>
                   <p className="text-xs text-muted-foreground mt-1">{t("ai.welcomeSubtitle")}</p>
-                </div>
-                <div className="flex flex-col gap-2 w-full max-w-xs">
-                  <div className="grid grid-cols-3 gap-2">
-                    {quickActions.map((action) => (
-                      <button
-                        key={action.label}
-                        onClick={() => sendMessage(action.prompt)}
-                        className="flex min-h-10 items-center justify-center gap-1 rounded-lg border bg-background px-2 text-[11px] font-medium hover:bg-muted"
-                      >
-                        {action.label === "Open store" || action.label === "افتح السوق"
-                          ? <MapPinned className="h-3.5 w-3.5 shrink-0" />
-                          : <Sparkles className="h-3.5 w-3.5 shrink-0" />}
-                        <span className="truncate">{action.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {suggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      onClick={() => { setInput(""); sendMessage(s); }}
-                      className="text-xs text-start px-3 py-2 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
-                    >
-                      {s}
-                    </button>
-                  ))}
                 </div>
               </div>
             )}
@@ -356,19 +321,65 @@ export function AIChat() {
           </div>
 
           {/* Input area — hidden in voice mode */}
-          <div className={`border-t px-3 py-3 shrink-0 ${voiceMode ? "hidden" : ""}`}>
+          <div className={`border-t px-3 pt-2 pb-3 shrink-0 ${voiceMode ? "hidden" : ""}`}>
+
+            {/* Suggestions — shown above input only when no messages */}
+            {messages.length === 0 && (
+              <div className="mb-2 flex flex-col gap-1.5">
+                <div className="grid grid-cols-3 gap-1.5">
+                  {quickActions.map((action) => (
+                    <button
+                      key={action.label}
+                      onClick={() => sendMessage(action.prompt)}
+                      className="flex min-h-9 items-center justify-center gap-1 rounded-lg border bg-background px-2 text-[11px] font-medium hover:bg-muted transition-colors"
+                    >
+                      {action.label === "Open store" || action.label === "افتح السوق"
+                        ? <MapPinned className="h-3 w-3 shrink-0" />
+                        : <Sparkles className="h-3 w-3 shrink-0" />}
+                      <span className="truncate">{action.label}</span>
+                    </button>
+                  ))}
+                </div>
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setInput(""); sendMessage(s); }}
+                    className="text-xs text-start px-3 py-2 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Input row */}
             <div className="flex items-end gap-2">
+              {/* Voice chat button — prominent, near input */}
+              <Button
+                variant={voiceMode ? "default" : "outline"}
+                size="icon"
+                className="h-10 w-10 shrink-0 text-primary border-primary/30 hover:bg-primary/10"
+                onClick={() => setVoiceMode(v => !v)}
+                aria-label={t("ai.voiceMode")}
+                title={t("ai.voiceMode")}
+              >
+                <Phone className="h-4 w-4" />
+              </Button>
+
+              {/* Mic (speech-to-text) */}
               {hasSpeechRecognition && (
                 <Button
                   variant={isListening ? "default" : "ghost"}
-                  className={`h-10 shrink-0 gap-1.5 px-2.5 text-xs font-medium ${isListening ? "animate-pulse bg-destructive hover:bg-destructive/90" : ""}`}
+                  size="icon"
+                  className={`h-10 w-10 shrink-0 ${isListening ? "animate-pulse bg-destructive hover:bg-destructive/90" : ""}`}
                   onClick={toggleListening}
                   aria-label={isListening ? t("ai.stopListening") : t("ai.startListening")}
+                  title={isListening ? t("ai.stopListening") : t("ai.startListening")}
                 >
                   {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                  <span>{isListening ? t("ai.stopListening") : t("ai.startListening")}</span>
                 </Button>
               )}
+
               <textarea
                 ref={inputRef}
                 value={input}
@@ -380,6 +391,7 @@ export function AIChat() {
                 aria-label={t("ai.placeholder")}
                 dir="auto"
               />
+
               {isLoading ? (
                 <Button
                   size="icon"
