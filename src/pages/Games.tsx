@@ -145,7 +145,7 @@ export default function Games() {
         </div>
 
         {filtered.length === 0 ? (
-          <p className="py-16 text-center text-muted-foreground">{t("games.noResults")}</p>
+          <p role="status" aria-live="polite" className="py-16 text-center text-muted-foreground">{t("games.noResults")}</p>
         ) : (
           <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((game) => (

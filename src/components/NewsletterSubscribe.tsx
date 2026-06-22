@@ -157,8 +157,10 @@ export function NewsletterSubscribe() {
       <CardContent className="pt-5">
         <form onSubmit={handleSubscribe} className="space-y-5">
           <Input
+            id="newsletter-email"
             type="email"
             required
+            aria-label={t("newsletter.emailPlaceholder")}
             placeholder={t("newsletter.emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}

@@ -3472,7 +3472,7 @@ export default function VoiceRoom() {
                 value={topicDraft}
                 onChange={(e) => setTopicDraft(e.target.value)}
                 placeholder={t("vroom.topicPlaceholder")}
-                className="h-7 flex-1 border-none bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
+                className="h-7 flex-1 border-none bg-transparent p-0 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/60"
                 maxLength={120}
                 autoFocus
               />
