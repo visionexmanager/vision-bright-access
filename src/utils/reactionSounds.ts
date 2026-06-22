@@ -1,17 +1,23 @@
 /**
- * Visionex Reaction Audio Engine v4 — Real Human Recordings
+ * Visionex Reaction Audio Engine v5 — Duration & Emotion Refinement Pass
  *
- * Complete replacement of synthesis engine. Every reaction now uses
- * professionally recorded audio sourced from verified public-domain archives
- * (Internet Archive / Red Library USC Cinema Collection).
+ * Changes from v4:
+ *   • All playDuration values cut to 0.45–1.8 s (was 3–6 s) — instant feel
+ *   • trimStart tuned per-file to jump straight to the peak moment
+ *   • FADE_OUT_S reduced 350 ms → 150 ms (no unnecessary tail)
+ *   • Sad/cry emojis (😢😭🥺) moved off 'gasp' → 'crowd' (soft sympathetic murmur)
+ *   • Anger emojis (😡😤😠) added → 'gasp' category (reactive, sharp intake)
+ *   • heartbeat gain reduced 1.10 → 0.80 (was the loudest, should be softest)
+ *   • New 'sad' virtual sub-category via crowd clips at reduced gain
+ *   • MIN_GAP_MS reduced 80 → 60 for snappier multi-tap feel
  *
  * Audio files live in /public/audio/reactions/
  *
- * Public API (backward-compatible with v3):
- *   playReactionSound(emoji)         — trigger a reaction sound
- *   setVoiceSpeakingState(speaking)  — feed voice-activity detection for ducking
- *   preloadReactionSounds()          — warm up all buffers on room join
- *   disposeReactionSounds()          — release resources on room leave
+ * Public API (unchanged):
+ *   playReactionSound(emoji)
+ *   setVoiceSpeakingState(speaking)
+ *   preloadReactionSounds()
+ *   disposeReactionSounds()
  */
 
 // ─── Configuration ────────────────────────────────────────────────────────────
@@ -20,19 +26,25 @@ const MASTER_LVL   = 0.88;   // overall output level
 const DUCK_TARGET  = 0.20;   // fraction of master during active speech
 const DUCK_RAMP    = 0.18;   // seconds to duck down
 const UNDUCK_RAMP  = 0.70;   // seconds to recover after speech
-const MIN_GAP_MS   = 80;     // minimum ms between reaction triggers (anti-spam)
-const FADE_IN_S    = 0.010;  // 10 ms click-prevention fade-in
-const FADE_OUT_S   = 0.35;   // 350 ms natural tail fade-out
+const MIN_GAP_MS   = 60;     // min ms between reaction triggers (was 80)
+const FADE_IN_S    = 0.008;  // 8 ms click-prevention fade-in
+const FADE_OUT_S   = 0.15;   // 150 ms tail (was 350 ms — now crisp)
 
 // ─── Clip Manifest ────────────────────────────────────────────────────────────
 //
-// Each Clip can have:
-//   gain        — perceived-loudness normalizer (all clips should feel equal)
-//   trimStart   — skip leading silence / intro (seconds)
-//   playDuration — how long to play before fading out; undefined = full length
+// Duration targets (v5):
+//   gasp        0.45 s  — sharp, immediate, over instantly
+//   fire        0.55 s  — crackling onset only
+//   approval    0.60 s  — brief positive burst
+//   laugh       0.65 s  — peak of the group laughter
+//   crowd-sad   0.65 s  — soft sympathetic murmur
+//   crowd       0.70 s  — gentle warm appreciation
+//   cheer       0.80 s  — crowd energy peak
+//   applause    0.80 s  — burst of clapping
+//   celebration 0.88 s  — cheer climax
+//   heartbeat   1.80 s  — exactly 2 heartbeat cycles (natural rhythm)
 //
-// Multiple clips per category enable random variation so the same reaction
-// never sounds identical twice.
+// trimStart: jumps past room tone / silence to the actual peak moment.
 
 interface Clip {
   path: string;
@@ -43,57 +55,66 @@ interface Clip {
 
 const CLIPS = {
 
-  // 👏  Large audience applause — multiple real crowd variants
+  // 👏  Large audience applause — burst only, not the whole crowd
   applause: [
-    { path: '/audio/reactions/applause-01.mp3', gain: 0.90, playDuration: 4.0 },
-    { path: '/audio/reactions/applause-02.mp3', gain: 0.95, playDuration: 3.5 },
-    { path: '/audio/reactions/applause-03.mp3', gain: 0.80, trimStart: 0.3, playDuration: 4.0 },
+    { path: '/audio/reactions/applause-01.mp3', gain: 0.88, trimStart: 0.40, playDuration: 0.80 },
+    { path: '/audio/reactions/applause-02.mp3', gain: 0.92, trimStart: 0.25, playDuration: 0.80 },
+    { path: '/audio/reactions/applause-03.mp3', gain: 0.82, trimStart: 0.55, playDuration: 0.80 },
   ],
 
-  // 😂  Real group laughter with natural breathing and different voices
+  // 😂  Real group laughter — just the peak, warm and natural
   laugh: [
-    { path: '/audio/reactions/laugh-01.mp3', gain: 1.00, playDuration: 5.0 },
-    { path: '/audio/reactions/laugh-02.mp3', gain: 0.90, trimStart: 0.2, playDuration: 4.5 },
+    { path: '/audio/reactions/laugh-01.mp3', gain: 0.92, trimStart: 0.35, playDuration: 0.65 },
+    { path: '/audio/reactions/laugh-02.mp3', gain: 0.85, trimStart: 0.50, playDuration: 0.65 },
   ],
 
-  // 🎉  Crowd cheering — audience at sporting event, whistles, energy
+  // 🎉  Crowd cheering — the cheer peak, not the full crowd arc
   cheer: [
-    { path: '/audio/reactions/cheer-01.mp3', gain: 0.92, trimStart: 0.4, playDuration: 4.0 },
-    { path: '/audio/reactions/cheer-02.mp3', gain: 0.88, playDuration: 3.5 },
+    { path: '/audio/reactions/cheer-01.mp3', gain: 0.90, trimStart: 0.60, playDuration: 0.80 },
+    { path: '/audio/reactions/cheer-02.mp3', gain: 0.85, trimStart: 0.35, playDuration: 0.80 },
   ],
 
-  // 🎊  Celebration — whistling, cheering, crowd energy
+  // 🎊  Celebration — crowd climax moment only
   celebration: [
-    { path: '/audio/reactions/celebration-01.mp3', gain: 0.90, trimStart: 0.3, playDuration: 4.5 },
-    { path: '/audio/reactions/celebration-02.mp3', gain: 0.85, playDuration: 3.5 },
+    { path: '/audio/reactions/celebration-01.mp3', gain: 0.88, trimStart: 0.50, playDuration: 0.88 },
+    { path: '/audio/reactions/celebration-02.mp3', gain: 0.82, trimStart: 0.30, playDuration: 0.88 },
   ],
 
-  // ❤️  Real heartbeat — medical-quality recording, natural rhythm
+  // ❤️  Real heartbeat — exactly 2 beats, then done
+  //     Gain reduced to 0.80 (was 1.10) — heartbeats should be intimate, not loud
   heartbeat: [
-    { path: '/audio/reactions/heartbeat-01.mp3', gain: 1.10, playDuration: 6.0 },
+    { path: '/audio/reactions/heartbeat-01.mp3', gain: 0.80, trimStart: 0.10, playDuration: 1.80 },
   ],
 
-  // 🔥  Real fire — crackling campfire, natural combustion sounds
+  // 🔥  Crackling fire onset — just the initial burst
   fire: [
-    { path: '/audio/reactions/fire-01.mp3', gain: 0.85, playDuration: 3.0 },
-    { path: '/audio/reactions/fire-02.mp3', gain: 0.78, trimStart: 0.5, playDuration: 3.5 },
+    { path: '/audio/reactions/fire-01.mp3', gain: 0.82, trimStart: 0.20, playDuration: 0.55 },
+    { path: '/audio/reactions/fire-02.mp3', gain: 0.75, trimStart: 0.60, playDuration: 0.55 },
   ],
 
-  // 😲  Real crowd gasp / surprise reaction — collective human response
+  // 😮  Sharp crowd gasp — quick collective intake of breath
+  //     Also used for 😡 anger (reactive, sharp, startled quality)
   gasp: [
-    { path: '/audio/reactions/gasp-01.mp3', gain: 0.88, trimStart: 0.3, playDuration: 3.0 },
-    { path: '/audio/reactions/gasp-02.mp3', gain: 0.82, trimStart: 0.5, playDuration: 3.0 },
+    { path: '/audio/reactions/gasp-01.mp3', gain: 0.85, trimStart: 0.40, playDuration: 0.45 },
+    { path: '/audio/reactions/gasp-02.mp3', gain: 0.80, trimStart: 0.60, playDuration: 0.45 },
   ],
 
-  // 👍  Light crowd approval — sparse cheers, positive burst
+  // 👍  Brief positive crowd burst — "yes!" energy
   approval: [
-    { path: '/audio/reactions/approval-01.mp3', gain: 0.90, trimStart: 0.2, playDuration: 3.5 },
-    { path: '/audio/reactions/approval-02.mp3', gain: 0.85, playDuration: 3.0 },
+    { path: '/audio/reactions/approval-01.mp3', gain: 0.88, trimStart: 0.30, playDuration: 0.60 },
+    { path: '/audio/reactions/approval-02.mp3', gain: 0.82, trimStart: 0.20, playDuration: 0.60 },
   ],
 
-  // ❤️‍🔥  Soft crowd murmur — gentle group appreciation, intimate "awww"
+  // 🥰  Soft crowd appreciation — gentle group "aww" / warm murmur
   crowd: [
-    { path: '/audio/reactions/crowd-01.mp3', gain: 0.72, playDuration: 3.5 },
+    { path: '/audio/reactions/crowd-01.mp3', gain: 0.72, trimStart: 0.25, playDuration: 0.70 },
+  ],
+
+  // 😢  Sad / emotional — same crowd recording at even lower gain
+  //     Sounds like a sympathetic collective exhale rather than a shock gasp.
+  //     (Previously wrongly mapped to 'gasp' — surprise ≠ sadness)
+  sad: [
+    { path: '/audio/reactions/crowd-01.mp3', gain: 0.52, trimStart: 0.20, playDuration: 0.65 },
   ],
 
 } as const;
@@ -108,23 +129,29 @@ function reg(cat: Category, ...emojis: string[]): void {
   emojis.forEach(e => { EMOJI_CAT[e] = cat; });
 }
 
-// Applause
+// Applause — clapping, hands, standing ovation energy
 reg('applause',
   '👏', '🙌', '🤲',
 );
 
-// Laugh
+// Laugh — genuine amusement, humor
 reg('laugh',
   '😂', '😆', '😅', '🤣', '😁', '😄', '😃',
   '🤪', '😜', '😝', '🤭', '😬',
 );
 
-// Heartbeat — close, intimate love sounds
+// Heartbeat — close, intimate love (2 beats, soft volume)
 reg('heartbeat',
   '❤️', '❤', '💓', '💗', '💖', '💝', '🫶', '💑',
 );
 
-// Soft crowd appreciation — "awww", warmth, gentle reactions
+// Sad / cry / heartbreak — soft sympathetic crowd murmur
+// (previously wrongly on 'gasp' — surprise and sadness are opposite emotions)
+reg('sad',
+  '😢', '😭', '🥺', '😥', '🥲', '💔',
+);
+
+// Crowd warmth — soft appreciation, "awww", admiration
 reg('crowd',
   '🥰', '😍', '💕', '💞', '🫂',
   '⭐', '🌟', '💫', '✨', '🌈', '☀️', '🌙', '❄️', '🍀',
@@ -132,12 +159,12 @@ reg('crowd',
   '💎', '👑', '🏅', '💍',
 );
 
-// Fire / explosion
+// Fire — energy, heat, excitement burst
 reg('fire',
   '🔥', '💥', '🌋',
 );
 
-// Celebration — big energy crowd
+// Celebration — big crowd energy, achievement
 reg('celebration',
   '🎉', '🎊', '🥳', '🎈', '🎆', '🎇', '🧨',
   '🏆', '💯', '🥇', '🎯', '🎖️', '🎖',
@@ -145,17 +172,18 @@ reg('celebration',
   '🏳️', '🚩', '🎺', '🥁', '🎻',
 );
 
-// Surprise / shock — crowd gasp
+// Gasp / surprise — sharp collective inhale
 reg('gasp',
   '😮', '🤯', '😳', '🫣', '😲', '🫢', '😱', '🙀',
 );
 
-// Sad / emotional — subdued crowd gasp / exhale
+// Anger / frustration — reactive, sharp quality of gasp suits frustration
+// (best available audio without a dedicated anger recording)
 reg('gasp',
-  '😢', '😭', '🥺', '😥', '💔', '🥲',
+  '😡', '😤', '😠', '🤬',
 );
 
-// Approval — light cheers, positive burst
+// Approval — light positive burst
 reg('approval',
   '👍', '👍🏼', '👍🏽', '👍🏾', '👍🏿',
   '💪', '🤙', '✌️', '✌', '👋', '🙋',
@@ -163,7 +191,7 @@ reg('approval',
   '🙏', '😎', '🤩', '😏',
 );
 
-// Cheer — big crowd energy
+// Cheer — big crowd energy, momentum
 reg('cheer',
   '🚀', '🛸', '✈️', '✈', '⚽', '🏀',
   '⚡', '🌩️', '🌩', '🔋',
@@ -247,7 +275,7 @@ function scheduleClip(
   const gainNode   = ac.createGain();
   const t          = ac.currentTime;
 
-  // Fade in → sustain → fade out
+  // Fade in (8 ms) → sustain → fade out (150 ms)
   gainNode.gain.setValueAtTime(0, t);
   gainNode.gain.linearRampToValueAtTime(clipGain, t + FADE_IN_S);
   const fadeStart = t + Math.max(FADE_IN_S + 0.001, actualDur - FADE_OUT_S);
