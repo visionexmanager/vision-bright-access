@@ -37,7 +37,7 @@ import {
   BarChart2, Bell, Bot, Check, ChevronDown, ChevronUp, Copy, Crown, Hand, Headphones,
   ImageIcon, LayoutGrid, Loader2, Lock, Maximize2, MessageSquare, Mic, MicOff, Minimize2, Monitor, MonitorOff,
   Music2, Pencil, PhoneOff, RefreshCw, Send, Settings2, ShieldX, Sparkles, Timer,
-  Unlock, Upload, UserX, Users, Users2, Video, VideoOff, Volume2, WifiOff, X,
+  Unlock, Upload, UserX, Users, Users2, Video, VideoOff, Volume2, VolumeX, WifiOff, X,
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { useTrial } from "@/hooks/useTrial";
@@ -408,6 +408,8 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const [chatInput, setChatInput] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
   const [voiceAiThinking, setVoiceAiThinking] = useState(false);
+  const [muteAiAudio, setMuteAiAudio] = useState(false);
+  const aiRoomLockRef = useRef<{ until: number; by: string } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const broadcastChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -483,6 +485,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const isVisionexInvocation = useCallback((text: string) => /\bvisionex\b/i.test(text.trim()), []);
 
   const playAiAudio = useCallback((audio: string) => {
+    if (muteAiAudio) return;
     try {
       // Stop any currently-playing AI audio before starting a new one
       if (currentAiAudioRef.current) {
@@ -498,10 +501,20 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     } catch {
       // Browser autoplay policies may block this; the audio controls remain in chat.
     }
-  }, []);
+  }, [muteAiAudio]);
 
   const askVoiceAi = useCallback(async (triggerText: string, senderName: string) => {
     if (!broadcastChRef.current || voiceAiThinking) return;
+
+    // Distributed lock: another user already triggered AI recently
+    if (aiRoomLockRef.current && aiRoomLockRef.current.until > Date.now()) {
+      toast({
+        title: label("vroom.aiBusy", "Visionex AI is busy"),
+        description: label("vroom.aiBusyDesc", `${aiRoomLockRef.current.by} called Visionex AI. Please wait a moment.`),
+      });
+      return;
+    }
+
     if (!voiceAiEnabled) {
       setChatOpen(true);
       toast({
@@ -512,6 +525,10 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     }
 
     setVoiceAiThinking(true);
+    const lockUntil = Date.now() + 20_000;
+    aiRoomLockRef.current = { until: lockUntil, by: senderName };
+    broadcastChRef.current?.send({ type: "broadcast", event: "ai_lock", payload: { by: senderName, until: lockUntil } });
+
     try {
       const cleaned = triggerText.replace(/\bvisionex\b[:,،]?\s*/i, "").trim() || triggerText;
       const recentChat = allChatMessagesRef.current
@@ -528,18 +545,25 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         recentChat ? `Full room conversation this session:\n${recentChat}` : "",
       ].filter(Boolean).join("\n");
 
-      const { data, error } = await supabase.functions.invoke("ai-voice-chat", {
-        body: {
-          assistant: "visionex",
-          language: lang,
-          messages: [
-            { role: "user", content: roomContext },
-            ...voiceAiSessionRef.current.slice(-10),
-            { role: "user", content: cleaned },
-          ],
-        },
-      });
+      const TIMEOUT_MS = 15_000;
+      const result = await Promise.race([
+        supabase.functions.invoke("ai-voice-chat", {
+          body: {
+            assistant: "visionex",
+            language: lang,
+            messages: [
+              { role: "user", content: roomContext },
+              ...voiceAiSessionRef.current.slice(-10),
+              { role: "user", content: cleaned },
+            ],
+          },
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("ai_timeout")), TIMEOUT_MS)
+        ),
+      ]);
 
+      const { data, error } = result;
       if (error) throw error;
       const transcript = String((data as { transcript?: string } | null)?.transcript || "").trim();
       const audio = (data as { audio?: string | null } | null)?.audio ?? null;
@@ -562,10 +586,16 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       };
       broadcastChRef.current?.send({ type: "broadcast", event: "chat_message", payload: aiMsg });
     } catch (err) {
-      console.error("Voice room AI error:", err);
-      toast({ title: label("vroom.aiError", "Visionex AI could not reply"), variant: "destructive" });
+      if (err instanceof Error && err.message === "ai_timeout") {
+        toast({ title: label("vroom.aiTimeout", "Visionex AI took too long"), variant: "destructive" });
+      } else {
+        console.error("Voice room AI error:", err);
+        toast({ title: label("vroom.aiError", "Visionex AI could not reply"), variant: "destructive" });
+      }
     } finally {
       setVoiceAiThinking(false);
+      aiRoomLockRef.current = null;
+      broadcastChRef.current?.send({ type: "broadcast", event: "ai_unlock", payload: {} });
     }
   }, [roomId, voiceAiEnabled, voiceAiThinking, lang, label]);
 
@@ -727,6 +757,12 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       })
       .on("broadcast", { event: "poll_close" }, () => {
         setActivePoll((prev) => prev ? { ...prev, isActive: false } : null);
+      })
+      .on("broadcast", { event: "ai_lock" }, ({ payload }: { payload: { by: string; until: number } }) => {
+        aiRoomLockRef.current = { by: payload.by, until: payload.until };
+      })
+      .on("broadcast", { event: "ai_unlock" }, () => {
+        aiRoomLockRef.current = null;
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") broadcastChRef.current = ch;
@@ -1832,6 +1868,21 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               title={voiceAiEnabled ? label("vroom.aiEnabledHint", "Say visionex in chat to call AI") : label("vroom.aiActivateHint", "Unlock Visionex AI")}
             >
               {voiceAiActivating || voiceAiThinking ? <Loader2 className="h-5 w-5 animate-spin" /> : <Bot className="h-5 w-5" />}
+            </Button>
+          )}
+
+          {/* Mute AI audio — only shown when AI is active */}
+          {voiceAiEnabled && (roomPerms.chat || isOwner) && (
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-12 w-12 rounded-full p-0 transition-colors ${muteAiAudio ? "bg-red-500/15 border-red-500/50 text-red-500" : ""}`}
+              onClick={() => setMuteAiAudio((v) => !v)}
+              aria-label={muteAiAudio ? label("vroom.unmuteAi", "Unmute AI audio") : label("vroom.muteAi", "Mute AI audio")}
+              aria-pressed={muteAiAudio}
+              title={muteAiAudio ? label("vroom.unmuteAi", "Unmute AI audio") : label("vroom.muteAi", "Mute AI audio")}
+            >
+              {muteAiAudio ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
             </Button>
           )}
 
