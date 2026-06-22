@@ -4323,6 +4323,8 @@ export const translations: Record<string, string> = {
   "settings.selectCurrencyLabel": "Отображать цены в местной валюте",
   "profile.levelPrefix": "Ур.",
   "profile.stagePrefix": "Этап",
+  "table.expand": "Развернуть таблицу",
+  "table.collapse": "Свернуть таблицу",
   "coins.comingSoon": "Скоро",
   "news.cat.technology": "Технологии",
   "news.cat.accessibility": "Доступность",

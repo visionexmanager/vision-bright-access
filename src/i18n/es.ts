@@ -3745,6 +3745,8 @@ export const translations: Record<string, string> = {
   "settings.currencyNote": "VX es siempre la moneda principal. La moneda local se muestra como aproximación.",
   "profile.levelPrefix": "Nv.",
   "profile.stagePrefix": "Etapa",
+  "table.expand": "Expandir tabla",
+  "table.collapse": "Contraer tabla",
   "coins.comingSoon": "Próximamente",
   "news.cat.technology": "Tecnología",
   "news.cat.accessibility": "Accesibilidad",

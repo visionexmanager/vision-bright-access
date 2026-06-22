@@ -3745,6 +3745,8 @@ export const translations: Record<string, string> = {
   "settings.currencyNote": "VX est toujours la devise principale. La devise locale est affichée à titre indicatif.",
   "profile.levelPrefix": "Nv.",
   "profile.stagePrefix": "Étape",
+  "table.expand": "Développer le tableau",
+  "table.collapse": "Réduire le tableau",
   "coins.comingSoon": "Bientôt disponible",
   "news.cat.technology": "Technologie",
   "news.cat.accessibility": "Accessibilité",

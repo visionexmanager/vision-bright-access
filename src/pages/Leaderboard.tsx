@@ -76,7 +76,7 @@ export default function Leaderboard() {
                   </Avatar>
                   <p className="text-sm font-semibold leading-tight">{entry.display_name}</p>
                   <Badge variant={entry.rank === 1 ? "default" : "secondary"} className="text-xs">
-                    {entry.total_points.toLocaleString()} pts
+                    {entry.total_points.toLocaleString()} {t("points.short")}
                   </Badge>
                 </div>
               );

@@ -3745,6 +3745,8 @@ export const translations: Record<string, string> = {
   "settings.currencyNote": "VX ist immer die Hauptwährung. Die Landeswährung wird als Näherungswert angezeigt.",
   "profile.levelPrefix": "Lv.",
   "profile.stagePrefix": "Stufe",
+  "table.expand": "Tabelle erweitern",
+  "table.collapse": "Tabelle minimieren",
   "coins.comingSoon": "Demnächst verfügbar",
   "news.cat.technology": "Technologie",
   "news.cat.accessibility": "Barrierefreiheit",

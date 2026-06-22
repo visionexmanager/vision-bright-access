@@ -3755,6 +3755,8 @@ export const translations: Record<string, string> = {
   "settings.currencyNote": "VX ہمیشہ بنیادی کرنسی ہے۔ مقامی کرنسی اندازے کے طور پر دکھائی جاتی ہے۔",
   "profile.levelPrefix": "سطح",
   "profile.stagePrefix": "مرحلہ",
+  "table.expand": "جدول کھولیں",
+  "table.collapse": "جدول بند کریں",
   "coins.comingSoon": "جلد آ رہا ہے",
   "news.cat.technology": "ٹیکنالوجی",
   "news.cat.accessibility": "رسائی",

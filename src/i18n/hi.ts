@@ -4323,6 +4323,8 @@ export const translations: Record<string, string> = {
   "settings.selectCurrencyLabel": "मूल्य अपनी स्थानीय मुद्रा में दिखाएं",
   "profile.levelPrefix": "स्तर",
   "profile.stagePrefix": "चरण",
+  "table.expand": "तालिका विस्तृत करें",
+  "table.collapse": "तालिका संकुचित करें",
   "coins.comingSoon": "जल्द आ रहा है",
   "news.cat.technology": "प्रौद्योगिकी",
   "news.cat.accessibility": "पहुँच",

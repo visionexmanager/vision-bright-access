@@ -4323,6 +4323,8 @@ export const translations: Record<string, string> = {
   "settings.selectCurrencyLabel": "以本地货币显示价格",
   "profile.levelPrefix": "Lv.",
   "profile.stagePrefix": "阶段",
+  "table.expand": "展开表格",
+  "table.collapse": "收起表格",
   "coins.comingSoon": "即将推出",
   "news.cat.technology": "技术",
   "news.cat.accessibility": "无障碍",

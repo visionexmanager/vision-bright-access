@@ -3732,6 +3732,8 @@ export const translations: Record<string, string> = {
   "settings.currencyNote": "VX is always the main currency. Local currency is shown as an approximation.",
   "profile.levelPrefix": "Lv.",
   "profile.stagePrefix": "Stage",
+  "table.expand": "Expand table",
+  "table.collapse": "Collapse table",
   "coins.comingSoon": "Coming Soon",
   "news.cat.technology": "Technology",
   "news.cat.accessibility": "Accessibility",

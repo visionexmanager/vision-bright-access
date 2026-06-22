@@ -190,8 +190,8 @@ export default function Profile() {
     bazaar_shop: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
     bazaar_order: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   };
-  const expandTableLabel = lang === "ar" ? "توسيع الجدول" : "Expand table";
-  const collapseTableLabel = lang === "ar" ? "طي الجدول" : "Collapse table";
+  const expandTableLabel = t("table.expand");
+  const collapseTableLabel = t("table.collapse");
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -329,7 +329,7 @@ export default function Profile() {
                 {/* XP Progress */}
                 <div className="mt-3 max-w-sm">
                   <div className="mb-1 flex justify-between text-xs font-medium">
-                    <span>Level {level}</span>
+                    <span>{t("profile.levelPrefix")}{level}</span>
                     <span>{pointsInLevel.toLocaleString()} / 5,000 XP</span>
                   </div>
                   <Progress value={xpProgress} className="h-2.5" />
@@ -680,8 +680,8 @@ export default function Profile() {
                     }`}
                   >
                     <span className="text-2xl">{icon}</span>
-                    <span className="text-[10px] font-medium">Stage {i + 1}</span>
-                    <span className="text-[10px] text-muted-foreground">Lv.{i * 10}</span>
+                    <span className="text-[10px] font-medium">{t("profile.stagePrefix")} {i + 1}</span>
+                    <span className="text-[10px] text-muted-foreground">{t("profile.levelPrefix")}{i * 10}</span>
                   </div>
                 );
               })}

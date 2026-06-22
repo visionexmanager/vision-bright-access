@@ -205,7 +205,7 @@ export default function AssistiveProducts() {
           <div className="py-16 text-center text-muted-foreground">
             <p className="text-lg">{t("liveTV.noResults")}</p>
             <Button variant="ghost" className="mt-3" onClick={() => { setSearchQuery(""); setFilterType("all"); }}>
-              {t("games.difficulty.select")} → Clear filters
+              {t("services.catAll")}
             </Button>
           </div>
         )}

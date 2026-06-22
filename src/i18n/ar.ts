@@ -3755,6 +3755,8 @@ export const translations: Record<string, string> = {
   "settings.currencyNote": "VX هي العملة الرئيسية دائماً. العملة المحلية تظهر كتقدير تقريبي.",
   "profile.levelPrefix": "مستوى",
   "profile.stagePrefix": "مرحلة",
+  "table.expand": "توسيع الجدول",
+  "table.collapse": "طي الجدول",
   "coins.comingSoon": "قريباً",
   "news.cat.technology": "تقنية",
   "news.cat.accessibility": "إمكانية الوصول",

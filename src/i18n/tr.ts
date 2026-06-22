@@ -4323,6 +4323,8 @@ export const translations: Record<string, string> = {
   "settings.selectCurrencyLabel": "Fiyatları yerel para biriminizde göster",
   "profile.levelPrefix": "Sv.",
   "profile.stagePrefix": "Aşama",
+  "table.expand": "Tabloyu genişlet",
+  "table.collapse": "Tabloyu daralt",
   "coins.comingSoon": "Yakında",
   "news.cat.technology": "Teknoloji",
   "news.cat.accessibility": "Erişilebilirlik",
