@@ -18,7 +18,7 @@ type SpeechRecognitionLike = {
   interimResults: boolean;
   continuous: boolean;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -99,7 +99,13 @@ export function AIChat() {
       setIsListening(false);
     };
 
-    recognition.onerror = () => setIsListening(false);
+    recognition.onerror = (event) => {
+      setIsListening(false);
+      // 'aborted' and 'no-speech' are normal — don't notify
+      if (event.error && event.error !== "aborted" && event.error !== "no-speech") {
+        toast({ title: t("ai.startListening"), description: event.error, variant: "destructive" });
+      }
+    };
     recognition.onend = () => setIsListening(false);
 
     recognitionRef.current = recognition;

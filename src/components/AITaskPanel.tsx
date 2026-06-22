@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Bot, Check, Copy, Loader2, Send, Sparkles, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,14 @@ export function AITaskPanel({
   const [input, setInput] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!copied) return;
+    const id = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(id);
+  }, [copied]);
 
   const contextText = useMemo(() => {
     if (!context) return "";
@@ -77,6 +84,7 @@ export function AITaskPanel({
 
   const copyResult = async () => {
     await navigator.clipboard.writeText(result);
+    setCopied(true);
     toast.success(t("ai.task.copied"));
   };
 
@@ -117,20 +125,20 @@ export function AITaskPanel({
           )}
         </div>
         {loading && !result && (
-          <div className="flex items-center gap-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+          <div role="status" aria-label={t("ai.task.analyzing")} className="flex items-center gap-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             {t("ai.task.analyzing")}
           </div>
         )}
         {result && (
-          <div className="rounded-md border bg-muted/35 p-4">
+          <div aria-live="polite" aria-atomic="false" className="rounded-md border bg-muted/35 p-4">
             <div className="prose prose-sm max-w-none dark:prose-invert">
               <ReactMarkdown>{result}</ReactMarkdown>
             </div>
             <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
-              <Button type="button" variant="ghost" size="sm" onClick={copyResult}>
-                <Copy className="me-1.5 h-4 w-4" />
-                {t("ai.task.copy")}
+              <Button type="button" variant="ghost" size="sm" onClick={copyResult} aria-label={copied ? t("ai.task.copied") : t("ai.task.copy")}>
+                {copied ? <Check className="me-1.5 h-4 w-4 text-green-600" /> : <Copy className="me-1.5 h-4 w-4" />}
+                {copied ? t("ai.task.copied") : t("ai.task.copy")}
               </Button>
               {onUseResult && (
                 <Button type="button" size="sm" onClick={() => onUseResult(result)}>

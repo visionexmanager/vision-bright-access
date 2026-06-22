@@ -30,6 +30,13 @@ export type RateLimitInfo = {
   cooldownSeconds: number;
 };
 
+const MAX_MESSAGES = 80;
+
+function appendMessage(prev: Message[], msg: Message): Message[] {
+  const next = [...prev, msg];
+  return next.length > MAX_MESSAGES ? next.slice(-MAX_MESSAGES) : next;
+}
+
 export function useAIChat(options?: { assistantId?: string }) {
   const assistantId = options?.assistantId;
   const [messages, setMessages]     = useState<Message[]>([]);
@@ -74,7 +81,7 @@ export function useAIChat(options?: { assistantId?: string }) {
         content: input,
       };
 
-      setMessages((prev) => [...prev, userMsg]);
+      setMessages((prev) => appendMessage(prev, userMsg));
 
       const controller  = new AbortController();
       abortRef.current  = controller;
@@ -91,14 +98,11 @@ export function useAIChat(options?: { assistantId?: string }) {
 
         if (toolResult.handled) {
           if (toolResult.navigateTo) navigate(toolResult.navigateTo);
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              role: "assistant",
-              content: toolResult.message || "تم.",
-            },
-          ]);
+          setMessages((prev) => appendMessage(prev, {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: toolResult.message || "تم.",
+          }));
           setMemory(loadCompanionMemory());
           return;
         }
@@ -131,25 +135,22 @@ export function useAIChat(options?: { assistantId?: string }) {
           },
           onError: (err, isRateLimit) => {
             if (isRateLimit) startCooldown();
-            setMessages((prev) => [
-              ...prev,
-              { id: crypto.randomUUID(), role: "assistant", content: `⚠️ ${err.message}` },
-            ]);
+            setMessages((prev) => appendMessage(prev, {
+              id: crypto.randomUUID(), role: "assistant", content: `⚠️ ${err.message}`,
+            }));
           },
         });
         if (completedReply.trim()) {
-          setMessages((prev) => [
-            ...prev,
-            { id: responseId, role: "assistant", content: completedReply },
-          ]);
+          setMessages((prev) => appendMessage(prev, {
+            id: responseId, role: "assistant", content: completedReply,
+          }));
         }
       } catch (e: unknown) {
         if (e instanceof Error && e.name === "AbortError") return;
         const msg = e instanceof Error ? e.message : "Something went wrong.";
-        setMessages((prev) => [
-          ...prev,
-          { id: crypto.randomUUID(), role: "assistant", content: `⚠️ ${msg}` },
-        ]);
+        setMessages((prev) => appendMessage(prev, {
+          id: crypto.randomUUID(), role: "assistant", content: `⚠️ ${msg}`,
+        }));
       } finally {
         abortRef.current = null;
       }
