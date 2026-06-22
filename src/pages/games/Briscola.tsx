@@ -15,6 +15,7 @@ import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { OpponentPanel, FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const SUITS  = ["🟡", "🔴", "🟢", "🔵"];
 const VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -29,6 +30,7 @@ function BriscolaSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
   const { cardFlip, cardShuffle, cardWin, cardLose } = useGameSounds();
+  const { settleGameResult } = useGameEconomy();
   const [deck]  = useState(createDeck);
   const [hand,  setHand]     = useState<BCard[]>(() => deck.slice(0, 3));
   const [cpuHand]            = useState<BCard[]>(() => deck.slice(3, 6));
@@ -36,6 +38,10 @@ function BriscolaSolo() {
   const [played, setPlayed]  = useState<BCard | null>(null);
   const [cpuPlayed, setCpuPlayed] = useState<BCard | null>(null);
   const [score, setScore]    = useState(0);
+
+  useEffect(() => {
+    if (hand.length === 0) void settleGameResult(score > 0 ? "win" : "loss", "Briscola");
+  }, [hand.length]);
 
   const play = useCallback((idx: number) => {
     const card = hand[idx];

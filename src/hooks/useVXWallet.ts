@@ -31,21 +31,21 @@ export function useVXWallet() {
       itemType: string,
       itemName: string,
       itemId?: string,
-      options?: { chargeDuringTrial?: boolean }
+      options?: { chargeDuringTrial?: boolean; suppressToast?: boolean }
     ) => {
       if (!user) {
-        toast({ title: t("vxWallet.loginRequired"), description: t("vxWallet.loginRequiredDesc"), variant: "destructive" });
+        if (!options?.suppressToast) toast({ title: t("vxWallet.loginRequired"), description: t("vxWallet.loginRequiredDesc"), variant: "destructive" });
         return false;
       }
 
       // Free trial bypasses usage charges while users can still earn VX for later upgrades.
       if (isOnTrial && !options?.chargeDuringTrial) {
-        toast({ title: t("vxWallet.freeTrialActive"), description: t("vxWallet.freeTrialDesc").replace("{item}", itemName) });
+        if (!options?.suppressToast) toast({ title: t("vxWallet.freeTrialActive"), description: t("vxWallet.freeTrialDesc").replace("{item}", itemName) });
         return true;
       }
 
       if (balance < amount) {
-        toast({ title: t("vxWallet.insufficientVX"), description: t("vxWallet.insufficientVXDesc").replace("{needed}", amount.toLocaleString()).replace("{balance}", balance.toLocaleString()), variant: "destructive" });
+        if (!options?.suppressToast) toast({ title: t("vxWallet.insufficientVX"), description: t("vxWallet.insufficientVXDesc").replace("{needed}", amount.toLocaleString()).replace("{balance}", balance.toLocaleString()), variant: "destructive" });
         return false;
       }
 

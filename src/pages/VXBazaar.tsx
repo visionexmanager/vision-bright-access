@@ -752,7 +752,7 @@ export default function VXBazaar() {
                 <div className="relative">
                   <Search className="absolute start-3 top-2.5 h-4 w-4 text-stone-500" />
                   <Input value={shopSearch} onChange={event => setShopSearch(event.target.value)}
-                    placeholder="Search shops" className="border-white/15 bg-black/30 ps-9 text-white" />
+                    placeholder="Search shops" aria-label="Search shops" className="border-white/15 bg-black/30 ps-9 text-white" />
                 </div>
                 <select value={shopTierFilter} onChange={event => setShopTierFilter(event.target.value as "all" | Tier)}
                   className="rounded-md border border-white/15 bg-stone-950 px-3 text-sm text-white">

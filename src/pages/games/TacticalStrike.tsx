@@ -16,6 +16,7 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const TARGETS = ["🎯", "💣", "⭐", "🎯", "💣", "⭐", "🎯", "💣"];
 const RARE_GIFT = "🎁";
@@ -57,6 +58,7 @@ function TacticalSolo() {
   const { playSound } = useSound();
   const { tacticalHit, tacticalMiss, tacticalExplosion } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("tactical");
+  const { settleGameResult } = useGameEconomy();
 
   const [grid, setGrid] = useState<string[]>([]);
   const [score, setScore] = useState(0);
@@ -88,6 +90,7 @@ function TacticalSolo() {
       setActive(false);
       const isNew = updateHighScore(score);
       setNewRecord(isNew);
+      void settleGameResult(score > 0 ? "win" : "loss", "Tactical Strike");
     }
   }, [timeLeft, active]);
 

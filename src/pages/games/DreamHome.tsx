@@ -10,6 +10,7 @@ import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useCallback } from "react";
 import heroImg from "@/assets/game-dreamhome.jpg";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const ROOM_KEYS = ["livingRoom", "bedroom", "kitchen", "bathroom"] as const;
 type RoomKey = typeof ROOM_KEYS[number];
@@ -36,6 +37,7 @@ function DreamChallenge() {
   const { t } = useLanguage();
   const { homeKnock, homeApproval, homeWrong, homeComplete } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("dreamhome");
+  const { settleGameResult } = useGameEconomy();
 
   const [roomIdx, setRoomIdx] = useState(0);
   const [placed, setPlaced] = useState<string[]>([]);
@@ -98,6 +100,7 @@ function DreamChallenge() {
     setDone(true);
     const isNew = updateHighScore(score);
     setNewRecord(isNew);
+    void settleGameResult(score > 0 ? "win" : "loss", "Dream Home");
   }
 
   const restart = () => {

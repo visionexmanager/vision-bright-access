@@ -9,6 +9,7 @@ import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState } from "react";
 import heroImg from "@/assets/game-fashion.jpg";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const FABRIC_KEYS = ["silk", "denim", "wool", "cotton", "satin"] as const;
 const COLOR_KEYS  = ["red", "blue", "green", "black", "white", "gold"] as const;
@@ -103,6 +104,7 @@ function FashionChallenge() {
   const { t } = useLanguage();
   const { fashionSwish, fashionSewing, fashionApproval, fashionWrong } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("fashion");
+  const { settleGameResult } = useGameEconomy();
 
   const [round, setRound] = useState(0);
   const [fabric, setFabric] = useState<string | null>(null);
@@ -131,6 +133,7 @@ function FashionChallenge() {
       const isNew = updateHighScore(score);
       setNewRecord(isNew);
       setDone(true);
+      void settleGameResult(score > 0 ? "win" : "loss", "Fashion Designer");
     } else {
       setRound(next);
       setFabric(null); setColor(null); setStyle(null);

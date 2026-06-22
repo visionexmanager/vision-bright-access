@@ -15,6 +15,7 @@ import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { OpponentPanel, FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 // ─── Game helpers ────────────────────────────────────────────────────────────
 function rollDice(n: number) { return Array.from({ length: n }, () => Math.floor(Math.random() * 6) + 1); }
@@ -37,6 +38,7 @@ function FarkleSolo() {
   const { t } = useLanguage();
   const { playSound } = useSound();
   const { diceRoll, diceSettle, diceScore, farkleBust } = useGameSounds();
+  const { settleGameResult } = useGameEconomy();
   const [dice, setDice]           = useState<number[]>([]);
   const [kept, setKept]           = useState<number[]>([]);
   const [score, setScore]         = useState(0);
@@ -64,7 +66,12 @@ function FarkleSolo() {
     diceScore();
   };
 
-  const bank = () => { setScore((s) => s + roundScore); setRoundScore(0); setDice([]); setKept([]); diceScore(); };
+  const bank = () => {
+    const newScore = score + roundScore;
+    setScore(newScore);
+    setRoundScore(0); setDice([]); setKept([]); diceScore();
+    if (newScore >= WIN_SCORE) void settleGameResult("win", "Farkle");
+  };
   const restart = () => { setScore(0); setRoundScore(0); setDice([]); setKept([]); diceRoll(); };
 
   return (

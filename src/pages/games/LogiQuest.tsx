@@ -16,6 +16,7 @@ import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const TOTAL_QUESTIONS = 30;
 const QUESTIONS_PER_GAME = 10;
@@ -39,6 +40,7 @@ function LogiQuestSolo() {
   const { t } = useLanguage();
   const { logiCorrect, logiWrong, logiTimerWarn } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("logiquest");
+  const { settleGameResult } = useGameEconomy();
 
   const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
   const [questionIds, setQuestionIds] = useState<number[]>([]);
@@ -90,6 +92,7 @@ function LogiQuestSolo() {
     if (nextIdx >= QUESTIONS_PER_GAME) {
       const isNew = updateHighScore(score);
       setNewRecord(isNew);
+      void settleGameResult(score > 0 ? "win" : "loss", "LogiQuest");
     }
     setCurrent(nextIdx);
     setAnswered(null);

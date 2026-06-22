@@ -16,6 +16,7 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const TOTAL_ISSUES = 20;
 const ISSUES_PER_GAME = 8;
@@ -40,6 +41,7 @@ function LaptopBoard() {
   const { t } = useLanguage();
   const { techClick, techRepair, techBoot, techError } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("laptoptech");
+  const { settleGameResult } = useGameEconomy();
 
   const issueIds = useMemo(() => pickIssues(), []);
   const [current,   setCurrent]   = useState(0);
@@ -70,6 +72,7 @@ function LaptopBoard() {
       if (next >= ISSUES_PER_GAME) {
         const isNew = updateHighScore(s);
         setNewRecord(isNew);
+        void settleGameResult(s >= ISSUES_PER_GAME * 50 ? "win" : "loss", "Laptop Tech Master");
       }
       setCurrent(next);
       setFeedback(null);

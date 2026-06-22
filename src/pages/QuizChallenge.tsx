@@ -95,7 +95,7 @@ function QuizMulti() {
       mp.updateMyScore(myScore, true);
     } else {
       setCurrentQ(next);
-      setTimeLeft(3);
+      setTimeLeft(10);
     }
   }, [currentQ, myScore, mp]);
 
@@ -176,7 +176,7 @@ export default function QuizChallenge() {
   const nextQuestion = useCallback((finalScore = score) => {
     if (currentQuestion + 1 < questions.length) {
       setCurrentQuestion((prev) => prev + 1);
-      setTimeLeft(3);
+      setTimeLeft(10);
     } else {
       void settleGameResult(finalScore >= questions.length * 5 ? "win" : "loss", "Quiz Challenge");
       setGameState("end");
@@ -208,7 +208,7 @@ export default function QuizChallenge() {
   const restart = () => {
     setScore(0);
     setCurrentQuestion(0);
-    setTimeLeft(3);
+    setTimeLeft(10);
     setGameState("playing");
   };
 

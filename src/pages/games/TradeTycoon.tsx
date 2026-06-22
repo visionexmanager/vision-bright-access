@@ -16,6 +16,7 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 // 8 goods with i18n keys
 const GOODS = [
@@ -99,6 +100,7 @@ function TradeTycoonSolo() {
   const { t } = useLanguage();
   const { tradeMarketRise, tradeLoss } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("tradetycoon");
+  const { settleGameResult } = useGameEconomy();
 
   const seed = useMemo(() => Math.floor(Math.random() * 999999), []);
   const [day, setDay] = useState(1);
@@ -120,6 +122,7 @@ function TradeTycoonSolo() {
       const isNew = updateHighScore(totalValue);
       setNewRecord(isNew);
       setDone(true);
+      void settleGameResult(profitLoss >= 0 ? "win" : "loss", "Trade Tycoon");
       return;
     }
     const news = newsEvents[day - 1];

@@ -16,6 +16,7 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const NOTES_FREQ: Record<string, number> = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392, A4: 440, B4: 493.88 };
 const NOTE_NAMES = Object.keys(NOTES_FREQ);
@@ -86,32 +87,53 @@ function EarBoard({
 }
 
 function MusicEarSolo() {
+  const { t } = useLanguage();
   const { playSound } = useSound();
   const { musicCorrect, musicWrong } = useGameSounds();
+  const { settleGameResult } = useGameEconomy();
+  const { highScore, updateHighScore } = useHighScore("earmaster");
   const [target, setTarget] = useState(() => NOTE_NAMES[Math.floor(Math.random() * NOTE_NAMES.length)]);
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(1);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
 
   const playTarget = useCallback(() => {
     playTone(NOTES_FREQ[target]);
   }, [target]);
 
   const guess = (note: string) => {
-    if (note === target) {
-      setScore((s) => s + 100);
-      musicCorrect();
-      setFeedback("✅");
-    } else {
-      setFeedback(`❌ ${target}`);
-      musicWrong();
-    }
+    if (feedback || done) return;
+    const correct = note === target;
+    const newScore = correct ? score + 100 : score;
+    if (correct) { setScore(newScore); musicCorrect(); setFeedback("✅"); }
+    else { setFeedback(`❌ ${target}`); musicWrong(); }
+
     setTimeout(() => {
+      if (round >= TOTAL_ROUNDS) {
+        updateHighScore(newScore);
+        void settleGameResult(newScore >= TOTAL_ROUNDS * 50 ? "win" : "loss", "Music Ear Master");
+        setDone(true);
+        return;
+      }
       setTarget(NOTE_NAMES[Math.floor(Math.random() * NOTE_NAMES.length)]);
       setRound((r) => r + 1);
       setFeedback(null);
     }, 1500);
   };
+
+  if (done) {
+    return (
+      <Card><CardContent className="pt-6 text-center space-y-4">
+        <p className="text-5xl">🎵</p>
+        <p className="text-2xl font-bold">⭐ {score}</p>
+        <p className="text-muted-foreground">{t("games.highScore")}: {highScore}</p>
+        <Button size="lg" onClick={() => { setScore(0); setRound(1); setFeedback(null); setDone(false); setTarget(NOTE_NAMES[Math.floor(Math.random() * NOTE_NAMES.length)]); }}>
+          {t("earmaster.playAgain")}
+        </Button>
+      </CardContent></Card>
+    );
+  }
 
   return <EarBoard target={target} score={score} round={round} feedback={feedback} disabled={false} onPlay={playTarget} onGuess={guess} />;
 }

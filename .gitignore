@@ -17,6 +17,9 @@ dist
 dist-ssr
 *.local
 
+# Claude Code auto-generated files
+AGENTS.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

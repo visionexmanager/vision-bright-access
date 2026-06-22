@@ -53,13 +53,18 @@ function HangmanSolo() {
   const lost     = wrong >= MAX_WRONG;
   const gameOver = won || lost;
 
-  if (won && !lost)  { toast.success(t("hangman.won"),  { id: "hw" }); }
-  if (lost)          { toast.error(t("hangman.lost"),   { id: "hl" }); }
-
   useEffect(() => {
-    if (won && !lost) void settleGameResult("win", "Hangman");
-    if (lost) void settleGameResult("loss", "Hangman");
-  }, [lost, settleGameResult, won]);
+    if (won && !lost) {
+      toast.success(t("hangman.won"), { id: "hw" });
+      hangmanWin();
+      void settleGameResult("win", "Hangman");
+    }
+    if (lost) {
+      toast.error(t("hangman.lost"), { id: "hl" });
+      hangmanGameOver();
+      void settleGameResult("loss", "Hangman");
+    }
+  }, [lost, won]);
 
   const restart = () => { setWord(WORDS[Math.floor(Math.random() * WORDS.length)]); setGuessed(new Set()); setWrong(0); };
 

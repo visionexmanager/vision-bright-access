@@ -17,6 +17,7 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
+import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const ORDERS = [
   { name: "🍔 Burger",    items: ["🥩", "🧅", "🍅", "🥬", "🧀"] },
@@ -92,6 +93,7 @@ function StarChefSolo() {
   const { t } = useLanguage();
   const { chefSizzle, chefPlate, chefTimer, chefSuccess, chefWrong } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("starchef");
+  const { settleGameResult } = useGameEconomy();
   const [order, setOrder] = useState(() => ORDERS[0]);
   const [plate, setPlate] = useState<string[]>([]);
   const [score, setScore] = useState(0);
@@ -120,6 +122,7 @@ function StarChefSolo() {
       const isNew = updateHighScore(score);
       setNewRecord(isNew);
       chefTimer();
+      void settleGameResult(served >= 3 ? "win" : "loss", "Star Chef");
     }
   }, [timeLeft, gameActive]);
 

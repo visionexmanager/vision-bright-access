@@ -460,27 +460,6 @@ export default function Services() {
               <p className="py-8 text-center text-muted-foreground">{t("simulations.noResults") || "No simulations available yet."}</p>
             ) : (
               <StaggerGrid className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" role="list">
-                <StaggerItem role="listitem">
-                  <Link
-                    to={CAR_MAINTENANCE_SIM_CARD.to}
-                    onClick={() => playSound("navigate")}
-                    className="group block h-full"
-                    aria-label={t(CAR_MAINTENANCE_SIM_CARD.name)}
-                  >
-                    <Card className="h-full transition-all hover:shadow-md hover:-translate-y-0.5">
-                      <CardContent className="flex items-start gap-4 p-5">
-                        <div className={`rounded-lg p-3 shrink-0 ${CAR_MAINTENANCE_SIM_CARD.color.split(" ").find((c) => c.startsWith("bg-")) ?? ""}`} aria-hidden="true">
-                          <CAR_MAINTENANCE_SIM_CARD.icon className={`h-5 w-5 ${CAR_MAINTENANCE_SIM_CARD.color.split(" ").filter((c) => !c.startsWith("bg-")).join(" ")}`} aria-hidden="true" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold">{t(CAR_MAINTENANCE_SIM_CARD.name)}</p>
-                          <p className="mt-0.5 text-sm text-muted-foreground line-clamp-1">{t(CAR_MAINTENANCE_SIM_CARD.desc)}</p>
-                        </div>
-                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-1 group-hover:text-primary" aria-hidden="true" />
-                      </CardContent>
-                    </Card>
-                  </Link>
-                </StaggerItem>
                 {genericSimulations.map((sim) => {
                   const prog = progressMap[sim.id];
                   const done = prog?.completed;

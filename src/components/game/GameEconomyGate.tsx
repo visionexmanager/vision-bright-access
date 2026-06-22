@@ -8,6 +8,7 @@ import { GAMING_PRICES } from "@/systems/pricingSystem";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type GameResult = "win" | "loss" | "draw";
 
@@ -30,6 +31,7 @@ interface GameEconomyGateProps {
 export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
   const { user } = useAuth();
   const { spendVX } = useVXWallet();
+  const { t } = useLanguage();
   const location = useLocation();
   const [entryStatus, setEntryStatus] = useState<"loading" | "ready" | "blocked">("loading");
   const [message, setMessage] = useState("");
@@ -54,7 +56,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
         "game-entry",
         gameTitle,
         location.pathname,
-        { chargeDuringTrial: true }
+        { chargeDuringTrial: true, suppressToast: true }
       );
 
       if (cancelled) return;
@@ -92,7 +94,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
           return false;
         }
 
-        toast({ title: `+${GAMING_PRICES.winReward} VX`, description: "Game win reward added." });
+        toast({ title: `+${GAMING_PRICES.winReward} VX`, description: t("game.winRewardAdded") });
         return true;
       }
 
@@ -101,11 +103,11 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
         "game-loss",
         resultLabel ?? gameTitle,
         location.pathname,
-        { chargeDuringTrial: true }
+        { chargeDuringTrial: true, suppressToast: true }
       );
 
       if (ok) {
-        toast({ title: `-${GAMING_PRICES.lossPenalty} VX`, description: "Game loss penalty deducted." });
+        toast({ title: `-${GAMING_PRICES.lossPenalty} VX`, description: t("game.lossDeducted") });
       } else {
         settledRef.current = false;
       }
@@ -120,7 +122,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        Charging 2 VX to start...
+        {t("game.chargingEntry").replace("{n}", String(GAMING_PRICES.singlePlay))}
       </div>
     );
   }
@@ -131,16 +133,16 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
         <Card className="w-full max-w-md border-destructive/40">
           <CardContent className="space-y-4 p-6 text-center">
             <Coins className="mx-auto h-10 w-10 text-destructive" />
-            <h1 className="text-xl font-bold">VX required</h1>
+            <h1 className="text-xl font-bold">{t("game.vxRequired")}</h1>
             <p className="text-sm text-muted-foreground">{message}</p>
             <div className="flex justify-center gap-2">
               {!user && (
                 <Button asChild>
-                  <Link to="/signup">Sign up</Link>
+                  <Link to="/signup">{t("game.signUp")}</Link>
                 </Button>
               )}
               <Button asChild variant={user ? "default" : "outline"}>
-                <Link to="/coins-store">VX Store</Link>
+                <Link to="/coins-store">{t("game.vxStore")}</Link>
               </Button>
             </div>
           </CardContent>
