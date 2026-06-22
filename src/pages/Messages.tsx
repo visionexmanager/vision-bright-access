@@ -374,7 +374,7 @@ function NewConversationDialog({
                 </AvatarFallback>
               </Avatar>
               <span className="font-medium text-sm">
-                {p.display_name || "User"}
+                {p.display_name || t("msg.unknownUser")}
               </span>
             </button>
           ))}

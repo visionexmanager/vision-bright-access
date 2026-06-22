@@ -164,15 +164,15 @@ export default function BusinessSimulator() {
                       {done ? <CheckCircle className="h-7 w-7 text-green-500" /> : <BarChart3 className="h-7 w-7 text-primary" />}
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <Badge className="text-sm">+{sim.points} pts</Badge>
+                      <Badge className="text-sm">+{sim.points} {t("points.short")}</Badge>
                       {done && (
                         <Badge variant="outline" className="border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400 text-xs">
-                          ✅ {prog.score} pts
+                          ✅ {prog.score} {t("points.short")}
                         </Badge>
                       )}
                       {inProgress && (
                         <Badge variant="outline" className="border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 text-xs">
-                          ⏳ {prog.score} pts
+                          ⏳ {prog.score} {t("points.short")}
                         </Badge>
                       )}
                     </div>

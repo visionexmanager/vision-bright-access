@@ -587,9 +587,9 @@ export default function NutritionExpert() {
                       })()}
                       <div>
                         <p className="text-2xl font-black text-foreground">{totalCalories}</p>
-                        <p className="text-xs text-muted-foreground">من {calorieGoal} {t("nutrition.kcal")}</p>
+                        <p className="text-xs text-muted-foreground">{t("nutrition.ofLabel")} {calorieGoal} {t("nutrition.kcal")}</p>
                         <p className="text-sm font-bold mt-1" style={{ color: calorieProgress >= 100 ? "#ef4444" : "#10b981" }}>
-                          {calorieProgress >= 100 ? "تجاوزت الهدف!" : `متبقي ${calorieGoal - totalCalories} سعرة`}
+                          {calorieProgress >= 100 ? t("nutrition.exceededGoal") : t("nutrition.caloriesLeft").replace("{n}", (calorieGoal - totalCalories).toString())}
                         </p>
                       </div>
                     </div>
@@ -603,7 +603,7 @@ export default function NutritionExpert() {
                         onClick={() => {
                           const remaining = calorieGoal - totalCalories;
                           const goal = userData.goal === "weight-loss" ? "خسارة الوزن" : userData.goal === "muscle-gain" ? "بناء العضلات" : "الصحة العامة";
-                          toast.info("يتم توليد اقتراح الوجبة...");
+                          toast.info(t("nutrition.generatingSuggestion"));
                           supabase.functions.invoke("generate-diet-plan", {
                             body: {
                               name: userData.name,
@@ -616,13 +616,13 @@ export default function NutritionExpert() {
                           }).then(({ data }) => {
                             if (data?.plan?.meals?.[0]) {
                               const m = data.plan.meals[0];
-                              toast.success(`اقتراح: ${m.name} — ${m.calories} سعرة`, { duration: 6000 });
+                              toast.success(t("nutrition.mealSuggestion").replace("{name}", m.name).replace("{cal}", String(m.calories)), { duration: 6000 });
                             }
                           });
                         }}
                       >
                         <Sparkles className="h-4 w-4" />
-                        اقترح وجبة ({calorieGoal - totalCalories} سعرة متبقية)
+                        {t("nutrition.suggestMeal")} ({calorieGoal - totalCalories} {t("nutrition.kcal")})
                       </Button>
                     )}
                   </CardContent>
@@ -632,7 +632,7 @@ export default function NutritionExpert() {
                   <CardContent className="p-6 space-y-4">
                     <div className="flex items-center gap-2">
                       <Plus className="h-5 w-5 text-emerald-600" />
-                      <h3 className="text-lg font-black text-foreground">تسجيل وجبة</h3>
+                      <h3 className="text-lg font-black text-foreground">{t("nutrition.logMeal")}</h3>
                     </div>
 
                     {/* Quick add */}

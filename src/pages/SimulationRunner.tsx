@@ -276,7 +276,7 @@ export default function SimulationRunner() {
               <h1 className="text-2xl font-bold">{simulation.title}</h1>
               <p className="text-muted-foreground">{simulation.description}</p>
               <Button onClick={handleStartProject} size="lg" className="gap-2">
-                Start Simulation
+                {t("bsim.start")}
                 <ArrowLeft className="h-4 w-4 rotate-180" />
               </Button>
             </div>
@@ -379,17 +379,17 @@ export default function SimulationRunner() {
             <Card className="mx-auto max-w-xl border-destructive/40">
               <CardContent className="space-y-4 p-6 text-center">
                 <Coins className="mx-auto h-10 w-10 text-destructive" />
-                <h2 className="text-xl font-bold">VX required</h2>
+                <h2 className="text-xl font-bold">{t("bsim.vxRequired")}</h2>
                 <p className="text-sm text-muted-foreground">{billing.message}</p>
                 <Button asChild>
-                  <Link to="/coins-store">Go to VX Store</Link>
+                  <Link to="/coins-store">{t("bsim.goToVxStore")}</Link>
                 </Button>
               </CardContent>
             </Card>
           ) : billing.status !== "ready" ? (
             <div className="flex min-h-[30vh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              {billing.isCharging ? "Opening the next 15 minutes..." : "Preparing session billing..."}
+              {billing.isCharging ? t("bsim.opening15min") : t("bsim.prepareBilling")}
             </div>
           ) : (
             <Suspense

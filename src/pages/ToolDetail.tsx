@@ -105,7 +105,7 @@ export default function ToolDetail() {
       .insert({ user_id: user.id, tool_id: tool.id, points_spent: TOOL_PRICE });
 
     if (error) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+      toast({ title: t("community.errorTitle"), description: error.message, variant: "destructive" });
       setBuying(false);
       return;
     }
