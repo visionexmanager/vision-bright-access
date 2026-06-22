@@ -312,6 +312,52 @@
   .section-label {
     @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider;
   }
+
+  /* ── Type Scale — 5 semantic levels ──────────────────────────────────────
+     Use these classes instead of raw text-* utilities to enforce hierarchy.
+     Each level has a distinct size, weight, and line-height so hierarchy is
+     immediately readable without needing to read the content.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  /* Display — hero headlines, splash titles */
+  .type-display {
+    @apply text-4xl font-black leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl;
+    letter-spacing: -0.03em;
+  }
+
+  /* Heading — page h1, major section titles */
+  .type-heading {
+    @apply text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl;
+    letter-spacing: -0.02em;
+  }
+
+  /* Subheading — card titles, sub-section h2/h3 */
+  .type-subhead {
+    @apply text-lg font-semibold leading-snug sm:text-xl;
+    letter-spacing: -0.01em;
+  }
+
+  /* Body — default reading text */
+  .type-body {
+    @apply text-base leading-relaxed text-foreground;
+  }
+
+  /* Caption — labels, badges, helper text, meta info */
+  .type-caption {
+    @apply text-xs font-medium leading-normal text-muted-foreground;
+  }
+
+  /* Overline — section category pill above headings */
+  .type-overline {
+    @apply text-xs font-bold uppercase tracking-widest text-primary;
+  }
+
+  /* In RTL, override letter-spacing (Arabic script breaks with negative tracking) */
+  [dir="rtl"] .type-display,
+  [dir="rtl"] .type-heading,
+  [dir="rtl"] .type-subhead {
+    letter-spacing: 0;
+  }
 }
 
 /* ── Simulation scene animations ────────────────────────────────────────── */

@@ -46,11 +46,11 @@ export default function Index() {
             <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" aria-hidden="true" />
             {t("home.badge")}
           </div>
-          <h1 id="hero-heading" className="mb-6 text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+          <h1 id="hero-heading" className="type-display mb-6 text-balance">
             {t("home.title")}
             <span className="text-primary">{t("home.titleHighlight")}</span>
           </h1>
-          <p className="mb-6 mx-auto max-w-2xl text-lg text-muted-foreground sm:text-xl">{t("home.subtitle")}</p>
+          <p className="mb-6 mx-auto max-w-2xl text-lg text-muted-foreground sm:text-xl leading-relaxed">{t("home.subtitle")}</p>
 
           {/* Trial & highlights */}
           {!user && (
@@ -90,8 +90,8 @@ export default function Index() {
         <div className="section-container">
           <AnimatedSection>
             <div className="mb-12 text-center">
-              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-3">{t("home.howTitle")}</p>
-              <h2 id="how-heading" className="text-3xl font-bold sm:text-4xl">{t("home.howSubtitle") || t("home.howTitle")}</h2>
+              <p className="type-overline mb-3">{t("home.howTitle")}</p>
+              <h2 id="how-heading" className="type-heading">{t("home.howSubtitle") || t("home.howTitle")}</h2>
             </div>
           </AnimatedSection>
           <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -124,8 +124,8 @@ export default function Index() {
         <div className="section-container">
           <AnimatedSection>
             <div className="mb-12 text-center">
-              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-3">{t("home.featuresTitle")}</p>
-              <h2 id="features-heading" className="text-3xl font-bold sm:text-4xl">{t("home.featuresSubtitle") || t("home.featuresTitle")}</h2>
+              <p className="type-overline mb-3">{t("home.featuresTitle")}</p>
+              <h2 id="features-heading" className="type-heading">{t("home.featuresSubtitle") || t("home.featuresTitle")}</h2>
             </div>
           </AnimatedSection>
           <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -188,7 +188,7 @@ export default function Index() {
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-semibold text-primary uppercase tracking-wider">
             VX Rewards
           </div>
-          <h2 id="points-heading" className="mb-4 text-3xl font-bold sm:text-4xl">{t("home.pointsTitle")}</h2>
+          <h2 id="points-heading" className="type-heading mb-4">{t("home.pointsTitle")}</h2>
           <p className="mb-8 text-muted-foreground max-w-lg mx-auto">{t("home.pointsDesc")}</p>
           {user ? (
             <Link to="/dashboard">

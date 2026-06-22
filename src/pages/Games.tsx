@@ -100,8 +100,8 @@ export default function Games() {
             <img src={gamesImg} alt="" role="presentation" className="h-48 w-full object-cover sm:h-56" width={800} height={512} loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
             <div className="absolute bottom-6 start-6 end-6 text-center">
-              <h1 className="text-4xl font-bold tracking-tight">{t("games.title")}</h1>
-              <p className="mt-2 text-lg text-muted-foreground">{t("games.subtitle")}</p>
+              <h1 className="type-heading">{t("games.title")}</h1>
+              <p className="mt-2 text-base text-muted-foreground sm:text-lg">{t("games.subtitle")}</p>
             </div>
           </div>
         </AnimatedSection>

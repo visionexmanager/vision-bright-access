@@ -43,41 +43,52 @@ export default function Leaderboard() {
   const podium = entries.slice(0, 3);
   const rest   = entries.slice(3);
 
-  const podiumStyle: Record<number, { ring: string; bg: string; icon: React.ReactNode; size: string }> = {
-    1: { ring: "ring-yellow-400/60",  bg: "bg-yellow-50 dark:bg-yellow-950/30",  icon: <Crown  className="h-5 w-5 text-yellow-500" aria-hidden="true" />, size: "h-16 w-16 text-xl" },
-    2: { ring: "ring-slate-400/50",   bg: "bg-slate-50 dark:bg-slate-900/30",    icon: <Medal  className="h-5 w-5 text-slate-400"  aria-hidden="true" />, size: "h-13 w-13 text-lg" },
-    3: { ring: "ring-amber-600/50",   bg: "bg-amber-50 dark:bg-amber-950/30",    icon: <Award  className="h-5 w-5 text-amber-600"  aria-hidden="true" />, size: "h-12 w-12 text-base" },
+  type PodiumMeta = { ringClass: string; bgClass: string; iconColor: string; podiumH: string; avatarSize: string; nameSize: string };
+  const podiumStyle: Record<number, PodiumMeta> = {
+    1: { ringClass: "ring-yellow-500/70",  bgClass: "bg-yellow-500/6 border-yellow-500/20",  iconColor: "text-yellow-500",  podiumH: "h-20", avatarSize: "h-16 w-16", nameSize: "text-base font-bold" },
+    2: { ringClass: "ring-zinc-400/50",    bgClass: "bg-zinc-500/5   border-zinc-400/20",    iconColor: "text-zinc-400",    podiumH: "h-12", avatarSize: "h-12 w-12", nameSize: "text-sm font-semibold" },
+    3: { ringClass: "ring-orange-600/50",  bgClass: "bg-orange-600/5 border-orange-600/20",  iconColor: "text-orange-600",  podiumH: "h-8",  avatarSize: "h-11 w-11", nameSize: "text-sm font-semibold" },
+  };
+
+  const podiumIcons: Record<number, React.ReactNode> = {
+    1: <Crown className="h-6 w-6 text-yellow-500" aria-hidden="true" />,
+    2: <Medal className="h-5 w-5 text-zinc-400"   aria-hidden="true" />,
+    3: <Award className="h-5 w-5 text-orange-600" aria-hidden="true" />,
   };
 
   return (
     <Layout>
       <section className="section-container py-12" aria-labelledby="leader-heading">
-        <h1 id="leader-heading" className="mb-2 text-3xl font-bold">{t("leader.title")}</h1>
+        <h1 id="leader-heading" className="type-heading mb-2">{t("leader.title")}</h1>
         <p className="mb-8 text-lg text-muted-foreground">{t("leader.subtitle")}</p>
 
         <WatchAdButton variant="banner" className="mb-6" />
 
-        {/* Podium — top 3 displayed prominently */}
+        {/* Podium — top 3 with staggered heights */}
         {!isLoading && podium.length >= 3 && (
-          <div className="mb-6 grid grid-cols-3 gap-3" aria-label={t("leader.title")}>
-            {[podium[1], podium[0], podium[2]].map((entry, visualIdx) => {
+          <div className="mb-8 flex items-end justify-center gap-3" aria-label={t("leader.title")}>
+            {([podium[1], podium[0], podium[2]] as typeof podium).map((entry, visualIdx) => {
               if (!entry) return null;
               const s = podiumStyle[entry.rank];
-              const isCenter = visualIdx === 1;
+              const isFirst = entry.rank === 1;
               return (
-                <div
-                  key={entry.user_id}
-                  className={`flex flex-col items-center gap-2 rounded-2xl border p-4 text-center transition-shadow ${s.bg} ${isCenter ? "ring-2 " + s.ring + " shadow-md" : "opacity-90"}`}
-                >
-                  {s.icon}
-                  <Avatar className={`ring-2 ${s.ring} ${isCenter ? "h-16 w-16" : "h-12 w-12"}`} aria-hidden="true">
-                    {entry.avatar_url && <AvatarImage src={entry.avatar_url} alt="" />}
-                    <AvatarFallback className="font-bold">{entry.display_name.charAt(0).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <p className="text-sm font-semibold leading-tight">{entry.display_name}</p>
-                  <Badge variant={entry.rank === 1 ? "default" : "secondary"} className="text-xs">
-                    {entry.total_points.toLocaleString()} {t("points.short")}
-                  </Badge>
+                <div key={entry.user_id} className="flex flex-col items-center gap-2 flex-1 max-w-[160px]">
+                  {/* Card above podium bar */}
+                  <div className={`w-full flex flex-col items-center gap-2 rounded-2xl border p-3 sm:p-4 text-center ${s.bgClass} ${isFirst ? "ring-2 " + s.ringClass + " shadow-lg shadow-yellow-500/10" : ""}`}>
+                    {podiumIcons[entry.rank]}
+                    <Avatar className={`ring-2 ${s.ringClass} ${s.avatarSize}`} aria-hidden="true">
+                      {entry.avatar_url && <AvatarImage src={entry.avatar_url} alt="" />}
+                      <AvatarFallback className="font-bold">{entry.display_name.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <p className={`leading-tight ${s.nameSize} truncate max-w-full px-1`}>{entry.display_name}</p>
+                    <Badge variant={isFirst ? "default" : "secondary"} className="text-xs">
+                      {entry.total_points.toLocaleString()} {t("points.short")}
+                    </Badge>
+                  </div>
+                  {/* Podium bar — different height per rank */}
+                  <div className={`w-full ${s.podiumH} rounded-t-sm ${isFirst ? "bg-yellow-500/20" : "bg-muted/60"} flex items-center justify-center`}>
+                    <span className="text-xs font-black text-muted-foreground/60">#{entry.rank}</span>
+                  </div>
                 </div>
               );
             })}

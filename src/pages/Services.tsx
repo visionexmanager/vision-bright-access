@@ -221,8 +221,8 @@ export default function Services() {
             <img src={servicesImg} alt="" role="presentation" className="h-48 w-full object-cover sm:h-56" loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
             <div className="absolute bottom-6 start-6 end-6">
-              <h1 id="services-heading" className="text-3xl font-bold text-foreground">{t("services.title")}</h1>
-              <p className="mt-1 text-lg text-muted-foreground">{t("services.subtitle")}</p>
+              <h1 id="services-heading" className="type-heading text-foreground">{t("services.title")}</h1>
+              <p className="mt-1 text-base text-muted-foreground sm:text-lg">{t("services.subtitle")}</p>
             </div>
           </div>
         </AnimatedSection>
