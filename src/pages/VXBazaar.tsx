@@ -659,7 +659,12 @@ export default function VXBazaar() {
     try {
       const inStockProducts = activeProducts.filter(p => p.in_stock);
       const context = `You are a helpful seller at "${activeShop?.name}", a shop in VXBazaar. Products: ${
-        inStockProducts.map(p => `${p.name} ($${p.price})`).join(", ") || "none listed yet"
+        inStockProducts.map(p => {
+          const vxPart = p.accepts_vx && p.price_vx ? `${p.price_vx} VX` : "";
+          const usdPart = p.accepts_cash && p.price_usd ? `$${p.price_usd}` : "";
+          const priceStr = [vxPart, usdPart].filter(Boolean).join(" / ") || `${p.price} VX`;
+          return `${p.name} (${priceStr})`;
+        }).join(", ") || "none listed yet"
       }. Be brief and helpful.`;
 
       const response = await aiService.streamChat([
@@ -1065,9 +1070,11 @@ export default function VXBazaar() {
 
                 {/* Action buttons */}
                 <div className="mt-8 flex flex-wrap justify-center gap-3">
+                  {!isOwner && (
                   <Button onClick={() => setView("chat")} className="rounded-full bg-blue-600 hover:bg-blue-500 px-7">
                     <MessageSquare className="me-2 h-4 w-4" /> {t("bazaar.talkToSeller")}
                   </Button>
+                  )}
                   {isOwner && (
                     <Button onClick={() => setView("manage")} className="rounded-full bg-emerald-600 hover:bg-emerald-500 px-7">
                       <Settings className="me-2 h-4 w-4" /> {t("bazaar.manageShop")}
@@ -1124,7 +1131,7 @@ export default function VXBazaar() {
                 </div>
                 <Input value={activeShop.whatsapp_number || ""}
                   onChange={event => setActiveShop({ ...activeShop, whatsapp_number: event.target.value })}
-                  placeholder="+965..." className="mt-3 border-white/20 bg-black/20 text-white" />
+                  placeholder="+1234567890" className="mt-3 border-white/20 bg-black/20 text-white" />
                 <p className="mt-1 text-xs text-stone-500">Use the full international number with country code.</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   {([
@@ -1526,7 +1533,7 @@ export default function VXBazaar() {
                   {createForm.whatsapp_notifications && (
                     <Input value={createForm.whatsapp_number}
                       onChange={event => setCreateForm(form => ({ ...form, whatsapp_number: event.target.value }))}
-                      placeholder="WhatsApp number, e.g. +965..." className="mt-3 bg-white/10 border-white/20 text-white" />
+                      placeholder="+1234567890" className="mt-3 bg-white/10 border-white/20 text-white" />
                   )}
                 </div>
 
