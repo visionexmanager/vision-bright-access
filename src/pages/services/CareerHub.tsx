@@ -60,7 +60,7 @@ export default function CareerHub() {
       if (!error) {
         setPointsAwarded(true);
         queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
-        toast.success(`+${CAREER_POINTS} VX earned!`);
+        toast.success(`+${CAREER_POINTS} ${t("career.vxEarned")}`);
       }
     }
     setAnalyzing(false);
@@ -129,7 +129,7 @@ export default function CareerHub() {
                   <h3 className="font-bold text-lg mb-2">{t("career.suggestedCareers")}</h3>
                   <p className="text-xl font-semibold text-primary">{result}</p>
                   <Badge className="mt-3" variant={pointsAwarded ? "default" : "secondary"}>
-                    {pointsAwarded ? `✓ +${CAREER_POINTS} VX ${t("career.earned") || "earned"}` : t("career.earnPoints")}
+                    {pointsAwarded ? `✓ +${CAREER_POINTS} ${t("career.vxEarned")}` : t("career.earnPoints")}
                   </Badge>
                 </div>
               )}

@@ -422,7 +422,7 @@ export default function RadarAI() {
                   onClick={() => speak(val, lang)}
                 >
                   <Volume2 className="h-3.5 w-3.5" />
-                  {t[key as keyof typeof t]}
+                  {t(`radar.${key}` as any)}
                 </Button>
               ))}
             </div>

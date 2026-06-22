@@ -4,12 +4,13 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Check, Tv, Zap, Crown } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Tv, Zap, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTVSubscription } from "@/hooks/useTVSubscription";
 import { TVSubscriptionStatus } from "@/components/tv/TVSubscriptionStatus";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const planIcons: Record<string, React.ReactNode> = {
   Daily:   <Zap className="w-6 h-6" />,
@@ -25,19 +26,22 @@ const planColors: Record<string, string> = {
   Yearly:  "border-yellow-400/40 bg-yellow-500/5 shadow-yellow-500/10",
 };
 
-const planBadge: Record<string, string | null> = {
-  Daily:   null,
-  Weekly:  null,
-  Monthly: "الأكثر شيوعاً",
-  Yearly:  "أفضل قيمة",
-};
-
 export default function LiveTVSubscribe() {
   const navigate  = useNavigate();
+  const { t, dir } = useLanguage();
+  const isRTL = dir === "rtl";
+  const BackIcon = isRTL ? ArrowRight : ArrowLeft;
   const { subscription, isSubscribed, daysRemaining, plans, subscribe } = useTVSubscription();
   const { balance } = useVXWallet();
   const { vxToLocal } = useCurrency();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  const planBadge: Record<string, string | null> = {
+    Daily:   null,
+    Weekly:  null,
+    Monthly: t("liveTV.mostPopular"),
+    Yearly:  t("liveTV.bestValue"),
+  };
 
   const handleSubscribe = async (planId: string) => {
     setLoadingId(planId);
@@ -48,18 +52,18 @@ export default function LiveTVSubscribe() {
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto px-4 py-12 space-y-10" dir="rtl">
+      <div className="max-w-5xl mx-auto px-4 py-12 space-y-10" dir={dir}>
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Link to="/services/live-tv" className="text-muted-foreground hover:text-foreground transition-colors">
-                <ArrowRight className="w-5 h-5" />
+                <BackIcon className="w-5 h-5" />
               </Link>
-              <h1 className="text-3xl font-bold text-foreground">اشتراك VisionTV</h1>
+              <h1 className="text-3xl font-bold text-foreground">{t("liveTV.subscribeTitle")}</h1>
             </div>
-            <p className="text-muted-foreground">اختر الخطة المناسبة لك واستمتع بمشاهدة آلاف القنوات</p>
+            <p className="text-muted-foreground">{t("liveTV.subscribeSubtitle")}</p>
           </div>
           <div className="flex flex-col items-end gap-2">
             <TVSubscriptionStatus
@@ -68,7 +72,7 @@ export default function LiveTVSubscribe() {
               daysRemaining={daysRemaining}
             />
             <p className="text-sm text-muted-foreground">
-              رصيدك: <span className="font-bold text-foreground">{balance.toLocaleString()} VX</span>
+              {t("liveTV.yourBalance")} <span className="font-bold text-foreground">{balance.toLocaleString()} VX</span>
             </p>
           </div>
         </div>
@@ -77,13 +81,13 @@ export default function LiveTVSubscribe() {
         {isSubscribed && (
           <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <p className="font-semibold text-green-600">لديك اشتراك نشط بالفعل</p>
+              <p className="font-semibold text-green-600">{t("liveTV.hasActiveSubscription")}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                ينتهي الاشتراك خلال <strong>{daysRemaining}</strong> {daysRemaining === 1 ? "يوم" : "أيام"}
+                {t("liveTV.expiresIn").replace("{n}", `${daysRemaining} ${daysRemaining === 1 ? t("liveTV.day") : t("liveTV.days")}`)}
               </p>
             </div>
             <Button asChild variant="outline" className="border-green-500/40 text-green-600 hover:bg-green-500/10">
-              <Link to="/services/live-tv">العودة للمشاهدة</Link>
+              <Link to="/services/live-tv">{t("liveTV.backToWatch")}</Link>
             </Button>
           </div>
         )}
@@ -126,7 +130,9 @@ export default function LiveTVSubscribe() {
                       <p className="text-xs text-muted-foreground mt-0.5">{local}</p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">
-                      {plan.duration_days === 1 ? "ليوم واحد" : `لمدة ${plan.duration_days} يوماً`}
+                      {plan.duration_days === 1
+                        ? t("liveTV.planOneDay")
+                        : t("liveTV.planNDays").replace("{n}", String(plan.duration_days))}
                     </p>
                   </div>
                 </CardHeader>
@@ -148,17 +154,17 @@ export default function LiveTVSubscribe() {
                     variant={badge ? "default" : "outline"}
                   >
                     {loadingId === plan.id
-                      ? "جاري الاشتراك…"
+                      ? t("liveTV.subscribingNow")
                       : isSubscribed
-                      ? "مشترك بالفعل"
+                      ? t("liveTV.alreadySubscribed")
                       : !enough
-                      ? "رصيد غير كافٍ"
-                      : "اشترك الآن"}
+                      ? t("liveTV.insufficientBalance")
+                      : t("liveTV.doSubscribeNow")}
                   </Button>
 
                   {!enough && !isSubscribed && (
                     <p className="text-xs text-center text-destructive">
-                      تحتاج {(plan.vx_price - balance).toLocaleString()} VX إضافية
+                      {t("liveTV.needMoreVX").replace("{n}", (plan.vx_price - balance).toLocaleString())}
                     </p>
                   )}
                 </CardContent>
@@ -169,7 +175,7 @@ export default function LiveTVSubscribe() {
 
         {/* Info note */}
         <p className="text-center text-sm text-muted-foreground">
-          يتم خصم رصيد VX فوراً عند الاشتراك · 1000 VX = 1 USD · لا استرداد بعد التفعيل
+          {t("liveTV.subscribeNote")}
         </p>
       </div>
     </Layout>
