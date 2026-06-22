@@ -22,6 +22,7 @@ import { speakText } from "@/lib/audio/speech";
 import { useAcademyProfile } from "@/hooks/academy/useAcademyProfile";
 import { useAcademyChat }    from "@/hooks/academy/useAcademyChat";
 import { usePoints }         from "@/hooks/usePoints";
+import { useLanguage }       from "@/contexts/LanguageContext";
 import type { StudentProfile } from "@/lib/types";
 
 const COUNTRIES = ["لبنان", "مصر", "السعودية", "تركيا", "أمريكا", "بلد آخر"];
@@ -45,12 +46,6 @@ function getXPLevel(xp: number) {
   return { label: current.label, current: xp - base, target: target - base, percent };
 }
 
-const speak = (text: string) => speakText(text, "ar", { rate: 0.9 });
-
-const formatTime = (ts?: number) => {
-  if (!ts) return "";
-  return new Date(ts).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" });
-};
 
 // ── Typing dots animation ────────────────────────────────────────────────────
 function TypingDots() {
@@ -69,6 +64,13 @@ function TypingDots() {
 
 export default function Academy() {
   const navigate = useNavigate();
+  const { lang } = useLanguage();
+
+  const speak = useCallback((text: string) => speakText(text, lang, { rate: 0.9 }), [lang]);
+  const formatTime = useCallback((ts?: number) => {
+    if (!ts) return "";
+    return new Date(ts).toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" });
+  }, [lang]);
 
   const [formProfile, setFormProfile] = useState<StudentProfile>({ name: "", gender: "male", country: "", level: "" });
   const [step, setStep]               = useState(1);
@@ -90,7 +92,7 @@ export default function Academy() {
     messages, isStreaming, isLoadingHistory,
     error: chatError, rateLimitCooldown,
     send: sendMessage, clearChat, abortStream,
-  } = useAcademyChat(studentForChat, sessionId);
+  } = useAcademyChat(studentForChat, sessionId, lang);
 
   const { totalPoints } = usePoints();
   const xpFromAcademy   = profile?.xp_total ?? 0;

@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { messages, studentProfile } = await req.json();
+    const { messages, studentProfile, language } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(
@@ -51,20 +51,37 @@ Deno.serve(async (req) => {
       throw new Error("OPENAI_API_KEY is not configured");
     }
 
-    const name = studentProfile?.name || "الطالب";
+    const lang = (language as string) || "ar";
+
+    // Map language codes to full names for the AI directive
+    const LANG_NAMES: Record<string, string> = {
+      ar: "Arabic",
+      en: "English",
+      fr: "French",
+      de: "German",
+      es: "Spanish",
+      zh: "Chinese (Simplified)",
+      ru: "Russian",
+      pt: "Portuguese",
+      hi: "Hindi",
+      tr: "Turkish",
+      ur: "Urdu",
+    };
+    const responseLang = LANG_NAMES[lang] ?? "English";
+
+    const name = studentProfile?.name || "Student";
     const gender = studentProfile?.gender || "male";
     const country = studentProfile?.country || "";
     const level = studentProfile?.level || "";
-    const genderWord = gender === "male" ? "الطالب" : "الطالبة";
 
     const systemPrompt = `أنت "منير" — مساعد أكاديمي ذكي ومرح في أكاديمية VisionEx العالمية.
 
 ## هويتك
 - اسمك "منير" وأنت معلم ومرشد أكاديمي افتراضي
-- تتحدث بلهجة عربية ودودة وبسيطة مناسبة لـ${genderWord} ${name}
 - أنت صبور، مشجع، وتحب تبسيط المفاهيم الصعبة
+- تخاطب الطالب باسمه أحياناً لتكون المحادثة شخصية
 
-## معلومات ${genderWord}
+## معلومات الطالب
 - الاسم: ${name}
 - الجنس: ${gender === "male" ? "ذكر" : "أنثى"}
 - البلد: ${country}
@@ -76,15 +93,16 @@ Deno.serve(async (req) => {
 3. **إنشاء جداول دراسية**: اقترح جداول مذاكرة مناسبة للمستوى والبلد
 4. **التوجيه المهني**: ساعد في اكتشاف الميول المهنية واقتراح مسارات مهنية
 5. **حل المسائل**: ساعد في حل المسائل خطوة بخطوة مع شرح كل خطوة
-6. **تحفيز وتشجيع**: شجع ${genderWord} دائماً وقدم نصائح للتفوق
+6. **تحفيز وتشجيع**: شجع الطالب دائماً وقدم نصائح للتفوق
 
 ## أسلوبك
 - استخدم لغة بسيطة ومفهومة مناسبة لمستوى "${level}"
 - قسّم الشرح لنقاط قصيرة
 - استخدم الإيموجي باعتدال للتوضيح 📚✨
-- إذا سألك ${genderWord} عن شيء خارج نطاقك، وجهه بلطف
-- خاطب ${name} باسمه أحياناً لتكون المحادثة شخصية
-- أجب دائماً بالعربية`;
+- إذا سألك الطالب عن شيء خارج نطاقك، وجهه بلطف
+
+## CRITICAL — Language Rule
+ALWAYS respond exclusively in ${responseLang}. Every single response must be in ${responseLang}, regardless of which language the student uses. Do NOT mix languages.`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",

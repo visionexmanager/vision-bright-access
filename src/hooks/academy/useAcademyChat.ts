@@ -42,7 +42,8 @@ export interface UseAcademyChatReturn {
 
 export function useAcademyChat(
   profile: StudentProfile | null,
-  sessionId: string
+  sessionId: string,
+  lang = "ar"
 ): UseAcademyChatReturn {
   const { user }       = useAuth();
   const queryClient    = useQueryClient();
@@ -99,7 +100,7 @@ export function useAcademyChat(
       try {
         const controller = new AbortController();
         const response   = await callAcademyChat(
-          { messages: apiMessages, studentProfile: profile },
+          { messages: apiMessages, studentProfile: profile, language: lang },
           controller.signal
         );
 

@@ -113,7 +113,7 @@ export async function callEdge(options: CallOptions): Promise<unknown> {
  * academy-chat — SSE streaming, requires user JWT
  */
 export async function callAcademyChat(
-  body: { messages: Array<{ role: string; content: string }>; studentProfile: Record<string, string> },
+  body: { messages: Array<{ role: string; content: string }>; studentProfile: Record<string, string>; language?: string },
   signal?: AbortSignal
 ): Promise<Response> {
   return callEdge({ fn: "academy-chat", body, auth: "user-jwt", stream: true, signal });
