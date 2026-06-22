@@ -127,7 +127,7 @@ export default function News() {
 
         {/* Articles */}
         {!loading && (
-          <StaggerGrid className="grid gap-6" role="list">
+          <StaggerGrid className="grid gap-4" role="list">
             {(filtered as (typeof STATIC_ITEMS[0] | DbArticle)[]).map((item, i) => {
               const isStatic = "titleKey" in item;
               const title       = isStatic ? t(item.titleKey as Parameters<typeof t>[0]) : (item as DbArticle).title;
@@ -140,26 +140,56 @@ export default function News() {
               const IconComp    = ICON_MAP[iconName] ?? Newspaper;
               const isFeatured  = i === 0;
 
+              /* Featured article — full-width editorial card */
+              if (isFeatured) {
+                return (
+                  <StaggerItem key={item.id} role="listitem">
+                    <Card className="border-primary/25 bg-gradient-to-br from-primary/8 via-primary/4 to-transparent overflow-hidden hover:shadow-lg transition-shadow">
+                      <CardContent className="p-0">
+                        <div className="flex flex-col sm:flex-row gap-0">
+                          {/* Color accent bar */}
+                          <div className="w-full sm:w-1.5 bg-primary shrink-0 min-h-[4px] sm:min-h-0" aria-hidden="true" />
+                          <div className="flex-1 p-6 sm:p-8">
+                            <div className="flex items-start gap-4">
+                              <div className="shrink-0 rounded-2xl bg-primary p-3.5 shadow-sm shadow-primary/20">
+                                <IconComp className="h-8 w-8 text-primary-foreground" aria-hidden="true" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 mb-3">
+                                  <Badge className="text-xs font-semibold">{t("news.featured") || "Latest"}</Badge>
+                                  <Badge variant="outline" className="text-xs capitalize">{t(`news.cat.${category}`) || category}</Badge>
+                                  <span className="text-xs text-muted-foreground">{dateStr}</span>
+                                </div>
+                                <CardTitle className="text-2xl sm:text-3xl leading-tight mb-3">{title}</CardTitle>
+                                <p className="text-base text-muted-foreground leading-relaxed">{description}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </StaggerItem>
+                );
+              }
+
+              /* Regular articles — compact horizontal row */
               return (
                 <StaggerItem key={item.id} role="listitem">
-                  <Card className={`transition-shadow hover:shadow-md ${isFeatured ? "border-primary/20 bg-primary/5" : ""}`}>
-                    <CardHeader className="flex-row items-start gap-4">
-                      <div className={`shrink-0 rounded-xl p-3 ${isFeatured ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
-                        <IconComp className={isFeatured ? "h-7 w-7 text-primary-foreground" : "h-5 w-5 text-primary"} aria-hidden="true" />
+                  <Card className="transition-shadow hover:shadow-md hover:border-border/80">
+                    <CardHeader className="flex-row items-center gap-3 py-4">
+                      <div className="shrink-0 rounded-lg bg-muted p-2.5">
+                        <IconComp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                       </div>
-                      <div className="flex-1">
-                        {isFeatured && <Badge className="mb-2 text-xs">{t("news.featured") || "Latest"}</Badge>}
-                        <CardTitle className={isFeatured ? "text-xl" : "text-lg"}>{title}</CardTitle>
-                        <CardDescription className="flex flex-wrap items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {t(`news.cat.${category}`) || category}
-                          </Badge>
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-base leading-snug truncate">{title}</CardTitle>
+                        <CardDescription className="flex flex-wrap items-center gap-2 mt-0.5">
+                          <Badge variant="outline" className="text-[10px] capitalize">{t(`news.cat.${category}`) || category}</Badge>
                           <span className="text-xs">{dateStr}</span>
                         </CardDescription>
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <p className={`text-muted-foreground ${isFeatured ? "text-base" : "text-sm"}`}>{description}</p>
+                    <CardContent className="pt-0 pb-4">
+                      <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
                     </CardContent>
                   </Card>
                 </StaggerItem>

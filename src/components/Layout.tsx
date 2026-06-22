@@ -65,68 +65,67 @@ export function Layout({ children }: { children: ReactNode }) {
       </main>
 
       <footer className="bg-card" role="contentinfo">
-        {/* Brand accent line — anchors footer visually to the product color */}
-        <div className="h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" aria-hidden="true" />
-        <div className="border-t border-border/60">
-          <div className="section-container py-8">
-            <NewsletterSubscribe />
+        {/* Top gradient bar — strong brand anchor */}
+        <div className="h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent" aria-hidden="true" />
 
-            {/* Sitemap columns */}
-            <div className="mt-8 grid gap-8 sm:grid-cols-3">
-              {/* Brand */}
-              <div>
-                <Link to="/" className="inline-block mb-1" aria-label="VisionEx home">
-                  <img
-                    src={logo}
-                    alt="VisionEx logo"
-                    className="h-10 w-auto object-contain"
-                    width={240}
-                    height={160}
-                  />
-                </Link>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                  {t("footer.brandDesc")}
-                </p>
-              </div>
+        <div className="section-container py-12">
+          <NewsletterSubscribe />
 
-              {/* Main pages */}
-              <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("footer.pages")}</p>
-                <ul className="space-y-2">
-                  {FOOTER_LINKS.pages.map((l) => (
-                    <li key={l.to}>
-                      <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                        {t(l.labelKey)}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* More */}
-              <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("footer.more")}</p>
-                <ul className="space-y-2">
-                  {FOOTER_LINKS.more.map((l) => (
-                    <li key={l.to}>
-                      <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                        {t(l.labelKey)}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {/* Bottom bar: legal + copyright in one row */}
-            <div className="mt-8 border-t pt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-              <Link to="/legal" className="text-xs font-semibold text-primary hover:underline transition-colors">
-                {t("footer.link.legalCenter")} →
+          {/* Sitemap columns */}
+          <div className="mt-10 grid gap-10 sm:grid-cols-3">
+            {/* Brand */}
+            <div className="sm:col-span-1">
+              <Link to="/" className="inline-block mb-3" aria-label="VisionEx home">
+                <img
+                  src={logo}
+                  alt="VisionEx logo"
+                  className="h-11 w-auto object-contain"
+                  width={240}
+                  height={160}
+                />
               </Link>
-              <small className="text-xs text-muted-foreground">
-                {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
-              </small>
+              <p className="text-sm text-muted-foreground leading-relaxed max-w-[22ch]">
+                {t("footer.brandDesc")}
+              </p>
             </div>
+
+            {/* Main pages */}
+            <div>
+              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-foreground/50">{t("footer.pages")}</p>
+              <ul className="space-y-2.5">
+                {FOOTER_LINKS.pages.map((l) => (
+                  <li key={l.to}>
+                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground hover:translate-x-0.5 transition-all inline-block">
+                      {t(l.labelKey)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* More */}
+            <div>
+              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-foreground/50">{t("footer.more")}</p>
+              <ul className="space-y-2.5">
+                {FOOTER_LINKS.more.map((l) => (
+                  <li key={l.to}>
+                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground hover:translate-x-0.5 transition-all inline-block">
+                      {t(l.labelKey)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="mt-10 border-t border-border/40 pt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+            <Link to="/legal" className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+              {t("footer.link.legalCenter")} →
+            </Link>
+            <small className="text-xs text-muted-foreground/70">
+              {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
+            </small>
           </div>
         </div>
       </footer>

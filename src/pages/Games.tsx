@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Coins } from "lucide-react";
+import { Search, Filter, Coins, Brain, Zap, Paintbrush2, Layers, Trophy } from "lucide-react";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { GAMING_PRICES, formatVX } from "@/systems/pricingSystem";
 import { toast } from "@/hooks/use-toast";
@@ -41,13 +41,13 @@ import akinatorImg from "@/assets/game-logiquest.jpg";
 // 5 semantic categories instead of 19 per-game categories
 type Category = "All" | "Brain" | "Action" | "Creative" | "Cards" | "Strategy";
 
-const CATEGORY_LABELS: Record<Category, string> = {
-  All:      "",
-  Brain:    "🧠 Brain",
-  Action:   "⚡ Action",
-  Creative: "🎨 Creative",
-  Cards:    "🃏 Cards & Dice",
-  Strategy: "🔮 Strategy",
+const CATEGORY_ICONS: Record<Category, React.ElementType | null> = {
+  All:      null,
+  Brain:    Brain,
+  Action:   Zap,
+  Creative: Paintbrush2,
+  Cards:    Layers,
+  Strategy: Trophy,
 };
 
 export default function Games() {
@@ -122,19 +122,25 @@ export default function Games() {
             />
           </div>
           <div className="flex flex-wrap gap-2" role="group" aria-label={t("games.filterByCategory")}>
-            {categories.map((cat) => (
-              <Button
-                key={cat}
-                size="sm"
-                variant={activeCategory === cat ? "default" : "outline"}
-                aria-pressed={activeCategory === cat}
-                onClick={() => setActiveCategory(cat)}
-                className="text-xs"
-              >
-                {cat === "All" && <Filter className="mr-1 h-3.5 w-3.5" aria-hidden="true" />}
-                {cat === "All" ? t("services.catAll") : CATEGORY_LABELS[cat]} {cat !== "All" && `(${games.filter(g => g.category === cat).length})`}
-              </Button>
-            ))}
+            {categories.map((cat) => {
+              const CatIcon = CATEGORY_ICONS[cat];
+              return (
+                <Button
+                  key={cat}
+                  size="sm"
+                  variant={activeCategory === cat ? "default" : "outline"}
+                  aria-pressed={activeCategory === cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className="text-xs gap-1.5"
+                >
+                  {cat === "All"
+                    ? <Filter className="h-3.5 w-3.5" aria-hidden="true" />
+                    : CatIcon && <CatIcon className="h-3.5 w-3.5" aria-hidden="true" />}
+                  {cat === "All" ? t("services.catAll") : cat}
+                  {cat !== "All" && <span className="opacity-60">({games.filter(g => g.category === cat).length})</span>}
+                </Button>
+              );
+            })}
           </div>
         </div>
 

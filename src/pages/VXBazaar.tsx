@@ -114,11 +114,18 @@ interface BazaarReview {
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const TIER_CONFIG: Record<Tier, { label: string; maxProducts: number; setupCost: number; rentCost: number; color: string; icon: string }> = {
-  kiosk:    { label: "Kiosk",    maxProducts: 10,       setupCost: 5_000,   rentCost: 1_000,  color: "#6b7280", icon: "🏪" },
-  boutique: { label: "Boutique", maxProducts: 50,       setupCost: 20_000,  rentCost: 3_000,  color: "#8b5cf6", icon: "🛍️" },
-  store:    { label: "Store",    maxProducts: 200,      setupCost: 60_000,  rentCost: 8_000,  color: "#3b82f6", icon: "🏬" },
-  flagship: { label: "Flagship", maxProducts: Infinity, setupCost: 150_000, rentCost: 20_000, color: "#f59e0b", icon: "👑" },
+const TIER_CONFIG: Record<Tier, { label: string; maxProducts: number; setupCost: number; rentCost: number; color: string }> = {
+  kiosk:    { label: "Kiosk",    maxProducts: 10,       setupCost: 5_000,   rentCost: 1_000,  color: "#6b7280" },
+  boutique: { label: "Boutique", maxProducts: 50,       setupCost: 20_000,  rentCost: 3_000,  color: "#8b5cf6" },
+  store:    { label: "Store",    maxProducts: 200,      setupCost: 60_000,  rentCost: 8_000,  color: "#3b82f6" },
+  flagship: { label: "Flagship", maxProducts: Infinity, setupCost: 150_000, rentCost: 20_000, color: "#f59e0b" },
+};
+
+const TIER_ICONS: Record<Tier, React.ElementType> = {
+  kiosk:    Store,
+  boutique: ShoppingCart,
+  store:    Package,
+  flagship: Crown,
 };
 
 const SIGN_STYLES: Record<string, string> = {
@@ -800,6 +807,7 @@ export default function VXBazaar() {
                   <div className="flex gap-8 overflow-x-hidden px-8">
                     {filteredShops.map(shop => {
                       const cfg = TIER_CONFIG[shop.tier];
+                      const TierIconComp = TIER_ICONS[shop.tier];
                       return (
                         <div key={shop.id + "-top"} className="min-w-[300px] md:min-w-[360px] flex-shrink-0">
                           {/* Rooftop decoration */}
@@ -824,8 +832,9 @@ export default function VXBazaar() {
                           </div>
                           {/* Tier label on building */}
                           <div className="flex justify-end pr-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" style={{ color: cfg.color, backgroundColor: cfg.color + "22" }}>
-                              {cfg.icon} {tierLabel(shop.tier)}
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1" style={{ color: cfg.color, backgroundColor: cfg.color + "22" }}>
+                              <TierIconComp className="h-3 w-3" aria-hidden="true" />
+                              {tierLabel(shop.tier)}
                             </span>
                           </div>
                         </div>
@@ -941,11 +950,15 @@ export default function VXBazaar() {
                   <div className="bg-black/80 border-l-4 px-5 py-3 rounded-e-lg" style={{ borderColor: activeShop.theme_color }}>
                     <div className="flex items-center gap-2">
                       <h2 className="text-2xl font-black md:text-3xl">{activeShop.name}</h2>
-                      {activeTierCfg && (
-                        <Badge className="text-xs" style={{ backgroundColor: activeTierCfg.color + "33", color: activeTierCfg.color, border: `1px solid ${activeTierCfg.color}55` }}>
-                          {activeTierCfg.icon} {tierLabel(activeShop.tier)}
-                        </Badge>
-                      )}
+                      {activeTierCfg && (() => {
+                        const TierIconActive = TIER_ICONS[activeShop.tier];
+                        return (
+                          <Badge className="text-xs flex items-center gap-1" style={{ backgroundColor: activeTierCfg.color + "33", color: activeTierCfg.color, border: `1px solid ${activeTierCfg.color}55` }}>
+                            <TierIconActive className="h-3 w-3" aria-hidden="true" />
+                            {tierLabel(activeShop.tier)}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                     {activeShop.description && <p className="mt-1 text-sm text-stone-300">{activeShop.description}</p>}
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -1458,7 +1471,9 @@ export default function VXBazaar() {
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-stone-300">{t("bazaar.chooseTier")}</label>
                   <div className="grid grid-cols-2 gap-3">
-                    {(Object.entries(TIER_CONFIG) as [Tier, typeof TIER_CONFIG.kiosk][]).map(([key, cfg]) => (
+                    {(Object.entries(TIER_CONFIG) as [Tier, typeof TIER_CONFIG.kiosk][]).map(([key, cfg]) => {
+                    const TierIconSel = TIER_ICONS[key];
+                    return (
                       <button
                         key={key}
                         onClick={() => setCreateForm(p => ({ ...p, tier: key }))}
@@ -1469,7 +1484,7 @@ export default function VXBazaar() {
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-lg">{cfg.icon}</span>
+                          <TierIconSel className="h-5 w-5" style={{ color: cfg.color }} aria-hidden="true" />
                           {createForm.tier === key && <Crown className="h-4 w-4 text-amber-400" />}
                         </div>
                         <p className="mt-1 font-bold">{tierLabel(key)}</p>
@@ -1477,7 +1492,8 @@ export default function VXBazaar() {
                         <p className="mt-2 text-xs font-bold text-amber-400">{t("bazaar.vxSetup").replace("{amount}", cfg.setupCost.toLocaleString())}</p>
                         <p className="text-xs text-stone-500">{t("bazaar.vxPerMonth").replace("{amount}", cfg.rentCost.toLocaleString())}</p>
                       </button>
-                    ))}
+                    );
+                  })}
                   </div>
                 </div>
 

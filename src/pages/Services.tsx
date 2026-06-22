@@ -535,8 +535,44 @@ export default function Services() {
               <p className="mt-1 text-muted-foreground max-w-xl">{t("services.proDesc")}</p>
             </div>
 
-            <StaggerGrid className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" role="list">
-              {ALL_PROFESSIONAL_SERVICES.map((s) => {
+            {/* Premium services — image hero cards */}
+            <StaggerGrid className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-4" role="list">
+              {PROFESSIONAL_SERVICES.map((s) => {
+                const serviceName = t(s.name as Parameters<typeof t>[0]);
+                const priceLabel = t("services.startsFrom").replace("{price}", formatVX(s.vx));
+                return (
+                  <StaggerItem key={s.to} role="listitem">
+                    <Link
+                      to={s.to}
+                      onClick={() => playSound("navigate")}
+                      className="group block h-full"
+                      aria-label={`${serviceName} - ${priceLabel}`}
+                    >
+                      <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                        <div className="relative h-28 w-full overflow-hidden">
+                          <img src={s.img} alt="" role="presentation" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
+                        </div>
+                        <CardContent className="p-4 pt-3">
+                          <div className={`mb-2 inline-flex rounded-md p-1.5 ${s.color.split(" ").find((c) => c.startsWith("bg-")) ?? ""}`} aria-hidden="true">
+                            <s.icon className={`h-4 w-4 ${s.color.split(" ").filter((c) => !c.startsWith("bg-")).join(" ")}`} />
+                          </div>
+                          <p className="font-semibold text-sm leading-snug group-hover:text-primary transition-colors">{serviceName}</p>
+                          <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary">
+                            <Coins className="h-3 w-3" aria-hidden="true" />
+                            {priceLabel}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  </StaggerItem>
+                );
+              })}
+            </StaggerGrid>
+
+            {/* Support services — compact list */}
+            <StaggerGrid className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3" role="list">
+              {SUPPORT_SERVICES.map((s) => {
                 const serviceName = t(s.name as Parameters<typeof t>[0]);
                 const serviceDesc = t(s.desc as Parameters<typeof t>[0]);
                 const priceLabel = t("services.startsFrom").replace("{price}", formatVX(s.vx));
@@ -548,21 +584,19 @@ export default function Services() {
                       className="group block h-full"
                       aria-label={`${serviceName} - ${priceLabel}`}
                     >
-                      <Card className="h-full transition-all hover:shadow-md hover:-translate-y-0.5">
-                        <CardContent className="flex items-start gap-4 p-5">
-                          <div className={`rounded-lg p-3 shrink-0 ${s.color.split(" ").find((c) => c.startsWith("bg-")) ?? ""}`} aria-hidden="true">
-                            <s.icon className={`h-5 w-5 ${s.color.split(" ").filter((c) => !c.startsWith("bg-")).join(" ")}`} aria-hidden="true" />
+                      <Card className="h-full transition-all hover:shadow-sm hover:border-primary/20">
+                        <CardContent className="flex items-center gap-3 p-4">
+                          <div className={`rounded-md p-2 shrink-0 ${s.color.split(" ").find((c) => c.startsWith("bg-")) ?? ""}`} aria-hidden="true">
+                            <s.icon className={`h-4 w-4 ${s.color.split(" ").filter((c) => !c.startsWith("bg-")).join(" ")}`} aria-hidden="true" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold">{serviceName}</p>
-                            <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">{serviceDesc}</p>
-                            <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary">
-                              <Coins className="h-3 w-3" aria-hidden="true" />
-                              <span className="sr-only">{t("services.cost")}</span>
-                              {priceLabel}
-                            </div>
+                            <p className="font-medium text-sm leading-snug">{serviceName}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{serviceDesc}</p>
                           </div>
-                          <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-1 group-hover:text-primary" aria-hidden="true" />
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="text-[10px] font-semibold text-primary whitespace-nowrap">{priceLabel}</span>
+                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
+                          </div>
                         </CardContent>
                       </Card>
                     </Link>

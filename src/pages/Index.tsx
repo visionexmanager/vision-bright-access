@@ -86,25 +86,32 @@ export default function Index() {
       </section>
 
       {/* How It Works */}
-      <section className="bg-muted/50 py-20" aria-labelledby="how-heading">
+      <section className="py-20" aria-labelledby="how-heading">
         <div className="section-container">
           <AnimatedSection>
-            <h2 id="how-heading" className="mb-12 text-center text-3xl font-bold">{t("home.howTitle")}</h2>
+            <div className="mb-12 text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-3">{t("home.howTitle")}</p>
+              <h2 id="how-heading" className="text-3xl font-bold sm:text-4xl">{t("home.howSubtitle") || t("home.howTitle")}</h2>
+            </div>
           </AnimatedSection>
-          <StaggerGrid className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {steps.map((s, idx) => (
               <StaggerItem key={s.num}>
-                <div className="relative flex flex-col items-center text-center">
+                <div className="relative flex flex-col gap-4 rounded-2xl border border-border/50 bg-card p-6 hover:border-primary/30 hover:shadow-sm transition-all">
                   {/* Connector line between steps on desktop */}
                   {idx < steps.length - 1 && (
-                    <div className="absolute top-7 start-[calc(50%+2rem)] hidden h-px w-[calc(100%-4rem)] border-t border-dashed border-primary/20 lg:block" aria-hidden="true" />
+                    <div className="absolute top-9 start-[calc(100%-0.5rem)] hidden h-px w-[calc(100%-3rem+1rem)] border-t border-dashed border-primary/20 lg:block" aria-hidden="true" />
                   )}
-                  <div className="relative mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-                    <s.icon className="h-6 w-6" aria-hidden="true" />
-                    <span className="absolute -top-2.5 -end-2.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-background bg-primary text-[10px] font-black text-primary-foreground" aria-hidden="true">{s.num}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <s.icon className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <span className="text-3xl font-black text-primary/15" aria-hidden="true">{s.num}</span>
                   </div>
-                  <h3 className="mb-2 text-lg font-bold">{s.title}</h3>
-                  <p className="text-sm text-muted-foreground">{s.desc}</p>
+                  <div>
+                    <h3 className="mb-1.5 text-base font-bold">{s.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
+                  </div>
                 </div>
               </StaggerItem>
             ))}
@@ -113,10 +120,13 @@ export default function Index() {
       </section>
 
       {/* Features */}
-      <section className="py-20" aria-labelledby="features-heading">
+      <section className="bg-muted/30 py-20" aria-labelledby="features-heading">
         <div className="section-container">
           <AnimatedSection>
-            <h2 id="features-heading" className="mb-12 text-center text-3xl font-bold">{t("home.featuresTitle")}</h2>
+            <div className="mb-12 text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-3">{t("home.featuresTitle")}</p>
+              <h2 id="features-heading" className="text-3xl font-bold sm:text-4xl">{t("home.featuresSubtitle") || t("home.featuresTitle")}</h2>
+            </div>
           </AnimatedSection>
           <StaggerGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((f, i) => {
@@ -125,13 +135,16 @@ export default function Index() {
               const locked = !user && f.requiresAuth;
               return (
                 <StaggerItem key={f.title} className={isFirst ? "sm:col-span-2 lg:col-span-2" : ""}>
-                  <Link to={locked ? "/signup" : f.to} className="group" onClick={() => playSound("navigate")}>
-                    <Card className={`h-full transition-all group-focus-visible:ring-4 group-focus-visible:ring-ring relative ${
+                  <Link to={locked ? "/signup" : f.to} className="group h-full block" onClick={() => playSound("navigate")}>
+                    <Card className={`h-full transition-all duration-200 group-focus-visible:ring-4 group-focus-visible:ring-ring relative overflow-hidden ${
                       isFirst
-                        ? "bg-primary/5 border-primary/20 hover:shadow-lg hover:border-primary/40"
-                        : "hover:shadow-md"
+                        ? "bg-primary text-primary-foreground border-primary hover:brightness-110 hover:shadow-xl hover:shadow-primary/20"
+                        : "hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5"
                     }`}>
-                      {locked && (
+                      {isFirst && (
+                        <div className="absolute -bottom-6 -end-6 h-32 w-32 rounded-full bg-white/5" aria-hidden="true" />
+                      )}
+                      {locked && !isFirst && (
                         <div className="absolute top-3 end-3">
                           <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs font-medium text-muted-foreground backdrop-blur-sm">
                             <Lock className="h-3 w-3" aria-hidden="true" />
@@ -142,18 +155,18 @@ export default function Index() {
                       <CardContent className={`flex flex-col items-start gap-3 ${isFirst ? "p-8" : "p-6"}`}>
                         <div className={`rounded-xl ${
                           isFirst
-                            ? "bg-primary p-4 shadow-sm shadow-primary/25"
+                            ? "bg-white/15 p-4"
                             : "bg-primary/10 p-3"
                         }`}>
                           <Icon
-                            className={`${isFirst ? "text-primary-foreground" : "text-primary"} ${isFirst ? "h-9 w-9" : "h-7 w-7"}`}
+                            className={isFirst ? "h-9 w-9 text-primary-foreground" : "h-7 w-7 text-primary"}
                             aria-hidden="true"
                           />
                         </div>
-                        <h3 className={`font-bold ${isFirst ? "text-2xl" : "text-lg"}`}>{f.title}</h3>
-                        <p className={`text-muted-foreground ${isFirst ? "" : "text-sm"}`}>{f.desc}</p>
+                        <h3 className={`font-bold ${isFirst ? "text-2xl text-primary-foreground" : "text-lg"}`}>{f.title}</h3>
+                        <p className={isFirst ? "text-primary-foreground/80" : "text-sm text-muted-foreground"}>{f.desc}</p>
                         {isFirst && (
-                          <span className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                          <span className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary-foreground/90 group-hover:gap-2 transition-all">
                             {t("footer.link.bazaar")} <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                           </span>
                         )}
@@ -168,23 +181,28 @@ export default function Index() {
       </section>
 
       {/* Points CTA */}
-      <section className="border-t border-primary/10 bg-primary/5 px-4 py-12 text-center" aria-labelledby="points-heading">
-        <AnimatedSection className="mx-auto max-w-2xl">
-          <h2 id="points-heading" className="mb-4 text-3xl font-bold">{t("home.pointsTitle")}</h2>
-          <p className="mb-6 text-muted-foreground">{t("home.pointsDesc")}</p>
+      <section className="relative overflow-hidden px-4 py-16 text-center" aria-labelledby="points-heading">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_70%_at_50%_50%,hsl(var(--primary)/0.10),transparent)]" aria-hidden="true" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" aria-hidden="true" />
+        <AnimatedSection className="relative mx-auto max-w-2xl">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-semibold text-primary uppercase tracking-wider">
+            VX Rewards
+          </div>
+          <h2 id="points-heading" className="mb-4 text-3xl font-bold sm:text-4xl">{t("home.pointsTitle")}</h2>
+          <p className="mb-8 text-muted-foreground max-w-lg mx-auto">{t("home.pointsDesc")}</p>
           {user ? (
             <Link to="/dashboard">
-              <Button size="default" className="font-semibold" onClick={() => playSound("navigate")}>{t("nav.dashboard")} <ArrowRight className="ms-2 h-4 w-4" /></Button>
+              <Button size="lg" className="font-semibold px-8" onClick={() => playSound("navigate")}>{t("nav.dashboard")} <ArrowRight className="ms-2 h-4 w-4" /></Button>
             </Link>
           ) : (
             <Link to="/signup">
-              <Button size="default" className="font-semibold" onClick={() => playSound("navigate")}>{t("home.claimPoints")}</Button>
+              <Button size="lg" className="font-semibold px-8" onClick={() => playSound("navigate")}>{t("home.claimPoints")}</Button>
             </Link>
           )}
         </AnimatedSection>
 
         {/* AdSense — bottom of home page */}
-        <AdBanner slot="3569383992" format="horizontal" className="mt-8 px-4" />
+        <AdBanner slot="3569383992" format="horizontal" className="mt-10 px-4" />
       </section>
     </Layout>
   );
