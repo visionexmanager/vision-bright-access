@@ -383,6 +383,7 @@ interface RoomContentProps {
 }
 
 function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUserId, roomId, raisedHands, roomPerms, onUpdatePerms, t, isOnStage, isListener, isStageMode, stageMembers, onPromoteToStage, onDemoteFromStage, joinTimeRef, voiceAiEnabled, voiceAiActivating, onActivateVoiceAi }: RoomContentProps) {
+  const { lang } = useLanguage();
   const participants = useParticipants();
   const { localParticipant, isScreenShareEnabled, isCameraEnabled } = useLocalParticipant();
   const localParticipantRef = useRef(localParticipant);
@@ -426,6 +427,20 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const [showQueue, setShowQueue] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const voiceEffectCleanupRef = useRef<(() => void) | null>(null);
+  const currentAiAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Stop voice-effect AudioContext + mic tracks, and any playing AI audio, when the room unmounts
+  useEffect(() => {
+    return () => {
+      voiceEffectCleanupRef.current?.();
+      voiceEffectCleanupRef.current = null;
+      if (currentAiAudioRef.current) {
+        currentAiAudioRef.current.pause();
+        currentAiAudioRef.current.src = "";
+        currentAiAudioRef.current = null;
+      }
+    };
+  }, []);
 
   // Screen share tracks for all participants
   const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
@@ -469,9 +484,17 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
 
   const playAiAudio = useCallback((audio: string) => {
     try {
+      // Stop any currently-playing AI audio before starting a new one
+      if (currentAiAudioRef.current) {
+        currentAiAudioRef.current.pause();
+        currentAiAudioRef.current.src = "";
+        currentAiAudioRef.current = null;
+      }
       const player = new Audio(`data:audio/mp3;base64,${audio}`);
       player.volume = 0.95;
-      void player.play().catch(() => {});
+      currentAiAudioRef.current = player;
+      player.onended = () => { currentAiAudioRef.current = null; };
+      void player.play().catch(() => { currentAiAudioRef.current = null; });
     } catch {
       // Browser autoplay policies may block this; the audio controls remain in chat.
     }
@@ -508,7 +531,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       const { data, error } = await supabase.functions.invoke("ai-voice-chat", {
         body: {
           assistant: "visionex",
-          language: "ar",
+          language: lang,
           messages: [
             { role: "user", content: roomContext },
             ...voiceAiSessionRef.current.slice(-10),
@@ -544,7 +567,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     } finally {
       setVoiceAiThinking(false);
     }
-  }, [roomId, voiceAiEnabled, voiceAiThinking, label]);
+  }, [roomId, voiceAiEnabled, voiceAiThinking, lang, label]);
 
   // Auto-scroll notifications panel
   useEffect(() => {
@@ -670,7 +693,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         }
       })
       .on("broadcast", { event: "chat_message" }, ({ payload }: { payload: ChatMessage }) => {
-        setChatMessages((prev) => [...prev, payload]);
+        setChatMessages((prev) => { const next = [...prev, payload]; return next.length > 200 ? next.slice(-200) : next; });
         allChatMessagesRef.current = [...allChatMessagesRef.current, payload].slice(-50);
         addEvent("💬", `${payload.senderName}: ${payload.text.slice(0, 60)}`);
         if (payload.kind === "ai" && payload.audio && !playedAiAudioIdsRef.current.has(payload.id)) {
