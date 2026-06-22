@@ -12,7 +12,6 @@ import {
   Briefcase, ShieldCheck, Download
 } from "lucide-react";
 import { toast } from "sonner";
-import jsPDF from "jspdf";
 import { AITaskPanel } from "@/components/AITaskPanel";
 import { speakText } from "@/lib/audio/speech";
 
@@ -71,8 +70,9 @@ export default function BusinessEconomy() {
     speak(t("econ.analysisComplete"), lang);
   };
 
-  const exportPDF = useCallback(() => {
+  const exportPDF = useCallback(async () => {
     if (!result) return;
+    const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     const isRtl = lang === "ar";
     
@@ -264,7 +264,7 @@ export default function BusinessEconomy() {
                         </div>
 
                         <Button
-                          onClick={exportPDF}
+                          onClick={() => void exportPDF()}
                           variant="outline"
                           className="w-full rounded-2xl font-bold gap-2 border-primary/30 hover:bg-primary/10"
                         >

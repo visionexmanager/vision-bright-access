@@ -3349,8 +3349,8 @@ export default function VoiceRoom() {
     const vxToAward = Math.min(Math.floor(minutes / 5), 20);
     if (vxToAward > 0) {
       toast({ title: t("vroom.vxEarned").replace("{vx}", String(vxToAward)), duration: 5000 });
-      // Attempt RPC grant (non-blocking)
-      supabase.rpc("grant_vx_to_user" as never, { user_id: user?.id, amount: vxToAward, reason: "voice_room_participation" } as never).catch(() => {});
+      // Non-blocking VX award for participation time
+      supabase.rpc("award_points", { _points: vxToAward, _reason: "voice_room_participation" }).catch(() => {});
     } else if (minutes > 0) {
       toast({ title: t("vroom.vxMinimum"), duration: 3000 });
     }

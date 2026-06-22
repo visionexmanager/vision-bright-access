@@ -18,8 +18,8 @@ export default defineConfig(() => ({
     },
   },
   build: {
-    // Raise warning threshold — we split manually below
-    chunkSizeWarningLimit: 600,
+    // VoiceRoom bundles livekit-client (~170 kB gzip) — already lazy-loaded, 700 kB raw is acceptable
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
         manualChunks: {

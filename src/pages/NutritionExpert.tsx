@@ -21,7 +21,6 @@ import {
 import { VoiceChat } from "@/components/VoiceChat";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import jsPDF from "jspdf";
 import { Progress } from "@/components/ui/progress";
 import WeeklyCalorieReport from "@/components/WeeklyCalorieReport";
 import MealReminders from "@/components/MealReminders";
@@ -304,8 +303,9 @@ export default function NutritionExpert() {
     fetchMealLogs();
   };
 
-  const exportPlanAsPdf = () => {
+  const exportPlanAsPdf = async () => {
     if (!dietPlan) return;
+    const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     const isAr = lang === "ar";
     const margin = 20;
@@ -716,7 +716,7 @@ export default function NutritionExpert() {
                         {dietPlan && (
                           <>
                             <Button
-                              onClick={exportPlanAsPdf}
+                              onClick={() => void exportPlanAsPdf()}
                               size="sm"
                               variant="outline"
                               className="rounded-xl gap-1"
