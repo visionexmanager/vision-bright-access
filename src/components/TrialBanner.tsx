@@ -12,24 +12,21 @@ export function TrialBanner() {
 
   const isWarning = trialDaysLeft <= 3;
 
-  const fixPlural = (text: string, n: number) =>
-    n === 1 ? text.replace(/\b1 days\b/g, "1 day") : text;
+  const daysLabel = trialDaysLeft === 0 ? t("trial.today") || "today" : String(trialDaysLeft);
 
   const warningRaw = t("trial.endingSoon");
-  const warningText = fixPlural(
+  const warningText =
     (warningRaw && warningRaw !== "trial.endingSoon")
-      ? warningRaw.replace("{days}", String(trialDaysLeft))
-      : `Free trial ends in ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} — collect VX coins to keep using all features`,
-    trialDaysLeft
-  );
+      ? warningRaw.replace("{days}", daysLabel)
+      : trialDaysLeft === 0
+        ? "Free trial expires today — upon expiry, all platform services will be billed from your VX balance"
+        : `Free trial ends in ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} — upon expiry, all platform services will be billed from your VX balance`;
 
   const activeRaw = t("trial.active");
-  const activeText = fixPlural(
+  const activeText =
     (activeRaw && activeRaw !== "trial.active")
-      ? activeRaw.replace("{days}", String(trialDaysLeft))
-      : `Free trial active — ${trialDaysLeft} days remaining, all features unlocked`,
-    trialDaysLeft
-  );
+      ? activeRaw.replace("{days}", daysLabel)
+      : `Free trial active — ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} remaining, enjoy all features at no cost`;
 
   return (
     <div

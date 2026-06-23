@@ -18,8 +18,10 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-const trialExpiresAtFromNow = () =>
-  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+const TRIAL_DAYS = 30;
+
+const trialExpiresFrom = (registeredAt: string | Date) =>
+  new Date(new Date(registeredAt).getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
 async function ensureUserEntitlements(user: User) {
   const displayName =
@@ -28,9 +30,12 @@ async function ensureUserEntitlements(user: User) {
     user.email ||
     "Player";
 
+  // created_at from auth.users comes through user.created_at
+  const registeredAt = user.created_at ?? new Date().toISOString();
+
   const profiles = supabase.from("profiles") as any;
   const { data } = await profiles
-    .select("user_id, display_name, trial_expires_at")
+    .select("user_id, display_name, trial_expires_at, created_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -38,14 +43,19 @@ async function ensureUserEntitlements(user: User) {
     await profiles.insert({
       user_id: user.id,
       display_name: displayName,
-      trial_expires_at: trialExpiresAtFromNow(),
+      // Anchor trial to auth registration time so existing sessions don't get extra time
+      trial_expires_at: trialExpiresFrom(registeredAt),
     });
     return;
   }
 
   const updates: Record<string, string> = {};
   if (!data.display_name) updates.display_name = displayName;
-  if (!data.trial_expires_at) updates.trial_expires_at = trialExpiresAtFromNow();
+  if (!data.trial_expires_at) {
+    // Use profile created_at (or auth created_at) — never Date.now() for existing users
+    const anchor = data.created_at ?? registeredAt;
+    updates.trial_expires_at = trialExpiresFrom(anchor);
+  }
 
   if (Object.keys(updates).length > 0) {
     await profiles.update(updates).eq("user_id", user.id);
