@@ -104,10 +104,10 @@ const INJECTED_CSS = `
   0%   { transform: translateY(0) translateX(0) scale(0) rotate(-10deg); opacity: 0; }
   5%   { transform: translateY(-12px) translateX(0) scale(1.5) rotate(5deg); opacity: 1; }
   12%  { transform: translateY(-26px) translateX(calc(var(--pr-drift) * 0.08)) scale(1) rotate(0deg); opacity: 1; }
-  38%  { transform: translateY(-105px) translateX(calc(var(--pr-drift) * 0.5)); opacity: 0.88; }
-  63%  { transform: translateY(-195px) translateX(calc(var(--pr-drift) * 0.85)); opacity: 0.52; }
-  82%  { transform: translateY(-265px) translateX(var(--pr-drift)); opacity: 0.22; }
-  100% { transform: translateY(-330px) translateX(calc(var(--pr-drift) * 0.6)); opacity: 0; }
+  60%  { transform: translateY(-165px) translateX(calc(var(--pr-drift) * 0.6)); opacity: 1; }
+  78%  { transform: translateY(-250px) translateX(calc(var(--pr-drift) * 0.9)); opacity: 0.8; }
+  92%  { transform: translateY(-310px) translateX(var(--pr-drift)); opacity: 0.3; }
+  100% { transform: translateY(-350px) translateX(calc(var(--pr-drift) * 0.7)); opacity: 0; }
 }
 
 @keyframes pr-glow-pulse {
@@ -200,7 +200,7 @@ export function createFloatingReaction(emoji: string): PremiumFloatingReaction {
     emoji,
     x:     5 + Math.random() * 82,
     drift: (Math.random() - 0.5) * 130,
-    speed: 2500 + Math.random() * 900,
+    speed: 3500 + Math.random() * 1500,
     size:  2.2 + Math.random() * 1.1,
     glow:  getGlow(emoji),
   };
