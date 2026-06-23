@@ -128,6 +128,98 @@ const componentRegistry: Record<string, React.LazyExoticComponent<ComponentType<
       default: m.MarineVesselSimulation,
     }))
   ),
+
+  // ── Service Consultation Simulations ──────────────────────────────────
+  "svc-hair-care": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-skin-care": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-social-guide": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-delivery": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-shared-trip": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-sports-coach": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-empathy-oasis": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-nutrition": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-medical": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-psychology": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-travel-agency": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-music": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-studio": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-legal": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-radar-ai": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-economy": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-career": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
+  "svc-edu-empire": lazy(() =>
+    import("@/pages/simulations/ServiceConsultationSimulation").then((m) => ({
+      default: m.ServiceConsultationSimulation,
+    }))
+  ),
 };
 
 export function getSimulationComponent(slug: string) {

@@ -78,28 +78,6 @@ const EDUCATION_SERVICES = [
   { icon: FileText,      name: "ocr.serviceTitle",     desc: "ocr.serviceDesc",       vx: 10,      to: "/services/ocr-scan",            color: CLR.tech  }, // $0.01
 ] as const;
 
-const SUPPORT_SERVICES = [
-  { icon: Scissors,    name: "svc.hairTitle",          desc: "svc.hairDesc",          vx: 500,     to: "/services/hair-care",           color: CLR.green }, // $0.50
-  { icon: Sparkles,    name: "svc.skinTitle",          desc: "svc.skinDesc",          vx: 800,     to: "/services/skin-care",           color: CLR.green }, // $0.80
-  { icon: Users,       name: "svc.socialTitle",        desc: "svc.socialDesc",        vx: 1_000,   to: "/services/social-guide",        color: CLR.blue  }, // $1
-  { icon: Truck,       name: "delivery.serviceTitle",  desc: "delivery.serviceDesc",  vx: 1_500,   to: "/services/delivery",            color: CLR.amber }, // $1.50
-  { icon: MapPin,      name: "delivery.tripTitle",     desc: "delivery.tripDesc",     vx: 500,     to: "/services/shared-trip",         color: CLR.amber }, // $0.50
-  { icon: Dumbbell,    name: "svc.sportsTitle",        desc: "svc.sportsDesc",        vx: 2_000,   to: "/services/sports-coach",        color: CLR.green }, // $2
-  { icon: Heart,       name: "oasis.serviceTitle",     desc: "oasis.serviceDesc",     vx: 3_000,   to: "/services/empathy-oasis",       color: CLR.green }, // $3
-  { icon: Heart,       name: "nutrition.serviceTitle", desc: "nutrition.serviceDesc", vx: 4_000,   to: "/services/nutrition",           color: CLR.green }, // $4
-  { icon: Stethoscope, name: "svc.medicalTitle",       desc: "svc.medicalDesc",       vx: 6_000,   to: "/services/medical-support",     color: CLR.green }, // $6
-  { icon: Brain,       name: "svc.psychTitle",         desc: "svc.psychDesc",         vx: 8_000,   to: "/services/psychology",          color: CLR.green }, // $8
-  { icon: Plane,       name: "svc.travelTitle",        desc: "svc.travelDesc",        vx: 10_000,  to: "/services/travel-agency",       color: CLR.blue  }, // $10
-  { icon: Music,       name: "music.title",            desc: "music.subtitle",        vx: 12_000,  to: "/services/music-conservatory",  color: CLR.blue  }, // $12
-  { icon: Video,       name: "studio.title",           desc: "studio.subtitle",       vx: 15_000,  to: "/services/global-studio",       color: CLR.blue  }, // $15
-  { icon: Scale,       name: "svc.legalTitle",         desc: "svc.legalDesc",         vx: 20_000,  to: "/services/legal-advisor",       color: CLR.amber }, // $20
-  { icon: ScanLine,    name: "radar.serviceTitle",     desc: "radar.serviceDesc",     vx: 25_000,  to: "/services/radar-ai",            color: CLR.tech  }, // $25
-  { icon: BarChart3,   name: "econ.title",             desc: "econ.subtitle",         vx: 30_000,  to: "/services/economy",             color: CLR.amber }, // $30
-  { icon: Briefcase,   name: "career.title",           desc: "career.subtitle",       vx: 40_000,  to: "/services/career-hub",          color: CLR.amber }, // $40
-  { icon: Globe,       name: "empire.serviceTitle",    desc: "empire.serviceDesc",    vx: 60_000,  to: "/services/educational-empire",  color: CLR.blue  }, // $60
-] as const;
-
-const ALL_PROFESSIONAL_SERVICES = [...PROFESSIONAL_SERVICES, ...SUPPORT_SERVICES] as const;
 
 const DIFFICULTY_COLOR: Record<string, string> = {
   Beginner:     "bg-green-600/20 text-green-500 border-green-600/30",
@@ -133,6 +111,26 @@ const SIM_BRIEFS: Record<string, { en: string; ar: string }> = {
   "trade-tycoon": { en: "Buy, sell, and manage cash flow across active markets.", ar: "اشترِ وبِع وأدر السيولة في أسواق متحركة." },
   "vehicle-diagnostics": { en: "Diagnose vehicle faults and choose the right repair path.", ar: "شخّص أعطال المركبات واختر مسار الإصلاح المناسب." },
   "marine-vessel": { en: "Plan vessel operations, navigation, and maritime logistics.", ar: "خطط لتشغيل السفن والملاحة والخدمات البحرية." },
+
+  // Service Consultation Simulations
+  "svc-hair-care":     { en: "Consult an AI stylist for personalized hair care routines and treatments.", ar: "استشر خبير شعر ذكي للحصول على روتين عناية وعلاجات مخصصة." },
+  "svc-skin-care":     { en: "Get expert AI guidance on skincare routines and treatments for your skin type.", ar: "احصل على إرشادات خبير الذكاء الاصطناعي لروتين عناية البشرة المناسب لك." },
+  "svc-social-guide":  { en: "Develop your social skills and emotional intelligence through AI coaching.", ar: "طوّر مهاراتك الاجتماعية وذكاءك العاطفي مع التدريب بالذكاء الاصطناعي." },
+  "svc-delivery":      { en: "Simulate urban delivery management: routes, drivers, and logistics optimization.", ar: "محاكاة إدارة التوصيل الحضري: المسارات والسائقون وتحسين اللوجستيات." },
+  "svc-shared-trip":   { en: "Plan and coordinate group trips with AI for routes, costs, and schedules.", ar: "خطط ونسق رحلات المجموعة بالذكاء الاصطناعي للمسارات والتكاليف والجداول." },
+  "svc-sports-coach":  { en: "Train with an AI fitness coach: custom workouts, nutrition, and progress tracking.", ar: "تدرّب مع مدرب لياقة ذكي: تمارين مخصصة وتغذية وتتبع التقدم." },
+  "svc-empathy-oasis": { en: "A safe, compassionate AI space for emotional wellness and mindfulness support.", ar: "مساحة ذكاء اصطناعي آمنة ومتعاطفة لدعم الصحة العاطفية واليقظة الذهنية." },
+  "svc-nutrition":     { en: "Receive a personalized nutrition plan and dietary advice from an AI nutritionist.", ar: "احصل على خطة تغذية مخصصة ونصائح غذائية من خبير تغذية ذكاء اصطناعي." },
+  "svc-medical":       { en: "Discuss symptoms and get health guidance in a private virtual medical clinic.", ar: "ناقش الأعراض واحصل على إرشادات صحية في عيادة طبية افتراضية خاصة." },
+  "svc-psychology":    { en: "Explore your thoughts and emotions with an AI mental health practitioner.", ar: "استكشف أفكارك ومشاعرك مع أخصائي صحة نفسية بالذكاء الاصطناعي." },
+  "svc-travel-agency": { en: "Design your perfect trip with an AI travel expert: itineraries, budgets, bookings.", ar: "صمّم رحلتك المثالية مع خبير سفر ذكي: برامج وميزانيات وحجوزات." },
+  "svc-music":         { en: "Learn music theory and technique with an AI conservatory instructor at your level.", ar: "تعلّم نظرية الموسيقى والتقنية مع مدرس معهد موسيقى ذكاء اصطناعي بمستواك." },
+  "svc-studio":        { en: "Collaborate with an AI creative director on media projects and content strategy.", ar: "تعاون مع مدير إبداعي ذكاء اصطناعي في مشاريع الإعلام واستراتيجية المحتوى." },
+  "svc-legal":         { en: "Get clear legal guidance on contracts, rights, and business law from an AI advisor.", ar: "احصل على إرشادات قانونية واضحة حول العقود والحقوق وقانون الأعمال." },
+  "svc-radar-ai":      { en: "Use AI intelligence scanning to analyze data, trends, and strategic risks.", ar: "استخدم مسح استخبارات الذكاء الاصطناعي لتحليل البيانات والاتجاهات والمخاطر." },
+  "svc-economy":       { en: "Explore VX economic models, market dynamics, and investment strategies with AI.", ar: "استكشف النماذج الاقتصادية لـ VX وديناميكيات السوق واستراتيجيات الاستثمار." },
+  "svc-career":        { en: "Accelerate your career with AI coaching, resume guidance, and interview prep.", ar: "طوّر مسيرتك المهنية مع تدريب ذكاء اصطناعي وإرشادات السيرة الذاتية والمقابلات." },
+  "svc-edu-empire":    { en: "Build world-class educational programs with AI guidance on curriculum and strategy.", ar: "ابنِ برامج تعليمية عالمية المستوى مع توجيه الذكاء الاصطناعي في المنهج والاستراتيجية." },
 };
 
 // ── Component ──────────────────────────────────────────────────────────
@@ -570,40 +568,6 @@ export default function Services() {
               })}
             </StaggerGrid>
 
-            {/* Support services — compact list */}
-            <StaggerGrid className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3" role="list">
-              {SUPPORT_SERVICES.map((s) => {
-                const serviceName = t(s.name as Parameters<typeof t>[0]);
-                const serviceDesc = t(s.desc as Parameters<typeof t>[0]);
-                const priceLabel = t("services.startsFrom").replace("{price}", formatVX(s.vx));
-                return (
-                  <StaggerItem key={s.to} role="listitem">
-                    <Link
-                      to={s.to}
-                      onClick={() => playSound("navigate")}
-                      className="group block h-full"
-                      aria-label={`${serviceName} - ${priceLabel}`}
-                    >
-                      <Card className="h-full transition-all hover:shadow-sm hover:border-primary/20">
-                        <CardContent className="flex items-center gap-3 p-4">
-                          <div className={`rounded-md p-2 shrink-0 ${s.color.split(" ").find((c) => c.startsWith("bg-")) ?? ""}`} aria-hidden="true">
-                            <s.icon className={`h-4 w-4 ${s.color.split(" ").filter((c) => !c.startsWith("bg-")).join(" ")}`} aria-hidden="true" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium text-sm leading-snug">{serviceName}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{serviceDesc}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="text-[10px] font-semibold text-primary whitespace-nowrap">{priceLabel}</span>
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  </StaggerItem>
-                );
-              })}
-            </StaggerGrid>
           </AnimatedSection>
         )}
 
