@@ -2352,6 +2352,7 @@ export const translations: Record<string, string> = {
   "games.akinator.desc": "Piensa en algo y responde preguntas mientras la IA intenta adivinarlo.",
   "trial.active": "Prueba gratuita activa — {days} día(s) restante(s), disfruta de todos los servicios sin costo",
   "trial.endingSoon": "La prueba gratuita termina en {days} día(s) — al vencer, todos los servicios de la plataforma se cobrarán de tu saldo VX",
+  "trial.expiresToday": "Tu prueba gratuita vence hoy — al vencer, todos los servicios de la plataforma se cobrarán de tu saldo VX",
   "games.noResults": "No se encontraron juegos que coincidan con tu búsqueda.",
   "games.filterByCategory": "Filtrar por categoría",
   "games.cat.Quiz": "Trivia",

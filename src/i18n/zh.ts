@@ -2353,6 +2353,7 @@ export const translations: Record<string, string> = {
   "games.akinator.desc": "想一个东西并回答问题，让 AI 尝试猜出来。",
   "trial.active": "免费试用中 — 剩余 {days} 天，所有服务免费畅享",
   "trial.endingSoon": "免费试用将在 {days} 天后结束 — 到期后，平台所有服务将从您的 VX 余额中扣除",
+  "trial.expiresToday": "您的免费试用今天到期 — 到期后，平台所有服务将从您的 VX 余额中扣除",
   "settings.notifRevokeHint": "要完全禁用通知，请在浏览器的网站设置中将此网站的通知设为「阻止」。",
   "games.noResults": "未找到匹配你搜索的游戏。",
   "games.filterByCategory": "按类别筛选",

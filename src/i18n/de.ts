@@ -2352,6 +2352,7 @@ export const translations: Record<string, string> = {
   "games.akinator.desc": "Denk an etwas und beantworte Fragen, während die KI versucht, es zu erraten.",
   "trial.active": "Kostenlose Testversion aktiv — noch {days} Tag(e), alle Funktionen kostenlos verfügbar",
   "trial.endingSoon": "Kostenlose Testversion endet in {days} Tag(en) — nach Ablauf werden alle Plattformdienste mit VX-Münzen abgerechnet",
+  "trial.expiresToday": "Ihre kostenlose Testversion endet heute — nach Ablauf werden alle Plattformdienste mit VX-Münzen abgerechnet",
   "games.noResults": "Keine Spiele entsprechen deiner Suche.",
   "games.filterByCategory": "Nach Kategorie filtern",
   "games.cat.Quiz": "Quiz",

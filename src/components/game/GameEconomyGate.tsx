@@ -38,6 +38,11 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
   const settledRef = useRef(false);
   const entryKey = `${location.pathname}:${gameTitle}`;
 
+  // Hold latest spendVX in a ref so the entry effect doesn't re-fire when
+  // balance updates (which recreates spendVX on every successful charge).
+  const spendVXRef = useRef(spendVX);
+  useEffect(() => { spendVXRef.current = spendVX; }, [spendVX]);
+
   useEffect(() => {
     let cancelled = false;
     settledRef.current = false;
@@ -51,7 +56,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
         return;
       }
 
-      const ok = await spendVX(
+      const ok = await spendVXRef.current(
         GAMING_PRICES.singlePlay,
         "game-entry",
         gameTitle,
@@ -75,7 +80,10 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
     return () => {
       cancelled = true;
     };
-  }, [entryKey, gameTitle, location.pathname, spendVX, user]);
+  // Only re-run when the user or the game route changes — NOT when spendVX
+  // recreates after a balance update, which was causing repeated charges.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entryKey, user?.id]);
 
   const settleGameResult = useCallback(
     async (result: GameResult, resultLabel?: string) => {
@@ -120,8 +128,8 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
 
   if (entryStatus === "loading") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div role="status" aria-live="polite" className="flex min-h-screen flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
         {t("game.chargingEntry").replace("{n}", String(GAMING_PRICES.singlePlay))}
       </div>
     );

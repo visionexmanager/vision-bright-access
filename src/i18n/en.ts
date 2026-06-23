@@ -2266,6 +2266,7 @@ export const translations: Record<string, string> = {
   "vx.balance": "Balance:",
   "trial.active": "Free trial active — {days} days remaining, enjoy all features at no cost",
   "trial.endingSoon": "Free trial ends in {days} day(s) — upon expiry, all platform services will be charged from your VX balance",
+  "trial.expiresToday": "Free trial expires today — upon expiry, all platform services will be charged from your VX balance",
   "games.noResults": "No games found matching your search.",
   "games.filterByCategory": "Filter by category",
   "games.cat.Quiz": "Quiz",

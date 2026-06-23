@@ -2355,6 +2355,7 @@ export const translations: Record<string, string> = {
   "games.akinator.desc": "Bir şey düşün ve yapay zeka tahmin etmeye çalışırken soruları yanıtla.",
   "trial.active": "Ücretsiz deneme aktif — {days} gün kaldı, tüm hizmetlerin keyfini ücretsiz çıkarın",
   "trial.endingSoon": "Ücretsiz deneme {days} gün içinde bitiyor — süre dolduğunda tüm platform hizmetleri VX bakiyenizden ücretlendirilecektir",
+  "trial.expiresToday": "Ücretsiz denemeniz bugün sona eriyor — süre dolduğunda tüm platform hizmetleri VX bakiyenizden ücretlendirilecektir",
   "settings.notifRevokeHint": "Bildirimleri tamamen devre dışı bırakmak için tarayıcınızın site ayarlarını açın ve Bildirimler'i \"Engelle\" olarak ayarlayın.",
   "games.noResults": "Aramanızla eşleşen oyun bulunamadı.",
   "games.filterByCategory": "Kategoriye göre filtrele",

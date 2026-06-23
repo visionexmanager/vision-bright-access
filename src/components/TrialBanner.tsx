@@ -12,20 +12,23 @@ export function TrialBanner() {
 
   const isWarning = trialDaysLeft <= 3;
 
-  const daysLabel = trialDaysLeft === 0 ? t("trial.today") || "today" : String(trialDaysLeft);
-
-  const warningRaw = t("trial.endingSoon");
-  const warningText =
-    (warningRaw && warningRaw !== "trial.endingSoon")
-      ? warningRaw.replace("{days}", daysLabel)
-      : trialDaysLeft === 0
-        ? "Free trial expires today — upon expiry, all platform services will be billed from your VX balance"
-        : `Free trial ends in ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} — upon expiry, all platform services will be billed from your VX balance`;
+  const warningText = (() => {
+    if (trialDaysLeft === 0) {
+      const msg = t("trial.expiresToday");
+      return msg !== "trial.expiresToday"
+        ? msg
+        : "Free trial expires today — upon expiry, all platform services will be charged from your VX balance";
+    }
+    const msg = t("trial.endingSoon");
+    return msg !== "trial.endingSoon"
+      ? msg.replace("{days}", String(trialDaysLeft))
+      : `Free trial ends in ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} — upon expiry, all platform services will be charged from your VX balance`;
+  })();
 
   const activeRaw = t("trial.active");
   const activeText =
     (activeRaw && activeRaw !== "trial.active")
-      ? activeRaw.replace("{days}", daysLabel)
+      ? activeRaw.replace("{days}", String(trialDaysLeft))
       : `Free trial active — ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} remaining, enjoy all features at no cost`;
 
   return (
