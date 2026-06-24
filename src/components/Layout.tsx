@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, lazy, Suspense, createContext, useContext } from "react";
+import { ReactNode, useEffect, lazy, Suspense, createContext, useContext, useState } from "react";
 
 /* ── Embedded mode — suppresses Navbar/Footer when rendering inside a Sheet ── */
 const EmbeddedCtx = createContext(false);
@@ -42,12 +42,14 @@ export function Layout({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
   const { pathname } = useLocation();
   const isEmbedded = useContext(EmbeddedCtx);
+  const [routeAnnouncement, setRouteAnnouncement] = useState("");
   useMessageNotifications();
 
   useEffect(() => {
     if (isEmbedded) return;
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     document.getElementById("main-content")?.focus();
+    setRouteAnnouncement(`${t("nav.mainContent") || "Main content"}: ${document.title}`);
   }, [pathname, isEmbedded]);
 
   /* In embedded mode (inside LegalCenter Sheet) — render content only */
@@ -58,6 +60,9 @@ export function Layout({ children }: { children: ReactNode }) {
       <a href="#main-content" className="skip-link" aria-label={t("nav.skipToContent")}>
         {t("nav.skipToContent")}
       </a>
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {routeAnnouncement}
+      </div>
       <Navbar />
       <TrialBanner />
       <main id="main-content" tabIndex={-1} aria-label={t("nav.mainContent") || "Main content"} className="flex-1 animate-page-in">
@@ -90,8 +95,8 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
 
             {/* Main pages */}
-            <div>
-              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-foreground/50">{t("footer.pages")}</p>
+            <nav aria-labelledby="footer-pages-heading">
+              <h2 id="footer-pages-heading" className="mb-4 text-xs font-bold uppercase tracking-widest text-foreground/50">{t("footer.pages")}</h2>
               <ul className="space-y-2.5">
                 {FOOTER_LINKS.pages.map((l) => (
                   <li key={l.to}>
@@ -101,11 +106,11 @@ export function Layout({ children }: { children: ReactNode }) {
                   </li>
                 ))}
               </ul>
-            </div>
+            </nav>
 
             {/* More */}
-            <div>
-              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-foreground/50">{t("footer.more")}</p>
+            <nav aria-labelledby="footer-more-heading">
+              <h2 id="footer-more-heading" className="mb-4 text-xs font-bold uppercase tracking-widest text-foreground/50">{t("footer.more")}</h2>
               <ul className="space-y-2.5">
                 {FOOTER_LINKS.more.map((l) => (
                   <li key={l.to}>
@@ -115,7 +120,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   </li>
                 ))}
               </ul>
-            </div>
+            </nav>
           </div>
 
           {/* Bottom bar */}

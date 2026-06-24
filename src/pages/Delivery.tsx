@@ -126,7 +126,9 @@ export default function Delivery() {
             </div>
             <div className="hidden md:flex gap-4 bg-background/10 p-2 rounded-2xl border border-background/10">
               <button
+                type="button"
                 onClick={() => setServiceType("ride")}
+                aria-pressed={serviceType === "ride"}
                 className={`px-6 py-2 rounded-xl font-black text-sm transition-all ${
                   serviceType === "ride"
                     ? "bg-background text-foreground shadow-lg"
@@ -136,7 +138,9 @@ export default function Delivery() {
                 {t("delivery.rideService")}
               </button>
               <button
+                type="button"
                 onClick={() => setServiceType("package")}
+                aria-pressed={serviceType === "package"}
                 className={`px-6 py-2 rounded-xl font-black text-sm transition-all ${
                   serviceType === "package"
                     ? "bg-background text-foreground shadow-lg"
@@ -150,13 +154,14 @@ export default function Delivery() {
               to="/services/trip-history"
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
             >
-              <History className="w-4 h-4" />
+              <History className="w-4 h-4" aria-hidden="true" />
               {t("delivery.tripHistory")}
             </Link>
           </div>
         </header>
 
-        <main className="section-container p-4 md:p-10">
+        <section className="section-container p-4 md:p-10" aria-labelledby="delivery-workflow-heading">
+          <h2 id="delivery-workflow-heading" className="sr-only">{t("delivery.whereToday")}</h2>
           {status === "idle" && (
             <div className="space-y-8 animate-in fade-in zoom-in duration-700">
               {/* Map picker */}
@@ -173,30 +178,48 @@ export default function Delivery() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Service selector */}
                 <div className="lg:col-span-4 space-y-4">
-                  <h2 className="text-3xl font-black text-foreground mb-6 italic">
+                  <h3 className="text-3xl font-black text-foreground mb-6 italic">
                     {t("delivery.whereToday")}
-                  </h2>
+                  </h3>
                   <div
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={serviceType === "ride"}
                     onClick={() => setServiceType("ride")}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setServiceType("ride");
+                      }
+                    }}
                     className={`p-6 rounded-[35px] border-4 transition-all cursor-pointer shadow-xl ${
                       serviceType === "ride"
                         ? "border-primary bg-card"
                         : "border-transparent bg-muted opacity-60"
                     }`}
                   >
-                    <Car size={40} className="text-primary mb-4" />
+                    <Car size={40} className="text-primary mb-4" aria-hidden="true" />
                     <h4 className="font-black text-xl text-foreground">{t("delivery.rideTitle")}</h4>
                     <p className="text-muted-foreground text-sm mt-2">{t("delivery.rideDesc")}</p>
                   </div>
                   <div
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={serviceType === "package"}
                     onClick={() => setServiceType("package")}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setServiceType("package");
+                      }
+                    }}
                     className={`p-6 rounded-[35px] border-4 transition-all cursor-pointer shadow-xl ${
                       serviceType === "package"
                         ? "border-emerald-600 bg-card"
                         : "border-transparent bg-muted opacity-60"
                     }`}
                   >
-                    <Bike size={40} className="text-emerald-600 mb-4" />
+                    <Bike size={40} className="text-emerald-600 mb-4" aria-hidden="true" />
                     <h4 className="font-black text-xl text-foreground">{t("delivery.packageTitle")}</h4>
                     <p className="text-muted-foreground text-sm mt-2">{t("delivery.packageDesc")}</p>
                   </div>
@@ -225,8 +248,10 @@ export default function Delivery() {
                             className={`h-auto w-14 rounded-2xl shrink-0 ${selectionStep === "pickup" ? "border-primary text-primary" : ""}`}
                             onClick={() => setSelectionStep("pickup")}
                             title={t("delivery.clickPickup")}
+                            aria-label={t("delivery.clickPickup")}
+                            aria-pressed={selectionStep === "pickup"}
                           >
-                            <MapPin size={20} />
+                            <MapPin size={20} aria-hidden="true" />
                           </Button>
                         </div>
                       </div>
@@ -248,8 +273,10 @@ export default function Delivery() {
                             className={`h-auto w-14 rounded-2xl shrink-0 ${selectionStep === "destination" ? "border-destructive text-destructive" : ""}`}
                             onClick={() => setSelectionStep("destination")}
                             title={t("delivery.clickDestination")}
+                            aria-label={t("delivery.clickDestination")}
+                            aria-pressed={selectionStep === "destination"}
                           >
-                            <MapPin size={20} />
+                            <MapPin size={20} aria-hidden="true" />
                           </Button>
                         </div>
                       </div>
@@ -287,25 +314,29 @@ export default function Delivery() {
                       </label>
                       <div className="grid grid-cols-2 gap-3">
                         <button
+                          type="button"
                           onClick={() => setIsScheduled(false)}
+                          aria-pressed={!isScheduled}
                           className={`flex items-center gap-3 p-4 rounded-2xl border-2 font-bold transition-all ${
                             !isScheduled
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-border bg-muted text-muted-foreground hover:border-primary/40"
                           }`}
                         >
-                          <Clock className="w-5 h-5" />
+                          <Clock className="w-5 h-5" aria-hidden="true" />
                           {t("delivery.schedule.now")}
                         </button>
                         <button
+                          type="button"
                           onClick={() => setIsScheduled(true)}
+                          aria-pressed={isScheduled}
                           className={`flex items-center gap-3 p-4 rounded-2xl border-2 font-bold transition-all ${
                             isScheduled
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-border bg-muted text-muted-foreground hover:border-primary/40"
                           }`}
                         >
-                          <CalendarIcon className="w-5 h-5" />
+                          <CalendarIcon className="w-5 h-5" aria-hidden="true" />
                           {t("delivery.schedule.later")}
                         </button>
                       </div>
@@ -352,25 +383,29 @@ export default function Delivery() {
                       </label>
                       <div className="grid grid-cols-2 gap-3">
                         <button
+                          type="button"
                           onClick={() => setPaymentMethod("cash")}
+                          aria-pressed={paymentMethod === "cash"}
                           className={`flex items-center gap-3 p-4 rounded-2xl border-2 font-bold transition-all ${
                             paymentMethod === "cash"
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-border bg-muted text-muted-foreground hover:border-primary/40"
                           }`}
                         >
-                          <Banknote className="w-5 h-5" />
+                          <Banknote className="w-5 h-5" aria-hidden="true" />
                           {t("delivery.cash")}
                         </button>
                         <button
+                          type="button"
                           onClick={() => setPaymentMethod("card")}
+                          aria-pressed={paymentMethod === "card"}
                           className={`flex items-center gap-3 p-4 rounded-2xl border-2 font-bold transition-all ${
                             paymentMethod === "card"
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-border bg-muted text-muted-foreground hover:border-primary/40"
                           }`}
                         >
-                          <CreditCard className="w-5 h-5" />
+                          <CreditCard className="w-5 h-5" aria-hidden="true" />
                           {t("delivery.card")}
                         </button>
                       </div>
@@ -425,10 +460,12 @@ export default function Delivery() {
                   <p className="text-muted-foreground font-bold mt-1">{t("delivery.driverCar")}</p>
                   <div className="mt-4 flex gap-3 justify-center md:justify-start">
                     <button
+                      type="button"
                       onClick={() => speak(t("delivery.callingDriver"), lang)}
+                      aria-label={t("delivery.callingDriver")}
                       className="p-4 bg-emerald-500/10 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all"
                     >
-                      <PhoneCall />
+                      <PhoneCall aria-hidden="true" />
                     </button>
                     <Button variant="outline" className="rounded-2xl font-black px-6 py-4 h-auto">
                       {t("delivery.sendMessage")}
@@ -514,17 +551,23 @@ export default function Delivery() {
               }}
             />
           </div>
-        </main>
+        </section>
 
         <footer className="fixed bottom-6 w-full px-6 flex justify-between items-center pointer-events-none z-50">
-          <button className="p-5 bg-card text-primary rounded-full shadow-2xl border border-border pointer-events-auto hover:scale-110 active:rotate-12 transition-all">
-            <ShieldCheck size={32} />
+          <button
+            type="button"
+            className="p-5 bg-card text-primary rounded-full shadow-2xl border border-border pointer-events-auto hover:scale-110 active:rotate-12 transition-all"
+            aria-label={t("delivery.safety") === "delivery.safety" ? "Safety" : t("delivery.safety")}
+          >
+            <ShieldCheck size={32} aria-hidden="true" />
           </button>
           <button
+            type="button"
             onClick={() => speak(t("delivery.helpVoice"), lang)}
             className="p-5 bg-foreground text-background rounded-full shadow-2xl pointer-events-auto hover:scale-110 transition-all"
+            aria-label={t("delivery.helpVoice")}
           >
-            <Bell size={32} />
+            <Bell size={32} aria-hidden="true" />
           </button>
         </footer>
       </div>

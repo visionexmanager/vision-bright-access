@@ -60,7 +60,7 @@ export default function AdminBazaar() {
     <Layout>
       <section className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-6 flex items-center gap-3">
-          <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
+          <Button asChild variant="ghost" size="icon"><Link to="/admin" aria-label="Back to admin"><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link></Button>
           <Store className="h-7 w-7 text-primary" />
           <h1 className="text-3xl font-bold">{t("admin.bazaar.title")}</h1>
         </div>

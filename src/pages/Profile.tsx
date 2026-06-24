@@ -295,7 +295,7 @@ export default function Profile() {
                   disabled={uploading}
                   aria-label={t("profile.changeAvatar")}
                 >
-                  <Camera className="h-4 w-4" />
+                  <Camera className="h-4 w-4" aria-hidden="true" />
                 </Button>
                 <input
                   ref={fileRef}
@@ -437,8 +437,8 @@ export default function Profile() {
                 placeholder={t("msg.searchUsers")}
                 className="flex-1"
               />
-              <Button onClick={handleMsgSearch} disabled={msgSearching} variant="outline" size="icon">
-                <Search className="h-4 w-4" />
+              <Button onClick={handleMsgSearch} disabled={msgSearching} variant="outline" size="icon" aria-label={t("msg.searchUsers")}>
+                <Search className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
             {!msgSearch && (

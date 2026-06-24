@@ -26,13 +26,13 @@ export default function SharedTrip() {
       <div className="min-h-screen pb-20">
         <header className="bg-primary text-primary-foreground p-6 text-center">
           <div className="flex items-center justify-center gap-3 mb-2">
-            <Navigation className="w-6 h-6 animate-pulse" />
-            <h1 className="text-2xl font-black">{t("sharedTrip.title")}</h1>
+            <Navigation className="w-6 h-6 animate-pulse" aria-hidden="true" />
+            <h1 id="shared-trip-heading" className="text-2xl font-black">{t("sharedTrip.title")}</h1>
           </div>
           <p className="text-sm opacity-80">{t("sharedTrip.subtitle")}</p>
         </header>
 
-        <main className="max-w-2xl mx-auto p-4 md:p-8 space-y-6">
+        <section className="max-w-2xl mx-auto p-4 md:p-8 space-y-6" aria-labelledby="shared-trip-heading">
           {/* Live Map */}
           <Suspense fallback={<div className="w-full h-80 bg-muted rounded-3xl animate-pulse" />}>
             <DeliveryMap isTracking={true} />
@@ -42,14 +42,14 @@ export default function SharedTrip() {
           <div className="bg-card border border-border rounded-3xl p-6 space-y-5 shadow-lg">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-primary/10 rounded-2xl">
-                <ServiceIcon className="w-6 h-6 text-primary" />
+                <ServiceIcon className="w-6 h-6 text-primary" aria-hidden="true" />
               </div>
               <div>
                 <p className="text-xs font-bold text-muted-foreground uppercase">
                   {trip.service === "ride" ? t("delivery.rideService") : t("delivery.packageService")}
                 </p>
                 <div className="flex items-center gap-2 text-sm text-primary font-bold">
-                  <Clock className="w-4 h-4" />
+                  <Clock className="w-4 h-4" aria-hidden="true" />
                   {t("delivery.arrivingIn")}: {trip.eta} {t("delivery.minutes")}
                 </div>
               </div>
@@ -93,7 +93,7 @@ export default function SharedTrip() {
           <p className="text-center text-sm text-muted-foreground">
             {t("sharedTrip.poweredBy")}
           </p>
-        </main>
+        </section>
       </div>
     </Layout>
   );

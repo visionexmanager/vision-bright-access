@@ -251,7 +251,7 @@ export default function AdminUsers() {
     <Layout>
       <section className="mx-auto max-w-7xl px-4 py-10">
         <div className="mb-6 flex items-center gap-3">
-          <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
+          <Button asChild variant="ghost" size="icon"><Link to="/admin" aria-label="Back to admin"><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link></Button>
           <h1 className="text-3xl font-bold">{t("admin.users.title")}</h1>
           <Badge variant="secondary">{t("admin.users.total").replace("{count}", String(users.length))}</Badge>
         </div>

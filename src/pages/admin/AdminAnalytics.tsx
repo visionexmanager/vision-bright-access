@@ -46,7 +46,7 @@ export default function AdminAnalytics() {
       <section className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
+            <Button asChild variant="ghost" size="icon"><Link to="/admin" aria-label="Back to admin"><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link></Button>
             <h1 className="text-3xl font-bold">{t("admin.analytics.title")}</h1>
           </div>
           <Button variant="outline" onClick={load} disabled={loading}>

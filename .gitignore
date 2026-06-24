@@ -43,3 +43,4 @@ set-supabase-secret.sh
 
 # Codex / AI tool artifacts
 .codex-*
+.cache/

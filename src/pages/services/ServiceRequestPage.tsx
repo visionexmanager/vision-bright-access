@@ -107,7 +107,7 @@ export default function ServiceRequestPage({
       <Layout>
         <div className="flex min-h-[60vh] flex-col items-center justify-center text-center px-4">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-500/10 mb-6">
-            <CheckCircle2 className="h-10 w-10 text-green-500" />
+            <CheckCircle2 className="h-10 w-10 text-green-500" aria-hidden="true" />
           </div>
           <h1 className="text-3xl font-bold mb-2">{t("svcReq.successTitle")}</h1>
           <p className="text-muted-foreground max-w-md mb-2">
@@ -119,8 +119,12 @@ export default function ServiceRequestPage({
             {t("svcReq.vxDeducted").replace("{vx}", (selectedPkg?.vx ?? 0).toLocaleString())}
           </p>
           <div className="flex gap-3">
-            <Link to="/services"><Button variant="outline">{t("svcReq.backToServices")}</Button></Link>
-            <Link to="/dashboard"><Button>{t("svcReq.viewDashboard")}</Button></Link>
+            <Button asChild variant="outline">
+              <Link to="/services">{t("svcReq.backToServices")}</Link>
+            </Button>
+            <Button asChild>
+              <Link to="/dashboard">{t("svcReq.viewDashboard")}</Link>
+            </Button>
           </div>
         </div>
       </Layout>
@@ -258,9 +262,11 @@ export default function ServiceRequestPage({
               {!user ? (
                 <div className="rounded-xl border bg-muted/50 p-6 text-center">
                   <p className="mb-4 text-muted-foreground">{t("svcReq.loginPrompt")}</p>
-                  <Link to="/login">
-                    <Button size="lg">{t("svcReq.loginBtn")} <ArrowRight className="ms-2 h-4 w-4" /></Button>
-                  </Link>
+                  <Button asChild size="lg">
+                    <Link to="/login">
+                      {t("svcReq.loginBtn")} <ArrowRight className="ms-2 h-4 w-4" aria-hidden="true" />
+                    </Link>
+                  </Button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">

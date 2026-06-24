@@ -86,7 +86,6 @@ const PARTICLES: Record<string, string[]> = {
   "🏆":  ["#facc15","#f59e0b","#fbbf24"],
   "❄️":  ["#93c5fd","#bfdbfe","#e0f2fe","#ffffff"],
   "⚡":  ["#fde047","#facc15","#fff9c4"],
-  "🎉":  ["#a78bfa","#c084fc","#facc15","#86efac","#f9a8d4"],
   "🎊":  ["#a78bfa","#c084fc","#f0abfc","#facc15"],
   "👑":  ["#facc15","#f59e0b","#fde047","#ffffff"],
 };

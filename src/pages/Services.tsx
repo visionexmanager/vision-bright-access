@@ -1,8 +1,6 @@
 import { useState, useEffect, useId } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,7 +12,7 @@ import {
   MapPin, Tv, Radio, Wifi, Car, Activity, Anchor, Ship, Navigation,
 } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import servicesImg from "@/assets/services-illustration.jpg";
 import webDesignImg from "@/assets/service-web-design.jpg";
@@ -26,7 +24,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { simulationImages } from "@/data/simulationImages";
 import { includeRequiredSimulations } from "@/data/requiredSimulations";
 import { SIMULATION_PRICES } from "@/systems/pricingSystem";
-import { toast } from "@/hooks/use-toast";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -79,10 +76,25 @@ const EDUCATION_SERVICES = [
 ] as const;
 
 
-const DIFFICULTY_COLOR: Record<string, string> = {
-  Beginner:     "bg-green-600/20 text-green-500 border-green-600/30",
-  Intermediate: "bg-yellow-600/20 text-yellow-500 border-yellow-600/30",
-  Advanced:     "bg-red-600/20 text-red-500 border-red-600/30",
+const SERVICE_SIM_TITLES: Record<string, { en: string; ar: string }> = {
+  "svc-hair-care": { en: "Hair Care Studio", ar: "استوديو العناية بالشعر" },
+  "svc-skin-care": { en: "Skin Care Clinic", ar: "عيادة العناية بالبشرة" },
+  "svc-social-guide": { en: "Social Skills Advisor", ar: "مستشار المهارات الاجتماعية" },
+  "svc-delivery": { en: "VisionEx Express Hub", ar: "مركز فيجن إكس للتوصيل" },
+  "svc-shared-trip": { en: "Shared Trip Planner", ar: "مخطط الرحلات المشتركة" },
+  "svc-sports-coach": { en: "Sports & Fitness Studio", ar: "استوديو الرياضة واللياقة" },
+  "svc-empathy-oasis": { en: "Universal Empathy Oasis", ar: "واحة التعاطف الشاملة" },
+  "svc-nutrition": { en: "Nutrition Wellness Clinic", ar: "عيادة التغذية الصحية" },
+  "svc-medical": { en: "Virtual Medical Clinic", ar: "العيادة الطبية الافتراضية" },
+  "svc-psychology": { en: "Psychology & Mental Wellness", ar: "الصحة النفسية والعافية" },
+  "svc-travel-agency": { en: "Global Travel Planner", ar: "مخطط السفر العالمي" },
+  "svc-music": { en: "Music Conservatory Studio", ar: "استوديو معهد الموسيقى" },
+  "svc-studio": { en: "Global Creative Studio", ar: "الاستوديو الإبداعي العالمي" },
+  "svc-legal": { en: "Legal Advisory Office", ar: "مكتب الاستشارات القانونية" },
+  "svc-radar-ai": { en: "AI Intelligence Radar", ar: "رادار الذكاء الاصطناعي" },
+  "svc-economy": { en: "VX Economic Ecosystem", ar: "النظام الاقتصادي VX" },
+  "svc-career": { en: "Career Development Hub", ar: "مركز تطوير المسار المهني" },
+  "svc-edu-empire": { en: "Global Educational Empire", ar: "الإمبراطورية التعليمية العالمية" },
 };
 
 const SIM_BRIEFS: Record<string, { en: string; ar: string }> = {
@@ -138,7 +150,6 @@ export default function Services() {
   const { t, lang } = useLanguage();
   const { playSound } = useSound();
   const { user } = useAuth();
-  const navigate = useNavigate();
   const uid = useId();
 
   const [activeCategory, setActiveCategory] = useState<Category>("all");
@@ -175,11 +186,6 @@ export default function Services() {
 
   const completedCount = Object.values(progressMap).filter((p) => p.completed).length;
 
-  const handleStartSim = async (sim: SimRow) => {
-    if (!user) { toast({ title: t("services.loginRequired"), variant: "destructive" }); return; }
-    navigate(`/business-simulator/${sim.slug}`);
-  };
-
   const TABS: { id: Category; label: string; icon: React.ReactNode }[] = [
     { id: "all",          label: t("services.catAll"),        icon: <Globe className="h-4 w-4" aria-hidden="true" /> },
     { id: "media",        label: t("services.catMedia"),      icon: <Tv className="h-4 w-4" aria-hidden="true" /> },
@@ -196,6 +202,17 @@ export default function Services() {
   const showMedia    = activeCategory === "all" || activeCategory === "media";
 
   const genericSimulations = includeRequiredSimulations(simulations);
+  const getSimTitle = (sim: SimRow) => {
+    const titleKey = `sim.${sim.slug}.title`;
+    const translatedTitle = t(titleKey);
+    if (translatedTitle && translatedTitle !== titleKey) return translatedTitle;
+
+    const serviceTitle = SERVICE_SIM_TITLES[sim.slug];
+    if (serviceTitle) return lang === "ar" ? serviceTitle.ar : serviceTitle.en;
+
+    return sim.title;
+  };
+
   const getSimBrief = (sim: SimRow) => {
     const brief = SIM_BRIEFS[sim.slug];
     if (brief) return lang === "ar" ? brief.ar : brief.en;
@@ -457,62 +474,67 @@ export default function Services() {
             ) : genericSimulations.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">{t("simulations.noResults") || "No simulations available yet."}</p>
             ) : (
-              <StaggerGrid className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" role="list">
+              <StaggerGrid className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" role="list">
                 {genericSimulations.map((sim) => {
                   const prog = progressMap[sim.id];
                   const done = prog?.completed;
+                  const title = getSimTitle(sim);
                   return (
                     <StaggerItem key={sim.id} role="listitem">
-                      <Card className={`group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${done ? "border-green-500/40 bg-green-500/5" : ""}`}>
-                        {simulationImages[sim.slug] && (
-                          <div className="relative h-28 w-full overflow-hidden">
-                            <img
-                              src={simulationImages[sim.slug]}
-                              alt=""
-                              role="presentation"
-                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                              loading="lazy"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-card to-transparent" aria-hidden="true" />
-                            {done && (
-                              <div className="absolute top-2 right-2">
-                                <CheckCircle className="h-5 w-5 text-green-500 drop-shadow" aria-hidden="true" />
+                      <Link
+                        to={`/business-simulator/${sim.slug}`}
+                        onClick={() => playSound("navigate")}
+                        className="group block h-full"
+                        aria-label={`${done ? t("summary.replay") : t("summary.start")} ${title}`}
+                      >
+                        <Card className={`h-full transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 ${done ? "border-green-500/40 bg-green-500/5" : ""}`}>
+                          <CardContent className="flex h-full items-start gap-3 p-4">
+                            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-primary/10" aria-hidden="true">
+                              {simulationImages[sim.slug] ? (
+                                <img
+                                  src={simulationImages[sim.slug]}
+                                  alt=""
+                                  role="presentation"
+                                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <Cpu className="h-full w-full p-3 text-primary" aria-hidden="true" />
+                              )}
+                              {done && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-background/60">
+                                  <CheckCircle className="h-5 w-5 text-green-500" aria-hidden="true" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <h3 className="font-semibold leading-snug text-foreground group-hover:text-primary">{title}</h3>
+                                <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-1 group-hover:text-primary" aria-hidden="true" />
                               </div>
-                            )}
-                          </div>
-                        )}
-                        <CardContent className="p-4">
-                          <div className="mb-1 flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className={`text-xs ${DIFFICULTY_COLOR[sim.difficulty] ?? ""}`}>
-                              {t(`cat.${sim.difficulty}`) || sim.difficulty}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" aria-hidden="true" />
-                              <span className="sr-only">{t("services.duration")}</span>
-                              {sim.estimated_duration}m
-                            </span>
-                            {done && <span className="sr-only">{t("services.completed")}</span>}
-                          </div>
-                          <h3 className="font-semibold text-foreground">{t(`sim.${sim.slug}.title`) || sim.title}</h3>
-                          <p className="mt-1 text-sm text-muted-foreground line-clamp-1">{getSimBrief(sim)}</p>
-                          <div className="mt-3 flex items-center justify-between gap-2">
-                            <span className="flex items-center gap-1 text-xs font-semibold text-primary">
-                              <Coins className="h-3.5 w-3.5" aria-hidden="true" />
-                              <span className="sr-only">{t("services.cost")}</span>
-                              {t("services.usageBasedBilling")}
-                            </span>
-                            <Button
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => handleStartSim(sim)}
-                              aria-label={`${done ? t("summary.replay") : t("summary.start")} ${sim.title}`}
-                            >
-                              {done ? t("summary.replay") : t("summary.start")}
-                              <ArrowRight className="ms-1 h-3.5 w-3.5" aria-hidden="true" />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
+                              <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{getSimBrief(sim)}</p>
+                              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                <span className="inline-flex items-center gap-1">
+                                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                                  <span className="sr-only">{t("services.duration")}</span>
+                                  {sim.estimated_duration}m
+                                </span>
+                                <span className="inline-flex items-center gap-1 font-semibold text-primary">
+                                  <Coins className="h-3.5 w-3.5" aria-hidden="true" />
+                                  <span className="sr-only">{t("services.cost")}</span>
+                                  {t("services.usageBasedBilling")}
+                                </span>
+                                {done && (
+                                  <span className="inline-flex items-center gap-1 font-semibold text-green-600 dark:text-green-400">
+                                    <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                                    {t("services.completed")}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
                     </StaggerItem>
                   );
                 })}

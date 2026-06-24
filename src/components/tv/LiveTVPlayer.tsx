@@ -192,10 +192,10 @@ export function LiveTVPlayer({ token, channelName, channelLogo, onError }: Props
       {/* Error state */}
       {errMsg && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-4 p-6 text-center">
-          <AlertCircle className="w-12 h-12 text-red-400" />
+          <AlertCircle className="w-12 h-12 text-red-400" aria-hidden="true" />
           <p className="text-white font-medium text-lg">{errMsg}</p>
           <Button variant="outline" size="sm" onClick={retry} className="gap-2 text-white border-white/30 hover:bg-white/10">
-            <RotateCcw className="w-4 h-4" /> إعادة المحاولة
+            <RotateCcw className="w-4 h-4" aria-hidden="true" /> إعادة المحاولة
           </Button>
         </div>
       )}
@@ -214,18 +214,38 @@ export function LiveTVPlayer({ token, channelName, channelLogo, onError }: Props
           showCtrl ? "opacity-100" : "opacity-0"
         )}
       >
-        <Button size="icon" variant="ghost" onClick={togglePlay} className="text-white hover:bg-white/20 h-9 w-9">
-          {playing ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={togglePlay}
+          className="text-white hover:bg-white/20 h-9 w-9"
+          aria-label={playing ? "Pause live stream" : "Play live stream"}
+          aria-pressed={playing}
+        >
+          {playing ? <Pause className="w-5 h-5" aria-hidden="true" /> : <Play className="w-5 h-5" aria-hidden="true" />}
         </Button>
 
-        <Button size="icon" variant="ghost" onClick={toggleMute} className="text-white hover:bg-white/20 h-9 w-9">
-          {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={toggleMute}
+          className="text-white hover:bg-white/20 h-9 w-9"
+          aria-label={muted ? "Unmute live stream" : "Mute live stream"}
+          aria-pressed={muted}
+        >
+          {muted ? <VolumeX className="w-5 h-5" aria-hidden="true" /> : <Volume2 className="w-5 h-5" aria-hidden="true" />}
         </Button>
 
         <span className="text-white text-sm font-medium flex-1 truncate pr-2 drop-shadow">{channelName}</span>
 
-        <Button size="icon" variant="ghost" onClick={toggleFullscreen} className="text-white hover:bg-white/20 h-9 w-9">
-          <Maximize className="w-5 h-5" />
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={toggleFullscreen}
+          className="text-white hover:bg-white/20 h-9 w-9"
+          aria-label="Open fullscreen"
+        >
+          <Maximize className="w-5 h-5" aria-hidden="true" />
         </Button>
       </div>
     </div>

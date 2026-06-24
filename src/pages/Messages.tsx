@@ -209,8 +209,9 @@ function ChatView({
           size="icon"
           className="md:hidden"
           onClick={onBack}
+          aria-label={t("common.back") === "common.back" ? "Back" : t("common.back")}
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Button>
         <CardTitle className="text-lg">{t("msg.chat")}</CardTitle>
       </CardHeader>
@@ -269,8 +270,8 @@ function ChatView({
           disabled={sending}
           className="flex-1"
         />
-        <Button onClick={handleSend} disabled={sending || !text.trim()} size="icon">
-          <Send className="h-4 w-4" />
+        <Button onClick={handleSend} disabled={sending || !text.trim()} size="icon" aria-label={t("ai.send") === "ai.send" ? "Send message" : t("ai.send")}>
+          <Send className="h-4 w-4" aria-hidden="true" />
         </Button>
       </div>
       <div className="border-t p-3">
@@ -351,8 +352,8 @@ function NewConversationDialog({
             placeholder={t("msg.searchUsers")}
             className="flex-1"
           />
-          <Button onClick={handleSearch} disabled={searching} size="icon" variant="outline">
-            <Search className="h-4 w-4" />
+          <Button onClick={handleSearch} disabled={searching} size="icon" variant="outline" aria-label={t("msg.searchUsers")}>
+            <Search className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
         <ScrollArea className="max-h-60 mt-2">

@@ -22,19 +22,19 @@ export function GameHeader({
 
   return (
     <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-      <Link to="/games">
-        <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
+      <Button asChild variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground">
+        <Link to="/games">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           <span className="hidden sm:inline">{t("games.backToGames")}</span>
-        </Button>
-      </Link>
+        </Link>
+      </Button>
 
       <h1 className="text-lg font-bold tracking-tight">{title}</h1>
 
       <div className="flex items-center gap-1.5 flex-wrap">
         {highScore !== undefined && highScore > 0 && (
           <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-400/40">
-            <Trophy className="h-3 w-3" />
+            <Trophy className="h-3 w-3" aria-hidden="true" />
             {highScore.toLocaleString()}
           </Badge>
         )}
@@ -51,8 +51,8 @@ export function GameHeader({
             aria-label={isPaused ? t("games.resume") : t("games.pause")}
           >
             {isPaused
-              ? <Play className="h-4 w-4" />
-              : <Pause className="h-4 w-4" />}
+              ? <Play className="h-4 w-4" aria-hidden="true" />
+              : <Pause className="h-4 w-4" aria-hidden="true" />}
           </Button>
         )}
         <Button
@@ -63,8 +63,8 @@ export function GameHeader({
           aria-label={enabled ? t("nav.muteSounds") : t("nav.unmuteSounds")}
         >
           {enabled
-            ? <Volume2 className="h-4 w-4" />
-            : <VolumeX className="h-4 w-4 text-muted-foreground" />}
+            ? <Volume2 className="h-4 w-4" aria-hidden="true" />
+            : <VolumeX className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
         </Button>
       </div>
     </div>

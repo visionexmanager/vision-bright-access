@@ -63,7 +63,7 @@ export default function AdminNotifications() {
     <Layout>
       <div className="mx-auto max-w-3xl px-4 py-10 space-y-6">
         <div className="flex items-center gap-4">
-          <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
+          <Button asChild variant="ghost" size="icon"><Link to="/admin" aria-label="Back to admin"><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link></Button>
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10">
             <Bell className="h-6 w-6 text-indigo-500" />
           </div>

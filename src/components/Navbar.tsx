@@ -164,7 +164,7 @@ export function Navbar() {
             aria-label={soundEnabled ? t("nav.muteSounds") : t("nav.unmuteSounds")}
             className="hidden xl:inline-flex"
           >
-            {soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5 text-muted-foreground" />}
+            {soundEnabled ? <Volume2 className="h-5 w-5" aria-hidden="true" /> : <VolumeX className="h-5 w-5 text-muted-foreground" aria-hidden="true" />}
           </Button>
           <ThemeToggle />
           <LanguageSwitcher />
@@ -172,29 +172,29 @@ export function Navbar() {
           {user && <NotificationBell />}
           {user && (
             <Link to="/coins-store" className="hidden items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors xl:flex">
-              <Coins className="h-4 w-4" />
+              <Coins className="h-4 w-4" aria-hidden="true" />
               <span>{totalPoints.toLocaleString()} VX</span>
             </Link>
           )}
           {user ? (
             <>
               {isAdmin && (
-                <Link to="/admin">
-                  <Button variant="outline" size="icon" aria-label={t("nav.adminPanel")}>
-                    <ShieldCheck className="h-5 w-5 text-primary" />
-                  </Button>
-                </Link>
-              )}
-              <Link to="/dashboard">
-                <Button size="lg" className="text-base font-semibold">
-                  {t("nav.dashboard")}
+                <Button asChild variant="outline" size="icon">
+                  <Link to="/admin" aria-label={t("nav.adminPanel")}>
+                    <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+                  </Link>
                 </Button>
-              </Link>
+              )}
+              <Button asChild size="lg" className="text-base font-semibold">
+                <Link to="/dashboard">
+                  {t("nav.dashboard")}
+                </Link>
+              </Button>
               {/* Profile dropdown — consolidates Profile, Wishlist, Settings, Logout */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
-                    <User className="h-5 w-5" />
+                    <User className="h-5 w-5" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
@@ -225,16 +225,16 @@ export function Navbar() {
             </>
           ) : (
             <>
-              <Link to="/login">
-                <Button variant="outline" size="lg" className="text-base">
+              <Button asChild variant="outline" size="lg" className="text-base">
+                <Link to="/login">
                   {t("nav.login")}
-                </Button>
-              </Link>
-              <Link to="/signup">
-                <Button size="lg" className="text-base font-semibold">
+                </Link>
+              </Button>
+              <Button asChild size="lg" className="text-base font-semibold">
+                <Link to="/signup">
                   {t("nav.signup")}
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </>
           )}
         </div>
@@ -246,7 +246,7 @@ export function Navbar() {
           {user && (
             <Link to="/profile" onClick={() => setMenuOpen(false)}>
               <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
-                <User className="h-5 w-5" />
+                <User className="h-5 w-5" aria-hidden="true" />
               </Button>
             </Link>
           )}
@@ -259,14 +259,22 @@ export function Navbar() {
             aria-controls="mobile-nav"
             aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
           >
-            {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {menuOpen ? <X className="h-6 w-6" aria-hidden="true" /> : <Menu className="h-6 w-6" aria-hidden="true" />}
           </Button>
         </div>
       </div>
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="border-t bg-card px-4 pb-4 pt-2 lg:hidden">
+        <div
+          ref={mobileMenuRef}
+          id="mobile-nav"
+          className="border-t bg-card px-4 pb-4 pt-2 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("nav.mainNavigation")}
+          onKeyDown={handleMobileMenuKeyDown}
+        >
           {mobileNavGroups.map((group, groupIdx) => (
             <div key={groupIdx} role="none">
               {groupIdx > 0 && (
@@ -300,47 +308,47 @@ export function Navbar() {
                 {/* VX Balance in mobile */}
                 <Link to="/coins-store" onClick={() => setMenuOpen(false)}
                   className="flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors justify-center">
-                  <Coins className="h-4 w-4" />
+                  <Coins className="h-4 w-4" aria-hidden="true" />
                   {totalPoints.toLocaleString()} VX
                 </Link>
                 {isAdmin && (
-                  <Link to="/admin" onClick={() => setMenuOpen(false)}>
-                    <Button variant="outline" size="lg" className="w-full text-base">
-                      <ShieldCheck className="me-2 h-5 w-5 text-primary" /> {t("nav.adminPanel")}
-                    </Button>
-                  </Link>
+                  <Button asChild variant="outline" size="lg" className="w-full text-base">
+                    <Link to="/admin" onClick={() => setMenuOpen(false)}>
+                      <ShieldCheck className="me-2 h-5 w-5 text-primary" aria-hidden="true" /> {t("nav.adminPanel")}
+                    </Link>
+                  </Button>
                 )}
-                <Link to="/dashboard" onClick={() => setMenuOpen(false)}>
-                  <Button size="lg" className="w-full text-base font-semibold">
+                <Button asChild size="lg" className="w-full text-base font-semibold">
+                  <Link to="/dashboard" onClick={() => setMenuOpen(false)}>
                     {t("nav.dashboard")}
-                  </Button>
-                </Link>
-                <Link to="/settings" onClick={() => setMenuOpen(false)}>
-                  <Button variant="outline" size="lg" className="w-full text-base">
-                    <Settings className="me-2 h-5 w-5" /> {t("nav.settings")}
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="w-full text-base">
+                  <Link to="/settings" onClick={() => setMenuOpen(false)}>
+                    <Settings className="me-2 h-5 w-5" aria-hidden="true" /> {t("nav.settings")}
+                  </Link>
+                </Button>
                 <Button
                   variant="outline"
                   size="lg"
                   onClick={() => { signOut(); setMenuOpen(false); }}
                   className="w-full text-base"
                 >
-                  <LogOut className="me-2 h-5 w-5" /> {t("nav.signout")}
+                  <LogOut className="me-2 h-5 w-5" aria-hidden="true" /> {t("nav.signout")}
                 </Button>
               </>
             ) : (
               <>
-                <Link to="/login" onClick={() => setMenuOpen(false)}>
-                  <Button variant="outline" size="lg" className="w-full text-base">
+                <Button asChild variant="outline" size="lg" className="w-full text-base">
+                  <Link to="/login" onClick={() => setMenuOpen(false)}>
                     {t("nav.login")}
-                  </Button>
-                </Link>
-                <Link to="/signup" onClick={() => setMenuOpen(false)}>
-                  <Button size="lg" className="w-full text-base font-semibold">
+                  </Link>
+                </Button>
+                <Button asChild size="lg" className="w-full text-base font-semibold">
+                  <Link to="/signup" onClick={() => setMenuOpen(false)}>
                     {t("nav.signup")}
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </>
             )}
           </div>

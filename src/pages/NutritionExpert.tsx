@@ -406,9 +406,9 @@ export default function NutritionExpert() {
           <div className="section-container flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-white/20 rounded-2xl">
-                <Heart size={28} />
+                <Heart size={28} aria-hidden="true" />
               </div>
-              <h1 className="text-2xl font-black italic tracking-tighter">
+              <h1 id="nutrition-heading" className="text-2xl font-black italic tracking-tighter">
                 VISIONEX <span className="text-emerald-200 text-sm">HEALTH</span>
               </h1>
             </div>
@@ -418,8 +418,9 @@ export default function NutritionExpert() {
                 size="icon"
                 className="text-white hover:bg-white/20 rounded-2xl h-12 w-12"
                 onClick={() => speak(t("nutrition.headerVoice"), lang)}
+                aria-label={t("nutrition.headerVoice")}
               >
-                <Volume2 size={22} />
+                <Volume2 size={22} aria-hidden="true" />
               </Button>
               {step === "clinic" && (
                 <Button
@@ -428,21 +429,23 @@ export default function NutritionExpert() {
                   className={voiceMode ? "rounded-2xl h-12 w-12" : "text-white hover:bg-white/20 rounded-2xl h-12 w-12"}
                   onClick={() => setVoiceMode(v => !v)}
                   title="Voice Chat"
+                  aria-label="Voice Chat"
+                  aria-pressed={voiceMode}
                 >
-                  <Phone size={22} />
+                  <Phone size={22} aria-hidden="true" />
                 </Button>
               )}
             </div>
           </div>
         </header>
 
-        <main className="section-container p-4 md:p-10">
+        <section className="section-container p-4 md:p-10" aria-labelledby="nutrition-heading">
           {step === "reception" && (
             <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in zoom-in duration-700">
               {/* Welcome */}
               <div className="text-center space-y-4 py-8">
                 <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-full mx-auto flex items-center justify-center">
-                  <UserPlus className="h-10 w-10 text-emerald-600" />
+                  <UserPlus className="h-10 w-10 text-emerald-600" aria-hidden="true" />
                 </div>
                 <h2 className="text-3xl font-black text-foreground">{t("nutrition.receptionTitle")}</h2>
                 <p className="text-muted-foreground text-lg">{t("nutrition.receptionDesc")}</p>
@@ -675,8 +678,8 @@ export default function NutritionExpert() {
                             <p className="font-bold text-foreground">{log.meal_name}</p>
                             <p className="text-xs text-muted-foreground">{log.calories} {t("nutrition.kcal")}</p>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteMealLog(log.id)}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteMealLog(log.id)} aria-label={t("admin.common.delete")}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
                           </Button>
                         </div>
                       ))}
@@ -758,7 +761,7 @@ export default function NutritionExpert() {
                         <div className="flex items-center justify-between">
                           <h4 className="font-black text-foreground text-sm">{t("nutrition.savedPlans")}</h4>
                           <Button size="sm" variant="ghost" onClick={() => setShowSavedPlans(false)}>
-                            <X className="h-4 w-4" />
+                            <X className="h-4 w-4" aria-hidden="true" />
                           </Button>
                         </div>
                         {savedPlans.length === 0 ? (
@@ -766,15 +769,15 @@ export default function NutritionExpert() {
                         ) : (
                           savedPlans.map((sp) => (
                             <div key={sp.id} className="flex items-center justify-between bg-background p-3 rounded-xl">
-                              <button onClick={() => loadDietPlan(sp.plan)} className="flex items-center gap-3 text-start flex-1">
-                                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <button type="button" onClick={() => loadDietPlan(sp.plan)} className="flex items-center gap-3 text-start flex-1">
+                                <Clock className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
                                 <div>
                                   <p className="text-sm font-bold text-foreground">{sp.plan_name}</p>
                                   <p className="text-xs text-muted-foreground">{new Date(sp.created_at).toLocaleDateString()}</p>
                                 </div>
                               </button>
-                              <Button size="sm" variant="ghost" onClick={() => deleteSavedPlan(sp.id)} className="text-destructive">
-                                <Trash2 className="h-4 w-4" />
+                              <Button size="sm" variant="ghost" onClick={() => deleteSavedPlan(sp.id)} className="text-destructive" aria-label={t("admin.common.delete")}>
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
                               </Button>
                             </div>
                           ))
@@ -924,7 +927,7 @@ export default function NutritionExpert() {
               </div>
             </div>
           )}
-        </main>
+        </section>
       </div>
     </Layout>
   );

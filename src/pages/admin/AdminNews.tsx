@@ -205,11 +205,11 @@ export default function AdminNews() {
         {/* Header */}
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link to="/admin">
-              <Button variant="ghost" size="icon" aria-label="Back to admin">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
+            <Button asChild variant="ghost" size="icon">
+              <Link to="/admin" aria-label="Back to admin">
+                <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+              </Link>
+            </Button>
             <Newspaper className="h-7 w-7 text-primary" aria-hidden="true" />
             <h1 className="text-2xl font-bold">News Management</h1>
             <Badge variant="secondary">{articles.length} articles</Badge>
@@ -255,14 +255,16 @@ export default function AdminNews() {
                       </TableCell>
                       <TableCell>
                         <button
+                          type="button"
                           onClick={() => togglePublish(a)}
+                          aria-pressed={a.published}
                           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                             a.published
                               ? "bg-green-500/10 text-green-600 hover:bg-green-500/20"
                               : "bg-muted text-muted-foreground hover:bg-muted/80"
                           }`}
                         >
-                          {a.published ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                          {a.published ? <Eye className="h-3 w-3" aria-hidden="true" /> : <EyeOff className="h-3 w-3" aria-hidden="true" />}
                           {a.published ? "Published" : "Draft"}
                         </button>
                       </TableCell>
@@ -293,11 +295,11 @@ export default function AdminNews() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)}>
-                            <Pencil className="h-3.5 w-3.5" />
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)} aria-label="Edit article">
+                            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(a.id)}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(a.id)} aria-label="Delete article">
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
                           </Button>
                         </div>
                       </TableCell>

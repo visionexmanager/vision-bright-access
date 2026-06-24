@@ -189,10 +189,14 @@ export default function BusinessEconomy() {
 
         {/* Navigation Tabs */}
         <div className="section-container px-4 -mt-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3" role="tablist" aria-label={t("econ.title")}>
             {tabs.map((tab) => (
               <button
+                type="button"
                 key={tab.id}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`economy-panel-${tab.id}`}
                 onClick={() => {
                   setActiveTab(tab.id);
                   speak(t(tab.labelKey), lang);
@@ -203,17 +207,18 @@ export default function BusinessEconomy() {
                     : "bg-card text-muted-foreground border-border hover:border-primary/50"
                 }`}
               >
-                {tab.icon}
+                <span aria-hidden="true">{tab.icon}</span>
                 {t(tab.labelKey)}
               </button>
             ))}
           </div>
         </div>
 
-        <main className="section-container p-4 md:p-8 space-y-8">
+        <section className="section-container p-4 md:p-8 space-y-8" aria-labelledby="business-economy-heading">
+          <h2 id="business-economy-heading" className="sr-only">{t("econ.title")}</h2>
           {/* =================== FEASIBILITY =================== */}
           {activeTab === "feasibility" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-500">
+            <div id="economy-panel-feasibility" role="tabpanel" className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-500">
               {/* Input form */}
               <Card className="border-2 border-border rounded-3xl">
                 <CardHeader>
@@ -380,7 +385,7 @@ export default function BusinessEconomy() {
 
           {/* =================== MANAGEMENT =================== */}
           {activeTab === "management" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-500">
+            <div id="economy-panel-management" role="tabpanel" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-500">
               {[
                 { icon: <Target className="w-8 h-8" />, titleKey: "econ.mgmtPlanning", descKey: "econ.mgmtPlanningDesc", progress: 75 },
                 { icon: <Users className="w-8 h-8" />, titleKey: "econ.mgmtTeam", descKey: "econ.mgmtTeamDesc", progress: 60 },
@@ -411,7 +416,7 @@ export default function BusinessEconomy() {
 
           {/* =================== INVESTMENT =================== */}
           {activeTab === "investment" && (
-            <div className="space-y-8 animate-in fade-in duration-500">
+            <div id="economy-panel-investment" role="tabpanel" className="space-y-8 animate-in fade-in duration-500">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {investmentTips.map((tip, i) => (
                   <Card key={i} className="border-2 border-border rounded-3xl">
@@ -443,7 +448,7 @@ export default function BusinessEconomy() {
 
           {/* =================== INNOVATION =================== */}
           {activeTab === "innovation" && (
-            <div className="space-y-6 animate-in fade-in duration-500">
+            <div id="economy-panel-innovation" role="tabpanel" className="space-y-6 animate-in fade-in duration-500">
               <h2 className="text-2xl font-black text-foreground flex items-center gap-3">
                 <Lightbulb className="text-primary" />
                 {t("econ.projectIdeas")}
@@ -491,7 +496,7 @@ export default function BusinessEconomy() {
               analysis: result,
             }}
           />
-        </main>
+        </section>
       </div>
     </Layout>
   );
