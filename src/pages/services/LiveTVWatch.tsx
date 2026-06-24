@@ -73,8 +73,11 @@ export default function LiveTVWatch() {
             variant="ghost" size="icon"
             onClick={() => setSidebarOpen(s => !s)}
             title={t("player.toggleList")}
+            aria-label={t("player.toggleList")}
+            aria-expanded={sidebarOpen}
+            aria-controls="tv-sidebar"
             className="h-9 w-9">
-            <LayoutGrid className="w-4 h-4" />
+            <LayoutGrid className="w-4 h-4" aria-hidden="true" />
           </Button>
         </div>
 
@@ -145,16 +148,17 @@ export default function LiveTVWatch() {
 
           {/* Sidebar */}
           {sidebarOpen && (
-            <div className="w-64 flex-shrink-0 flex flex-col gap-3 max-h-[calc(100vh-160px)] sticky top-4">
+            <div id="tv-sidebar" className="w-64 flex-shrink-0 flex flex-col gap-3 max-h-[calc(100vh-160px)] sticky top-4" role="complementary" aria-label={t("liveTV.channelList")}>
               {/* Section label */}
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide" aria-hidden="true">
                 {t("liveTV.channelList")}
               </p>
 
               {/* Category filter */}
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("liveTV.all")}>
                 <button
                   onClick={() => setActiveCategory("all")}
+                  aria-pressed={activeCategory === "all"}
                   className={cn(
                     "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
                     activeCategory === "all"
@@ -169,6 +173,7 @@ export default function LiveTVWatch() {
                     <button
                       key={cat.id}
                       onClick={() => setActiveCategory(cat.slug)}
+                      aria-pressed={activeCategory === cat.slug}
                       className={cn(
                         "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
                         activeCategory === cat.slug
@@ -182,10 +187,10 @@ export default function LiveTVWatch() {
               </div>
 
               {/* Channel list */}
-              <div className="overflow-y-auto space-y-1.5 flex-1" style={{ scrollbarWidth: "thin" }}>
+              <div className="overflow-y-auto space-y-1.5 flex-1" style={{ scrollbarWidth: "thin" }} role="list">
                 {isLoading && channels.length === 0 ? (
-                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground" role="status" aria-live="polite">
+                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                     <span className="text-xs">{t("liveTV.loading")}</span>
                   </div>
                 ) : sidebarChannels.length === 0 ? (
@@ -194,20 +199,21 @@ export default function LiveTVWatch() {
                   </p>
                 ) : (
                   sidebarChannels.map(ch => (
-                    <ChannelCard
-                      key={ch.id}
-                      channel={ch}
-                      isSubscribed
-                      isSelected={ch.id === channelId}
-                      onClick={(c: TVChannel) => {
-                        const urlType = detectType(c.official_url ?? "");
-                        if (urlType === "external" && c.official_url) {
-                          window.open(c.official_url, "_blank", "noopener,noreferrer");
-                        } else {
-                          navigate(`/services/live-tv/watch/${c.id}`);
-                        }
-                      }}
-                    />
+                    <div key={ch.id} role="listitem">
+                      <ChannelCard
+                        channel={ch}
+                        isSubscribed
+                        isSelected={ch.id === channelId}
+                        onClick={(c: TVChannel) => {
+                          const urlType = detectType(c.official_url ?? "");
+                          if (urlType === "external" && c.official_url) {
+                            window.open(c.official_url, "_blank", "noopener,noreferrer");
+                          } else {
+                            navigate(`/services/live-tv/watch/${c.id}`);
+                          }
+                        }}
+                      />
+                    </div>
                   ))
                 )}
               </div>

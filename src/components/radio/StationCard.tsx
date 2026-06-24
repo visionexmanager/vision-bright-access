@@ -40,11 +40,17 @@ export function StationCard({ station, isSubscribed, isSelected, onClick }: Prop
           ? "border-orange-500 bg-orange-500/10 shadow-md shadow-orange-500/20"
           : "border-border bg-card hover:border-orange-400/40 hover:bg-muted/50"
       )}
-      aria-label={`${displayName} — ${station.bitrate} kbps`}
+      aria-label={[
+        displayName,
+        displayGenre,
+        station.bitrate === "HI" ? "HI-FI" : `${station.bitrate} kbps`,
+        !isSubscribed ? "🔒" : undefined,
+      ].filter(Boolean).join(" — ")}
+      aria-pressed={isSelected}
     >
       {/* Playing pulse indicator */}
       {isSelected && (
-        <span className={cn("absolute top-2 flex gap-0.5 items-end h-4", isRTL ? "left-2" : "right-2")}>
+        <span aria-hidden="true" className={cn("absolute top-2 flex gap-0.5 items-end h-4", isRTL ? "left-2" : "right-2")}>
           {[0, 0.15, 0.3].map(delay => (
             <span
               key={delay}
@@ -56,9 +62,9 @@ export function StationCard({ station, isSubscribed, isSelected, onClick }: Prop
       )}
 
       {/* Logo / fallback */}
-      <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+      <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-muted flex items-center justify-center" aria-hidden="true">
         {station.logo_url ? (
-          <img src={station.logo_url} alt={displayName} className="w-full h-full object-cover" />
+          <img src={station.logo_url} alt="" className="w-full h-full object-cover" />
         ) : (
           <Radio className="w-6 h-6 text-muted-foreground" />
         )}
@@ -68,12 +74,12 @@ export function StationCard({ station, isSubscribed, isSelected, onClick }: Prop
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm truncate text-foreground">{displayName}</p>
         {displayGenre && (
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">{displayGenre}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate" aria-hidden="true">{displayGenre}</p>
         )}
       </div>
 
       {/* Bitrate badge */}
-      <span className={cn(
+      <span aria-hidden="true" className={cn(
         "text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0",
         bitrateColor[station.bitrate] ?? bitrateColor["128"]
       )}>
@@ -83,12 +89,12 @@ export function StationCard({ station, isSubscribed, isSelected, onClick }: Prop
       {/* Lock or Play indicator */}
       {isSubscribed ? (
         isSelected ? (
-          <Play className="w-4 h-4 text-orange-400 flex-shrink-0 fill-orange-400" />
+          <Play className="w-4 h-4 text-orange-400 flex-shrink-0 fill-orange-400" aria-hidden="true" />
         ) : (
-          <Play className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
+          <Play className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" aria-hidden="true" />
         )
       ) : (
-        <Lock className="w-4 h-4 text-muted-foreground/60 flex-shrink-0" />
+        <Lock className="w-4 h-4 text-muted-foreground/60 flex-shrink-0" aria-hidden="true" />
       )}
     </button>
   );

@@ -97,8 +97,10 @@ export default function LiveTV() {
 
         {/* Search */}
         <div className="relative max-w-md">
-          <Search className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
+          <Search className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground", isRTL ? "right-3" : "left-3")} aria-hidden="true" />
           <Input
+            id="livetvSearch"
+            aria-label={t("liveTV.searchPlaceholder")}
             placeholder={t("liveTV.searchPlaceholder")}
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -108,9 +110,10 @@ export default function LiveTV() {
         </div>
 
         {/* Category tabs */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t("liveTV.all")}>
           <button
             onClick={() => setActiveSlug("all")}
+            aria-pressed={activeSlug === "all"}
             className={cn(
               "px-4 py-1.5 rounded-full text-sm font-medium border transition-colors",
               activeSlug === "all"
@@ -126,6 +129,7 @@ export default function LiveTV() {
               <button
                 key={cat.id}
                 onClick={() => setActiveSlug(cat.slug)}
+                aria-pressed={activeSlug === cat.slug}
                 className={cn(
                   "px-4 py-1.5 rounded-full text-sm font-medium border transition-colors",
                   activeSlug === cat.slug
@@ -142,30 +146,31 @@ export default function LiveTV() {
         {/* Channel grid */}
         {authLoading || isLoading ? (
           // Auth or data still loading — show spinner, never show empty state
-          <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
-            <RefreshCw className="w-5 h-5 animate-spin" />
+          <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground" role="status" aria-live="polite">
+            <RefreshCw className="w-5 h-5 animate-spin" aria-hidden="true" />
             {t("liveTV.loading")}
           </div>
         ) : !user ? (
           // Definitely not logged in
           <div className="text-center py-16 text-muted-foreground">
-            <Lock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <Lock className="w-12 h-12 mx-auto mb-3 opacity-30" aria-hidden="true" />
             <p>{t("liveTV.loginToView")}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
-            <Tv className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <Tv className="w-12 h-12 mx-auto mb-3 opacity-30" aria-hidden="true" />
             <p>{t("liveTV.noResults")}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" role="list">
             {filtered.map(ch => (
+              <div key={ch.id} role="listitem">
               <ChannelCard
-                key={ch.id}
                 channel={ch}
                 isSubscribed={isSubscribed}
                 onClick={handleChannelClick}
               />
+              </div>
             ))}
           </div>
         )}

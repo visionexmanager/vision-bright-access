@@ -72,8 +72,11 @@ export default function LiveRadioListen() {
             variant="ghost" size="icon"
             onClick={() => setSidebarOpen(s => !s)}
             title={t("player.toggleList")}
+            aria-label={t("player.toggleList")}
+            aria-expanded={sidebarOpen}
+            aria-controls="radio-sidebar"
             className="h-9 w-9">
-            <LayoutGrid className="w-4 h-4" />
+            <LayoutGrid className="w-4 h-4" aria-hidden="true" />
           </Button>
         </div>
 
@@ -153,15 +156,16 @@ export default function LiveRadioListen() {
 
           {/* Sidebar */}
           {sidebarOpen && (
-            <div className="w-64 flex-shrink-0 flex flex-col gap-3 max-h-[calc(100vh-160px)] sticky top-4">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            <div id="radio-sidebar" className="w-64 flex-shrink-0 flex flex-col gap-3 max-h-[calc(100vh-160px)] sticky top-4" role="complementary" aria-label={t("liveRadio.stationList")}>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide" aria-hidden="true">
                 {t("liveRadio.stationList")}
               </p>
 
               {/* Genre filter */}
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("liveRadio.all")}>
                 <button
                   onClick={() => setActiveGenre("all")}
+                  aria-pressed={activeGenre === "all"}
                   className={cn(
                     "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
                     activeGenre === "all"
@@ -176,6 +180,7 @@ export default function LiveRadioListen() {
                     <button
                       key={genre.id}
                       onClick={() => setActiveGenre(genre.slug)}
+                      aria-pressed={activeGenre === genre.slug}
                       className={cn(
                         "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
                         activeGenre === genre.slug
@@ -189,10 +194,10 @@ export default function LiveRadioListen() {
               </div>
 
               {/* Station list */}
-              <div className="overflow-y-auto space-y-1.5 flex-1" style={{ scrollbarWidth: "thin" }}>
+              <div className="overflow-y-auto space-y-1.5 flex-1" style={{ scrollbarWidth: "thin" }} role="list">
                 {isLoading && stations.length === 0 ? (
-                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground" role="status" aria-live="polite">
+                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                     <span className="text-xs">{t("liveRadio.loading")}</span>
                   </div>
                 ) : sidebarStations.length === 0 ? (
@@ -201,20 +206,21 @@ export default function LiveRadioListen() {
                   </p>
                 ) : (
                   sidebarStations.map(st => (
-                    <StationCard
-                      key={st.id}
-                      station={st}
-                      isSubscribed
-                      isSelected={st.id === stationId}
-                      onClick={(s: RadioStation) => {
-                        const urlType = detectType(s.official_url ?? "");
-                        if (urlType === "external" && s.official_url) {
-                          window.open(s.official_url, "_blank", "noopener,noreferrer");
-                        } else {
-                          navigate(`/services/live-radio/listen/${s.id}`);
-                        }
-                      }}
-                    />
+                    <div key={st.id} role="listitem">
+                      <StationCard
+                        station={st}
+                        isSubscribed
+                        isSelected={st.id === stationId}
+                        onClick={(s: RadioStation) => {
+                          const urlType = detectType(s.official_url ?? "");
+                          if (urlType === "external" && s.official_url) {
+                            window.open(s.official_url, "_blank", "noopener,noreferrer");
+                          } else {
+                            navigate(`/services/live-radio/listen/${s.id}`);
+                          }
+                        }}
+                      />
+                    </div>
                   ))
                 )}
               </div>

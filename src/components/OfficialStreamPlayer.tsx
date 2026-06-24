@@ -38,6 +38,8 @@ export type UrlType = "youtube" | "hls" | "audio" | "external";
 export function detectType(url: string): UrlType {
   if (!url) return "external";
   if (url.includes("youtube.com/embed") || url.includes("youtu.be")) return "youtube";
+  // Also recognise YouTube channel-page URLs (produced by an older migration sanity pass).
+  if (url.includes("youtube.com/channel/") || url.includes("youtube.com/watch")) return "youtube";
   // Audio-specific keywords checked BEFORE generic HLS so radio streams
   // don't accidentally go to the video HLS player.
   if (
@@ -47,7 +49,8 @@ export function detectType(url: string): UrlType {
     url.includes("infomaniak") || url.includes("bbcmedia") ||
     url.includes("zenapi") || url.includes("lstn.lv") ||
     url.includes("streamtheworld") || url.includes("sslstream") ||
-    url.includes("stream.srg-ssr")
+    url.includes("stream.srg-ssr") || url.includes("revma.com") ||
+    url.includes("streams.calmradio") || url.includes("sharp-stream")
   ) return "audio";
   if (url.match(/\.(m3u8)(\?|$)/i) || url.includes("hls")) return "hls";
   return "external";
@@ -61,27 +64,37 @@ interface Props {
   onError?: () => void;
 }
 
+// Convert youtube.com/channel/ID → embed live_stream URL (handles old migration format)
+function toYouTubeEmbedUrl(url: string): string {
+  if (url.includes("youtube.com/channel/")) {
+    const id = url.split("youtube.com/channel/")[1]?.split(/[/?#]/)[0];
+    if (id) return `https://www.youtube.com/embed/live_stream?channel=${id}`;
+  }
+  return url;
+}
+
 // ── YouTube iframe ──────────────────────────────────────────────
 function YouTubePlayer({ url, name, t }: { url: string; name: string; t: (k: string) => string }) {
   const [loading, setLoading] = useState(true);
+  const embedUrl = toYouTubeEmbedUrl(url);
 
   // Timeout: hide loading overlay after 12s even if onLoad hasn't fired
   useEffect(() => {
     setLoading(true);
     const tid = setTimeout(() => setLoading(false), 12_000);
     return () => clearTimeout(tid);
-  }, [url]);
+  }, [embedUrl]);
 
   return (
-    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden">
+    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden" role="region" aria-label={name}>
       {loading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/60 z-10">
-          <Loader2 className="w-10 h-10 animate-spin text-red-500" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/60 z-10" role="status" aria-live="polite">
+          <Loader2 className="w-10 h-10 animate-spin text-red-500" aria-hidden="true" />
           <p className="text-sm">{t("player.loading")}</p>
         </div>
       )}
       <iframe
-        src={url}
+        src={embedUrl}
         title={name}
         className="w-full h-full"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -155,22 +168,28 @@ function HLSPlayer({
       ref={containerRef}
       className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group cursor-pointer"
       onMouseMove={showControls} onTouchStart={showControls}
+      role="region" aria-label={name}
     >
       <video ref={videoRef} className="w-full h-full object-contain" muted={muted} playsInline />
 
+      {/* Screen-reader status announcements */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {loading ? t("player.loading") : errMsg ? errMsg : playing ? t("player.live") : t("player.paused")}
+      </div>
+
       {loading && !errMsg && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-10">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-10" aria-hidden="true">
           <Loader2 className="w-10 h-10 animate-spin text-blue-400" />
           <p className="text-sm text-white/60">{t("player.loading")}</p>
         </div>
       )}
       {errMsg && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/90 z-10">
-          <AlertCircle className="w-10 h-10 text-red-400" />
-          <p className="text-sm text-white/70">{errMsg}</p>
+          <AlertCircle className="w-10 h-10 text-red-400" aria-hidden="true" />
+          <p className="text-sm text-white/70" role="alert">{errMsg}</p>
           <Button size="sm" variant="outline" className="text-white border-white/20 hover:bg-white/10"
             onClick={() => { setErrMsg(null); setLoading(true); }}>
-            <RotateCcw className="w-3.5 h-3.5 me-1.5" /> {t("player.retry")}
+            <RotateCcw className="w-3.5 h-3.5 me-1.5" aria-hidden="true" /> {t("player.retry")}
           </Button>
         </div>
       )}
@@ -179,11 +198,11 @@ function HLSPlayer({
         <div className={cn(
           "absolute inset-0 flex flex-col justify-between p-3 bg-gradient-to-t from-black/60 via-transparent to-transparent transition-opacity duration-300",
           showCtrl ? "opacity-100" : "opacity-0"
-        )}>
+        )} aria-hidden={!showCtrl}>
           <div className="flex items-center gap-2">
-            {logo && <img src={logo} alt={name} className="h-7 w-7 rounded object-contain bg-white/10 p-0.5" />}
+            {logo && <img src={logo} alt="" aria-hidden="true" className="h-7 w-7 rounded object-contain bg-white/10 p-0.5" />}
             <span className="text-sm font-semibold text-white drop-shadow">{name}</span>
-            <span className="ms-auto flex items-center gap-1 text-[10px] text-white/70 bg-black/40 rounded-full px-2 py-0.5">
+            <span className="ms-auto flex items-center gap-1 text-[10px] text-white/70 bg-black/40 rounded-full px-2 py-0.5" aria-hidden="true">
               <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
               {t("player.live")}
             </span>
@@ -191,18 +210,21 @@ function HLSPlayer({
           <div className="flex items-center gap-2">
             <button
               onClick={() => { const v = videoRef.current; if (!v) return; playing ? v.pause() : v.play(); setPlaying(!playing); }}
+              aria-label={playing ? t("player.pause") : t("player.play")}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors">
-              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {playing ? <Pause className="h-4 w-4" aria-hidden="true" /> : <Play className="h-4 w-4" aria-hidden="true" />}
             </button>
             <button
               onClick={() => { setMuted(!muted); if (videoRef.current) videoRef.current.muted = !muted; }}
+              aria-label={muted ? t("player.unmute") : t("player.mute")}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors">
-              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              {muted ? <VolumeX className="h-4 w-4" aria-hidden="true" /> : <Volume2 className="h-4 w-4" aria-hidden="true" />}
             </button>
             <button
               onClick={() => containerRef.current?.requestFullscreen?.()}
+              aria-label={t("player.fullscreen")}
               className="ms-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors">
-              <Maximize className="h-4 w-4" />
+              <Maximize className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -274,21 +296,25 @@ function AudioPlayer({
   };
 
   return (
-    <div className="rounded-2xl border bg-gradient-to-br from-orange-950/60 to-slate-900 p-6 space-y-5">
+    <div className="rounded-2xl border bg-gradient-to-br from-orange-950/60 to-slate-900 p-6 space-y-5" role="region" aria-label={name}>
       <audio ref={audioRef} preload="none" />
+      {/* Screen-reader status */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {loading ? t("player.loading") : errMsg ? errMsg : playing ? t("player.onAir") : t("player.paused")}
+      </div>
       <div className="flex items-center gap-4">
         <div className={cn(
           "w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0 border border-white/10",
           playing ? "bg-orange-500/20" : "bg-white/5"
-        )}>
+        )} aria-hidden="true">
           {logo
-            ? <img src={logo} alt={name} className="w-full h-full object-contain rounded-2xl p-1" />
+            ? <img src={logo} alt="" className="w-full h-full object-contain rounded-2xl p-1" />
             : <Radio className={cn("w-10 h-10", playing ? "text-orange-400" : "text-white/30")} />
           }
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-lg text-white truncate">{name}</h3>
-          <div className="flex items-center gap-1.5 mt-1">
+          <div className="flex items-center gap-1.5 mt-1" aria-hidden="true">
             <span className={cn("w-2 h-2 rounded-full flex-shrink-0", playing ? "bg-orange-400 animate-pulse" : "bg-white/20")} />
             <span className="text-sm text-white/60">
               {playing ? t("player.onAir") : loading ? t("player.loading") : t("player.paused")}
@@ -298,7 +324,7 @@ function AudioPlayer({
       </div>
 
       {playing && (
-        <div className="flex items-end justify-center gap-0.5 h-8">
+        <div className="flex items-end justify-center gap-0.5 h-8" aria-hidden="true">
           {Array.from({ length: 24 }).map((_, i) => (
             <div key={i} className="w-1 bg-orange-400/80 rounded-full animate-pulse"
               style={{ height: `${20 + Math.sin(i * 0.8) * 12}px`, animationDelay: `${i * 50}ms` }} />
@@ -308,11 +334,11 @@ function AudioPlayer({
 
       {errMsg && (
         <div className="flex items-center gap-2 text-red-400 text-sm">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{errMsg}</span>
-          <Button size="sm" variant="ghost" className="ms-auto text-white/60 hover:text-white"
+          <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+          <span role="alert">{errMsg}</span>
+          <Button size="sm" variant="ghost" aria-label={t("player.retry")} className="ms-auto text-white/60 hover:text-white"
             onClick={() => { setErrMsg(null); setLoading(true); }}>
-            <RotateCcw className="w-3 h-3" />
+            <RotateCcw className="w-3 h-3" aria-hidden="true" />
           </Button>
         </div>
       )}
@@ -321,6 +347,7 @@ function AudioPlayer({
         <button
           onClick={togglePlay}
           disabled={loading && !errMsg}
+          aria-label={playing ? t("player.pause") : t("player.play")}
           className={cn(
             "flex h-12 w-12 items-center justify-center rounded-full transition-all flex-shrink-0",
             loading && !errMsg
@@ -328,17 +355,19 @@ function AudioPlayer({
               : "bg-orange-500 hover:bg-orange-400 text-white shadow-lg shadow-orange-500/30"
           )}>
           {loading && !errMsg
-            ? <Loader2 className="h-5 w-5 animate-spin" />
-            : playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ms-0.5" />
+            ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+            : playing ? <Pause className="h-5 w-5" aria-hidden="true" /> : <Play className="h-5 w-5 ms-0.5" aria-hidden="true" />
           }
         </button>
         <button
           onClick={() => { setMuted(!muted); if (audioRef.current) audioRef.current.muted = !muted; }}
+          aria-label={muted ? t("player.unmute") : t("player.mute")}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">
-          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          {muted ? <VolumeX className="h-4 w-4" aria-hidden="true" /> : <Volume2 className="h-4 w-4" aria-hidden="true" />}
         </button>
         <input
           type="range" min={0} max={100} value={muted ? 0 : volume}
+          aria-label={t("player.volume")}
           onChange={(e) => {
             const v = Number(e.target.value);
             setVolume(v);
@@ -348,7 +377,7 @@ function AudioPlayer({
         />
       </div>
 
-      <p className="text-center text-[10px] text-white/30 flex items-center justify-center gap-1">
+      <p className="text-center text-[10px] text-white/30 flex items-center justify-center gap-1" aria-hidden="true">
         <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
         {t("player.officialSrc")}
       </p>

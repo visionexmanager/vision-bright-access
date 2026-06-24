@@ -40,12 +40,18 @@ export function ChannelCard({ channel, isSubscribed, isSelected, onClick }: Prop
           ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/20"
           : "border-border bg-card hover:border-blue-400/40 hover:bg-muted/50"
       )}
-      aria-label={`${displayName} — ${channel.quality}`}
+      aria-label={[
+        displayName,
+        displayCategory,
+        channel.quality,
+        !isSubscribed ? "🔒" : undefined,
+      ].filter(Boolean).join(" — ")}
+      aria-pressed={isSelected}
     >
       {/* Logo / fallback */}
-      <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+      <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-muted flex items-center justify-center" aria-hidden="true">
         {channel.logo_url ? (
-          <img src={channel.logo_url} alt={displayName} className="w-full h-full object-cover" />
+          <img src={channel.logo_url} alt="" className="w-full h-full object-cover" />
         ) : (
           <Tv className="w-6 h-6 text-muted-foreground" />
         )}
@@ -55,24 +61,24 @@ export function ChannelCard({ channel, isSubscribed, isSelected, onClick }: Prop
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm truncate text-foreground">{displayName}</p>
         {displayCategory && (
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">{displayCategory}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate" aria-hidden="true">{displayCategory}</p>
         )}
       </div>
 
       {/* Quality badge */}
-      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0", qualityColor[channel.quality] ?? qualityColor.HD)}>
+      <span aria-hidden="true" className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0", qualityColor[channel.quality] ?? qualityColor.HD)}>
         {channel.quality}
       </span>
 
       {/* Lock or Play indicator */}
       {isSubscribed ? (
         isSelected ? (
-          <Play className="w-4 h-4 text-blue-400 flex-shrink-0 fill-blue-400" />
+          <Play className="w-4 h-4 text-blue-400 flex-shrink-0 fill-blue-400" aria-hidden="true" />
         ) : (
-          <Play className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
+          <Play className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" aria-hidden="true" />
         )
       ) : (
-        <Lock className="w-4 h-4 text-muted-foreground/60 flex-shrink-0" />
+        <Lock className="w-4 h-4 text-muted-foreground/60 flex-shrink-0" aria-hidden="true" />
       )}
     </button>
   );

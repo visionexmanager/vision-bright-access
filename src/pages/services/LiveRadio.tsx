@@ -96,8 +96,10 @@ export default function LiveRadio() {
 
         {/* Search */}
         <div className="relative max-w-md">
-          <Search className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
+          <Search className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground", isRTL ? "right-3" : "left-3")} aria-hidden="true" />
           <Input
+            id="liveradioSearch"
+            aria-label={t("liveRadio.searchPlaceholder")}
             placeholder={t("liveRadio.searchPlaceholder")}
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -107,9 +109,10 @@ export default function LiveRadio() {
         </div>
 
         {/* Genre tabs */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t("liveRadio.all")}>
           <button
             onClick={() => setActiveSlug("all")}
+            aria-pressed={activeSlug === "all"}
             className={cn(
               "px-4 py-1.5 rounded-full text-sm font-medium border transition-colors",
               activeSlug === "all"
@@ -125,6 +128,7 @@ export default function LiveRadio() {
               <button
                 key={genre.id}
                 onClick={() => setActiveSlug(genre.slug)}
+                aria-pressed={activeSlug === genre.slug}
                 className={cn(
                   "px-4 py-1.5 rounded-full text-sm font-medium border transition-colors",
                   activeSlug === genre.slug
@@ -140,29 +144,30 @@ export default function LiveRadio() {
 
         {/* Station grid */}
         {authLoading || isLoading ? (
-          <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
-            <RefreshCw className="w-5 h-5 animate-spin" />
+          <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground" role="status" aria-live="polite">
+            <RefreshCw className="w-5 h-5 animate-spin" aria-hidden="true" />
             {t("liveRadio.loading")}
           </div>
         ) : !user ? (
           <div className="text-center py-16 text-muted-foreground">
-            <Lock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <Lock className="w-12 h-12 mx-auto mb-3 opacity-30" aria-hidden="true" />
             <p>{t("liveRadio.loginToView")}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
-            <Radio className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <Radio className="w-12 h-12 mx-auto mb-3 opacity-30" aria-hidden="true" />
             <p>{t("liveRadio.noResults")}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" role="list">
             {filtered.map(st => (
-              <StationCard
-                key={st.id}
-                station={st}
-                isSubscribed={isSubscribed}
-                onClick={handleStationClick}
-              />
+              <div key={st.id} role="listitem">
+                <StationCard
+                  station={st}
+                  isSubscribed={isSubscribed}
+                  onClick={handleStationClick}
+                />
+              </div>
             ))}
           </div>
         )}
