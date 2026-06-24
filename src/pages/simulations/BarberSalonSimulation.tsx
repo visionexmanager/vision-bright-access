@@ -248,6 +248,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
       <SimulationScene slug="barber-salon" isActive={dayActive || day > 1} isComplete={finished} />
       <ImageAnalyst
         analystId="barber-style"
+        fallbackAnalystId="hair-care"
         name={t("sim.barber.aiTitle")}
         hint={t("sim.barber.aiHint")}
         compact

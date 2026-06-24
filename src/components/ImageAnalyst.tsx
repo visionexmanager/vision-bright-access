@@ -14,6 +14,7 @@ import type { VisionAnalysis } from "@/lib/types";
 
 interface Props {
   analystId: string;
+  fallbackAnalystId?: string;
   name: string;
   hint: string;
   compact?: boolean;
@@ -30,7 +31,7 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-export function ImageAnalyst({ analystId, name, hint, compact = false }: Props) {
+export function ImageAnalyst({ analystId, fallbackAnalystId, name, hint, compact = false }: Props) {
   const { lang, t, dir, translateText } = useLanguage();
   const isRTL = dir === "rtl";
   const inputRef = useRef<HTMLInputElement>(null);
@@ -69,8 +70,14 @@ export function ImageAnalyst({ analystId, name, hint, compact = false }: Props) 
     setLoading(true);
     setAnalysis(null);
     try {
-      const { analysis } = await aiService.analyzeWithAnalyst(analystId, imageData, lang);
-      setAnalysis(analysis);
+      try {
+        const { analysis } = await aiService.analyzeWithAnalyst(analystId, imageData, lang);
+        setAnalysis(analysis);
+      } catch (primaryError) {
+        if (!fallbackAnalystId) throw primaryError;
+        const { analysis } = await aiService.analyzeWithAnalyst(fallbackAnalystId, imageData, lang);
+        setAnalysis(analysis);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : tx.failed);
     } finally {
