@@ -4,6 +4,7 @@ const MASTER_VOLUME = 0.72;
 const DUCKED_VOLUME = 0.16;
 const MIN_GAP_MS = 70;
 const MAX_SIMULTANEOUS_SOUNDS = 5;
+const REACTION_AUDIO_VERSION = "20260624-real-recordings-v2";
 
 const audioPool = new Map<string, HTMLAudioElement>();
 const activeSounds = new Set<HTMLAudioElement>();
@@ -40,7 +41,8 @@ function createAudio(emoji: string): HTMLAudioElement | null {
   const source = REACTION_SOUND_MANIFEST[emoji];
   if (!source) return null;
 
-  const audio = new Audio(source);
+  const versionedSource = `${source}${source.includes("?") ? "&" : "?"}v=${REACTION_AUDIO_VERSION}`;
+  const audio = new Audio(versionedSource);
   audio.preload = "auto";
   audio.volume = targetVolume();
   audio.setAttribute("playsinline", "");

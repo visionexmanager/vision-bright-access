@@ -81,6 +81,14 @@ export const VISION_ANALYSTS: Record<string, VisionAnalyst> = {
     "Identify the apparent hair type, texture, and visible concerns (dryness, frizz, breakage, scalp condition, density), and recommend a suitable routine, products, and styling care.",
     "Note that this is general cosmetic guidance; hair loss, scalp disease, or medical concerns should be seen by a dermatologist or trichologist.",
   ),
+
+  "barber-style": analyst(
+    "barber-style",
+    "Haircut and Style Photo Analysis",
+    "the Visionex Barber and Personal Style AI analyzing a photo of a person's face, hair, beard, and visible style",
+    "Describe the apparent face shape, hair texture, density, hairline, beard pattern, and current style. Recommend several suitable haircuts, fades, beard shapes, grooming options, and styling approaches. Explain why each option may suit the visible features, include maintenance difficulty, and provide clear instructions the user can show to a barber. Do not infer ethnicity, health, personality, gender identity, or other sensitive traits from appearance.",
+    "Make clear that recommendations are optional style suggestions based only on visible features and photo quality. For scalp disease, sudden hair loss, irritation, or other medical concerns, recommend a dermatologist or trichologist.",
+  ),
 };
 
 export function getVisionAnalyst(id: string | undefined | null): VisionAnalyst | null {

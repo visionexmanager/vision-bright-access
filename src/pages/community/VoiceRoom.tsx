@@ -293,12 +293,16 @@ function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick
     <div
       role="listitem"
       aria-label={`${displayName}. ${participantState}`}
-      className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 transition-all ${isSpeaking ? "border-primary bg-primary/5 shadow-md" : "border-border bg-muted/30"}`}
+      className={`group relative flex min-h-36 flex-col items-center justify-center gap-2 overflow-hidden rounded-3xl border p-4 transition-all duration-300 ${
+        isSpeaking
+          ? "border-primary/80 bg-gradient-to-b from-primary/15 to-primary/5 shadow-lg shadow-primary/15 ring-2 ring-primary/20"
+          : "border-border/70 bg-card/80 shadow-sm hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+      }`}
     >
       {isRaisingHand && (
         <span className="absolute -top-2 -right-2 text-lg animate-bounce z-10 select-none">✋</span>
       )}
-      <div className={`relative flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-primary-foreground ${isSpeaking ? "bg-primary" : "bg-muted-foreground/30"}`}>
+      <div className={`relative flex h-16 w-16 items-center justify-center rounded-full text-2xl font-bold text-primary-foreground shadow-inner transition-transform duration-300 group-hover:scale-105 ${isSpeaking ? "bg-primary ring-4 ring-primary/15" : "bg-gradient-to-br from-slate-500 to-slate-700"}`}>
         <span aria-hidden="true">{displayName.charAt(0).toUpperCase()}</span>
         {isSpeaking && (
           <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary" aria-hidden="true">
@@ -1273,7 +1277,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   }
 
   return (
-    <div className="flex flex-col gap-6" aria-describedby="voice-room-shortcuts">
+    <div className="flex flex-col gap-5" aria-describedby="voice-room-shortcuts">
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {screenReaderAnnouncement}
       </div>
@@ -1300,7 +1304,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         </div>
       )}
 
-      <div className="flex flex-col gap-3 rounded-2xl border bg-card/95 px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-3xl border border-border/70 bg-card/85 px-4 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-semibold">{t("vroom.layout")}</p>
           <p className="truncate text-xs text-muted-foreground">
@@ -1537,12 +1541,12 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       })()}
 
       {/* Participants grid */}
-      <div className="relative">
+      <section className="relative rounded-3xl border border-border/60 bg-muted/10 p-3 sm:p-4" aria-labelledby="voice-room-participants-heading">
         <div className="mb-3 flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-muted-foreground">
+          <h2 id="voice-room-participants-heading" className="text-sm font-medium text-muted-foreground">
             {participants.length} {t("vroom.participants")}
-          </span>
+          </h2>
         </div>
 
         {isStageMode ? (
@@ -1593,7 +1597,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
 
         {/* Floating reactions overlay */}
         <FloatingReactionsOverlay reactions={floatingReactions} />
-      </div>
+      </section>
 
       {/* Notifications history panel (bell button) */}
       {notifOpen && (
@@ -1767,9 +1771,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       )}
 
       {/* Controls — two-row layout for easy navigation */}
-      <div className="flex flex-col gap-2 pt-2">
+      <div className="sticky bottom-3 z-30 flex flex-col gap-2 rounded-3xl border border-border/70 bg-background/90 p-2 shadow-2xl shadow-black/10 backdrop-blur-xl">
         {/* ── Primary row: essential controls + leave ─────────────────── */}
-        <div className="flex items-center justify-center gap-2 rounded-2xl border bg-card px-4 py-3 shadow-sm flex-wrap">
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-card/80 px-3 py-2.5 flex-wrap">
           {/* Mic */}
           <Button
             size="lg"
@@ -1935,7 +1939,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         </div>
 
         {/* ── Secondary row: effects, moderation, advanced ────────────── */}
-        <div className="flex items-center justify-center gap-2 rounded-xl border bg-muted/20 px-3 py-2 flex-wrap">
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-muted/30 px-3 py-2 flex-wrap">
           {/* Spatial audio */}
           <Button
             size="sm"
@@ -2116,7 +2120,7 @@ function _bpf(ctx: AudioContext, freq: number, q = 1) {
   const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q; return f;
 }
 
-function playReactionSound(emoji: string) {
+function playLegacySyntheticReactionSound(emoji: string) {
   try {
     const ctx = new AudioContext();
     const now = ctx.currentTime;
@@ -3489,15 +3493,16 @@ export default function VoiceRoom() {
 
   return (
     <Layout>
-      <div className="section-container py-8">
+      <div className="section-container py-6 lg:py-8">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-primary/10 p-2.5">
-              <Mic className="h-6 w-6 text-primary" />
+        <div className="mb-5 overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 via-card to-card p-4 shadow-lg shadow-primary/5 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="rounded-2xl bg-primary p-3 shadow-lg shadow-primary/25">
+              <Mic className="h-6 w-6 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold flex items-center gap-2">
+            <div className="min-w-0">
+              <h1 className="flex items-center gap-2 truncate text-xl font-bold sm:text-2xl">
                 {roomName}
                 {canModerate ? (
                   <button
@@ -3515,13 +3520,18 @@ export default function VoiceRoom() {
                   isPrivate && <Lock className="h-4 w-4 text-muted-foreground" aria-label={t("vroom.private")} />
                 )}
               </h1>
-              <Badge variant="outline" className="mt-0.5 gap-1 text-xs text-emerald-600 border-emerald-500/40">
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="gap-1 border-emerald-500/40 bg-emerald-500/10 text-xs text-emerald-700 dark:text-emerald-300">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 {t("vroom.live")}
               </Badge>
+              <Badge variant="secondary" className="text-xs">
+                {roomMode === "stage" ? t("vroom.stageMode") : t("vroom.conversationMode")}
+              </Badge>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -3536,10 +3546,29 @@ export default function VoiceRoom() {
             </Button>
             <Button variant="outline" size="sm" onClick={handleLeave}>{t("vroom.leave")}</Button>
           </div>
+          </div>
+
+          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-border/50 bg-background/55 px-3 py-2.5 backdrop-blur">
+            <MessageSquare className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+              {roomTopic || t("vroom.noTopic")}
+            </span>
+            {canModerate && !editingTopic && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 shrink-0"
+                onClick={() => { setTopicDraft(roomTopic); setEditingTopic(true); }}
+                aria-label={t("vroom.editTopic")}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Topic bar */}
-        <div className="mb-4 flex items-center gap-2 rounded-xl border bg-muted/30 px-4 py-2.5">
+        {editingTopic && <div className="mb-4 flex items-center gap-2 rounded-2xl border bg-card px-4 py-2.5 shadow-sm">
           {editingTopic ? (
             <>
               <Input
@@ -3557,26 +3586,11 @@ export default function VoiceRoom() {
                 <X className="h-3.5 w-3.5" />
               </Button>
             </>
-          ) : (
-            <>
-              <span className="flex-1 text-sm text-muted-foreground">{roomTopic || t("vroom.noTopic")}</span>
-              {canModerate && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6 text-muted-foreground"
-                  onClick={() => { setTopicDraft(roomTopic); setEditingTopic(true); }}
-                  aria-label={t("vroom.editTopic")}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </>
-          )}
-        </div>
+          ) : null}
+        </div>}
 
-        <Card>
-          <CardContent className="p-6">
+        <Card className="overflow-visible rounded-3xl border-border/60 bg-card/70 shadow-xl shadow-black/5">
+          <CardContent className="p-3 sm:p-5 lg:p-6">
             {connectionLost ? (
               <div className="flex flex-col items-center gap-4 py-10 text-center">
                 <WifiOff className="h-12 w-12 text-muted-foreground" />

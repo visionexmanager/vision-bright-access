@@ -16,6 +16,7 @@ interface Props {
   analystId: string;
   name: string;
   hint: string;
+  compact?: boolean;
 }
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
@@ -29,7 +30,7 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-export function ImageAnalyst({ analystId, name, hint }: Props) {
+export function ImageAnalyst({ analystId, name, hint, compact = false }: Props) {
   const { lang, t, dir, translateText } = useLanguage();
   const isRTL = dir === "rtl";
   const inputRef = useRef<HTMLInputElement>(null);
@@ -78,8 +79,8 @@ export function ImageAnalyst({ analystId, name, hint }: Props) {
   };
 
   return (
-    <Card className="shadow-sm border-primary/30" dir={isRTL ? "rtl" : "ltr"}>
-      <CardContent className="space-y-4 p-6">
+    <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card shadow-sm" dir={isRTL ? "rtl" : "ltr"}>
+      <CardContent className={`space-y-4 ${compact ? "p-4" : "p-6"}`}>
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -94,6 +95,7 @@ export function ImageAnalyst({ analystId, name, hint }: Props) {
           ref={inputRef}
           type="file"
           accept="image/*"
+          aria-label={tx.choose}
           className="hidden"
           onChange={(e) => onPick(e.target.files?.[0])}
         />

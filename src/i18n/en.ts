@@ -158,6 +158,8 @@ export const translations: Record<string, string> = {
   "dash.today": "today",
   "dash.remaining": "remaining",
   "dash.adSecondsLeft": "{s}s remaining — please keep this open",
+  "dash.adTimerAccessible": "The countdown updates every second and is announced by screen readers. Your reward is granted when it reaches zero.",
+  "dash.adProgressLabel": "Advertisement viewing progress",
   "dash.reason.dailyLogin": "Daily login bonus",
   "dash.reason.watchedAd": "Watched an ad",
   "dash.reason.vxPurchase": "VX Purchase",
@@ -5718,6 +5720,11 @@ export const translations: Record<string, string> = {
   "mp.yourScore": "Your score",
   "mp.opponentCards": "Opponent cards",
   "mp.mistakes": "Mistakes",
+  "sim.barber.aiTitle": "AI haircut and style advisor",
+  "sim.barber.aiHint": "Upload a clear front-facing photo to receive haircut, fade, beard, grooming, and maintenance suggestions you can discuss with your barber.",
+  "sim.skincare.aiTitle": "AI skin-care photo assessment",
+  "sim.skincare.aiHint": "Upload a clear, well-lit photo for general cosmetic observations and a suggested routine. This does not replace a dermatologist.",
+  "vroom.conversationMode": "Conversation room",
 };
 
 export default translations;

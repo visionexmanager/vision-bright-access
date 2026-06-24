@@ -155,6 +155,8 @@ export const translations: Record<string, string> = {
   "dash.today": "اليوم",
   "dash.remaining": "متبقي",
   "dash.adSecondsLeft": "{s} ثانية متبقية — ابقَ في الصفحة",
+  "dash.adTimerAccessible": "يتحدث المؤقت كل ثانية مع قارئ الشاشة، وتُضاف المكافأة تلقائياً عند وصوله إلى الصفر.",
+  "dash.adProgressLabel": "تقدم مشاهدة الإعلان",
   "dash.dailyClaimed": "تم الحصول على مكافأة الدخول اليومي! +{pts} نقطة",
   "dash.reason.dailyLogin": "مكافأة تسجيل الدخول اليومي",
   "dash.reason.watchedAd": "مشاهدة إعلان",
@@ -5718,6 +5720,11 @@ export const translations: Record<string, string> = {
   "ai.cap.quantityPlaceholder": "عينة، 100 وحدة، حاوية ...",
   "ai.cap.estimatedBudget": "الميزانية المقدرة",
   "ai.cap.estimatedBudgetPlaceholder": "الميزانية التقريبية أو السعر المستهدف",
+  "sim.barber.aiTitle": "مستشار القصات والاستايل بالذكاء الاصطناعي",
+  "sim.barber.aiHint": "ارفع صورة أمامية واضحة لتحصل على اقتراحات للقصات والفيد واللحية والتصفيف والعناية، مع وصف يمكنك عرضه على الحلاق.",
+  "sim.skincare.aiTitle": "تحليل صورة البشرة بالذكاء الاصطناعي",
+  "sim.skincare.aiHint": "ارفع صورة واضحة ومضاءة جيداً للحصول على ملاحظات تجميلية عامة وروتين مقترح. لا يغني ذلك عن طبيب الجلدية.",
+  "vroom.conversationMode": "غرفة محادثة",
 };
 
 export default translations;

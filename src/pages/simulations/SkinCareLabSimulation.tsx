@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { toast } from "sonner";
 import { SimulationScene } from "@/components/SimulationScene";
+import { ImageAnalyst } from "@/components/ImageAnalyst";
 
 type Stage = "formulation" | "clinic" | "results";
 
@@ -286,6 +287,12 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
   return (
     <div className="space-y-6">
       <SimulationScene slug="skin-care-lab" isActive={clientIndex > 0} isComplete={finished} />
+      <ImageAnalyst
+        analystId="skin-care"
+        name={t("sim.skincare.aiTitle")}
+        hint={t("sim.skincare.aiHint")}
+        compact
+      />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles className="h-6 w-6 text-primary" /> {t("sim.skincare.title")}</h2>
       </div>

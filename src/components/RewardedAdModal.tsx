@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Coins, Loader2, Tv2 } from "lucide-react";
+import { Clock3, Coins, Loader2, Tv2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Progress } from "@/components/ui/progress";
 
@@ -64,6 +64,11 @@ function SimulatedAdModal({ onRewarded, onClose }: Props) {
   const [secondsLeft, setSecondsLeft] = useState(SIMULATED_AD_SEC);
   const [granted, setGranted] = useState(false);
   const rewardedRef = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (granted) return;
@@ -85,7 +90,10 @@ function SimulatedAdModal({ onRewarded, onClose }: Props) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={t("dash.watchAd")}
+      aria-labelledby="rewarded-ad-title"
+      aria-describedby="rewarded-ad-description rewarded-ad-timer"
+      tabIndex={-1}
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
     >
       <div className="relative w-full max-w-sm rounded-2xl border border-border bg-card shadow-2xl p-8 text-center space-y-5">
@@ -96,12 +104,29 @@ function SimulatedAdModal({ onRewarded, onClose }: Props) {
                 <Tv2 className="h-10 w-10 text-amber-500" aria-hidden="true" />
               </div>
             </div>
-            <p className="text-base font-semibold">{t("dash.adWatching")}</p>
+            <p id="rewarded-ad-title" className="text-base font-semibold">{t("dash.adWatching")}</p>
+            <p id="rewarded-ad-description" className="text-sm text-muted-foreground">
+              {t("dash.adTimerAccessible")}
+            </p>
             <div className="space-y-2">
-              <Progress value={progress} className="h-3" />
-              <p className="text-2xl font-bold tabular-nums text-amber-500">
-                {t("dash.adSecondsLeft").replace("{s}", String(secondsLeft))}
-              </p>
+              <Progress
+                value={progress}
+                className="h-3"
+                aria-label={t("dash.adProgressLabel")}
+                aria-valuetext={t("dash.adSecondsLeft").replace("{s}", String(secondsLeft))}
+              />
+              <div
+                id="rewarded-ad-timer"
+                role="timer"
+                aria-live="polite"
+                aria-atomic="true"
+                className="mx-auto flex w-fit min-w-40 items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-600 dark:text-amber-400"
+              >
+                <Clock3 className="h-5 w-5" aria-hidden="true" />
+                <span className="text-2xl font-bold tabular-nums">
+                  {t("dash.adSecondsLeft").replace("{s}", String(secondsLeft))}
+                </span>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">
               +{VX_REWARD} VX {t("dash.adWatched")?.split("!")[0] || "reward on completion"}
