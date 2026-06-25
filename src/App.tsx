@@ -107,12 +107,6 @@ const Akinator = lazy(() => import("./pages/games/Akinator"));
 
 // Legal pages
 const LegalCenter = lazy(() => import("./pages/legal/LegalCenter"));
-const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
-const TermsOfUse = lazy(() => import("./pages/legal/TermsOfUse"));
-const MarketplacePolicy = lazy(() => import("./pages/legal/MarketplacePolicy"));
-const CommunityGuidelines = lazy(() => import("./pages/legal/CommunityGuidelines"));
-const AccessibilityStatement = lazy(() => import("./pages/legal/AccessibilityStatement"));
-const LegalDisclaimer = lazy(() => import("./pages/legal/LegalDisclaimer"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -243,8 +237,7 @@ function AppRoutes() {
                     <Route path="/news" element={<News />} />
                     <Route path="/messages" element={<Messages />} />
                     <Route path="/settings" element={<Settings />} />
-                    <Route path="/purchase-history" element={<Navigate to="/profile#purchase-history" replace />} />
-                    <Route path="/professional-tools" element={<ProfessionalTools />} />
+<Route path="/professional-tools" element={<ProfessionalTools />} />
                     <Route path="/professional-tools/:toolId" element={<ToolDetail />} />
                     {/* Legal — all policies accessible through /legal (LegalCenter) */}
                     <Route path="/legal" element={<LegalCenter />} />

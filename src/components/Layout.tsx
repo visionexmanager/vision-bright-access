@@ -34,7 +34,6 @@ const FOOTER_LINKS = {
     { to: "/leaderboard",             labelKey: "footer.link.leaderboard" },
     { to: "/assistive-products",      labelKey: "footer.link.assistiveProducts" },
     { to: "/academy",                 labelKey: "footer.link.academy" },
-    { to: "/purchase-history",        labelKey: "footer.link.purchaseHistory" },
   ],
 };
 

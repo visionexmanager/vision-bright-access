@@ -2931,24 +2931,12 @@ export default function VoiceRoom() {
   const cleanup = useCallback(async () => {
     disposeReactionSounds();
     if (!user || !roomId) return;
-    await supabase.from("voice_room_members").delete().eq("room_id", roomId).eq("user_id", user.id);
-    // Delete room when empty (skip default/seeded rooms)
     try {
-      const { count } = await supabase
-        .from("voice_room_members")
-        .select("*", { count: "exact", head: true })
-        .eq("room_id", roomId);
-      if ((count ?? 1) === 0) {
-        const { data: roomRow } = await supabase
-          .from("voice_rooms")
-          .select("is_default")
-          .eq("id", roomId)
-          .single();
-        if (roomRow && !roomRow.is_default) {
-          await supabase.from("voice_rooms").delete().eq("id", roomId);
-        }
-      }
-    } catch { /* non-critical */ }
+      await supabase.rpc("cleanup_voice_room", { p_room_id: roomId, p_user_id: user.id });
+    } catch {
+      // Fallback: at least remove membership so the DB trigger can fire.
+      await supabase.from("voice_room_members").delete().eq("room_id", roomId).eq("user_id", user.id);
+    }
   }, [user, roomId]);
 
   // Keep cleanup in a ref so the join effect never re-runs just because the
@@ -2968,25 +2956,27 @@ export default function VoiceRoom() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Remove member on page close / refresh (keepalive fetch survives navigation)
+  // Remove member + delete room if empty on page close/refresh.
+  // Uses the cleanup_voice_room RPC (atomic member removal + room deletion).
+  // keepalive ensures the request survives tab/browser close.
   useEffect(() => {
     if (!user || !roomId) return;
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
     const handleBeforeUnload = () => {
-      const token = accessTokenRef.current ?? supabaseKey;
-      fetch(
-        `${supabaseUrl}/rest/v1/voice_room_members?room_id=eq.${roomId}&user_id=eq.${user.id}`,
-        {
-          method: "DELETE",
-          keepalive: true,
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const token = accessTokenRef.current;
+      if (!token) return;
+      fetch(`${supabaseUrl}/rest/v1/rpc/cleanup_voice_room`, {
+        method: "POST",
+        keepalive: true,
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal",
+        },
+        body: JSON.stringify({ p_room_id: roomId, p_user_id: user.id }),
+      });
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
