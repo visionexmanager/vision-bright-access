@@ -471,7 +471,6 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const addEvent = useCallback((icon: string, text: string) => {
     const id = Math.random().toString(36).slice(2);
     setRoomEvents((prev) => [...prev.slice(-99), { id, icon, text, ts: Date.now() }]);
-    announce(text);
     setNotifOpen((open) => {
       if (!open) setUnreadNotifs((n) => n + 1);
       return open;
@@ -479,7 +478,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     // Show banner — max 4 visible at once, auto-dismiss after 4s
     setRoomBanners((prev) => [...prev.slice(-3), { id, icon, text }]);
     setTimeout(() => setRoomBanners((prev) => prev.filter((b) => b.id !== id)), 4000);
-  }, [announce]);
+  }, []);
 
   const label = useCallback((key: string, fallback: string) => {
     const translated = t(key);
@@ -730,6 +729,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         setChatMessages((prev) => { const next = [...prev, payload]; return next.length > 200 ? next.slice(-200) : next; });
         allChatMessagesRef.current = [...allChatMessagesRef.current, payload].slice(-50);
         addEvent("💬", `${payload.senderName}: ${payload.text.slice(0, 60)}`);
+        if (payload.kind === "ai") announce(`${payload.senderName} replied.`);
         if (payload.kind === "ai" && payload.audio && !playedAiAudioIdsRef.current.has(payload.id)) {
           playedAiAudioIdsRef.current.add(payload.id);
           playAiAudio(payload.audio);
@@ -779,7 +779,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       allChatMessagesRef.current = [];
       playedAiAudioIdsRef.current.clear();
     };
-  }, [roomId, currentUserId, t, addEvent, isScreenShareEnabled, playAiAudio]);
+  }, [roomId, currentUserId, t, addEvent, isScreenShareEnabled, playAiAudio, announce]);
 
   useEffect(() => {
     if (chatOpen) {
@@ -1393,7 +1393,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
 
       {/* Room event banners — slide in from top, auto-dismiss */}
       {roomBanners.length > 0 && (
-        <div className="flex flex-col gap-1.5" aria-live="polite">
+        <div className="flex flex-col gap-1.5" aria-live="off">
           {roomBanners.map((b) => (
             <div
               key={b.id}
@@ -1607,11 +1607,11 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               <Bell className="h-4 w-4 text-primary" />
               {t("vroom.notifications")}
             </span>
-            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setNotifOpen(false)}>
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setNotifOpen(false)} aria-label={t("common.dismiss")}>
               <X className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-0.5" role="log" aria-live="polite" aria-relevant="additions text">
+          <div className="flex-1 overflow-y-auto p-2 space-y-0.5" role="log" aria-live="off" aria-relevant="additions text">
             {roomEvents.length === 0 && (
               <p className="text-center text-xs text-muted-foreground py-4">{t("vroom.notificationsEmpty")}</p>
             )}
@@ -1637,11 +1637,11 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               <MessageSquare className="h-4 w-4 text-primary" />
               {t("vroom.chat")}
             </span>
-            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setChatOpen(false)}>
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setChatOpen(false)} aria-label={t("common.dismiss")}>
               <X className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px]" role="log" aria-live="polite" aria-relevant="additions text">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px]" role="log" aria-live="off" aria-relevant="additions text">
             {chatMessages.length === 0 && (
               <p className="text-center text-xs text-muted-foreground py-4">{t("vroom.chatEmpty")}</p>
             )}
@@ -1826,7 +1826,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
                 variant="outline"
                 className={`h-12 w-12 rounded-full p-0 transition-colors ${chatOpen ? "bg-primary border-primary text-primary-foreground" : ""}`}
                 onClick={() => setChatOpen((v) => !v)}
-                aria-label={t("vroom.chat")}
+                aria-label={unreadCount > 0 ? `${t("vroom.chat")}, ${unreadCount} unread` : t("vroom.chat")}
                 aria-expanded={chatOpen}
                 title={t("vroom.chat")}
               >
@@ -1847,7 +1847,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               variant="outline"
               className={`h-12 w-12 rounded-full p-0 transition-colors ${notifOpen ? "bg-amber-500 border-amber-500 text-white" : ""}`}
               onClick={() => setNotifOpen((v) => !v)}
-              aria-label={t("vroom.notifications")}
+              aria-label={unreadNotifs > 0 ? `${t("vroom.notifications")}, ${unreadNotifs} unread` : t("vroom.notifications")}
               aria-expanded={notifOpen}
               title={t("vroom.notifications")}
             >
@@ -2920,6 +2920,7 @@ export default function VoiceRoom() {
 
   const leftIntentionally = useRef(false);
   const roomTopicRef = useRef(roomTopic);
+  const cleanupStartedRef = useRef(false);
 
   useEffect(() => { roomTopicRef.current = roomTopic; }, [roomTopic]);
 
@@ -2931,6 +2932,8 @@ export default function VoiceRoom() {
   const cleanup = useCallback(async () => {
     disposeReactionSounds();
     if (!user || !roomId) return;
+    if (cleanupStartedRef.current) return;
+    cleanupStartedRef.current = true;
     try {
       await supabase.rpc("cleanup_voice_room", { p_room_id: roomId, p_user_id: user.id });
     } catch {
@@ -2963,9 +2966,10 @@ export default function VoiceRoom() {
     if (!user || !roomId) return;
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-    const handleBeforeUnload = () => {
+    const sendCleanup = () => {
       const token = accessTokenRef.current;
       if (!token) return;
+      cleanupStartedRef.current = true;
       fetch(`${supabaseUrl}/rest/v1/rpc/cleanup_voice_room`, {
         method: "POST",
         keepalive: true,
@@ -2978,9 +2982,39 @@ export default function VoiceRoom() {
         body: JSON.stringify({ p_room_id: roomId, p_user_id: user.id }),
       });
     };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("beforeunload", sendCleanup);
+    window.addEventListener("pagehide", sendCleanup);
+    return () => {
+      window.removeEventListener("beforeunload", sendCleanup);
+      window.removeEventListener("pagehide", sendCleanup);
+    };
   }, [user, roomId]);
+
+  useEffect(() => {
+    if (!user || !roomId || !token) return;
+    const markSeen = () => {
+      supabase
+        .from("voice_room_members")
+        .update({ last_seen_at: new Date().toISOString() } as never)
+        .eq("room_id", roomId)
+        .eq("user_id", user.id)
+        .then(({ error }) => {
+          if (error) console.warn("Voice room heartbeat failed:", error);
+        });
+    };
+
+    markSeen();
+    const interval = window.setInterval(markSeen, 30000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") markSeen();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user, roomId, token]);
 
   const handleKick = useCallback(async (identity: string, name: string) => {
     if (!roomId) return;
@@ -3016,8 +3050,9 @@ export default function VoiceRoom() {
   const handleReconnect = useCallback(async () => {
     if (!user || !roomId) return;
     // Re-upsert into voice_room_members
+    cleanupStartedRef.current = false;
     await supabase.from("voice_room_members").upsert(
-      { room_id: roomId, user_id: user.id, raise_hand: false },
+      { room_id: roomId, user_id: user.id, raise_hand: false, last_seen_at: new Date().toISOString() },
       { onConflict: "room_id,user_id" }
     );
     // Re-fetch token
@@ -3127,8 +3162,9 @@ export default function VoiceRoom() {
       }
 
       // Upsert with raise_hand reset on (re)join
+      cleanupStartedRef.current = false;
       const { error: membershipError } = await supabase.from("voice_room_members").upsert(
-        { room_id: roomId, user_id: user.id, raise_hand: false },
+        { room_id: roomId, user_id: user.id, raise_hand: false, last_seen_at: new Date().toISOString() },
         { onConflict: "room_id,user_id" }
       );
       if (membershipError) { setError(membershipError.message); setLoading(false); return; }
@@ -3259,8 +3295,9 @@ export default function VoiceRoom() {
     setPendingJoin(false);
     joinTimeRef.current = Date.now();
     // Upsert membership
+    cleanupStartedRef.current = false;
     await supabase.from("voice_room_members").upsert(
-      { room_id: roomId, user_id: user.id, raise_hand: false, is_listener: listenerMode },
+      { room_id: roomId, user_id: user.id, raise_hand: false, is_listener: listenerMode, last_seen_at: new Date().toISOString() },
       { onConflict: "room_id,user_id" }
     );
     // Fetch token

@@ -118,27 +118,33 @@ Deno.serve(async (req) => {
     : "";
 
   // ── Step 1: Get text response from gpt-4.1 ───────────────────────────────
-  const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4.1",
-      messages: [
-        { role: "system", content: systemPrompt + langHint },
-        ...messages.map(({ role, content }) => ({ role, content })),
-      ],
-      max_tokens: 200,
-      temperature: 0.8,
-    }),
-  });
+  const chatPayload = {
+    messages: [
+      { role: "system", content: systemPrompt + langHint },
+      ...messages.map(({ role, content }) => ({ role, content })),
+    ],
+    max_tokens: 200,
+    temperature: 0.8,
+  };
+  const chatModels = ["gpt-4.1", "gpt-4o-mini"];
+  let chatRes: Response | null = null;
 
-  if (!chatRes.ok) {
-    const err = await chatRes.text();
-    console.error("Chat error:", chatRes.status, err);
-    return new Response(JSON.stringify({ error: `Chat error: ${chatRes.status}` }), {
+  for (const model of chatModels) {
+    chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model, ...chatPayload }),
+    });
+    if (chatRes.ok) break;
+    const err = await chatRes.text().catch(() => "");
+    console.error("Chat error:", model, chatRes.status, err);
+  }
+
+  if (!chatRes?.ok) {
+    return new Response(JSON.stringify({ error: `Chat error: ${chatRes?.status || 502}` }), {
       status: 502, headers: { ...cors, "Content-Type": "application/json" },
     });
   }
@@ -177,8 +183,12 @@ Deno.serve(async (req) => {
     });
   }
 
-  const audioBytes = await ttsRes.arrayBuffer();
-  const audioB64   = btoa(String.fromCharCode(...new Uint8Array(audioBytes)));
+  const audioBytes = new Uint8Array(await ttsRes.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < audioBytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...audioBytes.subarray(i, i + 0x8000));
+  }
+  const audioB64 = btoa(binary);
 
   return new Response(JSON.stringify({ transcript, audio: audioB64 }), {
     headers: { ...cors, "Content-Type": "application/json" },

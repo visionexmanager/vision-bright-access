@@ -44,6 +44,10 @@ export default function VoiceRooms() {
 
   const loadRooms = async () => {
     setLoading(true);
+    await supabase.rpc("cleanup_stale_voice_rooms" as never).catch((error) => {
+      console.warn("Voice room cleanup skipped:", error);
+    });
+
     const { data, error } = await supabase
       .from("voice_rooms")
       .select(`

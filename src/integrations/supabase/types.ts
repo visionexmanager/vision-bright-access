@@ -847,18 +847,21 @@ export type Database = {
         Row: {
           id: string
           joined_at: string
+          last_seen_at: string
           room_id: string
           user_id: string
         }
         Insert: {
           id?: string
           joined_at?: string
+          last_seen_at?: string
           room_id: string
           user_id: string
         }
         Update: {
           id?: string
           joined_at?: string
+          last_seen_at?: string
           room_id?: string
           user_id?: string
         }
@@ -970,6 +973,14 @@ export type Database = {
       }
       award_points: {
         Args: { _points: number; _reason: string }
+        Returns: undefined
+      }
+      cleanup_stale_voice_rooms: {
+        Args: { p_stale_after?: unknown }
+        Returns: undefined
+      }
+      cleanup_voice_room: {
+        Args: { p_room_id: string; p_user_id: string }
         Returns: undefined
       }
       get_leaderboard: {

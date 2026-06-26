@@ -4,6 +4,7 @@ import { Coins, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVXWallet } from "@/hooks/useVXWallet";
+import { useTrial } from "@/hooks/useTrial";
 import { GAMING_PRICES } from "@/systems/pricingSystem";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,6 +32,7 @@ interface GameEconomyGateProps {
 export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
   const { user } = useAuth();
   const { spendVX } = useVXWallet();
+  const { isOnTrial } = useTrial();
   const { t } = useLanguage();
   const location = useLocation();
   const [entryStatus, setEntryStatus] = useState<"loading" | "ready" | "blocked">("loading");
@@ -61,7 +63,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
         "game-entry",
         gameTitle,
         location.pathname,
-        { chargeDuringTrial: true, suppressToast: true }
+        { suppressToast: true }
       );
 
       if (cancelled) return;
@@ -111,7 +113,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
         "game-loss",
         resultLabel ?? gameTitle,
         location.pathname,
-        { chargeDuringTrial: true, suppressToast: true }
+        { suppressToast: true }
       );
 
       if (ok) {
@@ -130,7 +132,9 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
     return (
       <div role="status" aria-live="polite" className="flex min-h-screen flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-        {t("game.chargingEntry").replace("{n}", String(GAMING_PRICES.singlePlay))}
+        {isOnTrial
+          ? t("games.trialDesc")
+          : t("game.chargingEntry").replace("{n}", String(GAMING_PRICES.singlePlay))}
       </div>
     );
   }

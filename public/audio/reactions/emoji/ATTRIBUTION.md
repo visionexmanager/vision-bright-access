@@ -19,10 +19,10 @@ mono-converted, faded, and loudness-normalized for use as a reaction sound.
 
 ## 😂 - 003-tears-of-joy.mp3
 
-- Work: [heartily laughing](https://freesound.org/people/mokasza/sounds/810179)
-- Creator: mokasza
-- License: [BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-- Attribution: "heartily laughing" by mokasza is licensed under CC BY 4.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/.
+- Work: [CRWDLaff_Short Polite Laugh 03_ShaneVincent_GSC24_XY-AKG214-96k.wav](https://freesound.org/people/ShangusBurger/sounds/763845/)
+- Creator: ShangusBurger
+- License: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- Attribution: "CRWDLaff_Short Polite Laugh 03_ShaneVincent_GSC24_XY-AKG214-96k.wav" by ShangusBurger is marked with CC0 1.0. To view the terms, visit https://creativecommons.org/publicdomain/zero/1.0/.
 
 ## 😮 - 004-surprised.mp3
 

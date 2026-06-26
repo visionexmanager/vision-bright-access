@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVXWallet } from "@/hooks/useVXWallet";
+import { useTrial } from "@/hooks/useTrial";
 import { SIMULATION_PRICES } from "@/systems/pricingSystem";
 import { isFallbackSimulationId } from "@/data/requiredSimulations";
 
@@ -17,6 +18,7 @@ export function useSimulationBilling(
 ) {
   const { user } = useAuth();
   const { spendVX } = useVXWallet();
+  const { isOnTrial } = useTrial();
   const [status, setStatus] = useState<BillingStatus>("idle");
   const [message, setMessage] = useState("");
   const [usageSeconds, setUsageSeconds] = useState(0);
@@ -61,8 +63,7 @@ export function useSimulationBilling(
       SIMULATION_PRICES.quarterHour,
       "simulation-time",
       simulationTitle,
-      simulationId,
-      { chargeDuringTrial: true }
+      simulationId
     );
 
     if (!ok) {
@@ -213,5 +214,6 @@ export function useSimulationBilling(
     paidSeconds,
     remainingSeconds,
     remainingMinutes,
+    isFreeTrial: isOnTrial,
   };
 }
