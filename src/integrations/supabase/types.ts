@@ -843,6 +843,27 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_room_ai_purchases: {
+        Row: {
+          purchased_at: string
+          price_vx: number
+          source: string
+          user_id: string
+        }
+        Insert: {
+          purchased_at?: string
+          price_vx?: number
+          source?: string
+          user_id: string
+        }
+        Update: {
+          purchased_at?: string
+          price_vx?: number
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       voice_room_members: {
         Row: {
           id: string
@@ -967,6 +988,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_voice_room_ai: {
+        Args: Record<string, never>
+        Returns: Json
+      }
       award_achievement: {
         Args: { _achievement_key: string }
         Returns: undefined

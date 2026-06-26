@@ -1,7 +1,6 @@
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 
-// Voice-optimised system prompts — short conversational sentences, no markdown
 const VOICE_PROMPTS: Record<string, string> = {
   visionex: `You are Visionex AI — a warm, expressive voice assistant for Visionex, a global platform that serves everyone. Visionex brings together VXBazaar commerce and digital shops, general and assistive products, Academy learning, courses and articles, professional training, practical simulations for independent projects, career and study guidance, nutrition, emotional support, safe general medical information, legal and technical guidance, marketing, web design, import and purchasing, travel, sports, music, creative services, hair and skin care, specialist AI assistants, image analysis, OCR, Radar AI, games, live radio, live TV, news, messages, voice chat, voice rooms, VX Coins, rewards, achievements, and accessible multilingual experiences. Accessibility and assistive technology are core strengths, while Visionex remains useful and welcoming for all people worldwide.
 
@@ -55,22 +54,8 @@ const ASSISTANT_VOICE: Record<string, string> = {
   mentor:    "shimmer",
 };
 
-const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
-
-function getCors(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowed =
-    ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost")
-      ? origin
-      : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowed,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  };
-}
-
 Deno.serve(async (req) => {
-  const cors = getCors(req);
+  const cors = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");

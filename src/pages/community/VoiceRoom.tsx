@@ -548,7 +548,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         recentChat ? `Full room conversation this session:\n${recentChat}` : "",
       ].filter(Boolean).join("\n");
 
-      const TIMEOUT_MS = 15_000;
+      const TIMEOUT_MS = 28_000;
       const result = await Promise.race([
         supabase.functions.invoke("ai-voice-chat", {
           body: {
@@ -3418,7 +3418,7 @@ export default function VoiceRoom() {
       return;
     }
     supabase
-      .from("voice_room_ai_purchases" as never)
+      .from("voice_room_ai_purchases")
       .select("user_id")
       .eq("user_id", user.id)
       .maybeSingle()
@@ -3437,7 +3437,7 @@ export default function VoiceRoom() {
 
     setVoiceAiActivating(true);
     try {
-      const { data, error } = await supabase.rpc("activate_voice_room_ai" as never);
+      const { data, error } = await supabase.rpc("activate_voice_room_ai");
       if (error) throw error;
       const result = data as unknown as { source?: string; charged_vx?: number };
       setVoiceAiEnabled(true);
