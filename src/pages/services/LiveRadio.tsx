@@ -56,17 +56,17 @@ export default function LiveRadio() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto px-4 py-12 space-y-8" dir={dir}>
+      <main aria-labelledby="liveradio-heading" className="max-w-7xl mx-auto px-4 py-12 space-y-8" dir={dir}>
 
         {/* Hero */}
         <div className="relative rounded-2xl overflow-hidden bg-gradient-to-l from-orange-900/80 via-orange-800/50 to-slate-900 p-8 border border-orange-500/20">
           <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-500/20 rounded-xl border border-orange-400/30">
+                <div className="p-2 bg-orange-500/20 rounded-xl border border-orange-400/30" aria-hidden="true">
                   <Radio className="w-7 h-7 text-orange-400" />
                 </div>
-                <h1 className="text-3xl font-extrabold text-white">VisionRadio</h1>
+                <h1 id="liveradio-heading" className="text-3xl font-extrabold text-white">VisionEx Radio</h1>
               </div>
               <p className="text-orange-200/80 text-sm max-w-xs">
                 {t("liveRadio.heroDesc")}
@@ -95,7 +95,7 @@ export default function LiveRadio() {
         </div>
 
         {/* Search */}
-        <div className="relative max-w-md">
+        <div role="search" className="relative max-w-md">
           <Search className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground", isRTL ? "right-3" : "left-3")} aria-hidden="true" />
           <Input
             id="liveradioSearch"
@@ -109,7 +109,7 @@ export default function LiveRadio() {
         </div>
 
         {/* Genre tabs */}
-        <div className="flex flex-wrap gap-2" role="group" aria-label={t("liveRadio.all")}>
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t("liveRadio.stationList")}>
           <button
             onClick={() => setActiveSlug("all")}
             aria-pressed={activeSlug === "all"}
@@ -159,7 +159,7 @@ export default function LiveRadio() {
             <p>{t("liveRadio.noResults")}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" role="list">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" role="list" aria-label={t("liveRadio.stationList")}>
             {filtered.map(st => (
               <div key={st.id} role="listitem">
                 <StationCard
@@ -171,7 +171,7 @@ export default function LiveRadio() {
             ))}
           </div>
         )}
-      </div>
+      </main>
     </Layout>
   );
 }

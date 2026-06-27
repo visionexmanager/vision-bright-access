@@ -58,7 +58,7 @@ export default function LiveTVWatch() {
               ) : (
                 <>
                   <h1 className="font-bold text-lg text-foreground">
-                    {currentChannel ? chName(currentChannel) : "VisionTV"}
+                    {currentChannel ? chName(currentChannel) : "VisionEx TV"}
                   </h1>
                   {currentChannel?.category && (
                     <p className="text-xs text-muted-foreground">

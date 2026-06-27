@@ -57,7 +57,7 @@ export default function LiveRadioListen() {
               ) : (
                 <>
                   <h1 className="font-bold text-lg text-foreground">
-                    {currentStation ? stName(currentStation) : "VisionRadio"}
+                    {currentStation ? stName(currentStation) : "VisionEx Radio"}
                   </h1>
                   {currentStation?.genre && (
                     <p className="text-xs text-muted-foreground">

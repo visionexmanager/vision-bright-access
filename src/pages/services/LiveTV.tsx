@@ -57,17 +57,17 @@ export default function LiveTV() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto px-4 py-12 space-y-8" dir={dir}>
+      <main aria-labelledby="livetv-heading" className="max-w-7xl mx-auto px-4 py-12 space-y-8" dir={dir}>
 
         {/* Hero */}
         <div className="relative rounded-2xl overflow-hidden bg-gradient-to-l from-blue-900/80 via-blue-800/60 to-slate-900 p-8 border border-blue-500/20">
           <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/20 rounded-xl border border-blue-400/30">
+                <div className="p-2 bg-blue-500/20 rounded-xl border border-blue-400/30" aria-hidden="true">
                   <Tv className="w-7 h-7 text-blue-400" />
                 </div>
-                <h1 className="text-3xl font-extrabold text-white">VisionTV</h1>
+                <h1 id="livetv-heading" className="text-3xl font-extrabold text-white">VisionEx TV</h1>
               </div>
               <p className="text-blue-200/80 text-sm max-w-xs">
                 {t("liveTV.heroDesc")}
@@ -96,7 +96,7 @@ export default function LiveTV() {
         </div>
 
         {/* Search */}
-        <div className="relative max-w-md">
+        <div role="search" className="relative max-w-md">
           <Search className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground", isRTL ? "right-3" : "left-3")} aria-hidden="true" />
           <Input
             id="livetvSearch"
@@ -110,7 +110,7 @@ export default function LiveTV() {
         </div>
 
         {/* Category tabs */}
-        <div className="flex flex-wrap gap-2" role="group" aria-label={t("liveTV.all")}>
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t("liveTV.channelList")}>
           <button
             onClick={() => setActiveSlug("all")}
             aria-pressed={activeSlug === "all"}
@@ -162,7 +162,7 @@ export default function LiveTV() {
             <p>{t("liveTV.noResults")}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" role="list">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" role="list" aria-label={t("liveTV.channelList")}>
             {filtered.map(ch => (
               <div key={ch.id} role="listitem">
               <ChannelCard
@@ -174,7 +174,7 @@ export default function LiveTV() {
             ))}
           </div>
         )}
-      </div>
+      </main>
     </Layout>
   );
 }
