@@ -63,6 +63,7 @@ function SimulatedAdModal({ onRewarded, onClose }: Props) {
   const { t } = useLanguage();
   const [secondsLeft, setSecondsLeft] = useState(SIMULATED_AD_SEC);
   const [granted, setGranted] = useState(false);
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const rewardedRef = useRef(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -84,6 +85,13 @@ function SimulatedAdModal({ onRewarded, onClose }: Props) {
     return () => clearTimeout(timer);
   }, [secondsLeft, granted, onRewarded]);
 
+  // Announce to screen reader every 3 seconds, then every second for the final 3
+  useEffect(() => {
+    if (secondsLeft > 0 && (secondsLeft % 3 === 0 || secondsLeft <= 3)) {
+      setLiveAnnouncement(t("dash.adSecondsLeft").replace("{s}", String(secondsLeft)));
+    }
+  }, [secondsLeft, t]);
+
   const progress = ((SIMULATED_AD_SEC - secondsLeft) / SIMULATED_AD_SEC) * 100;
 
   return (
@@ -91,44 +99,42 @@ function SimulatedAdModal({ onRewarded, onClose }: Props) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="rewarded-ad-title"
-      aria-describedby="rewarded-ad-description rewarded-ad-timer"
       tabIndex={-1}
       ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
     >
+      {/* Hidden live region: announces every 3 s, then every second for final 3 */}
+      <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {liveAnnouncement}
+      </span>
+
       <div className="relative w-full max-w-sm rounded-2xl border border-border bg-card shadow-2xl p-8 text-center space-y-5">
         {!granted ? (
           <>
-            <div className="flex justify-center">
+            <div className="flex justify-center" aria-hidden="true">
               <div className="rounded-2xl bg-amber-500/15 p-4">
-                <Tv2 className="h-10 w-10 text-amber-500" aria-hidden="true" />
+                <Tv2 className="h-10 w-10 text-amber-500" />
               </div>
             </div>
             <p id="rewarded-ad-title" className="text-base font-semibold">{t("dash.adWatching")}</p>
-            <p id="rewarded-ad-description" className="text-sm text-muted-foreground">
-              {t("dash.adTimerAccessible")}
-            </p>
             <div className="space-y-2">
               <Progress
                 value={progress}
                 className="h-3"
                 aria-label={t("dash.adProgressLabel")}
-                aria-valuetext={t("dash.adSecondsLeft").replace("{s}", String(secondsLeft))}
               />
+              {/* Visual timer only — screen reader uses the sr-only live region above */}
               <div
-                id="rewarded-ad-timer"
-                role="timer"
-                aria-live="polite"
-                aria-atomic="true"
+                aria-hidden="true"
                 className="mx-auto flex w-fit min-w-40 items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-600 dark:text-amber-400"
               >
-                <Clock3 className="h-5 w-5" aria-hidden="true" />
+                <Clock3 className="h-5 w-5" />
                 <span className="text-2xl font-bold tabular-nums">
                   {t("dash.adSecondsLeft").replace("{s}", String(secondsLeft))}
                 </span>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground" aria-hidden="true">
               +{VX_REWARD} VX {t("dash.adWatched")?.split("!")[0] || "reward on completion"}
             </p>
           </>
