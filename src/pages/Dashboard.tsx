@@ -115,7 +115,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {[
                 { icon: Gamepad2,     to: "/games",     label: t("dash.playGamesLink"),    desc: t("dash.playGamesLinkDesc"),    color: "text-green-500"  },
-                { icon: Users,        to: "/community", label: t("footer.link.community"), desc: t("home.feature.servicesDesc"), color: "text-violet-500" },
+                { icon: Users,        to: "/community", label: t("footer.link.community"), desc: t("home.feature.communityDesc"), color: "text-violet-500" },
                 { icon: ShoppingCart, to: "/bazaar",    label: "VXBazaar",                  desc: t("dash.vxbazaarDesc"),         color: "text-primary"    },
               ].map((item) => (
                 <Link key={item.to} to={item.to} onClick={() => playSound("navigate")} className="group block">
