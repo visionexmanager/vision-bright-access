@@ -66,7 +66,7 @@ export const translations: Record<string, string> = {
   "home.feature.entertainment": "Entertainment & Streaming",
   "home.feature.entertainmentDesc": "Enjoy live radio, live TV, games, and interactive experiences inside one platform.",
   "home.feature.community": "Voice Community",
-  "home.feature.communityDesc": "Talk with friends, join voice rooms, meet new people, and stay connected through messages.",
+  "home.feature.communityDesc": "Connect through live voice rooms, direct messages, and real-time conversations. Meet new people, build friendships, and stay in touch with a vibrant global community.",
   "home.feature.ai": "AI Companion",
   "home.feature.aiDesc": "A site-wide assistant that understands Visionex and helps with navigation, learning, store improvement, and project planning.",
   "home.pointsTitle": "Start free — explore everything",
