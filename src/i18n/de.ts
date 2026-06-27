@@ -144,7 +144,7 @@ export const translations: Record<string, string> = {
   "dash.engageContent": "Inhalte lesen",
   "dash.engageContentDesc": "Artikel lesen und Kurse absolvieren",
   "dash.useServices": "Dienste nutzen",
-  "dash.useServicesDesc": "Beantragen Sie einen Dienst, um Punkte zu sammeln",
+  "dash.useServicesDesc": "Nutzen Sie akademische Unterstützung, Ernährungsberatung, emotionalen Beistand, sichere medizinische Informationen sowie Beratung zu Marketing, Technologie, Design, Import und Unternehmensführung.",
   "dash.adWatched": "Werbung angesehen! +{pts} VX verdient",
   "dash.adLoading": "Werbung wird geladen, bitte warten…",
   "dash.adWatching": "Sieh dir die Werbung an, um deine Belohnung zu erhalten",
