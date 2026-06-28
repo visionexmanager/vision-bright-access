@@ -11,9 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger trial-billing edge function
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::Required repository secrets SUPABASE_URL and CRON_SECRET must be configured."
+            exit 1
+          fi
+
           curl -sS -X POST \
-            "${{ secrets.SUPABASE_URL }}/functions/v1/trial-billing" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "$SUPABASE_URL/functions/v1/trial-billing" \
+            -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \
             --fail-with-body

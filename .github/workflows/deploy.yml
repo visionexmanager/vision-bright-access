@@ -168,8 +168,13 @@ jobs:
     if: failure()
     steps:
       - name: Slack alert
-        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL is not configured; skipping notification."
+            exit 0
+          fi
+          curl -sS --fail-with-body -X POST "$SLACK_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -d "{\"text\":\"Visionex deployment FAILED on \`${{ github.ref_name }}\` — ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
