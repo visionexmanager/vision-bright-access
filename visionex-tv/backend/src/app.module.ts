@@ -1,7 +1,7 @@
 import { Module }            from "@nestjs/common";
 import { ConfigModule }      from "@nestjs/config";
 import { ThrottlerModule }   from "@nestjs/throttler";
-import { APP_GUARD }         from "@nestjs/core";
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard }    from "@nestjs/throttler";
 import configuration         from "./config/configuration";
 import { DatabaseModule }    from "./database/database.module";
@@ -10,11 +10,16 @@ import { AuthModule }        from "./modules/auth/auth.module";
 import { ChannelsModule }    from "./modules/channels/channels.module";
 import { StreamModule }      from "./modules/stream/stream.module";
 import { OrchestratorModule } from "./modules/orchestrator/orchestrator.module";
+import { StreamHealthModule } from "./modules/stream-health/stream-health.module";
 import { AnalyticsModule }   from "./modules/analytics/analytics.module";
 import { FavoritesModule }   from "./modules/favorites/favorites.module";
 import { RecommendationsModule } from "./modules/recommendations/recommendations.module";
 import { PlaylistsModule }   from "./modules/playlists/playlists.module";
+import { UsersModule }       from "./modules/users/users.module";
+import { GatewayModule }     from "./modules/gateway/gateway.module";
 import { HealthController }  from "./health/health.controller";
+import { AllExceptionsFilter }   from "./common/filters/all-exceptions.filter";
+import { TransformInterceptor }  from "./common/interceptors/transform.interceptor";
 
 @Module({
   imports: [
@@ -30,13 +35,20 @@ import { HealthController }  from "./health/health.controller";
     AuthModule,
     ChannelsModule,
     OrchestratorModule,
+    StreamHealthModule,
     StreamModule,
     AnalyticsModule,
     FavoritesModule,
     RecommendationsModule,
     PlaylistsModule,
+    UsersModule,
+    GatewayModule,
   ],
   controllers: [HealthController],
-  providers:   [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD,       useClass: ThrottlerGuard },
+    { provide: APP_FILTER,      useClass: AllExceptionsFilter },
+    { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+  ],
 })
 export class AppModule {}

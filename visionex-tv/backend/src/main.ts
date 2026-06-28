@@ -1,12 +1,13 @@
 import "reflect-metadata";
-import { NestFactory }               from "@nestjs/core";
-import { ValidationPipe }            from "@nestjs/common";
-import { ConfigService }             from "@nestjs/config";
-import { AppModule }                 from "./app.module";
+import { NestFactory }          from "@nestjs/core";
+import { ValidationPipe }       from "@nestjs/common";
+import { ConfigService }        from "@nestjs/config";
+import { IoAdapter }            from "@nestjs/platform-socket.io";
+import { AppModule }            from "./app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    logger: ["error", "warn", "log"],
+    logger:     ["error", "warn", "log"],
     bodyParser: true,
   });
 
@@ -14,7 +15,7 @@ async function bootstrap() {
   const port = cfg.get<number>("port", 3000);
   const cors = cfg.get<string>("cors.origin", "*");
 
-  // Input validation — strip unknown keys, throw on bad data
+  // Input validation
   app.useGlobalPipes(new ValidationPipe({
     whitelist:            true,
     forbidNonWhitelisted: true,
@@ -30,7 +31,10 @@ async function bootstrap() {
     credentials:    true,
   });
 
-  // Trust proxy (for real IP behind Nginx / K8s ingress)
+  // Socket.io adapter (for WebSocket gateway)
+  app.useWebSocketAdapter(new IoAdapter(app));
+
+  // Trust proxy behind Nginx / K8s ingress
   const httpAdapter = app.getHttpAdapter().getInstance();
   httpAdapter.set("trust proxy", 1);
 
@@ -39,6 +43,7 @@ async function bootstrap() {
 
   await app.listen(port, "0.0.0.0");
   console.log(`[bootstrap] Visionex TV backend listening on :${port}`);
+  console.log(`[bootstrap] WebSocket namespace: ws://0.0.0.0:${port}/tv`);
 }
 
 bootstrap().catch(console.error);
