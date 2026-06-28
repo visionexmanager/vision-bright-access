@@ -1,0 +1,115 @@
+{
+  "title": "Visionex TV — Stream Health",
+  "uid":   "visionex-tv-streaming",
+  "schemaVersion": 38,
+  "refresh": "30s",
+  "time": { "from": "now-3h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name":    "region",
+        "type":    "query",
+        "query":   "label_values(visionex_stream_requests_total, region)",
+        "refresh": 2
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Requests / sec",
+      "type":  "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr":         "rate(visionex_stream_requests_total{region=~\"$region\"}[1m])",
+          "legendFormat": "{{ region }}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Error rate %",
+      "type":  "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "100 * rate(visionex_stream_proxy_errors_total{region=~\"$region\"}[1m]) / (rate(visionex_stream_proxy_successes_total{region=~\"$region\"}[1m]) + rate(visionex_stream_proxy_errors_total{region=~\"$region\"}[1m]))",
+          "legendFormat": "{{ region }} error %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "green",  "value": 0 },
+              { "color": "yellow", "value": 5 },
+              { "color": "red",    "value": 20 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Cache hit ratio",
+      "type":  "gauge",
+      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "100 * rate(visionex_stream_cache_hits_total{region=~\"$region\"}[5m]) / (rate(visionex_stream_cache_hits_total{region=~\"$region\"}[5m]) + rate(visionex_stream_cache_misses_total{region=~\"$region\"}[5m]))",
+          "legendFormat": "Cache hit %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "red",    "value": 0  },
+              { "color": "yellow", "value": 50 },
+              { "color": "green",  "value": 80 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Rate-limited requests / min",
+      "type":  "stat",
+      "gridPos": { "x": 8, "y": 8, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(visionex_stream_rate_limited_total{region=~\"$region\"}[1m]) * 60",
+          "legendFormat": "{{ region }}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Unauthorized requests / min",
+      "type":  "stat",
+      "gridPos": { "x": 16, "y": 8, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(visionex_stream_unauthorized_total{region=~\"$region\"}[1m]) * 60",
+          "legendFormat": "{{ region }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green",  "value": 0  },
+              { "color": "yellow", "value": 10 },
+              { "color": "red",    "value": 50 }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

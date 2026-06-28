@@ -78,9 +78,12 @@ const RadarAI = lazy(() => import("./pages/services/RadarAI"));
 const EducationalEmpire = lazy(() => import("./pages/services/EducationalEmpire"));
 const EmpathyOasis = lazy(() => import("./pages/services/EmpathyOasis"));
 const OCRScan = lazy(() => import("./pages/services/OCRScan"));
-const LiveTV = lazy(() => import("./pages/services/LiveTV"));
-const LiveTVWatch = lazy(() => import("./pages/services/LiveTVWatch"));
+const LiveTV          = lazy(() => import("./pages/services/LiveTV"));
+const LiveTVWatch     = lazy(() => import("./pages/services/LiveTVWatch"));
 const LiveTVSubscribe = lazy(() => import("./pages/services/LiveTVSubscribe"));
+const LiveTVFavorites = lazy(() => import("./pages/services/LiveTVFavorites"));
+const LiveTVSearch    = lazy(() => import("./pages/services/LiveTVSearch"));
+const LiveTVPlaylists = lazy(() => import("./pages/services/LiveTVPlaylists"));
 const LiveRadio = lazy(() => import("./pages/services/LiveRadio"));
 const LiveRadioListen = lazy(() => import("./pages/services/LiveRadioListen"));
 const LiveRadioSubscribe = lazy(() => import("./pages/services/LiveRadioSubscribe"));
@@ -205,9 +208,12 @@ function AppRoutes() {
                     <Route path="/services/ocr-scan" element={<OCRScan />} />
                     <Route path="/services/educational-empire" element={<EducationalEmpire />} />
                     <Route path="/services/empathy-oasis" element={<EmpathyOasis />} />
-                    <Route path="/services/live-tv" element={<LiveTV />} />
-                    <Route path="/services/live-tv/subscribe" element={<LiveTVSubscribe />} />
-                    <Route path="/services/live-tv/watch/:channelId" element={<LiveTVWatch />} />
+                    <Route path="/services/live-tv"                      element={<LiveTV />} />
+                    <Route path="/services/live-tv/subscribe"           element={<LiveTVSubscribe />} />
+                    <Route path="/services/live-tv/watch/:channelId"    element={<LiveTVWatch />} />
+                    <Route path="/services/live-tv/favorites"           element={<LiveTVFavorites />} />
+                    <Route path="/services/live-tv/search"              element={<LiveTVSearch />} />
+                    <Route path="/services/live-tv/playlists"           element={<LiveTVPlaylists />} />
                     <Route path="/services/live-radio" element={<LiveRadio />} />
                     <Route path="/services/live-radio/subscribe" element={<LiveRadioSubscribe />} />
                     <Route path="/services/live-radio/listen/:stationId" element={<LiveRadioListen />} />

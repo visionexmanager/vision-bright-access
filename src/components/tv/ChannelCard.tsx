@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Tv, Play, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -17,7 +18,7 @@ const qualityColor: Record<string, string> = {
   "4K":"bg-yellow-500/20 text-yellow-400",
 };
 
-export function ChannelCard({ channel, isSubscribed, isSelected, onClick }: Props) {
+function ChannelCardInner({ channel, isSubscribed, isSelected, onClick }: Props) {
   const { dir } = useLanguage();
   const isRTL = dir === "rtl";
 
@@ -83,3 +84,10 @@ export function ChannelCard({ channel, isSubscribed, isSelected, onClick }: Prop
     </button>
   );
 }
+
+export const ChannelCard = memo(ChannelCardInner, (prev, next) =>
+  prev.channel.id   === next.channel.id   &&
+  prev.isSubscribed === next.isSubscribed  &&
+  prev.isSelected   === next.isSelected   &&
+  prev.onClick      === next.onClick
+);

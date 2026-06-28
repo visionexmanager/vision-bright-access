@@ -1,0 +1,44 @@
+name: TV Stream Health Check
+
+on:
+  schedule:
+    # Runs every 5 minutes — validates stream sources and updates reliability scores
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      channelId:
+        description: "Validate a specific channel ID (optional — leave blank for all)"
+        required: false
+        default: ""
+
+jobs:
+  validate:
+    name: Validate stream sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Invoke tv-validate-stream edge function
+        run: |
+          BODY="{}"
+          if [ -n "${{ github.event.inputs.channelId }}" ]; then
+            BODY="{\"channelId\":\"${{ github.event.inputs.channelId }}\"}"
+          fi
+
+          RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/tv-validate-stream" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY" \
+            --max-time 60)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY_OUT=$(echo "$RESPONSE" | head -1)
+
+          echo "HTTP $HTTP_CODE"
+          echo "$BODY_OUT"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Stream health check failed — HTTP $HTTP_CODE"
+            exit 1
+          fi

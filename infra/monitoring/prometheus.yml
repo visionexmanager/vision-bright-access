@@ -1,0 +1,60 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  external_labels:
+    platform: visionex-tv
+
+rule_files:
+  - "rules/streaming-alerts.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+
+  # ── Stream proxy pods ────────────────────────────────────────
+  - job_name: stream-proxy
+    metrics_path: /metrics
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [visionex-tv]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: stream-proxy
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: "true"
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: (.+)
+        replacement: ${1}
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_pod_node_name]
+        target_label: node
+
+  # ── Nginx exporter ───────────────────────────────────────────
+  - job_name: nginx
+    static_configs:
+      - targets: ["nginx:9113"]
+    metrics_path: /metrics
+
+  # ── Prometheus self-scrape ───────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # ── Docker-compose targets (local dev only) ──────────────────
+  - job_name: stream-proxy-local
+    static_configs:
+      - targets:
+          - "stream-proxy-1:8080"
+          - "stream-proxy-2:8080"
+    metrics_path: /metrics

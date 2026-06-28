@@ -1,0 +1,121 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Visionex TV — Local / Single-Region Stack
+#
+# Usage:
+#   cp .env.example .env         # fill SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
+#   docker compose up --build
+#
+# Exposes:
+#   http://localhost:8090         — Nginx LB (stream requests)
+#   http://localhost:9090         — Prometheus
+#   http://localhost:3001         — Grafana (admin/admin)
+#   http://localhost:8080         — stream-proxy-1 (direct, for debugging)
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+x-stream-proxy-env: &stream-proxy-env
+  SUPABASE_URL:                ${SUPABASE_URL}
+  SUPABASE_SERVICE_ROLE_KEY:   ${SUPABASE_SERVICE_ROLE_KEY}
+  LOG_LEVEL:                   ${LOG_LEVEL:-info}
+  NODE_ENV:                    production
+
+services:
+
+  # ── Stream proxy replicas ─────────────────────────────────────
+  stream-proxy-1:
+    build:
+      context: ./stream-proxy
+      target:  production
+    environment:
+      <<:     *stream-proxy-env
+      PORT:   "8080"
+      REGION: "local-1"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test:         ["CMD", "node", "-e", "require('node:http').get('http://localhost:8080/health',r=>process.exit(r.statusCode===200?0:1))"]
+      interval:     15s
+      timeout:      5s
+      start_period: 10s
+      retries:      3
+    networks:
+      - visionex
+
+  stream-proxy-2:
+    build:
+      context: ./stream-proxy
+      target:  production
+    environment:
+      <<:     *stream-proxy-env
+      PORT:   "8080"
+      REGION: "local-2"
+    restart: unless-stopped
+    healthcheck:
+      test:         ["CMD", "node", "-e", "require('node:http').get('http://localhost:8080/health',r=>process.exit(r.statusCode===200?0:1))"]
+      interval:     15s
+      timeout:      5s
+      start_period: 10s
+      retries:      3
+    networks:
+      - visionex
+
+  # ── Nginx load balancer ───────────────────────────────────────
+  nginx:
+    build:
+      context: ./nginx
+    ports:
+      - "8090:80"
+    depends_on:
+      stream-proxy-1:
+        condition: service_healthy
+      stream-proxy-2:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - visionex
+
+  # ── Prometheus ────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - visionex
+
+  # ── Grafana ───────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.4.0
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+      GF_SERVER_ROOT_URL:         "%(protocol)s://%(domain)s:3001"
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - visionex
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  visionex:
+    driver: bridge

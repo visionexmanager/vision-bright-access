@@ -1,0 +1,29 @@
+name       = "visionex-stream-router"
+main       = "stream-router.ts"
+account_id = "REPLACE_WITH_YOUR_CF_ACCOUNT_ID"
+
+compatibility_date  = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[build]
+command = "npx tsc --noEmit"
+
+# Global route — all traffic to stream.visionex.tv goes through this worker
+[[routes]]
+pattern = "stream.visionex.tv/*"
+zone_name = "visionex.tv"
+
+[triggers]
+# Health-check cron: runs every 30 seconds to pre-warm edge caches
+crons = ["*/1 * * * *"]
+
+[placement]
+mode = "smart"   # CF auto-routes to lowest-latency data centre
+
+[vars]
+ENVIRONMENT = "production"
+
+# Observability
+[observability]
+enabled = true
+head_sampling_rate = 0.05  # 5% trace sampling

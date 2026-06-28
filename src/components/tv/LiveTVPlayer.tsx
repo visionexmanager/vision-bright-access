@@ -14,7 +14,10 @@ type Props = {
 type StreamInfo = {
   stream_url: string;
   quality:    string;
+  name:       string;
   name_ar:    string;
+  logo_url?:  string | null;
+  expires_at: string;
 };
 
 declare global {
@@ -45,6 +48,7 @@ export function LiveTVPlayer({ token, channelName, channelLogo, onError }: Props
   const [muted,     setMuted]     = useState(false);
   const [playing,   setPlaying]   = useState(true);
   const [showCtrl,  setShowCtrl]  = useState(true);
+  const [retryKey,  setRetryKey]  = useState(0);  // incremented to force re-init
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleError = useCallback(
@@ -63,10 +67,10 @@ export function LiveTVPlayer({ token, channelName, channelLogo, onError }: Props
       setLoading(true);
       setErrMsg(null);
 
-      // Exchange token for real stream URL via API service layer
+      // Exchange token for real stream URL via the tv-stream-token edge function
       let streamInfo: StreamInfo;
       try {
-        streamInfo = await callTVStreamToken(token) as StreamInfo;
+        streamInfo = await callTVStreamToken(token) as unknown as StreamInfo;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "";
         handleError(
@@ -126,7 +130,7 @@ export function LiveTVPlayer({ token, channelName, channelLogo, onError }: Props
       hlsRef.current?.destroy();
       hlsRef.current = null;
     };
-  }, [token, SUPABASE_URL, handleError]);
+  }, [token, retryKey, handleError]); // retryKey increments to force re-init on manual retry
 
   // Auto-hide controls
   const resetHideTimer = () => {
@@ -161,7 +165,7 @@ export function LiveTVPlayer({ token, channelName, channelLogo, onError }: Props
     else document.exitFullscreen();
   };
 
-  const retry = () => { setErrMsg(null); setLoading(true); };
+  const retry = () => { setErrMsg(null); setLoading(true); setRetryKey(k => k + 1); };
 
   return (
     <div

@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stream-proxy
+  namespace: visionex-tv
+  labels:
+    app: stream-proxy
+    version: "1.0"
+spec:
+  replicas: 3                       # base replica count — HPA overrides under load
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge:        1            # add at most 1 pod above desired during rollout
+      maxUnavailable:  0            # never take a pod offline during rollout (zero-downtime)
+  selector:
+    matchLabels:
+      app: stream-proxy
+  template:
+    metadata:
+      labels:
+        app: stream-proxy
+        version: "1.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port:   "8080"
+        prometheus.io/path:   "/metrics"
+    spec:
+      # Spread pods across nodes for high availability
+      topologySpreadConstraints:
+        - maxSkew:           1
+          topologyKey:       kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: stream-proxy
+
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: stream-proxy
+          image: ghcr.io/visionexmanager/stream-proxy:latest   # updated by CI/CD
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+
+          env:
+            - name:  PORT
+              value: "8080"
+            - name:  REGION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace   # overridden per-region in Helm values
+            - name:  LOG_LEVEL
+              value: "info"
+            - name:  NODE_ENV
+              value: "production"
+            - name:  SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-credentials
+                  key:  url
+            - name:  SUPABASE_SERVICE_ROLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-credentials
+                  key:  service_role_key
+
+          resources:
+            requests:
+              cpu:    "100m"
+              memory: "128Mi"
+            limits:
+              cpu:    "500m"
+              memory: "256Mi"
+
+          # Liveness: restart pod if it stops responding
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds:       15
+            timeoutSeconds:      5
+            failureThreshold:    3
+
+          # Readiness: remove from LB rotation until ready
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds:       10
+            timeoutSeconds:      3
+            failureThreshold:    2
+
+          # Graceful drain: stop accepting connections, finish in-flight requests
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
+
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop: ["ALL"]
+
+      # Pull secrets for private registry
+      imagePullSecrets:
+        - name: ghcr-credentials

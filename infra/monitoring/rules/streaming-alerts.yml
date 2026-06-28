@@ -1,0 +1,116 @@
+groups:
+  - name: visionex.streaming
+    interval: 30s
+    rules:
+
+      # ── Error rate ──────────────────────────────────────────────
+      - alert: HighProxyErrorRate
+        expr: |
+          rate(visionex_stream_proxy_errors_total[5m])
+          /
+          (rate(visionex_stream_proxy_successes_total[5m]) + rate(visionex_stream_proxy_errors_total[5m]))
+          > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary:     "High stream proxy error rate — {{ $labels.region }}"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%) in region {{ $labels.region }}"
+          runbook:     "https://wiki.visionex.tv/runbooks/high-proxy-error-rate"
+
+      - alert: CriticalProxyErrorRate
+        expr: |
+          rate(visionex_stream_proxy_errors_total[5m])
+          /
+          (rate(visionex_stream_proxy_successes_total[5m]) + rate(visionex_stream_proxy_errors_total[5m]))
+          > 0.20
+        for: 1m
+        labels:
+          severity: critical
+          page:      "true"
+        annotations:
+          summary:     "CRITICAL: Stream proxy error rate > 20% — {{ $labels.region }}"
+          description: "Error rate {{ $value | humanizePercentage }} in {{ $labels.region }}. Immediate action required."
+          runbook:     "https://wiki.visionex.tv/runbooks/critical-proxy-error"
+
+      # ── Rate limiting ───────────────────────────────────────────
+      - alert: HighRateLimitRate
+        expr: |
+          rate(visionex_stream_rate_limited_total[5m]) > 50
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary:     "High rate-limit rate in {{ $labels.region }}"
+          description: "More than 50 requests/s are being rate-limited. Possible traffic spike or abuse."
+
+      # ── Unauthorized requests ───────────────────────────────────
+      - alert: SpikeInUnauthorizedRequests
+        expr: |
+          rate(visionex_stream_unauthorized_total[5m]) > 20
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary:     "Spike in unauthorized stream requests — {{ $labels.region }}"
+          description: "{{ $value | humanize }} unauthorized req/s — possible credential stuffing or scraping."
+
+      # ── Cache health ────────────────────────────────────────────
+      - alert: LowCacheHitRatio
+        expr: |
+          rate(visionex_stream_cache_hits_total[5m])
+          /
+          (rate(visionex_stream_cache_hits_total[5m]) + rate(visionex_stream_cache_misses_total[5m]))
+          < 0.50
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary:     "Stream URL cache hit ratio below 50% — {{ $labels.region }}"
+          description: "Cache ratio is {{ $value | humanizePercentage }}. DB load may be elevated."
+
+      # ── Pod availability ────────────────────────────────────────
+      - alert: StreamProxyPodsDown
+        expr: |
+          kube_deployment_status_replicas_available{namespace="visionex-tv", deployment="stream-proxy"}
+          < 2
+        for: 1m
+        labels:
+          severity: critical
+          page:      "true"
+        annotations:
+          summary:     "CRITICAL: Fewer than 2 stream-proxy pods available"
+          description: "Only {{ $value }} pods running. Service degraded — HPA should be scaling."
+
+      # ── Throughput drop ─────────────────────────────────────────
+      - alert: StreamThroughputDrop
+        expr: |
+          rate(visionex_stream_requests_total[5m])
+          < 0.10 * rate(visionex_stream_requests_total[5m] offset 1h)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary:     "Stream request throughput dropped 90% vs 1h ago"
+          description: "Could indicate upstream CDN failure or routing issue in {{ $labels.region }}."
+
+  # ── Infrastructure ────────────────────────────────────────────
+  - name: visionex.infra
+    rules:
+      - alert: NodeMemoryPressure
+        expr: |
+          node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node {{ $labels.instance }} memory < 10%"
+
+      - alert: NodeDiskPressure
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node {{ $labels.instance }} disk < 15%"
