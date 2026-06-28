@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useRouter }   from "next/navigation";
-import { Search, X, Filter, SlidersHorizontal } from "lucide-react";
+import { Search, X, SlidersHorizontal } from "lucide-react";
 import { useDebounce } from "use-debounce";
 import { motion }      from "framer-motion";
 import { useQuery }    from "@tanstack/react-query";
 import { channels }    from "@/lib/api";
-import type { Channel, Category } from "@/lib/api";
+import type { Channel } from "@/lib/api";
 import { ChannelCard } from "@/components/tv/ChannelCard";
 import { SkeletonCard } from "@/components/tv/SkeletonCard";
 

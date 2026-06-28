@@ -1,11 +1,11 @@
 "use client";
 
-import { use, useState, useMemo } from "react";
+import { use, useState, useEffect } from "react";
 import { useRouter }    from "next/navigation";
 import { useQuery }     from "@tanstack/react-query";
 import { useInView }    from "react-intersection-observer";
 import { motion }       from "framer-motion";
-import { ArrowLeft, Grid3X3, List, AlignLeft } from "lucide-react";
+import { ArrowLeft, Grid3X3, AlignLeft } from "lucide-react";
 import { channels }     from "@/lib/api";
 import type { Channel } from "@/lib/api";
 import { ChannelCard }  from "@/components/tv/ChannelCard";
@@ -36,7 +36,7 @@ export default function CategoryPage({ params }: Props) {
   });
 
   // Accumulate pages
-  useMemo(() => {
+  useEffect(() => {
     if (data?.data) {
       setAllChannels(prev =>
         offset === 0
