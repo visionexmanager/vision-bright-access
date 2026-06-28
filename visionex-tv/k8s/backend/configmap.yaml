@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: visionex-tv
+data:
+  NODE_ENV:          "production"
+  PORT:              "3000"
+  DB_HOST:           "postgres-svc"
+  DB_PORT:           "5432"
+  DB_NAME:           "visionex_tv"
+  DB_USER:           "postgres"
+  REDIS_HOST:        "redis-svc"
+  REDIS_PORT:        "6379"
+  THROTTLE_TTL:      "60"
+  THROTTLE_LIMIT:    "120"
+  HEALTH_ENABLED:    "true"

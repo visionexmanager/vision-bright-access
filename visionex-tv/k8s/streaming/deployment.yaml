@@ -1,0 +1,165 @@
+# FFmpeg Stream Proxy — re-streams HLS sources through the cluster
+# Each pod handles up to ~50 concurrent streams
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: visionex-stream-proxy
+  namespace: visionex-tv
+  labels:
+    app: visionex-stream-proxy
+    tier: streaming
+spec:
+  replicas: 5
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: visionex-stream-proxy
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: visionex-stream-proxy
+        tier: streaming
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port:   "9090"
+    spec:
+      terminationGracePeriodSeconds: 60
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: visionex-stream-proxy
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: stream-proxy
+          image: ghcr.io/visionexmanager/visionex-tv-stream-proxy:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: metrics
+              containerPort: 9090
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: visionex-tv-secrets
+                  key: REDIS_URL
+            - name: BACKEND_URL
+              value: "http://visionex-tv-backend:80"
+            - name: MAX_CONCURRENT_STREAMS
+              value: "50"
+            - name: FFMPEG_THREADS
+              value: "2"
+            - name: HLS_SEGMENT_DURATION
+              value: "2"
+            - name: HLS_LIST_SIZE
+              value: "5"
+          resources:
+            requests:
+              cpu:    "500m"
+              memory: "512Mi"
+            limits:
+              cpu:    "2000m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                # Gracefully drain streams before shutdown
+                command: ["/bin/sh", "-c", "sleep 30"]
+          volumeMounts:
+            - name: hls-segments
+              mountPath: /tmp/hls
+      volumes:
+        - name: hls-segments
+          emptyDir:
+            medium: Memory    # RAM-backed for low-latency segment serving
+            sizeLimit: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: visionex-stream-proxy
+  namespace: visionex-tv
+spec:
+  selector:
+    app: visionex-stream-proxy
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: visionex-stream-proxy-hpa
+  namespace: visionex-tv
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: visionex-stream-proxy
+  minReplicas: 5
+  maxReplicas: 50
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type:               AverageUtilization
+          averageUtilization: 65
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type:               AverageUtilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 15
+      policies:
+        - type: Pods
+          value: 10
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 600   # hold for 10 min before scale down
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 120
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: visionex-stream-proxy-pdb
+  namespace: visionex-tv
+spec:
+  minAvailable: 3
+  selector:
+    matchLabels:
+      app: visionex-stream-proxy

@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: visionex-ams
+  labels:
+    app.kubernetes.io/part-of: visionex-ams
+    environment: production
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: visionex-workers
+  labels:
+    app.kubernetes.io/part-of: visionex-ams
+    tier: workers
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: visionex-monitoring
+  labels:
+    app.kubernetes.io/part-of: visionex-ams
+    tier: observability
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: visionex-security
+  labels:
+    tier: security
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: visionex-infra
+  labels:
+    tier: infrastructure

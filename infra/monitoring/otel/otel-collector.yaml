@@ -1,0 +1,140 @@
+---
+# OpenTelemetry Collector — receives traces from all services, exports to Jaeger + Prometheus
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: visionex-monitoring
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      prometheus:
+        config:
+          scrape_configs:
+          - job_name: otel-collector
+            static_configs:
+            - targets: [localhost:8888]
+
+    processors:
+      batch:
+        timeout: 1s
+        send_batch_size: 1024
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 512
+        spike_limit_mib: 128
+      resource:
+        attributes:
+        - key:    service.namespace
+          value:  visionex
+          action: upsert
+        - key:    deployment.environment
+          value:  production
+          action: upsert
+      # Tail sampling — keep errors + slow traces
+      tail_sampling:
+        decision_wait:       10s
+        num_traces:          50000
+        expected_new_traces_per_sec: 1000
+        policies:
+        - name: errors
+          type: status_code
+          status_code: { status_codes: [ERROR] }
+        - name: slow-traces
+          type: latency
+          latency: { threshold_ms: 2000 }
+        - name: ai-operations
+          type: string_attribute
+          string_attribute:
+            key:    operation.type
+            values: [tts, voice_cloning, text_to_video]
+        - name: billing-ops
+          type: string_attribute
+          string_attribute:
+            key:    service.name
+            values: [billing-engine]
+        - name: probabilistic-base
+          type: probabilistic
+          probabilistic: { sampling_percentage: 5 }
+
+    exporters:
+      jaeger:
+        endpoint: jaeger-collector.visionex-monitoring:14250
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: 0.0.0.0:8889
+        namespace: visionex_otel
+      loki:
+        endpoint: http://loki.visionex-monitoring:3100/loki/api/v1/push
+        labels:
+          resource:
+            service.name:      service_name
+            service.namespace: namespace
+          attributes:
+            trace_id:          trace_id
+            severity:          severity
+      otlp/tempo:
+        endpoint: tempo.visionex-monitoring:4317
+        tls:
+          insecure: true
+
+    service:
+      pipelines:
+        traces:
+          receivers:  [otlp]
+          processors: [memory_limiter, resource, tail_sampling, batch]
+          exporters:  [jaeger, otlp/tempo]
+        metrics:
+          receivers:  [otlp, prometheus]
+          processors: [memory_limiter, resource, batch]
+          exporters:  [prometheus]
+        logs:
+          receivers:  [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters:  [loki]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: visionex-monitoring
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.96.0
+        args: ["--config=/conf/config.yaml"]
+        ports:
+        - containerPort: 4317   # OTLP gRPC
+        - containerPort: 4318   # OTLP HTTP
+        - containerPort: 8888   # self-metrics
+        - containerPort: 8889   # prometheus export
+        volumeMounts:
+        - name: config
+          mountPath: /conf
+        resources:
+          requests:
+            cpu:    "200m"
+            memory: "512Mi"
+          limits:
+            cpu:    "1000m"
+            memory: "2Gi"
+      volumes:
+      - name: config
+        configMap:
+          name: otel-collector-config

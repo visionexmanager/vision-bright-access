@@ -1,0 +1,88 @@
+---
+# API Gateway — ClusterIP (Ingress routes to this)
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-svc
+  namespace: visionex-ams
+  labels:
+    app: api-gateway
+spec:
+  selector:
+    app: api-gateway
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+  type: ClusterIP
+---
+# Frontend
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+  namespace: visionex-ams
+  labels:
+    app: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+# Provider Hub — internal only
+apiVersion: v1
+kind: Service
+metadata:
+  name: provider-hub-svc
+  namespace: visionex-ams
+  labels:
+    app: provider-hub
+spec:
+  selector:
+    app: provider-hub
+  ports:
+  - name: http
+    port: 8081
+    targetPort: 8081
+  - name: metrics
+    port: 9092
+    targetPort: 9092
+  type: ClusterIP
+---
+# Redis proxy — internal
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-svc
+  namespace: visionex-infra
+spec:
+  selector:
+    app: redis-proxy
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+---
+# AI Worker metrics (no HTTP service, only scrape port)
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-worker-metrics
+  namespace: visionex-workers
+  labels:
+    app: ai-worker
+spec:
+  selector:
+    app: ai-worker
+  ports:
+  - name: metrics
+    port: 9091
+    targetPort: 9091
+  type: ClusterIP

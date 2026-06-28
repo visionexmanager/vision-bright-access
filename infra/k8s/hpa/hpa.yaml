@@ -1,0 +1,144 @@
+---
+# HPA — API Gateway: scale on CPU + memory
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-gateway-hpa
+  namespace: visionex-ams
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  minReplicas: 3
+  maxReplicas: 50
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 65
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 75
+  - type: Pods
+    pods:
+      metric:
+        name: http_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "500"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30      # react fast to traffic spikes
+      policies:
+      - type:          Pods
+        value:         5
+        periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300     # slow scale-down to avoid thrashing
+      policies:
+      - type:          Pods
+        value:         2
+        periodSeconds: 60
+---
+# HPA — AI Worker: scale on queue depth (custom metric via Prometheus adapter)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ai-worker-hpa
+  namespace: visionex-workers
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ai-worker
+  minReplicas: 2
+  maxReplicas: 100
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: External
+    external:
+      metric:
+        name: visionex_queue_depth
+        selector:
+          matchLabels:
+            queue: ai-generation
+      target:
+        type: AverageValue
+        averageValue: "10"                # 10 jobs per worker before scaling
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 15
+      policies:
+      - type:          Pods
+        value:         10
+        periodSeconds: 30
+      - type:          Percent
+        value:         100
+        periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 600    # keep workers warm for 10 min after burst
+      policies:
+      - type:          Pods
+        value:         5
+        periodSeconds: 120
+---
+# HPA — Provider Hub
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: provider-hub-hpa
+  namespace: visionex-ams
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: provider-hub
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+---
+# VPA — AI Worker: right-size memory/cpu recommendations
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: ai-worker-vpa
+  namespace: visionex-workers
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ai-worker
+  updatePolicy:
+    updateMode: "Off"   # recommendation-only; apply during maintenance windows
+  resourcePolicy:
+    containerPolicies:
+    - containerName: ai-worker
+      minAllowed:
+        cpu:    "200m"
+        memory: "512Mi"
+      maxAllowed:
+        cpu:    "8"
+        memory: "16Gi"

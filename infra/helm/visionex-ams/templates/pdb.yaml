@@ -1,0 +1,34 @@
+---
+# PodDisruptionBudgets — ensure minimum availability during node drain / upgrades
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: visionex-ams
+spec:
+  minAvailable: {{ .Values.pdb.apiGateway.minAvailable }}
+  selector:
+    matchLabels:
+      app: api-gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: provider-hub-pdb
+  namespace: visionex-ams
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: provider-hub
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ai-worker-pdb
+  namespace: visionex-workers
+spec:
+  minAvailable: {{ .Values.pdb.aiWorker.minAvailable }}
+  selector:
+    matchLabels:
+      app: ai-worker

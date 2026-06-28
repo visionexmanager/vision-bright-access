@@ -88,6 +88,19 @@ const LiveRadio = lazy(() => import("./pages/services/LiveRadio"));
 const LiveRadioListen = lazy(() => import("./pages/services/LiveRadioListen"));
 const LiveRadioSubscribe = lazy(() => import("./pages/services/LiveRadioSubscribe"));
 
+// AI Media Studio
+const AIMediaStudio = lazy(() => import("./pages/services/ai-media-studio/index"));
+const AIMediaStudioProjects = lazy(() => import("./pages/services/ai-media-studio/Projects"));
+const AIMediaStudioAssets = lazy(() => import("./pages/services/ai-media-studio/Assets"));
+const AIMediaStudioTemplates = lazy(() => import("./pages/services/ai-media-studio/Templates"));
+const AIMediaStudioSettings = lazy(() => import("./pages/services/ai-media-studio/Settings"));
+const AIMediaStudioHelp = lazy(() => import("./pages/services/ai-media-studio/Help"));
+const AIMediaStudioSpeech = lazy(() => import("./pages/services/ai-media-studio/SpeechStudio"));
+const AIMediaStudioVoice  = lazy(() => import("./pages/services/ai-media-studio/VoiceStudio"));
+const AIMediaStudioVideo       = lazy(() => import("./pages/services/ai-media-studio/VideoStudio"));
+const AIMediaStudioProviderHub = lazy(() => import("./pages/services/ai-media-studio/ProviderHub"));
+const AIMediaStudioBilling     = lazy(() => import("./pages/services/ai-media-studio/Billing"));
+
 // New game pages
 const Hangman = lazy(() => import("./pages/games/Hangman"));
 const Dominoes = lazy(() => import("./pages/games/Dominoes"));
@@ -113,6 +126,7 @@ const LegalCenter = lazy(() => import("./pages/legal/LegalCenter"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminInfra     = lazy(() => import("./pages/admin/AdminInfra"));
 const AdminNews = lazy(() => import("./pages/admin/AdminNews"));
 const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
 const AdminContent = lazy(() => import("./pages/admin/AdminContent"));
@@ -217,6 +231,18 @@ function AppRoutes() {
                     <Route path="/services/live-radio" element={<LiveRadio />} />
                     <Route path="/services/live-radio/subscribe" element={<LiveRadioSubscribe />} />
                     <Route path="/services/live-radio/listen/:stationId" element={<LiveRadioListen />} />
+                    {/* AI Media Studio */}
+                    <Route path="/services/ai-media-studio" element={<AuthGuard><AIMediaStudio /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/projects" element={<AuthGuard><AIMediaStudioProjects /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/assets" element={<AuthGuard><AIMediaStudioAssets /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/templates" element={<AuthGuard><AIMediaStudioTemplates /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/settings" element={<AuthGuard><AIMediaStudioSettings /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/help" element={<AuthGuard><AIMediaStudioHelp /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/speech" element={<AuthGuard><AIMediaStudioSpeech /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/voice"  element={<AuthGuard><AIMediaStudioVoice /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/video"        element={<AuthGuard><AIMediaStudioVideo /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/provider-hub" element={<AuthGuard><AIMediaStudioProviderHub /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/billing"      element={<AuthGuard><AIMediaStudioBilling /></AuthGuard>} />
                     <Route path="/games/hangman" element={<GameEconomyGate gameTitle="Hangman"><Hangman /></GameEconomyGate>} />
                     <Route path="/games/dominoes" element={<GameEconomyGate gameTitle="Dominoes"><Dominoes /></GameEconomyGate>} />
                     <Route path="/games/farkle" element={<GameEconomyGate gameTitle="Farkle"><FarkleGame /></GameEconomyGate>} />
@@ -260,6 +286,7 @@ function AppRoutes() {
                     <Route path="/enforcement-appeals"   element={<Navigate to="/legal" replace />} />
                     {/* Admin routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                    <Route path="/admin/infra" element={<AdminRoute><AdminInfra /></AdminRoute>} />
                     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
                     <Route path="/admin/content" element={<AdminRoute><AdminContent /></AdminRoute>} />
                     <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />

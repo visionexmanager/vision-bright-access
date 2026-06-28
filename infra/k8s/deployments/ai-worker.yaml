@@ -1,0 +1,105 @@
+---
+# AI Worker — processes TTS / Voice-Clone / Video generation queue jobs
+# Scaled aggressively via KEDA on queue depth
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-worker
+  namespace: visionex-workers
+  labels:
+    app: ai-worker
+    tier: worker
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ai-worker
+  template:
+    metadata:
+      labels:
+        app: ai-worker
+        tier: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port:   "9091"
+    spec:
+      terminationGracePeriodSeconds: 300  # allow long jobs to finish
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values: [ai-worker]
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: ai-worker
+        image: gcr.io/visionex-prod/ai-worker:$(IMAGE_TAG)
+        imagePullPolicy: Always
+        ports:
+        - name: metrics
+          containerPort: 9091
+        env:
+        - name: WORKER_CONCURRENCY
+          value: "4"
+        - name: QUEUE_BACKEND
+          value: redis
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: visionex-worker-secrets
+              key: redis-url
+        - name: SUPABASE_SERVICE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: visionex-worker-secrets
+              key: supabase-service-key
+        - name: LUMA_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: provider-keys
+              key: luma-api-key
+        - name: ELEVENLABS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: provider-keys
+              key: elevenlabs-api-key
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: provider-keys
+              key: openai-api-key
+        resources:
+          requests:
+            cpu:    "500m"
+            memory: "1Gi"
+          limits:
+            cpu:    "4000m"
+            memory: "8Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9091
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          failureThreshold: 5
+      serviceAccountName: visionex-worker-sa
+      imagePullSecrets:
+      - name: gcr-credentials
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: visionex-worker-sa
+  namespace: visionex-workers
+  annotations:
+    iam.gke.io/gcp-service-account: visionex-worker@visionex-prod.iam.gserviceaccount.com

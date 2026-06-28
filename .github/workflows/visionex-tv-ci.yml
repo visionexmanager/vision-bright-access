@@ -1,0 +1,270 @@
+name: Visionex TV — CI / Build / Deploy
+
+on:
+  push:
+    branches: [main, staging]
+    paths:
+      - "visionex-tv/**"
+      - ".github/workflows/visionex-tv-*.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "visionex-tv/**"
+
+concurrency:
+  group:              visionex-tv-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY:   ghcr.io
+  IMAGE_BASE: ghcr.io/visionexmanager
+
+# ── Jobs ─────────────────────────────────────────────────────────────────────
+
+jobs:
+  # ── 1. Backend CI ──────────────────────────────────────────────────────────
+  backend-ci:
+    name: "Backend — Lint + Test"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: visionex-tv/backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB:       visionex_tv
+          POSTGRES_USER:     postgres
+          POSTGRES_PASSWORD: testpass
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: visionex-tv/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run migrations
+        run: |
+          export PGPASSWORD=testpass
+          for f in ../database/migrations/*.sql; do
+            psql -h localhost -U postgres -d visionex_tv -f "$f"
+          done
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Unit + integration tests
+        run: npm test -- --forceExit --detectOpenHandles
+        env:
+          DATABASE_URL:          "postgresql://postgres:testpass@localhost:5432/visionex_tv"
+          REDIS_URL:             "redis://localhost:6379"
+          JWT_SECRET:            "test_secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          JWT_REFRESH_SECRET:    "test_refresh_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          NODE_ENV:              "test"
+
+  # ── 2. Frontend CI ─────────────────────────────────────────────────────────
+  frontend-ci:
+    name: "Frontend — Type-check + Lint"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: visionex-tv/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: visionex-tv/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript strict check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint --if-present
+
+  # ── 3. Build & publish Docker images ───────────────────────────────────────
+  build-backend:
+    name: "Build — Backend Docker image"
+    needs: backend-ci
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_BASE }}/visionex-tv-backend
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      - uses: docker/build-push-action@v5
+        with:
+          context:    visionex-tv/backend
+          push:       true
+          tags:       ${{ steps.meta.outputs.tags }}
+          labels:     ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+          platforms:  linux/amd64,linux/arm64
+
+  build-frontend:
+    name: "Build — Frontend Docker image"
+    needs: frontend-ci
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_BASE }}/visionex-tv-frontend
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      - uses: docker/build-push-action@v5
+        with:
+          context:    visionex-tv/frontend
+          push:       true
+          tags:       ${{ steps.meta.outputs.tags }}
+          labels:     ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+          platforms:  linux/amd64,linux/arm64
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.tv.visionex.app
+            NEXT_PUBLIC_WS_URL=https://ws.tv.visionex.app
+
+  # ── 4. Staging deploy ──────────────────────────────────────────────────────
+  deploy-staging:
+    name: "Deploy — Staging (K8s)"
+    needs: [build-backend, build-frontend]
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-kubectl@v3
+
+      - name: Configure kubeconfig (staging)
+        run: |
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > /tmp/kubeconfig
+          echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+
+      - name: Deploy to staging namespace
+        run: |
+          kubectl set image deployment/visionex-tv-backend \
+            backend=${{ env.IMAGE_BASE }}/visionex-tv-backend:sha-${{ github.sha }} \
+            -n visionex-tv-staging
+          kubectl set image deployment/visionex-frontend \
+            frontend=${{ env.IMAGE_BASE }}/visionex-tv-frontend:sha-${{ github.sha }} \
+            -n visionex-tv-staging
+          kubectl rollout status deployment/visionex-tv-backend -n visionex-tv-staging --timeout=120s
+          kubectl rollout status deployment/visionex-frontend   -n visionex-tv-staging --timeout=120s
+
+  # ── 5. Production deploy ───────────────────────────────────────────────────
+  deploy-production:
+    name: "Deploy — Production (K8s)"
+    needs: [build-backend, build-frontend]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production    # requires manual approval gate in GitHub env settings
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-kubectl@v3
+
+      - name: Configure kubeconfig (production)
+        run: |
+          echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > /tmp/kubeconfig
+          echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+
+      - name: Run DB migrations
+        run: |
+          kubectl exec -n visionex-tv \
+            $(kubectl get pod -n visionex-tv -l app=visionex-tv-backend -o jsonpath='{.items[0].metadata.name}') \
+            -- npm run migration:run
+
+      - name: Rolling deploy backend
+        run: |
+          SHA_TAG="${{ env.IMAGE_BASE }}/visionex-tv-backend:sha-${{ github.sha }}"
+          kubectl set image deployment/visionex-tv-backend backend="$SHA_TAG" -n visionex-tv
+          kubectl rollout status deployment/visionex-tv-backend -n visionex-tv --timeout=300s
+
+      - name: Rolling deploy frontend
+        run: |
+          SHA_TAG="${{ env.IMAGE_BASE }}/visionex-tv-frontend:sha-${{ github.sha }}"
+          kubectl set image deployment/visionex-frontend frontend="$SHA_TAG" -n visionex-tv
+          kubectl rollout status deployment/visionex-frontend -n visionex-tv --timeout=300s
+
+      - name: Deploy Cloudflare Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken:         ${{ secrets.CF_API_TOKEN }}
+          workingDirectory: visionex-tv/infra/cloudflare
+
+      - name: Smoke test production
+        run: |
+          sleep 10
+          curl -sf https://api.tv.visionex.app/health | jq '.status == "ok"'
+          curl -sf https://tv.visionex.app/ | grep -q "Visionex TV"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed — rolling back..."
+          kubectl rollout undo deployment/visionex-tv-backend -n visionex-tv
+          kubectl rollout undo deployment/visionex-frontend   -n visionex-tv
+          kubectl rollout status deployment/visionex-tv-backend -n visionex-tv --timeout=120s
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ Visionex TV deployed successfully — SHA ${{ github.sha }}"

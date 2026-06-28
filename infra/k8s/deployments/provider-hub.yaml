@@ -1,0 +1,119 @@
+---
+# Provider Hub — one instance per region, sidecar-cached
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: provider-hub
+  namespace: visionex-ams
+  labels:
+    app: provider-hub
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: provider-hub
+  template:
+    metadata:
+      labels:
+        app: provider-hub
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port:   "9092"
+    spec:
+      terminationGracePeriodSeconds: 30
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values: [provider-hub]
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: provider-hub
+        image: gcr.io/visionex-prod/provider-hub:$(IMAGE_TAG)
+        ports:
+        - containerPort: 8081
+        - name: metrics
+          containerPort: 9092
+        env:
+        - name: HEALTH_CHECK_INTERVAL_MS
+          value: "30000"
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: visionex-secrets
+              key: redis-url
+        - name: ROUTING_STRATEGY
+          value: smart
+        resources:
+          requests:
+            cpu:    "100m"
+            memory: "256Mi"
+          limits:
+            cpu:    "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8081
+          periodSeconds: 5
+      serviceAccountName: visionex-api-sa
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-proxy
+  namespace: visionex-infra
+  labels:
+    app: redis-proxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: redis-proxy
+  template:
+    metadata:
+      labels:
+        app: redis-proxy
+    spec:
+      containers:
+      - name: redis-proxy
+        image: redis:7-alpine
+        args:
+        - redis-server
+        - --appendonly yes
+        - --maxmemory 4gb
+        - --maxmemory-policy allkeys-lru
+        - --requirepass $(REDIS_PASSWORD)
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: password
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            cpu:    "200m"
+            memory: "2Gi"
+          limits:
+            cpu:    "1000m"
+            memory: "4Gi"
+        livenessProbe:
+          exec:
+            command: [redis-cli, ping]
+          periodSeconds: 10

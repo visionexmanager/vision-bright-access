@@ -113,6 +113,7 @@ export function Navbar() {
       label: t("nav.more"),
       links: [
         { to: "/professional-tools", label: t("nav.professionalTools") },
+        { to: "/services/ai-media-studio", label: "AI Media Studio" },
         { to: "/news", label: t("nav.news") },
         { to: "/contact-us", label: t("nav.contact") },
         { to: "/profile", label: t("nav.profile") },

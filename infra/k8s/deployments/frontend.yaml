@@ -1,0 +1,109 @@
+---
+# Frontend — Vite SPA served via nginx with aggressive caching headers
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: visionex-ams
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: frontend
+        image: gcr.io/visionex-prod/frontend:$(IMAGE_TAG)
+        ports:
+        - containerPort: 80
+        env:
+        - name: VITE_SUPABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: visionex-config
+              key: supabase-url
+        - name: VITE_SUPABASE_ANON_KEY
+          valueFrom:
+            secretKeyRef:
+              name: visionex-secrets
+              key: supabase-anon-key
+        resources:
+          requests:
+            cpu:    "50m"
+            memory: "128Mi"
+          limits:
+            cpu:    "200m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: gcr-credentials
+---
+# nginx ConfigMap — security headers + caching
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: visionex-ams
+data:
+  nginx.conf: |
+    server {
+      listen 80;
+      root /usr/share/nginx/html;
+      index index.html;
+      gzip on;
+      gzip_types text/plain application/javascript text/css application/json;
+      gzip_comp_level 6;
+
+      # Security headers
+      add_header X-Frame-Options            "DENY"            always;
+      add_header X-Content-Type-Options     "nosniff"         always;
+      add_header X-XSS-Protection           "1; mode=block"   always;
+      add_header Referrer-Policy            "strict-origin"   always;
+      add_header Permissions-Policy         "camera=(), microphone=(self)" always;
+      add_header Strict-Transport-Security  "max-age=63072000; includeSubDomains; preload" always;
+      add_header Content-Security-Policy    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co; img-src 'self' data: https:;" always;
+
+      # SPA routing
+      location / {
+        try_files $uri $uri/ /index.html;
+      }
+
+      # Long cache for hashed assets
+      location ~* \.(js|css|woff2|png|svg|ico)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+      }
+
+      # No cache for the HTML entry point
+      location = /index.html {
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+      }
+
+      # Health endpoint for probes
+      location /healthz {
+        return 200 "ok";
+        add_header Content-Type text/plain;
+      }
+    }

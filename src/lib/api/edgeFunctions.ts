@@ -33,6 +33,7 @@ import type {
   SearchResponse,
   ModerationResult,
 } from "@/lib/types";
+import type { BillingConsumeResult, OperationType } from "@/lib/types/billing";
 
 // ── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -364,6 +365,177 @@ export async function callContactForm(params: {
     body: params,
     auth: "anon",
   }) as Promise<{ success: boolean }>;
+}
+
+// ── Speech Studio ─────────────────────────────────────────────────────────────
+
+export interface SpeechGenerateRequest {
+  text: string;
+  voice_id: string;
+  provider_voice_id: string;
+  voice_name?: string;
+  provider?: string;
+  model?: string;
+  language?: string;
+  emotion?: string;
+  speed?: number;
+  pitch?: number;
+  output_format?: string;
+  project_id?: string;
+  preset_id?: string;
+  preset_name?: string;
+}
+
+export interface SpeechGenerateResponse {
+  ok: boolean;
+  job_id: string;
+  asset_id: string | null;
+  audio_base64: string;
+  mime_type: string;
+  duration_sec: number;
+  size_bytes: number;
+  output_format: string;
+}
+
+/**
+ * speech-generate — AI Media Studio TTS generation.
+ * Requires user JWT. Returns audio as base64 JSON + job metadata.
+ */
+export async function callSpeechGenerate(
+  body: SpeechGenerateRequest,
+  signal?: AbortSignal
+): Promise<SpeechGenerateResponse> {
+  return callEdge({
+    fn: "speech-generate",
+    body: body as unknown as Record<string, unknown>,
+    auth: "user-jwt",
+    signal,
+  }) as Promise<SpeechGenerateResponse>;
+}
+
+// ── Video Studio ──────────────────────────────────────────────────────────────
+
+export interface VideoStudioRequest {
+  action:          "generate" | "poll" | "cancel" | "delete";
+  job_id?:         string;
+  title?:          string;
+  prompt?:         string;
+  negative_prompt?: string;
+  style?:          string;
+  duration_sec?:   number;
+  aspect_ratio?:   string;
+  resolution?:     string;
+  fps?:            number;
+  camera_motion?:  string;
+  creativity?:     number;
+  seed?:           number;
+  provider?:       string;
+  provider_model?: string;
+  project_id?:     string;
+  template_id?:    string;
+  audio_asset_id?: string;
+  audio_mode?:     string;
+}
+
+export interface VideoStudioResponse {
+  ok:              boolean;
+  job_id?:         string;
+  provider_job_id?: string;
+  status?:         string;
+  progress?:       number;
+  video_url?:      string;
+  storage_path?:   string;
+  asset_id?:       string;
+  error?:          string;
+}
+
+export async function callVideoStudio(
+  body: VideoStudioRequest,
+  signal?: AbortSignal
+): Promise<VideoStudioResponse> {
+  return callEdge({
+    fn:   "video-studio",
+    body: body as unknown as Record<string, unknown>,
+    auth: "user-jwt",
+    signal,
+  }) as Promise<VideoStudioResponse>;
+}
+
+// ── Voice Studio ──────────────────────────────────────────────────────────────
+
+export interface VoiceStudioRequest {
+  action: "start_training" | "cancel_training" | "delete_profile";
+  profile_id?: string;
+  job_id?: string;
+}
+
+export interface VoiceStudioResponse {
+  ok: boolean;
+  job_id?: string;
+  error?: string;
+}
+
+export async function callVoiceStudio(
+  body: VoiceStudioRequest,
+  signal?: AbortSignal
+): Promise<VoiceStudioResponse> {
+  return callEdge({
+    fn: "voice-studio",
+    body: body as unknown as Record<string, unknown>,
+    auth: "user-jwt",
+    signal,
+  }) as Promise<VoiceStudioResponse>;
+}
+
+// ── Billing Engine ────────────────────────────────────────────────────────────
+
+export interface BillingEngineRequest {
+  action:           string;
+  operation_type?:  OperationType;
+  job_id?:          string;
+  project_id?:      string;
+  provider_slug?:   string;
+  idempotency_key?: string;
+  meta?:            Record<string, unknown>;
+  plan_id?:         string;
+  amount_vx?:       number;
+  description?:     string;
+  limit?:           number;
+  offset?:          number;
+  hours?:           number;
+  type?:            string;
+  reason?:          string;
+}
+
+export async function callBillingEngine<T = unknown>(
+  body: BillingEngineRequest,
+  signal?: AbortSignal
+): Promise<{ ok: boolean; data?: T; error?: string } & Partial<BillingConsumeResult>> {
+  return callEdge({
+    fn:   "billing-engine",
+    body: body as unknown as Record<string, unknown>,
+    auth: "user-jwt",
+    signal,
+  }) as Promise<{ ok: boolean; data?: T; error?: string } & Partial<BillingConsumeResult>>;
+}
+
+// ── Provider Hub ──────────────────────────────────────────────────────────────
+
+import type {
+  ProviderHubRequest,
+  ProviderHubResponse,
+} from "@/lib/types/provider-hub";
+
+export async function callProviderHub<T = unknown>(
+  body: ProviderHubRequest,
+  signal?: AbortSignal
+): Promise<ProviderHubResponse<T>> {
+  return callEdge({
+    fn:   "provider-hub",
+    body: body as unknown as Record<string, unknown>,
+    auth: "user-jwt",
+    signal,
+  }) as Promise<ProviderHubResponse<T>>;
 }
 
 /**

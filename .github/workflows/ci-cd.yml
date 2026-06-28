@@ -1,0 +1,352 @@
+name: Visionex AMS — CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROJECT_ID:    ${{ secrets.GCP_PROJECT_ID }}
+  REGISTRY:      gcr.io/${{ secrets.GCP_PROJECT_ID }}
+  IMAGE_TAG:     ${{ github.sha }}
+  CLUSTER_REGION: europe-west1
+  CLUSTER_NAME:   visionex-eu
+
+###############################################################################
+# JOB: Lint & Type-check
+###############################################################################
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: pnpm/action-setup@v3
+      with:
+        version: 9
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: pnpm
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: TypeScript type check
+      run: pnpm tsc --noEmit
+
+    - name: ESLint
+      run: pnpm eslint src --ext .ts,.tsx --max-warnings 0
+
+###############################################################################
+# JOB: Security scan
+###############################################################################
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scan (filesystem)
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type:     fs
+        scan-ref:      .
+        severity:      CRITICAL,HIGH
+        exit-code:     1
+        ignore-unfixed: true
+        format:        sarif
+        output:        trivy-results.sarif
+
+    - name: Upload scan results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: trivy-results.sarif
+
+    - name: Audit npm dependencies
+      run: pnpm audit --audit-level=high
+
+    - name: Check for secrets in code (gitleaks)
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+###############################################################################
+# JOB: Test
+###############################################################################
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: pnpm/action-setup@v3
+      with:
+        version: 9
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: pnpm
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Unit tests
+      run: pnpm test --run --reporter=verbose
+
+    - name: Build (validates vite bundling)
+      run: pnpm build
+      env:
+        VITE_SUPABASE_URL:      ${{ secrets.VITE_SUPABASE_URL_STAGING }}
+        VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY_STAGING }}
+
+###############################################################################
+# JOB: Build & push Docker images
+###############################################################################
+  build:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    needs: [lint, test, security]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      image-digest: ${{ steps.build-push.outputs.digest }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+    - name: Configure Docker for GCR
+      run: gcloud auth configure-docker gcr.io
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build & push Frontend
+      id: build-push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file:    ./Dockerfile.frontend
+        push:    true
+        tags: |
+          ${{ env.REGISTRY }}/frontend:${{ env.IMAGE_TAG }}
+          ${{ env.REGISTRY }}/frontend:latest
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/frontend:buildcache
+        cache-to:   type=registry,ref=${{ env.REGISTRY }}/frontend:buildcache,mode=max
+        build-args: |
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL_PROD }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY_PROD }}
+          BUILD_SHA=${{ github.sha }}
+
+    - name: Scan built image with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref:  ${{ env.REGISTRY }}/frontend:${{ env.IMAGE_TAG }}
+        severity:   CRITICAL
+        exit-code:  1
+
+###############################################################################
+# JOB: Deploy to Staging
+###############################################################################
+  deploy-staging:
+    name: Deploy → Staging
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/staging'
+    environment:
+      name: staging
+      url:  https://staging.visionex.ai
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+    - name: Get GKE credentials
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: visionex-eu-staging
+        location:     ${{ env.CLUSTER_REGION }}
+        project_id:   ${{ env.PROJECT_ID }}
+
+    - name: Helm upgrade (staging)
+      run: |
+        helm upgrade --install visionex-ams ./infra/helm/visionex-ams \
+          --namespace visionex-ams \
+          --create-namespace \
+          --set image.tag=${{ env.IMAGE_TAG }} \
+          --set environment=staging \
+          --set replicaCount.apiGateway=2 \
+          --set replicaCount.aiWorker=1 \
+          --values ./infra/helm/visionex-ams/values-staging.yaml \
+          --wait \
+          --timeout 10m
+
+    - name: Smoke test staging
+      run: |
+        sleep 30
+        curl -sf https://staging.visionex.ai/health/ready || exit 1
+        echo "Staging health check passed"
+
+###############################################################################
+# JOB: Deploy to Production (Blue/Green)
+###############################################################################
+  deploy-production:
+    name: Deploy → Production (Blue/Green)
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url:  https://app.visionex.ai
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+    - name: Get GKE credentials (primary region)
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: ${{ env.CLUSTER_NAME }}
+        location:     ${{ env.CLUSTER_REGION }}
+        project_id:   ${{ env.PROJECT_ID }}
+
+    # Determine active slot (blue or green)
+    - name: Detect active deployment slot
+      id: slot
+      run: |
+        ACTIVE=$(kubectl get service api-gateway-svc -n visionex-ams \
+          -o jsonpath='{.spec.selector.slot}' 2>/dev/null || echo "blue")
+        if [ "$ACTIVE" = "blue" ]; then
+          echo "new_slot=green" >> $GITHUB_OUTPUT
+          echo "old_slot=blue"  >> $GITHUB_OUTPUT
+        else
+          echo "new_slot=blue"  >> $GITHUB_OUTPUT
+          echo "old_slot=green" >> $GITHUB_OUTPUT
+        fi
+        echo "Active slot: $ACTIVE → deploying to: $(cat $GITHUB_OUTPUT | tail -2 | head -1 | cut -d= -f2)"
+
+    # Deploy to inactive slot
+    - name: Deploy new version to ${{ steps.slot.outputs.new_slot }} slot
+      run: |
+        helm upgrade --install visionex-ams-${{ steps.slot.outputs.new_slot }} ./infra/helm/visionex-ams \
+          --namespace visionex-ams \
+          --set image.tag=${{ env.IMAGE_TAG }} \
+          --set slot=${{ steps.slot.outputs.new_slot }} \
+          --set environment=production \
+          --values ./infra/helm/visionex-ams/values-production.yaml \
+          --wait \
+          --timeout 15m
+
+    # Health-gate: validate new slot before switching traffic
+    - name: Validate new slot health
+      run: |
+        NEW_POD=$(kubectl get pods -n visionex-ams \
+          -l app=api-gateway,slot=${{ steps.slot.outputs.new_slot }} \
+          -o jsonpath='{.items[0].metadata.name}')
+        kubectl wait pod/$NEW_POD -n visionex-ams \
+          --for=condition=Ready --timeout=300s
+        # Port-forward and smoke test
+        kubectl port-forward pod/$NEW_POD 18080:8080 -n visionex-ams &
+        PF_PID=$!
+        sleep 5
+        curl -sf http://localhost:18080/health/ready || (kill $PF_PID && exit 1)
+        kill $PF_PID
+        echo "New slot health validated ✓"
+
+    # Switch traffic
+    - name: Switch traffic to ${{ steps.slot.outputs.new_slot }}
+      run: |
+        kubectl patch service api-gateway-svc -n visionex-ams \
+          --type='json' \
+          -p='[{"op":"replace","path":"/spec/selector/slot","value":"${{ steps.slot.outputs.new_slot }}"}]'
+        echo "Traffic switched to ${{ steps.slot.outputs.new_slot }} ✓"
+
+    # Deploy to remaining regions
+    - name: Deploy to all regions
+      run: |
+        REGIONS=(visionex-me visionex-use visionex-usw visionex-asia)
+        REGION_LOCS=(me-central1 us-east1 us-west1 asia-east1)
+        for i in "${!REGIONS[@]}"; do
+          echo "--- Deploying to ${REGIONS[$i]} ---"
+          gcloud container clusters get-credentials ${REGIONS[$i]} \
+            --region ${REGION_LOCS[$i]} --project ${{ env.PROJECT_ID }}
+          helm upgrade --install visionex-ams ./infra/helm/visionex-ams \
+            --namespace visionex-ams \
+            --create-namespace \
+            --set image.tag=${{ env.IMAGE_TAG }} \
+            --set environment=production \
+            --values ./infra/helm/visionex-ams/values-production.yaml \
+            --wait --timeout 15m &
+        done
+        wait
+        echo "All regions deployed ✓"
+
+    # Cleanup old slot after 5 min (give in-flight requests time to drain)
+    - name: Schedule old slot cleanup
+      run: |
+        sleep 300
+        helm uninstall visionex-ams-${{ steps.slot.outputs.old_slot }} \
+          --namespace visionex-ams --ignore-not-found || true
+
+    - name: Post-deploy smoke tests
+      run: |
+        sleep 30
+        curl -sf https://app.visionex.ai/health/ready || exit 1
+        echo "Production smoke test passed ✓"
+
+###############################################################################
+# JOB: Rollback (manual trigger)
+###############################################################################
+  rollback:
+    name: Emergency Rollback
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment:
+      name: production
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account:            ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+    - name: Get GKE credentials
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: ${{ env.CLUSTER_NAME }}
+        location:     ${{ env.CLUSTER_REGION }}
+        project_id:   ${{ env.PROJECT_ID }}
+
+    - name: Rollback via Helm
+      run: |
+        helm rollback visionex-ams 0 --namespace visionex-ams --wait
+        echo "Rollback complete ✓"
+
+    - name: Verify rollback
+      run: curl -sf https://app.visionex.ai/health/ready && echo "Health OK ✓"

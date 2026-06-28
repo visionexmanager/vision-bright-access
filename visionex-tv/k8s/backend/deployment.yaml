@@ -2,8 +2,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: visionex-tv-backend
+  namespace: visionex-tv
   labels:
     app: visionex-tv-backend
+    tier: api
+  annotations:
+    deployment.kubernetes.io/revision: "1"
 spec:
   replicas: 3
   selector:
@@ -36,6 +40,8 @@ spec:
           ports:
             - containerPort: 3000
           envFrom:
+            - configMapRef:
+                name: backend-config
             - secretRef:
                 name: visionex-tv-secrets
           resources:
@@ -68,11 +74,16 @@ apiVersion: v1
 kind: Service
 metadata:
   name: visionex-tv-backend
+  namespace: visionex-tv
 spec:
   selector:
     app: visionex-tv-backend
   ports:
-    - port: 80
+    - name: http
+      port: 80
+      targetPort: 3000
+    - name: ws
+      port: 3001
       targetPort: 3000
   type: ClusterIP
 ---
@@ -80,6 +91,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: visionex-tv-backend-hpa
+  namespace: visionex-tv
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -118,6 +130,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: visionex-tv-backend-pdb
+  namespace: visionex-tv
 spec:
   minAvailable: 2
   selector:

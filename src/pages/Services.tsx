@@ -605,8 +605,8 @@ export default function Services() {
               <p className="mt-1 text-muted-foreground max-w-xl">{t("services.mediaDesc")}</p>
             </div>
 
-            {/* Two feature cards side by side */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2" role="list">
+            {/* Media service cards */}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3" role="list">
 
               {/* ── VisionTV ── */}
               <StaggerItem role="listitem">
@@ -661,6 +661,55 @@ export default function Services() {
                         <span className="text-xs text-muted-foreground">{t("services.mediaTitle")}</span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-blue-500 px-3 py-1 text-xs font-semibold text-white transition-all group-hover:bg-blue-600">
                           {t("liveTV.subscribeNow")}
+                          <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </StaggerItem>
+
+              {/* ── AI Media Studio ── */}
+              <StaggerItem role="listitem">
+                <Link
+                  to="/services/ai-media-studio"
+                  onClick={() => playSound("navigate")}
+                  className="group block h-full"
+                  aria-label="AI Media Studio"
+                >
+                  <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-violet-500/20">
+                    <div className="relative h-32 bg-gradient-to-br from-violet-700 via-violet-500 to-purple-400 overflow-hidden">
+                      <div className="absolute -top-6 -right-6 h-28 w-28 rounded-full bg-white/10" aria-hidden="true" />
+                      <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/10" aria-hidden="true" />
+                      <div className="absolute top-3 start-3 flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-bold text-white shadow-md">
+                        <Sparkles className="h-3 w-3" aria-hidden="true" />
+                        AI
+                      </div>
+                      <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                        <Sparkles className="h-16 w-16 text-white/30 group-hover:text-white/40 transition-colors" />
+                      </div>
+                    </div>
+                    <CardContent className="p-5">
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-lg font-bold text-foreground">AI Media Studio</h3>
+                          <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">Create, manage and generate AI-powered media content</p>
+                        </div>
+                        <div className="shrink-0 rounded-lg bg-violet-500/10 p-2">
+                          <Sparkles className="h-5 w-5 text-violet-500" aria-hidden="true" />
+                        </div>
+                      </div>
+                      <div className="mb-4 flex flex-wrap gap-1.5" aria-label="Features">
+                        {["Projects", "Assets", "Templates", "TTS (Soon)"].map((f) => (
+                          <span key={f} className="inline-flex items-center rounded-full border border-violet-500/20 bg-violet-500/5 px-2 py-0.5 text-xs text-violet-600 dark:text-violet-400">
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">AI Studio</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-500 px-3 py-1 text-xs font-semibold text-white transition-all group-hover:bg-violet-600">
+                          Open Studio
                           <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
                         </span>
                       </div>

@@ -62,7 +62,12 @@ export type EdgeFunctionName =
   | "embed-content"
   | "moderate-content"
   | "text-to-speech"
-  | "ai-voice-chat";
+  | "speech-generate"
+  | "ai-voice-chat"
+  | "voice-studio"
+  | "video-studio"
+  | "provider-hub"
+  | "billing-engine";
 
 export type AuthMode = "anon" | "user-jwt" | "admin-jwt" | "cron-secret";
 

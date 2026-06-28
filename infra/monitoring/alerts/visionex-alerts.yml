@@ -1,0 +1,222 @@
+groups:
+# ── SLO: Availability ──────────────────────────────────────────────────────────
+- name: visionex.availability
+  rules:
+  - alert: ServiceDown
+    expr: up{job=~"visionex-.*"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      team:     sre
+    annotations:
+      summary:     "{{ $labels.app }} is DOWN in {{ $labels.namespace }}"
+      description: "{{ $labels.instance }} has been unreachable for > 1 minute. Immediate investigation required."
+      runbook:     "https://wiki.visionex.ai/runbooks/service-down"
+
+  - alert: PodCrashLooping
+    expr: |
+      rate(kube_pod_container_status_restarts_total{namespace=~"visionex-.*"}[15m]) * 60 * 15 > 3
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary:     "Pod {{ $labels.pod }} is crash-looping"
+      description: "{{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} restarted >3 times in 15 min."
+
+  - alert: DeploymentReplicasMismatch
+    expr: |
+      kube_deployment_spec_replicas{namespace=~"visionex-.*"} != kube_deployment_status_available_replicas{namespace=~"visionex-.*"}
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Deployment {{ $labels.deployment }} has fewer replicas than desired"
+
+# ── SLO: API Latency ──────────────────────────────────────────────────────────
+- name: visionex.latency
+  rules:
+  - alert: HighAPILatencyP95
+    expr: |
+      histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{app="api-gateway"}[5m])) > 2.0
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary:     "API Gateway P95 latency > 2s"
+      description: "95th percentile latency is {{ $value | humanizeDuration }}. Users are experiencing slow responses."
+
+  - alert: CriticalAPILatencyP99
+    expr: |
+      histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{app="api-gateway"}[5m])) > 10.0
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "API Gateway P99 latency CRITICAL (>10s)"
+
+  - alert: HighErrorRate
+    expr: |
+      rate(http_requests_total{app="api-gateway",status=~"5.."}[5m])
+      /
+      rate(http_requests_total{app="api-gateway"}[5m]) > 0.05
+    for: 3m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Error rate > 5% on API Gateway"
+      description: "{{ $value | humanizePercentage }} of requests are failing."
+
+# ── AI Provider ────────────────────────────────────────────────────────────────
+- name: visionex.providers
+  rules:
+  - alert: ProviderHighFailureRate
+    expr: |
+      rate(visionex_provider_requests_failed_total[10m])
+      /
+      rate(visionex_provider_requests_total[10m]) > 0.20
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary:     "AI Provider {{ $labels.provider_slug }} failure rate > 20%"
+      description: "Automatic failover should have engaged. Check Provider Hub routing."
+
+  - alert: AllProvidersForTypeFailing
+    expr: |
+      count by (provider_type) (
+        rate(visionex_provider_requests_failed_total[5m]) / rate(visionex_provider_requests_total[5m]) < 0.5
+      ) == 0
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "ALL providers for type {{ $labels.provider_type }} are failing!"
+      description: "No healthy provider available. AI generation will be blocked."
+
+  - alert: ProviderLatencyDegraded
+    expr: |
+      visionex_provider_avg_latency_ms > 10000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Provider {{ $labels.provider_slug }} avg latency > 10s"
+
+# ── Queue ──────────────────────────────────────────────────────────────────────
+- name: visionex.queue
+  rules:
+  - alert: QueueBacklogHigh
+    expr: visionex_queue_depth{queue="ai-generation"} > 500
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary:     "AI generation queue backlog > 500 jobs"
+      description: "{{ $value }} jobs pending. HPA should be scaling workers. Check if scaling is blocked."
+
+  - alert: QueueBacklogCritical
+    expr: visionex_queue_depth{queue="ai-generation"} > 2000
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "AI generation queue backlog CRITICAL ({{ $value }} jobs)"
+
+  - alert: QueueConsumerLag
+    expr: |
+      visionex_queue_oldest_job_age_seconds > 300
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Oldest queued job is {{ $value | humanizeDuration }} old"
+
+# ── Billing ────────────────────────────────────────────────────────────────────
+- name: visionex.billing
+  rules:
+  - alert: BillingEngineErrors
+    expr: |
+      rate(visionex_billing_errors_total[5m]) > 0.1
+    for: 3m
+    labels:
+      severity: critical
+    annotations:
+      summary:     "Billing engine error rate elevated"
+      description: "Credit consumption failures could mean users bypass billing. Investigate immediately."
+
+  - alert: UnusualCreditConsumption
+    expr: |
+      rate(visionex_credits_consumed_total[1h]) > 10000
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Unusually high VX credit consumption rate: {{ $value | humanize }} VX/hr"
+
+# ── Infrastructure ─────────────────────────────────────────────────────────────
+- name: visionex.infrastructure
+  rules:
+  - alert: NodeCPUHigh
+    expr: |
+      100 - (avg by(node) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Node {{ $labels.node }} CPU > 85%"
+
+  - alert: NodeMemoryPressure
+    expr: |
+      node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Node {{ $labels.node }} has < 10% memory available"
+
+  - alert: PersistentVolumeFull
+    expr: |
+      kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes < 0.10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "PV {{ $labels.persistentvolumeclaim }} is > 90% full"
+
+  - alert: RedisMemoryHigh
+    expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Redis memory usage > 85%"
+
+  - alert: CertificateExpiringSoon
+    expr: |
+      (ssl_certificate_expiry_seconds - time()) / 86400 < 14
+    for: 1h
+    labels:
+      severity: warning
+    annotations:
+      summary: "TLS certificate expires in {{ $value | humanizeDuration }}"
+
+# ── Regional ───────────────────────────────────────────────────────────────────
+- name: visionex.regional
+  rules:
+  - alert: RegionUnhealthy
+    expr: visionex_region_health_score < 50
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary:     "Region {{ $labels.region }} health score < 50"
+      description: "Geo-routing should be diverting traffic away from this region automatically."
+
+  - alert: RegionTrafficImbalance
+    expr: |
+      stddev(visionex_region_requests_per_second) / avg(visionex_region_requests_per_second) > 2
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Unusual traffic imbalance across regions"

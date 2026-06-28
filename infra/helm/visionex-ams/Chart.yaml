@@ -1,0 +1,14 @@
+apiVersion: v2
+name: visionex-ams
+description: Visionex AI Media Studio — Production Helm Chart
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+- visionex
+- ai-media-studio
+- saas
+maintainers:
+- name:  Visionex SRE
+  email: sre@visionex.ai
+dependencies: []

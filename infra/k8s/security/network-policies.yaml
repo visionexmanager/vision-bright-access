@@ -1,0 +1,123 @@
+---
+# Default deny-all ingress in visionex-ams
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: visionex-ams
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+---
+# Allow ingress from ingress controller to api-gateway only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-gateway
+  namespace: visionex-ams
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: TCP
+      port: 8080
+---
+# Allow api-gateway to talk to provider-hub
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-to-provider-hub
+  namespace: visionex-ams
+spec:
+  podSelector:
+    matchLabels:
+      app: provider-hub
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api-gateway
+    ports:
+    - protocol: TCP
+      port: 8081
+---
+# Workers can call out to providers — allow egress to internet
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker-egress
+  namespace: visionex-workers
+spec:
+  podSelector:
+    matchLabels:
+      tier: worker
+  policyTypes:
+  - Egress
+  egress:
+  - {}     # unrestricted egress for provider API calls
+---
+# Allow monitoring namespace to scrape metrics from all namespaces
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: visionex-ams
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: visionex-monitoring
+    ports:
+    - protocol: TCP
+      port: 9090
+    - protocol: TCP
+      port: 9091
+    - protocol: TCP
+      port: 9092
+---
+# Default deny-all for workers
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress-workers
+  namespace: visionex-workers
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+---
+# Allow Redis access only from ams + workers namespaces
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-access-policy
+  namespace: visionex-infra
+spec:
+  podSelector:
+    matchLabels:
+      app: redis-proxy
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: visionex-ams
+    ports:
+    - protocol: TCP
+      port: 6379

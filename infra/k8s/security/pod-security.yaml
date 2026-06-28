@@ -1,0 +1,90 @@
+---
+# Pod Security Standards — enforce restricted profile in production
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: visionex-restricted
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+  - ALL
+  volumes:
+  - configMap
+  - emptyDir
+  - projected
+  - secret
+  - downwardAPI
+  - persistentVolumeClaim
+  hostNetwork: false
+  hostIPC:     false
+  hostPID:     false
+  runAsUser:
+    rule: MustRunAsNonRoot
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: MustRunAs
+    ranges:
+    - min: 1000
+      max: 65535
+  fsGroup:
+    rule: MustRunAs
+    ranges:
+    - min: 1000
+      max: 65535
+  readOnlyRootFilesystem: true
+---
+# RBAC: SA for API pods — read secrets only
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: visionex-api-role
+  namespace: visionex-ams
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs:     ["get"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs:     ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: visionex-api-rolebinding
+  namespace: visionex-ams
+subjects:
+- kind: ServiceAccount
+  name: visionex-api-sa
+roleRef:
+  kind: Role
+  name: visionex-api-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# RBAC: Worker SA — narrower than API
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: visionex-worker-role
+  namespace: visionex-workers
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs:     ["get"]
+  resourceNames:
+  - visionex-worker-secrets
+  - provider-keys
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: visionex-worker-rolebinding
+  namespace: visionex-workers
+subjects:
+- kind: ServiceAccount
+  name: visionex-worker-sa
+roleRef:
+  kind: Role
+  name: visionex-worker-role
+  apiGroup: rbac.authorization.k8s.io

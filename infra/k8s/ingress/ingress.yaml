@@ -1,0 +1,126 @@
+---
+# Global Ingress — GKE Ingress with Cloud Armor WAF + Cloud CDN
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: visionex-global-ingress
+  namespace: visionex-ams
+  annotations:
+    # GKE-specific
+    kubernetes.io/ingress.class:                      "gce"
+    kubernetes.io/ingress.global-static-ip-name:      "visionex-global-ip"
+    networking.gke.io/managed-certificates:           "visionex-tls-cert"
+    networking.gke.io/v1beta1.FrontendConfig:         "visionex-frontend-config"
+    # Cloud Armor WAF policy
+    networking.gke.io/v1beta1.SecurityPolicy:         "visionex-cloud-armor"
+    # Cloud CDN
+    networking.gke.io/v1beta1.BackendConfig:          "visionex-cdn-config"
+    # Health check
+    cloud.google.com/backend-config: |
+      {"default": "visionex-backend-config"}
+spec:
+  rules:
+  - host: app.visionex.ai
+    http:
+      paths:
+      - path: /api/*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: api-gateway-svc
+            port:
+              number: 80
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: frontend-svc
+            port:
+              number: 80
+  - host: studio.visionex.ai
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: frontend-svc
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - app.visionex.ai
+    - studio.visionex.ai
+    secretName: visionex-tls-secret
+---
+# ManagedCertificate — Google-managed TLS, auto-renewed
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: visionex-tls-cert
+  namespace: visionex-ams
+spec:
+  domains:
+  - app.visionex.ai
+  - studio.visionex.ai
+  - api.visionex.ai
+---
+# FrontendConfig — HTTPS redirect + security policy
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: visionex-frontend-config
+  namespace: visionex-ams
+spec:
+  httpsRedirect:
+    enabled: true
+    responseCodeName: MOVED_PERMANENTLY_DEFAULT
+---
+# BackendConfig — CDN, health checks, connection draining
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: visionex-backend-config
+  namespace: visionex-ams
+spec:
+  cdn:
+    enabled: true
+    cachePolicy:
+      includeHost:        true
+      includeProtocol:    true
+      includeQueryString: false
+    signedUrlCacheMaxAgeSec: 3600
+  healthCheck:
+    checkIntervalSec:   10
+    timeoutSec:         5
+    healthyThreshold:   1
+    unhealthyThreshold: 3
+    type:               HTTP
+    requestPath:        /health/ready
+    port:               8080
+  connectionDraining:
+    drainingTimeoutSec: 60
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
+    affinityCookieTtlSec: 3600
+---
+# CDN BackendConfig specifically for media assets
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: visionex-cdn-config
+  namespace: visionex-ams
+spec:
+  cdn:
+    enabled: true
+    cachePolicy:
+      includeHost:        true
+      includeProtocol:    false
+      includeQueryString: false       # query strings bypass CDN cache
+    cacheMode: CACHE_ALL_STATIC
+    defaultTtl: 86400                 # 24h default TTL for generated media
+    maxTtl: 604800                    # 1 week max
+    negativeCaching: true
+    negativeCachingPolicy:
+    - code: 404
+      ttl:  60

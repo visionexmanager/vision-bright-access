@@ -1,0 +1,77 @@
+environment: production
+
+image:
+  registry: gcr.io/visionex-prod
+  tag:      latest
+  pullPolicy: Always
+
+replicaCount:
+  apiGateway:  3
+  frontend:    2
+  providerHub: 2
+  aiWorker:    2
+
+autoscaling:
+  apiGateway:
+    minReplicas: 3
+    maxReplicas: 50
+    cpuTarget:   65
+  aiWorker:
+    minReplicas: 2
+    maxReplicas: 100
+    cpuTarget:   70
+    queueDepthTarget: 10
+
+resources:
+  apiGateway:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: 1000m, memory: 1Gi }
+  aiWorker:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits:   { cpu: 4000m, memory: 8Gi }
+  frontend:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+
+ingress:
+  enabled: true
+  class:   gce
+  hosts:
+  - app.visionex.ai
+  - studio.visionex.ai
+  tls:     true
+
+redis:
+  external: true
+  host:     redis.visionex-infra.svc.cluster.local
+  port:     6379
+
+monitoring:
+  prometheus: true
+  grafana:    true
+  otel:       true
+  sampling_rate: 0.05
+
+security:
+  podSecurityContext:
+    runAsNonRoot:   true
+    runAsUser:      1000
+    fsGroup:        1000
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem:   true
+    capabilities:
+      drop: [ALL]
+
+pdb:
+  apiGateway:
+    minAvailable: 2
+  aiWorker:
+    minAvailable: 1
+
+nodeSelector: {}
+tolerations:  []
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - topologyKey: kubernetes.io/hostname

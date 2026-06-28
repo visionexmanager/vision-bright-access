@@ -1,0 +1,302 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "description": "Visionex AI Media Studio — Global Operations Dashboard",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "🌍 Global Health",
+      "type": "row"
+    },
+    {
+      "datasource": "prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "green",  "value": 95 }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      },
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "title": "Global Availability",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "avg(up{job=~\"visionex-.*\"}) * 100",
+          "legendFormat": "Availability"
+        }
+      ]
+    },
+    {
+      "datasource": "prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 500 },
+              { "color": "red",    "value": 2000 }
+            ]
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": { "h": 6, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "title": "API P95 Latency",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{app=\"api-gateway\"}[5m])) * 1000",
+          "legendFormat": "P95 ms"
+        }
+      ]
+    },
+    {
+      "datasource": "prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red",    "value": 500 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 6, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "title": "Queue Depth",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "visionex_queue_depth{queue=\"ai-generation\"}",
+          "legendFormat": "Jobs"
+        }
+      ]
+    },
+    {
+      "datasource": "prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 0.02 },
+              { "color": "red",    "value": 0.05 }
+            ]
+          },
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "title": "API Error Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{app=\"api-gateway\",status=~\"5..\"}[5m]) / rate(http_requests_total{app=\"api-gateway\"}[5m])",
+          "legendFormat": "Error Rate"
+        }
+      ]
+    },
+    {
+      "datasource": "prometheus",
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "gridPos": { "h": 6, "w": 4, "x": 16, "y": 1 },
+      "id": 5,
+      "title": "Global RPS",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{app=\"api-gateway\"}[1m]))",
+          "legendFormat": "req/s"
+        }
+      ]
+    },
+    {
+      "datasource": "prometheus",
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 6, "w": 4, "x": 20, "y": 1 },
+      "id": 6,
+      "title": "Active AI Workers",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "kube_deployment_status_available_replicas{namespace=\"visionex-workers\",deployment=\"ai-worker\"}",
+          "legendFormat": "Workers"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+      "id": 101,
+      "title": "📊 Traffic & Latency",
+      "type": "row"
+    },
+    {
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 10,
+      "title": "Request Rate by Region",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (region) (rate(http_requests_total{app=\"api-gateway\"}[1m]))",
+          "legendFormat": "{{ region }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "lineWidth": 2 } }
+      }
+    },
+    {
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 11,
+      "title": "API Latency Percentiles",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{app=\"api-gateway\"}[5m])) * 1000",
+          "legendFormat": "P50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{app=\"api-gateway\"}[5m])) * 1000",
+          "legendFormat": "P95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{app=\"api-gateway\"}[5m])) * 1000",
+          "legendFormat": "P99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms" }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "id": 102,
+      "title": "🤖 AI Provider Performance",
+      "type": "row"
+    },
+    {
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
+      "id": 20,
+      "title": "Provider Success Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "1 - rate(visionex_provider_requests_failed_total[5m]) / rate(visionex_provider_requests_total[5m])",
+          "legendFormat": "{{ provider_slug }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1 }
+      }
+    },
+    {
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
+      "id": 21,
+      "title": "Provider Avg Latency (ms)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "visionex_provider_avg_latency_ms",
+          "legendFormat": "{{ provider_slug }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms" }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
+      "id": 103,
+      "title": "💰 Billing & Credits",
+      "type": "row"
+    },
+    {
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 26 },
+      "id": 30,
+      "title": "VX Credits Consumed / min",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(visionex_credits_consumed_total[1m]) * 60",
+          "legendFormat": "{{ operation_type }}"
+        }
+      ]
+    },
+    {
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 26 },
+      "id": 31,
+      "title": "Billing Engine Error Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(visionex_billing_errors_total[5m])",
+          "legendFormat": "Errors/s"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 26 },
+      "id": 32,
+      "title": "Active Subscriptions by Plan",
+      "type": "piechart",
+      "targets": [
+        {
+          "expr": "visionex_active_subscriptions_total",
+          "legendFormat": "{{ plan_id }}"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["visionex", "production", "sre"],
+  "time": { "from": "now-3h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Visionex — Global Operations",
+  "uid": "visionex-global-ops",
+  "version": 1
+}
