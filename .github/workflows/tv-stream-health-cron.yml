@@ -2,8 +2,8 @@ name: TV Stream Health Check
 
 on:
   schedule:
-    # Runs every 5 minutes — validates stream sources and updates reliability scores
-    - cron: "*/5 * * * *"
+    # Runs every 30 minutes — validates stream sources and updates reliability scores
+    - cron: "*/30 * * * *"
   workflow_dispatch:
     inputs:
       channelId:
