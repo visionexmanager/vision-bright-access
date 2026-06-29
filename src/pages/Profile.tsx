@@ -30,6 +30,8 @@ import { WatchAdButton } from "@/components/WatchAdButton";
 import { findOrCreateConversation } from "@/hooks/useMessages";
 import { toast as sonnerToast } from "sonner";
 import { formatVX } from "@/systems/pricingSystem";
+import { useAdmin } from "@/hooks/useAdmin";
+import { ShieldCheck } from "lucide-react";
 
 const DATE_LOCALES: Record<string, Locale> = {
   ar: arLocale, es, de, pt, zh: zhCN, tr, fr, ru,
@@ -67,6 +69,7 @@ const REQUEST_STATUS_STYLES: Record<string, string> = {
 
 export default function Profile() {
   const { user, loading: authLoading } = useAuth();
+  const { isAdmin } = useAdmin();
   const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -308,9 +311,15 @@ export default function Profile() {
 
               {/* Name & Level */}
               <div className="flex-1 text-center sm:text-start">
-                <div className="flex items-center justify-center gap-2 sm:justify-start">
+                <div className="flex items-center justify-center gap-2 sm:justify-start flex-wrap">
                   <h1 className="text-2xl font-bold">{displayName || user.email}</h1>
                   <span className="text-2xl" title={`Stage ${stage}`}>{stageIcon}</span>
+                  {isAdmin && (
+                    <Badge className="gap-1 bg-amber-500/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500/20 select-none">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Admin
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-muted-foreground">{user.email}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
