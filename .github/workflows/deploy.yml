@@ -68,27 +68,41 @@ jobs:
   deploy-edge-functions:
     name: Deploy → Supabase Edge Functions
     runs-on: ubuntu-latest
-    # Only when TV-related files change
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check for TV function changes
+      - name: Check for changed edge functions
         id: changed
         run: |
           git fetch origin ${{ github.event.before }} 2>/dev/null || true
-          CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null | grep "supabase/functions/tv-" || true)
-          echo "changed=$CHANGED"
-          echo "has_changes=$([ -n "$CHANGED" ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          TV_CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null | grep "supabase/functions/tv-" || true)
+          AMS_CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null | grep "supabase/functions/" | grep -v "supabase/functions/tv-" || true)
+          echo "has_tv=$([ -n "$TV_CHANGED" ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has_ams=$([ -n "$AMS_CHANGED" ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
 
       - name: Install Supabase CLI
-        if: steps.changed.outputs.has_changes == 'true'
+        if: steps.changed.outputs.has_tv == 'true' || steps.changed.outputs.has_ams == 'true'
         run: npm install -g supabase@latest
 
       - name: Deploy TV edge functions
-        if: steps.changed.outputs.has_changes == 'true'
+        if: steps.changed.outputs.has_tv == 'true'
         run: |
           supabase functions deploy tv-stream-token    --no-verify-jwt --linked
           supabase functions deploy tv-validate-stream --no-verify-jwt --linked
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+
+      - name: Deploy AI Media Studio edge functions
+        if: steps.changed.outputs.has_ams == 'true'
+        run: |
+          supabase functions deploy speech-generate --linked
+          supabase functions deploy video-studio    --linked
+          supabase functions deploy voice-studio    --linked
+          supabase functions deploy billing-engine  --linked
+          supabase functions deploy provider-hub    --linked
+          supabase functions deploy image-generate  --linked
+          supabase functions deploy health-check    --no-verify-jwt --linked
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
