@@ -1,0 +1,5 @@
+[allowlist]
+description = "Allow game i18n translation keys that match generic-api-key pattern"
+paths = [
+  "src/pages/games/JungleSurvival.tsx",
+]
