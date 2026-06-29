@@ -59,6 +59,8 @@ const STATIC_ITEMS = [
   { id: "s4", icon: "Globe",         titleKey: "news.item4.title", descKey: "news.item4.desc", category: "community",     date: new Date("2026-05-20") },
 ];
 
+type ArticleLang = { title: string; description: string; content?: string };
+
 type DbArticle = {
   id: string;
   title: string;
@@ -67,6 +69,7 @@ type DbArticle = {
   icon_name: string;
   published_at: string | null;
   created_at: string;
+  translations: Record<string, ArticleLang> | null;
 };
 
 export default function News() {
@@ -81,7 +84,7 @@ export default function News() {
     setLoading(true);
     const { data } = await supabase
       .from("news_articles")
-      .select("id, title, description, category, icon_name, published_at, created_at")
+      .select("id, title, description, category, icon_name, published_at, created_at, translations")
       .eq("published", true)
       .order("published_at", { ascending: false, nullsFirst: false });
     setArticles((data as DbArticle[]) ?? []);
@@ -148,8 +151,11 @@ export default function News() {
           <StaggerGrid className="grid gap-4" role="list">
             {(filtered as (typeof STATIC_ITEMS[0] | DbArticle)[]).map((item, i) => {
               const isStatic = "titleKey" in item;
-              const title       = isStatic ? t(item.titleKey as Parameters<typeof t>[0]) : (item as DbArticle).title;
-              const description = isStatic ? t(item.descKey as Parameters<typeof t>[0]) : (item as DbArticle).description;
+              const dbItem = item as DbArticle;
+              // Pick translation for user's language; fall back to English then primary column
+              const tr = isStatic ? null : (dbItem.translations?.[lang] ?? dbItem.translations?.["en"] ?? null);
+              const title       = isStatic ? t(item.titleKey as Parameters<typeof t>[0]) : (tr?.title ?? dbItem.title);
+              const description = isStatic ? t(item.descKey as Parameters<typeof t>[0]) : (tr?.description ?? dbItem.description);
               const iconName    = isStatic ? item.icon : (item as DbArticle).icon_name;
               const dateStr     = isStatic
                 ? format((item as typeof STATIC_ITEMS[0]).date, "PPP", { locale })

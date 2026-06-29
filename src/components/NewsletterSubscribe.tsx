@@ -114,7 +114,7 @@ export function NewsletterSubscribe() {
     setLoading(true);
     const { error } = await supabase
       .from("newsletter_subscribers")
-      .insert({ email: email.trim().toLowerCase(), topics });
+      .insert({ email: email.trim().toLowerCase(), topics, lang });
 
     setLoading(false);
 
