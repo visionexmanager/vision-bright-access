@@ -154,7 +154,13 @@ async function handleStartTraining(
     .select()
     .single();
 
-  if (jobErr) return jsonError("Failed to create job", 500);
+  if (jobErr) {
+    const detail = (jobErr as any)?.message ?? "unknown";
+    const msg = detail.includes("does not exist")
+      ? "Database table 'vs_training_jobs' not found. Run Supabase migrations to set up the Voice Studio schema."
+      : `Failed to create training job: ${detail}`;
+    return jsonError(msg, 500);
+  }
 
   // Update profile status
   await (db as any)

@@ -191,7 +191,7 @@ VALUES
    'Melodic and expressive. A unique voice with musical qualities, perfect for creative storytelling and emotionally resonant content.',
    ARRAY['creative','melodic','expressive','storytelling','unique'], 'creative', false, 80),
 
-  ('openai-coral',   'Coral',   'openid', 'coral',   'female',  'young',  'american', 'en',
+  ('openai-coral',   'Coral',   'openai', 'coral',   'female',  'young',  'american', 'en',
    ARRAY['en','ar','es','fr','de','zh','hi','pt','ru','tr'],
    'Warm and conversational. A natural-sounding female voice ideal for customer service, assistants, and conversational AI.',
    ARRAY['conversational','warm','customer-service','assistant','natural'], 'assistant', false, 90),

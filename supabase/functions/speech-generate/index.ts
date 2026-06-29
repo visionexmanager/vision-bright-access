@@ -62,8 +62,23 @@ class OpenAISpeechProvider {
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`OpenAI TTS ${response.status}: ${errText}`);
+      let detail = `HTTP ${response.status}`;
+      try {
+        const errJson = await response.json();
+        detail = errJson?.error?.message ?? errJson?.detail ?? detail;
+      } catch {
+        const text = await response.text().catch(() => "");
+        if (text) detail = text.slice(0, 200);
+      }
+      const statusMap: Record<number, string> = {
+        401: "OpenAI API key is invalid or revoked. Check OPENAI_API_KEY in Supabase secrets.",
+        403: "OpenAI API key lacks permission for text-to-speech. Verify the key's allowed models.",
+        429: "OpenAI rate limit reached. Please wait a moment and try again.",
+        500: "OpenAI service error. This is temporary — please retry in a few seconds.",
+        503: "OpenAI is temporarily unavailable. Please retry shortly.",
+      };
+      const friendlyMsg = statusMap[response.status] ?? `OpenAI TTS error (${response.status}): ${detail}`;
+      throw new Error(friendlyMsg);
     }
 
     return {
@@ -197,8 +212,12 @@ Deno.serve(async (req: Request) => {
     .single();
 
   if (jobErr || !jobRow) {
-    console.error("Job insert failed:", jobErr);
-    return json({ error: "Failed to create generation job" }, 500, cors);
+    const detail = jobErr?.message ?? "unknown reason";
+    console.error("Job insert failed:", detail);
+    const msg = detail.includes("does not exist")
+      ? "Database table 'ams_speech_jobs' not found. Run Supabase migrations to set up the AI Media Studio schema."
+      : `Failed to create generation job: ${detail}`;
+    return json({ error: msg, code: "DB_ERROR" }, 500, cors);
   }
   const jobId: string = jobRow.id;
 

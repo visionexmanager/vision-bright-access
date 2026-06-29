@@ -251,7 +251,13 @@ async function handleGenerate(
     .select()
     .single();
 
-  if (jobErr) return jsonError("Failed to create video job", 500);
+  if (jobErr) {
+    const detail = (jobErr as any)?.message ?? "unknown";
+    const msg = detail.includes("does not exist")
+      ? "Database table 'vx_video_jobs' not found. Run Supabase migrations to set up the Video Studio schema."
+      : `Failed to create video job: ${detail}`;
+    return jsonError(msg, 500);
+  }
 
   // Increment template use_count if used
   if (template_id) {
@@ -378,32 +384,38 @@ async function handlePoll(
     // Create asset record
     let assetId: string | null = null;
     try {
-      const { data: asset } = await (dbService as any)
+      const title    = job.title ?? `Video — ${new Date().toLocaleDateString()}`;
+      const filename = `video_${job_id.slice(0, 8)}.mp4`;
+      const { data: asset, error: assetErr } = await (dbService as any)
         .from("ams_assets")
         .insert({
-          user_id:        userId,
-          project_id:     job.project_id ?? null,
-          name:           job.title ?? `Video — ${new Date().toLocaleDateString()}`,
-          asset_type:     "video",
-          status:         "ready",
-          storage_path:   storagePath ?? pollResult.videoUrl,
-          public_url:     storagePath ? null : pollResult.videoUrl,
-          file_size_bytes: fileSize,
-          mime_type:      "video/mp4",
+          owner_id:      userId,
+          project_id:    job.project_id ?? null,
+          filename,
+          original_name: title,
+          asset_type:    "video",
+          status:        "ready",
+          storage_path:  storagePath ?? null,
+          public_url:    storagePath ? null : pollResult.videoUrl,
+          size_bytes:    fileSize,
+          mime_type:     "video/mp4",
           metadata: {
-            prompt:          job.prompt,
-            style:           job.style,
-            duration_sec:    job.duration_sec,
-            aspect_ratio:    job.aspect_ratio,
-            resolution:      job.resolution,
-            provider:        job.provider,
-            video_job_id:    job_id,
+            prompt:       job.prompt,
+            style:        job.style,
+            duration_sec: job.duration_sec,
+            aspect_ratio: job.aspect_ratio,
+            resolution:   job.resolution,
+            provider:     job.provider,
+            video_job_id: job_id,
           },
         })
         .select("id")
         .single();
+      if (assetErr) console.error("Asset insert error:", assetErr.message);
       assetId = asset?.id ?? null;
-    } catch (_e) { /* best-effort */ }
+    } catch (_e) {
+      console.error("Asset creation failed (non-critical):", _e);
+    }
 
     await (db as any).from("vx_video_jobs").update({
       status:           "completed",

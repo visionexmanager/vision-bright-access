@@ -98,8 +98,10 @@ const AIMediaStudioHelp = lazy(() => import("./pages/services/ai-media-studio/He
 const AIMediaStudioSpeech = lazy(() => import("./pages/services/ai-media-studio/SpeechStudio"));
 const AIMediaStudioVoice  = lazy(() => import("./pages/services/ai-media-studio/VoiceStudio"));
 const AIMediaStudioVideo       = lazy(() => import("./pages/services/ai-media-studio/VideoStudio"));
-const AIMediaStudioProviderHub = lazy(() => import("./pages/services/ai-media-studio/ProviderHub"));
-const AIMediaStudioBilling     = lazy(() => import("./pages/services/ai-media-studio/Billing"));
+const AIMediaStudioProviderHub  = lazy(() => import("./pages/services/ai-media-studio/ProviderHub"));
+const AIMediaStudioBilling      = lazy(() => import("./pages/services/ai-media-studio/Billing"));
+const AIMediaStudioImage        = lazy(() => import("./pages/services/ai-media-studio/ImageStudio"));
+const AIMediaStudioDiagnostics  = lazy(() => import("./pages/services/ai-media-studio/Diagnostics"));
 
 // New game pages
 const Hangman = lazy(() => import("./pages/games/Hangman"));
@@ -243,6 +245,8 @@ function AppRoutes() {
                     <Route path="/services/ai-media-studio/video"        element={<AuthGuard><AIMediaStudioVideo /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/provider-hub" element={<AuthGuard><AIMediaStudioProviderHub /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/billing"      element={<AuthGuard><AIMediaStudioBilling /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/image"       element={<AuthGuard><AIMediaStudioImage /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/diagnostics" element={<AuthGuard><AIMediaStudioDiagnostics /></AuthGuard>} />
                     <Route path="/games/hangman" element={<GameEconomyGate gameTitle="Hangman"><Hangman /></GameEconomyGate>} />
                     <Route path="/games/dominoes" element={<GameEconomyGate gameTitle="Dominoes"><Dominoes /></GameEconomyGate>} />
                     <Route path="/games/farkle" element={<GameEconomyGate gameTitle="Farkle"><FarkleGame /></GameEconomyGate>} />

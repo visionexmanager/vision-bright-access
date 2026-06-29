@@ -10,6 +10,7 @@ import {
   AudioWaveform,
   Cpu,
   Video,
+  Image,
   LayoutTemplate,
   Library,
   Settings,
@@ -19,6 +20,7 @@ import {
   Sparkles,
   Lock,
   CreditCard,
+  Activity,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -39,7 +41,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Speech Studio", icon: Mic,              to: "/services/ai-media-studio/speech" },
   { label: "Voice Studio",  icon: AudioWaveform,    to: "/services/ai-media-studio/voice" },
   { label: "Video Studio",  icon: Video,            to: "/services/ai-media-studio/video" },
+  { label: "Image Studio",  icon: Image,            to: "/services/ai-media-studio/image" },
   { label: "Provider Hub",  icon: Cpu,              to: "/services/ai-media-studio/provider-hub" },
+  { label: "Diagnostics",   icon: Activity,         to: "/services/ai-media-studio/diagnostics" },
   { label: "Billing",       icon: CreditCard,       to: "/services/ai-media-studio/billing" },
   { label: "Templates",     icon: LayoutTemplate,   to: "/services/ai-media-studio/templates" },
   { label: "Assets",        icon: Library,          to: "/services/ai-media-studio/assets" },

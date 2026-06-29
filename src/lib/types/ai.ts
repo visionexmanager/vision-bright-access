@@ -67,7 +67,9 @@ export type EdgeFunctionName =
   | "voice-studio"
   | "video-studio"
   | "provider-hub"
-  | "billing-engine";
+  | "billing-engine"
+  | "image-generate"
+  | "health-check";
 
 export type AuthMode = "anon" | "user-jwt" | "admin-jwt" | "cron-secret";
 

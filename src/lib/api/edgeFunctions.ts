@@ -538,6 +538,87 @@ export async function callProviderHub<T = unknown>(
   }) as Promise<ProviderHubResponse<T>>;
 }
 
+// ── Image Studio ──────────────────────────────────────────────────────────────
+
+export interface ImageGenerateRequest {
+  prompt:       string;
+  model?:       "dall-e-3" | "dall-e-2";
+  size?:        "1024x1024" | "1024x1792" | "1792x1024" | "512x512" | "256x256";
+  quality?:     "standard" | "hd";
+  style?:       "vivid" | "natural";
+  project_id?:  string;
+  preset_id?:   string;
+}
+
+export interface ImageGenerateResponse {
+  ok:             boolean;
+  job_id:         string;
+  asset_id:       string | null;
+  image_url:      string;
+  revised_prompt: string;
+  width:          number;
+  height:         number;
+  model:          string;
+  size:           string;
+  quality:        string;
+  style:          string;
+  error?:         string;
+}
+
+/**
+ * image-generate — AI Media Studio DALL·E 3 image generation.
+ * Reuses the existing OPENAI_API_KEY — no separate key needed.
+ * Requires user JWT.
+ */
+export async function callImageGenerate(
+  body: ImageGenerateRequest,
+  signal?: AbortSignal
+): Promise<ImageGenerateResponse> {
+  return callEdge({
+    fn:   "image-generate",
+    body: body as unknown as Record<string, unknown>,
+    auth: "user-jwt",
+    signal,
+  }) as Promise<ImageGenerateResponse>;
+}
+
+// ── System Health Check ───────────────────────────────────────────────────────
+
+export interface HealthCheckComponentStatus {
+  ok:     boolean;
+  status: "ok" | "warning" | "error" | "missing";
+  detail: string;
+}
+
+export interface HealthCheckResponse {
+  ok:        boolean;
+  timestamp: string;
+  summary: {
+    total:        number;
+    passing:      number;
+    errors:       number;
+    warnings:     number;
+    missing:      number;
+    error_keys:   string[];
+    warning_keys: string[];
+    missing_keys: string[];
+  };
+  components: Record<string, HealthCheckComponentStatus>;
+}
+
+/**
+ * health-check — tests all AI Media Studio infrastructure components.
+ * Returns detailed status for DB tables, API keys, storage buckets, and providers.
+ * No auth required.
+ */
+export async function callHealthCheck(): Promise<HealthCheckResponse> {
+  return callEdge({
+    fn:   "health-check",
+    body: {},
+    auth: "anon",
+  }) as Promise<HealthCheckResponse>;
+}
+
 /**
  * send-email — bulk email via Resend (admin only)
  */
