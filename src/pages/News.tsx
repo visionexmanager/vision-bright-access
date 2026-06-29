@@ -4,7 +4,11 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Newspaper, Cpu, Accessibility, Brain, Globe, Rocket, ShoppingBag, RefreshCw } from "lucide-react";
+import {
+  Newspaper, Cpu, Accessibility, Brain, Globe, Rocket, ShoppingBag, RefreshCw,
+  Gamepad2, GraduationCap, Heart, Scale, TrendingUp, Plane, Sparkles,
+  Trophy, Music, SmilePlus, Tv, Apple,
+} from "lucide-react";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import newsImg from "@/assets/news-illustration.jpg";
 import { WatchAdButton } from "@/components/WatchAdButton";
@@ -21,6 +25,8 @@ const DATE_LOCALES: Record<string, Locale> = {
 /* ── Icon map ── */
 const ICON_MAP: Record<string, React.ElementType> = {
   Cpu, Accessibility, Brain, Globe, Rocket, ShoppingBag, Newspaper,
+  Gamepad2, GraduationCap, Heart, Scale, TrendingUp, Plane, Sparkles,
+  Trophy, Music, SmilePlus, Tv, Apple,
 };
 
 /* ── Category to newsletter topic mapping ── */
@@ -31,6 +37,18 @@ export const CATEGORY_TOPIC: Record<string, string> = {
   accessibility: "news-accessibility",
   platform:      "news-platform",
   marketplace:   "news-marketplace",
+  games:         "news-games",
+  academy:       "news-academy",
+  health:        "news-health",
+  legal:         "news-legal",
+  business:      "news-business",
+  travel:        "news-travel",
+  beauty:        "news-beauty",
+  sports:        "news-sports",
+  music:         "news-music",
+  psychology:    "news-psychology",
+  entertainment: "news-entertainment",
+  nutrition:     "news-nutrition",
 };
 
 /* ── Static fallback (shown when DB has no articles yet) ── */

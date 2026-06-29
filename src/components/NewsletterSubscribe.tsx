@@ -22,10 +22,24 @@ const PLATFORM_INTERESTS = [
 
 // News-specific categories — each maps to a news_articles.category value
 const NEWS_INTERESTS = [
-  { key: "news-technology",    catKey: "news.cat.technology",    emoji: "🔬" },
+  { key: "news-technology",    catKey: "news.cat.technology",    emoji: "💻" },
   { key: "news-ai",            catKey: "news.cat.ai",            emoji: "🤖" },
+  { key: "news-marketplace",   catKey: "news.cat.marketplace",   emoji: "🛒" },
+  { key: "news-games",         catKey: "news.cat.games",         emoji: "🎮" },
+  { key: "news-academy",       catKey: "news.cat.academy",       emoji: "🎓" },
+  { key: "news-health",        catKey: "news.cat.health",        emoji: "🏥" },
+  { key: "news-legal",         catKey: "news.cat.legal",         emoji: "⚖️" },
+  { key: "news-business",      catKey: "news.cat.business",      emoji: "📈" },
+  { key: "news-travel",        catKey: "news.cat.travel",        emoji: "✈️" },
+  { key: "news-beauty",        catKey: "news.cat.beauty",        emoji: "✨" },
+  { key: "news-sports",        catKey: "news.cat.sports",        emoji: "🏆" },
+  { key: "news-music",         catKey: "news.cat.music",         emoji: "🎵" },
+  { key: "news-psychology",    catKey: "news.cat.psychology",    emoji: "🧠" },
   { key: "news-community",     catKey: "news.cat.community",     emoji: "🌐" },
   { key: "news-accessibility", catKey: "news.cat.accessibility", emoji: "♿" },
+  { key: "news-entertainment", catKey: "news.cat.entertainment", emoji: "📺" },
+  { key: "news-nutrition",     catKey: "news.cat.nutrition",     emoji: "🥗" },
+  { key: "news-platform",      catKey: "news.cat.platform",      emoji: "🚀" },
 ] as const;
 
 const INTERESTS = [...PLATFORM_INTERESTS];
@@ -204,7 +218,7 @@ export function NewsletterSubscribe() {
 
           {/* News categories section */}
           <div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {NEWS_INTERESTS.map((item) => (
                 <Label
                   key={item.key}

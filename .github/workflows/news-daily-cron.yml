@@ -1,0 +1,42 @@
+name: Daily AI News Generation
+
+on:
+  schedule:
+    # Every day at 06:00 UTC (9:00 AM Riyadh time)
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  generate-news:
+    name: Generate & publish daily news
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Invoke news-generate edge function
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET:  ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::SUPABASE_URL and CRON_SECRET secrets are required."
+            exit 1
+          fi
+
+          RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            -X POST \
+            "$SUPABASE_URL/functions/v1/news-generate" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 120)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+
+          echo "HTTP $HTTP_CODE"
+          echo "$BODY"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::News generation failed — HTTP $HTTP_CODE: $BODY"
+            exit 1
+          fi
