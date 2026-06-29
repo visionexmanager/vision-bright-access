@@ -434,6 +434,10 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const [isMinimized, setIsMinimized] = useState(false);
   const voiceEffectCleanupRef = useRef<(() => void) | null>(null);
   const currentAiAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [showAiTextInput, setShowAiTextInput] = useState(false);
+  const [aiTextInput, setAiTextInput] = useState("");
+  const [isRecordingAi, setIsRecordingAi] = useState(false);
+  const aiSpeechRef = useRef<SpeechRecognition | null>(null);
 
   // Stop voice-effect AudioContext + mic tracks, and any playing AI audio, when the room unmounts
   useEffect(() => {
@@ -601,6 +605,70 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
       broadcastChRef.current?.send({ type: "broadcast", event: "ai_unlock", payload: {} });
     }
   }, [roomId, voiceAiEnabled, voiceAiThinking, lang, label]);
+
+  const handleAiTextAsk = useCallback(() => {
+    const text = aiTextInput.trim();
+    if (!text) return;
+    const senderName = localParticipant.name || currentUserId;
+    const msg: ChatMessage = {
+      id: Math.random().toString(36).slice(2),
+      senderId: currentUserId,
+      senderName,
+      text,
+      ts: Date.now(),
+    };
+    broadcastChRef.current?.send({ type: "broadcast", event: "chat_message", payload: msg });
+    void askVoiceAi(text, senderName);
+    setAiTextInput("");
+    setShowAiTextInput(false);
+    setChatOpen(true);
+  }, [aiTextInput, currentUserId, localParticipant, askVoiceAi]);
+
+  const toggleAiVoiceRecord = useCallback(() => {
+    const SpeechRecognitionAPI =
+      (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
+      (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
+
+    if (!SpeechRecognitionAPI) {
+      toast({ title: "Speech recognition not supported in this browser", variant: "destructive" });
+      return;
+    }
+
+    if (isRecordingAi) {
+      aiSpeechRef.current?.stop();
+      setIsRecordingAi(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = lang === "ar" ? "ar-SA" : lang === "de" ? "de-DE" : lang === "es" ? "es-ES" : "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      if (!transcript) return;
+      const senderName = localParticipant.name || currentUserId;
+      const msg: ChatMessage = {
+        id: Math.random().toString(36).slice(2),
+        senderId: currentUserId,
+        senderName,
+        text: transcript,
+        ts: Date.now(),
+      };
+      broadcastChRef.current?.send({ type: "broadcast", event: "chat_message", payload: msg });
+      void askVoiceAi(transcript, senderName);
+      setChatOpen(true);
+    };
+    recognition.onerror = () => {
+      toast({ title: label("vroom.aiVoiceError", "Could not capture voice"), variant: "destructive" });
+    };
+    recognition.onend = () => setIsRecordingAi(false);
+
+    aiSpeechRef.current = recognition;
+    recognition.start();
+    setIsRecordingAi(true);
+  }, [isRecordingAi, lang, currentUserId, localParticipant, askVoiceAi, label]);
 
   // Auto-scroll notifications panel
   useEffect(() => {
@@ -1860,11 +1928,11 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
             )}
           </div>
 
-          {/* Visionex AI */}
-          {(roomPerms.chat || isOwner) && (
+          {/* Visionex AI — activate if not enabled, else show status */}
+          {(roomPerms.chat || isOwner) && !voiceAiEnabled && (
             <Button
               size="lg"
-              variant={voiceAiEnabled ? "default" : "outline"}
+              variant="outline"
               className="h-12 w-12 rounded-full p-0"
               onClick={() => void onActivateVoiceAi()}
               disabled={voiceAiActivating || voiceAiThinking}
@@ -1872,6 +1940,56 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
               title={voiceAiEnabled ? label("vroom.aiEnabledHint", "Say visionex in chat to call AI") : label("vroom.aiActivateHint", "Unlock Visionex AI")}
             >
               {voiceAiActivating || voiceAiThinking ? <Loader2 className="h-5 w-5 animate-spin" /> : <Bot className="h-5 w-5" />}
+            </Button>
+          )}
+
+          {/* AI text ask — popup input */}
+          {voiceAiEnabled && (roomPerms.chat || isOwner) && (
+            <div className="relative">
+              <Button
+                size="lg"
+                variant="outline"
+                className={`h-12 w-12 rounded-full p-0 transition-colors ${showAiTextInput ? "bg-primary/10 border-primary text-primary" : ""}`}
+                onClick={() => setShowAiTextInput((v) => !v)}
+                disabled={voiceAiThinking}
+                aria-label={label("vroom.aiTextAsk", "Ask Visionex AI (text)")}
+                title={label("vroom.aiTextAsk", "Ask Visionex AI (text)")}
+              >
+                <MessageSquare className="h-5 w-5" />
+              </Button>
+              {showAiTextInput && (
+                <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 w-72 rounded-2xl border border-border bg-card shadow-xl p-3 flex flex-col gap-2">
+                  <p className="text-xs font-semibold text-muted-foreground">{label("vroom.aiTextAskPlaceholder", "Ask Visionex AI…")}</p>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+                      placeholder={label("vroom.aiTextAskPlaceholder", "Type your question…")}
+                      value={aiTextInput}
+                      onChange={(e) => setAiTextInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleAiTextAsk(); if (e.key === "Escape") setShowAiTextInput(false); }}
+                      autoFocus
+                    />
+                    <Button size="sm" className="rounded-xl px-3" onClick={handleAiTextAsk} disabled={!aiTextInput.trim() || voiceAiThinking}>
+                      {voiceAiThinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AI voice record — speak to AI */}
+          {voiceAiEnabled && (roomPerms.chat || isOwner) && (
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-12 w-12 rounded-full p-0 transition-colors ${isRecordingAi ? "bg-red-500 border-red-500 text-white animate-pulse" : ""}`}
+              onClick={toggleAiVoiceRecord}
+              disabled={voiceAiThinking}
+              aria-label={isRecordingAi ? label("vroom.aiVoiceStop", "Stop recording") : label("vroom.aiVoiceAsk", "Ask Visionex AI (voice)")}
+              title={isRecordingAi ? label("vroom.aiVoiceStop", "Stop recording") : label("vroom.aiVoiceAsk", "Speak to Visionex AI")}
+            >
+              <Sparkles className="h-5 w-5" />
             </Button>
           )}
 
