@@ -15,7 +15,7 @@ window.addEventListener("unhandledrejection", (event) => {
   event.preventDefault();
   if (!sessionStorage.getItem(RELOAD_KEY)) {
     sessionStorage.setItem(RELOAD_KEY, "1");
-    window.location.href = window.location.href;
+    window.location.reload();
   } else {
     sessionStorage.removeItem(RELOAD_KEY);
   }

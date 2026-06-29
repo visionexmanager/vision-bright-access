@@ -236,12 +236,6 @@ export function ServiceConsultationSimulation({ simulationId }: Props) {
   }, [savedProgress]);
 
   const cfg = simulationId ? SVC[simulationId] : null;
-  if (!cfg) return null;
-
-  const title  = lang === "ar" ? cfg.ar      : cfg.en;
-  const expert = lang === "ar" ? cfg.expertAr : cfg.expertEn;
-  const desc   = lang === "ar" ? cfg.descAr   : cfg.descEn;
-  const step   = lang === "ar" ? cfg.stepAr   : cfg.stepEn;
 
   const endSession = useCallback(async () => {
     setPhase("complete");
@@ -254,6 +248,13 @@ export function ServiceConsultationSimulation({ simulationId }: Props) {
       });
     }
   }, [user, simulationId]);
+
+  if (!cfg) return null;
+
+  const title  = lang === "ar" ? cfg.ar      : cfg.en;
+  const expert = lang === "ar" ? cfg.expertAr : cfg.expertEn;
+  const desc   = lang === "ar" ? cfg.descAr   : cfg.descEn;
+  const step   = lang === "ar" ? cfg.stepAr   : cfg.stepEn;
 
   const ui = {
     start:   lang === "ar" ? "ابدأ الاستشارة"           : "Start Consultation",

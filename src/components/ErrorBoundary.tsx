@@ -141,7 +141,7 @@ export class PageErrorBoundary extends Component<PageProps, PageState> {
       const RELOAD_KEY = "vx_chunk_reload";
       if (!sessionStorage.getItem(RELOAD_KEY)) {
         sessionStorage.setItem(RELOAD_KEY, "1");
-        window.location.href = window.location.href;
+        window.location.reload();
         return;
       }
       // Second failure after reload — clear the flag so future sessions can retry.
