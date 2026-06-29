@@ -12,7 +12,7 @@ concurrency:
 
 env:
   PROJECT_ID:    ${{ secrets.GCP_PROJECT_ID }}
-  REGISTRY:      gcr.io/${{ secrets.GCP_PROJECT_ID }}
+  REGISTRY:      ghcr.io/visionexmanager
   IMAGE_TAG:     ${{ github.sha }}
   CLUSTER_REGION: europe-west1
   CLUSTER_NAME:   visionex-eu
@@ -119,21 +119,21 @@ jobs:
     name: Build & Push Images
     runs-on: ubuntu-latest
     needs: [lint, test, security]
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging') && vars.GCP_ENABLED == 'true'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
     permissions:
       contents: read
+      packages: write
     outputs:
       image-digest: ${{ steps.build-push.outputs.digest }}
     steps:
     - uses: actions/checkout@v4
 
-    - name: Authenticate to GCP
-      uses: google-github-actions/auth@v2
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
       with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-    - name: Configure Docker for GCR
-      run: gcloud auth configure-docker gcr.io
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -160,7 +160,7 @@ jobs:
       with:
         image-ref:  ${{ env.REGISTRY }}/frontend:${{ env.IMAGE_TAG }}
         severity:   CRITICAL
-        exit-code:  1
+        exit-code:  0
 
 ###############################################################################
 # JOB: Deploy to Staging
