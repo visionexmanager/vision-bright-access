@@ -78,6 +78,7 @@ const RadarAI = lazy(() => import("./pages/services/RadarAI"));
 const EducationalEmpire = lazy(() => import("./pages/services/EducationalEmpire"));
 const EmpathyOasis = lazy(() => import("./pages/services/EmpathyOasis"));
 const OCRScan = lazy(() => import("./pages/services/OCRScan"));
+const FileStudio = lazy(() => import("./pages/services/FileStudio"));
 const LiveTV          = lazy(() => import("./pages/services/LiveTV"));
 const LiveTVWatch     = lazy(() => import("./pages/services/LiveTVWatch"));
 const LiveTVSubscribe = lazy(() => import("./pages/services/LiveTVSubscribe"));
@@ -237,6 +238,7 @@ function AppRoutes() {
                     <Route path="/services/travel-agency" element={<TravelAgency />} />
                     <Route path="/services/radar-ai" element={<RadarAI />} />
                     <Route path="/services/ocr-scan" element={<OCRScan />} />
+                    <Route path="/services/file-studio" element={<FileStudio />} />
                     <Route path="/services/educational-empire" element={<EducationalEmpire />} />
                     <Route path="/services/empathy-oasis" element={<EmpathyOasis />} />
                     <Route path="/services/live-tv"                      element={<LiveTV />} />

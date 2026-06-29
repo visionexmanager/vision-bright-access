@@ -9,7 +9,7 @@ import {
   ArrowRight, Truck, BarChart3, Heart, Briefcase, Music, Video,
   Coins, Scissors, Scale, Stethoscope, Brain, Sparkles, Users,
   Dumbbell, Plane, ScanLine, Globe, Cpu, CheckCircle, Clock, Trophy, FileText,
-  MapPin, Tv, Radio, Wifi, Car, Activity, Anchor, Ship, Navigation,
+  MapPin, Tv, Radio, Wifi, Car, Activity, Anchor, Ship, Navigation, FolderOpen,
 } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
 import { Link } from "react-router-dom";
@@ -71,8 +71,9 @@ const MARITIME_SIM_SLUG   = "marine-vessel";
 
 // 1000 VX = $1 USD  |  entry starts at 10 VX ($0.01), scales up meaningfully
 const EDUCATION_SERVICES = [
-  { icon: GraduationCap, name: "services.academy",     desc: "services.academyDesc",  vx: 0,       to: "/academy",                     color: CLR.blue  },
-  { icon: FileText,      name: "ocr.serviceTitle",     desc: "ocr.serviceDesc",       vx: 10,      to: "/services/ocr-scan",            color: CLR.tech  }, // $0.01
+  { icon: GraduationCap, name: "services.academy",        desc: "services.academyDesc",       vx: 0,   to: "/academy",                  color: CLR.blue  },
+  { icon: FileText,      name: "ocr.serviceTitle",        desc: "ocr.serviceDesc",            vx: 10,  to: "/services/ocr-scan",         color: CLR.tech  },
+  { icon: FolderOpen,    name: "services.fileStudio",     desc: "services.fileStudioDesc",    vx: 20,  to: "/services/file-studio",      color: CLR.tech  },
 ] as const;
 
 

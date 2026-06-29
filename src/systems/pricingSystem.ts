@@ -34,6 +34,17 @@ export const OCR_PRICES = {
   bundleTen: 400,
 } as const;
 
+export const FILE_STUDIO_PRICES = {
+  imageBase:     20,    // $0.02
+  audioBase:     50,    // $0.05
+  documentBase:  80,    // $0.08
+  archiveBase:   30,    // $0.03
+  videoBase:     200,   // $0.20
+  developerBase: 10,    // $0.01
+  aiToolsBase:   500,   // $0.50
+  perMb:         1,     // 1 VX per MB
+} as const;
+
 export const EARNING_RATES = {
   watchAd: 2,
   referFriend: 200,
