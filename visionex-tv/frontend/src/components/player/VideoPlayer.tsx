@@ -19,8 +19,8 @@ import {
 import Hls from "hls.js";
 import { usePlayerStore }    from "@/store/player.store";
 import { useAuthStore }      from "@/store/auth.store";
-import { stream as streamApi, emitPlaybackStat } from "@/lib/api";
-import { emitStreamError }   from "@/lib/websocket";
+import { stream as streamApi } from "@/lib/api";
+import { emitStreamError, emitPlaybackStat } from "@/lib/websocket";
 import { PlayerControls }    from "./PlayerControls";
 import { PlayerOverlay }     from "./PlayerOverlay";
 import { clsx }              from "clsx";
@@ -376,7 +376,3 @@ export const VideoPlayer = memo(function VideoPlayer({
   );
 });
 
-// Re-export for use in emitPlaybackStat
-import { emitPlaybackStat as _emit } from "@/lib/websocket";
-const emitPlaybackStat_fn = _emit;
-export { emitPlaybackStat_fn as emitPlaybackStat };

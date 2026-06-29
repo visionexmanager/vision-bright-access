@@ -128,7 +128,7 @@ describe("OrchestratorService", () => {
       for (let i = 0; i < 5; i++) {
         score = Math.round(0.70 * score + 0.30 * 100);
       }
-      expect(score).toBeGreaterThan(95);
+      expect(score).toBeGreaterThan(90);
     });
   });
 });

@@ -22,7 +22,7 @@ export default function HistoryPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["history"],
-    queryFn:  () => (accessToken ? users.history(accessToken, 50) : Promise.resolve({ data: [], total: 0 })),
+    queryFn:  () => (accessToken ? users.history(accessToken, 50) : Promise.resolve({ data: [], total: 0, limit: 50, offset: 0 })),
     enabled:  !!accessToken,
   });
 

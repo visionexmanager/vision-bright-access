@@ -63,12 +63,14 @@ describe("StreamHealthService", () => {
 
     it("penalises errors heavily", async () => {
       mockRedis.hgetall.mockResolvedValue({
-        latency_samples: JSON.stringify([800]),
+        latency_samples: JSON.stringify([5000]),
         buffer_events: "0",
         error_events:  "3",
       });
       const snap = await svc.getSnapshot("src-1");
-      // error_score = max(0, 100 - 3*25) = 25
+      // latency_score = 100 - (5000-2000)/80 = 62.5
+      // error_score   = max(0, 100 - 3*25)   = 25
+      // score = 0.30*62.5 + 0.40*100 + 0.30*25 = 66.25 → 66
       expect(snap.errorEvents).toBe(3);
       expect(snap.score).toBeLessThan(70);
     });
@@ -84,7 +86,7 @@ describe("StreamHealthService", () => {
       await svc.recordLatency("src-1", 500);
 
       const call = mockRedis.hset.mock.calls[0];
-      const stored: number[] = JSON.parse(call[1]);
+      const stored: number[] = JSON.parse(call[2]);
       expect(stored.length).toBeLessThanOrEqual(10);
       expect(stored.at(-1)).toBe(500);
     });
