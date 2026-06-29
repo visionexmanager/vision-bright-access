@@ -19,6 +19,64 @@ import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 type Tile = { left: number; right: number };
 
+// ─── Pip layout per face value ────────────────────────────────────────────────
+// Each pip is [cx%, cy%] relative to a 40×40 face
+const PIP_POSITIONS: Record<number, [number, number][]> = {
+  0: [],
+  1: [[50, 50]],
+  2: [[25, 25], [75, 75]],
+  3: [[25, 25], [50, 50], [75, 75]],
+  4: [[25, 25], [75, 25], [25, 75], [75, 75]],
+  5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
+  6: [[25, 22], [75, 22], [25, 50], [75, 50], [25, 78], [75, 78]],
+};
+
+function DominoFace({ value, size = 38 }: { value: number; size?: number }) {
+  const pips = PIP_POSITIONS[value] ?? [];
+  const r = size * 0.09;
+  return (
+    <svg viewBox="0 0 40 40" width={size} height={size} aria-label={`face ${value}`}>
+      {pips.map(([cx, cy], i) => (
+        <circle key={i} cx={cx * 0.4} cy={cy * 0.4} r={r} fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
+
+function DominoTile({
+  tile,
+  playable,
+  onClick,
+  small = false,
+}: {
+  tile: Tile;
+  playable?: boolean;
+  onClick?: () => void;
+  small?: boolean;
+}) {
+  const faceSize = small ? 28 : 36;
+  const base =
+    "inline-flex items-center border-2 rounded-lg bg-card text-foreground transition-all duration-200 select-none";
+  const interactive = onClick
+    ? playable
+      ? "cursor-pointer border-primary hover:shadow-[0_0_10px_2px] hover:shadow-primary/40 hover:scale-105 active:scale-95"
+      : "cursor-not-allowed border-border opacity-50"
+    : "cursor-default border-border";
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={!onClick || !playable}
+      className={`${base} ${interactive} ${small ? "px-2 py-1 gap-1" : "px-3 py-2 gap-2"}`}
+      aria-label={`Domino ${tile.left}|${tile.right}`}
+    >
+      <DominoFace value={tile.left} size={faceSize} />
+      <span className="w-px self-stretch bg-border" />
+      <DominoFace value={tile.right} size={faceSize} />
+    </button>
+  );
+}
+
 function createTiles(): Tile[] {
   const t: Tile[] = [];
   for (let i = 0; i <= 6; i++) for (let j = i; j <= 6; j++) t.push({ left: i, right: j });
@@ -71,26 +129,32 @@ function DominoesSolo() {
 
   return (
     <div className="space-y-4">
+      {/* Board */}
       <Card>
-        <CardHeader><CardTitle>{t("dominoes.board")}</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm text-muted-foreground">{t("dominoes.board")}</CardTitle></CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2 justify-center min-h-[60px]">
-            {board.map((tile, i) => (
-              <div key={i} className="inline-flex items-center gap-0 border-2 border-border rounded-lg px-3 py-2 bg-accent text-lg font-bold transition-all duration-200 hover:border-primary">
-                {tile.left}<span className="mx-1 text-muted-foreground">|</span>{tile.right}
-              </div>
-            ))}
+          <div className="overflow-x-auto pb-2">
+            <div className="flex flex-nowrap gap-1.5 justify-start min-h-[64px] min-w-max px-1">
+              {board.map((tile, i) => (
+                <DominoTile key={i} tile={tile} small />
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Score */}
+      <div className="flex justify-center">
+        <Badge variant="secondary">⭐ {t("dominoes.score")}: {score}</Badge>
+      </div>
+
+      {/* Hand */}
       <Card>
-        <CardHeader><CardTitle>{t("dominoes.yourHand")}</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm text-muted-foreground">{t("dominoes.yourHand")} ({hand.length})</CardTitle></CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2 justify-center">
+          <div className="flex flex-wrap gap-3 justify-center">
             {hand.map((tile, i) => (
-              <Button key={i} variant={canPlay(tile, board) ? "default" : "outline"} className="text-lg font-bold px-4 py-6" onClick={() => playTile(i)}>
-                {tile.left}|{tile.right}
-              </Button>
+              <DominoTile key={i} tile={tile} playable={canPlay(tile, board)} onClick={() => playTile(i)} />
             ))}
           </div>
           {hand.length === 0 && <p className="text-center text-primary font-bold text-xl mt-4">🎉 {t("dominoes.won")}</p>}
@@ -166,30 +230,27 @@ function DominoesMulti() {
       <OpponentPanel opponent={opp ? { ...opp, score: scoresG[opp.id] ?? 0 } : undefined} isOpponentTurn={!mp.isMyTurn}
         label={`Tiles in hand: ${oppHandCount}`} />
       <Card>
-        <CardHeader><CardTitle>Board</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm text-muted-foreground">Board</CardTitle></CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2 justify-center min-h-[60px]">
-            {board.map((tile, i) => (
-              <div key={i} className="inline-flex items-center border-2 border-border rounded-lg px-3 py-2 bg-accent text-lg font-bold">
-                {tile.left}<span className="mx-1 text-muted-foreground">|</span>{tile.right}
-              </div>
-            ))}
+          <div className="overflow-x-auto pb-2">
+            <div className="flex flex-nowrap gap-1.5 min-w-max px-1 min-h-[56px]">
+              {board.map((tile, i) => (
+                <DominoTile key={i} tile={tile} small />
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
-      <Card className={mp.isMyTurn ? "border-primary" : "opacity-70"}>
+      <Card className={mp.isMyTurn ? "border-primary shadow-[0_0_12px_2px] shadow-primary/20" : "opacity-70"}>
         <CardHeader>
           <CardTitle className="text-sm">
-            Your hand ({myHand.length} tiles) — {mp.isMyTurn ? "your turn" : "waiting…"}
+            Your hand ({myHand.length}) — {mp.isMyTurn ? <span className="text-primary">your turn</span> : "waiting…"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-2 justify-center">
             {myHand.map((tile, i) => (
-              <Button key={i} variant={canPlay(tile, board) ? "default" : "outline"}
-                className="text-lg font-bold px-4 py-6" disabled={!mp.isMyTurn} onClick={() => playTile(i)}>
-                {tile.left}|{tile.right}
-              </Button>
+              <DominoTile key={i} tile={tile} playable={mp.isMyTurn && canPlay(tile, board)} onClick={mp.isMyTurn ? () => playTile(i) : undefined} />
             ))}
           </div>
           {mp.isMyTurn && !hasPlayable && (

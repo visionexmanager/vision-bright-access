@@ -30,8 +30,68 @@ function scoreDice(dice: number[]): number {
   return s;
 }
 
-const DICE_EMOJI = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
-const WIN_SCORE  = 1000;
+const WIN_SCORE = 1000;
+
+// ─── SVG Dice face ────────────────────────────────────────────────────────────
+const PIP_LAYOUT: Record<number, [number, number][]> = {
+  1: [[50, 50]],
+  2: [[28, 28], [72, 72]],
+  3: [[28, 28], [50, 50], [72, 72]],
+  4: [[28, 28], [72, 28], [28, 72], [72, 72]],
+  5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
+  6: [[28, 22], [72, 22], [28, 50], [72, 50], [28, 78], [72, 78]],
+};
+
+function Die({
+  value,
+  scoring,
+  kept,
+  rolling,
+  onClick,
+}: {
+  value: number;
+  scoring: boolean;
+  kept: boolean;
+  rolling: boolean;
+  onClick?: () => void;
+}) {
+  const pips = PIP_LAYOUT[value] ?? [];
+  const bg   = kept ? "#16a34a" : scoring ? "#1d4ed8" : "#1e1e2e";
+  const ring = kept ? "#22c55e" : scoring ? "#3b82f6" : "#444466";
+  return (
+    <button
+      onClick={onClick}
+      disabled={!onClick || kept || !scoring || rolling}
+      className={[
+        "relative transition-all duration-200 rounded-2xl",
+        rolling ? "animate-bounce" : "",
+        scoring && !kept && !rolling ? "hover:scale-110 hover:-translate-y-1 cursor-pointer" : "",
+        kept ? "opacity-60 cursor-not-allowed" : "",
+        !scoring && !kept ? "opacity-40 cursor-not-allowed" : "",
+      ].join(" ")}
+      aria-label={`Die showing ${value}${scoring ? " (scoreable)" : ""}${kept ? " (kept)" : ""}`}
+    >
+      <svg viewBox="0 0 100 100" width={56} height={56} xmlns="http://www.w3.org/2000/svg">
+        {/* Shadow */}
+        <rect x="6" y="8" width="88" height="88" rx="16" fill="rgba(0,0,0,0.4)" />
+        {/* Die body */}
+        <rect x="4" y="4" width="88" height="88" rx="16" fill={bg} stroke={ring} strokeWidth="3" />
+        {/* Highlight */}
+        <rect x="8" y="8" width="40" height="20" rx="8" fill="rgba(255,255,255,0.08)" />
+        {/* Pips */}
+        {pips.map(([cx, cy], i) => (
+          <circle key={i} cx={cx} cy={cy} r="8" fill="white" />
+        ))}
+      </svg>
+      {/* Scoreable indicator */}
+      {scoring && !kept && !rolling && (
+        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-green-400 text-[8px] font-bold flex items-center justify-center text-black">
+          ✓
+        </span>
+      )}
+    </button>
+  );
+}
 
 // ─── Solo game ───────────────────────────────────────────────────────────────
 function FarkleSolo() {
@@ -76,28 +136,45 @@ function FarkleSolo() {
 
   return (
     <Card>
-      <CardContent className="pt-6 text-center space-y-6">
+      <CardContent className="pt-6 text-center space-y-5">
+        {/* Score row */}
         <div className="flex justify-center gap-4">
-          <Badge>{t("farkle.total")}: {score}</Badge>
-          <Badge variant="secondary">{t("farkle.round")}: {roundScore}</Badge>
+          <Badge className="text-base px-3 py-1">{t("farkle.total")}: {score} / {WIN_SCORE}</Badge>
+          <Badge variant="secondary" className="text-base px-3 py-1">{t("farkle.round")}: {roundScore}</Badge>
         </div>
-        <div className="flex justify-center gap-3 min-h-[80px]">
-          {dice.map((d, i) => (
-            <button key={i} onClick={() => keepDie(i)}
-              className={`text-5xl transition-transform hover:scale-110 ${d === 1 || d === 5 ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
-              aria-label={`Die ${d}`}>{DICE_EMOJI[d]}</button>
-          ))}
-          {rolling && <span className="text-5xl animate-spin">🎲</span>}
+
+        {/* Active dice */}
+        <div className="min-h-[72px]">
+          <div className="flex justify-center gap-3 flex-wrap">
+            {dice.map((d, i) => (
+              <Die key={i} value={d} scoring={d === 1 || d === 5} kept={false} rolling={rolling} onClick={() => keepDie(i)} />
+            ))}
+            {rolling && dice.length === 0 && (
+              <span className="text-5xl animate-spin self-center">🎲</span>
+            )}
+          </div>
         </div>
+
+        {/* Kept dice */}
         {kept.length > 0 && (
-          <div className="flex justify-center gap-2">
-            <span className="text-sm text-muted-foreground">{t("farkle.kept")}:</span>
-            {kept.map((d, i) => <span key={i} className="text-3xl">{DICE_EMOJI[d]}</span>)}
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">{t("farkle.kept")}</p>
+            <div className="flex justify-center gap-2 flex-wrap">
+              {kept.map((d, i) => (
+                <Die key={i} value={d} scoring={true} kept={true} rolling={false} />
+              ))}
+            </div>
           </div>
         )}
-        <div className="flex gap-3 justify-center">
-          <Button size="lg" onClick={roll} disabled={rolling}>{t("farkle.roll")}</Button>
-          <Button size="lg" variant="secondary" onClick={bank} disabled={roundScore === 0}>{t("farkle.bank")}</Button>
+
+        {/* Actions */}
+        <div className="flex gap-3 justify-center flex-wrap">
+          <Button size="lg" onClick={roll} disabled={rolling} className="min-w-[100px]">
+            {rolling ? "Rolling…" : t("farkle.roll")}
+          </Button>
+          <Button size="lg" variant="secondary" onClick={bank} disabled={roundScore === 0} className="min-w-[100px]">
+            {t("farkle.bank")} +{roundScore}
+          </Button>
         </div>
         <Button variant="outline" size="sm" onClick={restart}>Restart</Button>
       </CardContent>
@@ -232,18 +309,19 @@ function FarkleMultiplayer() {
             <Badge variant="secondary">Your score: {myScore} / {WIN_SCORE}</Badge>
             <Badge variant="outline">Round: {round}</Badge>
           </div>
-          <div className="flex justify-center gap-3 min-h-[80px]">
+          <div className="flex justify-center gap-3 flex-wrap min-h-[72px]">
             {dice.map((d, i) => (
-              <button key={i} onClick={() => keepDie(i)} disabled={!mp.isMyTurn}
-                className={`text-5xl transition-transform ${mp.isMyTurn && (d === 1 || d === 5) ? "hover:scale-110 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
-                aria-label={`Die ${d}`}>{DICE_EMOJI[d]}</button>
+              <Die key={i} value={d} scoring={mp.isMyTurn && (d === 1 || d === 5)} kept={false}
+                rolling={rolling} onClick={mp.isMyTurn ? () => keepDie(i) : undefined} />
             ))}
-            {rolling && <span className="text-5xl animate-spin">🎲</span>}
+            {rolling && dice.length === 0 && <span className="text-5xl animate-spin self-center">🎲</span>}
           </div>
           {kept.length > 0 && (
-            <div className="flex justify-center gap-2">
-              <span className="text-sm text-muted-foreground">Kept:</span>
-              {kept.map((d, i) => <span key={i} className="text-3xl">{DICE_EMOJI[d]}</span>)}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Kept:</p>
+              <div className="flex justify-center gap-2 flex-wrap">
+                {kept.map((d, i) => <Die key={i} value={d} scoring={true} kept={true} rolling={false} />)}
+              </div>
             </div>
           )}
           <div className="flex gap-3 justify-center">

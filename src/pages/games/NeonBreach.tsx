@@ -20,6 +20,16 @@ import { seededRng } from "@/systems/multiplayerSystem";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const FIREWALL_NODES = ["🔒", "🛡️", "⚡", "🔑", "💾", "🌐", "📡", "🔓"];
+const NODE_COLORS = [
+  "from-cyan-600 to-cyan-400 shadow-cyan-500/60",
+  "from-blue-600 to-blue-400 shadow-blue-500/60",
+  "from-yellow-500 to-yellow-300 shadow-yellow-400/60",
+  "from-purple-600 to-purple-400 shadow-purple-500/60",
+  "from-green-600 to-green-400 shadow-green-500/60",
+  "from-indigo-600 to-indigo-400 shadow-indigo-500/60",
+  "from-pink-600 to-pink-400 shadow-pink-500/60",
+  "from-teal-600 to-teal-400 shadow-teal-500/60",
+];
 
 // ─── Solo ────────────────────────────────────────────────────────────────────
 function NeonBreachSolo() {
@@ -78,19 +88,49 @@ function NeonBreachSolo() {
           <Button size="lg" onClick={restart}>{t("neonbreach.restart")}</Button>
         </CardContent></Card>
       ) : (
-        <Card><CardContent className="pt-6 space-y-6">
-          <p className="text-center text-muted-foreground">
-            {phase === "showing" ? t("neonbreach.memorize") : t("neonbreach.repeat")}
-          </p>
-          <div className="grid grid-cols-4 gap-3">
-            {FIREWALL_NODES.map((node, i) => (
-              <Button key={i} variant="outline"
-                className={`text-3xl h-16 transition-all ${phase === "showing" && showIdx >= 0 && sequence[showIdx] === i ? "bg-primary text-primary-foreground scale-110 animate-pulse" : ""}`}
-                disabled={phase !== "input"} onClick={() => tap(i)}>{node}</Button>
-            ))}
-          </div>
-          <Progress value={(playerSeq.length / sequence.length) * 100} />
-        </CardContent></Card>
+        <Card className="border-cyan-500/30 bg-gradient-to-br from-slate-950/80 to-cyan-950/20">
+          <CardContent className="pt-6 space-y-6">
+            <p className="text-center text-cyan-300 text-sm font-mono tracking-widest uppercase">
+              {phase === "showing" ? "▶ " + t("neonbreach.memorize") : "⌨ " + t("neonbreach.repeat")}
+            </p>
+            <div className="grid grid-cols-4 gap-3">
+              {FIREWALL_NODES.map((node, i) => {
+                const isActive = phase === "showing" && showIdx >= 0 && sequence[showIdx] === i;
+                const colors = NODE_COLORS[i];
+                return (
+                  <button
+                    key={i}
+                    onClick={() => tap(i)}
+                    disabled={phase !== "input"}
+                    className={[
+                      "relative h-16 rounded-xl text-2xl border-2 transition-all duration-150 font-bold",
+                      "bg-gradient-to-br",
+                      colors,
+                      isActive
+                        ? "scale-110 shadow-[0_0_20px_6px] border-white/80 brightness-150"
+                        : phase === "input"
+                        ? "border-white/20 hover:scale-105 hover:brightness-125 hover:shadow-[0_0_12px_3px] active:scale-95"
+                        : "border-white/10 opacity-70",
+                    ].join(" ")}
+                    aria-label={`Node ${i}`}
+                  >
+                    <span className="drop-shadow-lg">{node}</span>
+                    {isActive && (
+                      <span className="absolute inset-0 rounded-xl animate-ping bg-white/20 pointer-events-none" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="space-y-1">
+              <Progress value={(playerSeq.length / Math.max(sequence.length, 1)) * 100}
+                className="h-2 bg-slate-800 [&>div]:bg-cyan-400" />
+              <p className="text-center text-xs text-cyan-400/70 font-mono">
+                {playerSeq.length} / {sequence.length} nodes
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
@@ -209,19 +249,35 @@ function NeonBreachMulti() {
           <p className="text-muted-foreground">Score: {myScore} — Waiting for opponent…</p>
         </CardContent></Card>
       ) : (
-        <Card><CardContent className="pt-6 space-y-6">
-          <p className="text-center text-muted-foreground">
-            {phase === "showing" ? "Memorize the sequence…" : "Repeat it!"}
-          </p>
-          <div className="grid grid-cols-4 gap-3">
-            {FIREWALL_NODES.map((node, i) => (
-              <Button key={i} variant="outline"
-                className={`text-3xl h-16 transition-all ${phase === "showing" && showIdx >= 0 && sequence[showIdx] === i ? "bg-primary text-primary-foreground scale-110" : ""}`}
-                disabled={phase !== "input"} onClick={() => tap(i)}>{node}</Button>
-            ))}
-          </div>
-          <Progress value={(playerSeq.length / Math.max(sequence.length, 1)) * 100} />
-        </CardContent></Card>
+        <Card className="border-cyan-500/30 bg-gradient-to-br from-slate-950/80 to-cyan-950/20">
+          <CardContent className="pt-6 space-y-6">
+            <p className="text-center text-cyan-300 text-sm font-mono tracking-widest uppercase">
+              {phase === "showing" ? "▶ Memorize…" : "⌨ Repeat!"}
+            </p>
+            <div className="grid grid-cols-4 gap-3">
+              {FIREWALL_NODES.map((node, i) => {
+                const isActive = phase === "showing" && showIdx >= 0 && sequence[showIdx] === i;
+                const colors = NODE_COLORS[i];
+                return (
+                  <button key={i} onClick={() => tap(i)} disabled={phase !== "input"}
+                    className={[
+                      "relative h-16 rounded-xl text-2xl border-2 transition-all duration-150",
+                      "bg-gradient-to-br",
+                      colors,
+                      isActive ? "scale-110 shadow-[0_0_20px_6px] border-white/80 brightness-150"
+                               : "border-white/20 hover:scale-105 active:scale-95",
+                    ].join(" ")}
+                    aria-label={`Node ${i}`}>
+                    <span className="drop-shadow-lg">{node}</span>
+                    {isActive && <span className="absolute inset-0 rounded-xl animate-ping bg-white/20 pointer-events-none" />}
+                  </button>
+                );
+              })}
+            </div>
+            <Progress value={(playerSeq.length / Math.max(sequence.length, 1)) * 100}
+              className="h-2 bg-slate-800 [&>div]:bg-cyan-400" />
+          </CardContent>
+        </Card>
       )}
     </div>
   );

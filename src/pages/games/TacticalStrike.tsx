@@ -31,21 +31,50 @@ function buildGrid(seed: number) {
   });
 }
 
-function StrikeGrid({ grid, onHit, hit }: { grid: string[]; onHit: (idx: number) => void; hit: number | null }) {
+const TARGET_STYLES: Record<string, string> = {
+  "🎯": "border-blue-500/60 bg-blue-950/30 hover:bg-blue-900/50 hover:shadow-[0_0_10px_2px] hover:shadow-blue-500/40",
+  "💣": "border-red-500/60 bg-red-950/30 hover:bg-red-900/50 hover:shadow-[0_0_10px_2px] hover:shadow-red-500/40",
+  "⭐": "border-yellow-500/60 bg-yellow-950/30 hover:bg-yellow-900/50 hover:shadow-[0_0_10px_2px] hover:shadow-yellow-500/40",
+  "🎁": "border-purple-500/60 bg-purple-950/30 hover:bg-purple-900/50 hover:shadow-[0_0_15px_4px] hover:shadow-purple-500/60 animate-pulse",
+};
+
+function StrikeGrid({ grid, onHit, hit, miss }: { grid: string[]; onHit: (idx: number) => void; hit: number | null; miss: number | null }) {
   return (
-    <Card>
-      <CardContent className="pt-6">
+    <Card className="overflow-hidden">
+      <CardContent className="pt-4 pb-4">
         <div className="grid grid-cols-4 gap-2">
-          {grid.map((cell, i) => (
-            <Button
-              key={i}
-              variant="outline"
-              className={`h-16 text-3xl transition-all active:scale-75 hover:bg-primary/10 ${hit === i ? "opacity-30 scale-90" : ""}`}
-              onClick={() => onHit(i)}
-            >
-              {cell}
-            </Button>
-          ))}
+          {grid.map((cell, i) => {
+            const wasHit  = hit  === i;
+            const wasMiss = miss === i;
+            const style = TARGET_STYLES[cell] ?? "";
+            return (
+              <button
+                key={i}
+                onClick={() => onHit(i)}
+                className={[
+                  "relative h-16 rounded-xl text-3xl border-2 transition-all duration-100",
+                  "select-none focus-visible:outline-none",
+                  style,
+                  wasHit  ? "scale-75 opacity-20 rotate-12" : "",
+                  wasMiss ? "border-destructive/70 bg-destructive/10 scale-95" : "",
+                  !wasHit && !wasMiss ? "active:scale-90 hover:scale-105" : "",
+                ].join(" ")}
+                aria-label={`Target ${cell}`}
+              >
+                <span className={wasHit ? "grayscale" : "drop-shadow-md"}>{cell}</span>
+                {wasHit && (
+                  <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-green-400 animate-in zoom-in-50 duration-100">
+                    ✓
+                  </span>
+                )}
+                {wasMiss && (
+                  <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-destructive animate-in zoom-in-50 duration-100">
+                    ✗
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </CardContent>
     </Card>
@@ -66,6 +95,7 @@ function TacticalSolo() {
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
   const [active, setActive] = useState(false);
   const [lastHit, setLastHit] = useState<number | null>(null);
+  const [lastMiss, setLastMiss] = useState<number | null>(null);
   const [comboMsg, setComboMsg] = useState("");
   const [newRecord, setNewRecord] = useState(false);
 
@@ -105,14 +135,22 @@ function TacticalSolo() {
   const hit = (idx: number) => {
     if (!active) return;
     const target = grid[idx];
-    setLastHit(idx);
-    setTimeout(() => setLastHit(null), 300);
 
     let pts = 0;
     if (target === "🎯") { pts = 10; tacticalHit(); }
     else if (target === "⭐") { pts = 25; tacticalExplosion(); }
     else if (target === RARE_GIFT) { pts = 75; tacticalExplosion(); }
-    else { setCombo(0); setComboMsg(""); setScore(s => Math.max(0, s - 15)); tacticalMiss(); return; }
+    else {
+      setCombo(0); setComboMsg("");
+      setScore(s => Math.max(0, s - 15));
+      setLastMiss(idx);
+      setTimeout(() => setLastMiss(null), 400);
+      tacticalMiss();
+      return;
+    }
+
+    setLastHit(idx);
+    setTimeout(() => setLastHit(null), 350);
 
     const newCombo = combo + 1;
     setCombo(newCombo);
@@ -157,7 +195,7 @@ function TacticalSolo() {
       {comboMsg && (
         <p className="text-center font-bold text-orange-500 animate-in zoom-in-95 duration-200">{comboMsg}</p>
       )}
-      <StrikeGrid grid={grid} onHit={hit} hit={lastHit} />
+      <StrikeGrid grid={grid} onHit={hit} hit={lastHit} miss={lastMiss} />
     </div>
   );
 }
@@ -174,6 +212,7 @@ function TacticalMulti() {
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
   const [finished, setFinished] = useState(false);
   const [lastHit, setLastHit] = useState<number | null>(null);
+  const [lastMiss, setLastMiss] = useState<number | null>(null);
 
   const gs = mp.session?.game_state as Record<string, unknown> | null;
   const seed = (gs?.seed as number) ?? 1;
@@ -223,7 +262,11 @@ function TacticalMulti() {
     if (target === "🎯") { pts = 10; tacticalHit(); }
     else if (target === "⭐") { pts = 25; tacticalExplosion(); }
     else if (target === RARE_GIFT) { pts = 75; tacticalExplosion(); }
-    else { setCombo(0); setScore(s => Math.max(0, s - 15)); tacticalMiss(); return; }
+    else {
+      setCombo(0); setScore(s => Math.max(0, s - 15));
+      setLastMiss(idx); setTimeout(() => setLastMiss(null), 400);
+      tacticalMiss(); return;
+    }
 
     const newCombo = combo + 1;
     setCombo(newCombo);
@@ -249,7 +292,7 @@ function TacticalMulti() {
       </div>
       {finished
         ? <Card><CardContent className="pt-6 text-center"><p className="font-bold">Done! Waiting…</p></CardContent></Card>
-        : <StrikeGrid grid={grid} onHit={hit} hit={lastHit} />}
+        : <StrikeGrid grid={grid} onHit={hit} hit={lastHit} miss={lastMiss} />}
     </div>
   );
 }

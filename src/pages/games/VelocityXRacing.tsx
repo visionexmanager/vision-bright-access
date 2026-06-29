@@ -29,29 +29,120 @@ function trackFromSeed(seed: number) {
   return TRACKS[Math.floor(rng() * TRACKS.length) % TRACKS.length];
 }
 
+// ─── Race Track SVG ──────────────────────────────────────────────────────────
+function RaceTrack({ distance, speed, fuel, lap }: { distance: number; speed: number; fuel: number; lap: number }) {
+  const pct = Math.min(distance / TOTAL_DISTANCE, 1);
+  const carX = 24 + pct * (360 - 48);
+  const fuelPct = fuel / 100;
+
+  return (
+    <svg viewBox="0 0 400 90" xmlns="http://www.w3.org/2000/svg" className="w-full rounded-xl overflow-hidden" aria-label="Race track">
+      {/* Track base */}
+      <rect x="0" y="0" width="400" height="90" fill="#1a1a2e" rx="12" />
+      {/* Road */}
+      <rect x="10" y="30" width="380" height="30" fill="#2d2d44" rx="4" />
+      {/* Lane markings */}
+      {[60,100,140,180,220,260,300,340].map((x, i) => (
+        <rect key={i} x={x} y="43" width="20" height="4" fill="#4a4a6a" rx="2" />
+      ))}
+      {/* Track edge lines */}
+      <rect x="10" y="30" width="380" height="3" fill="#5555aa" rx="1" />
+      <rect x="10" y="57" width="380" height="3" fill="#5555aa" rx="1" />
+
+      {/* Start/Finish line */}
+      {[0,4,8,12].map((y, i) => (
+        <rect key={i} x="22" y={30 + y * 2} width="6" height="2" fill={i % 2 === 0 ? "white" : "black"} />
+      ))}
+
+      {/* Fuel bar (left side) */}
+      <rect x="6" y="68" width="48" height="6" fill="#1a1a2e" rx="3" />
+      <rect x="6" y="68" width={Math.max(4, fuelPct * 48)} height="6"
+        fill={fuelPct > 0.3 ? "#22c55e" : "#ef4444"} rx="3" />
+      <text x="6" y="84" fontSize="7" fill="#888">FUEL</text>
+
+      {/* Speed bar (right side) */}
+      <rect x="346" y="68" width="48" height="6" fill="#1a1a2e" rx="3" />
+      <rect x="346" y="68" width={Math.max(0, (speed / 100) * 48)} height="6" fill="#3b82f6" rx="3" />
+      <text x="350" y="84" fontSize="7" fill="#888">SPEED</text>
+
+      {/* Lap indicator */}
+      <text x="200" y="84" fontSize="8" fill="#888" textAnchor="middle">LAP {lap}/{TOTAL_LAPS}</text>
+
+      {/* Car (🏎️ rendered as SVG shapes for crispness) */}
+      <g transform={`translate(${carX - 16},30)`}>
+        {/* Car body */}
+        <rect x="0" y="8" width="32" height="14" fill="#ef4444" rx="4" />
+        <rect x="6" y="4" width="18" height="10" fill="#f97316" rx="3" />
+        {/* Windshield */}
+        <rect x="9" y="5" width="12" height="7" fill="#93c5fd" rx="2" opacity="0.8" />
+        {/* Wheels */}
+        <circle cx="6"  cy="22" r="4" fill="#222" />
+        <circle cx="6"  cy="22" r="2" fill="#555" />
+        <circle cx="26" cy="22" r="4" fill="#222" />
+        <circle cx="26" cy="22" r="2" fill="#555" />
+        {/* Speed lines */}
+        {speed > 30 && [0,4,8].map((dy, i) => (
+          <line key={i} x1="-2" y1={10 + dy} x2={-6 - i * 2} y2={10 + dy}
+            stroke="#f97316" strokeWidth="1.5" opacity={0.6 - i * 0.15} strokeLinecap="round" />
+        ))}
+        {/* Nitro flame */}
+        {speed >= 100 && (
+          <path d="M0 15 L-6 12 L-3 15 L-8 14 L-4 17 L-2 16 Z" fill="#fbbf24" />
+        )}
+      </g>
+
+      {/* Checkpoint flags */}
+      {[1, 2].map((l) => {
+        const fx = 24 + (l / TOTAL_LAPS) * (360 - 48);
+        return (
+          <g key={l} transform={`translate(${fx},22)`}>
+            <line x1="0" y1="0" x2="0" y2="10" stroke="#666" strokeWidth="1.5" />
+            <rect x="0" y="0" width="8" height="5" fill="#fbbf24" />
+          </g>
+        );
+      })}
+
+      {/* Finish flag */}
+      {[0,1,2,3].map((col) =>
+        [0,1,2,3].map((row) => (
+          <rect key={`${col}${row}`}
+            x={374 + col * 4} y={32 + row * 4}
+            width="4" height="4"
+            fill={(col + row) % 2 === 0 ? "white" : "black"} />
+        ))
+      )}
+    </svg>
+  );
+}
+
 function RaceControls({
   distance,
+  speed,
   fuel,
+  lap,
   onAccelerate,
   onBrake,
   onNitro,
 }: {
   distance: number;
+  speed: number;
   fuel: number;
+  lap: number;
   onAccelerate: () => void;
   onBrake: () => void;
   onNitro: () => void;
 }) {
   const { t } = useLanguage();
   return (
-    <Card>
-      <CardContent className="pt-6 space-y-4">
-        <Progress value={(distance / TOTAL_DISTANCE) * 100} />
-        <p className="text-center text-sm text-muted-foreground">{Math.round(distance)}m / {TOTAL_DISTANCE}m</p>
+    <Card className="overflow-hidden">
+      <CardContent className="pt-4 space-y-4">
+        <RaceTrack distance={distance} speed={speed} fuel={fuel} lap={lap} />
         <div className="flex justify-center gap-3 flex-wrap">
-          <Button size="lg" onClick={onAccelerate}>⬆️ {t("velocity.gas")}</Button>
-          <Button size="lg" variant="destructive" onClick={onBrake}>⬇️ {t("velocity.brake")}</Button>
-          <Button size="lg" variant="secondary" onClick={onNitro} disabled={fuel < 20}>{t("velocity.nitro")}</Button>
+          <Button size="lg" onClick={onAccelerate} className="gap-2">⬆️ {t("velocity.gas")}</Button>
+          <Button size="lg" variant="destructive" onClick={onBrake} className="gap-2">⬇️ {t("velocity.brake")}</Button>
+          <Button size="lg" variant="secondary" onClick={onNitro} disabled={fuel < 20} className="gap-2">
+            🔥 {t("velocity.nitro")}
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -245,7 +336,7 @@ function VelocityMulti() {
           <p className="text-muted-foreground">Waiting for opponent…</p>
         </CardContent></Card>
       ) : (
-        <RaceControls distance={race.distance} fuel={race.fuel} onAccelerate={race.accelerate} onBrake={race.brake} onNitro={race.nitro} />
+        <RaceControls distance={race.distance} speed={race.speed} fuel={race.fuel} lap={race.lap} onAccelerate={race.accelerate} onBrake={race.brake} onNitro={race.nitro} />
       )}
     </div>
   );

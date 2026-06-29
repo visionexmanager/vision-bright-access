@@ -29,6 +29,73 @@ const WORDS = [
 const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const MAX_WRONG = 6;
 
+// ─── SVG Gallows ─────────────────────────────────────────────────────────────
+function HangmanFigure({ wrong }: { wrong: number }) {
+  const stroke = "currentColor";
+  const sw = 3.5;
+  const won = false; // figure is rendered per wrong count only
+  return (
+    <svg
+      viewBox="0 0 200 240"
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-full max-w-[180px] mx-auto my-2 text-foreground"
+      aria-label={`Hangman: ${wrong} wrong guesses`}
+    >
+      {/* Gallows structure — always visible */}
+      <line x1="10" y1="230" x2="190" y2="230" stroke={stroke} strokeWidth="5" strokeLinecap="round" />
+      <line x1="60"  y1="230" x2="60"  y2="15"  stroke={stroke} strokeWidth="5" strokeLinecap="round" />
+      <line x1="60"  y1="15"  x2="140" y2="15"  stroke={stroke} strokeWidth="5" strokeLinecap="round" />
+      <line x1="140" y1="15"  x2="140" y2="45"  stroke={stroke} strokeWidth="3" strokeLinecap="round" strokeDasharray="4 3" />
+
+      {/* Head */}
+      {wrong >= 1 && (
+        <circle cx="140" cy="65" r="20" stroke={stroke} strokeWidth={sw} fill="none"
+          className="transition-all duration-500 animate-in zoom-in-95" />
+      )}
+      {/* Eyes on head when lost */}
+      {wrong >= 6 && (
+        <>
+          <line x1="133" y1="59" x2="137" y2="63" stroke={stroke} strokeWidth="2" />
+          <line x1="137" y1="59" x2="133" y2="63" stroke={stroke} strokeWidth="2" />
+          <line x1="143" y1="59" x2="147" y2="63" stroke={stroke} strokeWidth="2" />
+          <line x1="147" y1="59" x2="143" y2="63" stroke={stroke} strokeWidth="2" />
+          <path d="M133 73 Q140 70 147 73" stroke={stroke} strokeWidth="2" fill="none" />
+        </>
+      )}
+      {/* Body */}
+      {wrong >= 2 && (
+        <line x1="140" y1="85" x2="140" y2="145"
+          stroke={stroke} strokeWidth={sw} strokeLinecap="round"
+          className="transition-all duration-300" />
+      )}
+      {/* Left arm */}
+      {wrong >= 3 && (
+        <line x1="140" y1="100" x2="112" y2="128"
+          stroke={stroke} strokeWidth={sw} strokeLinecap="round"
+          className="transition-all duration-300" />
+      )}
+      {/* Right arm */}
+      {wrong >= 4 && (
+        <line x1="140" y1="100" x2="168" y2="128"
+          stroke={stroke} strokeWidth={sw} strokeLinecap="round"
+          className="transition-all duration-300" />
+      )}
+      {/* Left leg */}
+      {wrong >= 5 && (
+        <line x1="140" y1="145" x2="112" y2="185"
+          stroke={stroke} strokeWidth={sw} strokeLinecap="round"
+          className="transition-all duration-300" />
+      )}
+      {/* Right leg */}
+      {wrong >= 6 && (
+        <line x1="140" y1="145" x2="168" y2="185"
+          stroke={stroke} strokeWidth={sw} strokeLinecap="round"
+          className="transition-all duration-300" />
+      )}
+    </svg>
+  );
+}
+
 // ─── Solo ────────────────────────────────────────────────────────────────────
 function HangmanSolo() {
   const { t } = useLanguage();
@@ -70,24 +137,40 @@ function HangmanSolo() {
 
   return (
     <Card>
-      <CardHeader className="text-center">
-        <div className="text-6xl font-mono tracking-[0.3em]">{display}</div>
-        <Badge variant={wrong > 4 ? "destructive" : "secondary"} className="mx-auto mt-3">
-          {t("hangman.attempts")}: {wrong}/{MAX_WRONG}
-        </Badge>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap justify-center gap-2 mb-6">
+      <CardContent className="pt-4">
+        {/* Gallows + figure */}
+        <div className={`rounded-xl p-3 mb-4 border ${won ? "border-green-500/40 bg-green-50/10" : lost ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/30"}`}>
+          <HangmanFigure wrong={wrong} />
+        </div>
+
+        {/* Word display */}
+        <div className="text-center mb-4">
+          <div className={`text-4xl sm:text-5xl font-mono tracking-[0.3em] transition-colors ${won ? "text-green-500" : lost ? "text-destructive" : ""}`}>
+            {display}
+          </div>
+          <Badge variant={wrong > 4 ? "destructive" : "secondary"} className="mt-3">
+            {wrong}/{MAX_WRONG} {t("hangman.attempts")}
+          </Badge>
+        </div>
+
+        {/* Keyboard */}
+        <div className="flex flex-wrap justify-center gap-1.5 mb-4">
           {ALPHA.map((l) => (
             <Button key={l} size="sm"
               variant={guessed.has(l) ? (word.includes(l) ? "default" : "destructive") : "outline"}
               disabled={guessed.has(l) || gameOver} onClick={() => guess(l)}
-              className="w-10 h-10 text-lg font-bold transition-transform active:scale-90">{l}</Button>
+              className="w-9 h-9 text-sm font-bold transition-all active:scale-90 hover:scale-105">{l}</Button>
           ))}
         </div>
+
         {gameOver && (
-          <div className="text-center space-y-3">
-            {lost && <p className="text-lg">{t("hangman.answer")}: <strong>{word}</strong></p>}
+          <div className="text-center space-y-3 pt-2 border-t">
+            {lost && (
+              <p className="text-muted-foreground">
+                {t("hangman.answer")}: <strong className="text-foreground">{word}</strong>
+              </p>
+            )}
+            {won && <p className="text-green-500 font-bold text-lg">🎉 {t("hangman.won")}</p>}
             <Button size="lg" onClick={restart}>{t("hangman.restart")}</Button>
           </div>
         )}
@@ -187,22 +270,23 @@ function HangmanMulti() {
       </div>
 
       <Card>
-        <CardHeader className="text-center">
-          <div className="text-5xl font-mono tracking-[0.25em]">{display || "…"}</div>
-          <Badge variant={wrong > 4 ? "destructive" : "secondary"} className="mx-auto mt-3">
-            Mistakes: {wrong}/{MAX_WRONG}
-          </Badge>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
+          <HangmanFigure wrong={wrong} />
+          <div className="text-center mb-3">
+            <div className="text-4xl font-mono tracking-[0.25em]">{display || "…"}</div>
+            <Badge variant={wrong > 4 ? "destructive" : "secondary"} className="mt-2">
+              {wrong}/{MAX_WRONG} mistakes
+            </Badge>
+          </div>
           {finished ? (
             <p className="text-center font-bold py-4">{won ? "🎉 You got it!" : `😞 The word was: ${word}`} — Waiting for opponent…</p>
           ) : (
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-1.5">
               {ALPHA.map((l) => (
                 <Button key={l} size="sm"
                   variant={guessed.has(l) ? (word.includes(l) ? "default" : "destructive") : "outline"}
                   disabled={guessed.has(l) || finished || !started} onClick={() => guess(l)}
-                  className="w-10 h-10 text-lg font-bold">{l}</Button>
+                  className="w-9 h-9 text-sm font-bold">{l}</Button>
               ))}
             </div>
           )}
