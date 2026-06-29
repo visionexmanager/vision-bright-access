@@ -22,9 +22,17 @@ const NOTES_FREQ: Record<string, number> = { C4: 261.63, D4: 293.66, E4: 329.63,
 const NOTE_NAMES = Object.keys(NOTES_FREQ);
 const TOTAL_ROUNDS = 10;
 
+// Singleton AudioContext — one per page load, not per note
+let _noteCtx: AudioContext | null = null;
+function getNoteCtx(): AudioContext {
+  if (!_noteCtx) _noteCtx = new AudioContext();
+  if (_noteCtx.state === "suspended") _noteCtx.resume();
+  return _noteCtx;
+}
+
 function playTone(freq: number) {
   try {
-    const ctx = new AudioContext();
+    const ctx = getNoteCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.frequency.value = freq;

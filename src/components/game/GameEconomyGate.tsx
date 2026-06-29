@@ -1,4 +1,6 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { GameErrorBoundary } from "./GameErrorBoundary";
+import { GameWinCelebration } from "./GameWinCelebration";
 import { Link, useLocation } from "react-router-dom";
 import { Coins, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +39,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
   const location = useLocation();
   const [entryStatus, setEntryStatus] = useState<"loading" | "ready" | "blocked">("loading");
   const [message, setMessage] = useState("");
+  const [showConfetti, setShowConfetti] = useState(false);
   const settledRef = useRef(false);
   const entryKey = `${location.pathname}:${gameTitle}`;
 
@@ -93,6 +96,9 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
       settledRef.current = true;
 
       if (result === "win") {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3500);
+
         const { error } = await supabase.rpc("award_points", {
           _points: GAMING_PRICES.winReward,
           _reason: `Game win reward: ${resultLabel ?? gameTitle}`,
@@ -165,7 +171,10 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
 
   return (
     <GameEconomyContext.Provider value={value}>
-      {children}
+      <GameWinCelebration active={showConfetti} />
+      <GameErrorBoundary gameName={gameTitle}>
+        {children}
+      </GameErrorBoundary>
     </GameEconomyContext.Provider>
   );
 }
