@@ -152,8 +152,13 @@ export default function News() {
             {(filtered as (typeof STATIC_ITEMS[0] | DbArticle)[]).map((item, i) => {
               const isStatic = "titleKey" in item;
               const dbItem = item as DbArticle;
-              // Pick translation for user's language; fall back to English then primary column
-              const tr = isStatic ? null : (dbItem.translations?.[lang] ?? dbItem.translations?.["en"] ?? null);
+              // Pick translation: user lang → English → Arabic → primary DB column
+              const tr = isStatic ? null : (
+                dbItem.translations?.[lang] ??
+                dbItem.translations?.["en"] ??
+                dbItem.translations?.["ar"] ??
+                null
+              );
               const title       = isStatic ? t(item.titleKey as Parameters<typeof t>[0]) : (tr?.title ?? dbItem.title);
               const description = isStatic ? t(item.descKey as Parameters<typeof t>[0]) : (tr?.description ?? dbItem.description);
               const iconName    = isStatic ? item.icon : (item as DbArticle).icon_name;
