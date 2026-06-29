@@ -87,8 +87,8 @@ jobs:
       - name: Deploy TV edge functions
         if: steps.changed.outputs.has_changes == 'true'
         run: |
-          supabase functions deploy tv-stream-token    --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
-          supabase functions deploy tv-validate-stream --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+          supabase functions deploy tv-stream-token    --no-verify-jwt --linked
+          supabase functions deploy tv-validate-stream --no-verify-jwt --linked
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -114,10 +114,11 @@ jobs:
 
       - name: Push migrations to production
         if: steps.changed.outputs.has_changes == 'true'
-        run: supabase db push --password "${{ secrets.SUPABASE_DB_PASSWORD }}" --project-ref "$SUPABASE_PROJECT_REF"
+        run: supabase db push --linked
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD:  ${{ secrets.SUPABASE_DB_PASSWORD }}
 
   # ── 4. Build and push stream-proxy Docker image ────────────────────────────────
   deploy-stream-proxy:
