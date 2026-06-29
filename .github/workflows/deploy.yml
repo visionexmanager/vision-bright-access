@@ -76,21 +76,21 @@ jobs:
 
       - name: Deploy TV edge functions
         run: |
-          supabase functions deploy tv-stream-token    --no-verify-jwt --linked
-          supabase functions deploy tv-validate-stream --no-verify-jwt --linked
+          supabase functions deploy tv-stream-token    --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy tv-validate-stream --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
 
       - name: Deploy AI Media Studio edge functions
         run: |
-          supabase functions deploy speech-generate --linked
-          supabase functions deploy video-studio    --linked
-          supabase functions deploy voice-studio    --linked
-          supabase functions deploy billing-engine  --linked
-          supabase functions deploy provider-hub    --linked
-          supabase functions deploy image-generate  --linked
-          supabase functions deploy health-check    --no-verify-jwt --linked
+          supabase functions deploy speech-generate --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy video-studio    --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy voice-studio    --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy billing-engine  --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy provider-hub    --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy image-generate  --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy health-check    --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
