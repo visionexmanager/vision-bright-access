@@ -70,7 +70,7 @@ export function SearchBar({ onPlay }: Props) {
             )}
             {!loading && results.length === 0 && query.trim() && (
               <div className="p-4 text-center text-vx-muted text-sm">
-                No channels found for "{query}"
+                No channels found for &quot;{query}&quot;
               </div>
             )}
             {results.length > 0 && (
