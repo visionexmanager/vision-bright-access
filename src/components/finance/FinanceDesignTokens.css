@@ -1,0 +1,89 @@
+/*
+ * Visionex Finance — Design Tokens
+ * Extends the platform theme without overriding global tokens.
+ * All tokens are scoped to [data-finance] so they never leak.
+ */
+
+[data-finance] {
+  /* ── Brand accent (financial green) ────────────────────────────── */
+  --fin-green:        168 72% 36%;
+  --fin-green-fg:     0 0% 100%;
+  --fin-green-muted:  168 40% 92%;
+
+  /* ── Semantic: profit / loss ────────────────────────────────────── */
+  --fin-profit:       142 71% 40%;
+  --fin-profit-fg:    142 71% 95%;
+  --fin-loss:         4 86% 50%;
+  --fin-loss-fg:      4 86% 97%;
+  --fin-neutral:      215 16% 55%;
+  --fin-neutral-fg:   215 16% 96%;
+
+  /* ── Sidebar ────────────────────────────────────────────────────── */
+  --fin-sidebar-bg:          var(--card);
+  --fin-sidebar-border:      var(--border);
+  --fin-sidebar-item-hover:  var(--muted);
+  --fin-sidebar-item-active: hsl(var(--fin-green));
+  --fin-sidebar-item-active-fg: hsl(var(--fin-green-fg));
+  --fin-sidebar-width:       240px;
+  --fin-sidebar-width-collapsed: 64px;
+
+  /* ── Top bar ────────────────────────────────────────────────────── */
+  --fin-topbar-height: 56px;
+
+  /* ── Card / panel ───────────────────────────────────────────────── */
+  --fin-card-border:  var(--border);
+  --fin-card-shadow:  0 1px 3px hsl(0 0% 0% / 0.06);
+
+  /* ── Spacing scale (mirrors Tailwind but explicit for components) ── */
+  --fin-space-xs:  4px;
+  --fin-space-sm:  8px;
+  --fin-space-md:  16px;
+  --fin-space-lg:  24px;
+  --fin-space-xl:  32px;
+
+  /* ── Animation ──────────────────────────────────────────────────── */
+  --fin-transition: 0.2s ease;
+}
+
+/* Dark-mode overrides */
+.dark [data-finance] {
+  --fin-green:       168 60% 46%;
+  --fin-green-muted: 168 30% 14%;
+  --fin-profit:      142 60% 50%;
+  --fin-loss:        4 80% 58%;
+}
+
+/* High-contrast overrides */
+.high-contrast [data-finance] {
+  --fin-green:       54 100% 50%;
+  --fin-green-fg:    0 0% 0%;
+  --fin-profit:      120 100% 40%;
+  --fin-loss:        0 100% 50%;
+}
+
+/* ── Utility classes (usable inside [data-finance] subtree) ─────────── */
+[data-finance] .fin-profit {
+  color: hsl(var(--fin-profit));
+}
+[data-finance] .fin-loss {
+  color: hsl(var(--fin-loss));
+}
+[data-finance] .fin-neutral {
+  color: hsl(var(--fin-neutral));
+}
+[data-finance] .fin-badge-profit {
+  background: hsl(var(--fin-profit-fg));
+  color: hsl(var(--fin-profit));
+  border-radius: var(--radius);
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+[data-finance] .fin-badge-loss {
+  background: hsl(var(--fin-loss-fg));
+  color: hsl(var(--fin-loss));
+  border-radius: var(--radius);
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}

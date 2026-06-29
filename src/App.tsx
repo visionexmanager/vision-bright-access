@@ -123,6 +123,21 @@ const FashionDesigner = lazy(() => import("./pages/games/FashionDesigner"));
 const VelocityXRacing = lazy(() => import("./pages/games/VelocityXRacing"));
 const Akinator = lazy(() => import("./pages/games/Akinator"));
 
+// ── Visionex Finance ──────────────────────────────────────────────────────────
+const FinanceDashboard   = lazy(() => import("./pages/finance/FinanceDashboard"));
+const FinanceMarkets     = lazy(() => import("./pages/finance/Markets"));
+const FinanceStocks      = lazy(() => import("./pages/finance/Stocks"));
+const FinanceCurrencies  = lazy(() => import("./pages/finance/Currencies"));
+const FinanceCommodities = lazy(() => import("./pages/finance/Commodities"));
+const FinancePortfolio   = lazy(() => import("./pages/finance/Portfolio"));
+const FinanceWatchlist   = lazy(() => import("./pages/finance/Watchlist"));
+const FinanceAIAnalyst   = lazy(() => import("./pages/finance/AIAnalyst"));
+const FinanceCalendar    = lazy(() => import("./pages/finance/EconomicCalendar"));
+const FinanceNews        = lazy(() => import("./pages/finance/MarketNews"));
+const FinanceAffiliate   = lazy(() => import("./pages/finance/AffiliateCenter"));
+const FinanceBrokers     = lazy(() => import("./pages/finance/BrokerComparison"));
+const FinanceAcademy     = lazy(() => import("./pages/finance/FinanceAcademy"));
+
 // Legal pages
 const LegalCenter = lazy(() => import("./pages/legal/LegalCenter"));
 
@@ -275,6 +290,20 @@ function AppRoutes() {
                     <Route path="/settings" element={<Settings />} />
 <Route path="/professional-tools" element={<ProfessionalTools />} />
                     <Route path="/professional-tools/:toolId" element={<ToolDetail />} />
+                    {/* ── Visionex Finance ───────────────────────────────── */}
+                    <Route path="/finance" element={<FinanceDashboard />} />
+                    <Route path="/finance/markets" element={<FinanceMarkets />} />
+                    <Route path="/finance/markets/stocks" element={<FinanceStocks />} />
+                    <Route path="/finance/markets/currencies" element={<FinanceCurrencies />} />
+                    <Route path="/finance/markets/commodities" element={<FinanceCommodities />} />
+                    <Route path="/finance/portfolio" element={<FinancePortfolio />} />
+                    <Route path="/finance/watchlist" element={<FinanceWatchlist />} />
+                    <Route path="/finance/ai-analyst" element={<FinanceAIAnalyst />} />
+                    <Route path="/finance/calendar" element={<FinanceCalendar />} />
+                    <Route path="/finance/news" element={<FinanceNews />} />
+                    <Route path="/finance/affiliate" element={<FinanceAffiliate />} />
+                    <Route path="/finance/brokers" element={<FinanceBrokers />} />
+                    <Route path="/finance/academy" element={<FinanceAcademy />} />
                     {/* Legal — all policies accessible through /legal (LegalCenter) */}
                     <Route path="/legal" element={<LegalCenter />} />
                     <Route path="/privacy-policy"        element={<Navigate to="/legal" replace />} />
