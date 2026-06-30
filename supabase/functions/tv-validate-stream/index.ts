@@ -18,7 +18,7 @@
  * to pick the best stream source when the primary source fails.
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const CORS = {
   "Access-Control-Allow-Origin":  "*",

@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { getAssistant } from "../_shared/assistants.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];

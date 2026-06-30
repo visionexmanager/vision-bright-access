@@ -11,7 +11,7 @@
  * Security: protected by CRON_SECRET env variable checked in Authorization header.
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const TIER_RENT: Record<string, number> = {
   kiosk:    1_000,
