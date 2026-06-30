@@ -255,7 +255,7 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    Deno.env.get("SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
 
@@ -263,60 +263,84 @@ Deno.serve(async (req: Request) => {
   const dateEn = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   const dateAr = now.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
 
-  // ── 1. Generate en + ar (full articles) ──────────────────────────────────
-  let enArArticles: Awaited<ReturnType<typeof generateEnAr>>;
-  try {
-    enArArticles = await generateEnAr(dateEn);
-  } catch (err) {
-    console.error("[news-generate] Call 1 failed:", err);
-    return Response.json({ error: "AI generation failed", details: String(err) }, { status: 500, headers: CORS });
+  // newsletter_only=true: skip generation, just send emails for today's articles
+  const url = new URL(req.url);
+  const newsletterOnly = url.searchParams.get("newsletter_only") === "true";
+
+  let articles: GeneratedArticle[] = [];
+
+  if (!newsletterOnly) {
+    // ── 1. Generate en + ar (full articles) ──────────────────────────────────
+    let enArArticles: Awaited<ReturnType<typeof generateEnAr>>;
+    try {
+      enArArticles = await generateEnAr(dateEn);
+    } catch (err) {
+      console.error("[news-generate] Call 1 failed:", err);
+      return Response.json({ error: "AI generation failed", details: String(err) }, { status: 500, headers: CORS });
+    }
+
+    const validEnAr = enArArticles.filter(
+      (a) => CATEGORIES.some((c) => c.key === a.category) && a.en?.title && a.ar?.title,
+    );
+
+    if (validEnAr.length === 0) {
+      return Response.json({ error: "AI returned no valid articles" }, { status: 500, headers: CORS });
+    }
+
+    // ── 2. Translate title + description to 9 more languages ─────────────────
+    let extraTranslations: Record<CategoryKey, Partial<Record<Exclude<SupportedLang, "en" | "ar">, ArticleShort>>> = {} as never;
+    try {
+      extraTranslations = await translateToOtherLangs(validEnAr);
+    } catch (err) {
+      console.warn("[news-generate] Call 2 (translations) failed, continuing without extra langs:", err);
+    }
+
+    // ── 3. Merge into final articles ──────────────────────────────────────────
+    articles = validEnAr.map((a) => ({
+      category: a.category,
+      translations: {
+        en: a.en,
+        ar: a.ar,
+        ...(extraTranslations[a.category] ?? {}),
+      } as TranslationMap,
+    }));
+
+    // ── 4. Build DB rows ───────────────────────────────────────────────────────
+    const rows = articles.map((a) => ({
+      title:        a.translations.en.title,
+      description:  a.translations.en.description,
+      content:      a.translations.en.content,
+      category:     a.category,
+      icon_name:    CATEGORIES.find((c) => c.key === a.category)!.icon,
+      published:    true,
+      published_at: now.toISOString(),
+      translations: a.translations,
+    }));
+
+    const { error: insertErr } = await supabase.from("news_articles").insert(rows);
+    if (insertErr) {
+      console.error("[news-generate] insert error:", insertErr);
+      return Response.json({ error: "DB insert failed", details: insertErr.message }, { status: 500, headers: CORS });
+    }
+    console.log(`[news-generate] inserted ${rows.length} articles in 11 languages`);
+  } else {
+    // Fetch today's articles from DB for newsletter
+    const today = now.toISOString().split("T")[0];
+    const { data: todayArticles } = await supabase
+      .from("news_articles")
+      .select("category, translations")
+      .gte("published_at", `${today}T00:00:00Z`)
+      .eq("published", true);
+
+    if (!todayArticles?.length) {
+      return Response.json({ emailsSent: 0, note: "No articles found for today" }, { headers: CORS });
+    }
+
+    articles = todayArticles.map((row) => ({
+      category: row.category as CategoryKey,
+      translations: row.translations as TranslationMap,
+    }));
   }
-
-  const validEnAr = enArArticles.filter(
-    (a) => CATEGORIES.some((c) => c.key === a.category) && a.en?.title && a.ar?.title,
-  );
-
-  if (validEnAr.length === 0) {
-    return Response.json({ error: "AI returned no valid articles" }, { status: 500, headers: CORS });
-  }
-
-  // ── 2. Translate title + description to 9 more languages ─────────────────
-  let extraTranslations: Record<CategoryKey, Partial<Record<Exclude<SupportedLang, "en" | "ar">, ArticleShort>>> = {} as never;
-  try {
-    extraTranslations = await translateToOtherLangs(validEnAr);
-  } catch (err) {
-    // Non-fatal: fall back to English for missing languages
-    console.warn("[news-generate] Call 2 (translations) failed, continuing without extra langs:", err);
-  }
-
-  // ── 3. Merge into final articles ──────────────────────────────────────────
-  const articles: GeneratedArticle[] = validEnAr.map((a) => ({
-    category: a.category,
-    translations: {
-      en: a.en,
-      ar: a.ar,
-      ...(extraTranslations[a.category] ?? {}),
-    } as TranslationMap,
-  }));
-
-  // ── 4. Build DB rows ───────────────────────────────────────────────────────
-  const rows = articles.map((a) => ({
-    title:        a.translations.en.title,
-    description:  a.translations.en.description,
-    content:      a.translations.en.content,
-    category:     a.category,
-    icon_name:    CATEGORIES.find((c) => c.key === a.category)!.icon,
-    published:    true,
-    published_at: now.toISOString(),
-    translations: a.translations,
-  }));
-
-  const { error: insertErr } = await supabase.from("news_articles").insert(rows);
-  if (insertErr) {
-    console.error("[news-generate] insert error:", insertErr);
-    return Response.json({ error: "DB insert failed", details: insertErr.message }, { status: 500, headers: CORS });
-  }
-  console.log(`[news-generate] inserted ${rows.length} articles in 11 languages`);
 
   // ── 5. Send newsletter digests ────────────────────────────────────────────
   const resendKey = Deno.env.get("RESEND_API_KEY");
