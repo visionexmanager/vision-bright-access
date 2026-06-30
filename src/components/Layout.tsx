@@ -23,6 +23,8 @@ const FOOTER_LINKS = {
     { to: "/", labelKey: "footer.link.home" },
     { to: "/bazaar", labelKey: "footer.link.bazaar" },
     { to: "/services", labelKey: "footer.link.services" },
+    { to: "/finance", labelKey: "footer.link.finance" },
+    { to: "/services/ai-media-studio", labelKey: "footer.link.aiStudio" },
     { to: "/content", labelKey: "footer.link.content" },
     { to: "/games", labelKey: "footer.link.games" },
     { to: "/news", labelKey: "footer.link.news" },

@@ -90,7 +90,7 @@ export default function Billing() {
                   )}
                   {!isInTrial && billingStatus?.subscription && (
                     <p className="text-[11px] text-muted-foreground">
-                      {billingStatus.subscription.vx_credits_remaining.toLocaleString()} VX remaining this period
+                      {(billingStatus.subscription.vx_credits_remaining ?? 0).toLocaleString()} VX remaining this period
                     </p>
                   )}
                 </>

@@ -43,7 +43,8 @@ export function UpgradeDialog({ open, onClose, tab = "plans" }: UpgradeDialogPro
   }
 
   function handlePurchase() {
-    const amount = selectedPack ?? (parseInt(customVx) || 0);
+    const parsed = parseInt(customVx, 10);
+    const amount = selectedPack ?? (Number.isFinite(parsed) ? parsed : 0);
     if (amount < 100) return;
     purchase.mutate(amount, { onSuccess: onClose });
   }
