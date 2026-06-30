@@ -248,8 +248,31 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
 
   const cronSecret = Deno.env.get("CRON_SECRET");
-  const auth = req.headers.get("Authorization");
-  if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
+  const auth = req.headers.get("Authorization") ?? "";
+
+  // Allow cron secret OR admin JWT
+  const isCron = cronSecret && auth === `Bearer ${cronSecret}`;
+  let isAdmin = false;
+
+  if (!isCron) {
+    // Check if caller is an authenticated admin
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false }, global: { headers: { Authorization: auth } } },
+    );
+    const { data: { user } } = await userClient.auth.getUser();
+    if (user) {
+      const { data: profile } = await userClient
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      isAdmin = profile?.role === "admin";
+    }
+  }
+
+  if (!isCron && !isAdmin) {
     return Response.json({ error: "Unauthorized" }, { status: 401, headers: CORS });
   }
 
@@ -265,7 +288,8 @@ Deno.serve(async (req: Request) => {
 
   // newsletter_only=true: skip generation, just send emails for today's articles
   const url = new URL(req.url);
-  const newsletterOnly = url.searchParams.get("newsletter_only") === "true";
+  const newsletterOnly = url.searchParams.get("newsletter_only") === "true"
+    || req.headers.get("x-newsletter-only") === "true";
 
   let articles: GeneratedArticle[] = [];
 
