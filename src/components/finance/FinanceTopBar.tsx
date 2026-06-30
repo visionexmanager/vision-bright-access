@@ -59,12 +59,16 @@ export function FinanceTopBar() {
           aria-expanded={open && results.length > 0}
           aria-autocomplete="list"
         />
-        {open && results.length > 0 && (
+        {open && query.length >= 2 && (
           <ul
             role="listbox"
             className="absolute top-full left-0 right-0 mt-1 z-50 bg-card border rounded-lg shadow-lg overflow-hidden max-h-60 overflow-y-auto"
           >
-            {results.map((r) => (
+            {results.length === 0 ? (
+              <li className="px-3 py-3 text-sm text-muted-foreground text-center" role="option" aria-selected={false}>
+                No symbols found for "{query}"
+              </li>
+            ) : results.map((r) => (
               <li key={r.symbol} role="option">
                 <button
                   type="button"

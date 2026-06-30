@@ -284,7 +284,7 @@ function VelocitySolo({ track }: { track: string }) {
           {t(`velocity.event.${currentEvent}`)}
         </div>
       )}
-      <RaceControls distance={race.distance} fuel={race.fuel} onAccelerate={race.accelerate} onBrake={race.brake} onNitro={race.nitro} />
+      <RaceControls distance={race.distance} speed={race.speed} fuel={race.fuel} lap={race.lap} onAccelerate={race.accelerate} onBrake={race.brake} onNitro={race.nitro} />
     </div>
   );
 }

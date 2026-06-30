@@ -59,9 +59,11 @@ export function FinancePageShell({
         </div>
       ) : (
         children ?? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/30 py-20 text-center">
-            <p className="text-muted-foreground text-sm">
-              Coming in a future phase — architecture ready.
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/30 py-20 text-center gap-3">
+            <div className="text-4xl">📊</div>
+            <p className="font-semibold text-base">Coming Soon</p>
+            <p className="text-muted-foreground text-sm max-w-xs">
+              This section is under development. Check back soon for live market data and tools.
             </p>
           </div>
         )

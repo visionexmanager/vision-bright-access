@@ -38,9 +38,8 @@ export const DocumentModule: ConverterModule = {
       }
       // HTML → TXT
       else if (inFmt === "html" && opts.targetFormat === "txt") {
-        const div = document.createElement("div");
-        div.innerHTML = text;
-        resultBlob = new Blob([div.innerText], { type: "text/plain" });
+        const doc = new DOMParser().parseFromString(text, "text/html");
+        resultBlob = new Blob([doc.body.innerText], { type: "text/plain" });
       }
       // TXT → MD (trivial wrap)
       else if (inFmt === "txt" && opts.targetFormat === "md") {
