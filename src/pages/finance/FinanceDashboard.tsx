@@ -41,7 +41,7 @@ export default function FinanceDashboard() {
     queryKey: ["finance", "dashboard", "news"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("news")
+        .from("news_articles")
         .select("id, title, description, category, published_at")
         .in("category", ["world_economy", "world_politics", "business"])
         .eq("published", true)
