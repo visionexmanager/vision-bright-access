@@ -10,7 +10,7 @@ jobs:
   generate-news:
     name: Generate & publish daily news
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Invoke news-generate edge function
@@ -28,7 +28,7 @@ jobs:
             "$SUPABASE_URL/functions/v1/news-generate" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \
-            --max-time 120)
+            --max-time 480)
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | head -1)
