@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FinanceLayout } from "@/components/finance/FinanceLayout";
 import { FinancePageShell } from "@/components/finance/FinancePageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, TrendingDown, Newspaper, Wallet, Eye, ArrowRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Newspaper, Wallet, Eye, ArrowRight, Sparkles, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -23,6 +23,7 @@ interface CoinRow {
 
 export default function FinanceDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const { data: cryptoData, isLoading: cryptoLoading } = useQuery<CoinRow[]>({
     queryKey: ["finance", "dashboard", "crypto"],
@@ -113,6 +114,41 @@ export default function FinanceDashboard() {
                   })}
             </div>
           </section>
+
+          {/* AI Market Brief CTA */}
+          {cryptoData && cryptoData.length > 0 && (
+            <section>
+              <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-violet-500/5">
+                <CardContent className="p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-primary/10">
+                      <Bot className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">AI Market Brief</p>
+                      <p className="text-xs text-muted-foreground">Get an AI analysis of current market conditions</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="shrink-0 gap-1.5"
+                    onClick={() => {
+                      const prices = cryptoData.map((c) =>
+                        `${c.name} (${c.symbol.toUpperCase()}): $${c.current_price.toLocaleString()} (${(c.price_change_percentage_24h ?? 0) >= 0 ? "+" : ""}${(c.price_change_percentage_24h ?? 0).toFixed(2)}% 24h)`
+                      ).join("\n");
+                      const ctx = encodeURIComponent(
+                        `Give me a brief AI market analysis for today's conditions:\n\nLive prices:\n${prices}\n\nSummarize the overall market sentiment, identify the strongest/weakest performer, and give one actionable insight for the next 24-48 hours.`
+                      );
+                      navigate(`/finance/ai-analyst?ctx=${ctx}`);
+                    }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Get Brief
+                  </Button>
+                </CardContent>
+              </Card>
+            </section>
+          )}
 
           {/* Quick Access */}
           <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Newspaper, RefreshCw } from "lucide-react";
+import { Newspaper, RefreshCw, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { FinanceLayout } from "@/components/finance/FinanceLayout";
 import { FinancePageShell } from "@/components/finance/FinancePageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +58,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function MarketNews() {
+  const navigate = useNavigate();
   const { data: articles = [], isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["finance", "market-news"],
     queryFn: fetchFinanceNews,
@@ -139,10 +141,24 @@ export default function MarketNews() {
                       {article.title}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="pt-0">
+                  <CardContent className="pt-0 space-y-3">
                     <p className="text-sm text-muted-foreground line-clamp-3">
                       {article.description}
                     </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-primary hover:text-primary gap-1"
+                      onClick={() => {
+                        const ctx = encodeURIComponent(
+                          `Analyze this news article and explain its market impact:\n\nTitle: ${article.title}\n\nSummary: ${article.description}\n\nCategory: ${CATEGORY_LABEL[article.category] ?? article.category}`
+                        );
+                        navigate(`/finance/ai-analyst?ctx=${ctx}`);
+                      }}
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      Ask AI
+                    </Button>
                   </CardContent>
                 </Card>
               );

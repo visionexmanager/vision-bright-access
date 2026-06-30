@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
-import { Plus, Trash2, PieChart, TrendingUp, TrendingDown } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Trash2, PieChart, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
 import { FinanceLayout } from "@/components/finance/FinanceLayout";
 import { FinancePageShell } from "@/components/finance/FinancePageShell";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ function fmtUSD(v: number) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Portfolio() {
+  const navigate = useNavigate();
   const [portfolios, setPortfolios] = useState<LocalPortfolio[]>(loadPortfolios);
   const [activeId, setActiveId] = useState<string | null>(
     () => loadPortfolios()[0]?.id ?? null
@@ -175,10 +177,33 @@ export default function Portfolio() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   const createAction = (
-    <Button size="sm" className="gap-2" onClick={() => setCreateOpen(true)}>
-      <Plus className="h-4 w-4" />
-      Create Portfolio
-    </Button>
+    <div className="flex gap-2">
+      {activePortfolio && activePortfolio.holdings.length > 0 && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => {
+            const { totalCost, totalValue, totalPnl, totalPnlPct } = totals!;
+            const holdingsList = activePortfolio.holdings.map((h) => {
+              const { cost, value, pnl, pnlPct } = calcHolding(h);
+              return `• ${h.symbol.toUpperCase()} (${h.name}): ${h.qty} units @ $${h.buyPrice} buy → $${h.currentPrice || h.buyPrice} current | P&L: $${pnl.toFixed(2)} (${pnlPct.toFixed(1)}%)`;
+            }).join("\n");
+            const ctx = encodeURIComponent(
+              `Analyze my investment portfolio "${activePortfolio.name}":\n\nHoldings:\n${holdingsList}\n\nSummary: Total Cost $${totalCost.toFixed(2)}, Total Value $${totalValue.toFixed(2)}, P&L $${totalPnl.toFixed(2)} (${totalPnlPct.toFixed(1)}%)\n\nPlease: 1) Assess overall health 2) Identify concentration risks 3) Highlight best/worst performers 4) Suggest one rebalancing action.`
+            );
+            navigate(`/finance/ai-analyst?ctx=${ctx}`);
+          }}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          AI Analysis
+        </Button>
+      )}
+      <Button size="sm" className="gap-2" onClick={() => setCreateOpen(true)}>
+        <Plus className="h-4 w-4" />
+        Create Portfolio
+      </Button>
+    </div>
   );
 
   return (
