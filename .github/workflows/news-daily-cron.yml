@@ -45,6 +45,56 @@ jobs:
             { key: "nutrition",     nameEn: "Nutrition & Wellness",       nameAr: "التغذية والعافية",          icon: "Apple" },
           ];
 
+          // RSS feeds mapped to each category for real-world news context
+          const CATEGORY_RSS = {
+            technology:    ["https://feeds.bbci.co.uk/news/technology/rss.xml", "https://techcrunch.com/feed/"],
+            ai:            ["https://techcrunch.com/category/artificial-intelligence/feed/"],
+            marketplace:   ["https://techcrunch.com/category/e-commerce/feed/", "https://feeds.bbci.co.uk/news/business/rss.xml"],
+            games:         ["https://www.polygon.com/rss/index.xml"],
+            academy:       ["https://feeds.bbci.co.uk/news/education/rss.xml"],
+            health:        ["https://feeds.bbci.co.uk/news/health/rss.xml"],
+            legal:         ["https://feeds.bbci.co.uk/news/politics/rss.xml"],
+            business:      ["https://feeds.bbci.co.uk/news/business/rss.xml"],
+            travel:        ["https://feeds.bbci.co.uk/news/world/rss.xml"],
+            beauty:        ["https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml"],
+            sports:        ["https://feeds.bbci.co.uk/news/sport/rss.xml"],
+            music:         ["https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml"],
+            psychology:    ["https://feeds.bbci.co.uk/news/health/rss.xml"],
+            community:     ["https://feeds.bbci.co.uk/news/world/rss.xml"],
+            accessibility: ["https://feeds.bbci.co.uk/news/health/rss.xml"],
+            platform:      ["https://techcrunch.com/feed/"],
+            entertainment: ["https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml"],
+            nutrition:     ["https://feeds.bbci.co.uk/news/health/rss.xml"],
+          };
+
+          // Fetch real headlines from RSS feeds (no API key needed)
+          async function fetchHeadlines(urls, max = 5) {
+            const headlines = [];
+            for (const url of urls) {
+              try {
+                const res = await fetch(url, {
+                  headers: { "User-Agent": "VisionexNews/1.0" },
+                  signal: AbortSignal.timeout(7000),
+                });
+                if (!res.ok) continue;
+                const xml = await res.text();
+                // Match <title> tags inside <item> blocks
+                const matches = [...xml.matchAll(/<item>[\s\S]*?<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/g)];
+                for (const m of matches) {
+                  const t = m[1].trim()
+                    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+                    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+                    .replace(/<[^>]+>/g, "");
+                  if (t.length > 15 && t.length < 300) headlines.push(t);
+                  if (headlines.length >= max) return headlines;
+                }
+              } catch {
+                // ignore failed feeds, try next
+              }
+            }
+            return headlines;
+          }
+
           async function openaiCall(prompt, maxTokens) {
             const res = await fetch("https://api.openai.com/v1/chat/completions", {
               method: "POST",
@@ -53,7 +103,7 @@ jobs:
                 model: "gpt-4o-mini",
                 messages: [{ role: "user", content: prompt }],
                 response_format: { type: "json_object" },
-                temperature: 0.5,
+                temperature: 0.4,
                 max_tokens: maxTokens,
               }),
             });
@@ -67,35 +117,65 @@ jobs:
             const now = new Date();
             const dateEn = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
-            const categoryList = CATEGORIES.map(c => `"${c.key}": ${c.nameEn} / ${c.nameAr}`).join("\n");
+            // Step 0: Fetch real-world headlines from RSS for all categories in parallel
+            console.log("Step 0: Fetching real-world headlines from RSS feeds...");
+            const headlineMap = {};
+            await Promise.all(
+              CATEGORIES.map(async (cat) => {
+                const urls = CATEGORY_RSS[cat.key] ?? ["https://feeds.bbci.co.uk/news/world/rss.xml"];
+                headlineMap[cat.key] = await fetchHeadlines(urls, 5);
+              })
+            );
 
-            // Call 1: Generate EN + AR
-            console.log("Step 1: Generating EN+AR articles...");
+            const totalHeadlines = Object.values(headlineMap).reduce((s, h) => s + h.length, 0);
+            console.log(`Fetched ${totalHeadlines} real headlines across ${CATEGORIES.length} categories`);
+            for (const cat of CATEGORIES) {
+              const hs = headlineMap[cat.key] ?? [];
+              if (hs.length > 0) console.log(`  [${cat.key}] ${hs[0]}`);
+            }
+
+            // Build category list with real headlines embedded as context
+            const categoryList = CATEGORIES.map(c => {
+              const hs = headlineMap[c.key] ?? [];
+              const context = hs.length > 0
+                ? `\n  Real headlines from today: ${hs.slice(0, 4).join(" | ")}`
+                : "";
+              return `"${c.key}": ${c.nameEn} / ${c.nameAr}${context}`;
+            }).join("\n\n");
+
+            // Step 1: Generate EN + AR articles grounded in real news
+            console.log("Step 1: Generating EN+AR articles grounded in real headlines...");
             const prompt1 = `You are a professional news editor for Visionex, a multilingual tech platform. Today is ${dateEn}.
 
-          Write one informative news article per category in BOTH English and Arabic.
+Write one news article per category. Each article MUST be based on the "Real headlines from today" provided — report on what is ACTUALLY happening in the world right now.
 
-          Categories:
-          ${categoryList}
+Rules:
+- If real headlines are listed for a category, your article MUST cover those actual events
+- Do NOT invent or fabricate news stories
+- If no headlines are available for a category, write a factual educational piece grounded in that topic
+- Journalistic, neutral, informative tone
 
-          Return ONLY this JSON (no extra text):
-          {
-            "articles": [
-              {
-                "category": "technology",
-                "en": { "title": "5-10 word title", "description": "15-30 word summary", "content": "2-3 paragraph article body, 120-200 words" },
-                "ar": { "title": "عنوان 5-10 كلمات", "description": "ملخص 15-30 كلمة", "content": "نص المقال فقرتان أو ثلاث، 120-200 كلمة" }
-              }
-            ]
-          }
+Categories with today's real-world context:
+${categoryList}
 
-          Write one article for each of the 18 categories. Journalistic, neutral, informative tone.`;
+Return ONLY this JSON (no extra text):
+{
+  "articles": [
+    {
+      "category": "technology",
+      "en": { "title": "5-10 word title", "description": "15-30 word summary", "content": "2-3 paragraph article body, 120-200 words" },
+      "ar": { "title": "عنوان 5-10 كلمات", "description": "ملخص 15-30 كلمة", "content": "نص المقال فقرتان أو ثلاث، 120-200 كلمة" }
+    }
+  ]
+}
+
+Write one article for each of the 18 categories listed above.`;
 
             const enArArticles = await openaiCall(prompt1, 16000);
             const valid = enArArticles.filter(a => CATEGORIES.some(c => c.key === a.category) && a.en?.title && a.ar?.title);
             console.log(`Generated ${valid.length} valid articles`);
 
-            // Call 2: Translate to 9 more languages
+            // Step 2: Translate to 9 more languages
             console.log("Step 2: Translating to 9 languages...");
             let extraTranslations = {};
             try {
