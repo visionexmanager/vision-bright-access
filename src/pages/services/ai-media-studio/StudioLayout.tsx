@@ -27,6 +27,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { WalletCard } from "./components/billing/WalletCard";
 import { TrialBanner } from "./components/billing/TrialBanner";
 import { useBillingInit } from "@/hooks/useBilling";
+import { FreeAccessBanner } from "@/components/FreeAccessBanner";
 
 interface NavItem {
   label: string;
@@ -65,7 +66,9 @@ export function StudioLayout({ children }: StudioLayoutProps) {
   return (
     <Layout>
       <div className="flex flex-col min-h-[calc(100vh-4rem)]">
-        {/* Trial countdown banner (only shows when trial < 24h) */}
+        {/* Free access banner (admin always free; new users free for 30 days) */}
+        <FreeAccessBanner serviceName="AI Media Studio" />
+        {/* Trial countdown banner (only shows when trial < 24h and not admin/new-user) */}
         <TrialBanner onUpgrade={() => navigate("/services/ai-media-studio/billing")} />
 
       <div className="flex flex-1">

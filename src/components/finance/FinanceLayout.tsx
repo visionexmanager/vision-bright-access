@@ -3,6 +3,7 @@ import { FinanceProvider } from "@/contexts/FinanceContext";
 import { FinanceSidebar } from "./FinanceSidebar";
 import { FinanceTopBar } from "./FinanceTopBar";
 import { FinanceBreadcrumbs } from "./FinanceBreadcrumbs";
+import { FreeAccessBanner } from "@/components/FreeAccessBanner";
 import "./FinanceDesignTokens.css";
 
 interface FinanceLayoutProps {
@@ -21,6 +22,9 @@ export function FinanceLayout({ children }: FinanceLayoutProps) {
         >
           Skip to main content
         </a>
+
+        {/* Free access banner (admin / new user 30-day period) */}
+        <FreeAccessBanner serviceName="Visionex Finance" />
 
         {/* Top bar */}
         <FinanceTopBar />
