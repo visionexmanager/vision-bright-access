@@ -15,9 +15,9 @@ jobs:
     steps:
       - name: Generate articles via OpenAI & save to Supabase
         env:
-          OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
-          SUPABASE_URL:    ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY:    ${{ secrets.CRON_SECRET }}
+          OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:         ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           node - <<'EOF'
           const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
