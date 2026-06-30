@@ -82,6 +82,7 @@ export function Navbar() {
     { to: "/services", label: t("nav.services") },
     { to: "/finance", label: t("nav.finance") },
     { to: "/services/ai-media-studio", label: t("nav.aiStudio") },
+    { to: "/services/file-studio", label: t("nav.fileConverter") },
     { to: "/content", label: t("nav.content") },
     { to: "/games", label: t("nav.games") },
     { to: "/news", label: t("nav.news") },
@@ -115,6 +116,7 @@ export function Navbar() {
     {
       label: t("nav.more"),
       links: [
+        { to: "/services/file-studio", label: t("nav.fileConverter") },
         { to: "/professional-tools", label: t("nav.professionalTools") },
         { to: "/news", label: t("nav.news") },
         { to: "/contact-us", label: t("nav.contact") },

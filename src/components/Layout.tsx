@@ -32,6 +32,7 @@ const FOOTER_LINKS = {
   ],
   more: [
     { to: "/professional-tools",      labelKey: "footer.link.professionalTools" },
+    { to: "/services/file-studio",    labelKey: "footer.link.fileConverter" },
     { to: "/community",               labelKey: "footer.link.community" },
     { to: "/leaderboard",             labelKey: "footer.link.leaderboard" },
     { to: "/assistive-products",      labelKey: "footer.link.assistiveProducts" },

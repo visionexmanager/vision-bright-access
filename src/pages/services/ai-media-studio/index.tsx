@@ -114,8 +114,7 @@ export default function AIMediaStudioDashboard() {
                 Welcome back, {displayName} 👋
               </h1>
               <p className="text-muted-foreground max-w-lg">
-                Your creative AI workspace. Build, manage, and organize media projects.
-                AI generation engines are coming soon.
+                Your creative AI workspace. Build, manage, and organize media projects with Speech, Voice, Video, and Image AI tools.
               </p>
             </div>
             <div className="flex gap-3 shrink-0">

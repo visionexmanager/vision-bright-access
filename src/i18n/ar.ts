@@ -2436,6 +2436,8 @@ export const translations: Record<string, string> = {
   "footer.link.professionalTools": "الأدوات المهنية",
   "footer.link.academy": "الأكاديمية",
   "footer.link.community": "المجتمع",
+  "footer.link.fileConverter": "محوّل الملفات",
+  "nav.fileConverter": "محوّل الملفات",
   "footer.link.voiceRooms": "الغرف الصوتية",
   "footer.link.liveTV": "VisionEx TV",
   "footer.link.liveRadio": "VisionEx Radio",

@@ -2435,6 +2435,8 @@ export const translations: Record<string, string> = {
   "footer.link.termsOfUse": "Terms of Use",
   "footer.link.communityGuidelines": "Community Guidelines",
   "footer.link.marketplacePolicy": "Marketplace Policy",
+  "footer.link.fileConverter": "File Converter",
+  "nav.fileConverter": "File Converter",
   "footer.link.accessibility": "Accessibility",
   "footer.link.legalDisclaimer": "Legal Disclaimer",
   "cookie.label": "Cookie consent",
