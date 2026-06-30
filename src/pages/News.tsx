@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   Newspaper, Cpu, Accessibility, Brain, Globe, Rocket, ShoppingBag, RefreshCw,
   Gamepad2, GraduationCap, Heart, Scale, TrendingUp, Plane, Sparkles,
-  Trophy, Music, SmilePlus, Tv, Apple,
+  Trophy, Music, SmilePlus, Tv, Apple, DollarSign, Landmark,
 } from "lucide-react";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import newsImg from "@/assets/news-illustration.jpg";
@@ -26,7 +26,7 @@ const DATE_LOCALES: Record<string, Locale> = {
 const ICON_MAP: Record<string, React.ElementType> = {
   Cpu, Accessibility, Brain, Globe, Rocket, ShoppingBag, Newspaper,
   Gamepad2, GraduationCap, Heart, Scale, TrendingUp, Plane, Sparkles,
-  Trophy, Music, SmilePlus, Tv, Apple,
+  Trophy, Music, SmilePlus, Tv, Apple, DollarSign, Landmark,
 };
 
 /* ── Category to newsletter topic mapping ── */
@@ -47,8 +47,10 @@ export const CATEGORY_TOPIC: Record<string, string> = {
   sports:        "news-sports",
   music:         "news-music",
   psychology:    "news-psychology",
-  entertainment: "news-entertainment",
-  nutrition:     "news-nutrition",
+  entertainment:  "news-entertainment",
+  nutrition:      "news-nutrition",
+  world_economy:  "news-world-economy",
+  world_politics: "news-world-politics",
 };
 
 /* ── Static fallback (shown when DB has no articles yet) ── */

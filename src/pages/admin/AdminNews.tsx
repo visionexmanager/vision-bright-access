@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Plus, Pencil, Trash2, Send, Newspaper, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Send, Newspaper, CheckCircle2, Eye, EyeOff, DollarSign, Landmark } from "lucide-react";
 import { CATEGORY_TOPIC } from "@/pages/News";
 
 type Article = {
@@ -52,9 +52,11 @@ const CATEGORIES = [
   { value: "psychology",    label: "Psychology & Mental Health" },
   { value: "community",     label: "Community" },
   { value: "accessibility", label: "Accessibility" },
-  { value: "entertainment", label: "Live TV & Radio" },
-  { value: "nutrition",     label: "Nutrition & Wellness" },
-  { value: "platform",      label: "Platform Updates" },
+  { value: "entertainment",  label: "Live TV & Radio" },
+  { value: "nutrition",      label: "Nutrition & Wellness" },
+  { value: "platform",       label: "Platform Updates" },
+  { value: "world_economy",  label: "World Economy" },
+  { value: "world_politics", label: "World Politics" },
 ];
 
 const ICONS = [
@@ -76,7 +78,9 @@ const ICONS = [
   { value: "Tv",            label: "Entertainment" },
   { value: "Apple",         label: "Nutrition" },
   { value: "Rocket",        label: "Platform" },
-  { value: "Newspaper",     label: "General News" },
+  { value: "DollarSign",   label: "World Economy" },
+  { value: "Landmark",     label: "World Politics" },
+  { value: "Newspaper",    label: "General News" },
 ];
 
 function buildEmailHTML(article: Article): string {

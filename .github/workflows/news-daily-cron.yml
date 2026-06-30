@@ -41,8 +41,10 @@ jobs:
             { key: "community",     nameEn: "Community & Social",         nameAr: "المجتمع والتواصل",         icon: "Globe" },
             { key: "accessibility", nameEn: "Accessibility",              nameAr: "إمكانية الوصول",           icon: "Accessibility" },
             { key: "platform",      nameEn: "Platform Updates",           nameAr: "تحديثات المنصة",           icon: "Rocket" },
-            { key: "entertainment", nameEn: "Live TV & Radio",            nameAr: "البث المباشر والترفيه",     icon: "Tv" },
-            { key: "nutrition",     nameEn: "Nutrition & Wellness",       nameAr: "التغذية والعافية",          icon: "Apple" },
+            { key: "entertainment",  nameEn: "Live TV & Radio",            nameAr: "البث المباشر والترفيه",     icon: "Tv" },
+            { key: "nutrition",      nameEn: "Nutrition & Wellness",       nameAr: "التغذية والعافية",          icon: "Apple" },
+            { key: "world_economy",  nameEn: "World Economy",              nameAr: "الاقتصاد العالمي",          icon: "DollarSign" },
+            { key: "world_politics", nameEn: "World Politics",             nameAr: "السياسة العالمية",          icon: "Landmark" },
           ];
 
           // RSS feeds mapped to each category for real-world news context
@@ -63,8 +65,10 @@ jobs:
             community:     ["https://feeds.bbci.co.uk/news/world/rss.xml"],
             accessibility: ["https://feeds.bbci.co.uk/news/health/rss.xml"],
             platform:      ["https://techcrunch.com/feed/"],
-            entertainment: ["https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml"],
-            nutrition:     ["https://feeds.bbci.co.uk/news/health/rss.xml"],
+            entertainment:  ["https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml"],
+            nutrition:      ["https://feeds.bbci.co.uk/news/health/rss.xml"],
+            world_economy:  ["https://feeds.bbci.co.uk/news/business/rss.xml", "https://feeds.reuters.com/reuters/businessNews"],
+            world_politics: ["https://feeds.bbci.co.uk/news/politics/rss.xml", "https://feeds.reuters.com/reuters/worldNews", "https://www.aljazeera.com/xml/rss/all.xml"],
           };
 
           // Fetch real headlines from RSS feeds (no API key needed)
