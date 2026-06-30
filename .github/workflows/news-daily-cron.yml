@@ -149,31 +149,25 @@ jobs:
 
             // Step 1: Generate EN + AR articles grounded in real news
             console.log("Step 1: Generating EN+AR articles grounded in real headlines...");
-            const prompt1 = `You are a professional news editor for Visionex, a multilingual tech platform. Today is ${dateEn}.
-
-Write one news article per category. Each article MUST be based on the "Real headlines from today" provided — report on what is ACTUALLY happening in the world right now.
-
-Rules:
-- If real headlines are listed for a category, your article MUST cover those actual events
-- Do NOT invent or fabricate news stories
-- If no headlines are available for a category, write a factual educational piece grounded in that topic
-- Journalistic, neutral, informative tone
-
-Categories with today's real-world context:
-${categoryList}
-
-Return ONLY this JSON (no extra text):
-{
-  "articles": [
-    {
-      "category": "technology",
-      "en": { "title": "5-10 word title", "description": "15-30 word summary", "content": "2-3 paragraph article body, 120-200 words" },
-      "ar": { "title": "عنوان 5-10 كلمات", "description": "ملخص 15-30 كلمة", "content": "نص المقال فقرتان أو ثلاث، 120-200 كلمة" }
-    }
-  ]
-}
-
-Write one article for each of the 18 categories listed above.`;
+            const prompt1 = [
+              `You are a professional news editor for Visionex, a multilingual tech platform. Today is ${dateEn}.`,
+              ``,
+              `Write one news article per category. Each article MUST be based on the "Real headlines from today" provided — report on what is ACTUALLY happening in the world right now.`,
+              ``,
+              `Rules:`,
+              `- If real headlines are listed for a category, your article MUST cover those actual events`,
+              `- Do NOT invent or fabricate news stories`,
+              `- If no headlines are available for a category, write a factual educational piece grounded in that topic`,
+              `- Journalistic, neutral, informative tone`,
+              ``,
+              `Categories with today's real-world context:`,
+              categoryList,
+              ``,
+              `Return ONLY this JSON (no extra text):`,
+              `{"articles":[{"category":"technology","en":{"title":"5-10 word title","description":"15-30 word summary","content":"2-3 paragraph article body, 120-200 words"},"ar":{"title":"عنوان","description":"ملخص","content":"نص المقال"}}]}`,
+              ``,
+              `Write one article for each of the 18 categories listed above.`,
+            ].join("\n");
 
             const enArArticles = await openaiCall(prompt1, 16000);
             const valid = enArArticles.filter(a => CATEGORIES.some(c => c.key === a.category) && a.en?.title && a.ar?.title);
