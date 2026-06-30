@@ -33,7 +33,7 @@ export const translations: Record<string, string> = {
   "legalCenter.desc.ai": "How AI features work, their limits, and safe usage.",
   "legalCenter.desc.enforcement": "Enforcement levels, appeals process, and timelines.",
   "nav.home": "Home",
-  "nav.finance": "Finance",
+  "nav.finance": "VX Finance Hub",
   "nav.aiStudio": "AI Studio",
   "nav.more": "More",
   "nav.explore": "Explore",
@@ -2416,7 +2416,7 @@ export const translations: Record<string, string> = {
   "footer.link.home": "Home",
   "footer.link.bazaar": "VXBazaar",
   "footer.link.services": "Services",
-  "footer.link.finance": "Finance",
+  "footer.link.finance": "VX Finance Hub",
   "footer.link.aiStudio": "AI Studio",
   "footer.link.content": "Content",
   "footer.link.games": "Games",
@@ -5739,7 +5739,7 @@ export const translations: Record<string, string> = {
   "vroom.conversationMode": "Conversation room",
 
   /* ── Visionex Finance ─────────────────────────────────────────────── */
-  "finance.title": "VX Finance",
+  "finance.title": "VX Finance Hub",
   "finance.searchPlaceholder": "Search symbols, markets…",
   "finance.searchLabel": "Search financial instruments",
   "finance.alerts": "Market alerts",
