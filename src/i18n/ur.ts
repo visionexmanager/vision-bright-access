@@ -5731,6 +5731,26 @@ export const translations: Record<string, string> = {
   "ai.cap.quantityPlaceholder": "نمونہ، 100 یونٹس، کنٹینر...",
   "ai.cap.estimatedBudget": "تخمینہ شدہ بجٹ",
   "ai.cap.estimatedBudgetPlaceholder": "تخمینی بجٹ یا قیمت کا ہدف",
+
+  /* ── Visionex Finance ─────────────────────────────────────────────── */
+  "finance.title": "VX فنانس",
+  "finance.searchPlaceholder": "علامات، بازار تلاش کریں…",
+  "finance.searchLabel": "مالی آلات تلاش کریں",
+  "finance.alerts": "مارکیٹ الرٹس",
+  "finance.settings": "فنانس ترتیبات",
+  "finance.nav.dashboard": "ڈیش بورڈ",
+  "finance.nav.markets": "بازار",
+  "finance.nav.stocks": "حصص",
+  "finance.nav.currencies": "کرنسیاں",
+  "finance.nav.commodities": "اجناس",
+  "finance.nav.portfolio": "پورٹ فولیو",
+  "finance.nav.watchlist": "واچ لسٹ",
+  "finance.nav.aiAnalyst": "AI تجزیہ کار",
+  "finance.nav.calendar": "اقتصادی کیلنڈر",
+  "finance.nav.news": "مارکیٹ خبریں",
+  "finance.nav.brokers": "بروکر موازنہ",
+  "finance.nav.affiliate": "ایفیلیٹ سینٹر",
+  "finance.nav.academy": "فنانس اکادمی",
 };
 
 export default translations;

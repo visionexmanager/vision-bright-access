@@ -5731,6 +5731,26 @@ export const translations: Record<string, string> = {
   "sim.skincare.aiTitle": "تحليل صورة البشرة بالذكاء الاصطناعي",
   "sim.skincare.aiHint": "ارفع صورة واضحة ومضاءة جيداً للحصول على ملاحظات تجميلية عامة وروتين مقترح. لا يغني ذلك عن طبيب الجلدية.",
   "vroom.conversationMode": "غرفة محادثة",
+
+  /* ── Visionex Finance ─────────────────────────────────────────────── */
+  "finance.title": "VX للتمويل",
+  "finance.searchPlaceholder": "ابحث عن رموز، أسواق…",
+  "finance.searchLabel": "البحث في الأدوات المالية",
+  "finance.alerts": "تنبيهات السوق",
+  "finance.settings": "إعدادات التمويل",
+  "finance.nav.dashboard": "لوحة التحكم",
+  "finance.nav.markets": "الأسواق",
+  "finance.nav.stocks": "الأسهم",
+  "finance.nav.currencies": "العملات",
+  "finance.nav.commodities": "السلع",
+  "finance.nav.portfolio": "المحفظة",
+  "finance.nav.watchlist": "قائمة المتابعة",
+  "finance.nav.aiAnalyst": "محلل الذكاء الاصطناعي",
+  "finance.nav.calendar": "التقويم الاقتصادي",
+  "finance.nav.news": "أخبار السوق",
+  "finance.nav.brokers": "مقارنة الوسطاء",
+  "finance.nav.affiliate": "مركز الشراكة",
+  "finance.nav.academy": "أكاديمية التمويل",
 };
 
 export default translations;

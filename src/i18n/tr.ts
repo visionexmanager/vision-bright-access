@@ -5731,6 +5731,26 @@ export const translations: Record<string, string> = {
   "ai.cap.quantityPlaceholder": "Numune, 100 adet, konteyner...",
   "ai.cap.estimatedBudget": "Tahmini bütçe",
   "ai.cap.estimatedBudgetPlaceholder": "Yaklaşık bütçe veya fiyat hedefi",
+
+  /* ── Visionex Finance ─────────────────────────────────────────────── */
+  "finance.title": "VX Finans",
+  "finance.searchPlaceholder": "Sembol, piyasa ara…",
+  "finance.searchLabel": "Finansal enstrüman ara",
+  "finance.alerts": "Piyasa uyarıları",
+  "finance.settings": "Finans ayarları",
+  "finance.nav.dashboard": "Gösterge paneli",
+  "finance.nav.markets": "Piyasalar",
+  "finance.nav.stocks": "Hisseler",
+  "finance.nav.currencies": "Dövizler",
+  "finance.nav.commodities": "Emtialar",
+  "finance.nav.portfolio": "Portföy",
+  "finance.nav.watchlist": "İzleme listesi",
+  "finance.nav.aiAnalyst": "AI Analist",
+  "finance.nav.calendar": "Ekonomik takvim",
+  "finance.nav.news": "Piyasa haberleri",
+  "finance.nav.brokers": "Broker karşılaştırma",
+  "finance.nav.affiliate": "Ortaklık merkezi",
+  "finance.nav.academy": "Finans akademisi",
 };
 
 export default translations;

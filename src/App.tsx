@@ -298,14 +298,15 @@ function AppRoutes() {
                     <Route path="/finance/markets/stocks" element={<FinanceStocks />} />
                     <Route path="/finance/markets/currencies" element={<FinanceCurrencies />} />
                     <Route path="/finance/markets/commodities" element={<FinanceCommodities />} />
-                    <Route path="/finance/portfolio" element={<FinancePortfolio />} />
-                    <Route path="/finance/watchlist" element={<FinanceWatchlist />} />
-                    <Route path="/finance/ai-analyst" element={<FinanceAIAnalyst />} />
+                    <Route path="/finance/portfolio" element={<AuthGuard><FinancePortfolio /></AuthGuard>} />
+                    <Route path="/finance/watchlist" element={<AuthGuard><FinanceWatchlist /></AuthGuard>} />
+                    <Route path="/finance/ai-analyst" element={<AuthGuard><FinanceAIAnalyst /></AuthGuard>} />
                     <Route path="/finance/calendar" element={<FinanceCalendar />} />
                     <Route path="/finance/news" element={<FinanceNews />} />
-                    <Route path="/finance/affiliate" element={<FinanceAffiliate />} />
+                    <Route path="/finance/affiliate" element={<AuthGuard><FinanceAffiliate /></AuthGuard>} />
                     <Route path="/finance/brokers" element={<FinanceBrokers />} />
                     <Route path="/finance/academy" element={<FinanceAcademy />} />
+                    <Route path="/finance/settings" element={<Navigate to="/settings" replace />} />
                     {/* Legal — all policies accessible through /legal (LegalCenter) */}
                     <Route path="/legal" element={<LegalCenter />} />
                     <Route path="/privacy-policy"        element={<Navigate to="/legal" replace />} />

@@ -5731,6 +5731,26 @@ export const translations: Record<string, string> = {
   "ai.cap.quantityPlaceholder": "样品，100 个单位，容器...",
   "ai.cap.estimatedBudget": "预计预算",
   "ai.cap.estimatedBudgetPlaceholder": "大致预算或价格目标",
+
+  /* ── Visionex Finance ─────────────────────────────────────────────── */
+  "finance.title": "VX 金融",
+  "finance.searchPlaceholder": "搜索股票代码、市场…",
+  "finance.searchLabel": "搜索金融工具",
+  "finance.alerts": "市场提醒",
+  "finance.settings": "金融设置",
+  "finance.nav.dashboard": "仪表板",
+  "finance.nav.markets": "市场",
+  "finance.nav.stocks": "股票",
+  "finance.nav.currencies": "货币",
+  "finance.nav.commodities": "大宗商品",
+  "finance.nav.portfolio": "投资组合",
+  "finance.nav.watchlist": "自选股",
+  "finance.nav.aiAnalyst": "AI分析师",
+  "finance.nav.calendar": "经济日历",
+  "finance.nav.news": "市场新闻",
+  "finance.nav.brokers": "经纪商对比",
+  "finance.nav.affiliate": "联盟中心",
+  "finance.nav.academy": "金融学院",
 };
 
 export default translations;

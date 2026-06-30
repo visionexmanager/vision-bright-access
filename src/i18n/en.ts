@@ -5731,6 +5731,26 @@ export const translations: Record<string, string> = {
   "sim.skincare.aiTitle": "AI skin-care photo assessment",
   "sim.skincare.aiHint": "Upload a clear, well-lit photo for general cosmetic observations and a suggested routine. This does not replace a dermatologist.",
   "vroom.conversationMode": "Conversation room",
+
+  /* ── Visionex Finance ─────────────────────────────────────────────── */
+  "finance.title": "VX Finance",
+  "finance.searchPlaceholder": "Search symbols, markets…",
+  "finance.searchLabel": "Search financial instruments",
+  "finance.alerts": "Market alerts",
+  "finance.settings": "Finance settings",
+  "finance.nav.dashboard": "Dashboard",
+  "finance.nav.markets": "Markets",
+  "finance.nav.stocks": "Stocks",
+  "finance.nav.currencies": "Currencies",
+  "finance.nav.commodities": "Commodities",
+  "finance.nav.portfolio": "Portfolio",
+  "finance.nav.watchlist": "Watchlist",
+  "finance.nav.aiAnalyst": "AI Analyst",
+  "finance.nav.calendar": "Economic Calendar",
+  "finance.nav.news": "Market News",
+  "finance.nav.brokers": "Broker Comparison",
+  "finance.nav.affiliate": "Affiliate Center",
+  "finance.nav.academy": "Finance Academy",
 };
 
 export default translations;

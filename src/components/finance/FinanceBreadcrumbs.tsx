@@ -16,7 +16,6 @@ const LABELS: Record<string, string> = {
   affiliate: "Affiliate Center",
   brokers: "Broker Comparison",
   academy: "Finance Academy",
-  settings: "Settings",
 };
 
 export function FinanceBreadcrumbs() {

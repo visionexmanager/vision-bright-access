@@ -5731,6 +5731,26 @@ export const translations: Record<string, string> = {
   "ai.cap.quantityPlaceholder": "नमूना, 100 इकाइयाँ, कंटेनर...",
   "ai.cap.estimatedBudget": "अनुमानित बजट",
   "ai.cap.estimatedBudgetPlaceholder": "अनुमानित बजट या मूल्य लक्ष्य",
+
+  /* ── Visionex Finance ─────────────────────────────────────────────── */
+  "finance.title": "VX वित्त",
+  "finance.searchPlaceholder": "प्रतीक, बाज़ार खोजें…",
+  "finance.searchLabel": "वित्तीय साधन खोजें",
+  "finance.alerts": "बाज़ार अलर्ट",
+  "finance.settings": "वित्त सेटिंग्स",
+  "finance.nav.dashboard": "डैशबोर्ड",
+  "finance.nav.markets": "बाज़ार",
+  "finance.nav.stocks": "शेयर",
+  "finance.nav.currencies": "मुद्राएँ",
+  "finance.nav.commodities": "वस्तुएँ",
+  "finance.nav.portfolio": "पोर्टफोलियो",
+  "finance.nav.watchlist": "वॉचलिस्ट",
+  "finance.nav.aiAnalyst": "AI विश्लेषक",
+  "finance.nav.calendar": "आर्थिक कैलेंडर",
+  "finance.nav.news": "बाज़ार समाचार",
+  "finance.nav.brokers": "ब्रोकर तुलना",
+  "finance.nav.affiliate": "एफिलिएट केंद्र",
+  "finance.nav.academy": "वित्त अकादमी",
 };
 
 export default translations;

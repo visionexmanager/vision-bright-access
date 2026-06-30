@@ -5731,6 +5731,26 @@ export const translations: Record<string, string> = {
   "ai.cap.quantityPlaceholder": "Образец, 100 шт, контейнер...",
   "ai.cap.estimatedBudget": "Ориентировочный бюджет",
   "ai.cap.estimatedBudgetPlaceholder": "Приблизительный бюджет или целевая цена",
+
+  /* ── Visionex Finance ─────────────────────────────────────────────── */
+  "finance.title": "VX Финансы",
+  "finance.searchPlaceholder": "Поиск символов, рынков…",
+  "finance.searchLabel": "Поиск финансовых инструментов",
+  "finance.alerts": "Рыночные оповещения",
+  "finance.settings": "Настройки финансов",
+  "finance.nav.dashboard": "Панель управления",
+  "finance.nav.markets": "Рынки",
+  "finance.nav.stocks": "Акции",
+  "finance.nav.currencies": "Валюты",
+  "finance.nav.commodities": "Сырьё",
+  "finance.nav.portfolio": "Портфель",
+  "finance.nav.watchlist": "Список наблюдения",
+  "finance.nav.aiAnalyst": "ИИ-аналитик",
+  "finance.nav.calendar": "Экономический календарь",
+  "finance.nav.news": "Новости рынка",
+  "finance.nav.brokers": "Сравнение брокеров",
+  "finance.nav.affiliate": "Партнёрский центр",
+  "finance.nav.academy": "Финансовая академия",
 };
 
 export default translations;

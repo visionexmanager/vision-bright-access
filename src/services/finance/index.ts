@@ -7,6 +7,7 @@ import type {
   MarketQuote,
   Portfolio,
   Watchlist,
+  WatchlistItem,
   EconomicEvent,
   MarketNewsArticle,
   BrokerInfo,
@@ -70,6 +71,32 @@ export async function fetchWatchlists(userId: string): Promise<Watchlist[]> {
 export async function fetchWatchlist(id: string): Promise<Watchlist | null> {
   void id;
   return null;
+}
+
+export async function createWatchlist(
+  userId: string,
+  name: string
+): Promise<Watchlist | null> {
+  void userId;
+  void name;
+  return null;
+}
+
+export async function addWatchlistItem(
+  watchlistId: string,
+  item: Pick<WatchlistItem, "symbol" | "name" | "assetClass">
+): Promise<WatchlistItem | null> {
+  void watchlistId;
+  void item;
+  return null;
+}
+
+export async function removeWatchlistItem(
+  watchlistId: string,
+  itemId: string
+): Promise<void> {
+  void watchlistId;
+  void itemId;
 }
 
 // ── Economic Calendar ─────────────────────────────────────────────────────────

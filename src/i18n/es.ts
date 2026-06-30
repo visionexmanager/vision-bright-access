@@ -5731,6 +5731,26 @@ export const translations: Record<string, string> = {
   "ai.cap.quantityPlaceholder": "Muestra, 100 unidades, envase...",
   "ai.cap.estimatedBudget": "Presupuesto estimado",
   "ai.cap.estimatedBudgetPlaceholder": "Presupuesto aproximado o precio objetivo",
+
+  /* ── Visionex Finance ─────────────────────────────────────────────── */
+  "finance.title": "VX Finance",
+  "finance.searchPlaceholder": "Buscar símbolos, mercados…",
+  "finance.searchLabel": "Buscar instrumentos financieros",
+  "finance.alerts": "Alertas de mercado",
+  "finance.settings": "Ajustes de finanzas",
+  "finance.nav.dashboard": "Panel",
+  "finance.nav.markets": "Mercados",
+  "finance.nav.stocks": "Acciones",
+  "finance.nav.currencies": "Divisas",
+  "finance.nav.commodities": "Materias primas",
+  "finance.nav.portfolio": "Cartera",
+  "finance.nav.watchlist": "Lista de seguimiento",
+  "finance.nav.aiAnalyst": "Analista IA",
+  "finance.nav.calendar": "Calendario económico",
+  "finance.nav.news": "Noticias del mercado",
+  "finance.nav.brokers": "Comparar brókers",
+  "finance.nav.affiliate": "Centro de afiliados",
+  "finance.nav.academy": "Academia financiera",
 };
 
 export default translations;
