@@ -8,7 +8,7 @@ import { useGameSounds } from "@/hooks/useGameSounds";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import heroImg from "@/assets/game-tactical.jpg";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
@@ -211,6 +211,7 @@ function TacticalMulti() {
   const [combo, setCombo] = useState(0);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
   const [finished, setFinished] = useState(false);
+  const refreshCountRef = useRef(0);
   const [lastHit, setLastHit] = useState<number | null>(null);
   const [lastMiss, setLastMiss] = useState<number | null>(null);
 
@@ -240,7 +241,11 @@ function TacticalMulti() {
 
   useEffect(() => {
     if (mp.status === "playing" && !finished) {
-      const i = setInterval(() => setGrid(buildGrid(seed + Date.now())), GRID_REFRESH_MS);
+      refreshCountRef.current = 0;
+      const i = setInterval(() => {
+        refreshCountRef.current += 1;
+        setGrid(buildGrid(seed * 10_000 + refreshCountRef.current));
+      }, GRID_REFRESH_MS);
       return () => clearInterval(i);
     }
   }, [mp.status, finished, seed]);
