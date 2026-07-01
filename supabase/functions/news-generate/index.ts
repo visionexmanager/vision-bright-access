@@ -369,7 +369,7 @@ Deno.serve(async (req: Request) => {
   // ── 5. Send newsletter digests ────────────────────────────────────────────
   const resendKey = Deno.env.get("RESEND_API_KEY");
   if (!resendKey) {
-    return Response.json({ generated: rows.length, emailsSent: 0, note: "RESEND_API_KEY not configured" }, { headers: CORS });
+    return Response.json({ generated: articles.length, emailsSent: 0, note: "RESEND_API_KEY not configured" }, { headers: CORS });
   }
 
   const { data: subscribers } = await supabase
@@ -377,7 +377,7 @@ Deno.serve(async (req: Request) => {
     .select("email, topics, lang");
 
   if (!subscribers?.length) {
-    return Response.json({ generated: rows.length, emailsSent: 0 }, { headers: CORS });
+    return Response.json({ generated: articles.length, emailsSent: 0 }, { headers: CORS });
   }
 
   const FROM = Deno.env.get("RESEND_FROM") ?? "Visionex News <news@visionex.app>";
@@ -434,5 +434,5 @@ Deno.serve(async (req: Request) => {
   }
 
   console.log(`[news-generate] emails sent=${emailsSent} failed=${emailsFailed}`);
-  return Response.json({ generated: rows.length, emailsSent, emailsFailed, date: now.toISOString().split("T")[0] }, { headers: CORS });
+  return Response.json({ generated: articles.length, emailsSent, emailsFailed, date: now.toISOString().split("T")[0] }, { headers: CORS });
 });

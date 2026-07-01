@@ -123,7 +123,7 @@ export default function News() {
 
         {/* Category filter */}
         {categories.length > 2 && (
-          <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label={t("services.filterLabel")}>
+          <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label={t("news.filterLabel")}>
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -135,7 +135,7 @@ export default function News() {
                     : "border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
                 }`}
               >
-                {cat === "all" ? t("services.catAll") : t(`news.cat.${cat}`) || cat}
+                {cat === "all" ? t("news.catAll") : t(`news.cat.${cat}`) || cat}
               </button>
             ))}
           </div>
@@ -236,7 +236,7 @@ export default function News() {
             <p className="text-muted-foreground">{t("news.empty") || "No news in this category yet."}</p>
             <Button variant="outline" size="sm" onClick={() => setActiveCategory("all")}>
               <RefreshCw className="me-2 h-4 w-4" aria-hidden="true" />
-              {t("services.catAll")}
+              {t("news.catAll")}
             </Button>
           </div>
         )}
