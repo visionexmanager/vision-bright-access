@@ -2,9 +2,9 @@ import { Layout } from "@/components/Layout";
 import { Shield, Eye, Lock, Share2, UserCheck, Bell, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const DATA_COLLECTED = ["account", "marketplace", "vx", "ai", "voice", "community", "technical", "newsletter", "tools", "radar"];
-const DATA_USE = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-const THIRD_PARTIES = ["supabase", "openai", "adsense", "livekit", "resend"];
+const DATA_COLLECTED = ["account", "marketplace", "vx", "ai", "voice", "community", "technical", "newsletter", "tools", "radar", "finance", "payments"];
+const DATA_USE = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const THIRD_PARTIES = ["supabase", "openai", "anthropic", "adsense", "livekit", "resend", "stripe", "coingecko"];
 const USER_RIGHTS = [
   { icon: Eye, key: "access" },
   { icon: UserCheck, key: "correction" },

@@ -117,7 +117,7 @@ export default function MarketplacePolicy() {
         <div className="mb-8 rounded-2xl border bg-card p-6">
           <h2 className="mb-4 text-xl font-bold">{t("legal.market.sellerTitle")}</h2>
           <ul className="space-y-3 text-sm text-muted-foreground">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
+            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
               <li key={i} className="flex items-start gap-2"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />{t(`legal.market.seller.${i}`)}</li>
             ))}
           </ul>
