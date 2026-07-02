@@ -99,6 +99,7 @@ async function renderToBlob(
   buf: AudioBuffer,
   opts: AudioOptions
 ): Promise<Blob> {
+  // Apply gain/normalize via OfflineAudioContext and capture the result
   const offCtx = new OfflineAudioContext(
     buf.numberOfChannels,
     buf.length,
@@ -107,19 +108,18 @@ async function renderToBlob(
   const src = offCtx.createBufferSource();
   src.buffer = buf;
 
-  // Volume normalize (simple gain)
   const gain = offCtx.createGain();
   gain.gain.value = opts.normalize ? 1.2 : 1.0;
   src.connect(gain);
   gain.connect(offCtx.destination);
   src.start();
-  await offCtx.startRendering();
+  const renderedBuffer = await offCtx.startRendering();
 
-  // Get a writable stream via MediaStreamDestination
+  // Re-encode rendered buffer via MediaRecorder
   const ac = new AudioContext();
   const dest = ac.createMediaStreamDestination();
   const srcNode = ac.createBufferSource();
-  srcNode.buffer = buf;
+  srcNode.buffer = renderedBuffer;
   srcNode.connect(dest);
 
   const mimeType = mediaRecorderMime(opts.targetFormat);

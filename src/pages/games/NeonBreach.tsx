@@ -55,8 +55,8 @@ function NeonBreachSolo() {
     if (phase !== "showing" || showIdx < 0) return;
     if (showIdx >= sequence.length) { setPhase("input"); setShowIdx(-1); return; }
     neonBeep();
-    const t = setTimeout(() => setShowIdx((i) => i + 1), 600);
-    return () => clearTimeout(t);
+    const tid = setTimeout(() => setShowIdx((i) => i + 1), 600);
+    return () => clearTimeout(tid);
   }, [phase, showIdx, sequence.length]);
 
   const tap = (idx: number) => {

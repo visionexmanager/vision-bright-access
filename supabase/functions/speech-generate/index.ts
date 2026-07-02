@@ -9,7 +9,7 @@
  * Returns: JSON { ok, job_id, asset_id, audio_base64, mime_type, duration_sec, size_bytes }
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 // ─── Provider Interface ───────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ const CROSS_LINKS = [
 ];
 
 const AI_FEATURES = [
-  "assistant", "academy", "nutrition", "radar", "ocr", "enrich", "meal", "realtime",
+  "assistant", "academy", "nutrition", "radar", "ocr", "enrich", "meal", "realtime", "financeAnalyst",
 ];
 
 const AI_ALLOWED = [1, 2, 3, 4];

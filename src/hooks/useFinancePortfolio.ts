@@ -25,9 +25,12 @@ export function useCreatePortfolio() {
   const { user } = useAuth();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => createPortfolio(user!.id, name),
+    mutationFn: (name: string) => {
+      if (!user?.id) throw new Error("Must be signed in to create a portfolio");
+      return createPortfolio(user.id, name);
+    },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["finance", "portfolios"] });
+      qc.invalidateQueries({ queryKey: ["finance", "portfolios", user?.id] });
     },
   });
 }

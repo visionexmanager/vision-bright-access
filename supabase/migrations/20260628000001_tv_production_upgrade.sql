@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.tv_favorites (
 
 ALTER TABLE public.tv_favorites ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "tv_favorites_user_own" ON public.tv_favorites;
 CREATE POLICY "tv_favorites_user_own"
   ON public.tv_favorites FOR ALL
   TO authenticated
@@ -45,11 +46,13 @@ CREATE TABLE IF NOT EXISTS public.tv_stream_sources (
 
 ALTER TABLE public.tv_stream_sources ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "tv_stream_sources_read_active" ON public.tv_stream_sources;
 CREATE POLICY "tv_stream_sources_read_active"
   ON public.tv_stream_sources FOR SELECT
   TO authenticated
   USING (is_active = TRUE);
 
+DROP POLICY IF EXISTS "tv_stream_sources_admin_all" ON public.tv_stream_sources;
 CREATE POLICY "tv_stream_sources_admin_all"
   ON public.tv_stream_sources FOR ALL
   TO authenticated
@@ -79,6 +82,7 @@ CREATE TABLE IF NOT EXISTS public.tv_user_playlists (
 
 ALTER TABLE public.tv_user_playlists ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "tv_user_playlists_user_own" ON public.tv_user_playlists;
 CREATE POLICY "tv_user_playlists_user_own"
   ON public.tv_user_playlists FOR ALL
   TO authenticated
@@ -103,6 +107,7 @@ CREATE TABLE IF NOT EXISTS public.tv_watch_stats (
 
 ALTER TABLE public.tv_watch_stats ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "tv_watch_stats_user_own" ON public.tv_watch_stats;
 CREATE POLICY "tv_watch_stats_user_own"
   ON public.tv_watch_stats FOR ALL
   TO authenticated

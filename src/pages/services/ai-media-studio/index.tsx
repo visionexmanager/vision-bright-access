@@ -100,7 +100,7 @@ export default function AIMediaStudioDashboard() {
 
         {/* ── Hero ─────────────────────────────────────────────── */}
         <section className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary/20 via-violet-500/10 to-background border p-8">
-          <div className="absolute inset-0 pointer-events-none" aria-hidden>
+          <div className="absolute inset-0 pointer-events-none" aria-hidden={true}>
             <div className="absolute -top-10 -right-10 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
             <div className="absolute bottom-0 left-20 h-32 w-32 rounded-full bg-violet-500/10 blur-2xl" />
           </div>
@@ -114,8 +114,7 @@ export default function AIMediaStudioDashboard() {
                 Welcome back, {displayName} 👋
               </h1>
               <p className="text-muted-foreground max-w-lg">
-                Your creative AI workspace. Build, manage, and organize media projects.
-                AI generation engines are coming soon.
+                Your creative AI workspace. Build, manage, and organize media projects with Speech, Voice, Video, and Image AI tools.
               </p>
             </div>
             <div className="flex gap-3 shrink-0">

@@ -89,23 +89,6 @@ export default function Templates() {
           </TabsList>
         </Tabs>
 
-        {/* Coming soon notice for voice/video */}
-        {(typeFilter === "voice" || typeFilter === "video") && (
-          <div className="flex items-center gap-3 rounded-xl border border-dashed bg-muted/30 p-5">
-            <Lock className="h-5 w-5 text-muted-foreground shrink-0" />
-            <div>
-              <p className="font-medium text-sm">
-                {typeFilter === "voice" ? "Voice Cloning" : "Text to Video"} templates
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                These templates will be available when the AI engine launches.
-              </p>
-            </div>
-            <Badge variant="secondary" className="ml-auto shrink-0 gap-1 text-xs">
-              <Sparkles className="h-3 w-3" /> Coming Soon
-            </Badge>
-          </div>
-        )}
 
         {/* Template grid */}
         {query.isLoading ? (
@@ -126,7 +109,7 @@ export default function Templates() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {templates.map((t) => {
               const categoryClass = CATEGORY_COLORS[t.category] ?? CATEGORY_COLORS.general;
-              const isComingSoon = t.template_type !== "speech" && t.template_type !== "general";
+              const isComingSoon = false;
               return (
                 <div
                   key={t.id}

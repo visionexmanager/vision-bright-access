@@ -24,7 +24,7 @@ export function TrialBanner({ onUpgrade }: TrialBannerProps) {
 
   const timeStr = daysLeft > 0
     ? `${daysLeft}d ${hrsOnly}h`
-    : `${Math.floor(hoursLeft)}h`;
+    : `${Math.ceil(hoursLeft)}h`;
 
   if (!isWarning) return null; // only show banner when < 24h left
 

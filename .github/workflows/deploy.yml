@@ -98,6 +98,10 @@ jobs:
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
 
   # ── 3. Run pending DB migrations ──────────────────────────────────────────────
+  # Always runs `db push` — every migration file uses `if not exists` / `if exists`
+  # guards, so re-applying already-applied migrations is a safe no-op. A prior
+  # diff-based gate here could silently skip backlog migrations whenever the
+  # triggering commit didn't itself touch supabase/migrations/.
   run-migrations:
     name: Run DB migrations
     runs-on: ubuntu-latest
@@ -105,20 +109,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check for new migrations
-        id: changed
-        run: |
-          git fetch origin ${{ github.event.before }} 2>/dev/null || true
-          CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null | grep "supabase/migrations/" || true)
-          echo "has_changes=$([ -n "$CHANGED" ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
-
       - name: Install Supabase CLI
-        if: steps.changed.outputs.has_changes == 'true'
         run: npm install -g supabase@latest
 
+      - name: Link Supabase project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+
       - name: Push migrations to production
-        if: steps.changed.outputs.has_changes == 'true'
-        run: supabase db push --linked
+        run: supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}

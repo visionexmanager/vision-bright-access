@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Plus, Pencil, Trash2, Send, Newspaper, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Send, Newspaper, CheckCircle2, Eye, EyeOff, DollarSign, Landmark } from "lucide-react";
 import { CATEGORY_TOPIC } from "@/pages/News";
 
 type Article = {
@@ -52,9 +52,11 @@ const CATEGORIES = [
   { value: "psychology",    label: "Psychology & Mental Health" },
   { value: "community",     label: "Community" },
   { value: "accessibility", label: "Accessibility" },
-  { value: "entertainment", label: "Live TV & Radio" },
-  { value: "nutrition",     label: "Nutrition & Wellness" },
-  { value: "platform",      label: "Platform Updates" },
+  { value: "entertainment",  label: "Live TV & Radio" },
+  { value: "nutrition",      label: "Nutrition & Wellness" },
+  { value: "platform",       label: "Platform Updates" },
+  { value: "world_economy",  label: "World Economy" },
+  { value: "world_politics", label: "World Politics" },
 ];
 
 const ICONS = [
@@ -76,7 +78,9 @@ const ICONS = [
   { value: "Tv",            label: "Entertainment" },
   { value: "Apple",         label: "Nutrition" },
   { value: "Rocket",        label: "Platform" },
-  { value: "Newspaper",     label: "General News" },
+  { value: "DollarSign",   label: "World Economy" },
+  { value: "Landmark",     label: "World Politics" },
+  { value: "Newspaper",    label: "General News" },
 ];
 
 function buildEmailHTML(article: Article): string {
@@ -117,6 +121,23 @@ export default function AdminNews() {
   const [saving, setSaving] = useState(false);
   const [sendAfterPublish, setSendAfterPublish] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sendingDaily, setSendingDaily] = useState(false);
+
+  const sendDailyNewsletter = async () => {
+    setSendingDaily(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("news-generate", {
+        body: {},
+        headers: { "x-newsletter-only": "true" },
+      });
+      if (error) throw new Error(error.message);
+      const result = data as { emailsSent?: number; note?: string };
+      toast.success(result.note ?? `Newsletter sent to ${result.emailsSent ?? 0} subscriber(s).`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to send newsletter.");
+    }
+    setSendingDaily(false);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -238,9 +259,19 @@ export default function AdminNews() {
             <h1 className="text-2xl font-bold">News Management</h1>
             <Badge variant="secondary">{articles.length} articles</Badge>
           </div>
-          <Button onClick={openCreate}>
-            <Plus className="me-2 h-4 w-4" /> Add Article
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={sendDailyNewsletter}
+              disabled={sendingDaily}
+            >
+              <Send className="me-2 h-4 w-4" />
+              {sendingDaily ? "Sending…" : "Send News"}
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="me-2 h-4 w-4" /> Add Article
+            </Button>
+          </div>
         </div>
 
         {/* Table */}

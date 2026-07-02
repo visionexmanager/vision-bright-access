@@ -56,6 +56,7 @@ export default function Projects() {
   const tabCounts = useMemo(() => ({
     all: projects.filter((p) => p.status === "active").length,
     favorites: projects.filter((p) => p.is_favorite).length,
+    archived: projects.filter((p) => p.status === "archived").length,
   }), [projects]);
 
   return (

@@ -2,15 +2,10 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 import type {
   FinancePermission,
   FinanceSettings,
-  FinanceSection,
 } from "@/lib/types/finance";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface FinanceContextValue {
-  // Active section for sidebar highlight
-  activeSection: FinanceSection;
-  setActiveSection: (s: FinanceSection) => void;
-
   // Permissions
   hasPermission: (p: FinancePermission) => boolean;
 
@@ -34,16 +29,16 @@ const FinanceContext = createContext<FinanceContextValue | null>(null);
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [activeSection, setActiveSection] = useState<FinanceSection>("dashboard");
   const [settings, setSettings] = useState<FinanceSettings>(defaultSettings);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const hasPermission = useCallback(
     (permission: FinancePermission): boolean => {
       if (!user) return permission === "finance.view";
-      // All authenticated users get base finance access.
-      // Finance admin requires the platform admin role (handled by AdminRoute).
-      if (permission === "finance.admin") return false;
+      // finance.admin requires the platform admin role (enforced by AdminRoute).
+      if (permission === "finance.admin") {
+        return (user as { role?: string }).role === "admin";
+      }
       return true;
     },
     [user]
@@ -60,8 +55,6 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   return (
     <FinanceContext.Provider
       value={{
-        activeSection,
-        setActiveSection,
         hasPermission,
         settings,
         updateSettings,

@@ -23,6 +23,8 @@ const FOOTER_LINKS = {
     { to: "/", labelKey: "footer.link.home" },
     { to: "/bazaar", labelKey: "footer.link.bazaar" },
     { to: "/services", labelKey: "footer.link.services" },
+    { to: "/finance", labelKey: "footer.link.finance" },
+    { to: "/services/ai-media-studio", labelKey: "footer.link.aiStudio" },
     { to: "/content", labelKey: "footer.link.content" },
     { to: "/games", labelKey: "footer.link.games" },
     { to: "/news", labelKey: "footer.link.news" },
@@ -30,6 +32,7 @@ const FOOTER_LINKS = {
   ],
   more: [
     { to: "/professional-tools",      labelKey: "footer.link.professionalTools" },
+    { to: "/services/file-studio",    labelKey: "footer.link.fileConverter" },
     { to: "/community",               labelKey: "footer.link.community" },
     { to: "/leaderboard",             labelKey: "footer.link.leaderboard" },
     { to: "/assistive-products",      labelKey: "footer.link.assistiveProducts" },

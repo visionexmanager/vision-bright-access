@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
+import { useFreeAccess } from "@/hooks/useFreeAccess";
 import {
   getBillingStatus,
   getBalance,
@@ -55,6 +56,11 @@ export function useBillingInit() {
 export function useCanGenerate() {
   const { data: status } = useBillingStatus();
   const { data: balance } = useLiveBalance();
+  const { isAdmin, isNewUser } = useFreeAccess();
+
+  // Admin users and users within 30-day free period always have full access
+  if (isAdmin) return { canGenerate: true, reason: "admin" };
+  if (isNewUser) return { canGenerate: true, reason: "free_period" };
 
   if (!status) return { canGenerate: true, reason: "loading" }; // optimistic
 
