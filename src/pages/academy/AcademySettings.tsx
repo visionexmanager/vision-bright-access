@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useThemeToggle } from "@/contexts/ThemeContext";
 import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHeader";
 import { useAcademyProfile } from "@/hooks/academy/useAcademyProfile";
-import { ACADEMY_ONBOARDING_COUNTRIES, ACADEMY_ONBOARDING_LEVELS } from "@/components/academy/AcademyOnboarding";
+import { ACADEMY_ONBOARDING_COUNTRIES, ACADEMY_ONBOARDING_LEVELS } from "@/lib/academy/onboardingOptions";
 import {
   getAcademyTextScale, setAcademyTextScale, getAcademyReduceMotion, setAcademyReduceMotion,
   type AcademyTextScale,

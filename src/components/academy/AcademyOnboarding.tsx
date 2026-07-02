@@ -3,9 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { User, Globe, GraduationCap, ArrowRight, Star, Loader2 } from "lucide-react";
 import type { StudentProfile } from "@/lib/types";
+import { ACADEMY_ONBOARDING_COUNTRIES, ACADEMY_ONBOARDING_LEVELS } from "@/lib/academy/onboardingOptions";
 
-export const ACADEMY_ONBOARDING_COUNTRIES = ["لبنان", "مصر", "السعودية", "تركيا", "أمريكا", "بلد آخر"];
-export const ACADEMY_ONBOARDING_LEVELS    = ["ابتدائي", "متوسط", "ثانوي / بكالوريا", "جامعي / دراسات"];
 const COUNTRIES = ACADEMY_ONBOARDING_COUNTRIES;
 const LEVELS    = ACADEMY_ONBOARDING_LEVELS;
 

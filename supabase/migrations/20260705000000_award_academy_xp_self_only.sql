@@ -23,7 +23,9 @@
 
 DROP FUNCTION IF EXISTS public.award_academy_xp(UUID, INTEGER, TEXT);
 
-CREATE FUNCTION public.award_academy_xp(
+-- CREATE OR REPLACE (not bare CREATE) so this migration is safely re-runnable
+-- if a prior attempt got this far but failed on a later statement.
+CREATE OR REPLACE FUNCTION public.award_academy_xp(
   _amount INTEGER,
   _reason TEXT
 )
@@ -54,5 +56,5 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.award_academy_xp(INTEGER, TEXT) TO authenticated;
 
-COMMENT ON FUNCTION public.award_academy_xp IS
+COMMENT ON FUNCTION public.award_academy_xp(INTEGER, TEXT) IS
   'Self-only XP/VX award (auth.uid() derived internally, not caller-supplied) — mirrors notify_self()''s security model.';
