@@ -13,6 +13,7 @@ create table if not exists finance_portfolios (
 
 alter table finance_portfolios enable row level security;
 
+drop policy if exists "Users manage own portfolios" on finance_portfolios;
 create policy "Users manage own portfolios"
   on finance_portfolios for all
   using (auth.uid() = user_id)
@@ -33,6 +34,7 @@ create table if not exists finance_holdings (
 
 alter table finance_holdings enable row level security;
 
+drop policy if exists "Users manage own holdings" on finance_holdings;
 create policy "Users manage own holdings"
   on finance_holdings for all
   using (
@@ -56,6 +58,7 @@ create table if not exists finance_watchlists (
 
 alter table finance_watchlists enable row level security;
 
+drop policy if exists "Users manage own watchlists" on finance_watchlists;
 create policy "Users manage own watchlists"
   on finance_watchlists for all
   using (auth.uid() = user_id)
@@ -75,6 +78,7 @@ create table if not exists finance_watchlist_items (
 
 alter table finance_watchlist_items enable row level security;
 
+drop policy if exists "Users manage own watchlist items" on finance_watchlist_items;
 create policy "Users manage own watchlist items"
   on finance_watchlist_items for all
   using (

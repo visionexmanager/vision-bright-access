@@ -7,6 +7,8 @@
 --            check, read-only, no write access granted.
 -- ============================================================
 
+DROP POLICY IF EXISTS "academy_xp_events: admins read all" ON public.academy_xp_events;
+
 CREATE POLICY "academy_xp_events: admins read all"
   ON public.academy_xp_events
   FOR SELECT
