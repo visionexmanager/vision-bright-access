@@ -92,6 +92,15 @@ const Settings = lazy(() => import("./pages/Settings"));
 const ProfessionalTools = lazy(() => import("./pages/ProfessionalTools"));
 const ToolDetail = lazy(() => import("./pages/ToolDetail"));
 
+const Careers = lazy(() => import("./pages/Careers"));
+const CareerDashboard = lazy(() => import("./pages/career/CareerDashboard"));
+const AICareerSuite = lazy(() => import("./pages/career/AICareerSuite"));
+const EmployerDashboard = lazy(() => import("./pages/career/EmployerDashboard"));
+const JobIntelligence = lazy(() => import("./pages/career/JobIntelligence"));
+const CareerAgent = lazy(() => import("./pages/career/CareerAgent"));
+const CareerNetwork = lazy(() => import("./pages/career/CareerNetwork"));
+const CareerCommunity = lazy(() => import("./pages/career/CareerCommunity"));
+
 // New service pages
 const CareerHub = lazy(() => import("./pages/services/CareerHub"));
 const MusicConservatory = lazy(() => import("./pages/services/MusicConservatory"));
@@ -284,6 +293,14 @@ function AppRoutes() {
                     <Route path="/services/shared-trip" element={<SharedTrip />} />
                     <Route path="/services/nutrition" element={<NutritionExpert />} />
                     <Route path="/services/trip-history" element={<TripHistory />} />
+                    <Route path="/careers" element={<Careers />} />
+                    <Route path="/career/dashboard" element={<CareerDashboard />} />
+                    <Route path="/career/ai" element={<AICareerSuite />} />
+                    <Route path="/career/employer" element={<EmployerDashboard />} />
+                    <Route path="/career/intelligence" element={<JobIntelligence />} />
+                    <Route path="/career/agent" element={<CareerAgent />} />
+                    <Route path="/career/network" element={<CareerNetwork />} />
+                    <Route path="/career/community" element={<CareerCommunity />} />
                     <Route path="/services/career-hub" element={<CareerHub />} />
                     <Route path="/services/music-conservatory" element={<MusicConservatory />} />
                     <Route path="/services/global-studio" element={<GlobalStudio />} />

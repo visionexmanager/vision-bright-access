@@ -1,0 +1,16 @@
+# Local dev parity stack. Run from the repo root:
+#   docker compose -f infrastructure/docker/docker-compose.dev.yml up --build
+#
+# There is no Postgres/Redis service here on purpose: the backend is
+# Supabase, and Supabase's own CLI (`supabase start`) already gives you a
+# full local Postgres + Auth + Storage + Realtime + Studio stack in Docker
+# under the hood. Run that separately — duplicating it here would just be
+# two disconnected databases. This compose file only reproduces the
+# frontend's production container.
+services:
+  frontend:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+    ports:
+      - "8080:80"

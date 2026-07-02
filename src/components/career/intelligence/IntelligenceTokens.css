@@ -1,0 +1,70 @@
+/*
+ * Global Job Intelligence Network — Bloomberg-terminal-inspired dark UI.
+ * Scoped to [data-intelligence] so nothing leaks into the rest of the site.
+ * Dark-mode-first by design: forces a dark palette regardless of the site theme.
+ */
+
+[data-intelligence] {
+  --intel-bg: 224 32% 7%;
+  --intel-bg-elevated: 224 28% 10%;
+  --intel-border: 224 20% 20%;
+  --intel-foreground: 210 30% 92%;
+  --intel-muted: 215 16% 60%;
+  --intel-neon: 189 94% 55%;
+  --intel-neon-2: 258 90% 66%;
+  --intel-positive: 152 76% 50%;
+  --intel-negative: 4 86% 60%;
+
+  background: hsl(var(--intel-bg));
+  color: hsl(var(--intel-foreground));
+  color-scheme: dark;
+}
+
+[data-intelligence] .intel-panel {
+  background: hsl(var(--intel-bg-elevated) / 0.8);
+  border: 1px solid hsl(var(--intel-border));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+[data-intelligence] .intel-neon-text {
+  background: linear-gradient(135deg, hsl(var(--intel-neon)), hsl(var(--intel-neon-2)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-intelligence] .intel-neon-ring {
+  box-shadow: 0 0 0 1px hsl(var(--intel-neon) / 0.25), 0 0 20px -4px hsl(var(--intel-neon) / 0.4);
+}
+
+@keyframes intel-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+[data-intelligence] .intel-live-dot {
+  animation: intel-pulse 1.6s ease-in-out infinite;
+}
+
+[data-intelligence][data-high-contrast="true"] {
+  --intel-border: 210 30% 92%;
+  --intel-muted: 210 30% 92%;
+}
+[data-intelligence][data-high-contrast="true"] .intel-panel {
+  background: hsl(var(--intel-bg-elevated));
+}
+
+[data-intelligence][data-reduced-motion="true"] * {
+  animation-duration: 0.001ms !important;
+  transition-duration: 0.001ms !important;
+}
+
+[data-intelligence] table {
+  color: hsl(var(--intel-foreground));
+}
+[data-intelligence] .intel-muted {
+  color: hsl(var(--intel-muted));
+}
+[data-intelligence] .intel-border {
+  border-color: hsl(var(--intel-border));
+}

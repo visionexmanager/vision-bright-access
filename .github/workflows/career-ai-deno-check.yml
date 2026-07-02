@@ -1,0 +1,44 @@
+name: Career Center — Deno type check
+
+# New, additive workflow (does not modify ci.yml/ci-cd.yml/deploy.yml).
+# ci.yml explicitly excludes supabase/functions/ from its lint job, so the
+# Career Center Edge Functions had no type-checking in CI before this.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/career-*/**"
+      - "supabase/functions/_shared/career*.ts"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/career-*/**"
+      - "supabase/functions/_shared/career*.ts"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deno-check:
+    name: deno check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - name: Type check Career Center functions
+        shell: bash
+        run: |
+          mapfile -t FILES < <(find supabase/functions -type f -name "index.ts" -path "*/career-*/*")
+          mapfile -t SHARED < <(find supabase/functions/_shared -maxdepth 1 -type f -name "career*.ts")
+          if [ "${#FILES[@]}" -eq 0 ] && [ "${#SHARED[@]}" -eq 0 ]; then
+            echo "No Career Center Deno files found."
+            exit 0
+          fi
+          for f in "${FILES[@]}" "${SHARED[@]}"; do
+            echo "Checking $f"
+            deno check --no-lock "$f"
+          done
