@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Package, FileText, Users, Settings, ShieldCheck, BarChart3,
   Mail, ShieldAlert, Database, ScrollText, Flag, Coins, Bell, AlertTriangle,
-  Gamepad2, Store, Newspaper
+  Gamepad2, Store, Newspaper, GraduationCap, Library, Award, Landmark, LayoutDashboard,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -34,6 +34,11 @@ const ADMIN_CARDS = [
   { id: "bazaar", key: "bazaar" as const, icon: Store, link: "/admin/bazaar", color: "text-orange-500" },
   { id: "notifications", key: "notifications" as const, icon: Bell,      link: "/admin/notifications", color: "text-indigo-500" },
   { id: "news",          key: "news" as const,          icon: Newspaper, link: "/admin/news",          color: "text-teal-500"   },
+  { id: "instructorApps", key: null, icon: GraduationCap, link: "/admin/instructor-applications", color: "text-cyan-500" },
+  { id: "libraryResources", key: null, icon: Library, link: "/admin/library-resources", color: "text-violet-500" },
+  { id: "academyScholarships", key: null, icon: Award, link: "/admin/scholarships", color: "text-amber-500" },
+  { id: "academyUniversities", key: null, icon: Landmark, link: "/admin/universities", color: "text-blue-500" },
+  { id: "academyHub", key: null, icon: LayoutDashboard, link: "/admin/academy", color: "text-purple-500" },
 ];
 
 export default function AdminDashboard() {

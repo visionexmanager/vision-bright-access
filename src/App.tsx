@@ -13,6 +13,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SoundProvider } from "@/contexts/SoundContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { AdminRoute } from "@/components/AdminRoute";
+import "@/lib/academy/accessibilityPrefs"; // applies stored Academy text-scale/reduce-motion classes on app load
 import { AuthGuard } from "@/components/AuthGuard";
 import { PageTracker } from "@/components/PageTracker";
 import { GameEconomyGate } from "@/components/game/GameEconomyGate";
@@ -27,6 +28,40 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const VXBazaar = lazy(() => import("./pages/VXBazaar"));
 const Services = lazy(() => import("./pages/Services"));
 const Academy = lazy(() => import("./pages/Academy"));
+const AcademyCourseCatalog = lazy(() => import("./pages/academy/AcademyCourseCatalog"));
+const AcademyCourseDetail = lazy(() => import("./pages/academy/AcademyCourseDetail"));
+const AcademyLearningPlayer = lazy(() => import("./pages/academy/AcademyLearningPlayer"));
+const AcademyLearningTracks = lazy(() => import("./pages/academy/AcademyLearningTracks"));
+const AcademyInstructorProfile = lazy(() => import("./pages/academy/AcademyInstructorProfile"));
+const AcademyBecomeInstructor = lazy(() => import("./pages/academy/AcademyBecomeInstructor"));
+const AcademyInstructorDashboard = lazy(() => import("./pages/academy/AcademyInstructorDashboard"));
+const AcademyCourseEditor = lazy(() => import("./pages/academy/AcademyCourseEditor"));
+const AcademyLibrary = lazy(() => import("./pages/academy/AcademyLibrary"));
+const AcademyResourceViewer = lazy(() => import("./pages/academy/AcademyResourceViewer"));
+const AcademyScholarships = lazy(() => import("./pages/academy/AcademyScholarships"));
+const AcademyScholarshipDetail = lazy(() => import("./pages/academy/AcademyScholarshipDetail"));
+const AcademyUniversities = lazy(() => import("./pages/academy/AcademyUniversities"));
+const AcademyUniversityDetail = lazy(() => import("./pages/academy/AcademyUniversityDetail"));
+const AcademyGlobalSearch = lazy(() => import("./pages/academy/AcademyGlobalSearch"));
+const AcademyCertificates = lazy(() => import("./pages/academy/AcademyCertificates"));
+const AcademyCertificateVerify = lazy(() => import("./pages/academy/AcademyCertificateVerify"));
+const AcademyAchievements = lazy(() => import("./pages/academy/AcademyAchievements"));
+const AcademyMissions = lazy(() => import("./pages/academy/AcademyMissions"));
+const AcademyLeaderboard = lazy(() => import("./pages/academy/AcademyLeaderboard"));
+const AcademyNotifications = lazy(() => import("./pages/academy/AcademyNotifications"));
+const AcademySaved = lazy(() => import("./pages/academy/AcademySaved"));
+const AcademyStudyPlanner = lazy(() => import("./pages/academy/AcademyStudyPlanner"));
+const AcademyMyCourses = lazy(() => import("./pages/academy/AcademyMyCourses"));
+const AcademyMyWork = lazy(() => import("./pages/academy/AcademyMyWork"));
+const AcademySettings = lazy(() => import("./pages/academy/AcademySettings"));
+const AdminInstructorApplications = lazy(() => import("./pages/admin/AdminInstructorApplications"));
+const AdminLibraryResources = lazy(() => import("./pages/admin/AdminLibraryResources"));
+const AdminScholarships = lazy(() => import("./pages/admin/AdminScholarships"));
+const AdminAcademyHub = lazy(() => import("./pages/admin/AdminAcademyHub"));
+const AdminAcademyStudents = lazy(() => import("./pages/admin/AdminAcademyStudents"));
+const AdminAcademyGamification = lazy(() => import("./pages/admin/AdminAcademyGamification"));
+const AdminAcademyAnalytics = lazy(() => import("./pages/admin/AdminAcademyAnalytics"));
+const AdminUniversities = lazy(() => import("./pages/admin/AdminUniversities"));
 const Content = lazy(() => import("./pages/Content"));
 const ContactUs = lazy(() => import("./pages/ContactUs"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
@@ -200,6 +235,35 @@ function AppRoutes() {
                     <Route path="/marketplace" element={<VXBazaar />} />
                     <Route path="/services" element={<Services />} />
                     <Route path="/academy" element={<AuthGuard><Academy /></AuthGuard>} />
+                    <Route path="/academy/courses" element={<AuthGuard><AcademyCourseCatalog /></AuthGuard>} />
+                    <Route path="/academy/courses/:courseId" element={<AuthGuard><AcademyCourseDetail /></AuthGuard>} />
+                    <Route path="/academy/courses/:courseId/learn/:lessonId" element={<AuthGuard><AcademyLearningPlayer /></AuthGuard>} />
+                    <Route path="/academy/paths" element={<AuthGuard><AcademyLearningTracks /></AuthGuard>} />
+                    <Route path="/academy/instructors/:instructorId" element={<AuthGuard><AcademyInstructorProfile /></AuthGuard>} />
+                    <Route path="/academy/instructor/apply" element={<AuthGuard><AcademyBecomeInstructor /></AuthGuard>} />
+                    <Route path="/academy/instructor/dashboard" element={<AuthGuard><AcademyInstructorDashboard /></AuthGuard>} />
+                    <Route path="/academy/instructor/courses/new" element={<AuthGuard><AcademyCourseEditor /></AuthGuard>} />
+                    <Route path="/academy/instructor/courses/:courseId/edit" element={<AuthGuard><AcademyCourseEditor /></AuthGuard>} />
+                    <Route path="/academy/library" element={<AuthGuard><AcademyLibrary /></AuthGuard>} />
+                    <Route path="/academy/library/:resourceId" element={<AuthGuard><AcademyResourceViewer /></AuthGuard>} />
+                    <Route path="/academy/scholarships" element={<AuthGuard><AcademyScholarships /></AuthGuard>} />
+                    <Route path="/academy/scholarships/:scholarshipId" element={<AuthGuard><AcademyScholarshipDetail /></AuthGuard>} />
+                    <Route path="/academy/universities" element={<AuthGuard><AcademyUniversities /></AuthGuard>} />
+                    <Route path="/academy/universities/:universityId" element={<AuthGuard><AcademyUniversityDetail /></AuthGuard>} />
+                    <Route path="/academy/search" element={<AuthGuard><AcademyGlobalSearch /></AuthGuard>} />
+                    <Route path="/academy/certificates" element={<AuthGuard><AcademyCertificates /></AuthGuard>} />
+                    <Route path="/academy/achievements" element={<AuthGuard><AcademyAchievements /></AuthGuard>} />
+                    <Route path="/academy/missions" element={<AuthGuard><AcademyMissions /></AuthGuard>} />
+                    <Route path="/academy/leaderboard" element={<AuthGuard><AcademyLeaderboard /></AuthGuard>} />
+                    <Route path="/academy/notifications" element={<AuthGuard><AcademyNotifications /></AuthGuard>} />
+                    <Route path="/academy/saved" element={<AuthGuard><AcademySaved /></AuthGuard>} />
+                    <Route path="/academy/planner" element={<AuthGuard><AcademyStudyPlanner /></AuthGuard>} />
+                    <Route path="/academy/my-courses" element={<AuthGuard><AcademyMyCourses /></AuthGuard>} />
+                    <Route path="/academy/my-work" element={<AuthGuard><AcademyMyWork /></AuthGuard>} />
+                    <Route path="/academy/settings" element={<AuthGuard><AcademySettings /></AuthGuard>} />
+                    {/* Public — certificate verification must work without an account (QR codes, shared links, employers). */}
+                    <Route path="/academy/verify" element={<AcademyCertificateVerify />} />
+                    <Route path="/academy/verify/:certificateNumber" element={<AcademyCertificateVerify />} />
                     <Route path="/content" element={<Content />} />
                     <Route path="/contact-us" element={<ContactUs />} />
                     <Route path="/contact" element={<Navigate to="/contact-us" replace />} />
@@ -336,6 +400,14 @@ function AppRoutes() {
                     <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
                     <Route path="/admin/simulations" element={<AdminRoute><AdminSimulations /></AdminRoute>} />
                     <Route path="/admin/news" element={<AdminRoute><AdminNews /></AdminRoute>} />
+                    <Route path="/admin/instructor-applications" element={<AdminRoute><AdminInstructorApplications /></AdminRoute>} />
+                    <Route path="/admin/library-resources" element={<AdminRoute><AdminLibraryResources /></AdminRoute>} />
+                    <Route path="/admin/scholarships" element={<AdminRoute><AdminScholarships /></AdminRoute>} />
+                    <Route path="/admin/universities" element={<AdminRoute><AdminUniversities /></AdminRoute>} />
+                    <Route path="/admin/academy" element={<AdminRoute><AdminAcademyHub /></AdminRoute>} />
+                    <Route path="/admin/academy/students" element={<AdminRoute><AdminAcademyStudents /></AdminRoute>} />
+                    <Route path="/admin/academy/gamification" element={<AdminRoute><AdminAcademyGamification /></AdminRoute>} />
+                    <Route path="/admin/academy/analytics" element={<AdminRoute><AdminAcademyAnalytics /></AdminRoute>} />
                     <Route path="/admin/bazaar" element={<AdminRoute><AdminBazaar /></AdminRoute>} />
                     <Route path="/admin/tv" element={<AdminRoute><AdminTV /></AdminRoute>} />
                     <Route path="/admin/radio" element={<AdminRoute><AdminRadio /></AdminRoute>} />

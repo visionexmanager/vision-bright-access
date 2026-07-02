@@ -18,6 +18,20 @@ export const queryKeys = {
     profile:      (uid: string) => ["academy", "profile", uid] as const,
     chatHistory:  (uid: string) => ["academy", "chat", uid] as const,
     xpEvents:     (uid: string) => ["academy", "xp-events", uid] as const,
+
+    // ── Future modules (Phase 1 architecture prep — no live callers yet) ────
+    courses:         { list: (level?: string) => ["academy", "courses", level ?? "all"] as const, item: (id: string) => ["academy", "courses", id] as const },
+    instructors:     { list: ()               => ["academy", "instructors"] as const, item: (id: string) => ["academy", "instructors", id] as const },
+    studentServices: { list: (uid: string)    => ["academy", "student-services", uid] as const },
+    aiLearning:      { paths: (uid: string)   => ["academy", "ai-learning", uid] as const },
+    library:         { list: (subject?: string, level?: string) => ["academy", "library", subject ?? "all", level ?? "all"] as const, bookmarks: (uid: string) => ["academy", "library", "bookmarks", uid] as const },
+    scholarships:    { list: (country?: string) => ["academy", "scholarships", country ?? "all"] as const, item: (id: string) => ["academy", "scholarships", id] as const },
+    universities:    { list: (country?: string) => ["academy", "universities", country ?? "all"] as const },
+    community:       { posts: (roomId: string) => ["academy", "community", roomId] as const },
+    certificates:    { list: (uid: string)    => ["academy", "certificates", uid] as const },
+    analytics:       { summary: (uid: string) => ["academy", "analytics", uid] as const },
+    notifications:   { list: (uid: string)    => ["academy", "notifications", uid] as const },
+    accessibility:   { prefs: (uid: string)   => ["academy", "accessibility", uid] as const },
   },
 
   // ── Points / Wallet ───────────────────────────────────────────────────────

@@ -79,7 +79,22 @@ export type AcademyXPReason =
   | "academy_streak"
   | "academy_scan_used"
   | "academy_study_room"
-  | "academy_daily_login";
+  | "academy_daily_login"
+  // ── Phase 7 (Gamification) additions — same award_academy_xp() bridge,
+  // same academy_xp_events / user_points tables. No new VX wallet. ────────
+  | "academy_lesson_completed"
+  | "academy_module_completed"
+  | "academy_course_completed"
+  | "academy_quiz_passed"
+  | "academy_perfect_quiz"
+  | "academy_final_exam_passed"
+  | "academy_certificate_earned"
+  | "academy_project_completed"
+  | "academy_weekly_goal"
+  | "academy_monthly_goal"
+  | "academy_streak_milestone"
+  | "academy_community_contribution"
+  | "academy_instructor_recognition";
 
 export interface AcademyXPEventRow {
   id: string;

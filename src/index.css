@@ -449,6 +449,33 @@
     }
   }
 
+  /* Manual override of the above (Academy Accessibility Settings) — same
+     rules as the OS-level prefers-reduced-motion query, for users whose
+     OS preference doesn't reflect what they actually want in-app. */
+  .reduce-motion,
+  .reduce-motion *,
+  .reduce-motion *::before,
+  .reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+  .reduce-motion [data-anim] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    will-change: auto !important;
+  }
+
+  /* Manual text-scale override (Academy Accessibility Settings) */
+  .text-scale-lg {
+    font-size: 112.5%;
+  }
+  .text-scale-xl {
+    font-size: 125%;
+  }
+
   /* ── Section layout utilities ───────────────────────────────────────── */
   .section-padding {
     @apply px-4 py-16 sm:px-6 lg:px-8;

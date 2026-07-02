@@ -188,10 +188,29 @@ export const ACADEMY_XP_RATES: Record<AcademyXPReason, number> = {
   academy_scan_used:          10,
   academy_study_room:         15,
   academy_daily_login:        10,
+
+  // ── Phase 7 (Gamification) additions ─────────────────────────────────────
+  academy_lesson_completed:      10,
+  academy_module_completed:      40,
+  academy_course_completed:      150,
+  academy_quiz_passed:           25,
+  academy_perfect_quiz:          50,
+  academy_final_exam_passed:     100,
+  academy_certificate_earned:    200,
+  academy_project_completed:     80,
+  academy_weekly_goal:           60,
+  academy_monthly_goal:          250,
+  academy_streak_milestone:      30,
+  academy_community_contribution: 15,
+  academy_instructor_recognition: 100,
 };
 
 /**
- * Award XP for an Academy action.
+ * Award XP for an Academy action — always targets the CURRENTLY SIGNED-IN
+ * user (the RPC derives auth.uid() internally, never a caller-supplied id —
+ * see 20260705000000_award_academy_xp_self_only.sql). `userId` is kept in
+ * this signature for call-site clarity/documentation, but every legitimate
+ * caller already only ever passes their own id.
  * Calls the `award_academy_xp` RPC which:
  *   1. Inserts into academy_xp_events
  *   2. Inserts into user_points (global VX)
@@ -204,9 +223,8 @@ export async function awardAcademyXP(
   const amount = ACADEMY_XP_RATES[reason] ?? 5;
 
   const { error } = await supabase.rpc("award_academy_xp", {
-    _user_id: userId,
-    _amount:  amount,
-    _reason:  reason,
+    _amount: amount,
+    _reason: reason,
   });
 
   if (error) {
