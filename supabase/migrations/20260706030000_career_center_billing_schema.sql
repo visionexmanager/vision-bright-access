@@ -23,7 +23,9 @@ CREATE TABLE public.career_billing_plans (
   id text PRIMARY KEY, -- 'free' | 'pro' | 'business' | 'enterprise'
   name text NOT NULL,
   description text,
-  price_monthly_usd numeric(10,2) NOT NULL DEFAULT 0,
+  -- Nullable: NULL means "custom / contact us" pricing (used by the
+  -- enterprise plan below), same null-means-unlimited convention as `limits`.
+  price_monthly_usd numeric(10,2) DEFAULT 0,
   price_yearly_usd numeric(10,2),
   -- e.g. {"job_postings_per_month": 3, "candidate_search_seats": 1, "ai_calls_per_month": 50, "team_members": 1}
   -- a null value for a key means unlimited.
