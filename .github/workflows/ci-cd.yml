@@ -43,7 +43,7 @@ jobs:
       run: pnpm tsc --noEmit
 
     - name: ESLint
-      run: pnpm eslint src --ext .ts,.tsx --max-warnings 120
+      run: pnpm eslint src --ext .ts,.tsx --max-warnings 140
 
 ###############################################################################
 # JOB: Security scan

@@ -294,12 +294,12 @@ function AppRoutes() {
                     <Route path="/services/nutrition" element={<NutritionExpert />} />
                     <Route path="/services/trip-history" element={<TripHistory />} />
                     <Route path="/careers" element={<Careers />} />
-                    <Route path="/career/dashboard" element={<CareerDashboard />} />
-                    <Route path="/career/ai" element={<AICareerSuite />} />
-                    <Route path="/career/employer" element={<EmployerDashboard />} />
+                    <Route path="/career/dashboard" element={<AuthGuard><CareerDashboard /></AuthGuard>} />
+                    <Route path="/career/ai" element={<AuthGuard><AICareerSuite /></AuthGuard>} />
+                    <Route path="/career/employer" element={<AuthGuard><EmployerDashboard /></AuthGuard>} />
                     <Route path="/career/intelligence" element={<JobIntelligence />} />
-                    <Route path="/career/agent" element={<CareerAgent />} />
-                    <Route path="/career/network" element={<CareerNetwork />} />
+                    <Route path="/career/agent" element={<AuthGuard><CareerAgent /></AuthGuard>} />
+                    <Route path="/career/network" element={<AuthGuard><CareerNetwork /></AuthGuard>} />
                     <Route path="/career/community" element={<CareerCommunity />} />
                     <Route path="/services/career-hub" element={<CareerHub />} />
                     <Route path="/services/music-conservatory" element={<MusicConservatory />} />

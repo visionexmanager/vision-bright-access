@@ -1,4 +1,5 @@
 import { AccessToken } from "npm:livekit-server-sdk@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const DEFAULT_ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -38,7 +39,28 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { roomId, userId, userName } = await req.json();
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const authClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: { user }, error: authErr } = await authClient.auth.getUser();
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { roomId, userName } = await req.json();
 
     const apiKey = Deno.env.get("LIVEKIT_API_KEY");
     const apiSecret = Deno.env.get("LIVEKIT_API_SECRET");
@@ -50,13 +72,15 @@ Deno.serve(async (req) => {
       throw new Error("LiveKit credentials not configured on server");
     }
 
-    if (!roomId || !userId) {
-      throw new Error("roomId and userId are required");
+    if (!roomId) {
+      throw new Error("roomId is required");
     }
 
+    // Identity is taken from the verified JWT, never from client input,
+    // so a caller can't mint a token that impersonates another user.
     const at = new AccessToken(apiKey, apiSecret, {
-      identity: userId,
-      name: userName || userId,
+      identity: user.id,
+      name: userName || user.email || user.id,
       ttl: 7200,
     });
 

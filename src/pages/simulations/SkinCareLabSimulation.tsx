@@ -72,7 +72,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
     let brightening = vitaminC * 5 + niacinamide * 3;
     let antiAging = retinol * 20 + vitaminC * 2;
     let gentleness = 100 - retinol * 15 - (vitaminC > 15 ? 15 : 0);
-    let sunProtection = spf >= 50 ? 100 : spf >= 30 ? 75 : spf >= 15 ? 50 : 20;
+    const sunProtection = spf >= 50 ? 100 : spf >= 30 ? 75 : spf >= 15 ? 50 : 20;
 
     // Safety check
     if (retinol > 1 && vitaminC > 15) gentleness -= 20; // bad combo

@@ -121,7 +121,8 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
     if (state.gameOver || state.malfunction) return;
 
     setState((prev) => {
-      let { temp, humidity, day, eggs, score, hatched, dead } = { ...prev };
+      const { day } = prev;
+      let { temp, humidity, eggs, score, hatched, dead } = { ...prev };
       const newDay = day + 1;
 
       // Check temp/humidity damage

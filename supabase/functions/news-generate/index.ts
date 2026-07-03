@@ -258,7 +258,7 @@ Deno.serve(async (req: Request) => {
     // Check if caller is an authenticated admin
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SERVICE_ROLE_KEY")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       { auth: { persistSession: false }, global: { headers: { Authorization: auth } } },
     );
     const { data: { user } } = await userClient.auth.getUser();
@@ -278,7 +278,7 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SERVICE_ROLE_KEY")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
 
