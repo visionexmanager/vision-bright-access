@@ -44,17 +44,6 @@ CREATE POLICY "Authenticated users can create a community"
   TO authenticated
   WITH CHECK (auth.uid() = created_by);
 
-CREATE POLICY "Creators, moderators, and admins can update a community"
-  ON public.communities FOR UPDATE
-  USING (
-    auth.uid() = created_by
-    OR public.has_role(auth.uid(), 'admin')
-    OR EXISTS (
-      SELECT 1 FROM public.community_members cm
-      WHERE cm.community_id = id AND cm.user_id = auth.uid() AND cm.role IN ('moderator', 'admin')
-    )
-  );
-
 CREATE POLICY "Creators and admins can delete a community"
   ON public.communities FOR DELETE
   USING (auth.uid() = created_by OR public.has_role(auth.uid(), 'admin'));
@@ -95,6 +84,18 @@ CREATE POLICY "Community admins can change member roles"
 
 CREATE INDEX idx_community_members_community ON public.community_members(community_id);
 CREATE INDEX idx_community_members_user ON public.community_members(user_id);
+
+-- Depends on community_members, so must come after it's created above.
+CREATE POLICY "Creators, moderators, and admins can update a community"
+  ON public.communities FOR UPDATE
+  USING (
+    auth.uid() = created_by
+    OR public.has_role(auth.uid(), 'admin')
+    OR EXISTS (
+      SELECT 1 FROM public.community_members cm
+      WHERE cm.community_id = id AND cm.user_id = auth.uid() AND cm.role IN ('moderator', 'admin')
+    )
+  );
 
 -- ── mentors ──────────────────────────────────────────────────────────────
 CREATE TABLE public.mentors (
