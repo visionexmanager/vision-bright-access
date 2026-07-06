@@ -409,6 +409,7 @@ Deno.serve(async (req: Request) => {
 
   let emailsSent = 0;
   let emailsFailed = 0;
+  let lastError: string | undefined;
 
   for (const sub of subscribers) {
     const subTopics: string[] = sub.topics ?? [];
@@ -438,13 +439,25 @@ Deno.serve(async (req: Request) => {
           html,
         }),
       });
-      if (res.ok) emailsSent++;
-      else emailsFailed++;
-    } catch {
+      if (res.ok) {
+        emailsSent++;
+      } else {
+        emailsFailed++;
+        const body = await res.text().catch(() => "");
+        lastError = `${res.status}: ${body}`;
+        console.error(`[news-generate] Resend send failed for ${sub.email}:`, lastError);
+      }
+    } catch (err) {
       emailsFailed++;
+      lastError = err instanceof Error ? err.message : String(err);
+      console.error(`[news-generate] Resend fetch threw for ${sub.email}:`, lastError);
     }
   }
 
   console.log(`[news-generate] emails sent=${emailsSent} failed=${emailsFailed}`);
-  return Response.json({ generated: articles.length, emailsSent, emailsFailed, date: now.toISOString().split("T")[0] }, { headers: CORS });
+  return Response.json({
+    generated: articles.length, emailsSent, emailsFailed,
+    ...(lastError ? { lastError } : {}),
+    date: now.toISOString().split("T")[0],
+  }, { headers: CORS });
 });
