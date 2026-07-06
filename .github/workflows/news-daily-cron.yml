@@ -123,6 +123,20 @@ jobs:
             const now = new Date();
             const dateEn = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
+            // Guard: skip generation entirely if today's articles already
+            // exist (e.g. a manual re-run, or the schedule firing twice) —
+            // otherwise every re-run inserts a full duplicate batch.
+            const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+            const existingRes = await fetch(
+              `${SUPABASE_URL}/rest/v1/news_articles?select=id&published_at=gte.${todayStart}&limit=1`,
+              { headers: { "Authorization": `Bearer ${SUPABASE_KEY}`, "apikey": SUPABASE_KEY } },
+            );
+            const existing = existingRes.ok ? await existingRes.json() : [];
+            if (existing.length > 0) {
+              console.log("Articles for today already exist — skipping generation to avoid duplicates.");
+              return;
+            }
+
             // Step 0: Fetch real-world headlines from RSS for all categories in parallel
             console.log("Step 0: Fetching real-world headlines from RSS feeds...");
             const headlineMap = {};
@@ -162,6 +176,7 @@ jobs:
               `- If no headlines are available for a category, write a factual educational piece grounded in that topic`,
               `- Journalistic, neutral, informative tone`,
               `- For the "breaking" category specifically: pick the single most urgent, time-sensitive real headline available and write it as genuinely urgent breaking news, not routine coverage`,
+              `- Category accuracy is critical: each article's "category" field must be the exact key of the topic its content is actually about, using ONLY the real headlines listed under that same category — never place content under a category it doesn't belong to, and never swap content between two categories`,
               ``,
               `Categories with today's real-world context:`,
               categoryList,
