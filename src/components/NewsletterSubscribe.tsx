@@ -48,7 +48,7 @@ const LS_KEY = "vx_newsletter_subscribed";
 const LS_DISMISSED_KEY = "vx_newsletter_thankyou_dismissed";
 
 export function NewsletterSubscribe() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { playSound } = useSound();
   const { user } = useAuth();
   const [email, setEmail] = useState("");

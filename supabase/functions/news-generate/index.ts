@@ -4,7 +4,7 @@
  * Auth: Bearer CRON_SECRET
  *
  * Flow:
- *  1. Call 1 — Generate 18 articles in English + Arabic (full: title, description, content)
+ *  1. Call 1 — Generate one article per category (see CATEGORIES) in English + Arabic (full: title, description, content)
  *  2. Call 2 — Translate title + description to 9 more languages (es,de,pt,zh,tr,fr,ru,ur,hi)
  *  3. Merge into translations JSONB and insert into news_articles
  *  4. Send personalised digest to newsletter_subscribers in their language via Resend
@@ -17,7 +17,11 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// "breaking" is excluded from the newsletter loop below (§5) — it's a
+// page-only, AI-generated section for urgent/time-sensitive items, never
+// emailed to subscribers.
 const CATEGORIES = [
+  { key: "breaking",      nameEn: "Breaking News",              nameAr: "أخبار عاجلة",              icon: "AlertTriangle" },
   { key: "technology",    nameEn: "Technology & Innovation",    nameAr: "التكنولوجيا والابتكار",    icon: "Cpu" },
   { key: "ai",            nameEn: "Artificial Intelligence",    nameAr: "الذكاء الاصطناعي",         icon: "Brain" },
   { key: "marketplace",   nameEn: "E-Commerce & Marketplace",   nameAr: "التجارة الإلكترونية",       icon: "ShoppingBag" },
@@ -84,6 +88,11 @@ Write one informative news article per category in BOTH English and Arabic.
 Categories:
 ${categoryList}
 
+Special instruction for the "breaking" category: unlike the others, this is
+not a topic domain — write it as genuinely urgent, time-sensitive breaking
+news (a major platform incident, a significant real-world development, an
+urgent security/regulatory update). It should read as urgent, not routine.
+
 Return ONLY this JSON (no extra text):
 {
   "articles": [
@@ -95,7 +104,7 @@ Return ONLY this JSON (no extra text):
   ]
 }
 
-Write one article for each of the 18 categories. Journalistic, neutral, informative tone.`;
+Write one article for each of the ${CATEGORIES.length} categories. Journalistic, neutral, informative tone.`;
 
   return await aiCall(prompt, 16000);
 }
@@ -111,7 +120,7 @@ async function translateToOtherLangs(
     description: a.en.description,
   }));
 
-  const prompt = `Translate the following 18 news article titles and descriptions from English into these 9 languages:
+  const prompt = `Translate the following ${input.length} news article titles and descriptions from English into these 9 languages:
 - es (Spanish), de (German), pt (Portuguese), zh (Chinese Simplified),
   tr (Turkish), fr (French), ru (Russian), ur (Urdu), hi (Hindi)
 
@@ -367,6 +376,9 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── 5. Send newsletter digests ────────────────────────────────────────────
+  // "breaking" is page-only — never emailed, no matter what a subscriber picked.
+  const newsletterArticles = articles.filter((a) => a.category !== "breaking");
+
   const resendKey = Deno.env.get("RESEND_API_KEY");
   if (!resendKey) {
     return Response.json({ generated: articles.length, emailsSent: 0, note: "RESEND_API_KEY not configured" }, { headers: CORS });
@@ -376,7 +388,7 @@ Deno.serve(async (req: Request) => {
     .from("newsletter_subscribers")
     .select("email, topics, lang");
 
-  if (!subscribers?.length) {
+  if (!subscribers?.length || newsletterArticles.length === 0) {
     return Response.json({ generated: articles.length, emailsSent: 0 }, { headers: CORS });
   }
 
@@ -407,8 +419,8 @@ Deno.serve(async (req: Request) => {
       .map((t) => t.replace("news-", ""));
 
     const relevantArticles = subCategories.length === 0
-      ? articles
-      : articles.filter((a) => subCategories.includes(a.category));
+      ? newsletterArticles
+      : newsletterArticles.filter((a) => subCategories.includes(a.category));
 
     if (relevantArticles.length === 0) continue;
 

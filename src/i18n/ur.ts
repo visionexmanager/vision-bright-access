@@ -3814,6 +3814,7 @@ export const translations: Record<string, string> = {
   "table.expand": "جدول کھولیں",
   "table.collapse": "جدول بند کریں",
   "coins.comingSoon": "جلد آ رہا ہے",
+  "news.cat.breaking": "فوری خبریں",
   "news.cat.technology": "ٹیکنالوجی",
   "news.cat.accessibility": "رسائی",
   "news.cat.ai": "مصنوعی ذہانت",

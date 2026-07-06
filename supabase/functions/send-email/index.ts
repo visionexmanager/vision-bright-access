@@ -121,14 +121,12 @@ Deno.serve(async (req) => {
     const DEFAULT_FROM = Deno.env.get("RESEND_FROM") || "Visionex <hello@visionex.app>";
     const FROM = (from && ALLOWED_SENDERS[from]) ? ALLOWED_SENDERS[from] : DEFAULT_FROM;
 
-    // Resend supports up to 50 recipients per request — batch if more
-    const BATCH_SIZE = 50;
+    // One request per recipient — a shared `to: [...]` array would put every
+    // recipient's address in every other recipient's To: header.
     let sent = 0;
     let failed = 0;
 
-    for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-      const batch = recipients.slice(i, i + BATCH_SIZE);
-
+    for (const recipient of recipients) {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -137,7 +135,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           from: FROM,
-          to: batch,
+          to: [recipient],
           subject,
           html,
           reply_to: "hello@visionex.app",
@@ -145,11 +143,11 @@ Deno.serve(async (req) => {
       });
 
       if (res.ok) {
-        sent += batch.length;
+        sent++;
       } else {
         const err = await res.json().catch(() => ({}));
-        console.error("Resend batch error:", err);
-        failed += batch.length;
+        console.error("Resend send error:", err);
+        failed++;
       }
     }
 

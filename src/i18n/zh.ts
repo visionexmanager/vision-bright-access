@@ -4382,6 +4382,7 @@ export const translations: Record<string, string> = {
   "table.expand": "展开表格",
   "table.collapse": "收起表格",
   "coins.comingSoon": "即将推出",
+  "news.cat.breaking": "突发新闻",
   "news.cat.technology": "技术",
   "news.cat.accessibility": "无障碍",
   "news.cat.ai": "人工智能",

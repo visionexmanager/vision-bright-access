@@ -4382,6 +4382,7 @@ export const translations: Record<string, string> = {
   "table.expand": "तालिका विस्तृत करें",
   "table.collapse": "तालिका संकुचित करें",
   "coins.comingSoon": "जल्द आ रहा है",
+  "news.cat.breaking": "ताज़ा खबर",
   "news.cat.technology": "प्रौद्योगिकी",
   "news.cat.accessibility": "पहुँच",
   "news.cat.ai": "AI",

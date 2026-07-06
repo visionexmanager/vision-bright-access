@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   Newspaper, Cpu, Accessibility, Brain, Globe, Rocket, ShoppingBag, RefreshCw,
   Gamepad2, GraduationCap, Heart, Scale, TrendingUp, Plane, Sparkles,
-  Trophy, Music, SmilePlus, Tv, Apple, DollarSign, Landmark,
+  Trophy, Music, SmilePlus, Tv, Apple, DollarSign, Landmark, AlertTriangle,
 } from "lucide-react";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import newsImg from "@/assets/news-illustration.jpg";
@@ -26,7 +26,7 @@ const DATE_LOCALES: Record<string, Locale> = {
 const ICON_MAP: Record<string, React.ElementType> = {
   Cpu, Accessibility, Brain, Globe, Rocket, ShoppingBag, Newspaper,
   Gamepad2, GraduationCap, Heart, Scale, TrendingUp, Plane, Sparkles,
-  Trophy, Music, SmilePlus, Tv, Apple, DollarSign, Landmark,
+  Trophy, Music, SmilePlus, Tv, Apple, DollarSign, Landmark, AlertTriangle,
 };
 
 /* ── Category to newsletter topic mapping ── */
@@ -95,14 +95,19 @@ export default function News() {
 
   useEffect(() => { load(); }, []);
 
-  const useStatic = articles.length === 0 && !loading;
+  // Breaking News is a separate, page-only section — never mixed into the
+  // regular category grid/filters (and never emailed, see news-generate).
+  const breakingArticles = articles.filter((a) => a.category === "breaking");
+  const regularArticles = articles.filter((a) => a.category !== "breaking");
+
+  const useStatic = regularArticles.length === 0 && !loading;
   const categories = useStatic
     ? ["all", ...new Set(STATIC_ITEMS.map((i) => i.category))]
-    : ["all", ...new Set(articles.map((a) => a.category))];
+    : ["all", ...new Set(regularArticles.map((a) => a.category))];
 
   const filtered = useStatic
     ? (activeCategory === "all" ? STATIC_ITEMS : STATIC_ITEMS.filter((i) => i.category === activeCategory))
-    : (activeCategory === "all" ? articles : articles.filter((a) => a.category === activeCategory));
+    : (activeCategory === "all" ? regularArticles : regularArticles.filter((a) => a.category === activeCategory));
 
   return (
     <Layout>
@@ -118,6 +123,36 @@ export default function News() {
             </div>
           </div>
         </AnimatedSection>
+
+        {/* Breaking News — separate, AI-generated, never emailed */}
+        {breakingArticles.length > 0 && (
+          <AnimatedSection variants={scaleFade}>
+            <div className="mb-8 rounded-2xl border border-red-500/30 bg-red-500/5 p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-600" aria-hidden="true" />
+                <h2 className="text-lg font-bold text-red-600">{t("news.cat.breaking") || "Breaking News"}</h2>
+              </div>
+              <div className="space-y-3">
+                {breakingArticles.map((a) => {
+                  const tr = a.translations?.[lang] ?? a.translations?.["en"] ?? a.translations?.["ar"] ?? null;
+                  const title = tr?.title ?? a.title;
+                  const description = tr?.description ?? a.description;
+                  const dateStr = format(new Date(a.published_at ?? a.created_at), "PPP", { locale });
+                  return (
+                    <div key={a.id} className="rounded-lg border border-red-500/20 bg-background p-4">
+                      <div className="mb-1 flex items-center gap-2">
+                        <Badge variant="destructive" className="text-[10px]">{t("news.cat.breaking") || "Breaking"}</Badge>
+                        <span className="text-xs text-muted-foreground">{dateStr}</span>
+                      </div>
+                      <p className="font-semibold leading-snug">{title}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </AnimatedSection>
+        )}
 
         <WatchAdButton variant="banner" className="mb-6" />
 

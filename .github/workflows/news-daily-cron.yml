@@ -25,6 +25,7 @@ jobs:
           const SUPABASE_KEY   = process.env.SUPABASE_KEY;
 
           const CATEGORIES = [
+            { key: "breaking",      nameEn: "Breaking News",              nameAr: "أخبار عاجلة",              icon: "AlertTriangle" },
             { key: "technology",    nameEn: "Technology & Innovation",    nameAr: "التكنولوجيا والابتكار",    icon: "Cpu" },
             { key: "ai",            nameEn: "Artificial Intelligence",    nameAr: "الذكاء الاصطناعي",         icon: "Brain" },
             { key: "marketplace",   nameEn: "E-Commerce & Marketplace",   nameAr: "التجارة الإلكترونية",       icon: "ShoppingBag" },
@@ -49,6 +50,7 @@ jobs:
 
           // RSS feeds mapped to each category for real-world news context
           const CATEGORY_RSS = {
+            breaking:      ["https://feeds.bbci.co.uk/news/rss.xml", "https://feeds.reuters.com/reuters/topNews"],
             technology:    ["https://feeds.bbci.co.uk/news/technology/rss.xml", "https://techcrunch.com/feed/"],
             ai:            ["https://techcrunch.com/category/artificial-intelligence/feed/"],
             marketplace:   ["https://techcrunch.com/category/e-commerce/feed/", "https://feeds.bbci.co.uk/news/business/rss.xml"],
@@ -159,6 +161,7 @@ jobs:
               `- Do NOT invent or fabricate news stories`,
               `- If no headlines are available for a category, write a factual educational piece grounded in that topic`,
               `- Journalistic, neutral, informative tone`,
+              `- For the "breaking" category specifically: pick the single most urgent, time-sensitive real headline available and write it as genuinely urgent breaking news, not routine coverage`,
               ``,
               `Categories with today's real-world context:`,
               categoryList,
@@ -166,7 +169,7 @@ jobs:
               `Return ONLY this JSON (no extra text):`,
               `{"articles":[{"category":"technology","en":{"title":"5-10 word title","description":"15-30 word summary","content":"2-3 paragraph article body, 120-200 words"},"ar":{"title":"عنوان","description":"ملخص","content":"نص المقال"}}]}`,
               ``,
-              `Write one article for each of the 18 categories listed above.`,
+              `Write one article for each of the ${CATEGORIES.length} categories listed above.`,
             ].join("\n");
 
             const enArArticles = await openaiCall(prompt1, 16000);
@@ -178,7 +181,7 @@ jobs:
             let extraTranslations = {};
             try {
               const input = valid.map(a => ({ category: a.category, title: a.en.title, description: a.en.description }));
-              const prompt2 = `Translate the following 18 news article titles and descriptions from English into these 9 languages:
+              const prompt2 = `Translate the following ${input.length} news article titles and descriptions from English into these 9 languages:
           - es (Spanish), de (German), pt (Portuguese), zh (Chinese Simplified), tr (Turkish), fr (French), ru (Russian), ur (Urdu), hi (Hindi)
 
           Articles:

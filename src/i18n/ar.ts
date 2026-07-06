@@ -3820,6 +3820,7 @@ export const translations: Record<string, string> = {
   "table.expand": "توسيع الجدول",
   "table.collapse": "طي الجدول",
   "coins.comingSoon": "قريباً",
+  "news.cat.breaking": "أخبار عاجلة",
   "news.cat.technology": "تقنية",
   "news.cat.accessibility": "إمكانية الوصول",
   "news.cat.ai": "ذكاء اصطناعي",

@@ -4382,6 +4382,7 @@ export const translations: Record<string, string> = {
   "table.expand": "Tabloyu genişlet",
   "table.collapse": "Tabloyu daralt",
   "coins.comingSoon": "Yakında",
+  "news.cat.breaking": "Son Dakika",
   "news.cat.technology": "Teknoloji",
   "news.cat.accessibility": "Erişilebilirlik",
   "news.cat.ai": "Yapay Zeka",
