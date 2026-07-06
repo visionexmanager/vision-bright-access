@@ -293,7 +293,10 @@ Deno.serve(async (req: Request) => {
 
   const now = new Date();
   const dateEn = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  const dateAr = now.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+  // calendar: "gregory" forced explicitly — "ar-SA" resolves to the Hijri
+  // calendar in some ICU builds (Deno's included), which silently produced
+  // Hijri dates in Arabic-language newsletter emails.
+  const dateAr = now.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric", calendar: "gregory" });
 
   // newsletter_only=true: skip generation, just send emails for today's articles
   const url = new URL(req.url);
@@ -413,7 +416,11 @@ Deno.serve(async (req: Request) => {
 
   for (const sub of subscribers) {
     const subTopics: string[] = sub.topics ?? [];
-    const subLang: SupportedLang = (sub.lang in EMAIL_STRINGS) ? sub.lang as SupportedLang : "ar";
+    // English fallback (not Arabic) for subscribers with no recorded
+    // language preference — defaulting an unknown subscriber to Arabic
+    // isn't "their language", it's just a guess, and English is the more
+    // neutral one when we genuinely don't know.
+    const subLang: SupportedLang = (sub.lang in EMAIL_STRINGS) ? sub.lang as SupportedLang : "en";
 
     const subCategories = subTopics
       .filter((t) => t.startsWith("news-"))
