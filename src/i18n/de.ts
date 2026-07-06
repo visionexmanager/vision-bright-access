@@ -1637,6 +1637,7 @@ export const translations: Record<string, string> = {
   "newsletter.title": "Newsletter",
   "newsletter.subtitle": "Bleibe auf dem Laufenden",
   "newsletter.emailPlaceholder": "Deine E-Mail",
+  "newsletter.namePlaceholder": "Dein Name (optional)",
   "newsletter.selectInterests": "Wähle deine Interessen",
   "newsletter.topic.products": "Produkte",
   "newsletter.topic.services": "Dienste",

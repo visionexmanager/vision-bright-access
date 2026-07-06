@@ -1841,6 +1841,7 @@ export const translations: Record<string, string> = {
   "newsletter.title": "اشترك في تحديثات Visionex",
   "newsletter.subtitle": "ابقَ على اطلاع بآخر الأخبار والمنتجات والميزات.",
   "newsletter.emailPlaceholder": "أدخل بريدك الإلكتروني",
+  "newsletter.namePlaceholder": "اسمك (اختياري)",
   "newsletter.selectInterests": "اختر اهتماماتك",
   "newsletter.selectNews": "أخبار المنصة",
   "newsletter.topic.products": "المنتجات",

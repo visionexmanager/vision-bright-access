@@ -1739,6 +1739,7 @@ export const translations: Record<string, string> = {
   "newsletter.title": "通讯",
   "newsletter.subtitle": "了解最新动态",
   "newsletter.emailPlaceholder": "您的邮箱",
+  "newsletter.namePlaceholder": "您的姓名（可选）",
   "newsletter.selectInterests": "选择兴趣",
   "newsletter.topic.products": "产品",
   "newsletter.topic.services": "服务",

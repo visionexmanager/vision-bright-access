@@ -52,6 +52,7 @@ export function NewsletterSubscribe() {
   const { playSound } = useSound();
   const { user } = useAuth();
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [topics, setTopics] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [subscribed, setSubscribed] = useState(
@@ -78,12 +79,16 @@ export function NewsletterSubscribe() {
     setDismissed(localStorage.getItem(key) === "true");
   }, [user?.id]);
 
-  // Pre-fill email field for logged-in users.
+  // Pre-fill email + name for logged-in users.
   useEffect(() => {
     if (user?.email) {
       setEmail(user.email);
     }
-  }, [user?.email]);
+    const displayName = user?.user_metadata?.display_name || user?.user_metadata?.full_name;
+    if (displayName) {
+      setName(displayName);
+    }
+  }, [user?.email, user?.user_metadata?.display_name, user?.user_metadata?.full_name]);
 
   // For logged-in users: check DB on mount to sync subscription state across devices.
   useEffect(() => {
@@ -114,7 +119,7 @@ export function NewsletterSubscribe() {
     setLoading(true);
     const { error } = await supabase
       .from("newsletter_subscribers")
-      .insert({ email: email.trim().toLowerCase(), topics, lang });
+      .insert({ email: email.trim().toLowerCase(), name: name.trim() || null, topics, lang });
 
     setLoading(false);
 
@@ -170,6 +175,16 @@ export function NewsletterSubscribe() {
       </CardHeader>
       <CardContent className="pt-5">
         <form onSubmit={handleSubscribe} className="space-y-5">
+          <Input
+            id="newsletter-name"
+            type="text"
+            aria-label={t("newsletter.namePlaceholder")}
+            placeholder={t("newsletter.namePlaceholder")}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={80}
+            className="h-11"
+          />
           <Input
             id="newsletter-email"
             type="email"

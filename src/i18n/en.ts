@@ -1764,6 +1764,7 @@ export const translations: Record<string, string> = {
   "newsletter.title": "Subscribe to Visionex Updates",
   "newsletter.subtitle": "Stay informed with the latest news, products, and features.",
   "newsletter.emailPlaceholder": "Enter your email address",
+  "newsletter.namePlaceholder": "Your name (optional)",
   "newsletter.selectInterests": "Select your interests",
   "newsletter.selectNews": "Platform News",
   "newsletter.topic.products": "Products",

@@ -1741,6 +1741,7 @@ export const translations: Record<string, string> = {
   "newsletter.title": "Bülten",
   "newsletter.subtitle": "Güncel kalın",
   "newsletter.emailPlaceholder": "E-postanız",
+  "newsletter.namePlaceholder": "Adınız (isteğe bağlı)",
   "newsletter.selectInterests": "İlgi alanlarınızı seçin",
   "newsletter.topic.products": "Ürünler",
   "newsletter.topic.services": "Hizmetler",

@@ -1822,6 +1822,7 @@ export const translations: Record<string, string> = {
   "studio.branding": "पूर्ण ब्रांडिंग",
   "studio.requestService": "सेवा का अनुरोध करें",
   "newsletter.emailPlaceholder": "अपना ईमेल पता दर्ज करें",
+  "newsletter.namePlaceholder": "आपका नाम (वैकल्पिक)",
   "newsletter.selectInterests": "अपनी रुचियों का चयन करें",
   "newsletter.topic.products": "उत्पादों",
   "newsletter.topic.services": "सेवाएं",

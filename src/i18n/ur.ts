@@ -1821,6 +1821,7 @@ export const translations: Record<string, string> = {
   "studio.branding": "مکمل برانڈنگ",
   "studio.requestService": "سروس کی درخواست کریں۔",
   "newsletter.emailPlaceholder": "اپنا ای میل ایڈریس درج کریں۔",
+  "newsletter.namePlaceholder": "آپ کا نام (اختیاری)",
   "newsletter.selectInterests": "اپنی دلچسپیاں منتخب کریں۔",
   "newsletter.topic.products": "مصنوعات",
   "newsletter.topic.services": "خدمات",

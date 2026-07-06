@@ -76,7 +76,8 @@ const EMAIL_STRINGS: Record<SupportedLang, { title: string; intro: string; cta: 
   hi: { title: "दैनिक समाचार सारांश",        intro: "आज की शीर्ष खबरें जो आपके लिए चुनी गई हैं:",          cta: "सभी समाचार पढ़ें" },
 };
 
-// Warm per-subscriber greeting, shown above everything else.
+// Warm per-subscriber greeting, shown above everything else. Generic
+// fallback for subscribers who never gave a name.
 const GREETINGS: Record<SupportedLang, string> = {
   en: "Hello! We hope you're doing well today.",
   ar: "مرحبًا! نتمنى أن تكون بخير اليوم.",
@@ -90,6 +91,27 @@ const GREETINGS: Record<SupportedLang, string> = {
   ur: "السلام علیکم! امید ہے آپ آج بخیر ہوں گے۔",
   hi: "नमस्ते! उम्मीद है आप आज अच्छे होंगे।",
 };
+
+// Used instead of GREETINGS when the subscriber gave their name.
+const GREETINGS_NAMED: Record<SupportedLang, string> = {
+  en: "Hello, {name}! We hope you're doing well today.",
+  ar: "مرحبًا {name}! نتمنى أن تكون بخير اليوم.",
+  es: "¡Hola, {name}! Esperamos que estés muy bien hoy.",
+  de: "Hallo {name}! Wir hoffen, es geht dir heute gut.",
+  pt: "Olá, {name}! Esperamos que você esteja bem hoje.",
+  zh: "你好，{name}！希望你今天一切顺利。",
+  tr: "Merhaba {name}! Bugün iyi olduğunu umuyoruz.",
+  fr: "Bonjour {name} ! Nous espérons que vous allez bien aujourd'hui.",
+  ru: "Здравствуйте, {name}! Надеемся, у вас сегодня всё хорошо.",
+  ur: "السلام علیکم {name}! امید ہے آپ آج بخیر ہوں گے۔",
+  hi: "नमस्ते {name}! उम्मीद है आप आज अच्छे होंगे।",
+};
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!
+  ));
+}
 
 const QUOTE_LABEL: Record<SupportedLang, string> = {
   en: "Quote of the Day", ar: "مقولة اليوم", es: "Frase del Día", de: "Zitat des Tages",
@@ -264,11 +286,14 @@ function buildDigestEmail(
   lang: SupportedLang,
   dateStr: string,
   quote: Record<SupportedLang, string>,
+  subscriberName?: string | null,
 ): string {
   const isRtl = RTL_LANGS.includes(lang);
   const dir = isRtl ? "rtl" : "ltr";
   const str = EMAIL_STRINGS[lang] ?? EMAIL_STRINGS.en;
-  const greeting = GREETINGS[lang] ?? GREETINGS.en;
+  const greeting = subscriberName
+    ? (GREETINGS_NAMED[lang] ?? GREETINGS_NAMED.en).replace("{name}", escapeHtml(subscriberName))
+    : (GREETINGS[lang] ?? GREETINGS.en);
   const quoteLabel = QUOTE_LABEL[lang] ?? QUOTE_LABEL.en;
   const quoteText = quote[lang] ?? quote.en;
 
@@ -464,7 +489,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: subscribers } = await supabase
     .from("newsletter_subscribers")
-    .select("email, topics, lang");
+    .select("email, topics, lang, name");
 
   if (!subscribers?.length || newsletterArticles.length === 0) {
     return Response.json({ generated: articles.length, emailsSent: 0 }, { headers: CORS });
@@ -509,7 +534,7 @@ Deno.serve(async (req: Request) => {
     if (relevantArticles.length === 0) continue;
 
     const dateStr = subLang === "ar" || subLang === "ur" ? dateAr : dateEn;
-    const html = buildDigestEmail(relevantArticles, subLang, dateStr, todaysQuote);
+    const html = buildDigestEmail(relevantArticles, subLang, dateStr, todaysQuote, sub.name);
 
     try {
       const res = await fetch("https://api.resend.com/emails", {
