@@ -487,11 +487,21 @@ Deno.serve(async (req: Request) => {
     return Response.json({ generated: articles.length, emailsSent: 0, note: "RESEND_API_KEY not configured" }, { headers: CORS });
   }
 
-  const { data: subscribers } = await supabase
-    .from("newsletter_subscribers")
-    .select("email, topics, lang, name");
+  const todayDateStr = now.toISOString().split("T")[0];
 
-  if (!subscribers?.length || newsletterArticles.length === 0) {
+  const { data: allSubscribers } = await supabase
+    .from("newsletter_subscribers")
+    .select("id, email, topics, lang, name, last_sent_date");
+
+  // Guard against double-sends (manual retry, or the schedule firing twice
+  // in one day): skip anyone already emailed today rather than sending again.
+  const subscribers = (allSubscribers ?? []).filter((s) => s.last_sent_date !== todayDateStr);
+  const alreadySent = (allSubscribers?.length ?? 0) - subscribers.length;
+  if (alreadySent > 0) {
+    console.log(`[news-generate] skipping ${alreadySent} subscriber(s) already emailed today`);
+  }
+
+  if (!subscribers.length || newsletterArticles.length === 0) {
     return Response.json({ generated: articles.length, emailsSent: 0 }, { headers: CORS });
   }
 
@@ -514,6 +524,7 @@ Deno.serve(async (req: Request) => {
   let emailsFailed = 0;
   let lastError: string | undefined;
   const todaysQuote = quoteOfTheDay(now);
+  const sentIds: string[] = [];
 
   for (const sub of subscribers) {
     const subTopics: string[] = sub.topics ?? [];
@@ -549,6 +560,7 @@ Deno.serve(async (req: Request) => {
       });
       if (res.ok) {
         emailsSent++;
+        sentIds.push(sub.id);
       } else {
         emailsFailed++;
         const body = await res.text().catch(() => "");
@@ -559,6 +571,16 @@ Deno.serve(async (req: Request) => {
       emailsFailed++;
       lastError = err instanceof Error ? err.message : String(err);
       console.error(`[news-generate] Resend fetch threw for ${sub.email}:`, lastError);
+    }
+  }
+
+  if (sentIds.length > 0) {
+    const { error: markSentErr } = await supabase
+      .from("newsletter_subscribers")
+      .update({ last_sent_date: todayDateStr })
+      .in("id", sentIds);
+    if (markSentErr) {
+      console.error("[news-generate] failed to record last_sent_date:", markSentErr.message);
     }
   }
 

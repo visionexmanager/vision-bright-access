@@ -2,8 +2,11 @@ name: Daily AI News Generation
 
 on:
   schedule:
-    # Every day at 06:00 UTC (9:00 AM Riyadh time)
-    - cron: "0 6 * * *"
+    # Every day at 06:07 UTC (~9:00 AM Riyadh time). Deliberately NOT on the
+    # exact hour: GitHub queues scheduled workflows and explicitly documents
+    # that runs at :00 are the most congested and can be delayed by hours
+    # under load — offsetting the minute keeps this close to on-time.
+    - cron: "7 6 * * *"
   workflow_dispatch:
 
 jobs:
