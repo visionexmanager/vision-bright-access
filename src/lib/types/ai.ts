@@ -69,6 +69,10 @@ export type EdgeFunctionName =
   | "provider-hub"
   | "billing-engine"
   | "image-generate"
+  | "image-tools-generate"
+  | "speech-transcribe"
+  | "document-generate"
+  | "text-tools-generate"
   | "health-check";
 
 export type AuthMode = "anon" | "user-jwt" | "admin-jwt" | "cron-secret";

@@ -161,46 +161,28 @@ class LumaProvider implements VideoProvider {
   }
 }
 
-// ── Mock Provider ─────────────────────────────────────────────────────────────
-
-class MockVideoProvider implements VideoProvider {
-  name = "mock";
-
-  async generateVideo(_params: VideoGenerateParams): Promise<VideoGenerateResult> {
-    // Return a fake job ID — polling will simulate progress
-    const mockId = `mock-${crypto.randomUUID()}`;
-    return { ok: true, providerJobId: mockId };
-  }
-
-  async pollJob(providerJobId: string): Promise<VideoPollResult> {
-    // Check how many times we've been polled by reading DB job created_at
-    // For simplicity: simulate completion after ~15 seconds
-    const mockVideoUrl =
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
-    const mockThumb =
-      "https://peach.blender.org/wp-content/uploads/bbb-splash.png";
-
-    // We'll signal completion on every poll for demo purposes
-    // In production this would check real provider state
-    return {
-      ok: true,
-      state: "completed",
-      progress: 100,
-      videoUrl: mockVideoUrl,
-      thumbnailUrl: mockThumb,
-    };
-  }
-
-  async cancelJob(_providerJobId: string): Promise<void> { /* no-op */ }
-}
-
 // ── Provider factory ──────────────────────────────────────────────────────────
+//
+// No mock/fake provider: if the requested provider's API key isn't configured,
+// callers must see a clear "not configured" error rather than a fake completed
+// job pointing at a canned stock video.
 
 function getProvider(name?: string): VideoProvider {
-  const lumaKey = Deno.env.get("LUMA_API_KEY");
-  if (name === "luma" && lumaKey) return new LumaProvider(lumaKey);
+  const requested = name ?? "luma";
+
+  if (requested === "luma") {
+    const lumaKey = Deno.env.get("LUMA_API_KEY");
+    if (!lumaKey) {
+      throw new Error(
+        "LUMA_API_KEY is not configured in Supabase Edge Function secrets. " +
+        "Text-to-Video requires a real Luma Dream Machine API key — add it in Project Settings → Edge Functions → Secrets."
+      );
+    }
+    return new LumaProvider(lumaKey);
+  }
+
   // Add more providers here: RunwayML, Kling, Pika, Sora, etc.
-  return new MockVideoProvider();
+  throw new Error(`Unknown video provider: "${requested}". Supported: luma`);
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -221,7 +203,14 @@ async function handleGenerate(
     return jsonError("Prompt is required", 400);
   }
 
-  const provider = getProvider(providerName as string ?? "luma");
+  // Resolve the provider before touching the DB — fail fast with a clear
+  // "not configured" message instead of creating a job that can never succeed.
+  let provider: VideoProvider;
+  try {
+    provider = getProvider(providerName as string ?? "luma");
+  } catch (err) {
+    return jsonError(err instanceof Error ? err.message : "Video provider unavailable", 503);
+  }
 
   // Create job record
   const { data: job, error: jobErr } = await (db as any)
@@ -321,7 +310,16 @@ async function handlePoll(
   }
   if (!job.provider_job_id) return json({ ok: true, status: job.status, progress: job.progress });
 
-  const provider = getProvider(job.provider);
+  let provider: VideoProvider;
+  try {
+    provider = getProvider(job.provider);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Video provider unavailable";
+    await (db as any).from("vx_video_jobs").update({
+      status: "failed", error_message: msg, completed_at: new Date().toISOString(),
+    }).eq("id", job_id);
+    return json({ ok: true, status: "failed", error: msg });
+  }
   const pollResult = await provider.pollJob(job.provider_job_id);
 
   if (!pollResult.ok || pollResult.state === "failed") {
@@ -465,8 +463,12 @@ async function handleCancel(
     .single();
 
   if (job?.provider_job_id) {
-    const provider = getProvider(job.provider);
-    await provider.cancelJob(job.provider_job_id).catch(() => null);
+    try {
+      const provider = getProvider(job.provider);
+      await provider.cancelJob(job.provider_job_id);
+    } catch {
+      // Best-effort — cancellation should never block marking the job cancelled below.
+    }
   }
 
   await (db as any).from("vx_video_jobs")

@@ -147,6 +147,8 @@ const AIMediaStudioProviderHub  = lazy(() => import("./pages/services/ai-media-s
 const AIMediaStudioBilling      = lazy(() => import("./pages/services/ai-media-studio/Billing"));
 const AIMediaStudioImage        = lazy(() => import("./pages/services/ai-media-studio/ImageStudio"));
 const AIMediaStudioDiagnostics  = lazy(() => import("./pages/services/ai-media-studio/Diagnostics"));
+const AIMediaStudioDocument     = lazy(() => import("./pages/services/ai-media-studio/DocumentStudio"));
+const AIMediaStudioTextTools    = lazy(() => import("./pages/services/ai-media-studio/TextToolsStudio"));
 
 // New game pages
 const Hangman = lazy(() => import("./pages/games/Hangman"));
@@ -345,6 +347,8 @@ function AppRoutes() {
                     <Route path="/services/ai-media-studio/billing"      element={<AuthGuard><AIMediaStudioBilling /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/image"       element={<AuthGuard><AIMediaStudioImage /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/diagnostics" element={<AuthGuard><AIMediaStudioDiagnostics /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/document"    element={<AuthGuard><AIMediaStudioDocument /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/text-tools"  element={<AuthGuard><AIMediaStudioTextTools /></AuthGuard>} />
                     <Route path="/games/hangman" element={<GameEconomyGate gameTitle="Hangman"><Hangman /></GameEconomyGate>} />
                     <Route path="/games/dominoes" element={<GameEconomyGate gameTitle="Dominoes"><Dominoes /></GameEconomyGate>} />
                     <Route path="/games/farkle" element={<GameEconomyGate gameTitle="Farkle"><FarkleGame /></GameEconomyGate>} />

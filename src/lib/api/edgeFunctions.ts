@@ -582,6 +582,153 @@ export async function callImageGenerate(
   }) as Promise<ImageGenerateResponse>;
 }
 
+// ── Speech-to-Text ────────────────────────────────────────────────────────────
+
+export interface SpeechTranscribeRequest {
+  audio_base64:   string;
+  mime_type?:     string;
+  filename?:      string;
+  language_hint?: string;
+  project_id?:    string;
+}
+
+export interface SpeechTranscribeResponse {
+  ok: boolean;
+  job_id: string;
+  transcript_text: string;
+  detected_language: string | null;
+  duration_sec: number | null;
+}
+
+export async function callSpeechTranscribe(
+  body: SpeechTranscribeRequest,
+  signal?: AbortSignal
+): Promise<SpeechTranscribeResponse> {
+  return callEdge({
+    fn: "speech-transcribe",
+    body: body as unknown as Record<string, unknown>,
+    auth: "user-jwt",
+    signal,
+  }) as Promise<SpeechTranscribeResponse>;
+}
+
+// ── Document Studio ───────────────────────────────────────────────────────────
+
+export interface DocumentGenerateRequest {
+  mode: "analyze" | "summarize";
+  input_text: string;
+  filename?: string;
+  language?: string;
+  project_id?: string;
+}
+
+export interface DocumentAnalysisResult {
+  summary: string;
+  key_points: string[];
+  action_items: string[];
+  entities: string[];
+  word_count: number;
+}
+
+export interface DocumentGenerateResponse {
+  ok: boolean;
+  job_id: string;
+  result: DocumentAnalysisResult;
+}
+
+export async function callDocumentGenerate(
+  body: DocumentGenerateRequest,
+  signal?: AbortSignal
+): Promise<DocumentGenerateResponse> {
+  return callEdge({
+    fn: "document-generate",
+    body: body as unknown as Record<string, unknown>,
+    auth: "user-jwt",
+    signal,
+  }) as Promise<DocumentGenerateResponse>;
+}
+
+// ── Text Tools Studio ─────────────────────────────────────────────────────────
+
+export type TextTool = "code" | "writing" | "resume" | "presentation";
+
+export interface TextToolsGenerateRequest {
+  tool: TextTool;
+  prompt: string;
+  language?: string;
+  project_id?: string;
+  options?: Record<string, unknown>;
+}
+
+export interface FreeformToolResult {
+  content: string;
+  language: string;
+  notes: string;
+}
+
+export interface DocumentToolResult {
+  title: string;
+  subtitle: string;
+  sections: Array<{ heading: string; bullets: string[] }>;
+}
+
+export interface TextToolsGenerateResponse {
+  ok: boolean;
+  job_id: string;
+  tool: TextTool;
+  result: FreeformToolResult | DocumentToolResult;
+}
+
+export async function callTextToolsGenerate(
+  body: TextToolsGenerateRequest,
+  signal?: AbortSignal
+): Promise<TextToolsGenerateResponse> {
+  return callEdge({
+    fn: "text-tools-generate",
+    body: body as unknown as Record<string, unknown>,
+    auth: "user-jwt",
+    signal,
+  }) as Promise<TextToolsGenerateResponse>;
+}
+
+// ── Image Studio tools (Replicate-backed) ─────────────────────────────────────
+
+export type ImageToolMode = "img2img" | "upscale" | "bg-remove" | "restore" | "avatar";
+
+export interface ImageToolsGenerateRequest {
+  action: "generate";
+  mode: ImageToolMode;
+  image_url: string;
+  prompt?: string;
+  project_id?: string;
+}
+
+export interface ImageToolsPollRequest {
+  action: "poll";
+  job_id: string;
+}
+
+export interface ImageToolsGenerateResponse {
+  ok: boolean;
+  job_id?: string;
+  status?: string;
+  image_url?: string;
+  asset_id?: string | null;
+  error?: string;
+}
+
+export async function callImageToolsGenerate(
+  body: ImageToolsGenerateRequest | ImageToolsPollRequest,
+  signal?: AbortSignal
+): Promise<ImageToolsGenerateResponse> {
+  return callEdge({
+    fn: "image-tools-generate",
+    body: body as unknown as Record<string, unknown>,
+    auth: "user-jwt",
+    signal,
+  }) as Promise<ImageToolsGenerateResponse>;
+}
+
 // ── System Health Check ───────────────────────────────────────────────────────
 
 export interface HealthCheckComponentStatus {

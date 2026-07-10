@@ -88,11 +88,74 @@ class OpenAISpeechProvider {
   }
 }
 
+// ─── ElevenLabs Provider (cloned / library voices) ────────────────────────────
+
+class ElevenLabsSpeechProvider {
+  readonly name = "elevenlabs";
+
+  async generateSpeech(cfg: SpeechProviderConfig): Promise<SpeechProviderResult> {
+    const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
+    if (!apiKey) {
+      throw new Error(
+        "ELEVENLABS_API_KEY is not configured in Supabase Edge Function secrets. " +
+        "This voice was cloned via ElevenLabs and needs that key to speak — add it in Project Settings → Edge Functions → Secrets."
+      );
+    }
+
+    const mimeMap: Record<string, string> = {
+      mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg",
+    };
+    // ElevenLabs only outputs mp3 (at various bitrates); map anything else to mp3.
+    const outputFormat = cfg.outputFormat === "wav" ? "pcm_16000" : "mp3_44100_128";
+
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(cfg.providerVoiceId)}?output_format=${outputFormat}`,
+      {
+        method: "POST",
+        headers: {
+          "xi-api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: cfg.text,
+          model_id: cfg.model && cfg.model !== "tts-1" ? cfg.model : "eleven_multilingual_v2",
+          voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: Math.min(1.2, Math.max(0.7, cfg.speed)) },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      let detail = `HTTP ${response.status}`;
+      try {
+        const errJson = await response.json();
+        detail = errJson?.detail?.message ?? errJson?.detail ?? detail;
+      } catch {
+        const text = await response.text().catch(() => "");
+        if (text) detail = text.slice(0, 200);
+      }
+      const statusMap: Record<number, string> = {
+        401: "ElevenLabs API key is invalid or revoked. Check ELEVENLABS_API_KEY in Supabase secrets.",
+        403: "ElevenLabs API key lacks permission for this voice.",
+        404: "This voice no longer exists on ElevenLabs — it may have been deleted or wasn't cloned successfully.",
+        422: `Invalid request to ElevenLabs: ${detail}`,
+        429: "ElevenLabs rate limit or quota reached. Please wait or check your ElevenLabs plan usage.",
+      };
+      throw new Error(statusMap[response.status] ?? `ElevenLabs TTS error (${response.status}): ${detail}`);
+    }
+
+    return {
+      audioBuffer: await response.arrayBuffer(),
+      mimeType: mimeMap[cfg.outputFormat] ?? "audio/mpeg",
+    };
+  }
+}
+
 // ─── Provider Manager ────────────────────────────────────────────────────────
 
-function getProvider(name: string): OpenAISpeechProvider {
+function getProvider(name: string): OpenAISpeechProvider | ElevenLabsSpeechProvider {
   if (name === "openai") return new OpenAISpeechProvider();
-  throw new Error(`Unknown speech provider: "${name}". Supported: openai`);
+  if (name === "elevenlabs") return new ElevenLabsSpeechProvider();
+  throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs`);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

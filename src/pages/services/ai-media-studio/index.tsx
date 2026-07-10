@@ -7,7 +7,6 @@ import { useAMSStorage } from "@/hooks/useAMSStorage";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -24,7 +23,6 @@ import {
   ArrowRight,
   Zap,
   LayoutTemplate,
-  Lock,
 } from "lucide-react";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
 import { ProjectCard } from "./components/ProjectCard";
@@ -39,7 +37,7 @@ const QUICK_START_ACTIONS = [
     desc: "Convert text into natural audio",
     color: "text-blue-500",
     bg: "bg-blue-500/10",
-    comingSoon: true,
+    to: "/services/ai-media-studio/speech",
   },
   {
     icon: AudioWaveform,
@@ -47,7 +45,7 @@ const QUICK_START_ACTIONS = [
     desc: "Clone a voice from audio samples",
     color: "text-violet-500",
     bg: "bg-violet-500/10",
-    comingSoon: true,
+    to: "/services/ai-media-studio/voice",
   },
   {
     icon: Video,
@@ -55,7 +53,7 @@ const QUICK_START_ACTIONS = [
     desc: "Generate video from a script",
     color: "text-orange-500",
     bg: "bg-orange-500/10",
-    comingSoon: true,
+    to: "/services/ai-media-studio/video",
   },
   {
     icon: FolderOpen,
@@ -170,13 +168,11 @@ export default function AIMediaStudioDashboard() {
                   key={action.label}
                   onClick={() => {
                     if (action.action === "new-project") setCreateOpen(true);
+                    else if (action.to) navigate(action.to);
                   }}
-                  disabled={action.comingSoon}
                   className={cn(
                     "group relative flex flex-col items-start gap-3 rounded-xl border p-4 text-left transition-all hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring",
-                    action.comingSoon
-                      ? "cursor-not-allowed opacity-70"
-                      : "hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
+                    "hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
                   )}
                 >
                   <div className={cn("p-2.5 rounded-xl", action.bg)}>
@@ -186,11 +182,6 @@ export default function AIMediaStudioDashboard() {
                     <p className="text-sm font-semibold leading-tight">{action.label}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{action.desc}</p>
                   </div>
-                  {action.comingSoon && (
-                    <Badge variant="secondary" className="absolute top-3 right-3 text-[10px] gap-0.5 px-1.5 py-0">
-                      <Lock className="h-2.5 w-2.5" />Soon
-                    </Badge>
-                  )}
                 </button>
               );
             })}
