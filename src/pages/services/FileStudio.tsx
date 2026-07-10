@@ -22,7 +22,7 @@ import {
   DOCUMENT_FORMATS, ARCHIVE_FORMATS, DEVELOPER_FORMATS,
 } from "@/lib/types/fileStudio";
 import { calculateVxCost, formatVxCost } from "@/services/file-studio/pricing";
-import { detectModuleType, getSupportedOutputFormats, fileSizeMb } from "@/services/file-studio/engine";
+import { detectModuleType, getWorkingOutputFormats, fileSizeMb } from "@/services/file-studio/engine";
 import { Link } from "react-router-dom";
 
 // ── Module metadata ────────────────────────────────────────────────────────────
@@ -165,8 +165,12 @@ export default function FileStudio() {
   };
 
   // ── Supported output formats for selected file ───────────────────────────────
+  // Only formats that actually convert in-browser today — see engine.ts's
+  // getWorkingOutputFormats() for why this differs from the nominal list.
 
-  const outputFormats = detectedModule ? getSupportedOutputFormats(detectedModule) : [];
+  const outputFormats = selectedFile && detectedModule
+    ? getWorkingOutputFormats(detectedModule, selectedFile.name)
+    : [];
 
   // ── Active / history jobs ───────────────────────────────────────────────────
 
@@ -350,29 +354,40 @@ export default function FileStudio() {
                       </div>
 
                       {/* Format selector */}
-                      <div>
-                        <label htmlFor={formatSelectId} className="text-sm font-medium mb-1 block">
-                          {t("fileStudio.selectFormat") || "Output format"}
-                        </label>
-                        <Select
-                          value={targetFormat}
-                          onValueChange={(v) => {
-                            setTargetFormat(v as AnyFormat);
-                            announce(`Output format selected: ${v.toUpperCase()}`);
-                          }}
-                        >
-                          <SelectTrigger id={formatSelectId} aria-label="Select output format">
-                            <SelectValue placeholder="Choose format…" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {outputFormats.map((fmt) => (
-                              <SelectItem key={fmt} value={fmt}>
-                                .{fmt.toUpperCase()}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {outputFormats.length > 0 ? (
+                        <div>
+                          <label htmlFor={formatSelectId} className="text-sm font-medium mb-1 block">
+                            {t("fileStudio.selectFormat") || "Output format"}
+                          </label>
+                          <Select
+                            value={targetFormat}
+                            onValueChange={(v) => {
+                              setTargetFormat(v as AnyFormat);
+                              announce(`Output format selected: ${v.toUpperCase()}`);
+                            }}
+                          >
+                            <SelectTrigger id={formatSelectId} aria-label="Select output format">
+                              <SelectValue placeholder="Choose format…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {outputFormats.map((fmt) => (
+                                <SelectItem key={fmt} value={fmt}>
+                                  .{fmt.toUpperCase()}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <div role="alert" className="flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                          <Info className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+                          <span>
+                            {detectedModule === "video" || detectedModule === "archive" || detectedModule === "ai-tools"
+                              ? `${detectedModule === "video" ? "Video" : detectedModule === "archive" ? "Archive" : "AI Tools"} conversion requires server processing, which isn't available yet — converting this file would fail. Please check back soon.`
+                              : "No output format is supported for this file type yet — converting it would fail. Please check back soon."}
+                          </span>
+                        </div>
+                      )}
 
                       {/* VX cost preview */}
                       {previewCost !== null && (
