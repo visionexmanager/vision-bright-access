@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Plus, Pencil, Trash2, Send, Newspaper, CheckCircle2, Eye, EyeOff, DollarSign, Landmark } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Send, Newspaper, CheckCircle2, Eye, EyeOff, DollarSign, Landmark, AlertTriangle } from "lucide-react";
 import { CATEGORY_TOPIC } from "@/pages/News";
 
 type Article = {
@@ -37,6 +37,7 @@ const EMPTY: Omit<Article, "id" | "created_at" | "newsletter_sent" | "published_
 };
 
 const CATEGORIES = [
+  { value: "breaking",      label: "Breaking News" },
   { value: "technology",    label: "Technology" },
   { value: "ai",            label: "AI & Innovation" },
   { value: "marketplace",   label: "Marketplace" },
@@ -60,6 +61,7 @@ const CATEGORIES = [
 ];
 
 const ICONS = [
+  { value: "AlertTriangle", label: "Breaking News" },
   { value: "Cpu",           label: "Technology (CPU)" },
   { value: "Brain",         label: "AI (Brain)" },
   { value: "ShoppingBag",   label: "Marketplace" },
@@ -190,8 +192,9 @@ export default function AdminNews() {
       toast.success("Article created.");
     }
 
-    // Send newsletter if requested and article is published
-    if (form.published && sendAfterPublish && savedId) {
+    // Show-on-page and send-newsletter are independent choices.
+    // "breaking" is always page-only, never emailed, regardless of the toggle.
+    if (sendAfterPublish && form.category !== "breaking" && savedId) {
       await sendNewsletter({ ...form, id: savedId, newsletter_sent: false, published_at: null, created_at: "" } as Article, savedId);
     }
 
@@ -201,6 +204,10 @@ export default function AdminNews() {
   };
 
   const sendNewsletter = async (article: Article, id: string) => {
+    if (article.category === "breaking") {
+      toast.error("Breaking News is page-only and can't be sent to the newsletter.");
+      return;
+    }
     const topic = CATEGORY_TOPIC[article.category] ?? "news-technology";
     setSendingId(id);
     try {
@@ -328,7 +335,9 @@ export default function AdminNews() {
                           <span className="inline-flex items-center gap-1 text-xs text-green-600">
                             <CheckCircle2 className="h-3.5 w-3.5" /> Sent
                           </span>
-                        ) : a.published ? (
+                        ) : a.category === "breaking" ? (
+                          <span className="text-xs text-muted-foreground">Page-only</span>
+                        ) : (
                           <Button
                             size="sm"
                             variant="outline"
@@ -339,8 +348,6 @@ export default function AdminNews() {
                             <Send className="me-1 h-3 w-3" />
                             {sendingId === a.id ? "Sending…" : "Send"}
                           </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
@@ -428,10 +435,14 @@ export default function AdminNews() {
               </div>
             </div>
 
+            <p className="text-xs font-medium text-muted-foreground">
+              Choose where this article goes — either, both, or neither (save as draft).
+            </p>
+
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div>
-                <p className="text-sm font-medium">Publish</p>
-                <p className="text-xs text-muted-foreground">Make article visible on the news page</p>
+                <p className="text-sm font-medium">Show on News Page</p>
+                <p className="text-xs text-muted-foreground">Make article visible on the public news page</p>
               </div>
               <Switch
                 checked={form.published}
@@ -439,7 +450,15 @@ export default function AdminNews() {
               />
             </div>
 
-            {form.published && (
+            {form.category === "breaking" ? (
+              <div className="flex items-center justify-between rounded-lg border p-4 opacity-60">
+                <div>
+                  <p className="text-sm font-medium">Send Newsletter</p>
+                  <p className="text-xs text-muted-foreground">Breaking News is page-only and never emailed.</p>
+                </div>
+                <Switch checked={false} disabled />
+              </div>
+            ) : (
               <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-4">
                 <div>
                   <p className="text-sm font-medium text-primary">Send Newsletter</p>

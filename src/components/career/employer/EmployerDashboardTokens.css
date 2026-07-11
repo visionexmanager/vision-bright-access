@@ -1,0 +1,57 @@
+/*
+ * Employer Dashboard — enterprise SaaS + glass tokens.
+ * Scoped to [data-employer-dashboard] so nothing leaks into the rest of the site.
+ */
+
+[data-employer-dashboard] {
+  --emp-sidebar-width: 264px;
+  --emp-sidebar-width-collapsed: 72px;
+  --emp-glass-bg: hsl(var(--card) / 0.7);
+}
+
+[data-employer-dashboard] .emp-glass {
+  background: var(--emp-glass-bg);
+  border: 1px solid hsl(var(--border));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-employer-dashboard][data-high-contrast="true"] {
+  --border: 0 0% 20%;
+  --muted-foreground: 0 0% 15%;
+}
+[data-employer-dashboard][data-high-contrast="true"] .dark {
+  --border: 0 0% 85%;
+  --muted-foreground: 0 0% 90%;
+}
+[data-employer-dashboard][data-high-contrast="true"] {
+  --emp-glass-bg: hsl(var(--card));
+}
+
+[data-employer-dashboard][data-large-text="true"] {
+  font-size: 112.5%;
+}
+
+[data-employer-dashboard][data-reduced-motion="true"] *,
+[data-employer-dashboard][data-reduced-motion="true"] *::before,
+[data-employer-dashboard][data-reduced-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+[data-employer-dashboard] .emp-kanban-column {
+  background: hsl(var(--muted) / 0.4);
+}
+[data-employer-dashboard] .emp-kanban-card[draggable="true"] {
+  cursor: grab;
+}
+[data-employer-dashboard] .emp-kanban-card.is-dragging {
+  opacity: 0.5;
+}
+[data-employer-dashboard] .emp-kanban-column.is-drop-target {
+  background: hsl(var(--primary) / 0.08);
+  outline: 2px dashed hsl(var(--primary) / 0.4);
+  outline-offset: -2px;
+}

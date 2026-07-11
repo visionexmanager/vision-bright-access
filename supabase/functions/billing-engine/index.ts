@@ -293,7 +293,11 @@ serve(async (req) => {
     case "get_plans":       return handleGetPlans();
     case "upgrade":         return handleUpgrade(user.id, body);
     case "cancel":          return handleCancel(user.id);
-    case "grant_credits":   return handleGrantCredits(user.id, body);
+    // "grant_credits" is intentionally not reachable here: it granted an
+    // arbitrary, caller-supplied VX amount to any authenticated user with no
+    // payment verification. It's only safe to call from a trusted
+    // server-to-server context (e.g. a verified payment webhook) using the
+    // service-role key, not from a user JWT.
     default:                return err(`Unknown action: ${action}`);
   }
 });

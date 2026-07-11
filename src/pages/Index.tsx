@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSound } from "@/contexts/SoundContext";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
+import { CareerCenterSection } from "@/components/career/CareerCenterSection";
 
 export default function Index() {
   const { t } = useLanguage();
@@ -204,6 +205,8 @@ export default function Index() {
         {/* AdSense — bottom of home page */}
         <AdBanner slot="3569383992" format="horizontal" className="mt-10 px-4" />
       </section>
+
+      <CareerCenterSection />
     </Layout>
   );
 }

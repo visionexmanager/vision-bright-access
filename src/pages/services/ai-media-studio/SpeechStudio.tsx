@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Mic2, ChevronRight, Sparkles, Wand2, X, BookOpen } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
+import { Mic2, ChevronRight, Sparkles, Wand2, X, BookOpen, Upload, FileAudio, Copy, Download, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,9 @@ import { SpeechHistoryPanel } from "./components/speech/SpeechHistoryPanel";
 import { PresetPanel } from "./components/speech/PresetPanel";
 import { useSpeechVoices } from "@/hooks/useSpeechVoices";
 import { useSpeechGenerate } from "@/hooks/useSpeechGenerate";
+import { useSpeechTranscribe } from "@/hooks/useSpeechTranscribe";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type {
   SpeechVoice,
   SpeechEmotion,
@@ -49,7 +51,10 @@ type RightTab = "presets" | "history";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+type StudioMode = "tts" | "stt";
+
 export default function SpeechStudio() {
+  const [studioMode, setStudioMode]       = useState<StudioMode>("tts");
   const [text, setText]                   = useState("");
   const [selectedVoice, setSelectedVoice] = useState<SpeechVoice | null>(null);
   const [params, setParams]               = useState<Params>(DEFAULT_PARAMS);
@@ -111,23 +116,57 @@ export default function SpeechStudio() {
           </div>
           <div>
             <h1 className="text-lg font-bold leading-tight">Speech Studio</h1>
-            <p className="text-xs text-muted-foreground">Text-to-Speech · Powered by OpenAI TTS</p>
+            <p className="text-xs text-muted-foreground">
+              {studioMode === "tts" ? "Text-to-Speech · Powered by OpenAI TTS" : "Speech-to-Text · Powered by OpenAI Whisper"}
+            </p>
           </div>
           <Badge variant="secondary" className="ml-2 text-[10px]">Beta</Badge>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => setVoiceBrowserOpen(true)}
+
+          {/* Mode toggle */}
+          <div className="ml-4 flex rounded-lg border p-0.5" role="tablist" aria-label="Speech Studio mode">
+            <button
+              role="tab"
+              aria-selected={studioMode === "tts"}
+              onClick={() => setStudioMode("tts")}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                studioMode === "tts" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              Browse Voices
-            </Button>
+              Text to Speech
+            </button>
+            <button
+              role="tab"
+              aria-selected={studioMode === "stt"}
+              onClick={() => setStudioMode("stt")}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                studioMode === "stt" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Speech to Text
+            </button>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            {studioMode === "tts" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setVoiceBrowserOpen(true)}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Browse Voices
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Three-panel layout */}
+        {studioMode === "stt" ? (
+          <SpeechToTextPanel />
+        ) : (
+        /* Three-panel layout */
         <div className="flex flex-1 overflow-hidden">
           {/* ── Left: Editor + Voice ── */}
           <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
@@ -310,6 +349,7 @@ export default function SpeechStudio() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* Voice browser sheet */}
@@ -320,5 +360,165 @@ export default function SpeechStudio() {
         onSelect={handleVoiceSelect}
       />
     </StudioLayout>
+  );
+}
+
+// ── Speech-to-Text panel ────────────────────────────────────────────────────
+
+function SpeechToTextPanel() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const { transcribe, cancel, reset, step, error, result, isTranscribing } = useSpeechTranscribe();
+
+  const handleFile = useCallback((file: File) => {
+    if (!file.type.startsWith("audio/") && !file.type.startsWith("video/")) {
+      toast.error(`Unsupported file type: ${file.type || "unknown"}. Please upload an audio file.`);
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error(`File (${(file.size / 1024 / 1024).toFixed(1)} MB) exceeds the 25 MB transcription limit.`);
+      return;
+    }
+    setSelectedFile(file);
+    reset();
+  }, [reset]);
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) handleFile(f);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) handleFile(f);
+  };
+
+  const copyTranscript = () => {
+    if (!result) return;
+    navigator.clipboard.writeText(result.transcriptText);
+    toast.success("Transcript copied to clipboard");
+  };
+
+  const downloadTranscript = () => {
+    if (!result) return;
+    const blob = new Blob([result.transcriptText], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${result.filename.split(".").slice(0, -1).join(".") || "transcript"}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="sr-only"
+          aria-label="Upload an audio file to transcribe"
+          accept="audio/*,video/*"
+          onChange={onFileChange}
+        />
+
+        {!selectedFile ? (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Upload area. Press Enter or Space to choose an audio file, or drag and drop."
+            onDrop={onDrop}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-12 text-center cursor-pointer transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/30 hover:border-primary hover:bg-muted/40"
+            )}
+          >
+            <Upload className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
+            <div>
+              <p className="font-medium">Drop an audio file here or click to browse</p>
+              <p className="text-xs text-muted-foreground mt-1">MP3, WAV, M4A, WEBM · Max 25 MB</p>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border bg-muted/30 p-4 space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <FileAudio className="h-4 w-4 text-primary" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate" title={selectedFile.name}>{selectedFile.name}</p>
+                  <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => { setSelectedFile(null); reset(); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                aria-label="Remove file"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+
+            {!isTranscribing && step !== "completed" && (
+              <Button className="w-full gap-2" onClick={() => transcribe(selectedFile)}>
+                <Wand2 className="h-4 w-4" aria-hidden="true" />
+                Transcribe Audio
+              </Button>
+            )}
+
+            {isTranscribing && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  {step === "reading" ? "Reading audio file…" : "Transcribing with Whisper…"}
+                </div>
+                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={cancel}>
+                  Cancel
+                </Button>
+              </div>
+            )}
+
+            {step === "failed" && error && (
+              <div className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>{error}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {result && step === "completed" && (
+          <div className="rounded-xl border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Transcript</h2>
+              <div className="flex items-center gap-1">
+                {result.detectedLanguage && (
+                  <Badge variant="outline" className="text-[10px] mr-2">{result.detectedLanguage}</Badge>
+                )}
+                <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={copyTranscript}>
+                  <Copy className="h-3.5 w-3.5" /> Copy
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={downloadTranscript}>
+                  <Download className="h-3.5 w-3.5" /> Download
+                </Button>
+              </div>
+            </div>
+            <p className="text-sm whitespace-pre-wrap leading-relaxed" tabIndex={0}>
+              {result.transcriptText}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

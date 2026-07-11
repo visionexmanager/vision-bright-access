@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Image, Loader2, XCircle, CheckCircle2, Download, RefreshCw, Wand2 } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
+import { Image, Loader2, XCircle, CheckCircle2, Download, RefreshCw, Wand2, Upload, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { StudioLayout } from "./StudioLayout";
 import { useImageGenerate } from "@/hooks/useImageGenerate";
+import { useImageTools } from "@/hooks/useImageTools";
+import type { ImageToolMode } from "@/lib/api/edgeFunctions";
 import { cn } from "@/lib/utils";
 
 const MODEL_OPTIONS = [
@@ -37,7 +39,10 @@ const PROMPT_EXAMPLES = [
   "Abstract geometric art with deep blues and purples, minimalist style",
 ];
 
+type StudioMode = "generate" | "tools";
+
 export default function ImageStudio() {
+  const [studioMode, setStudioMode] = useState<StudioMode>("generate");
   const [prompt, setPrompt]   = useState("");
   const [model, setModel]     = useState<"dall-e-3" | "dall-e-2">("dall-e-3");
   const [size, setSize]       = useState("1024x1024");
@@ -82,11 +87,32 @@ export default function ImageStudio() {
           </div>
           <div>
             <h1 className="text-xl font-semibold">Image Studio</h1>
-            <p className="text-sm text-muted-foreground">Generate images with OpenAI DALL·E 3</p>
+            <p className="text-sm text-muted-foreground">
+              {studioMode === "generate" ? "Generate images with OpenAI DALL·E 3" : "Image-to-image, upscaling, background removal, restoration, avatars"}
+            </p>
           </div>
-          <Badge variant="secondary" className="ml-auto">DALL·E 3</Badge>
+
+          <div className="ml-4 flex rounded-lg border p-0.5" role="tablist" aria-label="Image Studio mode">
+            <button
+              role="tab" aria-selected={studioMode === "generate"} onClick={() => setStudioMode("generate")}
+              className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-colors", studioMode === "generate" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+            >
+              Text to Image
+            </button>
+            <button
+              role="tab" aria-selected={studioMode === "tools"} onClick={() => setStudioMode("tools")}
+              className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-colors", studioMode === "tools" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+            >
+              Edit / Tools
+            </button>
+          </div>
+
+          {studioMode === "generate" && <Badge variant="secondary" className="ml-auto">DALL·E 3</Badge>}
         </div>
 
+        {studioMode === "tools" ? (
+          <ImageToolsPanel />
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1">
           {/* Left: Controls */}
           <div className="flex flex-col gap-4">
@@ -312,7 +338,170 @@ export default function ImageStudio() {
             )}
           </div>
         </div>
+        )}
       </div>
     </StudioLayout>
+  );
+}
+
+// ── Image Studio tools panel (img2img / upscale / bg-remove / restore / avatar) ──
+
+const TOOL_MODES: { id: ImageToolMode; label: string; needsPrompt: boolean; hint: string }[] = [
+  { id: "img2img",   label: "Image to Image",     needsPrompt: true,  hint: "Transform your photo based on a text prompt" },
+  { id: "avatar",    label: "AI Avatar",          needsPrompt: true,  hint: "Turn a photo into a stylized avatar" },
+  { id: "upscale",   label: "AI Upscaler",        needsPrompt: false, hint: "Increase resolution and sharpen details" },
+  { id: "bg-remove", label: "Background Remover", needsPrompt: false, hint: "Remove the background automatically" },
+  { id: "restore",   label: "Image Restoration",  needsPrompt: false, hint: "Repair and enhance old or damaged photos" },
+];
+
+function ImageToolsPanel() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mode, setMode] = useState<ImageToolMode>("upscale");
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [toolPrompt, setToolPrompt] = useState("");
+  const { run, cancel, reset, step, error, result, isRunning } = useImageTools();
+
+  const activeMode = TOOL_MODES.find((m) => m.id === mode)!;
+
+  const handleFile = useCallback((f: File) => {
+    if (!f.type.startsWith("image/")) {
+      return;
+    }
+    setFile(f);
+    setPreviewUrl(URL.createObjectURL(f));
+    reset();
+  }, [reset]);
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) handleFile(f);
+  };
+
+  const handleRun = () => {
+    if (!file) return;
+    run(mode, file, activeMode.needsPrompt ? toolPrompt.trim() || undefined : undefined);
+  };
+
+  const handleDownload = async () => {
+    if (!result?.imageUrl) return;
+    try {
+      const res = await fetch(result.imageUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${mode}-result.png`; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(result.imageUrl, "_blank");
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1">
+      <div className="flex flex-col gap-4">
+        {/* Tool selector */}
+        <div className="space-y-1.5">
+          <Label className="text-sm">Tool</Label>
+          <Select value={mode} onValueChange={(v) => setMode(v as ImageToolMode)} disabled={isRunning}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TOOL_MODES.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  <div>
+                    <div className="text-sm">{m.label}</div>
+                    <div className="text-xs text-muted-foreground">{m.hint}</div>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Source image */}
+        <div className="space-y-1.5">
+          <Label className="text-sm">Source Image</Label>
+          <input ref={fileInputRef} type="file" className="sr-only" accept="image/*" onChange={onFileChange} aria-label="Upload source image" />
+          {!file ? (
+            <div
+              role="button" tabIndex={0}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
+              className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center cursor-pointer border-muted-foreground/30 hover:border-primary hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Upload className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+              <p className="text-sm font-medium">Click to upload an image</p>
+            </div>
+          ) : (
+            <div className="rounded-xl border overflow-hidden relative">
+              <Button
+                variant="ghost" size="icon" className="absolute top-2 right-2 h-7 w-7 bg-background/80 z-10"
+                onClick={() => { setFile(null); setPreviewUrl(null); reset(); }} aria-label="Remove image"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+              {previewUrl && <img src={previewUrl} alt="Source" className="w-full max-h-64 object-contain bg-muted/20" />}
+            </div>
+          )}
+        </div>
+
+        {activeMode.needsPrompt && (
+          <div className="space-y-1.5">
+            <Label className="text-sm">Prompt (optional)</Label>
+            <Textarea
+              value={toolPrompt}
+              onChange={(e) => setToolPrompt(e.target.value)}
+              placeholder={mode === "avatar" ? "e.g. professional headshot, digital painting style" : "Describe the transformation you want…"}
+              className="min-h-[80px] resize-none"
+              disabled={isRunning}
+            />
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <Button className="flex-1 gap-2" disabled={!file || isRunning} onClick={handleRun}>
+            {isRunning ? <><Loader2 className="size-4 animate-spin" /> {step === "uploading" ? "Uploading…" : "Processing…"}</> : <><Wand2 className="size-4" /> Run {activeMode.label}</>}
+          </Button>
+          {isRunning && (
+            <Button variant="outline" size="icon" onClick={cancel} title="Cancel"><XCircle className="size-4" /></Button>
+          )}
+        </div>
+
+        {step === "failed" && error && (
+          <div className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" /><span>{error}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <div className={cn(
+          "flex-1 rounded-xl border-2 border-dashed bg-muted/30 overflow-hidden",
+          result ? "border-transparent" : "border-border"
+        )}>
+          {result ? (
+            <img src={result.imageUrl} alt={`${activeMode.label} result`} className="w-full h-full object-contain rounded-xl min-h-[300px]" />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-3 text-muted-foreground p-8 text-center">
+              <div className="rounded-full bg-muted p-4"><Image className="size-8" /></div>
+              <div>
+                <p className="text-sm font-medium">No result yet</p>
+                <p className="text-xs">Upload an image and run a tool</p>
+              </div>
+            </div>
+          )}
+        </div>
+        {result && (
+          <div className="flex items-center justify-between rounded-xl border bg-card p-4">
+            <div className="flex items-center gap-1.5 text-sm text-green-600">
+              <CheckCircle2 className="size-4" /> Result ready
+            </div>
+            <Button size="sm" variant="outline" onClick={handleDownload} className="gap-1.5">
+              <Download className="size-3.5" /> Download
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

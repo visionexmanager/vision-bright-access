@@ -1,0 +1,41 @@
+/*
+ * Career Dashboard — design tokens + real accessibility toggles.
+ * Scoped to [data-career-dashboard] so nothing leaks into the rest of the site.
+ */
+
+[data-career-dashboard] {
+  --career-sidebar-width: 264px;
+  --career-sidebar-width-collapsed: 72px;
+  --career-glass-bg: hsl(var(--card) / 0.7);
+}
+
+/* ── High contrast ───────────────────────────────────────────────────── */
+[data-career-dashboard][data-high-contrast="true"] {
+  --border: 0 0% 20%;
+  --muted-foreground: 0 0% 15%;
+}
+[data-career-dashboard][data-high-contrast="true"] .dark {
+  --border: 0 0% 85%;
+  --muted-foreground: 0 0% 90%;
+}
+[data-career-dashboard][data-high-contrast="true"] {
+  --career-glass-bg: hsl(var(--card));
+}
+[data-career-dashboard][data-high-contrast="true"] * {
+  text-shadow: none !important;
+}
+
+/* ── Large text ──────────────────────────────────────────────────────── */
+[data-career-dashboard][data-large-text="true"] {
+  font-size: 112.5%;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────── */
+[data-career-dashboard][data-reduced-motion="true"] *,
+[data-career-dashboard][data-reduced-motion="true"] *::before,
+[data-career-dashboard][data-reduced-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

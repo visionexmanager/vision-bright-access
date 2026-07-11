@@ -41,17 +41,22 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Authorization required" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+
+    const authClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: { user }, error: authErr } = await authClient.auth.getUser();
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -71,8 +76,8 @@ Deno.serve(async (req) => {
       throw new Error("roomId is required");
     }
 
-    // Identity is derived from the verified JWT, never trusted from the client body,
-    // so a caller cannot mint a token impersonating another user.
+    // Identity is taken from the verified JWT, never from client input,
+    // so a caller can't mint a token that impersonates another user.
     const at = new AccessToken(apiKey, apiSecret, {
       identity: user.id,
       name: userName || user.email || user.id,

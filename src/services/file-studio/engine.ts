@@ -45,6 +45,45 @@ export function getSupportedOutputFormats(moduleType: ModuleType): readonly stri
   return MODULE_REGISTRY[moduleType]?.supportedOutputFormats ?? [];
 }
 
+// ── Realistic (actually working) output formats ────────────────────────────────
+//
+// getSupportedOutputFormats() reflects each module's nominal target list, but
+// several formats there are placeholders awaiting server-side processing
+// (see modules/video.ts, archives.ts, aiTools.ts, and the server-only branches
+// in audio.ts / documents.ts) — queuing those today always ends in failure.
+// This narrows the list to pairs that genuinely convert in-browser, so the UI
+// can be honest about it upfront instead of showing a fake progress bar.
+
+const DOCUMENT_WORKING_TARGETS: Record<string, readonly string[]> = {
+  txt:  ["html", "md"],
+  html: ["txt"],
+  csv:  ["txt"],
+};
+
+const AUDIO_WORKING_TARGETS = ["mp3", "wav", "ogg", "webm"] as const;
+
+export function getWorkingOutputFormats(moduleType: ModuleType, inputFileName: string): readonly string[] {
+  const inFmt = inputFileName.split(".").pop()?.toLowerCase() ?? "";
+
+  switch (moduleType) {
+    case "image":
+    case "developer":
+      // Fully implemented in-browser for every nominal target.
+      return getSupportedOutputFormats(moduleType);
+    case "audio":
+      return AUDIO_WORKING_TARGETS;
+    case "document":
+      return DOCUMENT_WORKING_TARGETS[inFmt] ?? [];
+    case "video":
+    case "archive":
+    case "ai-tools":
+      // No in-browser implementation yet — server processing required.
+      return [];
+    default:
+      return [];
+  }
+}
+
 // ── Main conversion entry point ───────────────────────────────────────────────
 
 export interface EngineInput {

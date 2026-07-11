@@ -1,0 +1,38 @@
+/*
+ * VisionEx Professional Network — glass premium tokens.
+ * Scoped to [data-network] so nothing leaks into the rest of the site.
+ */
+
+[data-network] {
+  --net-sidebar-width: 264px;
+  --net-sidebar-width-collapsed: 72px;
+}
+
+[data-network] .net-glass {
+  background: hsl(var(--card) / 0.7);
+  border: 1px solid hsl(var(--border));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+[data-network][data-high-contrast="true"] {
+  --border: 0 0% 20%;
+  --muted-foreground: 0 0% 15%;
+}
+[data-network][data-high-contrast="true"] .dark {
+  --border: 0 0% 85%;
+  --muted-foreground: 0 0% 90%;
+}
+
+[data-network][data-large-text="true"] {
+  font-size: 112.5%;
+}
+
+[data-network][data-reduced-motion="true"] *,
+[data-network][data-reduced-motion="true"] *::before,
+[data-network][data-reduced-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

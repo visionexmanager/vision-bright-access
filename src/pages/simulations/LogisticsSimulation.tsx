@@ -120,12 +120,12 @@ export function LogisticsSimulation({ simulationId }: Props) {
   };
 
   const dest = currentShipment ? DESTINATIONS.find((d) => d.id === currentShipment.destination)! : DESTINATIONS[0];
-  const shippingCost = Math.round(dest.baseCost * transport.cost * (1 + currentShipment?.weight! * 0.02));
-  const insuranceCost = insurance ? Math.round(currentShipment?.value! * 0.05) : 0;
+  const shippingCost = Math.round(dest.baseCost * transport.cost * (1 + (currentShipment?.weight ?? 0) * 0.02));
+  const insuranceCost = insurance ? Math.round((currentShipment?.value ?? 0) * 0.05) : 0;
   const rushCost = rushDelivery ? Math.round(shippingCost * 0.4) : 0;
   const warehouseCost = warehouseDays * 15;
   const totalCost = shippingCost + insuranceCost + rushCost + warehouseCost;
-  const fee = Math.round(currentShipment?.value! * 0.15 + shippingCost * 0.3);
+  const fee = Math.round((currentShipment?.value ?? 0) * 0.15 + shippingCost * 0.3);
 
   const startShipping = () => {
     if (!currentShipment || shipping) return;

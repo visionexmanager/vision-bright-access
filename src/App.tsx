@@ -92,6 +92,15 @@ const Settings = lazy(() => import("./pages/Settings"));
 const ProfessionalTools = lazy(() => import("./pages/ProfessionalTools"));
 const ToolDetail = lazy(() => import("./pages/ToolDetail"));
 
+const Careers = lazy(() => import("./pages/Careers"));
+const CareerDashboard = lazy(() => import("./pages/career/CareerDashboard"));
+const AICareerSuite = lazy(() => import("./pages/career/AICareerSuite"));
+const EmployerDashboard = lazy(() => import("./pages/career/EmployerDashboard"));
+const JobIntelligence = lazy(() => import("./pages/career/JobIntelligence"));
+const CareerAgent = lazy(() => import("./pages/career/CareerAgent"));
+const CareerNetwork = lazy(() => import("./pages/career/CareerNetwork"));
+const CareerCommunity = lazy(() => import("./pages/career/CareerCommunity"));
+
 // New service pages
 const CareerHub = lazy(() => import("./pages/services/CareerHub"));
 const MusicConservatory = lazy(() => import("./pages/services/MusicConservatory"));
@@ -138,6 +147,8 @@ const AIMediaStudioProviderHub  = lazy(() => import("./pages/services/ai-media-s
 const AIMediaStudioBilling      = lazy(() => import("./pages/services/ai-media-studio/Billing"));
 const AIMediaStudioImage        = lazy(() => import("./pages/services/ai-media-studio/ImageStudio"));
 const AIMediaStudioDiagnostics  = lazy(() => import("./pages/services/ai-media-studio/Diagnostics"));
+const AIMediaStudioDocument     = lazy(() => import("./pages/services/ai-media-studio/DocumentStudio"));
+const AIMediaStudioTextTools    = lazy(() => import("./pages/services/ai-media-studio/TextToolsStudio"));
 
 // New game pages
 const Hangman = lazy(() => import("./pages/games/Hangman"));
@@ -284,6 +295,14 @@ function AppRoutes() {
                     <Route path="/services/shared-trip" element={<SharedTrip />} />
                     <Route path="/services/nutrition" element={<NutritionExpert />} />
                     <Route path="/services/trip-history" element={<TripHistory />} />
+                    <Route path="/careers" element={<Careers />} />
+                    <Route path="/career/dashboard" element={<AuthGuard><CareerDashboard /></AuthGuard>} />
+                    <Route path="/career/ai" element={<AuthGuard><AICareerSuite /></AuthGuard>} />
+                    <Route path="/career/employer" element={<AuthGuard><EmployerDashboard /></AuthGuard>} />
+                    <Route path="/career/intelligence" element={<JobIntelligence />} />
+                    <Route path="/career/agent" element={<AuthGuard><CareerAgent /></AuthGuard>} />
+                    <Route path="/career/network" element={<AuthGuard><CareerNetwork /></AuthGuard>} />
+                    <Route path="/career/community" element={<CareerCommunity />} />
                     <Route path="/services/career-hub" element={<CareerHub />} />
                     <Route path="/services/music-conservatory" element={<MusicConservatory />} />
                     <Route path="/services/global-studio" element={<GlobalStudio />} />
@@ -328,6 +347,8 @@ function AppRoutes() {
                     <Route path="/services/ai-media-studio/billing"      element={<AuthGuard><AIMediaStudioBilling /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/image"       element={<AuthGuard><AIMediaStudioImage /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/diagnostics" element={<AuthGuard><AIMediaStudioDiagnostics /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/document"    element={<AuthGuard><AIMediaStudioDocument /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/text-tools"  element={<AuthGuard><AIMediaStudioTextTools /></AuthGuard>} />
                     <Route path="/games/hangman" element={<GameEconomyGate gameTitle="Hangman"><Hangman /></GameEconomyGate>} />
                     <Route path="/games/dominoes" element={<GameEconomyGate gameTitle="Dominoes"><Dominoes /></GameEconomyGate>} />
                     <Route path="/games/farkle" element={<GameEconomyGate gameTitle="Farkle"><FarkleGame /></GameEconomyGate>} />

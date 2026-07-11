@@ -86,31 +86,22 @@ class ElevenLabsVoiceProvider implements VoiceProvider {
   }
 }
 
-// ── Mock Provider (no API key configured) ────────────────────────────────────
-
-class MockVoiceProvider implements VoiceProvider {
-  name = "mock";
-
-  async cloneVoice(input: VoiceCloneInput): Promise<VoiceCloneResult> {
-    // Simulate training delay — in real deployment this would never be used
-    await new Promise((r) => setTimeout(r, 3000));
-    return {
-      ok: true,
-      providerVoiceId: `mock-${input.profileId.slice(0, 8)}`,
-    };
-  }
-
-  async deleteVoice(_providerVoiceId: string): Promise<void> {
-    // no-op
-  }
-}
-
 // ── Provider factory ──────────────────────────────────────────────────────────
+//
+// No mock/fake provider: if ELEVENLABS_API_KEY isn't configured, callers must
+// see a clear "not configured" error rather than a fake successful clone that
+// can never actually speak (a provider_voice_id with no real ElevenLabs voice
+// behind it).
 
 function getProvider(): VoiceProvider {
   const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
-  if (apiKey) return new ElevenLabsVoiceProvider(apiKey);
-  return new MockVoiceProvider();
+  if (!apiKey) {
+    throw new Error(
+      "ELEVENLABS_API_KEY is not configured in Supabase Edge Function secrets. " +
+      "Voice Cloning requires a real ElevenLabs API key — add it in Project Settings → Edge Functions → Secrets."
+    );
+  }
+  return new ElevenLabsVoiceProvider(apiKey);
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -183,7 +174,6 @@ async function runTraining(
 ): Promise<void> {
   const supabaseUrl     = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceKey      = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  const provider        = getProvider();
 
   const updateJob = async (patch: Record<string, unknown>) =>
     (db as any).from("vs_training_jobs").update(patch).eq("id", jobId);
@@ -193,6 +183,11 @@ async function runTraining(
     (db as any).rpc("vs_log_training", { p_job_id: jobId, p_level: level, p_message: message });
 
   try {
+    // Constructed inside the try block so a missing ELEVENLABS_API_KEY fails
+    // the job with a clear message instead of becoming an unhandled rejection
+    // that leaves the job stuck in "training" forever.
+    const provider = getProvider();
+
     await updateJob({ status: "uploading", progress: 10, started_at: new Date().toISOString() });
     await updateProfile({ training_status: "uploading" });
     await logEvent("info", "Uploading samples to voice provider…");

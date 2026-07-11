@@ -13,6 +13,12 @@ interface NotifyPayload {
   message?: string;
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!
+  ));
+}
+
 const EVENT_LABELS: Record<BazaarEventType, string> = {
   message: "New buyer message",
   add_to_cart: "Product added to cart",
@@ -137,8 +143,8 @@ Deno.serve(async (req) => {
             subject: title,
             html: `
               <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827">
-                <h2>${title}</h2>
-                <p>${body}</p>
+                <h2>${escapeHtml(title)}</h2>
+                <p>${escapeHtml(body)}</p>
                 <p style="color:#6b7280;font-size:13px">You are receiving this because seller notifications are enabled for your VXBazaar shop.</p>
               </div>
             `,

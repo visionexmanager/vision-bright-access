@@ -39,6 +39,13 @@ export function useFileStudio() {
     return unsub;
   }, []);
 
+  // Periodically release expired jobs' blob URLs so a long-lived tab doesn't
+  // accumulate memory across many conversions.
+  useEffect(() => {
+    const interval = setInterval(() => jobQueue.sweepExpired(), 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const submitConversion = useCallback(
     async (
       file: File,
@@ -49,6 +56,12 @@ export function useFileStudio() {
       const moduleType = detectModuleType(file.name);
       if (!moduleType) {
         toast.error(`Unsupported file type: .${file.name.split(".").pop()}`);
+        return null;
+      }
+
+      // Prevent running more than one conversion for the same file+target at once
+      if (jobQueue.hasActiveDuplicate(file, targetFormat)) {
+        toast.info(`${file.name} → ${targetFormat.toUpperCase()} is already in progress.`);
         return null;
       }
 
@@ -66,12 +79,17 @@ export function useFileStudio() {
         return null;
       }
 
-      // Deduct VX (best-effort; refunded on failure via award_points)
+      // Deduct VX (best-effort; refunded on failure via award_points).
+      // Never let a billing hiccup block the conversion itself.
       if (user) {
-        await supabase.rpc("award_points", {
-          _points: -cost,
-          _reason: `File Studio: convert ${file.name} → ${targetFormat}`,
-        });
+        try {
+          await supabase.rpc("award_points", {
+            _points: -cost,
+            _reason: `File Studio: convert ${file.name} → ${targetFormat}`,
+          });
+        } catch (err) {
+          console.error("[FileStudio] VX deduction failed, proceeding anyway:", err);
+        }
       }
 
       const job = jobQueue.enqueue({
@@ -83,15 +101,21 @@ export function useFileStudio() {
         priority,
       });
 
-      // Refund on failure — listen for this job completing
+      // Refund on failure — listen for this job to settle, then always unsubscribe
+      // (previously only unsubscribed on failure, leaking a listener per successful job).
       if (user) {
         const unsub = jobQueue.subscribe((updated) => {
-          if (updated.id === job.id && updated.status === "failed") {
+          if (updated.id !== job.id) return;
+          if (updated.status === "failed") {
             supabase.rpc("award_points", {
               _points: cost,
               _reason: `File Studio refund: ${file.name} failed`,
+            }).then(({ error }) => {
+              if (error) console.error("[FileStudio] VX refund failed:", error.message);
             });
             toast.info(`${cost.toLocaleString()} VX refunded — conversion failed.`);
+            unsub();
+          } else if (updated.status === "completed" || updated.status === "cancelled") {
             unsub();
           }
         });

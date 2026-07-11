@@ -2,8 +2,11 @@ name: Daily AI News Generation
 
 on:
   schedule:
-    # Every day at 06:00 UTC (9:00 AM Riyadh time)
-    - cron: "0 6 * * *"
+    # Every day at 04:07 UTC (~7:00 AM Riyadh time). Deliberately NOT on the
+    # exact hour: GitHub queues scheduled workflows and explicitly documents
+    # that runs at :00 are the most congested and can be delayed by hours
+    # under load — offsetting the minute keeps this close to on-time.
+    - cron: "7 4 * * *"
   workflow_dispatch:
 
 jobs:
@@ -25,6 +28,7 @@ jobs:
           const SUPABASE_KEY   = process.env.SUPABASE_KEY;
 
           const CATEGORIES = [
+            { key: "breaking",      nameEn: "Breaking News",              nameAr: "أخبار عاجلة",              icon: "AlertTriangle" },
             { key: "technology",    nameEn: "Technology & Innovation",    nameAr: "التكنولوجيا والابتكار",    icon: "Cpu" },
             { key: "ai",            nameEn: "Artificial Intelligence",    nameAr: "الذكاء الاصطناعي",         icon: "Brain" },
             { key: "marketplace",   nameEn: "E-Commerce & Marketplace",   nameAr: "التجارة الإلكترونية",       icon: "ShoppingBag" },
@@ -49,6 +53,7 @@ jobs:
 
           // RSS feeds mapped to each category for real-world news context
           const CATEGORY_RSS = {
+            breaking:      ["https://feeds.bbci.co.uk/news/rss.xml", "https://feeds.reuters.com/reuters/topNews"],
             technology:    ["https://feeds.bbci.co.uk/news/technology/rss.xml", "https://techcrunch.com/feed/"],
             ai:            ["https://techcrunch.com/category/artificial-intelligence/feed/"],
             marketplace:   ["https://techcrunch.com/category/e-commerce/feed/", "https://feeds.bbci.co.uk/news/business/rss.xml"],
@@ -121,6 +126,20 @@ jobs:
             const now = new Date();
             const dateEn = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
+            // Guard: skip generation entirely if today's articles already
+            // exist (e.g. a manual re-run, or the schedule firing twice) —
+            // otherwise every re-run inserts a full duplicate batch.
+            const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+            const existingRes = await fetch(
+              `${SUPABASE_URL}/rest/v1/news_articles?select=id&published_at=gte.${todayStart}&limit=1`,
+              { headers: { "Authorization": `Bearer ${SUPABASE_KEY}`, "apikey": SUPABASE_KEY } },
+            );
+            const existing = existingRes.ok ? await existingRes.json() : [];
+            if (existing.length > 0) {
+              console.log("Articles for today already exist — skipping generation to avoid duplicates.");
+              return;
+            }
+
             // Step 0: Fetch real-world headlines from RSS for all categories in parallel
             console.log("Step 0: Fetching real-world headlines from RSS feeds...");
             const headlineMap = {};
@@ -159,6 +178,8 @@ jobs:
               `- Do NOT invent or fabricate news stories`,
               `- If no headlines are available for a category, write a factual educational piece grounded in that topic`,
               `- Journalistic, neutral, informative tone`,
+              `- For the "breaking" category specifically: pick the single most urgent, time-sensitive real headline available and write it as genuinely urgent breaking news, not routine coverage`,
+              `- Category accuracy is critical: each article's "category" field must be the exact key of the topic its content is actually about, using ONLY the real headlines listed under that same category — never place content under a category it doesn't belong to, and never swap content between two categories`,
               ``,
               `Categories with today's real-world context:`,
               categoryList,
@@ -166,7 +187,7 @@ jobs:
               `Return ONLY this JSON (no extra text):`,
               `{"articles":[{"category":"technology","en":{"title":"5-10 word title","description":"15-30 word summary","content":"2-3 paragraph article body, 120-200 words"},"ar":{"title":"عنوان","description":"ملخص","content":"نص المقال"}}]}`,
               ``,
-              `Write one article for each of the 18 categories listed above.`,
+              `Write one article for each of the ${CATEGORIES.length} categories listed above.`,
             ].join("\n");
 
             const enArArticles = await openaiCall(prompt1, 16000);
@@ -178,7 +199,7 @@ jobs:
             let extraTranslations = {};
             try {
               const input = valid.map(a => ({ category: a.category, title: a.en.title, description: a.en.description }));
-              const prompt2 = `Translate the following 18 news article titles and descriptions from English into these 9 languages:
+              const prompt2 = `Translate the following ${input.length} news article titles and descriptions from English into these 9 languages:
           - es (Spanish), de (German), pt (Portuguese), zh (Chinese Simplified), tr (Turkish), fr (French), ru (Russian), ur (Urdu), hi (Hindi)
 
           Articles:
