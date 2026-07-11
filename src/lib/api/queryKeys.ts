@@ -19,6 +19,42 @@ export const queryKeys = {
     chatHistory:  (uid: string) => ["academy", "chat", uid] as const,
     xpEvents:     (uid: string) => ["academy", "xp-events", uid] as const,
 
+    // ── LMS (Phase 1 backend — courses/lessons/enrollment/progress) ─────────
+    lms: {
+      catalog:       (filtersKey: string)              => ["academy", "lms", "catalog", filtersKey] as const,
+      course:        (courseId: string)                => ["academy", "lms", "course", courseId] as const,
+      similar:       (courseId: string)                => ["academy", "lms", "similar", courseId] as const,
+      modules:       (courseId: string)                => ["academy", "lms", "modules", courseId] as const,
+      lessons:       (courseId: string)                => ["academy", "lms", "lessons", courseId] as const,
+      lesson:        (lessonId: string)                => ["academy", "lms", "lesson", lessonId] as const,
+      enrollment:    (uid: string, courseId: string)    => ["academy", "lms", "enrollment", uid, courseId] as const,
+      myEnrollments: (uid: string)                      => ["academy", "lms", "enrollments", uid] as const,
+      progress:      (uid: string, courseId: string)    => ["academy", "lms", "progress", uid, courseId] as const,
+      allProgress:   (uid: string)                      => ["academy", "lms", "progress", uid] as const,
+      notes:         (uid: string, lessonId: string)    => ["academy", "lms", "notes", uid, lessonId] as const,
+      allNotes:      (uid: string)                      => ["academy", "lms", "notes", uid] as const,
+      bookmarks:     (uid: string, lessonId: string)    => ["academy", "lms", "bookmarks", uid, lessonId] as const,
+      allBookmarks:  (uid: string)                      => ["academy", "lms", "bookmarks", uid] as const,
+      reviews:       (courseId: string)                 => ["academy", "lms", "reviews", courseId] as const,
+      tracks:        ()                                 => ["academy", "lms", "tracks"] as const,
+      track:         (trackId: string)                  => ["academy", "lms", "track", trackId] as const,
+      trackProgress: (uid: string, trackId: string)      => ["academy", "lms", "track-progress", uid, trackId] as const,
+      categories:    ()                                 => ["academy", "lms", "categories"] as const,
+    },
+
+    // ── Instructor Platform (Phase 1 backend) ────────────────────────────────
+    instructor: {
+      myApplication:   (uid: string)         => ["academy", "instructor", "application", uid] as const,
+      allApplications: ()                    => ["academy", "instructor", "applications"] as const,
+      myProfile:       (uid: string)         => ["academy", "instructor", "my-profile", uid] as const,
+      profile:         (instructorId: string) => ["academy", "instructor", "profile", instructorId] as const,
+      /** Public course list (published only) — for the instructor's public profile page. */
+      courses:         (instructorId: string) => ["academy", "instructor", "courses", instructorId] as const,
+      /** Private course list (all statuses, own dashboard) — deliberately a different key from
+       *  `courses` above so the two never collide in the cache despite sharing an instructorId. */
+      myCourses:       (instructorId: string) => ["academy", "instructor", "my-courses", instructorId] as const,
+    },
+
     // ── Future modules (Phase 1 architecture prep — no live callers yet) ────
     courses:         { list: (level?: string) => ["academy", "courses", level ?? "all"] as const, item: (id: string) => ["academy", "courses", id] as const },
     instructors:     { list: ()               => ["academy", "instructors"] as const, item: (id: string) => ["academy", "instructors", id] as const },

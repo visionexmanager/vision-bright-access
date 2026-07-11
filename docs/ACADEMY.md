@@ -15,23 +15,32 @@ every other VisionEx feature (Marketplace, Games, Finance, TV/Radio, etc.).
 Two data-persistence tiers coexist by design:
 
 1. **Real Supabase tables** — `academy_profiles`, `academy_xp_events`, `notifications`, `user_points`,
-   `user_roles`. These sync across devices, are protected by Row Level Security, and are the only
-   sources an admin can query cross-user.
-2. **Client-only localStorage "local stores"** — courses, modules, lessons, instructor profiles,
-   quizzes/assignments/projects, certificates, library resources, scholarships, universities,
-   achievements, missions, streaks, notes, bookmarks, study goals. Each lives in one
-   `src/lib/academy/*LocalStore.ts` file, is namespaced under an `academy:*` localStorage key, and is
-   explicitly documented in its own file header as **temporary and per-browser** — it does not sync
-   across devices and is lost if the user clears site data.
+   `user_roles`, and, as of Phase 11, the full course/lesson backbone: `academy_instructors`,
+   `academy_instructor_applications`, `academy_courses`, `academy_course_modules`, `academy_lessons`,
+   `academy_enrollments`, `academy_lesson_progress`, `academy_lesson_notes`, `academy_lesson_bookmarks`,
+   `academy_course_reviews`, `academy_learning_tracks`, `academy_learning_track_progress`. These sync
+   across devices, are protected by Row Level Security, and are the only sources an admin can query
+   cross-user.
+2. **Client-only localStorage "local stores"** — quizzes/assignments/projects, certificates, library
+   resources, scholarships, universities, achievements, missions, streaks, study goals, instructor
+   announcements, and review replies. Each lives in one `src/lib/academy/*LocalStore.ts` file, is
+   namespaced under an `academy:*` localStorage key, and is explicitly documented in its own file header
+   as **temporary and per-browser** — it does not sync across devices and is lost if the user clears
+   site data.
 
 This split is intentional and was made explicit at every phase: build the full UI and business logic
 against the *shape* of the future real tables (see `src/lib/types/academy-*.ts`), so migrating a given
-local store to real Supabase persistence later is a drop-in swap of the read/write functions inside
-that one file — no caller anywhere else needs to change.
+local store to real Supabase persistence later is a drop-in swap of the read/write functions — Phase 11
+did exactly this for `lessonLocalStore.ts` and the course-management half of `instructorLocalStore.ts`,
+replacing them with `src/services/academy/lms.ts` / `src/services/academy/instructor.ts` and a matching
+set of `src/hooks/academy/*` React Query hooks. The one place this wasn't a fully "free" swap: reading
+localStorage was synchronous, reading Supabase is async, so every calling component had to switch from
+a plain function call to a query hook — not just the storage file.
 
-**This is the single most important thing for a new contributor to understand**: most of what looks
-like a full LMS backend (courses, grading, certificates, instructor rosters) is real, working logic,
-but the storage underneath the bulk of it is per-browser, not centralized. See §9 "Known Limitations."
+**This is the single most important thing for a new contributor to understand**: courses, lessons,
+enrollment, and progress are now real, centrally-persisted data (Phase 11). Quizzes/assignments/
+projects, certificates, and gamification unlock-state are still real, working logic, but the storage
+underneath them is per-browser, not centralized. See §9 "Known Limitations."
 
 ## 2. Folder Structure
 
@@ -82,6 +91,7 @@ supabase/migrations/            One file per schema change — see §5
 | 7 | Gamification: numbered levels/ranks, achievements, badges, streaks, missions, leaderboard (honest single-user), learning cards, celebrations — all routed through the **existing** VX economy, no new wallet |
 | 9 | Control Center: Student/Instructor/Admin dashboards completed — Notification Center (reuses the site-wide `notifications` table), Study Planner/Goals/Calendar, My Courses/My Work/Saved/Settings pages, Instructor Content/Media Management + course status filters + per-course performance, Admin Academy hub (real cross-user Students + Analytics, read-only Gamification config), Role System types (prep) |
 | 10 | Production-readiness pass: security review, duplicate-code extraction (`localStorageUtils.ts`), CSV-injection hardening, this document |
+| 11 | **Real backend, phase 1**: courses → modules → lessons → enrollments → lesson progress/notes/bookmarks → course reviews → learning tracks, plus instructor applications/profiles/course management, migrated from `localStorage` to real Supabase tables + RLS + Storage-backed file uploads. Quizzes/assignments/projects, certificates, and gamification unlock-state remain local-store-based — next in line for the same treatment. |
 
 ## 4. Local Store Reference
 
@@ -93,10 +103,18 @@ transparently combines the static bundled sample catalog (`mockCourses.ts`) with
 content, so instructor-created courses appear in the real catalog/player end-to-end, not just inside
 the instructor dashboard.
 
+**Phase 11 update**: `lessonLocalStore.ts` was retired — progress/notes/bookmarks now live in
+`academy_lesson_progress` / `academy_lesson_notes` / `academy_lesson_bookmarks`, read/written through
+`src/services/academy/lms.ts` and the hooks in `src/hooks/academy/useLessonProgress.ts`. The
+course/application/profile management parts of `instructorLocalStore.ts` were similarly replaced by
+`src/services/academy/lms.ts` (public catalog reads) and `src/services/academy/instructor.ts` (course
+CRUD, applications, instructor profiles) — see §5. `instructorLocalStore.ts` itself is **not deleted**:
+its announcements and review-reply functions are still local-store-based (out of Phase 11 scope) and
+some Phase 2/4 sections (quizzes, assignments, analytics, media, content, reviews) still read course/
+lesson data through it for now.
+
 | Store | Key prefix | Notes |
 |---|---|---|
-| `lessonLocalStore.ts` | `academy:lesson-*` | Progress, notes, bookmarks — has `getAllNotesForUser`/`getAllBookmarksForUser`/`getAllProgressForUser` aggregators (Phase 9) |
-| `instructorLocalStore.ts` | `academy:instructor-*` | Applications, profile, courses, modules, lessons, announcements — "single application per browser" (documented demo-scope) |
 | `assessmentLocalStore.ts` | `academy:quiz*` / `academy:assignment*` / `academy:project*` | Grading logic, reverse lookups (`getQuizByIdAny` etc., added Phase 9) |
 | `certificateLocalStore.ts` | `academy:certificate*` | Eligibility computed live from the above, never faked |
 | `libraryLocalStore.ts`, `scholarshipLocalStore.ts`, `universityLocalStore.ts` | `academy:library-*` / `academy:scholarships` / `academy:universities` | No pre-seeded catalog content — starts empty, populated via `Admin*.tsx` forms only |
@@ -106,6 +124,35 @@ the instructor dashboard.
 ## 5. Database Schema (real tables only)
 
 Local-store data has no schema (see §4). The tables that genuinely exist in Supabase:
+
+### LMS core (Phase 11 — `20260706000000_academy_lms_core.sql`)
+
+- **`academy_instructors`** / **`academy_instructor_applications`** — public instructor profiles and
+  the become-an-instructor application flow. RLS: applications are owner-CRUD (status can only ever be
+  self-set to `draft`/`pending`, never `approved`/`rejected`/`suspended` — only an admin can set those);
+  an instructor profile can only be self-created once the caller's own application is `approved`.
+- **`academy_courses`** / **`academy_course_modules`** / **`academy_lessons`** — the course structure.
+  RLS: `status='published'` courses are publicly readable; drafts are owner/admin-only. Lessons are
+  readable if `is_preview=true` on a published course, if the caller is enrolled, or if they own the
+  course.
+- **`academy_enrollments`** — one row per (user, course); owner-CRUD, course owner/admin can read the
+  roster.
+- **`academy_lesson_progress`** / **`academy_lesson_notes`** / **`academy_lesson_bookmarks`** —
+  owner-CRUD; `academy_lesson_progress` is also readable by the course's instructor/admin (powers a
+  future real "Student Progress" view — see §9).
+- **`academy_course_reviews`** — public read; insert requires the caller be enrolled in that course.
+- **`academy_learning_tracks`** / **`academy_learning_track_progress`** — public read catalog + owner
+  progress.
+- Storage buckets `academy-course-media` (video/audio/images) and `academy-course-files`
+  (PDF/PPTX/docs) — `20260706000001_academy_lms_storage.sql` — authenticated upload, public read, owner
+  manage/delete. Used by `CourseMediaUploader.tsx` for real instructor uploads (byte-progress via a
+  direct `XMLHttpRequest` against the Storage REST endpoint, since `supabase-js` itself doesn't expose
+  upload progress).
+- Seed migration `20260706000002_academy_lms_seed.sql` moved the 6 sample courses that used to live in
+  `mockCourses.ts` into real rows (owned by a "فريق Visionex الأكاديمي" system instructor,
+  `user_id IS NULL`) so the catalog isn't empty after this migration.
+
+### Profile / XP / notifications (Phase 1–10)
 
 - **`academy_profiles`** (`user_id` PK) — name, gender, country, level, `xp_total`, `streak_days`,
   `last_active`. RLS: owner full access; `academy_profiles: admins read all` policy lets admins SELECT
@@ -136,7 +183,9 @@ Local-store data has no schema (see §4). The tables that genuinely exist in Sup
 All under `supabase/migrations/`, chronological: `20260609100000_academy_profiles.sql`,
 `20260609100002_academy_xp_events.sql`, `20260422000000_admin_panel_expansion.sql` (adds the shared
 `notifications` table), `20260702000000_academy_xp_gamification_reasons.sql` (doc-only comment, no
-schema change), `20260703000000_academy_notify_self.sql`, `20260704000000_academy_xp_events_admin_read.sql`.
+schema change), `20260703000000_academy_notify_self.sql`, `20260704000000_academy_xp_events_admin_read.sql`,
+`20260706000000_academy_lms_core.sql`, `20260706000001_academy_lms_storage.sql`,
+`20260706000002_academy_lms_seed.sql`.
 
 **Rollback**: every migration here is additive (`CREATE TABLE IF NOT EXISTS`, `CREATE POLICY`,
 `CREATE OR REPLACE FUNCTION`) — none drops or alters existing columns destructively, so rollback is
@@ -197,17 +246,21 @@ faking enforcement that doesn't exist.
 
 ## 9. Known Limitations (read before promising a feature works)
 
-1. **Most Academy data is per-browser, not per-account.** Courses an instructor authors, quiz/assignment/
-   project submissions, certificates, library/scholarship/university catalogs, notes, and bookmarks all
-   live in `localStorage`. They do not sync across devices and are lost on cache-clear. Only
-   `academy_profiles`, `academy_xp_events`, `notifications`, `user_points`, and `user_roles` are real.
-2. **Instructor "Student Progress" and "Course Performance" are honestly scoped to this-browser-only
-   data** (explicitly labeled in the UI) — a true cross-student view needs the local stores above
-   migrated to real tables first. This was deliberately *not* faked with plausible-looking numbers.
+1. **Courses/lessons/enrollment/progress are real and per-account as of Phase 11.** What's still
+   per-browser: quiz/assignment/project submissions, certificates, library/scholarship/university
+   catalogs, achievements/missions/streaks, and instructor announcements/review-replies — all still
+   `localStorage`, do not sync across devices, and are lost on cache-clear.
+2. **Instructor "Student Progress" and "Course Performance" are still honestly scoped to this-browser-
+   only data** in the sections that haven't migrated yet (`InstructorAnalyticsSection.tsx`,
+   `InstructorContentSection.tsx`) — `academy_lesson_progress`/`academy_enrollments` are real and
+   instructor/admin-readable via RLS (§5), but no section reads them cross-student yet. This was
+   deliberately *not* faked with plausible-looking numbers.
 3. **Leaderboards show only the current user's own entry** — same root cause; documented as such in
    `gamificationLocalStore.ts` and the Leaderboard page copy.
-4. **No real video/file hosting.** `video_url`/`file_url` fields expect a URL the instructor pastes in;
-   there is no upload pipeline. `InstructorMediaSection.tsx` is honest about this.
+4. **Real video/file hosting exists for courses as of Phase 11** (`academy-course-media` /
+   `academy-course-files` Storage buckets, `CourseMediaUploader.tsx`) — YouTube-embed lessons still just
+   store a video ID (by design, per YouTube ToS), and no other part of the platform (e.g. voice rooms)
+   has a general-purpose upload pipeline.
 5. **No AI grading pipeline.** Essay/code quiz answers and all assignment/project submissions require a
    human instructor to grade.
 6. **Revenue/Payouts are UI-only placeholders** — no payment processing exists.

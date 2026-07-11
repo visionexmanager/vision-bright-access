@@ -20,11 +20,9 @@ import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHead
 import { QuizBuilder } from "@/components/academy/assessment/QuizBuilder";
 import { AssignmentBuilder } from "@/components/academy/assessment/AssignmentBuilder";
 import { ProjectBuilder } from "@/components/academy/assessment/ProjectBuilder";
-import {
-  getOrCreateMyInstructorProfile, getCourseByIdAny, createCourseLocal, updateCourseLocal,
-  getModulesForCourseAny, getLessonsForCourseAny, saveModulesForCourse, saveLessonsForCourse,
-  setCourseStatusLocal,
-} from "@/lib/academy/instructorLocalStore";
+import { CourseMediaUploader } from "@/components/academy/instructor/CourseMediaUploader";
+import { useMyInstructorProfile, useInstructorCourses, useSaveCourseStructure } from "@/hooks/academy/useInstructorCourses";
+import { useCourseDetail } from "@/hooks/academy/useCourseDetail";
 import {
   getQuizForLessonAny, saveQuizForLesson, getAssignmentForLessonAny, saveAssignmentForLesson,
   getProjectForLessonAny, saveProjectForLesson,
@@ -51,7 +49,7 @@ const LESSON_KIND_LABELS: Record<AcademyLessonKind, string> = {
 
 function blankLesson(moduleId: string, courseId: string, orderIndex: number): AcademyLessonRow {
   return {
-    id: `local-lesson-${crypto.randomUUID()}`,
+    id: crypto.randomUUID(),
     module_id: moduleId,
     course_id: courseId,
     title: "درس جديد",
@@ -93,12 +91,13 @@ function EditableList({ items, onChange, placeholder }: { items: string[]; onCha
   );
 }
 
-function LessonEditor({ lesson, onChange, onRemove, onMoveUp, onMoveDown }: {
+function LessonEditor({ lesson, onChange, onRemove, onMoveUp, onMoveDown, uploadPathPrefix }: {
   lesson: AcademyLessonRow;
   onChange: (updates: Partial<AcademyLessonRow>) => void;
   onRemove: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  uploadPathPrefix: string;
 }) {
   const [builderOpen, setBuilderOpen] = useState(false);
   const hasQuizContent = lesson.kind === "quiz" && !!getQuizForLessonAny(lesson.id);
@@ -123,7 +122,15 @@ function LessonEditor({ lesson, onChange, onRemove, onMoveUp, onMoveDown }: {
       </div>
 
       {lesson.kind === "video" && (
-        <Input value={lesson.video_url ?? ""} onChange={(e) => onChange({ video_url: e.target.value || null })} placeholder="رابط الفيديو (استضافة الفيديو غير مفعّلة بعد — أدخل رابطاً مباشراً)" className="rounded-xl text-sm" />
+        <CourseMediaUploader
+          bucket="academy-course-media"
+          pathPrefix={`${uploadPathPrefix}/video`}
+          accept="video/mp4,video/webm,video/quicktime"
+          label="ارفع ملف الفيديو"
+          currentUrl={lesson.video_url}
+          onUploaded={(url) => onChange({ video_url: url })}
+          onCleared={() => onChange({ video_url: null })}
+        />
       )}
       {lesson.kind === "youtube" && (
         <Input value={lesson.youtube_video_id ?? ""} onChange={(e) => onChange({ youtube_video_id: e.target.value || null })} placeholder="معرّف فيديو يوتيوب" className="rounded-xl text-sm" />
@@ -131,8 +138,27 @@ function LessonEditor({ lesson, onChange, onRemove, onMoveUp, onMoveDown }: {
       {(lesson.kind === "text" || lesson.kind === "exercise") && (
         <Textarea value={lesson.body_markdown ?? ""} onChange={(e) => onChange({ body_markdown: e.target.value || null })} placeholder="المحتوى (Markdown مدعوم)" className="rounded-xl text-sm min-h-24" />
       )}
-      {(lesson.kind === "pdf" || lesson.kind === "presentation" || lesson.kind === "audio") && (
-        <Input value={lesson.file_url ?? ""} onChange={(e) => onChange({ file_url: e.target.value || null })} placeholder="رابط الملف المستضاف" className="rounded-xl text-sm" />
+      {lesson.kind === "audio" && (
+        <CourseMediaUploader
+          bucket="academy-course-media"
+          pathPrefix={`${uploadPathPrefix}/audio`}
+          accept="audio/mpeg,audio/mp4,audio/wav,audio/webm"
+          label="ارفع الملف الصوتي"
+          currentUrl={lesson.file_url}
+          onUploaded={(url) => onChange({ file_url: url })}
+          onCleared={() => onChange({ file_url: null })}
+        />
+      )}
+      {(lesson.kind === "pdf" || lesson.kind === "presentation") && (
+        <CourseMediaUploader
+          bucket="academy-course-files"
+          pathPrefix={`${uploadPathPrefix}/files`}
+          accept={lesson.kind === "pdf" ? "application/pdf" : ".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"}
+          label={lesson.kind === "pdf" ? "ارفع ملف PDF" : "ارفع ملف العرض التقديمي"}
+          currentUrl={lesson.file_url}
+          onUploaded={(url) => onChange({ file_url: url })}
+          onCleared={() => onChange({ file_url: null })}
+        />
       )}
       {lesson.kind === "external_link" && (
         <div className="grid grid-cols-2 gap-2">
@@ -257,8 +283,12 @@ export default function AcademyCourseEditor() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const instructor = user ? getOrCreateMyInstructorProfile(user.id) : null;
+  const { profile: instructor, isLoading: isInstructorLoading } = useMyInstructorProfile();
+  const { createCourse, updateCourse, setCourseStatus } = useInstructorCourses();
   const [courseId, setCourseId] = useState<string | null>(routeCourseId ?? null);
+
+  const { course: existingCourse, modules: loadedModules, lessons: loadedLessons, isLoading: isCourseLoading } = useCourseDetail(courseId ?? undefined);
+  const { saveModules, saveLessons } = useSaveCourseStructure(courseId ?? undefined);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -268,6 +298,7 @@ export default function AcademyCourseEditor() {
   const [tags, setTags] = useState<string[]>([]);
   const [outcomes, setOutcomes] = useState<string[]>([]);
   const [requirements, setRequirements] = useState<string[]>([]);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [modules, setModules] = useState<AcademyCourseModuleRow[]>([]);
   const [lessons, setLessons] = useState<AcademyLessonRow[]>([]);
   const [saved, setSaved] = useState(false);
@@ -275,27 +306,28 @@ export default function AcademyCourseEditor() {
   // Create the draft course record once, on first mount of the "new" route.
   useEffect(() => {
     if (routeCourseId || !instructor) return;
-    const created = createCourseLocal(instructor.id, {});
-    setCourseId(created.id);
-    navigate(`/academy/instructor/courses/${created.id}/edit`, { replace: true });
+    createCourse({}).then((created) => {
+      if (!created) return;
+      setCourseId(created.id);
+      navigate(`/academy/instructor/courses/${created.id}/edit`, { replace: true });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instructor?.id]);
 
   useEffect(() => {
-    if (!courseId) return;
-    const course = getCourseByIdAny(courseId);
-    if (!course) return;
-    setTitle(course.title === "دورة جديدة بدون عنوان" ? "" : course.title);
-    setDescription(course.description);
-    setCategory(course.category);
-    setDifficulty(course.difficulty);
-    setLanguage(course.language);
-    setTags(course.tags);
-    setOutcomes(course.learning_outcomes);
-    setRequirements(course.requirements);
-    setModules(getModulesForCourseAny(courseId));
-    setLessons(getLessonsForCourseAny(courseId));
-  }, [courseId]);
+    if (!existingCourse) return;
+    setTitle(existingCourse.title === "دورة جديدة بدون عنوان" ? "" : existingCourse.title);
+    setDescription(existingCourse.description);
+    setCategory(existingCourse.category);
+    setDifficulty(existingCourse.difficulty);
+    setLanguage(existingCourse.language);
+    setTags(existingCourse.tags);
+    setOutcomes(existingCourse.learning_outcomes);
+    setRequirements(existingCourse.requirements);
+    setCoverImageUrl(existingCourse.cover_image_url);
+    setModules(loadedModules);
+    setLessons(loadedLessons);
+  }, [existingCourse?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lessonsByModule = useMemo(() => {
     const map: Record<string, AcademyLessonRow[]> = {};
@@ -304,23 +336,26 @@ export default function AcademyCourseEditor() {
     return map;
   }, [lessons]);
 
-  const persist = useCallback((status?: "draft" | "published") => {
+  const persist = useCallback(async (status?: "draft" | "published") => {
     if (!courseId) return;
-    updateCourseLocal(courseId, {
-      title: title.trim() || "دورة جديدة بدون عنوان",
-      description, category, difficulty, language, tags,
-      learning_outcomes: outcomes.filter((o) => o.trim()), requirements: requirements.filter((r) => r.trim()),
+    await updateCourse({
+      courseId,
+      updates: {
+        title: title.trim() || "دورة جديدة بدون عنوان",
+        description, category, difficulty, language, tags, cover_image_url: coverImageUrl,
+        learning_outcomes: outcomes.filter((o) => o.trim()), requirements: requirements.filter((r) => r.trim()),
+      },
     });
-    saveModulesForCourse(courseId, modules);
-    saveLessonsForCourse(courseId, lessons);
-    if (status) setCourseStatusLocal(courseId, status);
+    await saveModules(modules);
+    await saveLessons(lessons);
+    if (status) await setCourseStatus({ courseId, status });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [courseId, title, description, category, difficulty, language, tags, outcomes, requirements, modules, lessons]);
+  }, [courseId, title, description, category, difficulty, language, tags, coverImageUrl, outcomes, requirements, modules, lessons, updateCourse, saveModules, saveLessons, setCourseStatus]);
 
   const addModule = () => {
     if (!courseId) return;
-    setModules((prev) => [...prev, { id: `local-mod-${crypto.randomUUID()}`, course_id: courseId, title: "وحدة جديدة", order_index: prev.length + 1, content_url: null }]);
+    setModules((prev) => [...prev, { id: crypto.randomUUID(), course_id: courseId, title: "وحدة جديدة", order_index: prev.length + 1, content_url: null }]);
   };
   const removeModule = (moduleId: string) => {
     setModules((prev) => prev.filter((m) => m.id !== moduleId));
@@ -358,7 +393,26 @@ export default function AcademyCourseEditor() {
     setLessons((prev) => [...prev.filter((l) => l.module_id !== moduleId), ...reordered]);
   };
 
-  if (!user || !instructor) {
+  if (!user) {
+    return (
+      <Layout>
+        <div className="p-8 max-w-2xl mx-auto text-center space-y-4">
+          <p className="text-muted-foreground">يجب تسجيل الدخول للوصول إلى محرّر الدورات.</p>
+          <Button asChild className="rounded-xl"><Link to="/login?returnTo=/academy/instructor/apply">تسجيل الدخول</Link></Button>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (isInstructorLoading || (routeCourseId && isCourseLoading)) {
+    return (
+      <Layout>
+        <div className="p-8 max-w-2xl mx-auto text-center text-muted-foreground">جارِ التحميل...</div>
+      </Layout>
+    );
+  }
+
+  if (!instructor) {
     return (
       <Layout>
         <div className="p-8 max-w-2xl mx-auto text-center space-y-4">
@@ -404,6 +458,22 @@ export default function AcademyCourseEditor() {
             <label htmlFor="course-desc" className="text-sm font-bold text-foreground">الوصف</label>
             <Textarea id="course-desc" value={description} onChange={(e) => setDescription(e.target.value)} className="rounded-xl mt-1.5 min-h-24" />
           </div>
+          {courseId && (
+            <div>
+              <label className="text-sm font-bold text-foreground">صورة الغلاف</label>
+              <div className="mt-1.5">
+                <CourseMediaUploader
+                  bucket="academy-course-media"
+                  pathPrefix={`${instructor.id}/${courseId}/cover`}
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  label="ارفع صورة غلاف الدورة"
+                  currentUrl={coverImageUrl}
+                  onUploaded={setCoverImageUrl}
+                  onCleared={() => setCoverImageUrl(null)}
+                />
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label htmlFor="course-category" className="text-sm font-bold text-foreground">الفئة</label>
@@ -476,6 +546,7 @@ export default function AcademyCourseEditor() {
                         onRemove={() => removeLesson(lesson.id)}
                         onMoveUp={() => moveLesson(module.id, lesson.id, -1)}
                         onMoveDown={() => moveLesson(module.id, lesson.id, 1)}
+                        uploadPathPrefix={`${instructor.id}/${courseId}/lessons/${lesson.id}`}
                       />
                     ))}
                     <Button type="button" variant="outline" size="sm" onClick={() => addLesson(module.id)} className="gap-1.5 rounded-xl">

@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,11 +8,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Bookmark, StickyNote, GraduationCap, Landmark, Trash2, PlayCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHeader";
-import { getLessonById } from "@/lib/academy/mockCourses";
-import { getCourseByIdAny } from "@/lib/academy/instructorLocalStore";
-import {
-  getAllNotesForUser, getAllBookmarksForUser, removeLessonNoteLocal, removeLessonBookmarkLocal,
-} from "@/lib/academy/lessonLocalStore";
+import { useMyLessonWork } from "@/hooks/academy/useMyCourses";
+import { fetchLessonById, fetchCourseById, removeLessonNote, removeLessonBookmark } from "@/services/academy/lms";
+import { queryKeys } from "@/lib/api/queryKeys";
+import type { AcademyLessonRow } from "@/lib/types/academy-lms";
+import type { AcademyCourseRow } from "@/lib/types/academy-modules";
 import { getSavedScholarshipIds, getScholarshipByIdLocal, toggleSavedScholarshipLocal } from "@/lib/academy/scholarshipLocalStore";
 import { getFavoriteUniversityIds, getUniversityByIdLocal, toggleFavoriteUniversityLocal } from "@/lib/academy/universityLocalStore";
 
@@ -29,9 +30,37 @@ export default function AcademySaved() {
   const [tab, setTab] = useState<Tab>("notes");
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = () => setRefreshKey((k) => k + 1);
+  const queryClient = useQueryClient();
 
-  const notes = useMemo(() => (user ? getAllNotesForUser(user.id) : []), [user, refreshKey]);
-  const bookmarks = useMemo(() => (user ? getAllBookmarksForUser(user.id) : []), [user, refreshKey]);
+  const { notes, bookmarks } = useMyLessonWork();
+  const [lessonsById, setLessonsById] = useState<Record<string, AcademyLessonRow>>({});
+  const [coursesById, setCoursesById] = useState<Record<string, AcademyCourseRow>>({});
+
+  useEffect(() => {
+    const lessonIds = Array.from(new Set([...notes.map((n) => n.lesson_id), ...bookmarks.map((b) => b.lesson_id)]));
+    if (lessonIds.length === 0) return;
+    Promise.all(lessonIds.map((id) => fetchLessonById(id))).then((results) => {
+      const map: Record<string, AcademyLessonRow> = {};
+      results.forEach((l) => { if (l) map[l.id] = l; });
+      setLessonsById(map);
+      const courseIds = Array.from(new Set(Object.values(map).map((l) => l.course_id)));
+      Promise.all(courseIds.map((id) => fetchCourseById(id))).then((courses) => {
+        const cmap: Record<string, AcademyCourseRow> = {};
+        courses.forEach((c) => { if (c) cmap[c.id] = c; });
+        setCoursesById(cmap);
+      });
+    });
+  }, [notes, bookmarks]);
+
+  const handleRemoveNote = async (noteId: string) => {
+    await removeLessonNote(noteId);
+    queryClient.invalidateQueries({ queryKey: queryKeys.academy.lms.allNotes(user?.id ?? "") });
+  };
+  const handleRemoveBookmark = async (bookmarkId: string) => {
+    await removeLessonBookmark(bookmarkId);
+    queryClient.invalidateQueries({ queryKey: queryKeys.academy.lms.allBookmarks(user?.id ?? "") });
+  };
+
   const savedScholarships = useMemo(
     () => (user ? getSavedScholarshipIds(user.id).map(getScholarshipByIdLocal).filter((s): s is NonNullable<typeof s> => s !== null) : []),
     [user, refreshKey]
@@ -85,8 +114,8 @@ export default function AcademySaved() {
           ) : (
             <ul className="space-y-2" aria-label="ملاحظاتي">
               {notes.map((note) => {
-                const lesson = getLessonById(note.lesson_id);
-                const course = lesson ? getCourseByIdAny(lesson.course_id) : null;
+                const lesson = lessonsById[note.lesson_id];
+                const course = lesson ? coursesById[lesson.course_id] : null;
                 return (
                   <li key={note.id} className="flex items-start justify-between gap-3 p-4 rounded-2xl border border-border bg-card">
                     <div className="min-w-0 flex-1">
@@ -100,7 +129,7 @@ export default function AcademySaved() {
                         {note.timestamp_seconds != null && ` · ${formatTimestamp(note.timestamp_seconds)}`}
                       </p>
                     </div>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive shrink-0" aria-label="حذف الملاحظة" onClick={() => { removeLessonNoteLocal(note.lesson_id, note.id); bump(); }}>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive shrink-0" aria-label="حذف الملاحظة" onClick={() => handleRemoveNote(note.id)}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </li>
@@ -116,8 +145,8 @@ export default function AcademySaved() {
           ) : (
             <ul className="space-y-2" aria-label="الإشارات المرجعية">
               {bookmarks.map((bookmark) => {
-                const lesson = getLessonById(bookmark.lesson_id);
-                const course = lesson ? getCourseByIdAny(lesson.course_id) : null;
+                const lesson = lessonsById[bookmark.lesson_id];
+                const course = lesson ? coursesById[lesson.course_id] : null;
                 return (
                   <li key={bookmark.id} className="flex items-center justify-between gap-3 p-4 rounded-2xl border border-border bg-card">
                     <div className="min-w-0 flex-1 flex items-center gap-2">
@@ -133,7 +162,7 @@ export default function AcademySaved() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive shrink-0" aria-label="حذف الإشارة المرجعية" onClick={() => { removeLessonBookmarkLocal(bookmark.lesson_id, bookmark.id); bump(); }}>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive shrink-0" aria-label="حذف الإشارة المرجعية" onClick={() => handleRemoveBookmark(bookmark.id)}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </li>

@@ -7,45 +7,20 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, BookOpen, Award } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHeader";
-import { searchCoursesAny, getLessonsForCourseAny } from "@/lib/academy/instructorLocalStore";
-import { getCourseProgress } from "@/lib/academy/lessonLocalStore";
-import type { AcademyCourseRow } from "@/lib/types/academy-modules";
+import { useMyCourses } from "@/hooks/academy/useMyCourses";
 
 type Tab = "current" | "completed";
-
-interface CourseWithProgress {
-  course: AcademyCourseRow;
-  percent: number;
-  completedLessons: number;
-  totalLessons: number;
-}
 
 export default function AcademyMyCourses() {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("current");
+  const { myCourses, isLoading } = useMyCourses();
 
   const { current, completed } = useMemo(() => {
-    if (!user) return { current: [] as CourseWithProgress[], completed: [] as CourseWithProgress[] };
-    const allCourses = searchCoursesAny({});
-    const currentList: CourseWithProgress[] = [];
-    const completedList: CourseWithProgress[] = [];
-
-    for (const course of allCourses) {
-      const lessons = getLessonsForCourseAny(course.id);
-      if (lessons.length === 0) continue;
-      const progress = getCourseProgress(course.id).filter((p) => p.user_id === user.id && p.completed);
-      if (progress.length === 0) continue; // not started — not "my courses" yet
-      const entry: CourseWithProgress = {
-        course,
-        percent: Math.round((progress.length / lessons.length) * 100),
-        completedLessons: progress.length,
-        totalLessons: lessons.length,
-      };
-      if (progress.length === lessons.length) completedList.push(entry);
-      else currentList.push(entry);
-    }
+    const currentList = myCourses.filter((row) => !row.enrollment.completed_at);
+    const completedList = myCourses.filter((row) => !!row.enrollment.completed_at);
     return { current: currentList, completed: completedList };
-  }, [user]);
+  }, [myCourses]);
 
   if (!user) {
     return (
@@ -85,21 +60,22 @@ export default function AcademyMyCourses() {
           </TabsList>
         </Tabs>
 
-        {visible.length === 0 ? (
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground p-8 text-center">جارِ التحميل...</p>
+        ) : visible.length === 0 ? (
           <p className="text-sm text-muted-foreground p-8 text-center border-2 border-dashed border-border rounded-3xl">
             {tab === "current" ? "لا توجد دورات قيد التعلّم حالياً — " : "لم تُكمل أي دورة بعد — "}
             <Link to="/academy/courses" className="text-primary hover:underline">تصفّح الدورات</Link>
           </p>
         ) : (
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4" aria-label="دوراتي">
-            {visible.map(({ course, percent, completedLessons, totalLessons }) => (
-              <li key={course.id} className="p-5 rounded-2xl border border-border bg-card space-y-3">
-                <Link to={`/academy/courses/${course.id}`} className="font-bold text-foreground hover:underline block truncate">{course.title}</Link>
-                <Progress value={percent} className="h-2" />
+            {visible.map(({ course, enrollment }) => (
+              <li key={course!.id} className="p-5 rounded-2xl border border-border bg-card space-y-3">
+                <Link to={`/academy/courses/${course!.id}`} className="font-bold text-foreground hover:underline block truncate">{course!.title}</Link>
+                <Progress value={enrollment.progress_percent} className="h-2" />
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{completedLessons} / {totalLessons} درس</span>
                   {tab === "completed" && <span className="flex items-center gap-1 text-primary font-bold"><Award className="w-3.5 h-3.5" aria-hidden="true" />مكتملة</span>}
-                  {tab === "current" && <span>{percent}%</span>}
+                  <span>{Math.round(enrollment.progress_percent)}%</span>
                 </div>
               </li>
             ))}

@@ -13,9 +13,7 @@ import {
 } from "@/components/ui/table";
 import { ArrowLeft, CheckCircle, XCircle, Ban, GraduationCap, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  listAllApplications, setApplicationStatus,
-} from "@/lib/academy/instructorLocalStore";
+import { fetchAllApplications, reviewApplication } from "@/services/academy/instructor";
 import type { AcademyInstructorApplicationRow } from "@/lib/types/academy-lms";
 
 const STATUS_LABEL: Record<AcademyInstructorApplicationRow["status"], string> = {
@@ -35,14 +33,14 @@ export default function AdminInstructorApplications() {
   const [noteDraftAction, setNoteDraftAction] = useState<"rejected" | "suspended">("rejected");
   const [noteDraft, setNoteDraft] = useState("");
 
-  const load = () => setApplications(listAllApplications().filter((a) => a.status !== "draft"));
+  const load = () => { fetchAllApplications().then((all) => setApplications(all.filter((a) => a.status !== "draft"))); };
   useEffect(() => { load(); }, []);
 
   const visible = filterStatus === "all" ? applications : applications.filter((a) => a.status === filterStatus);
 
-  const act = (application: AcademyInstructorApplicationRow, status: AcademyInstructorApplicationRow["status"], note: string | null) => {
+  const act = async (application: AcademyInstructorApplicationRow, status: AcademyInstructorApplicationRow["status"], note: string | null) => {
     if (!user) return;
-    setApplicationStatus(application.user_id, status, note, user.id);
+    await reviewApplication(application.id, status, note, user.id);
     setNoteDraftId(null);
     setNoteDraft("");
     load();

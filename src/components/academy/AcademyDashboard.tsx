@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   BookOpen, Flame, Sparkles as SparklesIcon, LayoutGrid,
   Library, GraduationCap, Landmark, Users, MessagesSquare,
@@ -12,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { speakText } from "@/lib/audio/speech";
 import { getXPLevel } from "@/lib/academy/xp";
 import { academyModules } from "@/lib/academy/moduleRegistry";
-import { searchCourses, getAllCategories, MOCK_INSTRUCTORS } from "@/lib/academy/mockCourses";
+import { useCourseCatalog, useCourseCategories } from "@/hooks/academy/useCourseCatalog";
+import { supabase } from "@/integrations/supabase/client";
 import { getAllResourcesLocal } from "@/lib/academy/libraryLocalStore";
 import { getAllScholarshipsLocal } from "@/lib/academy/scholarshipLocalStore";
 import { getAllUniversitiesLocal } from "@/lib/academy/universityLocalStore";
@@ -33,7 +35,7 @@ import { AcademySectionHeader } from "./ui/AcademySectionHeader";
 import { CourseCard } from "./lms/CourseCard";
 import { InstructorMiniCard } from "./lms/InstructorMiniCard";
 import type { AcademyProfileRow } from "@/lib/types";
-import type { AcademyCourseRow } from "@/lib/types/academy-modules";
+import type { AcademyCourseRow, AcademyInstructorRow } from "@/lib/types/academy-modules";
 
 interface CourseListSectionProps {
   icon: LucideIcon;
@@ -219,11 +221,25 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
     { icon: <FlaskConical  className="w-3.5 h-3.5" />, label: "تقنيات مذاكرة", text: "شو هي أفضل تقنيات المذاكرة الفعّالة لتحسين الحفظ والاستيعاب؟" },
   ], [profile.level, profile.country]);
 
-  const recommendedCourses = useMemo(() => searchCourses({ sort: "featured" }).slice(0, 3), []);
-  const popularCourses = useMemo(() => searchCourses({ sort: "popular" }).slice(0, 3), []);
-  const newCourses = useMemo(() => searchCourses({ sort: "new" }).slice(0, 3), []);
-  const categories = useMemo(() => getAllCategories(), []);
-  const featuredInstructors = useMemo(() => [...MOCK_INSTRUCTORS].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 3), []);
+  const { courses: recommendedCoursesAll } = useCourseCatalog({ sort: "featured" });
+  const { courses: popularCoursesAll } = useCourseCatalog({ sort: "popular" });
+  const { courses: newCoursesAll } = useCourseCatalog({ sort: "new" });
+  const recommendedCourses = useMemo(() => recommendedCoursesAll.slice(0, 3), [recommendedCoursesAll]);
+  const popularCourses = useMemo(() => popularCoursesAll.slice(0, 3), [popularCoursesAll]);
+  const newCourses = useMemo(() => newCoursesAll.slice(0, 3), [newCoursesAll]);
+  const { categories } = useCourseCategories();
+  const { data: featuredInstructors = [] } = useQuery<AcademyInstructorRow[]>({
+    queryKey: ["academy", "instructors", "featured"],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("academy_instructors") as any)
+        .select("*")
+        .order("rating", { ascending: false, nullsFirst: false })
+        .limit(3);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as AcademyInstructorRow[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
   const libraryResourceCount = useMemo(() => getAllResourcesLocal().length, []);
   const scholarshipCount = useMemo(() => getAllScholarshipsLocal().length, []);
   const universityCount = useMemo(() => getAllUniversitiesLocal().length, []);

@@ -11,9 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { TagInput } from "@/components/academy/ui/TagInput";
-import {
-  getMyApplication, saveApplicationDraft, submitApplication, resetApplicationToDraft,
-} from "@/lib/academy/instructorLocalStore";
+import { useInstructorApplication } from "@/hooks/academy/useInstructorApplication";
 import type { AcademyInstructorApplicationRow } from "@/lib/types/academy-lms";
 
 const TOTAL_STEPS = 4;
@@ -28,8 +26,7 @@ const STATUS_CONFIG: Record<AcademyInstructorApplicationRow["status"], { icon: t
 
 export default function AcademyBecomeInstructor() {
   const { user } = useAuth();
-
-  const [application, setApplication] = useState<AcademyInstructorApplicationRow | null>(null);
+  const { application, isLoading, saveDraft, submit, resetToDraft } = useInstructorApplication();
   const [step, setStep] = useState(1);
 
   const [headline, setHeadline] = useState("");
@@ -45,43 +42,37 @@ export default function AcademyBecomeInstructor() {
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    const existing = getMyApplication(user.id);
-    if (existing) {
-      setApplication(existing);
-      setHeadline(existing.headline);
-      setBio(existing.bio);
-      setCountry(existing.country ?? "");
-      setExperienceYears(existing.experience_years);
-      setLanguages(existing.languages);
-      setExpertise(existing.expertise);
-      setSkills(existing.skills);
-      setPortfolioUrl(existing.portfolio_url ?? "");
-      setIdentityStarted(existing.identity_verification_status !== "not_started");
-      setAgreementAccepted(existing.agreement_accepted);
-      setTermsAccepted(existing.terms_accepted);
-    }
-  }, [user]);
+    if (!application) return;
+    setHeadline(application.headline);
+    setBio(application.bio);
+    setCountry(application.country ?? "");
+    setExperienceYears(application.experience_years);
+    setLanguages(application.languages);
+    setExpertise(application.expertise);
+    setSkills(application.skills);
+    setPortfolioUrl(application.portfolio_url ?? "");
+    setIdentityStarted(application.identity_verification_status !== "not_started");
+    setAgreementAccepted(application.agreement_accepted);
+    setTermsAccepted(application.terms_accepted);
+  }, [application?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const persistDraft = useCallback(() => {
+  const persistDraft = useCallback(async () => {
     if (!user) return;
-    const saved = saveApplicationDraft(user.id, {
+    await saveDraft({
       headline, bio, country: country || null, experience_years: experienceYears,
       languages, expertise, skills, portfolio_url: portfolioUrl || null,
       identity_verification_status: identityStarted ? "submitted" : "not_started",
       agreement_accepted: agreementAccepted, terms_accepted: termsAccepted,
     });
-    setApplication(saved);
-  }, [user, headline, bio, country, experienceYears, languages, expertise, skills, portfolioUrl, identityStarted, agreementAccepted, termsAccepted]);
+  }, [user, saveDraft, headline, bio, country, experienceYears, languages, expertise, skills, portfolioUrl, identityStarted, agreementAccepted, termsAccepted]);
 
-  const goNext = () => { persistDraft(); setStep((s) => Math.min(s + 1, TOTAL_STEPS)); };
+  const goNext = async () => { await persistDraft(); setStep((s) => Math.min(s + 1, TOTAL_STEPS)); };
   const goBack = () => setStep((s) => Math.max(s - 1, 1));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!user) return;
-    persistDraft();
-    const submitted = submitApplication(user.id);
-    if (submitted) setApplication(submitted);
+    await persistDraft();
+    await submit();
   };
 
   if (!user) {
@@ -91,6 +82,14 @@ export default function AcademyBecomeInstructor() {
           <p className="text-muted-foreground">يجب تسجيل الدخول للتقديم كمدرّس.</p>
           <Button asChild className="rounded-xl"><Link to="/login?returnTo=/academy/instructor/apply">تسجيل الدخول</Link></Button>
         </div>
+      </Layout>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="p-8 max-w-2xl mx-auto text-center text-muted-foreground">جارِ التحميل...</div>
       </Layout>
     );
   }
@@ -120,7 +119,7 @@ export default function AcademyBecomeInstructor() {
                 <Button
                   variant="outline"
                   className="rounded-xl"
-                  onClick={() => { if (user) setApplication(resetApplicationToDraft(user.id)); }}
+                  onClick={() => { void resetToDraft(); }}
                 >
                   تعديل الطلب وإعادة التقديم
                 </Button>

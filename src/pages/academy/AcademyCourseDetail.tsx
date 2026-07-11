@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useParams, Link, Navigate } from "react-router-dom";
+import { useParams, useNavigate, Link, Navigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,27 +12,27 @@ import { StarRating } from "@/components/academy/lms/StarRating";
 import { InstructorMiniCard } from "@/components/academy/lms/InstructorMiniCard";
 import { CourseCurriculumList } from "@/components/academy/lms/CourseCurriculumList";
 import { CourseReviewsSection } from "@/components/academy/lms/CourseReviewsSection";
+import { CourseReviewForm } from "@/components/academy/lms/CourseReviewForm";
 import { CourseFAQSection } from "@/components/academy/lms/CourseFAQSection";
 import { CourseCard } from "@/components/academy/lms/CourseCard";
 import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHeader";
-import {
-  getCourseById, getInstructorById, getModulesForCourse, getLessonsForModule,
-  getReviewsForCourse, getSimilarCourses,
-} from "@/lib/academy/mockCourses";
+import { useCourseDetail } from "@/hooks/academy/useCourseDetail";
+import { useEnrollment } from "@/hooks/academy/useEnrollment";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AcademyCourseDetail() {
   const { courseId } = useParams<{ courseId: string }>();
-  const course = courseId ? getCourseById(courseId) : null;
+  const navigate = useNavigate();
+  const { course, instructor, modules, lessons, reviews, similarCourses, isLoading } = useCourseDetail(courseId);
+  const { user } = useAuth();
+  const { isEnrolled, enroll } = useEnrollment(courseId);
+  const hasReviewed = reviews.some((r) => r.user_id === user?.id);
 
-  const instructor = course ? getInstructorById(course.instructor_id) : null;
-  const modules = course ? getModulesForCourse(course.id) : [];
   const lessonsByModule = useMemo(() => {
-    const map: Record<string, ReturnType<typeof getLessonsForModule>> = {};
-    modules.forEach((m) => { map[m.id] = getLessonsForModule(m.id); });
+    const map: Record<string, typeof lessons> = {};
+    modules.forEach((m) => { map[m.id] = lessons.filter((l) => l.module_id === m.id); });
     return map;
-  }, [modules]);
-  const reviews = course ? getReviewsForCourse(course.id) : [];
-  const similarCourses = course ? getSimilarCourses(course.id) : [];
+  }, [modules, lessons]);
 
   const attachments = useMemo(
     () => Object.values(lessonsByModule).flat().flatMap((l) => l.attachments),
@@ -42,6 +42,14 @@ export default function AcademyCourseDetail() {
   const firstLesson = Object.values(lessonsByModule).flat()[0];
 
   if (!courseId) return <Navigate to="/academy/courses" replace />;
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="p-8 max-w-3xl mx-auto text-center text-muted-foreground">جارِ التحميل...</div>
+      </Layout>
+    );
+  }
 
   if (!course) {
     return (
@@ -93,11 +101,18 @@ export default function AcademyCourseDetail() {
               <BookOpen className="w-12 h-12 text-primary/40" />
             </div>
             {firstLesson ? (
-              <Button asChild size="lg" className="w-full gap-2 rounded-xl py-6 font-bold">
-                <Link to={`/academy/courses/${course.id}/learn/${firstLesson.id}`}>
-                  <PlayCircle className="w-5 h-5" aria-hidden="true" />
-                  {course.is_free ? "ابدأ التعلّم مجاناً" : "ابدأ التعلّم"}
-                </Link>
+              <Button
+                size="lg"
+                className="w-full gap-2 rounded-xl py-6 font-bold"
+                onClick={async () => {
+                  if (user && !isEnrolled) {
+                    try { await enroll(); } catch { /* still navigate — the lesson player will retry enrollment */ }
+                  }
+                  navigate(`/academy/courses/${course.id}/learn/${firstLesson.id}`);
+                }}
+              >
+                <PlayCircle className="w-5 h-5" aria-hidden="true" />
+                {course.is_free ? "ابدأ التعلّم مجاناً" : "ابدأ التعلّم"}
               </Button>
             ) : (
               <p className="text-center text-sm text-muted-foreground py-3 border-2 border-dashed border-border rounded-xl">
@@ -171,8 +186,9 @@ export default function AcademyCourseDetail() {
         )}
 
         {/* Reviews */}
-        <div className="bg-card p-6 md:p-8 rounded-3xl border border-border">
+        <div className="bg-card p-6 md:p-8 rounded-3xl border border-border space-y-5">
           <AcademySectionHeader icon={MessagesSquare} title="آراء الطلاب" headingId="reviews-heading" />
+          {isEnrolled && !hasReviewed && <CourseReviewForm courseId={course.id} />}
           <CourseReviewsSection reviews={reviews} ratingAvg={course.rating_avg} ratingCount={course.rating_count} />
         </div>
 

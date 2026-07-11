@@ -320,13 +320,12 @@ export async function callAnalyticsInsights(): Promise<unknown> {
  */
 export async function callLiveKitToken(params: {
   roomId: string;
-  userId: string;
   userName?: string;
 }): Promise<{ token: string; url: string }> {
   return callEdge({
     fn: "livekit-token",
     body: params,
-    auth: "anon",
+    auth: "user-jwt",
   }) as Promise<{ token: string; url: string }>;
 }
 

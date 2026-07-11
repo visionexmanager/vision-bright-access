@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -10,18 +9,37 @@ import {
 import { InstructorLevelBadge } from "@/components/academy/lms/InstructorLevelBadge";
 import { CourseCard } from "@/components/academy/lms/CourseCard";
 import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHeader";
-import { getInstructorByIdAny, getCoursesByInstructorAny } from "@/lib/academy/instructorLocalStore";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/api/queryKeys";
+import { fetchInstructorById, fetchInstructorCourses } from "@/services/academy/lms";
 import { getOrganizationById } from "@/lib/academy/mockOrganizations";
 
 const SOCIAL_ICONS = { website: Globe, linkedin: Linkedin, youtube: Youtube, twitter: Twitter, instagram: Instagram } as const;
 
 export default function AcademyInstructorProfile() {
   const { instructorId } = useParams<{ instructorId: string }>();
-  const instructor = instructorId ? getInstructorByIdAny(instructorId) : null;
-  const courses = useMemo(() => (instructorId ? getCoursesByInstructorAny(instructorId) : []), [instructorId]);
+
+  const { data: instructor = null, isLoading } = useQuery({
+    queryKey: queryKeys.academy.instructor.profile(instructorId ?? ""),
+    queryFn: () => fetchInstructorById(instructorId!),
+    enabled: !!instructorId,
+  });
+  const { data: courses = [] } = useQuery({
+    queryKey: queryKeys.academy.instructor.courses(instructorId ?? ""),
+    queryFn: () => fetchInstructorCourses(instructorId!),
+    enabled: !!instructorId,
+  });
   const organization = instructor?.organization_id ? getOrganizationById(instructor.organization_id) : null;
 
   if (!instructorId) return <Navigate to="/academy/courses" replace />;
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="p-8 max-w-3xl mx-auto text-center text-muted-foreground">جارِ التحميل...</div>
+      </Layout>
+    );
+  }
 
   if (!instructor) {
     return (

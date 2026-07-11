@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,9 @@ import {
   Search, ArrowLeft, BookOpen, Library, GraduationCap, Landmark, Users,
   HeartHandshake, Sparkles,
 } from "lucide-react";
-import { runGlobalSearch, getTotalResultCount } from "@/lib/academy/globalSearch";
+import { runGlobalSearch, getTotalResultCount, type GlobalSearchResults } from "@/lib/academy/globalSearch";
+
+const EMPTY_RESULTS: GlobalSearchResults = { courses: [], resources: [], scholarships: [], universities: [], instructors: [] };
 
 const STATIC_DESTINATIONS = [
   { keywords: ["خدمات", "مذاكرة", "إرشاد", "تقوية", "دعم فني", "student services"], label: "خدمات الطالب", href: "/academy#student-services-heading", icon: HeartHandshake },
@@ -24,7 +26,14 @@ export default function AcademyGlobalSearch() {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") ?? "";
 
-  const results = useMemo(() => runGlobalSearch(query), [query]);
+  const [results, setResults] = useState<GlobalSearchResults>(EMPTY_RESULTS);
+
+  useEffect(() => {
+    let cancelled = false;
+    runGlobalSearch(query).then((r) => { if (!cancelled) setResults(r); });
+    return () => { cancelled = true; };
+  }, [query]);
+
   const totalCount = getTotalResultCount(results);
 
   const matchedDestinations = useMemo(() => {

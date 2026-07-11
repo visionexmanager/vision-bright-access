@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link, Navigate, useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
@@ -19,14 +19,10 @@ import { LessonBookmarksPanel } from "@/components/academy/lms/LessonBookmarksPa
 import { QuizPlayer } from "@/components/academy/assessment/QuizPlayer";
 import { AssignmentSubmissionForm } from "@/components/academy/assessment/AssignmentSubmissionForm";
 import { ProjectSubmissionForm } from "@/components/academy/assessment/ProjectSubmissionForm";
-import {
-  getCourseById, getModulesForCourse, getLessonsForModule, getLessonsForCourse, getLessonById,
-} from "@/lib/academy/mockCourses";
-import {
-  getLessonProgress, setLessonProgress, getCourseProgress,
-  getLessonNotesLocal, addLessonNoteLocal, removeLessonNoteLocal,
-  getLessonBookmarksLocal, addLessonBookmarkLocal, removeLessonBookmarkLocal,
-} from "@/lib/academy/lessonLocalStore";
+import { useCourseDetail } from "@/hooks/academy/useCourseDetail";
+import { useEnrollment } from "@/hooks/academy/useEnrollment";
+import { useCourseProgress, useMarkLessonProgress, useLessonNotes, useLessonBookmarks } from "@/hooks/academy/useLessonProgress";
+import { fetchCourseProgress } from "@/services/academy/lms";
 import { getQuizForLessonAny, getAssignmentForLessonAny, getProjectForLessonAny } from "@/lib/academy/assessmentLocalStore";
 import { checkCertificateEligibility, issueCertificateLocal, getCertificateForCourse } from "@/lib/academy/certificateLocalStore";
 import { runGamificationTick, type GamificationTickResult } from "@/lib/academy/gamificationLocalStore";
@@ -46,57 +42,57 @@ export default function AcademyLearningPlayer() {
   const { user } = useAuth();
   const { profile: academyProfile } = useAcademyProfile();
 
-  const course = courseId ? getCourseById(courseId) : null;
-  const lesson = lessonId ? getLessonById(lessonId) : null;
+  const { course, lessons: flatLessons, modulesWithLessons, isLoading: isCourseLoading } = useCourseDetail(courseId);
+  const lesson = flatLessons.find((l) => l.id === lessonId) ?? null;
+  const { enroll } = useEnrollment(courseId);
 
-  const modules = useMemo(() => (courseId ? getModulesForCourse(courseId) : []), [courseId]);
+  const modules = useMemo(() => modulesWithLessons.map((m) => m.module), [modulesWithLessons]);
   const lessonsByModule = useMemo(() => {
-    const map: Record<string, ReturnType<typeof getLessonsForModule>> = {};
-    modules.forEach((m) => { map[m.id] = getLessonsForModule(m.id); });
+    const map: Record<string, typeof flatLessons> = {};
+    modulesWithLessons.forEach(({ module, lessons }) => { map[module.id] = lessons; });
     return map;
-  }, [modules]);
-  const flatLessons = useMemo(() => (courseId ? getLessonsForCourse(courseId) : []), [courseId]);
+  }, [modulesWithLessons, flatLessons]);
   const currentIndex = flatLessons.findIndex((l) => l.id === lessonId);
   const prevLesson = currentIndex > 0 ? flatLessons[currentIndex - 1] : null;
   const nextLesson = currentIndex >= 0 && currentIndex < flatLessons.length - 1 ? flatLessons[currentIndex + 1] : null;
 
-  const [completedLessonIds, setCompletedLessonIds] = useState<Set<string>>(new Set());
+  const { progress: progressRows } = useCourseProgress(courseId);
+  const completedLessonIds = useMemo(
+    () => new Set(progressRows.filter((r) => r.completed).map((r) => r.lesson_id)),
+    [progressRows]
+  );
+  const { markProgress } = useMarkLessonProgress(courseId);
+  const { notes, addNote, deleteNote } = useLessonNotes(lessonId);
+  const { bookmarks, addBookmark, deleteBookmark } = useLessonBookmarks(lessonId);
+
   const [justIssuedCertificate, setJustIssuedCertificate] = useState<AcademyCertificateRow | null>(null);
   const [celebration, setCelebration] = useState<GamificationTickResult | null>(null);
-  const [notes, setNotes] = useState(() => (lessonId ? getLessonNotesLocal(lessonId) : []));
-  const [bookmarks, setBookmarks] = useState(() => (lessonId ? getLessonBookmarksLocal(lessonId) : []));
   const [playbackRate, setPlaybackRate] = useState(1);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaContainerRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  const refreshCourseProgress = useCallback(() => {
-    if (!courseId) return;
-    const rows = getCourseProgress(courseId);
-    setCompletedLessonIds(new Set(rows.filter((r) => r.completed).map((r) => r.lesson_id)));
-  }, [courseId]);
-
+  // Safety net: make sure an enrollment row exists even if the student reached
+  // this URL without going through the CourseDetail "start learning" CTA.
   useEffect(() => {
-    refreshCourseProgress();
-  }, [refreshCourseProgress]);
+    if (user && courseId) enroll().catch(() => {});
+  }, [user, courseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset per-lesson state + resume position + move focus for a11y when lesson changes
   useEffect(() => {
     if (!lessonId) return;
-    setNotes(getLessonNotesLocal(lessonId));
-    setBookmarks(getLessonBookmarksLocal(lessonId));
     setPlaybackRate(1);
     headingRef.current?.focus();
 
-    const progress = getLessonProgress(lessonId);
+    const row = progressRows.find((p) => p.lesson_id === lessonId);
     const video = videoRef.current;
-    if (video && progress?.last_position_seconds) {
-      const resume = () => { video.currentTime = progress.last_position_seconds; };
+    if (video && row?.last_position_seconds) {
+      const resume = () => { video.currentTime = row.last_position_seconds; };
       video.addEventListener("loadedmetadata", resume, { once: true });
       return () => video.removeEventListener("loadedmetadata", resume);
     }
-  }, [lessonId]);
+  }, [lessonId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard shortcuts: N / P for next/previous lesson
   useEffect(() => {
@@ -121,22 +117,21 @@ export default function AcademyLearningPlayer() {
     const now = Date.now();
     if (now - lastSavedAt.current < 5000) return;
     lastSavedAt.current = now;
-    setLessonProgress(user.id, courseId, lessonId, { last_position_seconds: Math.floor(videoRef.current.currentTime) });
+    markProgress({ lessonId, update: { last_position_seconds: Math.floor(videoRef.current.currentTime) } }).catch(console.warn);
   };
 
   const markComplete = async () => {
     if (!user || !lessonId || !courseId || !lesson) return;
     const wasAlreadyComplete = completedLessonIds.has(lessonId);
-    setLessonProgress(user.id, courseId, lessonId, { completed: true });
-    refreshCourseProgress();
+    await markProgress({ lessonId, update: { completed: true } });
 
     // ── VX: award via the EXISTING academy XP bridge only — never a new wallet ──
     if (!wasAlreadyComplete) {
       const awards: Promise<boolean>[] = [awardAcademyXP(user.id, "academy_lesson_completed")];
 
-      const freshProgress = getCourseProgress(courseId);
+      const freshProgress = await fetchCourseProgress(user.id, courseId);
       const completedNow = new Set(freshProgress.filter((p) => p.completed).map((p) => p.lesson_id));
-      completedNow.add(lessonId); // include this tick even if the write above hasn't round-tripped through refreshCourseProgress() yet
+      completedNow.add(lessonId); // include this tick even if the write above hasn't round-tripped through the progress query cache yet
 
       const moduleLessons = lessonsByModule[lesson.module_id] ?? [];
       if (moduleLessons.length > 0 && moduleLessons.every((l) => completedNow.has(l.id))) {
@@ -209,29 +204,31 @@ export default function AcademyLearningPlayer() {
 
   const handleAddNote = (content: string) => {
     if (!user || !lessonId) return;
-    addLessonNoteLocal(user.id, lessonId, content, videoRef.current?.currentTime ?? null);
-    setNotes(getLessonNotesLocal(lessonId));
+    addNote({ content, timestampSeconds: videoRef.current?.currentTime ?? null }).catch(console.warn);
   };
 
   const handleRemoveNote = (noteId: string) => {
-    if (!lessonId) return;
-    removeLessonNoteLocal(lessonId, noteId);
-    setNotes(getLessonNotesLocal(lessonId));
+    deleteNote(noteId).catch(console.warn);
   };
 
   const handleAddBookmark = () => {
     if (!user || !lessonId) return;
-    addLessonBookmarkLocal(user.id, lessonId, videoRef.current ? Math.floor(videoRef.current.currentTime) : null);
-    setBookmarks(getLessonBookmarksLocal(lessonId));
+    addBookmark({ timestampSeconds: videoRef.current ? Math.floor(videoRef.current.currentTime) : null }).catch(console.warn);
   };
 
   const handleRemoveBookmark = (bookmarkId: string) => {
-    if (!lessonId) return;
-    removeLessonBookmarkLocal(lessonId, bookmarkId);
-    setBookmarks(getLessonBookmarksLocal(lessonId));
+    deleteBookmark(bookmarkId).catch(console.warn);
   };
 
   if (!courseId || !lessonId) return <Navigate to="/academy/courses" replace />;
+
+  if (isCourseLoading) {
+    return (
+      <Layout>
+        <div className="p-8 max-w-3xl mx-auto text-center text-muted-foreground">جارِ التحميل...</div>
+      </Layout>
+    );
+  }
 
   if (!course || !lesson) {
     return (

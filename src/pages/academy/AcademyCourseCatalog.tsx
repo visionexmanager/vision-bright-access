@@ -10,7 +10,8 @@ import { Search, LayoutGrid, ArrowLeft } from "lucide-react";
 import { CourseCard } from "@/components/academy/lms/CourseCard";
 import { AICourseRequestCard } from "@/components/academy/lms/AICourseRequestCard";
 import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHeader";
-import { searchCourses, getAllCategories, type MockCourseFilters } from "@/lib/academy/mockCourses";
+import { useCourseCatalog, useCourseCategories } from "@/hooks/academy/useCourseCatalog";
+import type { CourseFilters } from "@/services/academy/lms";
 
 export default function AcademyCourseCatalog() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -19,7 +20,7 @@ export default function AcademyCourseCatalog() {
   const category = searchParams.get("category") ?? "";
   const difficulty = searchParams.get("difficulty") ?? "";
   const source = searchParams.get("source") ?? "";
-  const sort = (searchParams.get("sort") as MockCourseFilters["sort"]) ?? "featured";
+  const sort = (searchParams.get("sort") as CourseFilters["sort"]) ?? "featured";
 
   const updateParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);
@@ -27,12 +28,12 @@ export default function AcademyCourseCatalog() {
     setSearchParams(next, { replace: true });
   };
 
-  const results = useMemo(
-    () => searchCourses({ query, category: category || undefined, difficulty: difficulty || undefined, source: source || undefined, sort }),
+  const filters = useMemo<CourseFilters>(
+    () => ({ query, category: category || undefined, difficulty: difficulty || undefined, source: source || undefined, sort }),
     [query, category, difficulty, source, sort]
   );
-
-  const categories = useMemo(() => getAllCategories(), []);
+  const { courses: results, isLoading } = useCourseCatalog(filters);
+  const { categories } = useCourseCategories();
 
   return (
     <Layout>
@@ -116,7 +117,9 @@ export default function AcademyCourseCatalog() {
         </div>
 
         {/* Results */}
-        {results.length === 0 ? (
+        {isLoading ? (
+          <p className="text-center text-muted-foreground py-16">جارِ تحميل الدورات...</p>
+        ) : results.length === 0 ? (
           <p className="text-center text-muted-foreground py-16 border-2 border-dashed border-border rounded-3xl">
             لا توجد دورات مطابقة لبحثك. جرّب كلمات أو فلاتر مختلفة.
           </p>

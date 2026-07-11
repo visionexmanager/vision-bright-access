@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -7,28 +7,30 @@ import { Badge } from "@/components/ui/badge";
 import { Route, ArrowLeft, Clock, BadgeCheck, Lock } from "lucide-react";
 import { DifficultyBadge } from "@/components/academy/lms/DifficultyBadge";
 import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHeader";
-import { getLearningTracks, getCourseById, getLessonsForCourse } from "@/lib/academy/mockCourses";
-import { getCourseProgress } from "@/lib/academy/lessonLocalStore";
+import { useLearningTracks } from "@/hooks/academy/useLearningTracks";
+import { useMyEnrollments } from "@/hooks/academy/useEnrollment";
+import { fetchCourseById } from "@/services/academy/lms";
 import type { AcademyLearningTrackRow } from "@/lib/types/academy-lms";
+import type { AcademyCourseRow } from "@/lib/types/academy-modules";
 
-function useTrackProgress(track: AcademyLearningTrackRow) {
+function useTrackProgress(track: AcademyLearningTrackRow, completedCourseIds: Set<string>) {
   return useMemo(() => {
     if (track.course_ids.length === 0) return 0;
-    const completedCourses = track.course_ids.filter((courseId) => {
-      const lessons = getLessonsForCourse(courseId);
-      if (lessons.length === 0) return false;
-      const progress = getCourseProgress(courseId);
-      const completedIds = new Set(progress.filter((p) => p.completed).map((p) => p.lesson_id));
-      return lessons.every((l) => completedIds.has(l.id));
-    });
+    const completedCourses = track.course_ids.filter((courseId) => completedCourseIds.has(courseId));
     return Math.round((completedCourses.length / track.course_ids.length) * 100);
-  }, [track]);
+  }, [track, completedCourseIds]);
 }
 
-function TrackCard({ track }: { track: AcademyLearningTrackRow }) {
-  const progressPercent = useTrackProgress(track);
+function TrackCard({ track, completedCourseIds }: { track: AcademyLearningTrackRow; completedCourseIds: Set<string> }) {
+  const progressPercent = useTrackProgress(track, completedCourseIds);
   const hours = Math.round((track.estimated_duration_minutes / 60) * 10) / 10;
-  const courses = track.course_ids.map(getCourseById).filter(Boolean);
+  const [courses, setCourses] = useState<AcademyCourseRow[]>([]);
+
+  useEffect(() => {
+    Promise.all(track.course_ids.map((id) => fetchCourseById(id))).then((results) => {
+      setCourses(results.filter((c): c is AcademyCourseRow => c !== null));
+    });
+  }, [track.course_ids]);
 
   return (
     <div className="bg-card p-6 rounded-3xl border border-border shadow-sm space-y-4">
@@ -77,7 +79,12 @@ function TrackCard({ track }: { track: AcademyLearningTrackRow }) {
 }
 
 export default function AcademyLearningTracks() {
-  const tracks = useMemo(() => getLearningTracks(), []);
+  const { tracks } = useLearningTracks();
+  const { enrollments } = useMyEnrollments();
+  const completedCourseIds = useMemo(
+    () => new Set(enrollments.filter((e) => e.completed_at).map((e) => e.course_id)),
+    [enrollments]
+  );
 
   return (
     <Layout>
@@ -98,7 +105,7 @@ export default function AcademyLearningTracks() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tracks.map((track) => <TrackCard key={track.id} track={track} />)}
+          {tracks.map((track) => <TrackCard key={track.id} track={track} completedCourseIds={completedCourseIds} />)}
         </div>
       </div>
     </Layout>

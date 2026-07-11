@@ -8,11 +8,11 @@
  * return shape (GlobalSearchResults) stays identical either way.
  */
 
-import { searchCoursesAny } from "./instructorLocalStore";
 import { searchResourcesLocal } from "./libraryLocalStore";
 import { searchScholarshipsLocal } from "./scholarshipLocalStore";
 import { searchUniversitiesLocal } from "./universityLocalStore";
-import { MOCK_INSTRUCTORS } from "./mockCourses";
+import { fetchCourseCatalog } from "@/services/academy/lms";
+import { supabase } from "@/integrations/supabase/client";
 import type {
   AcademyCourseRow, AcademyInstructorRow, AcademyLibraryResourceRow,
   AcademyScholarshipRow, AcademyUniversityRow,
@@ -26,21 +26,27 @@ export interface GlobalSearchResults {
   instructors: AcademyInstructorRow[];
 }
 
-export function runGlobalSearch(query: string): GlobalSearchResults {
+export async function runGlobalSearch(query: string): Promise<GlobalSearchResults> {
   const q = query.trim();
   if (!q) {
     return { courses: [], resources: [], scholarships: [], universities: [], instructors: [] };
   }
-  const qLower = q.toLowerCase();
+  const term = q.replace(/[%,]/g, "");
+
+  const [courses, instructorsResult] = await Promise.all([
+    fetchCourseCatalog({ query: q }),
+    (supabase.from("academy_instructors") as any)
+      .select("*")
+      .or(`name.ilike.%${term}%,headline.ilike.%${term}%`)
+      .limit(12),
+  ]);
 
   return {
-    courses: searchCoursesAny({ query: q }),
+    courses,
     resources: searchResourcesLocal({ query: q }),
     scholarships: searchScholarshipsLocal({ query: q }),
     universities: searchUniversitiesLocal({ query: q }),
-    instructors: MOCK_INSTRUCTORS.filter(
-      (i) => i.name.toLowerCase().includes(qLower) || (i.headline ?? "").toLowerCase().includes(qLower)
-    ),
+    instructors: (instructorsResult.data ?? []) as AcademyInstructorRow[],
   };
 }
 

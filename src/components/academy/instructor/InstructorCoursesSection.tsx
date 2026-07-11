@@ -7,9 +7,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Plus, Pencil, Copy, Trash2, Eye, EyeOff, Archive, BookOpen } from "lucide-react";
-import {
-  duplicateCourseLocal, deleteCourseLocal, setCourseStatusLocal,
-} from "@/lib/academy/instructorLocalStore";
+import { useInstructorCourses } from "@/hooks/academy/useInstructorCourses";
 import type { AcademyCourseRow, AcademyCourseStatus } from "@/lib/types/academy-modules";
 
 const STATUS_LABEL: Record<AcademyCourseStatus, string> = {
@@ -32,6 +30,7 @@ interface InstructorCoursesSectionProps {
 }
 
 export function InstructorCoursesSection({ courses, onCoursesChange }: InstructorCoursesSectionProps) {
+  const { duplicateCourse, setCourseStatus, deleteCourse } = useInstructorCourses();
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | AcademyCourseStatus>("all");
 
@@ -40,24 +39,24 @@ export function InstructorCoursesSection({ courses, onCoursesChange }: Instructo
     [courses, statusFilter]
   );
 
-  const handleDuplicate = (courseId: string) => {
-    duplicateCourseLocal(courseId);
+  const handleDuplicate = async (courseId: string) => {
+    await duplicateCourse(courseId);
     onCoursesChange();
   };
 
-  const handleToggleStatus = (course: AcademyCourseRow) => {
+  const handleToggleStatus = async (course: AcademyCourseRow) => {
     const next: AcademyCourseStatus = course.status === "published" ? "unpublished" : "published";
-    setCourseStatusLocal(course.id, next);
+    await setCourseStatus({ courseId: course.id, status: next });
     onCoursesChange();
   };
 
-  const handleArchive = (courseId: string) => {
-    setCourseStatusLocal(courseId, "archived");
+  const handleArchive = async (courseId: string) => {
+    await setCourseStatus({ courseId, status: "archived" });
     onCoursesChange();
   };
 
-  const handleDelete = (courseId: string) => {
-    deleteCourseLocal(courseId);
+  const handleDelete = async (courseId: string) => {
+    await deleteCourse(courseId);
     setPendingDeleteId(null);
     onCoursesChange();
   };

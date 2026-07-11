@@ -23,11 +23,9 @@ import { InstructorMediaSection } from "@/components/academy/instructor/Instruct
 import { NotificationHistoryList } from "@/components/academy/notifications/NotificationHistoryList";
 import { AcademyPlaceholderSection } from "@/components/academy/ui/AcademyPlaceholderSection";
 import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHeader";
-import {
-  getMyApplication, getOrCreateMyInstructorProfile, getMyCoursesLocal,
-  getAnnouncementsForInstructor,
-} from "@/lib/academy/instructorLocalStore";
-import type { AcademyInstructorRow } from "@/lib/types/academy-modules";
+import { getAnnouncementsForInstructor } from "@/lib/academy/instructorLocalStore";
+import { useInstructorApplication } from "@/hooks/academy/useInstructorApplication";
+import { useMyInstructorProfile, useInstructorCourses } from "@/hooks/academy/useInstructorCourses";
 
 const PLACEHOLDER_META: Record<string, { icon: typeof BookOpen; description: string }> = {
   messages: { icon: MessageCircle, description: "مراسلة الطلاب مباشرة قيد التطوير." },
@@ -43,10 +41,10 @@ export default function AcademyInstructorDashboard() {
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = useCallback(() => setRefreshKey((k) => k + 1), []);
 
-  const application = user ? getMyApplication(user.id) : null;
-  const instructor: AcademyInstructorRow | null = user ? getOrCreateMyInstructorProfile(user.id) : null;
+  const { application } = useInstructorApplication();
+  const { profile: instructor, isLoading: isProfileLoading } = useMyInstructorProfile();
+  const { courses } = useInstructorCourses();
 
-  const courses = useMemo(() => (instructor ? getMyCoursesLocal(instructor.id) : []), [instructor, refreshKey]);
   const announcements = useMemo(() => (instructor ? getAnnouncementsForInstructor(instructor.id) : []), [instructor, refreshKey]);
 
   if (!user) {
@@ -56,6 +54,14 @@ export default function AcademyInstructorDashboard() {
           <p className="text-muted-foreground">يجب تسجيل الدخول للوصول إلى لوحة المدرّس.</p>
           <Button asChild className="rounded-xl"><Link to="/login?returnTo=/academy/instructor/dashboard">تسجيل الدخول</Link></Button>
         </div>
+      </Layout>
+    );
+  }
+
+  if (isProfileLoading) {
+    return (
+      <Layout>
+        <div className="p-8 max-w-2xl mx-auto text-center text-muted-foreground">جارِ التحميل...</div>
       </Layout>
     );
   }
