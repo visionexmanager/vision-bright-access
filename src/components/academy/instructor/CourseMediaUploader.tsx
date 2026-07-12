@@ -26,18 +26,17 @@ export interface CourseMediaUploaderProps {
   onCleared?: () => void;
 }
 
-function uploadWithProgress(bucket: string, path: string, file: File, onProgress: (pct: number) => void): Promise<void> {
-  return new Promise(async (resolve, reject) => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    if (!token) {
-      reject(new Error("يجب تسجيل الدخول لرفع الملفات"));
-      return;
-    }
-    const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-    const url = `${baseUrl}/storage/v1/object/${bucket}/${encodeURI(path)}`;
+async function uploadWithProgress(bucket: string, path: string, file: File, onProgress: (pct: number) => void): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) {
+    throw new Error("يجب تسجيل الدخول لرفع الملفات");
+  }
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+  const url = `${baseUrl}/storage/v1/object/${bucket}/${encodeURI(path)}`;
 
+  return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url, true);
     xhr.setRequestHeader("Authorization", `Bearer ${token}`);
