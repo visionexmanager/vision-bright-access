@@ -1,3 +1,4 @@
+// Still mock — see ProfileExperience.tsx (no normalized education sub-table). Future phase.
 import { GraduationCap } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MOCK_PROFILE } from "../../mock/mockProfile";

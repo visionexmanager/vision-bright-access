@@ -1,3 +1,7 @@
+// Still mock — pure aggregate labor-market analytics (world map, salary
+// trends, skill demand, visa/remote intel) with no per-user data and no
+// matching tables at all; would need an external market-data pipeline or
+// career_analytics_events aggregation, not user-scoped CRUD. Future phase.
 import { lazy, Suspense } from "react";
 import { IntelligenceHeader } from "@/components/career/intelligence/IntelligenceHeader";
 import { GlobalOverview } from "@/components/career/intelligence/GlobalOverview";

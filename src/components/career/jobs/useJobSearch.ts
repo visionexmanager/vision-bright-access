@@ -1,12 +1,15 @@
 import { useState, useMemo, useCallback } from "react";
-import { MOCK_JOBS } from "./mockJobs";
+import { useCareerJobs } from "@/hooks/career/useCareerJobs";
+import { jobRowToCard } from "./adapters";
 import { EMPTY_JOB_FILTERS } from "./types";
 import type { Job, JobFilters, JobType, ParsedAiQuery, WorkMode } from "./types";
 
+// category/education/isUrgent/isAiJob aren't in the deployed `jobs` schema
+// yet (see adapters.ts) — filtering on them is a no-op for now rather than
+// silently excluding every real job.
 function filterJobs(jobs: Job[], filters: JobFilters): Job[] {
   return jobs.filter((job) => {
     if (filters.title && !job.title.toLowerCase().includes(filters.title.toLowerCase())) return false;
-    if (filters.category && job.categoryId !== filters.category) return false;
     if (filters.company && !job.companyName.toLowerCase().includes(filters.company.toLowerCase())) return false;
     if (filters.skills && !job.skills.some((s) => s.toLowerCase().includes(filters.skills.toLowerCase()))) return false;
     if (filters.location && !job.location.toLowerCase().includes(filters.location.toLowerCase())) return false;
@@ -17,19 +20,18 @@ function filterJobs(jobs: Job[], filters: JobFilters): Job[] {
     }
     if (filters.jobTypes.length && !filters.jobTypes.includes(job.type)) return false;
     if (filters.experience && job.experienceLevel !== filters.experience) return false;
-    if (filters.education && !job.education.toLowerCase().includes(filters.education.toLowerCase())) return false;
     if (filters.workModes.length && !filters.workModes.includes(job.workMode)) return false;
     if (filters.visaSponsorship && !job.isVisaSponsorship) return false;
     if (filters.accessibleJobs && !job.isAccessible) return false;
-    if (filters.urgentHiring && !job.isUrgent) return false;
     if (filters.entryLevel && job.experienceLevel !== "entry") return false;
-    if (filters.aiJobs && !job.isAiJob) return false;
     return true;
   });
 }
 
 export function useJobSearch() {
   const [filters, setFilters] = useState<JobFilters>(EMPTY_JOB_FILTERS);
+  const { jobs: rows, isLoading } = useCareerJobs({ limit: 100 });
+  const jobs = useMemo(() => rows.map(jobRowToCard), [rows]);
 
   const updateFilter = useCallback(<K extends keyof JobFilters>(key: K, value: JobFilters[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -69,7 +71,7 @@ export function useJobSearch() {
     }));
   }, []);
 
-  const results = useMemo(() => filterJobs(MOCK_JOBS, filters), [filters]);
+  const results = useMemo(() => filterJobs(jobs, filters), [jobs, filters]);
 
-  return { filters, updateFilter, patchFilters, toggleJobType, toggleWorkMode, resetFilters, applyAiQuery, results };
+  return { filters, updateFilter, patchFilters, toggleJobType, toggleWorkMode, resetFilters, applyAiQuery, results, isLoading };
 }

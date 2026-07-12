@@ -1,3 +1,7 @@
+// Still mock — employer-side data (candidate scoring, team members, message
+// threads) has richer fields than the deployed jobs/applications/companies
+// schema supports, and this side of the product serves a smaller audience
+// than the job-seeker dashboard wired up in Phase 1. Future phase.
 import { lazy, Suspense, type LazyExoticComponent } from "react";
 import { EmployerDashboardLayout } from "@/components/career/employer/EmployerDashboardLayout";
 import { useEmployerDashboard } from "@/contexts/EmployerDashboardContext";

@@ -1,3 +1,5 @@
+// Still mock — no unified activity-timeline table exists (would need to
+// aggregate across applications/certificates/goals with real timestamps). Future phase.
 import { Sparkles, Award, Send, MessageSquare, Trophy, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";

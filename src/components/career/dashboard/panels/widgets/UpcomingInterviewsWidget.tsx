@@ -1,3 +1,4 @@
+// Still mock — see InterviewsPanel.tsx (no interview-scheduling table yet).
 import { CalendarClock, Video, Phone, MapPin } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MOCK_INTERVIEWS } from "../../mock/mockInterviews";

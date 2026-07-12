@@ -1,3 +1,5 @@
+// Still mock — career_profiles has no normalized work-experience sub-table
+// (only flat skills/languages text[] columns). Future phase.
 import { Briefcase } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MOCK_PROFILE } from "../../mock/mockProfile";

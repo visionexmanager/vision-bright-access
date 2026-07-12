@@ -1,3 +1,6 @@
+// Still mock — the `messages` table backs MessagesPanel.tsx in Phase 1, but
+// this feed (reactions/polls/hashtags/comments) has no matching columns in
+// the deployed schema. Future phase.
 import { lazy, Suspense, type LazyExoticComponent } from "react";
 import { NetworkLayout } from "@/components/career/network/NetworkLayout";
 import { useNetwork } from "@/contexts/NetworkContext";

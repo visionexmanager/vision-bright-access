@@ -1,9 +1,12 @@
 import { FileStack, CalendarClock, Trophy, MessageCircle, Bookmark } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCareerDashboard } from "@/contexts/CareerDashboardContext";
-import { MOCK_APPLICATIONS } from "../mock/mockApplications";
+import { useCareerApplications } from "@/hooks/career/useCareerApplications";
+import { useCareerMessages } from "@/hooks/career/useCareerMessages";
+// Interviews and saved-jobs have no backing table yet (see InterviewsPanel.tsx
+// and SavedJobsPanel.tsx) — their stat tiles stay on mock data until a future
+// phase adds those tables.
 import { MOCK_INTERVIEWS } from "../mock/mockInterviews";
-import { MOCK_MESSAGES } from "../mock/mockMessages";
 import { MOCK_SAVED_JOB_IDS } from "../mock/mockSavedJobs";
 import { StatWidget } from "./widgets/StatWidget";
 import { CareerScoreWidget } from "./widgets/CareerScoreWidget";
@@ -17,7 +20,9 @@ import { SalaryPredictionWidget } from "./widgets/SalaryPredictionWidget";
 export function DashboardOverviewPanel() {
   const { t } = useLanguage();
   const { setActiveSection } = useCareerDashboard();
-  const offersCount = MOCK_APPLICATIONS.filter((a) => a.status === "offer").length;
+  const { applications } = useCareerApplications();
+  const { messages } = useCareerMessages();
+  const offersCount = applications.filter((a) => a.status === "offer").length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -27,10 +32,10 @@ export function DashboardOverviewPanel() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatWidget icon={FileStack} label={t("careerDash.nav.applications")} value={MOCK_APPLICATIONS.length} onClick={() => setActiveSection("applications")} />
+        <StatWidget icon={FileStack} label={t("careerDash.nav.applications")} value={applications.length} onClick={() => setActiveSection("applications")} />
         <StatWidget icon={CalendarClock} label={t("careerDash.nav.interviews")} value={MOCK_INTERVIEWS.length} onClick={() => setActiveSection("interviews")} />
         <StatWidget icon={Trophy} label={t("careerDash.widget.offers")} value={offersCount} onClick={() => setActiveSection("applications")} />
-        <StatWidget icon={MessageCircle} label={t("careerDash.nav.messages")} value={MOCK_MESSAGES.length} onClick={() => setActiveSection("messages")} />
+        <StatWidget icon={MessageCircle} label={t("careerDash.nav.messages")} value={messages.length} onClick={() => setActiveSection("messages")} />
         <StatWidget icon={Bookmark} label={t("careerDash.nav.savedJobs")} value={MOCK_SAVED_JOB_IDS.length} onClick={() => setActiveSection("savedJobs")} />
       </div>
 

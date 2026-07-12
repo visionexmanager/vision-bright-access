@@ -1,3 +1,4 @@
+// Still mock — see ProfileExperience.tsx (no normalized projects sub-table). Future phase.
 import { Folder } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MOCK_PROFILE } from "../../mock/mockProfile";

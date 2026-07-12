@@ -4,44 +4,34 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MOCK_PROFILE } from "../../mock/mockProfile";
-import type { SkillEntry, SkillProficiency } from "../../types";
+import { useCareerProfile } from "@/hooks/career/useCareerProfile";
+import { CareerErrorState } from "../../../ui/CareerErrorState";
 
-const PROFICIENCY_LEVELS: SkillProficiency[] = ["beginner", "intermediate", "advanced", "expert"];
-
-const PROFICIENCY_COLOR: Record<SkillProficiency, string> = {
-  beginner: "bg-slate-500/10 text-slate-600 dark:text-slate-300",
-  intermediate: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  advanced: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  expert: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-};
-
+// Simplified from the earlier mock's rich SkillEntry shape (proficiency,
+// years, last-used) to a flat tag list — career_profiles.skills is a plain
+// text[] column, no per-skill metadata exists in the deployed schema.
 export function ProfileSkills() {
   const { t } = useLanguage();
-  const [skills, setSkills] = useState<SkillEntry[]>(MOCK_PROFILE.skills);
+  const { profile, isLoading, error, refetch, saveProfile, isSaving } = useCareerProfile();
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
-  const [proficiency, setProficiency] = useState<SkillProficiency>("intermediate");
-  const [years, setYears] = useState("1");
+
+  if (isLoading) {
+    return <div className="rounded-2xl border border-border/60 bg-card p-6 animate-pulse h-32" aria-hidden="true" />;
+  }
+  if (error) {
+    return <CareerErrorState message={error} onRetry={refetch} className="rounded-2xl border border-border/60 bg-card" />;
+  }
+
+  const skills = profile?.skills ?? [];
 
   const addSkill = () => {
-    if (!name.trim()) return;
-    const entry: SkillEntry = {
-      id: `sk-${Date.now()}`,
-      name: name.trim(),
-      category: category.trim() || t("careerDash.profile.skills.uncategorized"),
-      proficiency,
-      yearsExperience: Number(years) || 0,
-      lastUsed: new Date().toISOString().slice(0, 10),
-    };
-    setSkills((prev) => [...prev, entry]);
+    const trimmed = name.trim();
+    if (!trimmed || skills.includes(trimmed)) return;
+    saveProfile({ skills: [...skills, trimmed] });
     setName("");
-    setCategory("");
-    setYears("1");
   };
 
-  const removeSkill = (id: string) => setSkills((prev) => prev.filter((s) => s.id !== id));
+  const removeSkill = (skill: string) => saveProfile({ skills: skills.filter((s) => s !== skill) });
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card p-6">
@@ -50,61 +40,35 @@ export function ProfileSkills() {
         <h2 className="font-bold">{t("careerDash.profile.skills.title")}</h2>
       </div>
 
-      <ul className="mb-5 flex flex-col gap-2">
-        {skills.map((skill) => (
-          <li key={skill.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/50 p-3">
-            <div>
-              <p className="text-sm font-semibold">{skill.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {skill.category} · {t("careerDash.profile.skills.years").replace("{count}", String(skill.yearsExperience))} · {t("careerDash.profile.skills.lastUsed")}: {skill.lastUsed}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${PROFICIENCY_COLOR[skill.proficiency]}`}>
-                {t(`careerDash.profile.skills.level.${skill.proficiency}`)}
-              </span>
+      {skills.length > 0 ? (
+        <ul className="mb-5 flex flex-wrap gap-2">
+          {skills.map((skill) => (
+            <li key={skill} className="flex items-center gap-1.5 rounded-full border border-border/50 px-3 py-1.5 text-sm">
+              {skill}
               <button
                 type="button"
-                onClick={() => removeSkill(skill.id)}
-                aria-label={t("careerDash.profile.skills.remove").replace("{name}", skill.name)}
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => removeSkill(skill)}
+                disabled={isSaving}
+                aria-label={t("careerDash.profile.skills.remove").replace("{name}", skill)}
+                className="rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mb-5 text-sm text-muted-foreground">{t("careerDash.profile.skills.empty")}</p>
+      )}
 
-      <div className="grid gap-2 rounded-xl border border-dashed border-border p-4 sm:grid-cols-5">
-        <div className="sm:col-span-2">
+      <div className="flex items-end gap-2 rounded-xl border border-dashed border-border p-4">
+        <div className="flex-1">
           <Label htmlFor="skill-name" className="mb-1 block text-xs text-muted-foreground">{t("careerDash.profile.skills.name")}</Label>
-          <Input id="skill-name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input id="skill-name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addSkill()} />
         </div>
-        <div>
-          <Label htmlFor="skill-category" className="mb-1 block text-xs text-muted-foreground">{t("careerDash.profile.skills.category")}</Label>
-          <Input id="skill-category" value={category} onChange={(e) => setCategory(e.target.value)} />
-        </div>
-        <div>
-          <Label className="mb-1 block text-xs text-muted-foreground">{t("careerDash.profile.skills.proficiency")}</Label>
-          <Select value={proficiency} onValueChange={(v) => setProficiency(v as SkillProficiency)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {PROFICIENCY_LEVELS.map((level) => (
-                <SelectItem key={level} value={level}>{t(`careerDash.profile.skills.level.${level}`)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <Label htmlFor="skill-years" className="mb-1 block text-xs text-muted-foreground">{t("careerDash.profile.skills.yearsLabel")}</Label>
-            <Input id="skill-years" type="number" min={0} max={50} value={years} onChange={(e) => setYears(e.target.value)} />
-          </div>
-          <Button size="icon" onClick={addSkill} aria-label={t("careerDash.profile.skills.add")} className="shrink-0">
-            <Plus className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </div>
+        <Button size="icon" onClick={addSkill} disabled={isSaving} aria-label={t("careerDash.profile.skills.add")} className="shrink-0">
+          <Plus className="h-4 w-4" aria-hidden="true" />
+        </Button>
       </div>
     </div>
   );

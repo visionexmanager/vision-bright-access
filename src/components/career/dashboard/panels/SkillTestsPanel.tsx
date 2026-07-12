@@ -1,3 +1,4 @@
+// Still mock — no skill-assessment table exists in the deployed schema. Future phase.
 import { ClipboardCheck, Clock } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";

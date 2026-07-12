@@ -70,6 +70,20 @@ export const queryKeys = {
     accessibility:   { prefs: (uid: string)   => ["academy", "accessibility", uid] as const },
   },
 
+  // ── Career Center (Phase 1 backend — profile/jobs/applications/etc.) ───────
+  career: {
+    profile:         (uid: string)          => ["career", "profile", uid] as const,
+    jobs:            (filtersKey: string)   => ["career", "jobs", filtersKey] as const,
+    job:             (jobId: string)        => ["career", "job", jobId] as const,
+    companies:       ()                     => ["career", "companies"] as const,
+    recommendedJobs: (uid: string)          => ["career", "recommended-jobs", uid] as const,
+    applications:    (uid: string)          => ["career", "applications", uid] as const,
+    certificates:    (uid: string)          => ["career", "certificates", uid] as const,
+    goals:           (uid: string)          => ["career", "goals", uid] as const,
+    notifications:   (uid: string)          => ["career", "notifications", uid] as const,
+    messages:        (uid: string)          => ["career", "messages", uid] as const,
+  },
+
   // ── Points / Wallet ───────────────────────────────────────────────────────
   points: {
     all:     ()           => ["points"] as const,

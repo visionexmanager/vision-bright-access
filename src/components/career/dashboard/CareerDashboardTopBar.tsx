@@ -5,14 +5,16 @@ import { useCareerDashboard } from "@/contexts/CareerDashboardContext";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MOCK_NOTIFICATIONS } from "./mock/mockNotifications";
-import { MOCK_PROFILE } from "./mock/mockProfile";
+import { useCareerNotifications } from "@/hooks/career/useCareerNotifications";
+import { useCareerProfile } from "@/hooks/career/useCareerProfile";
 
 export function CareerDashboardTopBar() {
   const { t } = useLanguage();
   const { setActiveSection, setMobileSidebarOpen } = useCareerDashboard();
-  const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.read).length;
-  const initials = MOCK_PROFILE.fullName.split(" ").map((w) => w[0]).slice(0, 2).join("");
+  const { unreadCount } = useCareerNotifications();
+  const { profile } = useCareerProfile();
+  const fullName = profile?.display_name?.trim() || t("careerDash.profile.unnamed");
+  const initials = fullName.split(" ").map((w) => w[0]).slice(0, 2).join("");
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-card/80 px-4 backdrop-blur-md" role="banner">
@@ -61,8 +63,8 @@ export function CareerDashboardTopBar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <div className="px-2 py-1.5 text-sm font-semibold">{MOCK_PROFILE.fullName}</div>
-            <div className="px-2 pb-1.5 text-xs text-muted-foreground">{MOCK_PROFILE.headline}</div>
+            <div className="px-2 py-1.5 text-sm font-semibold">{fullName}</div>
+            <div className="px-2 pb-1.5 text-xs text-muted-foreground">{profile?.headline || t("careerDash.profile.noHeadline")}</div>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setActiveSection("profile")}>{t("careerDash.nav.profile")}</DropdownMenuItem>
             <DropdownMenuItem onClick={() => setActiveSection("settings")}>{t("careerDash.nav.settings")}</DropdownMenuItem>

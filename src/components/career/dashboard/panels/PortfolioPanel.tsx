@@ -1,3 +1,5 @@
+// Still mock — no portfolio-items table exists (career_profiles.portfolio_url
+// is a single link, not a structured list). Future phase.
 import { Plus, ExternalLink } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";

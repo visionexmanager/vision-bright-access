@@ -1,3 +1,4 @@
+// Still mock — see ProfileExperience.tsx (no normalized volunteering/awards sub-table). Future phase.
 import { HeartHandshake, Award } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MOCK_PROFILE } from "../../mock/mockProfile";

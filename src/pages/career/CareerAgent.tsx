@@ -1,3 +1,7 @@
+// Still mock — the AI Career Agent panels (briefing/journal/productivity/
+// opportunity monitor/recommendations) read like AI-generated content, not
+// raw CRUD; real backing needs the career-ai-* edge functions plus
+// ai_interactions/career_analytics_events, not a simple table swap. Future phase.
 import { lazy, Suspense, type LazyExoticComponent } from "react";
 import { AgentDashboardLayout } from "@/components/career/agent/AgentDashboardLayout";
 import { useAgent } from "@/contexts/AgentContext";

@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Bookmark, Share2, Clock3 } from "lucide-react";
+import { Bookmark, Share2, Clock3, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useComingSoon } from "@/components/career/useComingSoon";
+import { useCareerApplications } from "@/hooks/career/useCareerApplications";
 import { CompanyAvatar } from "./CompanyAvatar";
 import { JobBadge } from "./JobBadge";
 import { formatRelativeTime, formatSalary } from "./formatters";
@@ -11,17 +14,39 @@ import type { Job } from "./types";
 
 interface JobCardProps {
   job: Job;
+  /** True when `job` comes from a still-mock source with no real DB id (e.g.
+   *  SavedJobsPanel — no saved_jobs table yet) — falls back to the "coming
+   *  soon" toast instead of attempting a live apply against a fake job id. */
+  isMock?: boolean;
 }
 
-export function JobCard({ job }: JobCardProps) {
+export function JobCard({ job, isMock = false }: JobCardProps) {
   const { t } = useLanguage();
   const { playSound } = useSound();
+  const { user } = useAuth();
+  const { apply, isApplying, applications } = useCareerApplications();
   const handleComingSoon = useComingSoon();
   const [saved, setSaved] = useState(false);
 
   const toggleSave = () => {
     setSaved((v) => !v);
     playSound(saved ? "click" : "select");
+  };
+
+  const alreadyApplied = applications.some((a) => a.job_id === job.id && a.status !== "withdrawn");
+
+  const quickApply = async () => {
+    if (!user) {
+      toast.info(t("careersPage.job.signInToApply"));
+      return;
+    }
+    playSound("select");
+    try {
+      await apply({ jobId: job.id });
+      toast.success(t("careersPage.job.applySuccess"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("careersPage.job.applyError"));
+    }
   };
 
   return (
@@ -62,8 +87,14 @@ export function JobCard({ job }: JobCardProps) {
       </div>
 
       <div className="mt-auto flex items-center gap-2 pt-2">
-        <Button size="sm" className="flex-1" onClick={handleComingSoon}>
-          {t("careersPage.job.quickApply")}
+        <Button size="sm" className="flex-1" onClick={isMock ? handleComingSoon : quickApply} disabled={!isMock && (isApplying || alreadyApplied)}>
+          {!isMock && isApplying ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : !isMock && alreadyApplied ? (
+            t("careersPage.job.applied")
+          ) : (
+            t("careersPage.job.quickApply")
+          )}
         </Button>
         <Button size="sm" variant="outline" className="flex-1" onClick={handleComingSoon}>
           {t("careersPage.job.details")}

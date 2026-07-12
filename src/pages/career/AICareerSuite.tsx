@@ -1,3 +1,8 @@
+// Still mock — the AI modules here need to call the already-deployed
+// career-ai-* edge functions (resume, roadmap, salary, visa, etc.) rather
+// than a simple table swap; profile data it references (dashboard/mock/
+// mockProfile) is real via useCareerProfile in Phase 1, but the AI
+// generation itself is a separate, larger phase.
 import { lazy, Suspense, useState, type LazyExoticComponent } from "react";
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";

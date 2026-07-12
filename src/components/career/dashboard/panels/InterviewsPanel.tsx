@@ -1,3 +1,5 @@
+// Still mock — no interview-scheduling table exists yet (applications.status
+// includes "interview" but there's no date/time/round record). Future phase.
 import { useMemo, useState } from "react";
 import { Video, Phone, MapPin, Bell } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";

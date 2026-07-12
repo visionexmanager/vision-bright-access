@@ -1,3 +1,4 @@
+// Still mock — see AchievementsPanel.tsx (no achievements/XP table yet).
 import { Trophy } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Progress } from "@/components/ui/progress";

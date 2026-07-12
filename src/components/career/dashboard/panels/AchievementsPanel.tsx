@@ -1,3 +1,4 @@
+// Still mock — no achievements/badges table exists in the deployed schema. Future phase.
 import { Trophy, Lock } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Progress } from "@/components/ui/progress";

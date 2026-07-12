@@ -1,3 +1,6 @@
+// Still mock — `communities`/`community_members` tables exist and map
+// reasonably well, but each community's bundled posts/events/resources have
+// no matching columns yet. Future phase.
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Users2, Moon, Sun } from "lucide-react";

@@ -1,3 +1,7 @@
+// Still mock — there is no `saved_jobs`/bookmarks table in the deployed
+// schema (Phase 1 backend only covers profile/jobs/applications/certificates/
+// goals/notifications/messages/resume; see career.ts plan). Revisit once a
+// bookmarks table exists.
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MOCK_JOBS } from "@/components/career/jobs/mockJobs";
 import { JobCard } from "@/components/career/jobs/JobCard";
@@ -14,7 +18,7 @@ export function SavedJobsPanel() {
         <p className="text-sm text-muted-foreground">{t("careerDash.savedJobs.subtitle")}</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {jobs.map((job) => <JobCard key={job.id} job={job} />)}
+        {jobs.map((job) => <JobCard key={job.id} job={job} isMock />)}
       </div>
     </div>
   );
