@@ -3,7 +3,7 @@ import { AdBanner } from "@/components/AdBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowRight, Bot, Eye, Radio, ShoppingBag, BookOpen, UserPlus, Users, Zap, Gift, TrendingUp, Gamepad2, CheckCircle, Lock } from "lucide-react";
+import { ArrowRight, Bot, Eye, Radio, ShoppingBag, BookOpen, UserPlus, Users, Zap, Gift, TrendingUp, Gamepad2, CheckCircle, Lock, Coins } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSound } from "@/contexts/SoundContext";
@@ -191,15 +191,22 @@ export default function Index() {
           </div>
           <h2 id="points-heading" className="type-heading mb-4">{t("home.pointsTitle")}</h2>
           <p className="mb-8 text-muted-foreground max-w-lg mx-auto">{t("home.pointsDesc")}</p>
-          {user ? (
-            <Link to="/dashboard">
-              <Button size="lg" className="font-semibold px-8" onClick={() => playSound("navigate")}>{t("nav.dashboard")} <ArrowRight className="ms-2 h-4 w-4" /></Button>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {user ? (
+              <Link to="/dashboard">
+                <Button size="lg" className="font-semibold px-8" onClick={() => playSound("navigate")}>{t("nav.dashboard")} <ArrowRight className="ms-2 h-4 w-4" /></Button>
+              </Link>
+            ) : (
+              <Link to="/signup">
+                <Button size="lg" className="font-semibold px-8" onClick={() => playSound("navigate")}>{t("home.claimPoints")}</Button>
+              </Link>
+            )}
+            <Link to="/coins-store">
+              <Button size="lg" variant="outline" className="font-semibold px-8" onClick={() => playSound("navigate")}>
+                <Coins className="me-2 h-4 w-4" aria-hidden="true" /> {t("home.buyCoins")}
+              </Button>
             </Link>
-          ) : (
-            <Link to="/signup">
-              <Button size="lg" className="font-semibold px-8" onClick={() => playSound("navigate")}>{t("home.claimPoints")}</Button>
-            </Link>
-          )}
+          </div>
         </AnimatedSection>
 
         {/* AdSense — bottom of home page */}

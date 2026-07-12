@@ -7027,6 +7027,12 @@ export const translations: Record<string, string> = {
   "admin.settings.vxPayments": "Cuentas de pago de monedas VX",
   "admin.settings.vxPaymentsDesc": "Se muestra a los compradores cuando eligen este método de pago al finalizar la compra.",
   "admin.settings.vxPaymentPlaceholder": "Nombre de la cuenta / número / instrucciones para compradores",
+  "coins.rateNote": "{rate} VX = 1 $",
+  "coins.customAmount": "Cantidad personalizada (VX)",
+  "coins.amountHint": "Mín. {min} · Máx. {max} · en múltiplos de 1000",
+  "home.buyCoins": "Comprar monedas VX",
+  "home.howSubtitle": "Comienza en unos simples pasos",
+  "home.featuresSubtitle": "Todo lo que necesitas en una sola plataforma",
 };
 
 export default translations;

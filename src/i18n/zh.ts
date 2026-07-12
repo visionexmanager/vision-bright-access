@@ -7025,6 +7025,12 @@ export const translations: Record<string, string> = {
   "admin.settings.vxPayments": "VX 币收款账户",
   "admin.settings.vxPaymentsDesc": "当买家在结账时选择此支付方式时显示给他们。",
   "admin.settings.vxPaymentPlaceholder": "账户名称 / 号码 / 给买家的说明",
+  "coins.rateNote": "{rate} VX = $1",
+  "coins.customAmount": "自定义数量 (VX)",
+  "coins.amountHint": "最少 {min} · 最多 {max} · 以1,000为单位",
+  "home.buyCoins": "购买 VX 币",
+  "home.howSubtitle": "只需几个简单步骤即可开始",
+  "home.featuresSubtitle": "一个平台，满足所有需求",
 };
 
 export default translations;

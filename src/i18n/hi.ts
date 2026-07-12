@@ -7120,6 +7120,12 @@ export const translations: Record<string, string> = {
   "admin.settings.vxPayments": "VX सिक्का भुगतान खाते",
   "admin.settings.vxPaymentsDesc": "जब खरीदार चेकआउट पर यह भुगतान विधि चुनते हैं तो यह उन्हें दिखाया जाता है।",
   "admin.settings.vxPaymentPlaceholder": "खाता नाम / नंबर / खरीदारों के लिए निर्देश",
+  "coins.rateNote": "{rate} VX = $1",
+  "coins.customAmount": "कस्टम राशि (VX)",
+  "coins.amountHint": "न्यूनतम {min} · अधिकतम {max} · 1,000 के गुणकों में",
+  "home.buyCoins": "VX सिक्के खरीदें",
+  "home.howSubtitle": "बस कुछ आसान चरणों में शुरू करें",
+  "home.featuresSubtitle": "आपकी हर ज़रूरत, एक ही प्लेटफ़ॉर्म पर",
 };
 
 export default translations;

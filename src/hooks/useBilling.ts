@@ -8,7 +8,6 @@ import {
   initializeBilling,
   upgradePlan,
   cancelSubscription,
-  purchaseCredits,
 } from "@/services/ai-media-studio/billingService";
 
 export const BILLING_KEY   = ["billing", "status"]  as const;
@@ -124,18 +123,5 @@ export function useSubscriptionMutations() {
     }),
   });
 
-  const purchase = useMutation({
-    mutationFn: (amount: number) => purchaseCredits(amount),
-    onSuccess: (_, amount) => {
-      invalidate();
-      toast({ title: `${amount.toLocaleString()} VX added to your wallet` });
-    },
-    onError: (e: Error) => toast({
-      title:       "Purchase failed",
-      description: e.message,
-      variant:     "destructive",
-    }),
-  });
-
-  return { upgrade, cancel, purchase };
+  return { upgrade, cancel };
 }

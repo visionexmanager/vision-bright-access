@@ -7123,6 +7123,12 @@ export const translations: Record<string, string> = {
   "admin.settings.vxPayments": "Comptes de paiement des pièces VX",
   "admin.settings.vxPaymentsDesc": "Affiché aux acheteurs lorsqu'ils choisissent ce mode de paiement lors du paiement.",
   "admin.settings.vxPaymentPlaceholder": "Nom du compte / numéro / instructions pour les acheteurs",
+  "coins.rateNote": "{rate} VX = 1 $",
+  "coins.customAmount": "Montant personnalisé (VX)",
+  "coins.amountHint": "Min. {min} · Max. {max} · par multiples de 1 000",
+  "home.buyCoins": "Acheter des pièces VX",
+  "home.howSubtitle": "Commencez en quelques étapes simples",
+  "home.featuresSubtitle": "Tout ce dont vous avez besoin, sur une seule plateforme",
 };
 
 export default translations;

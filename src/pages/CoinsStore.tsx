@@ -3,15 +3,19 @@ import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Coins, ShoppingCart, Play, BookOpen, Gamepad2, Briefcase, Trophy } from "lucide-react";
-import { COIN_PACKAGES, calculatePackageTotal } from "@/systems/coinsSystem";
+import { COINS_PER_USD, MIN_COINS, MAX_COINS, calculateFromCoins } from "@/systems/coinsSystem";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import { Link } from "react-router-dom";
 import { AnimatedSection, StaggerGrid, StaggerItem } from "@/components/AnimatedSection";
 import { PurchaseDialog } from "@/components/coins/PurchaseDialog";
+
+const QUICK_AMOUNTS = [1_000, 5_000, 10_000, 50_000, 100_000, 500_000];
 
 const EARN_METHODS = [
   { icon: Play,      labelKey: "dash.watchAd",       descKey: "dash.watchAdDesc",       reward: "+5 VX",      to: "/dashboard" },
@@ -24,7 +28,11 @@ export default function CoinsStore() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { totalPoints } = usePoints();
-  const [selectedPackage, setSelectedPackage] = useState<{ coins: number; total: number } | null>(null);
+  const [amountInput, setAmountInput] = useState(String(QUICK_AMOUNTS[2]));
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const rawAmount = parseInt(amountInput, 10) || 0;
+  const calc = calculateFromCoins(rawAmount);
 
   return (
     <Layout>
@@ -82,55 +90,75 @@ export default function CoinsStore() {
           </div>
         )}
 
-        {/* Purchase packages */}
+        {/* Purchase */}
         <div className="mb-4 flex items-center gap-3">
           <div className="h-px flex-1 bg-border" aria-hidden="true" />
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">{t("coins.purchaseTitle")}</h2>
           <div className="h-px flex-1 bg-border" aria-hidden="true" />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {COIN_PACKAGES.map((pkg) => {
-            const { fee, total } = calculatePackageTotal(pkg.price);
-            return (
-              <Card key={pkg.coins} className="relative">
-                <CardHeader className="text-center">
-                  <CardTitle className="text-3xl font-extrabold text-primary">
-                    {pkg.coins.toLocaleString()} VX
-                  </CardTitle>
-                  <CardDescription className="text-base">${pkg.price}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{t("coins.fee")}</span>
-                    <span>${fee}</span>
-                  </div>
-                  <div className="flex items-center justify-between font-semibold">
-                    <span>{t("coins.total")}</span>
-                    <span>${total}</span>
-                  </div>
-                  <Button
-                    className="w-full"
-                    disabled={!user}
-                    onClick={() => setSelectedPackage({ coins: pkg.coins, total })}
-                  >
-                    <ShoppingCart className="mr-2 h-4 w-4" aria-hidden="true" />
-                    {t("coins.purchaseTitle")}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        <Card className="mx-auto max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("coins.rateNote").replace("{rate}", COINS_PER_USD.toLocaleString())}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap justify-center gap-2">
+              {QUICK_AMOUNTS.map((amount) => (
+                <Button
+                  key={amount}
+                  type="button"
+                  size="sm"
+                  variant={rawAmount === amount ? "default" : "outline"}
+                  onClick={() => setAmountInput(String(amount))}
+                >
+                  {amount.toLocaleString()}
+                </Button>
+              ))}
+            </div>
+
+            <div>
+              <Label htmlFor="coin-amount">{t("coins.customAmount")}</Label>
+              <Input
+                id="coin-amount"
+                type="number"
+                min={MIN_COINS}
+                max={MAX_COINS}
+                step={COINS_PER_USD}
+                value={amountInput}
+                onChange={(e) => setAmountInput(e.target.value)}
+                dir="ltr"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">{t("coins.amountHint").replace("{min}", MIN_COINS.toLocaleString()).replace("{max}", MAX_COINS.toLocaleString())}</p>
+            </div>
+
+            <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
+              <div className="flex items-center justify-between text-2xl font-extrabold text-primary">
+                <span>{calc.coins.toLocaleString()} VX</span>
+                <span>${calc.price}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>{t("coins.fee")}</span>
+                <span>${calc.fee}</span>
+              </div>
+              <div className="flex items-center justify-between font-semibold">
+                <span>{t("coins.total")}</span>
+                <span>${calc.total}</span>
+              </div>
+            </div>
+
+            <Button className="w-full" disabled={!user} onClick={() => setDialogOpen(true)}>
+              <ShoppingCart className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t("coins.purchaseTitle")}
+            </Button>
+          </CardContent>
+        </Card>
       </section>
 
-      {selectedPackage && (
-        <PurchaseDialog
-          open={!!selectedPackage}
-          onOpenChange={(open) => { if (!open) setSelectedPackage(null); }}
-          coins={selectedPackage.coins}
-          total={selectedPackage.total}
-        />
-      )}
+      <PurchaseDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        coins={calc.coins}
+        total={calc.total}
+      />
     </Layout>
   );
 }

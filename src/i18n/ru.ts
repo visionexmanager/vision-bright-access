@@ -7024,6 +7024,12 @@ export const translations: Record<string, string> = {
   "admin.settings.vxPayments": "Платёжные реквизиты для VX-монет",
   "admin.settings.vxPaymentsDesc": "Показывается покупателям при выборе этого способа оплаты.",
   "admin.settings.vxPaymentPlaceholder": "Имя счёта / номер / инструкции для покупателей",
+  "coins.rateNote": "{rate} VX = 1 $",
+  "coins.customAmount": "Произвольная сумма (VX)",
+  "coins.amountHint": "Мин. {min} · Макс. {max} · кратно 1000",
+  "home.buyCoins": "Купить монеты VX",
+  "home.howSubtitle": "Начните всего за несколько простых шагов",
+  "home.featuresSubtitle": "Всё, что нужно, на одной платформе",
 };
 
 export default translations;

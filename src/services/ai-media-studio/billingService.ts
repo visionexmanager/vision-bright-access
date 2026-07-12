@@ -99,11 +99,8 @@ export async function cancelSubscription(): Promise<void> {
   if (!res.ok) throw new Error(res.error);
 }
 
-export async function purchaseCredits(amountVx: number): Promise<void> {
-  const res = await callBillingEngine({
-    action:     "grant_credits",
-    amount_vx:  amountVx,
-    description: `Purchased ${amountVx.toLocaleString()} VX`,
-  });
-  if (!res.ok) throw new Error(res.error);
-}
+// Buying VX happens via the real /coins-store checkout (WishMoney/OMT/PayPal,
+// admin-reviewed) — there used to be a purchaseCredits() here calling
+// billing-engine's "grant_credits" action, but that action grants an
+// arbitrary caller-supplied amount with no payment verification and is now
+// intentionally rejected server-side (see billing-engine/index.ts).

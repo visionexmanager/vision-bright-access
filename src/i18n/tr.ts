@@ -7025,6 +7025,12 @@ export const translations: Record<string, string> = {
   "admin.settings.vxPayments": "VX Coin Ödeme Hesapları",
   "admin.settings.vxPaymentsDesc": "Alıcılar ödeme sırasında bu yöntemi seçtiğinde gösterilir.",
   "admin.settings.vxPaymentPlaceholder": "Hesap adı / numarası / alıcılar için talimatlar",
+  "coins.rateNote": "{rate} VX = 1 $",
+  "coins.customAmount": "Özel miktar (VX)",
+  "coins.amountHint": "Min. {min} · Maks. {max} · 1.000'in katları halinde",
+  "home.buyCoins": "VX Coin Satın Al",
+  "home.howSubtitle": "Birkaç basit adımda başlayın",
+  "home.featuresSubtitle": "İhtiyacınız olan her şey tek platformda",
 };
 
 export default translations;
