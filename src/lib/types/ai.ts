@@ -73,7 +73,8 @@ export type EdgeFunctionName =
   | "speech-transcribe"
   | "document-generate"
   | "text-tools-generate"
-  | "health-check";
+  | "health-check"
+  | "vx-coin-review";
 
 export type AuthMode = "anon" | "user-jwt" | "admin-jwt" | "cron-secret";
 

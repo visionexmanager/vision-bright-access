@@ -57,6 +57,28 @@ export default function AdminSettings() {
             <Button onClick={handleSave} disabled={loading} className="w-full"><Save className="me-2 h-4 w-4" />{loading ? t("admin.settings.saving") : t("admin.settings.save")}</Button>
           </CardContent>
         </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>{t("admin.settings.vxPayments")}</CardTitle>
+            <p className="text-sm text-muted-foreground">{t("admin.settings.vxPaymentsDesc")}</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>{t("coins.method.wishmoney")}</Label>
+              <Textarea value={settings.vx_payment_wishmoney?.replace(/"/g, "") ?? ""} onChange={(e) => update("vx_payment_wishmoney", e.target.value)} placeholder={t("admin.settings.vxPaymentPlaceholder")} />
+            </div>
+            <div>
+              <Label>{t("coins.method.omt")}</Label>
+              <Textarea value={settings.vx_payment_omt?.replace(/"/g, "") ?? ""} onChange={(e) => update("vx_payment_omt", e.target.value)} placeholder={t("admin.settings.vxPaymentPlaceholder")} />
+            </div>
+            <div>
+              <Label>{t("coins.method.paypal")}</Label>
+              <Textarea value={settings.vx_payment_paypal?.replace(/"/g, "") ?? ""} onChange={(e) => update("vx_payment_paypal", e.target.value)} placeholder={t("admin.settings.vxPaymentPlaceholder")} />
+            </div>
+            <Button onClick={handleSave} disabled={loading} className="w-full"><Save className="me-2 h-4 w-4" />{loading ? t("admin.settings.saving") : t("admin.settings.save")}</Button>
+          </CardContent>
+        </Card>
       </section>
     </Layout>
   );

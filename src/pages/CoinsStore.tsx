@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -5,11 +6,12 @@ import { usePoints } from "@/hooks/usePoints";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Coins, Clock, Play, BookOpen, Gamepad2, Briefcase, Trophy } from "lucide-react";
+import { Coins, ShoppingCart, Play, BookOpen, Gamepad2, Briefcase, Trophy } from "lucide-react";
 import { COIN_PACKAGES, calculatePackageTotal } from "@/systems/coinsSystem";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import { Link } from "react-router-dom";
 import { AnimatedSection, StaggerGrid, StaggerItem } from "@/components/AnimatedSection";
+import { PurchaseDialog } from "@/components/coins/PurchaseDialog";
 
 const EARN_METHODS = [
   { icon: Play,      labelKey: "dash.watchAd",       descKey: "dash.watchAdDesc",       reward: "+5 VX",      to: "/dashboard" },
@@ -22,6 +24,7 @@ export default function CoinsStore() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { totalPoints } = usePoints();
+  const [selectedPackage, setSelectedPackage] = useState<{ coins: number; total: number } | null>(null);
 
   return (
     <Layout>
@@ -79,18 +82,13 @@ export default function CoinsStore() {
           </div>
         )}
 
-        {/* Purchase packages — coming soon, clearly separated */}
+        {/* Purchase packages */}
         <div className="mb-4 flex items-center gap-3">
           <div className="h-px flex-1 bg-border" aria-hidden="true" />
-          <div className="flex items-center gap-2 shrink-0">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("coins.purchaseTitle")}</h2>
-            <Badge variant="outline" className="text-xs gap-1 text-muted-foreground border-muted-foreground/30">
-              <Clock className="h-3 w-3" aria-hidden="true" /> {t("coins.comingSoonDesc")}
-            </Badge>
-          </div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">{t("coins.purchaseTitle")}</h2>
           <div className="h-px flex-1 bg-border" aria-hidden="true" />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 opacity-40 pointer-events-none select-none">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {COIN_PACKAGES.map((pkg) => {
             const { fee, total } = calculatePackageTotal(pkg.price);
             return (
@@ -110,8 +108,12 @@ export default function CoinsStore() {
                     <span>{t("coins.total")}</span>
                     <span>${total}</span>
                   </div>
-                  <Button className="w-full" disabled>
-                    <Clock className="mr-2 h-4 w-4" />
+                  <Button
+                    className="w-full"
+                    disabled={!user}
+                    onClick={() => setSelectedPackage({ coins: pkg.coins, total })}
+                  >
+                    <ShoppingCart className="mr-2 h-4 w-4" aria-hidden="true" />
                     {t("coins.purchaseTitle")}
                   </Button>
                 </CardContent>
@@ -120,6 +122,15 @@ export default function CoinsStore() {
           })}
         </div>
       </section>
+
+      {selectedPackage && (
+        <PurchaseDialog
+          open={!!selectedPackage}
+          onOpenChange={(open) => { if (!open) setSelectedPackage(null); }}
+          coins={selectedPackage.coins}
+          total={selectedPackage.total}
+        />
+      )}
     </Layout>
   );
 }

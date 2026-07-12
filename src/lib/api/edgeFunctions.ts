@@ -316,6 +316,18 @@ export async function callAnalyticsInsights(): Promise<unknown> {
 }
 
 /**
+ * vx-coin-review — admin approves/rejects a manually-verified VX coin
+ * purchase order (credits VX + sends a receipt/notice email on success).
+ */
+export async function callVxCoinReview(params: {
+  orderId: string;
+  action: "approve" | "reject";
+  adminNotes?: string;
+}): Promise<{ order: Record<string, unknown> }> {
+  return callEdge({ fn: "vx-coin-review", body: params, auth: "admin-jwt" }) as Promise<{ order: Record<string, unknown> }>;
+}
+
+/**
  * livekit-token — generate LiveKit JWT for voice rooms
  */
 export async function callLiveKitToken(params: {

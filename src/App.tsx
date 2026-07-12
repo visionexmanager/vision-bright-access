@@ -204,6 +204,7 @@ const AdminEmails = lazy(() => import("./pages/admin/AdminEmails"));
 const AdminDatabase = lazy(() => import("./pages/admin/AdminDatabase"));
 const AdminLogs = lazy(() => import("./pages/admin/AdminLogs"));
 const AdminVX   = lazy(() => import("./pages/admin/AdminVX"));
+const AdminVXCoinOrders = lazy(() => import("./pages/admin/AdminVXCoinOrders"));
 const AdminSimulations = lazy(() => import("./pages/admin/AdminSimulations"));
 const AdminBazaar = lazy(() => import("./pages/admin/AdminBazaar"));
 const AdminTV = lazy(() => import("./pages/admin/AdminTV"));
@@ -419,6 +420,7 @@ function AppRoutes() {
                     <Route path="/admin/emails" element={<AdminRoute><AdminEmails /></AdminRoute>} />
                     <Route path="/admin/database" element={<AdminRoute><AdminDatabase /></AdminRoute>} />
                     <Route path="/admin/vx" element={<AdminRoute><AdminVX /></AdminRoute>} />
+                    <Route path="/admin/vx-coin-orders" element={<AdminRoute><AdminVXCoinOrders /></AdminRoute>} />
                     <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
                     <Route path="/admin/simulations" element={<AdminRoute><AdminSimulations /></AdminRoute>} />
                     <Route path="/admin/news" element={<AdminRoute><AdminNews /></AdminRoute>} />

@@ -129,6 +129,12 @@ export const queryKeys = {
     products: ()          => ["bazaar", "products"] as const,
   },
 
+  // ── VX Coin Purchases ────────────────────────────────────────────────────
+  vxCoins: {
+    myOrders:  (uid: string)          => ["vxCoins", "my-orders", uid] as const,
+    adminList: (status: string)       => ["vxCoins", "admin-list", status] as const,
+  },
+
   // ── TV / Radio ────────────────────────────────────────────────────────────
   media: {
     tvChannels:    ()           => ["media", "tv-channels"] as const,
