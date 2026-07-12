@@ -1,7 +1,15 @@
 // ─── Audio Converter Module ───────────────────────────────────────────────────
-// Browser-native path: uses MediaRecorder + AudioContext for format re-encoding.
-// Heavy formats (FLAC, OPUS) are flagged server-side (canHandleInBrowser = false
-// for those targets); they're dispatched to a Supabase Edge Function in Phase 12.
+// Browser-native path: AudioContext decode/render, then either a manual PCM→WAV
+// encode (always available, no codec dependency) or MediaRecorder for webm.
+// MP3/OGG need a real encoder (lamejs / libvorbis.wasm) we don't ship yet, so
+// they're flagged server-side like the other heavy formats (FLAC, AAC, M4A,
+// OPUS, WMA); dispatched to a Supabase Edge Function in Phase 12.
+//
+// Note: MediaRecorder cannot produce "audio/mpeg" or "audio/wav" containers in
+// any mainstream browser — only webm (opus, Chromium/Firefox) — so those two
+// were previously listed as browser-working and always threw partway through
+// (MediaRecorder constructor rejects the unsupported mimeType). WAV is now
+// encoded manually instead of routed through MediaRecorder.
 
 import type {
   ConverterModule,
@@ -11,7 +19,7 @@ import type {
 } from "@/lib/types/fileStudio";
 import { AUDIO_FORMATS } from "@/lib/types/fileStudio";
 
-const BROWSER_OUTPUT_FORMATS = ["mp3", "wav", "ogg", "webm"];
+const BROWSER_OUTPUT_FORMATS = ["wav", "webm"];
 
 export const AudioModule: ConverterModule = {
   moduleType: "audio",
@@ -46,8 +54,11 @@ export const AudioModule: ConverterModule = {
         ? trimAudioBuffer(audioBuffer, opts.trimStart, opts.trimEnd)
         : audioBuffer;
 
-      // Re-encode via OfflineAudioContext + MediaRecorder
-      const blob = await renderToBlob(trimmedBuffer, opts);
+      // Apply gain/normalize via OfflineAudioContext, then encode
+      const renderedBuffer = await applyGain(trimmedBuffer, opts);
+      const blob = opts.targetFormat === "wav"
+        ? encodeWav(renderedBuffer)
+        : await recordAsWebm(renderedBuffer);
       await audioCtx.close();
 
       onProgress(100);
@@ -95,11 +106,7 @@ function trimAudioBuffer(
   return newBuf;
 }
 
-async function renderToBlob(
-  buf: AudioBuffer,
-  opts: AudioOptions
-): Promise<Blob> {
-  // Apply gain/normalize via OfflineAudioContext and capture the result
+async function applyGain(buf: AudioBuffer, opts: AudioOptions): Promise<AudioBuffer> {
   const offCtx = new OfflineAudioContext(
     buf.numberOfChannels,
     buf.length,
@@ -113,40 +120,79 @@ async function renderToBlob(
   src.connect(gain);
   gain.connect(offCtx.destination);
   src.start();
-  const renderedBuffer = await offCtx.startRendering();
+  return offCtx.startRendering();
+}
 
-  // Re-encode rendered buffer via MediaRecorder
+// Manual PCM → WAV encode. No codec/container support needed from the
+// browser, so this works identically everywhere (unlike MediaRecorder,
+// which can't emit a "audio/wav" container in any mainstream browser).
+function encodeWav(buf: AudioBuffer): Blob {
+  const numChannels = buf.numberOfChannels;
+  const sampleRate = buf.sampleRate;
+  const numFrames = buf.length;
+  const bytesPerSample = 2; // 16-bit PCM
+  const blockAlign = numChannels * bytesPerSample;
+  const dataSize = numFrames * blockAlign;
+
+  const arrayBuffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(arrayBuffer);
+
+  const writeStr = (offset: number, s: string) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+  };
+
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, "data");
+  view.setUint32(40, dataSize, true);
+
+  const channelData: Float32Array[] = [];
+  for (let ch = 0; ch < numChannels; ch++) channelData.push(buf.getChannelData(ch));
+
+  let offset = 44;
+  for (let i = 0; i < numFrames; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sample = Math.max(-1, Math.min(1, channelData[ch][i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  }
+
+  return new Blob([arrayBuffer], { type: "audio/wav" });
+}
+
+async function recordAsWebm(buf: AudioBuffer): Promise<Blob> {
+  const mimeType = "audio/webm; codecs=opus";
+  if (!MediaRecorder.isTypeSupported(mimeType)) {
+    throw new Error("This browser doesn't support WebM audio recording.");
+  }
+
   const ac = new AudioContext();
   const dest = ac.createMediaStreamDestination();
   const srcNode = ac.createBufferSource();
-  srcNode.buffer = renderedBuffer;
+  srcNode.buffer = buf;
   srcNode.connect(dest);
 
-  const mimeType = mediaRecorderMime(opts.targetFormat);
   const recorder = new MediaRecorder(dest.stream, { mimeType });
   const chunks: Blob[] = [];
   recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
 
   return new Promise<Blob>((resolve, reject) => {
-    recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
-    recorder.onerror = (e) => reject(e);
+    recorder.onstop = () => { ac.close(); resolve(new Blob(chunks, { type: mimeType })); };
+    recorder.onerror = (e) => { ac.close(); reject(e); };
     recorder.start();
     srcNode.start();
-    srcNode.onended = () => {
-      recorder.stop();
-      ac.close();
-    };
+    srcNode.onended = () => recorder.stop();
   });
-}
-
-function mediaRecorderMime(fmt: string): string {
-  const map: Record<string, string> = {
-    mp3:  "audio/mpeg",
-    wav:  "audio/wav",
-    ogg:  "audio/ogg; codecs=vorbis",
-    webm: "audio/webm; codecs=opus",
-  };
-  return map[fmt] ?? "audio/webm";
 }
 
 // Stub for server-side-only formats (FLAC, AAC, M4A…)

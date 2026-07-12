@@ -7036,6 +7036,10 @@ export const translations: Record<string, string> = {
   "communityUI.resourceType.guide": "دليل",
   "communityUI.resourceType.template": "قالب",
   "communityUI.resourceType.link": "رابط",
+  "fileStudio.title": "استوديو الملفات",
+  "fileStudio.desc": "حوّل الصوت والفيديو والصور والمستندات وأكثر — مدعوم بعملة VX.",
+  "fileStudio.uploadLabel": "١. ارفع ملفك",
+  "fileStudio.selectFormat": "صيغة الإخراج",
 };
 
 export default translations;

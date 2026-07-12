@@ -60,7 +60,10 @@ const DOCUMENT_WORKING_TARGETS: Record<string, readonly string[]> = {
   csv:  ["txt"],
 };
 
-const AUDIO_WORKING_TARGETS = ["mp3", "wav", "ogg", "webm"] as const;
+// Only wav (manual PCM encode) and webm (MediaRecorder+opus) actually work
+// in-browser — mp3/ogg need a dedicated encoder we don't ship yet, see
+// modules/audio.ts's header comment for why they used to fail mid-conversion.
+const AUDIO_WORKING_TARGETS = ["wav", "webm"] as const;
 
 export function getWorkingOutputFormats(moduleType: ModuleType, inputFileName: string): readonly string[] {
   const inFmt = inputFileName.split(".").pop()?.toLowerCase() ?? "";
