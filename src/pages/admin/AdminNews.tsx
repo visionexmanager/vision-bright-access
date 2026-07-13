@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Plus, Pencil, Trash2, Send, Newspaper, CheckCircle2, Eye, EyeOff, DollarSign, Landmark, AlertTriangle } from "lucide-react";
 import { CATEGORY_TOPIC } from "@/pages/News";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Article = {
   id: string;
@@ -115,6 +116,7 @@ function buildEmailHTML(article: Article): string {
 }
 
 export default function AdminNews() {
+  const { t } = useLanguage();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -169,7 +171,7 @@ export default function AdminNews() {
 
   const handleSave = async () => {
     if (!form.title.trim() || !form.description.trim()) {
-      toast.error("Title and description are required.");
+      toast.error(t("admin.news.toast.requiredFields"));
       return;
     }
     setSaving(true);
@@ -184,12 +186,12 @@ export default function AdminNews() {
     if (editing) {
       const { error } = await supabase.from("news_articles").update(payload).eq("id", editing.id);
       if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success("Article updated.");
+      toast.success(t("admin.news.toast.updated"));
     } else {
       const { data, error } = await supabase.from("news_articles").insert(payload).select("id").single();
       if (error) { toast.error(error.message); setSaving(false); return; }
       savedId = (data as { id: string }).id;
-      toast.success("Article created.");
+      toast.success(t("admin.news.toast.created"));
     }
 
     // Show-on-page and send-newsletter are independent choices.
@@ -205,7 +207,7 @@ export default function AdminNews() {
 
   const sendNewsletter = async (article: Article, id: string) => {
     if (article.category === "breaking") {
-      toast.error("Breaking News is page-only and can't be sent to the newsletter.");
+      toast.error(t("admin.news.toast.breakingNewsPageOnly"));
       return;
     }
     const topic = CATEGORY_TOPIC[article.category] ?? "news-technology";
@@ -222,11 +224,11 @@ export default function AdminNews() {
       });
       if (error) throw new Error(error.message);
       const result = data as { sent: number; failed: number };
-      toast.success(`Newsletter sent to ${result.sent} subscriber(s) in "${topic}".`);
+      toast.success(t("admin.news.toast.newsletterSent").replace("{count}", String(result.sent)).replace("{topic}", topic));
       await supabase.from("news_articles").update({ newsletter_sent: true }).eq("id", id);
       load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Send failed.");
+      toast.error(e instanceof Error ? e.message : t("admin.news.toast.sendFailed"));
     }
     setSendingId(null);
   };
@@ -243,10 +245,10 @@ export default function AdminNews() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this article?")) return;
+    if (!confirm(t("admin.news.confirm.deleteArticle"))) return;
     const { error } = await supabase.from("news_articles").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
-    toast.success("Deleted.");
+    toast.success(t("admin.news.toast.deleted"));
     load();
   };
 
@@ -388,7 +390,7 @@ export default function AdminNews() {
                 id="art-title"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="Article title"
+                placeholder={t("admin.news.placeholder.title")}
                 className="mt-1"
               />
             </div>
@@ -399,7 +401,7 @@ export default function AdminNews() {
                 id="art-desc"
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Article content / summary"
+                placeholder={t("admin.news.placeholder.body")}
                 rows={4}
                 className="mt-1"
               />

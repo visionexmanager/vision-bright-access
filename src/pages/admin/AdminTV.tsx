@@ -22,6 +22,7 @@ import { Link } from "react-router-dom";
 import {
   ArrowLeft, Tv, Plus, Pencil, Trash2, Users, Star, RefreshCw, Eye, EyeOff,
 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Category = { id: string; name: string; name_ar: string; slug: string; icon: string; sort_order: number };
 type Channel  = {
@@ -41,7 +42,14 @@ const EMPTY_CHANNEL: Omit<Channel, "id"> = {
   quality: "HD", language: "ar", country: "", is_active: true, is_featured: false, sort_order: 0,
 };
 
+const STATUS_LABEL_KEY: Record<string, string> = {
+  active: "admin.tv.status.active",
+  expired: "admin.tv.status.expired",
+  cancelled: "admin.tv.status.cancelled",
+};
+
 export default function AdminTV() {
+  const { t } = useLanguage();
   const [channels,      setChannels]      = useState<Channel[]>([]);
   const [categories,    setCategories]    = useState<Category[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -117,7 +125,7 @@ export default function AdminTV() {
 
   const saveChannel = async () => {
     if (!channelForm.name || !channelForm.name_ar || !channelForm.stream_url) {
-      toast.error("يرجى ملء الحقول الإلزامية: الاسم، الاسم بالعربية، رابط البث");
+      toast.error(t("admin.tv.toast.channelValidation"));
       return;
     }
     setSaving(true);
@@ -138,11 +146,11 @@ export default function AdminTV() {
     if (editingChannel) {
       const { error } = await supabase.from("tv_channels").update(payload).eq("id", editingChannel.id);
       if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success("تم تحديث القناة");
+      toast.success(t("admin.tv.toast.channelUpdated"));
     } else {
       const { error } = await supabase.from("tv_channels").insert(payload);
       if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success("تم إضافة القناة");
+      toast.success(t("admin.tv.toast.channelAdded"));
     }
     setSaving(false);
     setChannelDialog(false);
@@ -150,10 +158,10 @@ export default function AdminTV() {
   };
 
   const deleteChannel = async (id: string) => {
-    if (!confirm("هل تريد حذف هذه القناة نهائياً؟")) return;
+    if (!confirm(t("admin.tv.confirm.deleteChannel"))) return;
     const { error } = await supabase.from("tv_channels").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
-    toast.success("تم حذف القناة");
+    toast.success(t("admin.tv.toast.channelDeleted"));
     setChannels(prev => prev.filter(c => c.id !== id));
   };
 
@@ -172,18 +180,18 @@ export default function AdminTV() {
 
   const saveCat = async () => {
     if (!catForm.name || !catForm.name_ar || !catForm.slug) {
-      toast.error("جميع الحقول مطلوبة");
+      toast.error(t("admin.tv.toast.categoryValidation"));
       return;
     }
     setSaving(true);
     if (editingCat) {
       const { error } = await supabase.from("tv_categories").update(catForm).eq("id", editingCat.id);
       if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success("تم تحديث التصنيف");
+      toast.success(t("admin.tv.toast.categoryUpdated"));
     } else {
       const { error } = await supabase.from("tv_categories").insert(catForm);
       if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success("تم إضافة التصنيف");
+      toast.success(t("admin.tv.toast.categoryAdded"));
     }
     setSaving(false);
     setCatDialog(false);
@@ -191,11 +199,11 @@ export default function AdminTV() {
   };
 
   const deleteCat = async (id: string) => {
-    if (!confirm("حذف هذا التصنيف؟")) return;
+    if (!confirm(t("admin.tv.confirm.deleteCategory"))) return;
     const { error } = await supabase.from("tv_categories").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     setCategories(prev => prev.filter(c => c.id !== id));
-    toast.success("تم الحذف");
+    toast.success(t("admin.tv.toast.categoryDeleted"));
   };
 
   const statusColor = (s: string) => {
@@ -220,24 +228,24 @@ export default function AdminTV() {
             </Link>
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Tv className="w-6 h-6 text-blue-500" /> إدارة VisionTV
+                <Tv className="w-6 h-6 text-blue-500" /> {t("admin.tv.title")}
               </h1>
-              <p className="text-sm text-muted-foreground">إدارة القنوات والتصنيفات ومشتركي خدمة البث المباشر</p>
+              <p className="text-sm text-muted-foreground">{t("admin.tv.subtitle")}</p>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            تحديث
+            {t("admin.tv.refresh")}
           </Button>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "إجمالي القنوات",   value: channels.length,                     color: "text-blue-500" },
-            { label: "القنوات النشطة",   value: channels.filter(c => c.is_active).length, color: "text-green-500" },
-            { label: "اشتراكات نشطة",    value: activeCount,                         color: "text-purple-500" },
-            { label: "إجمالي الإيرادات", value: `${totalRevenue.toLocaleString()} VX`, color: "text-yellow-500" },
+            { label: t("admin.tv.stats.totalChannels"),   value: channels.length,                     color: "text-blue-500" },
+            { label: t("admin.tv.stats.activeChannels"),   value: channels.filter(c => c.is_active).length, color: "text-green-500" },
+            { label: t("admin.tv.stats.activeSubscriptions"),    value: activeCount,                         color: "text-purple-500" },
+            { label: t("admin.tv.stats.totalRevenue"), value: `${totalRevenue.toLocaleString()} VX`, color: "text-yellow-500" },
           ].map(({ label, value, color }) => (
             <Card key={label}>
               <CardContent className="pt-5 pb-4 text-center">
@@ -251,18 +259,18 @@ export default function AdminTV() {
         {/* Tabs */}
         <Tabs defaultValue="channels">
           <TabsList className="mb-4">
-            <TabsTrigger value="channels">القنوات ({channels.length})</TabsTrigger>
-            <TabsTrigger value="categories">التصنيفات ({categories.length})</TabsTrigger>
-            <TabsTrigger value="subscribers">المشتركون ({subscriptions.length})</TabsTrigger>
+            <TabsTrigger value="channels">{t("admin.tv.tabs.channels")} ({channels.length})</TabsTrigger>
+            <TabsTrigger value="categories">{t("admin.tv.tabs.categories")} ({categories.length})</TabsTrigger>
+            <TabsTrigger value="subscribers">{t("admin.tv.tabs.subscribers")} ({subscriptions.length})</TabsTrigger>
           </TabsList>
 
           {/* ── Channels Tab ─────────────────────────────────── */}
           <TabsContent value="channels">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">قائمة القنوات</CardTitle>
+                <CardTitle className="text-base">{t("admin.tv.channelsList")}</CardTitle>
                 <Button size="sm" onClick={openNewChannel} className="gap-2">
-                  <Plus className="w-4 h-4" /> إضافة قناة
+                  <Plus className="w-4 h-4" /> {t("admin.tv.addChannel")}
                 </Button>
               </CardHeader>
               <CardContent>
@@ -270,12 +278,12 @@ export default function AdminTV() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-right">القناة</TableHead>
-                        <TableHead className="text-right">التصنيف</TableHead>
-                        <TableHead className="text-right">الجودة</TableHead>
-                        <TableHead className="text-right">مميزة</TableHead>
-                        <TableHead className="text-right">الحالة</TableHead>
-                        <TableHead className="text-right">البث</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.channel")}</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.category")}</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.quality")}</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.featured")}</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.status")}</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.stream")}</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -314,7 +322,7 @@ export default function AdminTV() {
                               variant="ghost" size="icon"
                               onClick={() => setShowStreamUrl(p => ({ ...p, [ch.id]: !p[ch.id] }))}
                               className="h-7 w-7"
-                              title="عرض/إخفاء رابط البث"
+                              title={t("admin.tv.toggleStreamUrl")}
                             >
                               {showStreamUrl[ch.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </Button>
@@ -339,7 +347,7 @@ export default function AdminTV() {
                     </TableBody>
                   </Table>
                   {channels.length === 0 && !loading && (
-                    <p className="text-center text-muted-foreground py-8 text-sm">لا توجد قنوات بعد — أضف القناة الأولى</p>
+                    <p className="text-center text-muted-foreground py-8 text-sm">{t("admin.tv.noChannels")}</p>
                   )}
                 </div>
               </CardContent>
@@ -350,20 +358,20 @@ export default function AdminTV() {
           <TabsContent value="categories">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">تصنيفات القنوات</CardTitle>
+                <CardTitle className="text-base">{t("admin.tv.categoriesList")}</CardTitle>
                 <Button size="sm" onClick={openNewCat} className="gap-2">
-                  <Plus className="w-4 h-4" /> إضافة تصنيف
+                  <Plus className="w-4 h-4" /> {t("admin.tv.addCategory")}
                 </Button>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-right">الاسم بالعربية</TableHead>
-                      <TableHead className="text-right">الاسم بالإنجليزية</TableHead>
-                      <TableHead className="text-right">Slug</TableHead>
-                      <TableHead className="text-right">الأيقونة</TableHead>
-                      <TableHead className="text-right">الترتيب</TableHead>
+                      <TableHead className="text-right">{t("admin.tv.table.nameAr")}</TableHead>
+                      <TableHead className="text-right">{t("admin.tv.table.nameEn")}</TableHead>
+                      <TableHead className="text-right">{t("admin.tv.table.slug")}</TableHead>
+                      <TableHead className="text-right">{t("admin.tv.table.icon")}</TableHead>
+                      <TableHead className="text-right">{t("admin.tv.table.sortOrder")}</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -400,7 +408,7 @@ export default function AdminTV() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="w-5 h-5 text-purple-500" /> المشتركون
+                  <Users className="w-5 h-5 text-purple-500" /> {t("admin.tv.subscribersList")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -408,12 +416,12 @@ export default function AdminTV() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-right">المستخدم</TableHead>
-                        <TableHead className="text-right">الخطة</TableHead>
-                        <TableHead className="text-right">تاريخ الاشتراك</TableHead>
-                        <TableHead className="text-right">تاريخ الانتهاء</TableHead>
-                        <TableHead className="text-right">VX المدفوعة</TableHead>
-                        <TableHead className="text-right">الحالة</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.user")}</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.plan")}</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.startDate")}</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.expiryDate")}</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.vxPaid")}</TableHead>
+                        <TableHead className="text-right">{t("admin.tv.table.status")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -432,7 +440,7 @@ export default function AdminTV() {
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={`text-xs ${statusColor(sub.status)}`}>
-                              {sub.status === "active" ? "نشط" : sub.status === "expired" ? "منتهٍ" : "ملغى"}
+                              {t(STATUS_LABEL_KEY[sub.status] ?? STATUS_LABEL_KEY.cancelled)}
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -440,7 +448,7 @@ export default function AdminTV() {
                     </TableBody>
                   </Table>
                   {subscriptions.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8 text-sm">لا يوجد مشتركون بعد</p>
+                    <p className="text-center text-muted-foreground py-8 text-sm">{t("admin.tv.noSubscribers")}</p>
                   )}
                 </div>
               </CardContent>
@@ -453,23 +461,23 @@ export default function AdminTV() {
       <Dialog open={channelDialog} onOpenChange={setChannelDialog}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
-            <DialogTitle>{editingChannel ? "تعديل القناة" : "إضافة قناة جديدة"}</DialogTitle>
+            <DialogTitle>{editingChannel ? t("admin.tv.dialog.editChannelTitle") : t("admin.tv.dialog.newChannelTitle")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>الاسم بالعربية *</Label>
+                <Label>{t("admin.tv.form.nameArRequired")}</Label>
                 <Input value={channelForm.name_ar} onChange={e => setChannelForm(p => ({ ...p, name_ar: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label>الاسم بالإنجليزية *</Label>
+                <Label>{t("admin.tv.form.nameEnRequired")}</Label>
                 <Input value={channelForm.name} onChange={e => setChannelForm(p => ({ ...p, name: e.target.value }))} />
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label>رابط البث (HLS .m3u8 أو RTMP) *</Label>
+              <Label>{t("admin.tv.form.streamUrl")}</Label>
               <Input
                 value={channelForm.stream_url}
                 onChange={e => setChannelForm(p => ({ ...p, stream_url: e.target.value }))}
@@ -480,7 +488,7 @@ export default function AdminTV() {
             </div>
 
             <div className="space-y-1">
-              <Label>رابط الشعار (logo URL)</Label>
+              <Label>{t("admin.tv.form.logoUrl")}</Label>
               <Input
                 value={channelForm.logo_url ?? ""}
                 onChange={e => setChannelForm(p => ({ ...p, logo_url: e.target.value }))}
@@ -491,20 +499,20 @@ export default function AdminTV() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>التصنيف</Label>
+                <Label>{t("admin.tv.form.category")}</Label>
                 <Select
                   value={channelForm.category_id ?? "none"}
                   onValueChange={v => setChannelForm(p => ({ ...p, category_id: v === "none" ? null : v }))}
                 >
-                  <SelectTrigger><SelectValue placeholder="اختر تصنيفاً" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("admin.tv.form.selectCategory")} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">بدون تصنيف</SelectItem>
+                    <SelectItem value="none">{t("admin.tv.form.noCategory")}</SelectItem>
                     {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name_ar}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>الجودة</Label>
+                <Label>{t("admin.tv.form.quality")}</Label>
                 <Select value={channelForm.quality} onValueChange={v => setChannelForm(p => ({ ...p, quality: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -516,17 +524,17 @@ export default function AdminTV() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>اللغة</Label>
+                <Label>{t("admin.tv.form.language")}</Label>
                 <Input value={channelForm.language} onChange={e => setChannelForm(p => ({ ...p, language: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label>الدولة</Label>
+                <Label>{t("admin.tv.form.country")}</Label>
                 <Input value={channelForm.country ?? ""} onChange={e => setChannelForm(p => ({ ...p, country: e.target.value }))} />
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label>الترتيب</Label>
+              <Label>{t("admin.tv.form.sortOrder")}</Label>
               <Input
                 type="number" value={channelForm.sort_order}
                 onChange={e => setChannelForm(p => ({ ...p, sort_order: Number(e.target.value) }))}
@@ -536,19 +544,19 @@ export default function AdminTV() {
             <div className="flex gap-6">
               <div className="flex items-center gap-2">
                 <Switch checked={channelForm.is_active} onCheckedChange={v => setChannelForm(p => ({ ...p, is_active: v }))} />
-                <Label>نشطة</Label>
+                <Label>{t("admin.tv.form.active")}</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Switch checked={channelForm.is_featured} onCheckedChange={v => setChannelForm(p => ({ ...p, is_featured: v }))} />
-                <Label>مميزة ⭐</Label>
+                <Label>{t("admin.tv.form.featured")}</Label>
               </div>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setChannelDialog(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setChannelDialog(false)}>{t("admin.tv.cancel")}</Button>
             <Button onClick={saveChannel} disabled={saving}>
-              {saving ? "جاري الحفظ…" : "حفظ"}
+              {saving ? t("admin.tv.savingEllipsis") : t("admin.tv.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -558,33 +566,33 @@ export default function AdminTV() {
       <Dialog open={catDialog} onOpenChange={setCatDialog}>
         <DialogContent className="max-w-sm" dir="rtl">
           <DialogHeader>
-            <DialogTitle>{editingCat ? "تعديل التصنيف" : "إضافة تصنيف"}</DialogTitle>
+            <DialogTitle>{editingCat ? t("admin.tv.dialog.editCategoryTitle") : t("admin.tv.dialog.newCategoryTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
-              <Label>الاسم بالعربية *</Label>
+              <Label>{t("admin.tv.form.nameArRequired")}</Label>
               <Input value={catForm.name_ar} onChange={e => setCatForm(p => ({ ...p, name_ar: e.target.value }))} />
             </div>
             <div className="space-y-1">
-              <Label>الاسم بالإنجليزية *</Label>
+              <Label>{t("admin.tv.form.nameEnRequired")}</Label>
               <Input value={catForm.name} onChange={e => setCatForm(p => ({ ...p, name: e.target.value }))} />
             </div>
             <div className="space-y-1">
-              <Label>Slug (مثال: sports) *</Label>
+              <Label>{t("admin.tv.form.slugLabel")}</Label>
               <Input value={catForm.slug} onChange={e => setCatForm(p => ({ ...p, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") }))} dir="ltr" />
             </div>
             <div className="space-y-1">
-              <Label>أيقونة (اسم من Lucide)</Label>
+              <Label>{t("admin.tv.form.iconLabel")}</Label>
               <Input value={catForm.icon} onChange={e => setCatForm(p => ({ ...p, icon: e.target.value }))} dir="ltr" />
             </div>
             <div className="space-y-1">
-              <Label>الترتيب</Label>
+              <Label>{t("admin.tv.form.sortOrder")}</Label>
               <Input type="number" value={catForm.sort_order} onChange={e => setCatForm(p => ({ ...p, sort_order: Number(e.target.value) }))} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCatDialog(false)}>إلغاء</Button>
-            <Button onClick={saveCat} disabled={saving}>{saving ? "جاري الحفظ…" : "حفظ"}</Button>
+            <Button variant="outline" onClick={() => setCatDialog(false)}>{t("admin.tv.cancel")}</Button>
+            <Button onClick={saveCat} disabled={saving}>{saving ? t("admin.tv.savingEllipsis") : t("admin.tv.save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

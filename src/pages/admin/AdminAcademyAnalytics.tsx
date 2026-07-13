@@ -6,18 +6,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, BarChart3, Users, TrendingUp, Flame, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getAcademyLevelInfo } from "@/lib/academy/leveling";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type ProfileRow = { xp_total: number; level: string; country: string; last_active: string; created_at: string };
 type XPEventRow = { reason: string; amount: number; created_at: string };
 
-const REASON_LABEL: Record<string, string> = {
-  academy_message_sent: "رسالة لمنير", academy_aptitude_completed: "اختبار الميول", academy_streak: "تتابع",
-  academy_scan_used: "مسح ضوئي", academy_study_room: "غرفة دراسة", academy_daily_login: "دخول يومي",
-  academy_lesson_completed: "إكمال درس", academy_module_completed: "إكمال وحدة", academy_course_completed: "إكمال دورة",
-  academy_quiz_passed: "اجتياز اختبار", academy_perfect_quiz: "اختبار كامل العلامة", academy_final_exam_passed: "اجتياز امتحان نهائي",
-  academy_certificate_earned: "الحصول على شهادة", academy_project_completed: "إكمال مشروع", academy_weekly_goal: "هدف أسبوعي",
-  academy_monthly_goal: "هدف شهري", academy_streak_milestone: "محطة تتابع", academy_community_contribution: "مساهمة مجتمعية",
-  academy_instructor_recognition: "تقدير من مدرّس",
+const REASON_LABEL_KEY: Record<string, string> = {
+  academy_message_sent: "admin.academyAnalytics.reason.messageSent",
+  academy_aptitude_completed: "admin.academyAnalytics.reason.aptitudeCompleted",
+  academy_streak: "admin.academyAnalytics.reason.streak",
+  academy_scan_used: "admin.academyAnalytics.reason.scanUsed",
+  academy_study_room: "admin.academyAnalytics.reason.studyRoom",
+  academy_daily_login: "admin.academyAnalytics.reason.dailyLogin",
+  academy_lesson_completed: "admin.academyAnalytics.reason.lessonCompleted",
+  academy_module_completed: "admin.academyAnalytics.reason.moduleCompleted",
+  academy_course_completed: "admin.academyAnalytics.reason.courseCompleted",
+  academy_quiz_passed: "admin.academyAnalytics.reason.quizPassed",
+  academy_perfect_quiz: "admin.academyAnalytics.reason.perfectQuiz",
+  academy_final_exam_passed: "admin.academyAnalytics.reason.finalExamPassed",
+  academy_certificate_earned: "admin.academyAnalytics.reason.certificateEarned",
+  academy_project_completed: "admin.academyAnalytics.reason.projectCompleted",
+  academy_weekly_goal: "admin.academyAnalytics.reason.weeklyGoal",
+  academy_monthly_goal: "admin.academyAnalytics.reason.monthlyGoal",
+  academy_streak_milestone: "admin.academyAnalytics.reason.streakMilestone",
+  academy_community_contribution: "admin.academyAnalytics.reason.communityContribution",
+  academy_instructor_recognition: "admin.academyAnalytics.reason.instructorRecognition",
 };
 
 function StatCard({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: string }) {
@@ -33,6 +46,7 @@ function StatCard({ icon: Icon, label, value }: { icon: typeof Users; label: str
 }
 
 export default function AdminAcademyAnalytics() {
+  const { t } = useLanguage();
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [xpEvents, setXpEvents] = useState<XPEventRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,35 +94,35 @@ export default function AdminAcademyAnalytics() {
     <Layout>
       <section className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-6 flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon"><Link to="/admin/academy" aria-label="العودة إلى إدارة الأكاديمية"><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link></Button>
+          <Button asChild variant="ghost" size="icon"><Link to="/admin/academy" aria-label={t("admin.academyAnalytics.back")}><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link></Button>
           <BarChart3 className="h-6 w-6 text-cyan-500" aria-hidden="true" />
           <div>
-            <h1 className="text-3xl font-bold">تحليلات الأكاديمية</h1>
-            <p className="text-muted-foreground text-sm">بيانات حقيقية من academy_profiles وacademy_xp_events عبر كل المستخدمين</p>
+            <h1 className="text-3xl font-bold">{t("admin.academyAnalytics.title")}</h1>
+            <p className="text-muted-foreground text-sm">{t("admin.academyAnalytics.subtitle")}</p>
           </div>
         </div>
 
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">جارٍ التحميل...</p>
+          <p className="text-sm text-muted-foreground">{t("admin.academyAnalytics.loading")}</p>
         ) : (
           <div className="space-y-8">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard icon={Users} label="إجمالي الطلاب" value={totalStudents.toLocaleString()} />
-              <StatCard icon={TrendingUp} label="متوسط XP" value={avgXp.toLocaleString()} />
-              <StatCard icon={Flame} label="نشطون هذا الأسبوع" value={activeThisWeek.toLocaleString()} />
-              <StatCard icon={Users} label="طلاب جدد هذا الأسبوع" value={newThisWeek.toLocaleString()} />
+              <StatCard icon={Users} label={t("admin.academyAnalytics.stat.totalStudents")} value={totalStudents.toLocaleString()} />
+              <StatCard icon={TrendingUp} label={t("admin.academyAnalytics.stat.avgXp")} value={avgXp.toLocaleString()} />
+              <StatCard icon={Flame} label={t("admin.academyAnalytics.stat.activeThisWeek")} value={activeThisWeek.toLocaleString()} />
+              <StatCard icon={Users} label={t("admin.academyAnalytics.stat.newThisWeek")} value={newThisWeek.toLocaleString()} />
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="bg-card p-6 rounded-2xl border border-border space-y-3">
-                <h2 className="text-sm font-bold text-foreground">توزيع المستويات (نمو)</h2>
+                <h2 className="text-sm font-bold text-foreground">{t("admin.academyAnalytics.levelDistribution.title")}</h2>
                 {levelDistribution.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">لا توجد بيانات بعد.</p>
+                  <p className="text-xs text-muted-foreground">{t("admin.academyAnalytics.noData")}</p>
                 ) : (
                   <ul className="space-y-2">
                     {levelDistribution.map((l) => (
                       <li key={l.label} className="space-y-1">
-                        <div className="flex justify-between text-xs text-muted-foreground"><span>المستوى {l.label}</span><span>{l.count}</span></div>
+                        <div className="flex justify-between text-xs text-muted-foreground"><span>{t("admin.academyAnalytics.levelDistribution.levelPrefix")} {l.label}</span><span>{l.count}</span></div>
                         <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary" style={{ width: `${(l.count / maxLevelCount) * 100}%` }} /></div>
                       </li>
                     ))}
@@ -117,14 +131,14 @@ export default function AdminAcademyAnalytics() {
               </div>
 
               <div className="bg-card p-6 rounded-2xl border border-border space-y-3">
-                <h2 className="text-sm font-bold text-foreground">اتجاهات التعلّم — أكثر أسباب XP شيوعاً</h2>
+                <h2 className="text-sm font-bold text-foreground">{t("admin.academyAnalytics.trends.title")}</h2>
                 {reasonBreakdown.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">لا توجد بيانات بعد.</p>
+                  <p className="text-xs text-muted-foreground">{t("admin.academyAnalytics.noData")}</p>
                 ) : (
                   <ul className="space-y-2">
                     {reasonBreakdown.slice(0, 10).map((r) => (
                       <li key={r.reason} className="space-y-1">
-                        <div className="flex justify-between text-xs text-muted-foreground"><span>{REASON_LABEL[r.reason] ?? r.reason}</span><span>{r.count}</span></div>
+                        <div className="flex justify-between text-xs text-muted-foreground"><span>{t(REASON_LABEL_KEY[r.reason] ?? r.reason)}</span><span>{r.count}</span></div>
                         <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary" style={{ width: `${(r.count / maxReasonCount) * 100}%` }} /></div>
                       </li>
                     ))}
@@ -135,11 +149,7 @@ export default function AdminAcademyAnalytics() {
 
             <div className="flex items-start gap-2 p-4 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground">
               <Info className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
-              <p>
-                معدّلات الإكمال والاستبقاء الدقيقة، وتحليلات الدورات/الشهادات/المكتبة/المنح/الجامعات/المجتمع تتطلب بيانات مخزّنة مركزياً
-                لا تزال (Phase 3–6) محلية داخل متصفح كل مستخدم — ستُضاف هنا فور ترحيلها إلى قاعدة بيانات حقيقية.
-                تحضير الإيرادات خارج نطاق هذه المرحلة.
-              </p>
+              <p>{t("admin.academyAnalytics.footnote")}</p>
             </div>
           </div>
         )}

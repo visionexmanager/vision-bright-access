@@ -12,8 +12,44 @@ import { RegionStatusMap }     from "./components/RegionStatusMap";
 import { AlertsFeed }          from "./components/AlertsFeed";
 import { ProviderLeaderboard } from "./components/ProviderLeaderboard";
 import { RevenueAnalytics }    from "./components/RevenueAnalytics";
+import { useLanguage } from "@/contexts/LanguageContext";
+
+const SERVICE_HEALTH: { key: string; ok: boolean }[] = [
+  { key: "apiGateway",    ok: true },
+  { key: "aiWorkers",     ok: true },
+  { key: "providerHub",   ok: true },
+  { key: "billingEngine", ok: true },
+  { key: "redisClusters", ok: true },
+  { key: "cdn",           ok: true },
+  { key: "waf",           ok: true },
+  { key: "vault",         ok: true },
+];
+
+const QUEUE_REGIONS: { key: string; depth: number; workers: number }[] = [
+  { key: "europe",     depth: 34,  workers: 12 },
+  { key: "middleEast", depth: 12,  workers: 6  },
+  { key: "usEast",     depth: 58,  workers: 18 },
+  { key: "usWest",     depth: 221, workers: 10 },
+  { key: "asia",       depth: 27,  workers: 9  },
+];
+
+const SECURITY_CONTROLS: { key: string; on: boolean }[] = [
+  { key: "cloudArmorWaf",  on: true },
+  { key: "ddosProtection", on: true },
+  { key: "rateLimitIp",    on: true },
+  { key: "rateLimitUser",  on: true },
+  { key: "jwtRotation",    on: true },
+  { key: "vaultSecrets",   on: true },
+  { key: "tls",            on: true },
+  { key: "signedCdn",      on: true },
+  { key: "networkPolicies",on: true },
+  { key: "podSecurity",    on: true },
+  { key: "binaryAuth",     on: true },
+  { key: "auditLogs",      on: true },
+];
 
 export default function AdminInfra() {
+  const { t } = useLanguage();
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (
@@ -23,25 +59,25 @@ export default function AdminInfra() {
         <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center gap-3">
           <Shield className="size-5 text-primary shrink-0" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-bold">Global Infrastructure Dashboard</h1>
+            <h1 className="text-sm font-bold">{t("admin.infra.title")}</h1>
             <p className="text-[10px] text-muted-foreground hidden sm:block">
-              Multi-region SRE view · Auto-refreshes every 30s
+              {t("admin.infra.subtitle")}
             </p>
           </div>
 
           {/* Global health pill */}
           <div className="flex items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-[10px] text-green-400 font-semibold">
             <span className="size-1.5 rounded-full bg-green-400 animate-pulse" />
-            4/5 REGIONS HEALTHY
+            {t("admin.infra.regionsHealthy")}
           </div>
 
           <Button size="sm" variant="outline" onClick={() => setRefreshKey((k) => k + 1)} className="gap-1.5 shrink-0">
-            <RefreshCw className="size-3.5" /> Refresh
+            <RefreshCw className="size-3.5" /> {t("admin.infra.refresh")}
           </Button>
 
           <Button size="sm" variant="ghost" asChild className="shrink-0">
             <a href="https://grafana.internal.visionex.ai" target="_blank" rel="noreferrer" className="gap-1.5 flex items-center">
-              <ExternalLink className="size-3.5" /> Grafana
+              <ExternalLink className="size-3.5" /> {t("admin.infra.grafana")}
             </a>
           </Button>
         </div>
@@ -55,13 +91,13 @@ export default function AdminInfra() {
         {/* ── Tabs ───────────────────────────────────────────────────────── */}
         <Tabs defaultValue="overview">
           <TabsList className="flex-wrap h-auto">
-            <TabsTrigger value="overview"   className="gap-1.5"><Globe      className="size-3.5" /> Overview</TabsTrigger>
-            <TabsTrigger value="analytics"  className="gap-1.5"><BarChart2  className="size-3.5" /> AI Analytics</TabsTrigger>
-            <TabsTrigger value="providers"  className="gap-1.5"><Cpu        className="size-3.5" /> Providers</TabsTrigger>
-            <TabsTrigger value="revenue"    className="gap-1.5"><DollarSign className="size-3.5" /> Revenue</TabsTrigger>
-            <TabsTrigger value="security"   className="gap-1.5"><Shield     className="size-3.5" /> Security</TabsTrigger>
+            <TabsTrigger value="overview"   className="gap-1.5"><Globe      className="size-3.5" /> {t("admin.infra.tab.overview")}</TabsTrigger>
+            <TabsTrigger value="analytics"  className="gap-1.5"><BarChart2  className="size-3.5" /> {t("admin.infra.tab.analytics")}</TabsTrigger>
+            <TabsTrigger value="providers"  className="gap-1.5"><Cpu        className="size-3.5" /> {t("admin.infra.tab.providers")}</TabsTrigger>
+            <TabsTrigger value="revenue"    className="gap-1.5"><DollarSign className="size-3.5" /> {t("admin.infra.tab.revenue")}</TabsTrigger>
+            <TabsTrigger value="security"   className="gap-1.5"><Shield     className="size-3.5" /> {t("admin.infra.tab.security")}</TabsTrigger>
             <TabsTrigger value="alerts"     className="gap-1.5">
-              <Bell className="size-3.5" /> Alerts
+              <Bell className="size-3.5" /> {t("admin.infra.tab.alerts")}
               <Badge className="bg-yellow-500/80 text-white text-[9px] px-1 py-0 ml-0.5">2</Badge>
             </TabsTrigger>
           </TabsList>
@@ -70,7 +106,7 @@ export default function AdminInfra() {
           <TabsContent value="overview" className="mt-6 space-y-6">
             <div>
               <p className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Globe className="size-4 text-primary" /> Region Health Map
+                <Globe className="size-4 text-primary" /> {t("admin.infra.regionHealthMap")}
               </p>
               <RegionStatusMap key={refreshKey} />
             </div>
@@ -83,21 +119,12 @@ export default function AdminInfra() {
 
               {/* Service health */}
               <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-                <p className="text-xs font-semibold mb-3">Service Health</p>
-                {[
-                  { label: "API Gateway",       ok: true,  detail: "99.98% uptime · P95 142ms" },
-                  { label: "AI Workers",        ok: true,  detail: "55 pods across 5 regions" },
-                  { label: "Provider Hub",      ok: true,  detail: "Smart routing active" },
-                  { label: "Billing Engine",    ok: true,  detail: "100% · P95 28ms" },
-                  { label: "Redis Clusters",    ok: true,  detail: "5 HA instances · <2ms" },
-                  { label: "CDN / Cloud CDN",   ok: true,  detail: "Cache hit 94.2%" },
-                  { label: "WAF / Cloud Armor", ok: true,  detail: "14,820 requests blocked (24h)" },
-                  { label: "Vault (Secrets)",   ok: true,  detail: "Sealed · GCP KMS autounseal" },
-                ].map((s) => (
-                  <div key={s.label} className="flex items-center gap-3">
+                <p className="text-xs font-semibold mb-3">{t("admin.infra.serviceHealth")}</p>
+                {SERVICE_HEALTH.map((s) => (
+                  <div key={s.key} className="flex items-center gap-3">
                     <span className={`size-2 rounded-full shrink-0 ${s.ok ? "bg-green-400" : "bg-red-400 animate-pulse"}`} />
-                    <span className="text-xs font-medium w-40 shrink-0">{s.label}</span>
-                    <span className="text-[11px] text-muted-foreground">{s.detail}</span>
+                    <span className="text-xs font-medium w-40 shrink-0">{t(`admin.infra.service.${s.key}.label`)}</span>
+                    <span className="text-[11px] text-muted-foreground">{t(`admin.infra.service.${s.key}.detail`)}</span>
                   </div>
                 ))}
               </div>
@@ -108,13 +135,13 @@ export default function AdminInfra() {
           <TabsContent value="analytics" className="mt-6 space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { label: "Speech Gens (24h)",  value: "84,320",  color: "text-blue-400"   },
-                { label: "Video Gens (24h)",   value: "2,840",   color: "text-violet-400" },
-                { label: "Voice Clones (24h)", value: "420",     color: "text-pink-400"   },
-                { label: "Overall Success",    value: "97.4%",   color: "text-green-400"  },
+                { key: "speechGens",     value: "84,320",  color: "text-blue-400"   },
+                { key: "videoGens",      value: "2,840",   color: "text-violet-400" },
+                { key: "voiceClones",    value: "420",     color: "text-pink-400"   },
+                { key: "overallSuccess", value: "97.4%",   color: "text-green-400"  },
               ].map((c) => (
-                <div key={c.label} className="rounded-xl border border-border bg-card p-4">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{c.label}</p>
+                <div key={c.key} className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{t(`admin.infra.analytics.${c.key}`)}</p>
                   <p className={`text-2xl font-bold mt-1 ${c.color}`}>{c.value}</p>
                 </div>
               ))}
@@ -122,7 +149,7 @@ export default function AdminInfra() {
 
             {/* 24h volume chart */}
             <div className="rounded-xl border border-border bg-card p-4">
-              <p className="text-xs font-semibold mb-4">AI Generation Volume — Last 24h</p>
+              <p className="text-xs font-semibold mb-4">{t("admin.infra.analytics.volumeChartTitle")}</p>
               <div className="flex items-end gap-0.5 h-28">
                 {Array.from({ length: 48 }, (_, i) => {
                   const pct = 20 + Math.sin((i / 48) * Math.PI * 3) * 30 + Math.random() * 25;
@@ -132,29 +159,23 @@ export default function AdminInfra() {
                       key={i}
                       className={`flex-1 rounded-t transition-all hover:opacity-100 opacity-75 ${isVideo ? "bg-violet-500" : "bg-primary"}`}
                       style={{ height: `${Math.max(4, pct)}%` }}
-                      title={`${Math.round(pct * 20)} ops`}
+                      title={`${Math.round(pct * 20)} ${t("admin.infra.analytics.opsUnit")}`}
                     />
                   );
                 })}
               </div>
               <div className="flex gap-4 mt-2 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary" /> Speech/Voice</span>
-                <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-violet-500" /> Video</span>
+                <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary" /> {t("admin.infra.analytics.legendSpeechVoice")}</span>
+                <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-violet-500" /> {t("admin.infra.analytics.legendVideo")}</span>
               </div>
             </div>
 
             {/* Queue health per region */}
             <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-              <p className="text-xs font-semibold">Queue Depth by Region</p>
-              {[
-                { region: "🇪🇺 Europe",      depth: 34,  workers: 12 },
-                { region: "🇦🇪 Middle East", depth: 12,  workers: 6  },
-                { region: "🇺🇸 US East",     depth: 58,  workers: 18 },
-                { region: "🇺🇸 US West",     depth: 221, workers: 10 },
-                { region: "🇯🇵 Asia",        depth: 27,  workers: 9  },
-              ].map((q) => (
-                <div key={q.region} className="flex items-center gap-3 text-xs">
-                  <span className="w-36 shrink-0">{q.region}</span>
+              <p className="text-xs font-semibold">{t("admin.infra.analytics.queueDepthTitle")}</p>
+              {QUEUE_REGIONS.map((q) => (
+                <div key={q.key} className="flex items-center gap-3 text-xs">
+                  <span className="w-36 shrink-0">{t(`admin.infra.region.${q.key}`)}</span>
                   <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                     <div
                       className={`h-full rounded-full ${q.depth > 100 ? "bg-yellow-500" : "bg-green-500"}`}
@@ -162,7 +183,7 @@ export default function AdminInfra() {
                     />
                   </div>
                   <span className="font-mono w-8 text-right">{q.depth}</span>
-                  <span className="text-muted-foreground w-24 text-right">{q.workers} workers</span>
+                  <span className="text-muted-foreground w-24 text-right">{q.workers} {t("admin.infra.analytics.workersUnit")}</span>
                 </div>
               ))}
             </div>
@@ -182,38 +203,25 @@ export default function AdminInfra() {
           <TabsContent value="security" className="mt-6 space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { label: "WAF Blocks (24h)",   value: "14,820", color: "text-red-400"    },
-                { label: "Rate Limits (24h)",  value: "3,241",  color: "text-yellow-400" },
-                { label: "Auth Failures",      value: "892",    color: "text-orange-400" },
-                { label: "DDoS Events",        value: "2",      color: "text-green-400"  },
+                { key: "wafBlocks",    value: "14,820", color: "text-red-400"    },
+                { key: "rateLimits",   value: "3,241",  color: "text-yellow-400" },
+                { key: "authFailures", value: "892",    color: "text-orange-400" },
+                { key: "ddosEvents",   value: "2",      color: "text-green-400"  },
               ].map((c) => (
-                <div key={c.label} className="rounded-xl border border-border bg-card p-4">
-                  <p className="text-[10px] text-muted-foreground uppercase">{c.label}</p>
+                <div key={c.key} className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-[10px] text-muted-foreground uppercase">{t(`admin.infra.security.${c.key}`)}</p>
                   <p className={`text-2xl font-bold mt-1 ${c.color}`}>{c.value}</p>
                 </div>
               ))}
             </div>
 
             <div className="rounded-xl border border-border bg-card p-4 space-y-2.5">
-              <p className="text-xs font-semibold mb-3">Security Controls</p>
-              {[
-                { ctrl: "Cloud Armor WAF",         on: true,  detail: "OWASP Top 10 + SQLi + XSS + RCE rules" },
-                { ctrl: "DDoS Protection (L7)",    on: true,  detail: "Adaptive + rate-based ban" },
-                { ctrl: "Rate Limiting per-IP",    on: true,  detail: "1,000 req/min · 5 min ban" },
-                { ctrl: "Rate Limiting per-user",  on: true,  detail: "300 req/min via X-User-ID header" },
-                { ctrl: "JWT RS256 + rotation",    on: true,  detail: "1h expiry · JWKS endpoint" },
-                { ctrl: "Vault secrets management",on: true,  detail: "GCP KMS auto-unseal · all API keys sealed" },
-                { ctrl: "TLS 1.3 everywhere",      on: true,  detail: "HSTS preload · cert auto-renewed (ManagedCertificate)" },
-                { ctrl: "Signed CDN URLs",         on: true,  detail: "1h expiry · daily key rotation" },
-                { ctrl: "Network Policies",        on: true,  detail: "Default-deny + explicit allowlists per namespace" },
-                { ctrl: "Pod Security (Restricted)",on: true, detail: "No root · read-only rootfs · drop ALL caps" },
-                { ctrl: "Binary Authorization",    on: true,  detail: "Only GCR-signed images admitted" },
-                { ctrl: "Audit Logs → BigQuery",   on: true,  detail: "All billing + auth events · 90d retention" },
-              ].map((s) => (
-                <div key={s.ctrl} className="flex items-start gap-3">
+              <p className="text-xs font-semibold mb-3">{t("admin.infra.security.controlsTitle")}</p>
+              {SECURITY_CONTROLS.map((s) => (
+                <div key={s.key} className="flex items-start gap-3">
                   <span className={`mt-1 size-2 rounded-full shrink-0 ${s.on ? "bg-green-400" : "bg-red-400"}`} />
-                  <span className="text-xs font-medium w-52 shrink-0">{s.ctrl}</span>
-                  <span className="text-[11px] text-muted-foreground">{s.detail}</span>
+                  <span className="text-xs font-medium w-52 shrink-0">{t(`admin.infra.security.${s.key}.label`)}</span>
+                  <span className="text-[11px] text-muted-foreground">{t(`admin.infra.security.${s.key}.detail`)}</span>
                 </div>
               ))}
             </div>

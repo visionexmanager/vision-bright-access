@@ -12,50 +12,52 @@ import { ACHIEVEMENT_CATALOG, MISSION_CATALOG, LEARNING_CARD_CATALOG } from "@/l
 import { ACADEMY_RANK_TIERS } from "@/lib/academy/leveling";
 import { ACADEMY_XP_RATES } from "@/services/academy/academyService";
 import { MISSION_SCOPE_LABELS, TIER_STYLES } from "@/components/academy/gamification/tierStyles";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Tab = "achievements" | "missions" | "cards" | "ranks" | "xp-rates";
 
 export default function AdminAcademyGamification() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState<Tab>("achievements");
 
   return (
     <Layout>
       <section className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-6 flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon"><Link to="/admin/academy" aria-label="العودة إلى إدارة الأكاديمية"><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link></Button>
+          <Button asChild variant="ghost" size="icon"><Link to="/admin/academy" aria-label={t("admin.academyGamification.back")}><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link></Button>
           <Trophy className="h-6 w-6 text-yellow-500" aria-hidden="true" />
           <div>
-            <h1 className="text-3xl font-bold">إعدادات التلعيب</h1>
-            <p className="text-muted-foreground text-sm">عرض كتالوجات الإنجازات والمهام والمستويات — محتوى ثابت مُضمَّن في التطبيق</p>
+            <h1 className="text-3xl font-bold">{t("admin.academyGamification.title")}</h1>
+            <p className="text-muted-foreground text-sm">{t("admin.academyGamification.subtitle")}</p>
           </div>
         </div>
 
         <div className="mb-6 flex items-start gap-2 p-4 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground">
           <Info className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
-          <p>هذه الكتالوجات قواعد تصميم ثابتة (نفس مبدأ نظام XP الأصلي) — معروضة للاطلاع فقط في هذه المرحلة؛ تعديلها حالياً يتم عبر الكود مباشرة.</p>
+          <p>{t("admin.academyGamification.notice")}</p>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
           <TabsList className="flex-wrap h-auto">
-            <TabsTrigger value="achievements">الإنجازات ({ACHIEVEMENT_CATALOG.length})</TabsTrigger>
-            <TabsTrigger value="missions">المهام ({MISSION_CATALOG.length})</TabsTrigger>
-            <TabsTrigger value="cards">بطاقات التعلّم ({LEARNING_CARD_CATALOG.length})</TabsTrigger>
-            <TabsTrigger value="ranks">الرتب ({ACADEMY_RANK_TIERS.length})</TabsTrigger>
-            <TabsTrigger value="xp-rates">معدّلات XP ({Object.keys(ACADEMY_XP_RATES).length})</TabsTrigger>
+            <TabsTrigger value="achievements">{t("admin.academyGamification.tab.achievements")} ({ACHIEVEMENT_CATALOG.length})</TabsTrigger>
+            <TabsTrigger value="missions">{t("admin.academyGamification.tab.missions")} ({MISSION_CATALOG.length})</TabsTrigger>
+            <TabsTrigger value="cards">{t("admin.academyGamification.tab.cards")} ({LEARNING_CARD_CATALOG.length})</TabsTrigger>
+            <TabsTrigger value="ranks">{t("admin.academyGamification.tab.ranks")} ({ACADEMY_RANK_TIERS.length})</TabsTrigger>
+            <TabsTrigger value="xp-rates">{t("admin.academyGamification.tab.xpRates")} ({Object.keys(ACADEMY_XP_RATES).length})</TabsTrigger>
           </TabsList>
         </Tabs>
 
         <div className="mt-4 rounded-2xl border border-border overflow-hidden overflow-x-auto">
           {tab === "achievements" && (
             <Table>
-              <TableHeader><TableRow><TableHead>العنوان</TableHead><TableHead>الفئة</TableHead><TableHead>المستوى</TableHead><TableHead>مخفي</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t("admin.academyGamification.col.title")}</TableHead><TableHead>{t("admin.academyGamification.col.category")}</TableHead><TableHead>{t("admin.academyGamification.col.level")}</TableHead><TableHead>{t("admin.academyGamification.col.hidden")}</TableHead></TableRow></TableHeader>
               <TableBody>
                 {ACHIEVEMENT_CATALOG.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="font-medium">{a.title}</TableCell>
                     <TableCell>{a.category}</TableCell>
                     <TableCell><Badge className={TIER_STYLES[a.tier].text} variant="outline">{TIER_STYLES[a.tier].label}</Badge></TableCell>
-                    <TableCell>{a.hidden ? "نعم" : "لا"}</TableCell>
+                    <TableCell>{a.hidden ? t("admin.academyGamification.yes") : t("admin.academyGamification.no")}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -63,7 +65,7 @@ export default function AdminAcademyGamification() {
           )}
           {tab === "missions" && (
             <Table>
-              <TableHeader><TableRow><TableHead>العنوان</TableHead><TableHead>النطاق</TableHead><TableHead>الهدف</TableHead><TableHead>سبب XP</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t("admin.academyGamification.col.title")}</TableHead><TableHead>{t("admin.academyGamification.col.scope")}</TableHead><TableHead>{t("admin.academyGamification.col.target")}</TableHead><TableHead>{t("admin.academyGamification.col.xpReason")}</TableHead></TableRow></TableHeader>
               <TableBody>
                 {MISSION_CATALOG.map((m) => (
                   <TableRow key={m.id}>
@@ -78,7 +80,7 @@ export default function AdminAcademyGamification() {
           )}
           {tab === "cards" && (
             <Table>
-              <TableHeader><TableRow><TableHead>العنوان</TableHead><TableHead>الندرة</TableHead><TableHead>الموضوع</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t("admin.academyGamification.col.title")}</TableHead><TableHead>{t("admin.academyGamification.col.rarity")}</TableHead><TableHead>{t("admin.academyGamification.col.subject")}</TableHead></TableRow></TableHeader>
               <TableBody>
                 {LEARNING_CARD_CATALOG.map((c) => (
                   <TableRow key={c.id}>
@@ -92,13 +94,13 @@ export default function AdminAcademyGamification() {
           )}
           {tab === "ranks" && (
             <Table>
-              <TableHeader><TableRow><TableHead>الرتبة</TableHead><TableHead>من مستوى</TableHead><TableHead>إلى مستوى</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t("admin.academyGamification.col.rank")}</TableHead><TableHead>{t("admin.academyGamification.col.fromLevel")}</TableHead><TableHead>{t("admin.academyGamification.col.toLevel")}</TableHead></TableRow></TableHeader>
               <TableBody>
                 {ACADEMY_RANK_TIERS.map((r) => (
                   <TableRow key={r.rank}>
                     <TableCell className="font-medium">{r.rank}</TableCell>
                     <TableCell>{r.minLevel}</TableCell>
-                    <TableCell>{r.maxLevel ?? "بلا حد"}</TableCell>
+                    <TableCell>{r.maxLevel ?? t("admin.academyGamification.noLimit")}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -106,7 +108,7 @@ export default function AdminAcademyGamification() {
           )}
           {tab === "xp-rates" && (
             <Table>
-              <TableHeader><TableRow><TableHead>السبب</TableHead><TableHead>XP</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t("admin.academyGamification.col.reason")}</TableHead><TableHead>{t("admin.academyGamification.col.xp")}</TableHead></TableRow></TableHeader>
               <TableBody>
                 {Object.entries(ACADEMY_XP_RATES).map(([reason, amount]) => (
                   <TableRow key={reason}>

@@ -15,9 +15,14 @@ import { ArrowLeft, CheckCircle, XCircle, Ban, GraduationCap, RotateCcw } from "
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchAllApplications, reviewApplication } from "@/services/academy/instructor";
 import type { AcademyInstructorApplicationRow } from "@/lib/types/academy-lms";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const STATUS_LABEL: Record<AcademyInstructorApplicationRow["status"], string> = {
-  draft: "مسودة", pending: "قيد المراجعة", approved: "مقبول", rejected: "مرفوض", suspended: "موقوف",
+const STATUS_LABEL_KEY: Record<AcademyInstructorApplicationRow["status"], string> = {
+  draft: "admin.instructorApps.status.draft",
+  pending: "admin.instructorApps.status.pending",
+  approved: "admin.instructorApps.status.approved",
+  rejected: "admin.instructorApps.status.rejected",
+  suspended: "admin.instructorApps.status.suspended",
 };
 const STATUS_COLOR: Record<AcademyInstructorApplicationRow["status"], string> = {
   draft: "bg-muted text-muted-foreground", pending: "bg-yellow-500", approved: "bg-emerald-600",
@@ -27,6 +32,7 @@ const STATUSES: AcademyInstructorApplicationRow["status"][] = ["pending", "appro
 
 export default function AdminInstructorApplications() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [applications, setApplications] = useState<AcademyInstructorApplicationRow[]>([]);
   const [filterStatus, setFilterStatus] = useState("all");
   const [noteDraftId, setNoteDraftId] = useState<string | null>(null);
@@ -57,10 +63,10 @@ export default function AdminInstructorApplications() {
       <section className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-6 flex items-center gap-3">
           <Button asChild variant="ghost" size="icon">
-            <Link to="/admin" aria-label="العودة إلى لوحة التحكم"><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link>
+            <Link to="/admin" aria-label={t("admin.instructorApps.back")}><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link>
           </Button>
           <GraduationCap className="h-6 w-6 text-primary" aria-hidden="true" />
-          <h1 className="text-3xl font-bold">طلبات المدرّسين</h1>
+          <h1 className="text-3xl font-bold">{t("admin.instructorApps.title")}</h1>
         </div>
 
         <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -68,7 +74,7 @@ export default function AdminInstructorApplications() {
             <Card key={status} className="cursor-pointer" onClick={() => setFilterStatus(status)}>
               <CardContent className="p-4 text-center">
                 <div className="text-2xl font-bold">{applications.filter((a) => a.status === status).length}</div>
-                <div className="text-sm text-muted-foreground">{STATUS_LABEL[status]}</div>
+                <div className="text-sm text-muted-foreground">{t(STATUS_LABEL_KEY[status])}</div>
               </CardContent>
             </Card>
           ))}
@@ -78,8 +84,8 @@ export default function AdminInstructorApplications() {
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">كل الطلبات</SelectItem>
-              {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+              <SelectItem value="all">{t("admin.instructorApps.filterAll")}</SelectItem>
+              {STATUSES.map((s) => <SelectItem key={s} value={s}>{t(STATUS_LABEL_KEY[s])}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -89,36 +95,36 @@ export default function AdminInstructorApplications() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>العنوان المهني</TableHead>
-                  <TableHead>الخبرة</TableHead>
-                  <TableHead>المهارات</TableHead>
-                  <TableHead>الحالة</TableHead>
-                  <TableHead>تاريخ التقديم</TableHead>
-                  <TableHead>إجراءات</TableHead>
+                  <TableHead>{t("admin.instructorApps.col.headline")}</TableHead>
+                  <TableHead>{t("admin.instructorApps.col.experience")}</TableHead>
+                  <TableHead>{t("admin.instructorApps.col.skills")}</TableHead>
+                  <TableHead>{t("admin.instructorApps.col.status")}</TableHead>
+                  <TableHead>{t("admin.instructorApps.col.submittedDate")}</TableHead>
+                  <TableHead>{t("admin.instructorApps.col.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visible.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">لا توجد طلبات</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t("admin.instructorApps.empty")}</TableCell></TableRow>
                 )}
                 {visible.map((application) => (
                   <TableRow key={application.id}>
                     <TableCell className="font-medium max-w-[180px] truncate">{application.headline}</TableCell>
-                    <TableCell>{application.experience_years} سنوات</TableCell>
-                    <TableCell className="max-w-[160px] truncate text-sm text-muted-foreground">{application.skills.join("، ") || "—"}</TableCell>
-                    <TableCell><Badge className={STATUS_COLOR[application.status]}>{STATUS_LABEL[application.status]}</Badge></TableCell>
+                    <TableCell>{application.experience_years} {t("admin.instructorApps.years")}</TableCell>
+                    <TableCell className="max-w-[160px] truncate text-sm text-muted-foreground">{application.skills.join(t("admin.instructorApps.skillsSeparator")) || "—"}</TableCell>
+                    <TableCell><Badge className={STATUS_COLOR[application.status]}>{t(STATUS_LABEL_KEY[application.status])}</Badge></TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {application.submitted_at ? new Date(application.submitted_at).toLocaleDateString() : "—"}
                     </TableCell>
                     <TableCell>
                       {noteDraftId === application.id ? (
                         <div className="space-y-2 w-56">
-                          <Textarea value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} placeholder={noteDraftAction === "rejected" ? "سبب الرفض (اختياري)" : "سبب التعليق (اختياري)"} className="rounded-xl text-xs min-h-16" />
+                          <Textarea value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} placeholder={noteDraftAction === "rejected" ? t("admin.instructorApps.rejectReasonPlaceholder") : t("admin.instructorApps.suspendReasonPlaceholder")} className="rounded-xl text-xs min-h-16" />
                           <div className="flex gap-1">
                             <Button size="sm" variant="destructive" onClick={() => act(application, noteDraftAction, noteDraft || null)}>
-                              {noteDraftAction === "rejected" ? "تأكيد الرفض" : "تأكيد التعليق"}
+                              {noteDraftAction === "rejected" ? t("admin.instructorApps.confirmReject") : t("admin.instructorApps.confirmSuspend")}
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setNoteDraftId(null)}>إلغاء</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setNoteDraftId(null)}>{t("admin.instructorApps.cancel")}</Button>
                           </div>
                         </div>
                       ) : (
@@ -126,21 +132,21 @@ export default function AdminInstructorApplications() {
                           {application.status === "pending" && (
                             <>
                               <Button size="sm" variant="outline" className="text-green-600 border-green-600" onClick={() => act(application, "approved", null)}>
-                                <CheckCircle className="me-1 h-3 w-3" aria-hidden="true" />قبول
+                                <CheckCircle className="me-1 h-3 w-3" aria-hidden="true" />{t("admin.instructorApps.approve")}
                               </Button>
                               <Button size="sm" variant="outline" className="text-red-600 border-red-600" onClick={() => openNoteDraft(application.id, "rejected")}>
-                                <XCircle className="me-1 h-3 w-3" aria-hidden="true" />رفض
+                                <XCircle className="me-1 h-3 w-3" aria-hidden="true" />{t("admin.instructorApps.reject")}
                               </Button>
                             </>
                           )}
                           {application.status === "approved" && (
                             <Button size="sm" variant="outline" className="text-red-600 border-red-600" onClick={() => openNoteDraft(application.id, "suspended")}>
-                              <Ban className="me-1 h-3 w-3" aria-hidden="true" />تعليق
+                              <Ban className="me-1 h-3 w-3" aria-hidden="true" />{t("admin.instructorApps.suspend")}
                             </Button>
                           )}
                           {(application.status === "rejected" || application.status === "suspended") && (
                             <Button size="sm" variant="ghost" onClick={() => act(application, "pending", null)}>
-                              <RotateCcw className="me-1 h-3 w-3" aria-hidden="true" />إعادة فتح
+                              <RotateCcw className="me-1 h-3 w-3" aria-hidden="true" />{t("admin.instructorApps.reopen")}
                             </Button>
                           )}
                         </div>

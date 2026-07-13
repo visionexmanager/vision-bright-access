@@ -13,6 +13,7 @@ import {
 import { ArrowLeft, Users, Download, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getAcademyLevelInfo } from "@/lib/academy/leveling";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type StudentRow = {
   user_id: string; name: string; country: string; level: string;
@@ -44,6 +45,7 @@ function exportCsv(rows: StudentRow[]) {
 }
 
 export default function AdminAcademyStudents() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<StudentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -88,56 +90,56 @@ export default function AdminAcademyStudents() {
     <Layout>
       <section className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-6 flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon"><Link to="/admin/academy" aria-label="العودة إلى إدارة الأكاديمية"><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link></Button>
+          <Button asChild variant="ghost" size="icon"><Link to="/admin/academy" aria-label={t("admin.academyStudents.back")}><ArrowLeft className="h-5 w-5" aria-hidden="true" /></Link></Button>
           <Users className="h-6 w-6 text-primary" aria-hidden="true" />
           <div className="flex-1">
-            <h1 className="text-3xl font-bold">طلاب الأكاديمية</h1>
-            <p className="text-muted-foreground text-sm">{rows.length.toLocaleString()} طالب مسجّل — بيانات حقيقية من Supabase</p>
+            <h1 className="text-3xl font-bold">{t("admin.academyStudents.title")}</h1>
+            <p className="text-muted-foreground text-sm">{rows.length.toLocaleString()} {t("admin.academyStudents.subtitleSuffix")}</p>
           </div>
           <Button variant="outline" className="gap-2" onClick={() => exportCsv(filtered)} disabled={filtered.length === 0}>
             <Download className="w-4 h-4" aria-hidden="true" />
-            تصدير CSV
+            {t("admin.academyStudents.exportCsv")}
           </Button>
         </div>
 
         <div className="mb-4 flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <Input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder="ابحث بالاسم أو البلد..." className="ps-9 rounded-xl" aria-label="بحث عن طالب" />
+            <Input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder={t("admin.academyStudents.searchPlaceholder")} className="ps-9 rounded-xl" aria-label={t("admin.academyStudents.searchAriaLabel")} />
           </div>
           <Select value={levelFilter} onValueChange={(v) => { setLevelFilter(v); setPage(1); }}>
             <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">كل المستويات</SelectItem>
+              <SelectItem value="all">{t("admin.academyStudents.filterAllLevels")}</SelectItem>
               {levels.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
             <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="xp_desc">الأعلى XP</SelectItem>
-              <SelectItem value="recent">الأحدث نشاطاً</SelectItem>
-              <SelectItem value="name">الاسم (أبجدي)</SelectItem>
+              <SelectItem value="xp_desc">{t("admin.academyStudents.sort.xpDesc")}</SelectItem>
+              <SelectItem value="recent">{t("admin.academyStudents.sort.recent")}</SelectItem>
+              <SelectItem value="name">{t("admin.academyStudents.sort.name")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">جارٍ التحميل...</p>
+          <p className="text-sm text-muted-foreground">{t("admin.academyStudents.loading")}</p>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground p-8 text-center border-2 border-dashed border-border rounded-3xl">لا يوجد طلاب مطابقون.</p>
+          <p className="text-sm text-muted-foreground p-8 text-center border-2 border-dashed border-border rounded-3xl">{t("admin.academyStudents.empty")}</p>
         ) : (
           <>
             <div className="rounded-2xl border border-border overflow-hidden overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>الاسم</TableHead>
-                    <TableHead>البلد</TableHead>
-                    <TableHead>المستوى الدراسي</TableHead>
+                    <TableHead>{t("admin.academyStudents.col.name")}</TableHead>
+                    <TableHead>{t("admin.academyStudents.col.country")}</TableHead>
+                    <TableHead>{t("admin.academyStudents.col.educationLevel")}</TableHead>
                     <TableHead>XP</TableHead>
-                    <TableHead>مستوى الأكاديمية</TableHead>
-                    <TableHead>آخر نشاط</TableHead>
+                    <TableHead>{t("admin.academyStudents.col.academyLevel")}</TableHead>
+                    <TableHead>{t("admin.academyStudents.col.lastActive")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -145,7 +147,7 @@ export default function AdminAcademyStudents() {
                     const levelInfo = getAcademyLevelInfo(r.xp_total);
                     return (
                       <TableRow key={r.user_id}>
-                        <TableCell className="font-medium max-w-[180px] truncate">{r.name || "بدون اسم"}</TableCell>
+                        <TableCell className="font-medium max-w-[180px] truncate">{r.name || t("admin.academyStudents.noName")}</TableCell>
                         <TableCell>{r.country || "—"}</TableCell>
                         <TableCell>{r.level || "—"}</TableCell>
                         <TableCell>{r.xp_total.toLocaleString()}</TableCell>
@@ -159,10 +161,10 @@ export default function AdminAcademyStudents() {
             </div>
             {pageCount > 1 && (
               <div className="flex items-center justify-between mt-4">
-                <p className="text-xs text-muted-foreground">صفحة {page} من {pageCount} — {filtered.length} نتيجة</p>
+                <p className="text-xs text-muted-foreground">{t("admin.academyStudents.pageLabel")} {page} {t("admin.academyStudents.pageOf")} {pageCount} — {filtered.length} {t("admin.academyStudents.resultsLabel")}</p>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>السابق</Button>
-                  <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)}>التالي</Button>
+                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>{t("admin.academyStudents.prevPage")}</Button>
+                  <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)}>{t("admin.academyStudents.nextPage")}</Button>
                 </div>
               </div>
             )}

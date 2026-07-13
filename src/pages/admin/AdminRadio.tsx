@@ -22,6 +22,7 @@ import { Link } from "react-router-dom";
 import {
   ArrowLeft, Radio, Plus, Pencil, Trash2, Users, Star, RefreshCw, Eye, EyeOff,
 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Genre = { id: string; name: string; name_ar: string; slug: string; icon: string; sort_order: number };
 type Station = {
@@ -43,7 +44,14 @@ const EMPTY_STATION: Omit<Station, "id"> = {
   is_active: true, is_featured: false, sort_order: 0,
 };
 
+const STATUS_LABEL_KEY: Record<string, string> = {
+  active: "admin.radio.status.active",
+  expired: "admin.radio.status.expired",
+  cancelled: "admin.radio.status.cancelled",
+};
+
 export default function AdminRadio() {
+  const { t } = useLanguage();
   const [stations,      setStations]      = useState<Station[]>([]);
   const [genres,        setGenres]        = useState<Genre[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -118,7 +126,7 @@ export default function AdminRadio() {
 
   const saveStation = async () => {
     if (!stationForm.name || !stationForm.name_ar || !stationForm.stream_url) {
-      toast.error("يرجى ملء الحقول الإلزامية: الاسم، الاسم بالعربية، رابط البث");
+      toast.error(t("admin.radio.toast.missingFields"));
       return;
     }
     setSaving(true);
@@ -140,11 +148,11 @@ export default function AdminRadio() {
     if (editingStation) {
       const { error } = await supabase.from("radio_stations").update(payload).eq("id", editingStation.id);
       if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success("تم تحديث المحطة");
+      toast.success(t("admin.radio.toast.stationUpdated"));
     } else {
       const { error } = await supabase.from("radio_stations").insert(payload);
       if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success("تم إضافة المحطة");
+      toast.success(t("admin.radio.toast.stationAdded"));
     }
     setSaving(false);
     setStationDialog(false);
@@ -152,10 +160,10 @@ export default function AdminRadio() {
   };
 
   const deleteStation = async (id: string) => {
-    if (!confirm("هل تريد حذف هذه المحطة نهائياً؟")) return;
+    if (!confirm(t("admin.radio.confirm.deleteStation"))) return;
     const { error } = await supabase.from("radio_stations").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
-    toast.success("تم حذف المحطة");
+    toast.success(t("admin.radio.toast.stationDeleted"));
     setStations(prev => prev.filter(s => s.id !== id));
   };
 
@@ -174,18 +182,18 @@ export default function AdminRadio() {
 
   const saveGenre = async () => {
     if (!genreForm.name || !genreForm.name_ar || !genreForm.slug) {
-      toast.error("جميع الحقول مطلوبة");
+      toast.error(t("admin.radio.toast.allFieldsRequired"));
       return;
     }
     setSaving(true);
     if (editingGenre) {
       const { error } = await supabase.from("radio_genres").update(genreForm).eq("id", editingGenre.id);
       if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success("تم تحديث النوع");
+      toast.success(t("admin.radio.toast.genreUpdated"));
     } else {
       const { error } = await supabase.from("radio_genres").insert(genreForm);
       if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success("تم إضافة النوع");
+      toast.success(t("admin.radio.toast.genreAdded"));
     }
     setSaving(false);
     setGenreDialog(false);
@@ -193,11 +201,11 @@ export default function AdminRadio() {
   };
 
   const deleteGenre = async (id: string) => {
-    if (!confirm("حذف هذا النوع؟")) return;
+    if (!confirm(t("admin.radio.confirm.deleteGenre"))) return;
     const { error } = await supabase.from("radio_genres").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     setGenres(prev => prev.filter(g => g.id !== id));
-    toast.success("تم الحذف");
+    toast.success(t("admin.radio.toast.genreDeleted"));
   };
 
   const statusColor = (s: string) => {
@@ -222,24 +230,24 @@ export default function AdminRadio() {
             </Link>
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Radio className="w-6 h-6 text-orange-500" /> إدارة VisionRadio
+                <Radio className="w-6 h-6 text-orange-500" /> {t("admin.radio.title")}
               </h1>
-              <p className="text-sm text-muted-foreground">إدارة المحطات وأنواعها ومشتركي خدمة الراديو المباشر</p>
+              <p className="text-sm text-muted-foreground">{t("admin.radio.subtitle")}</p>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            تحديث
+            {t("admin.radio.refresh")}
           </Button>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "إجمالي المحطات",   value: stations.length,                      color: "text-orange-500" },
-            { label: "المحطات النشطة",    value: stations.filter(s => s.is_active).length, color: "text-green-500" },
-            { label: "اشتراكات نشطة",     value: activeCount,                          color: "text-purple-500" },
-            { label: "إجمالي الإيرادات",  value: `${totalRevenue.toLocaleString()} VX`, color: "text-yellow-500" },
+            { label: t("admin.radio.stats.totalStations"),      value: stations.length,                      color: "text-orange-500" },
+            { label: t("admin.radio.stats.activeStations"),      value: stations.filter(s => s.is_active).length, color: "text-green-500" },
+            { label: t("admin.radio.stats.activeSubscriptions"), value: activeCount,                          color: "text-purple-500" },
+            { label: t("admin.radio.stats.totalRevenue"),        value: `${totalRevenue.toLocaleString()} VX`, color: "text-yellow-500" },
           ].map(({ label, value, color }) => (
             <Card key={label}>
               <CardContent className="pt-5 pb-4 text-center">
@@ -253,18 +261,18 @@ export default function AdminRadio() {
         {/* Tabs */}
         <Tabs defaultValue="stations">
           <TabsList className="mb-4">
-            <TabsTrigger value="stations">المحطات ({stations.length})</TabsTrigger>
-            <TabsTrigger value="genres">الأنواع ({genres.length})</TabsTrigger>
-            <TabsTrigger value="subscribers">المشتركون ({subscriptions.length})</TabsTrigger>
+            <TabsTrigger value="stations">{t("admin.radio.tabs.stations")} ({stations.length})</TabsTrigger>
+            <TabsTrigger value="genres">{t("admin.radio.tabs.genres")} ({genres.length})</TabsTrigger>
+            <TabsTrigger value="subscribers">{t("admin.radio.tabs.subscribers")} ({subscriptions.length})</TabsTrigger>
           </TabsList>
 
           {/* ── Stations Tab ─────────────────────────────────── */}
           <TabsContent value="stations">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">قائمة المحطات</CardTitle>
+                <CardTitle className="text-base">{t("admin.radio.stationsList")}</CardTitle>
                 <Button size="sm" onClick={openNewStation} className="gap-2">
-                  <Plus className="w-4 h-4" /> إضافة محطة
+                  <Plus className="w-4 h-4" /> {t("admin.radio.addStation")}
                 </Button>
               </CardHeader>
               <CardContent>
@@ -272,12 +280,12 @@ export default function AdminRadio() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-right">المحطة</TableHead>
-                        <TableHead className="text-right">النوع</TableHead>
-                        <TableHead className="text-right">البث</TableHead>
-                        <TableHead className="text-right">مميزة</TableHead>
-                        <TableHead className="text-right">الحالة</TableHead>
-                        <TableHead className="text-right">رابط البث</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.station")}</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.genre")}</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.stream")}</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.featured")}</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.status")}</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.streamUrl")}</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -320,7 +328,7 @@ export default function AdminRadio() {
                               variant="ghost" size="icon"
                               onClick={() => setShowStreamUrl(p => ({ ...p, [st.id]: !p[st.id] }))}
                               className="h-7 w-7"
-                              title="عرض/إخفاء رابط البث"
+                              title={t("admin.radio.table.toggleStreamUrl")}
                             >
                               {showStreamUrl[st.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </Button>
@@ -345,7 +353,7 @@ export default function AdminRadio() {
                     </TableBody>
                   </Table>
                   {stations.length === 0 && !loading && (
-                    <p className="text-center text-muted-foreground py-8 text-sm">لا توجد محطات بعد — أضف المحطة الأولى</p>
+                    <p className="text-center text-muted-foreground py-8 text-sm">{t("admin.radio.noStations")}</p>
                   )}
                 </div>
               </CardContent>
@@ -356,20 +364,20 @@ export default function AdminRadio() {
           <TabsContent value="genres">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">أنواع المحطات</CardTitle>
+                <CardTitle className="text-base">{t("admin.radio.genresTitle")}</CardTitle>
                 <Button size="sm" onClick={openNewGenre} className="gap-2">
-                  <Plus className="w-4 h-4" /> إضافة نوع
+                  <Plus className="w-4 h-4" /> {t("admin.radio.addGenre")}
                 </Button>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-right">الاسم بالعربية</TableHead>
-                      <TableHead className="text-right">الاسم بالإنجليزية</TableHead>
+                      <TableHead className="text-right">{t("admin.radio.table.nameAr")}</TableHead>
+                      <TableHead className="text-right">{t("admin.radio.table.nameEn")}</TableHead>
                       <TableHead className="text-right">Slug</TableHead>
-                      <TableHead className="text-right">الأيقونة</TableHead>
-                      <TableHead className="text-right">الترتيب</TableHead>
+                      <TableHead className="text-right">{t("admin.radio.table.icon")}</TableHead>
+                      <TableHead className="text-right">{t("admin.radio.table.sortOrder")}</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -406,7 +414,7 @@ export default function AdminRadio() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="w-5 h-5 text-purple-500" /> المشتركون
+                  <Users className="w-5 h-5 text-purple-500" /> {t("admin.radio.tabs.subscribers")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -414,12 +422,12 @@ export default function AdminRadio() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-right">المستخدم</TableHead>
-                        <TableHead className="text-right">الخطة</TableHead>
-                        <TableHead className="text-right">تاريخ الاشتراك</TableHead>
-                        <TableHead className="text-right">تاريخ الانتهاء</TableHead>
-                        <TableHead className="text-right">VX المدفوعة</TableHead>
-                        <TableHead className="text-right">الحالة</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.user")}</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.plan")}</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.startDate")}</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.expiryDate")}</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.vxPaid")}</TableHead>
+                        <TableHead className="text-right">{t("admin.radio.table.status")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -438,7 +446,7 @@ export default function AdminRadio() {
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={`text-xs ${statusColor(sub.status)}`}>
-                              {sub.status === "active" ? "نشط" : sub.status === "expired" ? "منتهٍ" : "ملغى"}
+                              {t(STATUS_LABEL_KEY[sub.status] ?? STATUS_LABEL_KEY.cancelled)}
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -446,7 +454,7 @@ export default function AdminRadio() {
                     </TableBody>
                   </Table>
                   {subscriptions.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8 text-sm">لا يوجد مشتركون بعد</p>
+                    <p className="text-center text-muted-foreground py-8 text-sm">{t("admin.radio.noSubscribers")}</p>
                   )}
                 </div>
               </CardContent>
@@ -459,23 +467,23 @@ export default function AdminRadio() {
       <Dialog open={stationDialog} onOpenChange={setStationDialog}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
-            <DialogTitle>{editingStation ? "تعديل المحطة" : "إضافة محطة جديدة"}</DialogTitle>
+            <DialogTitle>{editingStation ? t("admin.radio.dialog.editStation") : t("admin.radio.dialog.addStation")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>الاسم بالعربية *</Label>
+                <Label>{t("admin.radio.form.nameAr")}</Label>
                 <Input value={stationForm.name_ar} onChange={e => setStationForm(p => ({ ...p, name_ar: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label>الاسم بالإنجليزية *</Label>
+                <Label>{t("admin.radio.form.nameEn")}</Label>
                 <Input value={stationForm.name} onChange={e => setStationForm(p => ({ ...p, name: e.target.value }))} />
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label>رابط البث (MP3 / AAC / HLS .m3u8) *</Label>
+              <Label>{t("admin.radio.form.streamUrl")}</Label>
               <Input
                 value={stationForm.stream_url}
                 onChange={e => setStationForm(p => ({ ...p, stream_url: e.target.value }))}
@@ -486,7 +494,7 @@ export default function AdminRadio() {
             </div>
 
             <div className="space-y-1">
-              <Label>رابط الشعار (Logo URL)</Label>
+              <Label>{t("admin.radio.form.logoUrl")}</Label>
               <Input
                 value={stationForm.logo_url ?? ""}
                 onChange={e => setStationForm(p => ({ ...p, logo_url: e.target.value }))}
@@ -496,7 +504,7 @@ export default function AdminRadio() {
             </div>
 
             <div className="space-y-1">
-              <Label>الموقع الرسمي (اختياري)</Label>
+              <Label>{t("admin.radio.form.websiteUrl")}</Label>
               <Input
                 value={stationForm.website_url ?? ""}
                 onChange={e => setStationForm(p => ({ ...p, website_url: e.target.value }))}
@@ -507,20 +515,20 @@ export default function AdminRadio() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>النوع</Label>
+                <Label>{t("admin.radio.form.genre")}</Label>
                 <Select
                   value={stationForm.genre_id ?? "none"}
                   onValueChange={v => setStationForm(p => ({ ...p, genre_id: v === "none" ? null : v }))}
                 >
-                  <SelectTrigger><SelectValue placeholder="اختر نوعاً" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("admin.radio.form.selectGenre")} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">بدون تصنيف</SelectItem>
+                    <SelectItem value="none">{t("admin.radio.form.noGenre")}</SelectItem>
                     {genres.map(g => <SelectItem key={g.id} value={g.id}>{g.name_ar}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>جودة البث (kbps)</Label>
+                <Label>{t("admin.radio.form.bitrate")}</Label>
                 <Select value={stationForm.bitrate} onValueChange={v => setStationForm(p => ({ ...p, bitrate: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -534,17 +542,17 @@ export default function AdminRadio() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>اللغة</Label>
+                <Label>{t("admin.radio.form.language")}</Label>
                 <Input value={stationForm.language} onChange={e => setStationForm(p => ({ ...p, language: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label>الدولة</Label>
+                <Label>{t("admin.radio.form.country")}</Label>
                 <Input value={stationForm.country ?? ""} onChange={e => setStationForm(p => ({ ...p, country: e.target.value }))} />
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label>الترتيب</Label>
+              <Label>{t("admin.radio.form.sortOrder")}</Label>
               <Input
                 type="number" value={stationForm.sort_order}
                 onChange={e => setStationForm(p => ({ ...p, sort_order: Number(e.target.value) }))}
@@ -554,19 +562,19 @@ export default function AdminRadio() {
             <div className="flex gap-6">
               <div className="flex items-center gap-2">
                 <Switch checked={stationForm.is_active} onCheckedChange={v => setStationForm(p => ({ ...p, is_active: v }))} />
-                <Label>نشطة</Label>
+                <Label>{t("admin.radio.form.active")}</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Switch checked={stationForm.is_featured} onCheckedChange={v => setStationForm(p => ({ ...p, is_featured: v }))} />
-                <Label>مميزة ⭐</Label>
+                <Label>{t("admin.radio.form.featured")}</Label>
               </div>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setStationDialog(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setStationDialog(false)}>{t("admin.radio.cancel")}</Button>
             <Button onClick={saveStation} disabled={saving}>
-              {saving ? "جاري الحفظ…" : "حفظ"}
+              {saving ? t("admin.radio.saving") : t("admin.radio.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -576,19 +584,19 @@ export default function AdminRadio() {
       <Dialog open={genreDialog} onOpenChange={setGenreDialog}>
         <DialogContent className="max-w-sm" dir="rtl">
           <DialogHeader>
-            <DialogTitle>{editingGenre ? "تعديل النوع" : "إضافة نوع جديد"}</DialogTitle>
+            <DialogTitle>{editingGenre ? t("admin.radio.dialog.editGenre") : t("admin.radio.dialog.addGenre")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
-              <Label>الاسم بالعربية *</Label>
+              <Label>{t("admin.radio.form.nameAr")}</Label>
               <Input value={genreForm.name_ar} onChange={e => setGenreForm(p => ({ ...p, name_ar: e.target.value }))} />
             </div>
             <div className="space-y-1">
-              <Label>الاسم بالإنجليزية *</Label>
+              <Label>{t("admin.radio.form.nameEn")}</Label>
               <Input value={genreForm.name} onChange={e => setGenreForm(p => ({ ...p, name: e.target.value }))} />
             </div>
             <div className="space-y-1">
-              <Label>Slug (مثال: news) *</Label>
+              <Label>{t("admin.radio.form.slug")}</Label>
               <Input
                 value={genreForm.slug}
                 onChange={e => setGenreForm(p => ({ ...p, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") }))}
@@ -596,17 +604,17 @@ export default function AdminRadio() {
               />
             </div>
             <div className="space-y-1">
-              <Label>أيقونة (اسم من Lucide)</Label>
+              <Label>{t("admin.radio.form.icon")}</Label>
               <Input value={genreForm.icon} onChange={e => setGenreForm(p => ({ ...p, icon: e.target.value }))} dir="ltr" />
             </div>
             <div className="space-y-1">
-              <Label>الترتيب</Label>
+              <Label>{t("admin.radio.form.sortOrder")}</Label>
               <Input type="number" value={genreForm.sort_order} onChange={e => setGenreForm(p => ({ ...p, sort_order: Number(e.target.value) }))} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setGenreDialog(false)}>إلغاء</Button>
-            <Button onClick={saveGenre} disabled={saving}>{saving ? "جاري الحفظ…" : "حفظ"}</Button>
+            <Button variant="outline" onClick={() => setGenreDialog(false)}>{t("admin.radio.cancel")}</Button>
+            <Button onClick={saveGenre} disabled={saving}>{saving ? t("admin.radio.saving") : t("admin.radio.save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
