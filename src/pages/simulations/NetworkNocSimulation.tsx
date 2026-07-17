@@ -387,7 +387,7 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
   // Setup
   return (
     <div className="space-y-6">
-      <SimulationScene slug="network-noc" isActive={incidentIndex > 0} isComplete={stage === "results"} />
+      <SimulationScene slug="network-noc" isActive={incidentIndex > 0} isComplete={false} />
       <h2 className="text-xl font-bold flex items-center gap-2"><Wifi className="h-6 w-6 text-primary" /> {t("sim.noc.title")}</h2>
       <p className="text-sm text-muted-foreground">{t("sim.noc.description")}</p>
 

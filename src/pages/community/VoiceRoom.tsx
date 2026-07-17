@@ -6,10 +6,13 @@ import {
   useParticipants,
   useLocalParticipant,
   useTracks,
+  useParticipantTracks,
   useConnectionState,
   useAudioPlayback,
   VideoTrack,
+  isTrackReference,
 } from "@livekit/components-react";
+import type { TrackReference } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { Track, ConnectionState, RemoteAudioTrack, AudioPresets, LocalAudioTrack, VideoPresets } from "livekit-client";
 import { Layout } from "@/components/Layout";
@@ -264,6 +267,23 @@ interface RoomActivityEvent {
 
 type LayoutType = "gallery" | "speaker" | "cameras";
 
+// ── Web Speech API (non-standard, not in TS DOM lib) — local shape only ─────
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechWindow = Window & {
+  SpeechRecognition?: new () => SpeechRecognitionLike;
+  webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+};
+
 // ── Participant tile ───────────────────────────────────────────────
 interface ParticipantTileProps {
   participant: ReturnType<typeof useParticipants>[number];
@@ -276,10 +296,7 @@ interface ParticipantTileProps {
 }
 
 function ParticipantTile({ participant, canModerate, isMe, isRaisingHand, onKick, onBan, t }: ParticipantTileProps) {
-  const tracks = useTracks(
-    [{ source: Track.Source.Microphone, withPlaceholder: true }],
-    { participant }
-  );
+  const tracks = useParticipantTracks([Track.Source.Microphone], participant.identity);
   const isMuted = !tracks.some((tr) => tr.publication?.isMuted === false && tr.publication?.isEnabled);
   const isSpeaking = participant.isSpeaking;
   const displayName = participant.name || participant.identity;
@@ -437,7 +454,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   const [showAiTextInput, setShowAiTextInput] = useState(false);
   const [aiTextInput, setAiTextInput] = useState("");
   const [isRecordingAi, setIsRecordingAi] = useState(false);
-  const aiSpeechRef = useRef<SpeechRecognition | null>(null);
+  const aiSpeechRef = useRef<SpeechRecognitionLike | null>(null);
 
   // Stop voice-effect AudioContext + mic tracks, and any playing AI audio, when the room unmounts
   useEffect(() => {
@@ -453,10 +470,12 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   }, []);
 
   // Screen share tracks for all participants
-  const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
+  const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }])
+    .filter(isTrackReference);
   // Camera tracks for all participants
   const allCameraTracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: false }])
-    .filter((tr) => tr.publication?.isEnabled && tr.publication?.track);
+    .filter((tr): tr is TrackReference =>
+      isTrackReference(tr) && !!tr.publication?.isEnabled && !!tr.publication?.track);
 
   // Join/leave sound + notification tracking
   const prevParticipantsRef = useRef<Map<string, string>>(new Map());
@@ -578,8 +597,8 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
 
       voiceAiSessionRef.current = [
         ...voiceAiSessionRef.current,
-        { role: "user", content: cleaned },
-        { role: "assistant", content: transcript },
+        { role: "user" as const, content: cleaned },
+        { role: "assistant" as const, content: transcript },
       ].slice(-16);
 
       const aiMsg: ChatMessage = {
@@ -625,9 +644,8 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
   }, [aiTextInput, currentUserId, localParticipant, askVoiceAi]);
 
   const toggleAiVoiceRecord = useCallback(() => {
-    const SpeechRecognitionAPI =
-      (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
-      (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
+    const speechWindow = window as SpeechWindow;
+    const SpeechRecognitionAPI = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
 
     if (!SpeechRecognitionAPI) {
       toast({ title: "Speech recognition not supported in this browser", variant: "destructive" });
@@ -3499,7 +3517,7 @@ export default function VoiceRoom() {
     if (vxToAward > 0) {
       toast({ title: t("vroom.vxEarned").replace("{vx}", String(vxToAward)), duration: 5000 });
       // Non-blocking VX award for participation time
-      supabase.rpc("award_points", { _points: vxToAward, _reason: "voice_room_participation" }).catch(() => {});
+      supabase.rpc("award_points", { _points: vxToAward, _reason: "voice_room_participation" }).then(() => {}, () => {});
     } else if (minutes > 0) {
       toast({ title: t("vroom.vxMinimum"), duration: 3000 });
     }

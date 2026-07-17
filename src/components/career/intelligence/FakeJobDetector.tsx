@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAiSimulation } from "@/components/career/ai/useAiSimulation";
 import { AIThinkingIndicator } from "@/components/career/ai/AIThinkingIndicator";
 import { IntelSection } from "./IntelSection";
-import { detectFakeJob } from "./fakeJobDetector";
+import { detectFakeJob } from "./fakeJobDetectorLogic";
 
 const SAMPLE_LEGIT = "Senior Backend Engineer at Nova Systems. We're looking for an experienced Node.js developer to join our platform team. Competitive salary, remote-friendly, standard interview process with our engineering team.";
 const SAMPLE_SCAM = "URGENT HIRING! No interview needed, start today! Earn unlimited income working just 2 hours a day. Send a small processing fee via wire transfer to secure your position with our confidential company.";

@@ -327,8 +327,8 @@ export default function AdminEmails() {
   const [sender, setSender] = useState("hello");
 
   const applyTemplate = (name: string) => {
-    const t = EMAIL_TEMPLATES.find(t => t.name === name);
-    if (t) { setSubject(t.subject); setHtml(t.html); setSelectedTemplate(name); setSender(t.sender || "hello"); }
+    const found = EMAIL_TEMPLATES.find(tpl => tpl.nameKey === name);
+    if (found) { setSubject(found.subject); setHtml(found.html); setSelectedTemplate(name); setSender(found.sender || "hello"); }
   };
 
   const sendEmail = async () => {
@@ -369,7 +369,7 @@ export default function AdminEmails() {
                 {EMAIL_TEMPLATES.map(template => (
                   <Button key={template.nameKey} variant={selectedTemplate === template.nameKey ? "default" : "outline"}
                     className="w-full justify-start text-sm" onClick={() => applyTemplate(template.nameKey)}>
-                    <Mail className="me-2 h-4 w-4" />{templateName(template.nameKey)}
+                    <Mail className="me-2 h-4 w-4" />{t(`admin.emails.template.${template.nameKey}`)}
                   </Button>
                 ))}
               </CardContent>

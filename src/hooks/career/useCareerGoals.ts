@@ -9,7 +9,7 @@ export function useCareerGoals() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.career.goals(user?.id ?? ""),
     queryFn: () => fetchMyCareerGoals(user!.id),
     enabled: !!user,
@@ -36,6 +36,7 @@ export function useCareerGoals() {
     goals: data ?? [],
     isLoading,
     error: error ? (error as Error).message : null,
+    refetch,
     createGoal,
     isCreating,
     updateProgress,

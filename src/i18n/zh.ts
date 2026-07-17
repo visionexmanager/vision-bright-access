@@ -65,6 +65,8 @@ export const translations: Record<string, string> = {
   "home.feature.servicesDesc": "获取学业支持、营养咨询、情感支持、安全的医疗信息，以及营销、技术、设计、进口和商业咨询服务。",
   "home.feature.content": "内容",
   "home.feature.contentDesc": "面向所有人的文章、指南和资源。",
+  "home.feature.academy": "学院",
+  "home.feature.academyDesc": "参加课程、遵循结构化学习路径、获得证书，并获取奖学金与大学申请指导——一站式学习中心。",
   "home.feature.entertainment": "Entertainment & Streaming",
   "home.feature.entertainmentDesc": "Enjoy live radio, live TV, games, and interactive experiences inside one platform.",
   "home.feature.community": "Voice Community",

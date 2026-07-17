@@ -286,7 +286,7 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
   const q = calcProductQuality();
   return (
     <div className="space-y-6">
-      <SimulationScene slug="skin-care-lab" isActive={clientIndex > 0} isComplete={finished} />
+      <SimulationScene slug="skin-care-lab" isActive={clientIndex > 0} isComplete={false} />
       <ImageAnalyst
         analystId="skin-care"
         name={t("sim.skincare.aiTitle")}

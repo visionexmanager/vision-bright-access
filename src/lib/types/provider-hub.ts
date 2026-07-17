@@ -136,6 +136,7 @@ export type ProviderHubAction =
   | "test_provider"
   | "health_check"
   | "get_metrics"
+  | "get_metrics_timeseries"
   | "get_logs"
   | "get_failovers"
   | "get_config"

@@ -17,9 +17,8 @@ import type { AcademyCourseRow, AcademyCourseModuleRow, AcademyInstructorRow } f
 import type {
   AcademyLessonRow,
   AcademyInstructorApplicationRow,
-  AcademyAnnouncementRow,
 } from "@/lib/types/academy-lms";
-import type { AcademyCourseReviewReplyRow } from "@/lib/types/academy-instructor";
+import type { AcademyCourseReviewReplyRow, AcademyAnnouncementRow } from "@/lib/types/academy-instructor";
 import {
   MOCK_COURSES, MOCK_INSTRUCTORS,
   getCourseById as getMockCourseById,

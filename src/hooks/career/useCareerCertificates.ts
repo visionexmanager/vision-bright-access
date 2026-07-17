@@ -9,7 +9,7 @@ export function useCareerCertificates() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.career.certificates(user?.id ?? ""),
     queryFn: () => fetchMyCertificates(user!.id),
     enabled: !!user,
@@ -31,6 +31,7 @@ export function useCareerCertificates() {
     certificates: data ?? [],
     isLoading,
     error: error ? (error as Error).message : null,
+    refetch,
     add,
     isAdding,
     remove,

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   PlayCircle, FileText, Youtube, HelpCircle, ClipboardList, Rocket, Lock, CheckCircle2,
+  FileType2, Presentation, FileAudio, Link2, Download, Radio, Code2, Dumbbell,
 } from "lucide-react";
 import type { AcademyCourseModuleRow } from "@/lib/types/academy-modules";
 import type { AcademyLessonRow, AcademyLessonKind } from "@/lib/types/academy-lms";
@@ -13,6 +14,14 @@ const KIND_ICON: Record<AcademyLessonKind, typeof PlayCircle> = {
   quiz: HelpCircle,
   assignment: ClipboardList,
   project: Rocket,
+  pdf: FileType2,
+  presentation: Presentation,
+  audio: FileAudio,
+  external_link: Link2,
+  downloads: Download,
+  live_session: Radio,
+  code_example: Code2,
+  exercise: Dumbbell,
 };
 
 const KIND_LABEL: Record<AcademyLessonKind, string> = {
@@ -22,6 +31,14 @@ const KIND_LABEL: Record<AcademyLessonKind, string> = {
   quiz: "اختبار قصير",
   assignment: "واجب",
   project: "مشروع",
+  pdf: "ملف PDF",
+  presentation: "عرض تقديمي",
+  audio: "مقطع صوتي",
+  external_link: "رابط خارجي",
+  downloads: "ملفات للتحميل",
+  live_session: "جلسة مباشرة",
+  code_example: "مثال برمجي",
+  exercise: "تمرين",
 };
 
 interface CourseCurriculumListProps {

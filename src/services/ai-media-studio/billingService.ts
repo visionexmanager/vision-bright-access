@@ -31,8 +31,8 @@ export async function getBalance(): Promise<{
   const res = await callBillingEngine<{ balance_vx: number; in_trial: boolean; hours_left: number }>(
     { action: "get_balance" }
   );
-  if (!res.ok) throw new Error(res.error);
-  return res as { balance_vx: number; in_trial: boolean; hours_left: number };
+  if (!res.ok || !res.data) throw new Error(res.error ?? "Failed to load balance");
+  return res.data;
 }
 
 // ── Consume / Refund ──────────────────────────────────────────────────────────

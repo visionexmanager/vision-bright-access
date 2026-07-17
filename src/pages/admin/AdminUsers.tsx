@@ -488,11 +488,11 @@ export default function AdminUsers() {
           <DialogHeader><DialogTitle>{t("admin.users.manageFeaturesTitle").replace("{name}", selected?.display_name || "")}</DialogTitle></DialogHeader>
           <div className="space-y-3 max-h-80 overflow-y-auto">
             {FEATURES.map(f => (
-              <div key={f.key} className="flex items-center justify-between rounded-lg border p-3">
+              <div key={f} className="flex items-center justify-between rounded-lg border p-3">
                 <span className="text-sm font-medium">{t(`admin.users.feature.${f}`)}</span>
                 <Switch
-                  checked={userFeatures[f.key] ?? false}
-                  onCheckedChange={v => setUserFeatures(prev => ({ ...prev, [f.key]: v }))}
+                  checked={userFeatures[f] ?? false}
+                  onCheckedChange={v => setUserFeatures(prev => ({ ...prev, [f]: v }))}
                 />
               </div>
             ))}

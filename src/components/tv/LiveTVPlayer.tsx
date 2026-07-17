@@ -70,7 +70,7 @@ export function LiveTVPlayer({ token, channelName, channelLogo, onError }: Props
       // Exchange token for real stream URL via the tv-stream-token edge function
       let streamInfo: StreamInfo;
       try {
-        streamInfo = await callTVStreamToken(token) as unknown as StreamInfo;
+        streamInfo = await callTVStreamToken(token);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "";
         handleError(

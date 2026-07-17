@@ -9,7 +9,7 @@ export function useCareerApplications() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.career.applications(user?.id ?? ""),
     queryFn: () => fetchMyApplications(user!.id),
     enabled: !!user,
@@ -31,6 +31,7 @@ export function useCareerApplications() {
     applications: data ?? [],
     isLoading,
     error: error ? (error as Error).message : null,
+    refetch,
     apply,
     isApplying,
     withdraw,

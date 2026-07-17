@@ -10,18 +10,17 @@ export function useFreeAccess() {
   const { data: profile } = useQuery({
     queryKey: ["profile-role", user?.id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("role, created_at")
-        .eq("id", user!.id)
-        .single();
-      return data;
+      const [{ data: roleRow }, { data: profileRow }] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", user!.id).eq("role", "admin").maybeSingle(),
+        supabase.from("profiles").select("created_at").eq("id", user!.id).single(),
+      ]);
+      return { isAdmin: !!roleRow, created_at: profileRow?.created_at };
     },
     enabled: !!user,
     staleTime: 300_000,
   });
 
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = !!profile?.isAdmin;
 
   // Prefer profile.created_at, fallback to auth user.created_at
   const rawCreatedAt = profile?.created_at ?? user?.created_at;

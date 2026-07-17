@@ -215,7 +215,7 @@ export default function OCRScan() {
       setResult(ocrResult);
 
       // Auto-speak if audio mode
-      if (mode === "single_audio" || (bundleActive && mode === "single_audio")) {
+      if (mode === "single_audio") {
         speak(ocrResult.extracted_text, lang);
         setIsSpeaking(true);
       }

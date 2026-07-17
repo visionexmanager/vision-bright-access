@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   GameSession, GameType, MPPlayer, generateRoomCode,
@@ -66,7 +67,7 @@ export function useMultiplayer(gameType: GameType) {
         host_id: user.id,
         status: "waiting",
         max_players: 2,
-        players: [meEntry()],
+        players: [meEntry()] as unknown as Json,
       })
       .select()
       .single();
@@ -92,7 +93,7 @@ export function useMultiplayer(gameType: GameType) {
     if (s.players.find((p) => p.id === user.id)) { setSession(s); setLoading(false); return true; }
     const { data, error } = await supabase
       .from("game_sessions")
-      .update({ players: [...s.players, meEntry()] })
+      .update({ players: [...s.players, meEntry()] as unknown as Json })
       .eq("id", s.id)
       .select()
       .single();
@@ -107,7 +108,7 @@ export function useMultiplayer(gameType: GameType) {
     if (!session || !isHost) return;
     await supabase.from("game_sessions").update({
       status: "playing",
-      game_state: initialState,
+      game_state: initialState as unknown as Json,
       current_player_id: session.host_id,
     }).eq("id", session.id);
   }, [session, isHost]);
@@ -119,7 +120,7 @@ export function useMultiplayer(gameType: GameType) {
   ) => {
     if (!session) return;
     await supabase.from("game_sessions").update({
-      game_state: newState,
+      game_state: newState as unknown as Json,
       current_player_id: nextPlayerId,
     }).eq("id", session.id);
   }, [session]);
@@ -135,8 +136,8 @@ export function useMultiplayer(gameType: GameType) {
       [`fin_${user.id}`]: finished,
     };
     await supabase.from("game_sessions").update({
-      players: updatedPlayers,
-      game_state: newState,
+      players: updatedPlayers as unknown as Json,
+      game_state: newState as unknown as Json,
     }).eq("id", session.id);
   }, [session, user]);
 
@@ -157,7 +158,7 @@ export function useMultiplayer(gameType: GameType) {
       await supabase.from("game_sessions").delete().eq("id", session.id);
     } else {
       const rest = session.players.filter((p) => p.id !== user.id);
-      await supabase.from("game_sessions").update({ players: rest }).eq("id", session.id);
+      await supabase.from("game_sessions").update({ players: rest as unknown as Json }).eq("id", session.id);
     }
     if (channelRef.current) supabase.removeChannel(channelRef.current);
     setSession(null);

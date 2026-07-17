@@ -11,7 +11,7 @@ export function useCareerMessages() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.career.messages(user?.id ?? ""),
     queryFn: () => fetchMyCareerMessages(user!.id),
     enabled: !!user,
@@ -48,5 +48,5 @@ export function useCareerMessages() {
     onSuccess: invalidate,
   });
 
-  return { messages, getCounterpartName, isLoading, error: error ? (error as Error).message : null, send, isSending, markRead };
+  return { messages, getCounterpartName, isLoading, error: error ? (error as Error).message : null, refetch, send, isSending, markRead };
 }

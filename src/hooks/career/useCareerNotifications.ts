@@ -9,7 +9,7 @@ export function useCareerNotifications() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.career.notifications(user?.id ?? ""),
     queryFn: () => fetchCareerNotifications(user!.id),
     enabled: !!user,
@@ -30,5 +30,5 @@ export function useCareerNotifications() {
   const notifications = data ?? [];
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  return { notifications, unreadCount, isLoading, error: error ? (error as Error).message : null, markRead, markAllRead };
+  return { notifications, unreadCount, isLoading, error: error ? (error as Error).message : null, refetch, markRead, markAllRead };
 }

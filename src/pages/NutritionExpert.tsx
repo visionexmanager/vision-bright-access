@@ -267,7 +267,7 @@ export default function NutritionExpert() {
         ingredients: mealResult.ingredients,
         rating: mealResult.rating,
         meal_type: "analyzed",
-      } as unknown as Json);
+      });
       if (error) throw error;
       toast.success(t("nutrition.mealSaved"));
       fetchMealLogs();
@@ -289,7 +289,7 @@ export default function NutritionExpert() {
         meal_type: manualMeal.type,
         ingredients: [],
         rating: 5,
-      } as unknown as Json);
+      });
       if (error) throw error;
       toast.success(t("nutrition.mealSaved"));
       setManualMeal({ name: "", calories: "", type: "other" });

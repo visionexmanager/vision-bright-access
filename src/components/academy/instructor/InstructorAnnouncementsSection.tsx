@@ -9,7 +9,7 @@ import {
 import {
   createAnnouncement, deleteAnnouncement,
 } from "@/lib/academy/instructorLocalStore";
-import type { AcademyAnnouncementRow } from "@/lib/types/academy-lms";
+import type { AcademyAnnouncementRow } from "@/lib/types/academy-instructor";
 import type { AcademyCourseRow } from "@/lib/types/academy-modules";
 
 interface InstructorAnnouncementsSectionProps {

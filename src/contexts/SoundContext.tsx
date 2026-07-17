@@ -48,7 +48,9 @@ export type UISoundType =
   | "tab"
   | "notification"
   | "complete"
-  | "start";
+  | "start"
+  | "select"
+  | "scan";
 
 const UI_SOUNDS: Record<UISoundType, () => void> = {
   navigate: () => tone(500, 0.08, "sine", 0.08),
@@ -81,6 +83,11 @@ const UI_SOUNDS: Record<UISoundType, () => void> = {
   },
   receive: () => tone(800, 0.12, "triangle", 0.08),
   toggle: () => tone(700, 0.05, "sine", 0.06),
+  select: () => tone(650, 0.06, "sine", 0.07),
+  scan: () => {
+    tone(500, 0.06, "sine", 0.06);
+    setTimeout(() => tone(750, 0.08, "sine", 0.06), 70);
+  },
   delete: () => tone(250, 0.2, "sawtooth", 0.05),
   refresh: () => {
     const ctx = getCtx();

@@ -343,7 +343,7 @@ export function DairyFarmSimulation({ simulationId }: Props) {
   // Setup stage
   return (
     <div className="space-y-6">
-      <SimulationScene slug="dairy-farm" isActive={score > 0} isComplete={stage === "results"} />
+      <SimulationScene slug="dairy-farm" isActive={score > 0} isComplete={false} />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2">
           <Milk className="h-6 w-6 text-primary" /> {t("sim.dairyfarm.setupTitle")}

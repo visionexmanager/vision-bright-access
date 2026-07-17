@@ -46,7 +46,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats>({
     products: 0, content: 0, users: 0, requests: 0,
     reports: 0, subscribers: 0, logs: 0, notifications: 0,
-    simulations: 0, bazaar: 0,
+    simulations: 0, bazaar: 0, news: 0,
   });
 
   useEffect(() => {

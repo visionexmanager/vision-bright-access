@@ -65,8 +65,8 @@ export function CourseMediaUploader({
   onUploaded,
   onCleared,
 }: CourseMediaUploaderProps) {
-  const { language } = useLanguage();
-  const isRTL = language === "ar";
+  const { lang } = useLanguage();
+  const isRTL = lang === "ar";
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<UploadState>(currentUrl ? "done" : "idle");
   const [progress, setProgress] = useState(0);

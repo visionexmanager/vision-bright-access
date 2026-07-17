@@ -71,7 +71,7 @@ export function RadioPlayer({ token, stationName, stationLogo, onError }: Props)
       // Exchange token for real stream URL via API service layer
       let streamInfo: StreamInfo;
       try {
-        streamInfo = await callRadioStreamToken(token) as StreamInfo;
+        streamInfo = await callRadioStreamToken(token);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "";
         handleError(
@@ -146,7 +146,7 @@ export function RadioPlayer({ token, stationName, stationLogo, onError }: Props)
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, SUPABASE_URL, handleError]);
+  }, [token, handleError]);
 
   const togglePlay = () => {
     const a = audioRef.current;

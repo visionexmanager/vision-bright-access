@@ -78,6 +78,8 @@ export const translations: Record<string, string> = {
   "home.feature.servicesDesc": "अध्ययन सहायता, पोषण, भावनात्मक सहयोग, सुरक्षित चिकित्सा जानकारी, मार्केटिंग, प्रौद्योगिकी, डिज़ाइन, आयात और व्यवसाय परामर्श का लाभ उठाएं।",
   "home.feature.content": "सामग्री",
   "home.feature.contentDesc": "सभी के लिए लेख, गाइड और संसाधन।",
+  "home.feature.academy": "अकादमी",
+  "home.feature.academyDesc": "कोर्स लें, संरचित लर्निंग ट्रैक्स फॉलो करें, सर्टिफिकेट पाएं, और स्कॉलरशिप व यूनिवर्सिटी गाइडेंस पाएं — सब एक ही जगह पर।",
   "home.feature.entertainment": "Entertainment & Streaming",
   "home.feature.entertainmentDesc": "Enjoy live radio, live TV, games, and interactive experiences inside one platform.",
   "home.feature.community": "Voice Community",

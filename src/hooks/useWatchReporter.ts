@@ -34,8 +34,7 @@ export function useWatchReporter(channelId: string | null) {
       // Fire-and-forget — never block or error-surface to user
       supabase
         .rpc("record_tv_watch", { _channel_id: channelId, _seconds: secs })
-        .then(() => {})
-        .catch(() => {});
+        .then(() => {}, () => {});
     }, REPORT_INTERVAL_MS);
 
     return () => {
@@ -47,8 +46,7 @@ export function useWatchReporter(channelId: string | null) {
       if (remaining > 0 && channelId && user) {
         supabase
           .rpc("record_tv_watch", { _channel_id: channelId, _seconds: remaining })
-          .then(() => {})
-          .catch(() => {});
+          .then(() => {}, () => {});
       }
       accRef.current = 0;
     };

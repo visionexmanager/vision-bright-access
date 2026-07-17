@@ -13,10 +13,10 @@ import type { AcademyCourseRow, AcademyCourseModuleRow, AcademyInstructorRow } f
 import type {
   AcademyLessonRow,
   AcademyInstructorApplicationRow,
-  AcademyAnnouncementRow,
 } from "@/lib/types/academy-lms";
 import type {
   AcademyOrganizationRow,
+  AcademyAnnouncementRow,
   AcademyLessonQuestionRow,
   AcademyLessonAnswerRow,
   AcademyCourseReviewReplyRow,

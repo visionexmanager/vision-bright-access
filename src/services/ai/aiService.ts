@@ -35,6 +35,7 @@ import type {
   GeneratedPlanResponse,
   SearchResponse,
   ModerationResult,
+  StudentProfile,
 } from "@/lib/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -95,7 +96,7 @@ async function streamChat(
  */
 async function streamAcademyChat(
   messages: ChatMessage[],
-  studentProfile: Record<string, string>,
+  studentProfile: StudentProfile,
   signal?: AbortSignal
 ): Promise<Response> {
   return callAcademyChat(

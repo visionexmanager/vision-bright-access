@@ -11,6 +11,7 @@ import { useAchievements } from "@/hooks/useAchievements";
 import { useAmbientSound, getSimulationAmbient } from "@/hooks/useAmbientSound";
 import { useSimulationBilling } from "@/hooks/useSimulationBilling";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationProjectBrief } from "@/components/SimulationProjectBrief";
 import { SimulationProjectReport } from "@/components/SimulationProjectReport";
@@ -201,7 +202,7 @@ export default function SimulationRunner() {
           .from("simulation_progress")
           .update({
             current_step: 0,
-            decisions: [] as unknown as Record<string, unknown>,
+            decisions: [] as Json,
             score: 0,
             completed: false,
           })

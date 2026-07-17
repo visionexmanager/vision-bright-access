@@ -33,7 +33,7 @@ import { formatVX } from "@/systems/pricingSystem";
 import { useAdmin } from "@/hooks/useAdmin";
 import { ShieldCheck } from "lucide-react";
 
-const DATE_LOCALES: Record<string, Locale> = {
+const DATE_LOCALES: Record<string, typeof enUS> = {
   ar: arLocale, es, de, pt, zh: zhCN, tr, fr, ru,
   en: enUS, ur: arLocale, hi: enUS,
 };

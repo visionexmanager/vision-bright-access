@@ -229,7 +229,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
       
       saveSimulationProgress(user.id, simulationId, {
           current_step: TOTAL_DAYS,
-          decisions: state.log as Record<string, unknown>,
+          decisions: state.log,
           completed: true,
           score: state.score,
         });

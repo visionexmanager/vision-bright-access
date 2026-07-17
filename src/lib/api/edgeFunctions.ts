@@ -32,6 +32,7 @@ import type {
   GeneratedPlanResponse,
   SearchResponse,
   ModerationResult,
+  StudentProfile,
 } from "@/lib/types";
 import type { BillingConsumeResult, OperationType } from "@/lib/types/billing";
 
@@ -114,7 +115,7 @@ export async function callEdge(options: CallOptions): Promise<unknown> {
  * academy-chat — SSE streaming, requires user JWT
  */
 export async function callAcademyChat(
-  body: { messages: Array<{ role: string; content: string }>; studentProfile: Record<string, string>; language?: string },
+  body: { messages: Array<{ role: string; content: string }>; studentProfile: StudentProfile; language?: string },
   signal?: AbortSignal
 ): Promise<Response> {
   return callEdge({ fn: "academy-chat", body, auth: "user-jwt", stream: true, signal });
@@ -344,23 +345,23 @@ export async function callLiveKitToken(params: {
 /**
  * radio-stream-token — exchange short-lived token for real stream URL
  */
-export async function callRadioStreamToken(token: string): Promise<{ url: string }> {
+export async function callRadioStreamToken(token: string): Promise<{ stream_url: string; station_id: string; name: string; name_ar: string; bitrate: string; logo_url: string | null; expires_at: string }> {
   return callEdge({
     fn: "radio-stream-token",
     body: { token },
     auth: "user-jwt",
-  }) as Promise<{ url: string }>;
+  }) as Promise<{ stream_url: string; station_id: string; name: string; name_ar: string; bitrate: string; logo_url: string | null; expires_at: string }>;
 }
 
 /**
  * tv-stream-token — exchange short-lived token for real stream URL
  */
-export async function callTVStreamToken(token: string): Promise<{ url: string }> {
+export async function callTVStreamToken(token: string): Promise<{ stream_url: string; channel_id: string; name: string; name_ar: string; quality: string; logo_url: string | null; expires_at: string }> {
   return callEdge({
     fn: "tv-stream-token",
     body: { token },
     auth: "user-jwt",
-  }) as Promise<{ url: string }>;
+  }) as Promise<{ stream_url: string; channel_id: string; name: string; name_ar: string; quality: string; logo_url: string | null; expires_at: string }>;
 }
 
 /**

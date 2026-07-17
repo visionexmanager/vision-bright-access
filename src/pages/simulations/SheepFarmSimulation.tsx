@@ -21,15 +21,15 @@ import { SimulationScene } from "@/components/SimulationScene";
 interface Props { simulationId?: string; }
 
 const SHEEP_BREEDS = [
-  { id: "awassi", woolQuality: 3, meatYield: 4, milkYield: 2, cost: 150 },
-  { id: "merino", woolQuality: 5, meatYield: 2, milkYield: 1, cost: 200 },
-  { id: "suffolk", woolQuality: 2, meatYield: 5, milkYield: 1, cost: 180 },
+  { id: "awassi", name: "Awassi", woolQuality: 3, meatYield: 4, milkYield: 2, cost: 150 },
+  { id: "merino", name: "Merino", woolQuality: 5, meatYield: 2, milkYield: 1, cost: 200 },
+  { id: "suffolk", name: "Suffolk", woolQuality: 2, meatYield: 5, milkYield: 1, cost: 180 },
 ];
 
 const GRAZING_OPTIONS = [
-  { id: "natural", cost: 0, nutrition: 2 },
-  { id: "improved", cost: 100, nutrition: 4 },
-  { id: "supplement", cost: 250, nutrition: 5 },
+  { id: "natural", name: "Natural Pasture", cost: 0, nutrition: 2 },
+  { id: "improved", name: "Improved Pasture", cost: 100, nutrition: 4 },
+  { id: "supplement", name: "Supplemented Feed", cost: 250, nutrition: 5 },
 ];
 
 export function SheepFarmSimulation({ simulationId }: { simulationId?: string }) {
@@ -82,7 +82,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
     setCosts(setupCost);
     setHealth(80);
     playSound("scan");
-    toast.success(t("sim.sheepFarm.success.started").replace("{count}", String(flockSize)).replace("{breed}", breed.name ?? breed.id));
+    toast.success(t("sim.sheepFarm.success.started").replace("{count}", String(flockSize)).replace("{breed}", breed.name));
   };
 
   const simulateMonth = () => {

@@ -273,7 +273,7 @@ export function DetergentLabSimulation({ simulationId }: Props) {
   // Formulation stage
   return (
     <div className="space-y-6">
-      <SimulationScene slug="detergent-lab" isActive={score > 0} isComplete={tested} />
+      <SimulationScene slug="detergent-lab" isActive={score > 0} isComplete={testResults.length > 0} />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2">
           <FlaskConical className="h-6 w-6 text-primary" /> {t("sim.detergent.title")}

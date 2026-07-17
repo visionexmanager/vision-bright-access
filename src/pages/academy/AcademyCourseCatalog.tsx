@@ -29,7 +29,13 @@ export default function AcademyCourseCatalog() {
   };
 
   const filters = useMemo<CourseFilters>(
-    () => ({ query, category: category || undefined, difficulty: difficulty || undefined, source: source || undefined, sort }),
+    () => ({
+      query,
+      category: category || undefined,
+      difficulty: (difficulty || undefined) as CourseFilters["difficulty"],
+      source: (source || undefined) as CourseFilters["source"],
+      sort,
+    }),
     [query, category, difficulty, source, sort]
   );
   const { courses: results, isLoading } = useCourseCatalog(filters);

@@ -65,6 +65,8 @@ export const translations: Record<string, string> = {
   "home.feature.servicesDesc": "Akademik destek, beslenme, duygusal destek, güvenli sağlık bilgisi, pazarlama, teknoloji, tasarım, ithalat ve iş danışmanlığından yararlanın.",
   "home.feature.content": "İçerik",
   "home.feature.contentDesc": "Herkes için makaleler, rehberler ve kaynaklar.",
+  "home.feature.academy": "Akademi",
+  "home.feature.academyDesc": "Kurslara katılın, yapılandırılmış öğrenme yollarını izleyin, sertifika kazanın ve burs ile üniversite rehberliği alın — hepsi tek bir yerde.",
   "home.feature.entertainment": "Entertainment & Streaming",
   "home.feature.entertainmentDesc": "Enjoy live radio, live TV, games, and interactive experiences inside one platform.",
   "home.feature.community": "Voice Community",

@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { ar as arLocale, enUS, es, de, pt, zhCN, tr, fr, ru } from "date-fns/locale";
 import { AITaskPanel } from "@/components/AITaskPanel";
 
-const DATE_LOCALES: Record<string, Locale> = {
+const DATE_LOCALES: Record<string, typeof enUS> = {
   ar: arLocale, es, de, pt, zh: zhCN, tr, fr, ru,
   en: enUS, ur: arLocale, hi: enUS,
 };

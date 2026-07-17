@@ -36,7 +36,7 @@ export const DeveloperModule: ConverterModule = {
         const bytes = new TextEncoder().encode(text);
         output = btoa(String.fromCharCode(...bytes));
         mimeType = "text/plain";
-      } else if (inFmt === "base64" && opts.targetFormat !== "base64") {
+      } else if (inFmt === "base64") {
         // Decode base64
         output = atob(text.trim());
         mimeType = "text/plain";

@@ -267,7 +267,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
   // Setup
   return (
     <div className="space-y-6">
-      <SimulationScene slug="cattle-dairy" isActive={week > 1} isComplete={week > totalWeeks} />
+      <SimulationScene slug="cattle-dairy" isActive={week > 1} isComplete={week > 12} />
       <h2 className="text-xl font-bold">🐄 Cattle Ranch Setup</h2>
       <p className="text-sm text-muted-foreground">Build your cattle ranch and manage it through 12 weeks (4 seasons). Balance breeding, feeding, health, and finances.</p>
 
@@ -330,7 +330,7 @@ export function CattleDairySimulation({ simulationId }: Props) {
       <Button onClick={startManagement} className="w-full text-base" size="lg">🚀 Start 12-Week Season</Button>
       <SimulationMentor
         simulationTitle="Cattle Dairy Farm"
-        currentStepTitle={stage === "results" ? "Results" : stage === "setup" ? "Farm Setup" : `Week ${week} — ${season}`}
+        currentStepTitle="Farm Setup"
       />
     </div>
   );

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { aiService } from "@/services/ai/aiService";
 import { parseSSEResponse } from "@/lib/api/useSSEStream";
+import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 
 interface StudentProfile {

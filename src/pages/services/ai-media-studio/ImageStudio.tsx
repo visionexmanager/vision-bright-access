@@ -45,7 +45,7 @@ export default function ImageStudio() {
   const [studioMode, setStudioMode] = useState<StudioMode>("generate");
   const [prompt, setPrompt]   = useState("");
   const [model, setModel]     = useState<"dall-e-3" | "dall-e-2">("dall-e-3");
-  const [size, setSize]       = useState("1024x1024");
+  const [size, setSize]       = useState<"1024x1024" | "1024x1792" | "1792x1024" | "512x512" | "256x256">("1024x1024");
   const [quality, setQuality] = useState<"standard" | "hd">("standard");
   const [style, setStyle]     = useState<"vivid" | "natural">("vivid");
 
@@ -177,7 +177,7 @@ export default function ImageStudio() {
             {/* Size */}
             <div className="space-y-1.5">
               <Label className="text-sm">Size</Label>
-              <Select value={size} onValueChange={setSize} disabled={isGenerating}>
+              <Select value={size} onValueChange={(v) => setSize(v as "1024x1024" | "1024x1792" | "1792x1024" | "512x512" | "256x256")} disabled={isGenerating}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

@@ -276,7 +276,7 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
   // Setup
   return (
     <div className="space-y-6">
-      <SimulationScene slug="global-kitchen" isActive={round > 1} isComplete={stage === "results"} />
+      <SimulationScene slug="global-kitchen" isActive={round > 1} isComplete={false} />
       <h2 className="text-xl font-bold flex items-center gap-2"><ChefHat className="h-6 w-6 text-primary" /> {t("sim.kitchen.title")}</h2>
       <p className="text-sm text-muted-foreground">{t("sim.kitchen.description")}</p>
 

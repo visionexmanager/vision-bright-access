@@ -45,10 +45,12 @@ export function AnimatedSection({
   children,
   variants = fadeUp,
   className = "",
+  role,
 }: {
   children: ReactNode;
   variants?: Variants;
   className?: string;
+  role?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const variant = (variants._variant as string) ?? "fade-up";
@@ -67,7 +69,7 @@ export function AnimatedSection({
   }, []);
 
   return (
-    <div ref={ref} data-anim={variant} className={className}>
+    <div ref={ref} data-anim={variant} className={className} role={role}>
       {children}
     </div>
   );
@@ -77,12 +79,14 @@ export function AnimatedSection({
 export function StaggerGrid({
   children,
   className = "",
+  role,
 }: {
   children: ReactNode;
   className?: string;
+  role?: string;
 }) {
   return (
-    <AnimatedSection variants={fadeUp} className={className}>
+    <AnimatedSection variants={fadeUp} className={className} role={role}>
       {children}
     </AnimatedSection>
   );
@@ -92,10 +96,12 @@ export function StaggerGrid({
 export function StaggerItem({
   children,
   className = "",
+  role,
 }: {
   children: ReactNode;
   className?: string;
+  role?: string;
 }) {
   // Items inside a StaggerGrid don't need individual observers — the parent handles it
-  return <div className={className}>{children}</div>;
+  return <div className={className} role={role}>{children}</div>;
 }

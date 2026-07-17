@@ -64,6 +64,8 @@ export const translations: Record<string, string> = {
   "home.feature.servicesDesc": "Nutzen Sie akademische Unterstützung, Ernährungsberatung, emotionalen Beistand, sichere medizinische Informationen sowie Beratung zu Marketing, Technologie, Design, Import und Unternehmensführung.",
   "home.feature.content": "Inhalte",
   "home.feature.contentDesc": "Artikel, Anleitungen und Ressourcen für alle.",
+  "home.feature.academy": "Akademie",
+  "home.feature.academyDesc": "Belegen Sie Kurse, folgen Sie strukturierten Lernpfaden, erwerben Sie Zertifikate und erhalten Sie Beratung zu Stipendien und Universitäten — alles an einem Ort.",
   "home.feature.entertainment": "Entertainment & Streaming",
   "home.feature.entertainmentDesc": "Enjoy live radio, live TV, games, and interactive experiences inside one platform.",
   "home.feature.community": "Voice Community",
