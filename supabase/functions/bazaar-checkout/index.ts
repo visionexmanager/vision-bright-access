@@ -77,11 +77,14 @@ Deno.serve(async (req) => {
 
     const { data: shop, error: shopError } = await service
       .from("bazaar_shops")
-      .select("id, owner_id, stripe_account_id, stripe_onboarding_complete")
+      .select("id, owner_id, stripe_account_id, stripe_onboarding_complete, is_active, vacation_mode")
       .eq("id", payload.shopId)
       .single();
     if (shopError) throw shopError;
     if (shop.owner_id === user.id) return json({ error: "You cannot purchase from your own shop" }, 400, corsHeaders);
+    if (!shop.is_active || shop.vacation_mode) {
+      return json({ error: "This shop is currently unavailable" }, 409, corsHeaders);
+    }
     if (!shop.stripe_onboarding_complete || !shop.stripe_account_id) {
       return json({ error: "This seller has not enabled secure cash payouts yet" }, 409, corsHeaders);
     }
@@ -106,7 +109,14 @@ Deno.serve(async (req) => {
 
     const siteUrl = Deno.env.get("SITE_URL") || "https://visionex.app";
     const requestedReturn = payload.returnUrl || siteUrl;
-    const returnUrl = requestedReturn.startsWith(siteUrl) ? requestedReturn : siteUrl;
+    let returnUrl = siteUrl;
+    try {
+      const siteOrigin = new URL(siteUrl).origin;
+      const candidate = new URL(requestedReturn, siteOrigin);
+      if (candidate.origin === siteOrigin) returnUrl = candidate.toString();
+    } catch {
+      returnUrl = siteUrl;
+    }
     const form = new URLSearchParams();
     form.set("mode", "payment");
     form.set("success_url", `${returnUrl}${returnUrl.includes("?") ? "&" : "?"}bazaar_payment=success&order_id=${orderId}`);

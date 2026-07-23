@@ -335,44 +335,18 @@ export default function VXBazaar() {
     mutationFn: async () => {
       if (!user) throw new Error("not_authenticated");
 
-      const tierCfg = TIER_CONFIG[createForm.tier];
-      if (!isOnTrial && totalPoints < tierCfg.setupCost) throw new Error("insufficient_points");
-
-      const shopPayload = {
-        owner_id: user!.id,
-        name: createForm.name.trim(),
-        tier: createForm.tier,
-        description: createForm.description.trim() || null,
-        theme_color: createForm.theme_color,
-        sign_style: createForm.sign_style,
-        country: createForm.country || null,
-        is_active: true,
-        email_notifications: createForm.email_notifications,
-        whatsapp_notifications: createForm.whatsapp_notifications,
-        whatsapp_number: createForm.whatsapp_number.trim() || null,
-      };
-
-      const { error: shopError } = await db.from("bazaar_shops").insert(shopPayload);
-      const missingColumn =
-        shopError?.code === "PGRST204" ||
-        /column|schema cache|could not find/i.test(shopError?.message ?? "");
-
-      if (shopError && missingColumn) {
-        const { email_notifications, whatsapp_notifications, whatsapp_number, ...basePayload } = shopPayload;
-        const { error: retryError } = await db.from("bazaar_shops").insert(basePayload);
-        if (retryError) throw retryError;
-      } else if (shopError) {
-        throw shopError;
-      }
-
-      if (!isOnTrial) {
-        const { error: spendError } = await supabase.rpc("spend_vx", {
-          _amount: tierCfg.setupCost,
-          _item_type: "bazaar_shop",
-          _item_name: `${tierCfg.label} — ${createForm.name.trim()}`,
-        });
-        if (spendError) throw spendError;
-      }
+      const { error } = await db.rpc("create_bazaar_shop", {
+        _name: createForm.name.trim(),
+        _tier: createForm.tier,
+        _description: createForm.description.trim() || null,
+        _theme_color: createForm.theme_color,
+        _sign_style: createForm.sign_style,
+        _country: createForm.country || null,
+        _email_notifications: createForm.email_notifications,
+        _whatsapp_notifications: createForm.whatsapp_notifications,
+        _whatsapp_number: createForm.whatsapp_number.trim() || null,
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bazaar-shops"] });
@@ -468,8 +442,12 @@ export default function VXBazaar() {
 
   // ── Delete product ─────────────────────────────────────────────────────
   const deleteProduct = async (id: string) => {
-    await supabase.from("bazaar_products").delete().eq("id", id);
-    refetchProducts();
+    const { error } = await supabase.from("bazaar_products").delete().eq("id", id);
+    if (error) {
+      toast({ title: t("bazaar.addProductFailed"), description: error.message, variant: "destructive" });
+      return;
+    }
+    await refetchProducts();
     toast({ title: t("bazaar.productRemoved") });
   };
 

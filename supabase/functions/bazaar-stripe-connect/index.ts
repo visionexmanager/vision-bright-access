@@ -73,7 +73,14 @@ Deno.serve(async (req) => {
     }
 
     const siteUrl = Deno.env.get("SITE_URL") || "https://visionex.app";
-    const safeReturn = returnUrl?.startsWith(siteUrl) ? returnUrl : `${siteUrl}/bazaar`;
+    let safeReturn = `${siteUrl}/bazaar`;
+    try {
+      const siteOrigin = new URL(siteUrl).origin;
+      const candidate = new URL(returnUrl || safeReturn, siteOrigin);
+      if (candidate.origin === siteOrigin) safeReturn = candidate.toString();
+    } catch {
+      safeReturn = `${siteUrl}/bazaar`;
+    }
     const linkParams = new URLSearchParams();
     linkParams.set("account", accountId);
     linkParams.set("refresh_url", safeReturn);
