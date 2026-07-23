@@ -30,6 +30,20 @@
 -- defined against it here — no need to touch those policies again.
 -- ============================================================
 
+-- array_to_string() is STABLE in Postgres, so it can't appear inside a
+-- GENERATED ALWAYS AS ... STORED expression (used below for search_vector
+-- on library_books, which needs to fold the keywords array into the tsvector).
+-- Wrap it in a trivial IMMUTABLE SQL function — its result depends only on
+-- its arguments, so this is safe.
+CREATE OR REPLACE FUNCTION public.library_immutable_array_to_string(_arr TEXT[], _sep TEXT)
+RETURNS TEXT
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+  SELECT array_to_string(_arr, _sep);
+$$;
+
 -- ============================================================
 -- library_categories (hierarchical via self-referencing parent_id)
 -- ============================================================
@@ -184,7 +198,7 @@ CREATE TABLE IF NOT EXISTS public.library_books (
   search_vector           TSVECTOR GENERATED ALWAYS AS (
     setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
     setweight(to_tsvector('simple', coalesce(subtitle, '')), 'B') ||
-    setweight(to_tsvector('simple', coalesce(array_to_string(keywords, ' '), '')), 'B') ||
+    setweight(to_tsvector('simple', coalesce(public.library_immutable_array_to_string(keywords, ' '), '')), 'B') ||
     setweight(to_tsvector('simple', coalesce(description, '')), 'C')
   ) STORED,
   created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
