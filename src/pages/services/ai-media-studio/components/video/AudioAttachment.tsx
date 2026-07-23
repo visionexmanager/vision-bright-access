@@ -1,7 +1,9 @@
-import { Music, Upload, X } from "lucide-react";
+import { useRef } from "react";
+import { Music, Upload, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useAMSAssets } from "@/hooks/useAMSAssets";
 import type { AudioMode } from "@/lib/types/video-studio";
 
 interface AudioAttachmentProps {
@@ -11,7 +13,27 @@ interface AudioAttachmentProps {
   generatedAssets?: { id: string; name: string }[];
 }
 
-export function AudioAttachment({ mode, onChange, generatedAssets = [] }: AudioAttachmentProps) {
+export function AudioAttachment({ mode, assetId, onChange, generatedAssets = [] }: AudioAttachmentProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    assets: storedAudio,
+    isLoading,
+    uploads,
+    uploadFiles,
+  } = useAMSAssets({ asset_type: "audio", status: "ready" });
+
+  const audioAssets = [
+    ...generatedAssets,
+    ...storedAudio
+      .filter((asset) => !generatedAssets.some((item) => item.id === asset.id))
+      .map((asset) => ({ id: asset.id, name: asset.original_name })),
+  ];
+  const isUploading = uploads.some((upload) => upload.status === "pending" || upload.status === "uploading");
+
+  const handleModeChange = (nextMode: AudioMode) => {
+    onChange(nextMode, nextMode === "none" ? "" : assetId);
+  };
+
   return (
     <div className="space-y-3 rounded-lg border border-border p-3">
       <div className="flex items-center gap-2">
@@ -22,7 +44,7 @@ export function AudioAttachment({ mode, onChange, generatedAssets = [] }: AudioA
 
       <RadioGroup
         value={mode}
-        onValueChange={(v) => onChange(v as AudioMode)}
+        onValueChange={(v) => handleModeChange(v as AudioMode)}
         className="space-y-1.5"
       >
         <div className="flex items-center gap-2">
@@ -49,17 +71,22 @@ export function AudioAttachment({ mode, onChange, generatedAssets = [] }: AudioA
       {/* Generated asset picker */}
       {mode === "generated" && (
         <div className="mt-2 space-y-1.5">
-          {generatedAssets.length === 0 ? (
+          {isLoading ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" /> Loading audio assets…
+            </p>
+          ) : audioAssets.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               No generated audio assets found. Create audio in Speech Studio first.
             </p>
           ) : (
             <select
               className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+              value={assetId}
               onChange={(e) => onChange("generated", e.target.value)}
             >
               <option value="">Select generated audio…</option>
-              {generatedAssets.map((a) => (
+              {audioAssets.map((a) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
@@ -67,18 +94,42 @@ export function AudioAttachment({ mode, onChange, generatedAssets = [] }: AudioA
         </div>
       )}
 
-      {/* Upload placeholder — subtitle says this is foundation only */}
       {mode === "uploaded" && (
         <div className="mt-2 flex flex-col items-center gap-2 rounded-lg border border-dashed border-border p-4">
           <Upload className="size-6 text-muted-foreground" />
-          <p className="text-xs text-muted-foreground text-center">
-            Audio file upload coming soon.
-            <br />
-            Use a generated speech track for now.
-          </p>
-          <Button size="sm" variant="outline" onClick={() => onChange("none")}>
-            <X className="mr-1 size-3" /> Clear
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/mpeg,audio/mp4,audio/wav,audio/webm,audio/ogg"
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void uploadFiles([file]);
+              event.target.value = "";
+            }}
+            aria-label="Upload an audio track"
+          />
+          <p className="text-xs text-muted-foreground text-center">MP3, M4A, WAV, WEBM, or OGG — up to 100 MB</p>
+          <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+            {isUploading ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Upload className="mr-1 size-3" />}
+            {isUploading ? "Uploading…" : "Choose audio file"}
           </Button>
+          {audioAssets.length > 0 && (
+            <select
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+              value={assetId}
+              onChange={(event) => onChange("uploaded", event.target.value)}
+              aria-label="Select uploaded audio"
+            >
+              <option value="">Select uploaded audio…</option>
+              {audioAssets.map((audio) => <option key={audio.id} value={audio.id}>{audio.name}</option>)}
+            </select>
+          )}
+          {assetId && (
+            <Button size="sm" variant="ghost" onClick={() => onChange("uploaded", "")}>
+              <X className="mr-1 size-3" /> Clear selection
+            </Button>
+          )}
         </div>
       )}
     </div>
