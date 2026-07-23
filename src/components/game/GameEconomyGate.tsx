@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- the game economy context intentionally exports its provider and consumer hook */
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { GameErrorBoundary } from "./GameErrorBoundary";
 import { GameWinCelebration } from "./GameWinCelebration";
@@ -57,7 +58,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
     const chargeEntry = async () => {
       if (!user) {
         setEntryStatus("blocked");
-        setMessage("سجل الدخول حتى يتم خصم تكلفة بدء اللعبة وحفظ رصيد VX.");
+        setMessage(t("game.loginToPlay"));
         return;
       }
 
@@ -73,7 +74,12 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
 
       if (!ok) {
         setEntryStatus("blocked");
-        setMessage(`تحتاج ${GAMING_PRICES.singlePlay.toLocaleString()} VX لبدء اللعبة.`);
+        setMessage(
+          t("game.insufficientVX").replace(
+            "{n}",
+            GAMING_PRICES.singlePlay.toLocaleString(),
+          ),
+        );
         return;
       }
 
@@ -85,10 +91,9 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
     return () => {
       cancelled = true;
     };
-  // Only re-run when the user or the game route changes — NOT when spendVX
+  // Only re-run when the user, language, or game route changes — NOT when spendVX
   // recreates after a balance update, which was causing repeated charges.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entryKey, user?.id]);
+  }, [entryKey, t, user?.id]);
 
   const settleGameResult = useCallback(
     async (result: GameResult, resultLabel?: string) => {
@@ -106,7 +111,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
 
         if (error) {
           settledRef.current = false;
-          toast({ title: "Game reward failed", description: error.message, variant: "destructive" });
+          toast({ title: t("game.rewardFailed"), description: error.message, variant: "destructive" });
           return false;
         }
 
@@ -129,7 +134,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
       }
       return ok;
     },
-    [gameTitle, location.pathname, spendVX, user]
+    [gameTitle, location.pathname, spendVX, t, user]
   );
 
   const value = useMemo(() => ({ settleGameResult }), [settleGameResult]);
@@ -172,7 +177,12 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
   return (
     <GameEconomyContext.Provider value={value}>
       <GameWinCelebration active={showConfetti} />
-      <GameErrorBoundary gameName={gameTitle}>
+      <GameErrorBoundary
+        gameName={gameTitle}
+        errorTitle={t("game.errorTitle")}
+        errorDescription={t("game.errorDescription").replace("{game}", gameTitle)}
+        retryLabel={t("game.tryAgain")}
+      >
         {children}
       </GameErrorBoundary>
     </GameEconomyContext.Provider>

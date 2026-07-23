@@ -9233,6 +9233,14 @@ export const translations: Record<string, string> = {
   "library.librarian.automation.message.review-session": "Пора повторить карточки: {count}.",
   "library.librarian.automation.message.fatigue-break": "Сегодня вы читали {minutes} минут — стоит сделать небольшой перерыв.",
   "library.librarian.automation.message.recommend-challenge": "Попробуйте читательский марафон «{title}».",
+  "games.cat.Brain": "Логика",
+  "games.cat.Strategy": "Стратегия",
+  "game.loginToPlay": "Войдите, чтобы начать игру, списать входную плату и сохранить баланс VX.",
+  "game.insufficientVX": "Для запуска этой игры требуется {n} VX.",
+  "game.rewardFailed": "Не удалось добавить игровую награду",
+  "game.errorTitle": "Что-то пошло не так",
+  "game.errorDescription": "В игре {game} произошла непредвиденная ошибка.",
+  "game.tryAgain": "Повторить",
 };
 
 export default translations;

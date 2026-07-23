@@ -9363,6 +9363,14 @@ export const translations: Record<string, string> = {
   "library.enterprise.security.auditLog": "Audit Log",
   "library.enterprise.security.noAuditEntries": "No audit log entries yet.",
   "library.enterprise.security.unknownActor": "Unknown",
+  "games.cat.Brain": "Brain",
+  "games.cat.Strategy": "Strategy",
+  "game.loginToPlay": "Sign in to start the game, charge the entry cost, and save your VX balance.",
+  "game.insufficientVX": "You need {n} VX to start this game.",
+  "game.rewardFailed": "Game reward failed",
+  "game.errorTitle": "Something went wrong",
+  "game.errorDescription": "{game} encountered an unexpected error.",
+  "game.tryAgain": "Try again",
 };
 
 export default translations;

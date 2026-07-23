@@ -70,14 +70,6 @@ function QuizMulti() {
     ? gs[`fin_${user.id}`] === true && gs[`fin_${opp.id}`] === true
     : false;
 
-  // Timer per question
-  useEffect(() => {
-    if (finished || mp.status !== "playing") return;
-    if (timeLeft <= 0) { advance(); return; }
-    const t = setTimeout(() => setTimeLeft((v) => v - 1), 1000);
-    return () => clearTimeout(t);
-  }, [timeLeft, finished, mp.status]);
-
   // When both done → end game
   useEffect(() => {
     if (bothDone && mp.status === "playing") {
@@ -98,6 +90,17 @@ function QuizMulti() {
       setTimeLeft(10);
     }
   }, [currentQ, myScore, mp]);
+
+  // Timer per question
+  useEffect(() => {
+    if (finished || mp.status !== "playing") return;
+    if (timeLeft <= 0) {
+      advance();
+      return;
+    }
+    const timer = setTimeout(() => setTimeLeft((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [advance, finished, mp.status, timeLeft]);
 
   const handleAnswer = (idx: number) => {
     const correct = idx === questions[currentQ].correct;

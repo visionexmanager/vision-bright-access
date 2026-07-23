@@ -128,7 +128,8 @@ function TradeTycoonSolo() {
     const news = newsEvents[day - 1];
     setCurrentNews(news);
     setDay(d => d + 1);
-    profitLoss > 0 ? tradeMarketRise() : tradeLoss();
+    if (profitLoss > 0) tradeMarketRise();
+    else tradeLoss();
   };
 
   if (done) {

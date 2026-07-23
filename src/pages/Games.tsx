@@ -50,6 +50,14 @@ const CATEGORY_ICONS: Record<Category, React.ElementType | null> = {
   Strategy: Trophy,
 };
 
+const CATEGORY_LABEL_KEYS: Record<Exclude<Category, "All">, string> = {
+  Brain: "games.cat.Brain",
+  Action: "games.cat.Action",
+  Creative: "games.cat.Creative",
+  Cards: "games.cat.Cards",
+  Strategy: "games.cat.Strategy",
+};
+
 export default function Games() {
   const { t } = useLanguage();
   const { playSound } = useSound();
@@ -136,7 +144,7 @@ export default function Games() {
                   {cat === "All"
                     ? <Filter className="h-3.5 w-3.5" aria-hidden="true" />
                     : CatIcon && <CatIcon className="h-3.5 w-3.5" aria-hidden="true" />}
-                  {cat === "All" ? t("services.catAll") : cat}
+                  {cat === "All" ? t("services.catAll") : t(CATEGORY_LABEL_KEYS[cat])}
                   {cat !== "All" && <span className="opacity-60">({games.filter(g => g.category === cat).length})</span>}
                 </Button>
               );

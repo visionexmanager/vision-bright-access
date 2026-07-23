@@ -9234,6 +9234,14 @@ export const translations: Record<string, string> = {
   "library.librarian.automation.message.review-session": "{count} bilgi kartının tekrar zamanı geldi.",
   "library.librarian.automation.message.fatigue-break": "Bugün {minutes} dakika okudun — kısa bir mola vermeyi düşün.",
   "library.librarian.automation.message.recommend-challenge": "“{title}” okuma meydan okumasını dene.",
+  "games.cat.Brain": "Zekâ",
+  "games.cat.Strategy": "Strateji",
+  "game.loginToPlay": "Oyunu başlatmak, giriş ücretini düşmek ve VX bakiyeni kaydetmek için giriş yap.",
+  "game.insufficientVX": "Bu oyunu başlatmak için {n} VX gerekiyor.",
+  "game.rewardFailed": "Oyun ödülü eklenemedi",
+  "game.errorTitle": "Bir şeyler ters gitti",
+  "game.errorDescription": "{game} beklenmeyen bir hatayla karşılaştı.",
+  "game.tryAgain": "Tekrar dene",
 };
 
 export default translations;

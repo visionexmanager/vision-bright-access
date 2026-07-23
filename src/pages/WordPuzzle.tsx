@@ -38,13 +38,22 @@ const WORDS: WordEntry[] = [
 ];
 
 function scramble(word: string): string {
-  const arr = word.split("");
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+  const characters = Array.from(word);
+  if (characters.length < 2) return word;
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const shuffled = [...characters];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const result = shuffled.join("");
+    if (result !== word) return result;
   }
-  const result = arr.join("");
-  return result === word ? scramble(word) : result;
+
+  // Words made from repeated characters cannot produce a visibly different
+  // permutation; returning the original keeps the round playable.
+  return word;
 }
 
 // points from games removed — earn VX via Watch Ad or simulations
@@ -94,7 +103,7 @@ export default function WordPuzzle() {
     setAnswer([]);
     const s = scramble(t(words[0].wordKey));
     setScrambled(s);
-    setScrambledArr(s.split(""));
+    setScrambledArr(Array.from(s));
     setGameState("playing");
     playSound("tick");
   };
@@ -103,7 +112,7 @@ export default function WordPuzzle() {
     if (gameState === "playing" && gameWords[round]) {
       const s = scramble(t(gameWords[round].wordKey));
       setScrambled(s);
-      setScrambledArr(s.split(""));
+      setScrambledArr(Array.from(s));
       setSelectedLetters([]);
       setAnswer([]);
       setFeedback(null);
@@ -126,7 +135,7 @@ export default function WordPuzzle() {
 
     // Check if word is complete
     const currentWord = t(gameWords[round].wordKey);
-    if (newAnswer.length === currentWord.length) {
+    if (newAnswer.length === Array.from(currentWord).length) {
       const guess = newAnswer.join("");
       const correct = guess.toUpperCase() === currentWord.toUpperCase() || guess === currentWord;
       const finalScore = correct ? score + 1 : score;

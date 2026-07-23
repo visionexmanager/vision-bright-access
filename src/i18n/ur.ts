@@ -9233,6 +9233,14 @@ export const translations: Record<string, string> = {
   "library.librarian.automation.message.review-session": "{count} فلیش کارڈز کا جائزہ لینا باقی ہے۔",
   "library.librarian.automation.message.fatigue-break": "آپ نے آج {minutes} منٹ پڑھا — تھوڑا وقفہ کرنے پر غور کریں۔",
   "library.librarian.automation.message.recommend-challenge": "“{title}” مطالعے کا چیلنج آزمائیں۔",
+  "games.cat.Brain": "ذہانت",
+  "games.cat.Strategy": "حکمتِ عملی",
+  "game.loginToPlay": "کھیل شروع کرنے، داخلہ فیس کاٹنے اور VX بیلنس محفوظ کرنے کے لیے سائن اِن کریں۔",
+  "game.insufficientVX": "یہ کھیل شروع کرنے کے لیے آپ کو {n} VX درکار ہیں۔",
+  "game.rewardFailed": "کھیل کا انعام شامل نہیں ہو سکا",
+  "game.errorTitle": "کچھ غلط ہو گیا",
+  "game.errorDescription": "{game} میں ایک غیر متوقع خرابی پیش آئی۔",
+  "game.tryAgain": "دوبارہ کوشش کریں",
 };
 
 export default translations;

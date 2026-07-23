@@ -137,7 +137,7 @@ function MusicEarSolo() {
         <p className="text-2xl font-bold">⭐ {score}</p>
         <p className="text-muted-foreground">{t("games.highScore")}: {highScore}</p>
         <Button size="lg" onClick={() => { setScore(0); setRound(1); setFeedback(null); setDone(false); setTarget(NOTE_NAMES[Math.floor(Math.random() * NOTE_NAMES.length)]); }}>
-          {t("earmaster.playAgain")}
+          {t("games.memory.playAgain")}
         </Button>
       </CardContent></Card>
     );

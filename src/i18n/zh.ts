@@ -9234,6 +9234,14 @@ export const translations: Record<string, string> = {
   "library.librarian.automation.message.review-session": "有 {count} 张闪卡需要复习。",
   "library.librarian.automation.message.fatigue-break": "你今天已阅读 {minutes} 分钟，建议稍作休息。",
   "library.librarian.automation.message.recommend-challenge": "试试“{title}”阅读挑战。",
+  "games.cat.Brain": "益智",
+  "games.cat.Strategy": "策略",
+  "game.loginToPlay": "请登录以开始游戏、扣除入场费用并保存 VX 余额。",
+  "game.insufficientVX": "开始此游戏需要 {n} VX。",
+  "game.rewardFailed": "游戏奖励添加失败",
+  "game.errorTitle": "出现错误",
+  "game.errorDescription": "{game} 遇到了意外错误。",
+  "game.tryAgain": "重试",
 };
 
 export default translations;

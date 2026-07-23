@@ -90,7 +90,8 @@ function LaptopBoard() {
     const ns = score + pts;
     setScore(ns);
     setFeedback(correct ? `✅ ${choices[correctIdx]}` : `❌ ${choices[correctIdx]}`);
-    correct ? techRepair() : techError();
+    if (correct) techRepair();
+    else techError();
     advance(ns, correct);
   };
 
@@ -211,7 +212,8 @@ function LaptopMulti() {
     const ns = myScore + (correct ? 100 : 0);
     setMyScore(ns);
     mp.updateMyScore(ns, false);
-    correct ? techRepair() : techError();
+    if (correct) techRepair();
+    else techError();
     setTimeout(() => advance(ns), 800);
   };
 

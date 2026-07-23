@@ -9329,6 +9329,14 @@ export const translations: Record<string, string> = {
   "library.librarian.automation.message.review-session": "{count} फ़्लैशकार्ड की समीक्षा बाकी है।",
   "library.librarian.automation.message.fatigue-break": "आपने आज {minutes} मिनट पढ़ा — थोड़ा विराम लेने पर विचार करें।",
   "library.librarian.automation.message.recommend-challenge": "“{title}” पढ़ने की चुनौती आज़माएँ।",
+  "games.cat.Brain": "दिमाग़ी",
+  "games.cat.Strategy": "रणनीति",
+  "game.loginToPlay": "खेल शुरू करने, प्रवेश शुल्क काटने और VX बैलेंस सहेजने के लिए साइन इन करें।",
+  "game.insufficientVX": "यह खेल शुरू करने के लिए आपको {n} VX चाहिए।",
+  "game.rewardFailed": "खेल का पुरस्कार जोड़ा नहीं जा सका",
+  "game.errorTitle": "कुछ गलत हो गया",
+  "game.errorDescription": "{game} में एक अनपेक्षित त्रुटि आई।",
+  "game.tryAgain": "फिर कोशिश करें",
 };
 
 export default translations;

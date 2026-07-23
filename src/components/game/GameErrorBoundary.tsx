@@ -6,6 +6,9 @@ import { AlertTriangle, RotateCcw } from "lucide-react";
 interface Props {
   children: ReactNode;
   gameName?: string;
+  errorTitle?: string;
+  errorDescription?: string;
+  retryLabel?: string;
 }
 
 interface State {
@@ -39,9 +42,11 @@ export class GameErrorBoundary extends Component<Props, State> {
         <Card className="max-w-md w-full">
           <CardContent className="pt-8 text-center space-y-4">
             <AlertTriangle className="mx-auto h-12 w-12 text-amber-500" />
-            <h2 className="text-xl font-bold">Something went wrong</h2>
+            <h2 className="text-xl font-bold">{this.props.errorTitle ?? "Something went wrong"}</h2>
             {this.props.gameName && (
-              <p className="text-muted-foreground">{this.props.gameName} encountered an unexpected error.</p>
+              <p className="text-muted-foreground">
+                {this.props.errorDescription ?? `${this.props.gameName} encountered an unexpected error.`}
+              </p>
             )}
             {this.state.message && (
               <p className="text-sm font-mono bg-muted rounded p-2 text-left break-words">
@@ -50,7 +55,7 @@ export class GameErrorBoundary extends Component<Props, State> {
             )}
             <Button onClick={this.handleReset} className="gap-2">
               <RotateCcw className="h-4 w-4" />
-              Try Again
+              {this.props.retryLabel ?? "Try Again"}
             </Button>
           </CardContent>
         </Card>
