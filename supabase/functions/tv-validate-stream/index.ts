@@ -173,6 +173,16 @@ Deno.serve(async (req: Request) => {
     return Response.json({ error: "db_update_failed" }, { status: 500, headers: CORS });
   }
 
+  // Pending catalog channels are published only after a real manifest succeeds
+  // from the production edge network.
+  const healthyChannelIds = [...new Set(results.filter(r => r.ok).map(r => r.channelId))];
+  if (healthyChannelIds.length > 0) {
+    await supabase
+      .from("tv_channels")
+      .update({ is_active: true })
+      .in("id", healthyChannelIds);
+  }
+
   // A channel disappears only when every one of its sources has failed three
   // consecutive checks. A transient CDN outage therefore cannot remove it.
   const affectedChannelIds = [...new Set(results.filter(r => r.disable).map(r => r.channelId))];
