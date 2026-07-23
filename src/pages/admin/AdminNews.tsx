@@ -87,7 +87,12 @@ const ICONS = [
 ];
 
 function buildEmailHTML(article: Article): string {
-  const catLabel = CATEGORIES.find((c) => c.value === article.category)?.label ?? article.category;
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]!
+  ));
+  const catLabel = escapeHtml(CATEGORIES.find((c) => c.value === article.category)?.label ?? article.category);
+  const title = escapeHtml(article.title);
+  const description = escapeHtml(article.description);
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -95,10 +100,10 @@ function buildEmailHTML(article: Article): string {
   <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
     <div style="background:linear-gradient(135deg,#0f766e,#0d9488);padding:32px 32px 24px;">
       <p style="margin:0 0 8px;color:#ccfbf1;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">${catLabel} • VisionEx News</p>
-      <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.3;">${article.title}</h1>
+      <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.3;">${title}</h1>
     </div>
     <div style="padding:32px;">
-      <p style="margin:0 0 24px;color:#374151;font-size:16px;line-height:1.75;">${article.description}</p>
+      <p style="margin:0 0 24px;color:#374151;font-size:16px;line-height:1.75;">${description}</p>
       <a href="https://visionex.app/news"
          style="display:inline-block;background:#0f766e;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
         Read More on VisionEx →
@@ -179,6 +184,9 @@ export default function AdminNews() {
     const payload = {
       ...form,
       published_at: form.published ? new Date().toISOString() : null,
+      // A signed-in admin has explicitly reviewed the category and content.
+      quality_status: "verified",
+      category_confidence: 1,
     };
 
     let savedId = editing?.id ?? "";
