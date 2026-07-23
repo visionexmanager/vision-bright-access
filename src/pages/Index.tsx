@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 import { AdBanner } from "@/components/AdBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ArrowRight, Bot, Eye, Radio, ShoppingBag, BookOpen, GraduationCap, UserPlus, Users, Zap, Gift, TrendingUp, Gamepad2, CheckCircle, Lock, Coins, BriefcaseBusiness, WandSparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,10 +12,8 @@ import { CareerCenterSection } from "@/components/career/CareerCenterSection";
 
 export default function Index() {
   const { t } = useLanguage();
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const { playSound } = useSound();
-
-  if (!loading && user) return <Navigate to="/dashboard" replace />;
 
   const features = [
     { icon: ShoppingBag, title: t("home.feature.marketplace"), desc: t("home.feature.marketplaceDesc"), to: "/bazaar",                   requiresAuth: false },
