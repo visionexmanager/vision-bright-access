@@ -182,8 +182,8 @@ function drawCard(state: GameState, playerId: number, community: boolean, random
         { text: "Move back three spaces.", back: 3 },
       ];
   const card = cards[Math.floor(random() * cards.length)];
-  let players = state.players.map((player) => ({ ...player }));
-  let next = addLog({ ...state, players }, `${players[playerId].name}: ${card.text}`);
+  const players = state.players.map((player) => ({ ...player }));
+  const next = addLog({ ...state, players }, `${players[playerId].name}: ${card.text}`);
   if ("cash" in card && card.cash) {
     if (card.cash > 0) players[playerId].cash += card.cash;
     else return transfer(next, playerId, null, -card.cash, "for a card");
@@ -340,7 +340,7 @@ export function toggleMortgage(state: GameState, spaceIndex: number): GameState 
   }, `${space.name} was ${owned.mortgaged ? "unmortgaged" : "mortgaged"}.`);
 }
 
-export function useJailOption(state: GameState, option: "pay" | "card"): GameState {
+export function leaveJail(state: GameState, option: "pay" | "card"): GameState {
   const player = state.players[state.currentPlayer];
   if (!player.inJail) return state;
   const players = state.players.map((item) => ({ ...item }));

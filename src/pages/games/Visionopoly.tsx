@@ -10,7 +10,7 @@ import { Building2, Dice5, Hotel, RotateCcw, Save, ShieldAlert, Sparkles, Trophy
 import {
   BOARD, BoardSpace, GameState, buildOn, buyPending, canBuild, createGame,
   declinePending, endTurn, isValidSavedGame, netWorth, rollDice, sellBuilding,
-  toggleMortgage, tradeProperty, useJailOption,
+  toggleMortgage, tradeProperty, leaveJail,
 } from "@/lib/games/visionopolyEngine";
 
 const STORAGE_KEY = "visionex-visionopoly-save-v1";
@@ -87,7 +87,7 @@ export default function Visionopoly() {
           return space.price && bot.cash >= space.price + 250 ? buyPending(current) : declinePending(current);
         }
         if (current.dice[0] === 0) {
-          if (bot.inJail && bot.cash > 350) return useJailOption(current, "pay");
+          if (bot.inJail && bot.cash > 350) return leaveJail(current, "pay");
           return rollDice(current);
         }
         const buildable = Object.keys(current.properties).map(Number).find((index) =>
@@ -212,7 +212,7 @@ export default function Visionopoly() {
                   <p className="mt-1 text-sm font-semibold text-emerald-800">BUILD • TRADE • WIN</p>
                   <div className="mt-8 flex items-center gap-4"><span className="rounded-xl bg-white p-4 text-4xl shadow">{state.dice[0] || "–"}</span><span className="rounded-xl bg-white p-4 text-4xl shadow">{state.dice[1] || "–"}</span></div>
                   <p className="mt-5 font-bold">{current.token} {current.id === 0 && ar ? "دورك" : `${current.name}'s turn`}</p>
-                  {humanTurn && current.inJail && <div className="mt-4 rounded-lg bg-red-100 p-3"><p className="mb-2 font-bold text-red-700"><ShieldAlert className="me-1 inline h-4 w-4" />{text.jail}</p><div className="flex gap-2"><Button size="sm" onClick={() => setState(useJailOption(state, "pay"))} disabled={current.cash < 50}>{text.pay}</Button>{current.getOutCards > 0 && <Button size="sm" variant="outline" onClick={() => setState(useJailOption(state, "card"))}>{text.card}</Button>}</div></div>}
+                  {humanTurn && current.inJail && <div className="mt-4 rounded-lg bg-red-100 p-3"><p className="mb-2 font-bold text-red-700"><ShieldAlert className="me-1 inline h-4 w-4" />{text.jail}</p><div className="flex gap-2"><Button size="sm" onClick={() => setState(leaveJail(state, "pay"))} disabled={current.cash < 50}>{text.pay}</Button>{current.getOutCards > 0 && <Button size="sm" variant="outline" onClick={() => setState(leaveJail(state, "card"))}>{text.card}</Button>}</div></div>}
                   {humanTurn && pendingSpace && <div className="mt-4 rounded-lg bg-white p-4 shadow"><p className="font-bold">{ar ? pendingSpace.nameAr : pendingSpace.name} — {money(pendingSpace.price ?? 0)}</p><div className="mt-2 flex justify-center gap-2"><Button onClick={() => setState(buyPending(state))} disabled={current.cash < (pendingSpace.price ?? 0)}>{text.buy}</Button><Button variant="outline" onClick={() => setState(declinePending(state))}>{text.skip}</Button></div></div>}
                   {humanTurn && !state.pending && <div className="mt-5">{state.dice[0] === 0 ? <Button size="lg" onClick={() => setState(rollDice(state))}><Dice5 className="me-2" />{text.roll}</Button> : <Button size="lg" onClick={() => setState(endTurn(state))}>{text.end}</Button>}</div>}
                   {!humanTurn && <p className="mt-5 animate-pulse text-sm text-violet-700">{text.waiting}</p>}
