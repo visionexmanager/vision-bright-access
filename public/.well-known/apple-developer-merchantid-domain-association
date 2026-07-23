@@ -1,0 +1,17 @@
+PLACEHOLDER — this file must be replaced before Apple Pay will work on this domain.
+
+Apple Pay (surfaced automatically inside Stripe Checkout's "card" payment
+method once enabled — see library-checkout-session's createStripeSession,
+which intentionally never restricts payment_method_types so the Dashboard's
+enabled methods, including Apple/Google Pay, are offered automatically)
+requires this exact file to be the real domain-association file Stripe
+generates for you:
+
+  Stripe Dashboard -> Settings -> Payment methods -> Apple Pay
+  -> Add a new domain -> download the verification file
+  -> replace this file's contents with it exactly (binary, do not edit)
+
+This cannot be generated or verified from this environment — it is tied to
+your live Stripe account and this domain's DNS. Until replaced, Apple Pay
+will not appear as a payment option even though the rest of the checkout
+flow works normally with card/Google Pay.

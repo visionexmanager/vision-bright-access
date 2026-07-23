@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -23,6 +23,8 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{name?: string; email?: string; password?: string}>({});
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const referredBy = searchParams.get("ref");
   const { t, lang } = useLanguage();
   const deviceId = useDeviceId();
   const { user, loading: authLoading } = useAuth();
@@ -104,7 +106,7 @@ export default function Signup() {
         email: email.trim().toLowerCase(),
         password,
         options: {
-          data: { display_name: displayName.trim() },
+          data: { display_name: displayName.trim(), ...(referredBy ? { referred_by: referredBy } : {}) },
           emailRedirectTo: `${window.location.origin}/dashboard`,
         },
       });

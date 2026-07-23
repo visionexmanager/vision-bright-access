@@ -10,7 +10,7 @@ import type { AcademyCertificateVerificationRow } from "@/lib/types/academy-cert
 import { getCourseByIdAny, getLessonsForCourseAny, getInstructorByIdAny } from "./instructorLocalStore";
 import { getCourseProgress } from "./lessonLocalStore";
 import { getQuizForLessonAny, getQuizAttempts, getAssignmentForLessonAny, getAssignmentSubmissions } from "./assessmentLocalStore";
-import { readJSON, writeJSON } from "./localStorageUtils";
+import { readJSON, writeJSON } from "../storage/localStorageUtils";
 
 const CERTIFICATES_KEY = "academy:certificates";
 const VERIFICATIONS_KEY = "academy:certificate-verifications";

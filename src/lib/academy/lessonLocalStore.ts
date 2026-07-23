@@ -12,7 +12,7 @@
  */
 
 import type { AcademyLessonNoteRow, AcademyLessonBookmarkRow, AcademyLessonProgressRow } from "@/lib/types/academy-lms";
-import { readJSON, writeJSON } from "./localStorageUtils";
+import { readJSON, writeJSON } from "../storage/localStorageUtils";
 
 const PROGRESS_KEY = "academy:lesson-progress";
 const NOTES_KEY = "academy:lesson-notes";

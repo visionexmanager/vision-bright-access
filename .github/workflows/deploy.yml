@@ -103,6 +103,44 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
 
+      - name: Deploy Library edge functions
+        run: |
+          supabase functions deploy library-track-reading    --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-sync-progress    --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-reward-vx        --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-book-analytics   --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-recommend-books  --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-generate-quotes  --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-import-book      --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-purchase-book    --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-ai-assistant     --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-ai-chat          --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-embed-book       --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-generate-narration --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-ai-writing-assistant --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-checkout-session --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-stripe-webhook   --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-semantic-search  --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-paypal-checkout  --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-paypal-webhook   --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-crypto-checkout  --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-crypto-webhook   --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-ai-classify-book --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-detect-series    --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-translate-book-metadata --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-build-knowledge-graph --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-process-background-jobs --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-recommend-community --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-summarize-discussion --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-translate-comment --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-generate-reading-plan --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-generate-flashcard-deck --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-generate-practice-exam --project-ref $SUPABASE_PROJECT_REF
+          supabase functions deploy library-issue-certificate --project-ref $SUPABASE_PROJECT_REF
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+
   # ── 3. Run pending DB migrations ──────────────────────────────────────────────
   # Always runs `db push` — every migration file uses `if not exists` / `if exists`
   # guards, so re-applying already-applied migrations is a safe no-op. A prior

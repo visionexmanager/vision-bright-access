@@ -29,7 +29,7 @@ import {
   getAllCategories as getMockCategories,
   type MockCourseFilters,
 } from "./mockCourses";
-import { readJSON, writeJSON } from "./localStorageUtils";
+import { readJSON, writeJSON } from "../storage/localStorageUtils";
 
 const APPLICATION_KEY = "academy:instructor-application"; // single application per browser (demo scope)
 const INSTRUCTOR_PROFILE_KEY = "academy:my-instructor-profile";

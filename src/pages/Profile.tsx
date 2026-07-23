@@ -18,7 +18,7 @@ import { Navigate, Link, useNavigate } from "react-router-dom";
 import {
   Camera, Save, Trophy, Star, Flame, Target,
   Gamepad2, BookOpen, Users, TrendingUp, Award, Coins, ShoppingBag, ArrowRight, Clock,
-  MessageCircle, Search, Send, FileText, Paperclip, Calendar,
+  MessageCircle, Search, Send, FileText, Paperclip, Calendar, Library, GraduationCap,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -32,6 +32,8 @@ import { toast as sonnerToast } from "sonner";
 import { formatVX } from "@/systems/pricingSystem";
 import { useAdmin } from "@/hooks/useAdmin";
 import { ShieldCheck } from "lucide-react";
+import { fetchReaderProfileStats } from "@/services/library/readerProfile";
+import { fetchMyCertificates } from "@/services/library/certificates";
 
 const DATE_LOCALES: Record<string, typeof enUS> = {
   ar: arLocale, es, de, pt, zh: zhCN, tr, fr, ru,
@@ -154,6 +156,19 @@ export default function Profile() {
       if (error) throw error;
       return data ?? [];
     },
+  });
+
+  // Library stats (books read/reading, reviews, certificates)
+  const { data: libraryStats } = useQuery({
+    queryKey: ["library-profile-stats", user?.id],
+    enabled: !!user,
+    queryFn: () => fetchReaderProfileStats(user!.id),
+  });
+
+  const { data: libraryCertificates = [] } = useQuery({
+    queryKey: ["library-certificates-count", user?.id],
+    enabled: !!user,
+    queryFn: () => fetchMyCertificates(user!.id),
   });
 
   useEffect(() => {
@@ -378,6 +393,36 @@ export default function Profile() {
                 <s.icon className={`h-6 w-6 ${s.color}`} />
                 <span className="text-2xl font-bold">{s.value}</span>
                 <span className="text-xs text-muted-foreground">{s.sub}</span>
+                <span className="text-xs font-medium">{s.label}</span>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Library */}
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Library className="h-5 w-5 text-primary" />
+            {t("profile.library.title")}
+          </h2>
+          <Button asChild variant="ghost" size="sm" className="gap-1.5">
+            <Link to={`/library/profile/${user.id}`}>
+              {t("profile.library.viewProfile")}
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          </Button>
+        </div>
+        <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {[
+            { icon: BookOpen, label: t("profile.library.booksRead"), value: libraryStats?.booksReadCount ?? 0, color: "text-emerald-500" },
+            { icon: Library, label: t("profile.library.booksReading"), value: libraryStats?.booksReadingCount ?? 0, color: "text-blue-500" },
+            { icon: Star, label: t("profile.library.reviews"), value: libraryStats?.reviewsCount ?? 0, color: "text-yellow-500" },
+            { icon: GraduationCap, label: t("profile.library.certificates"), value: libraryCertificates.length, color: "text-purple-500" },
+          ].map((s) => (
+            <Card key={s.label} className="text-center transition-shadow hover:shadow-md">
+              <CardContent className="flex flex-col items-center gap-1 p-4">
+                <s.icon className={`h-6 w-6 ${s.color}`} aria-hidden="true" />
+                <span className="text-2xl font-bold">{s.value}</span>
                 <span className="text-xs font-medium">{s.label}</span>
               </CardContent>
             </Card>

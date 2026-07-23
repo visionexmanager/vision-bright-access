@@ -20,7 +20,7 @@ import type {
   AcademyProjectRow, AcademyProjectSubmissionRow,
 } from "@/lib/types/academy-lms";
 import { MOCK_QUIZZES, MOCK_ASSIGNMENTS, MOCK_PROJECTS } from "./mockAssessments";
-import { readJSON, writeJSON } from "./localStorageUtils";
+import { readJSON, writeJSON } from "../storage/localStorageUtils";
 
 const QUIZZES_KEY = "academy:quizzes";
 const QUIZ_QUESTIONS_KEY = "academy:quiz-questions";

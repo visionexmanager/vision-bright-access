@@ -6,7 +6,7 @@
 
 import type { AcademyScholarshipRow, AcademyScholarshipCategory, AcademyScholarshipFundingLevel } from "@/lib/types/academy-modules";
 import type { AcademyScholarshipReminderRow } from "@/lib/types/academy-scholarship";
-import { readJSON, writeJSON } from "./localStorageUtils";
+import { readJSON, writeJSON } from "../storage/localStorageUtils";
 
 const SCHOLARSHIPS_KEY = "academy:scholarships";
 const SAVED_KEY = "academy:saved-scholarships";

@@ -6,7 +6,7 @@
 
 import type { AcademyUniversityRow } from "@/lib/types/academy-modules";
 import type { AcademyUniversityReviewRow } from "@/lib/types/academy-university";
-import { readJSON, writeJSON } from "./localStorageUtils";
+import { readJSON, writeJSON } from "../storage/localStorageUtils";
 
 const UNIVERSITIES_KEY = "academy:universities";
 const FAVORITES_KEY = "academy:favorite-universities";

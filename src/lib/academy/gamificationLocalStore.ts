@@ -32,7 +32,7 @@ import { getAllQuizAttemptsForUser, getAllProjectSubmissionsForUser } from "./as
 import { getMyCertificates } from "./certificateLocalStore";
 import { getAllReadingProgressForUser } from "./libraryLocalStore";
 import { getAcademyLevelInfo } from "./leveling";
-import { readJSON, writeJSON } from "./localStorageUtils";
+import { readJSON, writeJSON } from "../storage/localStorageUtils";
 
 const ACHIEVEMENTS_KEY = "academy:user-achievements";
 const STREAK_KEY = "academy:streak";

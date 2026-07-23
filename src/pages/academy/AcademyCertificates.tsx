@@ -6,11 +6,22 @@ import { Award, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHeader";
 import { CertificateCard } from "@/components/academy/assessment/CertificateCard";
+import { CertificateCard as LibraryCertificateCard } from "@/components/library/learning/CertificateCard";
 import { getMyCertificates } from "@/lib/academy/certificateLocalStore";
+import { useCertificates } from "@/hooks/library/useCertificates";
 
 export default function AcademyCertificates() {
   const { user } = useAuth();
   const certificates = useMemo(() => (user ? getMyCertificates(user.id) : []), [user]);
+  // Book-to-Course integration: courses converted from Library books issue
+  // real, signed Learning Hub certificates (library_certificates) rather
+  // than this page's own local-storage ones — surfaced here too so a
+  // student sees every course certificate in one place.
+  const { certificates: libraryCourseCertificates } = useCertificates();
+  const courseCertificates = useMemo(
+    () => libraryCourseCertificates.filter((c) => c.certificate_type === "course"),
+    [libraryCourseCertificates],
+  );
 
   return (
     <Layout>
@@ -40,6 +51,20 @@ export default function AcademyCertificates() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {certificates.map((c) => <CertificateCard key={c.id} certificate={c} />)}
+          </div>
+        )}
+
+        {courseCertificates.length > 0 && (
+          <div className="space-y-4">
+            <AcademySectionHeader
+              icon={Award}
+              title="شهادات دورات المكتبة"
+              description={`${courseCertificates.length} شهادة`}
+              headingId="library-course-certificates-heading"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {courseCertificates.map((c) => <LibraryCertificateCard key={c.id} certificate={c} />)}
+            </div>
           </div>
         )}
       </div>

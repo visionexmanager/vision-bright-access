@@ -10,7 +10,7 @@
 import type { AcademyStudyGoalRow, AcademyStudyGoalProgress, AcademyStudyDayActivity } from "@/lib/types/academy-planner";
 import { searchCoursesAny, getLessonsForCourseAny } from "./instructorLocalStore";
 import { getAllProgressForUser } from "./lessonLocalStore";
-import { readJSON, writeJSON } from "./localStorageUtils";
+import { readJSON, writeJSON } from "../storage/localStorageUtils";
 
 const GOALS_KEY = "academy:study-goals";
 

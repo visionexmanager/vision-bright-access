@@ -13,7 +13,7 @@ import type {
   AcademyReadingProgressRow, AcademyResourceNoteRow, AcademyResourceHighlightRow,
   AcademyResourceFavoriteRow, AcademyResourceReviewRow, AcademyResourceCollectionRow,
 } from "@/lib/types/academy-library";
-import { readJSON, writeJSON } from "./localStorageUtils";
+import { readJSON, writeJSON } from "../storage/localStorageUtils";
 
 const RESOURCES_KEY = "academy:library-resources";
 const BOOKMARKS_KEY = "academy:library-bookmarks";

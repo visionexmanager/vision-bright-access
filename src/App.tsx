@@ -62,6 +62,122 @@ const AdminAcademyStudents = lazy(() => import("./pages/admin/AdminAcademyStuden
 const AdminAcademyGamification = lazy(() => import("./pages/admin/AdminAcademyGamification"));
 const AdminAcademyAnalytics = lazy(() => import("./pages/admin/AdminAcademyAnalytics"));
 const AdminUniversities = lazy(() => import("./pages/admin/AdminUniversities"));
+
+// Library — books/audiobooks section (Phase 1 architecture prep, distinct from academy/library)
+const LibraryHome = lazy(() => import("./pages/library/LibraryHome"));
+const LibraryCategories = lazy(() => import("./pages/library/LibraryCategories"));
+const LibraryCategoryDetails = lazy(() => import("./pages/library/LibraryCategoryDetails"));
+const LibraryBooksExplorer = lazy(() => import("./pages/library/LibraryBooksExplorer"));
+const LibraryBookDetails = lazy(() => import("./pages/library/LibraryBookDetails"));
+const LibraryReader = lazy(() => import("./pages/library/LibraryReader"));
+const LibraryAudiobooks = lazy(() => import("./pages/library/LibraryAudiobooks"));
+const LibraryAudiobookPlayer = lazy(() => import("./pages/library/LibraryAudiobookPlayer"));
+const LibraryAuthors = lazy(() => import("./pages/library/LibraryAuthors"));
+const LibraryAuthorProfile = lazy(() => import("./pages/library/LibraryAuthorProfile"));
+const LibrarySearch = lazy(() => import("./pages/library/LibrarySearch"));
+const LibraryQuotes = lazy(() => import("./pages/library/LibraryQuotes"));
+const LibraryMyLibrary = lazy(() => import("./pages/library/LibraryMyLibrary"));
+const LibraryReadingLists = lazy(() => import("./pages/library/LibraryReadingLists"));
+const LibraryFavorites = lazy(() => import("./pages/library/LibraryFavorites"));
+const LibraryContinueReading = lazy(() => import("./pages/library/LibraryContinueReading"));
+const LibraryDownloads = lazy(() => import("./pages/library/LibraryDownloads"));
+const LibraryReviews = lazy(() => import("./pages/library/LibraryReviews"));
+const LibraryCommunity = lazy(() => import("./pages/library/LibraryCommunity"));
+const LibraryDashboard = lazy(() => import("./pages/library/LibraryDashboard"));
+const LibraryAdmin = lazy(() => import("./pages/library/LibraryAdmin"));
+
+// Book Marketplace (Phase 10) — public storefront pages, plus one
+// personal (AuthGuard) wishlist page.
+const LibraryWishlistPage = lazy(() => import("./pages/library/LibraryWishlistPage"));
+const LibraryPublisherProfile = lazy(() => import("./pages/library/LibraryPublisherProfile"));
+const LibraryCollectionDetail = lazy(() => import("./pages/library/LibraryCollectionDetail"));
+const LibrarySeriesDetail = lazy(() => import("./pages/library/LibrarySeriesDetail"));
+const LibraryBundleDetail = lazy(() => import("./pages/library/LibraryBundleDetail"));
+
+// Library Author Publishing Studio (Phase 9) — distinct from the reader-side
+// pages above; the author-facing dashboard/creation/editor/collaboration
+// surface, gated by AuthGuard (not AdminRoute — any signed-in user can
+// become an author via the self-service flow).
+const LibraryStudioDashboard = lazy(() => import("./pages/library/studio/LibraryStudioDashboard"));
+const LibraryBecomeAuthor = lazy(() => import("./pages/library/studio/LibraryBecomeAuthor"));
+const LibraryStudioBookWizard = lazy(() => import("./pages/library/studio/LibraryStudioBookWizard"));
+const LibraryStudioBookOverview = lazy(() => import("./pages/library/studio/LibraryStudioBookOverview"));
+const LibraryStudioEditor = lazy(() => import("./pages/library/studio/LibraryStudioEditor"));
+const LibraryStudioAnalytics = lazy(() => import("./pages/library/studio/LibraryStudioAnalytics"));
+
+// Global Digital Library (Phase 11) — public-domain import review + curated
+// collections admin (both AdminRoute-gated), and the public knowledge-graph
+// navigator (browsing, no auth required — same as authors/categories/etc.).
+const LibraryImportReview = lazy(() => import("./pages/library/LibraryImportReview"));
+const LibraryCollectionsAdmin = lazy(() => import("./pages/library/LibraryCollectionsAdmin"));
+const LibraryKnowledgeGraph = lazy(() => import("./pages/library/LibraryKnowledgeGraph"));
+const LibraryKnowledgeGraphEntity = lazy(() => import("./pages/library/LibraryKnowledgeGraphEntity"));
+
+// Knowledge & Research Platform (Phase 14) — knowledge maps, timelines, AI
+// semantic search, the multi-book Research Assistant, and the Research
+// Workspace (projects/collaboration). Public browsing where the underlying
+// data is public (knowledge maps/timelines mirror the Knowledge Graph's own
+// public-read rule); personal/collaborative surfaces enforced by RLS.
+const LibraryKnowledgeMap = lazy(() => import("./pages/library/LibraryKnowledgeMap"));
+const LibraryTimelines = lazy(() => import("./pages/library/LibraryTimelines"));
+const LibraryTimelineDetail = lazy(() => import("./pages/library/LibraryTimelineDetail"));
+const LibraryAiSearch = lazy(() => import("./pages/library/LibraryAiSearch"));
+const LibraryResearchAssistant = lazy(() => import("./pages/library/LibraryResearchAssistant"));
+const LibraryResearchAnalysisDetail = lazy(() => import("./pages/library/LibraryResearchAnalysisDetail"));
+const LibraryResearchProjects = lazy(() => import("./pages/library/LibraryResearchProjects"));
+const LibraryResearchProjectDetail = lazy(() => import("./pages/library/LibraryResearchProjectDetail"));
+const LibraryAiInsights = lazy(() => import("./pages/library/LibraryAiInsights"));
+
+// AI Personal Librarian (Phase 15) — a unifying AI companion dashboard tying
+// together data from every prior phase (profile, preferences, daily plans,
+// goals, recommendations, chat, privacy). All personal, AuthGuard-ed.
+const LibraryLibrarian = lazy(() => import("./pages/library/LibraryLibrarian"));
+const LibraryLibrarianProfile = lazy(() => import("./pages/library/LibraryLibrarianProfile"));
+const LibraryLibrarianChat = lazy(() => import("./pages/library/LibraryLibrarianChat"));
+const LibraryLibrarianSummaries = lazy(() => import("./pages/library/LibraryLibrarianSummaries"));
+const LibraryLibrarianPrivacy = lazy(() => import("./pages/library/LibraryLibrarianPrivacy"));
+
+// Enterprise & Organization Platform (Phase 17) — multi-tenant orgs (schools/
+// universities/companies/government/NGOs/libraries) with member management,
+// groups, private resource libraries, granular permissions, licensing,
+// learning-management assignments, analytics/reports, and security settings.
+// All personal/organizational, AuthGuard-ed.
+const LibraryOrganizations = lazy(() => import("./pages/library/LibraryOrganizations"));
+const LibraryOrganizationDashboard = lazy(() => import("./pages/library/LibraryOrganizationDashboard"));
+const LibraryOrganizationMembers = lazy(() => import("./pages/library/LibraryOrganizationMembers"));
+const LibraryOrganizationGroups = lazy(() => import("./pages/library/LibraryOrganizationGroups"));
+const LibraryOrganizationResources = lazy(() => import("./pages/library/LibraryOrganizationResources"));
+const LibraryOrganizationPermissions = lazy(() => import("./pages/library/LibraryOrganizationPermissions"));
+const LibraryOrganizationLicenses = lazy(() => import("./pages/library/LibraryOrganizationLicenses"));
+const LibraryOrganizationAssignments = lazy(() => import("./pages/library/LibraryOrganizationAssignments"));
+const LibraryOrganizationAnalytics = lazy(() => import("./pages/library/LibraryOrganizationAnalytics"));
+const LibraryOrganizationSecurity = lazy(() => import("./pages/library/LibraryOrganizationSecurity"));
+
+// Reading Community (Phase 12) — reader profiles, book clubs, discussions,
+// events, and a leaderboard. Public browsing (profiles/clubs respect their
+// own visibility/privacy rules server-side), personal actions AuthGuard-ed.
+const LibraryReaderProfile = lazy(() => import("./pages/library/LibraryReaderProfile"));
+const LibraryClubs = lazy(() => import("./pages/library/LibraryClubs"));
+const LibraryClubDetail = lazy(() => import("./pages/library/LibraryClubDetail"));
+const LibraryDiscussionTopic = lazy(() => import("./pages/library/LibraryDiscussionTopic"));
+const LibraryChallenges = lazy(() => import("./pages/library/LibraryChallenges"));
+const LibraryEvents = lazy(() => import("./pages/library/LibraryEvents"));
+const LibraryLeaderboard = lazy(() => import("./pages/library/LibraryLeaderboard"));
+
+// Learning Hub (Phase 13) — learning paths, flashcards, quizzes, AI study
+// assistant, analytics, and certificates. Certificate verification is
+// public (no auth required — anyone with a certificate number can confirm
+// authenticity); everything else is personal, AuthGuard-ed.
+const LibraryLearningPaths = lazy(() => import("./pages/library/LibraryLearningPaths"));
+const LibraryLearningPathDetail = lazy(() => import("./pages/library/LibraryLearningPathDetail"));
+const LibraryFlashcards = lazy(() => import("./pages/library/LibraryFlashcards"));
+const LibraryFlashcardStudyDeck = lazy(() => import("./pages/library/LibraryFlashcardStudyDeck"));
+const LibraryQuizTake = lazy(() => import("./pages/library/LibraryQuizTake"));
+const LibraryStudyAssistant = lazy(() => import("./pages/library/LibraryStudyAssistant"));
+const LibraryLearningAnalytics = lazy(() => import("./pages/library/LibraryLearningAnalytics"));
+const LibraryCertificates = lazy(() => import("./pages/library/LibraryCertificates"));
+const LibraryCertificateVerify = lazy(() => import("./pages/library/LibraryCertificateVerify"));
+
 const Content = lazy(() => import("./pages/Content"));
 const ContactUs = lazy(() => import("./pages/ContactUs"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
@@ -276,6 +392,101 @@ function AppRoutes() {
                     {/* Public — certificate verification must work without an account (QR codes, shared links, employers). */}
                     <Route path="/academy/verify" element={<AcademyCertificateVerify />} />
                     <Route path="/academy/verify/:certificateNumber" element={<AcademyCertificateVerify />} />
+
+                    {/* Library — books/audiobooks (Phase 1 architecture prep). Public browsing, gated personal pages. */}
+                    <Route path="/library" element={<LibraryHome />} />
+                    <Route path="/library/categories" element={<LibraryCategories />} />
+                    <Route path="/library/categories/:slug" element={<LibraryCategoryDetails />} />
+                    <Route path="/library/books" element={<LibraryBooksExplorer />} />
+                    <Route path="/library/books/:bookId" element={<LibraryBookDetails />} />
+                    <Route path="/library/read/:bookId" element={<LibraryReader />} />
+                    <Route path="/library/audiobooks" element={<LibraryAudiobooks />} />
+                    <Route path="/library/audiobooks/:audiobookId" element={<LibraryAudiobookPlayer />} />
+                    <Route path="/library/authors" element={<LibraryAuthors />} />
+                    <Route path="/library/authors/:authorId" element={<LibraryAuthorProfile />} />
+                    <Route path="/library/search" element={<LibrarySearch />} />
+                    <Route path="/library/quotes" element={<LibraryQuotes />} />
+                    <Route path="/library/my-library" element={<AuthGuard><LibraryMyLibrary /></AuthGuard>} />
+                    <Route path="/library/reading-lists" element={<AuthGuard><LibraryReadingLists /></AuthGuard>} />
+                    <Route path="/library/favorites" element={<AuthGuard><LibraryFavorites /></AuthGuard>} />
+                    <Route path="/library/continue-reading" element={<AuthGuard><LibraryContinueReading /></AuthGuard>} />
+                    <Route path="/library/downloads" element={<AuthGuard><LibraryDownloads /></AuthGuard>} />
+                    <Route path="/library/reviews" element={<AuthGuard><LibraryReviews /></AuthGuard>} />
+                    <Route path="/library/community" element={<AuthGuard><LibraryCommunity /></AuthGuard>} />
+                    <Route path="/library/dashboard" element={<AuthGuard><LibraryDashboard /></AuthGuard>} />
+                    <Route path="/library/admin" element={<AdminRoute><LibraryAdmin /></AdminRoute>} />
+
+                    {/* Book Marketplace (Phase 10) — public storefront pages. */}
+                    <Route path="/library/wishlist" element={<AuthGuard><LibraryWishlistPage /></AuthGuard>} />
+                    <Route path="/library/publishers/:slug" element={<LibraryPublisherProfile />} />
+                    <Route path="/library/collections/:slug" element={<LibraryCollectionDetail />} />
+                    <Route path="/library/series/:slug" element={<LibrarySeriesDetail />} />
+                    <Route path="/library/bundles/:bundleId" element={<LibraryBundleDetail />} />
+
+                    {/* Author Publishing Studio (Phase 9) — self-service; any signed-in user may become an author. */}
+                    <Route path="/library/studio" element={<AuthGuard><LibraryStudioDashboard /></AuthGuard>} />
+                    <Route path="/library/studio/become-author" element={<AuthGuard><LibraryBecomeAuthor /></AuthGuard>} />
+                    <Route path="/library/studio/books/new" element={<AuthGuard><LibraryStudioBookWizard /></AuthGuard>} />
+                    <Route path="/library/studio/books/:bookId" element={<AuthGuard><LibraryStudioBookOverview /></AuthGuard>} />
+                    <Route path="/library/studio/books/:bookId/edit/:chapterId" element={<AuthGuard><LibraryStudioEditor /></AuthGuard>} />
+                    <Route path="/library/studio/books/:bookId/analytics" element={<AuthGuard><LibraryStudioAnalytics /></AuthGuard>} />
+
+                    {/* Global Digital Library (Phase 11). */}
+                    <Route path="/library/import-review" element={<AdminRoute><LibraryImportReview /></AdminRoute>} />
+                    <Route path="/library/collections-admin" element={<AdminRoute><LibraryCollectionsAdmin /></AdminRoute>} />
+                    <Route path="/library/knowledge-graph" element={<LibraryKnowledgeGraph />} />
+                    <Route path="/library/knowledge-graph/:slug" element={<LibraryKnowledgeGraphEntity />} />
+
+                    {/* Knowledge & Research Platform (Phase 14). */}
+                    <Route path="/library/knowledge-map/:entityId" element={<LibraryKnowledgeMap />} />
+                    <Route path="/library/timelines" element={<LibraryTimelines />} />
+                    <Route path="/library/timelines/:timelineId" element={<LibraryTimelineDetail />} />
+                    <Route path="/library/ai-search" element={<LibraryAiSearch />} />
+                    <Route path="/library/research-assistant" element={<AuthGuard><LibraryResearchAssistant /></AuthGuard>} />
+                    <Route path="/library/research-assistant/:analysisId" element={<AuthGuard><LibraryResearchAnalysisDetail /></AuthGuard>} />
+                    <Route path="/library/research-projects" element={<AuthGuard><LibraryResearchProjects /></AuthGuard>} />
+                    <Route path="/library/research-projects/:projectId" element={<AuthGuard><LibraryResearchProjectDetail /></AuthGuard>} />
+                    <Route path="/library/ai-insights" element={<LibraryAiInsights />} />
+
+                    {/* AI Personal Librarian (Phase 15). */}
+                    <Route path="/library/librarian" element={<AuthGuard><LibraryLibrarian /></AuthGuard>} />
+                    <Route path="/library/librarian/profile" element={<AuthGuard><LibraryLibrarianProfile /></AuthGuard>} />
+                    <Route path="/library/librarian/chat" element={<AuthGuard><LibraryLibrarianChat /></AuthGuard>} />
+                    <Route path="/library/librarian/summaries" element={<AuthGuard><LibraryLibrarianSummaries /></AuthGuard>} />
+                    <Route path="/library/librarian/privacy" element={<AuthGuard><LibraryLibrarianPrivacy /></AuthGuard>} />
+
+                    {/* Enterprise & Organization Platform (Phase 17). */}
+                    <Route path="/library/organizations" element={<AuthGuard><LibraryOrganizations /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug" element={<AuthGuard><LibraryOrganizationDashboard /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/members" element={<AuthGuard><LibraryOrganizationMembers /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/groups" element={<AuthGuard><LibraryOrganizationGroups /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/resources" element={<AuthGuard><LibraryOrganizationResources /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/permissions" element={<AuthGuard><LibraryOrganizationPermissions /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/licenses" element={<AuthGuard><LibraryOrganizationLicenses /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/assignments" element={<AuthGuard><LibraryOrganizationAssignments /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/analytics" element={<AuthGuard><LibraryOrganizationAnalytics /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/security" element={<AuthGuard><LibraryOrganizationSecurity /></AuthGuard>} />
+
+                    {/* Reading Community (Phase 12). */}
+                    <Route path="/library/profile/:userId" element={<LibraryReaderProfile />} />
+                    <Route path="/library/clubs" element={<LibraryClubs />} />
+                    <Route path="/library/clubs/:slug" element={<LibraryClubDetail />} />
+                    <Route path="/library/discussions/:topicId" element={<LibraryDiscussionTopic />} />
+                    <Route path="/library/challenges" element={<LibraryChallenges />} />
+                    <Route path="/library/events" element={<LibraryEvents />} />
+                    <Route path="/library/leaderboard" element={<LibraryLeaderboard />} />
+
+                    {/* Learning Hub (Phase 13). */}
+                    <Route path="/library/learning-paths" element={<LibraryLearningPaths />} />
+                    <Route path="/library/learning-paths/:pathId" element={<LibraryLearningPathDetail />} />
+                    <Route path="/library/flashcards" element={<LibraryFlashcards />} />
+                    <Route path="/library/flashcards/:deckId" element={<LibraryFlashcardStudyDeck />} />
+                    <Route path="/library/quizzes/:quizId" element={<LibraryQuizTake />} />
+                    <Route path="/library/study-assistant" element={<LibraryStudyAssistant />} />
+                    <Route path="/library/learning-analytics" element={<LibraryLearningAnalytics />} />
+                    <Route path="/library/certificates" element={<LibraryCertificates />} />
+                    <Route path="/library/certificates/verify/:certificateNumber" element={<LibraryCertificateVerify />} />
+
                     <Route path="/content" element={<Content />} />
                     <Route path="/contact-us" element={<ContactUs />} />
                     <Route path="/contact" element={<Navigate to="/contact-us" replace />} />
