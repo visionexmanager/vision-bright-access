@@ -16,6 +16,12 @@ import type {
 
 const db = supabase as any;
 
+async function requireUserId(): Promise<string> {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) throw new Error("Not authenticated");
+  return user.id;
+}
+
 // ── Projects ──────────────────────────────────────────────────────────────────
 
 export async function listProjects(filters: ProjectFilters = {}): Promise<AMSProject[]> {
@@ -48,9 +54,10 @@ export async function getProject(id: string): Promise<AMSProject | null> {
 }
 
 export async function createProject(input: CreateProjectInput): Promise<AMSProject> {
+  const ownerId = await requireUserId();
   const { data, error } = await db
     .from("ams_projects")
-    .insert(input)
+    .insert({ ...input, owner_id: ownerId })
     .select()
     .single();
   if (error) throw error;
@@ -138,9 +145,10 @@ export async function listAssets(filters: AssetFilters = {}): Promise<AMSAsset[]
 }
 
 export async function createAssetRecord(input: CreateAssetInput): Promise<AMSAsset> {
+  const ownerId = await requireUserId();
   const { data, error } = await db
     .from("ams_assets")
-    .insert({ ...input, status: "ready" })
+    .insert({ ...input, owner_id: ownerId, status: "ready" })
     .select()
     .single();
   if (error) throw error;
@@ -148,10 +156,74 @@ export async function createAssetRecord(input: CreateAssetInput): Promise<AMSAss
 }
 
 export async function deleteAsset(id: string): Promise<void> {
+  const asset = await db
+    .from("ams_assets")
+    .select("storage_path")
+    .eq("id", id)
+    .maybeSingle();
+  if (asset.error) throw asset.error;
+
+  if (asset.data?.storage_path) {
+    const { error: storageError } = await supabase.storage
+      .from("ams-assets")
+      .remove([asset.data.storage_path]);
+    if (storageError) throw storageError;
+  }
+
   const { error } = await db
     .from("ams_assets")
     .update({ status: "deleted" })
     .eq("id", id);
+  if (error) throw error;
+}
+
+export async function uploadAssetFile(
+  file: File,
+  storagePath: string,
+  signal?: AbortSignal,
+  onProgress?: (percent: number) => void
+): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+  if (!supabaseUrl || !anonKey) throw new Error("Supabase is not configured");
+
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const abort = () => xhr.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+
+    xhr.open("POST", `${supabaseUrl}/storage/v1/object/ams-assets/${encodeURI(storagePath)}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
+    xhr.setRequestHeader("apikey", anonKey);
+    xhr.setRequestHeader("x-upsert", "false");
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+    };
+    xhr.onload = () => {
+      signal?.removeEventListener("abort", abort);
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`Upload failed (${xhr.status}): ${xhr.responseText || "storage rejected the file"}`));
+    };
+    xhr.onerror = () => {
+      signal?.removeEventListener("abort", abort);
+      reject(new Error("Network error during upload"));
+    };
+    xhr.onabort = () => {
+      signal?.removeEventListener("abort", abort);
+      reject(new DOMException("Upload cancelled", "AbortError"));
+    };
+    xhr.send(file);
+  });
+}
+
+export async function removeUploadedAsset(storagePath: string): Promise<void> {
+  const { error } = await supabase.storage.from("ams-assets").remove([storagePath]);
   if (error) throw error;
 }
 
