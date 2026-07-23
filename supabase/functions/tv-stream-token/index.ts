@@ -74,9 +74,22 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: "channel_unavailable" }, { status: 404, headers: CORS });
     }
 
+    // Prefer the healthiest active source. This makes the multi-source table
+    // effective instead of always returning the legacy channel.stream_url.
+    const { data: sources } = await supabase
+      .from("tv_stream_sources")
+      .select("url")
+      .eq("channel_id", channel.id)
+      .eq("is_active", true)
+      .order("priority", { ascending: true })
+      .order("reliability", { ascending: false })
+      .limit(1);
+
+    const streamUrl = sources?.[0]?.url ?? channel.stream_url;
+
     return Response.json(
       {
-        stream_url:  channel.stream_url,
+        stream_url:  streamUrl,
         channel_id:  channel.id,
         name:        channel.name,
         name_ar:     channel.name_ar,
