@@ -1,6 +1,6 @@
 -- Verified global free-to-air TV refresh.
 -- Generated from publicly available broadcaster streams and validated by
--- scripts/build-verified-tv-catalog.mjs on 2026-07-23T13:53:36.150Z.
+-- scripts/build-verified-tv-catalog.mjs on 2026-07-23T13:55:49.805Z.
 
 ALTER TABLE public.tv_stream_sources
   ADD COLUMN IF NOT EXISTS consecutive_failures INTEGER NOT NULL DEFAULT 0;
@@ -115,7 +115,7 @@ INSERT INTO public.tv_channels (
   category_id, quality, language, country, is_active, is_featured, sort_order
 )
 SELECT
-  catalog.id, catalog.name, catalog.name_ar, catalog.description_ar,
+  catalog.id::UUID, catalog.name, catalog.name_ar, catalog.description_ar,
   catalog.logo_url, catalog.stream_url, catalog.official_url,
   categories.id, catalog.quality, catalog.language, catalog.country,
   TRUE, catalog.is_featured, catalog.sort_order
