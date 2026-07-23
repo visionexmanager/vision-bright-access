@@ -250,8 +250,7 @@ AS $$
       p.page_count AS total_pages,
       p.percent_complete,
       GREATEST(1, CEIL(EXTRACT(EPOCH FROM (p.last_read_at - p.started_at)) / 86400.0))::integer AS days_reading,
-      p.current_page::numeric / GREATEST(1, CEIL(EXTRACT(EPOCH FROM (p.last_read_at - p.started_at)) / 86400.0)) AS pages_per_day,
-      p.page_count, p.current_page
+      p.current_page::numeric / GREATEST(1, CEIL(EXTRACT(EPOCH FROM (p.last_read_at - p.started_at)) / 86400.0)) AS pages_per_day
     FROM progress p
   ),
   goals AS (
