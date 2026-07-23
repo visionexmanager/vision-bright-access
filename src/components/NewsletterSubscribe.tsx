@@ -40,6 +40,8 @@ const NEWS_INTERESTS = [
   { key: "news-entertainment", catKey: "news.cat.entertainment", emoji: "📺" },
   { key: "news-nutrition",     catKey: "news.cat.nutrition",     emoji: "🥗" },
   { key: "news-platform",      catKey: "news.cat.platform",      emoji: "🚀" },
+  { key: "news-world-economy", catKey: "news.cat.world_economy", emoji: "💵" },
+  { key: "news-world-politics", catKey: "news.cat.world_politics", emoji: "🏛️" },
 ] as const;
 
 const INTERESTS = [...PLATFORM_INTERESTS];
