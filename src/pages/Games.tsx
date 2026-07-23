@@ -35,6 +35,7 @@ import laptoptechImg from "@/assets/game-laptoptech.jpg";
 import earmasterImg from "@/assets/game-earmaster.jpg";
 import fashionImg from "@/assets/game-fashion.jpg";
 import velocityImg from "@/assets/game-velocity.jpg";
+import visionopolyImg from "@/assets/game-visionopoly.svg";
 
 import akinatorImg from "@/assets/game-logiquest.jpg";
 
@@ -59,7 +60,7 @@ const CATEGORY_LABEL_KEYS: Record<Exclude<Category, "All">, string> = {
 };
 
 export default function Games() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { playSound } = useSound();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -88,7 +89,8 @@ export default function Games() {
     { to: "/games/logiquest",        img: logiquestImg,  title: t("games.logiquest.title"),  desc: t("games.logiquest.desc"),  badge: t("games.logiquest.badge"),  category: "Strategy" as Category },
     { to: "/games/trade-tycoon",     img: tradetycoonImg,title: t("games.tradetycoon.title"),desc: t("games.tradetycoon.desc"),badge: t("games.tradetycoon.badge"),category: "Strategy" as Category },
     { to: "/games/laptop-tech",      img: laptoptechImg, title: t("games.laptoptech.title"), desc: t("games.laptoptech.desc"), badge: t("games.laptoptech.badge"), category: "Strategy" as Category },
-  ], [t]);
+    { to: "/games/visionopoly",      img: visionopolyImg,title: lang === "ar" ? "مونوبولي VisionEx" : "Visionopoly", desc: lang === "ar" ? "لعبة العقارات الكاملة: شراء وبناء ورهن وتجارة ضد منافسين أذكياء." : "The complete property game: buy, build, mortgage, and trade against smart rivals.", badge: lang === "ar" ? "استراتيجية كلاسيكية" : "Property strategy", category: "Strategy" as Category },
+  ], [lang, t]);
 
   const categories: Category[] = ["All", "Brain", "Action", "Creative", "Cards", "Strategy"];
 

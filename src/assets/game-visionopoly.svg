@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 512" role="img" aria-labelledby="title">
+  <title id="title">Visionopoly property trading board</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#172554"/>
+      <stop offset="1" stop-color="#4c1d95"/>
+    </linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-opacity=".35"/></filter>
+  </defs>
+  <rect width="768" height="512" rx="36" fill="url(#bg)"/>
+  <g transform="translate(154 28) rotate(-4 230 230)" filter="url(#shadow)">
+    <rect width="460" height="460" rx="18" fill="#ecfdf5" stroke="#fff" stroke-width="6"/>
+    <path d="M0 92h460M0 368h460M92 0v460M368 0v460" stroke="#1f2937" stroke-width="4"/>
+    <rect x="92" y="92" width="276" height="276" fill="#d1fae5" stroke="#1f2937" stroke-width="4"/>
+    <g fill="#f59e0b"><rect x="112" y="16" width="48" height="18"/><rect x="172" y="16" width="48" height="18"/><rect x="232" y="16" width="48" height="18"/></g>
+    <g fill="#ef4444"><rect x="300" y="16" width="48" height="18"/><rect x="412" y="112" width="18" height="48"/><rect x="412" y="172" width="18" height="48"/></g>
+    <g fill="#22c55e"><rect x="412" y="292" width="18" height="48"/><rect x="300" y="426" width="48" height="18"/><rect x="240" y="426" width="48" height="18"/></g>
+    <g fill="#3b82f6"><rect x="112" y="426" width="48" height="18"/><rect x="16" y="300" width="18" height="48"/><rect x="16" y="240" width="18" height="48"/></g>
+    <text x="230" y="220" text-anchor="middle" font-family="Arial" font-weight="900" font-size="42" fill="#4c1d95">VISIONOPOLY</text>
+    <text x="230" y="250" text-anchor="middle" font-family="Arial" font-weight="700" font-size="17" fill="#047857">BUILD • TRADE • WIN</text>
+    <g font-size="42"><text x="190" y="305">🚀</text><text x="238" y="310">🎩</text></g>
+  </g>
+</svg>
+
