@@ -17,7 +17,7 @@ export function useSimulationBilling(
   enabled: boolean
 ) {
   const { user } = useAuth();
-  const { spendVX } = useVXWallet();
+  const { spendVX, isLoading: isWalletLoading } = useVXWallet();
   const { isOnTrial } = useTrial();
   const [status, setStatus] = useState<BillingStatus>("idle");
   const [message, setMessage] = useState("");
@@ -52,7 +52,7 @@ export function useSimulationBilling(
   }, [localBillingKey, simulationId, user]);
 
   const ensureQuarter = useCallback(async () => {
-    if (!user || !simulationId || chargingRef.current) return false;
+    if (!user || !simulationId || isWalletLoading || chargingRef.current) return false;
     if (paidRef.current > usageRef.current) return true;
 
     chargingRef.current = true;
@@ -83,7 +83,7 @@ export function useSimulationBilling(
     chargingRef.current = false;
     setIsCharging(false);
     return true;
-  }, [persistUsage, simulationId, simulationTitle, spendVX, user]);
+  }, [isWalletLoading, persistUsage, simulationId, simulationTitle, spendVX, user]);
 
   useEffect(() => {
     if (!enabled) {
@@ -103,9 +103,20 @@ export function useSimulationBilling(
       if (!simulationId) return;
       setStatus("loading");
 
+      // The wallet balance is asynchronous. Charging while it still has its
+      // temporary zero value incorrectly blocks users who have enough VX.
+      if (isWalletLoading) return;
+
       if (isFallbackSimulationId(simulationId)) {
         const raw = localStorage.getItem(localBillingKey);
-        const existing = raw ? JSON.parse(raw) : null;
+        let existing: { usage_seconds?: number; paid_seconds?: number } | null = null;
+        if (raw) {
+          try {
+            existing = JSON.parse(raw);
+          } catch {
+            localStorage.removeItem(localBillingKey);
+          }
+        }
         usageRef.current = existing?.usage_seconds ?? 0;
         paidRef.current = existing?.paid_seconds ?? 0;
         setUsageSeconds(usageRef.current);
@@ -169,7 +180,7 @@ export function useSimulationBilling(
     return () => {
       cancelled = true;
     };
-  }, [enabled, ensureQuarter, localBillingKey, simulationId, user]);
+  }, [enabled, ensureQuarter, isWalletLoading, localBillingKey, simulationId, user]);
 
   useEffect(() => {
     if (!enabled || status !== "ready") return;

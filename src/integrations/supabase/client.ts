@@ -3,7 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+// Supabase now calls this the publishable key, while older deployments and
+// Docker images still expose the same client-safe value as ANON_KEY.
+const SUPABASE_PUBLISHABLE_KEY = (
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  ?? import.meta.env.VITE_SUPABASE_ANON_KEY
+) as string | undefined;
 
 // Validate at startup so a missing env var surfaces as a clear console error
 // rather than a cryptic module-level crash that kills the whole app.
@@ -11,7 +16,8 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   console.error(
     "[supabase] Missing environment variables.\n" +
     "  VITE_SUPABASE_URL:", SUPABASE_URL ? "✓" : "✗ MISSING",
-    "\n  VITE_SUPABASE_PUBLISHABLE_KEY:", SUPABASE_PUBLISHABLE_KEY ? "✓" : "✗ MISSING",
+    "\n  VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY:",
+    SUPABASE_PUBLISHABLE_KEY ? "✓" : "✗ MISSING",
     "\nMake sure these are set in your deployment environment."
   );
 }

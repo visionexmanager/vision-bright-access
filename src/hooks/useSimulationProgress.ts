@@ -28,7 +28,14 @@ export function useSimulationProgress(simulationId?: string) {
 
       if (isFallbackSimulationId(simulationId)) {
         const raw = localStorage.getItem(`visionex:simulation-progress:${user.id}:${simulationId}`);
-        const data = raw ? (JSON.parse(raw) as SavedProgress) : null;
+        let data: SavedProgress | null = null;
+        if (raw) {
+          try {
+            data = JSON.parse(raw) as SavedProgress;
+          } catch {
+            localStorage.removeItem(`visionex:simulation-progress:${user.id}:${simulationId}`);
+          }
+        }
         if (data) {
           setSavedProgress(data);
           if (!toastShown.current) {
