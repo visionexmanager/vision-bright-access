@@ -1143,27 +1143,36 @@ GRANT EXECUTE ON FUNCTION public.start_library_event_voice_room(UUID) TO authent
 
 -- Real, executed reminder job — direct SQL only (no net.http_post; that
 -- has zero precedent in this codebase). Mirrors the proven
--- 'activate-scheduled-voice-rooms' cron job exactly.
-SELECT cron.schedule(
-  'library-event-reminders',
-  '*/5 * * * *',
-  $$
-    INSERT INTO public.notifications (user_id, title, body, type, category)
-    SELECT r.user_id, 'Event starting soon', e.title || ' starts in 30 minutes', 'info', 'community_event'
-    FROM public.library_event_rsvps r
-    JOIN public.library_events e ON e.id = r.event_id
-    WHERE r.status = 'going' AND r.reminder_sent = false
-      AND e.is_cancelled = false
-      AND e.scheduled_start BETWEEN now() AND now() + interval '30 minutes';
+-- 'activate-scheduled-voice-rooms' cron job's intent, but wrapped in a
+-- DO block (same defensive pattern as
+-- 20260806000004_library_enterprise_scheduled_reports.sql's
+-- organization-scheduled-reports job): the "cron" schema doesn't exist on
+-- every environment this migration runs against (pg_cron not enabled), and
+-- an unguarded call here aborts this whole migration transaction.
+DO $$ BEGIN
+  PERFORM cron.schedule(
+    'library-event-reminders',
+    '*/5 * * * *',
+    $c$
+      INSERT INTO public.notifications (user_id, title, body, type, category)
+      SELECT r.user_id, 'Event starting soon', e.title || ' starts in 30 minutes', 'info', 'community_event'
+      FROM public.library_event_rsvps r
+      JOIN public.library_events e ON e.id = r.event_id
+      WHERE r.status = 'going' AND r.reminder_sent = false
+        AND e.is_cancelled = false
+        AND e.scheduled_start BETWEEN now() AND now() + interval '30 minutes';
 
-    UPDATE public.library_event_rsvps r
-    SET reminder_sent = true
-    FROM public.library_events e
-    WHERE r.event_id = e.id AND r.status = 'going' AND r.reminder_sent = false
-      AND e.is_cancelled = false
-      AND e.scheduled_start BETWEEN now() AND now() + interval '30 minutes';
-  $$
-);
+      UPDATE public.library_event_rsvps r
+      SET reminder_sent = true
+      FROM public.library_events e
+      WHERE r.event_id = e.id AND r.status = 'going' AND r.reminder_sent = false
+        AND e.is_cancelled = false
+        AND e.scheduled_start BETWEEN now() AND now() + interval '30 minutes';
+    $c$
+  );
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
 -- ============================================================
 -- 9. Leaderboards — pure aggregation RPCs, no new tables.
