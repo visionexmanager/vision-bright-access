@@ -8,6 +8,12 @@ import type {
 
 const db = supabase as any;
 
+async function requireUserId(): Promise<string> {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) throw new Error("Not authenticated");
+  return user.id;
+}
+
 // ── Video Jobs ────────────────────────────────────────────────────────────────
 
 export async function listVideoJobs(filters: VideoLibraryFilters = {}): Promise<VideoJob[]> {
@@ -87,9 +93,10 @@ export async function listTemplates(): Promise<VideoTemplate[]> {
 }
 
 export async function createTemplate(input: Omit<VideoTemplate, "id" | "user_id" | "use_count" | "created_at" | "updated_at">): Promise<VideoTemplate> {
+  const userId = await requireUserId();
   const { data, error } = await db
     .from("vx_video_templates")
-    .insert(input)
+    .insert({ ...input, user_id: userId })
     .select()
     .single();
   if (error) throw error;
