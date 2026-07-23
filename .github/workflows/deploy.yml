@@ -75,68 +75,8 @@ jobs:
       - name: Install Supabase CLI
         run: npm install -g supabase@latest
 
-      - name: Deploy TV edge functions
-        run: |
-          supabase functions deploy tv-stream-token    --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy tv-validate-stream --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
-
-      - name: Deploy AI Media Studio edge functions
-        run: |
-          supabase functions deploy speech-generate      --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy video-studio         --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy voice-studio         --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy billing-engine       --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy provider-hub         --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy image-generate       --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy image-tools-generate --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy speech-transcribe    --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy document-generate    --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy text-tools-generate  --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy health-check    --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy news-generate   --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy trial-billing   --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy vx-coin-review  --project-ref $SUPABASE_PROJECT_REF
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
-
-      - name: Deploy Library edge functions
-        run: |
-          supabase functions deploy library-track-reading    --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-sync-progress    --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-reward-vx        --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-book-analytics   --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-recommend-books  --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-generate-quotes  --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-import-book      --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-purchase-book    --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-ai-assistant     --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-ai-chat          --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-embed-book       --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-generate-narration --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-ai-writing-assistant --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-checkout-session --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-stripe-webhook   --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-semantic-search  --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-paypal-checkout  --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-paypal-webhook   --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-crypto-checkout  --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-crypto-webhook   --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-ai-classify-book --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-detect-series    --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-translate-book-metadata --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-build-knowledge-graph --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-process-background-jobs --no-verify-jwt --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-recommend-community --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-summarize-discussion --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-translate-comment --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-generate-reading-plan --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-generate-flashcard-deck --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-generate-practice-exam --project-ref $SUPABASE_PROJECT_REF
-          supabase functions deploy library-issue-certificate --project-ref $SUPABASE_PROJECT_REF
+      - name: Deploy changed Edge Functions
+        run: bash scripts/deploy-changed-supabase-functions.sh
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -149,7 +89,6 @@ jobs:
   run-migrations:
     name: Run DB migrations
     runs-on: ubuntu-latest
-    needs: deploy-edge-functions
     steps:
       - uses: actions/checkout@v4
 
