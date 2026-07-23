@@ -1,13 +1,7 @@
 /**
- * Academy Module Registry (Phase 1 architecture prep)
+ * Academy Module Registry
  *
- * A single source of truth listing every planned Academy module. This is an
- * EXTENSION POINT for future phases — e.g. a Phase 2 sidebar/nav could map
- * over `academyModules` to render module links, or a future router could
- * generate `/academy/:moduleId` routes from `plannedRoute`.
- *
- * Nothing imports this yet. It is not wired into App.tsx routing or the
- * Navbar — adding real pages/routes is explicitly out of scope for Phase 1.
+ * A single source of truth for Academy modules and their live destinations.
  *
  * `status` values:
  *   "live"     — already implemented today (the Munir chat + onboarding +
@@ -23,7 +17,7 @@ export interface AcademyModuleDef {
   labelEn: string;
   description: string;
   status: AcademyModuleStatus;
-  /** Reserved path for when this module gets its own page. Not registered in App.tsx yet. */
+  /** Live route or section destination for this module. */
   plannedRoute: string;
 }
 
@@ -41,7 +35,7 @@ export const academyModules: AcademyModuleDef[] = [
     labelAr: "الدورات",
     labelEn: "Courses",
     description: "Structured course catalog with modules and enrollments.",
-    status: "planned",
+    status: "live",
     plannedRoute: "/academy/courses",
   },
   {
@@ -49,31 +43,31 @@ export const academyModules: AcademyModuleDef[] = [
     labelAr: "المدرّسون",
     labelEn: "Instructors",
     description: "Instructor directory and profiles powering course authorship.",
-    status: "planned",
-    plannedRoute: "/academy/instructors",
+    status: "live",
+    plannedRoute: "/academy/instructor/apply",
   },
   {
     id: "student-services",
     labelAr: "خدمات الطالب",
     labelEn: "Student Services",
     description: "Tutoring, counseling, and academic advising requests.",
-    status: "planned",
-    plannedRoute: "/academy/student-services",
+    status: "live",
+    plannedRoute: "/academy#student-services-heading",
   },
   {
     id: "ai-learning",
     labelAr: "التعلّم الذكي",
     labelEn: "AI Learning",
     description: "AI-generated structured learning paths distinct from the chat assistant.",
-    status: "planned",
-    plannedRoute: "/academy/ai-learning",
+    status: "live",
+    plannedRoute: "/academy#ai-learning-center",
   },
   {
     id: "library",
     labelAr: "المكتبة",
     labelEn: "Library",
     description: "Books, videos, articles, and worksheets with bookmarking.",
-    status: "planned",
+    status: "live",
     plannedRoute: "/academy/library",
   },
   {
@@ -81,7 +75,7 @@ export const academyModules: AcademyModuleDef[] = [
     labelAr: "المنح الدراسية",
     labelEn: "Scholarships",
     description: "Scholarship directory and application tracking.",
-    status: "planned",
+    status: "live",
     plannedRoute: "/academy/scholarships",
   },
   {
@@ -89,7 +83,7 @@ export const academyModules: AcademyModuleDef[] = [
     labelAr: "الجامعات",
     labelEn: "Universities",
     description: "University directory with programs by country.",
-    status: "planned",
+    status: "live",
     plannedRoute: "/academy/universities",
   },
   {
@@ -97,15 +91,15 @@ export const academyModules: AcademyModuleDef[] = [
     labelAr: "المجتمع",
     labelEn: "Community Integration",
     description: "Academy-scoped posts layered on top of existing community rooms.",
-    status: "planned",
-    plannedRoute: "/academy/community",
+    status: "live",
+    plannedRoute: "/community",
   },
   {
     id: "certificates",
     labelAr: "الشهادات",
     labelEn: "Certificates",
     description: "Issued certificates for completed courses and achievements.",
-    status: "planned",
+    status: "live",
     plannedRoute: "/academy/certificates",
   },
   {
@@ -113,15 +107,15 @@ export const academyModules: AcademyModuleDef[] = [
     labelAr: "التحليلات",
     labelEn: "Analytics",
     description: "Per-student learning analytics events and summaries.",
-    status: "planned",
-    plannedRoute: "/academy/analytics",
+    status: "live",
+    plannedRoute: "/academy#personal-progress-heading",
   },
   {
     id: "notifications",
     labelAr: "الإشعارات",
     labelEn: "Notifications",
     description: "Academy-scoped notifications (new courses, due assignments, XP milestones).",
-    status: "planned",
+    status: "live",
     plannedRoute: "/academy/notifications",
   },
   {
@@ -129,7 +123,7 @@ export const academyModules: AcademyModuleDef[] = [
     labelAr: "إمكانية الوصول",
     labelEn: "Accessibility",
     description: "Per-student accessibility preferences (motion, contrast, TTS rate, font scale).",
-    status: "planned",
-    plannedRoute: "/academy/accessibility",
+    status: "live",
+    plannedRoute: "/academy/settings",
   },
 ];
