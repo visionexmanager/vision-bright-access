@@ -7,6 +7,7 @@ import { AcademyDashboard } from "@/components/academy/AcademyDashboard";
 import { useAcademyProfile } from "@/hooks/academy/useAcademyProfile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { StudentProfile } from "@/lib/types";
+import { AcademyErrorState } from "@/components/academy/ui/AcademyErrorState";
 
 export default function Academy() {
   const { lang } = useLanguage();
@@ -15,7 +16,11 @@ export default function Academy() {
   const [formProfile, setFormProfile] = useState<StudentProfile>({ name: "", gender: "male", country: "", level: "" });
   const [step, setStep] = useState(1);
 
-  const { profile, isOnboarded, isLoading: profileLoading, saveProfile, isSaving } = useAcademyProfile();
+  const {
+    profile, isOnboarded, isLoading: profileLoading,
+    error: profileError, retry, saveProfile, isSaving,
+  } = useAcademyProfile();
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const isNextDisabled =
     (step === 1 && !formProfile.name.trim()) ||
@@ -26,7 +31,14 @@ export default function Academy() {
     if (step === 1) speak(`أهلاً بك يا ${formProfile.gender === "male" ? "بطل" : "بطلة"}, ${formProfile.name}`);
     if (step === 3) {
       speak(`ممتاز، منهاج الـ ${formProfile.level} في ${formProfile.country} جاهز لك الآن.`);
-      await saveProfile(formProfile);
+      setSaveError(null);
+      try {
+        await saveProfile(formProfile);
+      } catch {
+        setSaveError(lang === "ar"
+          ? "تعذر حفظ ملف الأكاديمية. تحقق من الاتصال ثم أعد المحاولة."
+          : "Your Academy profile could not be saved. Check your connection and try again.");
+      }
       return;
     }
     setStep(step + 1);
@@ -42,18 +54,35 @@ export default function Academy() {
     );
   }
 
+  if (profileError) {
+    return (
+      <Layout>
+        <AcademyErrorState
+          className="mx-auto min-h-[50vh] max-w-xl justify-center"
+          message={lang === "ar"
+            ? "تعذر تحميل الأكاديمية. تحقق من الاتصال ثم أعد المحاولة."
+            : "The Academy could not be loaded. Check your connection and try again."}
+          onRetry={() => void retry()}
+        />
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="font-sans overflow-x-hidden text-start">
         {!isOnboarded && (
-          <AcademyOnboarding
-            formProfile={formProfile}
-            setFormProfile={setFormProfile}
-            step={step}
-            isNextDisabled={isNextDisabled}
-            isSaving={isSaving}
-            onNext={handleNext}
-          />
+          <>
+            {saveError && <AcademyErrorState message={saveError} className="mx-auto max-w-xl" />}
+            <AcademyOnboarding
+              formProfile={formProfile}
+              setFormProfile={setFormProfile}
+              step={step}
+              isNextDisabled={isNextDisabled}
+              isSaving={isSaving}
+              onNext={handleNext}
+            />
+          </>
         )}
 
         {isOnboarded && profile && <AcademyDashboard profile={profile} />}

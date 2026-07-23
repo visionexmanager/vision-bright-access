@@ -13,6 +13,7 @@ import { TrialBanner } from "./TrialBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMessageNotifications } from "@/hooks/useMessageNotifications";
 import logo from "@/assets/logo.png";
+import { AcademyNav } from "@/components/academy/AcademyNav";
 
 // Lazy-load the AI chat widget — it's a floating button that users open on demand.
 // This keeps the Layout chunk lean and defers the react-markdown + voice-chat weight.
@@ -68,6 +69,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
       <Navbar />
       <TrialBanner />
+      {pathname.startsWith("/academy") && <AcademyNav />}
       <main id="main-content" tabIndex={-1} aria-label={t("nav.mainContent") || "Main content"} className="flex-1 animate-page-in">
         {children}
       </main>

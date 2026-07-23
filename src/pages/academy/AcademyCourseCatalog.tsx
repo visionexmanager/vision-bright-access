@@ -12,6 +12,7 @@ import { AICourseRequestCard } from "@/components/academy/lms/AICourseRequestCar
 import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHeader";
 import { useCourseCatalog, useCourseCategories } from "@/hooks/academy/useCourseCatalog";
 import type { CourseFilters } from "@/services/academy/lms";
+import { AcademyErrorState } from "@/components/academy/ui/AcademyErrorState";
 
 export default function AcademyCourseCatalog() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -38,7 +39,7 @@ export default function AcademyCourseCatalog() {
     }),
     [query, category, difficulty, source, sort]
   );
-  const { courses: results, isLoading } = useCourseCatalog(filters);
+  const { courses: results, isLoading, error, refetch } = useCourseCatalog(filters);
   const { categories } = useCourseCategories();
 
   return (
@@ -125,6 +126,12 @@ export default function AcademyCourseCatalog() {
         {/* Results */}
         {isLoading ? (
           <p className="text-center text-muted-foreground py-16">جارِ تحميل الدورات...</p>
+        ) : error ? (
+          <AcademyErrorState
+            message="تعذر تحميل الدورات حالياً. تحقق من الاتصال ثم أعد المحاولة."
+            onRetry={() => void refetch()}
+            className="rounded-3xl border border-destructive/30 bg-destructive/5 py-16"
+          />
         ) : results.length === 0 ? (
           <p className="text-center text-muted-foreground py-16 border-2 border-dashed border-border rounded-3xl">
             لا توجد دورات مطابقة لبحثك. جرّب كلمات أو فلاتر مختلفة.

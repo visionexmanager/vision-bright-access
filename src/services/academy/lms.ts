@@ -153,14 +153,11 @@ export async function fetchMyEnrollments(userId: string): Promise<AcademyEnrollm
 }
 
 export async function enrollInCourse(userId: string, courseId: string): Promise<AcademyEnrollmentRow | null> {
-  const { data, error } = await (supabase.from("academy_enrollments") as any)
-    .upsert({ user_id: userId, course_id: courseId }, { onConflict: "user_id,course_id", ignoreDuplicates: true })
-    .select()
-    .maybeSingle();
+  const { data, error } = await (supabase.rpc as any)("academy_enroll_course", {
+    _course_id: courseId,
+  });
   if (error) throw new Error(error.message);
-  if (data) return data as AcademyEnrollmentRow;
-  // ignoreDuplicates skips returning the existing row — fetch it explicitly.
-  return fetchEnrollment(userId, courseId);
+  return (data as AcademyEnrollmentRow | null) ?? fetchEnrollment(userId, courseId);
 }
 
 /**

@@ -65,6 +65,22 @@ export function useCourseDetail(courseId: string | undefined) {
   }, [modulesQuery.data, lessonsQuery.data]);
 
   const isLoading = courseQuery.isLoading || modulesQuery.isLoading || lessonsQuery.isLoading;
+  const firstError = [
+    courseQuery.error,
+    modulesQuery.error,
+    lessonsQuery.error,
+    reviewsQuery.error,
+    similarQuery.error,
+    instructorQuery.error,
+  ].find(Boolean);
+  const retry = () => {
+    void courseQuery.refetch();
+    void modulesQuery.refetch();
+    void lessonsQuery.refetch();
+    void reviewsQuery.refetch();
+    void similarQuery.refetch();
+    if (instructorId) void instructorQuery.refetch();
+  };
 
   return {
     course: courseQuery.data ?? null,
@@ -75,7 +91,8 @@ export function useCourseDetail(courseId: string | undefined) {
     reviews: reviewsQuery.data ?? [],
     similarCourses: similarQuery.data ?? [],
     isLoading,
-    error: courseQuery.error ? (courseQuery.error as Error).message : null,
+    error: firstError ? (firstError as Error).message : null,
+    retry,
   };
 }
 

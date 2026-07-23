@@ -19,13 +19,15 @@ import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHead
 import { useCourseDetail } from "@/hooks/academy/useCourseDetail";
 import { useEnrollment } from "@/hooks/academy/useEnrollment";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { AcademyErrorState } from "@/components/academy/ui/AcademyErrorState";
 
 export default function AcademyCourseDetail() {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
-  const { course, instructor, modules, lessons, reviews, similarCourses, isLoading } = useCourseDetail(courseId);
+  const { course, instructor, modules, lessons, reviews, similarCourses, isLoading, error, retry } = useCourseDetail(courseId);
   const { user } = useAuth();
-  const { isEnrolled, enroll } = useEnrollment(courseId);
+  const { isEnrolled, isLoading: enrollmentLoading, enroll, isEnrolling } = useEnrollment(courseId);
   const hasReviewed = reviews.some((r) => r.user_id === user?.id);
 
   const lessonsByModule = useMemo(() => {
@@ -54,12 +56,20 @@ export default function AcademyCourseDetail() {
   if (!course) {
     return (
       <Layout>
+        {error ? (
+          <AcademyErrorState
+            className="mx-auto min-h-[45vh] max-w-xl justify-center"
+            message="تعذر تحميل الدورة. تحقق من الاتصال ثم أعد المحاولة."
+            onRetry={retry}
+          />
+        ) : (
         <div className="p-8 max-w-3xl mx-auto text-center space-y-4">
           <p className="text-lg text-muted-foreground">لم يتم العثور على هذه الدورة.</p>
           <Button asChild className="rounded-xl">
             <Link to="/academy/courses">تصفح الدورات</Link>
           </Button>
         </div>
+        )}
       </Layout>
     );
   }
@@ -104,9 +114,19 @@ export default function AcademyCourseDetail() {
               <Button
                 size="lg"
                 className="w-full gap-2 rounded-xl py-6 font-bold"
+                disabled={enrollmentLoading || isEnrolling}
                 onClick={async () => {
                   if (user && !isEnrolled) {
-                    try { await enroll(); } catch { /* still navigate — the lesson player will retry enrollment */ }
+                    try {
+                      await enroll();
+                    } catch (enrollmentError) {
+                      toast.error(
+                        enrollmentError instanceof Error
+                          ? enrollmentError.message
+                          : "تعذر التسجيل في الدورة."
+                      );
+                      return;
+                    }
                   }
                   navigate(`/academy/courses/${course.id}/learn/${firstLesson.id}`);
                 }}

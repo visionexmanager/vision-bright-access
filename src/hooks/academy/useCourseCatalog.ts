@@ -8,20 +8,20 @@ import { fetchCourseCatalog, fetchAllCategories, type CourseFilters } from "@/se
 
 export function useCourseCatalog(filters: CourseFilters = {}) {
   const filtersKey = JSON.stringify(filters);
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.academy.lms.catalog(filtersKey),
     queryFn: () => fetchCourseCatalog(filters),
     staleTime: 60 * 1000,
   });
 
-  return { courses: data ?? [], isLoading, error: error ? (error as Error).message : null };
+  return { courses: data ?? [], isLoading, error: error ? (error as Error).message : null, refetch };
 }
 
 export function useCourseCategories() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.academy.lms.categories(),
     queryFn: fetchAllCategories,
     staleTime: 5 * 60 * 1000,
   });
-  return { categories: data ?? [], isLoading };
+  return { categories: data ?? [], isLoading, error: error ? (error as Error).message : null, refetch };
 }

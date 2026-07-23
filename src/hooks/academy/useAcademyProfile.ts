@@ -33,6 +33,7 @@ export interface UseAcademyProfileReturn {
   isOnboarded: boolean;
   isLoading: boolean;
   error: string | null;
+  retry: () => Promise<unknown>;
   /** Call after onboarding form is submitted — saves to DB. */
   saveProfile: (profile: StudentProfile) => Promise<void>;
   isSaving: boolean;
@@ -47,6 +48,7 @@ export function useAcademyProfile(): UseAcademyProfileReturn {
     data: profile = null,
     isLoading,
     error: queryError,
+    refetch,
   } = useQuery({
     queryKey: queryKeys.academy.profile(user?.id ?? ""),
     queryFn:  () => getAcademyProfile(user!.id),
@@ -100,6 +102,7 @@ export function useAcademyProfile(): UseAcademyProfileReturn {
     isOnboarded: !!profile,
     isLoading,
     error:       queryError ? (queryError as Error).message : null,
+    retry:       refetch,
     saveProfile,
     isSaving,
   };

@@ -94,9 +94,24 @@ function CourseListSection({ icon, title, description, headingId, courses }: Cou
           </Button>
         }
       />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {courses.map((course) => <CourseCard key={course.id} course={course} />)}
-      </div>
+      {courses.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" role="list">
+          {courses.map((course) => (
+            <div key={course.id} role="listitem">
+              <CourseCard course={course} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl border-2 border-dashed border-border p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            لا توجد دورات منشورة في هذا القسم حالياً.
+          </p>
+          <Button asChild variant="outline" size="sm" className="mt-3 rounded-xl">
+            <Link to="/academy/courses">تصفح جميع الدورات</Link>
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
