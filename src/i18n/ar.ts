@@ -1822,7 +1822,7 @@ export const translations: Record<string, string> = {
   "earmaster.title": "خبير الأذن الموسيقية",
   "fashion.title": "مصمم أزياء",
   "velocity.title": "سباق السرعة",
-  "career.title": "مركز المهنة",
+  "career.title": "مركز الوظائف والمهن",
   "career.toolAptitude": "اختبار القدرات",
   "career.toolResume": "بناء السيرة الذاتية",
   "career.toolInterview": "تحضير المقابلة",
