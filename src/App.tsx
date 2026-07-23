@@ -188,6 +188,7 @@ const Games = lazy(() => import("./pages/Games"));
 const QuizChallenge = lazy(() => import("./pages/QuizChallenge"));
 const MemoryGame = lazy(() => import("./pages/MemoryGame"));
 const WordPuzzle = lazy(() => import("./pages/WordPuzzle"));
+const Visionopoly = lazy(() => import("./pages/games/Visionopoly"));
 const AssistiveProducts = lazy(() => import("./pages/AssistiveProducts"));
 const BusinessSimulator = lazy(() => import("./pages/BusinessSimulator"));
 const SimulationRunner = lazy(() => import("./pages/SimulationRunner"));
@@ -500,6 +501,7 @@ function AppRoutes() {
                     <Route path="/games/quiz-challenge" element={<GameEconomyGate gameTitle="Quiz Challenge"><QuizChallenge /></GameEconomyGate>} />
                     <Route path="/games/memory" element={<GameEconomyGate gameTitle="Memory Game"><MemoryGame /></GameEconomyGate>} />
                     <Route path="/games/word-puzzle" element={<GameEconomyGate gameTitle="Word Puzzle"><WordPuzzle /></GameEconomyGate>} />
+                    <Route path="/games/visionopoly" element={<GameEconomyGate gameTitle="Visionopoly"><Visionopoly /></GameEconomyGate>} />
                     <Route path="/assistive-products" element={<AssistiveProducts />} />
                     <Route path="/business-simulator" element={<BusinessSimulator />} />
                     <Route path="/business-simulator/:slug" element={<SimulationRunner />} />
