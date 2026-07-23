@@ -55,7 +55,14 @@ jobs:
       security-events: write
       contents: read
     steps:
+    # gitleaks-action diffs github.event.before..github.event.after, which
+    # needs that commit range actually present locally — the default
+    # fetch-depth: 1 only fetches the tip commit, so the scan fails with
+    # "unknown revision" on any push whose parent isn't already in a
+    # shallow clone (started happening on every push from 09ca85e onward).
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Run Trivy vulnerability scan (filesystem)
       uses: aquasecurity/trivy-action@master
