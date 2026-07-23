@@ -73,7 +73,7 @@ export function VoiceBrowser({ open, onOpenChange, selectedVoiceId, onSelect }: 
     if (genderFilter !== "all") list = list.filter((v) => v.gender === genderFilter);
     if (catFilter !== "all")    list = list.filter((v) => v.category === catFilter);
     return list;
-  }, [tab, voices, favoriteVoices, recentVoices, recommendedVoices, genderFilter, catFilter]);
+  }, [tab, voices, favoriteVoices, recentVoices, recommendedVoices, myVoices, genderFilter, catFilter]);
 
   const handleSelect = (voice: SpeechVoice) => {
     onSelect(voice);

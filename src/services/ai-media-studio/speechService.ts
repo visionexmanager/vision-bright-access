@@ -11,6 +11,12 @@ import type {
 
 const db = supabase as any;
 
+async function requireUserId(): Promise<string> {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) throw new Error("Not authenticated");
+  return user.id;
+}
+
 // ── Voices ────────────────────────────────────────────────────────────────────
 
 export async function listVoices(): Promise<SpeechVoice[]> {
@@ -43,9 +49,10 @@ export async function listFavoriteVoiceIds(): Promise<string[]> {
 }
 
 export async function addVoiceFavorite(voiceId: string): Promise<void> {
+  const userId = await requireUserId();
   const { error } = await db
     .from("ams_voice_favorites")
-    .insert({ voice_id: voiceId });
+    .insert({ user_id: userId, voice_id: voiceId });
   if (error && error.code !== "23505") throw error; // ignore duplicate
 }
 
@@ -121,9 +128,11 @@ export async function listPresets(): Promise<SpeechPreset[]> {
 }
 
 export async function createPreset(input: CreatePresetInput): Promise<SpeechPreset> {
+  const userId = await requireUserId();
   const { data, error } = await db
     .from("ams_speech_presets")
     .insert({
+      user_id:       userId,
       name:          input.name,
       voice_id:      input.voice_id,
       language:      input.language ?? "en",

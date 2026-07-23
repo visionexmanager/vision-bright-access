@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as amsService from "@/services/ai-media-studio/amsService";
+import { supabase } from "@/integrations/supabase/client";
 import type { AssetFilters, UploadItem } from "@/lib/types/ai-media-studio";
 
 export const AMS_ASSETS_KEY = ["ams", "assets"] as const;
@@ -50,32 +51,44 @@ export function useAMSAssets(initialFilters: AssetFilters = {}) {
 
         patchUpload(item.id, { status: "uploading" });
 
-        // Simulate chunked upload progress (real cloud storage TBD)
         try {
           const assetType = resolveAssetType(item.file.type);
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (!user) throw new Error("Not authenticated");
 
-          // Progress simulation — real upload would stream via XHR/fetch with onprogress
-          for (let p = 10; p <= 90; p += 20) {
-            if (controller.signal.aborted) throw new Error("cancelled");
-            await delay(80);
-            patchUpload(item.id, { progress: p });
+          const safeName = sanitizeFilename(item.file.name);
+          const storagePath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
+          await amsService.uploadAssetFile(
+            item.file,
+            storagePath,
+            controller.signal,
+            (progress) => patchUpload(item.id, { progress })
+          );
+
+          let record;
+          try {
+            record = await amsService.createAssetRecord({
+              project_id: projectId,
+              filename: safeName,
+              original_name: item.file.name,
+              asset_type: assetType,
+              mime_type: item.file.type || undefined,
+              size_bytes: item.file.size,
+              storage_path: storagePath,
+            });
+          } catch (error) {
+            await amsService.removeUploadedAsset(storagePath).catch(() => undefined);
+            throw error;
           }
-
-          const record = await amsService.createAssetRecord({
-            project_id: projectId,
-            filename: sanitizeFilename(item.file.name),
-            original_name: item.file.name,
-            asset_type: assetType,
-            mime_type: item.file.type || undefined,
-            size_bytes: item.file.size,
-          });
 
           patchUpload(item.id, { status: "done", progress: 100, assetId: record.id });
           toast.success(`"${item.file.name}" uploaded`);
           qc.invalidateQueries({ queryKey: AMS_ASSETS_KEY });
           amsService.recalculateStorage().catch(() => {});
         } catch (err) {
-          const isCancelled = controller.signal.aborted || (err as Error).message === "cancelled";
+          const isCancelled = controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError");
           patchUpload(item.id, {
             status: isCancelled ? "cancelled" : "error",
             error: isCancelled ? undefined : (err as Error).message,
@@ -133,9 +146,5 @@ function resolveAssetType(mimeType: string) {
 }
 
 function sanitizeFilename(name: string) {
-  return name.replace(/[^a-zA-Z0-9._\-]/g, "_").toLowerCase();
-}
-
-function delay(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
+  return name.replace(/[^a-zA-Z0-9._-]/g, "_").toLowerCase();
 }
