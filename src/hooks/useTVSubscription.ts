@@ -73,7 +73,12 @@ export function useTVSubscription() {
   // queryKey includes user?.id so the cache is invalidated when auth state changes.
   // enabled: !!user prevents a stale empty-array result from being cached before
   // the Supabase session is established (tv_channels RLS requires authenticated role).
-  const { data: channels = [], isLoading: chLoading } = useQuery<TVChannel[]>({
+  const {
+    data: channels = [],
+    isLoading: chLoading,
+    error: channelsError,
+    refetch: refetchChannels,
+  } = useQuery<TVChannel[]>({
     queryKey: ["tv-channels", user?.id ?? "guest"],
     enabled: !!user,
     staleTime: 5 * 60_000,
@@ -196,6 +201,8 @@ export function useTVSubscription() {
     categories,
     plans,
     isLoading: subLoading || chLoading,
+    channelsError,
+    refetchChannels,
     subscribe,
     getStreamToken,
   };

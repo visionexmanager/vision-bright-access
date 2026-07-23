@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Tv, Search, Lock, ChevronLeft, ChevronRight,
-  RefreshCw, Clock, Star, Heart,
+  RefreshCw, Clock, Star, Clapperboard,
 } from "lucide-react";
 import { useTVSubscription } from "@/hooks/useTVSubscription";
 import { useTrial } from "@/hooks/useTrial";
@@ -45,7 +45,7 @@ export default function LiveTV() {
 
   const {
     subscription, isSubscribed, daysRemaining,
-    channels, categories, isLoading,
+    channels, categories, isLoading, channelsError, refetchChannels,
   } = useTVSubscription();
   const { isOnTrial, trialDaysLeft } = useTrial();
   const { getHistory }               = useWatchHistory();
@@ -137,6 +137,31 @@ export default function LiveTV() {
         {/* ── Section nav ──────────────────────────────────── */}
         <TVSectionNav />
 
+        {/* ── Movies & series guide ────────────────────────── */}
+        <section className="flex flex-col gap-4 rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/10 via-card to-blue-500/10 p-5 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="streaming-guide-heading">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-violet-500/15 p-2.5 text-violet-500" aria-hidden="true">
+              <Clapperboard className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 id="streaming-guide-heading" className="font-bold text-foreground">
+                {isRTL ? "أفلام ومسلسلات من مصادر رسمية" : "Movies and series from official sources"}
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                {isRTL
+                  ? "دليل مرتب لمنصات المشاهدة القانونية، مع خيارات عربية وعالمية ورياضية."
+                  : "A curated guide to legal streaming services, with Arabic, international, and sports options."}
+              </p>
+            </div>
+          </div>
+          <Button asChild className="shrink-0">
+            <Link to="/services/live-tv/streaming">
+              {isRTL ? "افتح دليل المشاهدة" : "Open streaming guide"}
+              <ChevIcon className="ms-2 h-4 w-4" aria-hidden="true" />
+            </Link>
+          </Button>
+        </section>
+
         {/* ── Featured channels ─────────────────────────────── */}
         {featured.length > 0 && !query && activeSlug === "all" && (
           <section className="space-y-3">
@@ -148,28 +173,31 @@ export default function LiveTV() {
             </div>
             <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "thin" }}>
               {featured.map(ch => (
-                <button
-                  key={ch.id}
-                  onClick={() => handleClick(ch)}
-                  className="flex-shrink-0 group relative w-[140px] rounded-xl border border-border bg-card hover:border-blue-400/50 hover:shadow-md transition-all overflow-hidden"
-                >
-                  <div className="h-20 bg-gradient-to-br from-muted to-muted/60 flex items-center justify-center">
-                    {ch.logo_url
-                      ? <img src={ch.logo_url} alt={chName(ch)} className="w-full h-full object-contain p-3" />
-                      : <Tv className="w-8 h-8 text-muted-foreground" />
-                    }
-                  </div>
-                  <div className="px-2 py-1.5">
-                    <p className="text-xs font-semibold truncate text-foreground">{chName(ch)}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 me-1 align-middle animate-pulse" />
-                      LIVE
-                    </p>
-                  </div>
+                <div key={ch.id} className="flex-shrink-0 group relative w-[140px] rounded-xl border border-border bg-card hover:border-blue-400/50 hover:shadow-md transition-all overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => handleClick(ch)}
+                    aria-label={`${chName(ch)} — ${isRTL ? "تشغيل القناة المباشرة" : "Play live channel"}`}
+                    className="block w-full text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
+                  >
+                    <div className="h-20 bg-gradient-to-br from-muted to-muted/60 flex items-center justify-center">
+                      {ch.logo_url
+                        ? <img src={ch.logo_url} alt="" className="w-full h-full object-contain p-3" />
+                        : <Tv className="w-8 h-8 text-muted-foreground" aria-hidden="true" />
+                      }
+                    </div>
+                    <div className="px-2 py-1.5">
+                      <p className="text-xs font-semibold truncate text-foreground">{chName(ch)}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5" aria-hidden="true">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 me-1 align-middle animate-pulse" />
+                        LIVE
+                      </p>
+                    </div>
+                  </button>
                   <div className="absolute top-1 end-1">
                     <FavoriteButton channelId={ch.id} size="sm" />
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </section>
@@ -222,6 +250,7 @@ export default function LiveTV() {
               isRTL ? "right-3" : "left-3"
             )} />
             <Input
+              aria-label={t("liveTV.searchPlaceholder")}
               placeholder={t("liveTV.searchPlaceholder")}
               value={query}
               onChange={e => setQuery(e.target.value)}
@@ -274,6 +303,20 @@ export default function LiveTV() {
           <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
             <RefreshCw className="w-5 h-5 animate-spin" />
             {t("liveTV.loading")}
+          </div>
+        ) : channelsError ? (
+          <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-5 py-10 text-center">
+            <Tv className="mx-auto mb-3 h-10 w-10 text-destructive" aria-hidden="true" />
+            <p className="font-semibold text-foreground">
+              {isRTL ? "تعذر تحميل القنوات حالياً" : "Channels could not be loaded"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isRTL ? "تحقق من الاتصال ثم أعد المحاولة." : "Check your connection and try again."}
+            </p>
+            <Button variant="outline" className="mt-4" onClick={() => void refetchChannels()}>
+              <RefreshCw className="me-2 h-4 w-4" aria-hidden="true" />
+              {t("player.retry")}
+            </Button>
           </div>
         ) : !user ? (
           <div className="text-center py-16 text-muted-foreground">

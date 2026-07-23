@@ -51,11 +51,11 @@ export function StationCard({ station, isSubscribed, isSelected, onClick }: Prop
       {/* Playing pulse indicator */}
       {isSelected && (
         <span aria-hidden="true" className={cn("absolute top-2 flex gap-0.5 items-end h-4", isRTL ? "left-2" : "right-2")}>
-          {[0, 0.15, 0.3].map(delay => (
+          {[{ delay: 0, height: 9 }, { delay: 0.15, height: 15 }, { delay: 0.3, height: 12 }].map(bar => (
             <span
-              key={delay}
+              key={bar.delay}
               className="w-0.5 bg-orange-400 rounded-full animate-bounce"
-              style={{ height: `${8 + Math.random() * 8}px`, animationDelay: `${delay}s` }}
+              style={{ height: `${bar.height}px`, animationDelay: `${bar.delay}s` }}
             />
           ))}
         </span>

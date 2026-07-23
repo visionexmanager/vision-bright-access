@@ -6,7 +6,7 @@
  */
 
 import { Link, useLocation } from "react-router-dom";
-import { Tv, Heart, Search, List } from "lucide-react";
+import { Tv, Heart, Search, List, Clapperboard } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ const NAV = [
   { path: "/services/live-tv/favorites",  en: "Favorites", ar: "المفضلة", icon: Heart,  exact: false },
   { path: "/services/live-tv/search",     en: "Search",    ar: "بحث",     icon: Search, exact: false },
   { path: "/services/live-tv/playlists",  en: "Playlists", ar: "قوائمي",  icon: List,   exact: false },
+  { path: "/services/live-tv/streaming",  en: "Movies & Series", ar: "أفلام ومسلسلات", icon: Clapperboard, exact: false },
 ] as const;
 
 export function TVSectionNav() {
@@ -45,7 +46,7 @@ export function TVSectionNav() {
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
             )}
           >
-            <Icon className="w-3.5 h-3.5" />
+            <Icon className="w-3.5 h-3.5" aria-hidden="true" />
             {isRTL ? item.ar : item.en}
           </Link>
         );

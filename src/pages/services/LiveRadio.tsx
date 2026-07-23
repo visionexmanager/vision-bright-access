@@ -23,7 +23,7 @@ export default function LiveRadio() {
 
   const {
     subscription, isSubscribed, daysRemaining,
-    stations, genres, isLoading,
+    stations, genres, isLoading, stationsError, refetchStations,
   } = useRadioSubscription();
   const { isOnTrial, trialDaysLeft } = useTrial();
   const displayDays = subscription ? daysRemaining : (isOnTrial ? trialDaysLeft : 0);
@@ -147,6 +147,20 @@ export default function LiveRadio() {
           <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground" role="status" aria-live="polite">
             <RefreshCw className="w-5 h-5 animate-spin" aria-hidden="true" />
             {t("liveRadio.loading")}
+          </div>
+        ) : stationsError ? (
+          <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-5 py-10 text-center">
+            <Radio className="mx-auto mb-3 h-10 w-10 text-destructive" aria-hidden="true" />
+            <p className="font-semibold text-foreground">
+              {isRTL ? "تعذر تحميل المحطات حالياً" : "Stations could not be loaded"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isRTL ? "تحقق من الاتصال ثم أعد المحاولة." : "Check your connection and try again."}
+            </p>
+            <Button variant="outline" className="mt-4" onClick={() => void refetchStations()}>
+              <RefreshCw className="me-2 h-4 w-4" aria-hidden="true" />
+              {t("player.retry")}
+            </Button>
           </div>
         ) : !user ? (
           <div className="text-center py-16 text-muted-foreground">

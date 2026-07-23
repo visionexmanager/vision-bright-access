@@ -27,19 +27,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-declare global {
-  interface Window { Hls: typeof import("hls.js").default; }
-}
-
 async function loadHls() {
-  if (window.Hls) return window.Hls;
-  return new Promise<typeof import("hls.js").default>((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js";
-    s.onload = () => resolve(window.Hls);
-    s.onerror = () => reject(new Error("hls.js load failed"));
-    document.head.appendChild(s);
-  });
+  // Keep the player self-contained and available even when a browser,
+  // network, or content-security policy blocks third-party CDN scripts.
+  return (await import("hls.js")).default;
 }
 
 export type UrlType = "youtube" | "hls" | "audio" | "external";

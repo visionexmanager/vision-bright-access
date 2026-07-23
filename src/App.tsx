@@ -245,6 +245,7 @@ const LiveTVSubscribe = lazy(() => import("./pages/services/LiveTVSubscribe"));
 const LiveTVFavorites = lazy(() => import("./pages/services/LiveTVFavorites"));
 const LiveTVSearch    = lazy(() => import("./pages/services/LiveTVSearch"));
 const LiveTVPlaylists = lazy(() => import("./pages/services/LiveTVPlaylists"));
+const StreamingGuide = lazy(() => import("./pages/services/StreamingGuide"));
 const LiveRadio = lazy(() => import("./pages/services/LiveRadio"));
 const LiveRadioListen = lazy(() => import("./pages/services/LiveRadioListen"));
 const LiveRadioSubscribe = lazy(() => import("./pages/services/LiveRadioSubscribe"));
@@ -542,6 +543,7 @@ function AppRoutes() {
                     <Route path="/services/live-tv/favorites"           element={<LiveTVFavorites />} />
                     <Route path="/services/live-tv/search"              element={<LiveTVSearch />} />
                     <Route path="/services/live-tv/playlists"           element={<LiveTVPlaylists />} />
+                    <Route path="/services/live-tv/streaming"           element={<StreamingGuide />} />
                     <Route path="/services/live-radio" element={<LiveRadio />} />
                     <Route path="/services/live-radio/subscribe" element={<LiveRadioSubscribe />} />
                     <Route path="/services/live-radio/listen/:stationId" element={<LiveRadioListen />} />
