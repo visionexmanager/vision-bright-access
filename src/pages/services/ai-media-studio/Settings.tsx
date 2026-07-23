@@ -108,7 +108,7 @@ export default function Settings() {
       project_created: prefs.notifications?.project_created ?? true,
       storage_warning: prefs.notifications?.storage_warning ?? true,
     });
-  }, [prefs, form.reset]);
+  }, [prefs, form]);
 
   const onSubmit = (values: FormValues) => saveMutation.mutate(values);
 
