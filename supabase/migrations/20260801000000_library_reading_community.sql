@@ -561,11 +561,6 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.can_access_library_discussion_reply(_reply_id UUID)
-RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT public.can_access_library_discussion_topic(topic_id) FROM public.library_discussion_replies WHERE id = _reply_id
-$$;
-
 ALTER TABLE public.library_discussion_topics ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "library_discussion_topics: read by context"
@@ -642,6 +637,14 @@ CREATE TABLE IF NOT EXISTS public.library_discussion_replies (
 );
 
 ALTER TABLE public.library_discussion_replies ENABLE ROW LEVEL SECURITY;
+
+-- Defined here, not up with can_access_library_discussion_topic — this
+-- table (library_discussion_replies) doesn't exist yet at that point in
+-- the file, and the function body references it directly.
+CREATE OR REPLACE FUNCTION public.can_access_library_discussion_reply(_reply_id UUID)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT public.can_access_library_discussion_topic(topic_id) FROM public.library_discussion_replies WHERE id = _reply_id
+$$;
 
 CREATE POLICY "library_discussion_replies: read if topic accessible"
   ON public.library_discussion_replies FOR SELECT
