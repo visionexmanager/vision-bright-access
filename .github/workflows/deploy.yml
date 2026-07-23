@@ -150,11 +150,41 @@ jobs:
           cache-to:   type=gha,mode=max
           platforms:  linux/amd64,linux/arm64
 
-  # ── 5. Notify on any failure ───────────────────────────────────────────────────
+  # ── 5. Warm the TV catalog after functions + migrations are ready ─────────────
+  validate-tv-catalog:
+    name: Validate pending TV catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [deploy-edge-functions, run-migrations]
+    steps:
+      - name: Validate one full catalog sweep
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::SUPABASE_URL and CRON_SECRET are required."
+            exit 1
+          fi
+
+          # The edge function checks 50 least-recently-tested sources per call.
+          # Twelve calls cover 600 sources: the expansion plus legacy rows.
+          for batch in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            echo "Validating TV batch $batch/12..."
+            curl --silent --show-error --fail-with-body \
+              -X POST \
+              "$SUPABASE_URL/functions/v1/tv-validate-stream" \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -H "Content-Type: application/json" \
+              -d '{}' \
+              --max-time 75
+          done
+
+  # ── 6. Notify on any failure ───────────────────────────────────────────────────
   notify-failure:
     name: Notify on failure
     runs-on: ubuntu-latest
-    needs: [deploy-vps, deploy-edge-functions, run-migrations]
+    needs: [deploy-vps, deploy-edge-functions, run-migrations, validate-tv-catalog]
     if: failure()
     steps:
       - name: Slack alert
