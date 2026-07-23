@@ -13,6 +13,12 @@ import type {
 
 const db = supabase as any;
 
+async function requireUserId(): Promise<string> {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) throw new Error("Not authenticated");
+  return user.id;
+}
+
 // ── Voice Profiles ────────────────────────────────────────────────────────────
 
 export async function listProfiles(filters: VoiceProfileFilters = {}): Promise<VoiceProfile[]> {
@@ -63,9 +69,11 @@ export async function getProfile(id: string): Promise<VoiceProfile | null> {
 }
 
 export async function createProfile(input: CreateVoiceProfileInput): Promise<VoiceProfile> {
+  const userId = await requireUserId();
   const { data, error } = await db
     .from("vs_voice_profiles")
     .insert({
+      user_id:     userId,
       name:        input.name,
       description: input.description ?? null,
       language:    input.language ?? "en",
@@ -162,10 +170,12 @@ export async function createDatasetRecord(
     is_valid?: boolean;
   }
 ): Promise<VoiceDataset> {
+  const userId = await requireUserId();
   const status: DatasetStatus = analysis?.is_valid === false ? "rejected" : "uploaded";
   const { data, error } = await db
     .from("vs_voice_datasets")
     .insert({
+      user_id:        userId,
       profile_id:     profileId,
       filename,
       storage_path:   storagePath,
