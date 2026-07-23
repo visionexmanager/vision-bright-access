@@ -30,6 +30,7 @@ import { PersonalProgressSection } from "./sections/PersonalProgressSection";
 import { AchievementsSection } from "./sections/AchievementsSection";
 import { DailyLearningGoalSection } from "./sections/DailyLearningGoalSection";
 import { RecentActivitySection } from "./sections/RecentActivitySection";
+import { AcademyQuickAccessSection } from "./sections/AcademyQuickAccessSection";
 import { AcademyPlaceholderSection } from "./ui/AcademyPlaceholderSection";
 import { AcademySectionHeader } from "./ui/AcademySectionHeader";
 import { CourseCard } from "./lms/CourseCard";
@@ -94,24 +95,9 @@ function CourseListSection({ icon, title, description, headingId, courses }: Cou
           </Button>
         }
       />
-      {courses.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" role="list">
-          {courses.map((course) => (
-            <div key={course.id} role="listitem">
-              <CourseCard course={course} />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-2xl border-2 border-dashed border-border p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            لا توجد دورات منشورة في هذا القسم حالياً.
-          </p>
-          <Button asChild variant="outline" size="sm" className="mt-3 rounded-xl">
-            <Link to="/academy/courses">تصفح جميع الدورات</Link>
-          </Button>
-        </div>
-      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {courses.map((course) => <CourseCard key={course.id} course={course} />)}
+      </div>
     </section>
   );
 }
@@ -278,6 +264,8 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
           onOpenAILearning={() => scrollToId("ai-learning-center", true)}
         />
 
+        <AcademyQuickAccessSection />
+
         <CareerCompassSection
           displayProfile={displayProfile}
           showAptitude={showAptitude}
@@ -349,6 +337,12 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
           onGoToStudyRoom={() => navigate("/content")}
           onGoToOCRScan={() => navigate("/services/ocr-scan")}
           onStudyPlan={() => handleSend(`أعطني خطة مذاكرة أسبوعية منظمة لطالب ${displayProfile.level} في ${displayProfile.country}`)}
+          onAcademicGuidance={() => {
+            setChatInput("ساعدني في تحديد مساري الدراسي والمهني بناءً على مستواي واهتماماتي");
+            scrollToId("ai-learning-center", true);
+          }}
+          onTutoring={() => navigate("/academy/courses")}
+          onTechnicalSupport={() => navigate("/help")}
         />
       </div>
 
@@ -462,13 +456,15 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
 
         <DailyLearningGoalSection />
 
-        <AcademyPlaceholderSection
+        <LiveModuleSection
           icon={CalendarClock}
           title="جدول التعلّم القادم"
-          description="مواعيدك ومواردك المجدولة"
+          description="نظّم أهدافك اليومية والأسبوعية وتابع التزامك"
           headingId="upcoming-schedule-heading"
-          variant="chips"
-          itemCount={3}
+          href="/academy/planner"
+          ctaLabel="فتح مخطط الدراسة"
+          itemCount={0}
+          emptyHint="أضف هدفك الدراسي الأول وابنِ جدولاً يناسب وقتك."
         />
 
         <RecentActivitySection
@@ -476,11 +472,15 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
           messageCount={messages.filter((m) => m.role === "user").length}
         />
 
-        <AcademyPlaceholderSection
+        <LiveModuleSection
           icon={Newspaper}
           title="أخبار وتحديثات الأكاديمية"
-          description="آخر مستجدات المنصة التعليمية"
+          description="إعلانات الدورات والمواعيد والإنجازات الجديدة"
           headingId="academy-news-heading"
+          href="/academy/notifications"
+          ctaLabel="عرض كل الإشعارات"
+          itemCount={0}
+          emptyHint="ستظهر هنا تنبيهات الدورات والمواعيد فور وصولها."
         />
       </div>
     </div>
