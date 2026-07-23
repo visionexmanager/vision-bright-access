@@ -184,7 +184,7 @@ INSERT INTO public.tv_channels (
   category_id, quality, language, country, is_active, is_featured, sort_order
 )
 SELECT
-  catalog.id, catalog.name, catalog.name_ar, catalog.description_ar,
+  catalog.id::UUID, catalog.name, catalog.name_ar, catalog.description_ar,
   catalog.logo_url, catalog.stream_url, catalog.official_url,
   categories.id, catalog.quality, catalog.language, catalog.country,
   TRUE, catalog.is_featured, catalog.sort_order
