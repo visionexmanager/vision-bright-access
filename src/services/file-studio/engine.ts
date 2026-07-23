@@ -33,9 +33,9 @@ export function detectModuleType(fileName: string): ModuleType | null {
   if (["mp3","wav","flac","aac","ogg","m4a","opus","wma"].includes(ext)) return "audio";
   if (["mp4","avi","mov","mkv","webm","flv","m4v","3gp"].includes(ext)) return "video";
   if (["jpg","jpeg","png","webp","heic","avif","gif","bmp","tiff","svg"].includes(ext)) return "image";
-  if (["pdf","docx","txt","html","csv","xlsx","pptx","md","rtf"].includes(ext)) return "document";
+  if (["pdf","docx","txt","html","xlsx","pptx","md","rtf"].includes(ext)) return "document";
   if (["zip","tar","gz","7z","rar"].includes(ext)) return "archive";
-  if (["json","xml","yaml","toml","base64","hex"].includes(ext)) return "developer";
+  if (["json","xml","yaml","toml","csv","base64","hex"].includes(ext)) return "developer";
   return null;
 }
 
@@ -60,6 +60,16 @@ const DOCUMENT_WORKING_TARGETS: Record<string, readonly string[]> = {
   csv:  ["txt"],
 };
 
+const DEVELOPER_WORKING_TARGETS: Record<string, readonly string[]> = {
+  json: ["json", "csv", "base64", "hex"],
+  csv: ["json", "base64", "hex"],
+  xml: ["base64", "hex"],
+  yaml: ["base64", "hex"],
+  toml: ["base64", "hex"],
+  base64: ["txt"],
+  hex: ["txt"],
+};
+
 // Only wav (manual PCM encode) and webm (MediaRecorder+opus) actually work
 // in-browser — mp3/ogg need a dedicated encoder we don't ship yet, see
 // modules/audio.ts's header comment for why they used to fail mid-conversion.
@@ -70,9 +80,9 @@ export function getWorkingOutputFormats(moduleType: ModuleType, inputFileName: s
 
   switch (moduleType) {
     case "image":
+      return ["jpg", "jpeg", "png", "webp"];
     case "developer":
-      // Fully implemented in-browser for every nominal target.
-      return getSupportedOutputFormats(moduleType);
+      return DEVELOPER_WORKING_TARGETS[inFmt] ?? [];
     case "audio":
       return AUDIO_WORKING_TARGETS;
     case "document":

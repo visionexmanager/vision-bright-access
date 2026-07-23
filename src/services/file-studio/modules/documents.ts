@@ -33,7 +33,7 @@ export const DocumentModule: ConverterModule = {
 
       // TXT → HTML
       if (inFmt === "txt" && opts.targetFormat === "html") {
-        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${file.name}</title></head><body><pre>${escapeHtml(text)}</pre></body></html>`;
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(file.name)}</title></head><body><pre>${escapeHtml(text)}</pre></body></html>`;
         resultBlob = new Blob([html], { type: "text/html" });
       }
       // HTML → TXT

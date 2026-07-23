@@ -20,10 +20,12 @@ import type {
 } from "@/lib/types/fileStudio";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function useFileStudio() {
   const { user } = useAuth();
   const { totalPoints } = usePoints();
+  const queryClient = useQueryClient();
   const [jobs, setJobs] = useState<ConversionJob[]>([]);
 
   // Determine user plan based on points balance
@@ -45,6 +47,21 @@ export function useFileStudio() {
     const interval = setInterval(() => jobQueue.sweepExpired(), 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    void (supabase as any).rpc("refund_stale_file_conversions").then(
+      ({ data, error }: { data: number | null; error: { message: string } | null }) => {
+        if (error) {
+          console.error("[FileStudio] stale refund check failed:", error.message);
+        } else if (Number(data) > 0) {
+          toast.info(`${data} interrupted conversion charge${data === 1 ? "" : "s"} refunded.`);
+          void queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
+          void queryClient.invalidateQueries({ queryKey: ["points-history", user.id] });
+        }
+      },
+    );
+  }, [queryClient, user]);
 
   const submitConversion = useCallback(
     async (
@@ -72,27 +89,31 @@ export function useFileStudio() {
         return null;
       }
 
-      // Check VX balance
+      // Check the cached balance for immediate feedback. The database repeats
+      // this check under a wallet lock before charging.
       const cost = calculateVxCost(moduleType, targetFormat, fileSizeMb(file));
       if (user && totalPoints < cost) {
         toast.error(`Insufficient VX. Need ${cost.toLocaleString()} VX, you have ${totalPoints.toLocaleString()} VX.`);
         return null;
       }
 
-      // Deduct VX (best-effort; refunded on failure via award_points).
-      // Never let a billing hiccup block the conversion itself.
-      if (user) {
-        try {
-          await supabase.rpc("award_points", {
-            _points: -cost,
-            _reason: `File Studio: convert ${file.name} → ${targetFormat}`,
-          });
-        } catch (err) {
-          console.error("[FileStudio] VX deduction failed, proceeding anyway:", err);
-        }
+      if (!user) return null;
+      const jobId = crypto.randomUUID();
+      const { data: chargedAmount, error: chargeError } = await (supabase as any).rpc("charge_file_conversion", {
+        _job_id: jobId,
+        _module_type: moduleType,
+        _target_format: targetFormat,
+        _file_size_bytes: file.size,
+      });
+      if (chargeError) {
+        toast.error(chargeError.message || "Unable to charge VX for this conversion.");
+        return null;
       }
+      void queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
+      void queryClient.invalidateQueries({ queryKey: ["points-history", user.id] });
 
       const job = jobQueue.enqueue({
+        id: jobId,
         file,
         moduleType,
         targetFormat,
@@ -101,43 +122,33 @@ export function useFileStudio() {
         priority,
       });
 
-      // Refund on failure — listen for this job to settle, then always unsubscribe
-      // (previously only unsubscribed on failure, leaking a listener per successful job).
-      if (user) {
-        const unsub = jobQueue.subscribe((updated) => {
-          if (updated.id !== job.id) return;
-          if (updated.status === "failed") {
-            supabase.rpc("award_points", {
-              _points: cost,
-              _reason: `File Studio refund: ${file.name} failed`,
-            }).then(({ error }) => {
-              if (error) console.error("[FileStudio] VX refund failed:", error.message);
-            });
-            toast.info(`${cost.toLocaleString()} VX refunded — conversion failed.`);
-            unsub();
-          } else if (updated.status === "completed" || updated.status === "cancelled") {
-            unsub();
+      const unsub = jobQueue.subscribe((updated) => {
+        if (updated.id !== job.id || !["failed", "completed", "cancelled"].includes(updated.status)) return;
+        const succeeded = updated.status === "completed";
+        void (supabase as any).rpc("settle_file_conversion", {
+          _job_id: job.id,
+          _succeeded: succeeded,
+        }).then(({ error }: { error: { message: string } | null }) => {
+          if (error) {
+            console.error("[FileStudio] settlement failed:", error.message);
+          } else if (!succeeded) {
+            toast.info(`${Number(chargedAmount ?? cost).toLocaleString()} VX refunded.`);
           }
+          void queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
+          void queryClient.invalidateQueries({ queryKey: ["points-history", user.id] });
         });
-      }
+        unsub();
+      });
 
       toast.success(`Job queued: ${file.name} → ${targetFormat.toUpperCase()}`);
       return job;
     },
-    [user, totalPoints, plan, priority]
+    [user, totalPoints, plan, priority, queryClient]
   );
 
   const cancelJob = useCallback((id: string) => {
-    const job = jobQueue.getJob(id);
-    if (job && user) {
-      // Refund VX for cancelled queued job
-      supabase.rpc("award_points", {
-        _points: job.vxCost,
-        _reason: `File Studio refund: cancelled ${job.inputFileName}`,
-      });
-    }
     jobQueue.cancel(id);
-  }, [user]);
+  }, []);
 
   return {
     jobs,

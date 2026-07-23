@@ -29,6 +29,7 @@ class JobQueue {
   // Blob object URLs created for completed jobs, revoked on expiry/removal
   // to avoid leaking memory for a page session that runs many conversions.
   private objectUrls: Map<string, string> = new Map();
+  private files: Map<string, File> = new Map();
 
   subscribe(fn: JobListener): () => void {
     this.listeners.add(fn);
@@ -71,6 +72,7 @@ class JobQueue {
   }
 
   enqueue(params: {
+    id?: string;
     file: File;
     moduleType: ModuleType;
     targetFormat: AnyFormat;
@@ -78,7 +80,7 @@ class JobQueue {
     userId: string | null;
     priority: JobPriority;
   }): ConversionJob {
-    const id = crypto.randomUUID();
+    const id = params.id ?? crypto.randomUUID();
     const now = new Date().toISOString();
     const vxCost = calculateVxCost(
       params.moduleType,
@@ -106,10 +108,11 @@ class JobQueue {
     };
 
     this.jobs.set(id, job);
+    this.files.set(id, params.file);
     fsLog(id, "upload_started", { file: params.file.name, sizeMb: fileSizeMb(params.file).toFixed(2) });
     fsLog(id, "upload_finished", { file: params.file.name });
     this.notify(job);
-    this.processNext(params.file, id);
+    void this.drain();
     return job;
   }
 
@@ -128,6 +131,7 @@ class JobQueue {
     this.revokeResultUrl(id);
     this.jobs.delete(id);
     this.cancelledJobs.delete(id);
+    this.files.delete(id);
   }
 
   /** Sweep expired jobs, revoking their blob URLs so memory doesn't leak. */
@@ -157,8 +161,20 @@ class JobQueue {
     this.notify(updated);
   }
 
+  private async drain() {
+    while (this.activeWorkers < this.MAX_WORKERS) {
+      const next = this.getJobs().find((job) => job.status === "queued");
+      if (!next) return;
+      const file = this.files.get(next.id);
+      if (!file) {
+        this.update(next.id, { status: "failed", errorMessage: "Source file is no longer available." });
+        continue;
+      }
+      void this.processNext(file, next.id);
+    }
+  }
+
   private async processNext(file: File, jobId: string) {
-    if (this.activeWorkers >= this.MAX_WORKERS) return;
     const job = this.jobs.get(jobId);
     if (!job || job.status !== "queued") return;
 
@@ -181,7 +197,10 @@ class JobQueue {
 
       // The job may have been cancelled while the browser was still computing —
       // don't resurrect it with a late result.
-      if (this.cancelledJobs.has(jobId)) return;
+      if (this.cancelledJobs.has(jobId)) {
+        if (result.resultUrl) URL.revokeObjectURL(result.resultUrl);
+        return;
+      }
 
       // Never treat an empty output as success — a 0-byte "result" is a failure.
       if (result.success && (!result.resultSize || result.resultSize <= 0)) {
@@ -214,8 +233,6 @@ class JobQueue {
           fsLog(jobId, "error", { reason, message, willRetry: true });
           this.update(jobId, { status: "queued", retryCount: retried + 1, progress: 0 });
           await new Promise((r) => setTimeout(r, 1500 * (retried + 1)));
-          this.activeWorkers--;
-          this.processNext(file, jobId);
           return;
         }
         fsLog(jobId, "error", { reason, message, willRetry: false });
@@ -236,6 +253,7 @@ class JobQueue {
       });
     } finally {
       this.activeWorkers--;
+      void this.drain();
     }
   }
 }
