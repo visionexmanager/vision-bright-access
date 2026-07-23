@@ -3,7 +3,7 @@ import { AdBanner } from "@/components/AdBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowRight, Bot, Eye, Radio, ShoppingBag, BookOpen, GraduationCap, UserPlus, Users, Zap, Gift, TrendingUp, Gamepad2, CheckCircle, Lock, Coins } from "lucide-react";
+import { ArrowRight, Bot, Eye, Radio, ShoppingBag, BookOpen, GraduationCap, UserPlus, Users, Zap, Gift, TrendingUp, Gamepad2, CheckCircle, Lock, Coins, BriefcaseBusiness, WandSparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSound } from "@/contexts/SoundContext";
@@ -26,6 +26,13 @@ export default function Index() {
     { icon: Users,       title: t("home.feature.community"),    desc: t("home.feature.communityDesc"),    to: "/community",                requiresAuth: true },
     { icon: Bot,         title: t("home.feature.ai"),           desc: t("home.feature.aiDesc"),           to: "/dashboard",                requiresAuth: true },
     { icon: Gamepad2,    title: t("nav.games"),                desc: t("dash.playGamesLinkDesc"),        to: "/games",                     requiresAuth: true },
+  ];
+
+  const featuredSections = [
+    { icon: BookOpen, title: t("nav.library"), desc: t("library.home.heroSubtitle"), to: "/library", requiresAuth: false },
+    { icon: BriefcaseBusiness, title: t("career.title"), desc: t("career.subtitle"), to: "/careers", requiresAuth: false },
+    { icon: GraduationCap, title: t("home.feature.academy"), desc: t("home.feature.academyDesc"), to: "/academy", requiresAuth: true },
+    { icon: WandSparkles, title: t("nav.aiStudio"), desc: t("home.feature.aiDesc"), to: "/services/ai-media-studio", requiresAuth: true },
   ];
 
   const steps = [
@@ -85,6 +92,45 @@ export default function Index() {
             </Link>
           </div>
         </AnimatedSection>
+      </section>
+
+      {/* Primary destinations */}
+      <section className="relative z-10 -mt-8 px-4 pb-12" aria-label={t("home.featuresTitle")}>
+        <StaggerGrid className="mx-auto grid max-w-6xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {featuredSections.map((section) => {
+            const Icon = section.icon;
+            const locked = !user && section.requiresAuth;
+
+            return (
+              <StaggerItem key={section.to}>
+                <Link
+                  to={locked ? "/signup" : section.to}
+                  className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring"
+                  onClick={() => playSound("navigate")}
+                >
+                  <Card className="h-full overflow-hidden border-border/60 bg-card/95 shadow-lg shadow-black/5 backdrop-blur transition-all duration-200 group-hover:-translate-y-1 group-hover:border-primary/35 group-hover:shadow-xl">
+                    <CardContent className="flex h-full min-h-48 flex-col p-6">
+                      <div className="mb-5 flex items-start justify-between gap-3">
+                        <div className="rounded-xl bg-primary/10 p-3 text-primary">
+                          <Icon className="h-7 w-7" aria-hidden="true" />
+                        </div>
+                        {locked && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                            <Lock className="h-3 w-3" aria-hidden="true" />
+                            {t("home.getStarted")}
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="mb-2 text-xl font-bold">{section.title}</h2>
+                      <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{section.desc}</p>
+                      <ArrowRight className="mt-auto h-5 w-5 self-end text-primary transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" aria-hidden="true" />
+                    </CardContent>
+                  </Card>
+                </Link>
+              </StaggerItem>
+            );
+          })}
+        </StaggerGrid>
       </section>
 
       {/* How It Works */}
