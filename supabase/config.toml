@@ -19,5 +19,8 @@ verify_jwt = false
 [functions.news-generate]
 verify_jwt = false
 
+[functions.newsletter-preferences]
+verify_jwt = false
+
 [functions.trial-billing]
 verify_jwt = false

@@ -68,19 +68,22 @@ Deno.serve(async (req) => {
     }
 
     // ── 3. Resolve recipients ─────────────────────────────────────
-    let recipients: string[] = [];
+    let recipients: Array<{ email: string; manageToken?: string }> = [];
 
     if (type === "newsletter") {
       let query = serviceClient
         .from("newsletter_subscribers")
-        .select("email");
+        .select("email, manage_token");
       if (topic && topic !== "all") {
         query = query.contains("topics", [topic]);
       }
       const { data: subs } = await query;
-      recipients = (subs ?? []).map((s: { email: string }) => s.email);
+      recipients = (subs ?? []).map((s: { email: string; manage_token?: string }) => ({
+        email: s.email,
+        manageToken: s.manage_token,
+      }));
     } else if (type === "single" && to) {
-      recipients = Array.isArray(to) ? to : [to];
+      recipients = (Array.isArray(to) ? to : [to]).map((email: string) => ({ email }));
     } else {
       return new Response(
         JSON.stringify({ error: "Invalid type or missing recipients" }),
@@ -127,6 +130,16 @@ Deno.serve(async (req) => {
     let failed = 0;
 
     for (const recipient of recipients) {
+      const manageUrl = recipient.manageToken
+        ? `https://visionex.app/newsletter/preferences?token=${encodeURIComponent(recipient.manageToken)}`
+        : null;
+      const personalizedHtml = manageUrl
+        ? html.replace("</body>", `<div style="padding:18px;text-align:center;font-size:12px;color:#6b7280">
+            <a href="${manageUrl}" style="color:#6d28d9">Manage email preferences</a>
+            &nbsp;·&nbsp;
+            <a href="${manageUrl}&action=unsubscribe" style="color:#6b7280">Unsubscribe</a>
+          </div></body>`)
+        : html;
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -135,10 +148,13 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           from: FROM,
-          to: [recipient],
+          to: [recipient.email],
           subject,
-          html,
+          html: personalizedHtml,
           reply_to: "hello@visionex.app",
+          headers: manageUrl ? {
+            "List-Unsubscribe": `<${manageUrl}&action=unsubscribe>`,
+          } : undefined,
         }),
       });
 

@@ -289,6 +289,7 @@ function buildDigestEmail(
   dateStr: string,
   quote: Record<SupportedLang, string>,
   subscriberName?: string | null,
+  manageToken?: string,
 ): string {
   const isRtl = RTL_LANGS.includes(lang);
   const dir = isRtl ? "rtl" : "ltr";
@@ -298,6 +299,12 @@ function buildDigestEmail(
     : (GREETINGS[lang] ?? GREETINGS.en);
   const quoteLabel = QUOTE_LABEL[lang] ?? QUOTE_LABEL.en;
   const quoteText = quote[lang] ?? quote.en;
+  const manageUrl = manageToken
+    ? `https://visionex.app/newsletter/preferences?token=${encodeURIComponent(manageToken)}`
+    : "https://visionex.app/news";
+  const unsubscribeUrl = manageToken
+    ? `${manageUrl}&action=unsubscribe`
+    : manageUrl;
 
   const articlesHtml = articles.map((a) => {
     const tr = a.translations[lang] ?? a.translations.en;
@@ -334,6 +341,11 @@ function buildDigestEmail(
         <a href="https://visionex.app/news" style="background:#6d28d9;color:#fff;padding:13px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block">${str.cta}</a>
       </div>
       <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;color:#9ca3af;font-size:11px">
+        <p style="margin:0 0 10px">
+          <a href="${manageUrl}" style="color:#6d28d9;text-decoration:underline">Manage email preferences</a>
+          &nbsp;·&nbsp;
+          <a href="${unsubscribeUrl}" style="color:#6b7280;text-decoration:underline">Unsubscribe</a>
+        </p>
         <p style="margin:0">© 2026 <a href="https://visionex.app" style="color:#6d28d9;text-decoration:none">Visionex</a></p>
       </div>
     </div>
@@ -508,7 +520,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: allSubscribers } = await supabase
     .from("newsletter_subscribers")
-    .select("id, email, topics, lang, name, last_sent_date");
+    .select("id, email, topics, lang, name, last_sent_date, manage_token");
 
   // Guard against double-sends (manual retry, or the schedule firing twice
   // in one day): skip anyone already emailed today rather than sending again.
@@ -562,7 +574,7 @@ Deno.serve(async (req: Request) => {
     if (relevantArticles.length === 0) continue;
 
     const dateStr = subLang === "ar" || subLang === "ur" ? dateAr : dateEn;
-    const html = buildDigestEmail(relevantArticles, subLang, dateStr, todaysQuote, sub.name);
+    const html = buildDigestEmail(relevantArticles, subLang, dateStr, todaysQuote, sub.name, sub.manage_token);
 
     try {
       const res = await fetch("https://api.resend.com/emails", {
@@ -573,6 +585,9 @@ Deno.serve(async (req: Request) => {
           to: [sub.email],
           subject: EMAIL_SUBJECTS[subLang] ?? EMAIL_SUBJECTS.en,
           html,
+          headers: sub.manage_token ? {
+            "List-Unsubscribe": `<https://visionex.app/newsletter/preferences?token=${encodeURIComponent(sub.manage_token)}&action=unsubscribe>`,
+          } : undefined,
         }),
       });
       if (res.ok) {

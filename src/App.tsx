@@ -203,6 +203,7 @@ const VoiceRoom = lazy(() => import("./pages/community/VoiceRoom"));
 const VoiceRooms = lazy(() => import("./pages/community/VoiceRooms"));
 const CoinsStore = lazy(() => import("./pages/CoinsStore"));
 const News = lazy(() => import("./pages/News"));
+const NewsletterPreferences = lazy(() => import("./pages/NewsletterPreferences"));
 const Messages = lazy(() => import("./pages/Messages"));
 const Settings = lazy(() => import("./pages/Settings"));
 const ProfessionalTools = lazy(() => import("./pages/ProfessionalTools"));
@@ -587,6 +588,7 @@ function AppRoutes() {
                     <Route path="/community/voice-room/:roomId" element={<VoiceRoom />} />
                     <Route path="/coins-store" element={<CoinsStore />} />
                     <Route path="/news" element={<News />} />
+                    <Route path="/newsletter/preferences" element={<NewsletterPreferences />} />
                     <Route path="/messages" element={<Messages />} />
                     <Route path="/settings" element={<Settings />} />
 <Route path="/professional-tools" element={<ProfessionalTools />} />

@@ -79,7 +79,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent" aria-hidden="true" />
 
         <div className="section-container py-12">
-          <NewsletterSubscribe />
+          {!pathname.startsWith("/newsletter/preferences") && <NewsletterSubscribe />}
 
           {/* Sitemap columns */}
           <div className="mt-10 grid gap-10 sm:grid-cols-3">
