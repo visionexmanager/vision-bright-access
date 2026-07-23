@@ -86,6 +86,8 @@ export function Navbar() {
     { to: "/library", label: t("nav.library") },
     { to: "/content", label: t("nav.content") },
     { to: "/games", label: t("nav.games") },
+    { to: "/careers", label: t("career.title") },
+    { to: "/academy", label: t("home.feature.academy") },
     { to: "/news", label: t("nav.news") },
   ];
 
@@ -112,6 +114,8 @@ export function Navbar() {
       links: [
         { to: "/content", label: t("nav.content") },
         { to: "/games", label: t("nav.games") },
+        { to: "/careers", label: t("career.title") },
+        { to: "/academy", label: t("home.feature.academy") },
         { to: "/community", label: t("nav.community") },
       ],
     },
@@ -146,6 +150,7 @@ export function Navbar() {
 
         {/* Desktop nav */}
         <div ref={menubarRef} className="hidden items-center gap-0.5 lg:flex">
+          <LanguageSwitcher />
           {navLinks.map((link, index) => (
             <Link
               key={link.to}
@@ -174,7 +179,6 @@ export function Navbar() {
             {soundEnabled ? <Volume2 className="h-5 w-5" aria-hidden="true" /> : <VolumeX className="h-5 w-5 text-muted-foreground" aria-hidden="true" />}
           </Button>
           <ThemeToggle />
-          <LanguageSwitcher />
           <CartDrawer />
           {user && <NotificationBell />}
           {user && (
@@ -248,8 +252,8 @@ export function Navbar() {
 
         {/* Mobile toggle */}
         <div className="flex items-center gap-1.5 lg:hidden">
-          <ThemeToggle />
           <LanguageSwitcher />
+          <ThemeToggle />
           {user && (
             <Link to="/profile" onClick={() => setMenuOpen(false)}>
               <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
