@@ -9216,6 +9216,23 @@ export const translations: Record<string, string> = {
   "library.enterprise.dashboard.announcementTitle": "Titel",
   "library.enterprise.dashboard.exportCalendar": "Kalender exportieren",
   "library.enterprise.dashboard.sendAnnouncement": "Ankündigung senden",
+  "library.admin.reports.actionTypeLabel": "Aktionstyp",
+  "library.common.sortBy": "Sortieren nach",
+  "library.ai.sidebar.sectionLabel": "KI-Bereich",
+  "library.ai.summary.scopeLabel": "Zusammenfassungsumfang",
+  "library.ai.summary.lengthLabel": "Länge der Zusammenfassung",
+  "library.ai.translate.granularityLabel": "Übersetzungsumfang",
+  "library.studio.editor.panelLabel": "Bereich",
+  "library.collectionsAdmin.moveUp": "Nach oben",
+  "library.collectionsAdmin.moveDown": "Nach unten",
+  "library.studio.pricing.discountType": "Rabattart",
+  "library.notes.moveToNotebookLabel": "In Notizbuch verschieben",
+  "library.certificates.qrAlt": "QR-Code zur Seite für die Zertifikatsprüfung",
+  "library.librarian.automation.message.resume-reading": "Lies „{title}“ weiter — du hast {percent} % geschafft.",
+  "library.librarian.automation.message.next-chapter": "Als Nächstes: Kapitel {chapterNumber} — {chapterTitle}",
+  "library.librarian.automation.message.review-session": "{count} Karteikarten müssen wiederholt werden.",
+  "library.librarian.automation.message.fatigue-break": "Du hast heute {minutes} Minuten gelesen — gönn dir eine kurze Pause.",
+  "library.librarian.automation.message.recommend-challenge": "Probiere die Lese-Challenge „{title}“ aus.",
 };
 
 export default translations;

@@ -9312,6 +9312,23 @@ export const translations: Record<string, string> = {
   "library.enterprise.dashboard.announcementTitle": "العنوان",
   "library.enterprise.dashboard.exportCalendar": "تصدير التقويم",
   "library.enterprise.dashboard.sendAnnouncement": "إرسال الإعلان",
+  "library.admin.reports.actionTypeLabel": "نوع الإجراء",
+  "library.common.sortBy": "الترتيب حسب",
+  "library.ai.sidebar.sectionLabel": "قسم لوحة الذكاء الاصطناعي",
+  "library.ai.summary.scopeLabel": "نطاق الملخص",
+  "library.ai.summary.lengthLabel": "طول الملخص",
+  "library.ai.translate.granularityLabel": "نطاق الترجمة",
+  "library.studio.editor.panelLabel": "اللوحة",
+  "library.collectionsAdmin.moveUp": "نقل لأعلى",
+  "library.collectionsAdmin.moveDown": "نقل لأسفل",
+  "library.studio.pricing.discountType": "نوع الخصم",
+  "library.notes.moveToNotebookLabel": "نقل إلى دفتر الملاحظات",
+  "library.certificates.qrAlt": "رمز QR يؤدي إلى صفحة التحقق من الشهادة",
+  "library.librarian.automation.message.resume-reading": "تابع قراءة «{title}» — لقد أنجزت {percent}٪ منها.",
+  "library.librarian.automation.message.next-chapter": "التالي: الفصل {chapterNumber} — {chapterTitle}",
+  "library.librarian.automation.message.review-session": "لديك {count} بطاقة تعليمية مستحقة للمراجعة.",
+  "library.librarian.automation.message.fatigue-break": "قرأت لمدة {minutes} دقيقة اليوم — فكّر في أخذ استراحة قصيرة.",
+  "library.librarian.automation.message.recommend-challenge": "جرّب تحدي القراءة «{title}».",
 };
 
 export default translations;

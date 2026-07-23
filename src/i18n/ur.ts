@@ -9216,6 +9216,23 @@ export const translations: Record<string, string> = {
   "library.enterprise.security.verify": "تصدیق کریں",
   "library.enterprise.title": "تنظیمیں",
   "library.enterprise.typeLabel": "تنظیم کی قسم",
+  "library.admin.reports.actionTypeLabel": "کارروائی کی قسم",
+  "library.common.sortBy": "ترتیب دیں",
+  "library.ai.sidebar.sectionLabel": "اے آئی پینل کا حصہ",
+  "library.ai.summary.scopeLabel": "خلاصے کا دائرہ",
+  "library.ai.summary.lengthLabel": "خلاصے کی لمبائی",
+  "library.ai.translate.granularityLabel": "ترجمے کا دائرہ",
+  "library.studio.editor.panelLabel": "پینل",
+  "library.collectionsAdmin.moveUp": "اوپر منتقل کریں",
+  "library.collectionsAdmin.moveDown": "نیچے منتقل کریں",
+  "library.studio.pricing.discountType": "رعایت کی قسم",
+  "library.notes.moveToNotebookLabel": "نوٹ بک میں منتقل کریں",
+  "library.certificates.qrAlt": "سرٹیفکیٹ کی تصدیق کے صفحے کا QR کوڈ",
+  "library.librarian.automation.message.resume-reading": "“{title}” پڑھنا جاری رکھیں — آپ {percent}٪ مکمل کر چکے ہیں۔",
+  "library.librarian.automation.message.next-chapter": "اگلا: باب {chapterNumber} — {chapterTitle}",
+  "library.librarian.automation.message.review-session": "{count} فلیش کارڈز کا جائزہ لینا باقی ہے۔",
+  "library.librarian.automation.message.fatigue-break": "آپ نے آج {minutes} منٹ پڑھا — تھوڑا وقفہ کرنے پر غور کریں۔",
+  "library.librarian.automation.message.recommend-challenge": "“{title}” مطالعے کا چیلنج آزمائیں۔",
 };
 
 export default translations;

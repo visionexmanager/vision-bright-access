@@ -27,6 +27,7 @@
  * wall-clock time spent actually playing does, throttled to ~one RPC call
  * per 20 seconds of active playback.
  */
+/* eslint-disable react-refresh/only-export-components -- this context intentionally exports its provider, consumer hook, and playback helpers */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -453,7 +454,6 @@ export function LibraryAudioPlayerProvider({ children }: { children: ReactNode }
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, updatePosition, nextChapter, state.repeatMode]);
 
   useEffect(() => {

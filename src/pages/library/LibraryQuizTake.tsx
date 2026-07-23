@@ -20,7 +20,10 @@ import { cn } from "@/lib/utils";
 import type { LibraryQuizAttemptQuestion } from "@/lib/types/library-learning";
 
 function MatchingQuestion({ question, value, onChange }: { question: LibraryQuizAttemptQuestion; value: Record<string, string>; onChange: (v: Record<string, string>) => void }) {
-  const pairs = (question.options as { left: string; right: string }[] | null) ?? [];
+  const pairs = useMemo(
+    () => (question.options as { left: string; right: string }[] | null) ?? [],
+    [question.options],
+  );
   const rightOptions = useMemo(() => pairs.map((p) => p.right), [pairs]);
   return (
     <div className="space-y-2">

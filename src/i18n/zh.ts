@@ -9217,6 +9217,23 @@ export const translations: Record<string, string> = {
   "library.enterprise.security.verify": "验证",
   "library.enterprise.title": "组织",
   "library.enterprise.typeLabel": "组织类型",
+  "library.admin.reports.actionTypeLabel": "操作类型",
+  "library.common.sortBy": "排序方式",
+  "library.ai.sidebar.sectionLabel": "AI 面板分区",
+  "library.ai.summary.scopeLabel": "摘要范围",
+  "library.ai.summary.lengthLabel": "摘要长度",
+  "library.ai.translate.granularityLabel": "翻译范围",
+  "library.studio.editor.panelLabel": "面板",
+  "library.collectionsAdmin.moveUp": "上移",
+  "library.collectionsAdmin.moveDown": "下移",
+  "library.studio.pricing.discountType": "折扣类型",
+  "library.notes.moveToNotebookLabel": "移至笔记本",
+  "library.certificates.qrAlt": "链接到证书验证页面的二维码",
+  "library.librarian.automation.message.resume-reading": "继续阅读《{title}》——你已读完 {percent}%。",
+  "library.librarian.automation.message.next-chapter": "接下来：第 {chapterNumber} 章——{chapterTitle}",
+  "library.librarian.automation.message.review-session": "有 {count} 张闪卡需要复习。",
+  "library.librarian.automation.message.fatigue-break": "你今天已阅读 {minutes} 分钟，建议稍作休息。",
+  "library.librarian.automation.message.recommend-challenge": "试试“{title}”阅读挑战。",
 };
 
 export default translations;

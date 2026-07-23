@@ -9216,6 +9216,23 @@ export const translations: Record<string, string> = {
   "library.enterprise.dashboard.announcementTitle": "Заголовок",
   "library.enterprise.dashboard.exportCalendar": "Экспорт календаря",
   "library.enterprise.dashboard.sendAnnouncement": "Отправить объявление",
+  "library.admin.reports.actionTypeLabel": "Тип действия",
+  "library.common.sortBy": "Сортировать по",
+  "library.ai.sidebar.sectionLabel": "Раздел панели ИИ",
+  "library.ai.summary.scopeLabel": "Объём содержания",
+  "library.ai.summary.lengthLabel": "Длина содержания",
+  "library.ai.translate.granularityLabel": "Объём перевода",
+  "library.studio.editor.panelLabel": "Панель",
+  "library.collectionsAdmin.moveUp": "Переместить вверх",
+  "library.collectionsAdmin.moveDown": "Переместить вниз",
+  "library.studio.pricing.discountType": "Тип скидки",
+  "library.notes.moveToNotebookLabel": "Переместить в блокнот",
+  "library.certificates.qrAlt": "QR-код со ссылкой на страницу проверки сертификата",
+  "library.librarian.automation.message.resume-reading": "Продолжите читать «{title}» — прочитано {percent} %.",
+  "library.librarian.automation.message.next-chapter": "Далее: глава {chapterNumber} — {chapterTitle}",
+  "library.librarian.automation.message.review-session": "Пора повторить карточки: {count}.",
+  "library.librarian.automation.message.fatigue-break": "Сегодня вы читали {minutes} минут — стоит сделать небольшой перерыв.",
+  "library.librarian.automation.message.recommend-challenge": "Попробуйте читательский марафон «{title}».",
 };
 
 export default translations;

@@ -9312,6 +9312,23 @@ export const translations: Record<string, string> = {
   "library.enterprise.security.verify": "सत्यापित करें",
   "library.enterprise.title": "संगठन",
   "library.enterprise.typeLabel": "संगठन प्रकार",
+  "library.admin.reports.actionTypeLabel": "कार्रवाई का प्रकार",
+  "library.common.sortBy": "इसके अनुसार क्रमित करें",
+  "library.ai.sidebar.sectionLabel": "AI पैनल अनुभाग",
+  "library.ai.summary.scopeLabel": "सारांश का दायरा",
+  "library.ai.summary.lengthLabel": "सारांश की लंबाई",
+  "library.ai.translate.granularityLabel": "अनुवाद का दायरा",
+  "library.studio.editor.panelLabel": "पैनल",
+  "library.collectionsAdmin.moveUp": "ऊपर ले जाएँ",
+  "library.collectionsAdmin.moveDown": "नीचे ले जाएँ",
+  "library.studio.pricing.discountType": "छूट का प्रकार",
+  "library.notes.moveToNotebookLabel": "नोटबुक में ले जाएँ",
+  "library.certificates.qrAlt": "प्रमाणपत्र सत्यापन पृष्ठ से जुड़ा QR कोड",
+  "library.librarian.automation.message.resume-reading": "“{title}” पढ़ना जारी रखें — आपने {percent}% पूरा कर लिया है।",
+  "library.librarian.automation.message.next-chapter": "अगला: अध्याय {chapterNumber} — {chapterTitle}",
+  "library.librarian.automation.message.review-session": "{count} फ़्लैशकार्ड की समीक्षा बाकी है।",
+  "library.librarian.automation.message.fatigue-break": "आपने आज {minutes} मिनट पढ़ा — थोड़ा विराम लेने पर विचार करें।",
+  "library.librarian.automation.message.recommend-challenge": "“{title}” पढ़ने की चुनौती आज़माएँ।",
 };
 
 export default translations;

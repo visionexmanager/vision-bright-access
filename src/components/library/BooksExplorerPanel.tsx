@@ -165,7 +165,7 @@ export function BooksExplorerPanel({ fixedFilters, showPopularTags = true }: Boo
           {t("library.format.free")}
         </Button>
         <Button type="button" size="sm" variant={isFree === false ? "default" : "outline"} aria-pressed={isFree === false} onClick={() => setParam("free", isFree === false ? undefined : "0")}>
-          {t("library.rail.paid")}
+          {t("library.home.rail.paid")}
         </Button>
 
         <label className="flex items-center gap-1.5 text-sm">

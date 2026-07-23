@@ -9217,6 +9217,23 @@ export const translations: Record<string, string> = {
   "library.enterprise.dashboard.announcementTitle": "Başlık",
   "library.enterprise.dashboard.exportCalendar": "Takvimi Dışa Aktar",
   "library.enterprise.dashboard.sendAnnouncement": "Duyuru Gönder",
+  "library.admin.reports.actionTypeLabel": "İşlem türü",
+  "library.common.sortBy": "Sıralama ölçütü",
+  "library.ai.sidebar.sectionLabel": "Yapay zekâ paneli bölümü",
+  "library.ai.summary.scopeLabel": "Özet kapsamı",
+  "library.ai.summary.lengthLabel": "Özet uzunluğu",
+  "library.ai.translate.granularityLabel": "Çeviri kapsamı",
+  "library.studio.editor.panelLabel": "Panel",
+  "library.collectionsAdmin.moveUp": "Yukarı taşı",
+  "library.collectionsAdmin.moveDown": "Aşağı taşı",
+  "library.studio.pricing.discountType": "İndirim türü",
+  "library.notes.moveToNotebookLabel": "Not defterine taşı",
+  "library.certificates.qrAlt": "Sertifika doğrulama sayfasına bağlanan QR kodu",
+  "library.librarian.automation.message.resume-reading": "“{title}” kitabını okumaya devam et — %{percent} tamamlandı.",
+  "library.librarian.automation.message.next-chapter": "Sırada: Bölüm {chapterNumber} — {chapterTitle}",
+  "library.librarian.automation.message.review-session": "{count} bilgi kartının tekrar zamanı geldi.",
+  "library.librarian.automation.message.fatigue-break": "Bugün {minutes} dakika okudun — kısa bir mola vermeyi düşün.",
+  "library.librarian.automation.message.recommend-challenge": "“{title}” okuma meydan okumasını dene.",
 };
 
 export default translations;
