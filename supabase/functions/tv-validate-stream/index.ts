@@ -9,7 +9,7 @@
  *
  * Validation logic:
  *  1. Fetch top N active stream sources ordered by priority
- *  2. HEAD request each HLS manifest URL (10s timeout)
+ *  2. GET the HLS manifest and verify its signature (HEAD is unreliable on CDNs)
  *  3. On 200: increment up-score; on error: decrement
  *  4. New reliability = weighted moving average: 0.7 × old + 0.3 × sample
  *  5. Write updated reliability + timestamp back to DB
@@ -37,6 +37,7 @@ type StreamSource = {
   type:        string;
   reliability: number;
   priority:    number;
+  consecutive_failures: number;
 };
 
 async function validateUrl(url: string): Promise<{ ok: boolean; statusCode: number; latencyMs: number }> {
@@ -46,13 +47,18 @@ async function validateUrl(url: string): Promise<{ ok: boolean; statusCode: numb
 
   try {
     const res = await fetch(url, {
-      method:  "HEAD",
+      method:  "GET",
       signal:  controller.signal,
-      headers: { "User-Agent": "VisionexStreamValidator/1.0" },
+      headers: {
+        "Accept": "application/vnd.apple.mpegurl, application/x-mpegURL, */*",
+        "Range": "bytes=0-8191",
+        "User-Agent": "VisionexStreamValidator/2.0",
+      },
     });
+    const prefix = (await res.text()).trimStart().slice(0, 7);
     clearTimeout(tid);
     return {
-      ok:         res.ok,
+      ok:         res.ok && prefix === "#EXTM3U",
       statusCode: res.status,
       latencyMs:  Date.now() - start,
     };
@@ -89,7 +95,7 @@ Deno.serve(async (req: Request) => {
   // Fetch stream sources to validate
   let query = supabase
     .from("tv_stream_sources")
-    .select("id, channel_id, url, type, reliability, priority")
+    .select("id, channel_id, url, type, reliability, priority, consecutive_failures")
     .eq("is_active", true)
     .order("last_checked_at", { ascending: true })   // check least-recently-validated first
     .limit(BATCH_SIZE);
@@ -111,7 +117,15 @@ Deno.serve(async (req: Request) => {
 
   // Validate all sources in parallel (batched to avoid overwhelming the edge runtime)
   const PARALLEL = 10;
-  const results: Array<{ id: string; reliability: number; ok: boolean; latencyMs: number }> = [];
+  const results: Array<{
+    id: string;
+    channelId: string;
+    reliability: number;
+    consecutiveFailures: number;
+    disable: boolean;
+    ok: boolean;
+    latencyMs: number;
+  }> = [];
 
   for (let i = 0; i < (sources as StreamSource[]).length; i += PARALLEL) {
     const batch = (sources as StreamSource[]).slice(i, i + PARALLEL);
@@ -122,10 +136,14 @@ Deno.serve(async (req: Request) => {
         // Exponential moving average: blend old score with new 0/100 sample
         const sample     = ok ? 100 : 0;
         const newScore   = Math.round(WEIGHT_OLD * source.reliability + WEIGHT_NEW * sample);
+        const consecutiveFailures = ok ? 0 : source.consecutive_failures + 1;
 
         return {
           id:          source.id,
+          channelId:   source.channel_id,
           reliability: Math.max(0, Math.min(100, newScore)),
+          consecutiveFailures,
+          disable:     consecutiveFailures >= 3,
           ok,
           latencyMs,
         };
@@ -134,20 +152,43 @@ Deno.serve(async (req: Request) => {
     results.push(...batchResults);
   }
 
-  // Batch-update reliability scores
-  const updates = results.map(r => ({
-    id:              r.id,
-    reliability:     r.reliability,
-    last_checked_at: new Date().toISOString(),
-  }));
-
-  const { error: updateErr } = await supabase
-    .from("tv_stream_sources")
-    .upsert(updates, { onConflict: "id" });
+  // Update existing rows. An upsert cannot be used here because required
+  // channel_id/url columns are intentionally absent from these health updates.
+  const checkedAt = new Date().toISOString();
+  const updateResults = await Promise.all(results.map(r =>
+    supabase
+      .from("tv_stream_sources")
+      .update({
+        reliability: r.reliability,
+        consecutive_failures: r.consecutiveFailures,
+        last_checked_at: checkedAt,
+        is_active: !r.disable,
+      })
+      .eq("id", r.id)
+  ));
+  const updateErr = updateResults.find(result => result.error)?.error;
 
   if (updateErr) {
     console.error("[tv-validate-stream] update error:", updateErr);
     return Response.json({ error: "db_update_failed" }, { status: 500, headers: CORS });
+  }
+
+  // A channel disappears only when every one of its sources has failed three
+  // consecutive checks. A transient CDN outage therefore cannot remove it.
+  const affectedChannelIds = [...new Set(results.filter(r => r.disable).map(r => r.channelId))];
+  for (const channelId of affectedChannelIds) {
+    const { count } = await supabase
+      .from("tv_stream_sources")
+      .select("id", { count: "exact", head: true })
+      .eq("channel_id", channelId)
+      .eq("is_active", true);
+
+    if ((count ?? 0) === 0) {
+      await supabase
+        .from("tv_channels")
+        .update({ is_active: false })
+        .eq("id", channelId);
+    }
   }
 
   const passed  = results.filter(r => r.ok).length;
