@@ -11,7 +11,7 @@ import { IMAGE_FORMATS } from "@/lib/types/fileStudio";
 export const ImageModule: ConverterModule = {
   moduleType: "image",
   supportedInputFormats: [...IMAGE_FORMATS],
-  supportedOutputFormats: ["jpg", "jpeg", "png", "webp", "gif", "bmp"],
+  supportedOutputFormats: ["jpg", "jpeg", "png", "webp"],
   canHandleInBrowser: true,
 
   async convert(
@@ -34,15 +34,30 @@ export const ImageModule: ConverterModule = {
         ? Math.round(bitmap.height * (targetW / bitmap.width))
         : opts.height ?? bitmap.height;
 
-      const canvas = new OffscreenCanvas(targetW, targetH);
-      const ctx = canvas.getContext("2d")!;
+      if (!Number.isFinite(targetW) || !Number.isFinite(targetH) || targetW < 1 || targetH < 1 || targetW * targetH > 100_000_000) {
+        throw new Error("Invalid or unsafe output dimensions.");
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas conversion is unavailable in this browser.");
       ctx.drawImage(bitmap, 0, 0, targetW, targetH);
       bitmap.close();
       onProgress(70);
 
       const quality = (opts.quality ?? 90) / 100;
       const mime = mimeFromFormat(opts.targetFormat);
-      const blob = await canvas.convertToBlob({ type: mime, quality });
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (result) => result ? resolve(result) : reject(new Error(`This browser cannot encode ${opts.targetFormat.toUpperCase()}.`)),
+          mime,
+          quality,
+        );
+      });
+      if (blob.type !== mime) {
+        throw new Error(`This browser cannot encode ${opts.targetFormat.toUpperCase()}.`);
+      }
 
       onProgress(100);
       const url = URL.createObjectURL(blob);
