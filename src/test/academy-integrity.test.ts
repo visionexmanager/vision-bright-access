@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const appSource = readFileSync("src/App.tsx", "utf8");
 const navSource = readFileSync("src/components/academy/AcademyNav.tsx", "utf8");
 const enrollmentMigration = readFileSync(
-  "supabase/migrations/20260723000000_secure_academy_enrollment.sql",
+  "supabase/migrations/20260809000000_secure_academy_enrollment.sql",
   "utf8"
 );
 
