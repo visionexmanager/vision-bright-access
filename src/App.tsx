@@ -189,6 +189,9 @@ const QuizChallenge = lazy(() => import("./pages/QuizChallenge"));
 const MemoryGame = lazy(() => import("./pages/MemoryGame"));
 const WordPuzzle = lazy(() => import("./pages/WordPuzzle"));
 const Visionopoly = lazy(() => import("./pages/games/Visionopoly"));
+const SkyboundQuest = lazy(() => import("./pages/games/VXKidsGames").then((module) => ({ default: module.SkyboundQuest })));
+const BuildWorldKids = lazy(() => import("./pages/games/VXKidsGames").then((module) => ({ default: module.BuildWorldKids })));
+const KnowledgeGalaxy = lazy(() => import("./pages/games/VXKidsGames").then((module) => ({ default: module.KnowledgeGalaxy })));
 const AssistiveProducts = lazy(() => import("./pages/AssistiveProducts"));
 const BusinessSimulator = lazy(() => import("./pages/BusinessSimulator"));
 const SimulationRunner = lazy(() => import("./pages/SimulationRunner"));
@@ -502,6 +505,9 @@ function AppRoutes() {
                     <Route path="/games/memory" element={<GameEconomyGate gameTitle="Memory Game"><MemoryGame /></GameEconomyGate>} />
                     <Route path="/games/word-puzzle" element={<GameEconomyGate gameTitle="Word Puzzle"><WordPuzzle /></GameEconomyGate>} />
                     <Route path="/games/visionopoly" element={<GameEconomyGate gameTitle="Visionopoly"><Visionopoly /></GameEconomyGate>} />
+                    <Route path="/games/skybound-quest" element={<GameEconomyGate gameTitle="Skybound Quest"><SkyboundQuest /></GameEconomyGate>} />
+                    <Route path="/games/buildworld-kids" element={<GameEconomyGate gameTitle="BuildWorld Kids"><BuildWorldKids /></GameEconomyGate>} />
+                    <Route path="/games/knowledge-galaxy" element={<GameEconomyGate gameTitle="Knowledge Galaxy"><KnowledgeGalaxy /></GameEconomyGate>} />
                     <Route path="/assistive-products" element={<AssistiveProducts />} />
                     <Route path="/business-simulator" element={<BusinessSimulator />} />
                     <Route path="/business-simulator/:slug" element={<SimulationRunner />} />
