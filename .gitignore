@@ -44,3 +44,6 @@ set-supabase-secret.sh
 # Codex / AI tool artifacts
 .codex-*
 .cache/
+
+# Untracked nested repo clone (accidental duplicate; has its own .git) — never commit
+/vision-bright-access/

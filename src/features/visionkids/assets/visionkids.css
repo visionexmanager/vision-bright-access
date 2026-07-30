@@ -1,0 +1,47 @@
+/*
+ * VisionKids theme layer. Scoped entirely under .visionkids-root so it never
+ * leaks into the rest of Visionex — the section keeps the site's design
+ * tokens (--background, --border, focus rings, etc.) for structure/a11y and
+ * only overrides brand color + decorative surfaces here.
+ */
+
+.visionkids-root {
+  --kids-primary: #4f46e5;
+  --kids-secondary: #06b6d4;
+  --kids-accent: #f59e0b;
+  --kids-pink: #ec4899;
+  --kids-green: #22c55e;
+  --kids-purple: #8b5cf6;
+}
+
+.kids-hero-gradient {
+  background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--kids-primary) 20%, transparent), transparent 45%),
+    radial-gradient(circle at 80% 30%, color-mix(in srgb, var(--kids-pink) 18%, transparent), transparent 45%),
+    radial-gradient(circle at 50% 90%, color-mix(in srgb, var(--kids-secondary) 18%, transparent), transparent 45%);
+}
+
+.kids-card-glow {
+  box-shadow: 0 8px 30px -12px color-mix(in srgb, var(--kids-glow, var(--kids-primary)) 45%, transparent);
+}
+
+.kids-ripple {
+  position: absolute;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.25;
+  pointer-events: none;
+  transform: scale(0);
+  animation: kids-ripple-expand 600ms ease-out forwards;
+}
+
+@keyframes kids-ripple-expand {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.reduce-motion .kids-ripple {
+  animation: none;
+  display: none;
+}

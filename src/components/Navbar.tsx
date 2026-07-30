@@ -88,6 +88,7 @@ export function Navbar() {
     { to: "/games", label: t("nav.games") },
     { to: "/careers", label: t("career.title") },
     { to: "/academy", label: t("home.feature.academy") },
+    { to: "/kids", label: t("nav.kids") },
     { to: "/news", label: t("nav.news") },
   ];
 
@@ -116,6 +117,7 @@ export function Navbar() {
         { to: "/games", label: t("nav.games") },
         { to: "/careers", label: t("career.title") },
         { to: "/academy", label: t("home.feature.academy") },
+        { to: "/kids", label: t("nav.kids") },
         { to: "/community", label: t("nav.community") },
       ],
     },

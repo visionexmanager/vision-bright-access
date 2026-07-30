@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSound } from "@/contexts/SoundContext";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { CareerCenterSection } from "@/components/career/CareerCenterSection";
+import { VisionKidsHomeSection } from "@/components/VisionKidsHomeSection";
 
 export default function Index() {
   const { t } = useLanguage();
@@ -130,6 +131,8 @@ export default function Index() {
           })}
         </StaggerGrid>
       </section>
+      {/* VisionKids — prominent, not hidden in a submenu (Phase 21) */}
+      <VisionKidsHomeSection />
 
       {/* How It Works */}
       <section className="py-20" aria-labelledby="how-heading">

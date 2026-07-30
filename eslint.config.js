@@ -13,6 +13,9 @@ export default tseslint.config(
       // Separate sub-projects with their own CI
       "visionex-tv/**",
       "infra/**",
+      // Untracked nested repo clone (has its own toolchain/CI); never lint it
+      // from the parent — see Phase 20 audit report (flagged for manual removal).
+      "vision-bright-access/**",
     ],
   },
   {

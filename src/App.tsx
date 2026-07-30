@@ -330,6 +330,305 @@ const AdminTV = lazy(() => import("./pages/admin/AdminTV"));
 const AdminRadio = lazy(() => import("./pages/admin/AdminRadio"));
 const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
 
+// VisionKids — accessibility-first kids' hub, independent layout/nav from the rest of the site.
+const VisionKidsLayout = lazy(() => import("./features/visionkids/layouts/VisionKidsLayout"));
+const VisionKidsHome = lazy(() => import("./features/visionkids/pages/VisionKidsHome"));
+const VisionKidsSettings = lazy(() => import("./features/visionkids/pages/VisionKidsSettings"));
+const VisionKidsSection = lazy(() => import("./features/visionkids/pages/VisionKidsSection"));
+
+// VisionKids Phase 2 — Smart Stories Library
+const StoriesHome = lazy(() => import("./features/visionkids/pages/stories/StoriesHome"));
+const StoryCategories = lazy(() => import("./features/visionkids/pages/stories/StoryCategories"));
+const StoryBrowse = lazy(() => import("./features/visionkids/pages/stories/StoryBrowse"));
+const StoryDetails = lazy(() => import("./features/visionkids/pages/stories/StoryDetails"));
+const StoryReader = lazy(() => import("./features/visionkids/pages/stories/StoryReader"));
+const StoryAudioPlayer = lazy(() => import("./features/visionkids/pages/stories/StoryAudioPlayer"));
+const StoryQuizPage = lazy(() => import("./features/visionkids/pages/stories/StoryQuizPage"));
+const StoryFavorites = lazy(() => import("./features/visionkids/pages/stories/StoryFavorites"));
+const StoryDownloads = lazy(() => import("./features/visionkids/pages/stories/StoryDownloads"));
+const StoryContinueReading = lazy(() => import("./features/visionkids/pages/stories/StoryContinueReading"));
+const StoryHistory = lazy(() => import("./features/visionkids/pages/stories/StoryHistory"));
+const StoryRecommended = lazy(() => import("./features/visionkids/pages/stories/StoryRecommended"));
+const AiStories = lazy(() => import("./features/visionkids/pages/stories/AiStories"));
+const AiStoryCreate = lazy(() => import("./features/visionkids/pages/stories/AiStoryCreate"));
+const AiStoryDetail = lazy(() => import("./features/visionkids/pages/stories/AiStoryDetail"));
+
+// VisionKids Phase 3 — Educational Games Platform
+const GamesHome = lazy(() => import("./features/visionkids/pages/games/GamesHome"));
+const GameCategories = lazy(() => import("./features/visionkids/pages/games/GameCategories"));
+const GameBrowse = lazy(() => import("./features/visionkids/pages/games/GameBrowse"));
+const GameDetails = lazy(() => import("./features/visionkids/pages/games/GameDetails"));
+const GamePlay = lazy(() => import("./features/visionkids/pages/games/GamePlay"));
+const RecentlyPlayed = lazy(() => import("./features/visionkids/pages/games/RecentlyPlayed"));
+const GameFavorites = lazy(() => import("./features/visionkids/pages/games/GameFavorites"));
+const Achievements = lazy(() => import("./features/visionkids/pages/games/Achievements"));
+const GamesLeaderboard = lazy(() => import("./features/visionkids/pages/games/Leaderboard"));
+const DailyChallenges = lazy(() => import("./features/visionkids/pages/games/DailyChallenges"));
+const WeeklyChallenges = lazy(() => import("./features/visionkids/pages/games/WeeklyChallenges"));
+const MultiplayerLobby = lazy(() => import("./features/visionkids/pages/games/MultiplayerLobby"));
+const MultiplayerRoomView = lazy(() => import("./features/visionkids/pages/games/MultiplayerRoomView"));
+const GameProfile = lazy(() => import("./features/visionkids/pages/games/GameProfile"));
+
+// VisionKids Phase 4 — Academy
+const AcademyHome = lazy(() => import("./features/visionkids/pages/academy/AcademyHome"));
+const AcademySubjects = lazy(() => import("./features/visionkids/pages/academy/Subjects"));
+const SubjectCourses = lazy(() => import("./features/visionkids/pages/academy/SubjectCourses"));
+const CourseDetail = lazy(() => import("./features/visionkids/pages/academy/CourseDetail"));
+const LessonPlayer = lazy(() => import("./features/visionkids/pages/academy/LessonPlayer"));
+const AcademyHomework = lazy(() => import("./features/visionkids/pages/academy/Homework"));
+const AcademyProjects = lazy(() => import("./features/visionkids/pages/academy/Projects"));
+const ProjectSubmit = lazy(() => import("./features/visionkids/pages/academy/ProjectSubmit"));
+const AcademyExams = lazy(() => import("./features/visionkids/pages/academy/Exams"));
+const KidsAcademyCertificates = lazy(() => import("./features/visionkids/pages/academy/Certificates"));
+const CertificateVerify = lazy(() => import("./features/visionkids/pages/academy/CertificateVerify"));
+const ParentsDashboard = lazy(() => import("./features/visionkids/pages/academy/ParentsDashboard"));
+const TeacherDashboard = lazy(() => import("./features/visionkids/pages/academy/TeacherDashboard"));
+const TeacherCourseManage = lazy(() => import("./features/visionkids/pages/academy/TeacherCourseManage"));
+const LearningAnalytics = lazy(() => import("./features/visionkids/pages/academy/LearningAnalytics"));
+const LearningPath = lazy(() => import("./features/visionkids/pages/academy/LearningPath"));
+const AcademyDownloads = lazy(() => import("./features/visionkids/pages/academy/Downloads"));
+
+// VisionKids Phase 5 — AI Creative Studio
+const StudioHome = lazy(() => import("./features/visionkids/pages/studio/StudioHome"));
+const DrawingStudio = lazy(() => import("./features/visionkids/pages/studio/DrawingStudio"));
+const CharacterBuilder = lazy(() => import("./features/visionkids/pages/studio/CharacterBuilder"));
+const StickerMaker = lazy(() => import("./features/visionkids/pages/studio/StickerMaker"));
+const MusicStudio = lazy(() => import("./features/visionkids/pages/studio/MusicStudio"));
+const VoiceStudio = lazy(() => import("./features/visionkids/pages/studio/VoiceStudio"));
+const CartoonCreator = lazy(() => import("./features/visionkids/pages/studio/CartoonCreator"));
+const ComicCreator = lazy(() => import("./features/visionkids/pages/studio/ComicCreator"));
+const BookCreator = lazy(() => import("./features/visionkids/pages/studio/BookCreator"));
+const VideoCreator = lazy(() => import("./features/visionkids/pages/studio/VideoCreator"));
+const StudioGallery = lazy(() => import("./features/visionkids/pages/studio/StudioGallery"));
+const StudioTemplates = lazy(() => import("./features/visionkids/pages/studio/StudioTemplates"));
+const CreativeChallenges = lazy(() => import("./features/visionkids/pages/studio/CreativeChallenges"));
+const MyProjects = lazy(() => import("./features/visionkids/pages/studio/MyProjects"));
+
+// VisionKids Phase 6 — Explorer
+const ExplorerHome = lazy(() => import("./features/visionkids/pages/explorer/ExplorerHome"));
+const VirtualWorld = lazy(() => import("./features/visionkids/pages/explorer/VirtualWorld"));
+const ExplorerWorldListPage = lazy(() => import("./features/visionkids/pages/explorer/WorldListPage"));
+const ExplorerLocationDetailPage = lazy(() => import("./features/visionkids/pages/explorer/LocationDetailPage"));
+const ExplorerLocationQuizPage = lazy(() => import("./features/visionkids/pages/explorer/LocationQuizPage"));
+const ExplorerPassport = lazy(() => import("./features/visionkids/pages/explorer/ExplorerPassport"));
+const SpaceMission = lazy(() => import("./features/visionkids/pages/explorer/SpaceMission"));
+const CityBuilder = lazy(() => import("./features/visionkids/pages/explorer/CityBuilder"));
+const FarmSimulator = lazy(() => import("./features/visionkids/pages/explorer/FarmSimulator"));
+const EcoWorld = lazy(() => import("./features/visionkids/pages/explorer/EcoWorld"));
+
+// VisionKids Phase 7 — Social & Parents Hub
+const CommunityHome = lazy(() => import("./features/visionkids/pages/social/CommunityHome"));
+const SocialFriends = lazy(() => import("./features/visionkids/pages/social/Friends"));
+const SocialChallengesHub = lazy(() => import("./features/visionkids/pages/social/ChallengesHub"));
+const SocialNotifications = lazy(() => import("./features/visionkids/pages/social/Notifications"));
+const SocialReports = lazy(() => import("./features/visionkids/pages/social/Reports"));
+const ClubListPage = lazy(() => import("./features/visionkids/pages/social/ClubListPage"));
+const ClubDetailPage = lazy(() => import("./features/visionkids/pages/social/ClubDetailPage"));
+const ClubQuizPage = lazy(() => import("./features/visionkids/pages/social/ClubQuizPage"));
+const SafeChatHome = lazy(() => import("./features/visionkids/pages/social/SafeChatHome"));
+const ChatThread = lazy(() => import("./features/visionkids/pages/social/ChatThread"));
+const VoiceRoomLobby = lazy(() => import("./features/visionkids/pages/social/VoiceRoomLobby"));
+const VoiceRoomLive = lazy(() => import("./features/visionkids/pages/social/VoiceRoomLive"));
+const SocialSettings = lazy(() => import("./features/visionkids/pages/social/SocialSettings"));
+const ModerationPanel = lazy(() => import("./features/visionkids/pages/social/ModerationPanel"));
+const FamilyAccounts = lazy(() => import("./features/visionkids/pages/social/FamilyAccounts"));
+const SocialParentsDashboard = lazy(() => import("./features/visionkids/pages/social/ParentsDashboard"));
+const SocialActivityTimeline = lazy(() => import("./features/visionkids/pages/social/ActivityTimeline"));
+const SocialParentSettings = lazy(() => import("./features/visionkids/pages/social/ParentSettings"));
+
+// VisionKids Phase 8 — Live Events & Universe
+const EventsHome = lazy(() => import("./features/visionkids/pages/events/EventsHome"));
+const EventListPage = lazy(() => import("./features/visionkids/pages/events/EventListPage"));
+const EventsCalendar = lazy(() => import("./features/visionkids/pages/events/Calendar"));
+const MyEvents = lazy(() => import("./features/visionkids/pages/events/MyEvents"));
+const EventNotifications = lazy(() => import("./features/visionkids/pages/events/EventNotifications"));
+const EventDetails = lazy(() => import("./features/visionkids/pages/events/EventDetails"));
+const EventRegistration = lazy(() => import("./features/visionkids/pages/events/Registration"));
+const LiveEventRoom = lazy(() => import("./features/visionkids/pages/events/LiveEventRoom"));
+const ReplayLibrary = lazy(() => import("./features/visionkids/pages/events/ReplayLibrary"));
+const ReplayPlayer = lazy(() => import("./features/visionkids/pages/events/ReplayPlayer"));
+const EventsRewardsCenter = lazy(() => import("./features/visionkids/pages/events/RewardsCenter"));
+const EventCertificates = lazy(() => import("./features/visionkids/pages/events/EventCertificates"));
+const UniverseMap = lazy(() => import("./features/visionkids/pages/events/UniverseMap"));
+const UniverseCityDetail = lazy(() => import("./features/visionkids/pages/events/CityDetail"));
+
+// VisionKids Phase 9 — Talent Hub & Future Skills
+const TalentHubHome = lazy(() => import("./features/visionkids/pages/talent/TalentHubHome"));
+const TalentAssessment = lazy(() => import("./features/visionkids/pages/talent/TalentAssessment"));
+const MyTalents = lazy(() => import("./features/visionkids/pages/talent/MyTalents"));
+const SkillTree = lazy(() => import("./features/visionkids/pages/talent/SkillTree"));
+const TalentFutureSkills = lazy(() => import("./features/visionkids/pages/talent/FutureSkills"));
+const FutureSkillDetail = lazy(() => import("./features/visionkids/pages/talent/FutureSkillDetail"));
+const TalentTrackDetail = lazy(() => import("./features/visionkids/pages/talent/TrackDetail"));
+const TalentModuleDetail = lazy(() => import("./features/visionkids/pages/talent/ModuleDetail"));
+const TalentPortfolio = lazy(() => import("./features/visionkids/pages/talent/Portfolio"));
+const TalentAchievements = lazy(() => import("./features/visionkids/pages/talent/TalentAchievements"));
+const CareerExplorer = lazy(() => import("./features/visionkids/pages/talent/CareerExplorer"));
+const CareerDetail = lazy(() => import("./features/visionkids/pages/talent/CareerDetail"));
+const TalentMentors = lazy(() => import("./features/visionkids/pages/talent/Mentors"));
+
+// VisionKids Phase 10 — Health & Wellness Hub
+const HealthHome = lazy(() => import("./features/visionkids/pages/wellness/HealthHome"));
+const DailyRoutine = lazy(() => import("./features/visionkids/pages/wellness/DailyRoutine"));
+const HealthyHabits = lazy(() => import("./features/visionkids/pages/wellness/HealthyHabits"));
+const Nutrition = lazy(() => import("./features/visionkids/pages/wellness/Nutrition"));
+const ExerciseCenter = lazy(() => import("./features/visionkids/pages/wellness/ExerciseCenter"));
+const SleepTracker = lazy(() => import("./features/visionkids/pages/wellness/SleepTracker"));
+const MoodJournal = lazy(() => import("./features/visionkids/pages/wellness/MoodJournal"));
+const Mindfulness = lazy(() => import("./features/visionkids/pages/wellness/Mindfulness"));
+const SafetyAcademy = lazy(() => import("./features/visionkids/pages/wellness/SafetyAcademy"));
+const FirstAidKids = lazy(() => import("./features/visionkids/pages/wellness/FirstAidKids"));
+const SmartCompanion = lazy(() => import("./features/visionkids/pages/wellness/SmartCompanion"));
+const HealthyChallenges = lazy(() => import("./features/visionkids/pages/wellness/HealthyChallenges"));
+const EmergencyGuide = lazy(() => import("./features/visionkids/pages/wellness/EmergencyGuide"));
+const WellnessRewards = lazy(() => import("./features/visionkids/pages/wellness/WellnessRewards"));
+const WellnessAccessibility = lazy(() => import("./features/visionkids/pages/wellness/WellnessAccessibility"));
+const WellnessLessonDetail = lazy(() => import("./features/visionkids/pages/wellness/WellnessLessonDetail"));
+
+// VisionKids Phase 11 — STEM & Innovation Center
+const StemHome = lazy(() => import("./features/visionkids/pages/stem/StemHome"));
+const ScienceLab = lazy(() => import("./features/visionkids/pages/stem/ScienceLab"));
+const PhysicsLab = lazy(() => import("./features/visionkids/pages/stem/PhysicsLab"));
+const ChemistryLab = lazy(() => import("./features/visionkids/pages/stem/ChemistryLab"));
+const BiologyLab = lazy(() => import("./features/visionkids/pages/stem/BiologyLab"));
+const MathLab = lazy(() => import("./features/visionkids/pages/stem/MathLab"));
+const EngineeringLab = lazy(() => import("./features/visionkids/pages/stem/EngineeringLab"));
+const ElectronicsLab = lazy(() => import("./features/visionkids/pages/stem/ElectronicsLab"));
+const SpaceEngineering = lazy(() => import("./features/visionkids/pages/stem/SpaceEngineering"));
+const RoboticsWorkshop = lazy(() => import("./features/visionkids/pages/stem/RoboticsWorkshop"));
+const Design3DStudio = lazy(() => import("./features/visionkids/pages/stem/Design3DStudio"));
+const StemExperimentDetail = lazy(() => import("./features/visionkids/pages/stem/ExperimentDetail"));
+const InnovationChallenges = lazy(() => import("./features/visionkids/pages/stem/InnovationChallenges"));
+const InnovationChallengeDetail = lazy(() => import("./features/visionkids/pages/stem/InnovationChallengeDetail"));
+const InventorGallery = lazy(() => import("./features/visionkids/pages/stem/InventorGallery"));
+const ResearchCenter = lazy(() => import("./features/visionkids/pages/stem/ResearchCenter"));
+const ResearchArticlePage = lazy(() => import("./features/visionkids/pages/stem/ResearchArticle"));
+const StemRewards = lazy(() => import("./features/visionkids/pages/stem/StemRewards"));
+const StemAccessibility = lazy(() => import("./features/visionkids/pages/stem/StemAccessibility"));
+
+// VisionKids Phase 12 — VisionKids World
+const WorldHome = lazy(() => import("./features/visionkids/pages/world/WorldHome"));
+const WorldInteractiveMap = lazy(() => import("./features/visionkids/pages/world/InteractiveMap"));
+const WorldMyHome = lazy(() => import("./features/visionkids/pages/world/MyHome"));
+const WorldDreamCity = lazy(() => import("./features/visionkids/pages/world/DreamCity"));
+const WorldAdventureIslands = lazy(() => import("./features/visionkids/pages/world/AdventureIslands"));
+const WorldScienceCity = lazy(() => import("./features/visionkids/pages/world/ScienceCity"));
+const WorldReadingVillage = lazy(() => import("./features/visionkids/pages/world/ReadingVillage"));
+const WorldArtDistrict = lazy(() => import("./features/visionkids/pages/world/ArtDistrict"));
+const WorldMusicTown = lazy(() => import("./features/visionkids/pages/world/MusicTown"));
+const WorldSportsArena = lazy(() => import("./features/visionkids/pages/world/SportsArena"));
+const WorldSpacePort = lazy(() => import("./features/visionkids/pages/world/SpacePort"));
+const WorldOceanWorld = lazy(() => import("./features/visionkids/pages/world/OceanWorld"));
+const WorldNaturePark = lazy(() => import("./features/visionkids/pages/world/NaturePark"));
+const WorldEventsPlaza = lazy(() => import("./features/visionkids/pages/world/EventsPlaza"));
+const WorldMarketplace = lazy(() => import("./features/visionkids/pages/world/Marketplace"));
+const WorldTransportation = lazy(() => import("./features/visionkids/pages/world/Transportation"));
+const WorldWeatherCenter = lazy(() => import("./features/visionkids/pages/world/WeatherCenter"));
+const WorldPassport = lazy(() => import("./features/visionkids/pages/world/WorldPassport"));
+const WorldAccessibility = lazy(() => import("./features/visionkids/pages/world/WorldAccessibility"));
+const WorldRegionRoute = lazy(() => import("./features/visionkids/pages/world/RegionRoute"));
+
+// VisionKids Phase 13 — Creator & Education Marketplace
+const MarketHome = lazy(() => import("./features/visionkids/pages/market/MarketplaceHome"));
+const MarketDiscover = lazy(() => import("./features/visionkids/pages/market/Discover"));
+const MarketProductDetail = lazy(() => import("./features/visionkids/pages/market/ProductDetail"));
+const MarketCourses = lazy(() => import("./features/visionkids/pages/market/Courses"));
+const MarketBooks = lazy(() => import("./features/visionkids/pages/market/Books"));
+const MarketGames = lazy(() => import("./features/visionkids/pages/market/Games"));
+const MarketWorksheets = lazy(() => import("./features/visionkids/pages/market/Worksheets"));
+const MarketTemplates = lazy(() => import("./features/visionkids/pages/market/Templates"));
+const MarketMusic = lazy(() => import("./features/visionkids/pages/market/Music"));
+const MarketVideos = lazy(() => import("./features/visionkids/pages/market/Videos"));
+const MarketModels3D = lazy(() => import("./features/visionkids/pages/market/Models3D"));
+const MarketAIPrompts = lazy(() => import("./features/visionkids/pages/market/AIPrompts"));
+const MarketBundles = lazy(() => import("./features/visionkids/pages/market/Bundles"));
+const MarketOrders = lazy(() => import("./features/visionkids/pages/market/Orders"));
+const MarketWishlist = lazy(() => import("./features/visionkids/pages/market/Wishlist"));
+const MarketCreatorDashboard = lazy(() => import("./features/visionkids/pages/market/CreatorDashboard"));
+const MarketTeacherDashboard = lazy(() => import("./features/visionkids/pages/market/TeacherDashboard"));
+const MarketPublisherDashboard = lazy(() => import("./features/visionkids/pages/market/PublisherDashboard"));
+const MarketDeveloperDashboard = lazy(() => import("./features/visionkids/pages/market/DeveloperDashboard"));
+const MarketCreatorAnalytics = lazy(() => import("./features/visionkids/pages/market/CreatorAnalytics"));
+const MarketCreatorVerification = lazy(() => import("./features/visionkids/pages/market/CreatorVerification"));
+const MarketModerationQueue = lazy(() => import("./features/visionkids/pages/market/ModerationQueue"));
+const MarketAccessibility = lazy(() => import("./features/visionkids/pages/market/MarketAccessibility"));
+
+// VisionKids Phase 14 — Platform Core & Plugin System
+const PlatformHub = lazy(() => import("./features/visionkids/pages/platform/PlatformHub"));
+const PlatformMarketplace = lazy(() => import("./features/visionkids/pages/platform/PluginMarketplace"));
+const PlatformMyPlugins = lazy(() => import("./features/visionkids/pages/platform/MyPlugins"));
+const PlatformDashboard = lazy(() => import("./features/visionkids/pages/platform/WidgetDashboard"));
+const PlatformThemes = lazy(() => import("./features/visionkids/pages/platform/ThemeGallery"));
+const PlatformSettings = lazy(() => import("./features/visionkids/pages/platform/PlatformSettings"));
+const PlatformNotifications = lazy(() => import("./features/visionkids/pages/platform/NotificationCenter"));
+const PlatformAnalytics = lazy(() => import("./features/visionkids/pages/platform/PlatformAnalytics"));
+const PlatformAccessibility = lazy(() => import("./features/visionkids/pages/platform/PlatformAccessibility"));
+
+// VisionKids Phase 15 — Enterprise & School Ecosystem
+const EnterpriseHome = lazy(() => import("./features/visionkids/pages/enterprise/EnterpriseHome"));
+const EntSchoolsPortal = lazy(() => import("./features/visionkids/pages/enterprise/SchoolsPortal"));
+const EntSchoolDashboard = lazy(() => import("./features/visionkids/pages/enterprise/SchoolDashboard"));
+const EntClassrooms = lazy(() => import("./features/visionkids/pages/enterprise/Classrooms"));
+const EntStudents = lazy(() => import("./features/visionkids/pages/enterprise/Students"));
+const EntTeachers = lazy(() => import("./features/visionkids/pages/enterprise/Teachers"));
+const EntParents = lazy(() => import("./features/visionkids/pages/enterprise/Parents"));
+const EntAttendance = lazy(() => import("./features/visionkids/pages/enterprise/Attendance"));
+const EntAssignments = lazy(() => import("./features/visionkids/pages/enterprise/Assignments"));
+const EntTimetable = lazy(() => import("./features/visionkids/pages/enterprise/Timetable"));
+const EntExams = lazy(() => import("./features/visionkids/pages/enterprise/Exams"));
+const EntCertificates = lazy(() => import("./features/visionkids/pages/enterprise/Certificates"));
+const EntCertificateVerify = lazy(() => import("./features/visionkids/pages/enterprise/CertificateVerify"));
+const EntResourceCenter = lazy(() => import("./features/visionkids/pages/enterprise/ResourceCenter"));
+const EntCommunication = lazy(() => import("./features/visionkids/pages/enterprise/CommunicationCenter"));
+const EntReports = lazy(() => import("./features/visionkids/pages/enterprise/Reports"));
+const EntAnalytics = lazy(() => import("./features/visionkids/pages/enterprise/Analytics"));
+const EntOrgSettings = lazy(() => import("./features/visionkids/pages/enterprise/OrganizationSettings"));
+const EntAccessibility = lazy(() => import("./features/visionkids/pages/enterprise/EnterpriseAccessibility"));
+
+// VisionKids Phase 16 — AI Operations & Quality Platform (admin-gated)
+const OpsDashboard = lazy(() => import("./features/visionkids/pages/ops/OperationsDashboard"));
+const OpsSystemHealth = lazy(() => import("./features/visionkids/pages/ops/SystemHealth"));
+const OpsAIMonitoring = lazy(() => import("./features/visionkids/pages/ops/AIMonitoring"));
+const OpsContentReview = lazy(() => import("./features/visionkids/pages/ops/ContentReview"));
+const OpsAccessibility = lazy(() => import("./features/visionkids/pages/ops/AccessibilityCenter"));
+const OpsPerformance = lazy(() => import("./features/visionkids/pages/ops/PerformanceCenter"));
+const OpsErrors = lazy(() => import("./features/visionkids/pages/ops/ErrorCenter"));
+const OpsSecurity = lazy(() => import("./features/visionkids/pages/ops/SecurityCenter"));
+const OpsReleases = lazy(() => import("./features/visionkids/pages/ops/ReleaseManager"));
+const OpsAudit = lazy(() => import("./features/visionkids/pages/ops/AuditCenter"));
+const OpsTesting = lazy(() => import("./features/visionkids/pages/ops/TestingCenter"));
+const OpsLogs = lazy(() => import("./features/visionkids/pages/ops/LogsExplorer"));
+const OpsInsights = lazy(() => import("./features/visionkids/pages/ops/AIInsights"));
+const OpsIncidents = lazy(() => import("./features/visionkids/pages/ops/IncidentCenter"));
+const OpsMaintenance = lazy(() => import("./features/visionkids/pages/ops/MaintenanceMode"));
+
+// VisionKids Phase 17 — Economy & Sustainability
+const EconomyHome = lazy(() => import("./features/visionkids/pages/economy/EconomyHome"));
+const EconMembershipPlans = lazy(() => import("./features/visionkids/pages/economy/MembershipPlans"));
+const EconFamilyPlans = lazy(() => import("./features/visionkids/pages/economy/FamilyPlans"));
+const EconSchoolPlans = lazy(() => import("./features/visionkids/pages/economy/SchoolPlans"));
+const EconNGOPlans = lazy(() => import("./features/visionkids/pages/economy/NGOPlans"));
+const EconWallet = lazy(() => import("./features/visionkids/pages/economy/CoinsWallet"));
+const EconRewards = lazy(() => import("./features/visionkids/pages/economy/RewardsCenter"));
+const EconRedeem = lazy(() => import("./features/visionkids/pages/economy/RedeemCenter"));
+const EconGifts = lazy(() => import("./features/visionkids/pages/economy/GiftCenter"));
+const EconSubscriptions = lazy(() => import("./features/visionkids/pages/economy/SubscriptionManagement"));
+const EconInvoices = lazy(() => import("./features/visionkids/pages/economy/Invoices"));
+const EconDonate = lazy(() => import("./features/visionkids/pages/economy/DonationCenter"));
+const EconPartners = lazy(() => import("./features/visionkids/pages/economy/PartnerCenter"));
+const EconCreatorRevenue = lazy(() => import("./features/visionkids/pages/economy/CreatorRevenue"));
+const EconReports = lazy(() => import("./features/visionkids/pages/economy/FinancialReports"));
+const EconAccessibility = lazy(() => import("./features/visionkids/pages/economy/EconomyAccessibility"));
+
+// VisionKids Phase 18 — Everywhere (Multi-Platform & Offline)
+const EverywhereHome = lazy(() => import("./features/visionkids/pages/everywhere/EverywhereHome"));
+const EwMyDevices = lazy(() => import("./features/visionkids/pages/everywhere/MyDevices"));
+const EwDownloads = lazy(() => import("./features/visionkids/pages/everywhere/DownloadManager"));
+const EwOffline = lazy(() => import("./features/visionkids/pages/everywhere/OfflineCenter"));
+const EwConnection = lazy(() => import("./features/visionkids/pages/everywhere/ConnectionSettings"));
+const EwTvMode = lazy(() => import("./features/visionkids/pages/everywhere/TvMode"));
+const EwAccessibility = lazy(() => import("./features/visionkids/pages/everywhere/EverywhereAccessibility"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -653,6 +952,404 @@ function AppRoutes() {
                     <Route path="/admin/tv" element={<AdminRoute><AdminTV /></AdminRoute>} />
                     <Route path="/admin/radio" element={<AdminRoute><AdminRadio /></AdminRoute>} />
                     <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
+
+                    {/* VisionKids — accessibility-first kids' hub. Own layout (top nav + sidebar),
+                        independent from the site-wide Layout/Header. Public browsing throughout;
+                        /kids/:sectionSlug is data-driven off kidsSections, so adding a 17th
+                        section later is a data-file change, not a new route. */}
+                    <Route path="/kids" element={<VisionKidsLayout />}>
+                      <Route index element={<VisionKidsHome />} />
+                      <Route path="settings" element={<VisionKidsSettings />} />
+
+                      {/* Phase 2 — Smart Stories Library. Static segments (stories/*)
+                          out-rank the ":sectionSlug" catch-all below regardless of
+                          declaration order (React Router ranks literal segments over
+                          params), but declared first here for readability. */}
+                      <Route path="stories" element={<StoriesHome />} />
+                      <Route path="stories/categories" element={<StoryCategories />} />
+                      <Route path="stories/category/:categorySlug" element={<StoryBrowse />} />
+                      <Route path="stories/search" element={<StoryBrowse />} />
+                      <Route path="stories/recommended" element={<StoryRecommended />} />
+                      <Route path="stories/story/:slug" element={<StoryDetails />} />
+                      <Route path="stories/read/:slug" element={<StoryReader />} />
+                      <Route path="stories/listen/:slug" element={<StoryAudioPlayer />} />
+                      <Route path="stories/quiz/:slug" element={<StoryQuizPage />} />
+                      <Route path="stories/favorites" element={<StoryFavorites />} />
+                      <Route path="stories/downloads" element={<StoryDownloads />} />
+                      <Route path="stories/continue-reading" element={<StoryContinueReading />} />
+                      <Route path="stories/history" element={<StoryHistory />} />
+                      <Route path="stories/ai" element={<AiStories />} />
+                      <Route path="stories/ai/create" element={<AiStoryCreate />} />
+                      <Route path="stories/ai/:id" element={<AiStoryDetail />} />
+
+                      {/* Phase 3 — Educational Games Platform. Same reasoning as stories/* above:
+                          static segments out-rank the ":sectionSlug" catch-all. */}
+                      <Route path="games" element={<GamesHome />} />
+                      <Route path="games/categories" element={<GameCategories />} />
+                      <Route path="games/category/:categorySlug" element={<GameBrowse />} />
+                      <Route path="games/search" element={<GameBrowse />} />
+                      <Route path="games/game/:slug" element={<GameDetails />} />
+                      <Route path="games/play/:slug" element={<GamePlay />} />
+                      <Route path="games/recently-played" element={<RecentlyPlayed />} />
+                      <Route path="games/favorites" element={<GameFavorites />} />
+                      <Route path="games/achievements" element={<Achievements />} />
+                      <Route path="games/leaderboard" element={<GamesLeaderboard />} />
+                      <Route path="games/daily-challenges" element={<DailyChallenges />} />
+                      <Route path="games/weekly-challenges" element={<WeeklyChallenges />} />
+                      <Route path="games/multiplayer" element={<MultiplayerLobby />} />
+                      <Route path="games/multiplayer/:roomId" element={<MultiplayerRoomView />} />
+                      <Route path="games/profile" element={<GameProfile />} />
+
+                      {/* Phase 4 — Academy. Same reasoning as stories/* and games/* above:
+                          static segments out-rank the ":sectionSlug" catch-all, and this
+                          replaces "academy" ever falling through to the generic
+                          VisionKidsSection placeholder. */}
+                      <Route path="academy" element={<AcademyHome />} />
+                      <Route path="academy/subjects" element={<AcademySubjects />} />
+                      <Route path="academy/subject/:subjectSlug" element={<SubjectCourses />} />
+                      <Route path="academy/course/:slug" element={<CourseDetail />} />
+                      <Route path="academy/course/:courseSlug/lesson/:lessonSlug" element={<LessonPlayer />} />
+                      <Route path="academy/course/:slug/exam" element={<AcademyExams />} />
+                      <Route path="academy/homework" element={<AcademyHomework />} />
+                      <Route path="academy/projects" element={<AcademyProjects />} />
+                      <Route path="academy/projects/:projectId" element={<ProjectSubmit />} />
+                      <Route path="academy/certificates" element={<KidsAcademyCertificates />} />
+                      <Route path="academy/certificates/verify/:certificateNumber" element={<CertificateVerify />} />
+                      <Route path="academy/parents" element={<ParentsDashboard />} />
+                      <Route path="academy/teacher" element={<TeacherDashboard />} />
+                      <Route path="academy/teacher/course/:courseId" element={<TeacherCourseManage />} />
+                      <Route path="academy/analytics" element={<LearningAnalytics />} />
+                      <Route path="academy/learning-path" element={<LearningPath />} />
+                      <Route path="academy/downloads" element={<AcademyDownloads />} />
+
+                      {/* Phase 5 — AI Creative Studio. Same reasoning as stories/*, games/*,
+                          academy/* above: static segments out-rank the ":sectionSlug"
+                          catch-all. "studio" replaces the generic VisionKidsSection
+                          placeholder that used to serve /kids/coding etc — no, this is a
+                          new "studio" slug, distinct from the existing 16 home sections. */}
+                      <Route path="studio" element={<StudioHome />} />
+                      <Route path="studio/drawing-studio/:projectId" element={<DrawingStudio />} />
+                      <Route path="studio/character-builder/:projectId" element={<CharacterBuilder />} />
+                      <Route path="studio/sticker-maker/:projectId" element={<StickerMaker />} />
+                      <Route path="studio/music-studio" element={<MusicStudio />} />
+                      <Route path="studio/voice-studio" element={<VoiceStudio />} />
+                      <Route path="studio/cartoon-creator" element={<CartoonCreator />} />
+                      <Route path="studio/comic-creator" element={<ComicCreator />} />
+                      <Route path="studio/book-creator/:projectId" element={<BookCreator />} />
+                      <Route path="studio/video-creator" element={<VideoCreator />} />
+                      <Route path="studio/gallery" element={<StudioGallery />} />
+                      <Route path="studio/templates" element={<StudioTemplates />} />
+                      <Route path="studio/challenges" element={<CreativeChallenges />} />
+                      <Route path="studio/my-projects" element={<MyProjects />} />
+
+                      {/* Phase 6 — Explorer. "world/:worldSlug" and
+                          "world/:worldSlug/:locationSlug(/quiz)" are ONE generic
+                          template shared by all 9 browse-and-learn worlds (see
+                          CONTENT_WORLD_CONFIG) — adding a 10th world needs no new
+                          route. The 4 simulators + hub/passport get their own
+                          static segments, same static-before-catch-all reasoning
+                          as every section above. */}
+                      <Route path="explorer" element={<ExplorerHome />} />
+                      <Route path="explorer/virtual-world" element={<VirtualWorld />} />
+                      <Route path="explorer/passport" element={<ExplorerPassport />} />
+                      <Route path="explorer/space-mission" element={<SpaceMission />} />
+                      <Route path="explorer/city-builder" element={<CityBuilder />} />
+                      <Route path="explorer/farm-simulator" element={<FarmSimulator />} />
+                      <Route path="explorer/eco-world" element={<EcoWorld />} />
+                      <Route path="explorer/world/:worldSlug" element={<ExplorerWorldListPage />} />
+                      <Route path="explorer/world/:worldSlug/:locationSlug" element={<ExplorerLocationDetailPage />} />
+                      <Route path="explorer/world/:worldSlug/:locationSlug/quiz" element={<ExplorerLocationQuizPage />} />
+
+                      {/* Phase 7 — Social & Parents Hub. "clubs/:category" (study/
+                          reading/creative) is one generic template shared by every
+                          club type, same discipline as Explorer's world template —
+                          "clubs/detail/:slug" is a distinct 2-segment static-prefixed
+                          route so it never collides with the 1-segment category
+                          route. Same static-before-catch-all reasoning as every
+                          section above for everything else here. */}
+                      <Route path="social" element={<CommunityHome />} />
+                      <Route path="social/friends" element={<SocialFriends />} />
+                      <Route path="social/challenges" element={<SocialChallengesHub />} />
+                      <Route path="social/notifications" element={<SocialNotifications />} />
+                      <Route path="social/reports" element={<SocialReports />} />
+                      <Route path="social/settings" element={<SocialSettings />} />
+                      <Route path="social/moderation" element={<ModerationPanel />} />
+                      <Route path="social/clubs/detail/:slug" element={<ClubDetailPage />} />
+                      <Route path="social/clubs/detail/:slug/quiz" element={<ClubQuizPage />} />
+                      <Route path="social/clubs/:category" element={<ClubListPage />} />
+                      <Route path="social/chat" element={<SafeChatHome />} />
+                      <Route path="social/chat/:conversationId" element={<ChatThread />} />
+                      <Route path="social/voice-rooms" element={<VoiceRoomLobby />} />
+                      <Route path="social/voice-rooms/:roomId" element={<VoiceRoomLive />} />
+                      <Route path="social/parents/family" element={<FamilyAccounts />} />
+                      <Route path="social/parents/dashboard" element={<SocialParentsDashboard />} />
+                      <Route path="social/parents/timeline" element={<SocialActivityTimeline />} />
+                      <Route path="social/parents/settings" element={<SocialParentSettings />} />
+
+                      {/* Phase 8 — Live Events & Universe. "events/:listType" (live/
+                          workshops/competitions/seasonal) is one generic list template,
+                          same discipline as Explorer's world template — the static
+                          events/* segments (calendar, my-events, rewards, replays, …)
+                          out-rank it, and "events/detail/:slug(/register)" plus
+                          "events/room/:slug" are static-prefixed so they never collide
+                          with the 1-segment :listType route. The Universe map lives at
+                          the top-level /kids/universe, not under events. */}
+                      <Route path="events" element={<EventsHome />} />
+                      <Route path="events/calendar" element={<EventsCalendar />} />
+                      <Route path="events/my-events" element={<MyEvents />} />
+                      <Route path="events/notifications" element={<EventNotifications />} />
+                      <Route path="events/rewards" element={<EventsRewardsCenter />} />
+                      <Route path="events/certificates" element={<EventCertificates />} />
+                      <Route path="events/replays" element={<ReplayLibrary />} />
+                      <Route path="events/replays/:replayId" element={<ReplayPlayer />} />
+                      <Route path="events/detail/:slug" element={<EventDetails />} />
+                      <Route path="events/detail/:slug/register" element={<EventRegistration />} />
+                      <Route path="events/room/:slug" element={<LiveEventRoom />} />
+                      <Route path="events/:listType" element={<EventListPage />} />
+                      <Route path="universe" element={<UniverseMap />} />
+                      <Route path="universe/:citySlug" element={<UniverseCityDetail />} />
+
+                      {/* Phase 9 — Talent Hub & Future Skills. "track/:trackSlug"
+                          (and "track/:trackSlug/:moduleSlug") is ONE generic template
+                          shared by all 10 academies/labs (Coding, Robotics, AI, Music,
+                          Art, Writing, Public Speaking, Entrepreneurship, Financial
+                          Literacy, Innovation Lab) — same discipline as Explorer's world
+                          template; adding an 11th track needs no new route. Static
+                          talent/* segments out-rank the param routes as always. */}
+                      <Route path="talent" element={<TalentHubHome />} />
+                      <Route path="talent/assessment" element={<TalentAssessment />} />
+                      <Route path="talent/my-talents" element={<MyTalents />} />
+                      <Route path="talent/skill-tree" element={<SkillTree />} />
+                      <Route path="talent/future-skills" element={<TalentFutureSkills />} />
+                      <Route path="talent/future-skills/:slug" element={<FutureSkillDetail />} />
+                      <Route path="talent/portfolio" element={<TalentPortfolio />} />
+                      <Route path="talent/achievements" element={<TalentAchievements />} />
+                      <Route path="talent/careers" element={<CareerExplorer />} />
+                      <Route path="talent/careers/:slug" element={<CareerDetail />} />
+                      <Route path="talent/mentors" element={<TalentMentors />} />
+                      <Route path="talent/track/:trackSlug" element={<TalentTrackDetail />} />
+                      <Route path="talent/track/:trackSlug/:moduleSlug" element={<TalentModuleDetail />} />
+
+                      {/* Phase 10 — Health & Wellness Hub. Nutrition/Exercise/
+                          Mindfulness/Safety/First-Aid all render through ONE generic
+                          CategoryLessonsPage (see wellness/components), and
+                          "lesson/:category/:slug" is the single shared lesson-player
+                          route for every category. Static health/* segments out-rank
+                          the :sectionSlug catch-all below as always. */}
+                      <Route path="health" element={<HealthHome />} />
+                      <Route path="health/routine" element={<DailyRoutine />} />
+                      <Route path="health/habits" element={<HealthyHabits />} />
+                      <Route path="health/nutrition" element={<Nutrition />} />
+                      <Route path="health/exercise" element={<ExerciseCenter />} />
+                      <Route path="health/sleep" element={<SleepTracker />} />
+                      <Route path="health/mood" element={<MoodJournal />} />
+                      <Route path="health/mindfulness" element={<Mindfulness />} />
+                      <Route path="health/safety" element={<SafetyAcademy />} />
+                      <Route path="health/first-aid" element={<FirstAidKids />} />
+                      <Route path="health/companion" element={<SmartCompanion />} />
+                      <Route path="health/challenges" element={<HealthyChallenges />} />
+                      <Route path="health/emergency" element={<EmergencyGuide />} />
+                      <Route path="health/rewards" element={<WellnessRewards />} />
+                      <Route path="health/accessibility" element={<WellnessAccessibility />} />
+                      <Route path="health/lesson/:category/:slug" element={<WellnessLessonDetail />} />
+
+                      {/* Phase 11 — STEM & Innovation Center. The 8 "list" labs
+                          (Science…Space) each render through ONE generic
+                          LabExperimentsPage over the polymorphic kids_experiments
+                          catalog, and "experiment/:lab/:slug" is the single shared
+                          runner (steps + simulation + quiz) for every experiment —
+                          scaling to thousands of experiments with no new routes.
+                          Robotics / 3D are interactive builders; innovation /
+                          gallery / research are the centers. Static stem/* segments
+                          out-rank the :sectionSlug catch-all as always. */}
+                      <Route path="stem" element={<StemHome />} />
+                      <Route path="stem/science" element={<ScienceLab />} />
+                      <Route path="stem/physics" element={<PhysicsLab />} />
+                      <Route path="stem/chemistry" element={<ChemistryLab />} />
+                      <Route path="stem/biology" element={<BiologyLab />} />
+                      <Route path="stem/math" element={<MathLab />} />
+                      <Route path="stem/engineering" element={<EngineeringLab />} />
+                      <Route path="stem/electronics" element={<ElectronicsLab />} />
+                      <Route path="stem/space" element={<SpaceEngineering />} />
+                      <Route path="stem/robotics" element={<RoboticsWorkshop />} />
+                      <Route path="stem/design3d" element={<Design3DStudio />} />
+                      <Route path="stem/innovation" element={<InnovationChallenges />} />
+                      <Route path="stem/innovation/:slug" element={<InnovationChallengeDetail />} />
+                      <Route path="stem/gallery" element={<InventorGallery />} />
+                      <Route path="stem/research" element={<ResearchCenter />} />
+                      <Route path="stem/research/:slug" element={<ResearchArticlePage />} />
+                      <Route path="stem/rewards" element={<StemRewards />} />
+                      <Route path="stem/accessibility" element={<StemAccessibility />} />
+                      <Route path="stem/experiment/:lab/:slug" element={<StemExperimentDetail />} />
+
+                      {/* Phase 12 — VisionKids World. Every district/island is
+                          the SAME generic RegionPage over the polymorphic
+                          kids_world_activities + kids_npcs catalogs; named
+                          districts get a static route, islands + any future
+                          region use "region/:slug" — so adding a region or a
+                          whole new world is a catalog row, never a refactor.
+                          Marketplace/Home/Transport/Weather/Passport are the
+                          bespoke systems. Static world/* out-rank :sectionSlug. */}
+                      <Route path="world" element={<WorldHome />} />
+                      <Route path="world/map" element={<WorldInteractiveMap />} />
+                      <Route path="world/my-home" element={<WorldMyHome />} />
+                      <Route path="world/dream-city" element={<WorldDreamCity />} />
+                      <Route path="world/adventure-islands" element={<WorldAdventureIslands />} />
+                      <Route path="world/science-city" element={<WorldScienceCity />} />
+                      <Route path="world/reading-village" element={<WorldReadingVillage />} />
+                      <Route path="world/art-district" element={<WorldArtDistrict />} />
+                      <Route path="world/music-town" element={<WorldMusicTown />} />
+                      <Route path="world/sports-arena" element={<WorldSportsArena />} />
+                      <Route path="world/space-port" element={<WorldSpacePort />} />
+                      <Route path="world/ocean-world" element={<WorldOceanWorld />} />
+                      <Route path="world/nature-park" element={<WorldNaturePark />} />
+                      <Route path="world/events-plaza" element={<WorldEventsPlaza />} />
+                      <Route path="world/marketplace" element={<WorldMarketplace />} />
+                      <Route path="world/transportation" element={<WorldTransportation />} />
+                      <Route path="world/weather" element={<WorldWeatherCenter />} />
+                      <Route path="world/passport" element={<WorldPassport />} />
+                      <Route path="world/accessibility" element={<WorldAccessibility />} />
+                      <Route path="world/region/:slug" element={<WorldRegionRoute />} />
+
+                      {/* Phase 13 — Creator & Education Marketplace. Every
+                          content type (course/book/game/worksheet/3D/AI-prompt/…)
+                          is ONE polymorphic products catalog rendered by the
+                          generic ProductListPage — the per-type pages are thin
+                          wrappers, so a new content type needs no new page. The
+                          role dashboards share one CreatorWorkspace. Nothing
+                          reaches children un-reviewed: submit → auto-moderation →
+                          human ModerationQueue → published. Static market/* out-
+                          rank the :sectionSlug catch-all. */}
+                      <Route path="market" element={<MarketHome />} />
+                      <Route path="market/discover" element={<MarketDiscover />} />
+                      <Route path="market/product/:slug" element={<MarketProductDetail />} />
+                      <Route path="market/courses" element={<MarketCourses />} />
+                      <Route path="market/books" element={<MarketBooks />} />
+                      <Route path="market/games" element={<MarketGames />} />
+                      <Route path="market/worksheets" element={<MarketWorksheets />} />
+                      <Route path="market/templates" element={<MarketTemplates />} />
+                      <Route path="market/music" element={<MarketMusic />} />
+                      <Route path="market/videos" element={<MarketVideos />} />
+                      <Route path="market/3d-models" element={<MarketModels3D />} />
+                      <Route path="market/ai-prompts" element={<MarketAIPrompts />} />
+                      <Route path="market/bundles" element={<MarketBundles />} />
+                      <Route path="market/orders" element={<MarketOrders />} />
+                      <Route path="market/wishlist" element={<MarketWishlist />} />
+                      <Route path="market/creator" element={<MarketCreatorDashboard />} />
+                      <Route path="market/teacher" element={<MarketTeacherDashboard />} />
+                      <Route path="market/publisher" element={<MarketPublisherDashboard />} />
+                      <Route path="market/developer" element={<MarketDeveloperDashboard />} />
+                      <Route path="market/analytics" element={<MarketCreatorAnalytics />} />
+                      <Route path="market/verification" element={<MarketCreatorVerification />} />
+                      <Route path="market/moderation" element={<MarketModerationQueue />} />
+                      <Route path="market/accessibility" element={<MarketAccessibility />} />
+
+                      {/* Phase 14 — Platform Core & Plugin System. The platform
+                          is data-driven: engines (registry), plugins (catalog +
+                          per-user installs granting only declared permissions),
+                          widgets (registry → customizable dashboard), and themes
+                          (Theme Engine) all extend without touching core code.
+                          Nothing executes uploaded code — installing toggles a
+                          built-in module. Static platform/* out-rank :sectionSlug. */}
+                      <Route path="platform" element={<PlatformHub />} />
+                      <Route path="platform/marketplace" element={<PlatformMarketplace />} />
+                      <Route path="platform/my-plugins" element={<PlatformMyPlugins />} />
+                      <Route path="platform/dashboard" element={<PlatformDashboard />} />
+                      <Route path="platform/themes" element={<PlatformThemes />} />
+                      <Route path="platform/settings" element={<PlatformSettings />} />
+                      <Route path="platform/notifications" element={<PlatformNotifications />} />
+                      <Route path="platform/analytics" element={<PlatformAnalytics />} />
+                      <Route path="platform/accessibility" element={<PlatformAccessibility />} />
+
+                      {/* Phase 15 — Enterprise & School Ecosystem. Multi-tenant:
+                          every org's data is isolated by RLS membership helpers,
+                          and the active tenant is chosen via the header org
+                          switcher (useCurrentOrg). Rosters (students/teachers/
+                          parents) share one MembersRoster over kids_org_members.
+                          "verify" is a PUBLIC QR-verification page (no org).
+                          Static enterprise/* out-rank the :sectionSlug catch-all. */}
+                      <Route path="enterprise" element={<EnterpriseHome />} />
+                      <Route path="enterprise/schools" element={<EntSchoolsPortal />} />
+                      <Route path="enterprise/dashboard" element={<EntSchoolDashboard />} />
+                      <Route path="enterprise/classrooms" element={<EntClassrooms />} />
+                      <Route path="enterprise/students" element={<EntStudents />} />
+                      <Route path="enterprise/teachers" element={<EntTeachers />} />
+                      <Route path="enterprise/parents" element={<EntParents />} />
+                      <Route path="enterprise/attendance" element={<EntAttendance />} />
+                      <Route path="enterprise/assignments" element={<EntAssignments />} />
+                      <Route path="enterprise/timetable" element={<EntTimetable />} />
+                      <Route path="enterprise/exams" element={<EntExams />} />
+                      <Route path="enterprise/certificates" element={<EntCertificates />} />
+                      <Route path="enterprise/verify" element={<EntCertificateVerify />} />
+                      <Route path="enterprise/resources" element={<EntResourceCenter />} />
+                      <Route path="enterprise/communication" element={<EntCommunication />} />
+                      <Route path="enterprise/reports" element={<EntReports />} />
+                      <Route path="enterprise/analytics" element={<EntAnalytics />} />
+                      <Route path="enterprise/settings" element={<EntOrgSettings />} />
+                      <Route path="enterprise/accessibility" element={<EntAccessibility />} />
+
+                      {/* Phase 16 — AI Operations & Quality (INTERNAL, admin-gated).
+                          Every page renders behind <AdminGate>; non-admins get a
+                          lock screen. Not surfaced on the kids home grid. Ops
+                          tables are admin-only RLS; feature flags + maintenance
+                          are public-read so the app can react to them. */}
+                      <Route path="ops" element={<OpsDashboard />} />
+                      <Route path="ops/health" element={<OpsSystemHealth />} />
+                      <Route path="ops/ai" element={<OpsAIMonitoring />} />
+                      <Route path="ops/content" element={<OpsContentReview />} />
+                      <Route path="ops/accessibility" element={<OpsAccessibility />} />
+                      <Route path="ops/performance" element={<OpsPerformance />} />
+                      <Route path="ops/errors" element={<OpsErrors />} />
+                      <Route path="ops/security" element={<OpsSecurity />} />
+                      <Route path="ops/releases" element={<OpsReleases />} />
+                      <Route path="ops/audit" element={<OpsAudit />} />
+                      <Route path="ops/testing" element={<OpsTesting />} />
+                      <Route path="ops/logs" element={<OpsLogs />} />
+                      <Route path="ops/insights" element={<OpsInsights />} />
+                      <Route path="ops/incidents" element={<OpsIncidents />} />
+                      <Route path="ops/maintenance" element={<OpsMaintenance />} />
+
+                      {/* Phase 17 — Economy & Sustainability. The VX wallet reuses
+                          user_points/spend_vx; no real-money gateway (a `provider`
+                          column is reserved for one later). A child can never
+                          self-activate a PAID plan — child subscriptions land as
+                          'pending_parent' and only a nominated guardian approves
+                          them. Redeems/gifts/donations move only VX coins. Static
+                          economy/* out-rank the :sectionSlug catch-all. */}
+                      <Route path="economy" element={<EconomyHome />} />
+                      <Route path="economy/plans" element={<EconMembershipPlans />} />
+                      <Route path="economy/family-plans" element={<EconFamilyPlans />} />
+                      <Route path="economy/school-plans" element={<EconSchoolPlans />} />
+                      <Route path="economy/ngo-plans" element={<EconNGOPlans />} />
+                      <Route path="economy/wallet" element={<EconWallet />} />
+                      <Route path="economy/rewards" element={<EconRewards />} />
+                      <Route path="economy/redeem" element={<EconRedeem />} />
+                      <Route path="economy/gifts" element={<EconGifts />} />
+                      <Route path="economy/subscriptions" element={<EconSubscriptions />} />
+                      <Route path="economy/invoices" element={<EconInvoices />} />
+                      <Route path="economy/donate" element={<EconDonate />} />
+                      <Route path="economy/partners" element={<EconPartners />} />
+                      <Route path="economy/creator-revenue" element={<EconCreatorRevenue />} />
+                      <Route path="economy/reports" element={<EconReports />} />
+                      <Route path="economy/accessibility" element={<EconAccessibility />} />
+
+                      {/* Phase 18 — Everywhere (Multi-Platform & Offline). One
+                          shared core; the PWA + IndexedDB offline layer + sync
+                          engine (last-write-wins, never silent-delete) + device
+                          management live here. Native wrappers reuse this core
+                          via window.__VISIONKIDS_PLATFORM__. See
+                          docs/visionkids-everywhere.md. */}
+                      <Route path="everywhere" element={<EverywhereHome />} />
+                      <Route path="everywhere/devices" element={<EwMyDevices />} />
+                      <Route path="everywhere/downloads" element={<EwDownloads />} />
+                      <Route path="everywhere/offline" element={<EwOffline />} />
+                      <Route path="everywhere/connection" element={<EwConnection />} />
+                      <Route path="everywhere/tv" element={<EwTvMode />} />
+                      <Route path="everywhere/accessibility" element={<EwAccessibility />} />
+
+                      <Route path=":sectionSlug" element={<VisionKidsSection />} />
+                    </Route>
+
                     <Route path="*" element={<NotFound />} />
                   </Routes>
       </Suspense>

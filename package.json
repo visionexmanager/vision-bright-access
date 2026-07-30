@@ -66,6 +66,7 @@
     "date-fns": "^3.6.0",
     "diff": "^7.0.0",
     "embla-carousel-react": "^8.6.0",
+    "framer-motion": "^12.42.2",
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.1",
     "katex": "^0.16.11",

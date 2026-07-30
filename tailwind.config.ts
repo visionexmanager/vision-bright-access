@@ -63,6 +63,16 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // VisionKids — fixed brand palette (not theme-token-driven; this section
+        // has its own bright, high-saturation identity by design).
+        kids: {
+          primary: "#4F46E5",
+          secondary: "#06B6D4",
+          accent: "#F59E0B",
+          pink: "#EC4899",
+          green: "#22C55E",
+          purple: "#8B5CF6",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
