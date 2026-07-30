@@ -1,8 +1,9 @@
 name: Deploy
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
   workflow_dispatch:
 
 concurrency:
@@ -11,8 +12,20 @@ concurrency:
 
 jobs:
 
+  gate:
+    name: Verify CI success
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    steps:
+      - name: Confirm deployment is allowed
+        run: echo "CI passed — deployment is allowed."
+
   # ── 1. Deploy SPA to VPS (existing webhook) ───────────────────────────────────
   deploy-vps:
+    needs: gate
     name: Deploy SPA → VPS
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -67,10 +80,14 @@ jobs:
 
   # ── 2. Deploy Supabase Edge Functions ────────────────────────────────────────
   deploy-edge-functions:
+    needs: gate
     name: Deploy → Supabase Edge Functions
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
 
       - name: Install Supabase CLI
         run: npm install -g supabase@latest
@@ -80,7 +97,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
-          GITHUB_EVENT_BEFORE:   ${{ github.event.before }}
+          GITHUB_EVENT_BEFORE:   ""
 
   # ── 3. Run pending DB migrations ──────────────────────────────────────────────
   # Always runs `db push` — every migration file uses `if not exists` / `if exists`
@@ -88,10 +105,14 @@ jobs:
   # diff-based gate here could silently skip backlog migrations whenever the
   # triggering commit didn't itself touch supabase/migrations/.
   run-migrations:
+    needs: gate
     name: Run DB migrations
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
 
       - name: Install Supabase CLI
         run: npm install -g supabase@latest
@@ -111,6 +132,7 @@ jobs:
 
   # ── 4. Build and push stream-proxy Docker image ────────────────────────────────
   deploy-stream-proxy:
+    needs: gate
     name: Build & push stream-proxy image
     runs-on: ubuntu-latest
     permissions:
@@ -118,12 +140,15 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
 
       - name: Check for stream-proxy changes
         id: changed
         run: |
-          git fetch origin ${{ github.event.before }} 2>/dev/null || true
-          CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null | grep "infra/stream-proxy/" || true)
+          CURRENT_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          CHANGED=$(git diff --name-only "$CURRENT_SHA^" "$CURRENT_SHA" 2>/dev/null | grep "infra/stream-proxy/" || true)
           echo "has_changes=$([ -n "$CHANGED" ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
