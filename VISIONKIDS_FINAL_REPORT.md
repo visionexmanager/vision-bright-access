@@ -98,36 +98,39 @@ load-test scripts** (`load-tests/`), and the **Phase 20 Launch Readiness Report*
 | Production build | ✅ green before changes; re-run with changes in progress at write time |
 | Homepage section render + CTA routing | ✅ verified in live dev server DOM |
 
-## 6. GitHub & Deployment — STOPPED, needs your decision
+## 6. GitHub & Deployment — status
 
-Git is connected: `origin → https://github.com/visionexmanager/vision-bright-access.git`,
-branch `main`. `.gitignore` correctly excludes `.env*` and `set-supabase-secret.sh`.
+Git remote: `origin → https://github.com/visionexmanager/vision-bright-access.git`,
+branch `main`. `.gitignore` excludes `.env*`, `set-supabase-secret.sh`, and the
+untracked 86 MB nested clone `./vision-bright-access/`.
 
-**I did NOT commit, push, or deploy.** Two blocking reasons you must weigh:
+**GitHub push: DONE ✅.** The full VisionKids platform (643 files, first commit of
+all `src/features/visionkids/**` + 46 kids migrations) plus this session's work was
+committed and pushed to `origin/main`. Pre-push gate ran on the merged tree:
+production build ✅ exit 0, unit tests ✅ **47/47** (10 files), lint main-app 0
+errors, typecheck **1,677 pre-existing errors** (this session's new files add **0**).
+Getting there required rebasing onto ~34 remote commits, resolving conflicts in
+`Index.tsx` / `Navbar.tsx` / `en.ts` / `ar.ts` / `package.json`, and regenerating
+`pnpm-lock.yaml`. No secrets and no nested clone were committed.
 
-1. **Pushing to `main` auto-deploys to PRODUCTION and mutates the PRODUCTION
-   database.** `.github/workflows/deploy.yml` triggers on push to `main`: it hits
-   the VPS deploy webhook **and** runs `supabase db push --linked` against the
-   **production** project — applying all 46 new kids migrations (216 total) to
-   prod. That is a high-impact, hard-to-reverse action on real data. Your own
-   rules say "don't change the production database dangerously." This needs your
-   explicit go-ahead.
-2. **The working tree is huge and includes an untracked 86 MB nested repo clone**
-   (`./vision-bright-access/`, its own `.git`). A blanket `git add -A` would try
-   to sweep it in. A safe commit must stage only intended paths and exclude that
-   directory.
+**Production deployment: NOT deployed — blocked by CI gate (honest).** During this
+session the repo merged PR #17 *"Deploy only after CI succeeds"*: `deploy.yml` now
+triggers on `workflow_run` of the **CI** workflow and its `gate` job requires
+`workflow_run.conclusion == 'success'`. CI's `tsc --noEmit` job **fails** on the
+1,677 pre-existing type errors, so the Deploy workflow does **not** run. The push
+therefore did **not** deploy to production and did **not** run `supabase db push`.
 
-**What I need from you to proceed:**
-- Confirm you want me to commit + push to `main` **knowing it will auto-deploy to
-  production and run DB migrations on the prod database**, and
-- Confirm the nested `./vision-bright-access/` clone should be excluded (not
-  committed) — and ideally removed manually.
+**To deploy, one manual step is required (I cannot do it from this environment —
+no `gh` CLI, and the VPS `DEPLOY_TOKEN` is a protected GitHub secret):**
+1. **Manual dispatch** — GitHub → Actions → *Deploy* → *Run workflow*.
+   `workflow_dispatch` bypasses the CI gate and deploys immediately (VPS webhook +
+   edge functions + `supabase db push` of the kids migrations to prod). Ships code
+   whose CI type-check is red.
+2. **Green CI first** — burn down the 1,677 type errors so CI passes and Deploy runs
+   automatically. Safer; larger effort (Phase 20 P1-A).
 
-On your go-ahead I will: stage only the intended source/docs paths (never the
-nested clone, never `.env`), commit as `feat: VisionKids homepage integration +
-resilience + audit (Phase 19–21)`, run build/typecheck/lint/tests as the pre-push
-gate, push, then monitor the Actions run. **Production URL:** `https://visionex.app`
-(per `deploy.yml`) — I cannot confirm the live deploy until a push actually runs.
+**Production URL:** `https://visionex.app` (per `deploy.yml`). Live-site verification
+(Parts 38–39) cannot be done until a deploy actually runs.
 
 ## 7. Remaining work (honest)
 
@@ -137,4 +140,4 @@ gate, push, then monitor the Actions run. **Production URL:** `https://visionex.
   `search_path` review (~38), thin test coverage.
 - Not testable here (need you / live platform): screen readers, real
   Lighthouse/CWV, device matrix, load at scale, live payments/AI, PITR drills,
-  and the actual GitHub push + production deploy.
+  and the production deploy (GitHub push is done; deploy is CI-gated — see §6).
