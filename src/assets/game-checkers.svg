@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 512" role="img" aria-labelledby="title">
+  <title id="title">Checkers board with crowned pieces</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#431407"/>
+      <stop offset="1" stop-color="#7c2d12"/>
+    </linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-opacity=".4"/></filter>
+    <pattern id="dark" width="112" height="112" patternUnits="userSpaceOnUse">
+      <rect width="112" height="112" fill="#fef3c7"/>
+      <rect width="56" height="56" fill="#92400e"/>
+      <rect x="56" y="56" width="56" height="56" fill="#92400e"/>
+    </pattern>
+  </defs>
+  <rect width="768" height="512" rx="36" fill="url(#bg)"/>
+  <g transform="translate(160 22) rotate(-3 224 224)" filter="url(#shadow)">
+    <rect width="448" height="448" rx="12" fill="url(#dark)" stroke="#fff" stroke-width="6"/>
+    <g stroke="#1e293b" stroke-width="3">
+      <g fill="#1e293b">
+        <circle cx="28" cy="28" r="19"/><circle cx="140" cy="28" r="19"/><circle cx="252" cy="28" r="19"/><circle cx="364" cy="28" r="19"/>
+        <circle cx="84" cy="84" r="19"/><circle cx="196" cy="84" r="19"/><circle cx="308" cy="84" r="19"/><circle cx="420" cy="84" r="19"/>
+        <circle cx="28" cy="140" r="19"/><circle cx="252" cy="140" r="19"/><circle cx="364" cy="140" r="19"/>
+      </g>
+      <g fill="#f8fafc">
+        <circle cx="140" cy="196" r="19"/>
+        <circle cx="84" cy="308" r="19"/><circle cx="196" cy="308" r="19"/><circle cx="420" cy="308" r="19"/>
+        <circle cx="28" cy="364" r="19"/><circle cx="140" cy="364" r="19"/><circle cx="252" cy="364" r="19"/><circle cx="364" cy="364" r="19"/>
+        <circle cx="84" cy="420" r="19"/><circle cx="196" cy="420" r="19"/><circle cx="308" cy="420" r="19"/><circle cx="420" cy="420" r="19"/>
+      </g>
+    </g>
+    <g fill="#f59e0b">
+      <path d="M132 190l-6-10 7 3 7-10 7 10 7-3-6 10z"/>
+      <path d="M20 358l-6-10 7 3 7-10 7 10 7-3-6 10z"/>
+    </g>
+    <g fill="none" stroke="#22c55e" stroke-width="4" stroke-dasharray="7 6">
+      <circle cx="196" cy="252" r="24"/>
+    </g>
+  </g>
+</svg>

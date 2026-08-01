@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 512" role="img" aria-labelledby="title">
+  <title id="title">Four in a row grid with red and yellow discs</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#082f49"/>
+      <stop offset="1" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-opacity=".4"/></filter>
+  </defs>
+  <rect width="768" height="512" rx="36" fill="url(#bg)"/>
+  <g transform="translate(134 46)" filter="url(#shadow)">
+    <rect width="500" height="424" rx="20" fill="#1d4ed8" stroke="#fff" stroke-width="5"/>
+    <g transform="translate(22 22)">
+      <g fill="#e0f2fe">
+        <circle cx="34" cy="34" r="28"/><circle cx="102" cy="34" r="28"/><circle cx="170" cy="34" r="28"/><circle cx="238" cy="34" r="28"/><circle cx="306" cy="34" r="28"/><circle cx="374" cy="34" r="28"/><circle cx="422" cy="34" r="28"/>
+        <circle cx="34" cy="98" r="28"/><circle cx="102" cy="98" r="28"/><circle cx="170" cy="98" r="28"/><circle cx="306" cy="98" r="28"/><circle cx="374" cy="98" r="28"/><circle cx="422" cy="98" r="28"/>
+        <circle cx="34" cy="162" r="28"/><circle cx="102" cy="162" r="28"/><circle cx="306" cy="162" r="28"/><circle cx="374" cy="162" r="28"/><circle cx="422" cy="162" r="28"/>
+        <circle cx="34" cy="226" r="28"/><circle cx="374" cy="226" r="28"/><circle cx="422" cy="226" r="28"/>
+        <circle cx="422" cy="290" r="28"/>
+        <circle cx="422" cy="354" r="28"/>
+      </g>
+      <g fill="#f43f5e">
+        <circle cx="238" cy="98" r="28"/>
+        <circle cx="170" cy="162" r="28"/>
+        <circle cx="102" cy="226" r="28"/>
+        <circle cx="238" cy="290" r="28"/>
+        <circle cx="34" cy="354" r="28"/>
+        <circle cx="306" cy="354" r="28"/>
+      </g>
+      <g fill="#facc15">
+        <circle cx="238" cy="162" r="28"/>
+        <circle cx="170" cy="226" r="28"/>
+        <circle cx="238" cy="226" r="28"/>
+        <circle cx="306" cy="226" r="28"/>
+        <circle cx="34" cy="290" r="28"/>
+        <circle cx="102" cy="290" r="28"/>
+        <circle cx="170" cy="290" r="28"/>
+        <circle cx="306" cy="290" r="28"/>
+        <circle cx="374" cy="290" r="28"/>
+        <circle cx="102" cy="354" r="28"/>
+        <circle cx="170" cy="354" r="28"/>
+        <circle cx="238" cy="354" r="28"/>
+        <circle cx="374" cy="354" r="28"/>
+      </g>
+      <g fill="none" stroke="#22c55e" stroke-width="6">
+        <path d="M34 354 L102 290 L170 226 L238 162" stroke-linecap="round" opacity=".0"/>
+        <circle cx="238" cy="98" r="34"/>
+        <circle cx="170" cy="162" r="34"/>
+        <circle cx="102" cy="226" r="34"/>
+        <circle cx="34" cy="290" r="34" opacity=".0"/>
+      </g>
+    </g>
+  </g>
+  <g transform="translate(352 8)" fill="#f43f5e" stroke="#fff" stroke-width="4">
+    <circle cx="28" cy="28" r="24"/>
+  </g>
+</svg>

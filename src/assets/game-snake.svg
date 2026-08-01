@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 512" role="img" aria-labelledby="title">
+  <title id="title">Snake winding across a grid toward food</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#022c22"/>
+      <stop offset="1" stop-color="#065f46"/>
+    </linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-opacity=".4"/></filter>
+  </defs>
+  <rect width="768" height="512" rx="36" fill="url(#bg)"/>
+  <g transform="translate(190 26)" filter="url(#shadow)">
+    <rect width="388" height="388" rx="18" fill="#064e3b" stroke="#fff" stroke-width="5"/>
+    <g stroke="#065f46" stroke-width="1.5" opacity=".7">
+      <path d="M38 4v380M76 4v380M114 4v380M152 4v380M190 4v380M228 4v380M266 4v380M304 4v380M342 4v380"/>
+      <path d="M4 38h380M4 76h380M4 114h380M4 152h380M4 190h380M4 228h380M4 266h380M4 304h380M4 342h380"/>
+    </g>
+    <g fill="#059669">
+      <rect x="80" y="270" width="30" height="30" rx="5"/>
+      <rect x="118" y="270" width="30" height="30" rx="5"/>
+      <rect x="156" y="270" width="30" height="30" rx="5"/>
+      <rect x="156" y="232" width="30" height="30" rx="5"/>
+      <rect x="156" y="194" width="30" height="30" rx="5"/>
+      <rect x="194" y="194" width="30" height="30" rx="5"/>
+      <rect x="232" y="194" width="30" height="30" rx="5"/>
+      <rect x="232" y="156" width="30" height="30" rx="5"/>
+      <rect x="232" y="118" width="30" height="30" rx="5"/>
+    </g>
+    <g>
+      <rect x="270" y="118" width="30" height="30" rx="7" fill="#34d399"/>
+      <circle cx="279" cy="128" r="3.5" fill="#022c22"/>
+      <circle cx="291" cy="128" r="3.5" fill="#022c22"/>
+    </g>
+    <g transform="translate(308 42)">
+      <circle cx="15" cy="17" r="13" fill="#ef4444"/>
+      <path d="M15 5c1-5 5-6 8-6-1 4-4 6-8 6z" fill="#22c55e"/>
+    </g>
+  </g>
+</svg>

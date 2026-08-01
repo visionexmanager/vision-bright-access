@@ -195,6 +195,11 @@ const Minesweeper = lazy(() => import("./pages/games/Minesweeper"));
 const Solitaire = lazy(() => import("./pages/games/Solitaire"));
 const Chess = lazy(() => import("./pages/games/Chess"));
 const Backgammon = lazy(() => import("./pages/games/Backgammon"));
+const Checkers = lazy(() => import("./pages/games/Checkers"));
+const Ludo = lazy(() => import("./pages/games/Ludo"));
+const ConnectFour = lazy(() => import("./pages/games/ConnectFour"));
+const SnakeGame = lazy(() => import("./pages/games/SnakeGame"));
+const WordMaster = lazy(() => import("./pages/games/WordMaster"));
 const AssistiveProducts = lazy(() => import("./pages/AssistiveProducts"));
 const BusinessSimulator = lazy(() => import("./pages/BusinessSimulator"));
 const SimulationRunner = lazy(() => import("./pages/SimulationRunner"));
@@ -514,6 +519,11 @@ function AppRoutes() {
                     <Route path="/games/solitaire" element={<GameEconomyGate gameTitle="Klondike Solitaire"><Solitaire /></GameEconomyGate>} />
                     <Route path="/games/chess" element={<GameEconomyGate gameTitle="Chess"><Chess /></GameEconomyGate>} />
                     <Route path="/games/backgammon" element={<GameEconomyGate gameTitle="Backgammon"><Backgammon /></GameEconomyGate>} />
+                    <Route path="/games/checkers" element={<GameEconomyGate gameTitle="Checkers"><Checkers /></GameEconomyGate>} />
+                    <Route path="/games/ludo" element={<GameEconomyGate gameTitle="Ludo"><Ludo /></GameEconomyGate>} />
+                    <Route path="/games/connect-four" element={<GameEconomyGate gameTitle="Four in a Row"><ConnectFour /></GameEconomyGate>} />
+                    <Route path="/games/snake" element={<GameEconomyGate gameTitle="Snake"><SnakeGame /></GameEconomyGate>} />
+                    <Route path="/games/word-master" element={<GameEconomyGate gameTitle="Word Master"><WordMaster /></GameEconomyGate>} />
                     <Route path="/assistive-products" element={<AssistiveProducts />} />
                     <Route path="/business-simulator" element={<BusinessSimulator />} />
                     <Route path="/business-simulator/:slug" element={<SimulationRunner />} />
