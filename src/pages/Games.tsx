@@ -36,6 +36,12 @@ import earmasterImg from "@/assets/game-earmaster.jpg";
 import fashionImg from "@/assets/game-fashion.jpg";
 import velocityImg from "@/assets/game-velocity.jpg";
 import visionopolyImg from "@/assets/game-visionopoly.svg";
+import sudokuImg from "@/assets/game-sudoku.svg";
+import game2048Img from "@/assets/game-2048.svg";
+import minesweeperImg from "@/assets/game-minesweeper.svg";
+import solitaireImg from "@/assets/game-solitaire.svg";
+import chessImg from "@/assets/game-chess.svg";
+import backgammonImg from "@/assets/game-backgammon.svg";
 
 import akinatorImg from "@/assets/game-logiquest.jpg";
 
@@ -73,6 +79,9 @@ export default function Games() {
     { to: "/games/word-puzzle",      img: wordImg,       title: t("games.word.title"),       desc: t("games.word.desc"),       badge: t("games.word.badge"),       category: "Brain"    as Category },
     { to: "/games/hangman",          img: hangmanImg,    title: t("games.hangman.title"),    desc: t("games.hangman.desc"),    badge: t("games.hangman.badge"),    category: "Brain"    as Category },
     { to: "/games/akinator",         img: akinatorImg,   title: t("games.akinator.title"),   desc: t("games.akinator.desc"),   badge: t("games.akinator.badge"),   category: "Brain"    as Category },
+    { to: "/games/sudoku",           img: sudokuImg,     title: lang === "ar" ? "سودوكو" : "Sudoku",           desc: lang === "ar" ? "املأ الشبكة بالأرقام من 1 إلى 9 دون أي تكرار." : "Fill the grid with 1–9 so nothing ever repeats.",       badge: lang === "ar" ? "لغز كلاسيكي" : "Classic puzzle",  category: "Brain"    as Category },
+    { to: "/games/2048",             img: game2048Img,   title: "2048",                                        desc: lang === "ar" ? "ادمج البلاطات المتشابهة حتى تصل إلى 2048." : "Merge matching tiles until you reach 2048.",           badge: lang === "ar" ? "الأكثر إدماناً" : "Addictive",    category: "Brain"    as Category },
+    { to: "/games/minesweeper",      img: minesweeperImg,title: lang === "ar" ? "كاسحة الألغام" : "Minesweeper", desc: lang === "ar" ? "اكشف الحقل كاملاً دون أن تفجّر لغماً واحداً." : "Clear the field without setting off a single mine.",   badge: lang === "ar" ? "منطق وتركيز" : "Logic & nerve",   category: "Brain"    as Category },
     { to: "/games/jungle-survival",  img: jungleImg,     title: t("games.jungle.title"),     desc: t("games.jungle.desc"),     badge: t("games.jungle.badge"),     category: "Action"   as Category },
     { to: "/games/neon-breach",      img: neonbreachImg, title: t("games.neonbreach.title"), desc: t("games.neonbreach.desc"), badge: t("games.neonbreach.badge"), category: "Action"   as Category },
     { to: "/games/tactical-strike",  img: tacticalImg,   title: t("games.tactical.title"),   desc: t("games.tactical.desc"),   badge: t("games.tactical.badge"),   category: "Action"   as Category },
@@ -86,10 +95,13 @@ export default function Games() {
     { to: "/games/farkle",           img: farkleImg,     title: t("games.farkle.title"),     desc: t("games.farkle.desc"),     badge: t("games.farkle.badge"),     category: "Cards"    as Category },
     { to: "/games/briscola",         img: briscolaImg,   title: t("games.briscola.title"),   desc: t("games.briscola.desc"),   badge: t("games.briscola.badge"),   category: "Cards"    as Category },
     { to: "/games/card-99",          img: card99Img,     title: t("games.card99.title"),     desc: t("games.card99.desc"),     badge: t("games.card99.badge"),     category: "Cards"    as Category },
+    { to: "/games/solitaire",        img: solitaireImg,  title: lang === "ar" ? "سوليتير كلوندايك" : "Klondike Solitaire", desc: lang === "ar" ? "رتّب الأوراق من الآس حتى الملك في الأكوام الأربع." : "Build all four suits from Ace up to King.",   badge: lang === "ar" ? "الأشهر عالمياً" : "World favourite", category: "Cards"    as Category },
     { to: "/games/logiquest",        img: logiquestImg,  title: t("games.logiquest.title"),  desc: t("games.logiquest.desc"),  badge: t("games.logiquest.badge"),  category: "Strategy" as Category },
     { to: "/games/trade-tycoon",     img: tradetycoonImg,title: t("games.tradetycoon.title"),desc: t("games.tradetycoon.desc"),badge: t("games.tradetycoon.badge"),category: "Strategy" as Category },
     { to: "/games/laptop-tech",      img: laptoptechImg, title: t("games.laptoptech.title"), desc: t("games.laptoptech.desc"), badge: t("games.laptoptech.badge"), category: "Strategy" as Category },
     { to: "/games/visionopoly",      img: visionopolyImg,title: lang === "ar" ? "مونوبولي VisionEx" : "Visionopoly", desc: lang === "ar" ? "لعبة العقارات الكاملة: شراء وبناء ورهن وتجارة ضد منافسين أذكياء." : "The complete property game: buy, build, mortgage, and trade against smart rivals.", badge: lang === "ar" ? "استراتيجية كلاسيكية" : "Property strategy", category: "Strategy" as Category },
+    { to: "/games/chess",            img: chessImg,      title: lang === "ar" ? "شطرنج" : "Chess",             desc: lang === "ar" ? "واجه محركاً يحسب حركاته على ثلاثة مستويات صعوبة." : "Face an engine that calculates, across three difficulty levels.", badge: lang === "ar" ? "ملك الألعاب" : "The classic",   category: "Strategy" as Category },
+    { to: "/games/backgammon",       img: backgammonImg, title: lang === "ar" ? "طاولة الزهر" : "Backgammon",  desc: lang === "ar" ? "أخرج أحجارك الخمسة عشر قبل الخصم في أشهر لعبة نرد." : "Bear off all fifteen checkers before your rival.",         badge: lang === "ar" ? "لعبة الأجيال" : "Timeless",     category: "Strategy" as Category },
   ], [lang, t]);
 
   const categories: Category[] = ["All", "Brain", "Action", "Creative", "Cards", "Strategy"];

@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 512" role="img" aria-labelledby="title">
+  <title id="title">Klondike solitaire card layout</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#064e3b"/>
+      <stop offset="1" stop-color="#065f46"/>
+    </linearGradient>
+    <linearGradient id="back" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#7e22ce"/>
+    </linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-opacity=".4"/></filter>
+  </defs>
+  <rect width="768" height="512" rx="36" fill="url(#bg)"/>
+  <g font-family="system-ui, sans-serif" font-weight="800" filter="url(#shadow)">
+    <g transform="translate(52 46)">
+      <rect width="96" height="134" rx="12" fill="url(#back)" stroke="#fff" stroke-width="4"/>
+      <rect x="14" y="14" width="68" height="106" rx="7" fill="none" stroke="#c7d2fe" stroke-width="3" stroke-dasharray="8 6"/>
+    </g>
+    <g transform="translate(166 46)">
+      <rect width="96" height="134" rx="12" fill="#f8fafc" stroke="#fff" stroke-width="4"/>
+      <text x="14" y="40" font-size="30" fill="#e11d48">7</text>
+      <text x="48" y="94" font-size="42" fill="#e11d48">♥</text>
+    </g>
+    <g transform="translate(392 46)">
+      <rect width="96" height="134" rx="12" fill="#f8fafc" stroke="#fff" stroke-width="4"/>
+      <text x="14" y="40" font-size="30" fill="#e11d48">A</text>
+      <text x="48" y="94" font-size="42" fill="#e11d48">♥</text>
+    </g>
+    <g transform="translate(498 46)">
+      <rect width="96" height="134" rx="12" fill="#f8fafc" stroke="#fff" stroke-width="4"/>
+      <text x="14" y="40" font-size="30" fill="#e11d48">A</text>
+      <text x="48" y="94" font-size="42" fill="#e11d48">♦</text>
+    </g>
+    <g transform="translate(604 46)">
+      <rect width="96" height="134" rx="12" fill="#f8fafc" stroke="#fff" stroke-width="4"/>
+      <text x="14" y="40" font-size="30" fill="#0f172a">A</text>
+      <text x="48" y="94" font-size="42" fill="#0f172a">♠</text>
+    </g>
+  </g>
+  <g font-family="system-ui, sans-serif" font-weight="800" filter="url(#shadow)">
+    <g transform="translate(120 236)">
+      <rect width="96" height="134" rx="12" fill="url(#back)" stroke="#fff" stroke-width="4"/>
+    </g>
+    <g transform="translate(120 288)">
+      <rect width="96" height="134" rx="12" fill="#f8fafc" stroke="#fff" stroke-width="4"/>
+      <text x="14" y="40" font-size="30" fill="#0f172a">K</text>
+      <text x="48" y="94" font-size="42" fill="#0f172a">♠</text>
+    </g>
+    <g transform="translate(336 236)">
+      <rect width="96" height="134" rx="12" fill="url(#back)" stroke="#fff" stroke-width="4"/>
+    </g>
+    <g transform="translate(336 288)">
+      <rect width="96" height="134" rx="12" fill="#f8fafc" stroke="#fff" stroke-width="4"/>
+      <text x="14" y="40" font-size="30" fill="#e11d48">Q</text>
+      <text x="48" y="94" font-size="42" fill="#e11d48">♦</text>
+    </g>
+    <g transform="translate(552 236)">
+      <rect width="96" height="134" rx="12" fill="url(#back)" stroke="#fff" stroke-width="4"/>
+    </g>
+    <g transform="translate(552 288)">
+      <rect width="96" height="134" rx="12" fill="#f8fafc" stroke="#fff" stroke-width="4"/>
+      <text x="14" y="40" font-size="30" fill="#0f172a">J</text>
+      <text x="48" y="94" font-size="42" fill="#0f172a">♣</text>
+    </g>
+  </g>
+</svg>
