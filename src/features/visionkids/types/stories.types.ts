@@ -1,6 +1,6 @@
 // ─── VisionKids Smart Stories Library — domain types ───────────────────────
 // Hand-typed to match the kids_* migrations exactly (see
-// supabase/migrations/20260808000000_kids_stories_catalog.sql onward) —
+// supabase/migrations/20260808003000_kids_stories_catalog.sql onward) —
 // see services/stories/kidsSupabase.ts for why these aren't generated yet.
 
 export type AgeGroup = "3-5" | "6-8" | "9-12";
