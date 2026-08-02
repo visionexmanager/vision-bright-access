@@ -74,7 +74,12 @@ CREATE POLICY "kids_sync_events: owner reads" ON public.kids_sync_events FOR SEL
 -- Written via log_kids_sync_event RPC.
 
 -- ── Downloads (registry of offline-downloaded content) ───────────────────────
-CREATE TABLE IF NOT EXISTS public.kids_downloads (
+-- Named kids_offline_downloads, not kids_downloads: kids_stories_engagement.sql
+-- already owns public.kids_downloads for per-story download logging
+-- (user_id, story_id, format). Two different tables, one name — CREATE TABLE
+-- IF NOT EXISTS silently kept the stories schema, so the index below then
+-- failed with "column content_kind does not exist" (42703).
+CREATE TABLE IF NOT EXISTS public.kids_offline_downloads (
   user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   content_kind TEXT NOT NULL CHECK (content_kind IN ('story','audio','lesson','game','quiz','worksheet')),
   ref_id       TEXT NOT NULL,
@@ -84,11 +89,11 @@ CREATE TABLE IF NOT EXISTS public.kids_downloads (
   downloaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, content_kind, ref_id)
 );
-ALTER TABLE public.kids_downloads ENABLE ROW LEVEL SECURITY;
-CREATE INDEX IF NOT EXISTS idx_kids_downloads_user ON public.kids_downloads(user_id, content_kind);
-CREATE POLICY "kids_downloads: owner reads" ON public.kids_downloads FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "kids_downloads: owner writes" ON public.kids_downloads FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "kids_downloads: owner deletes" ON public.kids_downloads FOR DELETE USING (auth.uid() = user_id);
+ALTER TABLE public.kids_offline_downloads ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_kids_offline_downloads_user ON public.kids_offline_downloads(user_id, content_kind);
+CREATE POLICY "kids_offline_downloads: owner reads" ON public.kids_offline_downloads FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "kids_offline_downloads: owner writes" ON public.kids_offline_downloads FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "kids_offline_downloads: owner deletes" ON public.kids_offline_downloads FOR DELETE USING (auth.uid() = user_id);
 
 -- ── Offline sessions (usage while offline, for later analytics) ──────────────
 CREATE TABLE IF NOT EXISTS public.kids_offline_sessions (

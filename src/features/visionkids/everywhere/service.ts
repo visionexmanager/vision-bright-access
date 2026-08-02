@@ -50,11 +50,13 @@ export async function signOutAllDevices(): Promise<void> {
 }
 
 // ── Downloads ────────────────────────────────────────────────────────────────
+// kids_offline_downloads, not kids_downloads — the latter belongs to Stories
+// and holds per-story download logs with an entirely different shape.
 export async function fetchDownloads(): Promise<Download[]> {
   const userId = await currentUserId();
   if (!userId) return [];
   const { data, error } = await kidsDb
-    .from("kids_downloads").select("*").eq("user_id", userId).order("downloaded_at", { ascending: false })
+    .from("kids_offline_downloads").select("*").eq("user_id", userId).order("downloaded_at", { ascending: false })
     .returns<Download[]>();
   if (error) throw error;
   return data ?? [];
@@ -63,7 +65,7 @@ export async function fetchDownloads(): Promise<Download[]> {
 export async function addDownload(input: { kind: DownloadKind; refId: string; title: string; sizeKb: number }): Promise<void> {
   const userId = await currentUserId();
   if (!userId) throw new Error("Must be signed in");
-  const { error } = await kidsDb.from("kids_downloads").upsert({
+  const { error } = await kidsDb.from("kids_offline_downloads").upsert({
     user_id: userId, content_kind: input.kind, ref_id: input.refId, title: input.title, size_kb: input.sizeKb, device_key: getDeviceKey(),
   }, { onConflict: "user_id,content_kind,ref_id" });
   if (error) throw error;
@@ -72,7 +74,7 @@ export async function addDownload(input: { kind: DownloadKind; refId: string; ti
 export async function removeDownload(kind: DownloadKind, refId: string): Promise<void> {
   const userId = await currentUserId();
   if (!userId) return;
-  const { error } = await kidsDb.from("kids_downloads").delete().eq("user_id", userId).eq("content_kind", kind).eq("ref_id", refId);
+  const { error } = await kidsDb.from("kids_offline_downloads").delete().eq("user_id", userId).eq("content_kind", kind).eq("ref_id", refId);
   if (error) throw error;
 }
 
