@@ -2,7 +2,7 @@
 -- Migration: VisionKids Explorer (Phase 6) — core catalog.
 --
 -- Architecture note (same discipline as kids_creative_projects in
--- 20260811000000_kids_studio_core.sql): rather than one bespoke table per
+-- 20260811003000_kids_studio_core.sql): rather than one bespoke table per
 -- browsable domain (planets, ocean creatures, animals, body systems,
 -- dinosaurs, civilizations, geography entries, weather topics, nature
 -- topics — 9 near-identical tables), this uses ONE polymorphic

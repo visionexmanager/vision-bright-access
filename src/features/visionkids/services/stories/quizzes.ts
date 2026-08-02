@@ -18,7 +18,7 @@ export async function fetchQuizByStoryId(storyId: string): Promise<Quiz | null> 
 /** Academy course final exams/lesson quizzes, Explorer location quizzes,
  *  and Social club (esp. Reading Club weekly) quizzes reuse this same
  *  table — see the kids_quizzes ALTER statements in
- *  20260810000000_kids_academy_catalog.sql, 20260812010000_kids_explorer_
+ *  20260810003000_kids_academy_catalog.sql, 20260812010000_kids_explorer_
  *  gamification.sql, and 20260813010000_kids_social_friends_chat_groups.sql. */
 async function fetchQuizByOwner(column: "course_id" | "lesson_id" | "location_id" | "group_id", ownerId: string): Promise<Quiz | null> {
   const { data: quiz, error } = await kidsDb.from("kids_quizzes").select("*").eq(column, ownerId).maybeSingle();
