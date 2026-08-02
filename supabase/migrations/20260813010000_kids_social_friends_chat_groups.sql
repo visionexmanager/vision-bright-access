@@ -247,11 +247,8 @@ CREATE TABLE IF NOT EXISTS public.kids_social_groups (
 
 ALTER TABLE public.kids_social_groups ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "kids_social_groups: public read"
-  ON public.kids_social_groups FOR SELECT
-  USING (is_public = true OR public.has_role(auth.uid(), 'admin') OR EXISTS (
-    SELECT 1 FROM public.kids_social_group_members m WHERE m.group_id = id AND m.user_id = auth.uid()
-  ));
+-- The SELECT policy for kids_social_groups reads kids_social_group_members,
+-- so it is declared after that table exists — see below.
 
 CREATE POLICY "kids_social_groups: signed-in users create"
   ON public.kids_social_groups FOR INSERT
@@ -277,6 +274,15 @@ CREATE TABLE IF NOT EXISTS public.kids_social_group_members (
 );
 
 ALTER TABLE public.kids_social_group_members ENABLE ROW LEVEL SECURITY;
+
+-- Deferred from the kids_social_groups block above: this policy reads
+-- kids_social_group_members, which only exists as of the statement above.
+CREATE POLICY "kids_social_groups: public read"
+  ON public.kids_social_groups FOR SELECT
+  USING (is_public = true OR public.has_role(auth.uid(), 'admin') OR EXISTS (
+    SELECT 1 FROM public.kids_social_group_members m
+    WHERE m.group_id = kids_social_groups.id AND m.user_id = auth.uid()
+  ));
 
 CREATE POLICY "kids_social_group_members: readable if group readable"
   ON public.kids_social_group_members FOR SELECT

@@ -141,13 +141,8 @@ CREATE TABLE IF NOT EXISTS public.kids_multiplayer_rooms (
 
 ALTER TABLE public.kids_multiplayer_rooms ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "kids_multiplayer_rooms: read public or own membership"
-  ON public.kids_multiplayer_rooms FOR SELECT
-  USING (
-    is_public = true
-    OR host_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM public.kids_multiplayer_room_players p WHERE p.room_id = id AND p.user_id = auth.uid())
-  );
+-- The SELECT policy for kids_multiplayer_rooms reads kids_multiplayer_room_players,
+-- so it is declared after that table exists — see below.
 
 CREATE POLICY "kids_multiplayer_rooms: authenticated creates own"
   ON public.kids_multiplayer_rooms FOR INSERT
@@ -198,6 +193,19 @@ CREATE POLICY "kids_multiplayer_room_players: user leaves own"
   USING (auth.uid() = user_id);
 
 CREATE INDEX IF NOT EXISTS idx_kids_multiplayer_room_players_room ON public.kids_multiplayer_room_players(room_id);
+
+-- Deferred from the kids_multiplayer_rooms block above: this policy reads
+-- kids_multiplayer_room_players, which only exists as of the statement above.
+CREATE POLICY "kids_multiplayer_rooms: read public or own membership"
+  ON public.kids_multiplayer_rooms FOR SELECT
+  USING (
+    is_public = true
+    OR host_id = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM public.kids_multiplayer_room_players p
+      WHERE p.room_id = kids_multiplayer_rooms.id AND p.user_id = auth.uid()
+    )
+  );
 
 -- ============================================================
 -- Storage: kids-games-media (thumbnails/gallery/preview videos)
