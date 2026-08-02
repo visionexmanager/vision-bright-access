@@ -123,8 +123,14 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
 
+      # --include-all is required because the repo accumulated migrations whose
+      # timestamps predate the last one already applied in production (the kids
+      # and library work was authored in parallel with other branches). Without
+      # it the CLI refuses the whole push rather than inserting them out of
+      # order, which is what silently kept 23 migrations — including every
+      # kids_* table — out of production.
       - name: Push migrations to production
-        run: supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
+        run: supabase db push --linked --include-all --password "$SUPABASE_DB_PASSWORD"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
