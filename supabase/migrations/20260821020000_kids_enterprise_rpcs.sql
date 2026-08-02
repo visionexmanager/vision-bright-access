@@ -4,8 +4,8 @@
 --
 -- All mutating RPCs are SECURITY DEFINER and re-check org membership/role, so
 -- isolation holds even though the functions run as the definer. The one public
--- endpoint, verify_kids_certificate, is granted to anon and returns ONLY the
--- minimal fields printed on a certificate (no ids, no private records).
+-- endpoint, verify_kids_org_certificate, is granted to anon and returns ONLY
+-- the minimal fields printed on a certificate (no ids, no private records).
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.kids_enterprise_rate_ok(_action TEXT, _max INTEGER)
@@ -128,10 +128,18 @@ $$;
 GRANT EXECUTE ON FUNCTION public.issue_kids_certificate(UUID, UUID, TEXT, TEXT, TEXT) TO authenticated;
 
 -- ============================================================
--- verify_kids_certificate — PUBLIC QR verification. Returns only the minimal
--- printed fields; never ids or private records. Safe for anon.
+-- verify_kids_org_certificate — PUBLIC QR verification for the *organization*
+-- certificates in kids_org_certificates. Returns only the minimal printed
+-- fields; never ids or private records. Safe for anon.
+--
+-- Named _org_ deliberately: kids_academy_progress.sql already owns
+-- public.verify_kids_certificate(TEXT), which verifies the Academy's
+-- kids_certificates and RETURNS TABLE. Two different features, one signature —
+-- reusing the name made CREATE OR REPLACE fail with "cannot change return type
+-- of existing function" (42P13), and whichever definition won would have broken
+-- the other feature's caller at runtime.
 -- ============================================================
-CREATE OR REPLACE FUNCTION public.verify_kids_certificate(_code TEXT)
+CREATE OR REPLACE FUNCTION public.verify_kids_org_certificate(_code TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
 AS $$
@@ -159,7 +167,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.verify_kids_certificate(TEXT) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.verify_kids_org_certificate(TEXT) TO authenticated, anon;
 
 -- ============================================================
 -- get_kids_school_dashboard — live counts for an org's dashboard. Staff-gated.
