@@ -18,6 +18,20 @@
 -- entities with different audiences and lifecycle, not a shared table.
 -- ============================================================
 
+-- array_to_string() is only STABLE, so folding a tags array straight into a
+-- GENERATED ALWAYS AS ... STORED expression fails with "generation expression
+-- is not immutable" (42P17). Reuse the immutable wrapper library_core_catalog
+-- already defines for exactly this; CREATE OR REPLACE keeps this migration
+-- self-contained if it ever runs against a database without the library schema.
+CREATE OR REPLACE FUNCTION public.library_immutable_array_to_string(_arr TEXT[], _sep TEXT)
+RETURNS TEXT
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+  SELECT array_to_string(_arr, _sep);
+$$;
+
 -- ============================================================
 -- kids_story_categories — the 18 fixed VisionKids story categories
 -- ============================================================
@@ -147,7 +161,7 @@ CREATE TABLE IF NOT EXISTS public.kids_stories (
     setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
     setweight(to_tsvector('simple', coalesce(subtitle, '')), 'B') ||
     setweight(to_tsvector('simple', coalesce(description, '')), 'C') ||
-    setweight(to_tsvector('simple', array_to_string(tags, ' ')), 'B')
+    setweight(to_tsvector('simple', coalesce(public.library_immutable_array_to_string(tags, ' '), '')), 'B')
   ) STORED,
   created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()

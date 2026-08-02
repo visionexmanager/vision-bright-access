@@ -11,7 +11,10 @@
 --            self-contained folder under src/features/visionkids/games/,
 --            never a restructure.
 --
--- Reused, not redefined: public.touch_updated_at(), public.has_role().
+-- Reused, not redefined: public.touch_updated_at(), public.has_role(),
+--   public.library_immutable_array_to_string() — array_to_string() is only
+--   STABLE and cannot appear in a GENERATED ALWAYS AS ... STORED expression
+--   (42P17), so the tags fold below goes through the immutable wrapper.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.kids_game_categories (
@@ -97,7 +100,7 @@ CREATE TABLE IF NOT EXISTS public.kids_games (
   search_vector           TSVECTOR GENERATED ALWAYS AS (
     setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
     setweight(to_tsvector('simple', coalesce(description, '')), 'C') ||
-    setweight(to_tsvector('simple', array_to_string(tags, ' ')), 'B')
+    setweight(to_tsvector('simple', coalesce(public.library_immutable_array_to_string(tags, ' '), '')), 'B')
   ) STORED,
   created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
