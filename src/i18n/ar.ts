@@ -33,6 +33,7 @@ export const translations: Record<string, string> = {
   "legalCenter.desc.ai": "كيفية عمل ميزات الذكاء الاصطناعي وحدودها والاستخدام الآمن.",
   "legalCenter.desc.enforcement": "مستويات التنفيذ، وعملية الاستئناف، والجداول الزمنية.",
   "nav.home": "الرئيسية",
+  "nav.servicesSubmenu": "خدمات أخرى",
   "nav.more": "المزيد",
   "nav.explore": "استكشف",
   "nav.kids": "VisionKids",

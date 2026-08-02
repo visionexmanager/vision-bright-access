@@ -35,6 +35,7 @@ export const translations: Record<string, string> = {
   "nav.home": "Home",
   "nav.finance": "VX Finance Hub",
   "nav.aiStudio": "AI Studio",
+  "nav.servicesSubmenu": "More services",
   "nav.library": "Library",
   "nav.more": "More",
   "nav.explore": "Explore",
