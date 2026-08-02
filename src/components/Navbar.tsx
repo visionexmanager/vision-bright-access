@@ -12,10 +12,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, Settings, Volume2, VolumeX } from "lucide-react";
+import { LogOut, Menu, X, Heart, User, ShieldCheck, Coins, Settings, Volume2, VolumeX, ChevronDown } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { usePoints } from "@/hooks/usePoints";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -56,10 +56,15 @@ export function Navbar() {
     }
   }, [closeMenu]);
 
-  const handleMenubarKeyDown = useCallback((e: React.KeyboardEvent<HTMLAnchorElement>, index: number) => {
-    const items = menubarRef.current?.querySelectorAll<HTMLElement>("a");
+  // Roving focus across the desktop menubar. The index is derived from the DOM
+  // rather than passed in, because the Services submenu trigger is a button
+  // interleaved among the links — a map index would no longer line up.
+  const handleMenubarKeyDown = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
+    const items = menubarRef.current?.querySelectorAll<HTMLElement>("[data-nav-item]");
     if (!items) return;
     const count = items.length;
+    const index = Array.prototype.indexOf.call(items, e.currentTarget);
+    if (index === -1) return;
     if (e.key === "ArrowRight") {
       e.preventDefault();
       items[(index + 1) % count]?.focus();
@@ -75,21 +80,28 @@ export function Navbar() {
     }
   }, []);
 
-  // Desktop: keep only the most important links to avoid overcrowding
+  // Desktop: keep only the most important links to avoid overcrowding.
+  // AI Studio and File Converter both live under /services, so they hang off the
+  // Services submenu below instead of taking two more top-level slots; VisionKids
+  // takes the slot they freed up.
   const primaryNavLinks = [
     { to: "/", label: t("nav.home") },
     { to: "/bazaar", label: "VXBazaar" },
     { to: "/services", label: t("nav.services") },
     { to: "/finance", label: t("nav.finance") },
-    { to: "/services/ai-media-studio", label: t("nav.aiStudio") },
-    { to: "/services/file-studio", label: t("nav.fileConverter") },
+    { to: "/kids", label: t("nav.kids") },
     { to: "/library", label: t("nav.library") },
     { to: "/content", label: t("nav.content") },
     { to: "/games", label: t("nav.games") },
     { to: "/careers", label: t("career.title") },
     { to: "/academy", label: t("home.feature.academy") },
-    { to: "/kids", label: t("nav.kids") },
     { to: "/news", label: t("nav.news") },
+  ];
+
+  // Rendered as a dropdown anchored to the Services link.
+  const servicesSubLinks = [
+    { to: "/services/ai-media-studio", label: t("nav.aiStudio") },
+    { to: "/services/file-studio", label: t("nav.fileConverter") },
   ];
 
   const secondaryNavLinks: { to: string; label: string }[] = [];
@@ -104,8 +116,11 @@ export function Navbar() {
         { to: "/", label: t("nav.home") },
         { to: "/bazaar", label: "VXBazaar" },
         { to: "/services", label: t("nav.services") },
-        { to: "/finance", label: t("nav.finance") },
+        // Sub-services sit directly under Services here, mirroring the desktop
+        // submenu — File Converter used to be stranded in the "More" group.
         { to: "/services/ai-media-studio", label: t("nav.aiStudio") },
+        { to: "/services/file-studio", label: t("nav.fileConverter") },
+        { to: "/finance", label: t("nav.finance") },
         { to: "/library", label: t("nav.library") },
         { to: "/assistive-products", label: t("nav.assistiveProducts") },
       ],
@@ -124,7 +139,6 @@ export function Navbar() {
     {
       label: t("nav.more"),
       links: [
-        { to: "/services/file-studio", label: t("nav.fileConverter") },
         { to: "/professional-tools", label: t("nav.professionalTools") },
         { to: "/news", label: t("nav.news") },
         { to: "/contact-us", label: t("nav.contact") },
@@ -153,20 +167,53 @@ export function Navbar() {
         {/* Desktop nav */}
         <div ref={menubarRef} className="hidden items-center gap-0.5 lg:flex">
           <LanguageSwitcher />
-          {navLinks.map((link, index) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              aria-current={location.pathname === link.to ? "page" : undefined}
-              className={`rounded-lg px-2.5 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 xl:px-3.5 xl:text-base ${
-                location.pathname === link.to
-                  ? "bg-primary/10 text-primary"
-                  : "text-foreground"
-              }`}
-              onKeyDown={(e) => handleMenubarKeyDown(e, index)}
-            >
-              {link.label}
-            </Link>
+          {navLinks.map((link) => (
+            <Fragment key={link.to}>
+              <Link
+                to={link.to}
+                data-nav-item
+                aria-current={location.pathname === link.to ? "page" : undefined}
+                className={`rounded-lg px-2.5 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 xl:px-3.5 xl:text-base ${
+                  location.pathname === link.to
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground"
+                }`}
+                onKeyDown={handleMenubarKeyDown}
+              >
+                {link.label}
+              </Link>
+
+              {/* Services keeps its own link to /services; the chevron beside it
+                  opens the sub-services that would otherwise crowd the bar. */}
+              {link.to === "/services" && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      data-nav-item
+                      onKeyDown={handleMenubarKeyDown}
+                      aria-label={t("nav.servicesSubmenu")}
+                      className="rounded-lg px-1 py-2 text-foreground transition-colors hover:bg-muted focus-visible:ring-2"
+                    >
+                      <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {servicesSubLinks.map((sub) => (
+                      <DropdownMenuItem key={sub.to} asChild>
+                        <Link
+                          to={sub.to}
+                          aria-current={location.pathname === sub.to ? "page" : undefined}
+                          onClick={() => playSound("navigate")}
+                        >
+                          {sub.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </Fragment>
           ))}
         </div>
 

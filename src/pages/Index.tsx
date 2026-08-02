@@ -131,8 +131,6 @@ export default function Index() {
           })}
         </StaggerGrid>
       </section>
-      {/* VisionKids — prominent, not hidden in a submenu (Phase 21) */}
-      <VisionKidsHomeSection />
 
       {/* How It Works */}
       <section className="py-20" aria-labelledby="how-heading">
@@ -228,6 +226,11 @@ export default function Index() {
           </StaggerGrid>
         </div>
       </section>
+
+      {/* VisionKids — prominent, not hidden in a submenu (Phase 21). Sits directly
+          after the Features grid, whose Community card is the nearest thing the
+          home page has to a standalone community section. */}
+      <VisionKidsHomeSection />
 
       {/* Points CTA */}
       <section className="relative overflow-hidden px-4 py-16 text-center" aria-labelledby="points-heading">
