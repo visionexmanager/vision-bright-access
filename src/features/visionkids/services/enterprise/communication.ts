@@ -56,9 +56,13 @@ export async function issueCertificate(input: { orgId: string; studentId: string
   return data as { id: string; verify_code: string };
 }
 
-/** Public certificate verification by QR code — safe for anonymous callers. */
+/**
+ * Public certificate verification by QR code — safe for anonymous callers.
+ * Note the _org_ in the RPC name: verify_kids_certificate belongs to the
+ * Academy (kids_certificates) and returns a different shape entirely.
+ */
 export async function verifyCertificate(code: string): Promise<CertificateVerification> {
-  const { data, error } = await kidsDb.rpc("verify_kids_certificate", { _code: code });
+  const { data, error } = await kidsDb.rpc("verify_kids_org_certificate", { _code: code });
   if (error) throw error;
   return data as CertificateVerification;
 }
