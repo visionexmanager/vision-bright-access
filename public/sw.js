@@ -1,5 +1,5 @@
 /*
- * VisionKids service worker — deliberately conservative.
+ * Visionex Arcade service worker — deliberately conservative.
  *
  * IMPORTANT: this SW does NOT cache JS/CSS/hashed build assets. The app ships a
  * chunk-reload recovery handler (see src/main.tsx) and a SW that served stale
@@ -11,7 +11,7 @@
  * installability + a friendly offline screen without any stale-asset risk.
  * (Richer offline content is served from IndexedDB by the app itself.)
  */
-const CACHE = "visionkids-shell-v1";
+const CACHE = "visionex-arcade-shell-v2";
 const OFFLINE_URL = "/offline.html";
 
 self.addEventListener("install", (event) => {
@@ -44,7 +44,16 @@ self.addEventListener("message", (event) => {
 
 // Best-effort push display (real push needs VAPID keys + a backend sender).
 self.addEventListener("push", (event) => {
-  let data = { title: "VisionKids", body: "You have a new update!" };
+  let data = { title: "Visionex Arcade", body: "You have a new Arcade update!" };
   try { if (event.data) data = { ...data, ...event.data.json() }; } catch { /* ignore */ }
   event.waitUntil(self.registration.showNotification(data.title, { body: data.body, icon: "/favicon.png", badge: "/favicon.png" }));
+});
+
+// Retry small, explicitly queued Arcade telemetry requests when connectivity
+// returns. Scores and VX transactions are deliberately excluded: they must be
+// submitted live and verified by the server, never replayed from an offline SW.
+self.addEventListener("sync", (event) => {
+  if (event.tag === "visionex-arcade-telemetry") {
+    event.waitUntil(self.clients.matchAll().then((clients) => clients.forEach((client) => client.postMessage({ type: "ARCADE_SYNC_TELEMETRY" }))));
+  }
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -168,14 +168,6 @@ export default function QuizChallenge() {
   const [timeLeft, setTimeLeft] = useState(10);
   const [gameState, setGameState] = useState<GameState>("start");
 
-  const correctSoundRef = useRef<HTMLAudioElement | null>(null);
-  const wrongSoundRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    correctSoundRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3");
-    wrongSoundRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3");
-  }, []);
-
   const nextQuestion = useCallback((finalScore = score) => {
     if (currentQuestion + 1 < questions.length) {
       setCurrentQuestion((prev) => prev + 1);
@@ -192,7 +184,6 @@ export default function QuizChallenge() {
     if (gameState === "playing" && timeLeft > 0) {
       timer = setTimeout(() => setTimeLeft((prev) => prev - 1), 1000);
     } else if (timeLeft === 0 && gameState === "playing") {
-      wrongSoundRef.current?.play().catch(() => {});
       nextQuestion();
     }
     return () => clearTimeout(timer);
@@ -200,10 +191,7 @@ export default function QuizChallenge() {
 
   const handleAnswer = (index: number) => {
     if (index === questions[currentQuestion].correct) {
-      correctSoundRef.current?.play().catch(() => {});
       setScore((prev) => prev + 10);
-    } else {
-      wrongSoundRef.current?.play().catch(() => {});
     }
     nextQuestion(index === questions[currentQuestion].correct ? score + 10 : score);
   };

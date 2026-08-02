@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Package, FileText, Users, Settings, ShieldCheck, BarChart3,
   Mail, ShieldAlert, Database, ScrollText, Flag, Coins, Bell, AlertTriangle,
-  Gamepad2, Store, Newspaper, GraduationCap, Library, Award, Landmark, LayoutDashboard,
+  Gamepad2, Store, Newspaper, GraduationCap, Library, Award, Landmark, LayoutDashboard, Trophy,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -39,6 +39,7 @@ const ADMIN_CARDS = [
   { id: "academyScholarships", key: null, icon: Award, link: "/admin/scholarships", color: "text-amber-500" },
   { id: "academyUniversities", key: null, icon: Landmark, link: "/admin/universities", color: "text-blue-500" },
   { id: "academyHub", key: null, icon: LayoutDashboard, link: "/admin/academy", color: "text-purple-500" },
+  { id: "arcadeEconomy", key: null, icon: Trophy, link: "/admin/arcade-economy", color: "text-amber-500", title: "Arcade Economy", description: "VX, rewards, tournaments and anti-cheat" },
 ];
 
 export default function AdminDashboard() {
@@ -121,12 +122,12 @@ export default function AdminDashboard() {
               <Link key={card.id} to={card.link}>
                 <Card className="transition-all hover:shadow-lg hover:scale-[1.02] cursor-pointer h-full">
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">{t(`admin.dashboard.card.${card.id}.title`)}</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{"title" in card ? card.title : t(`admin.dashboard.card.${card.id}.title`)}</CardTitle>
                     <card.icon className={`h-5 w-5 ${card.color}`} />
                   </CardHeader>
                   <CardContent>
                     {count !== null ? <p className="text-3xl font-bold">{count}</p> : <p className="text-lg font-medium">{t("admin.dashboard.manage")}</p>}
-                    <p className="text-xs text-muted-foreground mt-1">{t(`admin.dashboard.card.${card.id}.desc`)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{"description" in card ? card.description : t(`admin.dashboard.card.${card.id}.desc`)}</p>
                   </CardContent>
                 </Card>
               </Link>

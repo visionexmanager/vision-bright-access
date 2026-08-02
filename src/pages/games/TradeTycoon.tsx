@@ -9,7 +9,7 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useMemo, useEffect } from "react";
-import heroImg from "@/assets/game-tradetycoon.jpg";
+import heroImg from "@/assets/arcade/game-trade-tycoon-premium-v1.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";

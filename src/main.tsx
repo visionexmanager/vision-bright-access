@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { registerServiceWorker } from "./features/visionkids/everywhere/registerServiceWorker";
+import { installArcadeMonitoring } from "./features/arcade/monitoring/arcadeMonitoring";
 
 const RELOAD_KEY = "vx_chunk_reload";
 window.addEventListener("unhandledrejection", (event) => {
@@ -23,6 +24,7 @@ window.addEventListener("unhandledrejection", (event) => {
 });
 
 createRoot(document.getElementById("root")!).render(<App />);
+installArcadeMonitoring();
 
 // VisionKids Everywhere (Phase 18): register the PWA service worker in production.
 registerServiceWorker();

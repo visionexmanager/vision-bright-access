@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { gameManager } from "@/features/arcade/core/gameManager";
 
 /** Persist per-game high scores in localStorage */
 export function useHighScore(gameId: string) {
@@ -12,6 +13,7 @@ export function useHighScore(gameId: string) {
   /** Call with the finished-game score. Returns true if it's a new record. */
   const updateHighScore = useCallback((score: number): boolean => {
     if (score > highScore) {
+      gameManager.recordScore(score);
       setHighScoreState(score);
       try { localStorage.setItem(key, String(score)); } catch {}
       return true;

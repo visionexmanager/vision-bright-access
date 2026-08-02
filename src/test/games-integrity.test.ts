@@ -11,7 +11,7 @@ function quotedValues(source: string, pattern: RegExp): string[] {
 
 describe("games integration", () => {
   it("registers every game card destination as an application route", () => {
-    const gamesPage = read("src/pages/Games.tsx");
+    const gamesPage = read("src/features/arcade/catalog.ts");
     const app = read("src/App.tsx");
     const destinations = quotedValues(gamesPage, /\bto:\s*"([^"]+)"/g);
     const routes = new Set(
@@ -28,6 +28,7 @@ describe("games integration", () => {
   it("defines every static game translation key in every supported language", () => {
     const gameSources = [
       "src/pages/Games.tsx",
+      "src/features/arcade/catalog.ts",
       "src/pages/MemoryGame.tsx",
       "src/pages/WordPuzzle.tsx",
       "src/pages/QuizChallenge.tsx",

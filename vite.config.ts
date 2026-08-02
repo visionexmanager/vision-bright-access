@@ -55,6 +55,23 @@ export default defineConfig(() => ({
           "markdown": ["react-markdown"],
           // Recharts — only used in chart pages
           "charts": ["recharts"],
+          // Rich-text editor runtime — loaded only by authoring surfaces. Keeping
+          // it separate prevents the Library Studio route chunk from crossing
+          // the production size budget and lets browsers cache the editor core.
+          "tiptap-editor": [
+            "@tiptap/core",
+            "@tiptap/extension-character-count",
+            "@tiptap/extension-image",
+            "@tiptap/extension-link",
+            "@tiptap/extension-mathematics",
+            "@tiptap/extension-placeholder",
+            "@tiptap/extension-table",
+            "@tiptap/extension-table-cell",
+            "@tiptap/extension-table-header",
+            "@tiptap/extension-table-row",
+            "@tiptap/react",
+            "@tiptap/starter-kit",
+          ],
         },
       },
     },

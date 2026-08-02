@@ -185,6 +185,9 @@ const Profile = lazy(() => import("./pages/Profile"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
 const Wishlist = lazy(() => import("./pages/Wishlist"));
 const Games = lazy(() => import("./pages/Games"));
+const VisionexKids = lazy(() => import("./pages/VisionexKids"));
+const AccessibleGames = lazy(() => import("./pages/AccessibleGames"));
+const ArcadePlayerHub = lazy(() => import("./pages/ArcadePlayerHub"));
 const QuizChallenge = lazy(() => import("./pages/QuizChallenge"));
 const MemoryGame = lazy(() => import("./pages/MemoryGame"));
 const WordPuzzle = lazy(() => import("./pages/WordPuzzle"));
@@ -288,6 +291,7 @@ const MusicEarMaster = lazy(() => import("./pages/games/MusicEarMaster"));
 const FashionDesigner = lazy(() => import("./pages/games/FashionDesigner"));
 const VelocityXRacing = lazy(() => import("./pages/games/VelocityXRacing"));
 const Akinator = lazy(() => import("./pages/games/Akinator"));
+const ArcadeEconomy = lazy(() => import("./pages/ArcadeEconomy"));
 
 // ── Visionex Finance ──────────────────────────────────────────────────────────
 const FinanceDashboard   = lazy(() => import("./pages/finance/FinanceDashboard"));
@@ -329,6 +333,7 @@ const AdminBazaar = lazy(() => import("./pages/admin/AdminBazaar"));
 const AdminTV = lazy(() => import("./pages/admin/AdminTV"));
 const AdminRadio = lazy(() => import("./pages/admin/AdminRadio"));
 const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
+const AdminArcadeEconomy = lazy(() => import("./pages/admin/AdminArcadeEconomy"));
 
 // VisionKids — accessibility-first kids' hub, independent layout/nav from the rest of the site.
 const VisionKidsLayout = lazy(() => import("./features/visionkids/layouts/VisionKidsLayout"));
@@ -797,6 +802,15 @@ function AppRoutes() {
                     <Route path="/product/:id" element={<ProductDetail />} />
                     <Route path="/wishlist" element={<Wishlist />} />
                     <Route path="/games" element={<Games />} />
+                    <Route path="/games/kids" element={<VisionexKids />} />
+                    <Route path="/games/accessible" element={<AccessibleGames />} />
+                    <Route path="/games/profile" element={<AuthGuard><ArcadePlayerHub /></AuthGuard>} />
+                    <Route path="/games/achievements" element={<AuthGuard><ArcadePlayerHub /></AuthGuard>} />
+                    <Route path="/games/challenges" element={<AuthGuard><ArcadePlayerHub /></AuthGuard>} />
+                    <Route path="/games/leaderboard" element={<AuthGuard><ArcadePlayerHub /></AuthGuard>} />
+                    <Route path="/games/rewards" element={<AuthGuard><ArcadeEconomy /></AuthGuard>} />
+                    <Route path="/games/tournaments" element={<AuthGuard><ArcadeEconomy /></AuthGuard>} />
+                    <Route path="/games/shop" element={<AuthGuard><ArcadeEconomy /></AuthGuard>} />
                     <Route path="/games/quiz-challenge" element={<GameEconomyGate gameTitle="Quiz Challenge"><QuizChallenge /></GameEconomyGate>} />
                     <Route path="/games/memory" element={<GameEconomyGate gameTitle="Memory Game"><MemoryGame /></GameEconomyGate>} />
                     <Route path="/games/word-puzzle" element={<GameEconomyGate gameTitle="Word Puzzle"><WordPuzzle /></GameEconomyGate>} />
@@ -952,6 +966,7 @@ function AppRoutes() {
                     <Route path="/admin/tv" element={<AdminRoute><AdminTV /></AdminRoute>} />
                     <Route path="/admin/radio" element={<AdminRoute><AdminRadio /></AdminRoute>} />
                     <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
+                    <Route path="/admin/arcade-economy" element={<AdminRoute><AdminArcadeEconomy /></AdminRoute>} />
 
                     {/* VisionKids — accessibility-first kids' hub. Own layout (top nav + sidebar),
                         independent from the site-wide Layout/Header. Public browsing throughout;

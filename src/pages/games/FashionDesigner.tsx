@@ -8,7 +8,7 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState } from "react";
-import heroImg from "@/assets/game-fashion.jpg";
+import heroImg from "@/assets/arcade/game-fashion-designer-premium-v1.webp";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const FABRIC_KEYS = ["silk", "denim", "wool", "cotton", "satin"] as const;

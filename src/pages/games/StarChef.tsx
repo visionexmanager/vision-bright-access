@@ -10,7 +10,7 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useCallback } from "react";
-import heroImg from "@/assets/game-starchef.jpg";
+import heroImg from "@/assets/arcade/game-star-chef-premium-v1.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";

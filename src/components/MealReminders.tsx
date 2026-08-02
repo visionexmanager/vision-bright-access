@@ -75,7 +75,7 @@ export default function MealReminders() {
             try {
               new Notification(t("mealReminders.reminderTitle").replace("{label}", label), {
                 body: t("mealReminders.notifyBody"),
-                icon: "/placeholder.svg",
+                icon: "/favicon.png",
               });
             } catch {
               // Browser notifications can fail when blocked by the OS/browser.

@@ -139,6 +139,45 @@
   }
 }
 
+@keyframes arcade-loading-spin { to { transform: rotate(360deg); } }
+@keyframes arcade-result-pop { 0% { opacity: 0; transform: scale(.92); } 100% { opacity: 1; transform: scale(1); } }
+
+.arcade-loading__ring { animation: arcade-loading-spin calc(.75s / var(--arcade-motion-scale, 1)) linear infinite; }
+.arcade-game-background { filter: saturate(1.12) contrast(1.06); transform: scale(1.03); }
+.arcade-pressable { transition: transform 140ms ease, filter 180ms ease, box-shadow 180ms ease; }
+.arcade-pressable:active { transform: scale(.975); filter: brightness(1.12); }
+[data-arcade-result] { animation: arcade-result-pop calc(320ms * var(--arcade-motion-scale, 1)) cubic-bezier(.2,.8,.2,1); }
+html[data-arcade-graphics="performance"] .arcade-game-card__image,
+html[data-arcade-graphics="performance"] .arcade-game-background { transform: none !important; filter: none; }
+html[data-arcade-graphics="performance"] .arcade-game-card { box-shadow: 0 8px 20px rgba(0,0,0,.22); }
+html.arcade-high-contrast .arcade-game-card { border-color: rgba(255,255,255,.62); }
+html.arcade-high-contrast .arcade-game-background { opacity: .08 !important; filter: grayscale(1) contrast(1.35); }
+
+@media (prefers-reduced-motion: reduce) {
+  .arcade-loading__ring { animation-duration: 1.6s; }
+  .arcade-game-card, .arcade-game-card__image, .arcade-pressable, [data-arcade-result] { transition: none !important; animation: none !important; transform: none !important; }
+}
+
+/* Visionex Arcade runtime accessibility modes. These are opt-in settings and
+   intentionally scope to the existing semantic color system. */
+.arcade-high-contrast #main-content {
+  filter: contrast(1.2);
+}
+
+.arcade-high-contrast #main-content :focus-visible {
+  outline: 3px solid #22d3ee !important;
+  outline-offset: 3px !important;
+}
+
+.arcade-reduced-motion #main-content *,
+.arcade-reduced-motion #main-content *::before,
+.arcade-reduced-motion #main-content *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
 @layer base {
   /* ── Global reset ─────────────────────────────────────────────────────── */
   * {

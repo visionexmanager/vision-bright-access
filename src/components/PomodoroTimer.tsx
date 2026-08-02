@@ -63,7 +63,7 @@ function getNotificationPermission(): boolean {
 function sendNotification(title: string, body: string) {
   if (!getNotificationPermission()) return;
   try {
-    new Notification(title, { body, icon: "/placeholder.svg" });
+    new Notification(title, { body, icon: "/favicon.png" });
   } catch { /* silent */ }
 }
 

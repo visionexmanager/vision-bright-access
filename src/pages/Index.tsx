@@ -10,6 +10,8 @@ import { useSound } from "@/contexts/SoundContext";
 import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
 import { CareerCenterSection } from "@/components/career/CareerCenterSection";
 import { VisionKidsHomeSection } from "@/components/VisionKidsHomeSection";
+import arcadeHero from "@/features/arcade/assets/visionex-arcade-hero.webp";
+import { ARCADE_GAMES } from "@/features/arcade/catalog";
 
 export default function Index() {
   const { t } = useLanguage();
@@ -130,6 +132,14 @@ export default function Index() {
             );
           })}
         </StaggerGrid>
+      </section>
+
+      <section className="px-4 py-14" aria-labelledby="home-arcade-title">
+        <div className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl border border-violet-400/20 bg-[#070914] text-white shadow-2xl">
+          <img src={arcadeHero} alt="" loading="lazy" decoding="async" width={1672} height={941} className="absolute inset-0 h-full w-full object-cover opacity-25" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#070914] via-[#070914]/90 to-[#070914]/45 rtl:bg-gradient-to-l" />
+          <div className="relative grid gap-8 p-7 md:grid-cols-[1.1fr_.9fr] md:p-10"><div><p className="text-xs font-black uppercase tracking-[.2em] text-cyan-300">Visionex Arcade</p><h2 id="home-arcade-title" className="mt-2 text-3xl font-black sm:text-4xl">{t("nav.games")}</h2><p className="mt-4 max-w-xl text-slate-200">Accessible games, learning challenges, tournaments and secure VX achievements in one premium destination.</p><div className="mt-6 flex flex-wrap gap-3"><Button asChild size="lg" className="bg-white text-slate-950 hover:bg-violet-100"><Link to={user?"/games":"/signup"}><Gamepad2 className="me-2 h-5 w-5"/>{t("nav.games")}</Link></Button><Button asChild size="lg" variant="outline" className="border-white/25 bg-black/20 text-white hover:bg-white/10 hover:text-white"><Link to={user?"/games/tournaments":"/signup"}>Tournaments</Link></Button></div></div><div className="grid gap-3 sm:grid-cols-3 md:grid-cols-1">{ARCADE_GAMES.filter(game=>game.featured).slice(0,3).map(game=><Link key={game.slug} to={user?game.to:"/signup"} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/35 p-3 backdrop-blur hover:border-cyan-300/40 focus-visible:ring-2 focus-visible:ring-cyan-300"><img src={game.image} alt="" loading="lazy" decoding="async" className="h-14 w-20 rounded-xl object-cover"/><span><strong className="block">{game.title}</strong><small className="text-slate-400">{game.categories[0]} · {game.difficulty}</small></span></Link>)}</div></div>
+        </div>
       </section>
 
       {/* How It Works */}

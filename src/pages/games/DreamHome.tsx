@@ -9,7 +9,7 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useCallback } from "react";
-import heroImg from "@/assets/game-dreamhome.jpg";
+import heroImg from "@/assets/arcade/game-dream-home-premium-v1.webp";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const ROOM_KEYS = ["livingRoom", "bedroom", "kitchen", "bathroom"] as const;

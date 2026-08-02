@@ -10,7 +10,7 @@ import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import heroImg from "@/assets/game-hangman.jpg";
+import heroImg from "@/assets/arcade/game-hangman-premium-v1.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";

@@ -3,18 +3,21 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 import { GameErrorBoundary } from "./GameErrorBoundary";
 import { GameWinCelebration } from "./GameWinCelebration";
 import { Link, useLocation } from "react-router-dom";
-import { Coins, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useVXWallet } from "@/hooks/useVXWallet";
-import { useTrial } from "@/hooks/useTrial";
-import { GAMING_PRICES } from "@/systems/pricingSystem";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ArcadeGameExperience } from "@/features/arcade/ArcadeGameExperience";
+import { gameManager } from "@/features/arcade/core/gameManager";
+import { accessibilityAudio } from "@/features/arcade/audio/AccessibilityAudioLayer";
 
 type GameResult = "win" | "loss" | "draw";
+type ArcadeResultResponse = { accepted?: boolean; vx_reward?: number; status?: string };
+type RpcResult = { data: unknown; error: { message: string; code?: string } | null };
+const callArcadeRpc = supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<RpcResult>;
 
 type GameEconomyContextValue = {
   settleGameResult: (result: GameResult, resultLabel?: string) => Promise<boolean>;
@@ -34,107 +37,63 @@ interface GameEconomyGateProps {
 
 export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
   const { user } = useAuth();
-  const { spendVX } = useVXWallet();
-  const { isOnTrial } = useTrial();
   const { t } = useLanguage();
   const location = useLocation();
   const [entryStatus, setEntryStatus] = useState<"loading" | "ready" | "blocked">("loading");
   const [message, setMessage] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
   const settledRef = useRef(false);
+  const sessionRef = useRef(crypto.randomUUID());
+  const startedAtRef = useRef(Date.now());
+  const inputCountRef = useRef(0);
   const entryKey = `${location.pathname}:${gameTitle}`;
 
-  // Hold latest spendVX in a ref so the entry effect doesn't re-fire when
-  // balance updates (which recreates spendVX on every successful charge).
-  const spendVXRef = useRef(spendVX);
-  useEffect(() => { spendVXRef.current = spendVX; }, [spendVX]);
-
   useEffect(() => {
-    let cancelled = false;
     settledRef.current = false;
+    sessionRef.current = crypto.randomUUID();
+    startedAtRef.current = Date.now();
+    inputCountRef.current = 0;
     setEntryStatus("loading");
     setMessage("");
+    if (!user) { setEntryStatus("blocked"); setMessage(t("game.loginToPlay")); }
+    else setEntryStatus("ready");
+  }, [entryKey, t, user]);
 
-    const chargeEntry = async () => {
-      if (!user) {
-        setEntryStatus("blocked");
-        setMessage(t("game.loginToPlay"));
-        return;
-      }
-
-      const ok = await spendVXRef.current(
-        GAMING_PRICES.singlePlay,
-        "game-entry",
-        gameTitle,
-        location.pathname,
-        { suppressToast: true }
-      );
-
-      if (cancelled) return;
-
-      if (!ok) {
-        setEntryStatus("blocked");
-        setMessage(
-          t("game.insufficientVX").replace(
-            "{n}",
-            GAMING_PRICES.singlePlay.toLocaleString(),
-          ),
-        );
-        return;
-      }
-
-      setEntryStatus("ready");
-    };
-
-    chargeEntry();
-
-    return () => {
-      cancelled = true;
-    };
-  // Only re-run when the user, language, or game route changes — NOT when spendVX
-  // recreates after a balance update, which was causing repeated charges.
-  }, [entryKey, t, user?.id]);
+  useEffect(() => {
+    const countInput = (event: Event) => { if (event.isTrusted) inputCountRef.current += 1; };
+    window.addEventListener("keydown", countInput);
+    window.addEventListener("pointerdown", countInput);
+    window.addEventListener("touchstart", countInput);
+    return () => { window.removeEventListener("keydown", countInput); window.removeEventListener("pointerdown", countInput); window.removeEventListener("touchstart", countInput); };
+  }, [entryKey]);
 
   const settleGameResult = useCallback(
-    async (result: GameResult, resultLabel?: string) => {
-      if (!user || settledRef.current || result === "draw") return false;
+    async (result: GameResult, _resultLabel?: string) => {
+      if (!user || settledRef.current) return false;
       settledRef.current = true;
+      const duration = Math.max(2, Math.round((Date.now() - startedAtRef.current) / 1000));
+      const { data, error } = await callArcadeRpc("arcade_submit_verified_result", {
+        _session_id: sessionRef.current, _game_id: location.pathname.replace(/^\/games\//, ""),
+        _score: gameManager.getSnapshot().score, _result: result, _duration_seconds: duration, _input_count: inputCountRef.current,
+        _integrity_hash: null, _replay_data: null,
+      });
+      const verified = data as ArcadeResultResponse | null;
 
       if (result === "win") {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 3500);
-
-        const { error } = await supabase.rpc("award_points", {
-          _points: GAMING_PRICES.winReward,
-          _reason: `Game win reward: ${resultLabel ?? gameTitle}`,
-        });
-
-        if (error) {
-          settledRef.current = false;
-          toast({ title: t("game.rewardFailed"), description: error.message, variant: "destructive" });
-          return false;
-        }
-
-        toast({ title: `+${GAMING_PRICES.winReward} VX`, description: t("game.winRewardAdded") });
-        return true;
+        gameManager.complete("win");
+        accessibilityAudio.announce(`${gameTitle}. Victory.`, "success");
+        if (error) toast({ title: "تم حفظ الفوز محلياً", description: "مزامنة المكافآت الآمنة تنتظر تفعيل نظام Arcade على الخادم." });
+        else if (!verified?.accepted) toast({ title: "النتيجة قيد المراجعة", description: "لن تُمنح VX قبل اكتمال التحقق الخادمي." });
+        else if ((verified.vx_reward ?? 0) > 0) toast({ title: `+${verified.vx_reward} VX`, description: "مكافأة إنجاز موثّقة." });
+        return !error && Boolean(verified?.accepted);
       }
-
-      const ok = await spendVX(
-        GAMING_PRICES.lossPenalty,
-        "game-loss",
-        resultLabel ?? gameTitle,
-        location.pathname,
-        { suppressToast: true }
-      );
-
-      if (ok) {
-        toast({ title: `-${GAMING_PRICES.lossPenalty} VX`, description: t("game.lossDeducted") });
-      } else {
-        settledRef.current = false;
-      }
-      return ok;
+      gameManager.complete(result);
+      accessibilityAudio.announce(`${gameTitle}. ${result === "draw" ? "Draw." : "Round lost."}`, result === "draw" ? "status" : "failure");
+      return !error && Boolean(verified?.accepted);
     },
-    [gameTitle, location.pathname, spendVX, t, user]
+    [gameTitle, location.pathname, user]
   );
 
   const value = useMemo(() => ({ settleGameResult }), [settleGameResult]);
@@ -143,9 +102,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
     return (
       <div role="status" aria-live="polite" className="flex min-h-screen flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-        {isOnTrial
-          ? t("games.trialDesc")
-          : t("game.chargingEntry").replace("{n}", String(GAMING_PRICES.singlePlay))}
+        Loading game…
       </div>
     );
   }
@@ -155,7 +112,6 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
       <div className="flex min-h-screen items-center justify-center px-4">
         <Card className="w-full max-w-md border-destructive/40">
           <CardContent className="space-y-4 p-6 text-center">
-            <Coins className="mx-auto h-10 w-10 text-destructive" />
             <h1 className="text-xl font-bold">{t("game.vxRequired")}</h1>
             <p className="text-sm text-muted-foreground">{message}</p>
             <div className="flex justify-center gap-2">
@@ -164,9 +120,6 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
                   <Link to="/signup">{t("game.signUp")}</Link>
                 </Button>
               )}
-              <Button asChild variant={user ? "default" : "outline"}>
-                <Link to="/coins-store">{t("game.vxStore")}</Link>
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -183,7 +136,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
         errorDescription={t("game.errorDescription").replace("{game}", gameTitle)}
         retryLabel={t("game.tryAgain")}
       >
-        {children}
+        <ArcadeGameExperience>{children}</ArcadeGameExperience>
       </GameErrorBoundary>
     </GameEconomyContext.Provider>
   );
