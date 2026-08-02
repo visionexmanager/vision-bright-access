@@ -45,13 +45,8 @@ CREATE TABLE IF NOT EXISTS public.kids_voice_rooms (
 
 ALTER TABLE public.kids_voice_rooms ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "kids_voice_rooms: public read"
-  ON public.kids_voice_rooms FOR SELECT
-  USING (
-    (is_private = false AND status IN ('scheduled', 'live'))
-    OR public.has_role(auth.uid(), 'admin')
-    OR EXISTS (SELECT 1 FROM public.kids_voice_room_members m WHERE m.room_id = id AND m.user_id = auth.uid())
-  );
+-- The SELECT policy for kids_voice_rooms reads kids_voice_room_members,
+-- so it is declared after that table exists — see below.
 
 CREATE POLICY "kids_voice_rooms: signed-in users create"
   ON public.kids_voice_rooms FOR INSERT
@@ -88,12 +83,8 @@ CREATE POLICY "kids_voice_room_members: readable if room readable"
     SELECT 1 FROM public.kids_voice_room_members me WHERE me.room_id = kids_voice_room_members.room_id AND me.user_id = auth.uid()
   ));
 
-CREATE POLICY "kids_voice_room_members: self joins if not banned"
-  ON public.kids_voice_room_members FOR INSERT
-  WITH CHECK (
-    user_id = auth.uid()
-    AND NOT EXISTS (SELECT 1 FROM public.kids_voice_room_bans b WHERE b.room_id = kids_voice_room_members.room_id AND b.user_id = auth.uid())
-  );
+-- The INSERT policy for kids_voice_room_members reads kids_voice_room_bans,
+-- so it is declared after that table exists — see below.
 
 CREATE POLICY "kids_voice_room_members: self leaves or moderator removes"
   ON public.kids_voice_room_members FOR DELETE
@@ -151,6 +142,29 @@ CREATE TABLE IF NOT EXISTS public.kids_voice_room_bans (
 );
 
 ALTER TABLE public.kids_voice_room_bans ENABLE ROW LEVEL SECURITY;
+
+-- Deferred from the blocks above: both policies read a table that only exists
+-- as of this point in the migration.
+CREATE POLICY "kids_voice_rooms: public read"
+  ON public.kids_voice_rooms FOR SELECT
+  USING (
+    (is_private = false AND status IN ('scheduled', 'live'))
+    OR public.has_role(auth.uid(), 'admin')
+    OR EXISTS (
+      SELECT 1 FROM public.kids_voice_room_members m
+      WHERE m.room_id = kids_voice_rooms.id AND m.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "kids_voice_room_members: self joins if not banned"
+  ON public.kids_voice_room_members FOR INSERT
+  WITH CHECK (
+    user_id = auth.uid()
+    AND NOT EXISTS (
+      SELECT 1 FROM public.kids_voice_room_bans b
+      WHERE b.room_id = kids_voice_room_members.room_id AND b.user_id = auth.uid()
+    )
+  );
 
 CREATE POLICY "kids_voice_room_bans: owner or moderator manage"
   ON public.kids_voice_room_bans FOR ALL
