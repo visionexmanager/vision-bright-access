@@ -139,6 +139,10 @@ const Solitaire = lazy(() => import("./pages/games/expansion/Solitaire"));
 const SpiderSolitaire = lazy(() => import("./pages/games/expansion/SpiderSolitaire"));
 const FreeCell = lazy(() => import("./pages/games/expansion/FreeCell"));
 const Mahjong = lazy(() => import("./pages/games/expansion/Mahjong"));
+const TowerDefense = lazy(() => import("./pages/games/expansion/TowerDefense"));
+const MazeRunner = lazy(() => import("./pages/games/expansion/MazeRunner"));
+const ParkingChallenge = lazy(() => import("./pages/games/expansion/ParkingChallenge"));
+const EscapeRoom = lazy(() => import("./pages/games/expansion/EscapeRoom"));
 
 // Library — books/audiobooks section (Phase 1 architecture prep, distinct from academy/library)
 const LibraryHome = lazy(() => import("./pages/library/LibraryHome"));
@@ -978,6 +982,10 @@ function AppRoutes() {
                     <Route path="/games/spider-solitaire" element={<GameEconomyGate gameTitle="Spider Solitaire"><SpiderSolitaire /></GameEconomyGate>} />
                     <Route path="/games/freecell" element={<GameEconomyGate gameTitle="FreeCell"><FreeCell /></GameEconomyGate>} />
                     <Route path="/games/mahjong" element={<GameEconomyGate gameTitle="Mahjong"><Mahjong /></GameEconomyGate>} />
+                    <Route path="/games/tower-defense" element={<GameEconomyGate gameTitle="Tower Defense"><TowerDefense /></GameEconomyGate>} />
+                    <Route path="/games/maze-runner" element={<GameEconomyGate gameTitle="Maze Runner"><MazeRunner /></GameEconomyGate>} />
+                    <Route path="/games/parking-challenge" element={<GameEconomyGate gameTitle="Parking Challenge"><ParkingChallenge /></GameEconomyGate>} />
+                    <Route path="/games/escape-room" element={<GameEconomyGate gameTitle="Escape Room"><EscapeRoom /></GameEconomyGate>} />
                     <Route path="/assistive-products" element={<AssistiveProducts />} />
                     <Route path="/business-simulator" element={<BusinessSimulator />} />
                     <Route path="/business-simulator/:slug" element={<SimulationRunner />} />

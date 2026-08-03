@@ -53,6 +53,8 @@ const sourceFiles: Record<string, string> = {
   "wildlife-rescue":"src/pages/games/expansion/WildlifeRescue.tsx",
   solitaire:"src/pages/games/expansion/Solitaire.tsx", "spider-solitaire":"src/pages/games/expansion/SpiderSolitaire.tsx",
   freecell:"src/pages/games/expansion/FreeCell.tsx", mahjong:"src/pages/games/expansion/Mahjong.tsx",
+  "tower-defense":"src/pages/games/expansion/TowerDefense.tsx", "maze-runner":"src/pages/games/expansion/MazeRunner.tsx",
+  "parking-challenge":"src/pages/games/expansion/ParkingChallenge.tsx", "escape-room":"src/pages/games/expansion/EscapeRoom.tsx",
 };
 
 export type GameQualityScore = { gameplay:number; audio:number; graphics:number; performance:number; accessibility:number; total:number };

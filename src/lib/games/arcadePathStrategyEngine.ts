@@ -1,0 +1,5 @@
+export type Point={x:number;y:number};export const key=(point:Point)=>`${point.x},${point.y}`;
+export function movePoint(point:Point,direction:"up"|"down"|"left"|"right",size:number,walls:Set<string>){const delta={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[direction],next={x:point.x+delta[0],y:point.y+delta[1]};return next.x<0||next.y<0||next.x>=size||next.y>=size||walls.has(key(next))?point:next}
+export type Tower={position:number;range:number;damage:number};export function towerDefenseRound(enemyHealth:number,enemyPosition:number,towers:Tower[]){const damage=towers.filter(tower=>Math.abs(tower.position-enemyPosition)<=tower.range).reduce((sum,tower)=>sum+tower.damage,0);return{health:Math.max(0,enemyHealth-damage),damage}}
+export function canPark(car:Point,target:Point,blocked:Set<string>){return key(car)===key(target)&&!blocked.has(key(car))}
+export type EscapeClue={id:string;answer:string};export function checkEscapeAnswer(clue:EscapeClue,value:string){return value.trim().toLowerCase()===clue.answer.toLowerCase()}
