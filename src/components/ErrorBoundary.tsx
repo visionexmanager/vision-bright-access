@@ -1,20 +1,5 @@
 import { Component, ReactNode } from "react";
-
-// Checks error and its cause chain for chunk-load failures across all browsers.
-function isChunkLoadError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const e = error as { message?: string; name?: string; stack?: string; cause?: unknown };
-  const text = `${e.message ?? ""} ${e.stack ?? ""}`;
-  if (
-    text.includes("Failed to fetch dynamically imported module") ||
-    text.includes("Importing a module script failed") ||
-    text.includes("Unable to preload CSS") ||
-    e.name === "ChunkLoadError"
-  ) return true;
-  // Walk the cause chain (Firefox wraps errors)
-  if (e.cause) return isChunkLoadError(e.cause);
-  return false;
-}
+import { isChunkLoadError, recoverChunkLoad } from "@/lib/chunkRecovery";
 
 interface Props { children: ReactNode; resetKey?: string }
 interface State { error: Error | null }
@@ -35,6 +20,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
+    if (recoverChunkLoad(error)) return;
     console.error("[ErrorBoundary]", error, info.componentStack);
   }
 
@@ -136,16 +122,7 @@ export class PageErrorBoundary extends Component<PageProps, PageState> {
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
     if (isChunkLoadError(error)) {
-      // Stale deployment: old chunk URL no longer exists after a new build.
-      // Use location.href for a true hard reload that bypasses the cache.
-      const RELOAD_KEY = "vx_chunk_reload";
-      if (!sessionStorage.getItem(RELOAD_KEY)) {
-        sessionStorage.setItem(RELOAD_KEY, "1");
-        window.location.reload();
-        return;
-      }
-      // Second failure after reload — clear the flag so future sessions can retry.
-      sessionStorage.removeItem(RELOAD_KEY);
+      if (recoverChunkLoad(error)) return;
     }
 
     console.error("[PageErrorBoundary]", error, info.componentStack);
@@ -181,7 +158,7 @@ export class PageErrorBoundary extends Component<PageProps, PageState> {
           </p>
           <div style={{ display: "flex", gap: "1rem" }}>
             <button
-              onClick={() => { sessionStorage.removeItem("vx_chunk_reload"); window.location.href = "/"; }}
+              onClick={() => { sessionStorage.removeItem("vx_chunk_recovery"); window.location.href = "/"; }}
               style={{
                 padding: "0.5rem 1.25rem",
                 background: "#2563eb",
@@ -195,7 +172,7 @@ export class PageErrorBoundary extends Component<PageProps, PageState> {
               Home
             </button>
             <button
-              onClick={() => { sessionStorage.removeItem("vx_chunk_reload"); window.location.reload(); }}
+              onClick={() => { sessionStorage.removeItem("vx_chunk_recovery"); window.location.replace(`${window.location.pathname}?vx-refresh=${Date.now()}`); }}
               style={{
                 padding: "0.5rem 1.25rem",
                 background: "#e5e7eb",
