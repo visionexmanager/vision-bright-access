@@ -51,6 +51,8 @@ const sourceFiles: Record<string, string> = {
   "factory-idle":"src/pages/games/expansion/FactoryIdle.tsx", "aquarium-keeper":"src/pages/games/expansion/AquariumKeeper.tsx",
   "garden-planner":"src/pages/games/expansion/GardenPlanner.tsx", "museum-curator":"src/pages/games/expansion/MuseumCurator.tsx",
   "wildlife-rescue":"src/pages/games/expansion/WildlifeRescue.tsx",
+  solitaire:"src/pages/games/expansion/Solitaire.tsx", "spider-solitaire":"src/pages/games/expansion/SpiderSolitaire.tsx",
+  freecell:"src/pages/games/expansion/FreeCell.tsx", mahjong:"src/pages/games/expansion/Mahjong.tsx",
 };
 
 export type GameQualityScore = { gameplay:number; audio:number; graphics:number; performance:number; accessibility:number; total:number };

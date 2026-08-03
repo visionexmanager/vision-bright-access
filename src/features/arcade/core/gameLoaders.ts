@@ -103,4 +103,8 @@ export const GAME_LOADERS: Record<string, Loader> = {
   "garden-planner": () => import("@/pages/games/expansion/GardenPlanner"),
   "museum-curator": () => import("@/pages/games/expansion/MuseumCurator"),
   "wildlife-rescue": () => import("@/pages/games/expansion/WildlifeRescue"),
+  solitaire: () => import("@/pages/games/expansion/Solitaire"),
+  "spider-solitaire": () => import("@/pages/games/expansion/SpiderSolitaire"),
+  freecell: () => import("@/pages/games/expansion/FreeCell"),
+  mahjong: () => import("@/pages/games/expansion/Mahjong"),
 };
