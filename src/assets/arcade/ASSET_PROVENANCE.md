@@ -1,5 +1,13 @@
 # Visionex Arcade asset provenance
 
+## Expansion batch 01 vectors (2026-08-03)
+
+`game-2048-v1.svg`, `game-minesweeper-v1.svg`, `game-connect-four-v1.svg`, and `game-reaction-test-v1.svg` are original code-authored vector compositions created specifically for Visionex Arcade. They contain no third-party marks, characters, fonts, photos, remote resources, or embedded metadata. Their 1920×1080 view boxes support cover, card crop, retina display, and game-page background use without raster degradation.
+
+## Expansion batch 02 vectors (2026-08-03)
+
+`game-tic-tac-toe-v1.svg`, `game-typing-speed-v1.svg`, `game-math-challenge-v1.svg`, `game-simon-says-v1.svg`, and `game-blind-maze-v1.svg` are original code-authored 1920×1080 vector compositions made for Visionex Arcade under the same no-third-party-content conditions. Trivia, Geography Quiz, Science Quiz, and History Quiz currently reuse the approved Quiz Challenge production visual pack. Dedicated visual differentiation is scheduled but is not a blocker for functional release.
+
 ## `visionex-arcade-tournament-v1.webp`
 
 - Created for Visionex Arcade on 2026-08-02 using ChatGPT built-in image generation.

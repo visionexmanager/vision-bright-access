@@ -2,8 +2,9 @@ import type { ArcadeGame } from "../catalog";
 import type { PremiumVisualAsset } from "./types";
 
 export function visualsForGame(game: ArcadeGame): readonly PremiumVisualAsset[] {
+  const isVector = game.image.endsWith(".svg");
   const [width, height] = game.slug === "visionopoly" ? [1600,900] : [1920,1080];
-  const mimeType = game.slug === "visionopoly" ? "image/svg+xml" as const : "image/webp" as const;
+  const mimeType = isVector ? "image/svg+xml" as const : "image/webp" as const;
   const source = { src:game.image, width, height, mimeType };
   const quality = "production" as const;
   return [

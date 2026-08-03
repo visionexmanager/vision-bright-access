@@ -1,6 +1,6 @@
 import type { ArcadeAge, ArcadeCategory, ArcadeDifficulty } from "../catalog";
 
-export type ExpansionGroup = "Classic" | "Puzzle" | "Strategy" | "Educational" | "Kids" | "Reaction & Skill";
+export type ExpansionGroup = ArcadeCategory | "Reaction & Skill";
 export type ReleaseGate = "planned" | "development" | "review" | "approved";
 
 export interface PlannedArcadeGame {

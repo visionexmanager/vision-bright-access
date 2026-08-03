@@ -64,6 +64,77 @@ const AdminAcademyStudents = lazy(() => import("./pages/admin/AdminAcademyStuden
 const AdminAcademyGamification = lazy(() => import("./pages/admin/AdminAcademyGamification"));
 const AdminAcademyAnalytics = lazy(() => import("./pages/admin/AdminAcademyAnalytics"));
 const AdminUniversities = lazy(() => import("./pages/admin/AdminUniversities"));
+const Game2048 = lazy(() => import("./pages/games/expansion/Game2048"));
+const Minesweeper = lazy(() => import("./pages/games/expansion/Minesweeper"));
+const ConnectFour = lazy(() => import("./pages/games/expansion/ConnectFour"));
+const ReactionTest = lazy(() => import("./pages/games/expansion/ReactionTest"));
+const TicTacToe = lazy(() => import("./pages/games/expansion/TicTacToe"));
+const TypingSpeed = lazy(() => import("./pages/games/expansion/TypingSpeed"));
+const MathChallenge = lazy(() => import("./pages/games/expansion/MathChallenge"));
+const SimonSays = lazy(() => import("./pages/games/expansion/SimonSays"));
+const KnowledgeQuiz = lazy(() => import("./pages/games/expansion/KnowledgeQuiz"));
+const BlindMaze = lazy(() => import("./pages/games/expansion/BlindMaze"));
+const Sudoku = lazy(() => import("./pages/games/expansion/Sudoku"));
+const Nonogram = lazy(() => import("./pages/games/expansion/Nonogram"));
+const Mastermind = lazy(() => import("./pages/games/expansion/Mastermind"));
+const WordSearch = lazy(() => import("./pages/games/expansion/WordSearch"));
+const ColorMatch = lazy(() => import("./pages/games/expansion/ColorMatch"));
+const AudioDirection = lazy(() => import("./pages/games/expansion/AudioDirection"));
+const Reversi = lazy(() => import("./pages/games/expansion/Reversi"));
+const Checkers = lazy(() => import("./pages/games/expansion/Checkers"));
+const PegSolitaire = lazy(() => import("./pages/games/expansion/PegSolitaire"));
+const Battleship = lazy(() => import("./pages/games/expansion/Battleship"));
+const MiniGolf = lazy(() => import("./pages/games/expansion/MiniGolf"));
+const Bowling = lazy(() => import("./pages/games/expansion/Bowling"));
+const Archery = lazy(() => import("./pages/games/expansion/Archery"));
+const Darts = lazy(() => import("./pages/games/expansion/Darts"));
+const AirportManager = lazy(() => import("./pages/games/expansion/AirportManager"));
+const TrafficControl = lazy(() => import("./pages/games/expansion/TrafficControl"));
+const TrainDispatcher = lazy(() => import("./pages/games/expansion/TrainDispatcher"));
+const HarborManager = lazy(() => import("./pages/games/expansion/HarborManager"));
+const LearnLetters = lazy(() => import("./pages/games/expansion/LearnLetters"));
+const LearnNumbers = lazy(() => import("./pages/games/expansion/LearnNumbers"));
+const LearnShapes = lazy(() => import("./pages/games/expansion/LearnShapes"));
+const MatchingStudio = lazy(() => import("./pages/games/expansion/MatchingStudio"));
+const Crossword = lazy(() => import("./pages/games/expansion/Crossword"));
+const AnagramArena = lazy(() => import("./pages/games/expansion/AnagramArena"));
+const WordLadder = lazy(() => import("./pages/games/expansion/WordLadder"));
+const SpellingMaster = lazy(() => import("./pages/games/expansion/SpellingMaster"));
+const RestaurantManager = lazy(() => import("./pages/games/expansion/RestaurantManager"));
+const FarmManager = lazy(() => import("./pages/games/expansion/FarmManager"));
+const ArcadeCityBuilder = lazy(() => import("./pages/games/expansion/CityBuilder"));
+const DeliverySimulator = lazy(() => import("./pages/games/expansion/DeliverySimulator"));
+const Snake = lazy(() => import("./pages/games/expansion/Snake"));
+const BlockStacker = lazy(() => import("./pages/games/expansion/BlockStacker"));
+const Breakout = lazy(() => import("./pages/games/expansion/Breakout"));
+const BubbleShooter = lazy(() => import("./pages/games/expansion/BubbleShooter"));
+const AudioMemory = lazy(() => import("./pages/games/expansion/AudioMemory"));
+const SoundHunt = lazy(() => import("./pages/games/expansion/SoundHunt"));
+const EchoLocator = lazy(() => import("./pages/games/expansion/EchoLocator"));
+const RhythmNavigation = lazy(() => import("./pages/games/expansion/RhythmNavigation"));
+const BalanceLab = lazy(() => import("./pages/games/expansion/BalanceLab"));
+const PendulumPuzzle = lazy(() => import("./pages/games/expansion/PendulumPuzzle"));
+const TrajectoryMaster = lazy(() => import("./pages/games/expansion/TrajectoryMaster"));
+const MagnetLab = lazy(() => import("./pages/games/expansion/MagnetLab"));
+const PenaltyShootout = lazy(() => import("./pages/games/expansion/PenaltyShootout"));
+const BasketballChallenge = lazy(() => import("./pages/games/expansion/BasketballChallenge"));
+const TableTennis = lazy(() => import("./pages/games/expansion/TableTennis"));
+const AirHockey = lazy(() => import("./pages/games/expansion/AirHockey"));
+const RhythmKeys = lazy(() => import("./pages/games/expansion/RhythmKeys"));
+const MelodyMemory = lazy(() => import("./pages/games/expansion/MelodyMemory"));
+const BeatMatcher = lazy(() => import("./pages/games/expansion/BeatMatcher"));
+const PianoTrainer = lazy(() => import("./pages/games/expansion/PianoTrainer"));
+const SymmetrySketch = lazy(() => import("./pages/games/expansion/SymmetrySketch"));
+const PixelCanvas = lazy(() => import("./pages/games/expansion/PixelCanvas"));
+const ShapeDesigner = lazy(() => import("./pages/games/expansion/ShapeDesigner"));
+const PatternArtist = lazy(() => import("./pages/games/expansion/PatternArtist"));
+const LemonadeStand = lazy(() => import("./pages/games/expansion/LemonadeStand"));
+const SpaceMinerIdle = lazy(() => import("./pages/games/expansion/SpaceMinerIdle"));
+const FactoryIdle = lazy(() => import("./pages/games/expansion/FactoryIdle"));
+const AquariumKeeper = lazy(() => import("./pages/games/expansion/AquariumKeeper"));
+const GardenPlanner = lazy(() => import("./pages/games/expansion/GardenPlanner"));
+const MuseumCurator = lazy(() => import("./pages/games/expansion/MuseumCurator"));
+const WildlifeRescue = lazy(() => import("./pages/games/expansion/WildlifeRescue"));
 
 // Library — books/audiobooks section (Phase 1 architecture prep, distinct from academy/library)
 const LibraryHome = lazy(() => import("./pages/library/LibraryHome"));
@@ -821,6 +892,84 @@ function AppRoutes() {
                     <Route path="/games/memory" element={<GameEconomyGate gameTitle="Memory Game"><MemoryGame /></GameEconomyGate>} />
                     <Route path="/games/word-puzzle" element={<GameEconomyGate gameTitle="Word Puzzle"><WordPuzzle /></GameEconomyGate>} />
                     <Route path="/games/visionopoly" element={<GameEconomyGate gameTitle="Visionopoly"><Visionopoly /></GameEconomyGate>} />
+                    <Route path="/games/2048" element={<GameEconomyGate gameTitle="2048"><Game2048 /></GameEconomyGate>} />
+                    <Route path="/games/minesweeper" element={<GameEconomyGate gameTitle="Minesweeper"><Minesweeper /></GameEconomyGate>} />
+                    <Route path="/games/connect-four" element={<GameEconomyGate gameTitle="Connect Four"><ConnectFour /></GameEconomyGate>} />
+                    <Route path="/games/reaction-test" element={<GameEconomyGate gameTitle="Reaction Test"><ReactionTest /></GameEconomyGate>} />
+                    <Route path="/games/tic-tac-toe" element={<GameEconomyGate gameTitle="Tic Tac Toe"><TicTacToe /></GameEconomyGate>} />
+                    <Route path="/games/typing-speed" element={<GameEconomyGate gameTitle="Typing Speed"><TypingSpeed /></GameEconomyGate>} />
+                    <Route path="/games/math-challenge" element={<GameEconomyGate gameTitle="Math Challenge"><MathChallenge /></GameEconomyGate>} />
+                    <Route path="/games/simon-says" element={<GameEconomyGate gameTitle="Simon Says"><SimonSays /></GameEconomyGate>} />
+                    <Route path="/games/trivia" element={<GameEconomyGate gameTitle="Trivia"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/geography-quiz" element={<GameEconomyGate gameTitle="Geography Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/science-quiz" element={<GameEconomyGate gameTitle="Science Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/history-quiz" element={<GameEconomyGate gameTitle="History Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/blind-maze" element={<GameEconomyGate gameTitle="Blind Maze"><BlindMaze /></GameEconomyGate>} />
+                    <Route path="/games/sudoku" element={<GameEconomyGate gameTitle="Sudoku"><Sudoku /></GameEconomyGate>} />
+                    <Route path="/games/nonogram" element={<GameEconomyGate gameTitle="Nonogram"><Nonogram /></GameEconomyGate>} />
+                    <Route path="/games/mastermind" element={<GameEconomyGate gameTitle="Mastermind"><Mastermind /></GameEconomyGate>} />
+                    <Route path="/games/word-search" element={<GameEconomyGate gameTitle="Word Search"><WordSearch /></GameEconomyGate>} />
+                    <Route path="/games/color-match" element={<GameEconomyGate gameTitle="Color Match"><ColorMatch /></GameEconomyGate>} />
+                    <Route path="/games/audio-direction" element={<GameEconomyGate gameTitle="Audio Direction"><AudioDirection /></GameEconomyGate>} />
+                    <Route path="/games/reversi" element={<GameEconomyGate gameTitle="Reversi"><Reversi /></GameEconomyGate>} />
+                    <Route path="/games/checkers" element={<GameEconomyGate gameTitle="Checkers"><Checkers /></GameEconomyGate>} />
+                    <Route path="/games/peg-solitaire" element={<GameEconomyGate gameTitle="Peg Solitaire"><PegSolitaire /></GameEconomyGate>} />
+                    <Route path="/games/battleship" element={<GameEconomyGate gameTitle="Battleship"><Battleship /></GameEconomyGate>} />
+                    <Route path="/games/mini-golf" element={<GameEconomyGate gameTitle="Mini Golf"><MiniGolf /></GameEconomyGate>} />
+                    <Route path="/games/bowling" element={<GameEconomyGate gameTitle="Bowling"><Bowling /></GameEconomyGate>} />
+                    <Route path="/games/archery" element={<GameEconomyGate gameTitle="Archery"><Archery /></GameEconomyGate>} />
+                    <Route path="/games/darts" element={<GameEconomyGate gameTitle="Darts"><Darts /></GameEconomyGate>} />
+                    <Route path="/games/airport-manager" element={<GameEconomyGate gameTitle="Airport Manager"><AirportManager /></GameEconomyGate>} />
+                    <Route path="/games/traffic-control" element={<GameEconomyGate gameTitle="Traffic Control"><TrafficControl /></GameEconomyGate>} />
+                    <Route path="/games/train-dispatcher" element={<GameEconomyGate gameTitle="Train Dispatcher"><TrainDispatcher /></GameEconomyGate>} />
+                    <Route path="/games/harbor-manager" element={<GameEconomyGate gameTitle="Harbor Manager"><HarborManager /></GameEconomyGate>} />
+                    <Route path="/games/learn-letters" element={<GameEconomyGate gameTitle="Letters Learning"><LearnLetters /></GameEconomyGate>} />
+                    <Route path="/games/learn-numbers" element={<GameEconomyGate gameTitle="Numbers Learning"><LearnNumbers /></GameEconomyGate>} />
+                    <Route path="/games/learn-shapes" element={<GameEconomyGate gameTitle="Shapes Learning"><LearnShapes /></GameEconomyGate>} />
+                    <Route path="/games/matching-studio" element={<GameEconomyGate gameTitle="Matching Studio"><MatchingStudio /></GameEconomyGate>} />
+                    <Route path="/games/crossword" element={<GameEconomyGate gameTitle="Crossword"><Crossword /></GameEconomyGate>} />
+                    <Route path="/games/anagram-arena" element={<GameEconomyGate gameTitle="Anagram Arena"><AnagramArena /></GameEconomyGate>} />
+                    <Route path="/games/word-ladder" element={<GameEconomyGate gameTitle="Word Ladder"><WordLadder /></GameEconomyGate>} />
+                    <Route path="/games/spelling-master" element={<GameEconomyGate gameTitle="Spelling Master"><SpellingMaster /></GameEconomyGate>} />
+                    <Route path="/games/restaurant-manager" element={<GameEconomyGate gameTitle="Restaurant Manager"><RestaurantManager /></GameEconomyGate>} />
+                    <Route path="/games/farm-manager" element={<GameEconomyGate gameTitle="Farm Manager"><FarmManager /></GameEconomyGate>} />
+                    <Route path="/games/city-builder" element={<GameEconomyGate gameTitle="City Builder"><ArcadeCityBuilder /></GameEconomyGate>} />
+                    <Route path="/games/delivery-simulator" element={<GameEconomyGate gameTitle="Delivery Simulator"><DeliverySimulator /></GameEconomyGate>} />
+                    <Route path="/games/snake" element={<GameEconomyGate gameTitle="Snake"><Snake /></GameEconomyGate>} />
+                    <Route path="/games/block-stacker" element={<GameEconomyGate gameTitle="Block Stacker"><BlockStacker /></GameEconomyGate>} />
+                    <Route path="/games/breakout" element={<GameEconomyGate gameTitle="Breakout"><Breakout /></GameEconomyGate>} />
+                    <Route path="/games/bubble-shooter" element={<GameEconomyGate gameTitle="Bubble Shooter"><BubbleShooter /></GameEconomyGate>} />
+                    <Route path="/games/technology-quiz" element={<GameEconomyGate gameTitle="Technology Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/nature-quiz" element={<GameEconomyGate gameTitle="Nature Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/space-quiz" element={<GameEconomyGate gameTitle="Space Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/sports-quiz" element={<GameEconomyGate gameTitle="Sports Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/audio-memory" element={<GameEconomyGate gameTitle="Audio Memory"><AudioMemory /></GameEconomyGate>} />
+                    <Route path="/games/sound-hunt" element={<GameEconomyGate gameTitle="Sound Hunt"><SoundHunt /></GameEconomyGate>} />
+                    <Route path="/games/echo-locator" element={<GameEconomyGate gameTitle="Echo Locator"><EchoLocator /></GameEconomyGate>} />
+                    <Route path="/games/rhythm-navigation" element={<GameEconomyGate gameTitle="Rhythm Navigation"><RhythmNavigation /></GameEconomyGate>} />
+                    <Route path="/games/balance-lab" element={<GameEconomyGate gameTitle="Balance Lab"><BalanceLab /></GameEconomyGate>} />
+                    <Route path="/games/pendulum-puzzle" element={<GameEconomyGate gameTitle="Pendulum Puzzle"><PendulumPuzzle /></GameEconomyGate>} />
+                    <Route path="/games/trajectory-master" element={<GameEconomyGate gameTitle="Trajectory Master"><TrajectoryMaster /></GameEconomyGate>} />
+                    <Route path="/games/magnet-lab" element={<GameEconomyGate gameTitle="Magnet Lab"><MagnetLab /></GameEconomyGate>} />
+                    <Route path="/games/penalty-shootout" element={<GameEconomyGate gameTitle="Penalty Shootout"><PenaltyShootout /></GameEconomyGate>} />
+                    <Route path="/games/basketball-challenge" element={<GameEconomyGate gameTitle="Basketball Challenge"><BasketballChallenge /></GameEconomyGate>} />
+                    <Route path="/games/table-tennis" element={<GameEconomyGate gameTitle="Table Tennis"><TableTennis /></GameEconomyGate>} />
+                    <Route path="/games/air-hockey" element={<GameEconomyGate gameTitle="Air Hockey"><AirHockey /></GameEconomyGate>} />
+                    <Route path="/games/rhythm-keys" element={<GameEconomyGate gameTitle="Rhythm Keys"><RhythmKeys /></GameEconomyGate>} />
+                    <Route path="/games/melody-memory" element={<GameEconomyGate gameTitle="Melody Memory"><MelodyMemory /></GameEconomyGate>} />
+                    <Route path="/games/beat-matcher" element={<GameEconomyGate gameTitle="Beat Matcher"><BeatMatcher /></GameEconomyGate>} />
+                    <Route path="/games/piano-trainer" element={<GameEconomyGate gameTitle="Piano Trainer"><PianoTrainer /></GameEconomyGate>} />
+                    <Route path="/games/symmetry-sketch" element={<GameEconomyGate gameTitle="Symmetry Sketch"><SymmetrySketch /></GameEconomyGate>} />
+                    <Route path="/games/pixel-canvas" element={<GameEconomyGate gameTitle="Pixel Canvas"><PixelCanvas /></GameEconomyGate>} />
+                    <Route path="/games/shape-designer" element={<GameEconomyGate gameTitle="Shape Designer"><ShapeDesigner /></GameEconomyGate>} />
+                    <Route path="/games/pattern-artist" element={<GameEconomyGate gameTitle="Pattern Artist"><PatternArtist /></GameEconomyGate>} />
+                    <Route path="/games/lemonade-stand" element={<GameEconomyGate gameTitle="Lemonade Stand"><LemonadeStand /></GameEconomyGate>} />
+                    <Route path="/games/space-miner-idle" element={<GameEconomyGate gameTitle="Space Miner Idle"><SpaceMinerIdle /></GameEconomyGate>} />
+                    <Route path="/games/factory-idle" element={<GameEconomyGate gameTitle="Factory Idle"><FactoryIdle /></GameEconomyGate>} />
+                    <Route path="/games/aquarium-keeper" element={<GameEconomyGate gameTitle="Aquarium Keeper"><AquariumKeeper /></GameEconomyGate>} />
+                    <Route path="/games/garden-planner" element={<GameEconomyGate gameTitle="Garden Planner"><GardenPlanner /></GameEconomyGate>} />
+                    <Route path="/games/museum-curator" element={<GameEconomyGate gameTitle="Museum Curator"><MuseumCurator /></GameEconomyGate>} />
+                    <Route path="/games/wildlife-rescue" element={<GameEconomyGate gameTitle="Wildlife Rescue"><WildlifeRescue /></GameEconomyGate>} />
                     <Route path="/assistive-products" element={<AssistiveProducts />} />
                     <Route path="/business-simulator" element={<BusinessSimulator />} />
                     <Route path="/business-simulator/:slug" element={<SimulationRunner />} />

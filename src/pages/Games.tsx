@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Accessibility, ArrowRight, Baby, Gamepad2, Search, ShieldCheck, Sparkles, Trophy, UserRound, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
@@ -24,7 +24,7 @@ import { gameReleaseInfo } from "@/features/arcade/gameReleaseNotes";
 type SectionProps = { title: string; eyebrow: string; games: typeof ARCADE_GAMES; lang: string };
 
 const categoryLabelAr: Record<ArcadeCategory, string> = {
-  Action:"أكشن", Puzzle:"ألغاز", Strategy:"استراتيجية", Educational:"تعليمية", Kids:"أطفال", Classic:"كلاسيكية", Multiplayer:"متعددة اللاعبين", Accessible:"ألعاب متاحة",
+  Classic:"كلاسيكية", Puzzle:"ألغاز", Board:"لوحية", Card:"ورق", Educational:"تعليمية", Kids:"أطفال", Typing:"كتابة", Memory:"ذاكرة", Word:"كلمات", Math:"رياضيات", Logic:"منطق", Quiz:"اختبارات", Reaction:"سرعة استجابة", Arcade:"آركيد", Action:"أكشن", Adventure:"مغامرات", Platform:"منصات", Racing:"سباقات", Sports:"رياضة", Physics:"فيزياء", Simulation:"محاكاة", Idle:"خاملة", Strategy:"استراتيجية", "Tower Defense":"دفاع الأبراج", "City Builder":"بناء المدن", "Business Simulation":"محاكاة الأعمال", Cooking:"طبخ", Music:"موسيقى", Drawing:"رسم", Accessible:"ألعاب متاحة", Audio:"صوتية", Multiplayer:"متعددة اللاعبين",
 };
 
 export default function Games() {
@@ -74,7 +74,7 @@ export default function Games() {
                 <GameSettingsPanel />
               </div>
               <dl className="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-sm text-slate-300">
-                <HeroStat icon={Gamepad2} value="22" label={ar ? "لعبة" : "games"} />
+                <HeroStat icon={Gamepad2} value={String(ARCADE_GAMES.length)} label={ar ? "لعبة" : "games"} />
                 <HeroStat icon={Users} value="1–2" label={ar ? "لاعبون" : "players"} />
                 <HeroStat icon={ShieldCheck} value="AA" label={ar ? "تصميم متاح" : "accessible UI"} />
               </dl>
@@ -104,7 +104,7 @@ export default function Games() {
           </section>
 
           {filtersActive ? (
-            <section aria-labelledby="results-title" className="py-12"><h2 id="results-title" className="mb-6 text-3xl font-black">{ar ? "نتائج البحث" : "Search results"}</h2>{filtered.length ? <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{filtered.map((game) => <ArcadeGameCard key={game.slug} game={game} lang={lang} />)}</div> : <div className="rounded-2xl border border-dashed border-white/15 py-20 text-center text-slate-400"><Search className="mx-auto mb-3 h-8 w-8" /><p>{ar ? "لم نجد ألعاباً تطابق هذه الفلاتر." : "No games match these filters."}</p></div>}</section>
+            <section aria-labelledby="results-title" className="py-12"><h2 id="results-title" className="mb-6 text-3xl font-black">{ar ? "نتائج البحث" : "Search results"}</h2>{filtered.length ? <PaginatedGameGrid games={filtered} lang={lang} /> : <div className="rounded-2xl border border-dashed border-white/15 py-20 text-center text-slate-400"><Search className="mx-auto mb-3 h-8 w-8" /><p>{ar ? "لم نجد ألعاباً تطابق هذه الفلاتر." : "No games match these filters."}</p></div>}</section>
           ) : (
             <>
               <GameSection title={ar ? "الألعاب المميزة" : "Featured Games"} eyebrow={ar ? "اختيارات المحررين" : "Editor’s picks"} games={ARCADE_GAMES.filter((game) => game.featured)} lang={lang} />
@@ -116,6 +116,7 @@ export default function Games() {
               <GameSection title={ar ? "أضيفت حديثاً" : "Recently Added"} eyebrow={ar ? "جديد في Arcade" : "Fresh in the arcade"} games={ARCADE_GAMES.filter((game) => game.recentlyAdded)} lang={lang} />
               <GameSection title={ar?"حُدثت مؤخراً":"Recently Updated"} eyebrow={ar?"آخر تحسينات الجودة":"Latest quality updates"} games={recentlyUpdated} lang={lang}/>
               <div id="accessible"><GameSection title={ar ? "الألعاب المتاحة" : "Accessible Games"} eyebrow={ar ? "صُممت لتشمل الجميع" : "Designed for more players"} games={ARCADE_GAMES.filter((game) => game.accessible)} lang={lang} /></div>
+              <section aria-labelledby="all-games-title" className="py-12"><p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">{ar?"المكتبة الكاملة":"Complete library"}</p><h2 id="all-games-title" className="mb-6 mt-1 text-3xl font-black">{ar?"كل الألعاب":"All Games"}</h2><PaginatedGameGrid games={ARCADE_GAMES} lang={lang}/></section>
             </>
           )}
           <AdBanner slot="3569383992" format="horizontal" className="mt-4" />
@@ -127,6 +128,13 @@ export default function Games() {
 
 function GameSection({ title, eyebrow, games, lang }: SectionProps) {
   return <section id={title === "Featured Games" || title === "الألعاب المميزة" ? "featured" : undefined} aria-labelledby={`section-${games[0]?.slug}`} className="py-12"><div className="mb-6 flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-violet-300">{eyebrow}</p><h2 id={`section-${games[0]?.slug}`} className="mt-1 text-3xl font-black">{title}</h2></div><Button asChild variant="ghost" className="hidden text-slate-300 hover:bg-white/10 hover:text-white sm:flex"><a href="#discover-title">{lang === "ar" ? "عرض الكل" : "View all"}<ArrowRight className="ms-2 h-4 w-4 rtl:rotate-180" /></a></Button></div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{games.slice(0, 4).map((game, index) => <ArcadeGameCard key={game.slug} game={game} lang={lang} priority={index === 0} />)}</div></section>;
+}
+
+function PaginatedGameGrid({games,lang}:{games:typeof ARCADE_GAMES;lang:string}) {
+  const [visible,setVisible]=useState(24);
+  const signature=games.map(game=>game.slug).join("|");
+  useEffect(()=>setVisible(24),[signature]);
+  return <><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{games.slice(0,visible).map((game,index)=><ArcadeGameCard key={game.slug} game={game} lang={lang} priority={index<4}/>)}</div>{visible<games.length&&<div className="mt-8 text-center"><Button variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={()=>setVisible(count=>count+24)}>{lang==="ar"?"عرض المزيد":"Show more"}<span className="ms-2 text-xs text-slate-400">{Math.min(24,games.length-visible)}</span></Button></div>}</>;
 }
 
 function CategoryGrid({ lang, onSelect }: { lang: string; onSelect:(item:ArcadeCategory)=>void }) {

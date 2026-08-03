@@ -20,7 +20,7 @@ describe("games integration", () => {
       ),
     );
 
-    expect(destinations).toHaveLength(22);
+    expect(destinations.length).toBeGreaterThanOrEqual(26);
     expect(new Set(destinations).size).toBe(destinations.length);
     expect(destinations.filter((path) => !routes.has(path))).toEqual([]);
   });

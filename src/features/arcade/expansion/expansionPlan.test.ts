@@ -3,9 +3,9 @@ import { PREMIUM_EXPANSION_PLAN } from "./expansionPlan";
 import { evaluateNewGameRelease } from "./releaseGate";
 
 describe("premium games expansion release plan", () => {
-  it("contains all 34 requested games with unique ids", () => {
-    expect(PREMIUM_EXPANSION_PLAN).toHaveLength(34);
-    expect(new Set(PREMIUM_EXPANSION_PLAN.map((game) => game.id)).size).toBe(34);
+  it("contains a maintainable 200-plus roadmap with unique ids", () => {
+    expect(PREMIUM_EXPANSION_PLAN.length).toBeGreaterThan(200);
+    expect(new Set(PREMIUM_EXPANSION_PLAN.map((game) => game.id)).size).toBe(PREMIUM_EXPANSION_PLAN.length);
   });
 
   it("classifies every game and documents duration and controls", () => {

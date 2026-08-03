@@ -7,13 +7,14 @@ import { VisualAssetsManager } from "./visualAssetsManager";
 import { AUDIO_LIBRARY, audioLibrary } from "../audio/audioLibrary";
 import { auditAudioLibrary } from "../audio/audioQuality";
 import { AdvancedAudioEngine } from "../audio/AdvancedAudioEngine";
+import { ARCADE_GAMES } from "../catalog";
 
 describe("Visionex Arcade core", () => {
   beforeEach(() => localStorage.clear());
 
   it("registers all legacy games with unique ids, paths, assets, and lazy loaders", () => {
-    expect(GAME_REGISTRY).toHaveLength(22);
-    expect(new Set(GAME_REGISTRY.map((game) => game.slug)).size).toBe(22);
+    expect(GAME_REGISTRY).toHaveLength(ARCADE_GAMES.length);
+    expect(new Set(GAME_REGISTRY.map((game) => game.slug)).size).toBe(ARCADE_GAMES.length);
     for (const game of GAME_REGISTRY) {
       expect(gameRegistry.fromPath(game.to)?.slug).toBe(game.slug);
       expect(game.loader).toBeTypeOf("function");
