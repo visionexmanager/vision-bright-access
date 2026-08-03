@@ -26,7 +26,9 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const VXBazaar = lazy(() => import("./pages/VXBazaar"));
-const Services = lazy(() => import("./pages/Services"));
+const Services = lazy(() => import("./pages/ServiceCenter"));
+const ServiceProfile = lazy(() => import("./pages/services/ServiceProfile"));
+const MyServiceRequests = lazy(() => import("./pages/services/MyServiceRequests"));
 const Academy = lazy(() => import("./pages/Academy"));
 const AcademyCourseCatalog = lazy(() => import("./pages/academy/AcademyCourseCatalog"));
 const AcademyCourseDetail = lazy(() => import("./pages/academy/AcademyCourseDetail"));
@@ -669,6 +671,10 @@ function AppRoutes() {
                     <Route path="/bazaar" element={<VXBazaar />} />
                     <Route path="/marketplace" element={<VXBazaar />} />
                     <Route path="/services" element={<Services />} />
+                    {/* Service profile — the decision page every catalog card links to. */}
+                    <Route path="/services/experience/:slug" element={<ServiceProfile />} />
+                    {/* The client file: every professional service request and its status. */}
+                    <Route path="/services/my-requests" element={<MyServiceRequests />} />
                     <Route path="/academy" element={<AuthGuard><Academy /></AuthGuard>} />
                     <Route path="/academy/courses" element={<AuthGuard><AcademyCourseCatalog /></AuthGuard>} />
                     <Route path="/academy/courses/:courseId" element={<AuthGuard><AcademyCourseDetail /></AuthGuard>} />
