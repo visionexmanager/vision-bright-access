@@ -1,32 +1,35 @@
 import { useEffect, useRef, useState } from "react";
-import { Clock3, Coins, Loader2, Tv2 } from "lucide-react";
+import { Coins, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Progress } from "@/components/ui/progress";
+import { adsConfig, isRewardedAdsConfigured } from "@/features/ads/config";
 
-const GAM_NETWORK_CODE = import.meta.env.VITE_GAM_NETWORK_CODE ?? "MISSING";
-const GAM_AD_UNIT      = import.meta.env.VITE_GAM_REWARDED_UNIT ?? "rewarded";
-const AD_UNIT_PATH     = `/${GAM_NETWORK_CODE}/${GAM_AD_UNIT}`;
-const GPT_ENABLED      =
-  GAM_NETWORK_CODE !== "MISSING" &&
-  GAM_NETWORK_CODE !== "YOUR_GAM_NETWORK_CODE" &&
-  GAM_NETWORK_CODE.trim() !== "";
+const AD_UNIT_PATH = `/${adsConfig.gamNetworkCode}/${adsConfig.gamRewardedUnit}`;
 
-const VX_REWARD        = 5;
-const SIMULATED_AD_SEC = 15;
+let gptScriptPromise: Promise<void> | null = null;
 
-// Inject gpt.js once, only when the rewarded ad modal first opens
-let gptScriptInjected = false;
 function ensureGpt() {
-  if (typeof window === "undefined") return;
-  // Always ensure the cmd queue exists before the script loads
-  window.googletag = window.googletag || ({ cmd: [] } as typeof window.googletag);
-  if (gptScriptInjected) return;
-  gptScriptInjected = true;
-  const s = document.createElement("script");
-  s.async = true;
-  s.src = "https://securepubads.g.doubleclick.net/tag/js/gpt.js";
-  s.crossOrigin = "anonymous";
-  document.head.appendChild(s);
+  if (gptScriptPromise) return gptScriptPromise;
+  gptScriptPromise = new Promise((resolve, reject) => {
+    window.googletag = window.googletag || ({ cmd: [] } as typeof window.googletag);
+    const existing = document.querySelector<HTMLScriptElement>('script[data-visionex-gpt="true"]');
+    if (existing) {
+      if (existing.dataset.loaded === "true") resolve();
+      else {
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => reject(new Error("GPT failed to load")), { once: true });
+      }
+      return;
+    }
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = "https://securepubads.g.doubleclick.net/tag/js/gpt.js";
+    script.crossOrigin = "anonymous";
+    script.dataset.visionexGpt = "true";
+    script.onload = () => { script.dataset.loaded = "true"; resolve(); };
+    script.onerror = () => { gptScriptPromise = null; reject(new Error("GPT failed to load")); };
+    document.head.appendChild(script);
+  });
+  return gptScriptPromise;
 }
 
 declare global {
@@ -43,210 +46,85 @@ declare global {
   }
 }
 
-interface GPTSlot { addService: (s: GPTPubAds) => GPTSlot; }
-interface GPTRewardedReadyEvent   { makeRewardedVisible: () => void; }
-interface GPTRewardedGrantedEvent { payload: { type: string; amount: number } | null; }
+interface GPTSlot { addService: (service: GPTPubAds) => GPTSlot; }
+interface GPTRewardedEvent {
+  makeRewardedVisible?: () => void;
+  payload?: { type: string; amount: number } | null;
+}
 interface GPTPubAds {
-  addEventListener:    (ev: "rewardedSlotReady" | "rewardedSlotGranted" | "rewardedSlotClosed", fn: (e: GPTRewardedReadyEvent & GPTRewardedGrantedEvent) => void) => void;
-  removeEventListener: (ev: "rewardedSlotReady" | "rewardedSlotGranted" | "rewardedSlotClosed", fn: (e: GPTRewardedReadyEvent & GPTRewardedGrantedEvent) => void) => void;
+  addEventListener: (event: "rewardedSlotReady" | "rewardedSlotGranted" | "rewardedSlotClosed", handler: (event: GPTRewardedEvent) => void) => void;
+  removeEventListener: (event: "rewardedSlotReady" | "rewardedSlotGranted" | "rewardedSlotClosed", handler: (event: GPTRewardedEvent) => void) => void;
 }
 
-interface Props {
-  onRewarded: () => void;
-  onClose: () => void;
-}
+interface Props { onRewarded: () => void; onClose: () => void; }
+type AdState = "loading" | "watching" | "granted" | "error";
 
-type AdState = "loading" | "ready" | "watching" | "granted" | "error";
-
-// ─── Simulated ad: countdown timer shown when GAM is not configured ──────────
-function SimulatedAdModal({ onRewarded, onClose }: Props) {
-  const { t } = useLanguage();
-  const [secondsLeft, setSecondsLeft] = useState(SIMULATED_AD_SEC);
-  const [granted, setGranted] = useState(false);
-  const [liveAnnouncement, setLiveAnnouncement] = useState("");
-  const rewardedRef = useRef(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    dialogRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    if (granted) return;
-    if (secondsLeft <= 0) {
-      if (!rewardedRef.current) {
-        rewardedRef.current = true;
-        setGranted(true);
-        onRewarded();
-      }
-      return;
-    }
-    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [secondsLeft, granted, onRewarded]);
-
-  // Announce to screen reader every 3 seconds, then every second for the final 3
-  useEffect(() => {
-    if (secondsLeft > 0 && (secondsLeft % 3 === 0 || secondsLeft <= 3)) {
-      setLiveAnnouncement(t("dash.adSecondsLeft").replace("{s}", String(secondsLeft)));
-    }
-  }, [secondsLeft, t]);
-
-  const progress = ((SIMULATED_AD_SEC - secondsLeft) / SIMULATED_AD_SEC) * 100;
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="rewarded-ad-title"
-      tabIndex={-1}
-      ref={dialogRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-    >
-      {/* Hidden live region: announces every 3 s, then every second for final 3 */}
-      <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-        {liveAnnouncement}
-      </span>
-
-      <div className="relative w-full max-w-sm rounded-2xl border border-border bg-card shadow-2xl p-8 text-center space-y-5">
-        {!granted ? (
-          <>
-            <div className="flex justify-center" aria-hidden="true">
-              <div className="rounded-2xl bg-amber-500/15 p-4">
-                <Tv2 className="h-10 w-10 text-amber-500" />
-              </div>
-            </div>
-            <p id="rewarded-ad-title" className="text-base font-semibold">{t("dash.adWatching")}</p>
-            <div className="space-y-2">
-              <Progress
-                value={progress}
-                className="h-3"
-                aria-label={t("dash.adProgressLabel")}
-              />
-              {/* Visual timer only — screen reader uses the sr-only live region above */}
-              <div
-                aria-hidden="true"
-                className="mx-auto flex w-fit min-w-40 items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-600 dark:text-amber-400"
-              >
-                <Clock3 className="h-5 w-5" />
-                <span className="text-2xl font-bold tabular-nums">
-                  {t("dash.adSecondsLeft").replace("{s}", String(secondsLeft))}
-                </span>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground" aria-hidden="true">
-              +{VX_REWARD} VX {t("dash.adWatched")?.split("!")[0] || "reward on completion"}
-            </p>
-          </>
-        ) : (
-          <>
-            <div className="flex justify-center">
-              <Coins className="h-12 w-12 text-amber-500" aria-hidden="true" />
-            </div>
-            <p className="text-lg font-bold text-amber-500">
-              🎉 {t("dash.adWatched").replace("{pts}", String(VX_REWARD))}
-            </p>
-            <button
-              onClick={onClose}
-              className="mt-2 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
-            >
-              {t("vx.close")}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Real GPT rewarded ad ─────────────────────────────────────────────────────
-function GptAdModal({ onRewarded, onClose }: Props) {
+export function RewardedAdModal({ onRewarded, onClose }: Props) {
   const { t } = useLanguage();
   const [state, setState] = useState<AdState>("loading");
   const slotRef = useRef<GPTSlot | null>(null);
-  const [fallback, setFallback] = useState(false);
+  const grantedRef = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { dialogRef.current?.focus(); }, []);
 
   useEffect(() => {
-    ensureGpt();
-    const gt = window.googletag;
-    if (!gt) { setFallback(true); return; }
+    if (!isRewardedAdsConfigured()) { setState("error"); return; }
+    let active = true;
+    let pubads: GPTPubAds | null = null;
 
-    const onReady = (e: GPTRewardedReadyEvent & GPTRewardedGrantedEvent) => {
+    const onReady = (event: GPTRewardedEvent) => {
+      if (!active || !event.makeRewardedVisible) return;
       setState("watching");
-      e.makeRewardedVisible();
+      event.makeRewardedVisible();
     };
-    const onGranted = () => { setState("granted"); onRewarded(); };
-    const onClosed  = () => { onClose(); };
+    const onGranted = () => {
+      if (!active || grantedRef.current) return;
+      grantedRef.current = true;
+      setState("granted");
+      onRewarded();
+    };
+    const onClosed = () => { if (active) onClose(); };
 
-    gt.cmd.push(() => {
-      const slot = gt.defineOutOfPageSlot(AD_UNIT_PATH, gt.enums.OutOfPageFormat.REWARDED);
-      if (!slot) { setFallback(true); return; }
-      slotRef.current = slot;
-      slot.addService(gt.pubads());
-      gt.enableServices();
-      gt.display(slot);
-      setState("ready");
-      gt.pubads().addEventListener("rewardedSlotReady",   onReady);
-      gt.pubads().addEventListener("rewardedSlotGranted", onGranted);
-      gt.pubads().addEventListener("rewardedSlotClosed",  onClosed);
-    });
+    ensureGpt().then(() => {
+      if (!active) return;
+      window.googletag.cmd.push(() => {
+        if (!active) return;
+        const slot = window.googletag.defineOutOfPageSlot(AD_UNIT_PATH, window.googletag.enums.OutOfPageFormat.REWARDED);
+        if (!slot) { setState("error"); return; }
+        slotRef.current = slot;
+        pubads = window.googletag.pubads();
+        slot.addService(pubads);
+        pubads.addEventListener("rewardedSlotReady", onReady);
+        pubads.addEventListener("rewardedSlotGranted", onGranted);
+        pubads.addEventListener("rewardedSlotClosed", onClosed);
+        window.googletag.enableServices();
+        window.googletag.display(slot);
+      });
+    }).catch(() => active && setState("error"));
 
     return () => {
-      gt.cmd.push(() => {
-        gt.pubads().removeEventListener("rewardedSlotReady",   onReady);
-        gt.pubads().removeEventListener("rewardedSlotGranted", onGranted);
-        gt.pubads().removeEventListener("rewardedSlotClosed",  onClosed);
-        if (slotRef.current) { gt.destroySlots([slotRef.current]); slotRef.current = null; }
+      active = false;
+      if (!window.googletag) return;
+      window.googletag.cmd.push(() => {
+        pubads?.removeEventListener("rewardedSlotReady", onReady);
+        pubads?.removeEventListener("rewardedSlotGranted", onGranted);
+        pubads?.removeEventListener("rewardedSlotClosed", onClosed);
+        if (slotRef.current) window.googletag.destroySlots([slotRef.current]);
       });
     };
-  }, [onRewarded, onClose]);
-
-  // If GPT fails for any reason, fall back to simulated ad
-  if (fallback) {
-    return <SimulatedAdModal onRewarded={onRewarded} onClose={onClose} />;
-  }
+  }, [onClose, onRewarded]);
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t("dash.watchAd")}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-    >
-      <div className="relative w-full max-w-sm rounded-2xl border border-border bg-card shadow-2xl p-8 text-center space-y-4">
-        <div className="flex justify-center">
-          <Coins className="h-10 w-10 text-amber-500" aria-hidden="true" />
-        </div>
-        {(state === "loading" || state === "ready") && (
-          <>
-            <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t("dash.adLoading")}</p>
-          </>
-        )}
-        {state === "watching" && (
-          <p className="text-sm font-medium">{t("dash.adWatching")}</p>
-        )}
-        {state === "granted" && (
-          <>
-            <p className="text-base font-bold text-amber-500">
-              🎉 {t("dash.adWatched").replace("{pts}", String(VX_REWARD))}
-            </p>
-            <button
-              onClick={onClose}
-              className="mt-2 w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              {t("vx.close")}
-            </button>
-          </>
-        )}
+    <div role="dialog" aria-modal="true" aria-label={t("dash.watchAd")} tabIndex={-1} ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-card p-8 text-center shadow-2xl">
+        <Coins className="mx-auto h-10 w-10 text-amber-500" aria-hidden="true" />
+        {state === "loading" && <><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" /><p role="status" className="text-sm text-muted-foreground">{t("dash.adLoading")}</p></>}
+        {state === "watching" && <p role="status" className="text-sm font-medium">{t("dash.adWatching")}</p>}
+        {state === "granted" && <p role="status" className="font-bold text-amber-500">{t("dash.adWatched").replace("{pts}", "5")}</p>}
+        {state === "error" && <p role="alert" className="text-sm text-destructive">The advertisement is not available right now.</p>}
+        {(state === "granted" || state === "error") && <button type="button" onClick={onClose} className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">{t("vx.close")}</button>}
       </div>
     </div>
   );
-}
-
-// ─── Export: uses real GPT if configured, falls back to simulated ─────────────
-export function RewardedAdModal({ onRewarded, onClose }: Props) {
-  return GPT_ENABLED
-    ? <GptAdModal    onRewarded={onRewarded} onClose={onClose} />
-    : <SimulatedAdModal onRewarded={onRewarded} onClose={onClose} />;
 }

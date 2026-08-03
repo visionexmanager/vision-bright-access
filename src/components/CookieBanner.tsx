@@ -3,28 +3,37 @@ import { Link } from "react-router-dom";
 import { Cookie, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-
-const COOKIE_KEY = "vx_cookie_consent";
+import {
+  OPEN_CONSENT_EVENT,
+  readConsent,
+  saveConsent,
+} from "@/features/ads/consent";
 
 export function CookieBanner() {
   const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!localStorage.getItem(COOKIE_KEY)) {
+    const open = () => setVisible(true);
+    window.addEventListener(OPEN_CONSENT_EVENT, open);
+    if (!readConsent()) {
       // Small delay so it doesn't flash immediately on load
-      const t = setTimeout(() => setVisible(true), 1200);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setVisible(true), 1200);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener(OPEN_CONSENT_EVENT, open);
+      };
     }
+    return () => window.removeEventListener(OPEN_CONSENT_EVENT, open);
   }, []);
 
   function accept() {
-    localStorage.setItem(COOKIE_KEY, "accepted");
+    saveConsent("all");
     setVisible(false);
   }
 
   function decline() {
-    localStorage.setItem(COOKIE_KEY, "declined");
+    saveConsent("essential");
     setVisible(false);
   }
 
@@ -51,7 +60,7 @@ export function CookieBanner() {
             <Link
               to="/privacy-policy"
               className="text-primary underline underline-offset-2 hover:no-underline"
-              onClick={accept}
+              onClick={() => setVisible(false)}
             >
               {t("cookie.privacy")}
             </Link>

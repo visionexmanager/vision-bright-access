@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import dashboardImg from "@/assets/dashboard-illustration.jpg";
+import { isRewardedAdsConfigured, useAdEligibility } from "@/features/ads";
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
@@ -32,6 +33,8 @@ export default function Dashboard() {
   const [showAd, setShowAd] = useState(false);
   const [todayAdCount, setTodayAdCount] = useState<number>(0);
   const dailyClaimedRef = useRef(false);
+  const { advertisingConsent, routeEligible } = useAdEligibility();
+  const rewardedAdsAvailable = isRewardedAdsConfigured() && advertisingConsent && routeEligible;
 
   // Auto daily-login bonus — fires once when a user session is confirmed
   useEffect(() => {
@@ -143,7 +146,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Watch Ad */}
-              <div className="flex items-center gap-4 rounded-lg border p-4">
+              {rewardedAdsAvailable && <div className="flex items-center gap-4 rounded-lg border p-4">
                 <div className="rounded-xl bg-primary/10 p-3">
                   <Play className="h-6 w-6 text-primary" aria-hidden="true" />
                 </div>
@@ -165,7 +168,7 @@ export default function Dashboard() {
                 >
                   {t("dash.watchAd")}
                 </Button>
-              </div>
+              </div>}
 
               {/* Engage Content */}
               <Link to="/content" className="flex items-center gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50">
@@ -195,7 +198,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {showAd && (
+      {showAd && rewardedAdsAvailable && (
         <RewardedAdModal
           onRewarded={handleAdRewarded}
           onClose={() => setShowAd(false)}

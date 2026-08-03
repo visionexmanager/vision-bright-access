@@ -14,6 +14,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useMessageNotifications } from "@/hooks/useMessageNotifications";
 import logo from "@/assets/logo.png";
 import { AcademyNav } from "@/components/academy/AcademyNav";
+import { AdSenseSlot, openConsentPreferences } from "@/features/ads";
 
 // Lazy-load the AI chat widget — it's a floating button that users open on demand.
 // This keeps the Layout chunk lean and defers the react-markdown + voice-chat weight.
@@ -74,6 +75,8 @@ export function Layout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
+      <AdSenseSlot />
+
       <footer className="bg-card" role="contentinfo">
         {/* Top gradient bar — strong brand anchor */}
         <div className="h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent" aria-hidden="true" />
@@ -130,9 +133,18 @@ export function Layout({ children }: { children: ReactNode }) {
 
           {/* Bottom bar */}
           <div className="mt-10 border-t border-border/40 pt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-            <Link to="/legal" className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
-              {t("footer.link.legalCenter")} →
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link to="/legal" className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+                {t("footer.link.legalCenter")} →
+              </Link>
+              <button
+                type="button"
+                onClick={openConsentPreferences}
+                className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+              >
+                {t("cookie.label")}
+              </button>
+            </div>
             <small className="text-xs text-muted-foreground/70">
               {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
             </small>

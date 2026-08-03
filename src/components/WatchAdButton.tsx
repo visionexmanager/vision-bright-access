@@ -9,6 +9,7 @@ import { useEarnPoints, DAILY_AD_LIMIT } from "@/hooks/useEarnPoints";
 import { useSound } from "@/contexts/SoundContext";
 import { RewardedAdModal } from "@/components/RewardedAdModal";
 import { toast } from "@/hooks/use-toast";
+import { isRewardedAdsConfigured, useAdEligibility } from "@/features/ads";
 
 const VX_REWARD = 5;
 
@@ -32,6 +33,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
   const [showAd, setShowAd] = useState(false);
   const [adKey, setAdKey] = useState(0);
   const [todayCount, setTodayCount] = useState<number | null>(null);
+  const { advertisingConsent, routeEligible } = useAdEligibility();
 
   // Load today's count once when user is known
   useEffect(() => {
@@ -55,7 +57,7 @@ export function WatchAdButton({ variant = "card", className = "" }: Props) {
   }, [getTodayAdCount, earnPoints, playSound, t]);
 
   // Don't render if not logged in
-  if (!user) return null;
+  if (!user || !isRewardedAdsConfigured() || !advertisingConsent || !routeEligible) return null;
 
   const count = todayCount ?? 0;
   const remaining = Math.max(0, DAILY_AD_LIMIT - count);
