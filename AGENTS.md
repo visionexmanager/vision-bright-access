@@ -27,11 +27,13 @@ For application changes, run at minimum:
 
 ```bash
 npm ci
-npx tsc --noEmit
+npx tsc -b --noEmit
 npm test
 npm run lint
 npm run build
 ```
+
+Use `tsc -b`, not a bare `npx tsc --noEmit`. The root `tsconfig.json` is a solution-style config with `"files": []` and project references, so a bare `tsc --noEmit` type-checks nothing and always passes. `tsc -b` builds the referenced `tsconfig.app.json` and `tsconfig.node.json` and is the only command that actually checks application code.
 
 If a repository check is intentionally narrower, explain why in the pull request. Add or update tests for behavior changes. Do not claim success without reporting the commands actually run and their results.
 
@@ -68,6 +70,15 @@ If a repository check is intentionally narrower, explain why in the pull request
 - Do not weaken authorization, billing, KYC, payment, rate-limit, or anti-abuse controls to make a test pass.
 - Preserve atomic VX balance operations and safe refund behavior.
 - Do not invent production data, credentials, deployment results, or test outcomes.
+
+## Repository specifics
+
+These contracts are enforced by tests but are easy to miss when adding features.
+
+- **Arcade games are registered in four places.** A new game needs an `ARCADE_GAMES` entry in `src/features/arcade/catalog.ts`, a `lazyWithRetry` import and `<Route>` in `src/App.tsx`, a loader in `src/features/arcade/core/gameLoaders.ts`, and a source path in `src/features/arcade/upgrade/gameUpgradeAudit.ts`. The last two are slug-keyed maps, so a missing key yields `undefined` rather than an error — the build and lint stay green and only the unit suites catch it. Cover art needs no registration; `visualRegistry.ts` derives cover, thumbnail, and background from `game.image`.
+- **The Service Center is catalog-driven.** Add services to `src/features/servicecenter/catalog.ts`, never to the page JSX.
+- **Translations cover 11 locales.** `src/i18n/` holds `ar`, `de`, `en`, `es`, `fr`, `hi`, `pt`, `ru`, `tr`, `ur`, and `zh`, all at full key parity. Add every new key to all eleven files, not just `en` and `ar`.
+- **`LanguageContext` rewrites rendered DOM text by matching English strings.** Substring matches can corrupt unrelated text, so verify user-facing changes in a non-English locale in a browser, not only in the dictionary files.
 
 ## Collaboration
 
