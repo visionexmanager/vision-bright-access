@@ -86,6 +86,20 @@ describe("ludo engine", () => {
     expect(ludoWinner(game)).toBe(2);
   });
 
+  it("reports the human winner as 0, which is falsy — callers must compare to null", () => {
+    const game = createLudo();
+    game.tokens[0] = [FINISH, FINISH, FINISH, FINISH];
+
+    const champion = ludoWinner(game);
+    expect(champion).toBe(0);
+
+    // The page used to gate on `!champion` / `if (champion)`. Player 0 is you,
+    // and 0 is falsy, so winning read as "no winner yet": no win sound, no win
+    // status, no economy settlement, and the rivals kept taking turns.
+    expect(Boolean(champion)).toBe(false);
+    expect(champion !== null).toBe(true);
+  });
+
   it("prefers a capture over any other bot move", () => {
     const game = createLudo();
     game.tokens[1][0] = 42;   // green sits on global square 3

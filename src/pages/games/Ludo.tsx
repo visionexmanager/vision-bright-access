@@ -97,13 +97,16 @@ export default function Ludo() {
   }), [ar]);
 
   const champion = winner(game);
+  // You are player 0, so `champion` is falsy exactly when you have won. Every
+  // check below compares against null instead of testing truthiness.
+  const over = champion !== null;
   const myMoves = useMemo(
-    () => (game.turn === 0 && game.die !== null && !champion ? legalTokens(game, 0, game.die) : []),
-    [game, champion],
+    () => (game.turn === 0 && game.die !== null && !over ? legalTokens(game, 0, game.die) : []),
+    [game, over],
   );
 
   useEffect(() => {
-    if (!champion || settled.current) return;
+    if (champion === null || settled.current) return;
     settled.current = true;
     playSound(champion === 0 ? "complete" : "error");
     setStatus(champion === 0 ? text.won : text.lost);
@@ -119,7 +122,7 @@ export default function Ludo() {
 
   // A roll with no legal token forfeits the turn.
   useEffect(() => {
-    if (game.turn !== 0 || game.die === null || champion) return;
+    if (game.turn !== 0 || game.die === null || over) return;
     if (legalTokens(game, 0, game.die).length > 0) { setStatus(text.pick); return; }
     setStatus(text.noMoves);
     const timer = setTimeout(
@@ -127,7 +130,7 @@ export default function Ludo() {
       900,
     );
     return () => clearTimeout(timer);
-  }, [game, champion, text.pick, text.noMoves]);
+  }, [game, over, text.pick, text.noMoves]);
 
   const moveToken = (tokenIndex: number) => {
     if (game.turn !== 0 || game.die === null) return;
@@ -165,7 +168,7 @@ export default function Ludo() {
   }, []);
 
   useEffect(() => {
-    if (game.turn === 0 || champion) return;
+    if (game.turn === 0 || over) return;
     setBusy(true);
     setStatus(text.rivalTurn);
     const timer = setTimeout(() => {
@@ -174,7 +177,7 @@ export default function Ludo() {
       setStatus(text.yourTurn);
     }, 650);
     return () => { clearTimeout(timer); setBusy(false); };
-  }, [game, champion, playRivals, text.rivalTurn, text.yourTurn]);
+  }, [game, over, playRivals, text.rivalTurn, text.yourTurn]);
 
   const restart = () => {
     setGame(createGame());
@@ -228,7 +231,7 @@ export default function Ludo() {
           <Button
             size="sm"
             onClick={roll}
-            disabled={game.turn !== 0 || game.die !== null || busy || !!champion}
+            disabled={game.turn !== 0 || game.die !== null || busy || over}
             className="gap-1.5"
           >
             <Dices className="h-4 w-4" aria-hidden="true" />{text.roll}
