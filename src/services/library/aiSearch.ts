@@ -1,5 +1,6 @@
 // ─── Library — Knowledge & Research Platform: AI Semantic Search ───────────
 
+import { jsonPayload } from "@/integrations/supabase/json";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface LibraryAiSearchResult {
@@ -32,7 +33,7 @@ export async function fetchSavedSearches(userId: string): Promise<LibrarySavedSe
 }
 
 export async function saveSearch(userId: string, name: string, query: string, filters: Record<string, unknown> = {}): Promise<void> {
-  const { error } = await supabase.from("library_saved_searches").insert({ user_id: userId, name, query, filters });
+  const { error } = await supabase.from("library_saved_searches").insert({ user_id: userId, name, query, filters: jsonPayload(filters) });
   if (error) throw new Error(error.message);
 }
 

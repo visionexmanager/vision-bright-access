@@ -8,6 +8,7 @@
 // and filter-change events are logged debounced by the caller, not per
 // keystroke.
 
+import { jsonPayload } from "@/integrations/supabase/json";
 import { supabase } from "@/integrations/supabase/client";
 
 const SESSION_KEY = "library:analytics-session-id";
@@ -52,7 +53,7 @@ export async function logLibraryAnalyticsEvent(eventType: LibraryAnalyticsEventT
       event_type: eventType,
       entity_type: options.entityType ?? null,
       entity_id: options.entityId ?? null,
-      metadata: options.metadata ?? {},
+      metadata: jsonPayload(options.metadata ?? {}),
     });
     if (error) console.warn("library analytics event failed:", error.message);
   } catch (err) {

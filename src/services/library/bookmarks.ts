@@ -3,6 +3,7 @@
 // engagement.sql) — RLS (`FOR ALL USING/WITH CHECK auth.uid() = user_id`)
 // does all the gating, no extra checks needed here.
 
+import { jsonPayload } from "@/integrations/supabase/json";
 import { supabase } from "@/integrations/supabase/client";
 import type { LibraryBookmarkRow } from "@/lib/types/library-reader";
 
@@ -20,7 +21,7 @@ export async function fetchBookmarks(userId: string, bookId: string): Promise<Li
 }
 
 export async function createBookmark(userId: string, bookId: string, pageNumber: number | null, position: Record<string, unknown>, label: string | null): Promise<void> {
-  const { error } = await supabase.from("library_bookmarks").insert({ user_id: userId, book_id: bookId, page_number: pageNumber, position, label });
+  const { error } = await supabase.from("library_bookmarks").insert({ user_id: userId, book_id: bookId, page_number: pageNumber, position: jsonPayload(position), label });
   if (error) throw new Error(error.message);
 }
 

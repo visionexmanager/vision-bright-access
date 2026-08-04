@@ -2,6 +2,7 @@
 // Wraps library_ai_preferences (20260727000000_library_ai_assistant_v2.sql)
 // — one row per user, RLS "user manages own".
 
+import { jsonPayload } from "@/integrations/supabase/json";
 import { supabase } from "@/integrations/supabase/client";
 import type { AiPreferencesRow } from "@/lib/types/library-ai";
 
@@ -18,6 +19,6 @@ export async function fetchAiPreferences(userId: string): Promise<AiPreferencesR
 }
 
 export async function saveAiPreferences(userId: string, patch: Partial<Omit<AiPreferencesRow, "user_id" | "updated_at">>): Promise<void> {
-  const { error } = await supabase.from("library_ai_preferences").upsert({ user_id: userId, ...patch }, { onConflict: "user_id" });
+  const { error } = await supabase.from("library_ai_preferences").upsert({ user_id: userId, ...patch, ...(patch.accessibility_preferences ? { accessibility_preferences: jsonPayload(patch.accessibility_preferences) } : {}) }, { onConflict: "user_id" });
   if (error) throw new Error(error.message);
 }
