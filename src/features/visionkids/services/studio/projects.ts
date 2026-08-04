@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, jsonPayload } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { CreativeProject, ProjectVersion, ProjectType } from "@/features/visionkids/types/studio.types";
 
 async function requireUserId(): Promise<string> {
@@ -35,7 +35,7 @@ export interface CreateProjectInput {
   title: string;
   description?: string;
   thumbnailUrl?: string;
-  content: Record<string, unknown>;
+  content: object;
   assetUrls?: string[];
 }
 
@@ -46,7 +46,7 @@ export async function createProject(input: CreateProjectInput): Promise<Creative
     .insert({
       user_id, project_type: input.projectType, title: input.title || "Untitled",
       description: input.description ?? null, thumbnail_url: input.thumbnailUrl ?? null,
-      content: input.content, asset_urls: input.assetUrls ?? [],
+      content: jsonPayload(input.content), asset_urls: input.assetUrls ?? [],
     })
     .select("*").single().returns<CreativeProject>();
   if (error) throw error;
@@ -57,7 +57,7 @@ export interface SaveProjectInput {
   id: string;
   title?: string;
   thumbnailUrl?: string;
-  content?: Record<string, unknown>;
+  content?: object;
   assetUrls?: string[];
   saveVersion?: boolean;
 }
@@ -68,14 +68,14 @@ export async function saveProject(input: SaveProjectInput): Promise<void> {
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (input.title !== undefined) update.title = input.title;
   if (input.thumbnailUrl !== undefined) update.thumbnail_url = input.thumbnailUrl;
-  if (input.content !== undefined) update.content = input.content;
+  if (input.content !== undefined) update.content = jsonPayload(input.content);
   if (input.assetUrls !== undefined) update.asset_urls = input.assetUrls;
 
   const { error } = await kidsDb.from("kids_creative_projects").update(update).eq("id", input.id);
   if (error) throw error;
 
   if (input.saveVersion !== false && input.content !== undefined) {
-    await kidsDb.from("kids_creative_project_versions").insert({ project_id: input.id, content: input.content });
+    await kidsDb.from("kids_creative_project_versions").insert({ project_id: input.id, content: jsonPayload(input.content) });
   }
 }
 

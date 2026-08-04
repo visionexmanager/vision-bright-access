@@ -2,10 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { adsConfig, isAdSenseConfigured } from "./config";
 import { useAdEligibility } from "./useAdEligibility";
 
-declare global {
-  interface Window { adsbygoogle?: unknown[]; }
-}
-
 let scriptPromise: Promise<void> | null = null;
 
 function loadAdSense() {

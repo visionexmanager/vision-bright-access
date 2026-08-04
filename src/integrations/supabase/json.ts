@@ -14,7 +14,19 @@ import type { Json } from "./types";
  * typed correctly on its own and needs nothing.
  */
 export function rpcResult<T>(data: Json): T {
-  return data as unknown as T;
+  return jsonAs<T>(data);
+}
+
+/**
+ * Reads a `jsonb` column into the shape the app stores there.
+ *
+ * The same assertion as {@link rpcResult}, from a different source: a column
+ * rather than a function result. The stored shape is a contract with whatever
+ * writes the column, which is why the two directions are named separately —
+ * this one can be wrong because an older row has an older shape.
+ */
+export function jsonAs<T>(value: unknown): T {
+  return value as T;
 }
 
 /**
