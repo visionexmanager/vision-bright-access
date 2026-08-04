@@ -33,6 +33,7 @@ import chessImg from "@/assets/arcade/game-chess-v1.svg";
 import backgammonImg from "@/assets/arcade/game-backgammon-v1.svg";
 import ludoImg from "@/assets/arcade/game-ludo-v1.svg";
 import wordMasterImg from "@/assets/arcade/game-wordmaster-v1.svg";
+import skyboundImg from "@/assets/arcade/game-skybound-quest-v1.svg";
 
 export const ARCADE_CATEGORIES = ["Classic","Puzzle","Board","Card","Educational","Kids","Typing","Memory","Word","Math","Logic","Quiz","Reaction","Arcade","Action","Adventure","Platform","Racing","Sports","Physics","Simulation","Idle","Strategy","Tower Defense","City Builder","Business Simulation","Cooking","Music","Drawing","Accessible","Audio","Multiplayer"] as const;
 export type ArcadeCategory = typeof ARCADE_CATEGORIES[number];
@@ -175,6 +176,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
   game({ slug:"backgammon", to:"/games/backgammon", image:backgammonImg, title:"Backgammon", titleAr:"طاولة الزهر", description:"Bear off all fifteen checkers, using the bar, hits, and exact rolls.", descriptionAr:"أخرج أحجارك الخمسة عشر مستخدماً البار والضرب والرميات المضبوطة.", categories:["Board","Classic","Strategy","Accessible"], difficulty:"Hard", age:"Everyone", players:"1", plays:0, rating:0, featured:true, recentlyAdded:true, controls:["Keyboard","Touch","Pointer"], accessible:true }),
   game({ slug:"ludo", to:"/games/ludo", image:ludoImg, title:"Ludo", titleAr:"لودو", description:"Race three rivals around the cross board and bring four tokens home.", descriptionAr:"سابق ثلاثة منافسين حول رقعة الصليب وأوصل أحجارك الأربعة إلى المركز.", categories:["Board","Classic","Strategy","Kids","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch","Pointer"], accessible:true }),
   game({ slug:"word-master", to:"/games/word-master", image:wordMasterImg, title:"Word Master", titleAr:"سيد الكلمات", description:"Guess the five-letter word in six tries, in Arabic or English.", descriptionAr:"خمّن كلمة الخمسة حروف خلال ست محاولات بالعربية أو الإنجليزية.", categories:["Word","Puzzle","Educational","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, trending:true, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
+  game({ slug:"skybound-quest", to:"/games/skybound-quest", image:skyboundImg, title:"Skybound Quest", titleAr:"مغامرة بوابة السماء", description:"Jump between sky platforms for every gem, one unhurried move at a time.", descriptionAr:"اقفز بين منصات السماء لجمع كل جوهرة، بحركة واحدة كاملة في كل مرة.", categories:["Platform","Adventure","Puzzle","Logic","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, trending:true, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
 ];
 
 export function getArcadeGame(pathname: string) {
