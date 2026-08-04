@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { BuyResult } from "@/features/visionkids/types/world.types";
 
 /** Read the child's VX coin balance (the real wallet is public.user_points;
@@ -19,5 +19,5 @@ export async function fetchCoinBalance(): Promise<number> {
 export async function buyItem(itemSlug: string): Promise<BuyResult> {
   const { data, error } = await kidsDb.rpc("buy_kids_item", { _item_slug: itemSlug });
   if (error) throw error;
-  return data as BuyResult;
+  return rpcResult<BuyResult>(data);
 }

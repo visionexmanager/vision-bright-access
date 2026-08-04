@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { HabitLog, MoodLog, SleepLog, WellnessSession, Mood, SleepQuality } from "@/features/visionkids/types/wellness.types";
 
 async function currentUserId(): Promise<string | null> {
@@ -22,7 +22,7 @@ export interface LogHabitResult { newly_logged: boolean; streak: number; }
 export async function logHabit(habitSlug: string, date: string): Promise<LogHabitResult> {
   const { data, error } = await kidsDb.rpc("log_kids_habit", { _habit_slug: habitSlug, _date: date });
   if (error) throw error;
-  return data as LogHabitResult;
+  return rpcResult<LogHabitResult>(data);
 }
 
 // ── Mood ──────────────────────────────────────────────────────────────────

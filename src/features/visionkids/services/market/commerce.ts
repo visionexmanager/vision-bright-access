@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { MarketOrder, Product } from "@/features/visionkids/types/market.types";
 
 async function currentUserId(): Promise<string | null> {
@@ -11,7 +11,7 @@ export interface PurchaseResult { ok: boolean; already_owned: boolean; }
 export async function purchaseProduct(productId: string): Promise<PurchaseResult> {
   const { data, error } = await kidsDb.rpc("purchase_kids_product", { _product_id: productId });
   if (error) throw error;
-  return data as PurchaseResult;
+  return rpcResult<PurchaseResult>(data);
 }
 
 export async function fetchOrders(): Promise<MarketOrder[]> {

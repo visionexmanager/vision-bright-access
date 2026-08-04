@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type {
   Organization, OrgMember, School, MyMembership, SchoolDashboard, OrgAnalytics, OrgKind, OrgRole,
 } from "@/features/visionkids/types/enterprise.types";
@@ -66,11 +66,11 @@ export async function fetchSchools(orgId: string): Promise<School[]> {
 export async function fetchDashboard(orgId: string): Promise<SchoolDashboard> {
   const { data, error } = await kidsDb.rpc("get_kids_school_dashboard", { _org: orgId });
   if (error) throw error;
-  return data as SchoolDashboard;
+  return rpcResult<SchoolDashboard>(data);
 }
 
 export async function fetchAnalytics(orgId: string): Promise<OrgAnalytics> {
   const { data, error } = await kidsDb.rpc("get_kids_org_analytics", { _org: orgId });
   if (error) throw error;
-  return data as OrgAnalytics;
+  return rpcResult<OrgAnalytics>(data);
 }

@@ -13,7 +13,7 @@ export async function fetchRegions(): Promise<WorldRegion[]> {
 
 export async function fetchRegion(slug: string): Promise<WorldRegion | null> {
   const { data, error } = await kidsDb
-    .from("kids_world_regions").select("*").eq("slug", slug).maybeSingle();
+    .from("kids_world_regions").select("*").eq("slug", slug).maybeSingle().returns<WorldRegion>();
   if (error) throw error;
   return data ?? null;
 }

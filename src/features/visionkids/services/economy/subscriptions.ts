@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { Subscription, Invoice, SubscribeResult, FinancialReports } from "@/features/visionkids/types/economy.types";
 
 async function currentUserId(): Promise<string | null> {
@@ -19,7 +19,7 @@ export async function fetchMySubscriptions(): Promise<Subscription[]> {
 export async function subscribe(planSlug: string, orgId?: string): Promise<SubscribeResult> {
   const { data, error } = await kidsDb.rpc("subscribe_kids_plan", { _plan_slug: planSlug, _org_id: orgId ?? null });
   if (error) throw error;
-  return data as SubscribeResult;
+  return rpcResult<SubscribeResult>(data);
 }
 
 export async function approveSubscription(id: string): Promise<void> {
@@ -63,5 +63,5 @@ export async function linkGuardian(guardianId: string): Promise<void> {
 export async function fetchFinancialReports(): Promise<FinancialReports> {
   const { data, error } = await kidsDb.rpc("get_kids_financial_reports");
   if (error) throw error;
-  return data as FinancialReports;
+  return rpcResult<FinancialReports>(data);
 }

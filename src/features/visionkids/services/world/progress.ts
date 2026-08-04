@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult, jsonPayload } from "@/features/visionkids/services/stories/kidsSupabase";
 import type {
   WorldHome, InventoryItem, QuestProgress, WorldSettings, WorldStats,
 } from "@/features/visionkids/types/world.types";
@@ -13,13 +13,13 @@ export async function fetchHome(): Promise<WorldHome | null> {
   const userId = await currentUserId();
   if (!userId) return null;
   const { data, error } = await kidsDb
-    .from("kids_world_homes").select("*").eq("user_id", userId).maybeSingle();
+    .from("kids_world_homes").select("*").eq("user_id", userId).maybeSingle().returns<WorldHome>();
   if (error) throw error;
   return data ?? null;
 }
 
 export async function saveHome(name: string, theme: string, rooms: Record<string, unknown>): Promise<void> {
-  const { error } = await kidsDb.rpc("save_kids_home", { _name: name, _theme: theme, _rooms: rooms });
+  const { error } = await kidsDb.rpc("save_kids_home", { _name: name, _theme: theme, _rooms: jsonPayload(rooms) });
   if (error) throw error;
 }
 
@@ -50,7 +50,7 @@ export interface WorldQuestResult { newly_completed: boolean; period_start: stri
 export async function completeQuest(activityId: string): Promise<WorldQuestResult> {
   const { data, error } = await kidsDb.rpc("complete_kids_world_quest", { _activity_id: activityId });
   if (error) throw error;
-  return data as WorldQuestResult;
+  return rpcResult<WorldQuestResult>(data);
 }
 
 // ── Region visits ───────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ export async function fetchWorldSettings(): Promise<WorldSettings | null> {
   const userId = await currentUserId();
   if (!userId) return null;
   const { data, error } = await kidsDb
-    .from("kids_world_settings").select("*").eq("user_id", userId).maybeSingle();
+    .from("kids_world_settings").select("*").eq("user_id", userId).maybeSingle().returns<WorldSettings>();
   if (error) throw error;
   return data ?? null;
 }
@@ -114,5 +114,5 @@ export async function upsertWorldSettings(
 export async function fetchWorldStats(): Promise<WorldStats> {
   const { data, error } = await kidsDb.rpc("get_kids_world_stats");
   if (error) throw error;
-  return data as WorldStats;
+  return rpcResult<WorldStats>(data);
 }

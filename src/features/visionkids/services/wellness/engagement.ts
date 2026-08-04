@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { ChallengeProgress, Companion, WellnessSettings, WellnessStats } from "@/features/visionkids/types/wellness.types";
 
 async function currentUserId(): Promise<string | null> {
@@ -27,7 +27,7 @@ export async function completeChallenge(challengeId: string): Promise<boolean> {
 export async function fetchWellnessStats(): Promise<WellnessStats> {
   const { data, error } = await kidsDb.rpc("get_kids_wellness_stats");
   if (error) throw error;
-  return data as WellnessStats;
+  return rpcResult<WellnessStats>(data);
 }
 
 // ── Companion ──────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ export async function fetchWellnessSettings(): Promise<WellnessSettings | null> 
   const userId = await currentUserId();
   if (!userId) return null;
   const { data, error } = await kidsDb
-    .from("kids_wellness_settings").select("*").eq("user_id", userId).maybeSingle();
+    .from("kids_wellness_settings").select("*").eq("user_id", userId).maybeSingle().returns<WellnessSettings>();
   if (error) throw error;
   return data ?? null;
 }

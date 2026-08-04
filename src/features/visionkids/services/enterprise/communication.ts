@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type {
   Announcement, OrgResource, OrgCertificate, CertificateVerification, AnnouncementKind, Audience, ResourceType,
 } from "@/features/visionkids/types/enterprise.types";
@@ -64,5 +64,5 @@ export async function issueCertificate(input: { orgId: string; studentId: string
 export async function verifyCertificate(code: string): Promise<CertificateVerification> {
   const { data, error } = await kidsDb.rpc("verify_kids_org_certificate", { _code: code });
   if (error) throw error;
-  return data as CertificateVerification;
+  return rpcResult<CertificateVerification>(data);
 }

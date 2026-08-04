@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
-import { Map, Award } from "lucide-react";
+// Aliased: the unaliased `Map` shadows the global Map constructor, and this
+// file builds a real Map below.
+import { Map as MapIcon, Award } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useDocumentHead } from "@/hooks/useDocumentHead";
@@ -43,7 +45,7 @@ export default function LearningPath() {
   if (!user) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
-        <Map className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden="true" />
+        <MapIcon className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden="true" />
         <p className="mt-3 text-lg font-semibold">{t("kids.stories.signInRequired")}</p>
         <Link to="/login" className="mt-2 inline-block text-kids-primary hover:underline">{t("nav.login")}</Link>
       </div>
@@ -53,7 +55,7 @@ export default function LearningPath() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
       <h1 className="flex items-center gap-2 font-heading text-3xl font-extrabold">
-        <Map className="h-7 w-7 text-kids-primary" aria-hidden="true" /> {t("kids.academy.learningPathTitle")}
+        <MapIcon className="h-7 w-7 text-kids-primary" aria-hidden="true" /> {t("kids.academy.learningPathTitle")}
       </h1>
       <p className="mt-1 text-muted-foreground">{t("kids.academy.learningPathSubtitle")}</p>
 

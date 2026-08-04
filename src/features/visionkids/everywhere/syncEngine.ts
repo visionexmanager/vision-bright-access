@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, jsonPayload } from "@/features/visionkids/services/stories/kidsSupabase";
 import { getAll, putRecord, deleteRecord } from "@/features/visionkids/everywhere/offlineDb";
 import { getDeviceKey } from "@/features/visionkids/everywhere/platform";
 import type { SyncEntity, SyncOp, SyncQueueItem, SyncResult, SyncEventKind } from "@/features/visionkids/types/everywhere.types";
@@ -32,7 +32,7 @@ export async function pendingCount(): Promise<number> {
 
 async function logEvent(kind: SyncEventKind, entity: string | null, detail: Record<string, unknown>): Promise<void> {
   try {
-    await kidsDb.rpc("log_kids_sync_event", { _device_key: getDeviceKey(), _kind: kind, _entity: entity, _detail: detail });
+    await kidsDb.rpc("log_kids_sync_event", { _device_key: getDeviceKey(), _kind: kind, _entity: entity, _detail: jsonPayload(detail) });
   } catch { /* logging is best-effort */ }
 }
 

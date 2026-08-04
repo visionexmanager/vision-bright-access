@@ -13,7 +13,7 @@ export async function fetchLabs(): Promise<StemLab[]> {
 
 export async function fetchLab(slug: string): Promise<StemLab | null> {
   const { data, error } = await kidsDb
-    .from("kids_stem_labs").select("*").eq("slug", slug).maybeSingle();
+    .from("kids_stem_labs").select("*").eq("slug", slug).maybeSingle().returns<StemLab>();
   if (error) throw error;
   return data ?? null;
 }
@@ -28,7 +28,7 @@ export async function fetchExperiments(lab: string, topic?: string): Promise<Exp
 
 export async function fetchExperiment(lab: string, slug: string): Promise<Experiment | null> {
   const { data, error } = await kidsDb
-    .from("kids_experiments").select("*").eq("lab", lab).eq("slug", slug).maybeSingle();
+    .from("kids_experiments").select("*").eq("lab", lab).eq("slug", slug).maybeSingle().returns<Experiment>();
   if (error) throw error;
   return data ?? null;
 }
@@ -43,7 +43,7 @@ export async function fetchInnovationChallenges(): Promise<InnovationChallenge[]
 
 export async function fetchInnovationChallenge(slug: string): Promise<InnovationChallenge | null> {
   const { data, error } = await kidsDb
-    .from("kids_innovation_challenges").select("*").eq("slug", slug).maybeSingle();
+    .from("kids_innovation_challenges").select("*").eq("slug", slug).maybeSingle().returns<InnovationChallenge>();
   if (error) throw error;
   return data ?? null;
 }
@@ -58,7 +58,7 @@ export async function fetchResearchArticles(category?: string): Promise<Research
 
 export async function fetchResearchArticle(slug: string): Promise<ResearchArticle | null> {
   const { data, error } = await kidsDb
-    .from("kids_research_articles").select("*").eq("slug", slug).maybeSingle();
+    .from("kids_research_articles").select("*").eq("slug", slug).maybeSingle().returns<ResearchArticle>();
   if (error) throw error;
   return data ?? null;
 }

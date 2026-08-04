@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { EconomySummary, DonationCause } from "@/features/visionkids/types/economy.types";
 
 async function currentUserId(): Promise<string | null> {
@@ -9,7 +9,7 @@ async function currentUserId(): Promise<string | null> {
 export async function fetchEconomySummary(): Promise<EconomySummary> {
   const { data, error } = await kidsDb.rpc("get_kids_economy_summary");
   if (error) throw error;
-  return data as EconomySummary;
+  return rpcResult<EconomySummary>(data);
 }
 
 export async function fetchCoinBalance(): Promise<number> {

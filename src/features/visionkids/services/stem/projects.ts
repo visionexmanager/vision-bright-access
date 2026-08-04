@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, jsonPayload } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { ProjectKind, StemProject } from "@/features/visionkids/types/stem.types";
 
 async function currentUserId(): Promise<string | null> {
@@ -47,7 +47,7 @@ export async function saveProject(input: SaveProjectInput): Promise<string> {
     _description: input.description ?? null,
     _lab: input.lab ?? null,
     _emoji: input.emoji ?? null,
-    _data: input.data,
+    _data: jsonPayload(input.data),
     _is_public: input.isPublic ?? false,
   });
   if (error) throw error;
@@ -68,7 +68,7 @@ export async function submitInnovation(input: SubmitInnovationInput): Promise<st
     _challenge_id: input.challengeId,
     _title: input.title,
     _description: input.description ?? null,
-    _data: input.data,
+    _data: jsonPayload(input.data),
     _is_public: input.isPublic ?? true,
   });
   if (error) throw error;

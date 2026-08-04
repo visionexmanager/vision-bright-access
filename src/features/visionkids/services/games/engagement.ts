@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, jsonPayload } from "@/features/visionkids/services/stories/kidsSupabase";
 import type {
   GameSession, GameFavorite, PlayerGameStats, LeaderboardEntry, GameRating,
 } from "@/features/visionkids/types/games.types";
@@ -42,7 +42,7 @@ export async function endGameSession(input: EndSessionInput): Promise<void> {
       duration_seconds: input.durationSeconds,
       won: input.won,
       completed: true,
-      metadata: input.metadata ?? {},
+      metadata: jsonPayload(input.metadata ?? {}),
     })
     .eq("id", input.sessionId);
   if (error) throw error;
