@@ -274,6 +274,10 @@ const QuizChallenge = lazyWithRetry(() => import("./pages/QuizChallenge"));
 const MemoryGame = lazyWithRetry(() => import("./pages/MemoryGame"));
 const WordPuzzle = lazyWithRetry(() => import("./pages/WordPuzzle"));
 const Visionopoly = lazyWithRetry(() => import("./pages/games/Visionopoly"));
+const Chess = lazyWithRetry(() => import("./pages/games/Chess"));
+const Backgammon = lazyWithRetry(() => import("./pages/games/Backgammon"));
+const Ludo = lazyWithRetry(() => import("./pages/games/Ludo"));
+const WordMaster = lazyWithRetry(() => import("./pages/games/WordMaster"));
 const AssistiveProducts = lazyWithRetry(() => import("./pages/AssistiveProducts"));
 const BusinessSimulator = lazyWithRetry(() => import("./pages/BusinessSimulator"));
 const SimulationRunner = lazyWithRetry(() => import("./pages/SimulationRunner"));
@@ -901,6 +905,10 @@ function AppRoutes() {
                     <Route path="/games/memory" element={<GameEconomyGate gameTitle="Memory Game"><MemoryGame /></GameEconomyGate>} />
                     <Route path="/games/word-puzzle" element={<GameEconomyGate gameTitle="Word Puzzle"><WordPuzzle /></GameEconomyGate>} />
                     <Route path="/games/visionopoly" element={<GameEconomyGate gameTitle="Visionopoly"><Visionopoly /></GameEconomyGate>} />
+                    <Route path="/games/chess" element={<GameEconomyGate gameTitle="Chess"><Chess /></GameEconomyGate>} />
+                    <Route path="/games/backgammon" element={<GameEconomyGate gameTitle="Backgammon"><Backgammon /></GameEconomyGate>} />
+                    <Route path="/games/ludo" element={<GameEconomyGate gameTitle="Ludo"><Ludo /></GameEconomyGate>} />
+                    <Route path="/games/word-master" element={<GameEconomyGate gameTitle="Word Master"><WordMaster /></GameEconomyGate>} />
                     <Route path="/games/2048" element={<GameEconomyGate gameTitle="2048"><Game2048 /></GameEconomyGate>} />
                     <Route path="/games/minesweeper" element={<GameEconomyGate gameTitle="Minesweeper"><Minesweeper /></GameEconomyGate>} />
                     <Route path="/games/connect-four" element={<GameEconomyGate gameTitle="Connect Four"><ConnectFour /></GameEconomyGate>} />
