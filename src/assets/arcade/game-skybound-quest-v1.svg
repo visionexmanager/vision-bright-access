@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 512" role="img" aria-labelledby="title">
+  <title id="title">A climber leaping between floating sky platforms toward a gem and a doorway</title>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#0c4a6e"/>
+      <stop offset=".55" stop-color="#0369a1"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#a3e635"/>
+      <stop offset=".22" stop-color="#65a30d"/>
+      <stop offset=".23" stop-color="#78350f"/>
+      <stop offset="1" stop-color="#451a03"/>
+    </linearGradient>
+    <filter id="glow"><feDropShadow dx="0" dy="6" stdDeviation="9" flood-opacity=".45"/></filter>
+  </defs>
+
+  <rect width="768" height="512" rx="36" fill="url(#sky)"/>
+
+  <g fill="#e0f2fe" opacity=".5">
+    <ellipse cx="140" cy="86" rx="62" ry="24"/>
+    <ellipse cx="182" cy="76" rx="44" ry="26"/>
+    <ellipse cx="612" cy="132" rx="70" ry="26"/>
+    <ellipse cx="566" cy="122" rx="46" ry="22"/>
+  </g>
+
+  <g filter="url(#glow)">
+    <rect x="60" y="392" width="200" height="40" rx="10" fill="url(#stone)"/>
+    <rect x="286" y="310" width="150" height="40" rx="10" fill="url(#stone)"/>
+    <rect x="470" y="228" width="150" height="40" rx="10" fill="url(#stone)"/>
+    <rect x="330" y="146" width="120" height="40" rx="10" fill="url(#stone)"/>
+  </g>
+
+  <g fill="#f59e0b" stroke="#fef3c7" stroke-width="3">
+    <path d="M362 118 l16 22 -16 22 -16 -22z"/>
+    <path d="M540 200 l16 22 -16 22 -16 -22z"/>
+  </g>
+
+  <g transform="translate(232 250)">
+    <rect x="-4" y="-6" width="46" height="58" rx="10" fill="#fbbf24"/>
+    <circle cx="19" cy="-22" r="19" fill="#fde68a" stroke="#78350f" stroke-width="3"/>
+    <rect x="-24" y="4" width="26" height="12" rx="6" fill="#fbbf24" transform="rotate(-32 -11 10)"/>
+    <rect x="40" y="-2" width="26" height="12" rx="6" fill="#fbbf24" transform="rotate(-28 53 4)"/>
+    <rect x="2" y="48" width="14" height="26" rx="7" fill="#1d4ed8"/>
+    <rect x="24" y="44" width="14" height="26" rx="7" fill="#1d4ed8" transform="rotate(16 31 57)"/>
+  </g>
+
+  <g stroke="#e0f2fe" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 18" fill="none" opacity=".85">
+    <path d="M196 372 q52 -104 128 -70"/>
+  </g>
+
+  <g transform="translate(600 132)">
+    <rect width="58" height="96" rx="8" fill="#1e293b" stroke="#facc15" stroke-width="5"/>
+    <rect x="12" y="18" width="34" height="60" rx="6" fill="#facc15" opacity=".85"/>
+    <circle cx="40" cy="50" r="4" fill="#1e293b"/>
+  </g>
+
+  <rect x="286" y="392" width="200" height="40" rx="10" fill="url(#stone)"/>
+  <g fill="#ef4444" stroke="#7f1d1d" stroke-width="2">
+    <path d="M300 393 l14 -26 14 26z"/>
+    <path d="M330 393 l14 -26 14 26z"/>
+  </g>
+</svg>
