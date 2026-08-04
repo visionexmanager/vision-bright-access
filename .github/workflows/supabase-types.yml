@@ -63,10 +63,14 @@ jobs:
             git diff --stat -- src/integrations/supabase/types.ts
           fi
 
+      # DEPLOY_TOKEN, not the default GITHUB_TOKEN: this repository has "Allow
+      # GitHub Actions to create and approve pull requests" disabled, so the
+      # built-in token pushes the branch and then fails at the PR itself.
       - name: Open a pull request
         if: steps.drift.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
+          token: ${{ secrets.DEPLOY_TOKEN }}
           branch: chore/regenerate-supabase-types
           base: main
           commit-message: "chore(db): regenerate Supabase types from the production schema"
