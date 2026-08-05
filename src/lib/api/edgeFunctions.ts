@@ -752,6 +752,11 @@ export interface HealthCheckComponentStatus {
 export interface HealthCheckResponse {
   ok:        boolean;
   timestamp: string;
+  /**
+   * Whether the caller was an admin and therefore received the `secret_*`
+   * entries. When false, an absent secret means "not shown", not "configured".
+   */
+  secret_audit_included?: boolean;
   summary: {
     total:        number;
     passing:      number;
@@ -768,13 +773,16 @@ export interface HealthCheckResponse {
 /**
  * health-check — tests all AI Media Studio infrastructure components.
  * Returns detailed status for DB tables, API keys, storage buckets, and providers.
- * No auth required.
+ *
+ * Sends the user's JWT so admins additionally receive the platform secret
+ * inventory (`secret_*` entries, presence only — never a value). The function
+ * itself is verify_jwt = false and still answers anonymous callers without it.
  */
 export async function callHealthCheck(): Promise<HealthCheckResponse> {
   return callEdge({
     fn:   "health-check",
     body: {},
-    auth: "anon",
+    auth: "user-jwt",
   }) as Promise<HealthCheckResponse>;
 }
 
