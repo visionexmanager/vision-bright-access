@@ -116,4 +116,7 @@ export const GAME_LOADERS: Record<string, Loader> = {
   "maze-runner": () => import("@/pages/games/expansion/MazeRunner"),
   "parking-challenge": () => import("@/pages/games/expansion/ParkingChallenge"),
   "escape-room": () => import("@/pages/games/expansion/EscapeRoom"),
+  hex: () => import("@/pages/games/expansion/Hex"),
+  mancala: () => import("@/pages/games/expansion/Mancala"),
+  "royal-game-of-ur": () => import("@/pages/games/expansion/RoyalGameOfUr"),
 };
