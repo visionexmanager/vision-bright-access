@@ -182,6 +182,75 @@ async function checkElevenLabs(): Promise<ComponentStatus> {
   }
 }
 
+/**
+ * Every third-party secret the platform depends on, and what stops working
+ * without it. Presence only — a value is never read, logged or returned.
+ *
+ * This inventory is admin-gated: anonymous callers get exactly the response
+ * they got before, because "which integrations exist" is reconnaissance we
+ * have no reason to publish.
+ */
+const PLATFORM_SECRETS: { name: string; impact: string }[] = [
+  { name: "OPENAI_API_KEY",       impact: "Nearly every AI surface: chat, OCR, speech, images, text tools, Text-to-Video (Sora), Academy, Library and Kids assistants." },
+  { name: "ANTHROPIC_API_KEY",    impact: "Any assistant configured with provider 'anthropic'. Those return 500 without it; OpenAI-backed assistants are unaffected." },
+  { name: "GEMINI_API_KEY",       impact: "Career Center AI (career-ai-*) when routed to Gemini." },
+  { name: "ELEVENLABS_API_KEY",   impact: "Voice Studio voice cloning and ElevenLabs speech voices." },
+  { name: "LUMA_API_KEY",         impact: "Fallback video provider. Only needed once OpenAI's Videos API shuts down on 2026-09-24." },
+  { name: "REPLICATE_API_TOKEN",  impact: "Image Tools (image-tools-generate): upscale, background removal, variations." },
+  { name: "STRIPE_SECRET_KEY",    impact: "Bazaar checkout, Library checkout and Career billing." },
+  { name: "STRIPE_WEBHOOK_SECRET", impact: "Bazaar payment confirmation. Orders stay unconfirmed without it." },
+  { name: "STRIPE_WEBHOOK_SECRET_LIBRARY", impact: "Library purchase confirmation." },
+  { name: "CAREER_STRIPE_WEBHOOK_SECRET",  impact: "Career Center subscription confirmation." },
+  { name: "PAYPAL_CLIENT_ID",     impact: "Library PayPal checkout." },
+  { name: "PAYPAL_CLIENT_SECRET", impact: "Library PayPal checkout." },
+  { name: "PAYPAL_WEBHOOK_ID",    impact: "Library PayPal payment confirmation." },
+  { name: "COINBASE_COMMERCE_API_KEY",      impact: "Library crypto checkout." },
+  { name: "COINBASE_COMMERCE_WEBHOOK_SECRET", impact: "Library crypto payment confirmation." },
+  { name: "RESEND_API_KEY",       impact: "All outbound email: contact form, seller notifications, newsletters, VX coin review." },
+  { name: "RESEND_FROM",          impact: "Sender address for outbound email." },
+  { name: "LIVEKIT_API_KEY",      impact: "Live voice rooms." },
+  { name: "LIVEKIT_API_SECRET",   impact: "Live voice rooms." },
+  { name: "LIVEKIT_URL",          impact: "Live voice rooms." },
+  { name: "WHATSAPP_ACCESS_TOKEN",    impact: "Bazaar seller notifications over WhatsApp." },
+  { name: "WHATSAPP_PHONE_NUMBER_ID", impact: "Bazaar seller notifications over WhatsApp." },
+  { name: "CRON_SECRET",          impact: "Scheduled jobs: news generation, trial billing, library background jobs." },
+  { name: "LIBRARY_CERTIFICATE_SIGNING_SECRET", impact: "Signing Library completion certificates." },
+  { name: "KIDS_CERTIFICATE_SIGNING_SECRET",    impact: "Signing VisionKids certificates." },
+  { name: "SITE_URL",             impact: "Checkout return URLs. Redirects break without it." },
+  { name: "ALLOWED_ORIGINS",      impact: "CORS allow-list for the LiveKit token endpoint." },
+];
+
+/** True only for a caller presenting a valid JWT whose user has the admin role. */
+async function callerIsAdmin(
+  req: Request,
+  supabaseUrl: string,
+  anonKey: string,
+  serviceKey: string,
+): Promise<boolean> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || !supabaseUrl || !anonKey || !serviceKey) return false;
+
+  // An anon-key bearer token is not a user session — ignore it.
+  if (authHeader === `Bearer ${anonKey}`) return false;
+
+  try {
+    const asUser = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error } = await asUser.auth.getUser();
+    if (error || !user) return false;
+
+    const svc = createClient(supabaseUrl, serviceKey);
+    const { data, error: roleErr } = await (svc as any).rpc("has_role", {
+      _user_id: user.id,
+      _role:    "admin",
+    });
+    return !roleErr && data === true;
+  } catch {
+    return false;
+  }
+}
+
 async function checkStorage(db: ReturnType<typeof createClient>, bucketId: string): Promise<ComponentStatus> {
   try {
     const { data, error } = await (db as any).storage.from(bucketId).list("", { limit: 1 });
@@ -269,6 +338,25 @@ Deno.serve(async (req: Request) => {
     };
   }
 
+  // ── Secret inventory (admins only) ────────────────────────────────────────────
+  //
+  // Answers "does every service that needs an API key actually have one?" without
+  // ever exposing a value. Anonymous callers get the same response as before.
+
+  const isAdmin = await callerIsAdmin(req, supabaseUrl ?? "", anonKey ?? "", serviceKey ?? "");
+  if (isAdmin) {
+    for (const secret of PLATFORM_SECRETS) {
+      const configured = !!Deno.env.get(secret.name);
+      results[`secret_${secret.name}`] = {
+        ok:     configured,
+        status: configured ? "ok" : "missing",
+        detail: configured
+          ? `${secret.name} is configured.`
+          : `${secret.name} is NOT configured — ${secret.impact}`,
+      };
+    }
+  }
+
   // ── Summary ───────────────────────────────────────────────────────────────────
 
   const allOk    = Object.values(results).every((r) => r.ok);
@@ -279,6 +367,9 @@ Deno.serve(async (req: Request) => {
   return json({
     ok:        allOk,
     timestamp: new Date().toISOString(),
+    // Tells the caller whether the secret inventory above was included, so an
+    // absent secret_* section reads as "not an admin" rather than "all fine".
+    secret_audit_included: isAdmin,
     summary: {
       total:    Object.keys(results).length,
       passing:  Object.values(results).filter((r) => r.ok).length,
