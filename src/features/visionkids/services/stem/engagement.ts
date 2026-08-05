@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { ExperimentProgress, StemSettings, StemStats } from "@/features/visionkids/types/stem.types";
 
 async function currentUserId(): Promise<string | null> {
@@ -28,7 +28,7 @@ export async function completeExperiment(experimentId: string, quizScore = 0): P
     _quiz_score: quizScore,
   });
   if (error) throw error;
-  return data as CompleteExperimentResult;
+  return rpcResult<CompleteExperimentResult>(data);
 }
 
 // ── Research reads ──────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ export async function fetchReadArticleIds(): Promise<string[]> {
 export async function fetchStemStats(): Promise<StemStats> {
   const { data, error } = await kidsDb.rpc("get_kids_stem_stats");
   if (error) throw error;
-  return data as StemStats;
+  return rpcResult<StemStats>(data);
 }
 
 // ── Settings ────────────────────────────────────────────────────────────────

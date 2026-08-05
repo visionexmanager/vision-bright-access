@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, jsonPayload } from "@/features/visionkids/services/stories/kidsSupabase";
 import { getAll, putRecord, deleteRecord } from "@/features/visionkids/everywhere/offlineDb";
 import { getDeviceKey } from "@/features/visionkids/everywhere/platform";
 import type { SyncEntity, SyncOp, SyncQueueItem, SyncResult, SyncEventKind } from "@/features/visionkids/types/everywhere.types";
@@ -32,7 +32,7 @@ export async function pendingCount(): Promise<number> {
 
 async function logEvent(kind: SyncEventKind, entity: string | null, detail: Record<string, unknown>): Promise<void> {
   try {
-    await kidsDb.rpc("log_kids_sync_event", { _device_key: getDeviceKey(), _kind: kind, _entity: entity, _detail: detail });
+    await kidsDb.rpc("log_kids_sync_event", { _device_key: getDeviceKey(), _kind: kind, _entity: entity, _detail: jsonPayload(detail) });
   } catch { /* logging is best-effort */ }
 }
 
@@ -46,6 +46,14 @@ export async function flush(): Promise<SyncResult> {
   flushing = true;
   const deviceKey = getDeviceKey();
   try {
+    // kids_sync_queue.user_id is NOT NULL and its RLS insert policy is
+    // `auth.uid() = user_id`, so the row has to carry the owner explicitly.
+    // Signed out there is nobody to push for — leave the queue untouched so
+    // the changes still flush after the next sign-in.
+    const { data: authData } = await kidsDb.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) return result;
+
     const items = ((await getAll("syncQueue")) as unknown as SyncQueueItem[]).filter((i) => i.status === "pending");
     if (items.length === 0) return result;
 
@@ -57,11 +65,12 @@ export async function flush(): Promise<SyncResult> {
     for (const item of items) {
       try {
         const { error } = await kidsDb.from("kids_sync_queue").insert({
+          user_id: userId,
           device_key: deviceKey,
           entity: item.entity,
           entity_id: item.entityId,
           op: item.op,
-          payload: item.payload,
+          payload: jsonPayload(item.payload),
           client_ts: new Date(item.clientTs).toISOString(),
           status: "pending",
         });

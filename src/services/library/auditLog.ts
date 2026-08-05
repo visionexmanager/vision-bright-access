@@ -4,6 +4,7 @@
 // are swallowed (logged to console) so a failed audit write never blocks
 // the real action it's describing.
 
+import { jsonPayload } from "@/integrations/supabase/json";
 import { supabase } from "@/integrations/supabase/client";
 
 export async function logLibraryAuditEvent(action: string, entityType: string, entityId: string | null, metadata: Record<string, unknown> = {}): Promise<void> {
@@ -11,7 +12,7 @@ export async function logLibraryAuditEvent(action: string, entityType: string, e
     _action: action,
     _entity_type: entityType,
     _entity_id: entityId,
-    _metadata: metadata,
+    _metadata: jsonPayload(metadata),
   });
   if (error) console.error(`Failed to log audit event "${action}":`, error.message);
 }

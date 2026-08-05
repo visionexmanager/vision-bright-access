@@ -4,6 +4,7 @@
 // a plain SELECT here naturally returns only what the caller can read —
 // no client-side gating needed.
 
+import { jsonPayload } from "@/integrations/supabase/json";
 import { supabase } from "@/integrations/supabase/client";
 import type { LibraryChapterRow } from "@/lib/types/library-book";
 
@@ -71,7 +72,7 @@ export async function createChapter(bookId: string, title: string): Promise<Stud
 }
 
 export async function updateChapterContent(chapterId: string, content_json: Record<string, unknown>, content_text: string): Promise<void> {
-  const { error } = await supabase.from("library_chapters").update({ content_json, content_text }).eq("id", chapterId);
+  const { error } = await supabase.from("library_chapters").update({ content_json: jsonPayload(content_json), content_text }).eq("id", chapterId);
   if (error) throw new Error(error.message);
 }
 

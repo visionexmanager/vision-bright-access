@@ -20,10 +20,6 @@ interface Props {
   className?: string;
 }
 
-declare global {
-  interface Window { adsbygoogle: unknown[]; }
-}
-
 /**
  * Reusable AdSense display banner.
  * Usage: <AdBanner slot="XXXXXXXXXX" format="horizontal" />

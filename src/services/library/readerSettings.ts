@@ -2,6 +2,7 @@
 // Wraps library_reader_settings (20260724000000_library_reader_engine.sql)
 // — one row per user, RLS `user manages own`.
 
+import { jsonPayload } from "@/integrations/supabase/json";
 import { supabase } from "@/integrations/supabase/client";
 import type { LibraryReaderSettings } from "@/lib/types/library-reader";
 
@@ -12,6 +13,6 @@ export async function fetchReaderSettings(userId: string): Promise<LibraryReader
 }
 
 export async function saveReaderSettings(userId: string, settings: LibraryReaderSettings): Promise<void> {
-  const { error } = await supabase.from("library_reader_settings").upsert({ user_id: userId, settings: settings as unknown as Record<string, unknown> }, { onConflict: "user_id" });
+  const { error } = await supabase.from("library_reader_settings").upsert({ user_id: userId, settings: jsonPayload(settings) }, { onConflict: "user_id" });
   if (error) throw new Error(error.message);
 }

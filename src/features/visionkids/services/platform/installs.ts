@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { PluginInstall, DashboardWidget, KidsNotification, PlatformStats } from "@/features/visionkids/types/platform.types";
 
 async function currentUserId(): Promise<string | null> {
@@ -83,5 +83,5 @@ export async function markNotificationRead(id: string | null): Promise<void> {
 export async function fetchPlatformStats(): Promise<PlatformStats> {
   const { data, error } = await kidsDb.rpc("get_kids_platform_stats");
   if (error) throw error;
-  return data as PlatformStats;
+  return rpcResult<PlatformStats>(data);
 }

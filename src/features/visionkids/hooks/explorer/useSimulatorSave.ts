@@ -9,7 +9,7 @@ export function useSimulatorSave<TState = Record<string, unknown>>(simulatorType
   });
 }
 
-export function useSaveSimulatorState<TState = Record<string, unknown>>(simulatorType: SimulatorType) {
+export function useSaveSimulatorState<TState extends object = Record<string, unknown>>(simulatorType: SimulatorType) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (state: TState) => saves.saveSimulatorState<TState>(simulatorType, state),

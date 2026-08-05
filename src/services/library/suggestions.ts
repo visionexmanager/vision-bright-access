@@ -6,6 +6,7 @@
 // track-changes package exists to depend on. See the schema migration's
 // header note on library_book_suggestions for the full rationale.
 
+import { jsonPayload } from "@/integrations/supabase/json";
 import { supabase } from "@/integrations/supabase/client";
 import type { LibraryBookSuggestionRow } from "@/lib/types/library-studio";
 import { flattenTiptapDocToText } from "@/lib/library/tiptapUtils";
@@ -37,7 +38,7 @@ export async function submitSuggestion(input: {
       chapter_id: input.chapter_id,
       suggested_by: input.suggested_by,
       base_version_id: input.base_version_id ?? null,
-      suggested_content: input.suggested_content,
+      suggested_content: jsonPayload(input.suggested_content),
       note: input.note ?? null,
     })
     .select(SUGGESTION_SELECT)
@@ -53,7 +54,7 @@ export async function acceptSuggestion(suggestion: LibraryBookSuggestionRow, rev
   const { error: updateErr } = await supabase
     .from("library_chapters")
     .update({
-      content_json: suggestion.suggested_content,
+      content_json: jsonPayload(suggestion.suggested_content),
       content_text: flattenTiptapDocToText(suggestion.suggested_content as Parameters<typeof flattenTiptapDocToText>[0]),
     })
     .eq("id", suggestion.chapter_id);

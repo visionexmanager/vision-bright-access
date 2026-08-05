@@ -13,7 +13,9 @@ export default function LibraryQuotes() {
   const { t } = useLanguage();
   const { data: quotes = [], isLoading } = useQuery({
     queryKey: queryKeys.library.quotes(),
-    queryFn: fetchQuotes,
+    // Wrapped, not passed by reference: react-query calls queryFn with a
+    // QueryFunctionContext, which would land in fetchQuotes' `limit` parameter.
+    queryFn: () => fetchQuotes(),
     staleTime: 5 * 60 * 1000,
   });
 

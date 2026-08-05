@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type {
   OpsOverview, ErrorEvent, OpsReview, OpsReport, HealthSnapshot, OpsLog, ReportKind, ErrorKind, LogLevel,
 } from "@/features/visionkids/types/ops.types";
@@ -6,7 +6,7 @@ import type {
 export async function fetchOverview(): Promise<OpsOverview> {
   const { data, error } = await kidsDb.rpc("get_kids_ops_overview");
   if (error) throw error;
-  return data as OpsOverview;
+  return rpcResult<OpsOverview>(data);
 }
 
 export async function isAdmin(): Promise<boolean> {

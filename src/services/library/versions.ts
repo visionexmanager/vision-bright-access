@@ -3,6 +3,7 @@
 // autosave row if the last one is <2 minutes old) lives in useChapterEditor
 // .ts — this file is a thin, unopinionated CRUD layer.
 
+import { jsonPayload } from "@/integrations/supabase/json";
 import { supabase } from "@/integrations/supabase/client";
 import type { LibraryBookVersionRow } from "@/lib/types/library-studio";
 
@@ -49,7 +50,7 @@ export async function saveVersion(input: {
     .insert({
       book_id: input.book_id,
       chapter_id: input.chapter_id,
-      content_json: input.content_json,
+      content_json: jsonPayload(input.content_json),
       content_text: input.content_text,
       is_autosave: input.is_autosave,
       version_note: input.version_note ?? null,
@@ -67,7 +68,7 @@ export async function saveVersion(input: {
 export async function restoreVersion(version: LibraryBookVersionRow, restoredBy: string): Promise<void> {
   const { error: updateErr } = await supabase
     .from("library_chapters")
-    .update({ content_json: version.content_json, content_text: version.content_text })
+    .update({ content_json: jsonPayload(version.content_json), content_text: version.content_text })
     .eq("id", version.chapter_id);
   if (updateErr) throw new Error(updateErr.message);
 

@@ -21,7 +21,7 @@ export async function fetchLessons(category: WellnessCategory, topic?: string): 
 
 export async function fetchLesson(category: WellnessCategory, slug: string): Promise<WellnessLesson | null> {
   const { data, error } = await kidsDb
-    .from("kids_wellness_lessons").select("*").eq("category", category).eq("slug", slug).maybeSingle();
+    .from("kids_wellness_lessons").select("*").eq("category", category).eq("slug", slug).maybeSingle().returns<WellnessLesson>();
   if (error) throw error;
   return data ?? null;
 }

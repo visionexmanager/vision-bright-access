@@ -6,9 +6,8 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/queryKeys";
-import { fetchStudioBookDetail, updateBookMetadata, updateBookPublishStatus } from "@/services/library/studio";
+import { fetchStudioBookDetail, updateBookMetadata, updateBookPublishStatus, type LibraryBookMetadataPatch } from "@/services/library/studio";
 import type { LibraryStudioBookFields } from "@/lib/types/library-studio";
-import type { LibraryBookRow } from "@/lib/types/library-book";
 
 export function useStudioBookDetail(bookId: string | undefined) {
   const queryClient = useQueryClient();
@@ -23,7 +22,7 @@ export function useStudioBookDetail(bookId: string | undefined) {
     if (bookId) void queryClient.invalidateQueries({ queryKey: queryKeys.library.studio.bookDetail(bookId) });
   };
 
-  const updateMetadata = async (patch: Partial<LibraryBookRow & LibraryStudioBookFields>) => {
+  const updateMetadata = async (patch: LibraryBookMetadataPatch) => {
     if (!bookId) return;
     await updateBookMetadata(bookId, patch);
     invalidate();

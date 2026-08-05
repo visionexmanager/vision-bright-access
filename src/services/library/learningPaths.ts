@@ -34,9 +34,14 @@ export async function fetchLearningPathById(pathId: string): Promise<LibraryLear
   return data as LibraryLearningPathRow | null;
 }
 
+function slugify(input: string): string {
+  return input.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || crypto.randomUUID().slice(0, 8);
+}
+
 export interface LearningPathInput {
   title: string;
-  slug?: string | null;
+  /** Derived from the title when omitted — see createLearningPath. */
+  slug?: string;
   description?: string | null;
   cover_image_url?: string | null;
   level: LibraryLearningPathLevel;
@@ -47,9 +52,14 @@ export interface LearningPathInput {
 }
 
 export async function createLearningPath(userId: string, input: LearningPathInput): Promise<LibraryLearningPathRow> {
+  // library_learning_paths.slug is NOT NULL UNIQUE, and the create dialog does
+  // not collect one — the insert was going out without it and failing on the
+  // null. Derive it from the title with a random suffix, the same shape
+  // createClub uses for library_clubs.
+  const slug = input.slug ?? `${slugify(input.title)}-${crypto.randomUUID().slice(0, 6)}`;
   const { data, error } = await supabase
     .from("library_learning_paths")
-    .insert({ ...input, created_by: userId })
+    .insert({ ...input, slug, created_by: userId })
     .select("*").single();
   if (error) throw new Error(error.message);
   return data as LibraryLearningPathRow;

@@ -6,6 +6,7 @@
 // key at generation time, this just compares against it.
 
 import { supabase } from "@/integrations/supabase/client";
+import { jsonPayload } from "@/integrations/supabase/json";
 import type { GeneratedQuiz, LibraryQuizAttemptRow, QuizQuestion } from "@/lib/types/library-ai";
 
 const SELECT = "id, user_id, book_id, chapter_id, quiz, answers, score, total, created_at";
@@ -40,7 +41,7 @@ export async function submitQuizAttempt(
   const { score, total } = gradeQuiz(quiz, answers);
   const { data, error } = await supabase
     .from("library_ai_quiz_attempts")
-    .insert({ user_id: userId, book_id: bookId, chapter_id: chapterId, quiz: quiz as unknown as Record<string, unknown>, answers: answers as unknown as Record<string, unknown>, score, total })
+    .insert({ user_id: userId, book_id: bookId, chapter_id: chapterId, quiz: jsonPayload(quiz), answers: jsonPayload(answers), score, total })
     .select(SELECT)
     .single();
   if (error) throw new Error(error.message);

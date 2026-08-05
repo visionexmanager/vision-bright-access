@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { ModuleProgress, TalentStats } from "@/features/visionkids/types/talent.types";
 
 export async function fetchMyModuleProgress(trackSlug?: string): Promise<ModuleProgress[]> {
@@ -22,11 +22,11 @@ export interface CompleteModuleResult {
 export async function completeModule(moduleId: string): Promise<CompleteModuleResult> {
   const { data, error } = await kidsDb.rpc("complete_kids_track_module", { _module_id: moduleId });
   if (error) throw error;
-  return data as CompleteModuleResult;
+  return rpcResult<CompleteModuleResult>(data);
 }
 
 export async function fetchTalentStats(): Promise<TalentStats> {
   const { data, error } = await kidsDb.rpc("get_kids_talent_stats");
   if (error) throw error;
-  return data as TalentStats;
+  return rpcResult<TalentStats>(data);
 }

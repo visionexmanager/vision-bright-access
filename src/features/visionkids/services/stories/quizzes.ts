@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, jsonPayload } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { Quiz, QuizQuestion, QuizAttempt } from "@/features/visionkids/types/stories.types";
 
 export async function fetchQuizByStoryId(storyId: string): Promise<Quiz | null> {
@@ -62,7 +62,7 @@ export async function submitQuizAttempt(quizId: string, answers: QuizAnswer[], s
 
   const { data, error } = await kidsDb
     .from("kids_quiz_attempts")
-    .insert({ user_id, quiz_id: quizId, score, total, answers })
+    .insert({ user_id, quiz_id: quizId, score, total, answers: jsonPayload(answers) })
     .select("*").single().returns<QuizAttempt>();
   if (error) throw error;
   return data;

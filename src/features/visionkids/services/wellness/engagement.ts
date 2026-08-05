@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, jsonPayload, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { ChallengeProgress, Companion, WellnessSettings, WellnessStats } from "@/features/visionkids/types/wellness.types";
 
 async function currentUserId(): Promise<string | null> {
@@ -27,7 +27,7 @@ export async function completeChallenge(challengeId: string): Promise<boolean> {
 export async function fetchWellnessStats(): Promise<WellnessStats> {
   const { data, error } = await kidsDb.rpc("get_kids_wellness_stats");
   if (error) throw error;
-  return data as WellnessStats;
+  return rpcResult<WellnessStats>(data);
 }
 
 // ── Companion ──────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ export async function fetchWellnessSettings(): Promise<WellnessSettings | null> 
   const userId = await currentUserId();
   if (!userId) return null;
   const { data, error } = await kidsDb
-    .from("kids_wellness_settings").select("*").eq("user_id", userId).maybeSingle();
+    .from("kids_wellness_settings").select("*").eq("user_id", userId).maybeSingle().returns<WellnessSettings>();
   if (error) throw error;
   return data ?? null;
 }
@@ -71,9 +71,15 @@ export async function fetchWellnessSettings(): Promise<WellnessSettings | null> 
 export async function upsertWellnessSettings(input: Partial<Pick<WellnessSettings, "country_code" | "custom_emergency" | "reminders_enabled">>): Promise<WellnessSettings> {
   const userId = await currentUserId();
   if (!userId) throw new Error("Must be signed in");
+  // custom_emergency is the one jsonb column here; keep it out of the spread so
+  // an omitted key stays omitted rather than being written as null.
+  const { custom_emergency, ...rest } = input;
   const { data, error } = await kidsDb
     .from("kids_wellness_settings")
-    .upsert({ user_id: userId, ...input }, { onConflict: "user_id" })
+    .upsert(
+      { user_id: userId, ...rest, ...(custom_emergency === undefined ? {} : { custom_emergency: jsonPayload(custom_emergency) }) },
+      { onConflict: "user_id" },
+    )
     .select("*").single();
   if (error) throw error;
   return data as WellnessSettings;

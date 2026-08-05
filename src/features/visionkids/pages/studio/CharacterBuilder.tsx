@@ -1,3 +1,4 @@
+import { jsonAs } from "@/integrations/supabase/json";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, Save } from "lucide-react";
@@ -59,7 +60,7 @@ export default function CharacterBuilder() {
   useEffect(() => {
     if (project) {
       setTitle(project.title);
-      setCharacter({ ...character, ...(project.content as Partial<CharacterContent>) });
+      setCharacter({ ...character, ...jsonAs<Partial<CharacterContent>>(project.content) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id]);

@@ -159,7 +159,7 @@ const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, 
 
 function buildDomTranslationMap(lang: Lang): { map: Map<string, string>; sorted: SortedEntries } {
   const map = new Map<string, string>();
-  if (lang === "en") return { map, sorted: [] };
+  if (lang === "en") return { map, sorted: null };
 
   const enDict = loadedTranslations.en;
   const langDict = loadedTranslations[lang];

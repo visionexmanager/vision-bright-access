@@ -20,7 +20,11 @@ export const VIDEO_FORMATS   = ["mp4", "avi", "mov", "mkv", "webm", "flv", "m4v"
 export const IMAGE_FORMATS   = ["jpg", "jpeg", "png", "webp", "heic", "avif", "gif", "bmp", "tiff", "svg"] as const;
 export const DOCUMENT_FORMATS = ["pdf", "docx", "txt", "html", "csv", "xlsx", "pptx", "md", "rtf"] as const;
 export const ARCHIVE_FORMATS  = ["zip", "tar", "gz", "7z", "rar"] as const;
-export const DEVELOPER_FORMATS = ["json", "xml", "yaml", "toml", "csv", "base64", "hex"] as const;
+// "txt" is a developer target, not only a document one: DEVELOPER_WORKING_TARGETS
+// offers it for base64 and hex inputs, and developer.ts implements both decodes.
+// Leaving it out made those two branches compare against a value the type said
+// was impossible.
+export const DEVELOPER_FORMATS = ["json", "xml", "yaml", "toml", "csv", "base64", "hex", "txt"] as const;
 
 export type AudioFormat   = (typeof AUDIO_FORMATS)[number];
 export type VideoFormat   = (typeof VIDEO_FORMATS)[number];

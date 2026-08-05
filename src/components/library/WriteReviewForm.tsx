@@ -13,7 +13,9 @@ import type { LibraryReviewInput } from "@/services/library/reviews";
 
 interface WriteReviewFormProps {
   existingReview: LibraryReviewRow | null;
-  onSubmit: (rating: 1 | 2 | 3 | 4 | 5, comment: string | null, extra: LibraryReviewInput) => Promise<boolean> | void;
+  // The form only awaits the result, never reads it — the sole caller keeps
+  // the submitted/failed distinction to itself.
+  onSubmit: (rating: 1 | 2 | 3 | 4 | 5, comment: string | null, extra: LibraryReviewInput) => Promise<unknown> | void;
   onCancel?: () => void;
   isSubmitting?: boolean;
 }

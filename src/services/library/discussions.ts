@@ -4,6 +4,7 @@
 // migration's can_access_library_discussion_topic()).
 
 import { supabase } from "@/integrations/supabase/client";
+import { jsonAs } from "@/integrations/supabase/json";
 
 export type LibraryDiscussionContext = "book" | "club";
 
@@ -196,7 +197,8 @@ export async function fetchDiscussionPoll(topicId: string): Promise<{ poll: Libr
   const { data: { user } } = await supabase.auth.getUser();
   const myVote = user ? (votes ?? []).find((v) => v.user_id === user.id)?.option_id ?? null : null;
 
-  return { poll: poll as LibraryDiscussionPollRow, votesByOption, myVote };
+  const row: LibraryDiscussionPollRow = { ...poll, options: jsonAs<LibraryDiscussionPollRow["options"]>(poll.options) };
+  return { poll: row, votesByOption, myVote };
 }
 
 export async function createDiscussionPoll(topicId: string, question: string, options: string[], closesAt: string | null): Promise<void> {

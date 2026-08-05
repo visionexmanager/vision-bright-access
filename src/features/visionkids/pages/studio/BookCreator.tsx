@@ -1,3 +1,4 @@
+import { jsonAs } from "@/integrations/supabase/json";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { jsPDF } from "jspdf";
@@ -28,7 +29,7 @@ export default function BookCreator() {
 
   const [savedId, setSavedId] = useState<string | undefined>(isNew ? undefined : projectId);
   const [book, setBook] = useState<BookContent>(
-    (project?.content as BookContent | undefined) ?? { coverTitle: t("kids.studio.myBook"), coverAuthor: "", coverColor: COVER_COLORS[0], coverEmoji: COVER_EMOJIS[0], pages: [{ text: "" }] }
+    (project?.content ? jsonAs<BookContent>(project.content) : undefined) ?? { coverTitle: t("kids.studio.myBook"), coverAuthor: "", coverColor: COVER_COLORS[0], coverEmoji: COVER_EMOJIS[0], pages: [{ text: "" }] }
   );
 
   useDocumentHead({ title: t("kids.studio.bookCreatorTitle"), description: t("kids.studio.meta.description"), canonicalPath: "/kids/studio/book-creator" });

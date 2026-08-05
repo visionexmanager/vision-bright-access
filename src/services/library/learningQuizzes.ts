@@ -3,6 +3,7 @@
 // jsonb-blob quiz) — these are persisted quizzes with server-side grading
 // that never leaks correct_answer to the client before submission.
 
+import { jsonPayload } from "@/integrations/supabase/json";
 import { supabase } from "@/integrations/supabase/client";
 import type {
   LibraryQuizRow, LibraryQuizAttemptQuestion, LibraryQuizAttemptRow, LibraryQuizSubmitResultRow, LibraryWeakTopic,
@@ -34,7 +35,7 @@ export async function startQuizAttempt(quizId: string): Promise<LibraryQuizAttem
 
 export async function submitQuizAttempt(attemptId: string, answers: Record<string, unknown>, timeSpentSeconds?: number): Promise<LibraryQuizSubmitResultRow[]> {
   const { data, error } = await supabase.rpc("submit_library_quiz_attempt", {
-    _attempt_id: attemptId, _answers: answers, _time_spent_seconds: timeSpentSeconds ?? null,
+    _attempt_id: attemptId, _answers: jsonPayload(answers), _time_spent_seconds: timeSpentSeconds ?? null,
   });
   if (error) throw new Error(error.message);
   return (data ?? []) as LibraryQuizSubmitResultRow[];

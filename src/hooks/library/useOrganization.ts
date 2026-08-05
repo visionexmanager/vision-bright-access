@@ -8,6 +8,7 @@ import {
   inviteOrganizationMember, bulkInviteOrganizationMembers, updateOrganizationMember, removeOrganizationMember,
   type OrganizationMemberRole, type OrganizationMemberStatus,
 } from "@/services/library/organizations";
+import type { OrganizationPermission } from "@/services/library/organizationPermissions";
 
 /** Loads one organization by slug plus its roster, and exposes the calling
  *  user's own role/admin-ness within it (organization_members has no
@@ -102,7 +103,7 @@ export function useOrganization(slug: string) {
   };
 }
 
-export function useOrganizationPermission(orgId: string, permission: string) {
+export function useOrganizationPermission(orgId: string, permission: OrganizationPermission) {
   const { data: hasPermission = false } = useQuery({
     queryKey: [...queryKeys.library.organizationPermissions(orgId), permission],
     queryFn: async () => {

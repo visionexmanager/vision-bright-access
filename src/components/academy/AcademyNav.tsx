@@ -1,11 +1,23 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   Award, BookOpen, GraduationCap, Home, Library, Map, Search, Sparkles,
+  type LucideIcon,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 
-const ITEMS = [
+/** `exact` is only set on the home entry — every other path is a prefix
+ *  match. Declared here rather than inferred so reading `item.exact` on an
+ *  entry that omits it stays legal. */
+interface AcademyNavItem {
+  path: string;
+  en: string;
+  ar: string;
+  icon: LucideIcon;
+  exact?: boolean;
+}
+
+const ITEMS: readonly AcademyNavItem[] = [
   { path: "/academy", en: "Academy home", ar: "الرئيسية", icon: Home, exact: true },
   { path: "/academy/courses", en: "Courses", ar: "الدورات", icon: BookOpen },
   { path: "/academy/my-courses", en: "My learning", ar: "تعلّمي", icon: GraduationCap },

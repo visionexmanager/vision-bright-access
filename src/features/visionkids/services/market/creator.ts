@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type {
   Creator, CreatorKind, Product, ProductInput, CreatorStats, ModerationRecord,
 } from "@/features/visionkids/types/market.types";
@@ -94,7 +94,7 @@ export async function submitProduct(id: string): Promise<{ auto_status: string; 
 export async function fetchCreatorStats(): Promise<CreatorStats> {
   const { data, error } = await kidsDb.rpc("get_kids_creator_stats");
   if (error) throw error;
-  return data as CreatorStats;
+  return rpcResult<CreatorStats>(data);
 }
 
 export async function fetchProductModeration(productId: string): Promise<ModerationRecord | null> {
