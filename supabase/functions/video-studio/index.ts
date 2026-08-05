@@ -38,20 +38,50 @@ interface VideoPollResult {
   progress:      number;
   videoUrl?:     string;
   thumbnailUrl?: string;
+  thumbnailMime?: string;
   error?:        string;
 }
 
 interface VideoProvider {
   name:           string;
+  /**
+   * Whether the provider's asset URLs can be handed straight to a browser.
+   * False when downloading requires our API key (OpenAI), in which case the
+   * asset MUST land in our own storage before the job can be marked complete.
+   */
+  publicAssetUrls: boolean;
   generateVideo(params: VideoGenerateParams): Promise<VideoGenerateResult>;
   pollJob(providerJobId: string): Promise<VideoPollResult>;
   cancelJob(providerJobId: string): Promise<void>;
+  /** Fetch a provider asset, attaching provider auth where it is required. */
+  fetchAsset(url: string): Promise<Response>;
+}
+
+// Shared prompt shaping: both providers take a single text prompt, so style and
+// camera-motion selections have to be folded into it.
+const CAMERA_MOTION_PHRASES: Record<string, string> = {
+  pan_left: "camera panning left", pan_right: "camera panning right",
+  zoom_in: "camera zooming in", zoom_out: "camera zooming out",
+  tilt_up: "camera tilting up", tilt_down: "camera tilting down",
+  orbit: "camera orbiting", dolly_in: "camera dolly in", dolly_out: "camera dolly out",
+};
+
+function buildPrompt(params: VideoGenerateParams): string {
+  let prompt = params.prompt;
+  if (params.style && params.style !== "realistic" && params.style !== "custom") {
+    prompt = `${params.style} style: ${prompt}`;
+  }
+  const motion = CAMERA_MOTION_PHRASES[params.cameraMotion];
+  if (motion) prompt += `, ${motion}`;
+  if (params.negativePrompt) prompt += `. Avoid: ${params.negativePrompt}`;
+  return prompt;
 }
 
 // ── Luma Dream Machine Provider ───────────────────────────────────────────────
 
 class LumaProvider implements VideoProvider {
   name = "luma";
+  publicAssetUrls = true;
   private apiKey: string;
   private baseUrl = "https://api.lumalabs.ai/dream-machine/v1";
 
@@ -75,31 +105,12 @@ class LumaProvider implements VideoProvider {
     };
     const aspect = aspectMap[params.aspectRatio] ?? "16:9";
 
-    // Build prompt with style prefix if not realistic
-    let prompt = params.prompt;
-    if (params.style && params.style !== "realistic" && params.style !== "custom") {
-      prompt = `${params.style} style: ${prompt}`;
-    }
-    if (params.cameraMotion && params.cameraMotion !== "static") {
-      const motionMap: Record<string, string> = {
-        pan_left: "camera panning left", pan_right: "camera panning right",
-        zoom_in: "camera zooming in", zoom_out: "camera zooming out",
-        tilt_up: "camera tilting up", tilt_down: "camera tilting down",
-        orbit: "camera orbiting", dolly_in: "camera dolly in", dolly_out: "camera dolly out",
-      };
-      prompt += `, ${motionMap[params.cameraMotion] ?? ""}`;
-    }
-
+    // Luma has no negative-prompt field, so buildPrompt folds it into the text.
     const body: Record<string, unknown> = {
-      prompt,
+      prompt: buildPrompt(params),
       aspect_ratio: aspect,
       loop: false,
     };
-
-    if (params.negativePrompt) {
-      // Luma doesn't support negative prompts directly, we append "avoid: ..."
-      body.prompt = `${prompt}. Avoid: ${params.negativePrompt}`;
-    }
 
     const res = await fetch(`${this.baseUrl}/generations`, {
       method:  "POST",
@@ -159,6 +170,152 @@ class LumaProvider implements VideoProvider {
   async cancelJob(_providerJobId: string): Promise<void> {
     // Luma doesn't support cancel via API — best-effort no-op
   }
+
+  fetchAsset(url: string): Promise<Response> {
+    // Luma returns public CDN URLs — no auth needed.
+    return fetch(url);
+  }
+}
+
+// ── OpenAI Sora Provider ──────────────────────────────────────────────────────
+//
+// Uses the same OPENAI_API_KEY secret that Speech Studio and Image Studio
+// already run on, so Text-to-Video needs no additional provider account.
+//
+// ⚠️ OpenAI announced on 2026-03-24 that the Videos API and every sora-2 model
+// alias are removed on 2026-09-24, with no announced successor. When that lands,
+// generation here starts failing and the studio must be pointed at another
+// provider — set LUMA_API_KEY (the Luma path below is already wired) or add a
+// new provider class. See docs/video-studio-providers.md.
+
+const SORA_ALLOWED_SECONDS = [4, 8, 12];
+
+class OpenAISoraProvider implements VideoProvider {
+  name = "openai";
+  publicAssetUrls = false;   // /content downloads require the API key
+  private apiKey: string;
+  private baseUrl = "https://api.openai.com/v1";
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
+  }
+
+  private get authHeader() {
+    return { "Authorization": `Bearer ${this.apiKey}` };
+  }
+
+  private resolveModel(model?: string): string {
+    return model === "sora-2-pro" ? "sora-2-pro" : "sora-2";
+  }
+
+  /** Sora accepts only 4, 8 or 12 second clips — snap to the nearest. */
+  private resolveSeconds(durationSec: number): string {
+    const nearest = SORA_ALLOWED_SECONDS.reduce(
+      (best, v) => (Math.abs(v - durationSec) < Math.abs(best - durationSec) ? v : best),
+      SORA_ALLOWED_SECONDS[0],
+    );
+    return String(nearest);
+  }
+
+  /** Sora accepts exactly four sizes; the wide ones are sora-2-pro only. */
+  private resolveSize(params: VideoGenerateParams, model: string): string {
+    const [w, h] = params.aspectRatio.split(":").map(Number);
+    const portrait  = Number.isFinite(w) && Number.isFinite(h) && h > w;
+    const highRes   = model === "sora-2-pro" &&
+      (params.resolution === "1080p" || params.resolution === "4k");
+
+    if (portrait) return highRes ? "1024x1792" : "720x1280";
+    return highRes ? "1792x1024" : "1280x720";
+  }
+
+  private async errorMessage(res: Response, fallback: string): Promise<string> {
+    const body = await res.json().catch(() => null);
+    const detail = body?.error?.message ?? body?.message;
+    if (detail) return detail;
+    if (res.status === 401) return "OpenAI API key is invalid or revoked. Check OPENAI_API_KEY in Supabase secrets.";
+    if (res.status === 429) return "OpenAI rate limit reached. Try again shortly.";
+    if (res.status === 404) return "The OpenAI Videos API is unavailable. It was scheduled for removal on 2026-09-24 — configure another video provider.";
+    return `${fallback} (HTTP ${res.status})`;
+  }
+
+  async generateVideo(params: VideoGenerateParams): Promise<VideoGenerateResult> {
+    const model = this.resolveModel(params.model);
+
+    const res = await fetch(`${this.baseUrl}/videos`, {
+      method:  "POST",
+      headers: { ...this.authHeader, "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        model,
+        prompt:  buildPrompt(params),
+        seconds: this.resolveSeconds(params.durationSec),
+        size:    this.resolveSize(params, model),
+      }),
+    });
+
+    if (!res.ok) {
+      return { ok: false, error: await this.errorMessage(res, "Sora generation failed") };
+    }
+
+    const data = await res.json();
+    if (!data?.id) return { ok: false, error: "OpenAI returned no video id." };
+    return { ok: true, providerJobId: data.id };
+  }
+
+  async pollJob(providerJobId: string): Promise<VideoPollResult> {
+    const res = await fetch(`${this.baseUrl}/videos/${providerJobId}`, {
+      headers: this.authHeader,
+    });
+
+    if (!res.ok) {
+      return {
+        ok: false, state: "failed", progress: 0,
+        error: await this.errorMessage(res, "Sora poll failed"),
+      };
+    }
+
+    const data = await res.json();
+
+    if (data.status === "completed") {
+      return {
+        ok:            true,
+        state:         "completed",
+        progress:      100,
+        videoUrl:      `${this.baseUrl}/videos/${providerJobId}/content?variant=video`,
+        thumbnailUrl:  `${this.baseUrl}/videos/${providerJobId}/content?variant=thumbnail`,
+        thumbnailMime: "image/webp",
+      };
+    }
+
+    if (data.status === "failed") {
+      return {
+        ok:       false,
+        state:    "failed",
+        progress: 0,
+        error:    data.error?.message ?? "Sora reported a failed generation.",
+      };
+    }
+
+    // queued | in_progress — hold below 100 so the UI never claims completion early.
+    const reported = typeof data.progress === "number" ? data.progress : 0;
+    return {
+      ok:       true,
+      state:    data.status === "in_progress" ? "processing" : "pending",
+      progress: Math.max(5, Math.min(95, Math.round(reported))),
+    };
+  }
+
+  async cancelJob(providerJobId: string): Promise<void> {
+    // Sora has no cancel endpoint. The user explicitly abandoned this job, so
+    // delete the generation rather than leaving it to occupy their quota.
+    await fetch(`${this.baseUrl}/videos/${providerJobId}`, {
+      method:  "DELETE",
+      headers: this.authHeader,
+    });
+  }
+
+  fetchAsset(url: string): Promise<Response> {
+    return fetch(url, { headers: this.authHeader });
+  }
 }
 
 // ── Provider factory ──────────────────────────────────────────────────────────
@@ -166,23 +323,47 @@ class LumaProvider implements VideoProvider {
 // No mock/fake provider: if the requested provider's API key isn't configured,
 // callers must see a clear "not configured" error rather than a fake completed
 // job pointing at a canned stock video.
+//
+// "auto" (the client default) picks whichever provider actually has a key, so
+// Text-to-Video runs on the OPENAI_API_KEY the rest of the studio already uses
+// and can be moved to Luma by setting LUMA_API_KEY — no code change needed.
 
 function getProvider(name?: string): VideoProvider {
-  const requested = name ?? "luma";
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+  const lumaKey   = Deno.env.get("LUMA_API_KEY");
+
+  let requested = name && name !== "auto" ? name : "";
+  if (!requested) requested = openaiKey ? "openai" : lumaKey ? "luma" : "";
+
+  if (requested === "openai") {
+    if (!openaiKey) {
+      throw new Error(
+        "OPENAI_API_KEY is not configured in Supabase Edge Function secrets. " +
+        "Add it in Project Settings → Edge Functions → Secrets, or set LUMA_API_KEY to use Luma instead."
+      );
+    }
+    return new OpenAISoraProvider(openaiKey);
+  }
 
   if (requested === "luma") {
-    const lumaKey = Deno.env.get("LUMA_API_KEY");
     if (!lumaKey) {
       throw new Error(
         "LUMA_API_KEY is not configured in Supabase Edge Function secrets. " +
-        "Text-to-Video requires a real Luma Dream Machine API key — add it in Project Settings → Edge Functions → Secrets."
+        "Add it in Project Settings → Edge Functions → Secrets, or set OPENAI_API_KEY to use OpenAI Sora instead."
       );
     }
     return new LumaProvider(lumaKey);
   }
 
-  // Add more providers here: RunwayML, Kling, Pika, Sora, etc.
-  throw new Error(`Unknown video provider: "${requested}". Supported: luma`);
+  if (!requested) {
+    throw new Error(
+      "No video provider is configured. Set OPENAI_API_KEY (OpenAI Sora) or LUMA_API_KEY " +
+      "(Luma Dream Machine) in Supabase Project Settings → Edge Functions → Secrets."
+    );
+  }
+
+  // Add more providers here: RunwayML, Kling, Pika, Veo, etc.
+  throw new Error(`Unknown video provider: "${requested}". Supported: openai, luma`);
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -207,10 +388,20 @@ async function handleGenerate(
   // "not configured" message instead of creating a job that can never succeed.
   let provider: VideoProvider;
   try {
-    provider = getProvider(providerName as string ?? "luma");
+    provider = getProvider((providerName as string) || "auto");
   } catch (err) {
     return jsonError(err instanceof Error ? err.message : "Video provider unavailable", 503);
   }
+
+  // A model saved against a different provider (e.g. a template built on Luma)
+  // must not leak through to the provider actually running the job.
+  const isOpenAI       = provider.name === "openai";
+  const defaultModel   = isOpenAI ? "sora-2" : "dream-machine";
+  const requestedModel = typeof provider_model === "string" ? provider_model.trim() : "";
+  const resolvedModel  =
+    requestedModel && isOpenAI === requestedModel.startsWith("sora")
+      ? requestedModel
+      : defaultModel;
 
   // Create job record
   const { data: job, error: jobErr } = await (db as any)
@@ -233,7 +424,7 @@ async function handleGenerate(
       audio_mode:      audio_mode ?? "none",
       template_id:     template_id ?? null,
       provider:        provider.name,
-      provider_model:  provider_model ?? "dream-machine",
+      provider_model:  resolvedModel,
       status:          "preparing",
       progress:        5,
     })
@@ -348,7 +539,8 @@ async function handlePoll(
         status: "uploading", progress: 90,
       }).eq("id", job_id);
 
-      const videoRes = await fetch(pollResult.videoUrl);
+      // fetchAsset attaches provider auth where the download needs it.
+      const videoRes = await provider.fetchAsset(pollResult.videoUrl);
       if (videoRes.ok) {
         const videoBlob = await videoRes.blob();
         fileSize        = videoBlob.size;
@@ -356,27 +548,47 @@ async function handlePoll(
         storagePath     = `${userId}/${job_id}/video.${ext}`;
 
         const dbS = createClient(supabaseUrl, serviceKey);
-        await (dbS as any).storage.from("video-outputs").upload(storagePath, videoBlob, {
-          contentType: "video/mp4",
-          upsert:      true,
-        });
+        const { error: uploadErr } = await (dbS as any).storage
+          .from("video-outputs")
+          .upload(storagePath, videoBlob, {
+            contentType: "video/mp4",
+            upsert:      true,
+          });
+        if (uploadErr) {
+          console.error("Video upload error:", uploadErr.message);
+          storagePath = null;
+        }
 
         // Thumbnail if available
-        if (pollResult.thumbnailUrl) {
-          const thumbRes = await fetch(pollResult.thumbnailUrl);
+        if (storagePath && pollResult.thumbnailUrl) {
+          const thumbRes = await provider.fetchAsset(pollResult.thumbnailUrl);
           if (thumbRes.ok) {
             const thumbBlob = await thumbRes.blob();
-            thumbPath = `${userId}/${job_id}/thumb.jpg`;
-            await (dbS as any).storage.from("video-outputs").upload(thumbPath, thumbBlob, {
-              contentType: "image/jpeg",
-              upsert:      true,
-            });
+            const thumbMime = pollResult.thumbnailMime ?? "image/jpeg";
+            const thumbExt  = thumbMime === "image/webp" ? "webp" : "jpg";
+            thumbPath = `${userId}/${job_id}/thumb.${thumbExt}`;
+            const { error: thumbErr } = await (dbS as any).storage
+              .from("video-outputs")
+              .upload(thumbPath, thumbBlob, { contentType: thumbMime, upsert: true });
+            if (thumbErr) thumbPath = null;
           }
         }
       }
     } catch (_e) {
-      // Storage upload failed — still mark complete with provider URL
+      console.error("Video download/upload failed:", _e);
       storagePath = null;
+    }
+
+    // Providers with private assets (OpenAI) hand us URLs that need our API key
+    // and expire within the hour, so there is no usable fallback URL to store.
+    // Fail loudly instead of saving a link that 401s in the user's browser.
+    if (!storagePath && !provider.publicAssetUrls) {
+      const msg = "The video was generated but could not be saved to storage. " +
+                  "Check the 'video-outputs' bucket and try again.";
+      await (db as any).from("vx_video_jobs").update({
+        status: "failed", error_message: msg, completed_at: new Date().toISOString(),
+      }).eq("id", job_id);
+      return json({ ok: true, status: "failed", error: msg });
     }
 
     // Create asset record

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,9 @@ import { VideoTemplateDialog } from "./VideoTemplateDialog";
 import { VideoJobStatus } from "./VideoJobStatus";
 import type { VideoGenerateForm, AudioMode } from "@/lib/types/video-studio";
 import type { VideoTemplate } from "@/lib/types/video-studio";
-import { ASPECT_RATIOS, CAMERA_MOTIONS } from "@/lib/types/video-studio";
+import {
+  ASPECT_RATIOS, CAMERA_MOTIONS, VIDEO_PROVIDERS, AUTO_PROVIDER, resolveProviderConfig,
+} from "@/lib/types/video-studio";
 import type { GenerationPhase, VideoGenerationState } from "@/hooks/useVideoGenerate";
 
 interface VideoGeneratorPanelProps {
@@ -33,6 +35,11 @@ interface VideoGeneratorPanelProps {
 
 const isActive = (phase: GenerationPhase) =>
   !["idle", "completed", "failed"].includes(phase);
+
+const MIN_DURATION_SEC = 3;
+
+const isKnownProvider = (id: string) =>
+  id === AUTO_PROVIDER || VIDEO_PROVIDERS.some((p) => p.id === id);
 
 export function VideoGeneratorPanel({
   form, setForm, onGenerate, genState, onReset,
@@ -55,12 +62,48 @@ export function VideoGeneratorPanel({
       fps:           t.fps,
       cameraMotion:  t.camera_motion,
       creativity:    t.creativity,
-      provider:      t.provider,
-      providerModel: t.provider_model ?? "",
+      // Templates saved against a provider that no longer exists (or one whose
+      // key was since removed) must not pin the job to it — fall back to auto.
+      provider:      isKnownProvider(t.provider) ? t.provider : AUTO_PROVIDER,
+      providerModel: isKnownProvider(t.provider) ? (t.provider_model ?? "") : "",
       templateId:    t.id,
     }));
 
   const busy = isActive(genState.phase);
+
+  // Duration and orientation limits are provider-specific: Sora rejects anything
+  // other than 4/8/12 seconds in landscape or portrait, and Luma caps at 10s.
+  // Offering more than the provider honours means a silent downgrade or a 400.
+  const providerConfig = resolveProviderConfig(form.provider);
+  const maxDuration    = providerConfig.maxDuration;
+  const durationChoices = providerConfig.allowedDurations;
+  const aspectChoices   = useMemo(() => {
+    const allowed = providerConfig.allowedAspectRatios;
+    return allowed ? ASPECT_RATIOS.filter((a) => allowed.includes(a.value)) : ASPECT_RATIOS;
+  }, [providerConfig]);
+
+  // Snap the form back into range when the provider (or a loaded template)
+  // leaves it outside what the provider accepts.
+  useEffect(() => {
+    setForm((f) => {
+      const next = { ...f };
+      if (durationChoices && !durationChoices.includes(f.durationSec)) {
+        next.durationSec = durationChoices.reduce(
+          (best, v) => (Math.abs(v - f.durationSec) < Math.abs(best - f.durationSec) ? v : best),
+          durationChoices[0],
+        );
+      } else if (f.durationSec > maxDuration) {
+        next.durationSec = maxDuration;
+      }
+      if (!aspectChoices.some((a) => a.value === f.aspectRatio)) {
+        next.aspectRatio = aspectChoices[0].value;
+      }
+      return next.durationSec === f.durationSec && next.aspectRatio === f.aspectRatio ? f : next;
+    });
+    // form.durationSec / form.aspectRatio are dependencies so that loading a
+    // template also gets normalised, not just switching provider. The updater
+    // returns the same object when nothing changes, so this settles in one pass.
+  }, [durationChoices, maxDuration, aspectChoices, form.durationSec, form.aspectRatio, setForm]);
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto p-4">
@@ -101,11 +144,11 @@ export function VideoGeneratorPanel({
         <div className="space-y-1">
           <Label className="text-xs">Aspect ratio</Label>
           <Select value={form.aspectRatio} onValueChange={(v) => set("aspectRatio", v as VideoGenerateForm["aspectRatio"])}>
-            <SelectTrigger className="h-8 text-sm">
+            <SelectTrigger className="h-8 text-sm" aria-label="Aspect ratio">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {ASPECT_RATIOS.map((a) => (
+              {aspectChoices.map((a) => (
                 <SelectItem key={a.value} value={a.value}>
                   {a.label} <span className="text-muted-foreground text-[10px] ml-1">{a.description.split("/")[0].trim()}</span>
                 </SelectItem>
@@ -115,19 +158,42 @@ export function VideoGeneratorPanel({
         </div>
 
         <div className="space-y-1">
-          <Label className="text-xs">Duration</Label>
-          <div className="flex items-center gap-2">
-            <Slider
-              value={[form.durationSec]}
-              min={3} max={30} step={1}
-              onValueChange={(v) => set("durationSec", v[0])}
-              className="flex-1"
+          <Label className="text-xs" id="vx-duration-label">
+            Duration{" "}
+            <span className="text-muted-foreground">
+              {durationChoices ? `(${providerConfig.name})` : `(max ${maxDuration}s)`}
+            </span>
+          </Label>
+          {durationChoices ? (
+            <Select
+              value={String(form.durationSec)}
+              onValueChange={(v) => set("durationSec", Number(v))}
               disabled={busy}
-            />
-            <Badge variant="outline" className="shrink-0 text-xs">
-              {form.durationSec}s
-            </Badge>
-          </div>
+            >
+              <SelectTrigger className="h-8 text-sm" aria-label="Duration">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {durationChoices.map((d) => (
+                  <SelectItem key={d} value={String(d)}>{d} seconds</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Slider
+                value={[Math.min(form.durationSec, maxDuration)]}
+                min={MIN_DURATION_SEC} max={maxDuration} step={1}
+                onValueChange={(v) => set("durationSec", v[0])}
+                className="flex-1"
+                disabled={busy}
+                aria-labelledby="vx-duration-label"
+              />
+              <Badge variant="outline" className="shrink-0 text-xs">
+                {Math.min(form.durationSec, maxDuration)}s
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
 
@@ -179,7 +245,7 @@ export function VideoGeneratorPanel({
             <div className="space-y-1">
               <Label className="text-xs">Resolution</Label>
               <Select value={form.resolution} onValueChange={(v) => set("resolution", v as VideoGenerateForm["resolution"])}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm" aria-label="Resolution"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(["480p","720p","1080p","4k"] as const).map((r) => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -190,7 +256,7 @@ export function VideoGeneratorPanel({
             <div className="space-y-1">
               <Label className="text-xs">Frame rate</Label>
               <Select value={String(form.fps)} onValueChange={(v) => set("fps", Number(v) as VideoGenerateForm["fps"])}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm" aria-label="Frame rate"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {[24, 30, 60].map((f) => (
                     <SelectItem key={f} value={String(f)}>{f} fps</SelectItem>
@@ -204,7 +270,7 @@ export function VideoGeneratorPanel({
           <div className="space-y-1">
             <Label className="text-xs">Camera motion</Label>
             <Select value={form.cameraMotion} onValueChange={(v) => set("cameraMotion", v as VideoGenerateForm["cameraMotion"])}>
-              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-sm" aria-label="Camera motion"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {CAMERA_MOTIONS.map((m) => (
                   <SelectItem key={m.value} value={m.value}>
