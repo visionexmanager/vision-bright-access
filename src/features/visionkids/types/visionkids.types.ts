@@ -14,6 +14,14 @@ export interface KidsSection {
   color: KidsColor;
   /** Emoji shown alongside the icon on the home hero cards */
   emoji: string;
+  /**
+   * Where the card actually goes. Every section has one: a slug that owns a
+   * route tree points at its own root, and a slug that is a theme rather than
+   * a feature points at the page that already covers it (a STEM lab, an
+   * explorer world, a game category). `/kids/:sectionSlug` redirects here too,
+   * so a bookmarked slug lands in the same place as the card.
+   */
+  path: string;
 }
 
 export interface KidsNavItem {

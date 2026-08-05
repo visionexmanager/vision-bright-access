@@ -34,7 +34,7 @@ export function SectionCard({ section, index }: SectionCardProps) {
 
   return (
     <MotionLink
-      to={`/kids/${section.slug}`}
+      to={section.path}
       variants={slideUp(reduced)}
       whileHover={cardHover(reduced)}
       whileTap={cardTap(reduced)}

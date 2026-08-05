@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Trophy, Users as UsersIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,10 +48,16 @@ export default function Leaderboard() {
         <TabsContent value="weekly" className="mt-4"><LeaderboardTable entries={entries} isLoading={isLoading} /></TabsContent>
         <TabsContent value="monthly" className="mt-4"><LeaderboardTable entries={entries} isLoading={isLoading} /></TabsContent>
         <TabsContent value="friends" className="mt-4">
-          <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
-            <UsersIcon className="h-8 w-8" aria-hidden="true" />
-            <p>{t("kids.games.friendsComingSoon")}</p>
-          </div>
+          <LeaderboardTable entries={entries} isLoading={isLoading} />
+          {!isLoading && entries.length === 0 && (
+            <div className="flex flex-col items-center gap-2 py-6 text-center text-muted-foreground">
+              <UsersIcon className="h-8 w-8" aria-hidden="true" />
+              <p>{t("kids.games.friendsEmpty")}</p>
+              <Link to="/kids/social/friends" className="font-semibold text-kids-primary underline">
+                {t("kids.games.findFriends")}
+              </Link>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

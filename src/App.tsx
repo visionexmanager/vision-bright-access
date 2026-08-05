@@ -427,6 +427,7 @@ const VisionKidsLayout = lazyWithRetry(() => import("./features/visionkids/layou
 const VisionKidsHome = lazyWithRetry(() => import("./features/visionkids/pages/VisionKidsHome"));
 const VisionKidsSettings = lazyWithRetry(() => import("./features/visionkids/pages/VisionKidsSettings"));
 const VisionKidsSection = lazyWithRetry(() => import("./features/visionkids/pages/VisionKidsSection"));
+const AiTeacherHome = lazyWithRetry(() => import("./features/visionkids/pages/aiTeacher/AiTeacherHome"));
 
 // VisionKids Phase 2 — Smart Stories Library
 const StoriesHome = lazyWithRetry(() => import("./features/visionkids/pages/stories/StoriesHome"));
@@ -1543,6 +1544,12 @@ function AppRoutes() {
                       <Route path="everywhere/connection" element={<EwConnection />} />
                       <Route path="everywhere/tv" element={<EwTvMode />} />
                       <Route path="everywhere/accessibility" element={<EwAccessibility />} />
+
+                      {/* AI Teacher. Static segment, so it out-ranks the
+                          ":sectionSlug" catch-all below — which now redirects
+                          every section slug to its real page rather than
+                          rendering a placeholder. */}
+                      <Route path="ai-teacher" element={<AiTeacherHome />} />
 
                       <Route path=":sectionSlug" element={<VisionKidsSection />} />
                     </Route>
