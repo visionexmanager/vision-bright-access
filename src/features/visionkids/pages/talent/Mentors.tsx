@@ -27,8 +27,8 @@ export default function Mentors() {
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <TalentHeader emoji="🧑‍🏫" title={t("kids.talent.nav.mentors")} subtitle={t("kids.talent.mentors.subtitle")} showSubNav activeId="mentors" />
 
-      <p className="mt-4 rounded-2xl border-2 border-dashed border-border bg-card p-3 text-sm text-muted-foreground" role="status">
-        ℹ️ {t("kids.talent.mentors.comingSoon")}
+      <p className="mt-4 rounded-2xl border-2 border-border bg-card p-3 text-sm text-muted-foreground" role="status">
+        ℹ️ {t("kids.talent.mentors.howItWorks")}
       </p>
 
       {isLoading ? (

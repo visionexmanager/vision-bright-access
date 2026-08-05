@@ -160,6 +160,29 @@ export async function awardCoins(amount: number, reason: string): Promise<void> 
 // ── Leaderboard ──────────────────────────────────────────────────────────
 export type LeaderboardScope = "global" | "weekly" | "monthly" | "friends";
 
+/** The accepted friendships this user is part of, as the other person's id
+ *  plus the user's own — a friends board that excludes you is not a board you
+ *  can place on. Returns null when signed out, which the caller reads as "no
+ *  friends board to show" rather than "no friends". */
+async function friendCircleIds(): Promise<string[] | null> {
+  const { data: authData } = await kidsDb.auth.getUser();
+  const userId = authData.user?.id;
+  if (!userId) return null;
+
+  const { data, error } = await kidsDb
+    .from("kids_friendships")
+    .select("requester_id, addressee_id")
+    .eq("status", "accepted")
+    .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+  if (error) throw error;
+
+  const ids = new Set<string>([userId]);
+  for (const row of data ?? []) {
+    ids.add(row.requester_id === userId ? row.addressee_id : row.requester_id);
+  }
+  return [...ids];
+}
+
 export async function fetchLeaderboard(gameId: string | null, scope: LeaderboardScope = "global", limit = 50): Promise<LeaderboardEntry[]> {
   let query = kidsDb.from("kids_game_leaderboard_entries").select("user_id, game_id, best_score, last_played_at");
   if (gameId) query = query.eq("game_id", gameId);
@@ -168,6 +191,12 @@ export async function fetchLeaderboard(gameId: string | null, scope: Leaderboard
     const since = new Date();
     since.setDate(since.getDate() - (scope === "weekly" ? 7 : 30));
     query = query.gte("last_played_at", since.toISOString());
+  }
+
+  if (scope === "friends") {
+    const circle = await friendCircleIds();
+    if (circle === null) return [];
+    query = query.in("user_id", circle);
   }
 
   const { data, error } = await query.order("best_score", { ascending: false }).limit(limit);
