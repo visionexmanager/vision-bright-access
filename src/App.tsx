@@ -144,9 +144,6 @@ const TowerDefense = lazyWithRetry(() => import("./pages/games/expansion/TowerDe
 const MazeRunner = lazyWithRetry(() => import("./pages/games/expansion/MazeRunner"));
 const ParkingChallenge = lazyWithRetry(() => import("./pages/games/expansion/ParkingChallenge"));
 const EscapeRoom = lazyWithRetry(() => import("./pages/games/expansion/EscapeRoom"));
-const Hex = lazyWithRetry(() => import("./pages/games/expansion/Hex"));
-const Mancala = lazyWithRetry(() => import("./pages/games/expansion/Mancala"));
-const RoyalGameOfUr = lazyWithRetry(() => import("./pages/games/expansion/RoyalGameOfUr"));
 
 // Library — books/audiobooks section (Phase 1 architecture prep, distinct from academy/library)
 const LibraryHome = lazyWithRetry(() => import("./pages/library/LibraryHome"));
@@ -280,6 +277,9 @@ const Visionopoly = lazyWithRetry(() => import("./pages/games/Visionopoly"));
 const Chess = lazyWithRetry(() => import("./pages/games/Chess"));
 const Backgammon = lazyWithRetry(() => import("./pages/games/Backgammon"));
 const Ludo = lazyWithRetry(() => import("./pages/games/Ludo"));
+const Hex = lazyWithRetry(() => import("./pages/games/expansion/Hex"));
+const Mancala = lazyWithRetry(() => import("./pages/games/expansion/Mancala"));
+const RoyalGameOfUr = lazyWithRetry(() => import("./pages/games/expansion/RoyalGameOfUr"));
 const WordMaster = lazyWithRetry(() => import("./pages/games/WordMaster"));
 const SkyboundQuest = lazyWithRetry(() => import("./pages/games/SkyboundQuest"));
 const AssistiveProducts = lazyWithRetry(() => import("./pages/AssistiveProducts"));
@@ -668,36 +668,929 @@ const EntClassrooms = lazyWithRetry(() => import("./features/visionkids/pages/en
 const EntStudents = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/Students"));
 const EntTeachers = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/Teachers"));
 const EntParents = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/Parents"));
-const EntAttendance = lazyWithRetry(() => import("./features/visionkids/pages/en…35643 tokens truncated…rategy","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"factory-idle", to:"/games/factory-idle", image:laptoptechImg, title:"Factory Idle", titleAr:"المصنع التلقائي", description:"Manage materials, production lines, quality control, and buyer reputation.", descriptionAr:"أدر المواد وخطوط الإنتاج وضبط الجودة وسمعة المشترين.", categories:["Idle","Business Simulation","Strategy","Accessible"], difficulty:"Hard", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"aquarium-keeper", to:"/games/aquarium-keeper", image:memoryImg, title:"Aquarium Keeper", titleAr:"حارس الأكواريوم", description:"Maintain habitat capacity, water quality, supplies, and visitor trust.", descriptionAr:"حافظ على سعة الموائل وجودة المياه والإمدادات وثقة الزوار.", categories:["Simulation","Kids","Educational","Accessible"], difficulty:"Easy", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"garden-planner", to:"/games/garden-planner", image:dreamhomeImg, title:"Garden Planner", titleAr:"مخطط الحديقة", description:"Plan seed supply, garden beds, plant health, and community reputation.", descriptionAr:"خطط للبذور وأحواض الزراعة وصحة النباتات وسمعة المجتمع.", categories:["Simulation","Educational","Strategy","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"museum-curator", to:"/games/museum-curator", image:tradetycoonImg, title:"Museum Curator", titleAr:"أمين المتحف", description:"Acquire exhibits, expand galleries, improve curation, and earn public trust.", descriptionAr:"اقتَنِ المعروضات ووسّع الصالات وحسّن التنسيق واكسب ثقة الجمهور.", categories:["Business Simulation","Educational","Strategy","Accessible"], difficulty:"Hard", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"wildlife-rescue", to:"/games/wildlife-rescue", image:jungleImg, title:"Wildlife Rescue", titleAr:"إنقاذ الحياة البرية", description:"Coordinate supplies, rescue teams, treatment quality, and public confidence.", descriptionAr:"نسّق الإمدادات وفرق الإنقاذ وجودة العلاج وثقة المجتمع.", categories:["Simulation","Strategy","Educational","Accessible"], difficulty:"Hard", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"solitaire", to:"/games/solitaire", image:card99Img, title:"Solitaire", titleAr:"سوليتير", description:"Build descending alternating-color card sequences and clear the tableau.", descriptionAr:"ابنِ تسلسلات بطاقات تنازلية متعاقبة الألوان وأخلِ الطاولة.", categories:["Card","Classic","Strategy","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"spider-solitaire", to:"/games/spider-solitaire", image:briscolaImg, title:"Spider Solitaire", titleAr:"سبايدر سوليتير", description:"Organize same-suit descending runs under focused Spider rules.", descriptionAr:"نظّم تسلسلات تنازلية من النوع نفسه وفق قواعد سبايدر المركزة.", categories:["Card","Classic","Strategy","Accessible"], difficulty:"Hard", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"freecell", to:"/games/freecell", image:farkleImg, title:"FreeCell", titleAr:"فري سيل", description:"Plan exposed-card moves across open columns with FreeCell sequencing.", descriptionAr:"خطط لتحريك البطاقات المكشوفة عبر الأعمدة المفتوحة وفق تسلسل فري سيل.", categories:["Card","Classic","Logic","Accessible"], difficulty:"Hard", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"mahjong", to:"/games/mahjong", image:dominoesImg, title:"Mahjong", titleAr:"ماجونغ", description:"Remove matching free-edge tiles from a semantic compact layout.", descriptionAr:"أزل أزواج البلاطات المتطابقة ذات الجانب الحر من تخطيط دلالي مدمج.", categories:["Classic","Puzzle","Board","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"tower-defense", to:"/games/tower-defense", image:tacticalImg, title:"Tower Defense", titleAr:"الدفاع بالأبراج", description:"Place measured-range towers and defend four escalating path waves.", descriptionAr:"ضع أبراجاً بمدى محسوب ودافع عن المسار خلال أربع موجات متصاعدة.", categories:["Tower Defense","Strategy","Arcade","Accessible"], difficulty:"Hard", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"maze-runner", to:"/games/maze-runner", image:blindMazeImg, title:"Maze Runner", titleAr:"عداء المتاهة", description:"Navigate a coordinate-labelled maze through walls to the goal.", descriptionAr:"تنقل عبر متاهة معنونة بالإحداثيات متجاوزاً الجدران نحو الهدف.", categories:["Adventure","Puzzle","Logic","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"parking-challenge", to:"/games/parking-challenge", image:velocityImg, title:"Parking Challenge", titleAr:"تحدي ركن السيارة", description:"Route a vehicle around obstacles into a precisely marked parking bay.", descriptionAr:"وجّه المركبة حول العوائق إلى موقف محدد بدقة.", categories:["Simulation","Puzzle","Logic","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"escape-room", to:"/games/escape-room", image:logiquestImg, title:"Escape Room", titleAr:"غرفة الهروب", description:"Solve three maintained word clues to unlock the final exit.", descriptionAr:"حل ثلاثة ألغاز لفظية منظمة لفتح المخرج النهائي.", categories:["Adventure","Puzzle","Word","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"chess", to:"/games/chess", image:chessImg, title:"Chess", titleAr:"شطرنج", description:"Play full-rules chess against a calculating engine across three depths.", descriptionAr:"العب شطرنجاً بقواعده الكاملة ضد محرك يحسب حركاته على ثلاثة مستويات.", categories:["Board","Classic","Strategy","Logic","Accessible"], difficulty:"Hard", age:"Everyone", players:"1", plays:0, rating:0, featured:true, recentlyAdded:true, controls:["Keyboard","Touch","Pointer"], accessible:true }),
-  game({ slug:"backgammon", to:"/games/backgammon", image:backgammonImg, title:"Backgammon", titleAr:"طاولة الزهر", description:"Bear off all fifteen checkers, using the bar, hits, and exact rolls.", descriptionAr:"أخرج أحجارك الخمسة عشر مستخدماً البار والضرب والرميات المضبوطة.", categories:["Board","Classic","Strategy","Accessible"], difficulty:"Hard", age:"Everyone", players:"1", plays:0, rating:0, featured:true, recentlyAdded:true, controls:["Keyboard","Touch","Pointer"], accessible:true }),
-  game({ slug:"ludo", to:"/games/ludo", image:ludoImg, title:"Ludo", titleAr:"لودو", description:"Race three rivals around the cross board and bring four tokens home.", descriptionAr:"سابق ثلاثة منافسين حول رقعة الصليب وأوصل أحجارك الأربعة إلى المركز.", categories:["Board","Classic","Strategy","Kids","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch","Pointer"], accessible:true }),
-  game({ slug:"word-master", to:"/games/word-master", image:wordMasterImg, title:"Word Master", titleAr:"سيد الكلمات", description:"Guess the five-letter word in six tries, in Arabic or English.", descriptionAr:"خمّن كلمة الخمسة حروف خلال ست محاولات بالعربية أو الإنجليزية.", categories:["Word","Puzzle","Educational","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, trending:true, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"skybound-quest", to:"/games/skybound-quest", image:skyboundImg, title:"Skybound Quest", titleAr:"مغامرة بوابة السماء", description:"Jump between sky platforms for every gem, one unhurried move at a time.", descriptionAr:"اقفز بين منصات السماء لجمع كل جوهرة، بحركة واحدة كاملة في كل مرة.", categories:["Platform","Adventure","Puzzle","Logic","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, trending:true, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"hex", to:"/games/hex", image:logiquestImg, title:"Hex", titleAr:"هيكس", description:"Build an unbroken edge-to-edge path across a compact tactical board.", descriptionAr:"ابنِ مساراً متصلاً من حافة إلى أخرى على لوحة تكتيكية مدمجة.", categories:["Board","Strategy","Logic","Accessible"], difficulty:"Hard", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"mancala", to:"/games/mancala", image:dominoesImg, title:"Mancala", titleAr:"منقلة", description:"Sow stones, earn extra turns, and capture the opposite pits strategically.", descriptionAr:"وزّع الأحجار واكسب أدواراً إضافية والتقط الحفر المقابلة باستراتيجية.", categories:["Board","Classic","Strategy","Math","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-  game({ slug:"royal-game-of-ur", to:"/games/royal-game-of-ur", image:visionopolyImg, title:"Royal Game of Ur", titleAr:"لعبة أور الملكية", description:"Guide three pieces through an exact-roll race inspired by the ancient board game.", descriptionAr:"وجّه ثلاث قطع في سباق يعتمد الرمية الدقيقة مستوحى من اللعبة الأثرية القديمة.", categories:["Board","Classic","Strategy","Educational","Accessible"], difficulty:"Medium", age:"Everyone", players:"1", plays:0, rating:0, recentlyAdded:true, controls:["Keyboard","Touch"], accessible:true }),
-];
+const EntAttendance = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/Attendance"));
+const EntAssignments = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/Assignments"));
+const EntTimetable = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/Timetable"));
+const EntExams = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/Exams"));
+const EntCertificates = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/Certificates"));
+const EntCertificateVerify = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/CertificateVerify"));
+const EntResourceCenter = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/ResourceCenter"));
+const EntCommunication = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/CommunicationCenter"));
+const EntReports = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/Reports"));
+const EntAnalytics = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/Analytics"));
+const EntOrgSettings = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/OrganizationSettings"));
+const EntAccessibility = lazyWithRetry(() => import("./features/visionkids/pages/enterprise/EnterpriseAccessibility"));
 
-export function getArcadeGame(pathname: string) {
-  return ARCADE_GAMES.find((item) => item.to === pathname);
+// VisionKids Phase 16 — AI Operations & Quality Platform (admin-gated)
+const OpsDashboard = lazyWithRetry(() => import("./features/visionkids/pages/ops/OperationsDashboard"));
+const OpsSystemHealth = lazyWithRetry(() => import("./features/visionkids/pages/ops/SystemHealth"));
+const OpsAIMonitoring = lazyWithRetry(() => import("./features/visionkids/pages/ops/AIMonitoring"));
+const OpsContentReview = lazyWithRetry(() => import("./features/visionkids/pages/ops/ContentReview"));
+const OpsAccessibility = lazyWithRetry(() => import("./features/visionkids/pages/ops/AccessibilityCenter"));
+const OpsPerformance = lazyWithRetry(() => import("./features/visionkids/pages/ops/PerformanceCenter"));
+const OpsErrors = lazyWithRetry(() => import("./features/visionkids/pages/ops/ErrorCenter"));
+const OpsSecurity = lazyWithRetry(() => import("./features/visionkids/pages/ops/SecurityCenter"));
+const OpsReleases = lazyWithRetry(() => import("./features/visionkids/pages/ops/ReleaseManager"));
+const OpsAudit = lazyWithRetry(() => import("./features/visionkids/pages/ops/AuditCenter"));
+const OpsTesting = lazyWithRetry(() => import("./features/visionkids/pages/ops/TestingCenter"));
+const OpsLogs = lazyWithRetry(() => import("./features/visionkids/pages/ops/LogsExplorer"));
+const OpsInsights = lazyWithRetry(() => import("./features/visionkids/pages/ops/AIInsights"));
+const OpsIncidents = lazyWithRetry(() => import("./features/visionkids/pages/ops/IncidentCenter"));
+const OpsMaintenance = lazyWithRetry(() => import("./features/visionkids/pages/ops/MaintenanceMode"));
+
+// VisionKids Phase 17 — Economy & Sustainability
+const EconomyHome = lazyWithRetry(() => import("./features/visionkids/pages/economy/EconomyHome"));
+const EconMembershipPlans = lazyWithRetry(() => import("./features/visionkids/pages/economy/MembershipPlans"));
+const EconFamilyPlans = lazyWithRetry(() => import("./features/visionkids/pages/economy/FamilyPlans"));
+const EconSchoolPlans = lazyWithRetry(() => import("./features/visionkids/pages/economy/SchoolPlans"));
+const EconNGOPlans = lazyWithRetry(() => import("./features/visionkids/pages/economy/NGOPlans"));
+const EconWallet = lazyWithRetry(() => import("./features/visionkids/pages/economy/CoinsWallet"));
+const EconRewards = lazyWithRetry(() => import("./features/visionkids/pages/economy/RewardsCenter"));
+const EconRedeem = lazyWithRetry(() => import("./features/visionkids/pages/economy/RedeemCenter"));
+const EconGifts = lazyWithRetry(() => import("./features/visionkids/pages/economy/GiftCenter"));
+const EconSubscriptions = lazyWithRetry(() => import("./features/visionkids/pages/economy/SubscriptionManagement"));
+const EconInvoices = lazyWithRetry(() => import("./features/visionkids/pages/economy/Invoices"));
+const EconDonate = lazyWithRetry(() => import("./features/visionkids/pages/economy/DonationCenter"));
+const EconPartners = lazyWithRetry(() => import("./features/visionkids/pages/economy/PartnerCenter"));
+const EconCreatorRevenue = lazyWithRetry(() => import("./features/visionkids/pages/economy/CreatorRevenue"));
+const EconReports = lazyWithRetry(() => import("./features/visionkids/pages/economy/FinancialReports"));
+const EconAccessibility = lazyWithRetry(() => import("./features/visionkids/pages/economy/EconomyAccessibility"));
+
+// VisionKids Phase 18 — Everywhere (Multi-Platform & Offline)
+const EverywhereHome = lazyWithRetry(() => import("./features/visionkids/pages/everywhere/EverywhereHome"));
+const EwMyDevices = lazyWithRetry(() => import("./features/visionkids/pages/everywhere/MyDevices"));
+const EwDownloads = lazyWithRetry(() => import("./features/visionkids/pages/everywhere/DownloadManager"));
+const EwOffline = lazyWithRetry(() => import("./features/visionkids/pages/everywhere/OfflineCenter"));
+const EwConnection = lazyWithRetry(() => import("./features/visionkids/pages/everywhere/ConnectionSettings"));
+const EwTvMode = lazyWithRetry(() => import("./features/visionkids/pages/everywhere/TvMode"));
+const EwAccessibility = lazyWithRetry(() => import("./features/visionkids/pages/everywhere/EverywhereAccessibility"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000,   // 10 minutes
+    },
+  },
+});
+
+function PageLoader() {
+  const { t } = useLanguage();
+  return (
+    <div className="flex min-h-screen items-center justify-center" role="status" aria-label={t("app.loadingPage")}>
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" aria-hidden="true" />
+    </div>
+  );
 }
 
-export function localizeGame(item: ArcadeGame, lang: string) {
-  return lang === "ar"
-    ? { title: item.titleAr, description: item.descriptionAr }
-    : { title: item.title, description: item.description };
+// Resets the per-page error boundary on every navigation
+function AppRoutes() {
+  const location = useLocation();
+  return (
+    <PageErrorBoundary routeKey={location.pathname}>
+      <Suspense fallback={<PageLoader />}>
+        <PageTracker />
+        <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/signup" element={<Signup />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/bazaar" element={<VXBazaar />} />
+                    <Route path="/marketplace" element={<VXBazaar />} />
+                    <Route path="/services" element={<Services />} />
+                    {/* Service profile — the decision page every catalog card links to. */}
+                    <Route path="/services/experience/:slug" element={<ServiceProfile />} />
+                    {/* The client file: every professional service request and its status. */}
+                    <Route path="/services/my-requests" element={<MyServiceRequests />} />
+                    <Route path="/academy" element={<AuthGuard><Academy /></AuthGuard>} />
+                    <Route path="/academy/courses" element={<AuthGuard><AcademyCourseCatalog /></AuthGuard>} />
+                    <Route path="/academy/courses/:courseId" element={<AuthGuard><AcademyCourseDetail /></AuthGuard>} />
+                    <Route path="/academy/courses/:courseId/learn/:lessonId" element={<AuthGuard><AcademyLearningPlayer /></AuthGuard>} />
+                    <Route path="/academy/paths" element={<AuthGuard><AcademyLearningTracks /></AuthGuard>} />
+                    <Route path="/academy/instructors/:instructorId" element={<AuthGuard><AcademyInstructorProfile /></AuthGuard>} />
+                    <Route path="/academy/instructor/apply" element={<AuthGuard><AcademyBecomeInstructor /></AuthGuard>} />
+                    <Route path="/academy/instructor/dashboard" element={<AuthGuard><AcademyInstructorDashboard /></AuthGuard>} />
+                    <Route path="/academy/instructor/courses/new" element={<AuthGuard><AcademyCourseEditor /></AuthGuard>} />
+                    <Route path="/academy/instructor/courses/:courseId/edit" element={<AuthGuard><AcademyCourseEditor /></AuthGuard>} />
+                    <Route path="/academy/library" element={<AuthGuard><AcademyLibrary /></AuthGuard>} />
+                    <Route path="/academy/library/:resourceId" element={<AuthGuard><AcademyResourceViewer /></AuthGuard>} />
+                    <Route path="/academy/scholarships" element={<AuthGuard><AcademyScholarships /></AuthGuard>} />
+                    <Route path="/academy/scholarships/:scholarshipId" element={<AuthGuard><AcademyScholarshipDetail /></AuthGuard>} />
+                    <Route path="/academy/universities" element={<AuthGuard><AcademyUniversities /></AuthGuard>} />
+                    <Route path="/academy/universities/:universityId" element={<AuthGuard><AcademyUniversityDetail /></AuthGuard>} />
+                    <Route path="/academy/search" element={<AuthGuard><AcademyGlobalSearch /></AuthGuard>} />
+                    <Route path="/academy/certificates" element={<AuthGuard><AcademyCertificates /></AuthGuard>} />
+                    <Route path="/academy/achievements" element={<AuthGuard><AcademyAchievements /></AuthGuard>} />
+                    <Route path="/academy/missions" element={<AuthGuard><AcademyMissions /></AuthGuard>} />
+                    <Route path="/academy/leaderboard" element={<AuthGuard><AcademyLeaderboard /></AuthGuard>} />
+                    <Route path="/academy/notifications" element={<AuthGuard><AcademyNotifications /></AuthGuard>} />
+                    <Route path="/academy/saved" element={<AuthGuard><AcademySaved /></AuthGuard>} />
+                    <Route path="/academy/planner" element={<AuthGuard><AcademyStudyPlanner /></AuthGuard>} />
+                    <Route path="/academy/my-courses" element={<AuthGuard><AcademyMyCourses /></AuthGuard>} />
+                    <Route path="/academy/my-work" element={<AuthGuard><AcademyMyWork /></AuthGuard>} />
+                    <Route path="/academy/settings" element={<AuthGuard><AcademySettings /></AuthGuard>} />
+                    {/* Public — certificate verification must work without an account (QR codes, shared links, employers). */}
+                    <Route path="/academy/verify" element={<AcademyCertificateVerify />} />
+                    <Route path="/academy/verify/:certificateNumber" element={<AcademyCertificateVerify />} />
+
+                    {/* Library — books/audiobooks (Phase 1 architecture prep). Public browsing, gated personal pages. */}
+                    <Route path="/library" element={<LibraryHome />} />
+                    <Route path="/library/categories" element={<LibraryCategories />} />
+                    <Route path="/library/categories/:slug" element={<LibraryCategoryDetails />} />
+                    <Route path="/library/books" element={<LibraryBooksExplorer />} />
+                    <Route path="/library/books/:bookId" element={<LibraryBookDetails />} />
+                    <Route path="/library/read/:bookId" element={<LibraryReader />} />
+                    <Route path="/library/audiobooks" element={<LibraryAudiobooks />} />
+                    <Route path="/library/audiobooks/:audiobookId" element={<LibraryAudiobookPlayer />} />
+                    <Route path="/library/authors" element={<LibraryAuthors />} />
+                    <Route path="/library/authors/:authorId" element={<LibraryAuthorProfile />} />
+                    <Route path="/library/search" element={<LibrarySearch />} />
+                    <Route path="/library/quotes" element={<LibraryQuotes />} />
+                    <Route path="/library/my-library" element={<AuthGuard><LibraryMyLibrary /></AuthGuard>} />
+                    <Route path="/library/reading-lists" element={<AuthGuard><LibraryReadingLists /></AuthGuard>} />
+                    <Route path="/library/favorites" element={<AuthGuard><LibraryFavorites /></AuthGuard>} />
+                    <Route path="/library/continue-reading" element={<AuthGuard><LibraryContinueReading /></AuthGuard>} />
+                    <Route path="/library/downloads" element={<AuthGuard><LibraryDownloads /></AuthGuard>} />
+                    <Route path="/library/reviews" element={<AuthGuard><LibraryReviews /></AuthGuard>} />
+                    <Route path="/library/community" element={<AuthGuard><LibraryCommunity /></AuthGuard>} />
+                    <Route path="/library/dashboard" element={<AuthGuard><LibraryDashboard /></AuthGuard>} />
+                    <Route path="/library/admin" element={<AdminRoute><LibraryAdmin /></AdminRoute>} />
+
+                    {/* Book Marketplace (Phase 10) — public storefront pages. */}
+                    <Route path="/library/wishlist" element={<AuthGuard><LibraryWishlistPage /></AuthGuard>} />
+                    <Route path="/library/publishers/:slug" element={<LibraryPublisherProfile />} />
+                    <Route path="/library/collections/:slug" element={<LibraryCollectionDetail />} />
+                    <Route path="/library/series/:slug" element={<LibrarySeriesDetail />} />
+                    <Route path="/library/bundles/:bundleId" element={<LibraryBundleDetail />} />
+
+                    {/* Author Publishing Studio (Phase 9) — self-service; any signed-in user may become an author. */}
+                    <Route path="/library/studio" element={<AuthGuard><LibraryStudioDashboard /></AuthGuard>} />
+                    <Route path="/library/studio/become-author" element={<AuthGuard><LibraryBecomeAuthor /></AuthGuard>} />
+                    <Route path="/library/studio/books/new" element={<AuthGuard><LibraryStudioBookWizard /></AuthGuard>} />
+                    <Route path="/library/studio/books/:bookId" element={<AuthGuard><LibraryStudioBookOverview /></AuthGuard>} />
+                    <Route path="/library/studio/books/:bookId/edit/:chapterId" element={<AuthGuard><LibraryStudioEditor /></AuthGuard>} />
+                    <Route path="/library/studio/books/:bookId/analytics" element={<AuthGuard><LibraryStudioAnalytics /></AuthGuard>} />
+
+                    {/* Global Digital Library (Phase 11). */}
+                    <Route path="/library/import-review" element={<AdminRoute><LibraryImportReview /></AdminRoute>} />
+                    <Route path="/library/collections-admin" element={<AdminRoute><LibraryCollectionsAdmin /></AdminRoute>} />
+                    <Route path="/library/knowledge-graph" element={<LibraryKnowledgeGraph />} />
+                    <Route path="/library/knowledge-graph/:slug" element={<LibraryKnowledgeGraphEntity />} />
+
+                    {/* Knowledge & Research Platform (Phase 14). */}
+                    <Route path="/library/knowledge-map/:entityId" element={<LibraryKnowledgeMap />} />
+                    <Route path="/library/timelines" element={<LibraryTimelines />} />
+                    <Route path="/library/timelines/:timelineId" element={<LibraryTimelineDetail />} />
+                    <Route path="/library/ai-search" element={<LibraryAiSearch />} />
+                    <Route path="/library/research-assistant" element={<AuthGuard><LibraryResearchAssistant /></AuthGuard>} />
+                    <Route path="/library/research-assistant/:analysisId" element={<AuthGuard><LibraryResearchAnalysisDetail /></AuthGuard>} />
+                    <Route path="/library/research-projects" element={<AuthGuard><LibraryResearchProjects /></AuthGuard>} />
+                    <Route path="/library/research-projects/:projectId" element={<AuthGuard><LibraryResearchProjectDetail /></AuthGuard>} />
+                    <Route path="/library/ai-insights" element={<LibraryAiInsights />} />
+
+                    {/* AI Personal Librarian (Phase 15). */}
+                    <Route path="/library/librarian" element={<AuthGuard><LibraryLibrarian /></AuthGuard>} />
+                    <Route path="/library/librarian/profile" element={<AuthGuard><LibraryLibrarianProfile /></AuthGuard>} />
+                    <Route path="/library/librarian/chat" element={<AuthGuard><LibraryLibrarianChat /></AuthGuard>} />
+                    <Route path="/library/librarian/summaries" element={<AuthGuard><LibraryLibrarianSummaries /></AuthGuard>} />
+                    <Route path="/library/librarian/privacy" element={<AuthGuard><LibraryLibrarianPrivacy /></AuthGuard>} />
+
+                    {/* Enterprise & Organization Platform (Phase 17). */}
+                    <Route path="/library/organizations" element={<AuthGuard><LibraryOrganizations /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug" element={<AuthGuard><LibraryOrganizationDashboard /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/members" element={<AuthGuard><LibraryOrganizationMembers /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/groups" element={<AuthGuard><LibraryOrganizationGroups /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/resources" element={<AuthGuard><LibraryOrganizationResources /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/permissions" element={<AuthGuard><LibraryOrganizationPermissions /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/licenses" element={<AuthGuard><LibraryOrganizationLicenses /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/assignments" element={<AuthGuard><LibraryOrganizationAssignments /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/analytics" element={<AuthGuard><LibraryOrganizationAnalytics /></AuthGuard>} />
+                    <Route path="/library/organizations/:slug/security" element={<AuthGuard><LibraryOrganizationSecurity /></AuthGuard>} />
+
+                    {/* Reading Community (Phase 12). */}
+                    <Route path="/library/profile/:userId" element={<LibraryReaderProfile />} />
+                    <Route path="/library/clubs" element={<LibraryClubs />} />
+                    <Route path="/library/clubs/:slug" element={<LibraryClubDetail />} />
+                    <Route path="/library/discussions/:topicId" element={<LibraryDiscussionTopic />} />
+                    <Route path="/library/challenges" element={<LibraryChallenges />} />
+                    <Route path="/library/events" element={<LibraryEvents />} />
+                    <Route path="/library/leaderboard" element={<LibraryLeaderboard />} />
+
+                    {/* Learning Hub (Phase 13). */}
+                    <Route path="/library/learning-paths" element={<LibraryLearningPaths />} />
+                    <Route path="/library/learning-paths/:pathId" element={<LibraryLearningPathDetail />} />
+                    <Route path="/library/flashcards" element={<LibraryFlashcards />} />
+                    <Route path="/library/flashcards/:deckId" element={<LibraryFlashcardStudyDeck />} />
+                    <Route path="/library/quizzes/:quizId" element={<LibraryQuizTake />} />
+                    <Route path="/library/study-assistant" element={<LibraryStudyAssistant />} />
+                    <Route path="/library/learning-analytics" element={<LibraryLearningAnalytics />} />
+                    <Route path="/library/certificates" element={<LibraryCertificates />} />
+                    <Route path="/library/certificates/verify/:certificateNumber" element={<LibraryCertificateVerify />} />
+
+                    <Route path="/content" element={<Content />} />
+                    <Route path="/contact-us" element={<ContactUs />} />
+                    <Route path="/contact" element={<Navigate to="/contact-us" replace />} />
+                    <Route path="/leaderboard" element={<Leaderboard />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/product/:id" element={<ProductDetail />} />
+                    <Route path="/wishlist" element={<Wishlist />} />
+                    <Route path="/games" element={<Games />} />
+                    <Route path="/games/kids" element={<VisionexKids />} />
+                    <Route path="/games/accessible" element={<AccessibleGames />} />
+                    <Route path="/games/profile" element={<AuthGuard><ArcadePlayerHub /></AuthGuard>} />
+                    <Route path="/games/achievements" element={<AuthGuard><ArcadePlayerHub /></AuthGuard>} />
+                    <Route path="/games/challenges" element={<AuthGuard><ArcadePlayerHub /></AuthGuard>} />
+                    <Route path="/games/leaderboard" element={<AuthGuard><ArcadePlayerHub /></AuthGuard>} />
+                    <Route path="/games/rewards" element={<AuthGuard><ArcadeEconomy /></AuthGuard>} />
+                    <Route path="/games/tournaments" element={<AuthGuard><ArcadeEconomy /></AuthGuard>} />
+                    <Route path="/games/shop" element={<AuthGuard><ArcadeEconomy /></AuthGuard>} />
+                    <Route path="/games/quiz-challenge" element={<GameEconomyGate gameTitle="Quiz Challenge"><QuizChallenge /></GameEconomyGate>} />
+                    <Route path="/games/memory" element={<GameEconomyGate gameTitle="Memory Game"><MemoryGame /></GameEconomyGate>} />
+                    <Route path="/games/word-puzzle" element={<GameEconomyGate gameTitle="Word Puzzle"><WordPuzzle /></GameEconomyGate>} />
+                    <Route path="/games/visionopoly" element={<GameEconomyGate gameTitle="Visionopoly"><Visionopoly /></GameEconomyGate>} />
+                    <Route path="/games/chess" element={<GameEconomyGate gameTitle="Chess"><Chess /></GameEconomyGate>} />
+                    <Route path="/games/backgammon" element={<GameEconomyGate gameTitle="Backgammon"><Backgammon /></GameEconomyGate>} />
+                    <Route path="/games/ludo" element={<GameEconomyGate gameTitle="Ludo"><Ludo /></GameEconomyGate>} />
+                    <Route path="/games/hex" element={<GameEconomyGate gameTitle="Hex"><Hex /></GameEconomyGate>} />
+                    <Route path="/games/mancala" element={<GameEconomyGate gameTitle="Mancala"><Mancala /></GameEconomyGate>} />
+                    <Route path="/games/royal-game-of-ur" element={<GameEconomyGate gameTitle="Royal Game of Ur"><RoyalGameOfUr /></GameEconomyGate>} />
+                    <Route path="/games/word-master" element={<GameEconomyGate gameTitle="Word Master"><WordMaster /></GameEconomyGate>} />
+                    <Route path="/games/skybound-quest" element={<GameEconomyGate gameTitle="Skybound Quest"><SkyboundQuest /></GameEconomyGate>} />
+                    <Route path="/games/2048" element={<GameEconomyGate gameTitle="2048"><Game2048 /></GameEconomyGate>} />
+                    <Route path="/games/minesweeper" element={<GameEconomyGate gameTitle="Minesweeper"><Minesweeper /></GameEconomyGate>} />
+                    <Route path="/games/connect-four" element={<GameEconomyGate gameTitle="Connect Four"><ConnectFour /></GameEconomyGate>} />
+                    <Route path="/games/reaction-test" element={<GameEconomyGate gameTitle="Reaction Test"><ReactionTest /></GameEconomyGate>} />
+                    <Route path="/games/tic-tac-toe" element={<GameEconomyGate gameTitle="Tic Tac Toe"><TicTacToe /></GameEconomyGate>} />
+                    <Route path="/games/typing-speed" element={<GameEconomyGate gameTitle="Typing Speed"><TypingSpeed /></GameEconomyGate>} />
+                    <Route path="/games/math-challenge" element={<GameEconomyGate gameTitle="Math Challenge"><MathChallenge /></GameEconomyGate>} />
+                    <Route path="/games/simon-says" element={<GameEconomyGate gameTitle="Simon Says"><SimonSays /></GameEconomyGate>} />
+                    <Route path="/games/trivia" element={<GameEconomyGate gameTitle="Trivia"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/geography-quiz" element={<GameEconomyGate gameTitle="Geography Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/science-quiz" element={<GameEconomyGate gameTitle="Science Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/history-quiz" element={<GameEconomyGate gameTitle="History Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/blind-maze" element={<GameEconomyGate gameTitle="Blind Maze"><BlindMaze /></GameEconomyGate>} />
+                    <Route path="/games/sudoku" element={<GameEconomyGate gameTitle="Sudoku"><Sudoku /></GameEconomyGate>} />
+                    <Route path="/games/nonogram" element={<GameEconomyGate gameTitle="Nonogram"><Nonogram /></GameEconomyGate>} />
+                    <Route path="/games/mastermind" element={<GameEconomyGate gameTitle="Mastermind"><Mastermind /></GameEconomyGate>} />
+                    <Route path="/games/word-search" element={<GameEconomyGate gameTitle="Word Search"><WordSearch /></GameEconomyGate>} />
+                    <Route path="/games/color-match" element={<GameEconomyGate gameTitle="Color Match"><ColorMatch /></GameEconomyGate>} />
+                    <Route path="/games/audio-direction" element={<GameEconomyGate gameTitle="Audio Direction"><AudioDirection /></GameEconomyGate>} />
+                    <Route path="/games/reversi" element={<GameEconomyGate gameTitle="Reversi"><Reversi /></GameEconomyGate>} />
+                    <Route path="/games/checkers" element={<GameEconomyGate gameTitle="Checkers"><Checkers /></GameEconomyGate>} />
+                    <Route path="/games/peg-solitaire" element={<GameEconomyGate gameTitle="Peg Solitaire"><PegSolitaire /></GameEconomyGate>} />
+                    <Route path="/games/battleship" element={<GameEconomyGate gameTitle="Battleship"><Battleship /></GameEconomyGate>} />
+                    <Route path="/games/mini-golf" element={<GameEconomyGate gameTitle="Mini Golf"><MiniGolf /></GameEconomyGate>} />
+                    <Route path="/games/bowling" element={<GameEconomyGate gameTitle="Bowling"><Bowling /></GameEconomyGate>} />
+                    <Route path="/games/archery" element={<GameEconomyGate gameTitle="Archery"><Archery /></GameEconomyGate>} />
+                    <Route path="/games/darts" element={<GameEconomyGate gameTitle="Darts"><Darts /></GameEconomyGate>} />
+                    <Route path="/games/airport-manager" element={<GameEconomyGate gameTitle="Airport Manager"><AirportManager /></GameEconomyGate>} />
+                    <Route path="/games/traffic-control" element={<GameEconomyGate gameTitle="Traffic Control"><TrafficControl /></GameEconomyGate>} />
+                    <Route path="/games/train-dispatcher" element={<GameEconomyGate gameTitle="Train Dispatcher"><TrainDispatcher /></GameEconomyGate>} />
+                    <Route path="/games/harbor-manager" element={<GameEconomyGate gameTitle="Harbor Manager"><HarborManager /></GameEconomyGate>} />
+                    <Route path="/games/learn-letters" element={<GameEconomyGate gameTitle="Letters Learning"><LearnLetters /></GameEconomyGate>} />
+                    <Route path="/games/learn-numbers" element={<GameEconomyGate gameTitle="Numbers Learning"><LearnNumbers /></GameEconomyGate>} />
+                    <Route path="/games/learn-shapes" element={<GameEconomyGate gameTitle="Shapes Learning"><LearnShapes /></GameEconomyGate>} />
+                    <Route path="/games/matching-studio" element={<GameEconomyGate gameTitle="Matching Studio"><MatchingStudio /></GameEconomyGate>} />
+                    <Route path="/games/crossword" element={<GameEconomyGate gameTitle="Crossword"><Crossword /></GameEconomyGate>} />
+                    <Route path="/games/anagram-arena" element={<GameEconomyGate gameTitle="Anagram Arena"><AnagramArena /></GameEconomyGate>} />
+                    <Route path="/games/word-ladder" element={<GameEconomyGate gameTitle="Word Ladder"><WordLadder /></GameEconomyGate>} />
+                    <Route path="/games/spelling-master" element={<GameEconomyGate gameTitle="Spelling Master"><SpellingMaster /></GameEconomyGate>} />
+                    <Route path="/games/restaurant-manager" element={<GameEconomyGate gameTitle="Restaurant Manager"><RestaurantManager /></GameEconomyGate>} />
+                    <Route path="/games/farm-manager" element={<GameEconomyGate gameTitle="Farm Manager"><FarmManager /></GameEconomyGate>} />
+                    <Route path="/games/city-builder" element={<GameEconomyGate gameTitle="City Builder"><ArcadeCityBuilder /></GameEconomyGate>} />
+                    <Route path="/games/delivery-simulator" element={<GameEconomyGate gameTitle="Delivery Simulator"><DeliverySimulator /></GameEconomyGate>} />
+                    <Route path="/games/snake" element={<GameEconomyGate gameTitle="Snake"><Snake /></GameEconomyGate>} />
+                    <Route path="/games/block-stacker" element={<GameEconomyGate gameTitle="Block Stacker"><BlockStacker /></GameEconomyGate>} />
+                    <Route path="/games/breakout" element={<GameEconomyGate gameTitle="Breakout"><Breakout /></GameEconomyGate>} />
+                    <Route path="/games/bubble-shooter" element={<GameEconomyGate gameTitle="Bubble Shooter"><BubbleShooter /></GameEconomyGate>} />
+                    <Route path="/games/technology-quiz" element={<GameEconomyGate gameTitle="Technology Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/nature-quiz" element={<GameEconomyGate gameTitle="Nature Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/space-quiz" element={<GameEconomyGate gameTitle="Space Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/sports-quiz" element={<GameEconomyGate gameTitle="Sports Quiz"><KnowledgeQuiz /></GameEconomyGate>} />
+                    <Route path="/games/audio-memory" element={<GameEconomyGate gameTitle="Audio Memory"><AudioMemory /></GameEconomyGate>} />
+                    <Route path="/games/sound-hunt" element={<GameEconomyGate gameTitle="Sound Hunt"><SoundHunt /></GameEconomyGate>} />
+                    <Route path="/games/echo-locator" element={<GameEconomyGate gameTitle="Echo Locator"><EchoLocator /></GameEconomyGate>} />
+                    <Route path="/games/rhythm-navigation" element={<GameEconomyGate gameTitle="Rhythm Navigation"><RhythmNavigation /></GameEconomyGate>} />
+                    <Route path="/games/balance-lab" element={<GameEconomyGate gameTitle="Balance Lab"><BalanceLab /></GameEconomyGate>} />
+                    <Route path="/games/pendulum-puzzle" element={<GameEconomyGate gameTitle="Pendulum Puzzle"><PendulumPuzzle /></GameEconomyGate>} />
+                    <Route path="/games/trajectory-master" element={<GameEconomyGate gameTitle="Trajectory Master"><TrajectoryMaster /></GameEconomyGate>} />
+                    <Route path="/games/magnet-lab" element={<GameEconomyGate gameTitle="Magnet Lab"><MagnetLab /></GameEconomyGate>} />
+                    <Route path="/games/penalty-shootout" element={<GameEconomyGate gameTitle="Penalty Shootout"><PenaltyShootout /></GameEconomyGate>} />
+                    <Route path="/games/basketball-challenge" element={<GameEconomyGate gameTitle="Basketball Challenge"><BasketballChallenge /></GameEconomyGate>} />
+                    <Route path="/games/table-tennis" element={<GameEconomyGate gameTitle="Table Tennis"><TableTennis /></GameEconomyGate>} />
+                    <Route path="/games/air-hockey" element={<GameEconomyGate gameTitle="Air Hockey"><AirHockey /></GameEconomyGate>} />
+                    <Route path="/games/rhythm-keys" element={<GameEconomyGate gameTitle="Rhythm Keys"><RhythmKeys /></GameEconomyGate>} />
+                    <Route path="/games/melody-memory" element={<GameEconomyGate gameTitle="Melody Memory"><MelodyMemory /></GameEconomyGate>} />
+                    <Route path="/games/beat-matcher" element={<GameEconomyGate gameTitle="Beat Matcher"><BeatMatcher /></GameEconomyGate>} />
+                    <Route path="/games/piano-trainer" element={<GameEconomyGate gameTitle="Piano Trainer"><PianoTrainer /></GameEconomyGate>} />
+                    <Route path="/games/symmetry-sketch" element={<GameEconomyGate gameTitle="Symmetry Sketch"><SymmetrySketch /></GameEconomyGate>} />
+                    <Route path="/games/pixel-canvas" element={<GameEconomyGate gameTitle="Pixel Canvas"><PixelCanvas /></GameEconomyGate>} />
+                    <Route path="/games/shape-designer" element={<GameEconomyGate gameTitle="Shape Designer"><ShapeDesigner /></GameEconomyGate>} />
+                    <Route path="/games/pattern-artist" element={<GameEconomyGate gameTitle="Pattern Artist"><PatternArtist /></GameEconomyGate>} />
+                    <Route path="/games/lemonade-stand" element={<GameEconomyGate gameTitle="Lemonade Stand"><LemonadeStand /></GameEconomyGate>} />
+                    <Route path="/games/space-miner-idle" element={<GameEconomyGate gameTitle="Space Miner Idle"><SpaceMinerIdle /></GameEconomyGate>} />
+                    <Route path="/games/factory-idle" element={<GameEconomyGate gameTitle="Factory Idle"><FactoryIdle /></GameEconomyGate>} />
+                    <Route path="/games/aquarium-keeper" element={<GameEconomyGate gameTitle="Aquarium Keeper"><AquariumKeeper /></GameEconomyGate>} />
+                    <Route path="/games/garden-planner" element={<GameEconomyGate gameTitle="Garden Planner"><GardenPlanner /></GameEconomyGate>} />
+                    <Route path="/games/museum-curator" element={<GameEconomyGate gameTitle="Museum Curator"><MuseumCurator /></GameEconomyGate>} />
+                    <Route path="/games/wildlife-rescue" element={<GameEconomyGate gameTitle="Wildlife Rescue"><WildlifeRescue /></GameEconomyGate>} />
+                    <Route path="/games/solitaire" element={<GameEconomyGate gameTitle="Solitaire"><Solitaire /></GameEconomyGate>} />
+                    <Route path="/games/spider-solitaire" element={<GameEconomyGate gameTitle="Spider Solitaire"><SpiderSolitaire /></GameEconomyGate>} />
+                    <Route path="/games/freecell" element={<GameEconomyGate gameTitle="FreeCell"><FreeCell /></GameEconomyGate>} />
+                    <Route path="/games/mahjong" element={<GameEconomyGate gameTitle="Mahjong"><Mahjong /></GameEconomyGate>} />
+                    <Route path="/games/tower-defense" element={<GameEconomyGate gameTitle="Tower Defense"><TowerDefense /></GameEconomyGate>} />
+                    <Route path="/games/maze-runner" element={<GameEconomyGate gameTitle="Maze Runner"><MazeRunner /></GameEconomyGate>} />
+                    <Route path="/games/parking-challenge" element={<GameEconomyGate gameTitle="Parking Challenge"><ParkingChallenge /></GameEconomyGate>} />
+                    <Route path="/games/escape-room" element={<GameEconomyGate gameTitle="Escape Room"><EscapeRoom /></GameEconomyGate>} />
+                    <Route path="/assistive-products" element={<AssistiveProducts />} />
+                    <Route path="/business-simulator" element={<BusinessSimulator />} />
+                    <Route path="/business-simulator/:slug" element={<SimulationRunner />} />
+                    <Route path="/simulations-summary" element={<SimulationsSummary />} />
+                    <Route path="/services/delivery" element={<Delivery />} />
+                    <Route path="/services/economy" element={<BusinessEconomy />} />
+                    <Route path="/services/shared-trip" element={<SharedTrip />} />
+                    <Route path="/services/nutrition" element={<NutritionExpert />} />
+                    <Route path="/services/trip-history" element={<TripHistory />} />
+                    <Route path="/careers" element={<Careers />} />
+                    <Route path="/career/dashboard" element={<AuthGuard><CareerDashboard /></AuthGuard>} />
+                    <Route path="/career/ai" element={<AuthGuard><AICareerSuite /></AuthGuard>} />
+                    <Route path="/career/employer" element={<AuthGuard><EmployerDashboard /></AuthGuard>} />
+                    <Route path="/career/intelligence" element={<JobIntelligence />} />
+                    <Route path="/career/agent" element={<AuthGuard><CareerAgent /></AuthGuard>} />
+                    <Route path="/career/network" element={<AuthGuard><CareerNetwork /></AuthGuard>} />
+                    <Route path="/career/community" element={<CareerCommunity />} />
+                    <Route path="/services/career-hub" element={<CareerHub />} />
+                    <Route path="/services/music-conservatory" element={<MusicConservatory />} />
+                    <Route path="/services/global-studio" element={<GlobalStudio />} />
+                    <Route path="/services/web-design" element={<WebDesign />} />
+                    <Route path="/services/digital-marketing" element={<DigitalMarketing />} />
+                    <Route path="/services/import-purchasing" element={<ImportPurchasing />} />
+                    <Route path="/services/tech-consulting" element={<TechConsulting />} />
+                    <Route path="/services/training" element={<TrainingService />} />
+                    <Route path="/services/hair-care" element={<HairCare />} />
+                    <Route path="/services/legal-advisor" element={<LegalAdvisor />} />
+                    <Route path="/services/medical-support" element={<MedicalSupport />} />
+                    <Route path="/services/psychology" element={<Psychology />} />
+                    <Route path="/services/skin-care" element={<SkinCareExpert />} />
+                    <Route path="/services/social-guide" element={<SocialGuide />} />
+                    <Route path="/services/sports-coach" element={<SportsCoach />} />
+                    <Route path="/services/travel-agency" element={<TravelAgency />} />
+                    <Route path="/services/radar-ai" element={<RadarAI />} />
+                    <Route path="/services/ocr-scan" element={<OCRScan />} />
+                    <Route path="/services/file-studio" element={<FileStudio />} />
+                    <Route path="/services/educational-empire" element={<EducationalEmpire />} />
+                    <Route path="/services/empathy-oasis" element={<EmpathyOasis />} />
+                    <Route path="/services/live-tv"                      element={<LiveTV />} />
+                    <Route path="/services/live-tv/subscribe"           element={<LiveTVSubscribe />} />
+                    <Route path="/services/live-tv/watch/:channelId"    element={<LiveTVWatch />} />
+                    <Route path="/services/live-tv/favorites"           element={<LiveTVFavorites />} />
+                    <Route path="/services/live-tv/search"              element={<LiveTVSearch />} />
+                    <Route path="/services/live-tv/playlists"           element={<LiveTVPlaylists />} />
+                    <Route path="/services/live-tv/streaming"           element={<StreamingGuide />} />
+                    <Route path="/services/live-radio" element={<LiveRadio />} />
+                    <Route path="/services/live-radio/subscribe" element={<LiveRadioSubscribe />} />
+                    <Route path="/services/live-radio/listen/:stationId" element={<LiveRadioListen />} />
+                    {/* AI Media Studio */}
+                    <Route path="/services/ai-media-studio" element={<AuthGuard><AIMediaStudio /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/projects" element={<AuthGuard><AIMediaStudioProjects /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/assets" element={<AuthGuard><AIMediaStudioAssets /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/templates" element={<AuthGuard><AIMediaStudioTemplates /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/settings" element={<AuthGuard><AIMediaStudioSettings /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/help" element={<AuthGuard><AIMediaStudioHelp /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/speech" element={<AuthGuard><AIMediaStudioSpeech /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/voice"  element={<AuthGuard><AIMediaStudioVoice /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/video"        element={<AuthGuard><AIMediaStudioVideo /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/provider-hub" element={<AuthGuard><AIMediaStudioProviderHub /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/billing"      element={<AuthGuard><AIMediaStudioBilling /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/image"       element={<AuthGuard><AIMediaStudioImage /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/diagnostics" element={<AuthGuard><AIMediaStudioDiagnostics /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/document"    element={<AuthGuard><AIMediaStudioDocument /></AuthGuard>} />
+                    <Route path="/services/ai-media-studio/text-tools"  element={<AuthGuard><AIMediaStudioTextTools /></AuthGuard>} />
+                    <Route path="/games/hangman" element={<GameEconomyGate gameTitle="Hangman"><Hangman /></GameEconomyGate>} />
+                    <Route path="/games/dominoes" element={<GameEconomyGate gameTitle="Dominoes"><Dominoes /></GameEconomyGate>} />
+                    <Route path="/games/farkle" element={<GameEconomyGate gameTitle="Farkle"><FarkleGame /></GameEconomyGate>} />
+                    <Route path="/games/jungle-survival" element={<GameEconomyGate gameTitle="Jungle Survival"><JungleSurvival /></GameEconomyGate>} />
+                    <Route path="/games/star-chef" element={<GameEconomyGate gameTitle="Star Chef"><StarChef /></GameEconomyGate>} />
+                    <Route path="/games/uno-ultra" element={<GameEconomyGate gameTitle="Uno Ultra"><UnoUltra /></GameEconomyGate>} />
+                    <Route path="/games/neon-breach" element={<GameEconomyGate gameTitle="Neon Breach"><NeonBreach /></GameEconomyGate>} />
+                    <Route path="/games/logiquest" element={<GameEconomyGate gameTitle="LogiQuest"><LogiQuest /></GameEconomyGate>} />
+                    <Route path="/games/trade-tycoon" element={<GameEconomyGate gameTitle="Trade Tycoon"><TradeTycoon /></GameEconomyGate>} />
+                    <Route path="/games/tactical-strike" element={<GameEconomyGate gameTitle="Tactical Strike"><TacticalStrike /></GameEconomyGate>} />
+                    <Route path="/games/briscola" element={<GameEconomyGate gameTitle="Briscola"><Briscola /></GameEconomyGate>} />
+                    <Route path="/games/card-99" element={<GameEconomyGate gameTitle="Card 99"><Card99 /></GameEconomyGate>} />
+                    <Route path="/games/dream-home" element={<GameEconomyGate gameTitle="Dream Home"><DreamHome /></GameEconomyGate>} />
+                    <Route path="/games/laptop-tech" element={<GameEconomyGate gameTitle="Laptop Tech Master"><LaptopTechMaster /></GameEconomyGate>} />
+                    <Route path="/games/music-ear" element={<GameEconomyGate gameTitle="Music Ear Master"><MusicEarMaster /></GameEconomyGate>} />
+                    <Route path="/games/fashion-designer" element={<GameEconomyGate gameTitle="Fashion Designer"><FashionDesigner /></GameEconomyGate>} />
+                    <Route path="/games/velocity-racing" element={<GameEconomyGate gameTitle="Velocity X Racing"><VelocityXRacing /></GameEconomyGate>} />
+                    <Route path="/games/akinator" element={<GameEconomyGate gameTitle="Akinator"><Akinator /></GameEconomyGate>} />
+                    <Route path="/community" element={<Community />} />
+                    <Route path="/community/voice-rooms" element={<VoiceRooms />} />
+                    <Route path="/community/room/:roomId" element={<VoiceRoom />} />
+                    <Route path="/community/voice-room/:roomId" element={<VoiceRoom />} />
+                    <Route path="/coins-store" element={<CoinsStore />} />
+                    <Route path="/news" element={<News />} />
+                    <Route path="/newsletter/preferences" element={<NewsletterPreferences />} />
+                    <Route path="/messages" element={<Messages />} />
+                    <Route path="/settings" element={<Settings />} />
+<Route path="/professional-tools" element={<ProfessionalTools />} />
+                    <Route path="/professional-tools/:toolId" element={<ToolDetail />} />
+                    {/* ── Visionex Finance ───────────────────────────────── */}
+                    <Route path="/finance" element={<FinanceDashboard />} />
+                    <Route path="/finance/markets" element={<FinanceMarkets />} />
+                    <Route path="/finance/markets/stocks" element={<FinanceStocks />} />
+                    <Route path="/finance/markets/currencies" element={<FinanceCurrencies />} />
+                    <Route path="/finance/markets/commodities" element={<FinanceCommodities />} />
+                    <Route path="/finance/portfolio" element={<AuthGuard><FinancePortfolio /></AuthGuard>} />
+                    <Route path="/finance/watchlist" element={<AuthGuard><FinanceWatchlist /></AuthGuard>} />
+                    <Route path="/finance/ai-analyst" element={<AuthGuard><FinanceAIAnalyst /></AuthGuard>} />
+                    <Route path="/finance/calendar" element={<FinanceCalendar />} />
+                    <Route path="/finance/news" element={<FinanceNews />} />
+                    <Route path="/finance/affiliate" element={<AuthGuard><FinanceAffiliate /></AuthGuard>} />
+                    <Route path="/finance/brokers" element={<FinanceBrokers />} />
+                    <Route path="/finance/academy" element={<FinanceAcademy />} />
+                    <Route path="/finance/settings" element={<Navigate to="/settings" replace />} />
+                    {/* Legal — all policies accessible through /legal (LegalCenter) */}
+                    <Route path="/legal" element={<LegalCenter />} />
+                    <Route path="/privacy-policy"        element={<Navigate to="/legal" replace />} />
+                    <Route path="/terms-of-use"          element={<Navigate to="/legal" replace />} />
+                    <Route path="/marketplace-policy"    element={<Navigate to="/legal" replace />} />
+                    <Route path="/community-guidelines"  element={<Navigate to="/legal" replace />} />
+                    <Route path="/accessibility"         element={<Navigate to="/legal" replace />} />
+                    <Route path="/legal-disclaimer"      element={<Navigate to="/legal" replace />} />
+                    <Route path="/ai-policy"             element={<Navigate to="/legal" replace />} />
+                    <Route path="/vx-coins-policy"       element={<Navigate to="/legal" replace />} />
+                    <Route path="/buyer-protection"      element={<Navigate to="/legal" replace />} />
+                    <Route path="/intellectual-property" element={<Navigate to="/legal" replace />} />
+                    <Route path="/enforcement-appeals"   element={<Navigate to="/legal" replace />} />
+                    {/* Admin routes */}
+                    <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                    <Route path="/admin/infra" element={<AdminRoute><AdminInfra /></AdminRoute>} />
+                    <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
+                    <Route path="/admin/content" element={<AdminRoute><AdminContent /></AdminRoute>} />
+                    <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+                    <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
+                    <Route path="/admin/requests" element={<AdminRoute><AdminRequests /></AdminRoute>} />
+                    <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+                    <Route path="/admin/subscribers" element={<AdminRoute><AdminSubscribers /></AdminRoute>} />
+                    <Route path="/admin/moderation" element={<AdminRoute><AdminModeration /></AdminRoute>} />
+                    <Route path="/admin/emails" element={<AdminRoute><AdminEmails /></AdminRoute>} />
+                    <Route path="/admin/database" element={<AdminRoute><AdminDatabase /></AdminRoute>} />
+                    <Route path="/admin/vx" element={<AdminRoute><AdminVX /></AdminRoute>} />
+                    <Route path="/admin/vx-coin-orders" element={<AdminRoute><AdminVXCoinOrders /></AdminRoute>} />
+                    <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
+                    <Route path="/admin/simulations" element={<AdminRoute><AdminSimulations /></AdminRoute>} />
+                    <Route path="/admin/news" element={<AdminRoute><AdminNews /></AdminRoute>} />
+                    <Route path="/admin/instructor-applications" element={<AdminRoute><AdminInstructorApplications /></AdminRoute>} />
+                    <Route path="/admin/library-resources" element={<AdminRoute><AdminLibraryResources /></AdminRoute>} />
+                    <Route path="/admin/scholarships" element={<AdminRoute><AdminScholarships /></AdminRoute>} />
+                    <Route path="/admin/universities" element={<AdminRoute><AdminUniversities /></AdminRoute>} />
+                    <Route path="/admin/academy" element={<AdminRoute><AdminAcademyHub /></AdminRoute>} />
+                    <Route path="/admin/academy/students" element={<AdminRoute><AdminAcademyStudents /></AdminRoute>} />
+                    <Route path="/admin/academy/gamification" element={<AdminRoute><AdminAcademyGamification /></AdminRoute>} />
+                    <Route path="/admin/academy/analytics" element={<AdminRoute><AdminAcademyAnalytics /></AdminRoute>} />
+                    <Route path="/admin/bazaar" element={<AdminRoute><AdminBazaar /></AdminRoute>} />
+                    <Route path="/admin/tv" element={<AdminRoute><AdminTV /></AdminRoute>} />
+                    <Route path="/admin/radio" element={<AdminRoute><AdminRadio /></AdminRoute>} />
+                    <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
+                    <Route path="/admin/arcade-economy" element={<AdminRoute><AdminArcadeEconomy /></AdminRoute>} />
+
+                    {/* VisionKids — accessibility-first kids' hub. Own layout (top nav + sidebar),
+                        independent from the site-wide Layout/Header. Public browsing throughout;
+                        /kids/:sectionSlug is data-driven off kidsSections, so adding a 17th
+                        section later is a data-file change, not a new route. */}
+                    <Route path="/kids" element={<VisionKidsLayout />}>
+                      <Route index element={<VisionKidsHome />} />
+                      <Route path="settings" element={<VisionKidsSettings />} />
+
+                      {/* Phase 2 — Smart Stories Library. Static segments (stories/*)
+                          out-rank the ":sectionSlug" catch-all below regardless of
+                          declaration order (React Router ranks literal segments over
+                          params), but declared first here for readability. */}
+                      <Route path="stories" element={<StoriesHome />} />
+                      <Route path="stories/categories" element={<StoryCategories />} />
+                      <Route path="stories/category/:categorySlug" element={<StoryBrowse />} />
+                      <Route path="stories/search" element={<StoryBrowse />} />
+                      <Route path="stories/recommended" element={<StoryRecommended />} />
+                      <Route path="stories/story/:slug" element={<StoryDetails />} />
+                      <Route path="stories/read/:slug" element={<StoryReader />} />
+                      <Route path="stories/listen/:slug" element={<StoryAudioPlayer />} />
+                      <Route path="stories/quiz/:slug" element={<StoryQuizPage />} />
+                      <Route path="stories/favorites" element={<StoryFavorites />} />
+                      <Route path="stories/downloads" element={<StoryDownloads />} />
+                      <Route path="stories/continue-reading" element={<StoryContinueReading />} />
+                      <Route path="stories/history" element={<StoryHistory />} />
+                      <Route path="stories/ai" element={<AiStories />} />
+                      <Route path="stories/ai/create" element={<AiStoryCreate />} />
+                      <Route path="stories/ai/:id" element={<AiStoryDetail />} />
+
+                      {/* Phase 3 — Educational Games Platform. Same reasoning as stories/* above:
+                          static segments out-rank the ":sectionSlug" catch-all. */}
+                      <Route path="games" element={<GamesHome />} />
+                      <Route path="games/categories" element={<GameCategories />} />
+                      <Route path="games/category/:categorySlug" element={<GameBrowse />} />
+                      <Route path="games/search" element={<GameBrowse />} />
+                      <Route path="games/game/:slug" element={<GameDetails />} />
+                      <Route path="games/play/:slug" element={<GamePlay />} />
+                      <Route path="games/recently-played" element={<RecentlyPlayed />} />
+                      <Route path="games/favorites" element={<GameFavorites />} />
+                      <Route path="games/achievements" element={<Achievements />} />
+                      <Route path="games/leaderboard" element={<GamesLeaderboard />} />
+                      <Route path="games/daily-challenges" element={<DailyChallenges />} />
+                      <Route path="games/weekly-challenges" element={<WeeklyChallenges />} />
+                      <Route path="games/multiplayer" element={<MultiplayerLobby />} />
+                      <Route path="games/multiplayer/:roomId" element={<MultiplayerRoomView />} />
+                      <Route path="games/profile" element={<GameProfile />} />
+
+                      {/* Phase 4 — Academy. Same reasoning as stories/* and games/* above:
+                          static segments out-rank the ":sectionSlug" catch-all, and this
+                          replaces "academy" ever falling through to the generic
+                          VisionKidsSection placeholder. */}
+                      <Route path="academy" element={<AcademyHome />} />
+                      <Route path="academy/subjects" element={<AcademySubjects />} />
+                      <Route path="academy/subject/:subjectSlug" element={<SubjectCourses />} />
+                      <Route path="academy/course/:slug" element={<CourseDetail />} />
+                      <Route path="academy/course/:courseSlug/lesson/:lessonSlug" element={<LessonPlayer />} />
+                      <Route path="academy/course/:slug/exam" element={<AcademyExams />} />
+                      <Route path="academy/homework" element={<AcademyHomework />} />
+                      <Route path="academy/projects" element={<AcademyProjects />} />
+                      <Route path="academy/projects/:projectId" element={<ProjectSubmit />} />
+                      <Route path="academy/certificates" element={<KidsAcademyCertificates />} />
+                      <Route path="academy/certificates/verify/:certificateNumber" element={<CertificateVerify />} />
+                      <Route path="academy/parents" element={<ParentsDashboard />} />
+                      <Route path="academy/teacher" element={<TeacherDashboard />} />
+                      <Route path="academy/teacher/course/:courseId" element={<TeacherCourseManage />} />
+                      <Route path="academy/analytics" element={<LearningAnalytics />} />
+                      <Route path="academy/learning-path" element={<LearningPath />} />
+                      <Route path="academy/downloads" element={<AcademyDownloads />} />
+
+                      {/* Phase 5 — AI Creative Studio. Same reasoning as stories/*, games/*,
+                          academy/* above: static segments out-rank the ":sectionSlug"
+                          catch-all. "studio" replaces the generic VisionKidsSection
+                          placeholder that used to serve /kids/coding etc — no, this is a
+                          new "studio" slug, distinct from the existing 16 home sections. */}
+                      <Route path="studio" element={<StudioHome />} />
+                      <Route path="studio/drawing-studio/:projectId" element={<DrawingStudio />} />
+                      <Route path="studio/character-builder/:projectId" element={<CharacterBuilder />} />
+                      <Route path="studio/sticker-maker/:projectId" element={<StickerMaker />} />
+                      <Route path="studio/music-studio" element={<MusicStudio />} />
+                      <Route path="studio/voice-studio" element={<VoiceStudio />} />
+                      <Route path="studio/cartoon-creator" element={<CartoonCreator />} />
+                      <Route path="studio/comic-creator" element={<ComicCreator />} />
+                      <Route path="studio/book-creator/:projectId" element={<BookCreator />} />
+                      <Route path="studio/video-creator" element={<VideoCreator />} />
+                      <Route path="studio/gallery" element={<StudioGallery />} />
+                      <Route path="studio/templates" element={<StudioTemplates />} />
+                      <Route path="studio/challenges" element={<CreativeChallenges />} />
+                      <Route path="studio/my-projects" element={<MyProjects />} />
+
+                      {/* Phase 6 — Explorer. "world/:worldSlug" and
+                          "world/:worldSlug/:locationSlug(/quiz)" are ONE generic
+                          template shared by all 9 browse-and-learn worlds (see
+                          CONTENT_WORLD_CONFIG) — adding a 10th world needs no new
+                          route. The 4 simulators + hub/passport get their own
+                          static segments, same static-before-catch-all reasoning
+                          as every section above. */}
+                      <Route path="explorer" element={<ExplorerHome />} />
+                      <Route path="explorer/virtual-world" element={<VirtualWorld />} />
+                      <Route path="explorer/passport" element={<ExplorerPassport />} />
+                      <Route path="explorer/space-mission" element={<SpaceMission />} />
+                      <Route path="explorer/city-builder" element={<CityBuilder />} />
+                      <Route path="explorer/farm-simulator" element={<FarmSimulator />} />
+                      <Route path="explorer/eco-world" element={<EcoWorld />} />
+                      <Route path="explorer/world/:worldSlug" element={<ExplorerWorldListPage />} />
+                      <Route path="explorer/world/:worldSlug/:locationSlug" element={<ExplorerLocationDetailPage />} />
+                      <Route path="explorer/world/:worldSlug/:locationSlug/quiz" element={<ExplorerLocationQuizPage />} />
+
+                      {/* Phase 7 — Social & Parents Hub. "clubs/:category" (study/
+                          reading/creative) is one generic template shared by every
+                          club type, same discipline as Explorer's world template —
+                          "clubs/detail/:slug" is a distinct 2-segment static-prefixed
+                          route so it never collides with the 1-segment category
+                          route. Same static-before-catch-all reasoning as every
+                          section above for everything else here. */}
+                      <Route path="social" element={<CommunityHome />} />
+                      <Route path="social/friends" element={<SocialFriends />} />
+                      <Route path="social/challenges" element={<SocialChallengesHub />} />
+                      <Route path="social/notifications" element={<SocialNotifications />} />
+                      <Route path="social/reports" element={<SocialReports />} />
+                      <Route path="social/settings" element={<SocialSettings />} />
+                      <Route path="social/moderation" element={<ModerationPanel />} />
+                      <Route path="social/clubs/detail/:slug" element={<ClubDetailPage />} />
+                      <Route path="social/clubs/detail/:slug/quiz" element={<ClubQuizPage />} />
+                      <Route path="social/clubs/:category" element={<ClubListPage />} />
+                      <Route path="social/chat" element={<SafeChatHome />} />
+                      <Route path="social/chat/:conversationId" element={<ChatThread />} />
+                      <Route path="social/voice-rooms" element={<VoiceRoomLobby />} />
+                      <Route path="social/voice-rooms/:roomId" element={<VoiceRoomLive />} />
+                      <Route path="social/parents/family" element={<FamilyAccounts />} />
+                      <Route path="social/parents/dashboard" element={<SocialParentsDashboard />} />
+                      <Route path="social/parents/timeline" element={<SocialActivityTimeline />} />
+                      <Route path="social/parents/settings" element={<SocialParentSettings />} />
+
+                      {/* Phase 8 — Live Events & Universe. "events/:listType" (live/
+                          workshops/competitions/seasonal) is one generic list template,
+                          same discipline as Explorer's world template — the static
+                          events/* segments (calendar, my-events, rewards, replays, …)
+                          out-rank it, and "events/detail/:slug(/register)" plus
+                          "events/room/:slug" are static-prefixed so they never collide
+                          with the 1-segment :listType route. The Universe map lives at
+                          the top-level /kids/universe, not under events. */}
+                      <Route path="events" element={<EventsHome />} />
+                      <Route path="events/calendar" element={<EventsCalendar />} />
+                      <Route path="events/my-events" element={<MyEvents />} />
+                      <Route path="events/notifications" element={<EventNotifications />} />
+                      <Route path="events/rewards" element={<EventsRewardsCenter />} />
+                      <Route path="events/certificates" element={<EventCertificates />} />
+                      <Route path="events/replays" element={<ReplayLibrary />} />
+                      <Route path="events/replays/:replayId" element={<ReplayPlayer />} />
+                      <Route path="events/detail/:slug" element={<EventDetails />} />
+                      <Route path="events/detail/:slug/register" element={<EventRegistration />} />
+                      <Route path="events/room/:slug" element={<LiveEventRoom />} />
+                      <Route path="events/:listType" element={<EventListPage />} />
+                      <Route path="universe" element={<UniverseMap />} />
+                      <Route path="universe/:citySlug" element={<UniverseCityDetail />} />
+
+                      {/* Phase 9 — Talent Hub & Future Skills. "track/:trackSlug"
+                          (and "track/:trackSlug/:moduleSlug") is ONE generic template
+                          shared by all 10 academies/labs (Coding, Robotics, AI, Music,
+                          Art, Writing, Public Speaking, Entrepreneurship, Financial
+                          Literacy, Innovation Lab) — same discipline as Explorer's world
+                          template; adding an 11th track needs no new route. Static
+                          talent/* segments out-rank the param routes as always. */}
+                      <Route path="talent" element={<TalentHubHome />} />
+                      <Route path="talent/assessment" element={<TalentAssessment />} />
+                      <Route path="talent/my-talents" element={<MyTalents />} />
+                      <Route path="talent/skill-tree" element={<SkillTree />} />
+                      <Route path="talent/future-skills" element={<TalentFutureSkills />} />
+                      <Route path="talent/future-skills/:slug" element={<FutureSkillDetail />} />
+                      <Route path="talent/portfolio" element={<TalentPortfolio />} />
+                      <Route path="talent/achievements" element={<TalentAchievements />} />
+                      <Route path="talent/careers" element={<CareerExplorer />} />
+                      <Route path="talent/careers/:slug" element={<CareerDetail />} />
+                      <Route path="talent/mentors" element={<TalentMentors />} />
+                      <Route path="talent/track/:trackSlug" element={<TalentTrackDetail />} />
+                      <Route path="talent/track/:trackSlug/:moduleSlug" element={<TalentModuleDetail />} />
+
+                      {/* Phase 10 — Health & Wellness Hub. Nutrition/Exercise/
+                          Mindfulness/Safety/First-Aid all render through ONE generic
+                          CategoryLessonsPage (see wellness/components), and
+                          "lesson/:category/:slug" is the single shared lesson-player
+                          route for every category. Static health/* segments out-rank
+                          the :sectionSlug catch-all below as always. */}
+                      <Route path="health" element={<HealthHome />} />
+                      <Route path="health/routine" element={<DailyRoutine />} />
+                      <Route path="health/habits" element={<HealthyHabits />} />
+                      <Route path="health/nutrition" element={<Nutrition />} />
+                      <Route path="health/exercise" element={<ExerciseCenter />} />
+                      <Route path="health/sleep" element={<SleepTracker />} />
+                      <Route path="health/mood" element={<MoodJournal />} />
+                      <Route path="health/mindfulness" element={<Mindfulness />} />
+                      <Route path="health/safety" element={<SafetyAcademy />} />
+                      <Route path="health/first-aid" element={<FirstAidKids />} />
+                      <Route path="health/companion" element={<SmartCompanion />} />
+                      <Route path="health/challenges" element={<HealthyChallenges />} />
+                      <Route path="health/emergency" element={<EmergencyGuide />} />
+                      <Route path="health/rewards" element={<WellnessRewards />} />
+                      <Route path="health/accessibility" element={<WellnessAccessibility />} />
+                      <Route path="health/lesson/:category/:slug" element={<WellnessLessonDetail />} />
+
+                      {/* Phase 11 — STEM & Innovation Center. The 8 "list" labs
+                          (Science…Space) each render through ONE generic
+                          LabExperimentsPage over the polymorphic kids_experiments
+                          catalog, and "experiment/:lab/:slug" is the single shared
+                          runner (steps + simulation + quiz) for every experiment —
+                          scaling to thousands of experiments with no new routes.
+                          Robotics / 3D are interactive builders; innovation /
+                          gallery / research are the centers. Static stem/* segments
+                          out-rank the :sectionSlug catch-all as always. */}
+                      <Route path="stem" element={<StemHome />} />
+                      <Route path="stem/science" element={<ScienceLab />} />
+                      <Route path="stem/physics" element={<PhysicsLab />} />
+                      <Route path="stem/chemistry" element={<ChemistryLab />} />
+                      <Route path="stem/biology" element={<BiologyLab />} />
+                      <Route path="stem/math" element={<MathLab />} />
+                      <Route path="stem/engineering" element={<EngineeringLab />} />
+                      <Route path="stem/electronics" element={<ElectronicsLab />} />
+                      <Route path="stem/space" element={<SpaceEngineering />} />
+                      <Route path="stem/robotics" element={<RoboticsWorkshop />} />
+                      <Route path="stem/design3d" element={<Design3DStudio />} />
+                      <Route path="stem/innovation" element={<InnovationChallenges />} />
+                      <Route path="stem/innovation/:slug" element={<InnovationChallengeDetail />} />
+                      <Route path="stem/gallery" element={<InventorGallery />} />
+                      <Route path="stem/research" element={<ResearchCenter />} />
+                      <Route path="stem/research/:slug" element={<ResearchArticlePage />} />
+                      <Route path="stem/rewards" element={<StemRewards />} />
+                      <Route path="stem/accessibility" element={<StemAccessibility />} />
+                      <Route path="stem/experiment/:lab/:slug" element={<StemExperimentDetail />} />
+
+                      {/* Phase 12 — VisionKids World. Every district/island is
+                          the SAME generic RegionPage over the polymorphic
+                          kids_world_activities + kids_npcs catalogs; named
+                          districts get a static route, islands + any future
+                          region use "region/:slug" — so adding a region or a
+                          whole new world is a catalog row, never a refactor.
+                          Marketplace/Home/Transport/Weather/Passport are the
+                          bespoke systems. Static world/* out-rank :sectionSlug. */}
+                      <Route path="world" element={<WorldHome />} />
+                      <Route path="world/map" element={<WorldInteractiveMap />} />
+                      <Route path="world/my-home" element={<WorldMyHome />} />
+                      <Route path="world/dream-city" element={<WorldDreamCity />} />
+                      <Route path="world/adventure-islands" element={<WorldAdventureIslands />} />
+                      <Route path="world/science-city" element={<WorldScienceCity />} />
+                      <Route path="world/reading-village" element={<WorldReadingVillage />} />
+                      <Route path="world/art-district" element={<WorldArtDistrict />} />
+                      <Route path="world/music-town" element={<WorldMusicTown />} />
+                      <Route path="world/sports-arena" element={<WorldSportsArena />} />
+                      <Route path="world/space-port" element={<WorldSpacePort />} />
+                      <Route path="world/ocean-world" element={<WorldOceanWorld />} />
+                      <Route path="world/nature-park" element={<WorldNaturePark />} />
+                      <Route path="world/events-plaza" element={<WorldEventsPlaza />} />
+                      <Route path="world/marketplace" element={<WorldMarketplace />} />
+                      <Route path="world/transportation" element={<WorldTransportation />} />
+                      <Route path="world/weather" element={<WorldWeatherCenter />} />
+                      <Route path="world/passport" element={<WorldPassport />} />
+                      <Route path="world/accessibility" element={<WorldAccessibility />} />
+                      <Route path="world/region/:slug" element={<WorldRegionRoute />} />
+
+                      {/* Phase 13 — Creator & Education Marketplace. Every
+                          content type (course/book/game/worksheet/3D/AI-prompt/…)
+                          is ONE polymorphic products catalog rendered by the
+                          generic ProductListPage — the per-type pages are thin
+                          wrappers, so a new content type needs no new page. The
+                          role dashboards share one CreatorWorkspace. Nothing
+                          reaches children un-reviewed: submit → auto-moderation →
+                          human ModerationQueue → published. Static market/* out-
+                          rank the :sectionSlug catch-all. */}
+                      <Route path="market" element={<MarketHome />} />
+                      <Route path="market/discover" element={<MarketDiscover />} />
+                      <Route path="market/product/:slug" element={<MarketProductDetail />} />
+                      <Route path="market/courses" element={<MarketCourses />} />
+                      <Route path="market/books" element={<MarketBooks />} />
+                      <Route path="market/games" element={<MarketGames />} />
+                      <Route path="market/worksheets" element={<MarketWorksheets />} />
+                      <Route path="market/templates" element={<MarketTemplates />} />
+                      <Route path="market/music" element={<MarketMusic />} />
+                      <Route path="market/videos" element={<MarketVideos />} />
+                      <Route path="market/3d-models" element={<MarketModels3D />} />
+                      <Route path="market/ai-prompts" element={<MarketAIPrompts />} />
+                      <Route path="market/bundles" element={<MarketBundles />} />
+                      <Route path="market/orders" element={<MarketOrders />} />
+                      <Route path="market/wishlist" element={<MarketWishlist />} />
+                      <Route path="market/creator" element={<MarketCreatorDashboard />} />
+                      <Route path="market/teacher" element={<MarketTeacherDashboard />} />
+                      <Route path="market/publisher" element={<MarketPublisherDashboard />} />
+                      <Route path="market/developer" element={<MarketDeveloperDashboard />} />
+                      <Route path="market/analytics" element={<MarketCreatorAnalytics />} />
+                      <Route path="market/verification" element={<MarketCreatorVerification />} />
+                      <Route path="market/moderation" element={<MarketModerationQueue />} />
+                      <Route path="market/accessibility" element={<MarketAccessibility />} />
+
+                      {/* Phase 14 — Platform Core & Plugin System. The platform
+                          is data-driven: engines (registry), plugins (catalog +
+                          per-user installs granting only declared permissions),
+                          widgets (registry → customizable dashboard), and themes
+                          (Theme Engine) all extend without touching core code.
+                          Nothing executes uploaded code — installing toggles a
+                          built-in module. Static platform/* out-rank :sectionSlug. */}
+                      <Route path="platform" element={<PlatformHub />} />
+                      <Route path="platform/marketplace" element={<PlatformMarketplace />} />
+                      <Route path="platform/my-plugins" element={<PlatformMyPlugins />} />
+                      <Route path="platform/dashboard" element={<PlatformDashboard />} />
+                      <Route path="platform/themes" element={<PlatformThemes />} />
+                      <Route path="platform/settings" element={<PlatformSettings />} />
+                      <Route path="platform/notifications" element={<PlatformNotifications />} />
+                      <Route path="platform/analytics" element={<PlatformAnalytics />} />
+                      <Route path="platform/accessibility" element={<PlatformAccessibility />} />
+
+                      {/* Phase 15 — Enterprise & School Ecosystem. Multi-tenant:
+                          every org's data is isolated by RLS membership helpers,
+                          and the active tenant is chosen via the header org
+                          switcher (useCurrentOrg). Rosters (students/teachers/
+                          parents) share one MembersRoster over kids_org_members.
+                          "verify" is a PUBLIC QR-verification page (no org).
+                          Static enterprise/* out-rank the :sectionSlug catch-all. */}
+                      <Route path="enterprise" element={<EnterpriseHome />} />
+                      <Route path="enterprise/schools" element={<EntSchoolsPortal />} />
+                      <Route path="enterprise/dashboard" element={<EntSchoolDashboard />} />
+                      <Route path="enterprise/classrooms" element={<EntClassrooms />} />
+                      <Route path="enterprise/students" element={<EntStudents />} />
+                      <Route path="enterprise/teachers" element={<EntTeachers />} />
+                      <Route path="enterprise/parents" element={<EntParents />} />
+                      <Route path="enterprise/attendance" element={<EntAttendance />} />
+                      <Route path="enterprise/assignments" element={<EntAssignments />} />
+                      <Route path="enterprise/timetable" element={<EntTimetable />} />
+                      <Route path="enterprise/exams" element={<EntExams />} />
+                      <Route path="enterprise/certificates" element={<EntCertificates />} />
+                      <Route path="enterprise/verify" element={<EntCertificateVerify />} />
+                      <Route path="enterprise/resources" element={<EntResourceCenter />} />
+                      <Route path="enterprise/communication" element={<EntCommunication />} />
+                      <Route path="enterprise/reports" element={<EntReports />} />
+                      <Route path="enterprise/analytics" element={<EntAnalytics />} />
+                      <Route path="enterprise/settings" element={<EntOrgSettings />} />
+                      <Route path="enterprise/accessibility" element={<EntAccessibility />} />
+
+                      {/* Phase 16 — AI Operations & Quality (INTERNAL, admin-gated).
+                          Every page renders behind <AdminGate>; non-admins get a
+                          lock screen. Not surfaced on the kids home grid. Ops
+                          tables are admin-only RLS; feature flags + maintenance
+                          are public-read so the app can react to them. */}
+                      <Route path="ops" element={<OpsDashboard />} />
+                      <Route path="ops/health" element={<OpsSystemHealth />} />
+                      <Route path="ops/ai" element={<OpsAIMonitoring />} />
+                      <Route path="ops/content" element={<OpsContentReview />} />
+                      <Route path="ops/accessibility" element={<OpsAccessibility />} />
+                      <Route path="ops/performance" element={<OpsPerformance />} />
+                      <Route path="ops/errors" element={<OpsErrors />} />
+                      <Route path="ops/security" element={<OpsSecurity />} />
+                      <Route path="ops/releases" element={<OpsReleases />} />
+                      <Route path="ops/audit" element={<OpsAudit />} />
+                      <Route path="ops/testing" element={<OpsTesting />} />
+                      <Route path="ops/logs" element={<OpsLogs />} />
+                      <Route path="ops/insights" element={<OpsInsights />} />
+                      <Route path="ops/incidents" element={<OpsIncidents />} />
+                      <Route path="ops/maintenance" element={<OpsMaintenance />} />
+
+                      {/* Phase 17 — Economy & Sustainability. The VX wallet reuses
+                          user_points/spend_vx; no real-money gateway (a `provider`
+                          column is reserved for one later). A child can never
+                          self-activate a PAID plan — child subscriptions land as
+                          'pending_parent' and only a nominated guardian approves
+                          them. Redeems/gifts/donations move only VX coins. Static
+                          economy/* out-rank the :sectionSlug catch-all. */}
+                      <Route path="economy" element={<EconomyHome />} />
+                      <Route path="economy/plans" element={<EconMembershipPlans />} />
+                      <Route path="economy/family-plans" element={<EconFamilyPlans />} />
+                      <Route path="economy/school-plans" element={<EconSchoolPlans />} />
+                      <Route path="economy/ngo-plans" element={<EconNGOPlans />} />
+                      <Route path="economy/wallet" element={<EconWallet />} />
+                      <Route path="economy/rewards" element={<EconRewards />} />
+                      <Route path="economy/redeem" element={<EconRedeem />} />
+                      <Route path="economy/gifts" element={<EconGifts />} />
+                      <Route path="economy/subscriptions" element={<EconSubscriptions />} />
+                      <Route path="economy/invoices" element={<EconInvoices />} />
+                      <Route path="economy/donate" element={<EconDonate />} />
+                      <Route path="economy/partners" element={<EconPartners />} />
+                      <Route path="economy/creator-revenue" element={<EconCreatorRevenue />} />
+                      <Route path="economy/reports" element={<EconReports />} />
+                      <Route path="economy/accessibility" element={<EconAccessibility />} />
+
+                      {/* Phase 18 — Everywhere (Multi-Platform & Offline). One
+                          shared core; the PWA + IndexedDB offline layer + sync
+                          engine (last-write-wins, never silent-delete) + device
+                          management live here. Native wrappers reuse this core
+                          via window.__VISIONKIDS_PLATFORM__. See
+                          docs/visionkids-everywhere.md. */}
+                      <Route path="everywhere" element={<EverywhereHome />} />
+                      <Route path="everywhere/devices" element={<EwMyDevices />} />
+                      <Route path="everywhere/downloads" element={<EwDownloads />} />
+                      <Route path="everywhere/offline" element={<EwOffline />} />
+                      <Route path="everywhere/connection" element={<EwConnection />} />
+                      <Route path="everywhere/tv" element={<EwTvMode />} />
+                      <Route path="everywhere/accessibility" element={<EwAccessibility />} />
+
+                      {/* AI Teacher. Static segment, so it out-ranks the
+                          ":sectionSlug" catch-all below — which now redirects
+                          every section slug to its real page rather than
+                          rendering a placeholder. */}
+                      <Route path="ai-teacher" element={<AiTeacherHome />} />
+
+                      <Route path=":sectionSlug" element={<VisionKidsSection />} />
+                    </Route>
+
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+      </Suspense>
+    </PageErrorBoundary>
+  );
 }
+
+const App = () => (
+  <ErrorBoundary>
+  <QueryClientProvider client={queryClient}>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <LanguageProvider>
+            <AuthProvider>
+              <CartProvider>
+                <CurrencyProvider>
+                  <SoundProvider>
+                    <AppRoutes />
+                  </SoundProvider>
+                </CurrencyProvider>
+              </CartProvider>
+            </AuthProvider>
+          </LanguageProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
+  </QueryClientProvider>
+  </ErrorBoundary>
+);
+
+export default App;
