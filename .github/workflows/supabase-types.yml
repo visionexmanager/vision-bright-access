@@ -23,9 +23,9 @@ jobs:
     name: Regenerate types
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
 
@@ -68,7 +68,7 @@ jobs:
       # built-in token pushes the branch and then fails at the PR itself.
       - name: Open a pull request
         if: steps.drift.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.DEPLOY_TOKEN }}
           branch: chore/regenerate-supabase-types
