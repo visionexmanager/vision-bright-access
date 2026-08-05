@@ -159,29 +159,40 @@ const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, 
 
 function buildDomTranslationMap(lang: Lang): { map: Map<string, string>; sorted: SortedEntries } {
   const map = new Map<string, string>();
-  if (lang === "en") return { map, sorted: null };
-
   const enDict = loadedTranslations.en;
-  const langDict = loadedTranslations[lang];
-  if (enDict && langDict) {
+  const targetDict = loadedTranslations[lang] ?? enDict;
+  const sourceDictionaries = Object.values(loadedTranslations).filter(
+    (dictionary): dictionary is Record<string, string> => Boolean(dictionary)
+  );
+
+  if (enDict && targetDict) {
     for (const [key, englishValue] of Object.entries(enDict)) {
-      const translatedValue = langDict[key];
-      if (
-        translatedValue &&
-        translatedValue !== englishValue &&
-        englishValue.length >= 2 &&
-        englishValue.length <= 220 &&
-        !englishValue.includes("{")
-      ) {
-        map.set(englishValue, translatedValue);
+      const targetValue = targetDict[key] ?? englishValue;
+      for (const sourceDictionary of sourceDictionaries) {
+        const sourceValue = sourceDictionary[key];
+        if (
+          sourceValue &&
+          sourceValue !== targetValue &&
+          sourceValue.length >= 2 &&
+          sourceValue.length <= 220 &&
+          !sourceValue.includes("{")
+        ) {
+          map.set(sourceValue, targetValue);
+        }
       }
     }
   }
 
-  // Keep curated entries as overrides for terse labels and product/data text.
+  // Keep curated entries as multilingual overrides for terse labels and
+  // product/data text. A page may have been authored in English or Arabic, so
+  // every known localized value can be a source and the selected locale is
+  // always the target.
   for (const [englishValue, localized] of Object.entries(commonDomText)) {
-    const translatedValue = localized[lang];
-    if (translatedValue) map.set(englishValue, translatedValue);
+    const targetValue = lang === "en" ? englishValue : (localized[lang] ?? englishValue);
+    const sourceValues = new Set([englishValue, ...Object.values(localized).filter(Boolean)]);
+    for (const sourceValue of sourceValues) {
+      if (sourceValue !== targetValue) map.set(sourceValue, targetValue);
+    }
   }
 
   // Sort ONCE here — longest match first, skip short and templated values.
@@ -242,14 +253,12 @@ function translateStaticDomText(lang: Lang) {
     const original = originalTextNodes.get(node) ?? node.nodeValue ?? "";
     if (!originalTextNodes.has(node)) originalTextNodes.set(node, original);
 
-    if (lang === "en") {
-      node.nodeValue = original;
-      return;
-    }
-
     const trimmed = original.trim();
     const translated = translateDomValue(trimmed, translationMap, sortedEntries);
-    if (!translated) return;
+    if (!translated) {
+      if (node.nodeValue !== original) node.nodeValue = original;
+      return;
+    }
 
     const prefix = original.match(/^\s*/)?.[0] ?? "";
     const suffix = original.match(/\s*$/)?.[0] ?? "";
@@ -271,13 +280,9 @@ function translateStaticDomText(lang: Lang) {
       if (!originals.has(attr)) originals.set(attr, current);
 
       const original = originals.get(attr) ?? current;
-      if (lang === "en") {
-        if (current !== original) element.setAttribute(attr, original);
-        continue;
-      }
-
       const translated = translateDomValue(original, translationMap, sortedEntries);
-      if (translated && current !== translated) element.setAttribute(attr, translated);
+      const nextValue = translated ?? original;
+      if (current !== nextValue) element.setAttribute(attr, nextValue);
     }
   };
 
@@ -304,16 +309,6 @@ function translateStaticDomText(lang: Lang) {
   // Defer initial DOM walk so it doesn't block the first paint.
   const idle = typeof requestIdleCallback !== "undefined" ? requestIdleCallback : setTimeout;
   const handle = idle(() => translateNode(document.body));
-
-  // English needs no ongoing observer — the initial walk above already restores
-  // any previously-translated nodes. Skipping the observer eliminates the biggest
-  // source of unnecessary DOM work for the majority of English-language users.
-  if (lang === "en") {
-    return () => {
-      if (typeof requestIdleCallback !== "undefined") cancelIdleCallback(handle as number);
-      else clearTimeout(handle as number);
-    };
-  }
 
   let rafPending = false;
   const pendingNodes = new Set<Node>();
@@ -384,13 +379,24 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // On failure (e.g. network error or corrupt bundle) we silently fall back so
   // the page still renders instead of hanging on a spinner forever.
   useEffect(() => {
+    let cancelled = false;
     setLangReady(false);
-    Promise.all(lang === "en" ? [loadLang("en")] : [loadLang(lang), loadLang("en")])
-      .then(() => setLangReady(true))
+    // English is the canonical dictionary and Arabic is also loaded as a
+    // supported source language because several legacy sections were authored
+    // directly in Arabic. Loading both lets any section render in the selected
+    // locale instead of preserving the language in which its JSX was written.
+    Promise.all([...new Set<Lang>(["en", "ar", lang])].map(loadLang))
+      .then(() => {
+        if (!cancelled) setLangReady(true);
+      })
       .catch((err) => {
+        if (cancelled) return;
         console.error(`[i18n] Failed to load language "${lang}":`, err);
         setLangReady(true); // surface whatever is loaded rather than hanging
       });
+    return () => {
+      cancelled = true;
+    };
   }, [lang]);
 
   useEffect(() => {
@@ -422,7 +428,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const translateText = useCallback(
     (text: string): string => {
-      if (!text || lang === "en") return text;
+      if (!text) return text;
       const { map, sorted } = buildDomTranslationMap(lang);
       return translateDomValue(text, map, sorted) ?? text;
     },

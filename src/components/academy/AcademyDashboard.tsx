@@ -22,6 +22,7 @@ import { getMyCertificates } from "@/lib/academy/certificateLocalStore";
 import { useAcademyChat } from "@/hooks/academy/useAcademyChat";
 import { usePoints } from "@/hooks/usePoints";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { localizeAcademyProfileValue } from "@/lib/academy/onboardingOptions";
 import { AcademyHero } from "./sections/AcademyHero";
 import { CareerCompassSection } from "./sections/CareerCompassSection";
 import { ContinueLearningSection } from "./sections/ContinueLearningSection";
@@ -127,7 +128,7 @@ interface AcademyDashboardProps {
 
 export function AcademyDashboard({ profile }: AcademyDashboardProps) {
   const navigate = useNavigate();
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
 
   const speak = useCallback((text: string) => speakText(text, lang, { rate: 0.9 }), [lang]);
   const formatTime = useCallback((ts?: number) => {
@@ -138,9 +139,9 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
   const displayProfile = useMemo(() => ({
     name: profile.name,
     gender: profile.gender as "male" | "female",
-    country: profile.country,
-    level: profile.level,
-  }), [profile.name, profile.gender, profile.country, profile.level]);
+    country: localizeAcademyProfileValue(profile.country, t),
+    level: localizeAcademyProfileValue(profile.level, t),
+  }), [profile.name, profile.gender, profile.country, profile.level, t]);
 
   const sessionId = useMemo(() => crypto.randomUUID(), []);
 
@@ -214,13 +215,22 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
     setFeedback((prev) => ({ ...prev, [id]: prev[id] === vote ? undefined as unknown as "up" : vote }));
   }, []);
 
-  const quickPrompts = useMemo(() => [
-    { icon: <MessageSquare className="w-3.5 h-3.5" />, label: "اشرح لي درساً", text: `اشرح لي درساً مهماً في مستوى ${profile.level} بطريقة مبسطة` },
-    { icon: <CalendarDays  className="w-3.5 h-3.5" />, label: "خطة مذاكرة أسبوعية", text: `أعطني خطة مذاكرة أسبوعية منظمة لطالب ${profile.level} في ${profile.country}` },
-    { icon: <TrendingUp    className="w-3.5 h-3.5" />, label: "سوق العمل", text: `شو هي الوظائف المطلوبة والرواتب في ${profile.country} لعام 2026؟` },
-    { icon: <BrainCircuit  className="w-3.5 h-3.5" />, label: "نصيحة مهنية", text: "ساعدني أختار تخصصي الجامعي بناءً على ميولي واهتماماتي" },
-    { icon: <FlaskConical  className="w-3.5 h-3.5" />, label: "تقنيات مذاكرة", text: "شو هي أفضل تقنيات المذاكرة الفعّالة لتحسين الحفظ والاستيعاب؟" },
-  ], [profile.level, profile.country]);
+  const academyText = useCallback((key: string, variables: Record<string, string> = {}) =>
+    Object.entries(variables).reduce(
+      (text, [name, value]) => text.replaceAll(`{${name}}`, value),
+      t(key),
+    ), [t]);
+
+  const quickPrompts = useMemo(() => {
+    const variables = { level: displayProfile.level, country: displayProfile.country };
+    return [
+      { icon: <MessageSquare className="w-3.5 h-3.5" />, label: t("academy.prompt.explain"), text: academyText("academy.prompt.explainText", variables) },
+      { icon: <CalendarDays className="w-3.5 h-3.5" />, label: t("academy.prompt.studyPlan"), text: academyText("academy.prompt.studyPlanText", variables) },
+      { icon: <TrendingUp className="w-3.5 h-3.5" />, label: t("academy.prompt.jobMarket"), text: academyText("academy.prompt.jobMarketText", variables) },
+      { icon: <BrainCircuit className="w-3.5 h-3.5" />, label: t("academy.prompt.careerAdvice"), text: t("academy.prompt.careerAdviceText") },
+      { icon: <FlaskConical className="w-3.5 h-3.5" />, label: t("academy.prompt.studyTechniques"), text: t("academy.prompt.studyTechniquesText") },
+    ];
+  }, [academyText, displayProfile.country, displayProfile.level, t]);
 
   const { courses: recommendedCoursesAll } = useCourseCatalog({ sort: "featured" });
   const { courses: popularCoursesAll } = useCourseCatalog({ sort: "popular" });
@@ -271,7 +281,7 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
           showAptitude={showAptitude}
           onOpenAptitude={() => setShowAptitude(true)}
           onCloseAptitude={() => setShowAptitude(false)}
-          onAskJobMarket={() => handleSend(`شو هي الوظائف المطلوبة والرواتب في ${displayProfile.country} لعام 2026؟`)}
+          onAskJobMarket={() => handleSend(academyText("academy.prompt.jobMarketText", { country: displayProfile.country }))}
         />
 
         <ContinueLearningSection
@@ -336,7 +346,7 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
           onToggleVoiceMode={() => setVoiceMode((v) => !v)}
           onGoToStudyRoom={() => navigate("/content")}
           onGoToOCRScan={() => navigate("/services/ocr-scan")}
-          onStudyPlan={() => handleSend(`أعطني خطة مذاكرة أسبوعية منظمة لطالب ${displayProfile.level} في ${displayProfile.country}`)}
+          onStudyPlan={() => handleSend(academyText("academy.prompt.studyPlanText", displayProfile))}
           onAcademicGuidance={() => {
             setChatInput("ساعدني في تحديد مساري الدراسي والمهني بناءً على مستواي واهتماماتي");
             scrollToId("ai-learning-center", true);

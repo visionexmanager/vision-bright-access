@@ -7,6 +7,13 @@ const enrollmentMigration = readFileSync(
   "supabase/migrations/20260809000000_secure_academy_enrollment.sql",
   "utf8"
 );
+const academyLocalizedSources = [
+  "src/pages/Academy.tsx",
+  "src/components/academy/AcademyOnboarding.tsx",
+  "src/components/academy/AcademyDashboard.tsx",
+  "src/lib/academy/onboardingOptions.ts",
+].map((path) => readFileSync(path, "utf8")).join("\n");
+const locales = ["en", "ar", "es", "de", "pt", "zh", "tr", "fr", "ru", "ur", "hi"];
 
 describe("Academy launch integrity", () => {
   it("keeps every primary Academy navigation destination routed", () => {
@@ -35,5 +42,21 @@ describe("Academy launch integrity", () => {
     expect(enrollmentMigration).not.toMatch(
       /GRANT UPDATE \([^)]*(?:user_id|course_id)/s
     );
+  });
+
+  it("defines every referenced Academy translation key in all supported locales", () => {
+    const referencedKeys = new Set(
+      [...academyLocalizedSources.matchAll(/["'`](academy\.[\w.]+)["'`]/g)]
+        .map((match) => match[1])
+        .filter((key) => !key.endsWith("."))
+    );
+
+    expect(referencedKeys.size).toBeGreaterThan(20);
+    for (const locale of locales) {
+      const dictionary = readFileSync(`src/i18n/${locale}.ts`, "utf8");
+      for (const key of referencedKeys) {
+        expect(dictionary, `${locale} is missing ${key}`).toContain(`"${key}"`);
+      }
+    }
   });
 });

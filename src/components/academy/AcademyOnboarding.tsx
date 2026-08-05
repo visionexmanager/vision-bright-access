@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { User, Globe, GraduationCap, ArrowRight, Star, Loader2 } from "lucide-react";
 import type { StudentProfile } from "@/lib/types";
 import { ACADEMY_ONBOARDING_COUNTRIES, ACADEMY_ONBOARDING_LEVELS } from "@/lib/academy/onboardingOptions";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const COUNTRIES = ACADEMY_ONBOARDING_COUNTRIES;
 const LEVELS    = ACADEMY_ONBOARDING_LEVELS;
@@ -25,6 +26,10 @@ export function AcademyOnboarding({
   isSaving,
   onNext,
 }: AcademyOnboardingProps) {
+  const { t } = useLanguage();
+  const countryKeys = ["lb", "eg", "sa", "tr", "us", "other"] as const;
+  const levelKeys = ["primary", "middle", "high", "uni"] as const;
+
   return (
     <div className="flex items-center justify-center min-h-[80vh] p-6 bg-gradient-to-br from-background to-muted/40">
       <div className="w-full max-w-xl bg-card rounded-3xl shadow-xl border border-border text-center relative overflow-hidden">
@@ -50,14 +55,14 @@ export function AcademyOnboarding({
                 <User className="w-10 h-10" />
               </div>
               <div>
-                <h2 className="type-subhead text-foreground">شو اسمك؟</h2>
-                <p className="type-caption mt-1">الخطوة 1 من 3 — التعريف بنفسك</p>
+                <h2 className="type-subhead text-foreground">{t("academy.step1.title")}</h2>
+                <p className="type-caption mt-1">{t("academy.step1.sub")}</p>
               </div>
               <Input
                 value={formProfile.name}
                 onChange={(e) => setFormProfile({ ...formProfile, name: e.target.value })}
                 className="text-center text-xl py-5 rounded-xl"
-                placeholder="اسمي هو..."
+                placeholder={t("academy.name.placeholder")}
                 onKeyDown={(e) => e.key === "Enter" && !isNextDisabled && onNext()}
               />
               <div className="flex gap-3">
@@ -66,14 +71,14 @@ export function AcademyOnboarding({
                   className="flex-1 py-5 text-base font-semibold rounded-xl"
                   onClick={() => setFormProfile({ ...formProfile, gender: "male" })}
                 >
-                  ذكر
+                  {t("academy.gender.male")}
                 </Button>
                 <Button
                   variant={formProfile.gender === "female" ? "default" : "outline"}
                   className="flex-1 py-5 text-base font-semibold rounded-xl"
                   onClick={() => setFormProfile({ ...formProfile, gender: "female" })}
                 >
-                  أنثى
+                  {t("academy.gender.female")}
                 </Button>
               </div>
             </div>
@@ -85,18 +90,18 @@ export function AcademyOnboarding({
                 <Globe className="w-10 h-10" />
               </div>
               <div>
-                <h2 className="type-subhead text-foreground">من أي بلد؟</h2>
-                <p className="type-caption mt-1">الخطوة 2 من 3 — المنهاج الدراسي</p>
+                <h2 className="type-subhead text-foreground">{t("academy.step2.title")}</h2>
+                <p className="type-caption mt-1">{t("academy.curriculum").replace("{country}", "")}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {COUNTRIES.map((c) => (
+                {COUNTRIES.map((c, index) => (
                   <Button
                     key={c}
                     variant={formProfile.country === c ? "default" : "outline"}
                     className="h-auto py-3.5 rounded-xl font-semibold text-sm"
                     onClick={() => setFormProfile({ ...formProfile, country: c })}
                   >
-                    {c}
+                    {t(`academy.country.${countryKeys[index]}`)}
                   </Button>
                 ))}
               </div>
@@ -109,18 +114,18 @@ export function AcademyOnboarding({
                 <GraduationCap className="w-10 h-10" />
               </div>
               <div>
-                <h2 className="type-subhead text-foreground">ما مستواك الدراسي؟</h2>
-                <p className="type-caption mt-1">الخطوة 3 من 3 — تخصيص المحتوى</p>
+                <h2 className="type-subhead text-foreground">{t("academy.step3.title")}</h2>
+                <p className="type-caption mt-1">{t("academy.quick.title")}</p>
               </div>
               <div className="grid grid-cols-1 gap-2.5">
-                {LEVELS.map((l) => (
+                {LEVELS.map((l, index) => (
                   <Button
                     key={l}
                     variant={formProfile.level === l ? "default" : "outline"}
                     className="h-auto py-4 rounded-xl text-start flex justify-between items-center"
                     onClick={() => setFormProfile({ ...formProfile, level: l })}
                   >
-                    <span className="font-semibold">{l}</span>
+                    <span className="font-semibold">{t(`academy.level.${levelKeys[index]}`)}</span>
                     {formProfile.level === l && <Star className="fill-current w-4 h-4 opacity-80" />}
                   </Button>
                 ))}
@@ -135,8 +140,8 @@ export function AcademyOnboarding({
             className="mt-8 w-full py-5 rounded-xl font-bold text-base"
           >
             {isSaving
-              ? <><Loader2 className="w-4 h-4 animate-spin me-2" /> جاري الحفظ...</>
-              : <>متابعة <ArrowRight className="w-4 h-4 rotate-180 ms-2" /></>
+              ? <><Loader2 className="w-4 h-4 animate-spin me-2" /> {t("academy.next")}</>
+              : <>{t("academy.next")} <ArrowRight className="w-4 h-4 rtl:rotate-180 ms-2" /></>
             }
           </Button>
         </div>

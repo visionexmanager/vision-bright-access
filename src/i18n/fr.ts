@@ -12220,6 +12220,16 @@ export const translations: Record<string, string> = {
   "kids.games.friendsEmpty": "Pas encore de scores d’amis",
   "kids.games.findFriends": "Trouver des amis",
   "kids.talent.mentors.howItWorks": "Demande un mentor : un adulte organisera ta séance.",
+  "academy.prompt.explain": "Expliquer une leçon",
+  "academy.prompt.studyPlan": "Programme d’étude hebdomadaire",
+  "academy.prompt.jobMarket": "Marché du travail",
+  "academy.prompt.careerAdvice": "Conseil professionnel",
+  "academy.prompt.studyTechniques": "Techniques d’étude",
+  "academy.prompt.explainText": "Explique une leçon importante de niveau {level} avec des mots simples.",
+  "academy.prompt.studyPlanText": "Crée un programme hebdomadaire organisé pour un élève de niveau {level} en {country}.",
+  "academy.prompt.jobMarketText": "Quels emplois sont recherchés et quels sont leurs salaires en {country} en 2026 ?",
+  "academy.prompt.careerAdviceText": "Aide-moi à choisir une filière universitaire selon mes centres d’intérêt.",
+  "academy.prompt.studyTechniquesText": "Quelles techniques d’étude améliorent le mieux la mémoire et la compréhension ?",
 };
 
 export default translations;

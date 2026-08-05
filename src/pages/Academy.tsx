@@ -8,9 +8,10 @@ import { useAcademyProfile } from "@/hooks/academy/useAcademyProfile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { StudentProfile } from "@/lib/types";
 import { AcademyErrorState } from "@/components/academy/ui/AcademyErrorState";
+import { localizeAcademyProfileValue } from "@/lib/academy/onboardingOptions";
 
 export default function Academy() {
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const speak = useCallback((text: string) => speakText(text, lang, { rate: 0.9 }), [lang]);
 
   const [formProfile, setFormProfile] = useState<StudentProfile>({ name: "", gender: "male", country: "", level: "" });
@@ -28,16 +29,17 @@ export default function Academy() {
     (step === 3 && !formProfile.level);
 
   const handleNext = async () => {
-    if (step === 1) speak(`أهلاً بك يا ${formProfile.gender === "male" ? "بطل" : "بطلة"}, ${formProfile.name}`);
+    if (step === 1) {
+      const welcomeKey = formProfile.gender === "male" ? "academy.welcome.male" : "academy.welcome.female";
+      speak(t(welcomeKey).replace("{name}", formProfile.name));
+    }
     if (step === 3) {
-      speak(`ممتاز، منهاج الـ ${formProfile.level} في ${formProfile.country} جاهز لك الآن.`);
+      speak(t("academy.curriculum").replace("{country}", localizeAcademyProfileValue(formProfile.country, t)));
       setSaveError(null);
       try {
         await saveProfile(formProfile);
       } catch {
-        setSaveError(lang === "ar"
-          ? "تعذر حفظ ملف الأكاديمية. تحقق من الاتصال ثم أعد المحاولة."
-          : "Your Academy profile could not be saved. Check your connection and try again.");
+        setSaveError(t("academy.error"));
       }
       return;
     }
@@ -59,9 +61,7 @@ export default function Academy() {
       <Layout>
         <AcademyErrorState
           className="mx-auto min-h-[50vh] max-w-xl justify-center"
-          message={lang === "ar"
-            ? "تعذر تحميل الأكاديمية. تحقق من الاتصال ثم أعد المحاولة."
-            : "The Academy could not be loaded. Check your connection and try again."}
+          message={t("academy.error")}
           onRetry={() => void retry()}
         />
       </Layout>

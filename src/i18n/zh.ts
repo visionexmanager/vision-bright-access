@@ -12122,6 +12122,16 @@ export const translations: Record<string, string> = {
   "kids.games.friendsEmpty": "还没有好友成绩",
   "kids.games.findFriends": "寻找好友",
   "kids.talent.mentors.howItWorks": "申请导师，会有大人为你安排辅导。",
+  "academy.prompt.explain": "讲解课程",
+  "academy.prompt.studyPlan": "每周学习计划",
+  "academy.prompt.jobMarket": "就业市场",
+  "academy.prompt.careerAdvice": "职业建议",
+  "academy.prompt.studyTechniques": "学习技巧",
+  "academy.prompt.explainText": "请用简单的语言讲解一节重要的{level}课程。",
+  "academy.prompt.studyPlanText": "为{country}的一名{level}学生制定有条理的每周学习计划。",
+  "academy.prompt.jobMarketText": "2026年{country}有哪些紧缺职业，薪资水平如何？",
+  "academy.prompt.careerAdviceText": "请根据我的兴趣帮助我选择大学专业。",
+  "academy.prompt.studyTechniquesText": "提高记忆和理解能力的最佳学习技巧有哪些？",
 };
 
 export default translations;
