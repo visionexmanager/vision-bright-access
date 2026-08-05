@@ -104,20 +104,26 @@ export interface VideoGenerateForm {
   templateId:      string;
 }
 
+/**
+ * "auto" lets the edge function pick whichever provider actually has a key
+ * configured, so the studio survives a secret change without a client release.
+ */
+export const AUTO_PROVIDER = "auto";
+
 export const DEFAULT_FORM: VideoGenerateForm = {
   title:           "",
   prompt:          "",
   negativePrompt:  "",
   style:           "realistic",
-  durationSec:     5,
+  durationSec:     4,
   aspectRatio:     "16:9",
   resolution:      "720p",
   fps:             24,
   cameraMotion:    "static",
   creativity:      7.0,
   seed:            "",
-  provider:        "luma",
-  providerModel:   "dream-machine",
+  provider:        AUTO_PROVIDER,
+  providerModel:   "",
   audioMode:       "none",
   audioAssetId:    "",
   projectId:       "",
@@ -231,9 +237,30 @@ export interface VideoProviderConfig {
   maxDuration: number;
   features:   string[];
   requiresKey: string;
+  /**
+   * Durations the provider actually accepts. When set, the UI offers exactly
+   * these instead of a free slider — Sora rejects anything other than 4/8/12.
+   */
+  allowedDurations?:   number[];
+  /** Aspect ratios the provider can render. Undefined means all of them. */
+  allowedAspectRatios?: VideoAspectRatio[];
 }
 
 export const VIDEO_PROVIDERS: VideoProviderConfig[] = [
+  {
+    id:          "openai",
+    name:        "OpenAI Sora",
+    models:      [
+      { id: "sora-2",     name: "Sora 2",     maxDuration: 12 },
+      { id: "sora-2-pro", name: "Sora 2 Pro", maxDuration: 12 },
+    ],
+    maxDuration: 12,
+    features:    ["text-to-video", "shared-openai-key", "audio"],
+    requiresKey: "OPENAI_API_KEY",
+    // The Videos API accepts only these three clip lengths and two orientations.
+    allowedDurations:    [4, 8, 12],
+    allowedAspectRatios: ["16:9", "9:16"],
+  },
   {
     id:          "luma",
     name:        "Luma Dream Machine",
@@ -242,12 +269,10 @@ export const VIDEO_PROVIDERS: VideoProviderConfig[] = [
     features:    ["text-to-video", "high-quality", "fast"],
     requiresKey: "LUMA_API_KEY",
   },
-  {
-    id:          "mock",
-    name:        "Demo Provider",
-    models:      [{ id: "mock-v1", name: "Demo Mode", maxDuration: 60 }],
-    maxDuration: 60,
-    features:    ["demo", "no-key-required"],
-    requiresKey: "",
-  },
 ];
+
+export function resolveProviderConfig(providerId: string): VideoProviderConfig {
+  return (
+    VIDEO_PROVIDERS.find((p) => p.id === providerId) ?? VIDEO_PROVIDERS[0]
+  );
+}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,10 @@ import type { VideoJob, VideoLibraryFilters } from "@/lib/types/video-studio";
 import { VIDEO_STYLES } from "@/lib/types/video-studio";
 import { cn } from "@/lib/utils";
 
+// Radix Select forbids an empty-string item value (an empty value is reserved
+// for "no selection"), so the "any style" choice needs a real sentinel value.
+const ANY_STYLE = "__any__";
+
 export function VideoLibrary() {
   const [filters, setFilters] = useState<VideoLibraryFilters>({
     status:  "all",
@@ -35,11 +39,21 @@ export function VideoLibrary() {
   const [renameText,   setRenameText]   = useState("");
   const [previewJob,   setPreviewJob]   = useState<VideoJob | null>(null);
 
-  const { data: jobs = [], isLoading, refetch } = useVideoJobs({
-    ...filters,
-    query: search,
-  });
+  // Only the server-side filters belong in the query key. Text search is applied
+  // on the client below, so typing filters the loaded page instead of firing a
+  // fresh Supabase request (and a fresh cache entry) on every keystroke.
+  const { data: allJobs = [], isLoading, refetch } = useVideoJobs(filters);
   const { rename, toggleFavorite, archive, cancel, remove } = useVideoJobMutations();
+
+  const jobs = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return allJobs;
+    return allJobs.filter(
+      (j) =>
+        j.title?.toLowerCase().includes(q) ||
+        j.prompt.toLowerCase().includes(q)
+    );
+  }, [allJobs, search]);
 
   // Signed URL for the preview job
   const { data: previewSignedUrl } = useSignedVideoUrl(previewJob);
@@ -75,12 +89,13 @@ export function VideoLibrary() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search videos…"
             className="h-8 pl-8 text-sm"
+            aria-label="Search videos by title or prompt"
           />
         </div>
 
         {/* Status filter */}
         <Select value={filters.status ?? "all"} onValueChange={(v) => setFilter("status", v as VideoLibraryFilters["status"])}>
-          <SelectTrigger className="h-8 w-36 text-sm"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 w-36 text-sm" aria-label="Filter by status"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="active">In progress</SelectItem>
@@ -91,10 +106,13 @@ export function VideoLibrary() {
         </Select>
 
         {/* Style filter */}
-        <Select value={filters.style ?? ""} onValueChange={(v) => setFilter("style", v || undefined)}>
-          <SelectTrigger className="h-8 w-36 text-sm"><SelectValue placeholder="All styles" /></SelectTrigger>
+        <Select
+          value={filters.style ?? ANY_STYLE}
+          onValueChange={(v) => setFilter("style", v === ANY_STYLE ? undefined : v)}
+        >
+          <SelectTrigger className="h-8 w-36 text-sm" aria-label="Filter by style"><SelectValue placeholder="All styles" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All styles</SelectItem>
+            <SelectItem value={ANY_STYLE}>All styles</SelectItem>
             {VIDEO_STYLES.map((s) => (
               <SelectItem key={s.id} value={s.id}>{s.emoji} {s.label}</SelectItem>
             ))}
@@ -110,7 +128,7 @@ export function VideoLibrary() {
             setFilter("sortDir", dir as VideoLibraryFilters["sortDir"]);
           }}
         >
-          <SelectTrigger className="h-8 w-36 text-sm"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 w-36 text-sm" aria-label="Sort videos"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="created_at:desc">Newest first</SelectItem>
             <SelectItem value="created_at:asc">Oldest first</SelectItem>
@@ -129,7 +147,7 @@ export function VideoLibrary() {
           Favorites
         </Button>
 
-        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => refetch()}>
+        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => refetch()} aria-label="Refresh video list">
           <RefreshCw className="size-3.5" />
         </Button>
 
@@ -137,12 +155,14 @@ export function VideoLibrary() {
           <Button
             size="icon" variant={gridMode === "grid" ? "secondary" : "ghost"} className="h-8 w-8 rounded-r-none"
             onClick={() => setGridMode("grid")}
+            aria-label="Grid view" aria-pressed={gridMode === "grid"}
           >
             <LayoutGrid className="size-3.5" />
           </Button>
           <Button
             size="icon" variant={gridMode === "list" ? "secondary" : "ghost"} className="h-8 w-8 rounded-l-none"
             onClick={() => setGridMode("list")}
+            aria-label="List view" aria-pressed={gridMode === "list"}
           >
             <LayoutList className="size-3.5" />
           </Button>
@@ -158,9 +178,18 @@ export function VideoLibrary() {
             ))}
           </div>
         ) : jobs.length === 0 ? (
-          <div className="flex h-40 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-            <p className="text-sm font-medium">No videos yet</p>
-            <p className="text-xs">Generate your first video from the panel on the left.</p>
+          <div className="flex h-40 flex-col items-center justify-center gap-2 text-center text-muted-foreground" role="status">
+            {search.trim() || allJobs.length > 0 ? (
+              <>
+                <p className="text-sm font-medium">No videos match your filters</p>
+                <p className="text-xs">Try a different search term, style, or status.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium">No videos yet</p>
+                <p className="text-xs">Generate your first video from the panel on the left.</p>
+              </>
+            )}
           </div>
         ) : (
           <div className={cn(

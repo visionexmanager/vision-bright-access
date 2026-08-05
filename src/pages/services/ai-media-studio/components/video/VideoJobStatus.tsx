@@ -41,7 +41,12 @@ export function VideoJobStatus({
   const isDone    = phase === "completed";
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+    <div
+      className="space-y-3 rounded-lg border border-border bg-card p-4"
+      role="status"
+      aria-live="polite"
+      aria-atomic="false"
+    >
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -68,6 +73,7 @@ export function VideoJobStatus({
       {!isFailed && (
         <Progress
           value={progress}
+          aria-label={`${PHASE_LABELS[phase]} ${progress}% complete`}
           className={cn(
             "h-1.5",
             isDone && "[&>div]:bg-green-500"
@@ -107,7 +113,7 @@ export function VideoJobStatus({
 
       {/* Error */}
       {isFailed && errorMessage && (
-        <p className="text-xs text-destructive">{errorMessage}</p>
+        <p className="text-xs text-destructive" role="alert">{errorMessage}</p>
       )}
     </div>
   );

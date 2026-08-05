@@ -35,6 +35,10 @@ import type {
   Provider, CreateProviderInput, UpdateProviderInput, ProviderType,
 } from "@/lib/types/provider-hub";
 
+// Radix Select rejects an empty-string item value, so "no type filter" needs a
+// sentinel that maps back to "" for the hooks below.
+const ANY_PROVIDER_TYPE = "__any__";
+
 // ── Logs table ────────────────────────────────────────────────────────────────
 
 function LogsTab() {
@@ -47,10 +51,13 @@ function LogsTab() {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as ProviderType | "")}>
-          <SelectTrigger className="h-8 w-48 text-sm"><SelectValue placeholder="All types" /></SelectTrigger>
+        <Select
+          value={typeFilter || ANY_PROVIDER_TYPE}
+          onValueChange={(v) => setTypeFilter(v === ANY_PROVIDER_TYPE ? "" : (v as ProviderType))}
+        >
+          <SelectTrigger className="h-8 w-48 text-sm" aria-label="Filter logs by provider type"><SelectValue placeholder="All types" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All types</SelectItem>
+            <SelectItem value={ANY_PROVIDER_TYPE}>All types</SelectItem>
             {(Object.entries(PROVIDER_TYPE_LABELS) as [ProviderType, string][]).map(([k, v]) => (
               <SelectItem key={k} value={k}>{v}</SelectItem>
             ))}
@@ -439,10 +446,13 @@ export default function ProviderHub() {
                       className="h-8 pl-8 text-sm"
                     />
                   </div>
-                  <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as ProviderType | "")}>
-                    <SelectTrigger className="h-8 w-44 text-sm"><SelectValue placeholder="All types" /></SelectTrigger>
+                  <Select
+                    value={typeFilter || ANY_PROVIDER_TYPE}
+                    onValueChange={(v) => setTypeFilter(v === ANY_PROVIDER_TYPE ? "" : (v as ProviderType))}
+                  >
+                    <SelectTrigger className="h-8 w-44 text-sm" aria-label="Filter providers by type"><SelectValue placeholder="All types" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All types</SelectItem>
+                      <SelectItem value={ANY_PROVIDER_TYPE}>All types</SelectItem>
                       {(Object.entries(PROVIDER_TYPE_LABELS) as [ProviderType, string][]).map(([k, v]) => (
                         <SelectItem key={k} value={k}>{v}</SelectItem>
                       ))}

@@ -107,10 +107,16 @@ async function checkOpenAI(): Promise<ComponentStatus> {
 async function checkLuma(): Promise<ComponentStatus> {
   const apiKey = Deno.env.get("LUMA_API_KEY");
   if (!apiKey) {
+    const hasOpenAI = !!Deno.env.get("OPENAI_API_KEY");
     return {
-      ok:     false,
-      status: "warning",
-      detail: "LUMA_API_KEY not configured. Video generation will use the mock provider (demo videos only).",
+      // Luma is the fallback provider; video generation runs on OpenAI Sora
+      // while OPENAI_API_KEY is set, so a missing Luma key is only a problem
+      // once OpenAI's Videos API shuts down (announced for 2026-09-24).
+      ok:     hasOpenAI,
+      status: hasOpenAI ? "ok" : "warning",
+      detail: hasOpenAI
+        ? "LUMA_API_KEY not configured. Video generation is running on OpenAI Sora. Set LUMA_API_KEY before the OpenAI Videos API shuts down on 2026-09-24."
+        : "Neither LUMA_API_KEY nor OPENAI_API_KEY is configured. Video generation will fail.",
     };
   }
   try {
@@ -121,7 +127,7 @@ async function checkLuma(): Promise<ComponentStatus> {
       return {
         ok:     false,
         status: "error",
-        detail: "LUMA_API_KEY is invalid. Video generation will fall back to mock provider.",
+        detail: "LUMA_API_KEY is invalid. Video generation cannot fall back to Luma.",
       };
     }
     if (!res.ok) {

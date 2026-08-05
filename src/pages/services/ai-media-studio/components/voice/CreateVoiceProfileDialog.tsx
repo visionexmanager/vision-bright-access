@@ -25,6 +25,10 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+// Radix Select rejects an empty-string item value, so the optional "no answer"
+// choice needs a sentinel that maps back to "" on the form.
+const UNSPECIFIED_GENDER = "__unspecified__";
+
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -114,12 +118,15 @@ export function CreateVoiceProfileDialog({ open, onOpenChange, onSubmit, isLoadi
                 control={control}
                 name="gender"
                 render={({ field }) => (
-                  <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value ? field.value : UNSPECIFIED_GENDER}
+                    onValueChange={(v) => field.onChange(v === UNSPECIFIED_GENDER ? "" : v)}
+                  >
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Optional" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Not specified</SelectItem>
+                      <SelectItem value={UNSPECIFIED_GENDER}>Not specified</SelectItem>
                       <SelectItem value="male">Male</SelectItem>
                       <SelectItem value="female">Female</SelectItem>
                       <SelectItem value="neutral">Neutral</SelectItem>

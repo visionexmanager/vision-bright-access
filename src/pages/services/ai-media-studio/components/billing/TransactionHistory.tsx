@@ -32,6 +32,9 @@ const TYPE_COLOR: Record<TransactionType, string> = {
   purchase:           "text-amber-400",
 };
 
+// Radix Select rejects an empty-string item value, so "no filter" needs a sentinel.
+const ANY_TYPE = "__any__";
+
 function formatTime(dateStr: string): string {
   const d = new Date(dateStr);
   return d.toLocaleString(undefined, {
@@ -41,19 +44,19 @@ function formatTime(dateStr: string): string {
 }
 
 export function TransactionHistory() {
-  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<string>(ANY_TYPE);
   const { data: transactions = [], isLoading } = useTransactionHistory({
     limit: 100,
-    type:  typeFilter || undefined,
+    type:  typeFilter === ANY_TYPE ? undefined : typeFilter,
   });
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="h-8 w-44 text-sm"><SelectValue placeholder="All types" /></SelectTrigger>
+          <SelectTrigger className="h-8 w-44 text-sm" aria-label="Filter by transaction type"><SelectValue placeholder="All types" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All types</SelectItem>
+            <SelectItem value={ANY_TYPE}>All types</SelectItem>
             <SelectItem value="spend">Spent</SelectItem>
             <SelectItem value="purchase">Purchased</SelectItem>
             <SelectItem value="subscription_grant">Subscription Grant</SelectItem>
