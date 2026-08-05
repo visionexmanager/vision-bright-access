@@ -1,0 +1,10 @@
+# Keeps visionex-tv/frontend/public/ tracked in git.
+#
+# Dockerfile line 12 does `COPY --from=builder /app/public ./public`, which is
+# the standard Next.js standalone runner layout. Next.js does not create this
+# directory itself, so without a tracked file here the directory does not exist
+# in the build context and the image build fails with:
+#
+#   failed to compute cache key: "/app/public": not found
+#
+# Delete this file only if you also drop that COPY from the Dockerfile.
