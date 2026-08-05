@@ -38,7 +38,7 @@ async function checkEnvVar(name: string): Promise<ComponentStatus> {
       detail: `Environment variable ${name} is not set in Supabase Edge Function secrets.`,
     };
   }
-  return { ok: true, status: "ok", detail: `${name} is configured (${val.slice(0, 6)}…)` };
+  return { ok: true, status: "ok", detail: `${name} is configured.` };
 }
 
 async function checkTable(db: ReturnType<typeof createClient>, tableName: string): Promise<ComponentStatus> {
