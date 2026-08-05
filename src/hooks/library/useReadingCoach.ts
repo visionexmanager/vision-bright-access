@@ -10,9 +10,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { jsonAs } from "@/integrations/supabase/json";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { runLibraryAiAssistant } from "@/services/library/aiAssistant";
-import type { ReadingCoachStats } from "@/lib/types/library-ai";
+import type { ReadingCoachActiveGoal, ReadingCoachStats } from "@/lib/types/library-ai";
 
 export function useReadingCoach(bookId: string | undefined) {
   const { user } = useAuth();
@@ -25,7 +26,11 @@ export function useReadingCoach(bookId: string | undefined) {
     queryFn: async (): Promise<ReadingCoachStats | null> => {
       const { data, error } = await supabase.rpc("get_library_reading_coach_stats", { _book_id: bookId });
       if (error) throw new Error(error.message);
-      return (data ?? [])[0] ?? null;
+      const row = (data ?? [])[0];
+      if (!row) return null;
+      // Every column but active_goals maps straight across; that one is jsonb,
+      // so the generated type is the whole Json union.
+      return { ...row, active_goals: jsonAs<ReadingCoachActiveGoal[]>(row.active_goals) };
     },
     enabled: !!bookId && !!user,
   });

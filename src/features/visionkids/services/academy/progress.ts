@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, jsonPayload } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { CourseEnrollment, LessonProgress } from "@/features/visionkids/types/academy.types";
 
 async function requireUserId(): Promise<string> {
@@ -78,7 +78,7 @@ export async function fetchRecentLessonProgress(limit = 10): Promise<LessonProgr
 
 export async function submitActivityAttempt(activityId: string, answer: Record<string, unknown>, correct: boolean): Promise<void> {
   const user_id = await requireUserId();
-  const { error } = await kidsDb.from("kids_activity_attempts").insert({ user_id, activity_id: activityId, answer, correct });
+  const { error } = await kidsDb.from("kids_activity_attempts").insert({ user_id, activity_id: activityId, answer: jsonPayload(answer), correct });
   if (error) throw error;
 }
 

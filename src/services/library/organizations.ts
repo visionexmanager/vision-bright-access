@@ -24,6 +24,7 @@ export interface OrganizationRow {
   is_active: boolean;
   sso_domain: string | null;
   sso_enabled: boolean;
+  require_2fa: boolean;
   created_at: string;
   updated_at: string;
 }

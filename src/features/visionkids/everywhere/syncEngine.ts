@@ -46,6 +46,14 @@ export async function flush(): Promise<SyncResult> {
   flushing = true;
   const deviceKey = getDeviceKey();
   try {
+    // kids_sync_queue.user_id is NOT NULL and its RLS insert policy is
+    // `auth.uid() = user_id`, so the row has to carry the owner explicitly.
+    // Signed out there is nobody to push for — leave the queue untouched so
+    // the changes still flush after the next sign-in.
+    const { data: authData } = await kidsDb.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) return result;
+
     const items = ((await getAll("syncQueue")) as unknown as SyncQueueItem[]).filter((i) => i.status === "pending");
     if (items.length === 0) return result;
 
@@ -57,11 +65,12 @@ export async function flush(): Promise<SyncResult> {
     for (const item of items) {
       try {
         const { error } = await kidsDb.from("kids_sync_queue").insert({
+          user_id: userId,
           device_key: deviceKey,
           entity: item.entity,
           entity_id: item.entityId,
           op: item.op,
-          payload: item.payload,
+          payload: jsonPayload(item.payload),
           client_ts: new Date(item.clientTs).toISOString(),
           status: "pending",
         });

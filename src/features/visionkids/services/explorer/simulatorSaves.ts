@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, jsonPayload } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { SimulatorSave, SimulatorType } from "@/features/visionkids/types/explorer.types";
 
 async function requireUserId(): Promise<string> {
@@ -20,13 +20,13 @@ export async function fetchSimulatorSave<TState = Record<string, unknown>>(
   return data ?? null;
 }
 
-export async function saveSimulatorState<TState = Record<string, unknown>>(
+export async function saveSimulatorState<TState extends object = Record<string, unknown>>(
   simulatorType: SimulatorType,
   state: TState,
 ): Promise<void> {
   const userId = await requireUserId();
   const { error } = await kidsDb
     .from("kids_explorer_simulator_saves")
-    .upsert({ user_id: userId, simulator_type: simulatorType, state }, { onConflict: "user_id,simulator_type" });
+    .upsert({ user_id: userId, simulator_type: simulatorType, state: jsonPayload(state) }, { onConflict: "user_id,simulator_type" });
   if (error) throw error;
 }

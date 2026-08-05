@@ -19,6 +19,18 @@ export async function fetchAiPreferences(userId: string): Promise<AiPreferencesR
 }
 
 export async function saveAiPreferences(userId: string, patch: Partial<Omit<AiPreferencesRow, "user_id" | "updated_at">>): Promise<void> {
-  const { error } = await supabase.from("library_ai_preferences").upsert({ user_id: userId, ...patch, ...(patch.accessibility_preferences ? { accessibility_preferences: jsonPayload(patch.accessibility_preferences) } : {}) }, { onConflict: "user_id" });
+  // accessibility_preferences is the one jsonb column. It has to come out of
+  // the spread rather than be overridden after it: spreading it first leaves
+  // its app-side type in the object literal, and a conditional override only
+  // widens the property to `Json | LibraryAccessibilityPreferences`.
+  const { accessibility_preferences, ...rest } = patch;
+  const { error } = await supabase.from("library_ai_preferences").upsert(
+    {
+      user_id: userId,
+      ...rest,
+      ...(accessibility_preferences ? { accessibility_preferences: jsonPayload(accessibility_preferences) } : {}),
+    },
+    { onConflict: "user_id" },
+  );
   if (error) throw new Error(error.message);
 }

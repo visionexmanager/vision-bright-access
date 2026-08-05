@@ -108,7 +108,14 @@ export async function fetchContentLinksForEntity(entityId: string): Promise<Libr
     .select("content_type, content_id, context")
     .eq("entity_id", entityId);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => ({ contentType: r.content_type, contentId: r.content_id, context: r.context }));
+  // content_type is a TEXT column with a CHECK constraint limiting it to the
+  // two values below, so the generated type is `string` and the narrowing is
+  // enforced by the database rather than by TypeScript.
+  return (data ?? []).map((r) => ({
+    contentType: r.content_type as LibraryKgContentLink["contentType"],
+    contentId: r.content_id,
+    context: r.context,
+  }));
 }
 
 export interface LibraryKnowledgeMapNode {

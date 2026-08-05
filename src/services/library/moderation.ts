@@ -34,19 +34,26 @@ export interface LibraryContentReportRow {
  *  for content types with no single clear author (e.g. a book, which has
  *  no single "user" to act against the same way). */
 export async function resolveContentAuthor(contentType: string, contentId: string): Promise<string | null> {
-  const table = {
-    library_discussion_topic: "library_discussion_topics",
-    library_discussion_reply: "library_discussion_replies",
-    library_review: "library_reviews",
-    library_reader_profile: null,
-  }[contentType];
+  // A reader profile IS the user, so there is nothing to look up. Every other
+  // type needs its own query: postgrest resolves the row type from the table
+  // name, so the name has to be a literal at each call rather than a variable
+  // shared by one query — a `.from(table)` on a string recurses until
+  // TypeScript gives up, and the selected column comes back untyped.
   if (contentType === "library_reader_profile") return contentId;
-  if (!table) return null;
 
-  const column = contentType === "library_review" ? "user_id" : "author_id";
-  const { data, error } = await supabase.from(table).select(column).eq("id", contentId).maybeSingle();
-  if (error || !data) return null;
-  return (data as Record<string, string>)[column] ?? null;
+  if (contentType === "library_discussion_topic") {
+    const { data } = await supabase.from("library_discussion_topics").select("author_id").eq("id", contentId).maybeSingle();
+    return data?.author_id ?? null;
+  }
+  if (contentType === "library_discussion_reply") {
+    const { data } = await supabase.from("library_discussion_replies").select("author_id").eq("id", contentId).maybeSingle();
+    return data?.author_id ?? null;
+  }
+  if (contentType === "library_review") {
+    const { data } = await supabase.from("library_reviews").select("user_id").eq("id", contentId).maybeSingle();
+    return data?.user_id ?? null;
+  }
+  return null;
 }
 
 export async function fetchPendingReports(): Promise<LibraryContentReportRow[]> {

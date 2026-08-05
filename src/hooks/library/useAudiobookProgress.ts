@@ -20,6 +20,7 @@ import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { jsonPayload } from "@/integrations/supabase/json";
 import { queryKeys } from "@/lib/api/queryKeys";
 import type { LibraryLastPositionAudio, LibraryLastPositionText } from "@/lib/types/library-reader";
 
@@ -105,7 +106,7 @@ export function useAudiobookProgress(bookId: string | undefined) {
           book_id: bookId,
           current_page: currentPage,
           percent_complete: percentComplete,
-          last_position: lastPosition,
+          last_position: jsonPayload(lastPosition),
           last_read_at: now,
           ...(percentComplete >= 100 ? { completed_at: now } : {}),
         },

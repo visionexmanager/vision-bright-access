@@ -1,4 +1,4 @@
-import { kidsDb, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, jsonPayload, rpcResult } from "@/features/visionkids/services/stories/kidsSupabase";
 import type {
   Organization, OrgMember, School, MyMembership, SchoolDashboard, OrgAnalytics, OrgKind, OrgRole,
 } from "@/features/visionkids/types/enterprise.types";
@@ -38,7 +38,18 @@ export async function createOrg(name: string, kind: OrgKind, slug: string): Prom
 }
 
 export async function updateOrg(id: string, patch: Partial<Pick<Organization, "name" | "domain" | "logo_url" | "branding" | "settings">>): Promise<void> {
-  const { error } = await kidsDb.from("kids_organizations").update(patch).eq("id", id);
+  // `branding` and `settings` are jsonb; the rest map straight across. Split
+  // them out so an absent key stays absent — spreading them unconditionally
+  // would overwrite a stored object with null.
+  const { branding, settings, ...rest } = patch;
+  const { error } = await kidsDb
+    .from("kids_organizations")
+    .update({
+      ...rest,
+      ...(branding === undefined ? {} : { branding: jsonPayload(branding) }),
+      ...(settings === undefined ? {} : { settings: jsonPayload(settings) }),
+    })
+    .eq("id", id);
   if (error) throw error;
 }
 

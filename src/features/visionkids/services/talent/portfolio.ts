@@ -1,4 +1,4 @@
-import { kidsDb } from "@/features/visionkids/services/stories/kidsSupabase";
+import { kidsDb, jsonPayload } from "@/features/visionkids/services/stories/kidsSupabase";
 import type { PortfolioItem, PortfolioKind, PortfolioSource } from "@/features/visionkids/types/talent.types";
 
 export async function fetchMyPortfolio(): Promise<PortfolioItem[]> {
@@ -34,7 +34,7 @@ export async function addPortfolioItem(item: NewPortfolioItem): Promise<Portfoli
       title: item.title,
       description: item.description ?? null,
       emoji: item.emoji ?? "⭐",
-      content: item.content ?? {},
+      content: jsonPayload(item.content ?? {}),
       source: item.source ?? "manual",
       track_slug: item.track_slug ?? null,
     })
