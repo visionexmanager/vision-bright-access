@@ -1,4 +1,5 @@
 import { kidsDb, jsonPayload } from "@/features/visionkids/services/stories/kidsSupabase";
+import type { Database } from "@/integrations/supabase/types";
 import type { CreativeProject, ProjectVersion, ProjectType } from "@/features/visionkids/types/studio.types";
 
 async function requireUserId(): Promise<string> {
@@ -65,7 +66,12 @@ export interface SaveProjectInput {
 /** Updates the project and (by default) snapshots a version row for
  *  "Version History" — auto-save on every meaningful edit. */
 export async function saveProject(input: SaveProjectInput): Promise<void> {
-  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  // Typed as the table's Update rather than an open record: only the keys
+  // this builds up are sent, and a name that is not a column is caught here
+  // instead of by postgrest.
+  const update: Database["public"]["Tables"]["kids_creative_projects"]["Update"] = {
+    updated_at: new Date().toISOString(),
+  };
   if (input.title !== undefined) update.title = input.title;
   if (input.thumbnailUrl !== undefined) update.thumbnail_url = input.thumbnailUrl;
   if (input.content !== undefined) update.content = jsonPayload(input.content);

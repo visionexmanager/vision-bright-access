@@ -258,6 +258,9 @@ interface RoomPerms {
   screen: boolean;
 }
 
+/** The voice_rooms columns behind RoomPerms. */
+type RoomPermColumn = "allow_camera" | "allow_mic" | "allow_chat" | "allow_screen_share";
+
 interface RoomActivityEvent {
   id: string;
   icon: string;
@@ -3530,10 +3533,15 @@ export default function VoiceRoom() {
 
   const handleUpdatePerms = useCallback(async (key: keyof RoomPerms, val: boolean) => {
     if (!roomId || !user) return;
-    const colMap: Record<keyof RoomPerms, string> = {
+    // Typed as the four real columns rather than `string`, so the computed
+    // key produces an update with those keys instead of an open index
+    // signature — a typo here would otherwise reach postgrest as an
+    // unknown column.
+    const colMap: Record<keyof RoomPerms, RoomPermColumn> = {
       camera: "allow_camera", mic: "allow_mic", chat: "allow_chat", screen: "allow_screen_share",
     };
-    await supabase.from("voice_rooms").update({ [colMap[key]]: val }).eq("id", roomId);
+    const update: Partial<Record<RoomPermColumn, boolean>> = { [colMap[key]]: val };
+    await supabase.from("voice_rooms").update(update).eq("id", roomId);
     setRoomPerms((prev) => ({ ...prev, [key]: val }));
     // Notify all room members via broadcast
     const bc = supabase.channel(`room-bc-${roomId}`);

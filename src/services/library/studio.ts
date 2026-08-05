@@ -4,6 +4,7 @@
 // this file is the write-side/author-side counterpart.
 
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import type { AuthorDashboardStats, AuthorMonthlyStatPoint, LibraryBookGalleryRow, LibraryStudioBookFields } from "@/lib/types/library-studio";
 import type { LibraryBookRow } from "@/lib/types/library-book";
 import { mapRawBookRow, type RawLibraryBookRow } from "@/services/library/catalog";
@@ -188,7 +189,19 @@ export async function createBlankBook(input: CreateBlankBookInput): Promise<{ id
   throw new Error("Couldn't generate a unique book URL — try a different title.");
 }
 
-export async function updateBookMetadata(bookId: string, patch: Partial<LibraryBookRow & LibraryStudioBookFields>): Promise<void> {
+/**
+ * The columns the Studio may edit — the generated Update type for the table,
+ * not the app-facing row.
+ *
+ * This used to be `Partial<LibraryBookRow & LibraryStudioBookFields>`, and
+ * LibraryBookRow is the *mapped* row: `readingLevel`, `bookType`, `formats`,
+ * `author_name` and a dozen more are derived by mapRawBookRow, not columns.
+ * Passing any of them would have gone out as an unknown column and been
+ * rejected by postgrest. Every real call site already sends column names.
+ */
+export type LibraryBookMetadataPatch = Database["public"]["Tables"]["library_books"]["Update"];
+
+export async function updateBookMetadata(bookId: string, patch: LibraryBookMetadataPatch): Promise<void> {
   const { error } = await supabase.from("library_books").update(patch).eq("id", bookId);
   if (error) throw new Error(error.message);
 }
