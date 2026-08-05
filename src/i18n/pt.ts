@@ -12122,6 +12122,16 @@ export const translations: Record<string, string> = {
   "kids.games.friendsEmpty": "Ainda não há pontuações de amigos",
   "kids.games.findFriends": "Encontrar amigos",
   "kids.talent.mentors.howItWorks": "Peça um mentor e um adulto vai marcar sua sessão.",
+  "academy.prompt.explain": "Explicar uma aula",
+  "academy.prompt.studyPlan": "Plano semanal de estudos",
+  "academy.prompt.jobMarket": "Mercado de trabalho",
+  "academy.prompt.careerAdvice": "Orientação profissional",
+  "academy.prompt.studyTechniques": "Técnicas de estudo",
+  "academy.prompt.explainText": "Explique uma aula importante do nível {level} em linguagem simples.",
+  "academy.prompt.studyPlanText": "Crie um plano semanal organizado para um estudante do nível {level} em {country}.",
+  "academy.prompt.jobMarketText": "Quais empregos estão em alta e quais são os salários em {country} em 2026?",
+  "academy.prompt.careerAdviceText": "Ajude-me a escolher um curso universitário com base nos meus interesses.",
+  "academy.prompt.studyTechniquesText": "Quais são as melhores técnicas de estudo para memória e compreensão?",
 };
 
 export default translations;

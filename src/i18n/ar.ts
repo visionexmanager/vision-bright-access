@@ -12450,6 +12450,16 @@ export const translations: Record<string, string> = {
   "kids.games.friendsEmpty": "لا نتائج لأصدقائك بعد",
   "kids.games.findFriends": "ابحث عن أصدقاء",
   "kids.talent.mentors.howItWorks": "اطلب مرشداً وسيقوم أحد الكبار بترتيب جلستك.",
+  "academy.prompt.explain": "اشرح لي درساً",
+  "academy.prompt.studyPlan": "خطة مذاكرة أسبوعية",
+  "academy.prompt.jobMarket": "سوق العمل",
+  "academy.prompt.careerAdvice": "نصيحة مهنية",
+  "academy.prompt.studyTechniques": "تقنيات مذاكرة",
+  "academy.prompt.explainText": "اشرح لي درساً مهماً في مستوى {level} بطريقة مبسطة.",
+  "academy.prompt.studyPlanText": "أعطني خطة مذاكرة أسبوعية منظمة لطالب {level} في {country}.",
+  "academy.prompt.jobMarketText": "ما الوظائف المطلوبة وما رواتبها في {country} لعام 2026؟",
+  "academy.prompt.careerAdviceText": "ساعدني في اختيار تخصصي الجامعي بناءً على ميولي واهتماماتي.",
+  "academy.prompt.studyTechniquesText": "ما أفضل تقنيات المذاكرة الفعالة لتحسين الحفظ والاستيعاب؟",
 };
 
 export default translations;
