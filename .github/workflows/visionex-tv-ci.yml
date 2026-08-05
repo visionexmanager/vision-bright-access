@@ -200,9 +200,15 @@ jobs:
 
   # ── 4. Staging deploy ──────────────────────────────────────────────────────
   deploy-staging:
-    name: "Deploy — Staging (K8s)"
+    name: "[K8s — not yet provisioned] Deploy — Staging"
     needs: [build-backend, build-frontend]
-    if: github.ref == 'refs/heads/staging'
+    # Disabled until the visionex-tv Kubernetes cluster actually exists, the
+    # same way ci-cd.yml disables its GKE jobs (67c1d3a). KUBECONFIG_STAGING is
+    # unset, so kubectl falls back to localhost:8080 and every command fails
+    # with "connection refused" — see the production job below, which did
+    # exactly that the first time it was reachable. Re-enable by restoring
+    # `if: github.ref == 'refs/heads/staging'` once the cluster and secret exist.
+    if: false
     runs-on: ubuntu-latest
     environment: staging
     steps:
@@ -228,11 +234,23 @@ jobs:
 
   # ── 5. Production deploy ───────────────────────────────────────────────────
   deploy-production:
-    name: "Deploy — Production (K8s)"
+    name: "[K8s — not yet provisioned] Deploy — Production"
     needs: [build-backend, build-frontend]
-    if: github.ref == 'refs/heads/main'
+    # Disabled until the visionex-tv Kubernetes cluster actually exists.
+    #
+    # This job was unreachable for months because build-frontend always failed.
+    # The moment both images built (0c7a704), it ran for the first time and
+    # failed immediately: KUBECONFIG is empty, so kubectl fell back to
+    # localhost:8080 and got "connection refused" on its very first call.
+    # Nothing was deployed — it never reached a cluster — but it left main red,
+    # and its "Rollback on failure" step failed the same way.
+    #
+    # The environment: production line below claims a manual approval gate;
+    # none is configured, so the job ran unattended. Configure that gate as
+    # well before re-enabling with `if: github.ref == 'refs/heads/main'`.
+    if: false
     runs-on: ubuntu-latest
-    environment: production    # requires manual approval gate in GitHub env settings
+    environment: production    # NOTE: no approval gate is currently configured
     steps:
       - uses: actions/checkout@v7
 
