@@ -23,7 +23,11 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
-      - run: npx tsc --noEmit
+      # `tsc -b`, not a bare `tsc --noEmit`: the root tsconfig.json is
+      # solution-style ("files": [] plus project references), so a bare run
+      # type-checks zero files and passes unconditionally. Only the build mode
+      # descends into tsconfig.app.json and actually checks src/.
+      - run: npm run typecheck
 
   lint:
     name: ESLint
