@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from "react";
+import { academyDomText } from "@/i18n/academyDomText";
 
 export const supportedLangs = ["en", "ar", "es", "de", "pt", "zh", "tr", "fr", "ru", "ur", "hi"] as const;
 export type Lang = (typeof supportedLangs)[number];
@@ -165,6 +166,12 @@ function buildDomTranslationMap(lang: Lang): { map: Map<string, string>; sorted:
     (dictionary): dictionary is Record<string, string> => Boolean(dictionary)
   );
 
+  if (lang === "en") {
+    for (const [arabicValue, englishValue] of Object.entries(academyDomText)) {
+      map.set(arabicValue, englishValue);
+    }
+  }
+
   if (enDict && targetDict) {
     for (const [key, englishValue] of Object.entries(enDict)) {
       const targetValue = targetDict[key] ?? englishValue;
@@ -197,6 +204,12 @@ function buildDomTranslationMap(lang: Lang): { map: Map<string, string>; sorted:
 
   // Sort ONCE here — longest match first, skip short and templated values.
   // Previously this was done on every translateDomValue() call (O(N log N) per text node).
+  // English is the canonical locale. Never assemble it by replacing isolated
+  // words inside Arabic (or another language): that produced mixed strings such
+  // as "Course تأسيسية" across Academy. English DOM fallback is exact-match
+  // only; authored UI must use t() or a complete curated sentence mapping.
+  if (lang === "en") return { map, sorted: null };
+
   const entries = [...map.entries()]
     .filter(([k]) => k.length >= 3 && k.length <= 80 && !k.includes("{"))
     .sort((a, b) => b[0].length - a[0].length);

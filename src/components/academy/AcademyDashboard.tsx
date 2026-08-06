@@ -45,6 +45,7 @@ interface CourseListSectionProps {
   description: string;
   headingId: string;
   courses: AcademyCourseRow[];
+  viewAllLabel: string;
 }
 
 interface LiveModuleSectionProps {
@@ -56,12 +57,13 @@ interface LiveModuleSectionProps {
   ctaLabel: string;
   itemCount: number;
   emptyHint: string;
+  availableLabel: string;
 }
 
 /** For modules with real routes/data-layer but no hardcoded catalog content
  * (Phase 5: Library/Scholarships/Universities) — honestly reflects whatever
  * count is actually in the local store instead of a generic "coming soon". */
-function LiveModuleSection({ icon: Icon, title, description, headingId, href, ctaLabel, itemCount, emptyHint }: LiveModuleSectionProps) {
+function LiveModuleSection({ icon: Icon, title, description, headingId, href, ctaLabel, itemCount, emptyHint, availableLabel }: LiveModuleSectionProps) {
   return (
     <section aria-labelledby={headingId} className="bg-card p-8 rounded-3xl border border-border shadow-lg">
       <AcademySectionHeader
@@ -76,13 +78,13 @@ function LiveModuleSection({ icon: Icon, title, description, headingId, href, ct
         }
       />
       <p className="text-sm text-muted-foreground">
-        {itemCount > 0 ? `${itemCount.toLocaleString()} متاح الآن` : emptyHint}
+        {itemCount > 0 ? `${itemCount.toLocaleString()} ${availableLabel}` : emptyHint}
       </p>
     </section>
   );
 }
 
-function CourseListSection({ icon, title, description, headingId, courses }: CourseListSectionProps) {
+function CourseListSection({ icon, title, description, headingId, courses, viewAllLabel }: CourseListSectionProps) {
   return (
     <section aria-labelledby={headingId} className="bg-card p-8 rounded-3xl border border-border shadow-lg">
       <AcademySectionHeader
@@ -92,7 +94,7 @@ function CourseListSection({ icon, title, description, headingId, courses }: Cou
         headingId={headingId}
         action={
           <Button variant="outline" size="sm" asChild className="rounded-xl">
-            <Link to="/academy/courses">عرض الكل</Link>
+            <Link to="/academy/courses">{viewAllLabel}</Link>
           </Button>
         }
       />
@@ -117,9 +119,12 @@ function aiLearningSkeletonFallback() {
   );
 }
 
-function getModuleText(id: string) {
+function getModuleText(id: string, lang: string) {
   const mod = academyModules.find((m) => m.id === id);
-  return { title: mod?.labelAr ?? id, description: mod?.description };
+  return {
+    title: lang === "ar" ? (mod?.labelAr ?? id) : (mod?.labelEn ?? id),
+    description: mod?.description,
+  };
 }
 
 interface AcademyDashboardProps {
@@ -129,6 +134,7 @@ interface AcademyDashboardProps {
 export function AcademyDashboard({ profile }: AcademyDashboardProps) {
   const navigate = useNavigate();
   const { lang, t } = useLanguage();
+  const text = useCallback((english: string, arabic: string) => lang === "ar" ? arabic : english, [lang]);
 
   const speak = useCallback((text: string) => speakText(text, lang, { rate: 0.9 }), [lang]);
   const formatTime = useCallback((ts?: number) => {
@@ -292,24 +298,27 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
 
         <CourseListSection
           icon={SparklesIcon}
-          title="الدورات المقترحة لك"
-          description="بناءً على مستواك واهتماماتك"
+          title={text("Courses Recommended for You", "الدورات المقترحة لك")}
+          description={text("Based on your level and interests", "بناءً على مستواك واهتماماتك")}
+          viewAllLabel={text("View all", "عرض الكل")}
           headingId="recommended-courses-heading"
           courses={recommendedCourses}
         />
 
         <CourseListSection
           icon={Flame}
-          title="الدورات الأكثر شعبية"
-          description="الأكثر تسجيلاً بين الطلاب"
+          title={text("Most Popular Courses", "الدورات الأكثر شعبية")}
+          description={text("The courses with the most student enrollments", "الأكثر تسجيلاً بين الطلاب")}
+          viewAllLabel={text("View all", "عرض الكل")}
           headingId="popular-courses-heading"
           courses={popularCourses}
         />
 
         <CourseListSection
           icon={BookOpen}
-          title="دورات جديدة"
-          description="أحدث ما أضيف إلى الأكاديمية"
+          title={text("New Courses", "دورات جديدة")}
+          description={text("The latest additions to the Academy", "أحدث ما أضيف إلى الأكاديمية")}
+          viewAllLabel={text("View all", "عرض الكل")}
           headingId="new-courses-heading"
           courses={newCourses}
         />
@@ -317,12 +326,12 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
         <section aria-labelledby="learning-categories-heading" className="bg-card p-8 rounded-3xl border border-border shadow-lg">
           <AcademySectionHeader
             icon={LayoutGrid}
-            title="فئات التعلّم"
-            description="تصفح حسب المادة أو المجال"
+            title={text("Learning Categories", "فئات التعلّم")}
+            description={text("Browse by subject or field", "تصفح حسب المادة أو المجال")}
             headingId="learning-categories-heading"
             action={
               <Button variant="outline" size="sm" asChild className="rounded-xl">
-                <Link to="/academy/paths">مسارات التعلّم</Link>
+                <Link to="/academy/paths">{text("Learning Paths", "مسارات التعلّم")}</Link>
               </Button>
             }
           />
@@ -342,13 +351,19 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
         <StudentServicesSection
           voiceMode={voiceMode}
           isStreaming={isStreaming}
-          onSpeakGreeting={() => speak(`أهلاً بك يا ${displayProfile.name}. أنا هنا لأرشدك في دروسك وفي اختيار مهنة المستقبل.`)}
+          onSpeakGreeting={() => speak(text(
+            `Welcome, ${displayProfile.name}. I am here to guide you through your studies and career choices.`,
+            `أهلاً بك يا ${displayProfile.name}. أنا هنا لأرشدك في دروسك وفي اختيار مهنة المستقبل.`,
+          ))}
           onToggleVoiceMode={() => setVoiceMode((v) => !v)}
           onGoToStudyRoom={() => navigate("/content")}
           onGoToOCRScan={() => navigate("/services/ocr-scan")}
           onStudyPlan={() => handleSend(academyText("academy.prompt.studyPlanText", displayProfile))}
           onAcademicGuidance={() => {
-            setChatInput("ساعدني في تحديد مساري الدراسي والمهني بناءً على مستواي واهتماماتي");
+            setChatInput(text(
+              "Help me choose my academic and career path based on my level and interests",
+              "ساعدني في تحديد مساري الدراسي والمهني بناءً على مستواي واهتماماتي",
+            ));
             scrollToId("ai-learning-center", true);
           }}
           onTutoring={() => navigate("/academy/courses")}
@@ -387,43 +402,46 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
       <div {...inertBackground} className="space-y-10">
         <LiveModuleSection
           icon={Library}
-          title="المكتبة الرقمية"
-          description={getModuleText("library").description}
+          title={text("Digital Library", "المكتبة الرقمية")}
+          description={getModuleText("library", lang).description}
           headingId="digital-library-heading"
           href="/academy/library"
-          ctaLabel="تصفح المكتبة"
+          ctaLabel={text("Browse Library", "تصفح المكتبة")}
           itemCount={libraryResourceCount}
-          emptyHint="المكتبة جاهزة لاستقبال الموارد — تصفّح القسم لرؤية آخر الإضافات."
+          emptyHint={text("The library is ready for resources — browse it for the latest additions.", "المكتبة جاهزة لاستقبال الموارد — تصفّح القسم لرؤية آخر الإضافات.")}
+          availableLabel={text("available now", "متاح الآن")}
         />
         <LiveModuleSection
           icon={GraduationCap}
-          title={getModuleText("scholarships").title}
-          description={getModuleText("scholarships").description}
+          title={getModuleText("scholarships", lang).title}
+          description={getModuleText("scholarships", lang).description}
           headingId="scholarships-heading"
           href="/academy/scholarships"
-          ctaLabel="تصفح المنح"
+          ctaLabel={text("Browse Scholarships", "تصفح المنح")}
           itemCount={scholarshipCount}
-          emptyHint="لا توجد منح مضافة بعد — تصفّح القسم لرؤية آخر الإضافات."
+          emptyHint={text("No scholarships have been added yet — browse for the latest additions.", "لا توجد منح مضافة بعد — تصفّح القسم لرؤية آخر الإضافات.")}
+          availableLabel={text("available now", "متاح الآن")}
         />
         <LiveModuleSection
           icon={Landmark}
-          title={getModuleText("universities").title}
-          description={getModuleText("universities").description}
+          title={getModuleText("universities", lang).title}
+          description={getModuleText("universities", lang).description}
           headingId="universities-heading"
           href="/academy/universities"
-          ctaLabel="تصفح الجامعات"
+          ctaLabel={text("Browse Universities", "تصفح الجامعات")}
           itemCount={universityCount}
-          emptyHint="لا توجد جامعات مضافة بعد — تصفّح القسم لرؤية آخر الإضافات."
+          emptyHint={text("No universities have been added yet — browse for the latest additions.", "لا توجد جامعات مضافة بعد — تصفّح القسم لرؤية آخر الإضافات.")}
+          availableLabel={text("available now", "متاح الآن")}
         />
         <section aria-labelledby="featured-instructors-heading" className="bg-card p-8 rounded-3xl border border-border shadow-lg">
           <AcademySectionHeader
             icon={Users}
-            title="مدرّسون مميزون"
-            description={getModuleText("instructors").description}
+            title={text("Featured Instructors", "مدرّسون مميزون")}
+            description={getModuleText("instructors", lang).description}
             headingId="featured-instructors-heading"
             action={
               <Button variant="outline" size="sm" asChild className="rounded-xl">
-                <Link to="/academy/instructor/apply">كن مدرّساً</Link>
+                <Link to="/academy/instructor/apply">{text("Become an Instructor", "كن مدرّساً")}</Link>
               </Button>
             }
           />
@@ -436,22 +454,23 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
           </div>
         </section>
         <AcademyPlaceholderSection
-          title="مجتمع التعلّم"
-          description={getModuleText("community").description}
+          title={text("Learning Community", "مجتمع التعلّم")}
+          description={getModuleText("community", lang).description}
           icon={MessagesSquare}
           headingId="learning-community-heading"
           linkHref="/community"
-          linkLabel="تصفح مجتمع Visionex"
+          linkLabel={text("Browse Visionex Community", "تصفح مجتمع Visionex")}
         />
         <LiveModuleSection
           icon={BadgeCheck}
-          title={getModuleText("certificates").title}
-          description={getModuleText("certificates").description}
+          title={getModuleText("certificates", lang).title}
+          description={getModuleText("certificates", lang).description}
           headingId="certificates-heading"
           href="/academy/certificates"
-          ctaLabel="عرض شهاداتي"
+          ctaLabel={text("View My Certificates", "عرض شهاداتي")}
           itemCount={certificateCount}
-          emptyHint="أكمل دورة واجتز اختباراتها وواجباتها للحصول على شهادتك الأولى."
+          emptyHint={text("Complete a course and pass its tests and assignments to earn your first certificate.", "أكمل دورة واجتز اختباراتها وواجباتها للحصول على شهادتك الأولى.")}
+          availableLabel={text("available now", "متاح الآن")}
         />
 
         <PersonalProgressSection
@@ -468,13 +487,14 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
 
         <LiveModuleSection
           icon={CalendarClock}
-          title="جدول التعلّم القادم"
-          description="نظّم أهدافك اليومية والأسبوعية وتابع التزامك"
+          title={text("Upcoming Learning Schedule", "جدول التعلّم القادم")}
+          description={text("Organize your daily and weekly goals and track your progress", "نظّم أهدافك اليومية والأسبوعية وتابع التزامك")}
           headingId="upcoming-schedule-heading"
           href="/academy/planner"
-          ctaLabel="فتح مخطط الدراسة"
+          ctaLabel={text("Open Study Planner", "فتح مخطط الدراسة")}
           itemCount={0}
-          emptyHint="أضف هدفك الدراسي الأول وابنِ جدولاً يناسب وقتك."
+          emptyHint={text("Add your first study goal and build a schedule that fits your time.", "أضف هدفك الدراسي الأول وابنِ جدولاً يناسب وقتك.")}
+          availableLabel={text("available now", "متاح الآن")}
         />
 
         <RecentActivitySection
@@ -484,13 +504,14 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
 
         <LiveModuleSection
           icon={Newspaper}
-          title="أخبار وتحديثات الأكاديمية"
-          description="إعلانات الدورات والمواعيد والإنجازات الجديدة"
+          title={text("Academy News and Updates", "أخبار وتحديثات الأكاديمية")}
+          description={text("Course announcements, deadlines, and new achievements", "إعلانات الدورات والمواعيد والإنجازات الجديدة")}
           headingId="academy-news-heading"
           href="/academy/notifications"
-          ctaLabel="عرض كل الإشعارات"
+          ctaLabel={text("View All Notifications", "عرض كل الإشعارات")}
           itemCount={0}
-          emptyHint="ستظهر هنا تنبيهات الدورات والمواعيد فور وصولها."
+          emptyHint={text("Course and deadline notifications will appear here as soon as they arrive.", "ستظهر هنا تنبيهات الدورات والمواعيد فور وصولها.")}
+          availableLabel={text("available now", "متاح الآن")}
         />
       </div>
     </div>
