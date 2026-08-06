@@ -19,9 +19,12 @@ import {
 // deno-lint-ignore no-explicit-any
 type SupabaseServiceClient = any;
 
-export type CareerAiProvider = UpstreamProvider | "gemini";
+export type CareerAiProvider = UpstreamProvider;
 export type CostTier = "cheap" | "capable";
 
+// Unchanged fallback order. Groq and Mistral are reachable through this
+// orchestrator via an explicit `providerOrder`, but are not in the default
+// chain: their Arabic quality has not been validated for Career Center output.
 const DEFAULT_PROVIDER_ORDER: CareerAiProvider[] = ["openai", "anthropic", "gemini"];
 
 // Model identifiers follow the conventions already used elsewhere in this
@@ -32,6 +35,8 @@ const MODEL_MATRIX: Record<CareerAiProvider, Record<CostTier, string>> = {
   openai: { cheap: "gpt-4o-mini", capable: "gpt-4.1" },
   anthropic: { cheap: "claude-haiku-4-5-20251001", capable: "claude-sonnet-4-6" },
   gemini: { cheap: "gemini-2.5-flash", capable: "gemini-2.5-pro" },
+  groq: { cheap: "llama-3.1-8b-instant", capable: "llama-3.3-70b-versatile" },
+  mistral: { cheap: "mistral-small-latest", capable: "mistral-large-latest" },
 };
 
 const DEFAULT_TIER_BY_SERVICE: Record<string, CostTier> = {

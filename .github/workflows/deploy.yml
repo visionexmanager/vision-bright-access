@@ -108,6 +108,29 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
 
+      # Secondary AI providers. Unlike OPENAI_API_KEY these are optional: no
+      # assistant is routed to them by default, so an unset GitHub secret is
+      # skipped rather than failing the deploy. Keys stay server-side only —
+      # they are never exposed as VITE_* build variables.
+      - name: Sync secondary AI provider keys to Supabase
+        shell: bash
+        run: |
+          for name in GEMINI_API_KEY GROQ_API_KEY MISTRAL_API_KEY; do
+            value="${!name}"
+            if [[ -z "$value" ]]; then
+              echo "::notice::GitHub secret $name is not configured — skipping."
+              continue
+            fi
+            supabase secrets set "$name=$value" --project-ref "$SUPABASE_PROJECT_REF"
+            echo "Synced $name."
+          done
+        env:
+          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:         ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY:      ${{ secrets.MISTRAL_API_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+
       - name: Deploy changed Edge Functions
         run: bash scripts/deploy-changed-supabase-functions.sh
         env:
