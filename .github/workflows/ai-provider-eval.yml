@@ -41,6 +41,17 @@ jobs:
         with:
           node-version: "20"
 
+      # Free on every provider, and it catches the failure mode that broke the
+      # first run: a hardcoded model id the key can no longer use.
+      - name: List available models
+        shell: bash
+        run: node scripts/ai-eval/list-models.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
+          GROQ_API_KEY:    ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEY }}
+
       - name: Run eval
         shell: bash
         run: |

@@ -87,7 +87,17 @@ async function runCase({ provider, task, testCase, index, mock, env }) {
       caseId: testCase.id,
       latencyMs: Date.now() - started,
       error: String(error?.message ?? error),
-      score: { schemaOk: false, schemaErrors: [], graded: 0, correct: 0, allCorrect: false, fields: {} },
+      score: {
+        schemaOk: false,
+        schemaErrors: [],
+        // A call that never returned still had questions to answer. Counting
+        // them keeps a failed provider out of the denominator's blind spot:
+        // otherwise 2 correct answers out of 12 attempts reads as 100%.
+        graded: task.gradedFields.filter((f) => f in testCase.expected).length,
+        correct: 0,
+        allCorrect: false,
+        fields: {},
+      },
     };
   }
 }
