@@ -5,6 +5,17 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Recovery path only. Every required check on this repo is reported by a run
+  # that a pull_request or push webhook creates — so when GitHub drops those
+  # webhooks, no run exists, nothing reports, and branch protection sits on
+  # "Expected — Waiting for status to be reported" forever with no way to
+  # retry. That is not hypothetical: during the 2026-08-06 Actions incident
+  # GitHub throttled webhook delivery to ~15%, and PR #55 got no runs at all.
+  #
+  # This adds a manual trigger for exactly that case. It changes nothing about
+  # which checks are required or how they pass — a dispatched run executes the
+  # same jobs and reports the same contexts against the same commit.
+  workflow_dispatch:
 
 concurrency:
   group:            ${{ github.workflow }}-${{ github.ref }}
