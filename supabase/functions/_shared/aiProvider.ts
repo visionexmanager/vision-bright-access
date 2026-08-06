@@ -1,13 +1,24 @@
 // Unified AI provider layer for VisionEx edge functions.
 //
-// One entry point — streamChatCompletion() — that talks to either OpenAI or
-// Anthropic and ALWAYS returns an OpenAI-shaped SSE stream
+// One entry point — streamChatCompletion() — that talks to any supported
+// provider and ALWAYS returns an OpenAI-shaped SSE stream
 // (`data: {"choices":[{"delta":{"content":"..."}}]}\n\n` … `data: [DONE]`).
 //
 // This lets the entire frontend (useSSEStream / AIChat) stay unchanged while
 // each assistant can be switched between providers via the registry config.
+//
+// Groq and Mistral serve the OpenAI `/v1/chat/completions` dialect verbatim —
+// same request body, same SSE frames, same tool-calling shape — so they share
+// the OpenAI code path and need no stream transformation. Anthropic and Gemini
+// each speak their own dialect and are translated back into OpenAI frames.
 
-export type AIProvider = "openai" | "anthropic";
+import {
+  GeminiProviderError,
+  geminiStreamChatCompletion,
+  geminiStructuredCompletion,
+} from "./geminiProvider.ts";
+
+export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral";
 
 export interface ProviderChatParams {
   provider: AIProvider;
@@ -25,6 +36,60 @@ export class ProviderError extends Error {
   }
 }
 
+// ── OpenAI-compatible providers ─────────────────────────────────────────────
+//
+// Each entry differs only by endpoint and secret name. Adding another
+// OpenAI-compatible vendor means adding a row here and a union member above.
+
+interface OpenAICompatibleConfig {
+  /** Human-readable name, used only in error logs. */
+  label: string;
+  /** Supabase Edge Function secret holding the key. Never inlined anywhere. */
+  envKey: string;
+  chatUrl: string;
+}
+
+const OPENAI_COMPATIBLE: Record<"openai" | "groq" | "mistral", OpenAICompatibleConfig> = {
+  openai: {
+    label: "OpenAI",
+    envKey: "OPENAI_API_KEY",
+    chatUrl: "https://api.openai.com/v1/chat/completions",
+  },
+  groq: {
+    label: "Groq",
+    envKey: "GROQ_API_KEY",
+    chatUrl: "https://api.groq.com/openai/v1/chat/completions",
+  },
+  mistral: {
+    label: "Mistral",
+    envKey: "MISTRAL_API_KEY",
+    chatUrl: "https://api.mistral.ai/v1/chat/completions",
+  },
+};
+
+type OpenAICompatibleProvider = keyof typeof OPENAI_COMPATIBLE;
+
+function openAICompatibleConfig(provider: AIProvider): OpenAICompatibleConfig {
+  const cfg = OPENAI_COMPATIBLE[provider as OpenAICompatibleProvider];
+  // Anthropic and Gemini are dispatched before reaching here. A miss means an
+  // unrouted provider slipped through — fail loudly instead of on `undefined`.
+  if (!cfg) throw new ProviderError(500, `Unsupported AI provider: ${provider}`);
+  return cfg;
+}
+
+/** Read a provider's key or fail with the same 500 shape every caller maps. */
+function requireKey(cfg: OpenAICompatibleConfig): string {
+  const key = Deno.env.get(cfg.envKey);
+  if (!key) throw new ProviderError(500, `${cfg.envKey} is not configured`);
+  return key;
+}
+
+/** Gemini has its own error class; callers only ever map ProviderError. */
+function asProviderError(e: unknown): never {
+  if (e instanceof GeminiProviderError) throw new ProviderError(e.status, e.message);
+  throw e;
+}
+
 /**
  * Stream a chat completion from the configured provider.
  * Returns a ReadableStream of OpenAI-compatible SSE bytes.
@@ -33,16 +98,24 @@ export async function streamChatCompletion(
   params: ProviderChatParams,
 ): Promise<ReadableStream<Uint8Array>> {
   if (params.provider === "anthropic") return streamAnthropic(params);
-  return streamOpenAI(params);
+  if (params.provider === "gemini") {
+    return geminiStreamChatCompletion({
+      model: params.model,
+      system: params.system,
+      messages: params.messages,
+      maxTokens: params.maxTokens,
+    }).catch(asProviderError);
+  }
+  return streamOpenAICompatible(params);
 }
 
-// ── OpenAI ─────────────────────────────────────────────────────────────────
+async function streamOpenAICompatible(
+  p: ProviderChatParams,
+): Promise<ReadableStream<Uint8Array>> {
+  const cfg = openAICompatibleConfig(p.provider);
+  const key = requireKey(cfg);
 
-async function streamOpenAI(p: ProviderChatParams): Promise<ReadableStream<Uint8Array>> {
-  const key = Deno.env.get("OPENAI_API_KEY");
-  if (!key) throw new ProviderError(500, "OPENAI_API_KEY is not configured");
-
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await fetch(cfg.chatUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
@@ -58,11 +131,11 @@ async function streamOpenAI(p: ProviderChatParams): Promise<ReadableStream<Uint8
 
   if (!res.ok || !res.body) {
     const errText = await res.text().catch(() => "");
-    console.error("OpenAI API error:", res.status, errText);
-    throw new ProviderError(res.status || 500, "OpenAI request failed");
+    console.error(`${cfg.label} API error:`, res.status, errText);
+    throw new ProviderError(res.status || 500, `${cfg.label} request failed`);
   }
 
-  // OpenAI body is already in the OpenAI SSE shape — pass through.
+  // Body is already in the OpenAI SSE shape — pass through.
   return res.body;
 }
 
@@ -173,19 +246,30 @@ export interface StructuredParams {
 
 export async function structuredCompletion(p: StructuredParams): Promise<unknown> {
   if (p.provider === "anthropic") return structuredAnthropic(p);
-  return structuredOpenAI(p);
+  if (p.provider === "gemini") {
+    const { data } = await geminiStructuredCompletion({
+      model: p.model,
+      system: p.system,
+      userText: p.userText,
+      image: p.image,
+      schema: p.schema,
+      maxTokens: p.maxTokens,
+    }).catch(asProviderError);
+    return data;
+  }
+  return structuredOpenAICompatible(p);
 }
 
-async function structuredOpenAI(p: StructuredParams): Promise<unknown> {
-  const key = Deno.env.get("OPENAI_API_KEY");
-  if (!key) throw new ProviderError(500, "OPENAI_API_KEY is not configured");
+async function structuredOpenAICompatible(p: StructuredParams): Promise<unknown> {
+  const cfg = openAICompatibleConfig(p.provider);
+  const key = requireKey(cfg);
 
   const content: Array<Record<string, unknown>> = [{ type: "text", text: p.userText }];
   if (p.image) {
     content.push({ type: "image_url", image_url: { url: p.image, detail: "high" } });
   }
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await fetch(cfg.chatUrl, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -205,8 +289,8 @@ async function structuredOpenAI(p: StructuredParams): Promise<unknown> {
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    console.error("OpenAI structured error:", res.status, errText);
-    throw new ProviderError(res.status || 500, "OpenAI request failed");
+    console.error(`${cfg.label} structured error:`, res.status, errText);
+    throw new ProviderError(res.status || 500, `${cfg.label} request failed`);
   }
 
   const data = await res.json();
@@ -265,8 +349,11 @@ function anthropicImageBlock(image: string): Record<string, unknown> {
 
 // ── Embeddings (for RAG / semantic search) ──────────────────────────────────
 //
-// Anthropic has no first-party embeddings API, so embeddings always use
-// OpenAI's text-embedding-3-small (1536 dims) regardless of chat provider.
+// Embeddings always use OpenAI's text-embedding-3-small (1536 dims) regardless
+// of chat provider. This is deliberate and NOT a provider that can be swapped
+// for a cheaper one in isolation: every stored vector column is `vector(1536)`,
+// so a model with a different dimensionality (mistral-embed is 1024) requires a
+// migration plus a re-embed of all existing content before it can be used.
 
 export const EMBEDDING_MODEL = "text-embedding-3-small";
 export const EMBEDDING_DIM = 1536;

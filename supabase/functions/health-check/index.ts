@@ -193,7 +193,9 @@ async function checkElevenLabs(): Promise<ComponentStatus> {
 const PLATFORM_SECRETS: { name: string; impact: string }[] = [
   { name: "OPENAI_API_KEY",       impact: "Nearly every AI surface: chat, OCR, speech, images, text tools, Text-to-Video (Sora), Academy, Library and Kids assistants." },
   { name: "ANTHROPIC_API_KEY",    impact: "Any assistant configured with provider 'anthropic'. Those return 500 without it; OpenAI-backed assistants are unaffected." },
-  { name: "GEMINI_API_KEY",       impact: "Career Center AI (career-ai-*) when routed to Gemini." },
+  { name: "GEMINI_API_KEY",       impact: "Career Center AI (career-ai-*) when routed to Gemini, plus any assistant configured with provider 'gemini'." },
+  { name: "GROQ_API_KEY",         impact: "Any assistant configured with provider 'groq'. Nothing uses it by default, so a missing key breaks nothing until an assistant is routed there." },
+  { name: "MISTRAL_API_KEY",      impact: "Any assistant configured with provider 'mistral'. Nothing uses it by default, so a missing key breaks nothing until an assistant is routed there." },
   { name: "ELEVENLABS_API_KEY",   impact: "Voice Studio voice cloning and ElevenLabs speech voices." },
   { name: "LUMA_API_KEY",         impact: "Fallback video provider. Only needed once OpenAI's Videos API shuts down on 2026-09-24." },
   { name: "REPLICATE_API_TOKEN",  impact: "Image Tools (image-tools-generate): upscale, background removal, variations." },
