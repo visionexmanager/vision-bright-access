@@ -64,3 +64,5 @@ export const academyDomText: Record<string, string> = {
   "اسأل منير عن دروسك أو مستقبلك... (Enter للإرسال)": "Ask Munir about your studies or future... (Press Enter to send)",
   "رسالة للمساعد منير": "Message to Munir assistant",
 };
+
+// Add new legacy phrases here only as complete UI strings.
