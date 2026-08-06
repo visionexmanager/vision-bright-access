@@ -41,11 +41,28 @@ async function checkEnvVar(name: string): Promise<ComponentStatus> {
   return { ok: true, status: "ok", detail: `${name} is configured.` };
 }
 
+/** Postgres `undefined_table` and the PostgREST schema-cache equivalent. */
+const MISSING_TABLE_CODES = new Set(["42P01", "PGRST205"]);
+
 async function checkTable(db: ReturnType<typeof createClient>, tableName: string): Promise<ComponentStatus> {
   try {
-    const { error } = await (db as any).from(tableName).select("id").limit(1);
+    // `select("*").limit(0)` asks for every column but no rows: it proves the
+    // table is reachable without naming a column and without reading any data.
+    //
+    // Naming a column here would be wrong, not merely wasteful. Tables keyed
+    // by `user_id` (credit_wallets, trial_status) have no `id` column, so
+    // probing for one returns Postgres 42703 `undefined_column`, whose message
+    // also contains the words "does not exist" — which used to be reported as
+    // a missing table, telling admins to run migrations that had already run.
+    //
+    // `head: true` would be the obvious alternative and is a trap: PostgREST
+    // answers a HEAD on a missing table with a 404 and an empty body, and
+    // postgrest-js turns an empty 404 body into a 204 with no error at all —
+    // so a genuinely missing table would report as healthy.
+    const { error } = await (db as any).from(tableName).select("*").limit(0);
     if (error) {
-      const detail = error.message.includes("does not exist")
+      // Match on the error code, never on message text.
+      const detail = MISSING_TABLE_CODES.has(error.code)
         ? `Table '${tableName}' does not exist. Run Supabase migrations.`
         : `Table '${tableName}' error: ${error.message}`;
       return { ok: false, status: "error", detail };
