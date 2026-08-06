@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { percentile, scoreCase, summarize, toMarkdownTable, validateAgainstSchema } from "../../scripts/ai-eval/score.mjs";
-import { OPENAI_COMPATIBLE, GEMINI_API_BASE, availableProviders } from "../../scripts/ai-eval/providers.mjs";
+import { OPENAI_COMPATIBLE, GEMINI_API_BASE, availableProviders, extractModelNames } from "../../scripts/ai-eval/providers.mjs";
 import { runTask } from "../../scripts/ai-eval/harness.mjs";
 import { task as searchIntent } from "../../scripts/ai-eval/tasks/search-intent.mjs";
 import { task as bookClassify } from "../../scripts/ai-eval/tasks/book-classify.mjs";
@@ -80,11 +80,29 @@ describe("eval aggregation", () => {
   it("excludes failed calls from latency, so failing fast never looks fast", () => {
     const summary = summarize([
       { latencyMs: 900, score: { schemaOk: true, graded: 1, correct: 1 }, usage: { promptTokens: 5, completionTokens: 2 } },
-      { latencyMs: 1, error: "boom", score: { schemaOk: false, graded: 0, correct: 0 } },
+      { latencyMs: 1, error: "boom", score: { schemaOk: false, graded: 1, correct: 0 } },
     ]);
     expect(summary.errors).toBe(1);
     expect(summary.latencyP50).toBe(900);
-    expect(summary.accuracy).toBe(1);
+  });
+
+  it("counts failed calls against accuracy rather than dropping them", () => {
+    // The shape that used to read as 100%: right twice, rate-limited ten times.
+    const cases = [
+      { latencyMs: 300, score: { schemaOk: true, graded: 1, correct: 1 } },
+      { latencyMs: 300, score: { schemaOk: true, graded: 1, correct: 1 } },
+      ...Array.from({ length: 10 }, () => ({
+        latencyMs: 5,
+        error: "HTTP 429: rate limited",
+        score: { schemaOk: false, graded: 1, correct: 0 },
+      })),
+    ];
+
+    const summary = summarize(cases);
+    expect(summary.accuracy).toBeCloseTo(2 / 12);
+    expect(summary.errors).toBe(10);
+    // "When it answered, was the answer well-formed" keeps its own denominator.
+    expect(summary.schemaOkRate).toBe(1);
   });
 
   it("reports null tokens when no provider reported usage", () => {
@@ -177,5 +195,13 @@ describe("harness/edge parity", () => {
   it("skips providers with no key rather than failing", () => {
     expect(availableProviders({ GROQ_API_KEY: "x" }, ["openai", "groq"])).toEqual(["groq"]);
     expect(availableProviders({}, ["openai"])).toEqual([]);
+  });
+});
+
+describe("model listing", () => {
+  it("reads both the OpenAI-style and Gemini-style response shapes", () => {
+    expect(extractModelNames({ data: [{ id: "gpt-4o-mini" }, { id: "gpt-4.1" }] })).toEqual(["gpt-4o-mini", "gpt-4.1"]);
+    expect(extractModelNames({ models: [{ name: "models/gemini-flash-latest" }] })).toEqual(["gemini-flash-latest"]);
+    expect(extractModelNames({})).toEqual([]);
   });
 });
