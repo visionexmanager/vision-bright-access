@@ -73,6 +73,120 @@ async function checkTable(db: ReturnType<typeof createClient>, tableName: string
   }
 }
 
+// ── Live provider probes ─────────────────────────────────────────────────────
+//
+// checkOpenAI() below lists models. That proves the key exists and is not
+// revoked — and nothing else. A key with a zero balance lists models happily
+// and fails every generation with 429 `insufficient_quota`, which is exactly
+// what happened in production: this endpoint reported `openai -> ok` while all
+// 23 OpenAI-backed functions were dead. A check that cannot fail when the thing
+// it checks is broken is worse than no check, because it is trusted.
+//
+// So: generate one token, for real, and report what the API says.
+//
+// Admin-only, because it costs money and this endpoint is public and
+// unauthenticated. Anonymous callers keep the free listing check; letting them
+// trigger paid calls would turn a diagnostics URL into a way to drain the
+// budget.
+
+interface ProbeTarget {
+  /** Must match the model the platform actually calls, or the probe proves nothing. */
+  model: string;
+  envKey: string;
+  url: string;
+  headers: (key: string) => Record<string, string>;
+  body: (model: string) => unknown;
+}
+
+const LIVE_PROBES: Record<string, ProbeTarget> = {
+  openai: {
+    model: "gpt-4o-mini",
+    envKey: "OPENAI_API_KEY",
+    url: "https://api.openai.com/v1/chat/completions",
+    headers: (key) => ({ Authorization: `Bearer ${key}`, "Content-Type": "application/json" }),
+    body: (model) => ({ model, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
+  },
+  groq: {
+    model: "llama-3.1-8b-instant",
+    envKey: "GROQ_API_KEY",
+    url: "https://api.groq.com/openai/v1/chat/completions",
+    headers: (key) => ({ Authorization: `Bearer ${key}`, "Content-Type": "application/json" }),
+    body: (model) => ({ model, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
+  },
+  mistral: {
+    model: "mistral-small-latest",
+    envKey: "MISTRAL_API_KEY",
+    url: "https://api.mistral.ai/v1/chat/completions",
+    headers: (key) => ({ Authorization: `Bearer ${key}`, "Content-Type": "application/json" }),
+    body: (model) => ({ model, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
+  },
+  gemini: {
+    // Keep in step with MODEL_MATRIX in _shared/careerAiOrchestrator.ts. A model
+    // id that a key can no longer use is a real outage, and this probe is meant
+    // to surface it — the first eval run died on exactly that.
+    model: "gemini-flash-latest",
+    envKey: "GEMINI_API_KEY",
+    url: "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+    headers: (key) => ({ "x-goog-api-key": key, "Content-Type": "application/json" }),
+    body: () => ({
+      contents: [{ role: "user", parts: [{ text: "ping" }] }],
+      generationConfig: { maxOutputTokens: 1 },
+    }),
+  },
+};
+
+/**
+ * Distinguish "out of money" from "too many requests". Both arrive as 429 and
+ * they need opposite responses: one needs a payment, the other needs patience.
+ */
+function classifyProviderFailure(status: number, body: string): ComponentStatus | null {
+  const lower = body.toLowerCase();
+
+  if (lower.includes("insufficient_quota") || lower.includes("no credits remaining")) {
+    return { ok: false, status: "error", detail: "Out of credit — the key is valid but every generation is refused. Add credit or enable billing." };
+  }
+  if (status === 429) {
+    return { ok: false, status: "warning", detail: "Rate limited or over quota. Key works; requests are being throttled." };
+  }
+  if (status === 401 || status === 403) {
+    return { ok: false, status: "error", detail: "Key is invalid, revoked, or lacks permission for this model." };
+  }
+  if (status === 404) {
+    return { ok: false, status: "error", detail: "Model not available to this key. The configured model id is stale — update it." };
+  }
+  return null;
+}
+
+/** One real generation, capped at a single output token. */
+async function probeGeneration(provider: string): Promise<ComponentStatus> {
+  const target = LIVE_PROBES[provider];
+  const apiKey = Deno.env.get(target.envKey);
+  if (!apiKey) {
+    return { ok: false, status: "missing", detail: `${target.envKey} not configured.` };
+  }
+
+  try {
+    const res = await fetch(target.url.replace("{model}", target.model), {
+      method: "POST",
+      headers: target.headers(apiKey),
+      body: JSON.stringify(target.body(target.model)),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      const classified = classifyProviderFailure(res.status, body);
+      if (classified) {
+        return { ...classified, detail: `${provider} (${target.model}): ${classified.detail}` };
+      }
+      return { ok: false, status: "error", detail: `${provider} (${target.model}) returned HTTP ${res.status}.` };
+    }
+
+    return { ok: true, status: "ok", detail: `${provider} (${target.model}) generated successfully.` };
+  } catch (e) {
+    return { ok: false, status: "error", detail: `Cannot reach ${provider}: ${e}` };
+  }
+}
+
 async function checkOpenAI(): Promise<ComponentStatus> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) {
@@ -83,7 +197,11 @@ async function checkOpenAI(): Promise<ComponentStatus> {
     };
   }
   try {
-    // Test with a minimal models list call — no generation, no cost
+    // Free listing call: proves the key exists, is not revoked, and the API is
+    // reachable. It does NOT prove generation works — a key with no balance
+    // lists models and then refuses every completion. That gap is covered by
+    // the admin-only probe_generation() above; this check must not be read as
+    // "OpenAI is working".
     const res = await fetch("https://api.openai.com/v1/models", {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
@@ -114,7 +232,7 @@ async function checkOpenAI(): Promise<ComponentStatus> {
     return {
       ok:     true,
       status: "ok",
-      detail: `OpenAI connected. TTS models: ${hasTts ? "✓" : "✗"}, DALL·E: ${hasDalle ? "✓" : "✗"}`,
+      detail: `OpenAI key valid and API reachable (generation not verified here). TTS models: ${hasTts ? "✓" : "✗"}, DALL·E: ${hasDalle ? "✓" : "✗"}`,
     };
   } catch (e) {
     return { ok: false, status: "error", detail: `Cannot reach api.openai.com: ${e}` };
@@ -374,6 +492,16 @@ Deno.serve(async (req: Request) => {
           : `${secret.name} is NOT configured — ${secret.impact}`,
       };
     }
+
+    // Live generation probes. Admin-only and one output token each, so the
+    // whole block costs a fraction of a cent and cannot be triggered by an
+    // anonymous caller. Run together: four sequential round trips would add
+    // seconds to a diagnostics request for no reason.
+    const probed = Object.keys(LIVE_PROBES);
+    const probeResults = await Promise.all(probed.map((p) => probeGeneration(p)));
+    probed.forEach((provider, i) => {
+      results[`provider_live_${provider}`] = probeResults[i];
+    });
   }
 
   // ── Summary ───────────────────────────────────────────────────────────────────
