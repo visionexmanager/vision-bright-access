@@ -15,7 +15,7 @@ export const DEFAULT_MODELS = {
   openai: "gpt-4o-mini",
   groq: "llama-3.1-8b-instant",
   mistral: "mistral-small-latest",
-  gemini: "gemini-flash-latest",
+  gemini: "gemini-2.0-flash",
 };
 
 export const OPENAI_COMPATIBLE = {
