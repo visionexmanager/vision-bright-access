@@ -40,3 +40,50 @@ describe("health-check table probe", () => {
     }
   });
 });
+
+/**
+ * The endpoint reported `openai -> ok` while every OpenAI-backed function in
+ * production was failing with 429 insufficient_quota. Listing models succeeds
+ * on a key with no balance, so the check could not fail when the thing it
+ * checked was broken.
+ */
+describe("health-check live provider probes", () => {
+  it("performs a real generation, not just a model listing", () => {
+    expect(healthCheck).toContain("probeGeneration");
+    expect(healthCheck).toContain("max_tokens: 1");
+    expect(healthCheck).toContain("maxOutputTokens: 1");
+  });
+
+  it("tells running out of credit apart from being rate limited", () => {
+    expect(healthCheck).toContain("insufficient_quota");
+    expect(healthCheck).toContain("no credits remaining");
+    // Same 429, opposite remedies — they must not collapse into one message.
+    expect(healthCheck).toMatch(/Out of credit/);
+    expect(healthCheck).toMatch(/Rate limited or over quota/);
+  });
+
+  it("flags a stale model id rather than reporting a generic failure", () => {
+    expect(healthCheck).toMatch(/configured model id is stale/);
+  });
+
+  it("keeps the paid probe behind the admin gate", () => {
+    const adminGate = healthCheck.indexOf("if (isAdmin) {");
+    const probeUse = healthCheck.indexOf("provider_live_");
+    const summary = healthCheck.indexOf("── Summary");
+
+    expect(adminGate).toBeGreaterThan(-1);
+    expect(probeUse).toBeGreaterThan(adminGate);
+    expect(probeUse).toBeLessThan(summary);
+  });
+
+  it("no longer lets the free listing check claim OpenAI is working", () => {
+    expect(healthCheck).not.toContain("OpenAI connected.");
+    expect(healthCheck).toContain("generation not verified here");
+  });
+
+  it("covers every chat provider the platform can route to", () => {
+    for (const provider of ["openai", "groq", "mistral", "gemini"]) {
+      expect(healthCheck).toContain(`${provider}: {`);
+    }
+  });
+});
