@@ -5,11 +5,15 @@
 //   node scripts/ai-eval/list-models.mjs
 //   node scripts/ai-eval/list-models.mjs --provider gemini --filter flash
 //
-// Model listing is free on every provider here, and it answers a question that
-// otherwise only surfaces as a failed generation: the first eval run died on
-// `models/gemini-2.5-flash is no longer available to new users`, a model id
-// that had been hardcoded in the edge layer. A list is cheaper than a stale
-// constant.
+// Model listing is free on every provider here, and it answers one question:
+// which ids does this key know about. It does NOT answer whether an id can be
+// generated with — do not use it as a health check.
+//
+// Measured 2026-08-10: `gemini-2.5-flash` is present in this listing and yet
+// every generation against it returns HTTP 404 "no longer available to new
+// users". Listing and generation disagree, and generation is the one that
+// matters. An id absent here is certainly wrong; an id present here is merely
+// not-yet-disproven.
 //
 // Prints names only. No key is echoed, and no generation is performed.
 

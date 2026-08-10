@@ -121,9 +121,18 @@ const LIVE_PROBES: Record<string, ProbeTarget> = {
     body: (model) => ({ model, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
   },
   gemini: {
-    // Keep in step with MODEL_MATRIX in _shared/careerAiOrchestrator.ts. A model
-    // id that a key can no longer use is a real outage, and this probe is meant
-    // to surface it — the first eval run died on exactly that.
+    // Deliberately NOT the id in MODEL_MATRIX. That row still holds
+    // `gemini-2.5-flash`, which is confirmed dead (404 "no longer available to
+    // new users"), and Gemini is out of the default provider chain because of
+    // it. Pointing this probe at the known-dead id would only re-report a fault
+    // we have already recorded; pointing it at the candidate replacement is the
+    // one useful thing it can do.
+    //
+    // Do not "resync" this to MODEL_MATRIX. Sync it the other way once this
+    // probe reports ok — that is the signal the id is safe to route to.
+    //
+    // Expect `error: out of credit` until the Gemini account is funded, which
+    // is a separate fault from the model id and blocks verifying either.
     model: "gemini-flash-latest",
     envKey: "GEMINI_API_KEY",
     url: "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
@@ -328,7 +337,7 @@ async function checkElevenLabs(): Promise<ComponentStatus> {
 const PLATFORM_SECRETS: { name: string; impact: string }[] = [
   { name: "OPENAI_API_KEY",       impact: "Nearly every AI surface: chat, OCR, speech, images, text tools, Text-to-Video (Sora), Academy, Library and Kids assistants." },
   { name: "ANTHROPIC_API_KEY",    impact: "Any assistant configured with provider 'anthropic'. Those return 500 without it; OpenAI-backed assistants are unaffected." },
-  { name: "GEMINI_API_KEY",       impact: "Career Center AI (career-ai-*) when routed to Gemini, plus any assistant configured with provider 'gemini'." },
+  { name: "GEMINI_API_KEY",       impact: "Any assistant configured with provider 'gemini'. Out of the Career Center default chain since 2026-08-10: the account has no credit, and the configured model ids also return 404 'no longer available to new users'. Present or missing, this key cannot currently serve a request." },
   { name: "GROQ_API_KEY",         impact: "Any assistant configured with provider 'groq'. Nothing uses it by default, so a missing key breaks nothing until an assistant is routed there." },
   { name: "MISTRAL_API_KEY",      impact: "Any assistant configured with provider 'mistral'. Nothing uses it by default, so a missing key breaks nothing until an assistant is routed there." },
   { name: "ELEVENLABS_API_KEY",   impact: "Voice Studio voice cloning and ElevenLabs speech voices." },

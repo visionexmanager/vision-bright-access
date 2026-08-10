@@ -15,6 +15,9 @@ export const DEFAULT_MODELS = {
   openai: "gpt-4o-mini",
   groq: "llama-3.1-8b-instant",
   mistral: "mistral-small-latest",
+  // Known dead — returns 404 "no longer available to new users". Kept so an
+  // explicit `--providers gemini` still resolves to a model; replace it with an
+  // id proven by a real generation before trusting any gemini row again.
   gemini: "gemini-2.5-flash",
 };
 
@@ -26,7 +29,14 @@ export const OPENAI_COMPATIBLE = {
 
 export const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-export const ALL_PROVIDERS = ["openai", "groq", "mistral", "gemini"];
+// Providers a bare run compares. Gemini is deliberately absent: the account has
+// no credit, so every call it makes is guaranteed to fail. A full gemini run on
+// 2026-08-10 scored 0% with 18/18 errors — six HTTP 404 "gemini-2.5-flash is no
+// longer available to new users" (a dead model id, a separate fault from the
+// billing one), then twelve HTTP 429 once the empty balance surfaced. Leaving it
+// in the default set buries the real comparison under an all-zero row. It stays
+// selectable with `--providers gemini` for whoever re-funds the account.
+export const ALL_PROVIDERS = ["openai", "groq", "mistral"];
 
 export function envKeyFor(provider) {
   return provider === "gemini" ? "GEMINI_API_KEY" : OPENAI_COMPATIBLE[provider]?.envKey;
