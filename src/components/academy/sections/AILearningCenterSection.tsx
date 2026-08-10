@@ -160,7 +160,7 @@ export const AILearningCenterSection = memo(function AILearningCenterSection({
               </div>
             ) : messages.length === 0 ? (
               <p className="text-lg md:text-xl leading-relaxed font-medium text-center py-8 text-background/70">
-                {text(`Hi ${displayProfile.name}, I\'m Munir 🧠 Ask me anything about your studies or career!`, `يا ${displayProfile.name}، أنا منير 🧠 اسألني أي شي عن دروسك أو مستقبلك المهني!`)}
+                {text(`Hi ${displayProfile.name}, I'm Munir 🧠 Ask me anything about your studies or career!`, `يا ${displayProfile.name}، أنا منير 🧠 اسألني أي شي عن دروسك أو مستقبلك المهني!`)}
               </p>
             ) : (
               messages.map((msg) => (
