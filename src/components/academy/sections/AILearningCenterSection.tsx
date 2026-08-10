@@ -9,6 +9,7 @@ import { VoiceChat } from "@/components/VoiceChat";
 import { AcademySectionHeader } from "../ui/AcademySectionHeader";
 import { AcademyErrorState } from "../ui/AcademyErrorState";
 import type { ChatMessage, StudentProfile } from "@/lib/types";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function TypingDots() {
   return (
@@ -81,6 +82,8 @@ export const AILearningCenterSection = memo(function AILearningCenterSection({
   onFeedback,
   formatTime,
 }: AILearningCenterSectionProps) {
+  const { lang } = useLanguage();
+  const text = (english: string, arabic: string) => lang === "ar" ? arabic : english;
   // Is the last message from the user and we haven't got first token yet?
   const waitingForFirstToken = isStreaming && messages[messages.length - 1]?.role === "user";
 
@@ -113,9 +116,9 @@ export const AILearningCenterSection = memo(function AILearningCenterSection({
                 <Lightbulb className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-black leading-tight">منير — مساعد {displayProfile.level}</h3>
+                <h3 className="text-lg font-black leading-tight">{text(`Munir — ${displayProfile.level} Assistant`, `منير — مساعد ${displayProfile.level}`)}</h3>
                 <p className="text-primary text-[10px] font-bold uppercase tracking-widest">
-                  {isStreaming ? "يكتب..." : "توجيه أكاديمي ذكي"}
+                  {isStreaming ? text("Typing...", "يكتب...") : text("Smart Academic Guidance", "توجيه أكاديمي ذكي")}
                 </p>
               </div>
             </div>
@@ -157,7 +160,7 @@ export const AILearningCenterSection = memo(function AILearningCenterSection({
               </div>
             ) : messages.length === 0 ? (
               <p className="text-lg md:text-xl leading-relaxed font-medium text-center py-8 text-background/70">
-                يا {displayProfile.name}، أنا منير 🧠 اسألني أي شي عن دروسك أو مستقبلك المهني!
+                {text(`Hi ${displayProfile.name}, I'm Munir 🧠 Ask me anything about your studies or career!`, `يا ${displayProfile.name}، أنا منير 🧠 اسألني أي شي عن دروسك أو مستقبلك المهني!`)}
               </p>
             ) : (
               messages.map((msg) => (

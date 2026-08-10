@@ -39,6 +39,13 @@ import { InstructorMiniCard } from "./lms/InstructorMiniCard";
 import type { AcademyProfileRow } from "@/lib/types";
 import type { AcademyCourseRow, AcademyInstructorRow } from "@/lib/types/academy-modules";
 
+const CATEGORY_ENGLISH: Record<string, string> = {
+  "برمجة": "Programming",
+  "تطوير تطبيقات": "App Development",
+  "أمن سيبراني": "Cybersecurity",
+  "علم البيانات": "Data Science",
+};
+
 interface CourseListSectionProps {
   icon: LucideIcon;
   title: string;
@@ -342,7 +349,7 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
                 to={`/academy/courses?category=${encodeURIComponent(category)}`}
                 className="px-4 py-2 rounded-xl bg-muted/60 hover:bg-primary/10 hover:text-primary border border-border text-sm font-medium text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                {category}
+                {lang === "ar" ? category : (CATEGORY_ENGLISH[category] ?? category)}
               </Link>
             ))}
           </div>
