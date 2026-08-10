@@ -5,6 +5,26 @@ on:
     branches: [main, staging]
   pull_request:
     branches: [main]
+  # Recovery path only — see the matching note in ci.yml. Three of the six
+  # required checks (Lint & Type Check, Security Scan, Tests) are reported by
+  # this workflow, so it needs the same manual trigger or a dropped webhook
+  # still leaves a pull request unmergeable with no way to retry.
+  #
+  # The `action` input is a safety interlock, not decoration. The rollback job
+  # below is guarded only by `github.event_name == 'workflow_dispatch'` and has
+  # no `needs:`, so simply adding this trigger would have fired `helm rollback`
+  # against production on every manual CI run. It defaults to `checks`, and
+  # rollback now additionally requires being asked for by name.
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "checks = run the required checks. rollback = emergency production rollback."
+        required: true
+        default: checks
+        type: choice
+        options:
+          - checks
+          - rollback
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -341,7 +361,11 @@ jobs:
   rollback:
     name: Emergency Rollback
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
+    # Must be asked for explicitly. Before this workflow had a
+    # workflow_dispatch trigger the event check alone made the job
+    # unreachable; with the trigger it would have matched every manual run,
+    # including one whose only purpose was to re-report a required check.
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'rollback'
     environment:
       name: production
     steps:
