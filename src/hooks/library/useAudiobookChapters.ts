@@ -1,8 +1,8 @@
 /**
  * useAudiobookChapters — chapter list for one audiobook. Empty result means
  * either the audiobook has no chapters yet (legacy single-file model —
- * callers fall back to the audiobook's own audio_file_id, see
- * LibraryAudioPlayerContext) or the viewer lacks access (RLS-gated).
+ * callers fall back to the audiobook's own audio_file_id) or the viewer
+ * lacks access (RLS-gated).
  */
 
 import { useQuery } from "@tanstack/react-query";

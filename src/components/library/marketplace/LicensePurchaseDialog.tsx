@@ -22,7 +22,7 @@ const LICENSE_TYPES: LibraryLicenseType[] = ["individual", "corporate", "educati
 /** Corporate/educational/family multi-seat licenses — total price is the
  *  book's normal price × seat count (see handleLicense in
  *  library-checkout-session). Seats themselves are invited afterward from
- *  the buyer's "My Licenses" page (useMyLicenses/useLicenseSeats), not here. */
+ *  the buyer's "My Licenses" page, not here. */
 export function LicensePurchaseDialog({ bookId, bookTitle, priceVx, priceUsd }: LicensePurchaseDialogProps) {
   const { t } = useLanguage();
   const { checkout, isProcessing } = useLibraryCheckout();

@@ -5,9 +5,8 @@
  * Reading, Downloads, and Reading Lists — same honesty contract as Academy's
  * *LocalStore.ts files (e.g. scholarshipLocalStore.ts): data does not sync
  * across devices and is lost if the user clears site data. Shape mirrors the
- * planned Supabase rows (library-user-shelf.ts) so migrating to real
- * persistence later is a drop-in swap of these functions, not a redesign of
- * callers (src/hooks/library/*.ts).
+ * planned Supabase rows so migrating to real persistence later is a drop-in
+ * swap of these functions, not a redesign of callers (src/hooks/library/*.ts).
  */
 
 import { readJSON, writeJSON } from "../storage/localStorageUtils";
