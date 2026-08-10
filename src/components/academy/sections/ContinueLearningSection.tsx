@@ -22,7 +22,7 @@ export const ContinueLearningSection = memo(function ContinueLearningSection({
       <AcademySectionHeader
         icon={PlayCircle}
         title={text("Continue Learning", "متابعة التعلم")}
-        description={hasChatActivity ? text("Resume where you left off", "استكمل من حيث توقفت") : text("You haven\'t started your journey yet", "لم تبدأ رحلتك بعد")}
+        description={hasChatActivity ? text("Resume where you left off", "استكمل من حيث توقفت") : text("You haven't started your journey yet", "لم تبدأ رحلتك بعد")}
         headingId="continue-learning-heading"
       />
 
@@ -45,7 +45,7 @@ export const ContinueLearningSection = memo(function ContinueLearningSection({
       ) : (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border-2 border-dashed border-border">
           <p className="text-muted-foreground text-sm">
-            {text("You haven\'t started yet! Ask Munir about your studies or career to begin your learning journey.", "لسه ما بدأت! اسأل منير عن دروسك أو مستقبلك المهني لتبدأ رحلتك التعليمية.")}
+            {text("You haven't started yet! Ask Munir about your studies or career to begin your learning journey.", "لسه ما بدأت! اسأل منير عن دروسك أو مستقبلك المهني لتبدأ رحلتك التعليمية.")}
           </p>
           <Button onClick={onOpenAILearning} variant="outline" className="rounded-xl gap-2 shrink-0">
             <PlayCircle className="w-4 h-4" aria-hidden="true" />
