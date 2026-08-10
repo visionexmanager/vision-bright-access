@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { History, MessageSquare, Clock } from "lucide-react";
 import { AcademySectionHeader } from "../ui/AcademySectionHeader";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface RecentActivitySectionProps {
   lastActiveLabel: string | null;
@@ -11,14 +12,16 @@ export const RecentActivitySection = memo(function RecentActivitySection({
   lastActiveLabel,
   messageCount,
 }: RecentActivitySectionProps) {
+  const { lang } = useLanguage();
+  const text = (english: string, arabic: string) => lang === "ar" ? arabic : english;
   const hasActivity = messageCount > 0;
 
   return (
     <section aria-labelledby="recent-activity-heading" className="bg-card p-8 rounded-3xl border border-border shadow-lg">
       <AcademySectionHeader
         icon={History}
-        title="النشاط الأخير"
-        description="آخر ما فعلته في الأكاديمية"
+        title={text("Recent Activity", "النشاط الأخير")}
+        description={text("Your Recent Academy Activity", "آخر ما فعلته في الأكاديمية")}
         headingId="recent-activity-heading"
       />
 
@@ -29,7 +32,7 @@ export const RecentActivitySection = memo(function RecentActivitySection({
               <MessageSquare className="w-5 h-5" />
             </div>
             <p className="text-sm text-foreground">
-              أرسلت <span className="font-bold">{messageCount}</span> رسالة إلى منير
+              {text("You sent", "أرسلت")} <span className="font-bold">{messageCount}</span> {text("messages to Munir", "رسالة إلى منير")}
             </p>
           </li>
           {lastActiveLabel && (
@@ -38,14 +41,14 @@ export const RecentActivitySection = memo(function RecentActivitySection({
                 <Clock className="w-5 h-5" />
               </div>
               <p className="text-sm text-foreground">
-                آخر نشاط: <span className="font-bold">{lastActiveLabel}</span>
+                {text("Last activity:", "آخر نشاط:")} <span className="font-bold">{lastActiveLabel}</span>
               </p>
             </li>
           )}
         </ul>
       ) : (
         <p className="text-muted-foreground text-sm py-6 text-center border-2 border-dashed border-border rounded-2xl">
-          لا يوجد نشاط حديث بعد — ابدأ محادثة مع منير ليظهر نشاطك هنا.
+          {text("No recent activity yet — start a conversation with Munir and it will appear here.", "لا يوجد نشاط حديث بعد — ابدأ محادثة مع منير ليظهر نشاطك هنا.")}
         </p>
       )}
     </section>
