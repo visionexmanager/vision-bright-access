@@ -34,7 +34,7 @@ export const PersonalProgressSection = memo(function PersonalProgressSection({
       <AcademySectionHeader
         icon={TrendingUp}
         title={text("Your Personal Progress", "تقدّمك الشخصي")}
-        description={text(`${displayName}\'s level in their learning journey`, `مستوى ${displayName} في رحلته التعليمية`)}
+        description={text(`${displayName}'s level in their learning journey`, `مستوى ${displayName} في رحلته التعليمية`)}
         headingId="personal-progress-heading"
         action={<LevelBadge levelInfo={levelInfo} showRank />}
       />
@@ -45,7 +45,7 @@ export const PersonalProgressSection = memo(function PersonalProgressSection({
           <Rocket className="absolute -left-4 -bottom-4 w-28 h-28 opacity-10 -rotate-12" aria-hidden="true" />
           <h3 className="text-xl font-black mb-4 tracking-tight flex items-center gap-2">
             <Star className="text-yellow-400 w-5 h-5 fill-yellow-400" aria-hidden="true" />
-            {text(`${displayName}\'s Level`, `مستوى ${displayName}`)}
+            {text(`${displayName}'s Level`, `مستوى ${displayName}`)}
           </h3>
           <div className="space-y-3">
             <div className="flex justify-between text-xs font-bold opacity-80 uppercase tracking-widest">
@@ -64,7 +64,7 @@ export const PersonalProgressSection = memo(function PersonalProgressSection({
             </div>
           </div>
           <p className="mt-6 text-sm opacity-70 italic">
-            {xpLevel.percent < 80 ? text("Keep going and message Munir to earn XP!", "واصل وارسل رسائل لمنير لتكسب XP!") : text("You\'re close to the next level! 🎯", "أنت قريب من المستوى التالي! 🎯")}
+            {xpLevel.percent < 80 ? text("Keep going and message Munir to earn XP!", "واصل وارسل رسائل لمنير لتكسب XP!") : text("You're close to the next level! 🎯", "أنت قريب من المستوى التالي! 🎯")}
           </p>
         </div>
 
