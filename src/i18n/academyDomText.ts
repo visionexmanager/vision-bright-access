@@ -63,6 +63,7 @@ export const academyDomText: Record<string, string> = {
   "غير مفيد": "Not helpful",
   "اسأل منير عن دروسك أو مستقبلك... (Enter للإرسال)": "Ask Munir about your studies or future... (Press Enter to send)",
   "رسالة للمساعد منير": "Message to Munir assistant",
+  "مجتمع التعلّم — هذا القسم قيد التطوير وسيتوفر في مرحلة قادمة.": "Learning Community — this section is under development and will be available in a future phase.",
 };
 
 // Add new legacy phrases here only as complete UI strings.
