@@ -83,9 +83,10 @@ describe("multi-provider AI layer", () => {
     expect(chain).toEqual(["openai", "anthropic"]);
 
     // Groq and Mistral: Arabic quality never validated for Career Center output.
-    // Gemini: removed 2026-08-10 — its configured model ids return 404 "no longer
-    // available to new users" against the project's key, so as the last fallback
-    // it could only ever add a failed round trip to an already-failing request.
+    // Gemini: removed 2026-08-10 — the account has no credit, and its configured
+    // model ids separately return 404 "no longer available to new users". As the
+    // last fallback it could only ever add a failed round trip to an
+    // already-failing request.
     for (const provider of ["groq", "mistral", "gemini"]) {
       expect(chain).not.toContain(provider);
     }

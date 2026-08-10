@@ -29,12 +29,13 @@ export const OPENAI_COMPATIBLE = {
 
 export const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-// Providers a bare run compares. Gemini is deliberately absent: on 2026-08-10 a
-// full gemini run scored 0% with 18/18 errors — six HTTP 404 "gemini-2.5-flash is
-// no longer available to new users", then twelve HTTP 429 once the key's quota
-// tripped. Leaving it in the default set spends the run's budget on calls that
-// cannot succeed and buries the real comparison under an all-zero row. It is
-// still selectable with `--providers gemini` for whoever fixes the model id.
+// Providers a bare run compares. Gemini is deliberately absent: the account has
+// no credit, so every call it makes is guaranteed to fail. A full gemini run on
+// 2026-08-10 scored 0% with 18/18 errors — six HTTP 404 "gemini-2.5-flash is no
+// longer available to new users" (a dead model id, a separate fault from the
+// billing one), then twelve HTTP 429 once the empty balance surfaced. Leaving it
+// in the default set buries the real comparison under an all-zero row. It stays
+// selectable with `--providers gemini` for whoever re-funds the account.
 export const ALL_PROVIDERS = ["openai", "groq", "mistral"];
 
 export function envKeyFor(provider) {

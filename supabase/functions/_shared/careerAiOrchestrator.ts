@@ -22,14 +22,22 @@ type SupabaseServiceClient = any;
 export type CareerAiProvider = UpstreamProvider;
 export type CostTier = "cheap" | "capable";
 
-// Gemini is temporarily out of the default chain. Verified live on 2026-08-10
-// against the project's own key: `gemini-2.5-flash` returns HTTP 404 "no longer
-// available to new users", and the key's remaining requests return HTTP 429
-// "exceeded your current quota". As the last fallback it was strictly harmful —
-// it could only ever be reached after OpenAI and Anthropic had both failed, and
-// then failed too, turning a two-provider outage into a degraded response one
-// round trip later. Re-add it here once a model id is confirmed by an actual
-// generation (not by the model listing, which still advertises the dead id).
+// Gemini is out of the default chain, blocked on billing. Verified live on
+// 2026-08-10 against the project's own key, and there are two separate faults:
+//
+//   1. No credit. The account has no balance, which is what the HTTP 429
+//      "exceeded your current quota" responses were.
+//   2. A dead model id. `gemini-2.5-flash` returns HTTP 404 "no longer
+//      available to new users" — an availability error, not a billing one, so
+//      funding the account alone will not fix it.
+//
+// As the last fallback it was strictly harmful: only reachable after OpenAI and
+// Anthropic had both failed, and then it failed too, turning a two-provider
+// outage into a degraded response one round trip later.
+//
+// Re-enabling needs both faults cleared — add credit, then confirm a model id
+// with an actual generation (not with the model listing, which still advertises
+// the dead id).
 //
 // Groq and Mistral stay reachable via an explicit `providerOrder` but out of the
 // default chain: their Arabic quality has not been validated for Career Center
