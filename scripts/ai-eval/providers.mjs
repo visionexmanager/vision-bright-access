@@ -129,6 +129,22 @@ async function callGemini({ model, system, userText, schema, maxTokens, env, fet
   };
 }
 
+/**
+ * Model names from a list response, in either shape: OpenAI-style `data[].id`
+ * or Gemini-style `models[].name` (which arrives prefixed with `models/`).
+ *
+ * Lives here rather than in list-models.mjs so tests can import it without
+ * executing a CLI — importing a module that self-executes would fire real
+ * network calls the moment a key is present in the environment.
+ */
+export function extractModelNames(payload) {
+  if (Array.isArray(payload?.data)) return payload.data.map((m) => m.id).filter(Boolean);
+  if (Array.isArray(payload?.models)) {
+    return payload.models.map((m) => String(m.name ?? "").replace(/^models\//, "")).filter(Boolean);
+  }
+  return [];
+}
+
 /** Run one structured completion. Throws on any upstream or parse failure. */
 export function structuredCompletion(params) {
   const fetchImpl = params.fetchImpl ?? globalThis.fetch;

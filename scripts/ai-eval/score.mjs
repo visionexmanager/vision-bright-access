@@ -97,14 +97,24 @@ export function percentile(values, p) {
 /**
  * Aggregate per-case results for one provider.
  *
- * Latency percentiles come from successful calls only: a provider that fails
- * fast would otherwise look like a provider that responds fast.
+ * Two different denominators, on purpose:
+ *
+ *   * Accuracy counts every case, including ones whose call failed. A provider
+ *     that answered 2 of 12 questions correctly and errored on the other 10
+ *     scored 2/12, not 100% — the first version of this file reported the
+ *     latter, which flattered a provider that was mostly rate-limited.
+ *   * Latency percentiles use successful calls only, because a provider that
+ *     fails fast would otherwise look like a provider that responds fast.
+ *
+ * `schemaOkRate` stays over completed calls: it answers "when this provider
+ * replies, is the reply well-formed", which the error count already covers
+ * from the other side.
  */
 export function summarize(cases) {
   const ok = cases.filter((c) => !c.error);
   const latencies = ok.map((c) => c.latencyMs);
-  const graded = ok.reduce((n, c) => n + c.score.graded, 0);
-  const correct = ok.reduce((n, c) => n + c.score.correct, 0);
+  const graded = cases.reduce((n, c) => n + c.score.graded, 0);
+  const correct = cases.reduce((n, c) => n + c.score.correct, 0);
   const schemaOk = ok.filter((c) => c.score.schemaOk).length;
 
   const tokens = ok.reduce(
@@ -142,7 +152,7 @@ export function toMarkdownTable(summaries) {
   );
 
   return [
-    "| Provider | Label accuracy | Valid schema | p50 | p95 | Errors | Completion tokens |",
+    "| Provider | Accuracy (all cases) | Valid schema (of replies) | p50 | p95 | Errors | Completion tokens |",
     "| --- | --- | --- | --- | --- | --- | --- |",
     ...rows,
   ].join("\n");
