@@ -22,15 +22,26 @@ type SupabaseServiceClient = any;
 export type CareerAiProvider = UpstreamProvider;
 export type CostTier = "cheap" | "capable";
 
-// Unchanged fallback order. Groq and Mistral are reachable through this
-// orchestrator via an explicit `providerOrder`, but are not in the default
-// chain: their Arabic quality has not been validated for Career Center output.
-const DEFAULT_PROVIDER_ORDER: CareerAiProvider[] = ["openai", "anthropic", "gemini"];
+// Gemini is temporarily out of the default chain. Verified live on 2026-08-10
+// against the project's own key: `gemini-2.5-flash` returns HTTP 404 "no longer
+// available to new users", and the key's remaining requests return HTTP 429
+// "exceeded your current quota". As the last fallback it was strictly harmful —
+// it could only ever be reached after OpenAI and Anthropic had both failed, and
+// then failed too, turning a two-provider outage into a degraded response one
+// round trip later. Re-add it here once a model id is confirmed by an actual
+// generation (not by the model listing, which still advertises the dead id).
+//
+// Groq and Mistral stay reachable via an explicit `providerOrder` but out of the
+// default chain: their Arabic quality has not been validated for Career Center
+// output.
+const DEFAULT_PROVIDER_ORDER: CareerAiProvider[] = ["openai", "anthropic"];
 
 // Model identifiers follow the conventions already used elsewhere in this
 // codebase (see _shared/assistants.ts, news-generate/index.ts) for OpenAI
-// and Anthropic. Gemini has no prior convention in this repo, so current
-// well-known Gemini model IDs are used.
+// and Anthropic. The Gemini row is known-stale — both ids below are the ones
+// that produced the 404 above — and is kept only so an explicit `providerOrder`
+// of ["gemini"] still resolves to something rather than crashing. Fix the ids
+// before putting Gemini back in DEFAULT_PROVIDER_ORDER.
 const MODEL_MATRIX: Record<CareerAiProvider, Record<CostTier, string>> = {
   openai: { cheap: "gpt-4o-mini", capable: "gpt-4.1" },
   anthropic: { cheap: "claude-haiku-4-5-20251001", capable: "claude-sonnet-4-6" },

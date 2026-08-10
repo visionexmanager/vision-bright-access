@@ -68,14 +68,26 @@ describe("multi-provider AI layer", () => {
     expect(aiProvider).toContain("EMBEDDING_DIM = 1536");
   });
 
-  it("does not put Groq or Mistral in the Career Center default fallback chain", () => {
+  it("keeps unvalidated providers out of the Career Center default fallback chain", () => {
     const orchestrator = readFileSync(
       resolve(root, "supabase/functions/_shared/careerAiOrchestrator.ts"),
       "utf8",
     );
 
-    expect(orchestrator).toContain(
-      'DEFAULT_PROVIDER_ORDER: CareerAiProvider[] = ["openai", "anthropic", "gemini"]',
+    const match = orchestrator.match(
+      /DEFAULT_PROVIDER_ORDER: CareerAiProvider\[\] = \[([^\]]*)\]/,
     );
+    expect(match).not.toBeNull();
+    const chain = (match?.[1] ?? "").match(/"([^"]+)"/g)?.map((s) => s.replaceAll('"', "")) ?? [];
+
+    expect(chain).toEqual(["openai", "anthropic"]);
+
+    // Groq and Mistral: Arabic quality never validated for Career Center output.
+    // Gemini: removed 2026-08-10 — its configured model ids return 404 "no longer
+    // available to new users" against the project's key, so as the last fallback
+    // it could only ever add a failed round trip to an already-failing request.
+    for (const provider of ["groq", "mistral", "gemini"]) {
+      expect(chain).not.toContain(provider);
+    }
   });
 });
