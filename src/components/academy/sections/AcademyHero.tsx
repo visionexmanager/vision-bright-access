@@ -4,6 +4,7 @@ import { Search, Zap, PlayCircle, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { StudentProfile } from "@/lib/types";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface AcademyHeroProps {
   displayProfile: StudentProfile;
@@ -19,6 +20,9 @@ export const AcademyHero = memo(function AcademyHero({
   onOpenAILearning,
 }: AcademyHeroProps) {
   const navigate = useNavigate();
+  const { lang, t } = useLanguage();
+  const interpolate = (template: string, values: Record<string, string>) =>
+    Object.entries(values).reduce((result, [key, value]) => result.replaceAll(`{${key}}`, value), template);
   const [searchValue, setSearchValue] = useState("");
 
   const handleSearchSubmit = (e: FormEvent) => {
@@ -37,11 +41,13 @@ export const AcademyHero = memo(function AcademyHero({
       <div className="relative flex flex-col gap-6">
         <div>
           <h1 id="academy-hero-heading" className="text-2xl md:text-3xl font-black text-foreground">
-            أهلاً {displayProfile.gender === "male" ? "بالبطل" : "بالبطلة"} {displayProfile.name} ✨
+            {interpolate(t(displayProfile.gender === "male" ? "academy.welcome.male" : "academy.welcome.female"), { name: displayProfile.name })}
           </h1>
           <div className="flex flex-wrap gap-2 mt-2.5">
             <span className="px-2.5 py-0.5 bg-primary/10 text-primary rounded-lg text-xs font-bold border border-primary/20">{displayProfile.level}</span>
-            <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-500/20">منهاج {displayProfile.country}</span>
+            <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-500/20">
+              {interpolate(t("academy.curriculum"), { country: displayProfile.country })}
+            </span>
             <span className="px-2.5 py-0.5 bg-yellow-400/10 text-yellow-600 rounded-lg text-xs font-bold border border-yellow-400/20">
               <Zap className="inline w-3 h-3 me-1" aria-hidden="true" />{totalPoints.toLocaleString()} VX
             </span>
@@ -76,7 +82,7 @@ export const AcademyHero = memo(function AcademyHero({
           </Button>
           <Button onClick={onOpenAILearning} variant="outline" className="gap-2 rounded-xl py-5 px-6 font-bold">
             <Sparkles className="w-4 h-4" aria-hidden="true" />
-            التعلم الذكي مع منير
+            {lang === "ar" ? "التعلم الذكي مع منير" : "AI Learning with Munir"}
           </Button>
         </div>
       </div>
