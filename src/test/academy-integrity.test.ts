@@ -13,7 +13,7 @@ const academyLocalizedSources = [
   "src/components/academy/AcademyDashboard.tsx",
   "src/lib/academy/onboardingOptions.ts",
 ].map((path) => readFileSync(path, "utf8")).join("\n");
-const locales = ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "es", "de", "pt", "zh", "tr", "fr", "ru"];
+const locales = ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "nl", "pl", "vi", "bn", "fa", "es", "de", "pt", "zh", "tr", "fr", "ru"];
 
 describe("Academy launch integrity", () => {
   it("keeps every primary Academy navigation destination routed", () => {
