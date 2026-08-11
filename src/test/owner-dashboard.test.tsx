@@ -160,7 +160,7 @@ describe("dashboard semantics", () => {
 
   it("gives every table a caption for context", async () => {
     render(<OwnerControlCenter />);
-    await screen.findByRole("heading", { name: /Support escalations/ });
+    await screen.findByRole("columnheader", { name: "Customer" });
 
     // Every table on the page carries a caption, so a screen reader user
     // landing on one knows what it lists before reading any row.
@@ -174,8 +174,7 @@ describe("dashboard semantics", () => {
 
   it("states control and status as words, not colour", async () => {
     render(<OwnerControlCenter />);
-    await screen.findByRole("heading", { name: /Conversations/ });
-    expect(screen.getByText("Human controlled")).toBeInTheDocument();
+    expect(await screen.findByText("Human controlled")).toBeInTheDocument();
     expect(screen.getByText("Waiting for you")).toBeInTheDocument();
   });
 
@@ -201,9 +200,8 @@ describe("dashboard semantics", () => {
 
   it("never prints a full phone number", async () => {
     render(<OwnerControlCenter />);
-    await screen.findByRole("heading", { name: /Conversations/ });
+    expect(await screen.findByText("•••0609")).toBeInTheDocument();
     expect(screen.queryByText(/96170750609/)).not.toBeInTheDocument();
-    expect(screen.getByText("•••0609")).toBeInTheDocument();
   });
 
   it("announces changes through a live region", async () => {
@@ -223,8 +221,7 @@ describe("dashboard semantics", () => {
 
   it("never claims WhatsApp is connected when it is not", async () => {
     render(<OwnerControlCenter />);
-    await screen.findByRole("heading", { name: /Owner Control Center/ });
-    expect(screen.getByText("Not configured")).toBeInTheDocument();
+    expect(await screen.findByText("Not configured")).toBeInTheDocument();
     expect(screen.queryByText(/^Connected$/)).not.toBeInTheDocument();
   });
 });
