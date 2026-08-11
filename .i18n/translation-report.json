@@ -1,33 +1,38 @@
 {
-  "batch_id": "batch_6a7a3f71f2a88190baedec6fe3178135",
-  "input_file_id": "file-7xSh6aTcjq9jVCj5dhFQJi",
-  "source_hash": "1c28407c7bfa6331bee30a8d72db72198ac2de14106b4af418bd5991087571e8",
-  "source_entries": 12100,
-  "unique_values": 9697,
-  "request_count": 388,
+  "batch_id": "batch_6a7b179e0e4081908d4d496c3b16f6de",
+  "input_file_id": "file-ByRi1Z4XumWvwWPmy7Zand",
+  "source_hash": "5ded4421426f309cf0b52c5bcc43099d404d8ad1db8f90e45ce4a390957705b9",
+  "source_entries": 12114,
+  "unique_values": 9708,
+  "request_count": 490,
   "locales": [
     {
-      "locale": "id",
-      "keys": 12100,
-      "identical_to_english": 751
+      "locale": "nl",
+      "keys": 12114,
+      "identical_to_english": 991
     },
     {
-      "locale": "ja",
-      "keys": 12100,
-      "identical_to_english": 253
+      "locale": "pl",
+      "keys": 12114,
+      "identical_to_english": 496
     },
     {
-      "locale": "it",
-      "keys": 12100,
-      "identical_to_english": 734
+      "locale": "vi",
+      "keys": 12114,
+      "identical_to_english": 406
     },
     {
-      "locale": "ko",
-      "keys": 12100,
-      "identical_to_english": 206
+      "locale": "bn",
+      "keys": 12114,
+      "identical_to_english": 228
+    },
+    {
+      "locale": "fa",
+      "keys": 12114,
+      "identical_to_english": 187
     }
   ],
   "model": "gpt-5.4-nano",
   "status": "completed",
-  "output_file_id": "file-E9rHonjR2VJirZbd2ogWRW"
+  "output_file_id": "file-1zbHrfy4tgPXiRWLD8Lqzt"
 }
