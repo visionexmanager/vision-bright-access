@@ -34,8 +34,16 @@ async function loadLang(lang: Lang): Promise<Record<string, string>> {
 }
 
 const rtlLangs: Lang[] = ["ar", "ur", "fa"];
-const originalTextNodes = new WeakMap<Text, string>();
-const originalAttributes = new WeakMap<Element, Map<string, string>>();
+let originalTextNodes = new WeakMap<Text, string>();
+let originalAttributes = new WeakMap<Element, Map<string, string>>();
+
+function resetDomTranslationOrigins() {
+  // React reuses text and element nodes when the selected locale changes. The
+  // old fallback source must not survive that reuse or it can restore labels
+  // from the previous locale over freshly rendered translations.
+  originalTextNodes = new WeakMap<Text, string>();
+  originalAttributes = new WeakMap<Element, Map<string, string>>();
+}
 
 function safeGetStoredLang(): Lang | null {
   try {
@@ -385,6 +393,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [lang, langReady]);
 
   const setLang = useCallback((newLang: Lang) => {
+    resetDomTranslationOrigins();
+    // Prevent one render with the new locale and the previous locale's loaded
+    // catalog before the loading effect has a chance to run.
+    setLangReady(false);
     setLangState(newLang);
   }, []);
 

@@ -25,6 +25,19 @@ function LanguageProbe() {
   return <LegacyArabicSection />;
 }
 
+function RuntimeLocaleProbe() {
+  const { lang, setLang, t } = useLanguage();
+
+  return (
+    <section>
+      <button type="button" onClick={() => setLang("fa")}>Select Persian</button>
+      <p data-testid="selected-label">{lang === "fa" ? "فارسی — Persian" : "English — English"}</p>
+      <h1>{t("home.title")}<span>{t("home.titleHighlight")}</span></h1>
+      <button type="button" aria-label={t("cart.itemsLabel").replace("{count}", "0")}>Cart</button>
+    </section>
+  );
+}
+
 describe("LanguageProvider whole-site language consistency", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -55,5 +68,24 @@ describe("LanguageProvider whole-site language consistency", () => {
     expect(screen.getByRole("button", { name: "Continuar" })).toHaveTextContent("Continuar");
     expect(document.documentElement.lang).toBe("es");
     expect(document.documentElement.dir).toBe("ltr");
+  }, 20_000);
+
+  it("does not restore the previous locale over a runtime language change", async () => {
+    render(
+      <LanguageProvider>
+        <RuntimeLocaleProbe />
+      </LanguageProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("Select Persian")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Select Persian"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-label")).toHaveTextContent("فارسی — Persian");
+      expect(screen.getByRole("heading")).toHaveTextContent("Visionex همه چیز رادر یک پلتفرم جمع می‌کند");
+    }, { timeout: 15_000 });
+    expect(screen.getByRole("button", { name: "سبد خرید شامل 0 آیتم" })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe("fa");
+    expect(document.documentElement.dir).toBe("rtl");
   }, 20_000);
 });
