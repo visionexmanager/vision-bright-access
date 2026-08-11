@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from "react";
 import { academyDomText } from "@/i18n/academyDomText";
 
-export const supportedLangs = ["en", "ar", "es", "de", "pt", "zh", "tr", "fr", "ru", "ur", "hi"] as const;
+export const supportedLangs = ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "es", "de", "pt", "zh", "tr", "fr", "ru"] as const;
 export type Lang = (typeof supportedLangs)[number];
 
 interface LanguageContextType {

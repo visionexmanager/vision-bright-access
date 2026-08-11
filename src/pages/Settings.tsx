@@ -24,6 +24,10 @@ const LANGUAGES = [
   { code: "ru", label: "Русский", flag: "🇷🇺" },
   { code: "hi", label: "हिन्दी", flag: "🇮🇳" },
   { code: "ur", label: "اردو", flag: "🇵🇰" },
+  { code: "id", label: "Bahasa Indonesia", flag: "🇮🇩" },
+  { code: "ja", label: "日本語", flag: "🇯🇵" },
+  { code: "it", label: "Italiano", flag: "🇮🇹" },
+  { code: "ko", label: "한국어", flag: "🇰🇷" },
 ];
 
 export default function Settings() {

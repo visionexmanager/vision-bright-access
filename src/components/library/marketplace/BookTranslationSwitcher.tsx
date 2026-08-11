@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const NATIVE_NAMES: Record<string, string> = {
   en: "English", ar: "العربية", es: "Español", de: "Deutsch", pt: "Português",
   zh: "中文", tr: "Türkçe", fr: "Français", ru: "Русский", ur: "اردو", hi: "हिन्दी",
+  id: "Bahasa Indonesia", ja: "日本語", it: "Italiano", ko: "한국어",
 };
 
 const RTL_LANGS = new Set(["ar", "ur"]);

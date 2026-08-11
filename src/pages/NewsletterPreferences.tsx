@@ -36,6 +36,7 @@ const TOPICS = [
 const LANGUAGES: Record<string, string> = {
   en: "English", ar: "العربية", es: "Español", de: "Deutsch", pt: "Português",
   zh: "中文", tr: "Türkçe", fr: "Français", ru: "Русский", ur: "اردو", hi: "हिन्दी",
+  id: "Bahasa Indonesia", ja: "日本語", it: "Italiano", ko: "한국어",
 };
 
 type Subscriber = { email: string; name: string | null; topics: string[]; lang: string };
@@ -180,4 +181,3 @@ export default function NewsletterPreferences() {
     </Layout>
   );
 }
-
