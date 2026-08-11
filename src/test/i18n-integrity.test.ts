@@ -1,10 +1,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-// Every dictionary in src/i18n. `id`, `ja`, `it`, and `ko` shipped before this
-// list was widened to include them, so the first test below keeps the list in
-// step with the directory rather than trusting it to be updated by hand.
-const locales = ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "es", "de", "pt", "zh", "tr", "fr", "ru"];
+// Keep this explicit list aligned with LanguageContext.supportedLangs so CI
+// rejects incomplete locale activation.
+const locales = ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "nl", "pl", "vi", "bn", "fa", "es", "de", "pt", "zh", "tr", "fr", "ru"];
 
 function dictionaryKeys(locale: string) {
   const source = readFileSync(`src/i18n/${locale}.ts`, "utf8");
