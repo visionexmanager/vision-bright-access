@@ -59,6 +59,8 @@ export type EdgeFunctionName =
   | "analyze-image"
   | "ai-generate"
   | "ai-search"
+  | "ai-source-products"
+  | "request-sourcing"
   | "embed-content"
   | "moderate-content"
   | "text-to-speech"
@@ -208,6 +210,55 @@ export interface SearchResult<T = Record<string, unknown>> {
 
 export interface SearchResponse<T = Record<string, unknown>> {
   results: SearchResult<T>[];
+}
+
+// ── Commerce Agent sourcing ─────────────────────────────────────────────────────
+//
+// Mirrors the customer-facing projection produced by
+// supabase/functions/_shared/sourcing/confidentiality.ts. Supplier identity,
+// source price and margin are absent by construction — `sourceName` appears
+// only when a source's terms require the merchant to be named.
+
+export type SourcingCondition = "new" | "used" | "refurbished";
+
+export type SourcingAvailability =
+  | "in_visionex"
+  | "available_for_sourcing"
+  | "external_recommendation"
+  | "requires_sourcing_confirmation"
+  | "unavailable";
+
+export interface SourcedItem {
+  ref: string;
+  title: string;
+  brand?: string | null;
+  model?: string | null;
+  category?: string | null;
+  specifications?: Record<string, unknown>;
+  condition: SourcingCondition;
+  availability: SourcingAvailability;
+  priceUsd: number | null;
+  currency?: string;
+  sourceName?: string;
+  sourceUrl?: string;
+}
+
+export interface SourcingRequestResponse {
+  ok: boolean;
+  /** Quotable reference. Deliberately not an order number. */
+  reference: string | null;
+  status: "requires_sourcing_confirmation";
+}
+
+export interface SourcingResponse {
+  results: {
+    new: SourcedItem[];
+    used: SourcedItem[];
+    refurbished: SourcedItem[];
+  };
+  total: number;
+  searchedExternally?: boolean;
+  note?: string;
 }
 
 // ── Moderation ──────────────────────────────────────────────────────────────────

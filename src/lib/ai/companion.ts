@@ -1,6 +1,7 @@
 import { accessibilityProducts, generalProducts } from "@/data/products";
 import { assistiveCategories } from "@/data/assistiveProducts";
 import { supabase } from "@/integrations/supabase/client";
+import { MAIN_MENU_ID, parentOf, resolveMenuInput } from "@/lib/ai/navigationMenu";
 
 export type CompanionMemory = {
   enabled: boolean;
@@ -23,6 +24,14 @@ export type CompanionToolResult = {
   message?: string;
   navigateTo?: string;
   context?: Record<string, unknown>;
+  /**
+   * Menu level the assistant should now be showing. Set whenever the menu
+   * moved, so the caller can re-render and move focus. Absent means the menu
+   * is unchanged.
+   */
+  menuId?: string;
+  /** Free-text query lifted out of a "search …" utterance. */
+  searchQuery?: string;
 };
 
 const MEMORY_KEY = "visionex-ai-memory-v1";
@@ -191,8 +200,56 @@ function searchProducts(query: string) {
     .map((item) => item.product);
 }
 
-export function runCompanionTool(input: string, page: CompanionPageContext): CompanionToolResult {
+export function runCompanionTool(
+  input: string,
+  page: CompanionPageContext,
+  /**
+   * Level the numbered menu is currently on. Passing it lets a bare "3" mean
+   * the third item *here* rather than something global. Omitted by callers
+   * that do not show a menu, in which case menu resolution is skipped
+   * entirely and behaviour is exactly what it was before.
+   */
+  menuId?: string,
+): CompanionToolResult {
   const normalized = normalize(input);
+
+  // Menu resolution runs first, but only when a menu is on screen and only
+  // when it actually recognises the input. Anything it does not recognise
+  // falls through to the pre-existing tools untouched, so free-text chat is
+  // unaffected by the menu being open.
+  if (menuId) {
+    const resolution = resolveMenuInput(input, menuId);
+    switch (resolution.kind) {
+      case "navigate":
+        // Same mechanism the assistant already used: a path in `navigateTo`.
+        return {
+          handled: true,
+          navigateTo: resolution.path,
+          menuId: parentOf(resolution.node.id)?.id ?? MAIN_MENU_ID,
+          message: `__aiMenu.opened__${resolution.node.labelKey}`,
+        };
+      case "open":
+      case "back":
+      case "main":
+        return {
+          handled: true,
+          menuId: resolution.node.id,
+          message: `__aiMenu.showing__${resolution.node.labelKey}`,
+        };
+      case "help":
+        return { handled: true, menuId, message: "__aiMenu.helpText__" };
+      case "search":
+        // Hand the query to the normal AI path rather than answering here.
+        return {
+          handled: false,
+          menuId,
+          searchQuery: resolution.query,
+          context: { toolIntent: "menu-search", menuLevel: menuId },
+        };
+      case "none":
+        break;
+    }
+  }
   const wantsOpen = /\b(open|go|navigate|show)\b/.test(normalized) || /افتح|روح|وديني|اعرض/.test(input);
   const wantsRemember = /\b(remember|save this|note that)\b/.test(normalized) || /تذكر|احفظ|خزن/.test(input);
   const wantsSummary = /\b(summarize|summary|explain this page)\b/.test(normalized) || /لخص|ملخص|اشرح الصفحة/.test(input);

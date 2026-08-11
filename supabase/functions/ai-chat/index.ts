@@ -230,6 +230,20 @@ Deno.serve(async (req) => {
         )
       : null;
 
+    // Platform-wide daily ceiling, checked before the per-user limit. Fails
+    // open by design (see check_ai_budget) so a metering fault cannot take the
+    // assistant offline for everyone.
+    if (serviceClient) {
+      const { data: withinBudget } = await serviceClient.rpc("check_ai_budget");
+      if (withinBudget === false) {
+        console.error("[ai-chat] daily AI budget reached — refusing new requests.");
+        return new Response(
+          JSON.stringify({ error: "The assistant is temporarily unavailable. Please try again later." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     if (user && serviceClient) {
       const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", {
         _user_id: user.id,

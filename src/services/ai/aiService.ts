@@ -22,6 +22,8 @@ import {
   callGenerate,
   callAISearch,
   callModerate,
+  callSourceProducts,
+  callRequestSourcing,
 } from "@/lib/api/edgeFunctions";
 
 import type {
@@ -34,6 +36,9 @@ import type {
   VisionAnalysisResponse,
   GeneratedPlanResponse,
   SearchResponse,
+  SourcingResponse,
+  SourcingRequestResponse,
+  SourcingCondition,
   ModerationResult,
   StudentProfile,
 } from "@/lib/types";
@@ -216,6 +221,53 @@ async function search<T = Record<string, unknown>>(
   return callAISearch<T>(query, source, limit, signal);
 }
 
+// ── Commerce Agent (ai-source-products edge function) ──────────────────────────
+
+/**
+ * Find products for a customer request.
+ *
+ * Visionex's own catalogue is searched first; permitted external sources are
+ * only consulted when it does not answer. The response is already the
+ * customer-facing projection — no supplier, no source price, no margin — and
+ * results come back grouped by condition so new and used are never merged.
+ */
+async function sourceProducts(
+  query: string,
+  condition: SourcingCondition | "all" = "all",
+  channel = "website",
+  signal?: AbortSignal,
+): Promise<SourcingResponse> {
+  return callSourceProducts(query, condition, channel, signal);
+}
+
+/**
+ * Semantic search over the service catalogue.
+ *
+ * Services live in `src/features/servicecenter/catalog.ts` and are indexed
+ * into the shared `ai_embeddings` store under the `services` source, so this
+ * is the same retrieval path everything else uses.
+ */
+async function searchServices<T = Record<string, unknown>>(
+  query: string,
+  limit = 8,
+  signal?: AbortSignal,
+): Promise<SearchResponse<T>> {
+  return callAISearch<T>(query, "services", limit, signal);
+}
+
+/**
+ * Ask a human to source or confirm something for the customer.
+ *
+ * Produces an escalation plus an owner approval. Returns a quotable reference
+ * and the honest status — never an order number and never a shipment state.
+ */
+async function requestSourcing(
+  params: Parameters<typeof callRequestSourcing>[0],
+  signal?: AbortSignal,
+): Promise<SourcingRequestResponse> {
+  return callRequestSourcing(params, signal);
+}
+
 // ── Moderation (moderate-content edge function) ────────────────────────────────
 
 /** Flag user-generated text. Returns { flagged, categories }. Requires user JWT. */
@@ -250,6 +302,9 @@ export const aiService = {
   analyzeWithAnalyst,
   generatePlan,
   search,
+  searchServices,
+  sourceProducts,
+  requestSourcing,
   moderate,
   summarizeText,
 } as const;
