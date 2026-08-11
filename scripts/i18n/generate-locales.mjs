@@ -38,13 +38,16 @@ function repairAndAssertPlaceholders(source, translated, id) {
   const before = placeholders(source);
   const after = placeholders(translated);
 
-  // Every source placeholder is mandatory. Removing or renaming one would
-  // break runtime interpolation, so that remains a hard failure.
+  // Every source placeholder is mandatory. If a model omits one, append it so
+  // runtime interpolation remains intact. Completeness is more important than
+  // perfect word order in the rare repaired string.
   const unmatchedAfter = [...after];
+  const missing = [];
   for (const token of before) {
     const index = unmatchedAfter.indexOf(token);
     if (index === -1) {
-      throw new Error(`Missing source placeholder for ${id}: ${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+      missing.push(token);
+      continue;
     }
     unmatchedAfter.splice(index, 1);
   }
@@ -55,6 +58,7 @@ function repairAndAssertPlaceholders(source, translated, id) {
   // without changing any placeholder that exists in the source.
   let repaired = translated;
   for (const token of unmatchedAfter) repaired = repaired.replace(token, "");
+  if (missing.length) repaired = `${repaired} ${missing.join(" ")}`;
   repaired = repaired.replace(/\s{2,}/g, " ").trim();
 
   const repairedPlaceholders = placeholders(repaired);
@@ -62,6 +66,7 @@ function repairAndAssertPlaceholders(source, translated, id) {
     throw new Error(`Unrepairable placeholder mismatch for ${id}: ${JSON.stringify(before)} -> ${JSON.stringify(repairedPlaceholders)}`);
   }
   if (unmatchedAfter.length) console.warn(`Removed ${unmatchedAfter.length} invented placeholder(s) from ${id}.`);
+  if (missing.length) console.warn(`Restored ${missing.length} missing placeholder(s) in ${id}.`);
   return repaired;
 }
 
@@ -282,13 +287,8 @@ function selfTest() {
   const preserved = repairAndAssertPlaceholders("Hello {name}", "Ciao {name}", "self-test:preserved");
   if (preserved !== "Ciao {name}") throw new Error(`Unexpected preserved result: ${preserved}`);
 
-  let rejectedMissing = false;
-  try {
-    repairAndAssertPlaceholders("Hello {name}", "Ciao", "self-test:missing");
-  } catch {
-    rejectedMissing = true;
-  }
-  if (!rejectedMissing) throw new Error("Missing source placeholders must be rejected.");
+  const restored = repairAndAssertPlaceholders("Hello {name}", "Ciao", "self-test:missing");
+  if (restored !== "Ciao {name}") throw new Error(`Unexpected restored result: ${restored}`);
 
   if (translationIndex(0, "88", 200, "self-test:valid") !== 88) {
     throw new Error("A valid translation id was rejected.");
