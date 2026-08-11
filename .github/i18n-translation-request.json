@@ -1,5 +1,6 @@
 {
   "phase": 2,
+  "attempt": 2,
   "locales": ["nl", "pl", "vi", "bn", "fa"],
   "model": "gpt-5.4-nano",
   "title": "Add Dutch, Polish, Vietnamese, Bengali, and Persian locales"
