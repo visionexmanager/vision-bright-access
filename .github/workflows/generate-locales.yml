@@ -3,7 +3,7 @@ name: Generate new locale files
 on:
   push:
     branches:
-      - agent/add-id-ja-it-ko-locales
+      - agent/add-*-locales
     paths:
       - .github/i18n-translation-request.json
   schedule:
@@ -16,7 +16,7 @@ on:
       target_branch:
         description: Branch containing the translation request and batch state
         required: false
-        default: agent/add-id-ja-it-ko-locales
+        default: agent/add-nl-pl-vi-bn-fa-locales
 
 permissions:
   contents: write
@@ -24,7 +24,7 @@ permissions:
   pull-requests: write
 
 env:
-  TARGET_BRANCH: ${{ github.event_name == 'push' && github.ref_name || inputs.target_branch || 'agent/add-id-ja-it-ko-locales' }}
+  TARGET_BRANCH: ${{ github.event_name == 'push' && github.ref_name || inputs.target_branch || 'agent/add-nl-pl-vi-bn-fa-locales' }}
 
 concurrency:
   group: generate-locales-${{ github.ref }}
@@ -53,10 +53,18 @@ jobs:
             echo "generate=false" >> "$GITHUB_OUTPUT"
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "No translation request exists on $TARGET_BRANCH."
-          elif [[ -f .i18n/translation-report.json ]] && \
-               git diff --quiet origin/main HEAD -- \
-                 src/i18n/id.ts src/i18n/ja.ts src/i18n/it.ts src/i18n/ko.ts \
-                 .i18n/translation-report.json; then
+          elif node --input-type=module -e '
+            import fs from "node:fs";
+            const request = JSON.parse(fs.readFileSync(".github/i18n-translation-request.json", "utf8"));
+            const report = JSON.parse(fs.readFileSync(".i18n/translation-report.json", "utf8"));
+            const generated = new Set((report.locales || []).map((entry) => entry.locale));
+            process.exit(request.locales.every((locale) => generated.has(locale)) ? 0 : 1);
+          ' 2>/dev/null && \
+               locale_files="$(node --input-type=module -e '
+                 import request from "./.github/i18n-translation-request.json" with { type: "json" };
+                 console.log(request.locales.map((locale) => `src/i18n/${locale}.ts`).join(" "));
+               ')" && \
+               git diff --quiet origin/main HEAD -- $locale_files .i18n/translation-report.json; then
             echo "generate=false" >> "$GITHUB_OUTPUT"
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "Generated locales are already present on main."
@@ -96,9 +104,18 @@ jobs:
 
       - name: Commit generated locale files
         if: steps.preflight.outputs.generate == 'true'
+        shell: bash
         run: |
-          git add src/i18n/id.ts src/i18n/ja.ts src/i18n/it.ts src/i18n/ko.ts .i18n/translation-report.json
-          git diff --cached --quiet || git commit -m "feat(i18n): generate Indonesian Japanese Italian and Korean locales"
+          mapfile -t locale_files < <(node --input-type=module -e '
+            import request from "./.github/i18n-translation-request.json" with { type: "json" };
+            request.locales.forEach((locale) => console.log(`src/i18n/${locale}.ts`));
+          ')
+          git add "${locale_files[@]}" .i18n/translation-report.json
+          locale_names="$(node --input-type=module -e '
+            import request from "./.github/i18n-translation-request.json" with { type: "json" };
+            console.log(request.locales.join(", "));
+          ')"
+          git diff --cached --quiet || git commit -m "feat(i18n): generate ${locale_names} locales"
           git push
 
       - name: Open PR, verify, merge, and deploy
@@ -134,12 +151,16 @@ jobs:
           }
 
           pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$TARGET_BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
+          pr_title="$(node --input-type=module -e '
+            import request from "./.github/i18n-translation-request.json" with { type: "json" };
+            console.log(request.title || `Add ${request.locales.join(", ")} locales`);
+          ')"
           if [[ -z "$pr_number" ]]; then
             gh pr create \
               --repo "$GITHUB_REPOSITORY" \
               --base main \
               --head "$TARGET_BRANCH" \
-              --title "Add Indonesian, Japanese, Italian, and Korean locales" \
+              --title "$pr_title" \
               --body "Generated from the reviewed English catalog with placeholder validation, full key parity, and resumable OpenAI Batch processing."
             pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$TARGET_BRANCH" --base main --state open --json number --jq '.[0].number')"
           fi
