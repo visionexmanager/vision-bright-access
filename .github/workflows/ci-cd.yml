@@ -78,11 +78,8 @@ jobs:
       security-events: write
       contents: read
     steps:
-    # gitleaks-action diffs github.event.before..github.event.after, which
-    # needs that commit range actually present locally — the default
-    # fetch-depth: 1 only fetches the tip commit, so the scan fails with
-    # "unknown revision" on any push whose parent isn't already in a
-    # shallow clone (started happening on every push from 09ca85e onward).
+    # Full history is kept so a git-history scan stays possible, but the secret
+    # scan below no longer depends on it — see the gitleaks step.
     - uses: actions/checkout@v7
       with:
         fetch-depth: 0
@@ -106,10 +103,33 @@ jobs:
     - name: Audit npm dependencies
       run: pnpm audit --audit-level=critical || true
 
+    # Scan the working tree, not a commit range.
+    #
+    # gitleaks-action derives a range from the event payload and shells out to
+    # `git log`. When a branch is rewritten — which the generate-locales bot
+    # does on every resumable batch — the old head becomes unreachable, so the
+    # range no longer resolves and the action dies with
+    # "fatal: Invalid revision range <sha>^..<sha>" (run 31473983184 on
+    # agent/add-id-ja-it-ko-locales, 2026-08-11). Security Scan is one of the
+    # six required checks, so that turned a force-push into an unmergeable pull
+    # request with nothing wrong in the code.
+    #
+    # `gitleaks dir` scans every file present at the checked-out commit. It
+    # cannot be affected by unreachable history, and it is strictly broader
+    # than the diff it replaces: the whole tree is checked, not only the files
+    # a given push happened to touch. --exit-code 1 keeps a finding fatal.
     - name: Check for secrets in code (gitleaks)
-      uses: gitleaks/gitleaks-action@v3
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITLEAKS_VERSION: 8.30.1
+      run: |
+        curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+          | sudo tar -xz -C /usr/local/bin gitleaks
+        gitleaks version
+        gitleaks dir . \
+          --config .gitleaks.toml \
+          --redact \
+          --no-banner \
+          --exit-code 1
 
 ###############################################################################
 # JOB: Test

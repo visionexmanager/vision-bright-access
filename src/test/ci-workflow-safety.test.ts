@@ -58,6 +58,21 @@ describe("required status checks", () => {
   });
 });
 
+describe("secret scanning", () => {
+  it("scans the checked-out tree rather than a commit range", () => {
+    // gitleaks-action resolves `<before>^..<after>` through `git log`. Rewriting
+    // a branch orphans the old head, the range stops resolving, and Security
+    // Scan — a required check — fails on a pull request whose code is fine.
+    // A directory scan cannot be reached by unreachable history.
+    expect(ciCd).toContain("gitleaks dir .");
+    expect(ciCd).not.toContain("gitleaks/gitleaks-action");
+  });
+
+  it("keeps a leak fatal to the job", () => {
+    expect(ciCd).toContain("--exit-code 1");
+  });
+});
+
 describe("destructive jobs stay out of reach of a manual check run", () => {
   it("requires the rollback job to be asked for by name", () => {
     // `helm rollback` against production, no `needs:`, guarded only by the
