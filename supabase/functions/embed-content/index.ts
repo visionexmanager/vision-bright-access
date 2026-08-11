@@ -3,7 +3,28 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { createEmbedding } from "../_shared/aiProvider.ts";
 
 // Which tables get embedded and how their searchable text is built.
-const SOURCES: Record<string, { columns: string; toText: (r: Record<string, unknown>) => string }> = {
+//
+// Phase 1 widened this from two tables to the user-facing domains the AI Core
+// is expected to know about. Three deliberate exclusions:
+//
+//  - `library_books` already carries its own `embedding` column and is served
+//    by library-semantic-search / library-embed-book. Indexing it here too
+//    would be a second semantic system for the same rows, which the spec
+//    forbids. Cross-domain queries reach the library through that index.
+//  - Anything under `kids_*` that identifies a child. Only the public
+//    catalogue of games is indexed, never progress, messages or profiles.
+//  - Tables with no user-facing text worth retrieving.
+//
+// `filter` keeps unpublished and inactive rows out of the index, so the AI
+// cannot recommend something a visitor cannot reach.
+interface SourceConfig {
+  columns: string;
+  toText: (r: Record<string, unknown>) => string;
+  /** Applied as .eq() pairs; keeps drafts and disabled rows unindexed. */
+  filter?: Record<string, unknown>;
+}
+
+const SOURCES: Record<string, SourceConfig> = {
   products: {
     columns: "id, name, description, category, store_type",
     toText: (r) => [r.name, r.category, r.store_type, r.description].filter(Boolean).join(". "),
@@ -11,6 +32,57 @@ const SOURCES: Record<string, { columns: string; toText: (r: Record<string, unkn
   content_items: {
     columns: "id, title, description, category, type, level",
     toText: (r) => [r.title, r.category, r.type, r.level, r.description].filter(Boolean).join(". "),
+    filter: { published: true },
+  },
+  academy_courses: {
+    columns: "id, title, description, subject, category, level, difficulty, tags, learning_outcomes",
+    toText: (r) =>
+      [r.title, r.subject, r.category, r.level, r.difficulty, r.description,
+       Array.isArray(r.tags) ? (r.tags as string[]).join(", ") : null,
+       Array.isArray(r.learning_outcomes) ? (r.learning_outcomes as string[]).join(". ") : null]
+        .filter(Boolean).join(". "),
+    filter: { published: true },
+  },
+  kids_games: {
+    columns: "id, title, description, difficulty, age_range, tags, accessibility_features, status",
+    toText: (r) =>
+      [r.title, r.description, r.difficulty, r.age_range,
+       Array.isArray(r.tags) ? (r.tags as string[]).join(", ") : null,
+       Array.isArray(r.accessibility_features) ? (r.accessibility_features as string[]).join(", ") : null]
+        .filter(Boolean).join(". "),
+    filter: { status: "published" },
+  },
+  simulations: {
+    columns: "id, title, description, difficulty, subcategory",
+    toText: (r) => [r.title, r.subcategory, r.difficulty, r.description].filter(Boolean).join(". "),
+    filter: { published: true },
+  },
+  tv_channels: {
+    columns: "id, name, name_ar, description, description_ar, country, language",
+    toText: (r) => [r.name, r.name_ar, r.country, r.language, r.description, r.description_ar].filter(Boolean).join(". "),
+    filter: { is_active: true },
+  },
+  radio_stations: {
+    columns: "id, name, name_ar, description, description_ar, country, language",
+    toText: (r) => [r.name, r.name_ar, r.country, r.language, r.description, r.description_ar].filter(Boolean).join(". "),
+    filter: { is_active: true },
+  },
+  communities: {
+    columns: "id, name, description, category",
+    toText: (r) => [r.name, r.category, r.description].filter(Boolean).join(". "),
+  },
+  events: {
+    columns: "id, title, description, event_type, location",
+    toText: (r) => [r.title, r.event_type, r.location, r.description].filter(Boolean).join(". "),
+  },
+  jobs: {
+    columns: "id, title, description, job_type, location, experience_level, skills_required, accessibility_friendly",
+    toText: (r) =>
+      [r.title, r.job_type, r.location, r.experience_level,
+       Array.isArray(r.skills_required) ? (r.skills_required as string[]).join(", ") : null,
+       r.accessibility_friendly ? "accessibility friendly" : null, r.description]
+        .filter(Boolean).join(". "),
+    filter: { status: "open" },
   },
 };
 
@@ -63,8 +135,18 @@ Deno.serve(async (req) => {
 
     for (const table of tables) {
       const cfg = SOURCES[table];
-      const { data: rows, error } = await service.from(table).select(cfg.columns).limit(2000);
-      if (error) throw error;
+      let query = service.from(table).select(cfg.columns).limit(2000);
+      for (const [column, value] of Object.entries(cfg.filter ?? {})) {
+        query = query.eq(column, value);
+      }
+      const { data: rows, error } = await query;
+      // One table failing — a column renamed, a table not yet deployed — must
+      // not abandon the tables that would have indexed fine.
+      if (error) {
+        console.error(`[embed-content] skipping ${table}:`, error.message);
+        summary[table] = -1;
+        continue;
+      }
       if (!rows || rows.length === 0) { summary[table] = 0; continue; }
 
       let embedded = 0;
