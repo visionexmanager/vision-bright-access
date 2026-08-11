@@ -58,17 +58,29 @@ jobs:
             ' 2>/dev/null
           }
 
+          # A batch is finished when the dictionaries it asked for exist on
+          # main. It is deliberately NOT "the branch's copies are identical to
+          # main's": once merged, main moves on — any later key added to those
+          # files by unrelated work makes the stale branch differ again. That
+          # is what an identity test read as "not published yet", sending this
+          # job to re-open a pull request from a branch now behind main, which
+          # cannot merge, on a */15 cron. Existence is the honest signal.
+          locales_present_on_main() {
+            local file
+            for file in $(node --input-type=module -e '
+              import request from "./.github/i18n-translation-request.json" with { type: "json" };
+              console.log(request.locales.map((locale) => `src/i18n/${locale}.ts`).join(" "));
+            '); do
+              git cat-file -e "origin/main:${file}" 2>/dev/null || return 1
+            done
+          }
+
           git fetch origin main
           if [[ ! -f .github/i18n-translation-request.json ]]; then
             echo "generate=false" >> "$GITHUB_OUTPUT"
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "No translation request exists on $TARGET_BRANCH."
-          elif report_matches_request && \
-               locale_files="$(node --input-type=module -e '
-                 import request from "./.github/i18n-translation-request.json" with { type: "json" };
-                 console.log(request.locales.map((locale) => `src/i18n/${locale}.ts`).join(" "));
-               ')" && \
-               git diff --quiet origin/main HEAD -- $locale_files .i18n/translation-report.json; then
+          elif report_matches_request && locales_present_on_main; then
             echo "generate=false" >> "$GITHUB_OUTPUT"
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "Generated locales are already present on main."
