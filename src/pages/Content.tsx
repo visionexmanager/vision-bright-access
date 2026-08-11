@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { ACADEMY_PRICES, formatVX } from "@/systems/pricingSystem";
 import { useVXWallet } from "@/hooks/useVXWallet";
@@ -17,6 +17,8 @@ import {
   Mic,
   Play,
   Coins,
+  ExternalLink,
+  Lock,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +40,7 @@ type ContentItem = {
   duration: number;
   extra_label: string | null;
   extra_value: number | null;
+  content_url: string | null;
 };
 
 const typeIcons = {
@@ -47,13 +50,35 @@ const typeIcons = {
   media: MonitorPlay,
 };
 
-// Resolved inside component with t() — see getCtaLabel()
-const CTA_FALLBACKS: Record<string, string> = {
-  course: "Enroll Now",
-  article: "Read Article",
-  podcast: "Listen",
-  media: "Watch",
-};
+/**
+ * Each type reuses the CTA label already translated in all 15 locale files.
+ * A `content.cta.<type>` namespace was referenced here before but never
+ * existed in any dictionary, so every language rendered the English fallback.
+ */
+const CTA_KEYS = {
+  course: "content.enroll",
+  article: "content.read",
+  podcast: "content.listen",
+  media: "content.watch",
+} as const;
+
+/**
+ * award_points() caps the "Engaged:%" reason at 50 points and raises otherwise.
+ * An admin can enter any number in /admin/content, so clamp here instead of
+ * letting the RPC reject the award after the VX has already been spent.
+ */
+const MAX_ENGAGEMENT_POINTS = 50;
+
+/** Only absolute http(s) URLs may reach an anchor href. */
+function safeContentUrl(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
 
 const difficultyStyle: Record<string, string> = {
   Beginner: "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400",
@@ -61,65 +86,158 @@ const difficultyStyle: Record<string, string> = {
   Advanced: "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400",
 };
 
+const priceOf = (item: ContentItem) => (item.type === "course" ? ACADEMY_PRICES.miniCourse : 500);
+
 export default function Content() {
   const { t } = useLanguage();
-
-  // Returns translated CTA, falls back to English if key not in translation file
-  const getCtaLabel = (type: string) => {
-    const key = `content.cta.${type}` as Parameters<typeof t>[0];
-    const result = t(key);
-    return result === key ? (CTA_FALLBACKS[type] ?? type) : result;
-  };
   const { user } = useAuth();
   const { earnPoints } = useEarnPoints();
   const { spendVX } = useVXWallet();
   const [tab, setTab] = useState("all");
   const [items, setItems] = useState<ContentItem[]>([]);
+  const [unlocked, setUnlocked] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+  const [justUnlocked, setJustUnlocked] = useState<string | null>(null);
+  const cardRefs = useRef(new Map<string, HTMLHeadingElement>());
+  const openLinkRefs = useRef(new Map<string, HTMLAnchorElement>());
 
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase.from("content_items").select("*").order("created_at");
-      if (data) setItems(data as ContentItem[]);
-      setLoading(false);
-    };
-    load();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    const { data, error } = await supabase.from("content_items").select("*").order("created_at");
+    if (error) {
+      console.error("content_items load error:", error.message);
+      setLoadError(true);
+      setItems([]);
+    } else {
+      setItems((data ?? []) as ContentItem[]);
+    }
+    setLoading(false);
   }, []);
 
-  const handleCta = async (item: ContentItem) => {
-    const price = item.type === "course" ? ACADEMY_PRICES.miniCourse : 500;
-    if (user) {
-      const ok = await spendVX(price, item.type, item.title, item.id);
-      if (!ok) return;
-      await earnPoints(item.points, `Engaged: ${item.title}`);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // Purchases are recorded by spend_vx(); reading them back is what keeps a
+  // second click from charging for content the user already owns.
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId) {
+      setUnlocked(new Set());
+      return;
     }
-    toast({
-      title: item.title,
-      description: user ? `✅ -${price.toLocaleString()} VX · +${item.points} pts` : `+${item.points} pts`,
+    let active = true;
+    void (async () => {
+      const { data } = await supabase
+        .from("vx_purchases")
+        .select("item_id")
+        .eq("user_id", userId)
+        .in("item_type", ["course", "article", "podcast", "media"]);
+      if (!active) return;
+      setUnlocked(new Set((data ?? []).map((row) => row.item_id).filter((id): id is string => Boolean(id))));
+    })();
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  // A post-await window.open() is treated as an unrequested popup and blocked,
+  // so unlocking swaps the CTA for a real link and moves focus onto it. Keyboard
+  // and screen-reader users land exactly on the control that opens the material.
+  useEffect(() => {
+    if (!justUnlocked) return;
+    const link = openLinkRefs.current.get(justUnlocked);
+    link?.focus();
+    setJustUnlocked(null);
+  }, [justUnlocked, unlocked]);
+
+  const handleUnlock = async (item: ContentItem) => {
+    if (!user) {
+      toast({
+        title: t("vxWallet.loginRequired"),
+        description: t("vxWallet.loginRequiredDesc"),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPending(item.id);
+    try {
+      const ok = await spendVX(priceOf(item), item.type, item.title, item.id);
+      if (!ok) return;
+
+      setUnlocked((current) => new Set(current).add(item.id));
+      setJustUnlocked(item.id);
+
+      const points = Math.min(Math.max(item.points, 0), MAX_ENGAGEMENT_POINTS);
+      const awarded = points > 0 && (await earnPoints(points, `Engaged: ${item.title}`));
+
+      toast({
+        title: item.title,
+        description: awarded
+          ? `${t("content.unlocked")} · +${points} ${t("points.short")}`
+          : t("content.unlocked"),
+      });
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const contentTabs = ["all", "courses", "articles", "podcasts", "media"];
+
+  const filterItems = useCallback(
+    (v: string) =>
+      v === "all"
+        ? items
+        : items.filter((i) =>
+            v === "courses" ? i.type === "course"
+            : v === "articles" ? i.type === "article"
+            : v === "podcasts" ? i.type === "podcast"
+            : i.type === "media"
+          ),
+    [items],
+  );
+
+  const aiContext = useMemo(
+    () => ({
+      activeTab: tab,
+      items: filterItems(tab).map(({ title, description, type, category, level }) => ({
+        title,
+        description,
+        type,
+        category,
+        level,
+      })),
+    }),
+    [tab, filterItems],
+  );
+
+  // A content hit used to navigate to /content — the page the user is already
+  // on. Switch to the "all" tab instead and move focus onto the matching card.
+  const revealSearchResult = (id: string) => {
+    if (!items.some((item) => item.id === id)) return;
+    setTab("all");
+    setHighlighted(id);
+    requestAnimationFrame(() => {
+      const heading = cardRefs.current.get(id);
+      heading?.scrollIntoView({ block: "center", behavior: "smooth" });
+      heading?.focus();
     });
   };
 
   if (loading) {
     return (
       <Layout>
-        <div role="status" aria-label={t("content.loading") || "Loading content"} className="flex min-h-[50vh] items-center justify-center">
+        <div role="status" aria-label={t("content.loading")} className="flex min-h-[50vh] items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" aria-hidden="true" />
         </div>
       </Layout>
     );
   }
-
-  const contentTabs = ["all", "courses", "articles", "podcasts", "media"];
-
-  const filterItems = (v: string) =>
-    v === "all"
-      ? items
-      : items.filter((i) =>
-          v === "courses" ? i.type === "course"
-          : v === "articles" ? i.type === "article"
-          : v === "podcasts" ? i.type === "podcast"
-          : i.type === "media"
-        );
 
   return (
     <Layout>
@@ -131,10 +249,23 @@ export default function Content() {
 
         <AnimatedSection>
           <div className="mb-6">
-            <SmartSearch source="content_items" />
+            <SmartSearch
+              source="content_items"
+              onSelect={(result) => revealSearchResult(result.id)}
+            />
           </div>
         </AnimatedSection>
 
+        {loadError ? (
+          <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-6 text-center">
+            <p className="mb-4 text-base font-medium">{t("content.loadFailed")}</p>
+            <Button onClick={() => void load()}>{t("content.tryAgain")}</Button>
+          </div>
+        ) : items.length === 0 ? (
+          <p role="status" className="rounded-xl border bg-muted/30 p-8 text-center text-base text-muted-foreground">
+            {t("content.empty")}
+          </p>
+        ) : (
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-8 flex flex-wrap gap-1">
             <TabsTrigger value="all" className="text-base">{t("content.tab.all")}</TabsTrigger>
@@ -159,36 +290,66 @@ export default function Content() {
           <WatchAdButton variant="banner" className="my-6" />
 
           {/* Content tabs */}
-          {contentTabs.map((v) => (
+          {contentTabs.map((v) => {
+            const visible = filterItems(v);
+            return (
             <TabsContent key={v} value={v}>
+              {visible.length === 0 ? (
+                <p role="status" className="rounded-xl border bg-muted/30 p-8 text-center text-base text-muted-foreground">
+                  {t("content.emptyFiltered")}
+                </p>
+              ) : (
               <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" role="list">
-                {filterItems(v).map((item) => {
+                {visible.map((item) => {
                   const Icon = typeIcons[item.type] ?? FileText;
-                  const price = item.type === "course" ? ACADEMY_PRICES.miniCourse : 500;
+                  const price = priceOf(item);
+                  const url = safeContentUrl(item.content_url);
+                  const isUnlocked = url !== null && unlocked.has(item.id);
+                  const ctaLabel = t(CTA_KEYS[item.type] ?? "content.read");
                   return (
                     <StaggerItem key={item.id} role="listitem">
-                    <Card className="flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                    <Card
+                      className={`flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
+                        highlighted === item.id ? "ring-2 ring-primary" : ""
+                      }`}
+                    >
                       <CardContent className="flex flex-1 flex-col gap-3 p-6">
                         <div className="flex items-start justify-between">
                           <div className="rounded-xl bg-primary/10 p-3" aria-hidden="true">
                             <Icon className="h-7 w-7 text-primary" aria-hidden="true" />
                           </div>
                           <div className="flex flex-col items-end gap-1">
-                            <Badge className="text-sm" aria-label={t("content.earnPoints").replace("{points}", String(item.points))}>+{item.points} {t("points.short")}</Badge>
-                            <span className="flex items-center gap-1 text-xs font-semibold text-primary">
-                              <Coins className="h-3.5 w-3.5" aria-hidden="true" />
-                              <span className="sr-only">{t("services.cost")}</span>
-                              {formatVX(price)}
-                            </span>
+                            <Badge className="text-sm" aria-label={t("content.earnPoints").replace("{points}", String(Math.min(item.points, MAX_ENGAGEMENT_POINTS)))}>+{Math.min(item.points, MAX_ENGAGEMENT_POINTS)} {t("points.short")}</Badge>
+                            {url && !isUnlocked && (
+                              <span className="flex items-center gap-1 text-xs font-semibold text-primary">
+                                <Coins className="h-3.5 w-3.5" aria-hidden="true" />
+                                <span className="sr-only">{t("services.cost")}</span>
+                                {formatVX(price)}
+                              </span>
+                            )}
+                            {isUnlocked && (
+                              <Badge variant="outline" className="border-green-500/40 text-xs text-green-700 dark:text-green-400">
+                                {t("content.unlocked")}
+                              </Badge>
+                            )}
                           </div>
                         </div>
 
-                        <h3 className="text-lg font-bold">{item.title}</h3>
+                        <h3
+                          className="text-lg font-bold outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          tabIndex={-1}
+                          ref={(node) => {
+                            if (node) cardRefs.current.set(item.id, node);
+                            else cardRefs.current.delete(item.id);
+                          }}
+                        >
+                          {item.title}
+                        </h3>
                         <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
 
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="secondary">{item.category}</Badge>
-                          <Badge variant="outline">{item.level}</Badge>
+                          <Badge variant="outline" className={difficultyStyle[item.level]}>{item.level}</Badge>
                         </div>
 
                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -206,15 +367,40 @@ export default function Content() {
                         </div>
 
                         <div className="mt-auto pt-2">
-                          <Button
-                            className="w-full text-base font-semibold"
-                            onClick={() => handleCta(item)}
-                            aria-label={`${getCtaLabel(item.type) ?? "View"}: ${item.title}`}
-                          >
-                            {item.type === "podcast" && <Mic className="me-1 h-4 w-4" aria-hidden="true" />}
-                            {item.type === "media" && <Play className="me-1 h-4 w-4" aria-hidden="true" />}
-                            {getCtaLabel(item.type) ?? "View"}
-                          </Button>
+                          {/* Nothing to open yet: show the state instead of charging for a toast. */}
+                          {!url ? (
+                            <p className="flex items-center justify-center gap-1.5 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+                              <Lock className="h-4 w-4" aria-hidden="true" />
+                              {t("content.notAvailableYet")}
+                            </p>
+                          ) : isUnlocked ? (
+                            <Button asChild className="w-full text-base font-semibold">
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                ref={(node) => {
+                                  if (node) openLinkRefs.current.set(item.id, node);
+                                  else openLinkRefs.current.delete(item.id);
+                                }}
+                                aria-label={`${t("content.open")}: ${item.title} (${t("content.opensNewTab")})`}
+                              >
+                                <ExternalLink className="me-1 h-4 w-4" aria-hidden="true" />
+                                {t("content.open")}
+                              </a>
+                            </Button>
+                          ) : (
+                            <Button
+                              className="w-full text-base font-semibold"
+                              disabled={pending === item.id}
+                              onClick={() => void handleUnlock(item)}
+                              aria-label={`${ctaLabel}: ${item.title} — ${formatVX(price)}`}
+                            >
+                              {item.type === "podcast" && <Mic className="me-1 h-4 w-4" aria-hidden="true" />}
+                              {item.type === "media" && <Play className="me-1 h-4 w-4" aria-hidden="true" />}
+                              {ctaLabel}
+                            </Button>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -222,10 +408,13 @@ export default function Content() {
                   );
                 })}
               </StaggerGrid>
+              )}
             </TabsContent>
-          ))}
+            );
+          })}
 
         </Tabs>
+        )}
         <div className="mt-8">
           <AITaskPanel
             assistantId="content-guide"
@@ -236,7 +425,7 @@ export default function Content() {
               { label: "Learning path", prompt: "Build a short learning path from these items, from easiest to hardest." },
               { label: "Accessible overview", prompt: "Give a concise, screen-reader-friendly overview of the available content." },
             ]}
-            context={{ activeTab: tab, items: filterItems(tab).map(({ title, description, type, category, level }) => ({ title, description, type, category, level })) }}
+            context={aiContext}
           />
         </div>
       </section>

@@ -1,6 +1,9 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+// Every dictionary in src/i18n. `id`, `ja`, `it`, and `ko` shipped before this
+// list was widened to include them, so the first test below keeps the list in
+// step with the directory rather than trusting it to be updated by hand.
 const locales = ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "es", "de", "pt", "zh", "tr", "fr", "ru"];
 
 function dictionaryKeys(locale: string) {
@@ -9,6 +12,14 @@ function dictionaryKeys(locale: string) {
 }
 
 describe("global i18n integrity", () => {
+  it("checks every dictionary that ships in src/i18n", () => {
+    const shipped = readdirSync("src/i18n")
+      .filter((file) => file.endsWith(".ts") && file !== "academyDomText.ts")
+      .map((file) => file.replace(/\.ts$/, ""));
+
+    expect([...shipped].sort()).toEqual([...locales].sort());
+  });
+
   it("keeps every locale at full key parity without duplicate keys", () => {
     const englishKeys = dictionaryKeys("en");
     const expected = new Set(englishKeys);
