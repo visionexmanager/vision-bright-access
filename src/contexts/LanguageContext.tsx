@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from "react";
 import { academyDomText } from "@/i18n/academyDomText";
 
-export const supportedLangs = ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "es", "de", "pt", "zh", "tr", "fr", "ru"] as const;
+export const supportedLangs = ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "nl", "pl", "vi", "bn", "fa", "es", "de", "pt", "zh", "tr", "fr", "ru"] as const;
 export type Lang = (typeof supportedLangs)[number];
 
 interface LanguageContextType {
@@ -33,7 +33,7 @@ async function loadLang(lang: Lang): Promise<Record<string, string>> {
   return mod.default;
 }
 
-const rtlLangs: Lang[] = ["ar", "ur"];
+const rtlLangs: Lang[] = ["ar", "ur", "fa"];
 const originalTextNodes = new WeakMap<Text, string>();
 const originalAttributes = new WeakMap<Element, Map<string, string>>();
 
