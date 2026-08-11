@@ -4345,6 +4345,7 @@ export type Database = {
       content_items: {
         Row: {
           category: string
+          content_url: string | null
           created_at: string | null
           description: string
           duration: number
@@ -4360,6 +4361,7 @@ export type Database = {
         }
         Insert: {
           category?: string
+          content_url?: string | null
           created_at?: string | null
           description?: string
           duration?: number
@@ -4375,6 +4377,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          content_url?: string | null
           created_at?: string | null
           description?: string
           duration?: number
