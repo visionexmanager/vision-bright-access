@@ -65,6 +65,22 @@ function repairAndAssertPlaceholders(source, translated, id) {
   return repaired;
 }
 
+function translationIndex(groupIndex, rawId, expectedCount, customId) {
+  const idText = typeof rawId === "string" || typeof rawId === "number" ? String(rawId) : "";
+  if (!/^\d+$/.test(idText)) {
+    console.warn(`Ignored malformed translation item in ${customId}: missing or invalid id.`);
+    return null;
+  }
+
+  const absoluteIndex = Number(idText);
+  const expectedGroup = Math.floor(absoluteIndex / CHUNK_SIZE);
+  if (!Number.isSafeInteger(absoluteIndex) || absoluteIndex >= expectedCount || expectedGroup !== groupIndex) {
+    console.warn(`Ignored out-of-range translation item in ${customId}: ${idText}.`);
+    return null;
+  }
+  return absoluteIndex;
+}
+
 function requestConfig() {
   const requestFile = fs.existsSync(REQUEST_PATH)
     ? REQUEST_PATH
@@ -205,9 +221,9 @@ function parseBatchOutput(jsonl, expectedValues, locales) {
     const payload = JSON.parse(content);
     const groupIndex = Number(groupText);
     for (const item of payload.translations ?? []) {
-      const absoluteIndex = groupIndex * CHUNK_SIZE + Number(item.id) % CHUNK_SIZE;
+      const absoluteIndex = translationIndex(groupIndex, item?.id, expectedValues.length, result.custom_id);
+      if (absoluteIndex === null) continue;
       const source = expectedValues[absoluteIndex];
-      if (source === undefined) throw new Error(`Unexpected translation index in ${result.custom_id}: ${item.id}`);
       if (typeof item.text !== "string" || !item.text.trim()) throw new Error(`Empty translation in ${result.custom_id}: ${item.id}`);
       const safeText = repairAndAssertPlaceholders(source, item.text, `${locale}:${absoluteIndex}`);
       translated[locale].set(source, safeText);
@@ -273,6 +289,16 @@ function selfTest() {
     rejectedMissing = true;
   }
   if (!rejectedMissing) throw new Error("Missing source placeholders must be rejected.");
+
+  if (translationIndex(0, "88", 200, "self-test:valid") !== 88) {
+    throw new Error("A valid translation id was rejected.");
+  }
+  if (translationIndex(0, undefined, 200, "self-test:missing-id") !== null) {
+    throw new Error("An item without an id must be ignored.");
+  }
+  if (translationIndex(0, "188", 200, "self-test:wrong-group") !== null) {
+    throw new Error("An id from another group must be ignored.");
+  }
   console.log("Placeholder repair self-test passed.");
 }
 
