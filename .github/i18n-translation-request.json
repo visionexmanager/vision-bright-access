@@ -1,5 +1,5 @@
 {
   "locales": ["id", "ja", "it", "ko"],
   "model": "gpt-5.4-nano",
-  "resume": 3
+  "resume": 4
 }
