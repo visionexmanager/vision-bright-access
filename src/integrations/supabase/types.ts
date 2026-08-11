@@ -2920,6 +2920,128 @@ export type Database = {
         }
         Relationships: []
       }
+      support_escalations: {
+        Row: {
+          ai_summary: string | null
+          channel: string
+          conversation_id: string | null
+          conversation_table: string | null
+          created_at: string
+          customer_name: string | null
+          customer_ref: string | null
+          customer_request: string
+          first_viewed_at: string | null
+          id: string
+          last_error: string | null
+          reason: string
+          resolved_at: string | null
+          state: string
+          subject_id: string | null
+          subject_type: string | null
+          suggested_action: string | null
+          transcript: Json
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: Record<string, never>
+        Update: Record<string, never>
+        Relationships: []
+      }
+      owner_approvals: {
+        Row: {
+          action_type: string
+          created_at: string
+          decided_at: string | null
+          decided_by_identifier: string | null
+          decided_by_user_id: string | null
+          decided_via: string | null
+          decision_note: string | null
+          escalation_id: string | null
+          expires_at: string
+          id: string
+          last_error: string | null
+          notified_at: string | null
+          payload: Json
+          reference: string
+          state: string
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: Record<string, never>
+        Update: {
+          decided_by_user_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_feedback_events: {
+        Row: {
+          assistant_id: string | null
+          channel: string
+          created_at: string
+          detail: Json
+          event_type: string
+          id: string
+          subject_id: string | null
+          subject_type: string | null
+          summary: string
+          user_id: string | null
+        }
+        Insert: Record<string, never>
+        Update: Record<string, never>
+        Relationships: []
+      }
+      whatsapp_conversations: {
+        Row: {
+          control: string
+          control_changed_at: string | null
+          control_changed_by: string | null
+          created_at: string
+          escalated: boolean
+          escalated_at: string | null
+          escalation_reason: string | null
+          id: string
+          language: string
+          last_message_at: string
+          wa_phone: string
+        }
+        Insert: Record<string, never>
+        Update: {
+          control?: string
+          control_changed_at?: string | null
+          control_changed_by?: string | null
+        }
+        Relationships: []
+      }
+      sourcing_results: {
+        Row: {
+          availability: string
+          brand: string | null
+          category: string | null
+          condition: string
+          confidence: number | null
+          created_at: string
+          currency: string
+          final_price_usd: number | null
+          id: string
+          model: string | null
+          pricing_breakdown: Json
+          pricing_rule_id: string | null
+          request_id: string
+          retrieved_at: string
+          shipping_usd: number
+          source_price_usd: number | null
+          source_product_id: string | null
+          source_slug: string
+          source_url: string | null
+          specifications: Json
+          title: string
+          visionex_ref: string
+        }
+        Insert: Record<string, never>
+        Update: Record<string, never>
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string

@@ -1,0 +1,165 @@
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+export type EscalationState =
+  | "WAITING_FOR_OWNER" | "OWNER_VIEWED" | "OWNER_APPROVED" | "OWNER_REJECTED"
+  | "OWNER_RESPONDED" | "RETURNED_TO_AI" | "RESOLVED" | "FAILED";
+
+export type ApprovalState =
+  | "WAITING_FOR_APPROVAL" | "APPROVED" | "REJECTED" | "PROCESSING"
+  | "COMPLETED" | "FAILED" | "EXPIRED";
+
+export interface Escalation {
+  id: string;
+  customer_name: string | null;
+  customer_ref: string | null;
+  channel: string;
+  reason: string;
+  customer_request: string;
+  ai_summary: string | null;
+  suggested_action: string | null;
+  subject_type: string | null;
+  subject_id: string | null;
+  state: EscalationState;
+  created_at: string;
+  transcript: unknown;
+}
+
+export interface Approval {
+  id: string;
+  reference: string;
+  action_type: string;
+  title: string;
+  summary: string | null;
+  payload: Record<string, unknown>;
+  state: ApprovalState;
+  escalation_id: string | null;
+  created_at: string;
+  expires_at: string;
+  decided_at: string | null;
+  decided_via: string | null;
+  decision_note: string | null;
+}
+
+export interface FeedbackEvent {
+  id: string;
+  event_type: string;
+  channel: string;
+  subject_type: string | null;
+  subject_id: string | null;
+  summary: string;
+  created_at: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  action: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  metadata: unknown;
+  created_at: string;
+}
+
+export interface ControlledConversation {
+  id: string;
+  wa_phone: string;
+  control: string;
+  escalated: boolean;
+  escalation_reason: string | null;
+  control_changed_at: string | null;
+  last_message_at: string;
+}
+
+/** Reflects what is actually configured, never an aspiration. */
+export type WhatsAppStatus = "NOT_CONFIGURED" | "CONFIGURED" | "CONNECTED" | "REQUIRES_REVIEW" | "ERROR";
+
+interface ActionResult {
+  ok: boolean;
+  /** Set when the action failed for a reason the owner should see. */
+  reason?: string;
+}
+
+/**
+ * Reads the control-centre data and performs owner actions.
+ *
+ * Reads go straight to the tables — RLS already restricts them to admins, so
+ * the policy is the authority rather than a check in this file. Writes go
+ * through the `owner-control` edge function, because the engine functions are
+ * service-role only and a browser must never be able to authorize a decision.
+ */
+export function useOwnerControl() {
+  const [escalations, setEscalations] = useState<Escalation[]>([]);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [feedback, setFeedback] = useState<FeedbackEvent[]>([]);
+  const [activity, setActivity] = useState<AuditEntry[]>([]);
+  const [conversations, setConversations] = useState<ControlledConversation[]>([]);
+  const [whatsappStatus, setWhatsappStatus] = useState<WhatsAppStatus>("NOT_CONFIGURED");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [esc, appr, fb, aud, conv, settings] = await Promise.all([
+        supabase.from("support_escalations").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("owner_approvals").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("ai_feedback_events").select("*").order("created_at", { ascending: false }).limit(50),
+        supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(50),
+        supabase.from("whatsapp_conversations").select("*").order("last_message_at", { ascending: false }).limit(50),
+        supabase.from("site_settings").select("value").eq("key", "owner_contact").maybeSingle(),
+      ]);
+
+      const firstError = esc.error ?? appr.error ?? fb.error ?? aud.error ?? conv.error;
+      if (firstError) throw firstError;
+
+      setEscalations((esc.data ?? []) as unknown as Escalation[]);
+      setApprovals((appr.data ?? []) as unknown as Approval[]);
+      setFeedback((fb.data ?? []) as unknown as FeedbackEvent[]);
+      setActivity((aud.data ?? []) as unknown as AuditEntry[]);
+      setConversations((conv.data ?? []) as unknown as ControlledConversation[]);
+
+      // "Configured" means an owner number exists. It never says "connected":
+      // that requires a verified Meta integration, which does not exist, and
+      // the browser cannot observe it anyway.
+      const ownerNumber = (settings.data?.value as { whatsapp_number?: string } | null)?.whatsapp_number;
+      setWhatsappStatus(ownerNumber ? "CONFIGURED" : "NOT_CONFIGURED");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load the control centre");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const invoke = useCallback(async (body: Record<string, unknown>): Promise<ActionResult> => {
+    const { data, error: fnError } = await supabase.functions.invoke("owner-control", { body });
+    if (fnError) {
+      // A 409 is not a fault: someone else decided first. Surface it as such
+      // rather than as an error the owner is asked to retry.
+      const payload = (data ?? {}) as { reason?: string };
+      return { ok: false, reason: payload.reason ?? fnError.message };
+    }
+    const result = (data ?? {}) as ActionResult;
+    if (result.ok) await load();
+    return result;
+  }, [load]);
+
+  return {
+    escalations, approvals, feedback, activity, conversations, whatsappStatus,
+    loading, error, reload: load,
+
+    decideApproval: (reference: string, approve: boolean, note?: string) =>
+      invoke({ action: "decide_approval", reference, approve, note }),
+
+    transitionEscalation: (escalationId: string, nextState: EscalationState, note?: string) =>
+      invoke({ action: "transition_escalation", escalation_id: escalationId, next_state: nextState, note }),
+
+    markViewed: (escalationId: string) =>
+      invoke({ action: "mark_viewed", escalation_id: escalationId }),
+
+    setConversationControl: (waPhone: string, control: "ai" | "human") =>
+      invoke({ action: "set_conversation_control", wa_phone: waPhone, control }),
+  };
+}
