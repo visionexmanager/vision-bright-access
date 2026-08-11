@@ -1,3 +1,4 @@
+// Job matching against the real jobs/career_profiles tables. Extracted verbatim from the career-ai-match function so the career-ai router can serve it; the logic and contract are unchanged.
 // POST /api/ai/match — AI Job Matching Engine, scored against the real
 // `jobs`/`career_profiles` tables (not free text), so the match reflects
 // what's actually posted and what the candidate actually has on file.
@@ -6,13 +7,13 @@
 //   { jobId: string }              — match the caller's own profile against a specific job
 //   { jobId: string, candidateId } — employer matching a specific candidate against their job
 //   { input: string }              — fallback: free-text matching when no job/profile row applies
-import { getCorsHeaders } from "../_shared/cors.ts";
-import { authenticateCareerAiRequest, json } from "../_shared/careerAiHandler.ts";
-import { runStructuredCareerAI } from "../_shared/careerAiOrchestrator.ts";
-import { CAREER_AI_RESPONSE_SCHEMA, getCareerAiPrompt } from "../_shared/careerPrompts.ts";
-import { validateAndCleanInput } from "../_shared/careerAiSafety.ts";
+import { getCorsHeaders } from "./cors.ts";
+import { authenticateCareerAiRequest, json } from "./careerAiHandler.ts";
+import { runStructuredCareerAI } from "./careerAiOrchestrator.ts";
+import { CAREER_AI_RESPONSE_SCHEMA, getCareerAiPrompt } from "./careerPrompts.ts";
+import { validateAndCleanInput } from "./careerAiSafety.ts";
 
-Deno.serve(async (req) => {
+export async function handleCareerAiMatch(req: Request): Promise<Response> {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -93,4 +94,4 @@ Deno.serve(async (req) => {
     console.error("career-ai-match error:", e);
     return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500, corsHeaders);
   }
-});
+}
