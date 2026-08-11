@@ -6,10 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { useBookTranslations } from "@/hooks/library/useBookTranslations";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const NATIVE_NAMES: Record<string, string> = {
-  en: "English", ar: "العربية", es: "Español", de: "Deutsch", pt: "Português",
-  zh: "中文", tr: "Türkçe", fr: "Français", ru: "Русский", ur: "اردو", hi: "हिन्दी",
-  id: "Bahasa Indonesia", ja: "日本語", it: "Italiano", ko: "한국어",
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English", ar: "العربية — Arabic", es: "Español — Spanish", de: "Deutsch — German", pt: "Português — Portuguese",
+  zh: "中文 — Chinese", tr: "Türkçe — Turkish", fr: "Français — French", ru: "Русский — Russian", ur: "اردو — Urdu", hi: "हिन्दी — Hindi",
+  id: "Bahasa Indonesia — Indonesian", ja: "日本語 — Japanese", it: "Italiano — Italian", ko: "한국어 — Korean",
 };
 
 const RTL_LANGS = new Set(["ar", "ur"]);
@@ -42,9 +42,9 @@ export function BookTranslationSwitcher({ originalLanguage, bookId }: BookTransl
         <Select value={selected} onValueChange={setSelected}>
           <SelectTrigger className="w-56" aria-label={t("library.bookDetails.language")}><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value={originalLanguage}>{NATIVE_NAMES[originalLanguage] ?? originalLanguage} ({t("library.translations.original")})</SelectItem>
+            <SelectItem value={originalLanguage}>{LANGUAGE_NAMES[originalLanguage] ?? originalLanguage} ({t("library.translations.original")})</SelectItem>
             {translations.map((tr) => (
-              <SelectItem key={tr.language_code} value={tr.language_code}>{NATIVE_NAMES[tr.language_code] ?? tr.language_code}</SelectItem>
+              <SelectItem key={tr.language_code} value={tr.language_code}>{LANGUAGE_NAMES[tr.language_code] ?? tr.language_code}</SelectItem>
             ))}
           </SelectContent>
         </Select>
