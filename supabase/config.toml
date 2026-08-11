@@ -24,3 +24,15 @@ verify_jwt = false
 
 [functions.trial-billing]
 verify_jwt = false
+
+# Meta calls this endpoint directly and cannot present a Supabase JWT, so
+# gateway JWT verification would reject every delivery with 401 before the
+# function ran — the webhook would look deployed and never receive a message.
+#
+# This does not leave the endpoint open. It authenticates each request itself
+# by verifying Meta's X-Hub-Signature-256 HMAC over the raw body against
+# WHATSAPP_APP_SECRET, and fails closed with 503 when that secret is unset.
+# A per-request signature from a secret only Meta and this function share is a
+# stronger check than the publishable key the gateway would have accepted.
+[functions.whatsapp-webhook]
+verify_jwt = false

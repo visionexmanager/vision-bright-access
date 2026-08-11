@@ -182,6 +182,23 @@ describe("webhook safety contract", () => {
     expect(helpers).not.toMatch(/EAA[A-Za-z0-9]{20,}/);
   });
 
+  it("is exempt from gateway JWT verification, or Meta could never reach it", () => {
+    // Meta sends no Supabase JWT. With the default verify_jwt = true the
+    // gateway answers 401 before the function runs, so the webhook looks
+    // deployed and silently never receives a message. The signature check
+    // above is what actually authenticates the caller.
+    //
+    // The exemption has to be declared twice: config.toml drives
+    // `supabase functions serve` locally, while the deploy script passes
+    // --no-verify-jwt from its own list and is what production gets. Setting
+    // only one of them fails in a way nothing surfaces.
+    const config = readFileSync("supabase/config.toml", "utf8");
+    const deployScript = readFileSync("scripts/deploy-changed-supabase-functions.sh", "utf8");
+
+    expect(config).toMatch(/\[functions\.whatsapp-webhook\][\s\S]*?verify_jwt\s*=\s*false/);
+    expect(deployScript).toMatch(/NO_VERIFY_JWT=\([\s\S]*?\[whatsapp-webhook\]=1[\s\S]*?\)/);
+  });
+
   it("tells the user something even when the provider is down", () => {
     expect(webhook).toContain("failureNotice(language)");
     expect(webhook).toContain('escalation_reason: "ai_unavailable"');
