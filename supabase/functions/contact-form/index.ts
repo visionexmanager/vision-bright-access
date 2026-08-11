@@ -1,6 +1,66 @@
 ﻿import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  DEPARTMENT_ROUTES,
+  buildAutoReply,
+  buildInternalNotification,
+  replyLanguage,
+  resolveDepartment,
+  type ContactDepartmentId,
+} from "../_shared/contactRouting.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
+
+// Verified senders on the visionex.app domain, mirroring send-email.
+const SENDERS: Record<string, string> = {
+  hello: "Visionex <hello@visionex.app>",
+  support: "Visionex Support <support@visionex.app>",
+  billing: "Visionex Billing <billing@visionex.app>",
+  news: "Visionex News <news@visionex.app>",
+};
+
+/**
+ * Extra internal recipients, comma-separated, e.g. an ops mailbox. Unset by
+ * default: no staff address is committed, and the department inbox alone is a
+ * working configuration.
+ */
+function internalRecipients(department: ContactDepartmentId): string[] {
+  const extra = (Deno.env.get("CONTACT_INTERNAL_RECIPIENTS") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return [...new Set([DEPARTMENT_ROUTES[department].inbox, ...extra])];
+}
+
+async function sendMail(params: {
+  apiKey: string;
+  from: string;
+  to: string[];
+  subject: string;
+  html: string;
+  text?: string;
+  replyTo?: string;
+}): Promise<boolean> {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${params.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: params.from,
+      to: params.to,
+      subject: params.subject,
+      html: params.html,
+      text: params.text,
+      reply_to: params.replyTo,
+    }),
+  });
+  if (!res.ok) {
+    // Body may contain the address; log status only.
+    console.error("[contact-form] resend rejected the message:", res.status);
+  }
+  return res.ok;
+}
 
 function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") || "";
@@ -32,6 +92,11 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { full_name, email, phone, service_type, message, user_id, attachment_url } = body;
+
+    // Unknown or absent values fall back to General rather than being rejected:
+    // an unroutable message must still reach a human.
+    const department = resolveDepartment(body.department);
+    const language = replyLanguage(body.locale);
 
     // ── Input validation ───────────────────────────────────────────────
     if (!full_name || !email || !service_type || !message) {
@@ -76,6 +141,7 @@ Deno.serve(async (req) => {
       service_type: service_type.trim(),
       message:      message.trim(),
       attachment_url: attachment_url || null,
+      department,
     });
 
     if (error) {
@@ -86,7 +152,61 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    // ── Notification + acknowledgement ─────────────────────────────────
+    //
+    // The request is already stored, so mail is best-effort: a Resend outage
+    // must not turn a saved request into an error the sender sees and retries.
+    // Both outcomes are reported in the response so the caller can tell the
+    // difference, and the failure is logged for follow-up.
+    let notified = false;
+    let acknowledged = false;
+
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendKey) {
+      console.error("[contact-form] RESEND_API_KEY is not configured — request saved, no mail sent.");
+    } else {
+      const route = DEPARTMENT_ROUTES[department];
+      const from = SENDERS[route.sender] ?? SENDERS.hello;
+      const senderEmail = email.trim().toLowerCase();
+
+      const internal = buildInternalNotification({
+        department,
+        fullName: full_name,
+        email: senderEmail,
+        phone,
+        serviceType: service_type,
+        message,
+        attachmentUrl: attachment_url,
+      });
+
+      const reply = buildAutoReply(department, language, full_name);
+
+      const [notifyOk, replyOk] = await Promise.all([
+        sendMail({
+          apiKey: resendKey,
+          from,
+          to: internalRecipients(department),
+          subject: internal.subject,
+          html: internal.html,
+          // Lets the team answer the sender directly from the notification.
+          replyTo: senderEmail,
+        }).catch(() => false),
+        sendMail({
+          apiKey: resendKey,
+          from,
+          to: [senderEmail],
+          subject: reply.subject,
+          html: reply.html,
+          text: reply.text,
+          replyTo: route.inbox,
+        }).catch(() => false),
+      ]);
+
+      notified = notifyOk;
+      acknowledged = replyOk;
+    }
+
+    return new Response(JSON.stringify({ success: true, department, notified, acknowledged }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

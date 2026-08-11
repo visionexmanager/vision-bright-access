@@ -17,6 +17,11 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import {
+  CONTACT_DEPARTMENTS,
+  DEFAULT_DEPARTMENT,
+  isContactDepartmentId,
+} from "@/features/contact/departments";
 import { z } from "zod";
 
 const serviceTypes = [
@@ -42,11 +47,12 @@ const requestSchema = z.object({
   email: z.string().trim().email().max(255),
   phone: z.string().trim().max(30).optional(),
   serviceType: z.string().min(1),
+  department: z.string().refine(isContactDepartmentId),
   message: z.string().trim().min(1).max(MESSAGE_MAX),
 });
 
 export default function ContactUs() {
-  const { t, dir } = useLanguage();
+  const { t, dir, lang } = useLanguage();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -58,6 +64,9 @@ export default function ContactUs() {
     email: "",
     phone: "",
     serviceType: "",
+    // Pre-selected so routing always resolves and the form is no harder to
+    // complete than before; General is the catch-all inbox either way.
+    department: DEFAULT_DEPARTMENT as string,
     message: "",
   });
 
@@ -129,7 +138,10 @@ export default function ContactUs() {
         full_name: parsed.data.fullName,
         email: parsed.data.email,
         phone: parsed.data.phone || null,
-        service_type: t(parsed.data.serviceType),
+        service_type: t(parsed.data.serviceType as Parameters<typeof t>[0]),
+        department: parsed.data.department,
+        // Decides whether the acknowledgement is written in Arabic or English.
+        locale: lang,
         message: parsed.data.message,
         attachment_url: attachmentUrl,
       },
@@ -146,22 +158,36 @@ export default function ContactUs() {
       title: t("contact.success"),
       description: t("contact.successDesc"),
     });
-    setForm({ fullName: "", email: user?.email ?? "", phone: "", serviceType: "", message: "" });
+    setForm({ fullName: "", email: user?.email ?? "", phone: "", serviceType: "", department: DEFAULT_DEPARTMENT, message: "" });
     clearAttachment();
     setSubmitted(true);
   };
 
   const infoCards = (
     <>
-      <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-        <Mail className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-        <div>
-          <p className="text-xs text-muted-foreground">{t("contact.emailUs")}</p>
-          <a href="mailto:hello@visionex.app" className="text-sm font-semibold text-primary hover:underline">
-            hello@visionex.app
-          </a>
-        </div>
-      </div>
+      {/* One card per public department. A list so a screen reader announces
+          how many addresses there are and can jump between them. */}
+      <ul className="contents" aria-label={t("contact.emailUs")}>
+        {CONTACT_DEPARTMENTS.map(({ id, email, labelKey }) => {
+          const label = t(labelKey as Parameters<typeof t>[0]);
+          return (
+            <li key={id} className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+              <Mail className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <a
+                  href={`mailto:${email}`}
+                  className="block truncate text-sm font-semibold text-primary hover:underline"
+                  aria-label={`${label}: ${email}`}
+                  dir="ltr"
+                >
+                  {email}
+                </a>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
       <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
         <MessageCircle className="h-4 w-4 shrink-0 text-green-500" aria-hidden="true" />
         <div>
@@ -212,6 +238,7 @@ export default function ContactUs() {
                   <div>
                     <h2 className="text-xl font-bold">{t("contact.success")}</h2>
                     <p className="mt-1 text-muted-foreground">{t("contact.successDesc")}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{t("contact.autoReplyNote")}</p>
                   </div>
                   <Button variant="outline" onClick={() => setSubmitted(false)}>
                     {t("contact.sendAnother")}
@@ -268,6 +295,28 @@ export default function ContactUs() {
                       onChange={(e) => set("phone", e.target.value)}
                       className="text-base"
                     />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="department" className="text-base font-semibold">
+                      {t("contact.department")}
+                    </Label>
+                    <Select
+                      value={form.department}
+                      onValueChange={(v) => set("department", v)}
+                      required
+                    >
+                      <SelectTrigger id="department" className="text-base">
+                        <SelectValue placeholder={t("contact.selectDepartment")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CONTACT_DEPARTMENTS.map(({ id, labelKey }) => (
+                          <SelectItem key={id} value={id} className="text-base">
+                            {t(labelKey as Parameters<typeof t>[0])}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="flex flex-col gap-2">
