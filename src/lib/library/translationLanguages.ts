@@ -27,4 +27,9 @@ export const TRANSLATION_LANGUAGES: TranslationLanguage[] = [
   { code: "hi", name: "Hindi", nativeName: "हिन्दी" },
   { code: "pt", name: "Portuguese", nativeName: "Português" },
   { code: "ur", name: "Urdu", nativeName: "اردو" },
+  { code: "nl", name: "Dutch", nativeName: "Nederlands" },
+  { code: "pl", name: "Polish", nativeName: "Polski" },
+  { code: "vi", name: "Vietnamese", nativeName: "Tiếng Việt" },
+  { code: "bn", name: "Bengali", nativeName: "বাংলা" },
+  { code: "fa", name: "Persian", nativeName: "فارسی" },
 ];
