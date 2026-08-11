@@ -60,6 +60,7 @@ export type EdgeFunctionName =
   | "ai-generate"
   | "ai-search"
   | "ai-source-products"
+  | "request-sourcing"
   | "embed-content"
   | "moderate-content"
   | "text-to-speech"
@@ -240,6 +241,13 @@ export interface SourcedItem {
   currency?: string;
   sourceName?: string;
   sourceUrl?: string;
+}
+
+export interface SourcingRequestResponse {
+  ok: boolean;
+  /** Quotable reference. Deliberately not an order number. */
+  reference: string | null;
+  status: "requires_sourcing_confirmation";
 }
 
 export interface SourcingResponse {

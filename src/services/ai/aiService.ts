@@ -23,6 +23,7 @@ import {
   callAISearch,
   callModerate,
   callSourceProducts,
+  callRequestSourcing,
 } from "@/lib/api/edgeFunctions";
 
 import type {
@@ -36,6 +37,7 @@ import type {
   GeneratedPlanResponse,
   SearchResponse,
   SourcingResponse,
+  SourcingRequestResponse,
   SourcingCondition,
   ModerationResult,
   StudentProfile,
@@ -253,6 +255,19 @@ async function searchServices<T = Record<string, unknown>>(
   return callAISearch<T>(query, "services", limit, signal);
 }
 
+/**
+ * Ask a human to source or confirm something for the customer.
+ *
+ * Produces an escalation plus an owner approval. Returns a quotable reference
+ * and the honest status — never an order number and never a shipment state.
+ */
+async function requestSourcing(
+  params: Parameters<typeof callRequestSourcing>[0],
+  signal?: AbortSignal,
+): Promise<SourcingRequestResponse> {
+  return callRequestSourcing(params, signal);
+}
+
 // ── Moderation (moderate-content edge function) ────────────────────────────────
 
 /** Flag user-generated text. Returns { flagged, categories }. Requires user JWT. */
@@ -289,6 +304,7 @@ export const aiService = {
   search,
   searchServices,
   sourceProducts,
+  requestSourcing,
   moderate,
   summarizeText,
 } as const;

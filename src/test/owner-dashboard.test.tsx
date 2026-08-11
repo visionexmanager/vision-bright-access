@@ -92,8 +92,11 @@ describe("no client-side authorization", () => {
     expect(fn).toContain('.eq("role", "admin")');
     expect(fn).toContain("Admin access required");
     // Role must be read with the service client, not the caller's context.
-    const serviceAt = fn.indexOf("const service = createClient");
-    const roleAt = fn.indexOf('await service\n      .from("user_roles")');
+    // Matched on normalised whitespace: the file is checked out with CRLF on
+    // Windows, so a literal "\n" in the needle finds nothing.
+    const flat = fn.replace(/\s+/g, " ");
+    const serviceAt = flat.indexOf("const service = createClient");
+    const roleAt = flat.indexOf('await service .from("user_roles")');
     expect(serviceAt).toBeGreaterThan(-1);
     expect(roleAt).toBeGreaterThan(serviceAt);
   });
@@ -146,11 +149,12 @@ describe("concurrent approval", () => {
 describe("dashboard semantics", () => {
   it("renders escalations and approvals as tables with column headers", async () => {
     render(<OwnerControlCenter />);
-    await screen.findByRole("heading", { name: /Support escalations/ });
+    // Wait for a data-dependent node, not the static heading. The heading
+    // renders before the rows load, so asserting on it raced under full-suite
+    // load and passed only when the machine happened to be idle.
+    await screen.findByRole("columnheader", { name: "Customer" });
 
-    const tablesFound = screen.getAllByRole("table");
-    expect(tablesFound.length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByRole("columnheader", { name: "Customer" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("table").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByRole("columnheader", { name: "Reference" }).length).toBeGreaterThan(0);
   });
 

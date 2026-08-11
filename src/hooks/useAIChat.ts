@@ -19,6 +19,7 @@ import {
   type CompanionMemory,
 } from "@/lib/ai/companion";
 import { MAIN_MENU_ID } from "@/lib/ai/navigationMenu";
+import type { SourcingResponse } from "@/lib/types";
 
 type Message = {
   id: string;
@@ -88,6 +89,12 @@ export function useAIChat(options?: { assistantId?: string }) {
   });
   // Level the numbered menu is on. Held here, next to the conversation, so a
   // number the user types is resolved against what they were just offered.
+  // Structured sourcing results shown inside the conversation. The UI never
+  // parses AI prose for these — they arrive as typed data from the agent.
+  const [sourcing, setSourcing] = useState<SourcingResponse["results"] | null>(null);
+  const [sourcingQuery, setSourcingQuery] = useState("");
+  const [sourcingLoading, setSourcingLoading] = useState(false);
+  const [sourcingError, setSourcingError] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string>(MAIN_MENU_ID);
   const [menuMoved, setMenuMoved] = useState(false);
   const abortRef          = useRef<AbortController | null>(null);
@@ -113,6 +120,32 @@ export function useAIChat(options?: { assistantId?: string }) {
         setRateLimitInfo({ isRateLimited: true, cooldownSeconds: remaining });
       }
     }, 1000);
+  }, []);
+
+  /**
+   * Run the Commerce Agent for the current request.
+   *
+   * Failures are shown as a sentence the customer can act on. An internal
+   * error message, a stack trace or a source credential must never reach the
+   * conversation, so only a fixed message is surfaced and the detail is logged.
+   */
+  const runSourcing = useCallback(async (query: string) => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return;
+
+    setSourcingQuery(trimmed);
+    setSourcingLoading(true);
+    setSourcingError(null);
+    try {
+      const response = await aiService.sourceProducts(trimmed, "all", "website");
+      setSourcing(response.results ?? { new: [], used: [], refurbished: [] });
+    } catch (error) {
+      console.error("[useAIChat] sourcing failed:", error);
+      setSourcing(null);
+      setSourcingError("sourcing_failed");
+    } finally {
+      setSourcingLoading(false);
+    }
   }, []);
 
   const sendMessage = useCallback(
@@ -168,6 +201,14 @@ export function useAIChat(options?: { assistantId?: string }) {
           return;
         }
 
+        // A product or service intent runs the Commerce Agent alongside the
+        // normal reply, so the customer gets prose and structured results
+        // rather than a list the UI had to scrape out of a sentence.
+        const intent = (toolResult.context as { toolIntent?: string } | undefined)?.toolIntent;
+        if (intent === "product-search-or-comparison" || toolResult.searchQuery) {
+          void runSourcing(toolResult.searchQuery || input);
+        }
+
         const response = await aiService.streamChat(
           apiMessages,
           {
@@ -216,7 +257,7 @@ export function useAIChat(options?: { assistantId?: string }) {
         abortRef.current = null;
       }
     },
-    [messages, lang, pathname, consumeStream, assistantId, startCooldown, memory.enabled, memory.notes, navigate, menuId]
+    [messages, lang, pathname, consumeStream, assistantId, startCooldown, memory.enabled, memory.notes, navigate, menuId, runSourcing]
   );
 
   const clearMessages = useCallback(() => {
@@ -247,6 +288,12 @@ export function useAIChat(options?: { assistantId?: string }) {
     toggleMemory,
     clearMemory,
     sendMessage,
+    sourcing,
+    sourcingQuery,
+    sourcingLoading,
+    sourcingError,
+    runSourcing,
+    clearSourcing: () => { setSourcing(null); setSourcingError(null); },
     menuId,
     menuMoved,
     openMenuNode: (id: string) => { setMenuId(id); setMenuMoved(true); },

@@ -3,7 +3,12 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useNavigate } from "react-router-dom";
 import { AIMenu } from "@/components/ai/AIMenu";
+import { AIResultList } from "@/components/ai/AIResultList";
+import { AIComparison } from "@/components/ai/AIComparison";
+import { AIResultDetail } from "@/components/ai/AIResultDetail";
 import { MAIN_MENU_ID, findMenuNode, parentOf } from "@/lib/ai/navigationMenu";
+import { aiService } from "@/services/ai/aiService";
+import type { SourcedItem } from "@/lib/types";
 import { useAIChat } from "@/hooks/useAIChat";
 import { Bot, X, Send, Trash2, Square, Mic, MicOff, Timer, Phone, Brain, MapPinned, Sparkles } from "lucide-react";
 import { VoiceChat } from "@/components/VoiceChat";
@@ -66,7 +71,16 @@ export function AIChat() {
     menuMoved,
     openMenuNode,
     acknowledgeMenuMove,
+    sourcing,
+    sourcingQuery,
+    sourcingLoading,
+    sourcingError,
+    runSourcing,
+    clearSourcing,
   } = useAIChat();
+  const [comparing, setComparing] = useState<SourcedItem[]>([]);
+  const [detail, setDetail] = useState<SourcedItem | null>(null);
+  const [requesting, setRequesting] = useState(false);
   const navigate = useNavigate();
   const prevRateLimitedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -321,6 +335,80 @@ export function AIChat() {
                   else void sendMessage(t("aiMenu.help"));
                 }}
               />
+            )}
+
+            {/* Commerce Agent results, rendered inside the same conversation
+                rather than in a second surface. Only one of detail /
+                comparison / list is shown at a time so focus has one place to
+                go and the reading order stays predictable. */}
+            {!voiceMode && (sourcing || sourcingLoading || sourcingError) && (
+              <div className="my-2">
+                {sourcingError ? (
+                  <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                    <p className="mb-2">{t("aiResults.failed")}</p>
+                    <Button size="sm" variant="outline" onClick={() => void runSourcing(sourcingQuery)}>
+                      {t("content.tryAgain")}
+                    </Button>
+                  </div>
+                ) : detail ? (
+                  <AIResultDetail
+                    item={detail}
+                    requesting={requesting}
+                    onBack={() => setDetail(null)}
+                    onRequestSourcing={async (item) => {
+                      setRequesting(true);
+                      try {
+                        const response = await aiService.requestSourcing({
+                          request: sourcingQuery || item.title,
+                          result_ref: item.ref,
+                          ai_summary: `${item.title} — ${item.condition} — ${item.availability}`,
+                          transcript: messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
+                          reason: "sourcing_confirmation",
+                          channel: "website",
+                        });
+                        // An honest confirmation: a reference to quote, and no
+                        // claim that anything was ordered or shipped.
+                        toast({
+                          title: t("aiResults.sourcingRequested"),
+                          description: response.reference
+                            ? t("aiResults.yourReference").replace("{ref}", response.reference)
+                            : undefined,
+                        });
+                        setDetail(null);
+                      } catch {
+                        toast({ title: t("aiResults.requestFailed"), variant: "destructive" });
+                      } finally {
+                        setRequesting(false);
+                      }
+                    }}
+                  />
+                ) : comparing.length >= 2 ? (
+                  <AIComparison
+                    items={comparing}
+                    onClose={() => setComparing([])}
+                    onSelect={(item) => { setComparing([]); setDetail(item); }}
+                  />
+                ) : (
+                  <AIResultList
+                    groups={sourcing ?? { new: [], used: [], refurbished: [] }}
+                    loading={sourcingLoading}
+                    onSelect={(item) => setDetail(item)}
+                    onDetails={(item) => setDetail(item)}
+                    onCompare={() => {
+                      const all = [
+                        ...(sourcing?.new ?? []),
+                        ...(sourcing?.used ?? []),
+                        ...(sourcing?.refurbished ?? []),
+                      ];
+                      setComparing(all.slice(0, 3));
+                    }}
+                    onFilterCondition={(condition) => {
+                      void runSourcing(`${sourcingQuery} ${condition}`);
+                    }}
+                    onBack={() => { clearSourcing(); setComparing([]); setDetail(null); }}
+                  />
+                )}
+              </div>
             )}
 
             {messages.map((msg) => (
