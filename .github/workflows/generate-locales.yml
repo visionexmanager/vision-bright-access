@@ -48,18 +48,22 @@ jobs:
         id: preflight
         shell: bash
         run: |
+          report_matches_request() {
+            node --input-type=module -e '
+              import fs from "node:fs";
+              const request = JSON.parse(fs.readFileSync(".github/i18n-translation-request.json", "utf8"));
+              const report = JSON.parse(fs.readFileSync(".i18n/translation-report.json", "utf8"));
+              const generated = new Set((report.locales || []).map((entry) => entry.locale));
+              process.exit(request.locales.every((locale) => generated.has(locale)) ? 0 : 1);
+            ' 2>/dev/null
+          }
+
           git fetch origin main
           if [[ ! -f .github/i18n-translation-request.json ]]; then
             echo "generate=false" >> "$GITHUB_OUTPUT"
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "No translation request exists on $TARGET_BRANCH."
-          elif node --input-type=module -e '
-            import fs from "node:fs";
-            const request = JSON.parse(fs.readFileSync(".github/i18n-translation-request.json", "utf8"));
-            const report = JSON.parse(fs.readFileSync(".i18n/translation-report.json", "utf8"));
-            const generated = new Set((report.locales || []).map((entry) => entry.locale));
-            process.exit(request.locales.every((locale) => generated.has(locale)) ? 0 : 1);
-          ' 2>/dev/null && \
+          elif report_matches_request && \
                locale_files="$(node --input-type=module -e '
                  import request from "./.github/i18n-translation-request.json" with { type: "json" };
                  console.log(request.locales.map((locale) => `src/i18n/${locale}.ts`).join(" "));
@@ -68,7 +72,7 @@ jobs:
             echo "generate=false" >> "$GITHUB_OUTPUT"
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "Generated locales are already present on main."
-          elif [[ -f .i18n/translation-report.json ]]; then
+          elif report_matches_request; then
             echo "generate=false" >> "$GITHUB_OUTPUT"
             echo "publish=true" >> "$GITHUB_OUTPUT"
             echo "Translation files already exist; resuming publication."

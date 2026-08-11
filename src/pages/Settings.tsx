@@ -28,6 +28,11 @@ const LANGUAGES = [
   { code: "ja", label: "日本語 — Japanese", flag: "🇯🇵" },
   { code: "it", label: "Italiano — Italian", flag: "🇮🇹" },
   { code: "ko", label: "한국어 — Korean", flag: "🇰🇷" },
+  { code: "nl", label: "Nederlands — Dutch", flag: "🇳🇱" },
+  { code: "pl", label: "Polski — Polish", flag: "🇵🇱" },
+  { code: "vi", label: "Tiếng Việt — Vietnamese", flag: "🇻🇳" },
+  { code: "bn", label: "বাংলা — Bengali", flag: "🇧🇩" },
+  { code: "fa", label: "فارسی — Persian", flag: "🇮🇷" },
 ];
 
 export default function Settings() {

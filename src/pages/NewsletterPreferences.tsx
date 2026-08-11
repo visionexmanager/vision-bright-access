@@ -37,6 +37,7 @@ const LANGUAGES: Record<string, string> = {
   en: "English — English", ar: "العربية — Arabic", es: "Español — Spanish", de: "Deutsch — German", pt: "Português — Portuguese",
   zh: "中文 — Chinese", tr: "Türkçe — Turkish", fr: "Français — French", ru: "Русский — Russian", ur: "اردو — Urdu", hi: "हिन्दी — Hindi",
   id: "Bahasa Indonesia — Indonesian", ja: "日本語 — Japanese", it: "Italiano — Italian", ko: "한국어 — Korean",
+  nl: "Nederlands — Dutch", pl: "Polski — Polish", vi: "Tiếng Việt — Vietnamese", bn: "বাংলা — Bengali", fa: "فارسی — Persian",
 };
 
 type Subscriber = { email: string; name: string | null; topics: string[]; lang: string };
