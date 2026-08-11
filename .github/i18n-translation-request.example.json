@@ -1,4 +1,5 @@
 {
-  "locales": ["id", "ja", "it", "ko"],
-  "model": "gpt-5.4-nano"
+  "locales": ["nl", "pl", "vi", "bn", "fa"],
+  "model": "gpt-5.4-nano",
+  "title": "Add Dutch, Polish, Vietnamese, Bengali, and Persian locales"
 }
