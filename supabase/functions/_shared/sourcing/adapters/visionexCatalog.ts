@@ -6,7 +6,11 @@
 // index has not been built for a table yet.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { createEmbedding } from "../aiProvider.ts";
+// Two levels up: this file is _shared/sourcing/adapters/, aiProvider is in
+// _shared/. A single ".." pointed at _shared/sourcing/aiProvider.ts, which
+// does not exist — tsc excludes Deno sources and no test imported this module,
+// so only the edge-function bundler could catch it, and it did.
+import { createEmbedding } from "../../aiProvider.ts";
 import type { RawResult, SourceAdapter, SourceRecord, SourcingIntent } from "../types.ts";
 
 interface ProductRow {
