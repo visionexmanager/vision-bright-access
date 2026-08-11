@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const locales = ["en", "ar", "es", "de", "pt", "zh", "tr", "fr", "ru", "ur", "hi"];
+const locales = ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "es", "de", "pt", "zh", "tr", "fr", "ru"];
 
 function dictionaryKeys(locale: string) {
   const source = readFileSync(`src/i18n/${locale}.ts`, "utf8");
