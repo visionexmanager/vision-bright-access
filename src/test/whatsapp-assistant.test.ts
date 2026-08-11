@@ -155,7 +155,10 @@ describe("webhook safety contract", () => {
   });
 
   it("stops answering once a human owns the conversation", () => {
-    expect(webhook).toContain("if (existing?.escalated) continue;");
+    // Phase 4 added an explicit owner-set `control` state alongside the
+    // automatic `escalated` flag. Either one must silence the assistant, so
+    // this asserts the guard rather than one particular spelling of it.
+    expect(webhook).toMatch(/if \(existing\?\.control === "human" \|\| existing\?\.escalated\) continue;/);
   });
 
   it("reuses the existing assistant registry and provider layer", () => {

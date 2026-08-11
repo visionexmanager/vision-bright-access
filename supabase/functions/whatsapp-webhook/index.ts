@@ -31,9 +31,167 @@ import {
   verifySignature,
   welcomeFor,
 } from "../_shared/whatsapp.ts";
+import {
+  formatAmbiguityPrompt,
+  formatPendingList,
+  isOwner,
+  parseOwnerCommand,
+  type PendingApproval,
+} from "../_shared/ownerControl.ts";
 
 /** How much prior conversation the model sees. Enough for context, bounded. */
 const HISTORY_LIMIT = 12;
+
+/** Owner commands are cheap but not free; this bounds a compromised handset. */
+const OWNER_COMMAND_LIMIT_PER_HOUR = 120;
+
+/** Read the configured owner number. Never hard-coded, never in the client. */
+async function ownerPhone(db: ReturnType<typeof service>): Promise<string | null> {
+  const { data } = await db
+    .from("site_settings")
+    .select("value")
+    .eq("key", "owner_contact")
+    .maybeSingle();
+  const value = (data?.value ?? {}) as { whatsapp_number?: string | null };
+  return value.whatsapp_number ?? null;
+}
+
+/**
+ * Handle a message from the configured owner.
+ *
+ * Reached only after the sender has been positively identified as the owner.
+ * Returns the reply to send back, or null when the message was not a command
+ * and should fall through to ordinary handling.
+ */
+async function handleOwnerCommand(
+  db: ReturnType<typeof service>,
+  from: string,
+  text: string,
+): Promise<string | null> {
+  const command = parseOwnerCommand(text);
+  if (command.kind === "unknown" && !command.reference) return null;
+
+  // Rate limit: an owner handset that has been taken over should not be able
+  // to churn through every pending decision unchecked.
+  const { count } = await db
+    .from("audit_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("entity_type", "owner_command")
+    .gte("created_at", new Date(Date.now() - 3_600_000).toISOString());
+  if ((count ?? 0) >= OWNER_COMMAND_LIMIT_PER_HOUR) {
+    console.error("[whatsapp] owner command rate limit reached");
+    return "Too many commands in the last hour. Try again shortly.";
+  }
+
+  await db.from("audit_logs").insert({
+    action: `owner_command_${command.kind}`,
+    entity_type: "owner_command",
+    entity_id: null,
+    metadata: { kind: command.kind, reference: command.reference, choice: command.choice },
+  });
+
+  const { data: pendingRows } = await db
+    .from("owner_approvals")
+    .select("reference, action_type, title, summary, escalation_id")
+    .eq("state", "WAITING_FOR_APPROVAL")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const pending = (pendingRows ?? []) as Array<PendingApproval & { escalation_id: string | null }>;
+
+  if (command.kind === "list_pending") return formatPendingList(pending);
+
+  // A bare number carries no reference. It is only safe when exactly one
+  // decision is outstanding; otherwise we ask rather than guess, because
+  // guessing would apply a decision to the wrong customer's case.
+  const target = command.reference
+    ? pending.find((item) => item.reference === command.reference) ?? null
+    : pending.length === 1
+      ? pending[0]
+      : null;
+
+  if (!target && command.reference) {
+    return `No pending decision with reference ${command.reference}. It may have been answered already or expired.`;
+  }
+  if (!target && pending.length > 1) return formatAmbiguityPrompt(pending);
+  if (!target) return "Nothing is waiting for a decision right now.";
+
+  if (command.kind === "approve" || command.kind === "reject") {
+    const { data, error } = await db.rpc("decide_owner_approval", {
+      _reference: target.reference,
+      _approve: command.kind === "approve",
+      _via: "whatsapp",
+      _identifier: from,
+      _note: command.note,
+    });
+    if (error) {
+      console.error("[whatsapp] decide_owner_approval failed:", error.message);
+      return "That decision could not be recorded. Please try again.";
+    }
+    const result = data as { ok?: boolean; error?: string };
+    if (!result?.ok) {
+      // Single-use by construction: a redelivered reply lands here.
+      return `Reference ${target.reference} is no longer awaiting a decision.`;
+    }
+
+    if (target.escalation_id) {
+      await db
+        .from("support_escalations")
+        .update({ state: command.kind === "approve" ? "OWNER_APPROVED" : "OWNER_REJECTED" })
+        .eq("id", target.escalation_id);
+    }
+    return `${command.kind === "approve" ? "Approved" : "Rejected"} — ${target.reference}.`;
+  }
+
+  if (command.kind === "take_over" || command.kind === "return_to_ai") {
+    const toHuman = command.kind === "take_over";
+    if (target.escalation_id) {
+      const { data: escalation } = await db
+        .from("support_escalations")
+        .select("customer_ref, channel")
+        .eq("id", target.escalation_id)
+        .maybeSingle();
+
+      if (escalation?.channel === "whatsapp" && escalation.customer_ref) {
+        await db
+          .from("whatsapp_conversations")
+          .update({
+            control: toHuman ? "human" : "ai",
+            control_changed_at: new Date().toISOString(),
+            control_changed_by: "owner",
+          })
+          .eq("wa_phone", escalation.customer_ref);
+      }
+
+      await db
+        .from("support_escalations")
+        .update({ state: toHuman ? "OWNER_RESPONDED" : "RETURNED_TO_AI" })
+        .eq("id", target.escalation_id);
+    }
+
+    await db.from("ai_feedback_events").insert({
+      event_type: toHuman ? "owner_correction" : "action_succeeded",
+      channel: "whatsapp",
+      subject_type: "escalation",
+      subject_id: target.escalation_id,
+      summary: toHuman ? "Owner took over the conversation" : "Owner returned the conversation to the AI",
+      detail: { reference: target.reference },
+    });
+
+    return toHuman
+      ? `You now own this conversation (${target.reference}). The assistant will stay quiet until you return it.`
+      : `Returned to the assistant (${target.reference}).`;
+  }
+
+  if (command.kind === "more_info") {
+    return [
+      `*${target.title}*  [${target.reference}]`,
+      target.summary ?? "No further detail was recorded.",
+    ].join("\n\n");
+  }
+
+  return null;
+}
 
 function service() {
   return createClient(
@@ -101,15 +259,32 @@ Deno.serve(async (req) => {
   }
 
   const db = service();
+  const configuredOwner = await ownerPhone(db);
 
   for (const incoming of messages) {
     try {
       const language = detectLanguage(incoming.text);
 
+      // ── Owner control centre ──────────────────────────────────────────
+      //
+      // Authorization is by configured number, checked before anything else.
+      // A message from any other number is a customer message and is never
+      // interpreted as a command, whatever it says.
+      if (incoming.text && isOwner(incoming.from, configuredOwner)) {
+        const reply = await handleOwnerCommand(db, incoming.from, incoming.text);
+        if (reply) {
+          if (token && phoneNumberId) {
+            await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: reply });
+          }
+          continue;
+        }
+        // Not a command — fall through and treat it as an ordinary message.
+      }
+
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, escalated")
+        .select("id, escalated, control")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -177,8 +352,10 @@ Deno.serve(async (req) => {
       }
 
       // Once a human owns the conversation, the bot stops answering so the
-      // user is not talking to both at once.
-      if (existing?.escalated) continue;
+      // user is not talking to both at once. `control` is the explicit
+      // owner-set state; `escalated` is the automatic one. Either silences
+      // the assistant, and only the owner can hand control back.
+      if (existing?.control === "human" || existing?.escalated) continue;
 
       // ── Ask the existing assistant ────────────────────────────────────
       const { data: history } = await db
