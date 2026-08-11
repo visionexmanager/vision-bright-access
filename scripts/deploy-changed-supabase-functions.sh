@@ -5,6 +5,10 @@ set -euo pipefail
 readonly FUNCTIONS_DIR="supabase/functions"
 readonly MAX_ATTEMPTS=4
 
+# This list, not supabase/config.toml, is what the deploy actually applies:
+# `supabase functions deploy` takes the flag from the command line here. A
+# function that needs the exemption must be listed in BOTH — config.toml for
+# `functions serve` locally, and here for production.
 declare -A NO_VERIFY_JWT=(
   [health-check]=1
   [library-crypto-webhook]=1
@@ -15,6 +19,9 @@ declare -A NO_VERIFY_JWT=(
   [trial-billing]=1
   [tv-stream-token]=1
   [tv-validate-stream]=1
+  # Meta cannot present a Supabase JWT; the function authenticates each
+  # delivery itself with an X-Hub-Signature-256 HMAC and fails closed.
+  [whatsapp-webhook]=1
 )
 
 list_all_functions() {
