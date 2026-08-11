@@ -31,6 +31,7 @@ import type {
   VisionAnalysisResponse,
   GeneratedPlanResponse,
   SearchResponse,
+  SourcingResponse,
   ModerationResult,
   StudentProfile,
 } from "@/lib/types";
@@ -272,6 +273,27 @@ export async function callAISearch<T = Record<string, unknown>>(
     auth: "anon",
     signal,
   }) as Promise<SearchResponse<T>>;
+}
+
+/**
+ * ai-source-products — the Commerce Agent. Searches Visionex first and only
+ * reaches permitted external sources when the catalogue does not answer.
+ *
+ * The response is already the customer-facing projection: supplier identity,
+ * source price and margin never leave the server.
+ */
+export async function callSourceProducts(
+  query: string,
+  condition: "new" | "used" | "refurbished" | "all" = "all",
+  channel = "website",
+  signal?: AbortSignal,
+): Promise<SourcingResponse> {
+  return callEdge({
+    fn: "ai-source-products",
+    body: { query, condition, channel },
+    auth: "anon",
+    signal,
+  }) as Promise<SourcingResponse>;
 }
 
 /**

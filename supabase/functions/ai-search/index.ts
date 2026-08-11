@@ -1,12 +1,36 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createEmbedding, ProviderError } from "../_shared/aiProvider.ts";
+import servicesCatalog from "../_shared/data/servicesCatalog.json" with { type: "json" };
 
 // Columns returned for each source table.
 const SELECT: Record<string, string> = {
   products: "id, name, description, category, store_type, price, points, image, rating, in_stock",
   content_items: "id, title, description, category, type, level, duration, points",
 };
+
+/**
+ * Services are matched from the same `ai_embeddings` store but hydrated from
+ * the committed catalogue snapshot rather than a table — they have no table,
+ * by the approved decision to index the code catalogue instead of duplicating
+ * it. Same retrieval, different hydration.
+ */
+const SERVICES_SOURCE = "services";
+
+interface CatalogService {
+  id: string;
+  title_en: string;
+  title_ar: string;
+  hub: string;
+  kind: string;
+  path: string;
+  difficulty: string;
+  vx: number | null;
+}
+
+const SERVICES_BY_ID = new Map(
+  (servicesCatalog as CatalogService[]).map((service) => [service.id, service]),
+);
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -56,6 +80,14 @@ Deno.serve(async (req) => {
 
     const rowsById: Record<string, Record<string, unknown>> = {};
     for (const [table, ids] of Object.entries(byTable)) {
+      // Services come from the catalogue snapshot; everything else is a table.
+      if (table === SERVICES_SOURCE) {
+        for (const id of ids) {
+          const entry = SERVICES_BY_ID.get(id);
+          if (entry) rowsById[`${SERVICES_SOURCE}:${id}`] = entry as unknown as Record<string, unknown>;
+        }
+        continue;
+      }
       const cols = SELECT[table];
       if (!cols) continue;
       const { data: rows } = await service.from(table).select(cols).in("id", ids);
