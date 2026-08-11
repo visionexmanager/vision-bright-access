@@ -15,6 +15,7 @@ type ServiceRequest = {
   email: string;
   phone: string | null;
   service_type: string;
+  department: string;
   message: string;
   status: string;
   created_at: string;
@@ -48,6 +49,7 @@ export default function AdminRequests() {
                   <TableHead>{t("admin.requests.name")}</TableHead>
                   <TableHead>{t("admin.requests.email")}</TableHead>
                   <TableHead>{t("admin.requests.service")}</TableHead>
+                  <TableHead>{t("contact.department")}</TableHead>
                   <TableHead>{t("admin.requests.message")}</TableHead>
                   <TableHead>{t("admin.requests.status")}</TableHead>
                   <TableHead>{t("admin.requests.date")}</TableHead>
@@ -59,6 +61,7 @@ export default function AdminRequests() {
                     <TableCell className="font-medium">{r.full_name}</TableCell>
                     <TableCell>{r.email}</TableCell>
                     <TableCell>{r.service_type}</TableCell>
+                    <TableCell><Badge variant="outline">{r.department}</Badge></TableCell>
                     <TableCell className="max-w-[200px] truncate">{r.message}</TableCell>
                     <TableCell><Badge variant={r.status === "pending" ? "secondary" : "default"}>{r.status}</Badge></TableCell>
                     <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>

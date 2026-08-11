@@ -20824,6 +20824,7 @@ export type Database = {
         Row: {
           attachment_url: string | null
           created_at: string
+          department: string
           email: string
           full_name: string
           id: string
@@ -20836,6 +20837,7 @@ export type Database = {
         Insert: {
           attachment_url?: string | null
           created_at?: string
+          department?: string
           email: string
           full_name: string
           id?: string
@@ -20848,6 +20850,7 @@ export type Database = {
         Update: {
           attachment_url?: string | null
           created_at?: string
+          department?: string
           email?: string
           full_name?: string
           id?: string
