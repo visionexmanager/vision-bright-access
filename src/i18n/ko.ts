@@ -6343,7 +6343,7 @@ export const translations: Record<string, string> = {
   "aiSuite.resumeAnalyzer.atsScore": "ATS 점수",
   "aiSuite.resumeAnalyzer.jobMatch": "직무 매칭",
   "aiSuite.resumeAnalyzer.grammarTitle": "문법 & 명확성",
-  "aiSuite.resumeAnalyzer.gapsTitle": "스킬 격차",
+  "aiSuite.resumeAnalyzer.gapsTitle": "역량 격차",
   "aiSuite.resumeAnalyzer.suggestionsTitle": "제안",
   "aiSuite.coverLetter.desc": "특정 직무와 톤에 맞춘 자기소개서를 생성하세요.",
   "aiSuite.coverLetter.jobLabel": "직무명",
