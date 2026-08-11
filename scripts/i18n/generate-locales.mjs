@@ -14,6 +14,11 @@ const LOCALE_NAMES = {
   ja: "Japanese",
   it: "Italian",
   ko: "Korean",
+  nl: "Dutch (Nederlands)",
+  pl: "Polish (Polski)",
+  vi: "Vietnamese (Tiếng Việt)",
+  bn: "Bengali (বাংলা)",
+  fa: "Persian (فارسی)",
 };
 
 function readDictionary(filePath) {
