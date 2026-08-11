@@ -58,6 +58,26 @@ describe("required status checks", () => {
   });
 });
 
+describe("locale generation cannot loop on a finished batch", () => {
+  const generateLocales = read("generate-locales.yml");
+
+  it("treats a batch as finished when its dictionaries exist on main", () => {
+    // Completion used to mean "the branch's copies are byte-identical to
+    // main's". Once a batch merges, main moves on — any later key added to
+    // those files by unrelated work makes the stale branch differ again, which
+    // the identity test read as "not published yet". On a */15 cron that
+    // re-opened a pull request from a branch behind main, which cannot merge,
+    // forever. Existence on main is the honest signal.
+    expect(generateLocales).toContain("locales_present_on_main()");
+    expect(generateLocales).toContain('git cat-file -e "origin/main:${file}"');
+    expect(generateLocales).toContain("report_matches_request && locales_present_on_main");
+  });
+
+  it("no longer decides completion by diffing the branch against main", () => {
+    expect(generateLocales).not.toMatch(/git diff --quiet origin\/main HEAD/);
+  });
+});
+
 describe("secret scanning", () => {
   it("scans the checked-out tree rather than a commit range", () => {
     // gitleaks-action resolves `<before>^..<after>` through `git log`. Rewriting
