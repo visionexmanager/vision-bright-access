@@ -115,7 +115,7 @@ jobs:
       - name: Sync secondary AI provider keys to Supabase
         shell: bash
         run: |
-          for name in GEMINI_API_KEY GROQ_API_KEY MISTRAL_API_KEY; do
+          for name in GEMINI_API_KEY GROQ_API_KEY MISTRAL_API_KEY WHATSAPP_VERIFY_TOKEN WHATSAPP_APP_SECRET WHATSAPP_TOKEN WHATSAPP_PHONE_NUMBER_ID CONTACT_INTERNAL_RECIPIENTS; do
             value="${!name}"
             if [[ -z "$value" ]]; then
               echo "::notice::GitHub secret $name is not configured — skipping."
@@ -128,6 +128,15 @@ jobs:
           GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY:         ${{ secrets.GROQ_API_KEY }}
           MISTRAL_API_KEY:      ${{ secrets.MISTRAL_API_KEY }}
+          # WhatsApp Cloud API. All four are needed before whatsapp-webhook can
+          # answer anyone; until then it verifies signatures and refuses, which
+          # is the correct behaviour for an unconfigured public endpoint.
+          WHATSAPP_VERIFY_TOKEN:    ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
+          WHATSAPP_APP_SECRET:      ${{ secrets.WHATSAPP_APP_SECRET }}
+          WHATSAPP_TOKEN:           ${{ secrets.WHATSAPP_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          # Optional extra internal recipients for contact-form notifications.
+          CONTACT_INTERNAL_RECIPIENTS: ${{ secrets.CONTACT_INTERNAL_RECIPIENTS }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
 

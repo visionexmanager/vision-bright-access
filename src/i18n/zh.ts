@@ -8010,6 +8010,7 @@ export const translations: Record<string, string> = {
   "contact.fileTypeUnsupported": "不支持的文件类型。请上传图像、PDF、Word 文档或文本文件。",
   "contact.fileTooLarge": "文件太大。最大尺寸为 {size}。",
   "contact.whatsapp": "WhatsApp",
+  "contact.whatsappPrefill": "您好 Visionex，我需要帮助。",
   "contact.attachment": "依恋",
   "contact.removeFile": "删除文件",
   "contact.attachmentHint": "可选：附加屏幕截图、文档或支持文件。",

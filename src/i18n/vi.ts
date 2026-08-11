@@ -5342,6 +5342,7 @@ export const translations: Record<string, string> = {
   "contact.fileTypeUnsupported": "Loại tệp không được hỗ trợ. Vui lòng tải lên ảnh, PDF, tài liệu Word hoặc tệp văn bản.",
   "contact.fileTooLarge": "Tệp quá lớn. Giới hạn tối đa là {size}.",
   "contact.whatsapp": "WhatsApp",
+  "contact.whatsappPrefill": "Xin chào Visionex, tôi cần trợ giúp.",
   "contact.attachment": "Tệp đính kèm",
   "contact.removeFile": "Xóa tệp",
   "contact.attachmentHint": "Tùy chọn: đính kèm ảnh chụp màn hình, tài liệu hoặc tệp hỗ trợ.",

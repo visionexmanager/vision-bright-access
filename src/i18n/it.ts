@@ -5342,6 +5342,7 @@ export const translations: Record<string, string> = {
   "contact.fileTypeUnsupported": "Tipo di file non supportato. Carica un’immagine, un PDF, un documento Word o un file di testo.",
   "contact.fileTooLarge": "File troppo grande. La dimensione massima è {size}.",
   "contact.whatsapp": "WhatsApp",
+  "contact.whatsappPrefill": "Ciao Visionex, ho bisogno di aiuto.",
   "contact.attachment": "Allegato",
   "contact.removeFile": "Rimuovi file",
   "contact.attachmentHint": "Opzionale: allega uno screenshot, un documento o un file di supporto.",

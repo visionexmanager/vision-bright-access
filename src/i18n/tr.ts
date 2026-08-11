@@ -8010,6 +8010,7 @@ export const translations: Record<string, string> = {
   "contact.fileTypeUnsupported": "Desteklenmeyen dosya türü. Lütfen bir resim, PDF, Word belgesi veya metin dosyası yükleyin.",
   "contact.fileTooLarge": "Dosya çok büyük. Maksimum boyut {size}.",
   "contact.whatsapp": "WhatsApp",
+  "contact.whatsappPrefill": "Merhaba Visionex, yardıma ihtiyacım var.",
   "contact.attachment": "EK",
   "contact.removeFile": "Dosyayı kaldır",
   "contact.attachmentHint": "İsteğe bağlı: Bir ekran görüntüsü, belge veya destekleyici dosya ekleyin.",

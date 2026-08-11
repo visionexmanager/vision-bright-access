@@ -5342,6 +5342,7 @@ export const translations: Record<string, string> = {
   "contact.fileTypeUnsupported": "지원하지 않는 파일 형식입니다. 이미지를, PDF, Word 문서 또는 텍스트 파일을 업로드해 주세요.",
   "contact.fileTooLarge": "파일이 너무 큽니다. 최대 크기는 {size}입니다.",
   "contact.whatsapp": "왓츠앱",
+  "contact.whatsappPrefill": "안녕하세요 Visionex, 도움이 필요합니다.",
   "contact.attachment": "첨부파일",
   "contact.removeFile": "파일 삭제",
   "contact.attachmentHint": "선택: 스크린샷, 문서 또는 지원 파일을 첨부하세요.",

@@ -5359,6 +5359,7 @@ export const translations: Record<string, string> = {
   "contact.fileTypeUnsupported": "نوع الملف غير معتمد. يرجى تحميل صورة أو PDF أو مستند Word أو ملف نصي.",
   "contact.fileTooLarge": "الملف كبير جدًا. الحد الأقصى للحجم هو {size}.",
   "contact.whatsapp": "واتساب",
+  "contact.whatsappPrefill": "مرحباً Visionex، بحتاج مساعدة.",
   "contact.attachment": "مرفق",
   "contact.removeFile": "إزالة الملف",
   "contact.attachmentHint": "اختياري: قم بإرفاق لقطة شاشة أو مستند أو ملف داعم.",

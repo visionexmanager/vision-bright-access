@@ -192,8 +192,12 @@ export default function ContactUs() {
         <MessageCircle className="h-4 w-4 shrink-0 text-green-500" aria-hidden="true" />
         <div>
           <p className="text-xs text-muted-foreground">{t("contact.whatsapp")}</p>
+          {/* Same link, same place, same styling. The prefilled first message
+              is what starts the assistant: WhatsApp only notifies the webhook
+              once the user actually sends something, so an empty chat would
+              sit silent until they thought of an opening line. */}
           <a
-            href={`https://wa.me/${WHATSAPP_NUMBER}`}
+            href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(t("contact.whatsappPrefill"))}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-semibold text-primary hover:underline"

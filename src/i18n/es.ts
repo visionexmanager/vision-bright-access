@@ -8010,6 +8010,7 @@ export const translations: Record<string, string> = {
   "contact.fileTypeUnsupported": "Tipo de archivo no compatible. Cargue una imagen, PDF, documento de Word o archivo de texto.",
   "contact.fileTooLarge": "El archivo es demasiado grande. El tamaño máximo es {size}.",
   "contact.whatsapp": "WhatsApp",
+  "contact.whatsappPrefill": "Hola Visionex, necesito ayuda.",
   "contact.attachment": "Adjunto",
   "contact.removeFile": "Eliminar archivo",
   "contact.attachmentHint": "Opcional: adjunte una captura de pantalla, documento o archivo de respaldo.",
