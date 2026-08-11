@@ -34,7 +34,7 @@ const TOPICS = [
 ] as const;
 
 const LANGUAGES: Record<string, string> = {
-  en: "English", ar: "العربية — Arabic", es: "Español — Spanish", de: "Deutsch — German", pt: "Português — Portuguese",
+  en: "English — English", ar: "العربية — Arabic", es: "Español — Spanish", de: "Deutsch — German", pt: "Português — Portuguese",
   zh: "中文 — Chinese", tr: "Türkçe — Turkish", fr: "Français — French", ru: "Русский — Russian", ur: "اردو — Urdu", hi: "हिन्दी — Hindi",
   id: "Bahasa Indonesia — Indonesian", ja: "日本語 — Japanese", it: "Italiano — Italian", ko: "한국어 — Korean",
 };
