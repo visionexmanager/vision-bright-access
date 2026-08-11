@@ -13,7 +13,7 @@ import { useState } from "react";
 import { requestNotificationPermission } from "@/hooks/useMessageNotifications";
 
 const LANGUAGES = [
-  { code: "en", label: "English", flag: "🇺🇸" },
+  { code: "en", label: "English — English", flag: "🇺🇸" },
   { code: "ar", label: "العربية — Arabic", flag: "🇸🇦" },
   { code: "es", label: "Español — Spanish", flag: "🇪🇸" },
   { code: "de", label: "Deutsch — German", flag: "🇩🇪" },

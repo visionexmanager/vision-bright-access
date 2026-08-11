@@ -7,7 +7,7 @@ import { useBookTranslations } from "@/hooks/library/useBookTranslations";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English", ar: "العربية — Arabic", es: "Español — Spanish", de: "Deutsch — German", pt: "Português — Portuguese",
+  en: "English — English", ar: "العربية — Arabic", es: "Español — Spanish", de: "Deutsch — German", pt: "Português — Portuguese",
   zh: "中文 — Chinese", tr: "Türkçe — Turkish", fr: "Français — French", ru: "Русский — Russian", ur: "اردو — Urdu", hi: "हिन्दी — Hindi",
   id: "Bahasa Indonesia — Indonesian", ja: "日本語 — Japanese", it: "Italiano — Italian", ko: "한국어 — Korean",
 };
