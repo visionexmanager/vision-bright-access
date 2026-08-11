@@ -34,12 +34,35 @@ function placeholders(value) {
   return [...value.matchAll(/\{[^{}]+\}|%[sdif]|\$\{[^{}]+\}/g)].map((match) => match[0]).sort();
 }
 
-function assertPlaceholders(source, translated, id) {
+function repairAndAssertPlaceholders(source, translated, id) {
   const before = placeholders(source);
   const after = placeholders(translated);
-  if (JSON.stringify(before) !== JSON.stringify(after)) {
-    throw new Error(`Placeholder mismatch for ${id}: ${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+
+  // Every source placeholder is mandatory. Removing or renaming one would
+  // break runtime interpolation, so that remains a hard failure.
+  const unmatchedAfter = [...after];
+  for (const token of before) {
+    const index = unmatchedAfter.indexOf(token);
+    if (index === -1) {
+      throw new Error(`Missing source placeholder for ${id}: ${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+    }
+    unmatchedAfter.splice(index, 1);
   }
+
+  // Models occasionally invent a count placeholder for a fragment rendered
+  // beside an existing number (for example "day remaining" -> "{n} hari
+  // tersisa"). Such extras are unsafe, but can be removed deterministically
+  // without changing any placeholder that exists in the source.
+  let repaired = translated;
+  for (const token of unmatchedAfter) repaired = repaired.replace(token, "");
+  repaired = repaired.replace(/\s{2,}/g, " ").trim();
+
+  const repairedPlaceholders = placeholders(repaired);
+  if (JSON.stringify(before) !== JSON.stringify(repairedPlaceholders)) {
+    throw new Error(`Unrepairable placeholder mismatch for ${id}: ${JSON.stringify(before)} -> ${JSON.stringify(repairedPlaceholders)}`);
+  }
+  if (unmatchedAfter.length) console.warn(`Removed ${unmatchedAfter.length} invented placeholder(s) from ${id}.`);
+  return repaired;
 }
 
 function requestConfig() {
@@ -186,8 +209,8 @@ function parseBatchOutput(jsonl, expectedValues, locales) {
       const source = expectedValues[absoluteIndex];
       if (source === undefined) throw new Error(`Unexpected translation index in ${result.custom_id}: ${item.id}`);
       if (typeof item.text !== "string" || !item.text.trim()) throw new Error(`Empty translation in ${result.custom_id}: ${item.id}`);
-      assertPlaceholders(source, item.text, `${locale}:${absoluteIndex}`);
-      translated[locale].set(source, item.text);
+      const safeText = repairAndAssertPlaceholders(source, item.text, `${locale}:${absoluteIndex}`);
+      translated[locale].set(source, safeText);
     }
   }
   if (failures.length) throw new Error(`Batch contains ${failures.length} failed requests: ${JSON.stringify(failures.slice(0, 5))}`);
@@ -236,8 +259,26 @@ function inspect() {
   console.log(JSON.stringify({ source_entries: entries.length, unique_values: values.length, requests: requests.length, ...config }, null, 2));
 }
 
+function selfTest() {
+  const repaired = repairAndAssertPlaceholders("day remaining", "{n} hari tersisa", "self-test:invented");
+  if (repaired !== "hari tersisa") throw new Error(`Unexpected repair result: ${repaired}`);
+
+  const preserved = repairAndAssertPlaceholders("Hello {name}", "Ciao {name}", "self-test:preserved");
+  if (preserved !== "Ciao {name}") throw new Error(`Unexpected preserved result: ${preserved}`);
+
+  let rejectedMissing = false;
+  try {
+    repairAndAssertPlaceholders("Hello {name}", "Ciao", "self-test:missing");
+  } catch {
+    rejectedMissing = true;
+  }
+  if (!rejectedMissing) throw new Error("Missing source placeholders must be rejected.");
+  console.log("Placeholder repair self-test passed.");
+}
+
 const command = process.argv[2] ?? "inspect";
 if (command === "inspect") inspect();
+else if (command === "self-test") selfTest();
 else if (command === "submit") await submit();
 else if (command === "collect") await collect();
 else throw new Error(`Unknown command: ${command}`);
