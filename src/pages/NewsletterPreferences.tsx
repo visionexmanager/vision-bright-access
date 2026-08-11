@@ -34,9 +34,9 @@ const TOPICS = [
 ] as const;
 
 const LANGUAGES: Record<string, string> = {
-  en: "English", ar: "العربية", es: "Español", de: "Deutsch", pt: "Português",
-  zh: "中文", tr: "Türkçe", fr: "Français", ru: "Русский", ur: "اردو", hi: "हिन्दी",
-  id: "Bahasa Indonesia", ja: "日本語", it: "Italiano", ko: "한국어",
+  en: "English", ar: "العربية — Arabic", es: "Español — Spanish", de: "Deutsch — German", pt: "Português — Portuguese",
+  zh: "中文 — Chinese", tr: "Türkçe — Turkish", fr: "Français — French", ru: "Русский — Russian", ur: "اردو — Urdu", hi: "हिन्दी — Hindi",
+  id: "Bahasa Indonesia — Indonesian", ja: "日本語 — Japanese", it: "Italiano — Italian", ko: "한국어 — Korean",
 };
 
 type Subscriber = { email: string; name: string | null; topics: string[]; lang: string };
