@@ -113,6 +113,21 @@ function chunk(values, size) {
   return result;
 }
 
+function localizationMessages(locale, items) {
+  return [
+    {
+      role: "system",
+      content: [
+        `You are the production localization engine for Visionex. Translate every provided UI string into ${LOCALE_NAMES[locale]}.`,
+        "Return JSON only in the exact form {\"translations\":[{\"id\":\"...\",\"text\":\"...\"}] }.",
+        "Preserve every placeholder such as {name}, ${value}, and %s exactly. Preserve URLs, HTML tags, Markdown syntax, VX, and the Visionex brand.",
+        "Use natural, concise product UI language. Translate complete meanings, never isolated word substitutions. Do not omit, reorder, merge, or add items.",
+      ].join(" "),
+    },
+    { role: "user", content: JSON.stringify({ translations: items }) },
+  ];
+}
+
 function buildRequests(entries, locales, model) {
   const values = uniqueSourceValues(entries);
   const requests = [];
@@ -126,18 +141,7 @@ function buildRequests(entries, locales, model) {
         body: {
           model,
           response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content: [
-                `You are the production localization engine for Visionex. Translate every provided UI string into ${LOCALE_NAMES[locale]}.`,
-                "Return JSON only in the exact form {\"translations\":[{\"id\":\"...\",\"text\":\"...\"}] }.",
-                "Preserve every placeholder such as {name}, ${value}, and %s exactly. Preserve URLs, HTML tags, Markdown syntax, VX, and the Visionex brand.",
-                "Use natural, concise product UI language. Translate complete meanings, never isolated word substitutions. Do not omit, reorder, merge, or add items.",
-              ].join(" "),
-            },
-            { role: "user", content: JSON.stringify({ translations: items }) },
-          ],
+          messages: localizationMessages(locale, items),
         },
       });
     });
@@ -238,6 +242,45 @@ function parseBatchOutput(jsonl, expectedValues, locales) {
   return translated;
 }
 
+async function repairMissingTranslations(translated, expectedValues, locales, model) {
+  for (const locale of locales) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const missingIndexes = expectedValues
+        .map((source, index) => translated[locale].has(source) ? null : index)
+        .filter((index) => index !== null);
+      if (missingIndexes.length === 0) break;
+      console.warn(`Repairing ${missingIndexes.length} missing ${locale} translation(s), attempt ${attempt}/3.`);
+
+      for (const indexes of chunk(missingIndexes, CHUNK_SIZE)) {
+        const allowed = new Set(indexes);
+        const items = indexes.map((index) => ({ id: String(index), text: expectedValues[index] }));
+        const response = await api("/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model, response_format: { type: "json_object" }, messages: localizationMessages(locale, items) }),
+        }).then((result) => result.json());
+        const content = response.choices?.[0]?.message?.content;
+        const payload = JSON.parse(content);
+
+        for (const item of payload.translations ?? []) {
+          const idText = typeof item?.id === "string" || typeof item?.id === "number" ? String(item.id) : "";
+          if (!/^\d+$/.test(idText) || !allowed.has(Number(idText))) {
+            console.warn(`Ignored malformed repair item for ${locale}: ${idText || "missing id"}.`);
+            continue;
+          }
+          const index = Number(idText);
+          if (typeof item.text !== "string" || !item.text.trim()) continue;
+          const source = expectedValues[index];
+          translated[locale].set(source, repairAndAssertPlaceholders(source, item.text, `${locale}:repair:${index}`));
+        }
+      }
+    }
+
+    const remaining = expectedValues.filter((source) => !translated[locale].has(source));
+    if (remaining.length) throw new Error(`${locale} is still missing ${remaining.length} unique translations after 3 repair attempts.`);
+  }
+}
+
 function writeLocale(locale, entries, translations) {
   const missing = uniqueSourceValues(entries).filter((value) => !translations.has(value));
   if (missing.length) throw new Error(`${locale} is missing ${missing.length} unique translations.`);
@@ -268,6 +311,7 @@ async function collect() {
   const values = uniqueSourceValues(entries);
   const output = await downloadFile(batch.output_file_id);
   const translated = parseBatchOutput(output, values, state.locales);
+  await repairMissingTranslations(translated, values, state.locales, state.model);
   const locales = state.locales.map((locale) => writeLocale(locale, entries, translated[locale]));
   fs.writeFileSync(REPORT_PATH, JSON.stringify({ ...state, status: "completed", output_file_id: batch.output_file_id, locales }, null, 2) + "\n");
   console.log(`Generated ${locales.length} complete locale files.`);
