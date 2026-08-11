@@ -88,7 +88,7 @@ const DEFAULT_INPUT_BY_SERVICE: Partial<Record<CareerAiService, string>> = {
 /**
  * Generic handler for the 8 structured services that just take a free-text
  * `input` (resume/analyze/coach/roadmap/visa/salary/interview/health_score).
- * career-ai-match has its own handler since it pulls real job/profile rows.
+ * the match action has its own handler since it pulls real job/profile rows.
  */
 export async function handleStructuredCareerAiRequest(
   req: Request,

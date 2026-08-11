@@ -1,15 +1,16 @@
+// Streaming Career Center chat. Extracted verbatim from the career-ai-chat function so the career-ai router can serve it; the logic, auth path and SSE contract are unchanged.
 // POST /api/ai/chat — the one streaming Career Center AI endpoint (no fixed
 // JSON schema; a live conversational assistant). Auth + rate-limit follow
 // the same shared path as the structured endpoints; the response is an
 // OpenAI-compatible SSE stream regardless of which provider served it.
-import { getCorsHeaders } from "../_shared/cors.ts";
-import { authenticateCareerAiRequest, json } from "../_shared/careerAiHandler.ts";
-import { CareerAIAllProvidersFailedError, runCareerAIChatStream } from "../_shared/careerAiOrchestrator.ts";
-import { CareerAiRole, getCareerChatPrompt } from "../_shared/careerPrompts.ts";
-import { buildUserAiContext } from "../_shared/careerAiMemory.ts";
-import { validateAndCleanInput } from "../_shared/careerAiSafety.ts";
+import { getCorsHeaders } from "./cors.ts";
+import { authenticateCareerAiRequest, json } from "./careerAiHandler.ts";
+import { CareerAIAllProvidersFailedError, runCareerAIChatStream } from "./careerAiOrchestrator.ts";
+import { CareerAiRole, getCareerChatPrompt } from "./careerPrompts.ts";
+import { buildUserAiContext } from "./careerAiMemory.ts";
+import { validateAndCleanInput } from "./careerAiSafety.ts";
 
-Deno.serve(async (req) => {
+export async function handleCareerAiChat(req: Request): Promise<Response> {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -59,7 +60,7 @@ Deno.serve(async (req) => {
     if (e instanceof CareerAIAllProvidersFailedError) {
       return json({ error: "AI service temporarily unavailable. Please try again shortly." }, 503, corsHeaders);
     }
-    console.error("career-ai-chat error:", e);
+    console.error("career-ai chat error:", e);
     return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500, corsHeaders);
   }
-});
+}
