@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useNavigate } from "react-router-dom";
+import { AIMenu } from "@/components/ai/AIMenu";
+import { MAIN_MENU_ID, findMenuNode, parentOf } from "@/lib/ai/navigationMenu";
 import { useAIChat } from "@/hooks/useAIChat";
 import { Bot, X, Send, Trash2, Square, Mic, MicOff, Timer, Phone, Brain, MapPinned, Sparkles } from "lucide-react";
 import { VoiceChat } from "@/components/VoiceChat";
@@ -59,7 +62,12 @@ export function AIChat() {
     sendMessage,
     clearMessages,
     stopGeneration,
+    menuId,
+    menuMoved,
+    openMenuNode,
+    acknowledgeMenuMove,
   } = useAIChat();
+  const navigate = useNavigate();
   const prevRateLimitedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -287,6 +295,32 @@ export function AIChat() {
                   <p className="text-xs text-muted-foreground mt-1">{t("ai.welcomeSubtitle")}</p>
                 </div>
               </div>
+            )}
+
+            {/* The numbered menu. Rendered inside the log so a screen reader
+                reaches it in reading order right after the conversation, and
+                so it moves with the same scroll the user is already in. A
+                button press and typing its number both call sendMessage-side
+                logic through the same resolver, so there is one router. */}
+            {!voiceMode && (
+              <AIMenu
+                menuId={menuId}
+                autoFocus={menuMoved}
+                onSelectChild={(childId) => {
+                  acknowledgeMenuMove();
+                  const node = findMenuNode(childId);
+                  if (!node) return;
+                  if (node.path) navigate(node.path);
+                  else openMenuNode(childId);
+                }}
+                onControl={(control) => {
+                  acknowledgeMenuMove();
+                  if (control === "back") openMenuNode(parentOf(menuId)?.id ?? MAIN_MENU_ID);
+                  else if (control === "mainMenu") openMenuNode(MAIN_MENU_ID);
+                  else if (control === "search") inputRef.current?.focus();
+                  else void sendMessage(t("aiMenu.help"));
+                }}
+              />
             )}
 
             {messages.map((msg) => (

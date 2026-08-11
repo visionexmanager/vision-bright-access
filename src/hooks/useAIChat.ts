@@ -18,6 +18,7 @@ import {
   setCompanionMemoryEnabled,
   type CompanionMemory,
 } from "@/lib/ai/companion";
+import { MAIN_MENU_ID } from "@/lib/ai/navigationMenu";
 
 type Message = {
   id: string;
@@ -85,6 +86,10 @@ export function useAIChat(options?: { assistantId?: string }) {
     isRateLimited: false,
     cooldownSeconds: 0,
   });
+  // Level the numbered menu is on. Held here, next to the conversation, so a
+  // number the user types is resolved against what they were just offered.
+  const [menuId, setMenuId] = useState<string>(MAIN_MENU_ID);
+  const [menuMoved, setMenuMoved] = useState(false);
   const abortRef          = useRef<AbortController | null>(null);
   const cooldownTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const { lang }          = useLanguage();
@@ -143,7 +148,14 @@ export function useAIChat(options?: { assistantId?: string }) {
 
       try {
         const pageContext = buildCompanionPageContext();
-        const toolResult = runCompanionTool(input, pageContext);
+        const toolResult = runCompanionTool(input, pageContext, menuId);
+
+        // The menu never routes on its own: it produces a navigateTo that the
+        // same navigate() call below consumes, exactly as before.
+        if (toolResult.menuId && toolResult.menuId !== menuId) {
+          setMenuId(toolResult.menuId);
+          setMenuMoved(true);
+        }
 
         if (toolResult.handled) {
           if (toolResult.navigateTo) navigate(toolResult.navigateTo);
@@ -204,7 +216,7 @@ export function useAIChat(options?: { assistantId?: string }) {
         abortRef.current = null;
       }
     },
-    [messages, lang, pathname, consumeStream, assistantId, startCooldown, memory.enabled, memory.notes, navigate]
+    [messages, lang, pathname, consumeStream, assistantId, startCooldown, memory.enabled, memory.notes, navigate, menuId]
   );
 
   const clearMessages = useCallback(() => {
@@ -235,6 +247,10 @@ export function useAIChat(options?: { assistantId?: string }) {
     toggleMemory,
     clearMemory,
     sendMessage,
+    menuId,
+    menuMoved,
+    openMenuNode: (id: string) => { setMenuId(id); setMenuMoved(true); },
+    acknowledgeMenuMove: () => setMenuMoved(false),
     clearMessages,
     stopGeneration,
   };
