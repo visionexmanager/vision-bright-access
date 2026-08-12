@@ -12435,6 +12435,7 @@ export const translations: Record<string, string> = {
   "content.refused.not_pending": "That proposal has already been decided.",
   "content.refused.unknown": "The request was refused.",
   "content.refused.confidential_input": "Internal sourcing detail was found in the source records, so the AI was not called at all.",
+  "owner.useContentProposals": "This is a content proposal. Decide it in the Content proposals section below.",
 };
 
 export default translations;

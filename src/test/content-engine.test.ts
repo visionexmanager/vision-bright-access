@@ -9,8 +9,11 @@ import {
   buildContentWriterSystem,
 } from "../../supabase/functions/_shared/content/writerPrompt.ts";
 import {
+  CONTENT_APPROVAL_TYPE,
   SECTION_SEEDS,
   buildMemoryContext,
+  contentApprovalExpiry,
+  decideUnlessContentApproval,
   detectConfidentialLeak,
   generateAfterInputScreen,
   normalizeProposedTime,
@@ -269,6 +272,138 @@ describe("the model is never called on confidential input", () => {
     expect(rules.match(/export const CONFIDENTIAL_TERMS/g)).toHaveLength(1);
     expect(rules).toContain("...INTERNAL_ONLY_FIELDS");
     expect(rules.match(/export function detectConfidentialLeak/g)).toHaveLength(1);
+  });
+});
+
+describe("a content approval cannot be answered outside its own path", () => {
+  // The stuck state this guards against: answering the approval alone leaves
+  // content_proposals.state behind, and the proposal's own path then asks the
+  // same engine and is told the approval is already decided — permanently.
+
+  it("never invokes the engine for a content approval", async () => {
+    const decide = vi.fn(async () => ({ data: { ok: true }, error: null }));
+    const result = await decideUnlessContentApproval({ action_type: CONTENT_APPROVAL_TYPE }, decide);
+
+    expect(decide).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("use_content_proposals");
+    expect(result.result).toBeUndefined();
+  });
+
+  it("still runs the engine for every other approval type", async () => {
+    for (const type of ["customer_escalation", "sourcing_approval", "refund", "discount", "other"]) {
+      const decide = vi.fn(async () => ({ data: { ok: true }, error: null }));
+      const result = await decideUnlessContentApproval({ action_type: type }, decide);
+      expect(decide, `${type} was blocked`).toHaveBeenCalledTimes(1);
+      expect(result.ok).toBe(true);
+    }
+  });
+
+  it("refuses rather than guesses when the approval cannot be read", async () => {
+    for (const missing of [null, undefined]) {
+      const decide = vi.fn(async () => ({ data: null, error: null }));
+      const result = await decideUnlessContentApproval(missing, decide);
+      expect(decide).not.toHaveBeenCalled();
+      expect(result.error).toBe("not_found");
+    }
+  });
+
+  it("is wired into decide_approval ahead of the engine", () => {
+    const block = ownerControl.slice(
+      ownerControl.indexOf('case "decide_approval"'),
+      ownerControl.indexOf('case "transition_escalation"'),
+    );
+    expect(block).toContain("decideUnlessContentApproval(");
+    expect(block).toContain('.select("action_type")');
+    // The engine call is the guard's callback, not a separate statement.
+    expect(block.indexOf("decideUnlessContentApproval("))
+      .toBeLessThan(block.indexOf('rpc("decide_owner_approval"'));
+    expect(block).toContain('return json({ ok: false, reason: routed.error }, 409)');
+  });
+
+  it("keeps the WhatsApp listing free of content approvals", () => {
+    const whatsapp = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
+    const query = whatsapp.slice(
+      whatsapp.indexOf('.from("owner_approvals")'),
+      whatsapp.indexOf(".limit(20)"),
+    );
+    expect(query).toContain('.neq("action_type", "content_publish")');
+    // A reference the listing never surfaced cannot be found, so the existing
+    // not-found reply handles it and no new branch was needed.
+    expect(whatsapp).toContain("No pending decision with reference");
+  });
+
+  it("agrees with the frontend on the action type, in one place each", () => {
+    const hook = readFileSync("src/hooks/useOwnerControl.ts", "utf8");
+    expect(hook).toContain('export const CONTENT_APPROVAL_TYPE = "content_publish"');
+    expect(CONTENT_APPROVAL_TYPE).toBe("content_publish");
+    // Same literal the migration writes.
+    expect(migration).toContain("'content_publish',");
+  });
+});
+
+describe("a content approval does not expire out from under the proposal", () => {
+  it("pushes expiry far beyond the seven-day default", () => {
+    const now = new Date("2026-08-12T00:00:00Z");
+    const expiry = Date.parse(contentApprovalExpiry(now));
+    const sevenDays = now.getTime() + 7 * 86_400_000;
+
+    expect(expiry).toBeGreaterThan(sevenDays);
+    // Years, not days: "does not expire" said in the column that exists.
+    expect(expiry).toBeGreaterThan(now.getTime() + 9 * 365 * 86_400_000);
+  });
+
+  it("applies it only to the content approval, by reference and by type", () => {
+    const tail = engine.slice(engine.indexOf('rpc("create_content_proposal"'));
+    expect(tail).toContain("contentApprovalExpiry()");
+    expect(tail).toContain('.eq("reference", result.reference)');
+    expect(tail).toContain('.eq("action_type", CONTENT_APPROVAL_TYPE)');
+  });
+
+  it("does not fail the proposal when the extension fails", () => {
+    const tail = engine.slice(engine.indexOf('rpc("create_content_proposal"'));
+    expect(tail).toContain("expiry extension failed");
+    expect(tail).toContain("return { ok: true");
+  });
+});
+
+describe("structural audit — no fourth path", () => {
+  it("has exactly three call sites for the approval engine", () => {
+    const sources = [
+      ["owner-control", ownerControl],
+      ["whatsapp-webhook", readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8")],
+      ["migration", migration],
+    ] as const;
+
+    const calls = sources.map(([name, src]) => [
+      name,
+      (src.match(/rpc\("decide_owner_approval"|public\.decide_owner_approval\(/g) ?? []).length,
+    ]);
+    // owner-control (guarded), whatsapp-webhook (filtered), and
+    // decide_content_proposal (the correct path). A fourth fails here.
+    expect(calls).toEqual([["owner-control", 1], ["whatsapp-webhook", 1], ["migration", 1]]);
+  });
+
+  it("keeps one SQL writer for owner_approvals.state", () => {
+    const migrations = readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql"));
+    const writers = migrations.filter((f) =>
+      /UPDATE public\.owner_approvals/.test(readFileSync(`supabase/migrations/${f}`, "utf8")));
+    expect(writers).toEqual(["20260902000000_owner_control_and_escalations.sql"]);
+  });
+
+  it("lets no edge function write the state column directly", () => {
+    const functions = readdirSync("supabase/functions", { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => `supabase/functions/${e.name}/index.ts`)
+      .filter((p) => existsSync(p));
+
+    for (const path of functions) {
+      const src = readFileSync(path, "utf8");
+      const updates = [...src.matchAll(/from\("owner_approvals"\)[\s\S]{0,200}?\.update\(\{([^}]*)\}/g)];
+      for (const [, fields] of updates) {
+        expect(fields, `${path} updates owner_approvals.state directly`).not.toContain("state");
+      }
+    }
   });
 });
 

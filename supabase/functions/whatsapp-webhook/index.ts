@@ -90,10 +90,16 @@ async function handleOwnerCommand(
     metadata: { kind: command.kind, reference: command.reference, choice: command.choice },
   });
 
+  // Content proposals are decided in the Owner Control Centre, where the
+  // proposal and its approval move together. Excluding them here is what keeps
+  // that true over this channel: a reference the listing never surfaced cannot
+  // be found below, so the existing "no pending decision" reply answers it and
+  // the engine is never reached. No branch, and nothing else changes.
   const { data: pendingRows } = await db
     .from("owner_approvals")
     .select("reference, action_type, title, summary, escalation_id")
     .eq("state", "WAITING_FOR_APPROVAL")
+    .neq("action_type", "content_publish")
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false })
     .limit(20);

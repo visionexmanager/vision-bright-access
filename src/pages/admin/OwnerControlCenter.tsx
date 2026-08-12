@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/hooks/use-toast";
 import {
   useOwnerControl,
+  CONTENT_APPROVAL_TYPE,
   type Approval,
   type ContentProposal,
   type Escalation,
@@ -90,8 +91,15 @@ export default function OwnerControlCenter() {
     () => control.escalations.filter((e) => WAITING_STATES.includes(e.state)),
     [control.escalations],
   );
+  // Content proposals also create an owner_approvals row, and deciding one from
+  // here would update that row while leaving content_proposals.state behind —
+  // after which the proposal can never be decided, because its own path asks
+  // the same engine and is told the approval is already answered. They have
+  // their own section below; this one lists everything else.
   const pending = useMemo(
-    () => control.approvals.filter((a) => a.state === "WAITING_FOR_APPROVAL"),
+    () => control.approvals.filter(
+      (a) => a.state === "WAITING_FOR_APPROVAL" && a.action_type !== CONTENT_APPROVAL_TYPE,
+    ),
     [control.approvals],
   );
   const humanControlled = useMemo(
@@ -122,8 +130,11 @@ export default function OwnerControlCenter() {
       setOpenApproval(null);
       setNote("");
     } else {
-      // Concurrency: another session decided first. Not an error to retry.
-      announce(t("owner.alreadyDecided").replace("{ref}", approval.reference));
+      // A content approval refused here is not a concurrency clash — it is the
+      // owner being sent to the path that moves the proposal too.
+      announce(result.reason === "use_content_proposals"
+        ? t("owner.useContentProposals")
+        : t("owner.alreadyDecided").replace("{ref}", approval.reference));
     }
   };
 
