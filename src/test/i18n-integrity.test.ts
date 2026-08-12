@@ -6,7 +6,17 @@ import { describe, expect, it } from "vitest";
 const locales = ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "nl", "pl", "vi", "bn", "fa", "es", "de", "pt", "zh", "tr", "fr", "ru"];
 
 function dictionaryKeys(locale: string) {
-  const source = readFileSync(`src/i18n/${locale}.ts`, "utf8");
+  const sources = [`src/i18n/${locale}.ts`, `src/i18n/chunks/${locale}.ts`]
+    .filter((path) => {
+      try {
+        readFileSync(path, "utf8");
+        return true;
+      } catch {
+        return false;
+      }
+    })
+    .map((path) => readFileSync(path, "utf8"));
+  const source = sources.join("\n");
   return [...source.matchAll(/^\s{2}"([^"]+)":/gm)].map((match) => match[1]);
 }
 

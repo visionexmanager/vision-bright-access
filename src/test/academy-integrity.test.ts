@@ -53,7 +53,12 @@ describe("Academy launch integrity", () => {
 
     expect(referencedKeys.size).toBeGreaterThan(20);
     for (const locale of locales) {
-      const dictionary = readFileSync(`src/i18n/${locale}.ts`, "utf8");
+      let dictionary = readFileSync(`src/i18n/${locale}.ts`, "utf8");
+      try {
+        dictionary += readFileSync(`src/i18n/chunks/${locale}.ts`, "utf8");
+      } catch {
+        // Most locale catalogs fit in one source file.
+      }
       for (const key of referencedKeys) {
         expect(dictionary, `${locale} is missing ${key}`).toContain(`"${key}"`);
       }
