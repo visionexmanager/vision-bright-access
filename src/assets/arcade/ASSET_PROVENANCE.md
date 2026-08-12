@@ -40,6 +40,16 @@ no brand, and no copyrighted character. The generated masters and prompts are
 retained with the release evidence; the WebP derivatives are the only files
 shipped to browsers.
 
+## Premium motion-game covers — production pack 2 (2026-08-12)
+
+`game-skybound-quest-premium-v2.webp` was created specifically for Visionex
+Arcade with ChatGPT built-in image generation. It depicts an original non-human
+explorer crossing coherent floating platforms toward a sky gate, with no text,
+logo, brand, watermark, recognisable person, or copyrighted character. The
+accepted PNG was inspected, stripped of metadata, resized to 1920×1080, and
+encoded as a WebP quality-84 production derivative. The generated master and
+prompt are retained with the release evidence.
+
 ## Premium game covers — batch 1
 
 The following original covers were created for Visionex Arcade on 2026-08-02 using ChatGPT built-in image generation. Each production derivative is a metadata-stripped WebP at quality 84, 1672×941, with no embedded text, logo, brand, watermark, recognisable person, or copyrighted character.
