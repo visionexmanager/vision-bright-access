@@ -22,4 +22,10 @@ describe("Arcade premium visual registry", () => {
       expect(cover.sources[0]).toMatchObject({ width:1920, height:1080, mimeType:"image/webp" });
     }
   });
+
+  it("ships a dedicated Full-HD raster cover for Skybound Quest", () => {
+    const game = ARCADE_GAMES.find((item) => item.slug === "skybound-quest")!;
+    expect(game.image).toMatch(/game-skybound-quest-premium-v2\.webp$/);
+    expect(visualsForGame(game)[0].sources[0]).toMatchObject({ width:1920, height:1080, mimeType:"image/webp" });
+  });
 });

@@ -16,6 +16,7 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { useProductionAmbience } from "@/features/arcade/audio/useProductionAmbience";
 
 // All 20 scenarios (5 original + 15 new)
 const ALL_SCENARIOS = [
@@ -201,6 +202,7 @@ export default function JungleSurvival() {
   const { t } = useLanguage();
   const { highScore } = useHighScore("jungle");
   const [mode, setMode] = useState<"solo" | "multi">("solo");
+  useProductionAmbience("jungle-ambience");
 
   return (
     <Layout>
