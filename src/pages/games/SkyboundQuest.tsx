@@ -8,6 +8,8 @@ import { GameInstructions } from "@/components/game/GameInstructions";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
+import { BoardPieceMotion } from "@/features/arcade/motion/BoardPieceMotion";
 import { ArrowLeft, ArrowRight, ArrowUp, Gem, RotateCcw, Skull } from "lucide-react";
 import {
   Action, LEVELS, State,
@@ -114,18 +116,22 @@ export default function SkyboundQuest() {
       if (next.status === "lost") {
         playSound("error");
         setStatus(text.lost);
+        void playProductionSound("natural-failure", { volume:0.55 });
       } else if (next.status === "won") {
         playSound("complete");
         setStatus(current.level === LEVELS.length - 1 ? text.finished : text.won);
+        void playProductionSound("natural-victory", { volume:0.58 });
       } else if (next.collected.size > current.collected.size) {
         playSound("achievement");
         setStatus(text.gotGem);
+        void playProductionSound("puzzle-success", { playbackRate:1.08, volume:0.78 });
       } else if (atLockedExit(next)) {
         playSound("click");
         setStatus(text.lockedExit);
       } else {
         playSound("click");
         setStatus("");
+        void playProductionSound("puzzle-place", { playbackRate:action.kind === "jump" ? 1.12 : 0.96, volume:0.62 });
       }
       return next;
     });
@@ -241,7 +247,9 @@ export default function SkyboundQuest() {
                       <span className="h-4/5 w-3/5 rounded-sm border-2 border-yellow-400 bg-slate-800" aria-hidden="true" />
                     )}
                     {here && (
-                      <span className="absolute h-3/5 w-3/5 rounded-full border-2 border-white bg-blue-600 shadow" aria-hidden="true" />
+                      <BoardPieceMotion landed={game.moves > 0} className="absolute h-3/5 w-3/5 rounded-full border-2 border-white bg-blue-600 shadow">
+                        <span className="block h-full w-full rounded-full bg-blue-600" />
+                      </BoardPieceMotion>
                     )}
                   </div>
                 );

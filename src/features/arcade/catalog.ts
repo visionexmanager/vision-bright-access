@@ -33,7 +33,7 @@ import chessImg from "@/assets/arcade/game-chess-premium-v2.webp";
 import backgammonImg from "@/assets/arcade/game-backgammon-premium-v2.webp";
 import ludoImg from "@/assets/arcade/game-ludo-premium-v2.webp";
 import wordMasterImg from "@/assets/arcade/game-wordmaster-v1.svg";
-import skyboundImg from "@/assets/arcade/game-skybound-quest-v1.svg";
+import skyboundImg from "@/assets/arcade/game-skybound-quest-premium-v2.webp";
 
 export const ARCADE_CATEGORIES = ["Classic","Puzzle","Board","Card","Educational","Kids","Typing","Memory","Word","Math","Logic","Quiz","Reaction","Arcade","Action","Adventure","Platform","Racing","Sports","Physics","Simulation","Idle","Strategy","Tower Defense","City Builder","Business Simulation","Cooking","Music","Drawing","Accessible","Audio","Multiplayer"] as const;
 export type ArcadeCategory = typeof ARCADE_CATEGORIES[number];

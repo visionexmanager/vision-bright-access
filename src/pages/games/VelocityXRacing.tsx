@@ -18,6 +18,7 @@ import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
 
 const TRACKS = ["🏎️ Monaco GP", "🏁 Neon Sprint", "🌊 Coastal Rush", "🏜️ Desert Blitz"];
 const LAP_DISTANCE = 1000;
@@ -167,6 +168,7 @@ function useRaceEngine(onFinish: (distance: number, fuel: number) => void) {
     setRacing(true);
     setFinished(false);
     racingRev();
+    void playProductionSound("car-engine-idle", { volume:0.62 });
   };
 
   useEffect(() => {
@@ -198,7 +200,7 @@ function useRaceEngine(onFinish: (distance: number, fuel: number) => void) {
     return () => clearInterval(interval);
   }, [racing, speed, lap, fuel, distance, onFinish]);
 
-  const accelerate = () => { setSpeed((s) => Math.min(s + 10, 100)); racingRev(); };
+  const accelerate = () => { setSpeed((s) => Math.min(s + 10, 100)); racingRev(); void playProductionSound("car-engine-acceleration", { volume:0.78 }); };
   const brake = () => { setSpeed((s) => Math.max(s - 20, 0)); racingScreech(); };
   const nitro = useCallback(() => {
     setFuel((f) => {
