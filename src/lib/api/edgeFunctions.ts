@@ -277,7 +277,7 @@ export async function callAISearch<T = Record<string, unknown>>(
 }
 
 /**
- * ai-source-products — the Commerce Agent. Searches Visionex first and only
+ * ai-search "source_products" — the Commerce Agent. Searches Visionex first and only
  * reaches permitted external sources when the catalogue does not answer.
  *
  * The response is already the customer-facing projection: supplier identity,
@@ -290,8 +290,10 @@ export async function callSourceProducts(
   signal?: AbortSignal,
 ): Promise<SourcingResponse> {
   return callEdge({
-    fn: "ai-source-products",
-    body: { query, condition, channel },
+    // Sourcing is an action of ai-search rather than its own function: same
+    // embedding index, same anon posture, one fewer endpoint against the cap.
+    fn: "ai-search",
+    body: { action: "source_products", query, condition, channel },
     auth: "anon",
     signal,
   }) as Promise<SourcingResponse>;

@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createEmbedding, ProviderError } from "../_shared/aiProvider.ts";
+import { handleSourceProducts } from "../_shared/sourcing/handler.ts";
 import servicesCatalog from "../_shared/data/servicesCatalog.json" with { type: "json" };
 
 // Columns returned for each source table.
@@ -39,7 +40,30 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { query, source, limit = 8 } = await req.json().catch(() => ({}));
+    // Peek on a clone so the original body stays unread: the sourcing handler
+    // parses the request itself, exactly as it did when it was its own
+    // function, and a consumed stream would have left it with an empty body.
+    const body = await req.clone().json().catch(() => ({}));
+
+    // Two actions, named explicitly. Anything else is refused, and there is no
+    // path from the parameter to an arbitrary handler.
+    //
+    // An absent action means "search", so every existing caller — which sends
+    // { query, source, limit } and no action — behaves exactly as before.
+    const action = typeof body.action === "string" ? body.action : "search";
+    if (action === "source_products") {
+      // Same auth posture (anon-callable), same embedding index, same
+      // permitted-source gating. Only the entry point moved.
+      return handleSourceProducts(req);
+    }
+    if (action !== "search") {
+      return new Response(
+        JSON.stringify({ error: `Unknown action '${action}'`, allowed: ["search", "source_products"] }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const { query, source, limit = 8 } = body;
 
     if (!query || typeof query !== "string" || !query.trim()) {
       return new Response(JSON.stringify({ error: "Query is required" }), {
