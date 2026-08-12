@@ -9,6 +9,8 @@ import { GameInstructions } from "@/components/game/GameInstructions";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
+import { BoardPieceMotion } from "@/features/arcade/motion/BoardPieceMotion";
 import { Loader2, RotateCcw } from "lucide-react";
 import {
   Level, Move, PIECE_GLYPH, PieceType, Position, bestMove, describeMove, fileOf,
@@ -31,6 +33,7 @@ export default function Chess() {
   const [history, setHistory] = useState<string[]>([]);
   const [thinking, setThinking] = useState(false);
   const [status, setStatus] = useState("");
+  const [lastMoveTo, setLastMoveTo] = useState<number | null>(null);
   const settled = useRef(false);
 
   const text = useMemo(() => (ar ? {
@@ -92,8 +95,10 @@ export default function Chess() {
   const applyMove = useCallback((move: Move) => {
     setHistory((past) => [...past, describeMove(position, move, ar)]);
     setPosition(makeMove(position, move));
+    setLastMoveTo(move.to);
     setSelected(null);
     playSound(move.captured ? "points" : "click");
+    void playProductionSound("wood-piece-place", { playbackRate:move.captured ? 0.86 : 1.04 });
   }, [position, ar, playSound]);
 
   const onSquareClick = (index: number) => {
@@ -136,7 +141,9 @@ export default function Chess() {
       if (move) {
         setHistory((past) => [...past, describeMove(position, move, ar)]);
         setPosition(makeMove(position, move));
+        setLastMoveTo(move.to);
         playSound(move.captured ? "points" : "click");
+        void playProductionSound("wood-piece-place", { playbackRate:move.captured ? 0.86 : 0.96 });
       }
       setThinking(false);
     }, 260);
@@ -166,6 +173,7 @@ export default function Chess() {
     setSelected(null);
     setPending(null);
     setHistory([]);
+    setLastMoveTo(null);
     setStatus("");
     settled.current = false;
     playSound("start");
@@ -233,7 +241,15 @@ export default function Chess() {
                       piece?.color === "w" ? "text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.7)]" : "text-slate-950",
                     ].join(" ")}
                   >
-                    {piece ? PIECE_GLYPH[piece.color][piece.type] : ""}
+                    {piece ? (
+                      <BoardPieceMotion
+                        selected={index === selected}
+                        landed={index === lastMoveTo}
+                        className="inline-flex h-full w-full items-center justify-center"
+                      >
+                        {PIECE_GLYPH[piece.color][piece.type]}
+                      </BoardPieceMotion>
+                    ) : ""}
                     {isTarget && (
                       <span
                         aria-hidden="true"

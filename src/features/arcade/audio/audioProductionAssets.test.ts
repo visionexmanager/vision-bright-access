@@ -18,4 +18,12 @@ describe("production Arcade audio assets", () => {
     expect(pending.length).toBeGreaterThan(0);
     expect(pending.every((asset) => asset.sources.length === 0 && asset.licenseStatus === "pending")).toBe(true);
   });
+
+  it("routes the approved wood contact recording to production board games", () => {
+    const woodContact = AUDIO_LIBRARY.find((asset) => asset.id === "wood-piece-place");
+
+    expect(woodContact?.licenseStatus).toBe("approved");
+    expect(woodContact?.quality).toBe("production");
+    expect(woodContact?.gameIds).toEqual(expect.arrayContaining(["chess", "backgammon", "ludo"]));
+  });
 });

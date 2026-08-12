@@ -29,9 +29,9 @@ import typingSpeedImg from "@/assets/arcade/game-typing-speed-v1.svg";
 import mathChallengeImg from "@/assets/arcade/game-math-challenge-v1.svg";
 import simonSaysImg from "@/assets/arcade/game-simon-says-v1.svg";
 import blindMazeImg from "@/assets/arcade/game-blind-maze-v1.svg";
-import chessImg from "@/assets/arcade/game-chess-v1.svg";
-import backgammonImg from "@/assets/arcade/game-backgammon-v1.svg";
-import ludoImg from "@/assets/arcade/game-ludo-v1.svg";
+import chessImg from "@/assets/arcade/game-chess-premium-v2.webp";
+import backgammonImg from "@/assets/arcade/game-backgammon-premium-v2.webp";
+import ludoImg from "@/assets/arcade/game-ludo-premium-v2.webp";
 import wordMasterImg from "@/assets/arcade/game-wordmaster-v1.svg";
 import skyboundImg from "@/assets/arcade/game-skybound-quest-v1.svg";
 

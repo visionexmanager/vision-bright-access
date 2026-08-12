@@ -8,6 +8,8 @@ import { GameInstructions } from "@/components/game/GameInstructions";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
+import { BoardPieceMotion } from "@/features/arcade/motion/BoardPieceMotion";
 import { Dices, Loader2, RotateCcw } from "lucide-react";
 import {
   BASE_CELLS, CENTER, COLORS, Cell, FINISH, HOME_CELLS, PLAYERS, PlayerId, State, TRACK_CELLS,
@@ -136,6 +138,7 @@ export default function Ludo() {
     if (game.turn !== 0 || game.die === null) return;
     const outcome = applyMove(game, 0, tokenIndex, game.die);
     playSound(outcome.captured ? "achievement" : "click");
+    void playProductionSound("wood-piece-place", { playbackRate:outcome.captured ? 0.84 : 1.08, volume:0.88 });
     if (outcome.captured) setStatus(text.captured);
     else if (outcome.extraTurn) setStatus(text.extra);
     setGame({
@@ -173,6 +176,7 @@ export default function Ludo() {
     setStatus(text.rivalTurn);
     const timer = setTimeout(() => {
       setGame(playRivals(game));
+      void playProductionSound("wood-piece-place", { playbackRate:0.96, volume:0.72 });
       setBusy(false);
       setStatus(text.yourTurn);
     }, 650);
@@ -297,11 +301,12 @@ export default function Ludo() {
                     ].join(" ")}
                   >
                     {top && (
-                      <span
+                      <BoardPieceMotion
                         className="h-[74%] w-[74%] rounded-full border-2 border-white/80 shadow"
-                        style={{ background: COLORS[top.player] }}
-                        aria-hidden="true"
-                      />
+                        landed={movable}
+                      >
+                        <span className="block h-full w-full rounded-full" style={{ background: COLORS[top.player] }} aria-hidden="true" />
+                      </BoardPieceMotion>
                     )}
                     {here.length > 1 && (
                       <span className="absolute bottom-0 end-0 text-[8px] font-black text-white" aria-hidden="true">

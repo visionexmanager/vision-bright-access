@@ -19,6 +19,27 @@
 
 No other existing Arcade cover is reclassified by this entry. Their previous provenance and replacement status remain unchanged.
 
+## Premium board-game covers — production pack 1 (2026-08-12)
+
+`game-chess-premium-v2.webp`, `game-backgammon-premium-v2.webp`, and
+`game-ludo-premium-v2.webp` were created specifically for Visionex Arcade with
+ChatGPT built-in image generation. The accepted outputs contain no embedded
+text, logos, brands, recognisable people, copyrighted characters, or remote
+resources. Each source PNG was inspected, stripped of metadata, resized to
+1920×1080, and encoded as a WebP quality-84 production derivative.
+
+| File | Game | Production intent |
+| --- | --- | --- |
+| `game-chess-premium-v2.webp` | Chess | Walnut tournament board with physically convincing pieces and restrained cinematic lighting. |
+| `game-backgammon-premium-v2.webp` | Backgammon | Tactile wood-inlay board, checkers, dice, and cups in an original night lounge. |
+| `game-ludo-premium-v2.webp` | Ludo | Original four-corner race board with shape-differentiated tokens and no branded board design. |
+
+Prompt constraints for all three: 16:9 game key art, Visionex midnight/cyan/
+violet/amber palette, mobile-safe focal point, no text, no logo, no watermark,
+no brand, and no copyrighted character. The generated masters and prompts are
+retained with the release evidence; the WebP derivatives are the only files
+shipped to browsers.
+
 ## Premium game covers — batch 1
 
 The following original covers were created for Visionex Arcade on 2026-08-02 using ChatGPT built-in image generation. Each production derivative is a metadata-stripped WebP at quality 84, 1672×941, with no embedded text, logo, brand, watermark, recognisable person, or copyrighted character.
