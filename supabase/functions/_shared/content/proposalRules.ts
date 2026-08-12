@@ -131,6 +131,45 @@ export function detectConfidentialLeak(text: string): string[] {
   return hits;
 }
 
+/** The `owner_approvals.action_type` that create_content_proposal writes. */
+export const CONTENT_APPROVAL_TYPE = "content_publish";
+
+/**
+ * How long a content proposal's approval stays answerable.
+ *
+ * owner_approvals defaults to seven days because a customer escalation goes
+ * stale — the customer has moved on. A content proposal has no time-sensitive
+ * action behind it in this phase, because nothing publishes; letting the
+ * default apply meant the approval quietly became undecidable and took the
+ * proposal with it, since decide_content_proposal asks the same engine and is
+ * refused. Ten years is "does not expire" expressed in the column that exists.
+ */
+export function contentApprovalExpiry(now: Date = new Date()): string {
+  const expiry = new Date(now);
+  expiry.setUTCFullYear(expiry.getUTCFullYear() + 10);
+  return expiry.toISOString();
+}
+
+/**
+ * Run a generic approval decision, unless the approval belongs to a content
+ * proposal.
+ *
+ * The guard owns the call rather than sitting beside it, so refusing is
+ * structural: a content approval means `decide` is never invoked, and no state
+ * can change. A missing approval is also refused — deciding a reference that
+ * could not be read would be deciding blind.
+ */
+export async function decideUnlessContentApproval<T>(
+  approval: { action_type: string } | null | undefined,
+  decide: () => Promise<T>,
+): Promise<{ ok: boolean; error?: string; result?: T }> {
+  if (!approval) return { ok: false, error: "not_found" };
+  if (approval.action_type === CONTENT_APPROVAL_TYPE) {
+    return { ok: false, error: "use_content_proposals" };
+  }
+  return { ok: true, result: await decide() };
+}
+
 export interface GenerationGateInput {
   /** The retrieved records, already projected for the prompt. */
   sources: string;

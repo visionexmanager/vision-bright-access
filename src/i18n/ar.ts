@@ -12797,6 +12797,7 @@ export const translations: Record<string, string> = {
   "content.refused.not_pending": "سبق البتّ في هذا الاقتراح.",
   "content.refused.unknown": "تم رفض الطلب.",
   "content.refused.confidential_input": "عُثر على تفاصيل توريد داخلية في السجلات المصدرية، فلم يُستدعَ الذكاء الاصطناعي إطلاقاً.",
+  "owner.useContentProposals": "هذا اقتراح محتوى. قرّره من قسم اقتراحات المحتوى أدناه.",
 };
 
 export default translations;

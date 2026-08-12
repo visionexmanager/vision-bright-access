@@ -41,6 +41,17 @@ export interface Approval {
   decision_note: string | null;
 }
 
+/**
+ * The `owner_approvals.action_type` a content proposal creates.
+ *
+ * Content proposals are decided through `decide_proposal`, which updates the
+ * proposal and its approval together. Deciding one through the generic
+ * `decide_approval` path would answer the approval alone and strand the
+ * proposal, so this type is filtered out of the generic approvals surface and
+ * refused server-side.
+ */
+export const CONTENT_APPROVAL_TYPE = "content_publish";
+
 export type ProposalState =
   | "PROPOSED" | "EDITED" | "APPROVED" | "SCHEDULED"
   | "REJECTED" | "SUPERSEDED" | "PUBLISHED";
