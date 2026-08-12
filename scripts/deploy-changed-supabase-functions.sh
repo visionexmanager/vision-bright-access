@@ -31,18 +31,29 @@ list_all_functions() {
 
 list_changed_functions() {
   local before_sha="${GITHUB_EVENT_BEFORE:-}"
+  local target_sha="${DEPLOY_SHA:-${GITHUB_SHA:-HEAD}}"
 
-  if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]] ||
-     [[ -z "$before_sha" ]] ||
-     [[ "$before_sha" =~ ^0+$ ]]; then
+  # A manual recovery deploy intentionally refreshes every function. A
+  # workflow_run event, however, has no `before` field. Treating that missing
+  # value as "deploy everything" exhausted the project's function quota and
+  # made unrelated frontend releases fail. For automatic deploys, compare the
+  # CI-tested commit with its first parent instead.
+  if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
     list_all_functions
     return
   fi
 
-  git fetch --no-tags --depth=1 origin "$before_sha"
+  if [[ -z "$before_sha" ]] || [[ "$before_sha" =~ ^0+$ ]]; then
+    before_sha="${target_sha}^"
+  fi
+
+  if ! git rev-parse --verify --quiet "${before_sha}^{commit}" >/dev/null; then
+    echo "::error::Cannot resolve deployment base ${before_sha}; refusing to deploy every Edge Function." >&2
+    return 1
+  fi
 
   local changed_files
-  changed_files="$(git diff --name-only "$before_sha" "${GITHUB_SHA}" -- "$FUNCTIONS_DIR")"
+  changed_files="$(git diff --name-only "$before_sha" "$target_sha" -- "$FUNCTIONS_DIR")"
 
   if grep -q "^${FUNCTIONS_DIR}/_shared/" <<<"$changed_files"; then
     list_all_functions
