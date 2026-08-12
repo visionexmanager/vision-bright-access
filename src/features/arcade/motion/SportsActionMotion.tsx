@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { readGameSettings } from "@/features/arcade/core/gameSettings";
 
-export type ArenaSportKind = "penalty" | "basketball" | "air-hockey" | "table-tennis" | "bowling" | "mini-golf";
+export type ArenaSportKind = "penalty" | "basketball" | "air-hockey" | "table-tennis" | "bowling" | "mini-golf" | "archery" | "darts";
 
 type SportsActionMotionProps = {
   attempt: number;
@@ -30,6 +30,14 @@ export function SportsActionMotion({ attempt, scored, sport }: SportsActionMotio
   const reducedMotion = useArcadeReducedMotion();
   const moving = attempt > 0 && !reducedMotion;
   const resultX = scored ? "82%" : "54%";
+
+  if (sport === "archery") {
+    return <div aria-hidden="true" className={`${sceneClasses} bg-gradient-to-r from-emerald-950 via-emerald-800 to-amber-950`}><div className="absolute right-[12%] top-[18%] h-28 w-28 rounded-full border-[14px] border-slate-100 bg-[radial-gradient(circle,#facc15_0_14%,#ef4444_15%_31%,#38bdf8_32%_50%,#111827_51%_70%,#f8fafc_71%)]"/><motion.span key={attempt} className="absolute left-[10%] top-[49%] h-1 w-24 origin-right bg-amber-200 after:absolute after:-right-2 after:-top-1 after:h-3 after:w-3 after:rotate-45 after:border-r-2 after:border-t-2 after:border-amber-100" initial={moving?{x:0,y:0,scaleX:1}:false} animate={moving?{left:scored?"76%":"65%",top:scored?"49%":"30%",scaleX:.72}:{x:0,y:0}} transition={{duration:.5,ease:[.12,.82,.25,1]}}/></div>;
+  }
+
+  if (sport === "darts") {
+    return <div aria-hidden="true" className={`${sceneClasses} bg-gradient-to-r from-slate-950 to-amber-950`}><div className="absolute right-[14%] top-[12%] h-32 w-32 rounded-full border-[12px] border-stone-300 bg-[repeating-conic-gradient(#111827_0_9deg,#e5e7eb_9deg_18deg)]"><span className="absolute inset-[38%] rounded-full border-4 border-emerald-700 bg-red-600"/></div><motion.span key={attempt} className="absolute left-[12%] top-[48%] h-1 w-20 bg-slate-200 after:absolute after:-left-3 after:-top-2 after:h-5 after:w-4 after:bg-red-500 after:[clip-path:polygon(100%_0,100%_100%,0_50%)]" initial={moving?{x:0,y:0,scale:1}:false} animate={moving?{left:scored?"76%":"64%",top:scored?"49%":"28%",scale:.72}:{x:0,y:0}} transition={{duration:.44,ease:[.12,.82,.25,1]}}/></div>;
+  }
 
   if (sport === "table-tennis") {
     return <div aria-hidden="true" className={`${sceneClasses} bg-gradient-to-b from-slate-800 to-cyan-950`}><div className="absolute inset-x-[8%] bottom-[16%] h-[46%] skew-x-[-8deg] border border-white/70 bg-blue-700/70"><span className="absolute left-1/2 h-full border-l-4 border-white/80" /></div><motion.span key={attempt} className="absolute left-[15%] top-[46%] h-4 w-4 rounded-full bg-white shadow-lg" initial={moving?{x:0,y:0}:false} animate={moving?{x:[0,150,315],y:[0,-48,scored?8:-38]}:{x:0,y:0}} transition={{duration:.62,ease:[.2,.75,.25,1]}} /></div>;
