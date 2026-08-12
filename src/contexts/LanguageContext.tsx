@@ -175,18 +175,14 @@ function buildDomTranslationMap(lang: Lang): { map: Map<string, string>; sorted:
     (dictionary): dictionary is Record<string, string> => Boolean(dictionary)
   );
 
-  if (lang === "en") {
-    for (const [arabicValue, englishValue] of Object.entries(academyDomText)) {
-      map.set(arabicValue, englishValue);
-    }
-  } else if (lang === "ar") {
-    // academyDomText exists for legacy Academy JSX that predates translation
-    // keys. It must work in both directions: without this inverse mapping, an
-    // English-authored legacy section stays English when Arabic is selected.
-    for (const [arabicValue, englishValue] of Object.entries(academyDomText)) {
-      map.set(englishValue, arabicValue);
-    }
-  }
+  // Legacy Academy JSX predates translation keys. Every phrase now has an
+  // indexed locale key, so both Arabic- and English-authored sections can be
+  // normalized into any selected language rather than only en/ar.
+  Object.entries(academyDomText).forEach(([arabicValue, englishValue], index) => {
+    const targetValue = targetDict?.[`academy.legacy.${index}`] ?? englishValue;
+    if (arabicValue !== targetValue) map.set(arabicValue, targetValue);
+    if (englishValue !== targetValue) map.set(englishValue, targetValue);
+  });
 
   if (enDict && targetDict) {
     for (const [key, englishValue] of Object.entries(enDict)) {

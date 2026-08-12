@@ -39,7 +39,12 @@ describe("games integration", () => {
     const languages = ["en", "ar", "es", "de", "pt", "zh", "tr", "fr", "ru", "ur", "hi"];
 
     for (const language of languages) {
-      const dictionary = read(`src/i18n/${language}.ts`);
+      let dictionary = read(`src/i18n/${language}.ts`);
+      try {
+        dictionary += read(`src/i18n/chunks/${language}.ts`);
+      } catch {
+        // Most locale catalogs fit in one source file.
+      }
       const missing = [...keys].filter(
         (key) => !dictionary.includes(`"${key}"`),
       );

@@ -9,7 +9,10 @@ const STATE_PATH = path.join(ROOT, ".i18n/batch-state.json");
 const REPORT_PATH = path.join(ROOT, ".i18n/translation-report.json");
 const OPENAI_BASE = "https://api.openai.com/v1";
 const CHUNK_SIZE = 100;
+const MAX_REQUESTS_PER_BATCH = 500;
 const LOCALE_NAMES = {
+  ur: "Urdu (اردو)",
+  hi: "Hindi (हिन्दी)",
   id: "Indonesian (Bahasa Indonesia)",
   ja: "Japanese",
   it: "Italian",
@@ -19,6 +22,13 @@ const LOCALE_NAMES = {
   vi: "Vietnamese (Tiếng Việt)",
   bn: "Bengali (বাংলা)",
   fa: "Persian (فارسی)",
+  es: "Spanish (Español)",
+  de: "German (Deutsch)",
+  pt: "Portuguese (Português)",
+  zh: "Simplified Chinese (简体中文)",
+  tr: "Turkish (Türkçe)",
+  fr: "French (Français)",
+  ru: "Russian (Русский)",
 };
 
 function readDictionary(filePath) {
@@ -173,6 +183,16 @@ async function uploadBatchFile(requests) {
   return api("/files", { method: "POST", body: form }).then((response) => response.json());
 }
 
+async function submitRequestGroup(requests) {
+  const uploaded = await uploadBatchFile(requests);
+  const batch = await api("/batches", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ input_file_id: uploaded.id, endpoint: "/v1/chat/completions", completion_window: "24h" }),
+  }).then((response) => response.json());
+  return { batch_id: batch.id, input_file_id: uploaded.id, request_count: requests.length };
+}
+
 async function submit() {
   fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
   const entries = readDictionary(SOURCE_PATH);
@@ -182,28 +202,25 @@ async function submit() {
   if (fs.existsSync(STATE_PATH)) {
     const existing = JSON.parse(fs.readFileSync(STATE_PATH, "utf8"));
     if (existing.source_hash !== hash) throw new Error("English translations changed after the saved batch was submitted.");
-    console.log(`Reusing existing batch ${existing.batch_id}.`);
+    const ids = existing.batches?.map((batch) => batch.batch_id).join(", ") ?? existing.batch_id;
+    console.log(`Reusing existing batch state: ${ids}.`);
     return;
   }
 
   const { requests, values } = buildRequests(entries, config.locales, config.model);
-  const uploaded = await uploadBatchFile(requests);
-  const batch = await api("/batches", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input_file_id: uploaded.id, endpoint: "/v1/chat/completions", completion_window: "24h" }),
-  }).then((response) => response.json());
+  const firstRequestGroup = requests.slice(0, MAX_REQUESTS_PER_BATCH);
+  const batches = [await submitRequestGroup(firstRequestGroup)];
 
   fs.writeFileSync(STATE_PATH, JSON.stringify({
-    batch_id: batch.id,
-    input_file_id: uploaded.id,
+    batches,
     source_hash: hash,
     source_entries: entries.length,
     unique_values: values.length,
     request_count: requests.length,
+    next_request_index: firstRequestGroup.length,
     ...config,
   }, null, 2) + "\n");
-  console.log(`Submitted ${requests.length} translation requests as batch ${batch.id}.`);
+  console.log(`Submitted the first ${firstRequestGroup.length}/${requests.length} translation requests; remaining batches will run sequentially.`);
 }
 
 async function waitForBatch(batchId) {
@@ -310,15 +327,40 @@ function writeLocale(locale, entries, translations) {
 async function collect() {
   const state = JSON.parse(fs.readFileSync(STATE_PATH, "utf8"));
   if (state.source_hash !== sourceHash()) throw new Error("English translations changed after batch submission.");
-  const batch = await waitForBatch(state.batch_id);
-  if (batch.status !== "completed" || !batch.output_file_id) throw new Error(`Translation batch ended with status ${batch.status}.`);
   const entries = readDictionary(SOURCE_PATH);
-  const values = uniqueSourceValues(entries);
-  const output = await downloadFile(batch.output_file_id);
+  const { requests, values } = buildRequests(entries, state.locales, state.model);
+  const savedBatches = state.batches ?? [{ batch_id: state.batch_id, input_file_id: state.input_file_id, request_count: state.request_count }];
+  let nextRequestIndex = state.next_request_index ?? requests.length;
+  const completedBatches = [];
+  for (let batchIndex = 0; batchIndex < savedBatches.length; batchIndex += 1) {
+    const savedBatch = savedBatches[batchIndex];
+    const batch = await waitForBatch(savedBatch.batch_id);
+    if (batch.status !== "completed" || !batch.output_file_id) {
+      throw new Error(`Translation batch ${batch.id} ended with status ${batch.status}: ${JSON.stringify(batch.errors ?? {})}`);
+    }
+    completedBatches.push(batch);
+    if (nextRequestIndex < requests.length) {
+      const requestGroup = requests.slice(nextRequestIndex, nextRequestIndex + MAX_REQUESTS_PER_BATCH);
+      savedBatches.push(await submitRequestGroup(requestGroup));
+      nextRequestIndex += requestGroup.length;
+      state.batches = savedBatches;
+      state.next_request_index = nextRequestIndex;
+      fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2) + "\n");
+      console.log(`Submitted sequential batch ${savedBatches.length}; ${nextRequestIndex}/${requests.length} requests are now scheduled.`);
+    }
+  }
+  const outputParts = [];
+  for (const batch of completedBatches) outputParts.push(await downloadFile(batch.output_file_id));
+  const output = outputParts.join("\n");
   const translated = parseBatchOutput(output, values, state.locales);
   await repairMissingTranslations(translated, values, state.locales, state.model);
   const locales = state.locales.map((locale) => writeLocale(locale, entries, translated[locale]));
-  fs.writeFileSync(REPORT_PATH, JSON.stringify({ ...state, status: "completed", output_file_id: batch.output_file_id, locales }, null, 2) + "\n");
+  fs.writeFileSync(REPORT_PATH, JSON.stringify({
+    ...state,
+    status: "completed",
+    output_file_ids: completedBatches.map((batch) => batch.output_file_id),
+    locales,
+  }, null, 2) + "\n");
   console.log(`Generated ${locales.length} complete locale files.`);
 }
 
@@ -326,7 +368,13 @@ function inspect() {
   const entries = readDictionary(SOURCE_PATH);
   const config = requestConfig();
   const { requests, values } = buildRequests(entries, config.locales, config.model);
-  console.log(JSON.stringify({ source_entries: entries.length, unique_values: values.length, requests: requests.length, ...config }, null, 2));
+  console.log(JSON.stringify({
+    source_entries: entries.length,
+    unique_values: values.length,
+    requests: requests.length,
+    batches: Math.ceil(requests.length / MAX_REQUESTS_PER_BATCH),
+    ...config,
+  }, null, 2));
 }
 
 function selfTest() {

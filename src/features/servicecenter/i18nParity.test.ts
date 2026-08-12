@@ -14,8 +14,15 @@ const LOCALES = ["en", "ar", "es", "de", "pt", "fr", "tr", "ru", "zh", "hi", "ur
 const I18N_DIR = path.resolve(__dirname, "../../i18n");
 const SRC_DIR = path.resolve(__dirname, "../..");
 
+function localeSource(locale: string): string {
+  const sources = [fs.readFileSync(path.join(I18N_DIR, `${locale}.ts`), "utf8")];
+  const chunk = path.join(I18N_DIR, "chunks", `${locale}.ts`);
+  if (fs.existsSync(chunk)) sources.push(fs.readFileSync(chunk, "utf8"));
+  return sources.join("\n");
+}
+
 function keysIn(locale: string): Set<string> {
-  const source = fs.readFileSync(path.join(I18N_DIR, `${locale}.ts`), "utf8");
+  const source = localeSource(locale);
   const keys = new Set<string>();
   for (const match of source.matchAll(/^\s{2}"([^"]+)":/gm)) keys.add(match[1]);
   return keys;
@@ -68,7 +75,7 @@ describe("Service Center i18n parity", () => {
   });
 
   it.each(LOCALES)("has no duplicate sc.* keys in %s", (locale) => {
-    const source = fs.readFileSync(path.join(I18N_DIR, `${locale}.ts`), "utf8");
+    const source = localeSource(locale);
     const seen = new Set<string>();
     const duplicates: string[] = [];
     for (const match of source.matchAll(/^\s{2}"(sc\.[^"]+)":/gm)) {

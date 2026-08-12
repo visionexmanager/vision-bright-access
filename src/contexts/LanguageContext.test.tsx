@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { LanguageProvider, useLanguage } from "./LanguageContext";
+import faTranslations from "../i18n/fa";
 
 function LegacyArabicSection() {
   const { lang, setLang } = useLanguage();
@@ -92,9 +93,13 @@ describe("LanguageProvider whole-site language consistency", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("selected-label")).toHaveTextContent("فارسی — Persian");
-      expect(screen.getByRole("heading")).toHaveTextContent("Visionex همه چیز رادر یک پلتفرم جمع می‌کند");
+      expect(screen.getByRole("heading")).toHaveTextContent(
+        `${faTranslations["home.title"]}${faTranslations["home.titleHighlight"]}`,
+      );
     }, { timeout: 15_000 });
-    expect(screen.getByRole("button", { name: "سبد خرید شامل 0 آیتم" })).toBeInTheDocument();
+    expect(screen.getByRole("button", {
+      name: faTranslations["cart.itemsLabel"].replace("{count}", "0"),
+    })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("fa");
     expect(document.documentElement.dir).toBe("rtl");
   }, 20_000);
