@@ -10,6 +10,8 @@ const REPORT_PATH = path.join(ROOT, ".i18n/translation-report.json");
 const OPENAI_BASE = "https://api.openai.com/v1";
 const CHUNK_SIZE = 100;
 const LOCALE_NAMES = {
+  ur: "Urdu (اردو)",
+  hi: "Hindi (हिन्दी)",
   id: "Indonesian (Bahasa Indonesia)",
   ja: "Japanese",
   it: "Italian",
@@ -19,6 +21,13 @@ const LOCALE_NAMES = {
   vi: "Vietnamese (Tiếng Việt)",
   bn: "Bengali (বাংলা)",
   fa: "Persian (فارسی)",
+  es: "Spanish (Español)",
+  de: "German (Deutsch)",
+  pt: "Portuguese (Português)",
+  zh: "Simplified Chinese (简体中文)",
+  tr: "Turkish (Türkçe)",
+  fr: "French (Français)",
+  ru: "Russian (Русский)",
 };
 
 function readDictionary(filePath) {
