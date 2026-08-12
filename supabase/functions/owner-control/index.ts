@@ -12,6 +12,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { proposeContent } from "../_shared/contentEngine.ts";
+import { decideUnlessContentApproval } from "../_shared/content/proposalRules.ts";
 
 type Action =
   | "decide_approval"
@@ -88,15 +89,34 @@ Deno.serve(async (req) => {
         }
         const note = typeof body.note === "string" ? body.note.slice(0, 1000) : null;
 
-        // The same engine WhatsApp calls. Single-use by construction: a second
-        // dashboard session deciding the same reference gets not_pending.
-        const { data, error } = await service.rpc("decide_owner_approval", {
-          _reference: reference,
-          _approve: body.approve,
-          _via: "admin_ui",
-          _identifier: user.id,
-          _note: note,
-        });
+        // A content proposal also has an approval row. Answering it here would
+        // update that row and leave content_proposals.state behind, after which
+        // the proposal can never be decided — its own path asks this same
+        // engine and is told the approval is already answered. The guard owns
+        // the call, so a content approval never reaches the engine at all and
+        // no state changes.
+        const { data: target } = await service
+          .from("owner_approvals")
+          .select("action_type")
+          .eq("reference", reference)
+          .maybeSingle();
+
+        const routed = await decideUnlessContentApproval(
+          target as { action_type: string } | null,
+          () => service.rpc("decide_owner_approval", {
+            _reference: reference,
+            _approve: body.approve,
+            _via: "admin_ui",
+            _identifier: user.id,
+            _note: note,
+          }),
+        );
+
+        if (!routed.ok) {
+          return json({ ok: false, reason: routed.error }, 409);
+        }
+
+        const { data, error } = routed.result as { data: unknown; error: { message: string } | null };
         if (error) {
           console.error("[owner-control] decide failed:", error.message);
           return json({ error: "Decision could not be recorded" }, 500);

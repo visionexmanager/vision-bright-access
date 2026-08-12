@@ -15,8 +15,10 @@
 import { createEmbedding, structuredCompletion } from "./aiProvider.ts";
 import { getGenerator, CONTENT_SECTIONS, CONTENT_TYPES, CONTENT_PLATFORMS } from "./generators.ts";
 import {
+  CONTENT_APPROVAL_TYPE,
   SECTION_SEEDS,
   buildMemoryContext,
+  contentApprovalExpiry,
   detectConfidentialLeak,
   generateAfterInputScreen,
   normalizeProposedTime,
@@ -286,6 +288,25 @@ export async function proposeContent(
 
   const result = created as ProposeResult;
   if (!result?.ok) return { ok: false, error: result?.error ?? "create_failed" };
+
+  // owner_approvals expires after seven days by default, and a decision is
+  // refused past that — which would take the proposal down with it, because
+  // decide_content_proposal asks the same engine. A content proposal has no
+  // time-sensitive action behind it in this phase, so it does not expire.
+  // Scoped by reference: no other approval's expiry is touched.
+  if (result.reference) {
+    const { error: expiryError } = await service
+      .from("owner_approvals")
+      .update({ expires_at: contentApprovalExpiry() })
+      .eq("reference", result.reference)
+      .eq("action_type", CONTENT_APPROVAL_TYPE);
+
+    // Reported, not fatal: the proposal exists and is decidable today. Failing
+    // the whole call here would discard good work over a deadline years away.
+    if (expiryError) {
+      console.error("[content-engine] expiry extension failed:", expiryError.message);
+    }
+  }
 
   return { ok: true, proposal_ref: result.proposal_ref, reference: result.reference };
 }

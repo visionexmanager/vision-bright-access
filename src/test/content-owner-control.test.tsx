@@ -310,6 +310,85 @@ describe("the section offers only what exists", () => {
   });
 });
 
+describe("content approvals stay out of the generic Approvals surface", () => {
+  // Deciding a content proposal from the generic section would answer its
+  // approval and leave content_proposals.state behind, after which the proposal
+  // can never be decided at all.
+
+  const contentApproval = {
+    id: "ap-content", reference: "H7K3M", action_type: "content_publish",
+    title: "Reading without looking at a screen", summary: "Three braille displays are indexed",
+    payload: {}, state: "WAITING_FOR_APPROVAL", escalation_id: null,
+    created_at: new Date(Date.now() - 10 * 60000).toISOString(),
+    expires_at: new Date(Date.now() + 3650 * 86400000).toISOString(),
+    decided_at: null, decided_via: null, decision_note: null,
+  };
+  const escalationApproval = {
+    ...contentApproval, id: "ap-esc", reference: "A7K2M",
+    action_type: "customer_escalation", title: "Customer needs help: braille display",
+    escalation_id: "esc-1",
+    expires_at: new Date(Date.now() + 6 * 86400000).toISOString(),
+  };
+
+  beforeEach(() => {
+    tables.owner_approvals = [contentApproval, escalationApproval];
+  });
+
+  it("hides the content approval and keeps the escalation", async () => {
+    render(<OwnerControlCenter />);
+    await screen.findByText(escalationApproval.title);
+
+    const approvals = screen.getByRole("table", { name: en["owner.approvalsCaption"] });
+    expect(within(approvals).getByText("A7K2M")).toBeTruthy();
+    // H7K3M is the content proposal's reference; it belongs to the other section.
+    expect(within(approvals).queryByText("H7K3M")).toBeNull();
+  });
+
+  it("excludes it from the Approvals heading count", async () => {
+    render(<OwnerControlCenter />);
+    await screen.findByText(escalationApproval.title);
+    const heading = document.getElementById("owner-approvals-heading")!;
+    // One escalation, not two.
+    expect(heading.textContent).toContain("(1)");
+    expect(heading.textContent).not.toContain("(2)");
+  });
+
+  it("excludes it from the summary-card count", async () => {
+    render(<OwnerControlCenter />);
+    await screen.findByText(escalationApproval.title);
+    const label = screen.getByText(`${en["owner.pendingCount"]}:`);
+    expect(label.parentElement?.textContent).toContain("1");
+  });
+
+  it("still lets a customer escalation be reviewed and decided", async () => {
+    render(<OwnerControlCenter />);
+    const row = (await screen.findByText("A7K2M")).closest("tr")!;
+    await click(within(row).getByRole("button", { name: en["owner.review"] }));
+    await click(await screen.findByRole("button", { name: en["owner.reject"] }));
+
+    await waitFor(() => {
+      const body = (invoke.mock.calls.at(-1)?.[1] as { body: Record<string, unknown> }).body;
+      expect(body).toMatchObject({ action: "decide_approval", reference: "A7K2M", approve: false });
+    });
+  });
+
+  it("tells the owner where to go if the server refuses a content approval", async () => {
+    // Defence in depth: even if a content approval reached this surface, the
+    // server refuses and the owner is pointed at the right path rather than
+    // being told someone else already decided.
+    invoke.mockResolvedValue({ data: { ok: false, reason: "use_content_proposals" }, error: null });
+    render(<OwnerControlCenter />);
+    const row = (await screen.findByText("A7K2M")).closest("tr")!;
+    await click(within(row).getByRole("button", { name: en["owner.review"] }));
+    await click(await screen.findByRole("button", { name: en["owner.approve"] }));
+
+    await waitFor(() => {
+      const live = document.body.querySelector('[role="status"][aria-live="polite"]');
+      expect(live?.textContent).toBe(en["owner.useContentProposals"]);
+    });
+  });
+});
+
 describe("the existing control centre still works", () => {
   it("renders with no proposals at all", async () => {
     tables.content_proposals = [];
