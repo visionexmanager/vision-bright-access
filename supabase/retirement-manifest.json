@@ -1,0 +1,123 @@
+{
+  "_readme": [
+    "Explicit retirement manifest for Supabase Edge Functions.",
+    "",
+    "Deleting a function's directory from this repository does NOT remove it from",
+    "Supabase. The deploy script only ever deploys; nothing retires. That is how",
+    "ten career-ai-* functions stayed live with no source, filling the project's",
+    "100-function cap and blocking their own replacement from deploying.",
+    "",
+    "This file is the ONLY thing that authorizes a production deletion.",
+    "Absence from the repository is never sufficient — see scripts/retire-supabase-functions.sh.",
+    "",
+    "To retire a function: add an entry below, in a pull request, reviewed like any",
+    "other change. Then run the 'Retire Supabase Edge Functions' workflow in plan",
+    "mode, read the plan, and only then run it in apply mode with the confirmation",
+    "phrase. Entries are kept after retirement as a permanent record; re-running is",
+    "a no-op once the function is gone."
+  ],
+
+  "manifest_version": 1,
+
+  "never_retire": [
+    "_shared",
+    "ai-search",
+    "bazaar-stripe-webhook",
+    "career-ai",
+    "career-billing-webhook",
+    "contact-form",
+    "health-check",
+    "library-crypto-webhook",
+    "library-paypal-webhook",
+    "library-process-background-jobs",
+    "library-stripe-webhook",
+    "owner-control",
+    "trial-billing",
+    "tv-stream-token",
+    "tv-validate-stream",
+    "whatsapp-webhook"
+  ],
+
+  "retire": [
+    {
+      "slug": "career-ai-analyze",
+      "replaced_by": "career-ai { \"action\": \"analyze\" }",
+      "superseded_by_pr": 89,
+      "approved_by": "visionexmanager",
+      "approved_on": "2026-08-12",
+      "reason": "Five-line wrapper around handleStructuredCareerAiRequest. No source in main, no caller in src/functions/CI/scripts/docs/infra, no webhook, no schedule. Served identically by the career-ai router."
+    },
+    {
+      "slug": "career-ai-chat",
+      "replaced_by": "career-ai { \"action\": \"chat\" }",
+      "superseded_by_pr": 89,
+      "approved_by": "visionexmanager",
+      "approved_on": "2026-08-12",
+      "reason": "Body moved verbatim to _shared/careerAiChat.ts; same auth path and SSE contract. No source in main, no caller, no webhook, no schedule."
+    },
+    {
+      "slug": "career-ai-coach",
+      "replaced_by": "career-ai { \"action\": \"coach\" }",
+      "superseded_by_pr": 89,
+      "approved_by": "visionexmanager",
+      "approved_on": "2026-08-12",
+      "reason": "Five-line wrapper around handleStructuredCareerAiRequest. No source in main, no caller, no webhook, no schedule."
+    },
+    {
+      "slug": "career-ai-health-score",
+      "replaced_by": "career-ai { \"action\": \"health_score\" }",
+      "superseded_by_pr": 89,
+      "approved_by": "visionexmanager",
+      "approved_on": "2026-08-12",
+      "reason": "Five-line wrapper around handleStructuredCareerAiRequest. No source in main, no caller, no webhook, no schedule. Unrelated to the health-check function, which is protected above."
+    },
+    {
+      "slug": "career-ai-interview",
+      "replaced_by": "career-ai { \"action\": \"interview\" }",
+      "superseded_by_pr": 89,
+      "approved_by": "visionexmanager",
+      "approved_on": "2026-08-12",
+      "reason": "Five-line wrapper around handleStructuredCareerAiRequest. No source in main, no caller, no webhook, no schedule."
+    },
+    {
+      "slug": "career-ai-match",
+      "replaced_by": "career-ai { \"action\": \"match\" }",
+      "superseded_by_pr": 89,
+      "approved_by": "visionexmanager",
+      "approved_on": "2026-08-12",
+      "reason": "Body moved verbatim to _shared/careerAiMatch.ts; same jobs/career_profiles queries and response shape. No source in main, no caller, no webhook, no schedule."
+    },
+    {
+      "slug": "career-ai-resume",
+      "replaced_by": "career-ai { \"action\": \"resume\" }",
+      "superseded_by_pr": 89,
+      "approved_by": "visionexmanager",
+      "approved_on": "2026-08-12",
+      "reason": "Five-line wrapper around handleStructuredCareerAiRequest. No source in main, no caller, no webhook, no schedule."
+    },
+    {
+      "slug": "career-ai-roadmap",
+      "replaced_by": "career-ai { \"action\": \"roadmap\" }",
+      "superseded_by_pr": 89,
+      "approved_by": "visionexmanager",
+      "approved_on": "2026-08-12",
+      "reason": "Five-line wrapper around handleStructuredCareerAiRequest. No source in main, no caller, no webhook, no schedule."
+    },
+    {
+      "slug": "career-ai-salary",
+      "replaced_by": "career-ai { \"action\": \"salary\" }",
+      "superseded_by_pr": 89,
+      "approved_by": "visionexmanager",
+      "approved_on": "2026-08-12",
+      "reason": "Five-line wrapper around handleStructuredCareerAiRequest. No source in main, no caller, no webhook, no schedule."
+    },
+    {
+      "slug": "career-ai-visa",
+      "replaced_by": "career-ai { \"action\": \"visa\" }",
+      "superseded_by_pr": 89,
+      "approved_by": "visionexmanager",
+      "approved_on": "2026-08-12",
+      "reason": "Five-line wrapper around handleStructuredCareerAiRequest. No source in main, no caller, no webhook, no schedule."
+    }
+  ]
+}
