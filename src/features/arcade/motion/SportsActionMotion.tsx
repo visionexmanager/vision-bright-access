@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { readGameSettings } from "@/features/arcade/core/gameSettings";
 
-export type ArenaSportKind = "penalty" | "basketball" | "air-hockey";
+export type ArenaSportKind = "penalty" | "basketball" | "air-hockey" | "table-tennis" | "bowling" | "mini-golf";
 
 type SportsActionMotionProps = {
   attempt: number;
@@ -30,6 +30,18 @@ export function SportsActionMotion({ attempt, scored, sport }: SportsActionMotio
   const reducedMotion = useArcadeReducedMotion();
   const moving = attempt > 0 && !reducedMotion;
   const resultX = scored ? "82%" : "54%";
+
+  if (sport === "table-tennis") {
+    return <div aria-hidden="true" className={`${sceneClasses} bg-gradient-to-b from-slate-800 to-cyan-950`}><div className="absolute inset-x-[8%] bottom-[16%] h-[46%] skew-x-[-8deg] border border-white/70 bg-blue-700/70"><span className="absolute left-1/2 h-full border-l-4 border-white/80" /></div><motion.span key={attempt} className="absolute left-[15%] top-[46%] h-4 w-4 rounded-full bg-white shadow-lg" initial={moving?{x:0,y:0}:false} animate={moving?{x:[0,150,315],y:[0,-48,scored?8:-38]}:{x:0,y:0}} transition={{duration:.62,ease:[.2,.75,.25,1]}} /></div>;
+  }
+
+  if (sport === "bowling") {
+    return <div aria-hidden="true" className={`${sceneClasses} bg-gradient-to-b from-slate-900 to-amber-900`}><div className="absolute inset-x-[12%] bottom-0 h-full bg-gradient-to-t from-amber-500/45 to-amber-100/15 [clip-path:polygon(30%_100%,70%_100%,58%_0,42%_0)]" /><div className="absolute left-1/2 top-5 -translate-x-1/2 text-4xl text-white/90">♟♟♟</div><motion.span key={attempt} className="absolute bottom-3 left-[46%] h-10 w-10 rounded-full bg-slate-950 shadow-xl" initial={moving?{y:0,scale:1,rotate:0}:false} animate={moving?{y:-108,scale:.45,rotate:720}:{y:0}} transition={{duration:.76,ease:[.18,.82,.28,1]}} /></div>;
+  }
+
+  if (sport === "mini-golf") {
+    return <div aria-hidden="true" className={`${sceneClasses} bg-gradient-to-b from-emerald-950 to-emerald-700`}><div className="absolute inset-x-[8%] bottom-0 h-[72%] rounded-t-[45%] border-x-8 border-stone-400/60 bg-emerald-500/35" /><span className="absolute right-[18%] top-[28%] h-20 border-l-4 border-white/80"><span className="absolute left-0 top-0 h-6 w-10 bg-amber-400 [clip-path:polygon(0_0,100%_50%,0_100%)]" /></span><span className="absolute right-[16%] bottom-[18%] h-5 w-12 rounded-[50%] bg-slate-950/80" /><motion.span key={attempt} className="absolute bottom-[20%] left-[16%] h-6 w-6 rounded-full bg-white shadow-lg" initial={moving?{x:0,y:0,rotate:0}:false} animate={moving?{left:scored?"80%":"62%",bottom:scored?"20%":"35%",rotate:620,scale:scored?.45:1}:{x:0,y:0}} transition={{duration:.82,ease:[.2,.75,.25,1]}} /></div>;
+  }
 
   if (sport === "basketball") {
     return (
