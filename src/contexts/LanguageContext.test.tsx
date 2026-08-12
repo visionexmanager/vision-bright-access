@@ -38,6 +38,16 @@ function RuntimeLocaleProbe() {
   );
 }
 
+function LegacyEnglishAcademySection() {
+  return (
+    <section>
+      <h1>Continue Learning</h1>
+      <p>Resume where you left off</p>
+      <button type="button" aria-label="Search Academy">Search Academy</button>
+    </section>
+  );
+}
+
 describe("LanguageProvider whole-site language consistency", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -87,5 +97,27 @@ describe("LanguageProvider whole-site language consistency", () => {
     expect(screen.getByRole("button", { name: "سبد خرید شامل 0 آیتم" })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("fa");
     expect(document.documentElement.dir).toBe("rtl");
+  }, 20_000);
+
+  it("translates English-authored legacy Academy content into isolated Arabic", async () => {
+    localStorage.setItem("visionex-lang", "ar");
+
+    render(
+      <LanguageProvider>
+        <LegacyEnglishAcademySection />
+      </LanguageProvider>,
+    );
+
+    await waitFor(
+      () => expect(screen.getByRole("heading", { name: "متابعة التعلّم" })).toBeInTheDocument(),
+      { timeout: 15_000 },
+    );
+    expect(screen.getByText("استكمل من حيث توقفت")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "بحث في الأكاديمية" })).toHaveTextContent("بحث في الأكاديمية");
+    expect(document.documentElement.lang).toBe("ar");
+    expect(document.documentElement.dir).toBe("rtl");
+    expect(document.body).not.toHaveTextContent("Continue Learning");
+    expect(document.body).not.toHaveTextContent("Resume where you left off");
+    expect(document.body).not.toHaveTextContent("Search Academy");
   }, 20_000);
 });
