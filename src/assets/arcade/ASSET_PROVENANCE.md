@@ -72,6 +72,15 @@ of metadata, resized to 1920×1080, and encoded as WebP quality-84 derivatives.
 They contain no text, logos, brands, flags, copyrighted characters, or
 identifiable people.
 
+## Premium precision-sports covers — production pack 5 (2026-08-12)
+
+`game-archery-premium-v2.webp` and `game-darts-premium-v2.webp` were created
+specifically for Visionex Arcade with ChatGPT built-in image generation. The
+accepted images depict safe target-sport contexts without brands, text, flags,
+copyrighted characters, or identifiable people. Sources were inspected,
+stripped of metadata, resized to 1920×1080, and encoded as WebP quality-84
+production derivatives.
+
 ## Premium game covers — batch 1
 
 The following original covers were created for Visionex Arcade on 2026-08-02 using ChatGPT built-in image generation. Each production derivative is a metadata-stripped WebP at quality 84, 1672×941, with no embedded text, logo, brand, watermark, recognisable person, or copyrighted character.
