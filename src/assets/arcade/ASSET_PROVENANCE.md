@@ -50,6 +50,19 @@ accepted PNG was inspected, stripped of metadata, resized to 1920×1080, and
 encoded as a WebP quality-84 production derivative. The generated master and
 prompt are retained with the release evidence.
 
+## Premium sports covers — production pack 3 (2026-08-12)
+
+`game-penalty-shootout-premium-v2.webp`,
+`game-basketball-challenge-premium-v2.webp`, and
+`game-air-hockey-premium-v2.webp` were created specifically for Visionex
+Arcade with ChatGPT built-in image generation. The accepted outputs depict an
+original night-stadium penalty, an indoor basketball jump shot, and a premium
+air-hockey table. They contain no embedded text, logos, brands, national flags,
+copyrighted characters, or identifiable real people. Each inspected PNG was
+stripped of metadata, resized to 1920×1080, and encoded as a WebP quality-84
+production derivative. Prompts and generated masters are retained with the
+release evidence.
+
 ## Premium game covers — batch 1
 
 The following original covers were created for Visionex Arcade on 2026-08-02 using ChatGPT built-in image generation. Each production derivative is a metadata-stripped WebP at quality 84, 1672×941, with no embedded text, logo, brand, watermark, recognisable person, or copyrighted character.

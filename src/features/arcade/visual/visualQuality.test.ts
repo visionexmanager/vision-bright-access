@@ -28,4 +28,12 @@ describe("Arcade premium visual registry", () => {
     expect(game.image).toMatch(/game-skybound-quest-premium-v2\.webp$/);
     expect(visualsForGame(game)[0].sources[0]).toMatchObject({ width:1920, height:1080, mimeType:"image/webp" });
   });
+
+  it("ships dedicated Full-HD raster covers for production sports pack 3", () => {
+    for (const slug of ["penalty-shootout", "basketball-challenge", "air-hockey"]) {
+      const game = ARCADE_GAMES.find((item) => item.slug === slug)!;
+      expect(game.image).toMatch(new RegExp(`game-${slug}-premium-v2\\.webp$`));
+      expect(visualsForGame(game)[0].sources[0]).toMatchObject({ width:1920, height:1080, mimeType:"image/webp" });
+    }
+  });
 });
