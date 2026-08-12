@@ -43,8 +43,11 @@ Deno.serve(async (req) => {
         model: generator.model,
         system: generator.buildSystem(params, lang),
         userText: generator.buildUser(params, lang),
-        schema: GENERATION_SCHEMA as unknown as Record<string, unknown>,
-        toolName: "generated_plan",
+        // A generator may declare its own result shape. Every generator written
+        // before that field existed omits it and keeps the universal plan
+        // schema, so this changes nothing for any of them.
+        schema: generator.schema ?? (GENERATION_SCHEMA as unknown as Record<string, unknown>),
+        toolName: generator.toolName ?? "generated_plan",
         maxTokens: 2000,
       });
       return new Response(JSON.stringify({ result }), {

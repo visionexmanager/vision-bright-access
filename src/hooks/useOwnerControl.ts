@@ -41,6 +41,50 @@ export interface Approval {
   decision_note: string | null;
 }
 
+export type ProposalState =
+  | "PROPOSED" | "EDITED" | "APPROVED" | "SCHEDULED"
+  | "REJECTED" | "SUPERSEDED" | "PUBLISHED";
+
+/**
+ * A drafted content proposal awaiting an owner decision.
+ *
+ * `PUBLISHED` appears in the union because the database vocabulary contains it,
+ * not because anything in this phase can reach it — no transition leads there.
+ */
+export interface ContentProposal {
+  id: string;
+  proposal_ref: string;
+  content_type: string;
+  section: string;
+  platform: string;
+  topic: string;
+  hook: string;
+  body: string;
+  hashtags: string[];
+  rationale: string;
+  target_audience: string | null;
+  language: string;
+  /** Which indexed rows the draft was grounded in. */
+  source_refs: { source_table: string; source_id: string }[];
+  proposed_publish_at: string | null;
+  state: ProposalState;
+  revision: number;
+  rejection_reason: string | null;
+  owner_notes: string | null;
+  supersedes_id: string | null;
+  superseded_by_id: string | null;
+  created_at: string;
+}
+
+export interface CalendarSlot {
+  id: string;
+  proposal_id: string;
+  scheduled_for: string;
+  platform: string;
+  slot_state: string;
+  note: string | null;
+}
+
 export interface FeedbackEvent {
   id: string;
   event_type: string;
@@ -77,6 +121,10 @@ interface ActionResult {
   ok: boolean;
   /** Set when the action failed for a reason the owner should see. */
   reason?: string;
+  /** Extra context on a refusal, e.g. which earlier proposal was too similar. */
+  detail?: string;
+  /** Set when a content proposal was created. */
+  proposal_ref?: string;
 }
 
 /**
@@ -93,6 +141,8 @@ export function useOwnerControl() {
   const [feedback, setFeedback] = useState<FeedbackEvent[]>([]);
   const [activity, setActivity] = useState<AuditEntry[]>([]);
   const [conversations, setConversations] = useState<ControlledConversation[]>([]);
+  const [proposals, setProposals] = useState<ContentProposal[]>([]);
+  const [calendar, setCalendar] = useState<CalendarSlot[]>([]);
   const [whatsappStatus, setWhatsappStatus] = useState<WhatsAppStatus>("NOT_CONFIGURED");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,16 +151,18 @@ export function useOwnerControl() {
     setLoading(true);
     setError(null);
     try {
-      const [esc, appr, fb, aud, conv, settings] = await Promise.all([
+      const [esc, appr, fb, aud, conv, prop, cal, settings] = await Promise.all([
         supabase.from("support_escalations").select("*").order("created_at", { ascending: false }).limit(100),
         supabase.from("owner_approvals").select("*").order("created_at", { ascending: false }).limit(100),
         supabase.from("ai_feedback_events").select("*").order("created_at", { ascending: false }).limit(50),
         supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(50),
         supabase.from("whatsapp_conversations").select("*").order("last_message_at", { ascending: false }).limit(50),
+        supabase.from("content_proposals").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("content_calendar").select("*").order("scheduled_for", { ascending: true }).limit(100),
         supabase.from("site_settings").select("value").eq("key", "owner_contact").maybeSingle(),
       ]);
 
-      const firstError = esc.error ?? appr.error ?? fb.error ?? aud.error ?? conv.error;
+      const firstError = esc.error ?? appr.error ?? fb.error ?? aud.error ?? conv.error ?? prop.error ?? cal.error;
       if (firstError) throw firstError;
 
       setEscalations((esc.data ?? []) as unknown as Escalation[]);
@@ -118,6 +170,8 @@ export function useOwnerControl() {
       setFeedback((fb.data ?? []) as unknown as FeedbackEvent[]);
       setActivity((aud.data ?? []) as unknown as AuditEntry[]);
       setConversations((conv.data ?? []) as unknown as ControlledConversation[]);
+      setProposals((prop.data ?? []) as unknown as ContentProposal[]);
+      setCalendar((cal.data ?? []) as unknown as CalendarSlot[]);
 
       // "Configured" means an owner number exists. It never says "connected":
       // that requires a verified Meta integration, which does not exist, and
@@ -148,7 +202,28 @@ export function useOwnerControl() {
 
   return {
     escalations, approvals, feedback, activity, conversations, whatsappStatus,
+    proposals, calendar,
     loading, error, reload: load,
+
+    // Phase 7. Every one of these goes through owner-control for the same
+    // reason the decisions above do: the tables have no write policy, so the
+    // browser cannot reach them even with an admin session.
+    proposeContent: (section: string, contentType: string, platform: string, language: "en" | "ar") =>
+      invoke({ action: "propose_content", section, content_type: contentType, platform, language }),
+
+    decideProposal: (proposalRef: string, approve: boolean, note?: string) =>
+      invoke({ action: "decide_proposal", proposal_ref: proposalRef, approve, note }),
+
+    editProposal: (proposalRef: string, patch: {
+      hook?: string; body?: string; hashtags?: string[]; proposed_publish_at?: string; note?: string;
+    }) => invoke({ action: "edit_proposal", proposal_ref: proposalRef, ...patch }),
+
+    /** Never edits the previous draft — it creates a linked replacement. */
+    regenerateProposal: (proposalRef: string) =>
+      invoke({ action: "regenerate_proposal", proposal_ref: proposalRef }),
+
+    scheduleProposal: (proposalRef: string, scheduledFor: string, note?: string) =>
+      invoke({ action: "schedule_proposal", proposal_ref: proposalRef, scheduled_for: scheduledFor, note }),
 
     decideApproval: (reference: string, approve: boolean, note?: string) =>
       invoke({ action: "decide_approval", reference, approve, note }),

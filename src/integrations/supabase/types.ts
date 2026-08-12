@@ -2920,6 +2920,77 @@ export type Database = {
         }
         Relationships: []
       }
+      content_proposals: {
+        Row: {
+          approval_id: string | null
+          body: string
+          content_type: string
+          created_at: string
+          created_by: string | null
+          generated_by: string
+          generation_batch: string | null
+          hashtags: string[]
+          hook: string
+          id: string
+          language: string
+          owner_notes: string | null
+          platform: string
+          proposal_ref: string
+          proposed_publish_at: string | null
+          rationale: string
+          rejection_reason: string | null
+          revision: number
+          section: string
+          source_refs: Json
+          state: string
+          superseded_by_id: string | null
+          supersedes_id: string | null
+          target_audience: string | null
+          topic: string
+          topic_embedding: string | null
+          topic_key: string
+          updated_at: string
+        }
+        Insert: Record<string, never>
+        Update: Record<string, never>
+        Relationships: []
+      }
+      content_calendar: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          platform: string
+          proposal_id: string
+          scheduled_for: string
+          slot_state: string
+          updated_at: string
+        }
+        Insert: Record<string, never>
+        Update: Record<string, never>
+        Relationships: []
+      }
+      content_memory: {
+        Row: {
+          angle: string | null
+          content_type: string | null
+          created_at: string
+          embedding: string | null
+          id: string
+          lesson: string
+          memory_type: string
+          proposal_id: string | null
+          section: string | null
+          topic: string | null
+          topic_key: string | null
+          updated_at: string
+          weight: number
+        }
+        Insert: Record<string, never>
+        Update: Record<string, never>
+        Relationships: []
+      }
       support_escalations: {
         Row: {
           ai_summary: string | null
