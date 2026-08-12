@@ -13,13 +13,14 @@ These rules apply to every AI coding agent working in this repository.
 
 ## Required workflow
 
-1. Start from the latest `origin/main`.
-2. Never commit or push directly to `main`.
-3. Use a focused branch with an `agent/`, `codex/`, or `claude/` prefix.
-4. Keep each change scoped to the user's request. Do not modify unrelated user work.
-5. Run the relevant validation before opening a pull request.
-6. Open a pull request into `main`; do not merge until required checks pass.
-7. Production deployment runs automatically only after CI succeeds on `main`.
+1. In Codex/Work shells, run `source scripts/codex-tools.sh` first. This gives npm a writable cache and installs the pinned, checksum-verified GitHub CLI when the base image does not include it.
+2. Start from the latest `origin/main`.
+3. Never commit or push directly to `main`.
+4. Use a focused branch with an `agent/`, `codex/`, or `claude/` prefix.
+5. Keep each change scoped to the user's request. Do not modify unrelated user work.
+6. Run the relevant validation before opening a pull request.
+7. Open a pull request into `main`; do not merge until required checks pass.
+8. Production deployment runs automatically only after CI succeeds on `main`.
 
 ## Validation
 

@@ -2508,10 +2508,10 @@ export const translations: Record<string, string> = {
   "footer.pages": "الصفحات",
   "footer.more": "المزيد",
   "footer.legalLinks": "روابط قانونية",
-  "nav.finance": "VX Finance Hub",
+  "nav.finance": "مركز VX المالي",
   "nav.aiStudio": "استوديو الذكاء الاصطناعي",
   "nav.library": "المكتبة",
-  "footer.link.finance": "VX Finance Hub",
+  "footer.link.finance": "مركز VX المالي",
   "footer.link.aiStudio": "استوديو الذكاء الاصطناعي",
   "footer.link.home": "الرئيسية",
   "footer.link.bazaar": "VXBazaar",
@@ -5997,7 +5997,7 @@ export const translations: Record<string, string> = {
   "vroom.conversationMode": "غرفة محادثة",
 
   /* ── Visionex Finance ─────────────────────────────────────────────── */
-  "finance.title": "VX Finance Hub",
+  "finance.title": "مركز VX المالي",
   "finance.searchPlaceholder": "ابحث عن رموز، أسواق…",
   "finance.searchLabel": "البحث في الأدوات المالية",
   "finance.alerts": "تنبيهات السوق",
