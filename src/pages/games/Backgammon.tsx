@@ -8,6 +8,8 @@ import { GameInstructions } from "@/components/game/GameInstructions";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
+import { BoardPieceMotion } from "@/features/arcade/motion/BoardPieceMotion";
 import { Dices, RotateCcw } from "lucide-react";
 import {
   BAR, OFF, Move, State, applyMove, createGame, diceFromRoll, legalMoves,
@@ -22,13 +24,14 @@ function Checkers({ count, color }: { count: number; color: "w" | "b" }) {
   return (
     <>
       {Array.from({ length: shown }, (_, i) => (
-        <span
+        <BoardPieceMotion
           key={i}
-          aria-hidden="true"
           className={`h-5 w-5 rounded-full border shadow-sm sm:h-6 sm:w-6 ${
             color === "w" ? "border-slate-300 bg-slate-50" : "border-slate-900 bg-slate-800"
           }`}
-        />
+        >
+          <span aria-hidden="true" />
+        </BoardPieceMotion>
       ))}
       {count > 5 && (
         <span className="text-[10px] font-bold text-foreground" aria-hidden="true">+{count - 5}</span>
@@ -155,6 +158,7 @@ export default function Backgammon() {
         current = applyMove(current, move);
       }
       playSound("navigate");
+      void playProductionSound("wood-piece-place", { playbackRate:0.94, volume:0.75 });
       setGame(endTurn(current));
       setStatus(text.yourTurn);
     }, 700);
@@ -165,6 +169,7 @@ export default function Backgammon() {
     setGame((current) => applyMove(current, move));
     setSelected(null);
     playSound(move.hit ? "achievement" : "click");
+    void playProductionSound("wood-piece-place", { playbackRate:move.hit ? 0.84 : 1, volume:0.9 });
     if (move.hit) setStatus(text.hit);
   };
 
