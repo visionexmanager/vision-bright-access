@@ -7,6 +7,7 @@ import {
   resolveDepartment,
   type ContactDepartmentId,
 } from "../_shared/contactRouting.ts";
+import { handleSourcingRequest } from "../_shared/sourcingRequest.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -90,7 +91,25 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    // Peek on a clone: the sourcing handler parses the request itself, and a
+    // consumed stream would leave it with an empty body.
+    const peek = await req.clone().json().catch(() => ({}));
+    const action = typeof peek.action === "string" ? peek.action : "contact";
+
+    // Two actions, compared literally. Both are anon-callable customer→human
+    // handoffs that create a support record; neither can reach the privileged
+    // approval engine, which stays behind owner-control.
+    if (action === "request_sourcing") {
+      return handleSourcingRequest(req);
+    }
+    if (action !== "contact") {
+      return new Response(
+        JSON.stringify({ error: `Unknown action '${action}'`, allowed: ["contact", "request_sourcing"] }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const body = peek;
     const { full_name, email, phone, service_type, message, user_id, attachment_url } = body;
 
     // Unknown or absent values fall back to General rather than being rejected:

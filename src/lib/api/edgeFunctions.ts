@@ -300,7 +300,7 @@ export async function callSourceProducts(
 }
 
 /**
- * request-sourcing — ask a human to source or confirm something.
+ * contact-form "request_sourcing" — ask a human to source or confirm something.
  *
  * Creates an escalation and an owner approval through the Phase 4 engines.
  * It never creates an order: the main catalogue has no order system, so
@@ -318,7 +318,15 @@ export async function callRequestSourcing(
   },
   signal?: AbortSignal,
 ): Promise<SourcingRequestResponse> {
-  return callEdge({ fn: "request-sourcing", body, auth: "anon", signal }) as Promise<SourcingRequestResponse>;
+  // An action of contact-form: both are anon-callable customer→human handoffs
+  // that create a support record. The privileged approval engine stays behind
+  // owner-control and is not reachable from here.
+  return callEdge({
+    fn: "contact-form",
+    body: { action: "request_sourcing", ...body },
+    auth: "anon",
+    signal,
+  }) as Promise<SourcingRequestResponse>;
 }
 
 /**

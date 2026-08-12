@@ -16,7 +16,10 @@ import type { NormalizedResult, SourceRecord } from "../../supabase/functions/_s
 const aiChat = readFileSync("src/components/AIChat.tsx", "utf8");
 const useAIChatSource = readFileSync("src/hooks/useAIChat.ts", "utf8");
 const detail = readFileSync("src/components/ai/AIResultDetail.tsx", "utf8");
-const requestFn = readFileSync("supabase/functions/request-sourcing/index.ts", "utf8");
+// The sourcing request is now the "request_sourcing" action of contact-form;
+// the handler moved to _shared but its behaviour is unchanged, so these
+// assertions still apply to the same code.
+const requestFn = readFileSync("supabase/functions/_shared/sourcingRequest.ts", "utf8");
 const migration = readFileSync("supabase/migrations/20260901000000_ai_commerce_sourcing_foundation.sql", "utf8");
 const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
 
