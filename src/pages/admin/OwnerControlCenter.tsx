@@ -18,17 +18,15 @@ import {
 
 const WAITING_STATES: EscalationState[] = ["WAITING_FOR_OWNER", "OWNER_VIEWED"];
 
-/** Proposals the owner still has to decide on. */
-const PENDING_PROPOSAL_STATES = ["PROPOSED", "EDITED"];
-
 /**
- * Proposals the owner can still act on at all.
+ * Proposals the owner can still act on.
  *
  * Includes APPROVED, because an approved proposal still needs scheduling —
- * dropping it from the table the moment it is approved would leave the
- * schedule step with no way to reach it.
+ * dropping it the moment it is approved would leave the schedule step with no
+ * way to reach it. The section heading counts this same list, so the number
+ * announced always matches the rows a screen-reader user can then tab through.
  */
-const ACTIONABLE_PROPOSAL_STATES = [...PENDING_PROPOSAL_STATES, "APPROVED"];
+const ACTIONABLE_PROPOSAL_STATES = ["PROPOSED", "EDITED", "APPROVED"];
 
 /**
  * The eleven indexed sections, and nothing else.
@@ -99,10 +97,6 @@ export default function OwnerControlCenter() {
   const humanControlled = useMemo(
     () => control.conversations.filter((c) => c.control === "human"),
     [control.conversations],
-  );
-  const pendingProposals = useMemo(
-    () => control.proposals.filter((p) => PENDING_PROPOSAL_STATES.includes(p.state)),
-    [control.proposals],
   );
   const actionableProposals = useMemo(
     () => control.proposals.filter((p) => ACTIONABLE_PROPOSAL_STATES.includes(p.state)),
@@ -416,8 +410,12 @@ export default function OwnerControlCenter() {
 
         {/* ── Content proposals (Phase 7) ─────────────────────────────── */}
         <section aria-labelledby="owner-content-heading" className="mb-8">
+          {/* Counts what the table below actually renders. A heading that says
+              0 above a visible, actionable row is worse than useless to someone
+              navigating by heading — it invites skipping the section entirely,
+              and an approved proposal still waiting to be scheduled lives here. */}
           <h2 id="owner-content-heading" className="mb-3 text-xl font-bold">
-            {t("content.proposals")} ({pendingProposals.length})
+            {t("content.proposals")} ({actionableProposals.length})
           </h2>
 
           {/* Generation form. Native selects: they are the most reliably

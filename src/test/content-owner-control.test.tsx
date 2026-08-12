@@ -97,6 +97,34 @@ describe("proposals are readable without sight", () => {
     }
   });
 
+  it("counts in the heading exactly what the table lets the owner act on", async () => {
+    // A heading that says 0 above a visible, actionable row invites a
+    // heading-navigating user to skip the section — and an approved proposal
+    // still waiting to be scheduled lives in exactly that state.
+    const approved = { ...proposal, id: "cp-2", proposal_ref: "K4M9P", state: "APPROVED" };
+    tables.content_proposals = [proposal, approved];
+
+    render(<OwnerControlCenter />);
+    await screen.findByText("K4M9P");
+
+    const heading = screen.getByRole("heading", { name: /^Content proposals/ });
+    const rows = within(screen.getByRole("table", { name: en["content.proposalsCaption"] }))
+      .getAllByRole("row")
+      .slice(1); // drop the header row
+
+    expect(rows).toHaveLength(2);
+    expect(heading.textContent).toContain(`(${rows.length})`);
+  });
+
+  it("keeps an approved proposal reachable so it can be scheduled", async () => {
+    tables.content_proposals = [{ ...proposal, state: "APPROVED" }];
+    render(<OwnerControlCenter />);
+    await openDetail();
+
+    // The schedule step is the only thing left for it, so it must be offered.
+    expect(await screen.findByRole("button", { name: en["content.schedule"] })).toBeTruthy();
+  });
+
   it("states status in words, not by colour alone", async () => {
     render(<OwnerControlCenter />);
     const row = (await screen.findByText("H7K3M")).closest("tr")!;

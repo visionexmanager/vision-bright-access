@@ -131,6 +131,48 @@ export function detectConfidentialLeak(text: string): string[] {
   return hits;
 }
 
+export interface GenerationGateInput {
+  /** The retrieved records, already projected for the prompt. */
+  sources: string;
+  /** Distilled guidance read back from content_memory. */
+  memory: string;
+  /** The explicit do-not-propose list. */
+  avoid: string;
+}
+
+export interface GenerationGateResult<T> {
+  ok: boolean;
+  error?: string;
+  detail?: string;
+  draft?: T;
+}
+
+/**
+ * Screen everything about to be sent to the model, then generate — in that
+ * order, and only in that order.
+ *
+ * Fail-closed by construction: `generate` is a callback this function decides
+ * whether to invoke, so a confidential term in the assembled input means the
+ * model is never called at all and no proposal can exist to save. Screening
+ * only the model's reply would be too late twice over — the data would already
+ * have left the system, and the output screen matches internal field names and
+ * commercial vocabulary, not a supplier's actual name or a bare cost figure.
+ *
+ * Uses the same detectConfidentialLeak — and therefore the same Phase 6
+ * INTERNAL_ONLY_FIELDS — as the output screen. There is deliberately no second
+ * list to keep in step.
+ */
+export async function generateAfterInputScreen<T>(
+  input: GenerationGateInput,
+  generate: () => Promise<T>,
+): Promise<GenerationGateResult<T>> {
+  const hits = detectConfidentialLeak([input.sources, input.memory, input.avoid].join("\n"));
+  if (hits.length > 0) {
+    return { ok: false, error: "confidential_input", detail: hits.join(", ") };
+  }
+  return { ok: true, draft: await generate() };
+}
+
 export interface MemoryRow {
   memory_type: string;
   topic: string | null;

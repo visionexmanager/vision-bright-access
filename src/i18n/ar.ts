@@ -12731,6 +12731,7 @@ export const translations: Record<string, string> = {
   "content.refused.not_found": "لم يعد هذا الاقتراح موجوداً.",
   "content.refused.not_pending": "سبق البتّ في هذا الاقتراح.",
   "content.refused.unknown": "تم رفض الطلب.",
+  "content.refused.confidential_input": "عُثر على تفاصيل توريد داخلية في السجلات المصدرية، فلم يُستدعَ الذكاء الاصطناعي إطلاقاً.",
 };
 
 export default translations;

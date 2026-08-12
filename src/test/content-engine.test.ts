@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   CONTENT_SECTIONS,
@@ -12,6 +12,7 @@ import {
   SECTION_SEEDS,
   buildMemoryContext,
   detectConfidentialLeak,
+  generateAfterInputScreen,
   normalizeProposedTime,
   normalizeTopicKey,
   renderSourcesForPrompt,
@@ -191,12 +192,106 @@ describe("confidentiality", () => {
   });
 
   it("shows the model only the id, table and already-public indexed text", () => {
+    // An allow-list projection: nothing reads the underlying row, so a column
+    // added to a source config cannot appear here — only what embed-content
+    // chose to index does.
     const rendered = renderSourcesForPrompt([
       { source_table: "products", source_id: "p1", content: "Braille display, 40 cell" },
     ]);
-    expect(rendered).toContain("p1");
-    expect(rendered).toContain("Braille display");
-    expect(detectConfidentialLeak(rendered)).toEqual([]);
+    expect(rendered).toBe("- [p1] (products) Braille display, 40 cell");
+  });
+});
+
+describe("the model is never called on confidential input", () => {
+  // The guarantee this suite exists for. `generateAfterInputScreen` owns the
+  // call, so these exercise the real control flow rather than asserting on the
+  // shape of the source file.
+
+  const clean = { sources: "- [p1] (products) Braille display, 40 cell", memory: "", avoid: "" };
+
+  it("does not invoke the generator when a source record carries an internal field", async () => {
+    const generate = vi.fn(async () => ({ topic: "anything" }));
+    const result = await generateAfterInputScreen(
+      { ...clean, sources: "- [p1] (products) Braille display. sourcePriceUsd 610." },
+      generate,
+    );
+
+    expect(generate).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("confidential_input");
+    expect(result.draft).toBeUndefined();
+    expect(result.detail).toContain("sourcePriceUsd");
+  });
+
+  it("screens stored memory and the avoid-list too, not just the records", async () => {
+    for (const field of ["memory", "avoid"] as const) {
+      const generate = vi.fn(async () => ({ topic: "anything" }));
+      const result = await generateAfterInputScreen(
+        { ...clean, [field]: "- Owner said not to mention our supplier in Shenzhen." },
+        generate,
+      );
+      expect(generate, `${field} was not screened`).not.toHaveBeenCalled();
+      expect(result.ok).toBe(false);
+    }
+  });
+
+  it("catches every INTERNAL_ONLY_FIELDS member on the way in", async () => {
+    for (const field of INTERNAL_ONLY_FIELDS) {
+      const generate = vi.fn(async () => ({ topic: "anything" }));
+      await generateAfterInputScreen({ ...clean, sources: `- [p1] (products) ${field}: 12` }, generate);
+      expect(generate, `${field} reached the model`).not.toHaveBeenCalled();
+    }
+  });
+
+  it("does call the generator, once, when the input is clean", async () => {
+    const generate = vi.fn(async () => ({ topic: "Braille displays" }));
+    const result = await generateAfterInputScreen(clean, generate);
+
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(true);
+    expect(result.draft).toEqual({ topic: "Braille displays" });
+  });
+
+  it("is wired into the engine ahead of the model call, and refuses on its verdict", () => {
+    // The gate is only a guarantee if the engine actually routes through it.
+    expect(engine).toContain("generateAfterInputScreen(");
+    expect(engine).toContain("() => structuredCompletion({");
+    // structuredCompletion appears only as the gate's callback, never called
+    // directly, so there is no second path around the screen.
+    expect(engine.match(/structuredCompletion\(/g)).toHaveLength(1);
+    expect(engine).toContain("if (!gated.ok)");
+  });
+
+  it("keeps input and output screening on one shared list", () => {
+    // Two lists would drift. Both screens call detectConfidentialLeak, which is
+    // built from Phase 6's INTERNAL_ONLY_FIELDS.
+    const rules = readFileSync("supabase/functions/_shared/content/proposalRules.ts", "utf8");
+    expect(rules.match(/export const CONFIDENTIAL_TERMS/g)).toHaveLength(1);
+    expect(rules).toContain("...INTERNAL_ONLY_FIELDS");
+    expect(rules.match(/export function detectConfidentialLeak/g)).toHaveLength(1);
+  });
+});
+
+describe("the ordering the pipeline promises", () => {
+  it("screens the input after collecting sources and before the model", () => {
+    const rateAt = engine.indexOf('rpc("check_ai_rate_limit"');
+    const sourcesAt = engine.indexOf('rpc("match_embeddings"');
+    const cooldownAt = engine.indexOf('rpc("content_sources_in_cooldown"');
+    const gateAt = engine.indexOf("generateAfterInputScreen(");
+    const modelAt = engine.indexOf("structuredCompletion({");
+    const outputAt = engine.indexOf("const leak = detectConfidentialLeak(");
+    const saveAt = engine.indexOf('rpc("create_content_proposal"');
+
+    for (const index of [rateAt, sourcesAt, cooldownAt, gateAt, modelAt, outputAt, saveAt]) {
+      expect(index).toBeGreaterThan(-1);
+    }
+    // rate limit → sources → cooldown → input screen → model → output screen → save
+    expect(rateAt).toBeLessThan(sourcesAt);
+    expect(sourcesAt).toBeLessThan(cooldownAt);
+    expect(cooldownAt).toBeLessThan(gateAt);
+    expect(gateAt).toBeLessThan(modelAt);
+    expect(modelAt).toBeLessThan(outputAt);
+    expect(outputAt).toBeLessThan(saveAt);
   });
 });
 
@@ -240,6 +335,14 @@ describe("duplicate prevention, three layers", () => {
     expect(migration).toContain("content_sources_in_cooldown");
     expect(engine).toContain('rpc("content_sources_in_cooldown"');
     expect(engine).toContain('error: "all_sources_on_cooldown"');
+  });
+
+  it("keeps the concurrency limit of layers 2 and 3 written down", () => {
+    // Layers 2 and 3 are check-then-act and are not race-safe; only the exact
+    // check is, because it is an index inside the transaction. Pinning the note
+    // stops the caveat being quietly deleted while the behaviour stays.
+    expect(engine).toContain("KNOWN LIMITATION");
+    expect(engine).toContain("not race-safe under concurrent generation");
   });
 
   it("feeds rejected topics back as an explicit avoid-list", () => {

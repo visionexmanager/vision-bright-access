@@ -18,6 +18,7 @@ import {
   SECTION_SEEDS,
   buildMemoryContext,
   detectConfidentialLeak,
+  generateAfterInputScreen,
   normalizeProposedTime,
   normalizeTopicKey,
   renderSourcesForPrompt,
@@ -154,20 +155,33 @@ export async function proposeContent(
     avoid,
   };
 
-  let draft: Record<string, unknown>;
+  // Input screening happens here, before the model is reached — not after it
+  // answers. The gate owns the call, so a confidential term in the retrieved
+  // records or in stored memory means structuredCompletion is never invoked and
+  // there is nothing to save.
+  let gated: { ok: boolean; error?: string; detail?: string; draft?: Record<string, unknown> };
   try {
-    draft = (await structuredCompletion({
-      provider: generator.provider,
-      model: generator.model,
-      system: generator.buildSystem(params, opts.language),
-      userText: generator.buildUser(params, opts.language),
-      schema: generator.schema,
-      toolName: generator.toolName ?? "content_proposal",
-      maxTokens: 1500,
-    })) as Record<string, unknown>;
+    gated = await generateAfterInputScreen(
+      { sources: params.sources, memory: params.memory, avoid: params.avoid },
+      () => structuredCompletion({
+        provider: generator.provider,
+        model: generator.model,
+        system: generator.buildSystem(params, opts.language),
+        userText: generator.buildUser(params, opts.language),
+        schema: generator.schema!,
+        toolName: generator.toolName ?? "content_proposal",
+        maxTokens: 1500,
+      }) as Promise<Record<string, unknown>>,
+    );
   } catch {
     return { ok: false, error: "generation_failed" };
   }
+
+  if (!gated.ok) {
+    console.error("[content-engine] input screen refused:", gated.detail);
+    return { ok: false, error: gated.error, detail: gated.detail };
+  }
+  const draft = gated.draft as Record<string, unknown>;
 
   await service.from("ai_usage_log").insert({
     user_id: opts.actorId,
@@ -210,6 +224,18 @@ export async function proposeContent(
     lookback_days: DEDUPE_LOOKBACK_DAYS,
     match_count: 3,
   });
+  // KNOWN LIMITATION — not race-safe under concurrent generation.
+  //
+  // This is check-then-act: two runs started at the same time can both read
+  // "nothing similar" and both go on to insert. Only exact duplicates are
+  // race-safe, because those are caught by the partial unique index inside
+  // create_content_proposal's transaction rather than by a prior read.
+  //
+  // Left as-is deliberately. Closing it needs the similarity test moved inside
+  // the transaction behind an advisory lock, which is more restructuring than
+  // this phase should carry, and the worst case is mild: two similar proposals
+  // sit in the queue and the owner rejects one. The same applies to the source
+  // cooldown above.
   const nearest = ((similar ?? []) as Array<{ proposal_ref: string; topic: string; similarity: number }>)[0];
   if (nearest) {
     return {
