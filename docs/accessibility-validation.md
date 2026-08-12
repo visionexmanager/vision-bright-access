@@ -60,6 +60,41 @@ Cover **NVDA** and **JAWS** on Windows, **VoiceOver** on macOS/iOS, and
 **TalkBack** on Android, in both English and Arabic — the Arabic pass matters
 independently because direction and announcement order change.
 
+### Phase 7 — content proposals in the Owner Control Centre
+
+Same status as everything above: **no screen reader has heard this.** What is
+verified, in `src/test/content-owner-control.test.tsx`, is the semantics only.
+
+Built and asserted:
+
+- a real `<table>` with a `<caption>` and `scope="col"` headers — proposals are
+  tabular data and are marked up as such
+- every state rendered as a sentence (`content.state.*`), never a colour alone;
+  the same for section, content type and platform
+- each generation control is a native `<select>` with a real `<label>`. Native
+  controls were chosen over the styled listbox deliberately: they are the most
+  reliably announced option in every screen reader, and this page is the one a
+  blind owner operates daily
+- the detail region carries `aria-expanded` and `aria-controls`, and the heading
+  inside it takes focus when opened
+- outcomes are announced through the page's existing
+  `role="status" aria-live="polite" aria-atomic="true"` region, including
+  refusals, which are stated as reasons rather than as "try again"
+- `dir` follows the page direction, and the Arabic dictionary is exercised
+
+Needs a real screen-reader pass:
+
+| Surface | What to confirm |
+| --- | --- |
+| Proposals table | Row and column context is announced while arrowing; the reference is read character-by-character or spelled usefully, not as a word |
+| Generation form | The four selects are announced with their labels and current values; the "nothing is posted" note is reached before the Generate button, not after |
+| Proposal detail | Focus lands on the detail heading on open and returns sensibly on close; the `<dl>` pairs are announced as term/description |
+| Refusal messages | A refusal interrupts appropriately and is heard once, not twice (the live region and the toast both fire) |
+| Arabic | Hook, body and rationale in Arabic read in the correct direction inside an otherwise mixed-direction page |
+
+The live-region-plus-toast double announcement is the most likely real defect
+here and is the first thing to check.
+
 ### Recording the outcome
 
 Findings belong in an issue per surface, not in this file. Anything that does

@@ -5,6 +5,21 @@
 // generator. Add one by adding an entry with a `buildSystem(params, lang)`.
 
 import type { AIProvider } from "./aiProvider.ts";
+import {
+  CONTENT_PROPOSAL_SCHEMA,
+  buildContentWriterSystem,
+  buildContentWriterUser,
+} from "./content/writerPrompt.ts";
+
+// One import site for the registry and the vocabularies its content-writer
+// entry is constrained to. The definitions live in an import-free module so the
+// unit suite can exercise the real schema and the real prompt.
+export {
+  CONTENT_SECTIONS,
+  CONTENT_TYPES,
+  CONTENT_PLATFORMS,
+  CONTENT_PROPOSAL_SCHEMA,
+} from "./content/writerPrompt.ts";
 
 export interface Generator {
   id: string;
@@ -15,6 +30,19 @@ export interface Generator {
   buildSystem: (params: Record<string, string>, lang: string) => string;
   /** Build the short user instruction (kept generic). */
   buildUser: (params: Record<string, string>, lang: string) => string;
+  /**
+   * Result schema, when the universal plan shape does not fit.
+   *
+   * Optional on purpose: every generator written before this field existed
+   * omits it and keeps returning GENERATION_SCHEMA exactly as before. Only a
+   * generator whose output is not a plan — `content-writer` is the first —
+   * declares its own. Bending such a generator into `sections[].items` and
+   * parsing the fields back out of prose would lose the typed values and fail
+   * silently the first time the model phrased a line differently.
+   */
+  schema?: Record<string, unknown>;
+  /** Tool name paired with `schema`. Ignored unless `schema` is set. */
+  toolName?: string;
 }
 
 // Universal result schema returned by every generator.
@@ -41,6 +69,7 @@ export const GENERATION_SCHEMA = {
   required: ["title", "summary", "sections", "tips"],
   additionalProperties: false,
 } as const;
+
 
 const DEFAULT_PROVIDER: AIProvider = "openai";
 const DEFAULT_MODEL = "gpt-4o";
@@ -192,6 +221,28 @@ export const GENERATORS: Record<string, Generator> = {
         LANG_NOTE,
       ].join("\n\n"),
     buildUser: () => "Generate the import and sourcing checklist.",
+  },
+
+  /**
+   * Phase 7 content engine. Drafts ONE proposal about Visionex itself, grounded
+   * in rows that were actually retrieved from the semantic index.
+   *
+   * The registry is the single home for this prompt and schema: `ai-generate`
+   * serves an ad-hoc single draft with it, and the content engine imports the
+   * same entry for the discovery pipeline. Two callers, one prompt — so a
+   * wording change cannot apply to one path and not the other.
+   */
+  "content-writer": {
+    id: "content-writer",
+    name: "Visionex Content Writer",
+    provider: DEFAULT_PROVIDER,
+    model: DEFAULT_MODEL,
+    schema: CONTENT_PROPOSAL_SCHEMA as unknown as Record<string, unknown>,
+    toolName: "content_proposal",
+    // Prompt lives in content/writerPrompt.ts alongside the schema it has to
+    // satisfy, so the unit suite can exercise both without importing Deno code.
+    buildSystem: buildContentWriterSystem,
+    buildUser: buildContentWriterUser,
   },
 };
 
