@@ -59,7 +59,6 @@ export type EdgeFunctionName =
   | "analyze-image"
   | "ai-generate"
   | "ai-search"
-  | "request-sourcing"
   | "embed-content"
   | "moderate-content"
   | "text-to-speech"

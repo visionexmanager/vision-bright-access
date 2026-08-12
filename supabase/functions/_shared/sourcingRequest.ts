@@ -1,3 +1,10 @@
+// Customer sourcing request, served as the "request_sourcing" action of
+// contact-form. Extracted verbatim from the request-sourcing function: same
+// anon posture, same rate limit, same escalation and approval records.
+//
+// This only *creates* an escalation and an approval row. The privileged
+// approval engine — decide_owner_approval and transition_escalation — stays
+// behind owner-control and is not reachable from here.
 // Customer-facing: "I want help getting this."
 //
 // Creates a support escalation and an owner approval through the Phase 4
@@ -10,7 +17,7 @@
 // protections here.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getCorsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders } from "./cors.ts";
 
 /** Per-identity ceiling. Enough for a real conversation, not for a flood. */
 const MAX_REQUESTS_PER_HOUR = 5;
@@ -23,7 +30,7 @@ interface TranscriptTurn {
   content: string;
 }
 
-Deno.serve(async (req) => {
+export async function handleSourcingRequest(req: Request): Promise<Response> {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -176,4 +183,4 @@ Deno.serve(async (req) => {
     console.error("[request-sourcing] error:", error);
     return json({ error: "Your request could not be recorded. Please try again." }, 500);
   }
-});
+}
