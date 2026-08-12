@@ -145,7 +145,9 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
-          GITHUB_EVENT_BEFORE:   ""
+          # workflow_run has no `before` field. The script safely falls back
+          # to this CI-tested commit's first parent for automatic deploys.
+          DEPLOY_SHA:            ${{ github.event.workflow_run.head_sha || github.sha }}
 
   # ── 3. Run pending DB migrations ──────────────────────────────────────────────
   # Always runs `db push` — every migration file uses `if not exists` / `if exists`
