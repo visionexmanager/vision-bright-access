@@ -11,11 +11,39 @@ import { toast } from "@/hooks/use-toast";
 import {
   useOwnerControl,
   type Approval,
+  type ContentProposal,
   type Escalation,
   type EscalationState,
 } from "@/hooks/useOwnerControl";
 
 const WAITING_STATES: EscalationState[] = ["WAITING_FOR_OWNER", "OWNER_VIEWED"];
+
+/**
+ * Proposals the owner can still act on.
+ *
+ * Includes APPROVED, because an approved proposal still needs scheduling —
+ * dropping it the moment it is approved would leave the schedule step with no
+ * way to reach it. The section heading counts this same list, so the number
+ * announced always matches the rows a screen-reader user can then tab through.
+ */
+const ACTIONABLE_PROPOSAL_STATES = ["PROPOSED", "EDITED", "APPROVED"];
+
+/**
+ * The eleven indexed sections, and nothing else.
+ *
+ * Mirrors CONTENT_SECTIONS in the generator registry. A section that
+ * embed-content does not index cannot be discovered, so offering one in this
+ * dropdown would only produce a refusal from the engine.
+ */
+const SECTIONS = [
+  "products", "content_items", "academy_courses", "kids_games", "simulations",
+  "tv_channels", "radio_stations", "communities", "events", "jobs", "services",
+] as const;
+
+const CONTENT_TYPES = ["post", "short_video", "reel", "story", "article", "carousel"] as const;
+
+/** Suggestion targets. Phase 7 dispatches to none of them. */
+const PLATFORMS = ["facebook", "instagram", "tiktok", "youtube", "website", "newsletter"] as const;
 
 /** How long a case has been waiting, in words rather than a coloured dot. */
 function waitedFor(iso: string, t: (k: string) => string): string {
@@ -47,6 +75,17 @@ export default function OwnerControlCenter() {
   const [announcement, setAnnouncement] = useState("");
   const detailRef = useRef<HTMLHeadingElement>(null);
 
+  // ── Phase 7 content proposals ──────────────────────────────────────────
+  const [openProposal, setOpenProposal] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [genSection, setGenSection] = useState<string>("products");
+  const [genType, setGenType] = useState<string>("post");
+  const [genPlatform, setGenPlatform] = useState<string>("website");
+  const [genLanguage, setGenLanguage] = useState<"en" | "ar">("en");
+  const [editHook, setEditHook] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const proposalDetailRef = useRef<HTMLHeadingElement>(null);
+
   const waiting = useMemo(
     () => control.escalations.filter((e) => WAITING_STATES.includes(e.state)),
     [control.escalations],
@@ -58,6 +97,10 @@ export default function OwnerControlCenter() {
   const humanControlled = useMemo(
     () => control.conversations.filter((c) => c.control === "human"),
     [control.conversations],
+  );
+  const actionableProposals = useMemo(
+    () => control.proposals.filter((p) => ACTIONABLE_PROPOSAL_STATES.includes(p.state)),
+    [control.proposals],
   );
   const failed = useMemo(
     () => control.approvals.filter((a) => a.state === "FAILED")
@@ -100,6 +143,71 @@ export default function OwnerControlCenter() {
 
   const escalationDetail = control.escalations.find((e) => e.id === openEscalation);
   const approvalDetail = control.approvals.find((a) => a.id === openApproval);
+  const proposalDetail = control.proposals.find((p) => p.id === openProposal);
+
+  const focusProposal = () => requestAnimationFrame(() => proposalDetailRef.current?.focus());
+
+  const openProposalDetail = (proposal: ContentProposal) => {
+    const next = proposal.id === openProposal ? null : proposal.id;
+    setOpenProposal(next);
+    // Seed the edit fields from the draft so "edit" starts from what the AI
+    // wrote rather than from an empty box.
+    if (next) {
+      setEditHook(proposal.hook);
+      setEditBody(proposal.body);
+    }
+    focusProposal();
+  };
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    announce(t("content.generating"));
+    const result = await control.proposeContent(genSection, genType, genPlatform, genLanguage);
+    setGenerating(false);
+    // A refusal is usually the engine doing its job — a duplicate topic, a
+    // section on cooldown, a draft that named something confidential. Each gets
+    // its own sentence, because "try again" is wrong advice for most of them.
+    announce(result.ok
+      ? t("content.generated").replace("{ref}", result.proposal_ref ?? "")
+      : t(`content.refused.${result.reason ?? "unknown"}`));
+  };
+
+  const handleProposalDecision = async (proposal: ContentProposal, approve: boolean) => {
+    const result = await control.decideProposal(proposal.proposal_ref, approve, note || undefined);
+    if (result.ok) {
+      announce(t(approve ? "content.approved" : "content.rejected").replace("{ref}", proposal.proposal_ref));
+      setOpenProposal(null);
+      setNote("");
+    } else {
+      announce(t("owner.alreadyDecided").replace("{ref}", proposal.proposal_ref));
+    }
+  };
+
+  const handleProposalEdit = async (proposal: ContentProposal) => {
+    const result = await control.editProposal(proposal.proposal_ref, {
+      hook: editHook, body: editBody, note: note || undefined,
+    });
+    announce(result.ok ? t("content.edited").replace("{ref}", proposal.proposal_ref) : t("content.editRefused"));
+    if (result.ok) setNote("");
+  };
+
+  const handleRegenerate = async (proposal: ContentProposal) => {
+    setGenerating(true);
+    const result = await control.regenerateProposal(proposal.proposal_ref);
+    setGenerating(false);
+    announce(result.ok
+      ? t("content.regenerated").replace("{ref}", result.proposal_ref ?? "")
+      : t(`content.refused.${result.reason ?? "unknown"}`));
+    if (result.ok) setOpenProposal(null);
+  };
+
+  const handleSchedule = async (proposal: ContentProposal) => {
+    const when = proposal.proposed_publish_at ?? new Date(Date.now() + 86_400_000).toISOString();
+    const result = await control.scheduleProposal(proposal.proposal_ref, when, note || undefined);
+    announce(result.ok
+      ? t("content.scheduled").replace("{ref}", proposal.proposal_ref)
+      : t("content.scheduleRefused"));
+  };
 
   return (
     <Layout>
@@ -294,6 +402,198 @@ export default function OwnerControlCenter() {
                   <Button size="sm" onClick={() => void handleDecision(approvalDetail, true)}>{t("owner.approve")}</Button>
                   <Button size="sm" variant="destructive" onClick={() => void handleDecision(approvalDetail, false)}>{t("owner.reject")}</Button>
                   <Button size="sm" variant="outline" onClick={() => announce(t("owner.moreInfoRequested"))}>{t("owner.requestMoreInfo")}</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </section>
+
+        {/* ── Content proposals (Phase 7) ─────────────────────────────── */}
+        <section aria-labelledby="owner-content-heading" className="mb-8">
+          {/* Counts what the table below actually renders. A heading that says
+              0 above a visible, actionable row is worse than useless to someone
+              navigating by heading — it invites skipping the section entirely,
+              and an approved proposal still waiting to be scheduled lives here. */}
+          <h2 id="owner-content-heading" className="mb-3 text-xl font-bold">
+            {t("content.proposals")} ({actionableProposals.length})
+          </h2>
+
+          {/* Generation form. Native selects: they are the most reliably
+              announced control in every screen reader, and this page is
+              operated without sight. */}
+          <Card className="mb-3">
+            <CardContent className="p-4">
+              <h3 className="mb-2 text-sm font-bold">{t("content.askAi")}</h3>
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label htmlFor="content-section" className="block text-sm font-medium">{t("content.section")}</label>
+                  <select
+                    id="content-section" value={genSection} onChange={(e) => setGenSection(e.target.value)}
+                    className="mt-1 rounded-md border bg-background px-2 py-1.5 text-sm"
+                  >
+                    {SECTIONS.map((s) => <option key={s} value={s}>{t(`content.section.${s}`)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="content-type" className="block text-sm font-medium">{t("content.type")}</label>
+                  <select
+                    id="content-type" value={genType} onChange={(e) => setGenType(e.target.value)}
+                    className="mt-1 rounded-md border bg-background px-2 py-1.5 text-sm"
+                  >
+                    {CONTENT_TYPES.map((c) => <option key={c} value={c}>{t(`content.type.${c}`)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="content-platform" className="block text-sm font-medium">{t("content.platform")}</label>
+                  <select
+                    id="content-platform" value={genPlatform} onChange={(e) => setGenPlatform(e.target.value)}
+                    className="mt-1 rounded-md border bg-background px-2 py-1.5 text-sm"
+                    aria-describedby="content-platform-hint"
+                  >
+                    {PLATFORMS.map((p) => <option key={p} value={p}>{t(`content.platform.${p}`)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="content-language" className="block text-sm font-medium">{t("content.language")}</label>
+                  <select
+                    id="content-language" value={genLanguage}
+                    onChange={(e) => setGenLanguage(e.target.value === "ar" ? "ar" : "en")}
+                    className="mt-1 rounded-md border bg-background px-2 py-1.5 text-sm"
+                  >
+                    <option value="en">{t("content.lang.en")}</option>
+                    <option value="ar">{t("content.lang.ar")}</option>
+                  </select>
+                </div>
+                <Button size="sm" onClick={() => void handleGenerate()} disabled={generating}>
+                  {generating ? t("content.generating") : t("content.generate")}
+                </Button>
+              </div>
+              {/* Says plainly that choosing a platform does not post anywhere. */}
+              <p id="content-platform-hint" className="mt-2 text-xs text-muted-foreground">
+                {t("content.noPublishNotice")}
+              </p>
+            </CardContent>
+          </Card>
+
+          {actionableProposals.length === 0 ? (
+            <p className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">{t("content.noProposals")}</p>
+          ) : (
+            <Card><CardContent className="p-0">
+              <Table>
+                <caption className="sr-only">{t("content.proposalsCaption")}</caption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead scope="col">{t("owner.reference")}</TableHead>
+                    <TableHead scope="col">{t("content.type")}</TableHead>
+                    <TableHead scope="col">{t("content.section")}</TableHead>
+                    <TableHead scope="col">{t("content.topic")}</TableHead>
+                    <TableHead scope="col">{t("content.platform")}</TableHead>
+                    {/* State as a word, never a colour alone. */}
+                    <TableHead scope="col">{t("owner.status")}</TableHead>
+                    <TableHead scope="col">{t("admin.common.actions")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {actionableProposals.map((proposal) => (
+                    <TableRow key={proposal.id}>
+                      <TableCell className="font-mono">{proposal.proposal_ref}</TableCell>
+                      <TableCell>{t(`content.type.${proposal.content_type}`)}</TableCell>
+                      <TableCell>{t(`content.section.${proposal.section}`)}</TableCell>
+                      <TableCell>{proposal.topic}</TableCell>
+                      <TableCell>{t(`content.platform.${proposal.platform}`)}</TableCell>
+                      <TableCell>{t(`content.state.${proposal.state}`)}</TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm" variant="outline"
+                          onClick={() => openProposalDetail(proposal)}
+                          aria-expanded={openProposal === proposal.id}
+                          aria-controls="owner-proposal-detail"
+                        >
+                          {t("owner.review")}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent></Card>
+          )}
+
+          {proposalDetail && (
+            <Card id="owner-proposal-detail" className="mt-3">
+              <CardContent className="p-4">
+                <h3
+                  ref={proposalDetailRef} tabIndex={-1}
+                  className="mb-1 font-bold outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  {t("content.aiProposes")}
+                </h3>
+                <p className="mb-3 text-xs text-muted-foreground">{t("owner.youAuthorize")}</p>
+
+                <dl className="grid gap-2 text-sm">
+                  <div><dt className="inline font-medium">{t("content.topic")}: </dt><dd className="inline">{proposalDetail.topic}</dd></div>
+                  <div><dt className="inline font-medium">{t("content.hook")}: </dt><dd className="inline">{proposalDetail.hook}</dd></div>
+                  <div><dt className="inline font-medium">{t("content.why")}: </dt><dd className="inline">{proposalDetail.rationale}</dd></div>
+                  <div><dt className="inline font-medium">{t("content.audience")}: </dt><dd className="inline">{proposalDetail.target_audience ?? "—"}</dd></div>
+                  <div><dt className="inline font-medium">{t("content.proposedTime")}: </dt><dd className="inline">
+                    {proposalDetail.proposed_publish_at ? new Date(proposalDetail.proposed_publish_at).toLocaleString() : "—"}
+                  </dd></div>
+                  <div><dt className="inline font-medium">{t("owner.status")}: </dt><dd className="inline">{t(`content.state.${proposalDetail.state}`)}</dd></div>
+                  <div><dt className="inline font-medium">{t("content.revision")}: </dt><dd className="inline">{proposalDetail.revision}</dd></div>
+                </dl>
+
+                <h4 className="mt-3 text-sm font-bold">{t("content.preview")}</h4>
+                <p className="mt-1 whitespace-pre-wrap rounded bg-muted/50 p-2 text-sm">{proposalDetail.body}</p>
+                {proposalDetail.hashtags.length > 0 && (
+                  <p className="mt-1 text-sm">
+                    <span className="font-medium">{t("content.hashtags")}: </span>
+                    {proposalDetail.hashtags.join(" ")}
+                  </p>
+                )}
+
+                {/* Which indexed rows the draft was grounded in — this is what
+                    makes "why did the AI propose this" answerable later. These
+                    are internal record ids, and this page is admin-only. */}
+                <h4 className="mt-3 text-sm font-bold">{t("content.sources")}</h4>
+                {proposalDetail.source_refs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">—</p>
+                ) : (
+                  <ul className="mt-1 list-inside list-disc text-sm">
+                    {proposalDetail.source_refs.map((ref) => (
+                      <li key={`${ref.source_table}:${ref.source_id}`}>
+                        {t(`content.section.${ref.source_table}`)} — <span className="font-mono text-xs">{ref.source_id}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="mt-3 grid gap-2">
+                  <div>
+                    <label htmlFor="content-edit-hook" className="text-sm font-medium">{t("content.editHook")}</label>
+                    <Textarea id="content-edit-hook" rows={2} value={editHook} onChange={(e) => setEditHook(e.target.value)} className="mt-1" />
+                  </div>
+                  <div>
+                    <label htmlFor="content-edit-body" className="text-sm font-medium">{t("content.editBody")}</label>
+                    <Textarea id="content-edit-body" rows={6} value={editBody} onChange={(e) => setEditBody(e.target.value)} className="mt-1" />
+                  </div>
+                  <div>
+                    <label htmlFor="content-note" className="text-sm font-medium">{t("owner.note")}</label>
+                    <Textarea id="content-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} className="mt-1" />
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => void handleProposalDecision(proposalDetail, true)}>{t("owner.approve")}</Button>
+                  <Button size="sm" variant="outline" onClick={() => void handleProposalEdit(proposalDetail)}>{t("content.saveEdit")}</Button>
+                  <Button size="sm" variant="destructive" onClick={() => void handleProposalDecision(proposalDetail, false)}>{t("owner.reject")}</Button>
+                  <Button size="sm" variant="outline" disabled={generating} onClick={() => void handleRegenerate(proposalDetail)}>
+                    {t("content.regenerate")}
+                  </Button>
+                  {proposalDetail.state === "APPROVED" && (
+                    <Button size="sm" variant="outline" onClick={() => void handleSchedule(proposalDetail)}>
+                      {t("content.schedule")}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -29,6 +29,41 @@ the frontend ESLint config, and there was no Deno-specific check before.
 This closes the one real gap: these files were previously untyped-checked
 in CI.
 
+## Retiring a function
+
+`deploy.yml` only ever creates and updates. Deleting a function's directory
+from the repository does **not** remove it from Supabase, so repository state
+and production state drift apart silently and only in one direction. Ten
+`career-ai-*` functions drifted exactly that way: consolidated into the
+`career-ai` router in #89, sourceless from then on, still live, and occupying
+ten slots of the project's 100-function cap — which is what blocked `career-ai`
+and `owner-control` from deploying at all (`402 Max number of functions reached`).
+
+Retirement is deliberately a separate, manual path:
+
+1. Add an entry to `supabase/retirement-manifest.json` in a pull request, with
+   what replaced the function and why it is safe to remove. Reviewed like any
+   other change.
+2. Run **Retire Supabase Edge Functions** in `plan` mode. It reconciles the
+   manifest, the repository, and the live function list, and prints what it
+   would do without touching anything.
+3. Read the plan, then re-run in `apply` mode with the confirmation phrase
+   `RETIRE-PRODUCTION-FUNCTIONS`.
+4. Run **Deploy** afterwards to publish anything the freed slots unblock.
+   Retirement never redeploys — the two operations stay separate so a failed
+   build can never reconcile production away.
+
+The one rule the mechanism exists to enforce: **absence from the repository
+never authorizes a deletion.** Anything deployed that is in neither the
+repository nor the manifest is reported as drift and left alone. Payment
+webhooks, unauthenticated endpoints, and both halves of the owner-approval path
+are additionally hard-protected in `scripts/retire-supabase-functions.sh`, which
+keeps its own copy of that list precisely because the manifest is data that
+could be edited in the same pull request that adds a retirement.
+
+`src/test/supabase-function-retirement.test.ts` pins all of this, including that
+the workflow has no automatic trigger.
+
 ## What this phase deliberately does NOT add
 
 `.github/workflows/ci-cd.yml` already exists and targets a GKE/Helm

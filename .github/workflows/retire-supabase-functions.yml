@@ -1,0 +1,74 @@
+name: Retire Supabase Edge Functions
+
+# Deliberately separate from Deploy. Deploying and retiring are different
+# operations with different blast radii, and the deploy path must never acquire
+# the ability to delete: a failed build should leave production untouched, not
+# reconcile it away.
+#
+# This workflow is manual only. There is no push, schedule, or workflow_run
+# trigger, so no merge can ever cause a production deletion on its own.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "plan reports what would change; apply deletes."
+        type: choice
+        default: plan
+        options:
+          - plan
+          - apply
+      confirm:
+        description: "Apply only: type RETIRE-PRODUCTION-FUNCTIONS exactly."
+        type: string
+        default: ""
+
+concurrency:
+  group: retire-supabase-functions
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Reconcile manifest against production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Checked before anything talks to Supabase, so a mistyped confirmation
+      # fails on a job that has done nothing rather than midway through.
+      - name: Verify the confirmation phrase
+        if: inputs.mode == 'apply'
+        run: |
+          if [ "${{ inputs.confirm }}" != "RETIRE-PRODUCTION-FUNCTIONS" ]; then
+            echo "::error::Apply mode requires the exact confirmation phrase. Nothing ran."
+            exit 1
+          fi
+          echo "Confirmation accepted."
+
+      # A plan is always produced first, in the same run, so the apply log
+      # contains the reconciliation it acted on rather than pointing at an
+      # earlier run whose state may have moved.
+      - name: Plan
+        env:
+          MODE: plan
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: bash scripts/retire-supabase-functions.sh
+
+      - name: Apply
+        if: inputs.mode == 'apply'
+        env:
+          MODE: apply
+          CONFIRM: ${{ inputs.confirm }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: bash scripts/retire-supabase-functions.sh
+
+      - name: Next step
+        if: inputs.mode == 'apply' && success()
+        run: |
+          echo "Retirement finished. Functions freed by this run are not" \
+               "redeployed here — run the Deploy workflow to publish any" \
+               "repository function that was blocked by the cap." >> "$GITHUB_STEP_SUMMARY"

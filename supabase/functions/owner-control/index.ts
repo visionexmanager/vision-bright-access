@@ -11,12 +11,24 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { proposeContent } from "../_shared/contentEngine.ts";
 
 type Action =
   | "decide_approval"
   | "transition_escalation"
   | "mark_viewed"
-  | "set_conversation_control";
+  | "set_conversation_control"
+  // Phase 7. Content proposals are administrative decisions like any other, so
+  // they arrive through this function and inherit its admin check rather than
+  // getting an endpoint — and an authorization story — of their own.
+  | "propose_content"
+  | "decide_proposal"
+  | "edit_proposal"
+  | "regenerate_proposal"
+  | "schedule_proposal";
+
+/** Matches generate_action_reference()'s alphabet and length. */
+const REFERENCE_PATTERN = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/;
 
 const ESCALATION_STATES = new Set([
   "OWNER_VIEWED", "OWNER_APPROVED", "OWNER_REJECTED",
@@ -171,6 +183,153 @@ Deno.serve(async (req) => {
         });
 
         return json({ ok: true, control });
+      }
+
+      // ── Phase 7: content proposals ─────────────────────────────────────
+
+      case "propose_content":
+      case "regenerate_proposal": {
+        const supersedesRef = action === "regenerate_proposal"
+          ? (typeof body.proposal_ref === "string" ? body.proposal_ref.trim().toUpperCase() : "")
+          : undefined;
+
+        if (action === "regenerate_proposal" && !REFERENCE_PATTERN.test(supersedesRef ?? "")) {
+          return json({ error: "A valid proposal reference is required" }, 400);
+        }
+
+        // Regenerating inherits the previous proposal's framing: the owner
+        // asked for another take on the same brief, not a different brief.
+        let section = typeof body.section === "string" ? body.section : "";
+        let contentType = typeof body.content_type === "string" ? body.content_type : "post";
+        let platform = typeof body.platform === "string" ? body.platform : "website";
+        let language: "en" | "ar" = body.language === "ar" ? "ar" : "en";
+
+        if (supersedesRef) {
+          const { data: previous } = await service
+            .from("content_proposals")
+            .select("section, content_type, platform, language, state")
+            .eq("proposal_ref", supersedesRef)
+            .maybeSingle();
+          const row = previous as {
+            section: string; content_type: string; platform: string;
+            language: string; state: string;
+          } | null;
+          if (!row) return json({ ok: false, reason: "not_found" }, 409);
+          if (!["PROPOSED", "EDITED"].includes(row.state)) {
+            return json({ ok: false, reason: "not_pending", state: row.state }, 409);
+          }
+          section = row.section;
+          contentType = row.content_type;
+          platform = row.platform;
+          language = row.language === "ar" ? "ar" : "en";
+        }
+
+        const result = await proposeContent(service, {
+          section, contentType, platform, language,
+          actorId: user.id,
+          supersedesRef,
+        });
+
+        // A refusal here is usually the engine working: a duplicate topic, a
+        // section on cooldown, or a draft that named something confidential.
+        // The owner is told which, because "try again" is the wrong advice for
+        // most of them.
+        if (!result.ok) {
+          return json({ ok: false, reason: result.error, detail: result.detail }, 409);
+        }
+        return json({ ok: true, proposal_ref: result.proposal_ref, reference: result.reference });
+      }
+
+      case "decide_proposal": {
+        const proposalRef = typeof body.proposal_ref === "string" ? body.proposal_ref.trim().toUpperCase() : "";
+        if (!REFERENCE_PATTERN.test(proposalRef)) {
+          return json({ error: "A valid proposal reference is required" }, 400);
+        }
+        if (typeof body.approve !== "boolean") {
+          return json({ error: "approve must be true or false" }, 400);
+        }
+        const note = typeof body.note === "string" ? body.note.slice(0, 1000) : null;
+
+        // Wraps decide_owner_approval rather than replacing it: the existing
+        // engine remains the only thing that can decide an approval.
+        const { data, error } = await service.rpc("decide_content_proposal", {
+          _proposal_ref: proposalRef,
+          _approve: body.approve,
+          _actor_id: user.id,
+          _note: note,
+        });
+        if (error) {
+          console.error("[owner-control] content decision failed:", error.message);
+          return json({ error: "Decision could not be recorded" }, 500);
+        }
+
+        const result = data as { ok?: boolean; error?: string; state?: string };
+        if (!result?.ok) return json({ ok: false, reason: result?.error ?? "not_pending" }, 409);
+
+        await service
+          .from("owner_approvals")
+          .update({ decided_by_user_id: user.id })
+          .eq("action_type", "content_publish")
+          .eq("reference", (result as { reference?: string }).reference ?? "");
+
+        return json({ ok: true, state: result.state });
+      }
+
+      case "edit_proposal": {
+        const proposalRef = typeof body.proposal_ref === "string" ? body.proposal_ref.trim().toUpperCase() : "";
+        if (!REFERENCE_PATTERN.test(proposalRef)) {
+          return json({ error: "A valid proposal reference is required" }, 400);
+        }
+
+        const hashtags = Array.isArray(body.hashtags)
+          ? (body.hashtags as unknown[]).filter((h): h is string => typeof h === "string").slice(0, 12)
+          : null;
+
+        const { data, error } = await service.rpc("record_content_proposal_edit", {
+          _proposal_ref: proposalRef,
+          _actor_id: user.id,
+          _hook: typeof body.hook === "string" ? body.hook.slice(0, 300) : null,
+          _body: typeof body.body === "string" ? body.body.slice(0, 8000) : null,
+          _hashtags: hashtags,
+          _proposed_publish_at: typeof body.proposed_publish_at === "string" ? body.proposed_publish_at : null,
+          _note: typeof body.note === "string" ? body.note.slice(0, 1000) : null,
+        });
+        if (error) {
+          console.error("[owner-control] content edit failed:", error.message);
+          return json({ error: "Edit could not be recorded" }, 500);
+        }
+
+        const result = data as { ok?: boolean; error?: string; revision?: number };
+        if (!result?.ok) return json({ ok: false, reason: result?.error ?? "not_editable" }, 409);
+        return json({ ok: true, revision: result.revision });
+      }
+
+      case "schedule_proposal": {
+        const proposalRef = typeof body.proposal_ref === "string" ? body.proposal_ref.trim().toUpperCase() : "";
+        if (!REFERENCE_PATTERN.test(proposalRef)) {
+          return json({ error: "A valid proposal reference is required" }, 400);
+        }
+        const when = typeof body.scheduled_for === "string" ? Date.parse(body.scheduled_for) : NaN;
+        if (!Number.isFinite(when)) {
+          return json({ error: "scheduled_for must be an ISO 8601 timestamp" }, 400);
+        }
+
+        // Records a plan. Nothing consumes this table in Phase 7 — there is no
+        // publisher on the other side of it.
+        const { data, error } = await service.rpc("schedule_content_proposal", {
+          _proposal_ref: proposalRef,
+          _scheduled_for: new Date(when).toISOString(),
+          _actor_id: user.id,
+          _note: typeof body.note === "string" ? body.note.slice(0, 1000) : null,
+        });
+        if (error) {
+          console.error("[owner-control] scheduling failed:", error.message);
+          return json({ error: "Scheduling could not be recorded" }, 500);
+        }
+
+        const result = data as { ok?: boolean; error?: string; scheduled_for?: string };
+        if (!result?.ok) return json({ ok: false, reason: result?.error ?? "not_approved" }, 409);
+        return json({ ok: true, scheduled_for: result.scheduled_for });
       }
 
       default:
