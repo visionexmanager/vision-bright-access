@@ -7,6 +7,8 @@ const read = (name: string) => readFileSync(resolve(root, ".github/workflows", n
 
 const ci = read("ci.yml");
 const ciCd = read("ci-cd.yml");
+const deploy = read("deploy.yml");
+const edgeDeploy = readFileSync(resolve(root, "scripts/deploy-changed-supabase-functions.sh"), "utf8");
 
 /**
  * The six contexts branch protection requires on `main`. Every one is reported
@@ -109,5 +111,23 @@ describe("destructive jobs stay out of reach of a manual check run", () => {
   it("keeps image publishing gated on a protected ref", () => {
     expect(ci).toContain("if: github.ref == 'refs/heads/main'");
     expect(ciCd).toContain("github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'");
+  });
+});
+
+describe("Supabase Edge Function deployment scope", () => {
+  it("passes the exact CI-tested commit to the deploy script", () => {
+    expect(deploy).toContain("DEPLOY_SHA:");
+    expect(deploy).toContain("github.event.workflow_run.head_sha || github.sha");
+    expect(deploy).not.toMatch(/GITHUB_EVENT_BEFORE:\s+["']{2}/);
+  });
+
+  it("uses the tested commit parent when workflow_run has no before SHA", () => {
+    expect(edgeDeploy).toContain('before_sha="${target_sha}^"');
+    expect(edgeDeploy).toContain('git diff --name-only "$before_sha" "$target_sha"');
+  });
+
+  it("fails closed instead of deploying every function when the base cannot be resolved", () => {
+    expect(edgeDeploy).toContain("refusing to deploy every Edge Function");
+    expect(edgeDeploy).not.toMatch(/\[\[ -z "\$before_sha" \]\][\s\S]{0,100}list_all_functions/);
   });
 });
