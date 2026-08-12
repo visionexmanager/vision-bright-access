@@ -1,3 +1,7 @@
+// Commerce Agent sourcing, served as the "source_products" action of
+// ai-search. Extracted verbatim from the ai-source-products function: same
+// Visionex-first search, same permitted-source gating, same pricing engine and
+// same customer-facing projection.
 // AI Commerce Agent: understand → search Visionex → decide if that is enough
 // → ask permitted external sources → normalize → de-duplicate → rank → price.
 //
@@ -6,23 +10,23 @@
 // which is admin-read only, and never included in the response.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getCorsHeaders } from "../_shared/cors.ts";
-import { calculatePrice, type PricingRule } from "../_shared/sourcing/pricing.ts";
-import { projectForCustomer } from "../_shared/sourcing/confidentiality.ts";
-import { collectFromSources } from "../_shared/sourcing/registry.ts";
+import { getCorsHeaders } from "../cors.ts";
+import { calculatePrice, type PricingRule } from "./pricing.ts";
+import { projectForCustomer } from "./confidentiality.ts";
+import { collectFromSources } from "./registry.ts";
 import {
   deduplicate,
   groupByCondition,
   parseIntent,
   rank,
   routeSources,
-} from "../_shared/sourcing/router.ts";
+} from "./router.ts";
 import {
   TARGET_RESULT_COUNT,
   type ConditionFilter,
   type NormalizedResult,
   type SourceRecord,
-} from "../_shared/sourcing/types.ts";
+} from "./types.ts";
 
 const CONDITION_FILTERS: ConditionFilter[] = ["new", "used", "refurbished", "all"];
 
@@ -36,7 +40,7 @@ function internalIsSufficient(results: NormalizedResult[]): boolean {
   return strong.length >= Math.ceil(TARGET_RESULT_COUNT / 2);
 }
 
-Deno.serve(async (req) => {
+export async function handleSourceProducts(req: Request): Promise<Response> {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -214,4 +218,4 @@ Deno.serve(async (req) => {
     console.error("[ai-source-products] error:", error);
     return json({ error: "Sourcing failed" }, 500);
   }
-});
+}
