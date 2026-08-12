@@ -1,0 +1,35 @@
+{
+  "batches": [
+    {
+      "batch_id": "batch_6a7c3dd7384881909c3782193b08b862",
+      "input_file_id": "file-BJ3iJiXXkRaYrpqwSa3EL5",
+      "request_count": 500
+    }
+  ],
+  "source_hash": "d8f7c8f65e18bdab7f6b679a715dd87c0fe84e7b5a7ef8885fd7ca3032a879ac",
+  "source_entries": 12349,
+  "unique_values": 9896,
+  "request_count": 1782,
+  "next_request_index": 500,
+  "locales": [
+    "ur",
+    "hi",
+    "id",
+    "ja",
+    "it",
+    "ko",
+    "nl",
+    "pl",
+    "vi",
+    "bn",
+    "fa",
+    "es",
+    "de",
+    "pt",
+    "zh",
+    "tr",
+    "fr",
+    "ru"
+  ],
+  "model": "gpt-5.4-nano"
+}
