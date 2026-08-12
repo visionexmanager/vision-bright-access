@@ -10,6 +10,11 @@ name: Regenerate Supabase types
 
 on:
   workflow_dispatch:
+    inputs:
+      open_pr:
+        description: "Open a pull request when the types have drifted."
+        type: boolean
+        default: false
   schedule:
     # Mondays 04:00 UTC — catches drift from any migration merged during the week.
     - cron: "0 4 * * 1"
@@ -52,6 +57,17 @@ jobs:
             exit 1
           fi
 
+      # The generated file is the point of the run, so keep it retrievable even
+      # when no pull request is opened. Reviewing drift previously required the
+      # pull-request step to succeed, which meant a broken token made the whole
+      # run unreviewable rather than just unmergeable.
+      - name: Upload the generated types
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-types
+          path: src/integrations/supabase/types.ts
+          retention-days: 7
+
       - name: Report drift
         id: drift
         run: |
@@ -66,8 +82,14 @@ jobs:
       # DEPLOY_TOKEN, not the default GITHUB_TOKEN: this repository has "Allow
       # GitHub Actions to create and approve pull requests" disabled, so the
       # built-in token pushes the branch and then fails at the PR itself.
+      # A manual run defaults to inspection only: download the artifact above and
+      # read the drift. Opening the pull request is opt-in, so a review run can
+      # never leave a branch or a pull request behind. The scheduled run keeps
+      # its original behaviour.
       - name: Open a pull request
-        if: steps.drift.outputs.changed == 'true'
+        if: >-
+          steps.drift.outputs.changed == 'true' &&
+          (github.event_name == 'schedule' || inputs.open_pr)
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.DEPLOY_TOKEN }}
