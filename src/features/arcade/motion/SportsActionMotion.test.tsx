@@ -19,7 +19,7 @@ describe("SportsActionMotion", () => {
     reducedMotion.mockReturnValue(false);
   });
 
-  it.each(["penalty", "basketball", "air-hockey"] as const)("keeps the %s scene decorative", (sport) => {
+  it.each(["penalty", "basketball", "air-hockey", "table-tennis", "bowling", "mini-golf"] as const)("keeps the %s scene decorative", (sport) => {
     const { container } = render(<SportsActionMotion sport={sport} attempt={1} scored />);
     expect(container.firstElementChild).toHaveAttribute("aria-hidden", "true");
   });
