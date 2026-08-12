@@ -1,6 +1,6 @@
 {
   "phase": 3,
-  "attempt": 2,
+  "attempt": 3,
   "locales": ["ur", "hi", "id", "ja", "it", "ko", "nl", "pl", "vi", "bn", "fa", "es", "de", "pt", "zh", "tr", "fr", "ru"],
   "model": "gpt-5.4-nano",
   "title": "Isolate and refresh all non-English, non-Arabic locales"
