@@ -1,38 +1,129 @@
 {
-  "batch_id": "batch_6a7b179e0e4081908d4d496c3b16f6de",
-  "input_file_id": "file-ByRi1Z4XumWvwWPmy7Zand",
-  "source_hash": "5ded4421426f309cf0b52c5bcc43099d404d8ad1db8f90e45ce4a390957705b9",
-  "source_entries": 12114,
-  "unique_values": 9708,
-  "request_count": 490,
+  "batches": [
+    {
+      "batch_id": "batch_6a7c3dd7384881909c3782193b08b862",
+      "input_file_id": "file-BJ3iJiXXkRaYrpqwSa3EL5",
+      "request_count": 500
+    },
+    {
+      "batch_id": "batch_6a7c3fbb5ea0819096e167b0409cb09e",
+      "input_file_id": "file-YBod5czD2DF5kusxgd4P8Y",
+      "request_count": 500
+    },
+    {
+      "batch_id": "batch_6a7c499b07908190bb2baf0b3e199b87",
+      "input_file_id": "file-Mk5z1SoGLm3UbtN3kxHM1S",
+      "request_count": 500
+    },
+    {
+      "batch_id": "batch_6a7c4a50ad748190bb01d3f637c6baf2",
+      "input_file_id": "file-HMNZ1ftKbqqNpkWe6vqSgd",
+      "request_count": 282
+    }
+  ],
+  "source_hash": "d8f7c8f65e18bdab7f6b679a715dd87c0fe84e7b5a7ef8885fd7ca3032a879ac",
+  "source_entries": 12349,
+  "unique_values": 9896,
+  "request_count": 1782,
+  "next_request_index": 1782,
   "locales": [
     {
+      "locale": "ur",
+      "keys": 12349,
+      "identical_to_english": 261
+    },
+    {
+      "locale": "hi",
+      "keys": 12349,
+      "identical_to_english": 334
+    },
+    {
+      "locale": "id",
+      "keys": 12349,
+      "identical_to_english": 768
+    },
+    {
+      "locale": "ja",
+      "keys": 12349,
+      "identical_to_english": 239
+    },
+    {
+      "locale": "it",
+      "keys": 12349,
+      "identical_to_english": 724
+    },
+    {
+      "locale": "ko",
+      "keys": 12349,
+      "identical_to_english": 213
+    },
+    {
       "locale": "nl",
-      "keys": 12114,
-      "identical_to_english": 991
+      "keys": 12349,
+      "identical_to_english": 949
     },
     {
       "locale": "pl",
-      "keys": 12114,
-      "identical_to_english": 496
+      "keys": 12349,
+      "identical_to_english": 472
     },
     {
       "locale": "vi",
-      "keys": 12114,
-      "identical_to_english": 406
+      "keys": 12349,
+      "identical_to_english": 446
     },
     {
       "locale": "bn",
-      "keys": 12114,
-      "identical_to_english": 228
+      "keys": 12349,
+      "identical_to_english": 226
     },
     {
       "locale": "fa",
-      "keys": 12114,
-      "identical_to_english": 187
+      "keys": 12349,
+      "identical_to_english": 190
+    },
+    {
+      "locale": "es",
+      "keys": 12349,
+      "identical_to_english": 524
+    },
+    {
+      "locale": "de",
+      "keys": 12349,
+      "identical_to_english": 944
+    },
+    {
+      "locale": "pt",
+      "keys": 12349,
+      "identical_to_english": 549
+    },
+    {
+      "locale": "zh",
+      "keys": 12349,
+      "identical_to_english": 217
+    },
+    {
+      "locale": "tr",
+      "keys": 12349,
+      "identical_to_english": 345
+    },
+    {
+      "locale": "fr",
+      "keys": 12349,
+      "identical_to_english": 760
+    },
+    {
+      "locale": "ru",
+      "keys": 12349,
+      "identical_to_english": 237
     }
   ],
   "model": "gpt-5.4-nano",
   "status": "completed",
-  "output_file_id": "file-1zbHrfy4tgPXiRWLD8Lqzt"
+  "output_file_ids": [
+    "file-WLNgfnSeosEdetQuRF6f6S",
+    "file-ShCymsaktysq2ZWiUCKUer",
+    "file-9ZRGFdAzA1xagYG7Aux3CD",
+    "file-9hee1Hk2NNU4wiDNsBmaHU"
+  ]
 }
