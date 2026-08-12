@@ -439,7 +439,14 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.claim_due_content_slot(text, int) FROM PUBLIC;
+-- anon and authenticated are named explicitly, not covered by PUBLIC. Supabase
+-- grants EXECUTE on new public-schema functions to those roles directly through
+-- ALTER DEFAULT PRIVILEGES, and REVOKE … FROM PUBLIC does not touch a direct
+-- grant. Without this line the function is reachable over PostgREST with the
+-- browser's anon key — which for a SECURITY DEFINER function means an anonymous
+-- caller running it as the owner. Same convention as the library and bazaar
+-- migrations.
+REVOKE ALL ON FUNCTION public.claim_due_content_slot(text, int) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_due_content_slot(text, int) TO service_role;
 
 -- ── Record the outcome ──────────────────────────────────────────────────────
@@ -576,10 +583,13 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.record_content_publication(uuid, boolean, text, text, text, text) FROM PUBLIC;
+-- The single writer of PUBLISHED. It is SECURITY DEFINER, so an anonymous
+-- caller reaching it would satisfy the transition guard's owner check — the
+-- isolation below is what keeps that guard meaningful.
+REVOKE ALL ON FUNCTION public.record_content_publication(uuid, boolean, text, text, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.record_content_publication(uuid, boolean, text, text, text, text) TO service_role;
 
-REVOKE ALL ON FUNCTION public.redact_publication_error(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.redact_publication_error(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.redact_publication_error(text) TO service_role;
 
 -- ── RLS ─────────────────────────────────────────────────────────────────────

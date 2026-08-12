@@ -323,15 +323,50 @@ describe("security model matches Phase 7", () => {
     expect(phase8).not.toMatch(/FOR (INSERT|UPDATE|DELETE|ALL) TO authenticated/);
   });
 
-  it("keeps every write function service-role only", () => {
-    for (const signature of [
-      "public.claim_due_content_slot(text, int)",
-      "public.record_content_publication(uuid, boolean, text, text, text, text)",
-      "public.redact_publication_error(text)",
-    ]) {
-      expect(phase8).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM PUBLIC;`);
-      expect(phase8).toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO service_role;`);
+  it("revokes from anon and authenticated by name, not only from PUBLIC", () => {
+    // `REVOKE … FROM PUBLIC` is NOT sufficient on this project. Supabase grants
+    // EXECUTE on new public-schema functions to anon/authenticated directly via
+    // ALTER DEFAULT PRIVILEGES, and revoking PUBLIC leaves a direct grant in
+    // place — verified against production, where a Phase 7 function protected
+    // that way answers an anonymous PostgREST call with 200.
+    //
+    // For a SECURITY DEFINER function that means an anonymous caller executing
+    // it as the owner, which is exactly what the transition guard's owner check
+    // assumes cannot happen. The library and bazaar migrations already use the
+    // three-role form; this asserts it for every function the phase declares,
+    // so a future function cannot be added without the isolation.
+    for (const [, name, , returns] of phase8.matchAll(
+      /CREATE OR REPLACE FUNCTION (public\.\w+)\(([\s\S]*?)\)\s*RETURNS (\w+)/g,
+    )) {
+      if (returns === "trigger") {
+        // A trigger function is not callable as an RPC — PostgreSQL refuses to
+        // invoke it outside a trigger — so it carries no grant at all.
+        expect(phase8, `${name} must not be granted to anyone`).not.toMatch(
+          new RegExp(`GRANT EXECUTE ON FUNCTION ${name.replace(".", "\\.")}`),
+        );
+        continue;
+      }
+      expect(phase8, `${name} must be revoked from anon and authenticated`).toMatch(
+        new RegExp(`REVOKE ALL ON FUNCTION ${name.replace(".", "\\.")}\\([^)]*\\) FROM PUBLIC, anon, authenticated;`),
+      );
+      expect(phase8, `${name} must be executable only by service_role`).toMatch(
+        new RegExp(`GRANT EXECUTE ON FUNCTION ${name.replace(".", "\\.")}\\([^)]*\\) TO service_role;`),
+      );
     }
+  });
+
+  it("grants execute to nobody but service_role", () => {
+    const grants = [...phase8.matchAll(/GRANT EXECUTE ON FUNCTION [^;]+ TO (\w+);/g)].map((m) => m[1]);
+    expect(grants).toHaveLength(3);
+    expect([...new Set(grants)]).toEqual(["service_role"]);
+    // No table privilege is handed out either — RLS plus the definer functions
+    // are the whole access story.
+    expect(phase8).not.toMatch(/GRANT (SELECT|INSERT|UPDATE|DELETE|ALL)[^;]*TO (anon|authenticated|PUBLIC)/);
+  });
+
+  it("leaves no function of this phase protected by the weaker form", () => {
+    // The exact defect this replaced: a `FROM PUBLIC;` with nothing after it.
+    expect(phase8).not.toMatch(/REVOKE ALL ON FUNCTION [^;]+ FROM PUBLIC;/);
   });
 
   it("declares the two write functions SECURITY DEFINER with a pinned search_path", () => {
