@@ -774,6 +774,33 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_budgets: {
+        Row: {
+          active: boolean
+          daily_request_limit: number | null
+          daily_token_limit: number | null
+          id: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          daily_request_limit?: number | null
+          daily_token_limit?: number | null
+          id?: string
+          scope: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          daily_request_limit?: number | null
+          daily_token_limit?: number | null
+          id?: string
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_embeddings: {
         Row: {
           content: string
@@ -798,6 +825,45 @@ export type Database = {
           source_id?: string
           source_table?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_feedback_events: {
+        Row: {
+          assistant_id: string | null
+          channel: string
+          created_at: string
+          detail: Json
+          event_type: string
+          id: string
+          subject_id: string | null
+          subject_type: string | null
+          summary: string
+          user_id: string | null
+        }
+        Insert: {
+          assistant_id?: string | null
+          channel?: string
+          created_at?: string
+          detail?: Json
+          event_type: string
+          id?: string
+          subject_id?: string | null
+          subject_type?: string | null
+          summary: string
+          user_id?: string | null
+        }
+        Update: {
+          assistant_id?: string | null
+          channel?: string
+          created_at?: string
+          detail?: Json
+          event_type?: string
+          id?: string
+          subject_id?: string | null
+          subject_type?: string | null
+          summary?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -2920,199 +2986,6 @@ export type Database = {
         }
         Relationships: []
       }
-      content_proposals: {
-        Row: {
-          approval_id: string | null
-          body: string
-          content_type: string
-          created_at: string
-          created_by: string | null
-          generated_by: string
-          generation_batch: string | null
-          hashtags: string[]
-          hook: string
-          id: string
-          language: string
-          owner_notes: string | null
-          platform: string
-          proposal_ref: string
-          proposed_publish_at: string | null
-          rationale: string
-          rejection_reason: string | null
-          revision: number
-          section: string
-          source_refs: Json
-          state: string
-          superseded_by_id: string | null
-          supersedes_id: string | null
-          target_audience: string | null
-          topic: string
-          topic_embedding: string | null
-          topic_key: string
-          updated_at: string
-        }
-        Insert: Record<string, never>
-        Update: Record<string, never>
-        Relationships: []
-      }
-      content_calendar: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          note: string | null
-          platform: string
-          proposal_id: string
-          scheduled_for: string
-          slot_state: string
-          updated_at: string
-        }
-        Insert: Record<string, never>
-        Update: Record<string, never>
-        Relationships: []
-      }
-      content_memory: {
-        Row: {
-          angle: string | null
-          content_type: string | null
-          created_at: string
-          embedding: string | null
-          id: string
-          lesson: string
-          memory_type: string
-          proposal_id: string | null
-          section: string | null
-          topic: string | null
-          topic_key: string | null
-          updated_at: string
-          weight: number
-        }
-        Insert: Record<string, never>
-        Update: Record<string, never>
-        Relationships: []
-      }
-      support_escalations: {
-        Row: {
-          ai_summary: string | null
-          channel: string
-          conversation_id: string | null
-          conversation_table: string | null
-          created_at: string
-          customer_name: string | null
-          customer_ref: string | null
-          customer_request: string
-          first_viewed_at: string | null
-          id: string
-          last_error: string | null
-          reason: string
-          resolved_at: string | null
-          state: string
-          subject_id: string | null
-          subject_type: string | null
-          suggested_action: string | null
-          transcript: Json
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: Record<string, never>
-        Update: Record<string, never>
-        Relationships: []
-      }
-      owner_approvals: {
-        Row: {
-          action_type: string
-          created_at: string
-          decided_at: string | null
-          decided_by_identifier: string | null
-          decided_by_user_id: string | null
-          decided_via: string | null
-          decision_note: string | null
-          escalation_id: string | null
-          expires_at: string
-          id: string
-          last_error: string | null
-          notified_at: string | null
-          payload: Json
-          reference: string
-          state: string
-          summary: string | null
-          title: string
-          updated_at: string
-        }
-        Insert: Record<string, never>
-        Update: {
-          decided_by_user_id?: string | null
-        }
-        Relationships: []
-      }
-      ai_feedback_events: {
-        Row: {
-          assistant_id: string | null
-          channel: string
-          created_at: string
-          detail: Json
-          event_type: string
-          id: string
-          subject_id: string | null
-          subject_type: string | null
-          summary: string
-          user_id: string | null
-        }
-        Insert: Record<string, never>
-        Update: Record<string, never>
-        Relationships: []
-      }
-      whatsapp_conversations: {
-        Row: {
-          control: string
-          control_changed_at: string | null
-          control_changed_by: string | null
-          created_at: string
-          escalated: boolean
-          escalated_at: string | null
-          escalation_reason: string | null
-          id: string
-          language: string
-          last_message_at: string
-          wa_phone: string
-        }
-        Insert: Record<string, never>
-        Update: {
-          control?: string
-          control_changed_at?: string | null
-          control_changed_by?: string | null
-        }
-        Relationships: []
-      }
-      sourcing_results: {
-        Row: {
-          availability: string
-          brand: string | null
-          category: string | null
-          condition: string
-          confidence: number | null
-          created_at: string
-          currency: string
-          final_price_usd: number | null
-          id: string
-          model: string | null
-          pricing_breakdown: Json
-          pricing_rule_id: string | null
-          request_id: string
-          retrieved_at: string
-          shipping_usd: number
-          source_price_usd: number | null
-          source_product_id: string | null
-          source_slug: string
-          source_url: string | null
-          specifications: Json
-          title: string
-          visionex_ref: string
-        }
-        Insert: Record<string, never>
-        Update: Record<string, never>
-        Relationships: []
-      }
       audit_logs: {
         Row: {
           action: string
@@ -4535,6 +4408,50 @@ export type Database = {
         }
         Relationships: []
       }
+      content_calendar: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          platform: string
+          proposal_id: string
+          scheduled_for: string
+          slot_state: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          platform: string
+          proposal_id: string
+          scheduled_for: string
+          slot_state?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          platform?: string
+          proposal_id?: string
+          scheduled_for?: string
+          slot_state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_calendar_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "content_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_items: {
         Row: {
           category: string
@@ -4585,6 +4502,177 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      content_memory: {
+        Row: {
+          angle: string | null
+          content_type: string | null
+          created_at: string
+          embedding: string | null
+          id: string
+          lesson: string
+          memory_type: string
+          proposal_id: string | null
+          section: string | null
+          topic: string | null
+          topic_key: string | null
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          angle?: string | null
+          content_type?: string | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          lesson: string
+          memory_type: string
+          proposal_id?: string | null
+          section?: string | null
+          topic?: string | null
+          topic_key?: string | null
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          angle?: string | null
+          content_type?: string | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          lesson?: string
+          memory_type?: string
+          proposal_id?: string | null
+          section?: string | null
+          topic?: string | null
+          topic_key?: string | null
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_memory_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "content_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_proposals: {
+        Row: {
+          approval_id: string | null
+          body: string
+          content_type: string
+          created_at: string
+          created_by: string | null
+          generated_by: string
+          generation_batch: string | null
+          hashtags: string[]
+          hook: string
+          id: string
+          language: string
+          owner_notes: string | null
+          platform: string
+          proposal_ref: string
+          proposed_publish_at: string | null
+          rationale: string
+          rejection_reason: string | null
+          revision: number
+          section: string
+          source_refs: Json
+          state: string
+          superseded_by_id: string | null
+          supersedes_id: string | null
+          target_audience: string | null
+          topic: string
+          topic_embedding: string | null
+          topic_key: string
+          updated_at: string
+        }
+        Insert: {
+          approval_id?: string | null
+          body: string
+          content_type: string
+          created_at?: string
+          created_by?: string | null
+          generated_by?: string
+          generation_batch?: string | null
+          hashtags?: string[]
+          hook: string
+          id?: string
+          language?: string
+          owner_notes?: string | null
+          platform: string
+          proposal_ref?: string
+          proposed_publish_at?: string | null
+          rationale: string
+          rejection_reason?: string | null
+          revision?: number
+          section: string
+          source_refs?: Json
+          state?: string
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
+          target_audience?: string | null
+          topic: string
+          topic_embedding?: string | null
+          topic_key: string
+          updated_at?: string
+        }
+        Update: {
+          approval_id?: string | null
+          body?: string
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          generated_by?: string
+          generation_batch?: string | null
+          hashtags?: string[]
+          hook?: string
+          id?: string
+          language?: string
+          owner_notes?: string | null
+          platform?: string
+          proposal_ref?: string
+          proposed_publish_at?: string | null
+          rationale?: string
+          rejection_reason?: string | null
+          revision?: number
+          section?: string
+          source_refs?: Json
+          state?: string
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
+          target_audience?: string | null
+          topic?: string
+          topic_embedding?: string | null
+          topic_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_proposals_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "owner_approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_proposals_superseded_by_id_fkey"
+            columns: ["superseded_by_id"]
+            isOneToOne: false
+            referencedRelation: "content_proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_proposals_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "content_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       content_reports: {
         Row: {
@@ -20311,6 +20399,77 @@ export type Database = {
         }
         Relationships: []
       }
+      owner_approvals: {
+        Row: {
+          action_type: string
+          created_at: string
+          decided_at: string | null
+          decided_by_identifier: string | null
+          decided_by_user_id: string | null
+          decided_via: string | null
+          decision_note: string | null
+          escalation_id: string | null
+          expires_at: string
+          id: string
+          last_error: string | null
+          notified_at: string | null
+          payload: Json
+          reference: string
+          state: string
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by_identifier?: string | null
+          decided_by_user_id?: string | null
+          decided_via?: string | null
+          decision_note?: string | null
+          escalation_id?: string | null
+          expires_at?: string
+          id?: string
+          last_error?: string | null
+          notified_at?: string | null
+          payload?: Json
+          reference?: string
+          state?: string
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by_identifier?: string | null
+          decided_by_user_id?: string | null
+          decided_via?: string | null
+          decision_note?: string | null
+          escalation_id?: string | null
+          expires_at?: string
+          id?: string
+          last_error?: string | null
+          notified_at?: string | null
+          payload?: Json
+          reference?: string
+          state?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_approvals_escalation_id_fkey"
+            columns: ["escalation_id"]
+            isOneToOne: false
+            referencedRelation: "support_escalations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       page_events: {
         Row: {
           created_at: string
@@ -20615,6 +20774,62 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      pricing_rules: {
+        Row: {
+          active: boolean
+          apply_to_used: boolean
+          category: string | null
+          condition: string | null
+          created_at: string
+          fees_percent: number
+          id: string
+          margin_flat_usd: number
+          margin_percent: number
+          name: string
+          round_to: number
+          source_slug: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          apply_to_used?: boolean
+          category?: string | null
+          condition?: string | null
+          created_at?: string
+          fees_percent?: number
+          id?: string
+          margin_flat_usd?: number
+          margin_percent?: number
+          name: string
+          round_to?: number
+          source_slug?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          apply_to_used?: boolean
+          category?: string | null
+          condition?: string | null
+          created_at?: string
+          fees_percent?: number
+          id?: string
+          margin_flat_usd?: number
+          margin_percent?: number
+          name?: string
+          round_to?: number
+          source_slug?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_rules_source_slug_fkey"
+            columns: ["source_slug"]
+            isOneToOne: false
+            referencedRelation: "sourcing_sources"
+            referencedColumns: ["slug"]
+          },
+        ]
       }
       products: {
         Row: {
@@ -21189,6 +21404,283 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      sourcing_requests: {
+        Row: {
+          channel: string
+          condition_filter: string
+          created_at: string
+          id: string
+          intent: Json
+          query: string
+          result_count: number
+          sources_used: string[]
+          user_id: string | null
+        }
+        Insert: {
+          channel?: string
+          condition_filter?: string
+          created_at?: string
+          id?: string
+          intent?: Json
+          query: string
+          result_count?: number
+          sources_used?: string[]
+          user_id?: string | null
+        }
+        Update: {
+          channel?: string
+          condition_filter?: string
+          created_at?: string
+          id?: string
+          intent?: Json
+          query?: string
+          result_count?: number
+          sources_used?: string[]
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      sourcing_results: {
+        Row: {
+          availability: string
+          brand: string | null
+          category: string | null
+          condition: string
+          confidence: number | null
+          created_at: string
+          currency: string
+          final_price_usd: number | null
+          id: string
+          model: string | null
+          pricing_breakdown: Json
+          pricing_rule_id: string | null
+          request_id: string
+          retrieved_at: string
+          shipping_usd: number
+          source_price_usd: number | null
+          source_product_id: string | null
+          source_slug: string
+          source_url: string | null
+          specifications: Json
+          title: string
+          visionex_ref: string
+        }
+        Insert: {
+          availability?: string
+          brand?: string | null
+          category?: string | null
+          condition?: string
+          confidence?: number | null
+          created_at?: string
+          currency?: string
+          final_price_usd?: number | null
+          id?: string
+          model?: string | null
+          pricing_breakdown?: Json
+          pricing_rule_id?: string | null
+          request_id: string
+          retrieved_at?: string
+          shipping_usd?: number
+          source_price_usd?: number | null
+          source_product_id?: string | null
+          source_slug: string
+          source_url?: string | null
+          specifications?: Json
+          title: string
+          visionex_ref?: string
+        }
+        Update: {
+          availability?: string
+          brand?: string | null
+          category?: string | null
+          condition?: string
+          confidence?: number | null
+          created_at?: string
+          currency?: string
+          final_price_usd?: number | null
+          id?: string
+          model?: string | null
+          pricing_breakdown?: Json
+          pricing_rule_id?: string | null
+          request_id?: string
+          retrieved_at?: string
+          shipping_usd?: number
+          source_price_usd?: number | null
+          source_product_id?: string | null
+          source_slug?: string
+          source_url?: string | null
+          specifications?: Json
+          title?: string
+          visionex_ref?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_results_pricing_rule_id_fkey"
+            columns: ["pricing_rule_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sourcing_results_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sourcing_results_source_slug_fkey"
+            columns: ["source_slug"]
+            isOneToOne: false
+            referencedRelation: "sourcing_sources"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
+      sourcing_sources: {
+        Row: {
+          access_method: string
+          api_key_ref: string | null
+          attribution_required: boolean
+          base_url: string | null
+          categories: string[]
+          commercial_reuse_allowed: boolean
+          conditions: string[]
+          config: Json
+          consecutive_failures: number
+          created_at: string
+          health_score: number
+          id: string
+          name: string
+          priority: number
+          rate_limit_per_hour: number | null
+          slug: string
+          status: string
+          terms_notes: string | null
+          terms_reviewed_at: string | null
+          terms_reviewed_by: string | null
+          terms_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_method?: string
+          api_key_ref?: string | null
+          attribution_required?: boolean
+          base_url?: string | null
+          categories?: string[]
+          commercial_reuse_allowed?: boolean
+          conditions?: string[]
+          config?: Json
+          consecutive_failures?: number
+          created_at?: string
+          health_score?: number
+          id?: string
+          name: string
+          priority?: number
+          rate_limit_per_hour?: number | null
+          slug: string
+          status?: string
+          terms_notes?: string | null
+          terms_reviewed_at?: string | null
+          terms_reviewed_by?: string | null
+          terms_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_method?: string
+          api_key_ref?: string | null
+          attribution_required?: boolean
+          base_url?: string | null
+          categories?: string[]
+          commercial_reuse_allowed?: boolean
+          conditions?: string[]
+          config?: Json
+          consecutive_failures?: number
+          created_at?: string
+          health_score?: number
+          id?: string
+          name?: string
+          priority?: number
+          rate_limit_per_hour?: number | null
+          slug?: string
+          status?: string
+          terms_notes?: string | null
+          terms_reviewed_at?: string | null
+          terms_reviewed_by?: string | null
+          terms_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      support_escalations: {
+        Row: {
+          ai_summary: string | null
+          channel: string
+          conversation_id: string | null
+          conversation_table: string | null
+          created_at: string
+          customer_name: string | null
+          customer_ref: string | null
+          customer_request: string
+          first_viewed_at: string | null
+          id: string
+          last_error: string | null
+          reason: string
+          resolved_at: string | null
+          state: string
+          subject_id: string | null
+          subject_type: string | null
+          suggested_action: string | null
+          transcript: Json
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          channel?: string
+          conversation_id?: string | null
+          conversation_table?: string | null
+          created_at?: string
+          customer_name?: string | null
+          customer_ref?: string | null
+          customer_request: string
+          first_viewed_at?: string | null
+          id?: string
+          last_error?: string | null
+          reason: string
+          resolved_at?: string | null
+          state?: string
+          subject_id?: string | null
+          subject_type?: string | null
+          suggested_action?: string | null
+          transcript?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          channel?: string
+          conversation_id?: string | null
+          conversation_table?: string | null
+          created_at?: string
+          customer_name?: string | null
+          customer_ref?: string | null
+          customer_request?: string
+          first_viewed_at?: string | null
+          id?: string
+          last_error?: string | null
+          reason?: string
+          resolved_at?: string | null
+          state?: string
+          subject_id?: string | null
+          subject_type?: string | null
+          suggested_action?: string | null
+          transcript?: Json
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -22631,6 +23123,86 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_conversations: {
+        Row: {
+          control: string
+          control_changed_at: string | null
+          control_changed_by: string | null
+          created_at: string
+          escalated: boolean
+          escalated_at: string | null
+          escalation_reason: string | null
+          id: string
+          language: string
+          last_message_at: string
+          wa_phone: string
+        }
+        Insert: {
+          control?: string
+          control_changed_at?: string | null
+          control_changed_by?: string | null
+          created_at?: string
+          escalated?: boolean
+          escalated_at?: string | null
+          escalation_reason?: string | null
+          id?: string
+          language?: string
+          last_message_at?: string
+          wa_phone: string
+        }
+        Update: {
+          control?: string
+          control_changed_at?: string | null
+          control_changed_by?: string | null
+          created_at?: string
+          escalated?: boolean
+          escalated_at?: string | null
+          escalation_reason?: string | null
+          id?: string
+          language?: string
+          last_message_at?: string
+          wa_phone?: string
+        }
+        Relationships: []
+      }
+      whatsapp_messages: {
+        Row: {
+          body: string
+          conversation_id: string
+          created_at: string
+          direction: string
+          id: string
+          kind: string | null
+          wa_message_id: string | null
+        }
+        Insert: {
+          body: string
+          conversation_id: string
+          created_at?: string
+          direction: string
+          id?: string
+          kind?: string | null
+          wa_message_id?: string | null
+        }
+        Update: {
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          kind?: string | null
+          wa_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wishlists: {
         Row: {
           created_at: string
@@ -23193,6 +23765,7 @@ export type Database = {
         }
         Returns: number
       }
+      check_ai_budget: { Args: never; Returns: boolean }
       check_ai_rate_limit: {
         Args: { _function_name: string; _user_id: string }
         Returns: boolean
@@ -23278,6 +23851,12 @@ export type Database = {
         Args: { _item_id: string; _score_percent?: number }
         Returns: undefined
       }
+      content_sources_in_cooldown: {
+        Args: { _cooldown_days?: number; _source_ids: string[] }
+        Returns: {
+          source_id: string
+        }[]
+      }
       convert_library_book_to_course: {
         Args: { _book_id: string; _level?: string; _title: string }
         Returns: string
@@ -23308,6 +23887,10 @@ export type Database = {
       create_bazaar_vx_order: {
         Args: { _buyer_note?: string; _items: Json; _shop_id: string }
         Returns: string
+      }
+      create_content_proposal: {
+        Args: { _actor_id: string; _proposal: Json }
+        Returns: Json
       }
       create_kids_gift: {
         Args: {
@@ -23370,6 +23953,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      decide_content_proposal: {
+        Args: {
+          _actor_id: string
+          _approve: boolean
+          _note?: string
+          _proposal_ref: string
+        }
+        Returns: Json
+      }
       decide_kids_event_registration: {
         Args: { _approve: boolean; _registration_id: string }
         Returns: undefined
@@ -23377,6 +23969,16 @@ export type Database = {
       decide_kids_review: {
         Args: { _approve: boolean; _id: string; _notes?: string }
         Returns: undefined
+      }
+      decide_owner_approval: {
+        Args: {
+          _approve: boolean
+          _identifier: string
+          _note?: string
+          _reference: string
+          _via: string
+        }
+        Returns: Json
       }
       delete_library_librarian_category: {
         Args: { _category: string }
@@ -23447,6 +24049,7 @@ export type Database = {
           similarity_score: number
         }[]
       }
+      generate_action_reference: { Args: never; Returns: string }
       generate_kids_parent_link_code: { Args: never; Returns: string }
       generate_radio_stream_token: {
         Args: { _station_id: string }
@@ -24298,6 +24901,10 @@ export type Database = {
         Args: { _minutes?: number; _pages?: number }
         Returns: undefined
       }
+      mark_escalation_viewed: {
+        Args: { _escalation_id: string }
+        Returns: undefined
+      }
       mark_kids_attendance: {
         Args: {
           _class_id: string
@@ -24314,6 +24921,22 @@ export type Database = {
       mark_kids_research_read: {
         Args: { _article_id: string }
         Returns: boolean
+      }
+      match_content_proposals: {
+        Args: {
+          lookback_days?: number
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          id: string
+          proposal_ref: string
+          section: string
+          similarity: number
+          state: string
+          topic: string
+        }[]
       }
       match_embeddings: {
         Args: {
@@ -24408,6 +25031,18 @@ export type Database = {
       record_career_login_attempt: {
         Args: { _identifier: string; _ip_hash?: string; _success: boolean }
         Returns: undefined
+      }
+      record_content_proposal_edit: {
+        Args: {
+          _actor_id: string
+          _body: string
+          _hashtags: string[]
+          _hook: string
+          _note?: string
+          _proposal_ref: string
+          _proposed_publish_at: string
+        }
+        Returns: Json
       }
       record_device_fingerprint: {
         Args: { _device_id: string; _user_agent?: string; _user_id: string }
@@ -24565,6 +25200,15 @@ export type Database = {
           _title: string
         }
         Returns: string
+      }
+      schedule_content_proposal: {
+        Args: {
+          _actor_id: string
+          _note?: string
+          _proposal_ref: string
+          _scheduled_for: string
+        }
+        Returns: Json
       }
       search_inside_library_book: {
         Args: { _book_id: string; _query: string }
@@ -24832,6 +25476,16 @@ export type Database = {
       touch_organization_session: {
         Args: { _organization_id: string; _user_agent?: string }
         Returns: string
+      }
+      transition_escalation: {
+        Args: {
+          _actor_id?: string
+          _escalation_id: string
+          _next_state: string
+          _note?: string
+          _via: string
+        }
+        Returns: Json
       }
       tv_cleanup_expired: { Args: never; Returns: undefined }
       unban_device: { Args: { _device_id: string }; Returns: undefined }
