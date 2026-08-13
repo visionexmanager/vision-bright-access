@@ -140,3 +140,7 @@ Prompt intent for every cover is recorded by game name: original subject matter 
 - `game-magnet-lab-premium-v2.webp`
 
 Generated specifically for Visionex with OpenAI image generation, inspected, stripped of metadata, center-cropped to 1920×1080, and encoded as WebP. No external copyrighted source imagery, logos, UI text, or third-party branding was used.
+
+## Premium word covers — production pack 9 (2026-08-13)
+
+`game-word-puzzle-premium-v2.webp` and `game-hangman-premium-v2.webp` were created specifically for Visionex Arcade with ChatGPT built-in image generation. The accepted outputs depict an original blank-tile vocabulary arena and a safe, non-violent mechanical word-reveal workshop. They contain no readable text, logos, brands, recognizable people, gallows, or copyrighted characters. Each inspected PNG was stripped of metadata, center-cropped to 1920×1080, and encoded as a WebP quality-84 production derivative. Prompts and generated masters are retained with the release evidence.

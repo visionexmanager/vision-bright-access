@@ -8,9 +8,9 @@ import { useGameSounds } from "@/hooks/useGameSounds";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import heroImg from "@/assets/arcade/game-hangman-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-hangman-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
@@ -18,6 +18,10 @@ import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { useReducedMotion } from "framer-motion";
+import { readGameSettings } from "@/features/arcade/core/gameSettings";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
+import { LexiconPulse } from "@/features/arcade/motion/LexiconPulse";
 
 const WORDS = [
   "VISIONEX","PLATFORM","KEYBOARD","SCIENCE","MONITOR","BROWSER","NETWORK",
@@ -30,7 +34,7 @@ const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const MAX_WRONG = 6;
 
 // ─── SVG Gallows ─────────────────────────────────────────────────────────────
-function HangmanFigure({ wrong }: { wrong: number }) {
+function HangmanFigure({ wrong, reducedMotion = false }: { wrong: number; reducedMotion?: boolean }) {
   const stroke = "currentColor";
   const sw = 3.5;
   const won = false; // figure is rendered per wrong count only
@@ -50,7 +54,7 @@ function HangmanFigure({ wrong }: { wrong: number }) {
       {/* Head */}
       {wrong >= 1 && (
         <circle cx="140" cy="65" r="20" stroke={stroke} strokeWidth={sw} fill="none"
-          className="transition-all duration-500 animate-in zoom-in-95" />
+          className={reducedMotion ? "" : "transition-all duration-500 animate-in zoom-in-95"} />
       )}
       {/* Eyes on head when lost */}
       {wrong >= 6 && (
@@ -99,21 +103,23 @@ function HangmanFigure({ wrong }: { wrong: number }) {
 // ─── Solo ────────────────────────────────────────────────────────────────────
 function HangmanSolo() {
   const { t } = useLanguage();
-  const { playSound } = useSound();
+  const { enabled: soundEnabled } = useSound();
   const { hangmanCorrect, hangmanWrong, hangmanWin, hangmanGameOver } = useGameSounds();
   const { settleGameResult } = useGameEconomy();
   const [word,    setWord]    = useState(() => WORDS[Math.floor(Math.random() * WORDS.length)]);
   const [guessed, setGuessed] = useState<Set<string>>(new Set());
   const [wrong,   setWrong]   = useState(0);
+  const settledRef = useRef(false);
+  const reducedMotion = Boolean(useReducedMotion()) || readGameSettings().reducedMotion;
 
   const guess = useCallback((letter: string) => {
     if (guessed.has(letter)) return;
     const next = new Set(guessed);
     next.add(letter);
     setGuessed(next);
-    if (!word.includes(letter)) { setWrong((w) => w + 1); hangmanWrong(); }
-    else hangmanCorrect();
-  }, [guessed, word, playSound]);
+    if (!word.includes(letter)) { setWrong((w) => w + 1); hangmanWrong(); if (soundEnabled) void playProductionSound("puzzle-failure", { volume: 0.5 }); }
+    else { hangmanCorrect(); if (soundEnabled) void playProductionSound("puzzle-success", { volume: 0.55 }); }
+  }, [guessed, hangmanCorrect, hangmanWrong, soundEnabled, word]);
 
   const display  = word.split("").map((l) => (guessed.has(l) ? l : "_")).join(" ");
   const won      = word.split("").every((l) => guessed.has(l));
@@ -121,26 +127,39 @@ function HangmanSolo() {
   const gameOver = won || lost;
 
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const letter = event.key.toUpperCase();
+      if (!gameOver && ALPHA.includes(letter)) guess(letter);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [gameOver, guess]);
+
+  useEffect(() => {
+    if (settledRef.current) return;
     if (won && !lost) {
+      settledRef.current = true;
       toast.success(t("hangman.won"), { id: "hw" });
       hangmanWin();
       void settleGameResult("win", "Hangman");
     }
     if (lost) {
+      settledRef.current = true;
       toast.error(t("hangman.lost"), { id: "hl" });
       hangmanGameOver();
       void settleGameResult("loss", "Hangman");
     }
-  }, [lost, won]);
+  }, [hangmanGameOver, hangmanWin, lost, settleGameResult, t, won]);
 
-  const restart = () => { setWord(WORDS[Math.floor(Math.random() * WORDS.length)]); setGuessed(new Set()); setWrong(0); };
+  const restart = () => { settledRef.current = false; setWord(WORDS[Math.floor(Math.random() * WORDS.length)]); setGuessed(new Set()); setWrong(0); };
 
   return (
     <Card>
       <CardContent className="pt-4">
         {/* Gallows + figure */}
         <div className={`rounded-xl p-3 mb-4 border ${won ? "border-green-500/40 bg-green-50/10" : lost ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/30"}`}>
-          <HangmanFigure wrong={wrong} />
+          <HangmanFigure wrong={wrong} reducedMotion={reducedMotion} />
+          <LexiconPulse progress={((MAX_WRONG - wrong) / MAX_WRONG) * 100} danger={wrong >= 4} />
         </div>
 
         {/* Word display */}
@@ -151,6 +170,7 @@ function HangmanSolo() {
           <Badge variant={wrong > 4 ? "destructive" : "secondary"} className="mt-3">
             {wrong}/{MAX_WRONG} {t("hangman.attempts")}
           </Badge>
+          <p className="sr-only" aria-live="polite" aria-atomic="true">{display}. {wrong}/{MAX_WRONG} {t("hangman.attempts")}</p>
         </div>
 
         {/* Keyboard */}
@@ -182,7 +202,6 @@ function HangmanSolo() {
 // ─── Multiplayer (both guess the same word, fewer wrong guesses wins) ─────────
 function HangmanMulti() {
   const { user } = useAuth();
-  const { playSound } = useSound();
   const { hangmanCorrect, hangmanWrong } = useGameSounds();
   const mp = useMultiplayer("hangman");
 
@@ -247,7 +266,7 @@ function HangmanMulti() {
       const allRevealed = word.split("").every((l) => next.has(l));
       if (allRevealed) finish(wrong, true);
     }
-  }, [guessed, word, wrong, finished, started, playSound, finish]);
+  }, [finish, finished, guessed, hangmanCorrect, hangmanWrong, started, word, wrong]);
 
   if (mp.status === "idle")
     return <MultiplayerLobby gameType="hangman" loading={mp.loading} onCreateRoom={mp.createRoom} onJoinRoom={mp.joinRoom} />;
@@ -305,7 +324,7 @@ export default function Hangman() {
     <Layout>
       <section className="mx-auto max-w-2xl px-4 py-10">
         <div className="relative mb-8 overflow-hidden rounded-2xl">
-          <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
+          <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={1920} height={1080} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
           <div className="absolute bottom-4 start-4 end-4 text-center">
             <h1 className="text-3xl font-bold">{t("hangman.title")}</h1>
