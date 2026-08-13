@@ -1,5 +1,5 @@
 // Central AI orchestrator for the Career Center: provider selection,
-// cost-tier model routing, fallback across OpenAI -> Anthropic -> Gemini,
+// cost-tier model routing, fallback across OpenAI -> Groq -> Mistral -> Anthropic,
 // response caching (ai_response_cache), and usage/latency logging
 // (ai_interactions). Every /api/ai/* Edge Function calls into this instead
 // of talking to a provider directly.
@@ -39,21 +39,22 @@ export type CostTier = "cheap" | "capable";
 // with an actual generation (not with the model listing, which still advertises
 // the dead id).
 //
-// Groq and Mistral stay reachable via an explicit `providerOrder` but out of the
-// default chain: their Arabic quality has not been validated for Career Center
-// output.
-const DEFAULT_PROVIDER_ORDER: CareerAiProvider[] = ["openai", "anthropic"];
+// Groq and Mistral are server-side fallbacks for text-only structured work.
+// Every result still passes through the same mandatory schema coercion and
+// safety sanitization before it can reach the UI. Keeping Anthropic last avoids
+// an unnecessary paid call when the lower-cost configured providers can serve
+// the request. Gemini remains opt-in until both its billing and model access
+// are verified by a real generation probe.
+const DEFAULT_PROVIDER_ORDER: CareerAiProvider[] = ["openai", "groq", "mistral", "anthropic"];
 
 // Model identifiers follow the conventions already used elsewhere in this
-// codebase (see _shared/assistants.ts, news-generate/index.ts) for OpenAI
-// and Anthropic. The Gemini row is known-stale — both ids below are the ones
-// that produced the 404 above — and is kept only so an explicit `providerOrder`
-// of ["gemini"] still resolves to something rather than crashing. Fix the ids
-// before putting Gemini back in DEFAULT_PROVIDER_ORDER.
+// codebase. The Gemini candidate is intentionally opt-in: replacing the stale
+// ids removes one known fault, but the account still has to pass a paid live
+// generation before Gemini can safely rejoin DEFAULT_PROVIDER_ORDER.
 const MODEL_MATRIX: Record<CareerAiProvider, Record<CostTier, string>> = {
   openai: { cheap: "gpt-4o-mini", capable: "gpt-4.1" },
   anthropic: { cheap: "claude-haiku-4-5-20251001", capable: "claude-sonnet-4-6" },
-  gemini: { cheap: "gemini-2.5-flash", capable: "gemini-2.5-pro" },
+  gemini: { cheap: "gemini-flash-latest", capable: "gemini-flash-latest" },
   groq: { cheap: "llama-3.1-8b-instant", capable: "llama-3.3-70b-versatile" },
   mistral: { cheap: "mistral-small-latest", capable: "mistral-large-latest" },
 };
