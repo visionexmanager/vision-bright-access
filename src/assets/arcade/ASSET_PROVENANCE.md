@@ -1,5 +1,14 @@
 # Visionex Arcade asset provenance
 
+## Premium motion covers — production pack 7 (2026-08-13)
+
+`game-velocity-racing-premium-v2.webp` and `game-jungle-survival-premium-v2.webp`
+were created specifically for Visionex Arcade with ChatGPT built-in image
+generation. The accepted images contain no text, logos, brands, flags,
+copyrighted characters, or identifiable people. Sources were visually
+inspected, stripped of metadata, resized to 1920×1080, and encoded as WebP
+quality-84 production derivatives.
+
 ## Expansion batch 01 vectors (2026-08-03)
 
 `game-2048-v1.svg`, `game-minesweeper-v1.svg`, `game-connect-four-v1.svg`, and `game-reaction-test-v1.svg` are original code-authored vector compositions created specifically for Visionex Arcade. They contain no third-party marks, characters, fonts, photos, remote resources, or embedded metadata. Their 1920×1080 view boxes support cover, card crop, retina display, and game-page background use without raster degradation.

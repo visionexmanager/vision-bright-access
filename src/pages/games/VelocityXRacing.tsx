@@ -10,7 +10,7 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useCallback } from "react";
-import heroImg from "@/assets/arcade/game-velocity-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-velocity-racing-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
@@ -19,6 +19,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
 import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
+import { useReducedMotion } from "framer-motion";
+import { readGameSettings } from "@/features/arcade/core/gameSettings";
 
 const TRACKS = ["🏎️ Monaco GP", "🏁 Neon Sprint", "🌊 Coastal Rush", "🏜️ Desert Blitz"];
 const LAP_DISTANCE = 1000;
@@ -35,9 +37,11 @@ function RaceTrack({ distance, speed, fuel, lap }: { distance: number; speed: nu
   const pct = Math.min(distance / TOTAL_DISTANCE, 1);
   const carX = 24 + pct * (360 - 48);
   const fuelPct = fuel / 100;
+  const reduced = Boolean(useReducedMotion()) || readGameSettings().reducedMotion;
 
   return (
-    <svg viewBox="0 0 400 90" xmlns="http://www.w3.org/2000/svg" className="w-full rounded-xl overflow-hidden" aria-label="Race track">
+    <>
+    <svg viewBox="0 0 400 90" xmlns="http://www.w3.org/2000/svg" className="w-full rounded-xl overflow-hidden" aria-hidden="true">
       {/* Track base */}
       <rect x="0" y="0" width="400" height="90" fill="#1a1a2e" rx="12" />
       {/* Road */}
@@ -70,7 +74,7 @@ function RaceTrack({ distance, speed, fuel, lap }: { distance: number; speed: nu
       <text x="200" y="84" fontSize="8" fill="#888" textAnchor="middle">LAP {lap}/{TOTAL_LAPS}</text>
 
       {/* Car (🏎️ rendered as SVG shapes for crispness) */}
-      <g transform={`translate(${carX - 16},30)`}>
+      <g transform={`translate(${carX - 16},30)`} style={{ transition: reduced ? undefined : "transform 180ms cubic-bezier(.2,.75,.25,1)" }}>
         {/* Car body */}
         <rect x="0" y="8" width="32" height="14" fill="#ef4444" rx="4" />
         <rect x="6" y="4" width="18" height="10" fill="#f97316" rx="3" />
@@ -113,6 +117,8 @@ function RaceTrack({ distance, speed, fuel, lap }: { distance: number; speed: nu
         ))
       )}
     </svg>
+    <p className="sr-only" role="status" aria-live="polite">Lap {lap} of {TOTAL_LAPS}. Speed {speed} percent. Fuel {Math.round(fuel)} percent. Distance {Math.round(distance)} metres.</p>
+    </>
   );
 }
 
@@ -198,7 +204,7 @@ function useRaceEngine(onFinish: (distance: number, fuel: number) => void) {
       });
     }, 100);
     return () => clearInterval(interval);
-  }, [racing, speed, lap, fuel, distance, onFinish]);
+  }, [racing, speed, lap, fuel, distance, onFinish, racingCheckpoint, racingFinish]);
 
   const accelerate = () => { setSpeed((s) => Math.min(s + 10, 100)); racingRev(); void playProductionSound("car-engine-acceleration", { volume:0.78 }); };
   const brake = () => { setSpeed((s) => Math.max(s - 20, 0)); racingScreech(); };
@@ -232,18 +238,19 @@ function VelocitySolo({ track }: { track: string }) {
   }, [settleGameResult, updateHighScore]);
 
   const race = useRaceEngine(onFinish);
+  const { racing, accelerate, brake, nitro } = race;
 
   // Keyboard controls
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (!race.racing) return;
-      if (e.key === "ArrowUp")   { e.preventDefault(); race.accelerate(); }
-      if (e.key === "ArrowDown") { e.preventDefault(); race.brake(); }
-      if (e.key === " ")         { e.preventDefault(); race.nitro(); }
+      if (!racing) return;
+      if (e.key === "ArrowUp")   { e.preventDefault(); accelerate(); }
+      if (e.key === "ArrowDown") { e.preventDefault(); brake(); }
+      if (e.key === " ")         { e.preventDefault(); nitro(); }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [race.racing, race.accelerate, race.brake, race.nitro]);
+  }, [racing, accelerate, brake, nitro]);
 
   // Random track events every ~6 seconds
   useEffect(() => {
