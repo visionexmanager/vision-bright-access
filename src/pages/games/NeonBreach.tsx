@@ -10,7 +10,7 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useCallback } from "react";
-import heroImg from "@/assets/arcade/game-neon-breach-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-neon-breach-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
@@ -18,6 +18,10 @@ import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { useReducedMotion } from "framer-motion";
+import { readGameSettings } from "@/features/arcade/core/gameSettings";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
+import { InferenceCoreMotion } from "@/features/arcade/motion/InferenceCoreMotion";
 
 const FIREWALL_NODES = ["🔒", "🛡️", "⚡", "🔑", "💾", "🌐", "📡", "🔓"];
 const NODE_COLORS = [
@@ -34,7 +38,7 @@ const NODE_COLORS = [
 // ─── Solo ────────────────────────────────────────────────────────────────────
 function NeonBreachSolo() {
   const { t } = useLanguage();
-  const { playSound } = useSound();
+  const { enabled: soundEnabled } = useSound();
   const { neonBeep, neonGlitch, neonGranted } = useGameSounds();
   const { settleGameResult } = useGameEconomy();
   const [sequence, setSequence] = useState<number[]>([]);
@@ -43,6 +47,7 @@ function NeonBreachSolo() {
   const [score, setScore]   = useState(0);
   const [phase, setPhase]   = useState<"showing" | "input" | "gameover">("showing");
   const [showIdx, setShowIdx] = useState(-1);
+  const reducedMotion = Boolean(useReducedMotion()) || readGameSettings().reducedMotion;
 
   const startLevel = useCallback((lvl: number) => {
     const seq = Array.from({ length: lvl + 2 }, () => Math.floor(Math.random() * FIREWALL_NODES.length));
@@ -55,24 +60,34 @@ function NeonBreachSolo() {
     if (phase !== "showing" || showIdx < 0) return;
     if (showIdx >= sequence.length) { setPhase("input"); setShowIdx(-1); return; }
     neonBeep();
-    const tid = setTimeout(() => setShowIdx((i) => i + 1), 600);
+    const tid = setTimeout(() => setShowIdx((i) => i + 1), reducedMotion ? 850 : 600);
     return () => clearTimeout(tid);
-  }, [phase, showIdx, sequence.length]);
+  }, [neonBeep, phase, reducedMotion, sequence.length, showIdx]);
 
   const tap = (idx: number) => {
     if (phase !== "input") return;
     const next = [...playerSeq, idx];
     setPlayerSeq(next);
-    if (idx !== sequence[next.length - 1]) { void settleGameResult("loss", "Neon Breach"); setPhase("gameover"); neonGlitch(); return; }
+    if (idx !== sequence[next.length - 1]) { void settleGameResult("loss", "Neon Breach"); setPhase("gameover"); neonGlitch(); if (soundEnabled) void playProductionSound("puzzle-failure", { volume: 0.55 }); return; }
     neonBeep();
     if (next.length === sequence.length) {
       setScore((s) => s + level * 50); setLevel((l) => l + 1);
       neonGranted();
+      if (soundEnabled) void playProductionSound("puzzle-success", { volume: 0.6 });
       setTimeout(() => startLevel(level + 1), 500);
     }
   };
 
   const restart = () => { setLevel(1); setScore(0); startLevel(1); };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const index = Number(event.key) - 1;
+      if (index >= 0 && index < FIREWALL_NODES.length) tap(index);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   return (
     <div className="space-y-4">
@@ -93,6 +108,7 @@ function NeonBreachSolo() {
             <p className="text-center text-cyan-300 text-sm font-mono tracking-widest uppercase">
               {phase === "showing" ? "▶ " + t("neonbreach.memorize") : "⌨ " + t("neonbreach.repeat")}
             </p>
+            <p className="sr-only" aria-live="assertive" aria-atomic="true">{phase === "showing" && showIdx >= 0 && showIdx < sequence.length ? `Node ${sequence[showIdx] + 1}` : phase === "input" ? t("neonbreach.repeat") : ""}</p>
             <div className="grid grid-cols-4 gap-3">
               {FIREWALL_NODES.map((node, i) => {
                 const isActive = phase === "showing" && showIdx >= 0 && sequence[showIdx] === i;
@@ -103,7 +119,7 @@ function NeonBreachSolo() {
                     onClick={() => tap(i)}
                     disabled={phase !== "input"}
                     className={[
-                      "relative h-16 rounded-xl text-2xl border-2 transition-all duration-150 font-bold",
+                      `relative h-16 rounded-xl text-2xl border-2 font-bold ${reducedMotion ? "" : "transition-all duration-150"}`,
                       "bg-gradient-to-br",
                       colors,
                       isActive
@@ -112,10 +128,10 @@ function NeonBreachSolo() {
                         ? "border-white/20 hover:scale-105 hover:brightness-125 hover:shadow-[0_0_12px_3px] active:scale-95"
                         : "border-white/10 opacity-70",
                     ].join(" ")}
-                    aria-label={`Node ${i}`}
+                    aria-label={`Node ${i + 1}, ${node}`}
                   >
                     <span className="drop-shadow-lg">{node}</span>
-                    {isActive && (
+                    {isActive && !reducedMotion && (
                       <span className="absolute inset-0 rounded-xl animate-ping bg-white/20 pointer-events-none" />
                     )}
                   </button>
@@ -125,6 +141,7 @@ function NeonBreachSolo() {
             <div className="space-y-1">
               <Progress value={(playerSeq.length / Math.max(sequence.length, 1)) * 100}
                 className="h-2 bg-slate-800 [&>div]:bg-cyan-400" />
+              <InferenceCoreMotion progress={(playerSeq.length / Math.max(sequence.length, 1)) * 100} />
               <p className="text-center text-xs text-cyan-400/70 font-mono">
                 {playerSeq.length} / {sequence.length} nodes
               </p>
@@ -139,7 +156,7 @@ function NeonBreachSolo() {
 // ─── Multiplayer (competitive — same seeded sequence) ────────────────────────
 function NeonBreachMulti() {
   const { user } = useAuth();
-  const { playSound } = useSound();
+  const { enabled: soundEnabled } = useSound();
   const mp = useMultiplayer("neonbreach");
 
   const [sequence, setSequence] = useState<number[]>([]);
@@ -196,7 +213,7 @@ function NeonBreachMulti() {
     if (idx !== sequence[next.length - 1]) {
       // Eliminated
       setPhase("eliminated");
-      playSound("navigate");
+      if (soundEnabled) void playProductionSound("puzzle-failure", { volume: 0.55 });
       mp.updateMyScore(myScore, true);
       if (oppElim) {
         const allPlayers = mp.session!.players;
@@ -205,7 +222,7 @@ function NeonBreachMulti() {
       }
       return;
     }
-    playSound("success");
+    if (soundEnabled) void playProductionSound("puzzle-place", { volume: 0.45 });
     if (next.length === sequence.length) {
       const newScore = myScore + level * 50;
       const newLevel = level + 1;
@@ -292,7 +309,7 @@ export default function NeonBreach() {
     <Layout>
       <section className="mx-auto max-w-2xl px-4 py-10">
         <div className="relative mb-6 overflow-hidden rounded-2xl">
-          <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
+          <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={1920} height={1080} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
           <div className="absolute bottom-4 start-4 end-4 text-center">
             <h1 className="text-3xl font-bold">💻 {t("neonbreach.title")}</h1>
