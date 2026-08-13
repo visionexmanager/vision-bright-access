@@ -10,7 +10,7 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useCallback } from "react";
-import heroImg from "@/assets/arcade/game-star-chef-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-star-chef-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
@@ -18,6 +18,10 @@ import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { useReducedMotion } from "framer-motion";
+import { readGameSettings } from "@/features/arcade/core/gameSettings";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
+import { ChallengePulse } from "@/features/arcade/motion/ChallengePulse";
 
 const ORDERS = [
   { name: "🍔 Burger",    items: ["🥩", "🧅", "🍅", "🥬", "🧀"] },
@@ -33,6 +37,7 @@ const ORDERS = [
 ];
 
 const ALL_INGREDIENTS = ["🥩", "🧅", "🍅", "🥬", "🧀", "🫓", "🫒", "🌿", "🌶️", "🍚", "🐟", "🥑", "🥒", "🫚"];
+const INGREDIENT_LABELS: Record<string, string> = { "🥩":"meat", "🧅":"onion", "🍅":"tomato", "🥬":"lettuce", "🧀":"cheese", "🫓":"flatbread", "🫒":"olive", "🌿":"herbs", "🌶️":"pepper", "🍚":"rice", "🐟":"fish", "🥑":"avocado", "🥒":"cucumber", "🫚":"ginger" };
 const ROUND_SECONDS = 30;
 
 function orderFromSeed(seed: number, served: number) {
@@ -51,14 +56,16 @@ function ChefBoard({
   wrongFlash: boolean;
 }) {
   const { t } = useLanguage();
+  const reducedMotion = Boolean(useReducedMotion()) || readGameSettings().reducedMotion;
 
   return (
     <div className="space-y-4">
       <Card>
         <CardContent className="pt-4">
           <p className="text-center text-lg font-bold mb-2">{t("starchef.order")}: {order.name}</p>
-          <div className="flex justify-center gap-2 text-3xl">{order.items.map((it, i) => <span key={i}>{it}</span>)}</div>
+          <div className="flex justify-center gap-2 text-3xl" aria-label={order.items.map((it) => INGREDIENT_LABELS[it]).join(", ")}>{order.items.map((it, i) => <span key={i} aria-hidden="true">{it}</span>)}</div>
           <Progress value={(timeLeft / ROUND_SECONDS) * 100} className="mt-3" />
+          <ChallengePulse progress={(timeLeft / ROUND_SECONDS) * 100} urgent={timeLeft <= 5} />
         </CardContent>
       </Card>
       <Card className={wrongFlash ? "border-destructive/60 bg-destructive/5 transition-colors" : "transition-colors"}>
@@ -80,7 +87,7 @@ function ChefBoard({
         <CardContent className="pt-4">
           <div className="flex flex-wrap justify-center gap-2">
             {ALL_INGREDIENTS.map(item => (
-              <Button key={item} variant="outline" className="text-2xl h-14 w-14" onClick={() => onAddItem(item)}>{item}</Button>
+              <Button key={item} variant="outline" className={`text-2xl h-14 w-14 ${reducedMotion ? "" : "transition-transform active:scale-95"}`} aria-label={INGREDIENT_LABELS[item]} onClick={() => onAddItem(item)}>{item}</Button>
             ))}
           </div>
         </CardContent>
@@ -94,6 +101,7 @@ function StarChefSolo() {
   const { chefSizzle, chefPlate, chefTimer, chefSuccess, chefWrong } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("starchef");
   const { settleGameResult } = useGameEconomy();
+  const { enabled: soundEnabled } = useSound();
   const [order, setOrder] = useState(() => ORDERS[0]);
   const [plate, setPlate] = useState<string[]>([]);
   const [score, setScore] = useState(0);
@@ -124,7 +132,7 @@ function StarChefSolo() {
       chefTimer();
       void settleGameResult(served >= 3 ? "win" : "loss", "Star Chef");
     }
-  }, [timeLeft, gameActive]);
+  }, [chefTimer, gameActive, score, served, settleGameResult, timeLeft, updateHighScore]);
 
   const addItem = useCallback((item: string) => {
     if (!gameActive) return;
@@ -134,6 +142,7 @@ function StarChefSolo() {
       setScore(s => Math.max(0, s - 10));
       setWrongFlash(true);
       chefWrong();
+      if (soundEnabled) void playProductionSound("puzzle-failure", { volume: 0.5 });
       setTimeout(() => setWrongFlash(false), 600);
       return;
     }
@@ -146,10 +155,11 @@ function StarChefSolo() {
       setServed(n => n + 1);
       chefPlate();
       setTimeout(chefSuccess, 200);
+      if (soundEnabled) void playProductionSound("puzzle-success", { volume: 0.55 });
       setPlate([]);
       setOrder(ORDERS[Math.floor(Math.random() * ORDERS.length)]);
     }
-  }, [gameActive, plate, order]);
+  }, [chefPlate, chefSizzle, chefSuccess, chefWrong, gameActive, order, plate, soundEnabled]);
 
   if (!gameActive && timeLeft === ROUND_SECONDS) {
     return <Card><CardContent className="pt-6 text-center"><Button size="lg" onClick={start}>{t("starchef.start")}</Button></CardContent></Card>;
@@ -183,7 +193,7 @@ function StarChefSolo() {
 
 function StarChefMulti() {
   const { user } = useAuth();
-  const { playSound } = useSound();
+  const { chefSizzle, chefPlate, chefSuccess, chefWrong, chefTimer } = useGameSounds();
   const mp = useMultiplayer("starchef");
   const [plate, setPlate] = useState<string[]>([]);
   const [score, setScore] = useState(0);
@@ -210,7 +220,7 @@ function StarChefMulti() {
       mp.updateMyScore(score, true);
       chefTimer();
     }
-  }, [timeLeft, finished, mp, score]);
+  }, [chefTimer, finished, mp, score, timeLeft]);
 
   useEffect(() => {
     if (bothDone && mp.status === "playing") {
@@ -218,8 +228,6 @@ function StarChefMulti() {
       mp.endGame(sorted[0].score !== sorted[1]?.score ? sorted[0].id : undefined);
     }
   }, [bothDone, mp]);
-
-  const { chefSizzle, chefPlate, chefSuccess, chefWrong, chefTimer } = useGameSounds();
 
   const addItem = (item: string) => {
     if (finished || mp.status !== "playing") return;
@@ -277,7 +285,7 @@ export default function StarChef() {
     <Layout>
       <section className="mx-auto max-w-2xl px-4 py-10">
         <div className="relative mb-6 overflow-hidden rounded-2xl">
-          <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
+          <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={1920} height={1080} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
           <div className="absolute bottom-4 start-4 end-4 text-center">
             <h1 className="text-3xl font-bold">👨‍🍳 {t("starchef.title")}</h1>

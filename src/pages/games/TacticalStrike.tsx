@@ -9,7 +9,7 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useCallback, useRef } from "react";
-import heroImg from "@/assets/arcade/game-tactical-strike-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-tactical-strike-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
@@ -17,6 +17,10 @@ import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { seededRng } from "@/systems/multiplayerSystem";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { useReducedMotion } from "framer-motion";
+import { readGameSettings } from "@/features/arcade/core/gameSettings";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
+import { ChallengePulse } from "@/features/arcade/motion/ChallengePulse";
 
 const TARGETS = ["🎯", "💣", "⭐", "🎯", "💣", "⭐", "🎯", "💣"];
 const RARE_GIFT = "🎁";
@@ -38,7 +42,9 @@ const TARGET_STYLES: Record<string, string> = {
   "🎁": "border-purple-500/60 bg-purple-950/30 hover:bg-purple-900/50 hover:shadow-[0_0_15px_4px] hover:shadow-purple-500/60 animate-pulse",
 };
 
-function StrikeGrid({ grid, onHit, hit, miss }: { grid: string[]; onHit: (idx: number) => void; hit: number | null; miss: number | null }) {
+const TARGET_LABELS: Record<string, string> = { "🎯": "practice target", "💣": "hazard", "⭐": "bonus star", "🎁": "rare gift" };
+
+function StrikeGrid({ grid, onHit, hit, miss, reducedMotion = false }: { grid: string[]; onHit: (idx: number) => void; hit: number | null; miss: number | null; reducedMotion?: boolean }) {
   return (
     <Card className="overflow-hidden">
       <CardContent className="pt-4 pb-4">
@@ -52,14 +58,14 @@ function StrikeGrid({ grid, onHit, hit, miss }: { grid: string[]; onHit: (idx: n
                 key={i}
                 onClick={() => onHit(i)}
                 className={[
-                  "relative h-16 rounded-xl text-3xl border-2 transition-all duration-100",
+                  `relative h-16 rounded-xl text-3xl border-2 ${reducedMotion ? "" : "transition-all duration-100"}`,
                   "select-none focus-visible:outline-none",
                   style,
                   wasHit  ? "scale-75 opacity-20 rotate-12" : "",
                   wasMiss ? "border-destructive/70 bg-destructive/10 scale-95" : "",
                   !wasHit && !wasMiss ? "active:scale-90 hover:scale-105" : "",
                 ].join(" ")}
-                aria-label={`Target ${cell}`}
+                aria-label={`${TARGET_LABELS[cell] ?? "target"}, position ${i + 1}`}
               >
                 <span className={wasHit ? "grayscale" : "drop-shadow-md"}>{cell}</span>
                 {wasHit && (
@@ -88,6 +94,8 @@ function TacticalSolo() {
   const { tacticalHit, tacticalMiss, tacticalExplosion } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("tactical");
   const { settleGameResult } = useGameEconomy();
+  const { enabled: soundEnabled } = useSound();
+  const reducedMotion = Boolean(useReducedMotion()) || readGameSettings().reducedMotion;
 
   const [grid, setGrid] = useState<string[]>([]);
   const [score, setScore] = useState(0);
@@ -122,7 +130,7 @@ function TacticalSolo() {
       setNewRecord(isNew);
       void settleGameResult(score > 0 ? "win" : "loss", "Tactical Strike");
     }
-  }, [timeLeft, active]);
+  }, [active, score, settleGameResult, timeLeft, updateHighScore]);
 
   // Grid refresh every 3.5s
   useEffect(() => {
@@ -146,6 +154,7 @@ function TacticalSolo() {
       setLastMiss(idx);
       setTimeout(() => setLastMiss(null), 400);
       tacticalMiss();
+      if (soundEnabled) void playProductionSound("puzzle-failure", { volume: 0.5 });
       return;
     }
 
@@ -157,6 +166,7 @@ function TacticalSolo() {
     const multiplier = newCombo >= 5 ? 3 : newCombo >= 3 ? 2 : newCombo >= 2 ? 1.5 : 1;
     const finalPts = Math.round(pts * multiplier);
     setScore(s => s + finalPts);
+    if (soundEnabled) void playProductionSound("puzzle-success", { volume: 0.5 });
 
     if (newCombo >= 2) {
       setComboMsg(t("tactical.combo").replace("{n}", String(Math.floor(multiplier))));
@@ -195,7 +205,9 @@ function TacticalSolo() {
       {comboMsg && (
         <p className="text-center font-bold text-orange-500 animate-in zoom-in-95 duration-200">{comboMsg}</p>
       )}
-      <StrikeGrid grid={grid} onHit={hit} hit={lastHit} miss={lastMiss} />
+      <ChallengePulse progress={(timeLeft / ROUND_SECONDS) * 100} urgent={timeLeft < 5} />
+      <p className="sr-only" aria-live="polite">{score} points, {timeLeft} seconds remaining, combo {combo}</p>
+      <StrikeGrid grid={grid} onHit={hit} hit={lastHit} miss={lastMiss} reducedMotion={reducedMotion} />
     </div>
   );
 }
@@ -237,7 +249,7 @@ function TacticalMulti() {
       setFinished(true);
       mp.updateMyScore(score, true);
     }
-  }, [timeLeft, finished]);
+  }, [finished, mp, score, timeLeft]);
 
   useEffect(() => {
     if (mp.status === "playing" && !finished) {
@@ -255,7 +267,7 @@ function TacticalMulti() {
       const sorted = [...mp.session!.players].sort((a, b) => b.score - a.score);
       mp.endGame(sorted[0].score !== sorted[1]?.score ? sorted[0].id : undefined);
     }
-  }, [bothDone]);
+  }, [bothDone, mp]);
 
   const hit = (idx: number) => {
     if (!mp.status || finished) return;
@@ -312,7 +324,7 @@ export default function TacticalStrike() {
     <Layout>
       <section className="mx-auto max-w-2xl px-4 py-10">
         <div className="relative mb-6 overflow-hidden rounded-2xl">
-          <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
+          <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={1920} height={1080} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
           <div className="absolute bottom-4 start-4 end-4 text-center">
             <h1 className="text-3xl font-bold">🎯 {t("tactical.title")}</h1>
