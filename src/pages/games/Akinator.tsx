@@ -11,6 +11,9 @@ import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useCallback, useMemo } from "react";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import heroImg from "@/assets/arcade/game-akinator-premium-v2.webp";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
+import { InferenceCoreMotion } from "@/features/arcade/motion/InferenceCoreMotion";
 
 // ── Character database ────────────────────────────────────────────────────────
 interface Character {
@@ -122,7 +125,7 @@ type Phase = "intro" | "playing" | "guess" | "correct" | "wrong";
 
 export default function Akinator() {
   const { t } = useLanguage();
-  const { playSound } = useSound();
+  const { enabled: soundEnabled } = useSound();
   const { akinatorReveal, akinatorThink, akinatorCorrect, akinatorWrong } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("akinator");
   const { settleGameResult } = useGameEconomy();
@@ -194,13 +197,15 @@ export default function Akinator() {
     setPhase("correct");
     void settleGameResult("win", "Akinator");
     akinatorCorrect();
-  }, [akinatorCorrect, settleGameResult]);
+    if (soundEnabled) void playProductionSound("puzzle-success", { volume: 0.6 });
+  }, [akinatorCorrect, settleGameResult, soundEnabled]);
 
   const handleWrong = useCallback(() => {
     if (!guessResult) return;
     const newWrong = [...wrongGuesses, guessResult.char.id];
     setWrongGuesses(newWrong);
     akinatorWrong();
+    if (soundEnabled) void playProductionSound("puzzle-failure", { volume: 0.5 });
 
     // Try next best candidate not yet guessed
     const next = topCandidates.find((r) => !newWrong.includes(r.char.id));
@@ -218,7 +223,7 @@ export default function Akinator() {
         setPhase("wrong");
       }
     }
-  }, [guessResult, wrongGuesses, topCandidates, questionCount, answeredIds, answers, akinatorWrong, settleGameResult]);
+  }, [guessResult, wrongGuesses, topCandidates, questionCount, answeredIds, answers, akinatorWrong, settleGameResult, soundEnabled]);
 
   const progress = Math.min((questionCount / MAX_QUESTIONS) * 100, 100);
 
@@ -228,6 +233,7 @@ export default function Akinator() {
 
         {/* Hero */}
         <div className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-violet-900 via-purple-800 to-indigo-900 dark:from-violet-950 dark:via-purple-900 dark:to-indigo-950">
+          <img src={heroImg} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55" width={1920} height={1080} />
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 30% 50%, #a855f7 0%, transparent 60%), radial-gradient(circle at 70% 30%, #6366f1 0%, transparent 60%)" }} />
           <div className="relative px-6 py-10 text-center">
             <div className="text-7xl mb-4" role="img" aria-hidden="true">🔮</div>
@@ -275,6 +281,7 @@ export default function Akinator() {
                 </Badge>
               </div>
               <Progress value={progress} className="h-2" aria-label={t("akinator.progress")} />
+              <InferenceCoreMotion progress={progress} />
               <CardTitle className="mt-4 text-xl leading-snug text-center">
                 {t(currentQuestion.id)}
               </CardTitle>
