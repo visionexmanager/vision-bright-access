@@ -16,10 +16,26 @@ describe("AI secret deployment safety", () => {
   it("syncs the secondary AI provider keys without ever exposing them to the browser", () => {
     const workflow = readFileSync(resolve(root, ".github/workflows/deploy.yml"), "utf8");
 
-    for (const name of ["ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "ELEVENLABS_API_KEY", "LUMA_API_KEY", "REPLICATE_API_TOKEN"]) {
+    for (const name of ["ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "ELEVENLABS_API_KEY", "LUMA_API_KEY", "REPLICATE_API_TOKEN", "FAL_KEY"]) {
       expect(workflow).toContain(`${name}:`);
       expect(workflow).not.toContain(`VITE_${name}`);
     }
+  });
+
+  it("stores fal as a disabled reserve without assigning it any production task", () => {
+    const workflow = readFileSync(resolve(root, ".github/workflows/deploy.yml"), "utf8");
+    const activeProviderSources = [
+      "supabase/functions/_shared/aiProvider.ts",
+      "supabase/functions/_shared/assistants.ts",
+      "supabase/functions/_shared/generators.ts",
+      "supabase/functions/_shared/visionAnalysts.ts",
+    ].map((path) => readFileSync(resolve(root, path), "utf8")).join("\n");
+
+    expect(workflow).toContain("FAL_KEY:              ${{ secrets.FAL_KEY }}");
+    expect(workflow).toContain("Reserved only. No Edge Function reads FAL_KEY");
+    expect(workflow).not.toContain("VITE_FAL_KEY");
+    expect(activeProviderSources).not.toContain("FAL_KEY");
+    expect(activeProviderSources).not.toMatch(/fal\.ai|fal-ai|seedance/i);
   });
 
   it("does not reveal any API-key prefix through the public health check", () => {
