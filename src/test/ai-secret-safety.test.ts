@@ -16,7 +16,7 @@ describe("AI secret deployment safety", () => {
   it("syncs the secondary AI provider keys without ever exposing them to the browser", () => {
     const workflow = readFileSync(resolve(root, ".github/workflows/deploy.yml"), "utf8");
 
-    for (const name of ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY"]) {
+    for (const name of ["ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "ELEVENLABS_API_KEY", "LUMA_API_KEY", "REPLICATE_API_TOKEN"]) {
       expect(workflow).toContain(`${name}:`);
       expect(workflow).not.toContain(`VITE_${name}`);
     }
@@ -68,7 +68,7 @@ describe("multi-provider AI layer", () => {
     expect(aiProvider).toContain("EMBEDDING_DIM = 1536");
   });
 
-  it("keeps unvalidated providers out of the Career Center default fallback chain", () => {
+  it("uses configured low-cost providers before the premium fallback and keeps broken Gemini opt-in", () => {
     const orchestrator = readFileSync(
       resolve(root, "supabase/functions/_shared/careerAiOrchestrator.ts"),
       "utf8",
@@ -80,15 +80,8 @@ describe("multi-provider AI layer", () => {
     expect(match).not.toBeNull();
     const chain = (match?.[1] ?? "").match(/"([^"]+)"/g)?.map((s) => s.replaceAll('"', "")) ?? [];
 
-    expect(chain).toEqual(["openai", "anthropic"]);
+    expect(chain).toEqual(["openai", "groq", "mistral", "anthropic"]);
 
-    // Groq and Mistral: Arabic quality never validated for Career Center output.
-    // Gemini: removed 2026-08-10 — the account has no credit, and its configured
-    // model ids separately return 404 "no longer available to new users". As the
-    // last fallback it could only ever add a failed round trip to an
-    // already-failing request.
-    for (const provider of ["groq", "mistral", "gemini"]) {
-      expect(chain).not.toContain(provider);
-    }
+    expect(chain).not.toContain("gemini");
   });
 });
