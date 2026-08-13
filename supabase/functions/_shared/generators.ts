@@ -4,7 +4,7 @@
 // frontend renderer handles training plans, travel itineraries, and any future
 // generator. Add one by adding an entry with a `buildSystem(params, lang)`.
 
-import type { AIProvider } from "./aiProvider.ts";
+import type { AIProvider, ProviderTarget } from "./aiProvider.ts";
 import {
   CONTENT_PROPOSAL_SCHEMA,
   buildContentWriterSystem,
@@ -26,6 +26,7 @@ export interface Generator {
   name: string;
   provider: AIProvider;
   model: string;
+  targets?: ProviderTarget[];
   /** Build the system prompt from user-supplied params + language. */
   buildSystem: (params: Record<string, string>, lang: string) => string;
   /** Build the short user instruction (kept generic). */
@@ -73,6 +74,20 @@ export const GENERATION_SCHEMA = {
 
 const DEFAULT_PROVIDER: AIProvider = "openai";
 const DEFAULT_MODEL = "gpt-4o";
+const OPENAI = { provider: "openai", model: "gpt-4o" } as const;
+const GROQ = { provider: "groq", model: "llama-3.1-8b-instant" } as const;
+const MISTRAL = { provider: "mistral", model: "mistral-small-latest" } as const;
+
+const MISTRAL_GENERATORS = new Set([
+  "content-summary", "travel-itinerary", "marketing-campaign",
+  "training-curriculum", "content-writer",
+]);
+
+export function generatorTargets(id: string): ProviderTarget[] {
+  return MISTRAL_GENERATORS.has(id)
+    ? [MISTRAL, GROQ, OPENAI]
+    : [GROQ, MISTRAL, OPENAI];
+}
 
 const LANG_NOTE =
   "VisionEx serves blind and low-vision users — keep language clear. " +
@@ -248,5 +263,8 @@ export const GENERATORS: Record<string, Generator> = {
 
 export function getGenerator(id: string | undefined | null): Generator | null {
   if (!id) return null;
-  return GENERATORS[id] ?? null;
+  const generator = GENERATORS[id];
+  if (!generator) return null;
+  const targets = generator.targets ?? generatorTargets(id);
+  return { ...generator, provider: targets[0].provider, model: targets[0].model, targets };
 }

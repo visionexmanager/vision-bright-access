@@ -16,7 +16,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getAssistant } from "../_shared/assistants.ts";
-import { streamChatCompletion, ProviderError } from "../_shared/aiProvider.ts";
+import { streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import {
   clampReply,
   collectStream,
@@ -384,9 +384,8 @@ Deno.serve(async (req) => {
 
       let answer: string;
       try {
-        const stream = await streamChatCompletion({
-          provider: assistant.provider,
-          model: assistant.model,
+        const { result: stream } = await streamChatCompletionWithFallback({
+          targets: assistant.targets,
           system: assistant.systemPrompt,
           messages: turns.length > 0 ? turns : [{ role: "user", content: incoming.text }],
           maxTokens: 700,

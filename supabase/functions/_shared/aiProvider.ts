@@ -28,6 +28,15 @@ export interface ProviderChatParams {
   maxTokens?: number;
 }
 
+export interface ProviderTarget {
+  provider: AIProvider;
+  model: string;
+}
+
+export interface ProviderResult<T> extends ProviderTarget {
+  result: T;
+}
+
 /** Thrown on an upstream provider error so callers can map status codes. */
 export class ProviderError extends Error {
   constructor(public status: number, message: string) {
@@ -107,6 +116,27 @@ export async function streamChatCompletion(
     }).catch(asProviderError);
   }
   return streamOpenAICompatible(params);
+}
+
+/** Try providers in order until one accepts the streaming request. */
+export async function streamChatCompletionWithFallback(
+  params: Omit<ProviderChatParams, "provider" | "model"> & { targets: ProviderTarget[] },
+): Promise<ProviderResult<ReadableStream<Uint8Array>>> {
+  if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
+
+  let lastError: unknown;
+  for (const target of params.targets) {
+    try {
+      const result = await streamChatCompletion({ ...params, ...target });
+      return { ...target, result };
+    } catch (error) {
+      lastError = error;
+      console.warn(`[ai-provider] ${target.provider}/${target.model} unavailable; trying fallback`);
+    }
+  }
+
+  if (lastError instanceof ProviderError) throw lastError;
+  throw new ProviderError(500, "All AI providers failed");
 }
 
 async function streamOpenAICompatible(
@@ -258,6 +288,27 @@ export async function structuredCompletion(p: StructuredParams): Promise<unknown
     return data;
   }
   return structuredOpenAICompatible(p);
+}
+
+/** Try providers in order until one returns a valid structured result. */
+export async function structuredCompletionWithFallback(
+  params: Omit<StructuredParams, "provider" | "model"> & { targets: ProviderTarget[] },
+): Promise<ProviderResult<unknown>> {
+  if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
+
+  let lastError: unknown;
+  for (const target of params.targets) {
+    try {
+      const result = await structuredCompletion({ ...params, ...target });
+      return { ...target, result };
+    } catch (error) {
+      lastError = error;
+      console.warn(`[ai-provider] ${target.provider}/${target.model} structured request failed; trying fallback`);
+    }
+  }
+
+  if (lastError instanceof ProviderError) throw lastError;
+  throw new ProviderError(500, "All AI providers failed");
 }
 
 async function structuredOpenAICompatible(p: StructuredParams): Promise<unknown> {
