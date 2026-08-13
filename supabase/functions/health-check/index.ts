@@ -293,7 +293,7 @@ async function checkElevenLabs(): Promise<ComponentStatus> {
     return {
       ok:     false,
       status: "warning",
-      detail: "ELEVENLABS_API_KEY not configured. Voice cloning will use the mock provider.",
+      detail: "ELEVENLABS_API_KEY not configured. Voice cloning is unavailable until a real provider key is added.",
     };
   }
   try {
@@ -304,7 +304,7 @@ async function checkElevenLabs(): Promise<ComponentStatus> {
       return {
         ok:     false,
         status: "error",
-        detail: "ELEVENLABS_API_KEY is invalid. Voice cloning will fall back to mock provider.",
+        detail: "ELEVENLABS_API_KEY is invalid. Voice cloning is unavailable until the key is replaced.",
       };
     }
     if (!res.ok) {
@@ -337,9 +337,9 @@ async function checkElevenLabs(): Promise<ComponentStatus> {
 const PLATFORM_SECRETS: { name: string; impact: string }[] = [
   { name: "OPENAI_API_KEY",       impact: "Nearly every AI surface: chat, OCR, speech, images, text tools, Text-to-Video (Sora), Academy, Library and Kids assistants." },
   { name: "ANTHROPIC_API_KEY",    impact: "Any assistant configured with provider 'anthropic'. Those return 500 without it; OpenAI-backed assistants are unaffected." },
-  { name: "GEMINI_API_KEY",       impact: "Any assistant configured with provider 'gemini'. Out of the Career Center default chain since 2026-08-10: the account has no credit, and the configured model ids also return 404 'no longer available to new users'. Present or missing, this key cannot currently serve a request." },
-  { name: "GROQ_API_KEY",         impact: "Any assistant configured with provider 'groq'. Nothing uses it by default, so a missing key breaks nothing until an assistant is routed there." },
-  { name: "MISTRAL_API_KEY",      impact: "Any assistant configured with provider 'mistral'. Nothing uses it by default, so a missing key breaks nothing until an assistant is routed there." },
+  { name: "GEMINI_API_KEY",       impact: "Opt-in Gemini assistants. Kept out of automatic routing until billing and model access pass a live generation probe." },
+  { name: "GROQ_API_KEY",         impact: "Low-cost text fallback for Career Center assistants when OpenAI is unavailable." },
+  { name: "MISTRAL_API_KEY",      impact: "Second low-cost text fallback for Career Center assistants when OpenAI and Groq are unavailable." },
   { name: "ELEVENLABS_API_KEY",   impact: "Voice Studio voice cloning and ElevenLabs speech voices." },
   { name: "LUMA_API_KEY",         impact: "Fallback video provider. Only needed once OpenAI's Videos API shuts down on 2026-09-24." },
   { name: "REPLICATE_API_TOKEN",  impact: "Image Tools (image-tools-generate): upscale, background removal, variations." },
