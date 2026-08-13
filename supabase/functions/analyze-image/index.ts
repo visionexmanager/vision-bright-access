@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getVisionAnalyst, VISION_SCHEMA } from "../_shared/visionAnalysts.ts";
-import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
+import { structuredCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -47,9 +47,8 @@ Deno.serve(async (req) => {
       : "Analyze this photo and provide a structured assessment.";
 
     try {
-      const analysis = await structuredCompletion({
-        provider: analyst.provider,
-        model: analyst.model,
+      const { value: analysis } = await structuredCompletionWithFallback({
+        targets: analyst.targets,
         system: `${analyst.systemPrompt}\n\nUser's language: ${lang}.`,
         userText,
         image,

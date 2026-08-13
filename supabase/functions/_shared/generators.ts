@@ -75,18 +75,22 @@ export const GENERATION_SCHEMA = {
 const DEFAULT_PROVIDER: AIProvider = "openai";
 const DEFAULT_MODEL = "gpt-4o";
 const OPENAI = { provider: "openai", model: "gpt-4o" } as const;
+const GEMINI = { provider: "gemini", model: "gemini-flash-latest" } as const;
 const GROQ = { provider: "groq", model: "llama-3.1-8b-instant" } as const;
 const MISTRAL = { provider: "mistral", model: "mistral-small-latest" } as const;
 
 const MISTRAL_GENERATORS = new Set([
-  "content-summary", "travel-itinerary", "marketing-campaign",
-  "training-curriculum", "content-writer",
+  "content-summary", "marketing-campaign", "content-writer",
+]);
+const GEMINI_GENERATORS = new Set([
+  "travel-itinerary", "career-roadmap", "tech-troubleshooting-plan",
+  "training-curriculum",
 ]);
 
 export function generatorTargets(id: string): ProviderTarget[] {
-  return MISTRAL_GENERATORS.has(id)
-    ? [MISTRAL, GROQ, OPENAI]
-    : [GROQ, MISTRAL, OPENAI];
+  if (GEMINI_GENERATORS.has(id)) return [GEMINI, GROQ, MISTRAL, OPENAI];
+  if (MISTRAL_GENERATORS.has(id)) return [MISTRAL, GEMINI, GROQ, OPENAI];
+  return [GROQ, GEMINI, MISTRAL, OPENAI];
 }
 
 const LANG_NOTE =

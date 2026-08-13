@@ -3,13 +3,14 @@
 // Each analyst returns the SAME universal schema (VISION_SCHEMA) so a single
 // frontend renderer handles all of them. Add an analyst by adding an entry.
 
-import type { AIProvider } from "./aiProvider.ts";
+import type { AIProvider, ProviderTarget } from "./aiProvider.ts";
 
 export interface VisionAnalyst {
   id: string;
   name: string;
   provider: AIProvider;
   model: string;
+  targets: ProviderTarget[];
   systemPrompt: string;
 }
 
@@ -42,8 +43,12 @@ export const VISION_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const DEFAULT_PROVIDER: AIProvider = "openai";
-const DEFAULT_MODEL = "gpt-4o"; // vision-capable
+const DEFAULT_PROVIDER: AIProvider = "gemini";
+const DEFAULT_MODEL = "gemini-flash-latest"; // multimodal and long-context
+const VISION_TARGETS: ProviderTarget[] = [
+  { provider: "gemini", model: "gemini-flash-latest" },
+  { provider: "openai", model: "gpt-4o" },
+];
 
 const LANG_NOTE =
   "VisionEx serves blind and low-vision users — keep language clear and descriptive. " +
@@ -55,6 +60,7 @@ function analyst(id: string, name: string, role: string, focus: string, caution:
     name,
     provider: DEFAULT_PROVIDER,
     model: DEFAULT_MODEL,
+    targets: VISION_TARGETS,
     systemPrompt: [
       `You are ${role}.`,
       `Analyze the uploaded photo and return a structured, practical assessment. ${focus}`,
