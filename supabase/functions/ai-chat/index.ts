@@ -1,7 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAssistant } from "../_shared/assistants.ts";
-import { streamChatCompletion, ProviderError, type AIProvider } from "../_shared/aiProvider.ts";
+import {
+  streamChatCompletionWithFallback,
+  ProviderError,
+  type ProviderTarget,
+} from "../_shared/aiProvider.ts";
 
 type UserMemory = {
   memory_enabled?: boolean;
@@ -267,8 +271,11 @@ Deno.serve(async (req) => {
     }
 
     // ── Resolve provider, model, and system prompt ─────────────────────
-    let provider: AIProvider = "openai";
-    let model = "gpt-4.1";
+    let targets: ProviderTarget[] = [
+      { provider: "groq", model: "llama-3.1-8b-instant" },
+      { provider: "mistral", model: "mistral-small-latest" },
+      { provider: "openai", model: "gpt-4.1" },
+    ];
     let systemPrompt = SYSTEM_PROMPT;
     let userMemory: UserMemory | null = null;
     const memoryAllowed = context?.companionMemoryEnabled !== false;
@@ -285,8 +292,7 @@ Deno.serve(async (req) => {
     const assistant = getAssistant(assistantId);
     if (assistant) {
       // Registry-driven domain assistant (legal, medical, sports, …)
-      provider = assistant.provider;
-      model = assistant.model;
+      targets = assistant.targets;
       systemPrompt = assistant.systemPrompt;
       if (context?.language) {
         systemPrompt += `\n\nUser's preferred language: ${context.language}. Respond in this language.`;
@@ -315,6 +321,11 @@ VOICE RULES (mandatory — you are speaking, not writing):
       // Default Visionex assistant + Business Simulation mentor mode
       const isSimulation = context?.productName?.startsWith("Business Simulation:");
       if (isSimulation) {
+        targets = [
+          { provider: "groq", model: "llama-3.1-8b-instant" },
+          { provider: "mistral", model: "mistral-small-latest" },
+          { provider: "openai", model: "gpt-4.1" },
+        ];
         const simName = context.productName.replace("Business Simulation:", "").trim();
         const stepInfo = context.currentStep ? `\nCurrent step / stage: ${context.currentStep}` : "";
         systemPrompt = `You are a Business Mentor AI on the Visionex platform, specializing in guiding users through interactive business simulations.
@@ -388,9 +399,8 @@ Simulation: ${simName}${stepInfo}
     }
 
     try {
-      const stream = await streamChatCompletion({
-        provider,
-        model,
+      const { result: stream } = await streamChatCompletionWithFallback({
+        targets,
         system: systemPrompt,
         messages: cleanMessages,
       });

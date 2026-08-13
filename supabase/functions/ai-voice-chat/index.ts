@@ -1,5 +1,21 @@
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAssistant } from "../_shared/assistants.ts";
+import {
+  streamChatCompletionWithFallback,
+  type ProviderTarget,
+} from "../_shared/aiProvider.ts";
+
+async function collectText(stream: ReadableStream<Uint8Array>): Promise<string> {
+  const payload = await new Response(stream).text();
+  return payload.split("\n").filter((line) => line.startsWith("data:") && !line.includes("[DONE]"))
+    .map((line) => {
+      try {
+        return JSON.parse(line.slice(5).trim()).choices?.[0]?.delta?.content ?? "";
+      } catch {
+        return "";
+      }
+    }).join("");
+}
 
 const VOICE_PROMPTS: Record<string, string> = {
   visionex: `You are Visionex AI — a warm, expressive voice assistant for Visionex, a global platform that serves everyone. Visionex brings together VXBazaar commerce and digital shops, general and assistive products, Academy learning, courses and articles, professional training, practical simulations for independent projects, career and study guidance, nutrition, emotional support, safe general medical information, legal and technical guidance, marketing, web design, import and purchasing, travel, sports, music, creative services, hair and skin care, specialist AI assistants, image analysis, OCR, Radar AI, games, live radio, live TV, news, messages, voice chat, voice rooms, VX Coins, rewards, achievements, and accessible multilingual experiences. Accessibility and assistive technology are core strengths, while Visionex remains useful and welcoming for all people worldwide.
@@ -86,10 +102,16 @@ Deno.serve(async (req) => {
   let systemPrompt = VOICE_PROMPTS[assistant] || VOICE_PROMPTS["visionex"];
   let voice        = ASSISTANT_VOICE[assistant] || "nova";
   let voiceStyle   = VOICE_STYLE[assistant]     || VOICE_STYLE["visionex"];
+  let targets: ProviderTarget[] = [
+    { provider: "groq", model: "llama-3.1-8b-instant" },
+    { provider: "mistral", model: "mistral-small-latest" },
+    { provider: "openai", model: "gpt-4.1" },
+  ];
 
   if (assistantId) {
     const reg = getAssistant(assistantId);
     if (reg) {
+      targets = reg.targets;
       systemPrompt = `${reg.systemPrompt}\n\nVOICE MODE — MANDATORY:\n- Reply in 1–3 natural spoken sentences only.\n- No bullet points, no markdown, no lists.\n- Speak conversationally, like a knowledgeable friend.\n- Respond in the same language the user speaks.`;
       const h = [...String(assistantId)].reduce((a, c) => a + c.charCodeAt(0), 0);
       const voices = ["nova", "alloy", "echo", "coral", "shimmer", "sage"];
@@ -102,40 +124,25 @@ Deno.serve(async (req) => {
     ? `\n\nIMPORTANT: The user's interface language is "${language}". Reply in that language unless the user writes differently.`
     : "";
 
-  // ── Step 1: Get text response from gpt-4.1 ───────────────────────────────
-  const chatPayload = {
-    messages: [
-      { role: "system", content: systemPrompt + langHint },
-      ...messages.map(({ role, content }) => ({ role, content })),
-    ],
-    max_tokens: 200,
-    temperature: 0.8,
-  };
-  const chatModels = ["gpt-4.1", "gpt-4o-mini"];
-  let chatRes: Response | null = null;
-
-  for (const model of chatModels) {
-    chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ model, ...chatPayload }),
+  // ── Step 1: Generate text through the specialty router ─────────────────
+  let transcript = "";
+  try {
+    const { result: stream } = await streamChatCompletionWithFallback({
+      targets,
+      system: systemPrompt + langHint,
+      messages: messages.map(({ role, content }) => ({
+        role: role === "assistant" ? "assistant" as const : "user" as const,
+        content,
+      })),
+      maxTokens: 200,
     });
-    if (chatRes.ok) break;
-    const err = await chatRes.text().catch(() => "");
-    console.error("Chat error:", model, chatRes.status, err);
-  }
-
-  if (!chatRes?.ok) {
-    return new Response(JSON.stringify({ error: `Chat error: ${chatRes?.status || 502}` }), {
+    transcript = await collectText(stream);
+  } catch (error) {
+    console.error("Voice chat text generation failed:", error);
+    return new Response(JSON.stringify({ error: "Chat error: 502" }), {
       status: 502, headers: { ...cors, "Content-Type": "application/json" },
     });
   }
-
-  const chatData   = await chatRes.json();
-  const transcript = chatData.choices?.[0]?.message?.content as string || "";
 
   if (!transcript) {
     return new Response(JSON.stringify({ transcript: "", audio: null }), {

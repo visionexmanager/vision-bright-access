@@ -7,13 +7,14 @@
 // `model` to e.g. "claude-sonnet-4-6" or "claude-opus-4-8". Everything else
 // (transport, streaming, rate limiting) is handled by the provider layer.
 
-import type { AIProvider } from "./aiProvider.ts";
+import type { AIProvider, ProviderTarget } from "./aiProvider.ts";
 
 export interface AssistantConfig {
   id: string;
   name: string;
   provider: AIProvider;
   model: string;
+  targets: ProviderTarget[];
   systemPrompt: string;
 }
 
@@ -33,6 +34,27 @@ function build(role: string, body: string, disclaimer?: string): string {
 
 const DEFAULT_PROVIDER: AIProvider = "openai";
 const DEFAULT_MODEL = "gpt-4.1";
+const OPENAI = { provider: "openai", model: "gpt-4.1" } as const;
+const GROQ = { provider: "groq", model: "llama-3.1-8b-instant" } as const;
+const MISTRAL = { provider: "mistral", model: "mistral-small-latest" } as const;
+
+// Safety-sensitive domains keep the strongest established model first. Fast
+// operational work goes to Groq; multilingual and writing work goes to Mistral.
+const OPENAI_FIRST = new Set([
+  "legal-advisor", "medical-support", "psychology", "empathy-oasis",
+  "skin-care", "hair-care", "finance-advisor",
+]);
+const MISTRAL_FIRST = new Set([
+  "travel-agency", "social-guide", "educational-empire", "music-conservatory",
+  "digital-marketing", "professional-training", "global-studio", "content-guide",
+  "message-assistant", "media-companion", "voice-room-assistant", "whatsapp-support",
+]);
+
+export function assistantTargets(id: string): ProviderTarget[] {
+  if (OPENAI_FIRST.has(id)) return [OPENAI, MISTRAL, GROQ];
+  if (MISTRAL_FIRST.has(id)) return [MISTRAL, GROQ, OPENAI];
+  return [GROQ, MISTRAL, OPENAI];
+}
 
 // Convenience: most assistants share provider/model; only prompt differs.
 function assistant(
@@ -41,11 +63,15 @@ function assistant(
   systemPrompt: string,
   overrides?: Partial<Pick<AssistantConfig, "provider" | "model">>,
 ): AssistantConfig {
+  const targets = overrides?.provider && overrides?.model
+    ? [{ provider: overrides.provider, model: overrides.model }, ...assistantTargets(id)]
+    : assistantTargets(id);
   return {
     id,
     name,
-    provider: overrides?.provider ?? DEFAULT_PROVIDER,
-    model: overrides?.model ?? DEFAULT_MODEL,
+    provider: targets[0]?.provider ?? DEFAULT_PROVIDER,
+    model: targets[0]?.model ?? DEFAULT_MODEL,
+    targets,
     systemPrompt,
   };
 }

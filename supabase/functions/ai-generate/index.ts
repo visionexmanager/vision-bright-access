@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getGenerator, GENERATION_SCHEMA } from "../_shared/generators.ts";
-import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
+import { structuredCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -38,9 +38,8 @@ Deno.serve(async (req) => {
     }
 
     try {
-      const result = await structuredCompletion({
-        provider: generator.provider,
-        model: generator.model,
+      const { result } = await structuredCompletionWithFallback({
+        targets: generator.targets ?? [{ provider: generator.provider, model: generator.model }],
         system: generator.buildSystem(params, lang),
         userText: generator.buildUser(params, lang),
         // A generator may declare its own result shape. Every generator written

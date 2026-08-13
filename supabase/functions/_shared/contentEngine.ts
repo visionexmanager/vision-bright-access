@@ -12,7 +12,7 @@
 // Nothing here publishes. The engine's last act is creating a row a human has
 // to decide on.
 
-import { createEmbedding, structuredCompletion } from "./aiProvider.ts";
+import { createEmbedding, structuredCompletionWithFallback } from "./aiProvider.ts";
 import { getGenerator, CONTENT_SECTIONS, CONTENT_TYPES, CONTENT_PLATFORMS } from "./generators.ts";
 import {
   CONTENT_APPROVAL_TYPE,
@@ -165,15 +165,17 @@ export async function proposeContent(
   try {
     gated = await generateAfterInputScreen(
       { sources: params.sources, memory: params.memory, avoid: params.avoid },
-      () => structuredCompletion({
-        provider: generator.provider,
-        model: generator.model,
-        system: generator.buildSystem(params, opts.language),
-        userText: generator.buildUser(params, opts.language),
-        schema: generator.schema!,
-        toolName: generator.toolName ?? "content_proposal",
-        maxTokens: 1500,
-      }) as Promise<Record<string, unknown>>,
+      async () => {
+        const { result } = await structuredCompletionWithFallback({
+          targets: generator.targets ?? [{ provider: generator.provider, model: generator.model }],
+          system: generator.buildSystem(params, opts.language),
+          userText: generator.buildUser(params, opts.language),
+          schema: generator.schema!,
+          toolName: generator.toolName ?? "content_proposal",
+          maxTokens: 1500,
+        });
+        return result as Record<string, unknown>;
+      },
     );
   } catch {
     return { ok: false, error: "generation_failed" };

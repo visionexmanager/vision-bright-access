@@ -258,10 +258,11 @@ describe("the model is never called on confidential input", () => {
   it("is wired into the engine ahead of the model call, and refuses on its verdict", () => {
     // The gate is only a guarantee if the engine actually routes through it.
     expect(engine).toContain("generateAfterInputScreen(");
-    expect(engine).toContain("() => structuredCompletion({");
-    // structuredCompletion appears only as the gate's callback, never called
+    expect(engine).toContain("async () => {");
+    expect(engine).toContain("structuredCompletionWithFallback({");
+    // The provider call appears only as the gate's callback, never called
     // directly, so there is no second path around the screen.
-    expect(engine.match(/structuredCompletion\(/g)).toHaveLength(1);
+    expect(engine.match(/structuredCompletionWithFallback\(/g)).toHaveLength(1);
     expect(engine).toContain("if (!gated.ok)");
   });
 
@@ -413,7 +414,7 @@ describe("the ordering the pipeline promises", () => {
     const sourcesAt = engine.indexOf('rpc("match_embeddings"');
     const cooldownAt = engine.indexOf('rpc("content_sources_in_cooldown"');
     const gateAt = engine.indexOf("generateAfterInputScreen(");
-    const modelAt = engine.indexOf("structuredCompletion({");
+    const modelAt = engine.indexOf("structuredCompletionWithFallback({");
     const outputAt = engine.indexOf("const leak = detectConfidentialLeak(");
     const saveAt = engine.indexOf('rpc("create_content_proposal"');
 
@@ -701,7 +702,7 @@ describe("security", () => {
 describe("cost is bounded by the existing guards", () => {
   it("checks the project's rate limiter before generating", () => {
     expect(engine).toContain('rpc("check_ai_rate_limit"');
-    expect(engine.indexOf('rpc("check_ai_rate_limit"')).toBeLessThan(engine.indexOf("structuredCompletion("));
+    expect(engine.indexOf('rpc("check_ai_rate_limit"')).toBeLessThan(engine.indexOf("structuredCompletionWithFallback("));
   });
 
   it("fails closed when the limiter cannot be read", () => {
