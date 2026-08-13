@@ -20,6 +20,27 @@ function checkEnvVar(name: string, severity: "missing" | "warning" = "missing"):
   return { ok: true, status: "ok", detail: `${name} is configured.` };
 }
 
+async function checkGemini(): Promise<ComponentStatus> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) return { ok: false, status: "missing", detail: "GEMINI_API_KEY is not configured." };
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=1`,
+      { signal: AbortSignal.timeout(8000) },
+    );
+    if (response.ok) {
+      return { ok: true, status: "ok", detail: "Gemini key valid and API reachable." };
+    }
+    if (response.status === 400 || response.status === 401 || response.status === 403) {
+      return { ok: false, status: "error", detail: "Gemini key is invalid, blocked, or lacks Gemini API access." };
+    }
+    return { ok: false, status: "error", detail: `Gemini API returned HTTP ${response.status}.` };
+  } catch {
+    return { ok: false, status: "error", detail: "Cannot reach the Gemini API." };
+  }
+}
+
 // deno-lint-ignore no-explicit-any
 async function checkTable(db: any, tableName: string): Promise<ComponentStatus> {
   try {
@@ -49,7 +70,7 @@ Deno.serve(async (req) => {
 
   results.openai_key = checkEnvVar("OPENAI_API_KEY");
   results.anthropic_key = checkEnvVar("ANTHROPIC_API_KEY");
-  results.gemini_key = checkEnvVar("GEMINI_API_KEY");
+  results.gemini_key = await checkGemini();
   results.stripe_key = checkEnvVar("STRIPE_SECRET_KEY", "warning");
   results.stripe_webhook_secret = checkEnvVar("CAREER_STRIPE_WEBHOOK_SECRET", "warning");
 
