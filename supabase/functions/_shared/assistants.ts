@@ -35,25 +35,31 @@ function build(role: string, body: string, disclaimer?: string): string {
 const DEFAULT_PROVIDER: AIProvider = "openai";
 const DEFAULT_MODEL = "gpt-4.1";
 const OPENAI = { provider: "openai", model: "gpt-4.1" } as const;
+const GEMINI = { provider: "gemini", model: "gemini-flash-latest" } as const;
 const GROQ = { provider: "groq", model: "llama-3.1-8b-instant" } as const;
 const MISTRAL = { provider: "mistral", model: "mistral-small-latest" } as const;
 
 // Safety-sensitive domains keep the strongest established model first. Fast
-// operational work goes to Groq; multilingual and writing work goes to Mistral.
+// operational work goes to Groq; multilingual and writing work goes to Mistral;
+// education, research, and long-context reasoning go to Gemini.
 const OPENAI_FIRST = new Set([
   "legal-advisor", "medical-support", "psychology", "empathy-oasis",
   "skin-care", "hair-care", "finance-advisor",
 ]);
 const MISTRAL_FIRST = new Set([
-  "travel-agency", "social-guide", "educational-empire", "music-conservatory",
-  "digital-marketing", "professional-training", "global-studio", "content-guide",
+  "social-guide", "digital-marketing", "global-studio", "content-guide",
   "message-assistant", "media-companion", "voice-room-assistant", "whatsapp-support",
+]);
+const GEMINI_FIRST = new Set([
+  "travel-agency", "educational-empire", "music-conservatory", "tech-consulting",
+  "professional-training", "simulation-mentor",
 ]);
 
 export function assistantTargets(id: string): ProviderTarget[] {
-  if (OPENAI_FIRST.has(id)) return [OPENAI, MISTRAL, GROQ];
-  if (MISTRAL_FIRST.has(id)) return [MISTRAL, GROQ, OPENAI];
-  return [GROQ, MISTRAL, OPENAI];
+  if (OPENAI_FIRST.has(id)) return [OPENAI, GEMINI, MISTRAL, GROQ];
+  if (GEMINI_FIRST.has(id)) return [GEMINI, GROQ, MISTRAL, OPENAI];
+  if (MISTRAL_FIRST.has(id)) return [MISTRAL, GEMINI, GROQ, OPENAI];
+  return [GROQ, GEMINI, MISTRAL, OPENAI];
 }
 
 // Convenience: most assistants share provider/model; only prompt differs.
