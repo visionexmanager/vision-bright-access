@@ -19,6 +19,8 @@ import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { KnowledgeArenaMotion } from "@/features/arcade/motion/KnowledgeArenaMotion";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
 
 const questions = [
   { id: 1, q: "ما هو أسرع حيوان بري في العالم؟", options: ["الأسد", "الفهد", "الغزال"], correct: 1 },
@@ -104,6 +106,7 @@ function QuizMulti() {
 
   const handleAnswer = (idx: number) => {
     const correct = idx === questions[currentQ].correct;
+    void playProductionSound(correct ? "puzzle-success" : "puzzle-failure", { volume: 0.65 });
     const newScore = correct ? myScore + 10 : myScore;
     setMyScore(newScore);
     mp.updateMyScore(newScore, false);
@@ -190,7 +193,9 @@ export default function QuizChallenge() {
   }, [timeLeft, gameState, nextQuestion]);
 
   const handleAnswer = (index: number) => {
-    if (index === questions[currentQuestion].correct) {
+    const correct = index === questions[currentQuestion].correct;
+    void playProductionSound(correct ? "puzzle-success" : "puzzle-failure", { volume: 0.65 });
+    if (correct) {
       setScore((prev) => prev + 10);
     }
     nextQuestion(index === questions[currentQuestion].correct ? score + 10 : score);
@@ -243,6 +248,7 @@ export default function QuizChallenge() {
 
           {gameState === "playing" && (
             <div className="space-y-6" dir="rtl">
+              <KnowledgeArenaMotion progress={progress} urgent={timeLeft <= 3} />
               <div className="flex items-center justify-between">
                 <div className="text-start">
           <p className="text-xs uppercase tracking-widest text-muted-foreground">{t("quiz.pointsLabel")}</p>

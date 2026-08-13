@@ -1,5 +1,5 @@
-import quizImg from "@/assets/arcade/game-quiz-premium-v1.webp";
-import memoryImg from "@/assets/arcade/game-memory-premium-v1.webp";
+import quizImg from "@/assets/arcade/game-quiz-challenge-premium-v2.webp";
+import memoryImg from "@/assets/arcade/game-memory-premium-v2.webp";
 import wordImg from "@/assets/arcade/game-word-puzzle-premium-v1.webp";
 import hangmanImg from "@/assets/arcade/game-hangman-premium-v1.webp";
 import jungleImg from "@/assets/arcade/game-jungle-survival-premium-v2.webp";

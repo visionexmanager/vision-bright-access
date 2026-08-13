@@ -20,6 +20,9 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { useReducedMotion } from "framer-motion";
+import { readGameSettings } from "@/features/arcade/core/gameSettings";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
 
 // Card data with icons
 const CARD_DATA = [
@@ -71,6 +74,7 @@ export default function MemoryGame() {
   const [soundOn, setSoundOn] = useState(true);
   const [ttsOn, setTTSOn] = useState(true);
   const liveRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = Boolean(useReducedMotion()) || readGameSettings().reducedMotion;
 
   const getCardLabel = useCallback((dataIndex: number) => {
     const data = CARD_DATA[dataIndex];
@@ -102,6 +106,7 @@ export default function MemoryGame() {
       const msg = `${t("games.memory.match")}: ${label}`;
       announce(msg);
       playSound("match");
+      void playProductionSound("puzzle-success", { volume: 0.6 });
       if (ttsOn) speak(msg, lang);
       setTimeout(() => {
         setCards((prev) =>
@@ -113,6 +118,7 @@ export default function MemoryGame() {
     } else {
       announce(t("games.memory.noMatch"));
       playSound("noMatch");
+      void playProductionSound("puzzle-failure", { volume: 0.55 });
       if (ttsOn) speak(t("games.memory.noMatch"), lang);
       setTimeout(() => {
         setCards((prev) =>
@@ -247,7 +253,7 @@ export default function MemoryGame() {
                       disabled={card.matched || card.flipped || flippedIds.length >= 2}
                       className={`
                         group relative aspect-square rounded-xl border-2 
-                        transition-all duration-300 transform
+                        ${reducedMotion ? "" : "transition-all duration-300 transform"}
                         focus:outline-none focus:ring-4 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background
                         min-h-[64px] min-w-[64px]
                         ${card.matched

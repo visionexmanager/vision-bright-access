@@ -1,5 +1,9 @@
 # Visionex Arcade asset provenance
 
+## Premium cognition covers — production pack 8 (2026-08-13)
+
+`game-quiz-challenge-premium-v2.webp` and `game-memory-premium-v2.webp` were created specifically for Visionex Arcade with ChatGPT built-in image generation. The accepted images contain no text, logos, brands, flags, copyrighted characters, or identifiable people. Sources were visually inspected, stripped of metadata, resized to 1920×1080, and encoded as WebP quality-84 production derivatives.
+
 ## Premium motion covers — production pack 7 (2026-08-13)
 
 `game-velocity-racing-premium-v2.webp` and `game-jungle-survival-premium-v2.webp`
