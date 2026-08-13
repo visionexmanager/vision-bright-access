@@ -18,6 +18,9 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
+import { LexiconPulse } from "@/features/arcade/motion/LexiconPulse";
+import heroImg from "@/assets/arcade/game-word-puzzle-premium-v2.webp";
 
 interface WordEntry {
   wordKey: string;
@@ -144,11 +147,13 @@ export default function WordPuzzle() {
         setScore((p) => p + 1);
         setFeedback("correct");
         playSound("correct");
+        if (soundEnabledRef.current) void playProductionSound("puzzle-success", { volume: 0.6 });
         announce(t("games.word.correct"));
         if (ttsOn) speak(t("games.word.correct"), lang);
       } else {
         setFeedback("wrong");
         playSound("wrong");
+        if (soundEnabledRef.current) void playProductionSound("puzzle-failure", { volume: 0.55 });
         announce(`${t("games.word.wrong")} ${currentWord}`);
         if (ttsOn) speak(`${t("games.word.wrong")} ${currentWord}`, lang);
       }
@@ -234,6 +239,7 @@ export default function WordPuzzle() {
 
           {gameState === "start" && (
             <div className="space-y-6">
+              <img src={heroImg} alt="" className="h-40 w-full rounded-xl object-cover" width={1920} height={1080} />
               <Trophy className="mx-auto h-16 w-16 text-primary" aria-hidden="true" />
               <h1 className="text-3xl font-black sm:text-4xl">{t("games.word.title")}</h1>
               <p className="text-lg text-muted-foreground">{t("games.word.desc")}</p>
@@ -269,6 +275,7 @@ export default function WordPuzzle() {
               </div>
 
               <Progress value={progress} className="h-2" aria-label="Game progress" />
+              <LexiconPulse progress={progress} />
 
               {/* Hint area */}
               <div className="flex items-center justify-center gap-2">

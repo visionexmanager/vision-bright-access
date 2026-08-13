@@ -69,4 +69,11 @@ describe("Arcade premium visual registry", () => {
     }
   });
   it("ships dedicated Full-HD raster covers for production cognition pack 8",()=>{for(const slug of ["quiz-challenge","memory"]){const game=ARCADE_GAMES.find(item=>item.slug===slug)!;expect(game.image).toMatch(new RegExp(`game-${slug}-premium-v2\\.webp$`));expect(visualsForGame(game)[0].sources[0]).toMatchObject({width:1920,height:1080,mimeType:"image/webp"})}});
+  it("ships dedicated Full-HD raster covers for production word pack 9", () => {
+    for (const slug of ["word-puzzle", "hangman"]) {
+      const game = ARCADE_GAMES.find((item) => item.slug === slug)!;
+      expect(game.image).toMatch(new RegExp(`game-${slug}-premium-v2\\.webp$`));
+      expect(visualsForGame(game)[0].sources[0]).toMatchObject({ width: 1920, height: 1080, mimeType: "image/webp" });
+    }
+  });
 });
