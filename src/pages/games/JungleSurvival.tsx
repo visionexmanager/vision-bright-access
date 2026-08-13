@@ -9,7 +9,7 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useCallback, useEffect, useMemo } from "react";
-import heroImg from "@/assets/arcade/game-jungle-survival-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-jungle-survival-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
@@ -17,6 +17,7 @@ import { FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
 import { useProductionAmbience } from "@/features/arcade/audio/useProductionAmbience";
+import { JungleDecisionMotion } from "@/features/arcade/motion/JungleDecisionMotion";
 
 // All 20 scenarios (5 original + 15 new)
 const ALL_SCENARIOS = [
@@ -77,6 +78,7 @@ function JungleBoard({
         <CardContent className="pt-6 space-y-6">
           {!gameOver ? (
             <>
+              <JungleDecisionMotion step={step} total={pool.length} hp={hp} />
               <p className="text-lg text-center leading-relaxed">{t(scene.text)}</p>
               <div className="grid gap-3">
                 {scene.choices.map((choice, i) => (
@@ -101,7 +103,6 @@ function JungleBoard({
 }
 
 function JungleSolo() {
-  const { playSound } = useSound();
   const { jungleSwish, jungleDanger, jungleSuccess, jungleFail } = useGameSounds();
   const { highScore, updateHighScore } = useHighScore("jungle");
   const { settleGameResult } = useGameEconomy();
@@ -128,7 +129,7 @@ function JungleSolo() {
     }
     setStep((s) => s + 1);
     setTimeout(choice.hp >= 0 ? jungleSuccess : jungleFail, 150);
-  }, [hp, step, scenarios, score, playSound, settleGameResult]);
+  }, [hp, step, scenarios, score, settleGameResult, jungleDanger, jungleFail, jungleSuccess, jungleSwish, updateHighScore]);
 
   const restart = () => {
     setScenarios(pickScenarios());
