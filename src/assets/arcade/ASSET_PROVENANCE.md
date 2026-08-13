@@ -119,3 +119,11 @@ Eighteen additional original covers were generated on 2026-08-02 with the same b
 | Laptop Tech Master | `game-laptop-tech-premium-v1.webp` |
 
 Prompt intent for every cover is recorded by game name: original subject matter appropriate to gameplay, Visionex navy/cyan/violet/amber palette, safe overlay space, no readable text, logos, brands, recognisable people, copyrighted characters, or watermark. The files are project-owned generated derivatives, subject to the organization-level policy review noted above.
+## Production physics pack 6 — generated 2026-08-12
+
+- `game-balance-lab-premium-v2.webp`
+- `game-pendulum-puzzle-premium-v2.webp`
+- `game-trajectory-master-premium-v2.webp`
+- `game-magnet-lab-premium-v2.webp`
+
+Generated specifically for Visionex with OpenAI image generation, inspected, stripped of metadata, center-cropped to 1920×1080, and encoded as WebP. No external copyrighted source imagery, logos, UI text, or third-party branding was used.
