@@ -27,6 +27,57 @@
 -- carried the token itself would put a publishing credential in a table that is
 -- backed up, replicated and readable by every admin.
 
+-- A secret-shaped key at ANY depth, not only at the top level.
+--
+-- jsonb's `?|` operator only sees top-level keys, so {"auth": {"access_token":
+-- "…"}} satisfied the first version of the config constraint and was then handed
+-- to the worker verbatim by claim_due_content_slot() and readable by every
+-- admin. The walk below descends through objects and arrays alike.
+--
+-- The key is normalised — lower-cased, punctuation dropped — before matching, so
+-- accessToken, ACCESS-TOKEN and access_token are one key, and client_secret_key
+-- is caught by `secret` without needing an entry of its own.
+--
+-- Written as an explicit stack rather than a recursive CTE because a CHECK
+-- constraint needs a function either way, and this form has no doubt about it.
+CREATE OR REPLACE FUNCTION public.jsonb_has_secret_key(_doc jsonb)
+RETURNS boolean
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = public
+AS $$
+DECLARE
+  _stack jsonb[] := ARRAY[coalesce(_doc, '{}'::jsonb)];
+  _node  jsonb;
+  _key   text;
+  _child jsonb;
+BEGIN
+  WHILE array_length(_stack, 1) > 0 LOOP
+    _node  := _stack[array_length(_stack, 1)];
+    _stack := _stack[1:array_length(_stack, 1) - 1];
+
+    IF jsonb_typeof(_node) = 'object' THEN
+      FOR _key, _child IN SELECT * FROM jsonb_each(_node) LOOP
+        IF regexp_replace(lower(_key), '[^a-z0-9]', '', 'g')
+           ~ '(token|secret|password|passwd|apikey|privatekey|authorization|credential)' THEN
+          RETURN true;
+        END IF;
+        _stack := _stack || _child;
+      END LOOP;
+    ELSIF jsonb_typeof(_node) = 'array' THEN
+      FOR _child IN SELECT value FROM jsonb_array_elements(_node) LOOP
+        _stack := _stack || _child;
+      END LOOP;
+    END IF;
+  END LOOP;
+
+  RETURN false;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.jsonb_has_secret_key(jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.jsonb_has_secret_key(jsonb) TO service_role;
+
 CREATE TABLE IF NOT EXISTS public.social_accounts (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -119,18 +170,15 @@ BEGIN
 
   -- config is for non-secret settings. Refusing the credential-shaped keys
   -- outright is cheaper than auditing every future writer of this column.
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-     WHERE conrelid = 'public.social_accounts'::regclass
-       AND conname = 'social_accounts_config_holds_no_secret'
-  ) THEN
-    ALTER TABLE public.social_accounts
-      ADD CONSTRAINT social_accounts_config_holds_no_secret
-      CHECK (NOT (config ?| ARRAY[
-        'token', 'access_token', 'refresh_token', 'secret', 'client_secret',
-        'app_secret', 'api_key', 'apiKey', 'password', 'private_key'
-      ]));
-  END IF;
+  --
+  -- Dropped and re-added rather than guarded by NOT EXISTS: an installation
+  -- that already has the earlier, top-level-only version of this constraint
+  -- must end up with the recursive one, not keep the weaker check.
+  ALTER TABLE public.social_accounts
+    DROP CONSTRAINT IF EXISTS social_accounts_config_holds_no_secret;
+  ALTER TABLE public.social_accounts
+    ADD CONSTRAINT social_accounts_config_holds_no_secret
+    CHECK (NOT public.jsonb_has_secret_key(config));
 END $$;
 
 COMMENT ON TABLE public.social_accounts IS
@@ -165,7 +213,25 @@ CREATE TABLE IF NOT EXISTS public.social_publications (
   -- Redacted by record_content_publication() before it reaches this table: a
   -- provider error commonly quotes the request, and the request carries a
   -- bearer token.
-  error_code    text,
+  --
+  -- error_code is a machine code, not prose, so it is constrained to that shape
+  -- instead of being redacted. redact_publication_error() cannot help here: it
+  -- masks credentials it recognises inside free text, whereas the whole value of
+  -- error_code is supposed to be a short identifier. Anything else is a caller
+  -- putting something in the wrong field, and the database refuses to hold it.
+  --
+  -- The second condition closes what the shape alone leaves open: a 32-character
+  -- lowercase hex or base32 secret satisfies ^[a-z0-9_]{1,40}$ perfectly well.
+  -- The 32-character threshold is the one redact_publication_error() already
+  -- uses, where a run that long is treated as credential-shaped whether or not
+  -- it was labelled. The run class here drops the underscore on purpose: an
+  -- underscore breaks the run, so a long snake_case code such as
+  -- content_moderation_rejected_by_platform still fits, while an unbroken
+  -- 32-character token does not.
+  error_code    text CHECK (
+                  error_code IS NULL
+                  OR (error_code ~ '^[a-z0-9_]{1,40}$' AND error_code !~ '[a-z0-9]{32,}')
+                ),
   error_message text,
 
   claimed_at    timestamptz NOT NULL DEFAULT now(),
@@ -471,6 +537,7 @@ AS $$
 DECLARE
   _pub    public.social_publications%ROWTYPE;
   _reason text;
+  _code   text;
 BEGIN
   SELECT * INTO _pub FROM public.social_publications WHERE id = _publication_id;
   IF NOT FOUND THEN
@@ -490,9 +557,30 @@ BEGIN
   IF NOT _success THEN
     _reason := public.redact_publication_error(_error_message);
 
+    -- error_code was stored and logged verbatim, and it is caller-supplied. A
+    -- provider client that passes the failing request through as its "code"
+    -- would put a bearer token into social_publications AND into audit_logs,
+    -- neither of which redact_publication_error() is applied to. Truncating to
+    -- 100 characters did not help: a token fits.
+    --
+    -- So the value is classified, not cleaned. A short machine code is kept as
+    -- it is; anything else is replaced wholesale, because a value that is not a
+    -- code carries no information worth the risk of storing part of it.
+    --
+    -- Both conditions, and the same two the column itself enforces: the shape,
+    -- then the absence of an unbroken 32-character alphanumeric run, which is
+    -- how redact_publication_error() recognises an unlabelled credential. The
+    -- shape alone would accept a 32-character hex secret.
+    _code := CASE
+               WHEN _error_code IS NULL THEN 'publish_failed'
+               WHEN _error_code ~ '^[a-z0-9_]{1,40}$'
+                AND _error_code !~ '[a-z0-9]{32,}' THEN _error_code
+               ELSE 'unknown_error'
+             END;
+
     UPDATE public.social_publications
        SET state = 'FAILED',
-           error_code = left(coalesce(_error_code, 'publish_failed'), 100),
+           error_code = _code,
            error_message = _reason,
            completed_at = now()
      WHERE id = _pub.id;
@@ -512,7 +600,7 @@ BEGIN
     INSERT INTO public.audit_logs (actor_id, action, entity_type, entity_id, metadata)
     VALUES (NULL, 'content_publication_failed', 'social_publication', _pub.id,
             jsonb_build_object('platform', _pub.platform, 'attempt', _pub.attempt,
-                               'error_code', left(coalesce(_error_code, 'publish_failed'), 100)));
+                               'error_code', _code));
 
     RETURN jsonb_build_object('ok', true, 'state', 'FAILED');
   END IF;

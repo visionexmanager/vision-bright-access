@@ -265,14 +265,22 @@ describe("no credential is stored, returned, or logged", () => {
     expect(phase8).toContain("CHECK (api_key_ref IS NULL OR api_key_ref ~ '^[A-Z][A-Z0-9_]{2,63}$')");
   });
 
-  it("refuses credential-shaped keys in the settings blob", () => {
-    const constraint = phase8.slice(phase8.indexOf("social_accounts_config_holds_no_secret"));
-    for (const key of [
-      "'token'", "'access_token'", "'refresh_token'", "'secret'",
-      "'client_secret'", "'app_secret'", "'api_key'", "'password'", "'private_key'",
-    ]) {
-      expect(constraint.slice(0, 900), key).toContain(key);
-    }
+  it("refuses credential-shaped keys at any depth in the settings blob", () => {
+    // `config ?| ARRAY[…]` only ever looked at top-level keys, so a credential
+    // one level down was stored and then handed to the worker verbatim. The
+    // constraint now calls a function that walks the whole document.
+    expect(phase8).toContain("CHECK (NOT public.jsonb_has_secret_key(config))");
+    expect(phase8).not.toMatch(/config \?\| ARRAY/);
+
+    const walker = functionBody(phase8, "jsonb_has_secret_key");
+    // Objects and arrays both: a secret parked in a list of objects is the case
+    // the top-level check missed most easily.
+    expect(walker).toContain("jsonb_typeof(_node) = 'object'");
+    expect(walker).toContain("jsonb_typeof(_node) = 'array'");
+    expect(walker).toContain("FROM jsonb_each(_node)");
+    expect(walker).toContain("FROM jsonb_array_elements(_node)");
+    // Keys are normalised before matching, so apiKey and API-KEY are one key.
+    expect(walker).toContain("regexp_replace(lower(_key), '[^a-z0-9]', '', 'g')");
   });
 
   it("declares no column that could hold one", () => {
@@ -311,6 +319,209 @@ describe("no credential is stored, returned, or logged", () => {
     for (const [, metadata] of phase8.matchAll(/INSERT INTO public\.audit_logs[\s\S]{0,600}?jsonb_build_object\(([\s\S]{0,400}?)\)\);/g)) {
       expect(metadata).not.toMatch(/api_key|token|secret|password/i);
     }
+  });
+});
+
+describe("what the two value filters actually classify", () => {
+  // There is no live Postgres in this suite, so these tests take the patterns
+  // the migration declares — read out of the SQL, never retyped here — and run
+  // real candidate values through them. What that establishes is the
+  // classification: which values are kept, which are replaced, which configs
+  // are refused. It does not execute PostgreSQL. The statements that apply
+  // these patterns are covered by the structural assertions elsewhere in this
+  // file, and the walk below mirrors the one the plpgsql function performs.
+
+  function declaredPattern(source: RegExp, label: string): RegExp {
+    const match = phase8.match(source);
+    expect(match, `${label} must be declared in the migration`).not.toBeNull();
+    return new RegExp(match![1]);
+  }
+
+  const errorCodeShape = declaredPattern(
+    /WHEN _error_code ~ '([^']+)'\s*AND _error_code !~ '[^']+' THEN _error_code/,
+    "the error_code shape",
+  );
+  const errorCodeSecretRun = declaredPattern(
+    /WHEN _error_code ~ '[^']+'\s*AND _error_code !~ '([^']+)' THEN _error_code/,
+    "the error_code long-run rule",
+  );
+  const secretKeyShape = declaredPattern(
+    /regexp_replace\(lower\(_key\), '\[\^a-z0-9\]', '', 'g'\)\s*~\s*'([^']+)'/,
+    "the secret-key pattern",
+  );
+
+  /** The CASE in record_content_publication, over both rules it declares. */
+  const classify = (code: string | null): string =>
+    code === null
+      ? "publish_failed"
+      : errorCodeShape.test(code) && !errorCodeSecretRun.test(code)
+        ? code
+        : "unknown_error";
+
+  /** The stack walk in jsonb_has_secret_key, over the pattern it declares. */
+  const hasSecretKey = (doc: unknown): boolean => {
+    const stack: unknown[] = [doc];
+    while (stack.length > 0) {
+      const node = stack.pop();
+      if (Array.isArray(node)) {
+        stack.push(...node);
+      } else if (node !== null && typeof node === "object") {
+        for (const [key, value] of Object.entries(node)) {
+          if (secretKeyShape.test(key.toLowerCase().replace(/[^a-z0-9]/g, ""))) return true;
+          stack.push(value);
+        }
+      }
+    }
+    return false;
+  };
+
+  describe("error_code", () => {
+    it("keeps a real machine code exactly as it was given", () => {
+      for (const code of ["rate_limited", "invalid_media", "token_expired", "e42", "publish_failed"]) {
+        expect(classify(code)).toBe(code);
+      }
+    });
+
+    it("replaces a code carrying a bearer token", () => {
+      const bearer =
+        "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N";
+      expect(classify(bearer)).toBe("unknown_error");
+      // Replaced wholesale, not truncated: no fragment survives.
+      expect(classify(bearer)).not.toContain("eyJ");
+      expect(classify(bearer)).not.toContain("Bearer");
+    });
+
+    it("replaces a code carrying an API key", () => {
+      // The shapes a provider client actually leaks into an error field: a
+      // mixed-case opaque run, a hyphen-separated key, an assignment fragment,
+      // a dotted three-part value.
+      //
+      // None of them imitate a real vendor's prefix. A fixture that does trips
+      // secret scanning for no benefit — and the brand is not what makes these
+      // unstorable anyway. The uppercase, the punctuation and the unbroken run
+      // are, and each of those is what the rule actually tests.
+      for (const key of [
+        "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789",
+        "key-0000-1111-2222-NotARealCredential",
+        "api_key=Zm9vYmFyLW5vdC1hLXJlYWwta2V5",
+        "header.payloadpayloadpayload.signature",
+      ]) {
+        expect(classify(key), `${key} must not be stored`).toBe("unknown_error");
+      }
+    });
+
+    it("gives a missing code the neutral default", () => {
+      expect(classify(null)).toBe("publish_failed");
+    });
+
+    it("replaces an unlabelled secret that fits the shape", () => {
+      // The case the shape alone let through: 32 characters of lowercase hex
+      // satisfy ^[a-z0-9_]{1,40}$ and are still a credential.
+      for (const hex of [
+        "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+        "0123456789abcdef0123456789abcdef",
+        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+      ]) {
+        expect(classify(hex), `${hex} must not be stored`).toBe("unknown_error");
+      }
+    });
+
+    it("draws the long-run line at 32 characters, as the redactor does", () => {
+      const run = "ab12".repeat(8); // exactly 32
+      expect(run).toHaveLength(32);
+      expect(classify(run)).toBe("unknown_error");
+      expect(classify(run.slice(0, 31))).toBe(run.slice(0, 31));
+
+      // The same threshold redact_publication_error() uses for an unlabelled
+      // credential, which is where this rule comes from.
+      const redact = phase8.slice(
+        phase8.indexOf("FUNCTION public.redact_publication_error"),
+        phase8.indexOf("-- ── Claim a due slot"),
+      );
+      expect(redact).toContain("{32,}");
+    });
+
+    it("keeps a long snake_case code, because an underscore breaks the run", () => {
+      // The run class excludes the underscore on purpose, so tightening the
+      // rule did not start rejecting legitimate descriptive codes.
+      const code = "content_moderation_rejected_by_platform";
+      expect(code.length).toBeLessThanOrEqual(40);
+      expect(classify(code)).toBe(code);
+    });
+
+    it("accepts a short random code rather than refusing what it cannot explain", () => {
+      // A short opaque value is still a usable code: the rule rejects length of
+      // an unbroken run, not unfamiliarity.
+      for (const code of ["x7f2q9", "e42", "a1b2c3", "err0", "q9z8y7x6w5"]) {
+        expect(classify(code), `${code} must be accepted`).toBe(code);
+      }
+    });
+
+    it("only ever produces a value the column will hold", () => {
+      expect(phase8).toContain(
+        "OR (error_code ~ '^[a-z0-9_]{1,40}$' AND error_code !~ '[a-z0-9]{32,}')",
+      );
+      for (const input of [
+        null, "rate_limited", "Bearer eyJhbGciOiJ", "key-live-000",
+        "a1b2c3d4e5f60718293a4b5c6d7e8f90", "ab12".repeat(8),
+      ]) {
+        const stored = classify(input);
+        expect(errorCodeShape.test(stored), `${input} produced an unstorable code`).toBe(true);
+        expect(errorCodeSecretRun.test(stored), `${input} produced a credential-shaped code`).toBe(false);
+      }
+    });
+
+    it("does not weaken the redaction of error_message", () => {
+      // error_message is free text and still goes through the redactor; this
+      // fix changed the sibling column only.
+      expect(record).toContain("_reason := public.redact_publication_error(_error_message);");
+      expect(record).toContain("error_message = _reason");
+      expect(record).toContain("last_error = _reason");
+      expect(phase8).toContain("FUNCTION public.redact_publication_error");
+    });
+  });
+
+  describe("config", () => {
+    it("accepts ordinary non-secret settings", () => {
+      expect(
+        hasSecretKey({
+          page_id: "123456789",
+          timezone: "Asia/Riyadh",
+          default_hashtags: ["visionex", "accessibility"],
+          crosspost: { instagram: true, threads: false },
+          retry: { max: 3, backoff_seconds: [30, 120, 600] },
+        }),
+      ).toBe(false);
+      expect(hasSecretKey({})).toBe(false);
+    });
+
+    it("refuses access_token nested inside an object", () => {
+      expect(hasSecretKey({ auth: { access_token: "not-a-real-token" } })).toBe(true);
+      expect(hasSecretKey({ a: { b: { c: { refresh_token: "fake" } } } })).toBe(true);
+    });
+
+    it("refuses client_secret nested inside an array of objects", () => {
+      expect(hasSecretKey({ accounts: [{ handle: "@visionex" }, { client_secret: "fake" }] })).toBe(true);
+      expect(hasSecretKey({ pages: [[{ deep: { client_secret_key: "fake" } }]] })).toBe(true);
+    });
+
+    it("refuses every key the review called out, however it is spelled", () => {
+      for (const key of [
+        "token", "access_token", "refresh_token", "client_secret", "client_secret_key",
+        "api_key", "authorization", "password", "secret", "private_key",
+        "accessToken", "API-KEY", "AppSecret", "Private Key",
+      ]) {
+        expect(hasSecretKey({ outer: { [key]: "fake" } }), `${key} must be refused`).toBe(true);
+      }
+    });
+
+    it("catches exactly what the old top-level check let through", () => {
+      // The regression itself: `?|` sees only top-level keys, and this document
+      // has no top-level key that looks like a credential.
+      const nested = { auth: { access_token: "fake" } };
+      expect(Object.keys(nested)).toEqual(["auth"]);
+      expect(hasSecretKey(nested)).toBe(true);
+    });
   });
 });
 
@@ -357,7 +568,7 @@ describe("security model matches Phase 7", () => {
 
   it("grants execute to nobody but service_role", () => {
     const grants = [...phase8.matchAll(/GRANT EXECUTE ON FUNCTION [^;]+ TO (\w+);/g)].map((m) => m[1]);
-    expect(grants).toHaveLength(3);
+    expect(grants).toHaveLength(4);
     expect([...new Set(grants)]).toEqual(["service_role"]);
     // No table privilege is handed out either — RLS plus the definer functions
     // are the whole access story.
@@ -377,10 +588,15 @@ describe("security model matches Phase 7", () => {
   });
 
   it("creates no Edge Function", () => {
+    // Deliberately not a count. Pinning the total made every unrelated pull
+    // request that adds a function fail here, which says nothing about this
+    // phase. What PR A must not do is ship a publishing surface, so that is
+    // what is asserted: no function directory belongs to this phase's subject.
     const functions = readdirSync("supabase/functions", { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && entry.name !== "_shared")
       .map((entry) => entry.name);
-    expect(functions).toHaveLength(92);
+
+    expect(functions.filter((name) => /social|publish|oauth/i.test(name))).toEqual([]);
     for (const invented of ["social-publish", "content-publish", "social-oauth", "publish-worker"]) {
       expect(existsSync(`supabase/functions/${invented}`), `${invented} must not exist`).toBe(false);
     }
