@@ -9,7 +9,8 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useMemo } from "react";
-import heroImg from "@/assets/arcade/game-laptop-tech-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-laptop-tech-premium-v2.webp";
+import { ProductionWorldMotion } from "@/features/arcade/visual/ProductionWorldMotion";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
@@ -121,7 +122,7 @@ function LaptopBoard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
+      <div className="flex justify-between items-center flex-wrap gap-2 mb-2" role="status" aria-live="polite">
         <Badge>⭐ {score}</Badge>
         <Badge variant="outline">{current + 1}/{ISSUES_PER_GAME}</Badge>
         <Badge variant={timeLeft <= 5 ? "destructive" : "secondary"}>⏱️ {timeLeft}s</Badge>
@@ -269,6 +270,7 @@ export default function LaptopTechMaster() {
         <div className="relative mb-6 overflow-hidden rounded-2xl">
           <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+          <ProductionWorldMotion world="repair" />
           <div className="absolute bottom-4 start-4 end-4 text-center">
             <h1 className="text-3xl font-bold">💻 {t("laptoptech.title")}</h1>
           </div>
@@ -284,8 +286,8 @@ export default function LaptopTechMaster() {
           }
         />
         <div className="flex rounded-lg overflow-hidden border mb-6">
-          <button onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
-          <button onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
+          <button type="button" aria-pressed={mode === "solo"} onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
+          <button type="button" aria-pressed={mode === "multi"} onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
         </div>
         {mode === "solo" ? <LaptopBoard /> : <LaptopMulti />}
       </section>
