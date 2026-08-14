@@ -1,0 +1,94 @@
+name: Reconcile missing release runs
+
+on:
+  schedule:
+    # GitHub suppresses workflow events created with some automation tokens.
+    # Polling makes a missing main-branch CI or deployment self-healing.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: reconcile-main-release
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Restore missing CI and deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Inspect exact main commit and recover missing runs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          head_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          echo "Current main commit: $head_sha"
+
+          run_state() {
+            local workflow="$1"
+            gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow "$workflow" \
+              --branch main \
+              --commit "$head_sha" \
+              --limit 20 \
+              --json status,conclusion \
+              --jq '
+                if any(.[]; .status == "queued" or .status == "in_progress" or .status == "waiting") then "running"
+                elif any(.[]; .status == "completed" and .conclusion == "success") then "success"
+                elif length > 0 then "failed"
+                else "missing"
+                end'
+          }
+
+          recover_check() {
+            local workflow="$1"
+            local state
+            state="$(run_state "$workflow")"
+            echo "$workflow: $state"
+            case "$state" in
+              success) return 0 ;;
+              running) return 2 ;;
+              missing)
+                gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref main
+                echo "Dispatched missing $workflow for $head_sha."
+                return 2
+                ;;
+              failed)
+                echo "::error::$workflow has a failed run for $head_sha; refusing to hide it with endless retries."
+                return 1
+                ;;
+            esac
+          }
+
+          checks_ready=true
+          recover_check ci.yml || case "$?" in 2) checks_ready=false ;; *) exit 1 ;; esac
+          recover_check ci-cd.yml || case "$?" in 2) checks_ready=false ;; *) exit 1 ;; esac
+
+          if [[ "$checks_ready" != true ]]; then
+            echo "CI recovery is running. A later reconciliation will verify it before deployment."
+            exit 0
+          fi
+
+          deploy_state="$(run_state deploy.yml)"
+          echo "deploy.yml: $deploy_state"
+          case "$deploy_state" in
+            success|running)
+              exit 0
+              ;;
+            missing)
+              gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref main
+              echo "Dispatched missing deployment for tested commit $head_sha."
+              ;;
+            failed)
+              echo "::error::Deployment failed for $head_sha; manual diagnosis is required."
+              exit 1
+              ;;
+          esac
