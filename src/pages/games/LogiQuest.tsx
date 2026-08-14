@@ -10,7 +10,8 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useMemo } from "react";
-import heroImg from "@/assets/arcade/game-logiquest-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-logiquest-premium-v2.webp";
+import { ProductionWorldMotion } from "@/features/arcade/visual/ProductionWorldMotion";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
@@ -144,7 +145,7 @@ function LogiQuestSolo() {
       <Card><CardContent className="pt-6 space-y-4">
         <Progress value={(timeLeft / maxTime) * 100}
           className={timeLeft <= 3 ? "[&>div]:bg-destructive" : ""} />
-        <div className="flex justify-between items-center flex-wrap gap-2">
+        <div className="flex justify-between items-center flex-wrap gap-2" role="status" aria-live="polite">
           <Badge variant={timeLeft <= 3 ? "destructive" : "secondary"}>⏱️ {timeLeft}s</Badge>
           <Badge>⭐ {score}</Badge>
           {streak >= 2 && <Badge className="bg-orange-500">{t("logiquest.streak").replace("{n}", String(streak))}</Badge>}
@@ -309,6 +310,7 @@ export default function LogiQuest() {
         <div className="relative mb-6 overflow-hidden rounded-2xl">
           <img src={heroImg} alt="" role="presentation" className="h-40 w-full object-cover sm:h-48" width={800} height={512} loading="lazy" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+          <ProductionWorldMotion world="logic" />
           <div className="absolute bottom-4 start-4 end-4 text-center">
             <h1 className="text-3xl font-bold">🧩 {t("logiquest.title")}</h1>
           </div>
@@ -324,8 +326,8 @@ export default function LogiQuest() {
           }
         />
         <div className="flex rounded-lg overflow-hidden border mb-6">
-          <button onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
-          <button onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
+          <button type="button" aria-pressed={mode === "solo"} onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
+          <button type="button" aria-pressed={mode === "multi"} onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
         </div>
         {mode === "solo" ? <LogiQuestSolo /> : <LogiQuestMulti />}
       </section>

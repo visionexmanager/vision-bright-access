@@ -113,4 +113,12 @@ describe("Arcade premium visual registry", () => {
     }
   });
 
+  it("ships dedicated Full-HD raster covers for production finale pack 15", () => {
+    for (const slug of ["logiquest", "trade-tycoon", "laptop-tech", "music-ear"]) {
+      const game = ARCADE_GAMES.find((item) => item.slug === slug)!;
+      expect(game.image).toMatch(new RegExp(`game-${slug}-premium-v2\\.webp$`));
+      expect(visualsForGame(game)[0].sources[0]).toMatchObject({ width: 1920, height: 1080, mimeType: "image/webp" });
+    }
+  });
+
 });

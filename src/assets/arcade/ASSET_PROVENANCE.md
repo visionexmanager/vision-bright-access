@@ -167,3 +167,15 @@ Generated specifically for Visionex with OpenAI image generation, inspected, str
 ## Premium classics covers — production pack 14 (2026-08-15)
 
 `game-farkle-premium-v2.webp`, `game-briscola-premium-v2.webp`, and `game-card-99-premium-v2.webp` were created specifically for Visionex Arcade with ChatGPT built-in image generation. Accepted outputs depict physically plausible standard dice, an original Mediterranean abstract card table, and an original futuristic arithmetic-card table. They contain no readable text, logos, brands, identifiable people, trademarked card layouts, copyrighted characters, gambling venue branding, money, or watermarks. Each inspected PNG was stripped of metadata, center-cropped to 1920×1080, and encoded as WebP quality 84. One malformed dice draft was rejected and is not used.
+
+## Premium finale covers — production pack 15 (2026-08-15)
+
+`game-logiquest-premium-v2.webp`, `game-trade-tycoon-premium-v2.webp`,
+`game-laptop-tech-premium-v2.webp`, and `game-music-ear-premium-v2.webp`
+were created specifically for Visionex Arcade with ChatGPT built-in image
+generation. The accepted outputs depict an original physical logic network,
+an abstract global supply-chain strategy table, an unbranded electronics
+repair bench, and an acoustic ear-training studio. They contain no readable
+text, logos, brands, identifiable people, currency, copyrighted characters,
+or watermarks. Each inspected PNG was stripped of metadata, center-cropped to
+1920×1080, and encoded as WebP quality 84.
