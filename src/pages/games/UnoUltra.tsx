@@ -9,13 +9,14 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useCallback } from "react";
-import heroImg from "@/assets/arcade/game-uno-ultra-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-uno-ultra-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { OpponentPanel, FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { CardTableMotion } from "@/features/arcade/motion/CardTableMotion";
 
 const COLORS    = ["🔴", "🟡", "🟢", "🔵"];
 const UNO_CARDS = COLORS.flatMap((c) => Array.from({ length: 5 }, (_, i) => ({ color: c, value: i + 1 })));
@@ -53,7 +54,8 @@ function UnoSolo() {
 
   return (
     <div className="space-y-4">
-      <Card><CardContent className="pt-6 text-center">
+      <CardTableMotion kind="cards" progress={Math.max(0, (7 - hand.length) / 7)} />
+      <Card><CardContent className="pt-6 text-center" role="status" aria-live="polite">
         <p className="text-sm text-muted-foreground mb-2">{t("uno.currentCard")}:</p>
         <div className="text-5xl font-bold">{pile.color} {pile.value}</div>
       </CardContent></Card>
@@ -179,8 +181,8 @@ export default function UnoUltra() {
           </div>
         </div>
         <div className="flex rounded-lg overflow-hidden border mb-6">
-          <button onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
-          <button onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
+          <button type="button" aria-pressed={mode === "solo"} onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
+          <button type="button" aria-pressed={mode === "multi"} onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
         </div>
         {mode === "solo" ? <UnoSolo /> : <UnoMulti />}
       </section>

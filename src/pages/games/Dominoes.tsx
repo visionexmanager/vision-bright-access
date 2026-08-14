@@ -9,13 +9,14 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useCallback } from "react";
-import heroImg from "@/assets/arcade/game-dominoes-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-dominoes-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { OpponentPanel, FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { CardTableMotion } from "@/features/arcade/motion/CardTableMotion";
 
 type Tile = { left: number; right: number };
 
@@ -35,7 +36,7 @@ function DominoFace({ value, size = 38 }: { value: number; size?: number }) {
   const pips = PIP_POSITIONS[value] ?? [];
   const r = size * 0.09;
   return (
-    <svg viewBox="0 0 40 40" width={size} height={size} aria-label={`face ${value}`}>
+    <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true" focusable="false">
       {pips.map(([cx, cy], i) => (
         <circle key={i} cx={cx * 0.4} cy={cy * 0.4} r={r} fill="currentColor" />
       ))}
@@ -129,6 +130,8 @@ function DominoesSolo() {
 
   return (
     <div className="space-y-4">
+      <CardTableMotion kind="dominoes" progress={Math.min(1, board.length / 14)} />
+
       {/* Board */}
       <Card>
         <CardHeader><CardTitle className="text-sm text-muted-foreground">{t("dominoes.board")}</CardTitle></CardHeader>
@@ -145,7 +148,7 @@ function DominoesSolo() {
 
       {/* Score */}
       <div className="flex justify-center">
-        <Badge variant="secondary">⭐ {t("dominoes.score")}: {score}</Badge>
+        <Badge role="status" aria-live="polite" variant="secondary">⭐ {t("dominoes.score")}: {score}</Badge>
       </div>
 
       {/* Hand */}
@@ -279,8 +282,8 @@ export default function Dominoes() {
           </div>
         </div>
         <div className="flex rounded-lg overflow-hidden border mb-6">
-          <button onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
-          <button onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
+          <button type="button" aria-pressed={mode === "solo"} onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
+          <button type="button" aria-pressed={mode === "multi"} onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
         </div>
         {mode === "solo" ? <DominoesSolo /> : <DominoesMulti />}
       </section>

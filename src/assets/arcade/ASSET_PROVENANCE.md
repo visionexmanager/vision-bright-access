@@ -157,3 +157,8 @@ Generated specifically for Visionex with OpenAI image generation, inspected, str
 ## Premium design covers — production pack 12 (2026-08-14)
 
 `game-dream-home-premium-v2.webp` and `game-fashion-designer-premium-v2.webp` were created specifically for Visionex Arcade with ChatGPT built-in image generation. The accepted outputs depict an original contemporary interior-design studio and an original couture atelier. They contain no readable text, logos, brands, identifiable people, copyrighted characters, or watermarks. Each inspected PNG was stripped of metadata, center-cropped to 1920×1080, and encoded as a WebP quality-84 production derivative. Prompts and generated masters are retained with the release evidence.
+
+
+## Premium tabletop covers — production pack 13 (2026-08-14)
+
+`game-uno-ultra-premium-v2.webp` and `game-dominoes-premium-v2.webp` were created specifically for Visionex Arcade with ChatGPT built-in image generation. The accepted outputs depict an original abstract color-card showdown and a physically believable domino tournament table. They contain no readable text, logos, brands, identifiable people, trademarked card layouts, copyrighted characters, or watermarks. Each inspected PNG was stripped of metadata, center-cropped to 1920×1080, and encoded as a WebP quality-84 production derivative.
