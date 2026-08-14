@@ -8,7 +8,8 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState } from "react";
-import heroImg from "@/assets/arcade/game-fashion-designer-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-fashion-designer-premium-v2.webp";
+import { DesignStudioMotion } from "@/features/arcade/motion/DesignStudioMotion";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const FABRIC_KEYS = ["silk", "denim", "wool", "cotton", "satin"] as const;
@@ -173,6 +174,8 @@ function FashionChallenge() {
         <Badge variant="secondary">{t("fashion.roundOf").replace("{n}", String(round + 1)).replace("{total}", String(OCCASIONS.length))}</Badge>
       </div>
 
+      <DesignStudioMotion kind="fashion" progress={(round + Number(Boolean(fabric)) * 0.25 + Number(Boolean(color)) * 0.25 + Number(Boolean(style)) * 0.25) / OCCASIONS.length} />
+
       {/* Occasion card */}
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="py-4 text-center">
@@ -183,7 +186,7 @@ function FashionChallenge() {
 
       {/* Result feedback */}
       {result && resultMsg && (
-        <div className={`rounded-xl p-3 text-center font-bold animate-in zoom-in-95 duration-200 ${
+        <div role="status" aria-live="polite" className={`rounded-xl p-3 text-center font-bold animate-in zoom-in-95 duration-200 ${
           result.level === "perfect" ? "bg-green-500/10 text-green-600 border border-green-400/40"
           : result.level === "good"  ? "bg-blue-500/10 text-blue-600 border border-blue-400/40"
           : "bg-red-500/10 text-destructive border border-red-400/40"
@@ -199,7 +202,7 @@ function FashionChallenge() {
               <p className="font-bold mb-2 text-center text-sm">{t("fashion.fabric")}</p>
               <div className="flex flex-col gap-1">
                 {FABRIC_KEYS.map(f => (
-                  <Button key={f} size="sm" variant={fabric === f ? "default" : "outline"}
+                  <Button key={f} size="sm" variant={fabric === f ? "default" : "outline"} aria-pressed={fabric === f}
                     onClick={() => { setFabric(f); fashionSwish(); }}>
                     {t(`fashion.fabric.${f}`)}
                   </Button>
@@ -210,7 +213,7 @@ function FashionChallenge() {
               <p className="font-bold mb-2 text-center text-sm">{t("fashion.color")}</p>
               <div className="flex flex-col gap-1">
                 {COLOR_KEYS.map(c => (
-                  <Button key={c} size="sm" variant={color === c ? "default" : "outline"}
+                  <Button key={c} size="sm" variant={color === c ? "default" : "outline"} aria-pressed={color === c}
                     onClick={() => { setColor(c); fashionSwish(); }}>
                     {t(`fashion.color.${c}`)}
                   </Button>
@@ -221,7 +224,7 @@ function FashionChallenge() {
               <p className="font-bold mb-2 text-center text-sm">{t("fashion.style")}</p>
               <div className="flex flex-col gap-1">
                 {STYLE_KEYS.map(s => (
-                  <Button key={s} size="sm" variant={style === s ? "default" : "outline"}
+                  <Button key={s} size="sm" variant={style === s ? "default" : "outline"} aria-pressed={style === s}
                     onClick={() => { setStyle(s); fashionSwish(); }}>
                     {t(`fashion.style.${s}`)}
                   </Button>
@@ -270,7 +273,7 @@ function FashionFree() {
           <p className="font-bold mb-2 text-center text-sm">{t("fashion.fabric")}</p>
           <div className="flex flex-col gap-1">
             {FABRIC_KEYS.map(f => (
-              <Button key={f} size="sm" variant={fabric === f ? "default" : "outline"}
+              <Button key={f} size="sm" variant={fabric === f ? "default" : "outline"} aria-pressed={fabric === f}
                 onClick={() => { setFabric(f); fashionSwish(); }}>
                 {t(`fashion.fabric.${f}`)}
               </Button>
@@ -281,7 +284,7 @@ function FashionFree() {
           <p className="font-bold mb-2 text-center text-sm">{t("fashion.color")}</p>
           <div className="flex flex-col gap-1">
             {COLOR_KEYS.map(c => (
-              <Button key={c} size="sm" variant={color === c ? "default" : "outline"}
+              <Button key={c} size="sm" variant={color === c ? "default" : "outline"} aria-pressed={color === c}
                 onClick={() => { setColor(c); fashionSwish(); }}>
                 {t(`fashion.color.${c}`)}
               </Button>
@@ -292,7 +295,7 @@ function FashionFree() {
           <p className="font-bold mb-2 text-center text-sm">{t("fashion.style")}</p>
           <div className="flex flex-col gap-1">
             {STYLE_KEYS.map(s => (
-              <Button key={s} size="sm" variant={style === s ? "default" : "outline"}
+              <Button key={s} size="sm" variant={style === s ? "default" : "outline"} aria-pressed={style === s}
                 onClick={() => { setStyle(s); fashionSwish(); }}>
                 {t(`fashion.style.${s}`)}
               </Button>
@@ -344,10 +347,10 @@ export default function FashionDesigner() {
           }
         />
         <div className="flex rounded-lg overflow-hidden border mb-6">
-          <button onClick={() => setMode("challenge")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "challenge" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+          <button type="button" aria-pressed={mode === "challenge"} onClick={() => setMode("challenge")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "challenge" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
             🏆 {t("fashion.challengeMode")}
           </button>
-          <button onClick={() => setMode("free")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "free" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+          <button type="button" aria-pressed={mode === "free"} onClick={() => setMode("free")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "free" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
             🎨 {t("fashion.freeMode")}
           </button>
         </div>
