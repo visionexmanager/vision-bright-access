@@ -116,9 +116,14 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
             <p className="text-sm text-muted-foreground">{message}</p>
             <div className="flex justify-center gap-2">
               {!user && (
-                <Button asChild>
-                  <Link to="/signup">{t("game.signUp")}</Link>
-                </Button>
+                <>
+                  <Button asChild>
+                    <Link to="/login">{t("nav.login")}</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link to="/signup">{t("game.signUp")}</Link>
+                  </Button>
+                </>
               )}
             </div>
           </CardContent>

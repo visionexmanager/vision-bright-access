@@ -51,4 +51,11 @@ describe("games integration", () => {
       expect(missing, `${language} is missing game translations`).toEqual([]);
     }
   });
+
+  it("offers signed-out players both login and signup paths", () => {
+    const economyGate = read("src/components/game/GameEconomyGate.tsx");
+
+    expect(economyGate).toContain('<Link to="/login">{t("nav.login")}</Link>');
+    expect(economyGate).toContain('<Link to="/signup">{t("game.signUp")}</Link>');
+  });
 });
