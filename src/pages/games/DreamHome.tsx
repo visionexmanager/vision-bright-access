@@ -9,7 +9,8 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useEffect, useCallback } from "react";
-import heroImg from "@/assets/arcade/game-dream-home-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-dream-home-premium-v2.webp";
+import { DesignStudioMotion } from "@/features/arcade/motion/DesignStudioMotion";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
 
 const ROOM_KEYS = ["livingRoom", "bedroom", "kitchen", "bathroom"] as const;
@@ -131,6 +132,8 @@ function DreamChallenge() {
       <Progress value={(timeLeft / ROUND_SECONDS) * 100}
         className={timeLeft <= 10 ? "[&>div]:bg-destructive" : ""} />
 
+      <DesignStudioMotion kind="home" progress={(roomIdx + requested.filter((item) => placed.includes(item)).length / requested.length) / ROOM_KEYS.length} />
+
       {/* Client Brief */}
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="py-4">
@@ -150,7 +153,7 @@ function DreamChallenge() {
       </Card>
 
       {feedback && (
-        <p className={`text-center font-bold text-sm animate-in zoom-in-95 duration-200 ${
+        <p role="status" aria-live="polite" className={`text-center font-bold text-sm animate-in zoom-in-95 duration-200 ${
           feedback.startsWith("✓") ? "text-green-600" : "text-destructive"
         }`}>{feedback}</p>
       )}
@@ -208,7 +211,7 @@ function DreamFree() {
       </div>
       <div className="flex flex-wrap justify-center gap-2">
         {ROOM_KEYS.map(r => (
-          <Button key={r} variant={room === r ? "default" : "outline"} size="sm" onClick={() => setRoom(r)}>
+          <Button key={r} variant={room === r ? "default" : "outline"} size="sm" aria-pressed={room === r} onClick={() => setRoom(r)}>
             {t(`dreamhome.room.${r}`)}
           </Button>
         ))}
@@ -267,10 +270,10 @@ export default function DreamHome() {
           }
         />
         <div className="flex rounded-lg overflow-hidden border mb-6">
-          <button onClick={() => setMode("challenge")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "challenge" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+          <button type="button" aria-pressed={mode === "challenge"} onClick={() => setMode("challenge")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "challenge" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
             🏆 {t("dreamhome.challengeMode")}
           </button>
-          <button onClick={() => setMode("free")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "free" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+          <button type="button" aria-pressed={mode === "free"} onClick={() => setMode("free")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "free" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
             🎨 {t("dreamhome.freeMode")}
           </button>
         </div>
