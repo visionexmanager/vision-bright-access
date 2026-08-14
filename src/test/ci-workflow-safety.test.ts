@@ -8,7 +8,10 @@ const read = (name: string) => readFileSync(resolve(root, ".github/workflows", n
 const ci = read("ci.yml");
 const ciCd = read("ci-cd.yml");
 const deploy = read("deploy.yml");
+const releaseReconciler = read("reconcile-release.yml");
 const edgeDeploy = readFileSync(resolve(root, "scripts/deploy-changed-supabase-functions.sh"), "utf8");
+const windowsSync = readFileSync(resolve(root, "scripts/sync-visionex.ps1"), "utf8");
+const windowsSyncInstaller = readFileSync(resolve(root, "scripts/install-visionex-sync-task.ps1"), "utf8");
 
 /**
  * The six contexts branch protection requires on `main`. Every one is reported
@@ -57,6 +60,47 @@ describe("required status checks", () => {
     for (const workflow of [ci, ciCd]) {
       expect(workflow).toContain("workflow_dispatch:");
     }
+  });
+});
+
+describe("missing automation events recover without weakening release gates", () => {
+  it("polls main and can dispatch the required workflows", () => {
+    expect(releaseReconciler).toContain('cron: "*/10 * * * *"');
+    expect(releaseReconciler).toContain("actions: write");
+    expect(releaseReconciler).toContain("gh workflow run \"$workflow\"");
+    expect(releaseReconciler).toContain("gh workflow run deploy.yml");
+  });
+
+  it("waits for both check workflows before recovering deployment", () => {
+    expect(releaseReconciler).toContain("recover_check ci.yml");
+    expect(releaseReconciler).toContain("recover_check ci-cd.yml");
+    expect(releaseReconciler).toContain('if [[ "$checks_ready" != true ]]');
+  });
+
+  it("does not endlessly retry failed checks or deployments", () => {
+    expect(releaseReconciler).toContain("refusing to hide it with endless retries");
+    expect(releaseReconciler).toContain("manual diagnosis is required");
+  });
+});
+
+describe("Windows checkout synchronization preserves local work", () => {
+  it("refuses to update a dirty worktree or unpublished local main", () => {
+    expect(windowsSync).toContain("status --porcelain");
+    expect(windowsSync).toContain("local changes are present and were preserved");
+    expect(windowsSync).toContain("origin/main..HEAD");
+    expect(windowsSync).toContain("unpublished commit(s)");
+  });
+
+  it("only updates main with a fast-forward", () => {
+    expect(windowsSync).toContain('$branch -ne "main"');
+    expect(windowsSync).toContain("merge --ff-only origin/main");
+    expect(windowsSync).not.toMatch(/reset\s+--hard|clean\s+-[a-z]*f/i);
+  });
+
+  it("installs a single non-overlapping scheduled task", () => {
+    expect(windowsSyncInstaller).toContain('"Visionex Git Sync"');
+    expect(windowsSyncInstaller).toContain("-RepetitionInterval");
+    expect(windowsSyncInstaller).toContain("-MultipleInstances IgnoreNew");
   });
 });
 
