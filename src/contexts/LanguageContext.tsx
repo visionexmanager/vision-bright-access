@@ -6,6 +6,7 @@ export type Lang = (typeof supportedLangs)[number];
 
 interface LanguageContextType {
   lang: Lang;
+  ready: boolean;
   setLang: (lang: Lang) => void;
   t: (key: string) => string;
   translateText: (text: string) => string;
@@ -14,6 +15,7 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType>({
   lang: "en",
+  ready: false,
   setLang: () => {},
   t: (key) => key,
   translateText: (text) => text,
@@ -425,7 +427,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t, translateText, dir }}>
+    <LanguageContext.Provider value={{ lang, ready: langReady, setLang, t, translateText, dir }}>
       {children}
     </LanguageContext.Provider>
   );
