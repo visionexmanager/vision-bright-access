@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "claude:validate": "node .claude/scripts/validate-skills.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
