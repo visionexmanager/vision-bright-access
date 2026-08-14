@@ -9,13 +9,14 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useCallback, useEffect } from "react";
-import heroImg from "@/assets/arcade/game-farkle-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-farkle-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { OpponentPanel, FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { DiceTableMotion } from "@/features/arcade/motion/DiceTableMotion";
 
 // ─── Game helpers ────────────────────────────────────────────────────────────
 function rollDice(n: number) { return Array.from({ length: n }, () => Math.floor(Math.random() * 6) + 1); }
@@ -352,8 +353,8 @@ export default function FarkleGame() {
 
         {/* Mode toggle */}
         <div className="flex rounded-lg overflow-hidden border mb-6">
-          <button onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
-          <button onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
+          <button type="button" aria-pressed={mode === "solo"} onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
+          <button type="button" aria-pressed={mode === "multi"} onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
         </div>
 
         {mode === "solo" ? <FarkleSolo /> : <FarkleMultiplayer />}
