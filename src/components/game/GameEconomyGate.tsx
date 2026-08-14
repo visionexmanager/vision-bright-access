@@ -37,7 +37,7 @@ interface GameEconomyGateProps {
 
 export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
   const { user } = useAuth();
-  const { t, translateText } = useLanguage();
+  const { t, ready: languageReady } = useLanguage();
   const location = useLocation();
   const [entryStatus, setEntryStatus] = useState<"loading" | "ready" | "blocked">("loading");
   const [message, setMessage] = useState("");
@@ -55,9 +55,10 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
     inputCountRef.current = 0;
     setEntryStatus("loading");
     setMessage("");
+    if (!languageReady) return;
     if (!user) { setEntryStatus("blocked"); setMessage(t("game.loginToPlay")); }
     else setEntryStatus("ready");
-  }, [entryKey, t, user]);
+  }, [entryKey, languageReady, t, user]);
 
   useEffect(() => {
     const countInput = (event: Event) => { if (event.isTrusted) inputCountRef.current += 1; };
@@ -118,10 +119,10 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
               {!user && (
                 <>
                   <Button asChild>
-                    <Link to="/login">{translateText("Log in")}</Link>
+                    <Link to="/login">{t("nav.login")}</Link>
                   </Button>
                   <Button asChild variant="outline">
-                    <Link to="/signup">{translateText("Sign up")}</Link>
+                    <Link to="/signup">{t("game.signUp")}</Link>
                   </Button>
                 </>
               )}
