@@ -9,13 +9,14 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useCallback } from "react";
-import heroImg from "@/assets/arcade/game-card-99-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-card-99-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { OpponentPanel, FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { CardTableMotion } from "@/features/arcade/motion/CardTableMotion";
 
 function cardValue(v: number) { return Math.min(v, 10); }
 function dealHand() { return Array.from({ length: 3 }, () => Math.floor(Math.random() * 13) + 1); }
@@ -168,8 +169,8 @@ export default function Card99() {
           </div>
         </div>
         <div className="flex rounded-lg overflow-hidden border mb-6">
-          <button onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
-          <button onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
+          <button type="button" aria-pressed={mode === "solo"} onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
+          <button type="button" aria-pressed={mode === "multi"} onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
         </div>
         {mode === "solo" ? <Card99Solo /> : <Card99Multi />}
       </section>

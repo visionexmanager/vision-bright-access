@@ -9,13 +9,14 @@ import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
 import { useState, useCallback, useEffect } from "react";
-import heroImg from "@/assets/arcade/game-briscola-premium-v1.webp";
+import heroImg from "@/assets/arcade/game-briscola-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
 import { WaitingRoom } from "@/components/multiplayer/WaitingRoom";
 import { OpponentPanel, FinishBanner } from "@/components/multiplayer/OpponentPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
+import { CardTableMotion } from "@/features/arcade/motion/CardTableMotion";
 
 const SUITS  = ["🟡", "🔴", "🟢", "🔵"];
 const VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -219,8 +220,8 @@ export default function Briscola() {
           </div>
         </div>
         <div className="flex rounded-lg overflow-hidden border mb-6">
-          <button onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
-          <button onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
+          <button type="button" aria-pressed={mode === "solo"} onClick={() => setMode("solo")}  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "solo"  ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>🎮 Solo</button>
+          <button type="button" aria-pressed={mode === "multi"} onClick={() => setMode("multi")} className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "multi" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>👥 Online</button>
         </div>
         {mode === "solo" ? <BriscolaSolo /> : <BriscolaMulti />}
       </section>
