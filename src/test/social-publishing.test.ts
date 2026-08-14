@@ -105,11 +105,29 @@ describe("the publish edge exists and is unreachable from outside", () => {
 
   it("lets no other migration or edge function write PUBLISHED onto a proposal", () => {
     const migrations = readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql"));
-    const writers = migrations.filter((f) => {
-      const sql = readFileSync(`supabase/migrations/${f}`, "utf8");
-      return /UPDATE public\.content_proposals[\s\S]{0,200}state\s*=\s*'PUBLISHED'/.test(sql);
-    });
-    expect(writers).toEqual(["20260905000000_social_publishing_core.sql"]);
+    const WRITE = /UPDATE public\.content_proposals[\s\S]{0,200}state\s*=\s*'PUBLISHED'/;
+    const writers = migrations.filter((f) =>
+      WRITE.test(readFileSync(`supabase/migrations/${f}`, "utf8")));
+
+    // Two files, because PL/pgSQL has no partial CREATE OR REPLACE: PR C1 had
+    // to restate record_content_publication in full to add the dispatched_at
+    // rule, and restating it necessarily restates this write.
+    expect(writers).toEqual([
+      "20260905000000_social_publishing_core.sql",
+      "20260908000000_social_publishing_intent_and_parking.sql",
+    ]);
+
+    // Stronger than a file list on its own: in every file that writes it, the
+    // write must sit inside record_content_publication() and nowhere before it.
+    // A future migration that redefines the recorder stays in scope; one that
+    // writes PUBLISHED from anywhere else fails here whatever its name is.
+    for (const file of writers) {
+      const sql = readFileSync(`supabase/migrations/${file}`, "utf8");
+      const recorderAt = sql.indexOf("FUNCTION public.record_content_publication(");
+      expect(recorderAt, `${file} must define the recorder`).toBeGreaterThan(-1);
+      expect(sql.slice(0, recorderAt), `${file} writes PUBLISHED before the recorder`).not.toMatch(WRITE);
+      expect(sql.slice(recorderAt), `${file} writes PUBLISHED outside the recorder`).toMatch(WRITE);
+    }
 
     const functions = readdirSync("supabase/functions", { withFileTypes: true })
       .filter((e) => e.isDirectory())
