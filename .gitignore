@@ -34,8 +34,11 @@ AGENTS.md
 *.sln
 *.sw?
 
-# Claude Code internal
-.claude/
+# Claude Code project configuration is versioned for the whole team.
+# Keep only per-machine settings and scratch state private.
+.claude/settings.local.json
+.claude/*.local.*
+.claude/.cache/
 
 # Supabase CLI temp files (auto-generated, not source)
 supabase/.temp/
