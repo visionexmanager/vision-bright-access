@@ -12915,6 +12915,10 @@ export const translations: Record<string, string> = {
   "admin.kidsCourses.published": "نُشر: {title}",
   "admin.kidsCourses.discarded": "حُذف: {title}",
   "admin.kidsCourses.generated": "صيغت «{title}» عبر {provider}",
+  "admin.dashboard.card.kidsCourses.title": "مقررات الأطفال",
+  "admin.dashboard.card.kidsCourses.desc": "اقرأ المسودات وانشرها",
+  "admin.dashboard.card.kidsMarketModeration.title": "مراجعة سوق الأطفال",
+  "admin.dashboard.card.kidsMarketModeration.desc": "وافق على المنتجات قبل أن يراها الأطفال",
 };
 
 export default translations;

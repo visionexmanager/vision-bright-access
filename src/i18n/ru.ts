@@ -6338,6 +6338,10 @@ export const translations: Record<string, string> = {
   "admin.kidsCourses.published": "Опубликовано: {title}",
   "admin.kidsCourses.discarded": "Отклонено: {title}",
   "admin.kidsCourses.generated": "«{title}» составлен через {provider}",
+  "admin.dashboard.card.kidsCourses.title": "Детские курсы",
+  "admin.dashboard.card.kidsCourses.desc": "Читайте и публикуйте черновики",
+  "admin.dashboard.card.kidsMarketModeration.title": "Проверка детского маркетплейса",
+  "admin.dashboard.card.kidsMarketModeration.desc": "Одобряйте товары до того, как их увидят дети",
 };
 
 export default translations;

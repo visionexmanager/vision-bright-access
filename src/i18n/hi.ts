@@ -6338,6 +6338,10 @@ export const translations: Record<string, string> = {
   "admin.kidsCourses.published": "प्रकाशित: {title}",
   "admin.kidsCourses.discarded": "हटाया गया: {title}",
   "admin.kidsCourses.generated": "{provider} से “{title}” तैयार किया",
+  "admin.dashboard.card.kidsCourses.title": "बच्चों के कोर्स",
+  "admin.dashboard.card.kidsCourses.desc": "ड्राफ़्ट पढ़ें और प्रकाशित करें",
+  "admin.dashboard.card.kidsMarketModeration.title": "बच्चों का मार्केट रिव्यू",
+  "admin.dashboard.card.kidsMarketModeration.desc": "बच्चों के देखने से पहले उत्पाद स्वीकृत करें",
 };
 
 export default translations;

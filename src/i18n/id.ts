@@ -12553,6 +12553,10 @@ export const translations: Record<string, string> = {
   "admin.kidsCourses.published": "Diterbitkan: {title}",
   "admin.kidsCourses.discarded": "Dibuang: {title}",
   "admin.kidsCourses.generated": "“{title}” disusun via {provider}",
+  "admin.dashboard.card.kidsCourses.title": "Kursus anak",
+  "admin.dashboard.card.kidsCourses.desc": "Baca dan terbitkan draf",
+  "admin.dashboard.card.kidsMarketModeration.title": "Tinjauan pasar anak",
+  "admin.dashboard.card.kidsMarketModeration.desc": "Setujui produk sebelum dilihat anak",
 };
 
 export default translations;
