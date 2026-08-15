@@ -190,46 +190,6 @@ jobs:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
-  deploy-stream-proxy:
-    needs: gate
-    name: Build & push stream-proxy image
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.gate.outputs.deploy_sha }}
-          fetch-depth: 2
-      - name: Check for stream-proxy changes
-        id: changed
-        run: |
-          CURRENT_SHA="${{ needs.gate.outputs.deploy_sha }}"
-          CHANGED=$(git diff --name-only "$CURRENT_SHA^" "$CURRENT_SHA" 2>/dev/null | grep "infra/stream-proxy/" || true)
-          echo "has_changes=$([ -n "$CHANGED" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-      - name: Set up Docker Buildx
-        if: steps.changed.outputs.has_changes == 'true'
-        uses: docker/setup-buildx-action@v4
-      - name: Log in to GHCR
-        if: steps.changed.outputs.has_changes == 'true'
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push stream-proxy
-        if: steps.changed.outputs.has_changes == 'true'
-        uses: docker/build-push-action@v7
-        with:
-          context: infra/stream-proxy
-          target: production
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/stream-proxy:latest,ghcr.io/${{ github.repository_owner }}/stream-proxy:sha-${{ needs.gate.outputs.deploy_sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
-
   validate-tv-catalog:
     name: Validate pending TV catalog
     runs-on: ubuntu-latest
