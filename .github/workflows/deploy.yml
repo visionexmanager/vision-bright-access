@@ -8,78 +8,91 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group:             deploy-${{ github.ref }}
-  cancel-in-progress: false    # never cancel an active deployment
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
-
   gate:
     name: Verify CI success
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+    outputs:
+      deploy_sha: ${{ steps.verify.outputs.deploy_sha }}
     steps:
-      - name: Confirm deployment is allowed
-        run: echo "CI passed — deployment is allowed."
+      - name: Verify successful CI for the exact deployment commit
+        id: verify
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
 
-  # ── 1. Deploy SPA to VPS (existing webhook) ───────────────────────────────────
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            if [[ "$WORKFLOW_RUN_CONCLUSION" != "success" || "$WORKFLOW_RUN_HEAD_BRANCH" != "main" ]]; then
+              echo "::error::Automatic deployment requires a successful CI run on main."
+              exit 1
+            fi
+            echo "deploy_sha=$WORKFLOW_RUN_HEAD_SHA" >> "$GITHUB_OUTPUT"
+            echo "Verified CI success for $WORKFLOW_RUN_HEAD_SHA."
+            exit 0
+          fi
+
+          MAIN_SHA=$(gh api "repos/$REPO/git/ref/heads/main" --jq '.object.sha')
+          CI_SHA=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty')
+
+          if [[ -z "$CI_SHA" ]]; then
+            echo "::error::No successful CI run was found for main. Manual deployment is blocked."
+            exit 1
+          fi
+
+          if [[ "$CI_SHA" != "$MAIN_SHA" ]]; then
+            echo "::error::The latest successful CI run ($CI_SHA) does not match current main ($MAIN_SHA). Manual deployment is blocked."
+            exit 1
+          fi
+
+          echo "deploy_sha=$MAIN_SHA" >> "$GITHUB_OUTPUT"
+          echo "Verified successful CI for current main: $MAIN_SHA."
+
   deploy-vps:
     needs: gate
     name: Deploy SPA → VPS
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     steps:
       - name: Trigger deploy webhook
         run: |
           echo "Sending deploy request to server..."
-
           for i in 1 2 3; do
             RESPONSE=$(curl -s -w "\n%{http_code}" \
               -X POST \
               -H "x-deploy-token: ${{ secrets.DEPLOY_TOKEN }}" \
               --max-time 20 \
               http://204.168.191.20:9000)
-
             HTTP_CODE=$(echo "$RESPONSE" | tail -1)
             BODY=$(echo "$RESPONSE" | head -1)
-
             echo "Attempt $i — Response: $BODY (HTTP $HTTP_CODE)"
-
-            if [ "$HTTP_CODE" = "200" ]; then
-              echo "Deploy triggered successfully"
-              break
-            fi
-
-            if [ "$i" = "3" ]; then
-              echo "Deploy webhook failed after 3 attempts (last HTTP $HTTP_CODE)"
-              exit 1
-            fi
-
-            echo "Retrying in 5 seconds..."
+            if [ "$HTTP_CODE" = "200" ]; then break; fi
+            if [ "$i" = "3" ]; then exit 1; fi
             sleep 5
           done
-
       - name: Wait for build
-        run: |
-          echo "Waiting 60 seconds for build + nginx reload..."
-          sleep 60
-
+        run: sleep 60
       - name: Verify site is live
         run: |
-          echo "Checking visionex.app..."
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://visionex.app)
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Site is live! (HTTP $HTTP_CODE)"
-          else
-            echo "❌ Health check failed — HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Health check failed — HTTP $HTTP_CODE"
             exit 1
           fi
 
-  # ── 2. Deploy Supabase Edge Functions ────────────────────────────────────────
   deploy-edge-functions:
     needs: gate
     name: Deploy → Supabase Edge Functions
@@ -87,12 +100,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ needs.gate.outputs.deploy_sha }}
           fetch-depth: 2
-
       - name: Install Supabase CLI
         run: npm install -g supabase@latest
-
       - name: Sync OpenAI API key to Supabase
         shell: bash
         run: |
@@ -102,65 +113,59 @@ jobs:
           fi
           supabase secrets set OPENAI_API_KEY="$OPENAI_API_KEY" --project-ref "$SUPABASE_PROJECT_REF"
         env:
-          OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
-
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       - name: Sync secondary AI provider keys to Supabase
         shell: bash
         run: |
           for name in ANTHROPIC_API_KEY GEMINI_API_KEY GROQ_API_KEY MISTRAL_API_KEY ELEVENLABS_API_KEY LUMA_API_KEY REPLICATE_API_TOKEN FAL_KEY RESEND_API_KEY RESEND_FROM LIVEKIT_API_KEY LIVEKIT_API_SECRET LIVEKIT_URL STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_WEBHOOK_SECRET_LIBRARY CAREER_STRIPE_WEBHOOK_SECRET PAYPAL_CLIENT_ID PAYPAL_CLIENT_SECRET PAYPAL_WEBHOOK_ID COINBASE_COMMERCE_API_KEY COINBASE_COMMERCE_WEBHOOK_SECRET CRON_SECRET SITE_URL ALLOWED_ORIGINS LIBRARY_CERTIFICATE_SIGNING_SECRET KIDS_CERTIFICATE_SIGNING_SECRET WHATSAPP_VERIFY_TOKEN WHATSAPP_APP_SECRET WHATSAPP_TOKEN WHATSAPP_PHONE_NUMBER_ID WHATSAPP_ACCESS_TOKEN CONTACT_INTERNAL_RECIPIENTS; do
             value="${!name}"
-            if [[ -z "$value" ]]; then
-              echo "::notice::GitHub secret $name is not configured — skipping."
-              continue
-            fi
+            if [[ -z "$value" ]]; then continue; fi
             supabase secrets set "$name=$value" --project-ref "$SUPABASE_PROJECT_REF"
-            echo "Synced $name."
           done
         env:
-          ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
-          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY:         ${{ secrets.GROQ_API_KEY }}
-          MISTRAL_API_KEY:      ${{ secrets.MISTRAL_API_KEY }}
-          ELEVENLABS_API_KEY:   ${{ secrets.ELEVENLABS_API_KEY }}
-          LUMA_API_KEY:         ${{ secrets.LUMA_API_KEY }}
-          REPLICATE_API_TOKEN:  ${{ secrets.REPLICATE_API_TOKEN }}
-          FAL_KEY:              ${{ secrets.FAL_KEY }}
-          RESEND_API_KEY:       ${{ secrets.RESEND_API_KEY }}
-          RESEND_FROM:          ${{ secrets.RESEND_FROM }}
-          LIVEKIT_API_KEY:      ${{ secrets.LIVEKIT_API_KEY }}
-          LIVEKIT_API_SECRET:   ${{ secrets.LIVEKIT_API_SECRET }}
-          LIVEKIT_URL:          ${{ secrets.LIVEKIT_URL }}
-          STRIPE_SECRET_KEY:    ${{ secrets.STRIPE_SECRET_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          LUMA_API_KEY: ${{ secrets.LUMA_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
+          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           STRIPE_WEBHOOK_SECRET_LIBRARY: ${{ secrets.STRIPE_WEBHOOK_SECRET_LIBRARY }}
           CAREER_STRIPE_WEBHOOK_SECRET: ${{ secrets.CAREER_STRIPE_WEBHOOK_SECRET }}
-          PAYPAL_CLIENT_ID:     ${{ secrets.PAYPAL_CLIENT_ID }}
+          PAYPAL_CLIENT_ID: ${{ secrets.PAYPAL_CLIENT_ID }}
           PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET }}
-          PAYPAL_WEBHOOK_ID:    ${{ secrets.PAYPAL_WEBHOOK_ID }}
+          PAYPAL_WEBHOOK_ID: ${{ secrets.PAYPAL_WEBHOOK_ID }}
           COINBASE_COMMERCE_API_KEY: ${{ secrets.COINBASE_COMMERCE_API_KEY }}
           COINBASE_COMMERCE_WEBHOOK_SECRET: ${{ secrets.COINBASE_COMMERCE_WEBHOOK_SECRET }}
-          CRON_SECRET:          ${{ secrets.CRON_SECRET }}
-          SITE_URL:             ${{ secrets.SITE_URL }}
-          ALLOWED_ORIGINS:      ${{ secrets.ALLOWED_ORIGINS }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
           LIBRARY_CERTIFICATE_SIGNING_SECRET: ${{ secrets.LIBRARY_CERTIFICATE_SIGNING_SECRET }}
           KIDS_CERTIFICATE_SIGNING_SECRET: ${{ secrets.KIDS_CERTIFICATE_SIGNING_SECRET }}
-          WHATSAPP_VERIFY_TOKEN:    ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
-          WHATSAPP_APP_SECRET:      ${{ secrets.WHATSAPP_APP_SECRET }}
-          WHATSAPP_TOKEN:           ${{ secrets.WHATSAPP_TOKEN }}
+          WHATSAPP_VERIFY_TOKEN: ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
+          WHATSAPP_APP_SECRET: ${{ secrets.WHATSAPP_APP_SECRET }}
+          WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
           WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
-          WHATSAPP_ACCESS_TOKEN:    ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
           CONTACT_INTERNAL_RECIPIENTS: ${{ secrets.CONTACT_INTERNAL_RECIPIENTS }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
-
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       - name: Deploy changed Edge Functions
         run: bash scripts/deploy-changed-supabase-functions.sh
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
-          DEPLOY_SHA:            ${{ github.event.workflow_run.head_sha || github.sha }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          DEPLOY_SHA: ${{ needs.gate.outputs.deploy_sha }}
 
   run-migrations:
     needs: gate
@@ -169,24 +174,21 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ needs.gate.outputs.deploy_sha }}
           fetch-depth: 2
-
       - name: Install Supabase CLI
         run: npm install -g supabase@latest
-
       - name: Link Supabase project
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
-
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       - name: Push migrations to production
         run: supabase db push --linked --include-all --password "$SUPABASE_DB_PASSWORD"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
-          SUPABASE_DB_PASSWORD:  ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
   deploy-stream-proxy:
     needs: gate
@@ -198,20 +200,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ needs.gate.outputs.deploy_sha }}
           fetch-depth: 2
-
       - name: Check for stream-proxy changes
         id: changed
         run: |
-          CURRENT_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          CURRENT_SHA="${{ needs.gate.outputs.deploy_sha }}"
           CHANGED=$(git diff --name-only "$CURRENT_SHA^" "$CURRENT_SHA" 2>/dev/null | grep "infra/stream-proxy/" || true)
-          echo "has_changes=$([ -n "$CHANGED" ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
-
+          echo "has_changes=$([ -n "$CHANGED" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         if: steps.changed.outputs.has_changes == 'true'
         uses: docker/setup-buildx-action@v4
-
       - name: Log in to GHCR
         if: steps.changed.outputs.has_changes == 'true'
         uses: docker/login-action@v4
@@ -219,15 +218,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push stream-proxy
         if: steps.changed.outputs.has_changes == 'true'
         uses: docker/build-push-action@v7
         with:
-          context:    infra/stream-proxy
-          target:     production
-          push:       true
-          tags:       ghcr.io/${{ github.repository_owner }}/stream-proxy:latest,ghcr.io/${{ github.repository_owner }}/stream-proxy:sha-${{ github.sha }}
+          context: infra/stream-proxy
+          target: production
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/stream-proxy:latest,ghcr.io/${{ github.repository_owner }}/stream-proxy:sha-${{ needs.gate.outputs.deploy_sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
@@ -249,13 +247,7 @@ jobs:
           fi
           for batch in 1 2 3 4 5 6 7 8 9 10 11 12; do
             echo "Validating TV batch $batch/12..."
-            curl --silent --show-error --fail-with-body \
-              -X POST \
-              "$SUPABASE_URL/functions/v1/tv-validate-stream" \
-              -H "Authorization: Bearer $CRON_SECRET" \
-              -H "Content-Type: application/json" \
-              -d '{}' \
-              --max-time 75
+            curl --silent --show-error --fail-with-body -X POST "$SUPABASE_URL/functions/v1/tv-validate-stream" -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" -d '{}' --max-time 75
           done
 
   notify-failure:
@@ -268,10 +260,5 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          if [ -z "$SLACK_WEBHOOK_URL" ]; then
-            echo "SLACK_WEBHOOK_URL is not configured; skipping notification."
-            exit 0
-          fi
-          curl -sS --fail-with-body -X POST "$SLACK_WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -d "{\"text\":\"Visionex deployment FAILED on \`${{ github.ref_name }}\` — ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then exit 0; fi
+          curl -sS --fail-with-body -X POST "$SLACK_WEBHOOK_URL" -H "Content-Type: application/json" -d "{\"text\":\"Visionex deployment FAILED on \`${{ github.ref_name }}\` — ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
