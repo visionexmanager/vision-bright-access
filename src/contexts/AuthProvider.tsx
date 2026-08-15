@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { AuthContext } from "./AuthContext";
 
 const TRIAL_DAYS = 30;
@@ -34,7 +35,10 @@ async function ensureUserEntitlements(user: User) {
     return;
   }
 
-  const updates: Record<string, string> = {};
+  // Typed from the schema, not Record<string, string>: the pinned supabase-js
+  // in CI rejects an index signature here because it cannot rule out a column
+  // that does not exist.
+  const updates: Database["public"]["Tables"]["profiles"]["Update"] = {};
   if (!data.display_name) updates.display_name = displayName;
   if (!data.trial_expires_at) {
     // Use profile created_at (or auth created_at) — never Date.now() for existing users
