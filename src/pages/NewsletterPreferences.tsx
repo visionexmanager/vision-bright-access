@@ -78,6 +78,9 @@ export default function NewsletterPreferences() {
       .catch(() => active && setError(ar ? "رابط الإدارة غير صالح أو منتهي." : "This management link is invalid or expired."))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
+    // Loads once per token. Re-running on a language change would refetch and
+    // overwrite topic checkboxes the reader has already edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const toggle = (topic: string) => {

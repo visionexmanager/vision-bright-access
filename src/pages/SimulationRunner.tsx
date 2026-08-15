@@ -52,13 +52,7 @@ function readLocalProgress(userId: string, simulationId: string): SimProgress | 
   return JSON.parse(raw) as SimProgress;
 }
 
-// Legacy registry kept for backwards-compatibility (unused when custom component exists)
-export type SimulationStep = {
-  title: string;
-  description: string;
-  choices?: { label: string; value: string; feedback: string; points: number }[];
-};
-export const simulationRegistry: Record<string, SimulationStep[]> = {};
+import type { SimulationStep } from "./simulationRegistry";
 
 export default function SimulationRunner() {
   const { slug } = useParams<{ slug: string }>();

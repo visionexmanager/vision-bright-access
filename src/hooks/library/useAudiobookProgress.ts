@@ -16,7 +16,7 @@
  * write paths share one row.
  */
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,7 +45,7 @@ export function useAudiobookProgress(bookId: string | undefined) {
   const queryClient = useQueryClient();
   const uid = user?.id;
 
-  const queryKey = ["library", "reading-progress", bookId ?? "", uid ?? ""] as const;
+  const queryKey = useMemo(() => ["library", "reading-progress", bookId ?? "", uid ?? ""] as const, [bookId, uid]);
 
   const { data: progress = null, isLoading } = useQuery({
     queryKey,

@@ -8,7 +8,7 @@ import { useGameSounds } from "@/hooks/useGameSounds";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import heroImg from "@/assets/arcade/game-card-99-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
@@ -42,7 +42,7 @@ function Card99Solo() {
     setTotal(next); setScore((s) => s + val);
     const newHand = [...hand]; newHand[idx] = Math.floor(Math.random() * 13) + 1;
     setHand(newHand); cardWin();
-  }, [hand, total, playSound, settleGameResult]);
+  }, [hand, total, settleGameResult, cardFlip, cardWin, cardLose]);
 
   const restart = () => { setTotal(0); setScore(0); setGameOver(false); setHand(dealHand()); cardFlip(); };
 
@@ -86,15 +86,15 @@ function Card99Multi() {
 
   const gs    = mp.session?.game_state as Record<string, unknown> | null;
   const total = (gs?.total as number) ?? 0;
-  const hands = (gs?.hands as Record<string, number[]>) ?? {};
+  const hands = useMemo(() => (gs?.hands as Record<string, number[]>) ?? {}, [gs]);
   const loser = (gs?.loser as string) ?? null;
-  const myHand = hands[user?.id ?? ""] ?? [];
+  const myHand = useMemo(() => hands[user?.id ?? ""] ?? [], [hands, user?.id]);
   const opp    = mp.opponents[0];
 
-  const nextPlayer = () => {
+  const nextPlayer = useCallback(() => {
     const all = mp.session?.players ?? [];
     return all.find((p) => p.id !== user?.id)?.id ?? user?.id ?? "";
-  };
+  }, [mp.session?.players, user?.id]);
 
   const initState = useCallback(() => {
     const players = mp.session?.players ?? [];
@@ -121,7 +121,7 @@ function Card99Multi() {
     newHands[user.id] = newHand;
     mp.makeMove({ total: next, hands: newHands, loser: null }, nextPlayer());
     playSound("success");
-  }, [mp, user, myHand, total, hands, gs, playSound]);
+  }, [mp, user, myHand, total, hands, gs, playSound, nextPlayer]);
 
   if (mp.status === "idle")
     return <MultiplayerLobby gameType="card99" loading={mp.loading} onCreateRoom={mp.createRoom} onJoinRoom={mp.joinRoom} />;

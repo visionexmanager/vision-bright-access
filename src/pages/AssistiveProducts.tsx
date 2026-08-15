@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import {
   X, SlidersHorizontal, DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
-import { openAIChatWithProduct } from "@/components/AIChat";
+import { openAIChatWithProduct } from "@/components/aiChatBus";
 import { Link } from "react-router-dom";
 import { AnimatedSection } from "@/components/AnimatedSection";
 import { SmartSearch } from "@/components/SmartSearch";
@@ -31,11 +31,11 @@ export default function AssistiveProducts() {
   const isRTL = dir === "rtl";
 
   // ── Helper translations ────────────────────────────────────────────────────
-  const getProductName = (p: AssistiveProduct) => {
+  const getProductName = useCallback((p: AssistiveProduct) => {
     if (lang === "ar") return p.nameAr;
     if (lang === "es") return p.nameEs;
     return p.nameEn;
-  };
+  }, [lang]);
   const getCategoryName = (c: typeof assistiveCategories[0]) => {
     if (lang === "ar") return c.nameAr;
     if (lang === "es") return c.nameEs;
@@ -100,7 +100,7 @@ export default function AssistiveProducts() {
         return matchesSearch && matchesType;
       }),
     })).filter(cat => cat.products.length > 0);
-  }, [searchQuery, filterType, lang]);
+  }, [searchQuery, filterType, getProductName]);
 
   // Expand searched categories automatically
   const searchOpenCategories = useMemo(() => {

@@ -29,6 +29,13 @@ export default function LocationPickerMap({
   const pickupMarkerRef = useRef<L.Marker | null>(null);
   const destMarkerRef = useRef<L.Marker | null>(null);
   const lineRef = useRef<L.Polyline | null>(null);
+  // The map is built once. The parent re-creates these handlers on every
+  // render, so they are read through refs — same reason as selectionStep.
+  const onPickupSetRef = useRef(onPickupSet);
+  onPickupSetRef.current = onPickupSet;
+  const onDestinationSetRef = useRef(onDestinationSet);
+  onDestinationSetRef.current = onDestinationSet;
+
   const selectionStepRef = useRef(selectionStep);
 
   selectionStepRef.current = selectionStep;
@@ -72,12 +79,12 @@ export default function LocationPickerMap({
         if (pickupMarkerRef.current) map.removeLayer(pickupMarkerRef.current);
         const icon = L.divIcon({ html: pickupIconHtml, className: "", iconSize: [20, 20], iconAnchor: [10, 10] });
         pickupMarkerRef.current = L.marker([lat, lng], { icon }).addTo(map).bindPopup(label).openPopup();
-        onPickupSet([lat, lng], label);
+        onPickupSetRef.current([lat, lng], label);
       } else {
         if (destMarkerRef.current) map.removeLayer(destMarkerRef.current);
         const icon = L.divIcon({ html: destIconHtml, className: "", iconSize: [20, 20], iconAnchor: [10, 10] });
         destMarkerRef.current = L.marker([lat, lng], { icon }).addTo(map).bindPopup(label).openPopup();
-        onDestinationSet([lat, lng], label);
+        onDestinationSetRef.current([lat, lng], label);
       }
     });
 
@@ -87,7 +94,7 @@ export default function LocationPickerMap({
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [reverseGeocode]);
 
   // Draw line between pickup and destination
   useEffect(() => {

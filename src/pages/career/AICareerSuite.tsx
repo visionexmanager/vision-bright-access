@@ -6,7 +6,8 @@
 import { lazy, Suspense, useState, type LazyExoticComponent } from "react";
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { AnimatedSection, scaleFade } from "@/components/AnimatedSection";
+import { AnimatedSection } from "@/components/AnimatedSection";
+import { scaleFade } from "@/components/animationVariants";
 import { AIChatInterface } from "@/components/career/ai/AIChatInterface";
 import { AIModuleCard } from "@/components/career/ai/AIModuleCard";
 import { AIModuleDialog, AIModuleFallback } from "@/components/career/ai/AIModuleDialog";

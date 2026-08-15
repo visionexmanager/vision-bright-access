@@ -71,6 +71,9 @@ export function useSimulationProgress(simulationId?: string) {
       setLoading(false);
     };
     load();
+  // t is read through a ref: this loads once per simulation, and switching
+  // language must not refetch the row or replay the welcome-back toast.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, simulationId]);
 
   return { savedProgress, loading, wasRestored: !!savedProgress };

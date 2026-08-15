@@ -54,8 +54,12 @@ export function Layout({ children }: { children: ReactNode }) {
     if (isEmbedded) return;
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     document.getElementById("main-content")?.focus();
-    setRouteAnnouncement(`${t("nav.mainContent") || "Main content"}: ${document.title}`);
   }, [pathname, isEmbedded]);
+
+  useEffect(() => {
+    if (isEmbedded) return;
+    setRouteAnnouncement(`${t("nav.mainContent") || "Main content"}: ${document.title}`);
+  }, [pathname, isEmbedded, t]);
 
   /* In embedded mode (inside LegalCenter Sheet) — render content only */
   if (isEmbedded) return <>{children}</>;

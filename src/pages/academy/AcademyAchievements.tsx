@@ -28,11 +28,22 @@ export default function AcademyAchievements() {
   const levelInfo = useMemo(() => getAcademyLevelInfo(xpTotal), [xpTotal]);
 
   const achievements = useMemo(() => getAchievementCatalog(), []);
-  const unlockedIds = useMemo(() => (user ? getUserAchievementIds(user.id) : new Set<string>()), [user, celebration]);
-  const stats = useMemo(() => (user ? computeLearningStatistics(user.id) : null), [user, celebration]);
-  const streak = useMemo(() => (user ? getStreak(user.id) : null), [user, celebration]);
-  const unlockedCardIds = useMemo(() => (user ? getUnlockedLearningCards(user.id) : new Set<string>()), [user, celebration]);
-  const certificates = useMemo(() => (user ? getMyCertificates(user.id) : []), [user, celebration]);
+  // These five read the same localStorage-backed stores, which React cannot
+  // observe. `celebration` is the tick that says one of them just changed, so
+  // it is a deliberate recompute key rather than an input to the reads.
+  const { unlockedIds, stats, streak, unlockedCardIds, certificates } = useMemo(() => {
+    if (!user) {
+      return { unlockedIds: new Set<string>(), stats: null, streak: null, unlockedCardIds: new Set<string>(), certificates: [] };
+    }
+    return {
+      unlockedIds: getUserAchievementIds(user.id),
+      stats: computeLearningStatistics(user.id),
+      streak: getStreak(user.id),
+      unlockedCardIds: getUnlockedLearningCards(user.id),
+      certificates: getMyCertificates(user.id),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- celebration is the store-changed tick, not a read input
+  }, [user, celebration]);
 
   if (!user) {
     return (

@@ -18,7 +18,8 @@ import { useVXWallet } from "@/hooks/useVXWallet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
-import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
+import { AnimatedSection, StaggerGrid, StaggerItem } from "@/components/AnimatedSection";
+import { scaleFade } from "@/components/animationVariants";
 import communityImg from "@/assets/community-illustration.jpg";
 import { WatchAdButton } from "@/components/WatchAdButton";
 
@@ -42,7 +43,7 @@ type RoomMemberCount = Record<string, number>;
 
 // ── Countdown hook ────────────────────────────────────────────────
 function useCountdown(targetISO: string | null) {
-  const calc = () => {
+  const calc = useCallback(() => {
     if (!targetISO) return null;
     const diff = new Date(targetISO).getTime() - Date.now();
     if (diff <= 0) return null;
@@ -51,14 +52,14 @@ function useCountdown(targetISO: string | null) {
     const m = Math.floor((diff % 3_600_000) / 60_000);
     const s = Math.floor((diff % 60_000) / 1_000);
     return { d, h, m, s, diff };
-  };
+  }, [targetISO]);
   const [remaining, setRemaining] = useState(calc);
 
   useEffect(() => {
     if (!targetISO) { setRemaining(null); return; }
     const id = setInterval(() => setRemaining(calc()), 1_000);
     return () => clearInterval(id);
-  }, [targetISO]);
+  }, [targetISO, calc]);
 
   return remaining;
 }

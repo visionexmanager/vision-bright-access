@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { RewardedAdModal } from "@/components/RewardedAdModal";
-import { AnimatedSection, scaleFade } from "@/components/AnimatedSection";
+import { AnimatedSection } from "@/components/AnimatedSection";
+import { scaleFade } from "@/components/animationVariants";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEarnPoints, DAILY_AD_LIMIT } from "@/hooks/useEarnPoints";

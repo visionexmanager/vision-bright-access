@@ -30,7 +30,6 @@ export function ReactionBar({ eventId }: { eventId: string }) {
       .subscribe();
     channelRef.current = channel;
     return () => { kidsDb.removeChannel(channel); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
   const spawnFloating = (emoji: string) => {

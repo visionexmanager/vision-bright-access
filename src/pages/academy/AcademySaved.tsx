@@ -61,12 +61,16 @@ export default function AcademySaved() {
     queryClient.invalidateQueries({ queryKey: queryKeys.academy.lms.allBookmarks(user?.id ?? "") });
   };
 
+  // Saved scholarships and favorite universities live in localStorage, which
+  // React cannot observe; refreshKey is the store-changed tick, not a read input.
   const savedScholarships = useMemo(
     () => (user ? getSavedScholarshipIds(user.id).map(getScholarshipByIdLocal).filter((s): s is NonNullable<typeof s> => s !== null) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, refreshKey]
   );
   const favoriteUniversities = useMemo(
     () => (user ? getFavoriteUniversityIds(user.id).map(getUniversityByIdLocal).filter((u): u is NonNullable<typeof u> => u !== null) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, refreshKey]
   );
 

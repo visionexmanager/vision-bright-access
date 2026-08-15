@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { AnimatedSection, scaleFade } from "@/components/AnimatedSection";
+import { AnimatedSection } from "@/components/AnimatedSection";
+import { scaleFade } from "@/components/animationVariants";
 import { FilterChip } from "./FilterChip";
 import type { ExperienceLevel, JobFilters, JobType, UpdateFilterFn, WorkMode } from "./types";
 

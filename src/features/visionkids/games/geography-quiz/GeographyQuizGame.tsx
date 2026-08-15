@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { QuizGame, optionsWithAnswer, shuffle, type QuizRound } from "@/features/visionkids/games/_shared/QuizGame";
+import { QuizGame, type QuizRound } from "@/features/visionkids/games/_shared/QuizGame";
+import { optionsWithAnswer, shuffle } from "@/features/visionkids/games/_shared/quizHelpers";
 import { CAPITALS, CONTINENTS, COUNTRIES, COUNTRY_NAMES } from "@/features/visionkids/games/_shared/geography.data";
 import type { Game } from "@/features/visionkids/types/games.types";
 

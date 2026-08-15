@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -95,9 +95,9 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
       setIncidentIndex(nextIdx);
       setCurrentIncident(null);
       setStage("monitoring");
-      setTimeout(() => triggerIncident(nextIdx), 800);
+      setTimeout(() => triggerIncidentRef.current(nextIdx), 800);
     }
-  }, [incidentTimer, timerActive, currentIncident]);
+  }, [incidentTimer, timerActive, currentIncident, incidentIndex]);
 
   const startMonitoring = () => {
     playSound("scan");
@@ -107,6 +107,9 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
     triggerIncident(0);
   };
 
+  // Held in a ref: it is recursive and closes over simulation settings, so the
+  // timeout effect above reaches the current one without depending on it.
+  const triggerIncidentRef = useRef<(idx: number) => void>(() => {});
   const triggerIncident = (idx: number) => {
     if (idx >= INCIDENTS.length) {
       finishSim();
@@ -141,6 +144,7 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
     const choices = generateChoices(incident);
     setResponseChoices(choices);
   };
+  triggerIncidentRef.current = triggerIncident;
 
   const generateChoices = (incident: IncidentType) => {
     if (incident.name.includes("DNS")) {

@@ -229,7 +229,6 @@ export default function VXBazaar() {
   const queryClient = useQueryClient();
   const { playSound } = useSound();
   // Generated Supabase types will include these tables after the production migration is applied.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
   useAmbientSound("marketplace");
 

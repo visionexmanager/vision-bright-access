@@ -8,7 +8,7 @@ import { useGameSounds } from "@/hooks/useGameSounds";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import heroImg from "@/assets/arcade/game-uno-ultra-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
@@ -44,7 +44,7 @@ function UnoSolo() {
     const h = hand.filter((_, i) => i !== idx);
     setHand(h); setScore((s) => s + card.value * 10); cardWin();
     if (h.length === 0) void settleGameResult("win", "Uno Ultra");
-  }, [hand, pile, playSound, settleGameResult]);
+  }, [hand, pile, settleGameResult, cardFlip, cardWin, cardLose]);
 
   const draw = () => { setHand([...hand, randomCard()]); cardFlip(); };
   const restart = () => {
@@ -90,13 +90,13 @@ function UnoMulti() {
   const mp = useMultiplayer("uno");
 
   const gs     = mp.session?.game_state as Record<string, unknown> | null;
-  const hands  = (gs?.hands as Record<string, UCard[]>) ?? {};
+  const hands  = useMemo(() => (gs?.hands as Record<string, UCard[]>) ?? {}, [gs]);
   const pile   = (gs?.pile  as UCard) ?? UNO_CARDS[0];
-  const myHand = hands[user?.id ?? ""] ?? [];
+  const myHand = useMemo(() => hands[user?.id ?? ""] ?? [], [hands, user?.id]);
   const opp    = mp.opponents[0];
   const oppHandCount = (hands[opp?.id ?? ""] ?? []).length;
 
-  const nextPlayer = () => mp.session?.players.find((p) => p.id !== user?.id)?.id ?? user?.id ?? "";
+  const nextPlayer = useCallback(() => mp.session?.players.find((p) => p.id !== user?.id)?.id ?? user?.id ?? "", [mp.session?.players, user?.id]);
 
   const initState = useCallback(() => {
     const players = mp.session?.players ?? [];
@@ -119,7 +119,7 @@ function UnoMulti() {
     }
     mp.makeMove({ hands: newHands, pile: card }, nextPlayer());
     playSound("success");
-  }, [mp, user, myHand, pile, hands, playSound]);
+  }, [mp, user, myHand, pile, hands, playSound, nextPlayer]);
 
   const draw = useCallback(() => {
     if (!mp.isMyTurn || !user) return;
@@ -127,7 +127,7 @@ function UnoMulti() {
     const newHands = { ...hands, [user.id]: [...myHand, newCard] };
     mp.makeMove({ hands: newHands, pile }, nextPlayer());
     playSound("navigate");
-  }, [mp, user, myHand, hands, pile, playSound]);
+  }, [mp, user, myHand, hands, pile, playSound, nextPlayer]);
 
   if (mp.status === "idle")
     return <MultiplayerLobby gameType="uno" loading={mp.loading} onCreateRoom={mp.createRoom} onJoinRoom={mp.joinRoom} />;

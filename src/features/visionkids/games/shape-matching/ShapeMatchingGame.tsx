@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { QuizGame, optionsWithAnswer, shuffle, type QuizRound } from "@/features/visionkids/games/_shared/QuizGame";
+import { QuizGame, type QuizRound } from "@/features/visionkids/games/_shared/QuizGame";
+import { optionsWithAnswer, shuffle } from "@/features/visionkids/games/_shared/quizHelpers";
 import type { Game } from "@/features/visionkids/types/games.types";
 
 /** Each shape is drawn as inline SVG rather than an emoji so it stays crisp

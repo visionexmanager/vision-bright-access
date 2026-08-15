@@ -91,6 +91,9 @@ export default function PomodoroTimer() {
     setTimeLeft(durations[m] * 60);
   }, [mode, durations]);
 
+  const tRef = useRef(t);
+  tRef.current = t;
+
   useEffect(() => {
     if (!running) {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -102,9 +105,9 @@ export default function PomodoroTimer() {
           clearInterval(intervalRef.current!);
           setRunning(false);
           playAlarm();
-          const label = mode === "focus" ? t("pomodoro.focus") : mode === "shortBreak" ? t("pomodoro.shortBreak") : t("pomodoro.longBreak");
+          const label = mode === "focus" ? tRef.current("pomodoro.focus") : mode === "shortBreak" ? tRef.current("pomodoro.shortBreak") : tRef.current("pomodoro.longBreak");
           if (notifEnabledRef.current) {
-            sendNotification(t("pomodoro.notifTitle"), t("pomodoro.notifBody").replace("{mode}", label));
+            sendNotification(tRef.current("pomodoro.notifTitle"), tRef.current("pomodoro.notifBody").replace("{mode}", label));
           }
           if (mode === "focus") {
             setSessions(s => s + 1);

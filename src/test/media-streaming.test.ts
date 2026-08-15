@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectType } from "@/components/OfficialStreamPlayer";
+import { detectType } from "@/components/streamUrlType";
 
 describe("official media stream detection", () => {
   it("detects supported TV sources", () => {

@@ -8,7 +8,7 @@ import { useGameSounds } from "@/hooks/useGameSounds";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import heroImg from "@/assets/arcade/game-farkle-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
@@ -116,7 +116,7 @@ function FarkleSolo() {
       if (s === 0) { setTimeout(farkleBust, 300); setRoundScore(0); setDice([]); setKept([]); }
       setRolling(false);
     }, 500);
-  }, [kept, playSound]);
+  }, [kept, diceRoll, farkleBust]);
 
   const keepDie = (idx: number) => {
     const die = dice[idx];
@@ -193,10 +193,12 @@ function FarkleMultiplayer() {
 
   // Local view of game state (kept in sync with DB)
   const gs    = mp.session?.game_state as Record<string, unknown> | null;
-  const dice  = (gs?.dice  as number[]) ?? [];
-  const kept  = (gs?.kept  as number[]) ?? [];
+  // The `?? []` fallbacks minted a new array every render, which made
+  // buildState — and every callback depending on it — unstable.
+  const dice  = useMemo(() => (gs?.dice  as number[]) ?? [], [gs]);
+  const kept  = useMemo(() => (gs?.kept  as number[]) ?? [], [gs]);
   const round = (gs?.roundScore as number) ?? 0;
-  const scores: Record<string, number> = (gs?.scores as Record<string, number>) ?? {};
+  const scores: Record<string, number> = useMemo(() => (gs?.scores as Record<string, number>) ?? {}, [gs]);
   const opponentPlayer = mp.opponents[0];
   const me   = mp.myPlayer;
   const myScore = scores[user?.id ?? ""] ?? 0;
@@ -207,11 +209,11 @@ function FarkleMultiplayer() {
     ? { ...opponentPlayer, score: oppScore }
     : undefined;
 
-  const nextPlayer = () => {
+  const nextPlayer = useCallback(() => {
     const all = mp.session?.players ?? [];
     const other = all.find((p) => p.id !== user?.id);
     return other?.id ?? user?.id ?? "";
-  };
+  }, [mp.session?.players, user?.id]);
 
   const buildState = useCallback((overrides: Record<string, unknown>) => ({
     dice:       dice,
@@ -237,7 +239,7 @@ function FarkleMultiplayer() {
       }
       setRolling(false);
     }, 500);
-  }, [mp, rolling, kept, buildState, playSound, user]);
+  }, [mp, rolling, kept, buildState, user, diceRoll, farkleBust, nextPlayer]);
 
   const keepDie = useCallback((idx: number) => {
     if (!mp.isMyTurn) return;
@@ -248,7 +250,7 @@ function FarkleMultiplayer() {
     const bonus   = die === 1 ? 100 : 50;
     mp.makeMove(buildState({ dice: newDice, kept: newKept, roundScore: round + bonus }), user!.id);
     diceScore();
-  }, [mp, dice, kept, round, buildState, playSound, user]);
+  }, [mp, dice, kept, round, buildState, user, diceScore]);
 
   const bank = useCallback(() => {
     if (!mp.isMyTurn || round === 0) return;
@@ -262,7 +264,7 @@ function FarkleMultiplayer() {
     }
     mp.makeMove(buildState({ dice: [], kept: [], roundScore: 0, scores: newScores }), nextPlayer());
     diceScore();
-  }, [mp, round, scores, buildState, playSound, user]);
+  }, [mp, round, scores, buildState, user, diceScore, nextPlayer]);
 
   // ── Lobby / waiting ──────────────────────────────────────────────────────
   if (mp.status === "idle") {

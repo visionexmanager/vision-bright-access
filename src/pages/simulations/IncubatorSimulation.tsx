@@ -239,7 +239,7 @@ export function IncubatorSimulation({ simulationId }: { simulationId?: string })
         description: `🐣 ${state.hatched}/${TOTAL_EGGS} | +${points} pts`,
       });
     }
-  }, [state.gameOver, completed, user, simulationId, state.score, state.hatched, earnPoints, t, state.log]);
+  }, [state.gameOver, completed, user, simulationId, state.score, state.hatched, earnPoints, t, state.log, playSound, announce]);
 
   const resetSimulation = () => {
     setCompleted(false);

@@ -416,11 +416,12 @@ function WorldMap({ vessels, selectedVessel, onSelectVessel }: WorldMapProps) {
     ).addTo(map);
 
     mapInstance.current = map;
+    const markers = markerRefs.current;
 
     return () => {
       map.remove();
       mapInstance.current = null;
-      markerRefs.current.clear();
+      markers.clear();
     };
   }, []);
 

@@ -9,7 +9,7 @@ import { useGameSounds } from "@/hooks/useGameSounds";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import heroImg from "@/assets/arcade/game-logiquest-premium-v2.webp";
 import { ProductionWorldMotion } from "@/features/arcade/visual/ProductionWorldMotion";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -70,7 +70,7 @@ function LogiQuestSolo() {
     if (timeLeft === 3) logiTimerWarn();
     const timer = setTimeout(() => setTimeLeft(v => v - 1), 1000);
     return () => clearTimeout(timer);
-  }, [timeLeft, difficulty, answered, current]);
+  }, [timeLeft, difficulty, answered, current, logiWrong, logiTimerWarn]);
 
   const answer = (idx: number) => {
     if (answered !== null || !difficulty) return;
@@ -214,26 +214,31 @@ function LogiQuestMulti() {
   const bothDone = gs && user && opp
     ? gs[`fin_${user.id}`] === true && gs[`fin_${opp.id}`] === true : false;
 
+  const advance = useCallback((s: number) => {
+    const next = current + 1;
+    if (next >= QUESTIONS_PER_GAME) { setFinished(true); mp.updateMyScore(s, true); }
+    else { setCurrent(next); setAnswered(null); setTimeLeft(15); }
+  }, [current, mp]);
+
   useEffect(() => {
     if (finished || mp.status !== "playing" || answered !== null) return;
     if (timeLeft <= 0) { logiWrong(); advance(myScore); return; }
     if (timeLeft === 5) logiTimerWarn();
     const timer = setTimeout(() => setTimeLeft(v => v - 1), 1000);
     return () => clearTimeout(timer);
-  }, [timeLeft, finished, mp.status, answered]);
+  }, [timeLeft, finished, mp.status, answered, advance, myScore, logiWrong, logiTimerWarn]);
 
+  // Latched: mp changes identity on every session update, so without this the
+  // effect would call endGame again on each one.
+  const endedRef = useRef(false);
   useEffect(() => {
-    if (bothDone && mp.status === "playing") {
-      const sorted = [...mp.session!.players].sort((a, b) => b.score - a.score);
-      mp.endGame(sorted[0].score !== sorted[1]?.score ? sorted[0].id : undefined);
-    }
-  }, [bothDone]);
+    if (!bothDone || mp.status !== "playing" || endedRef.current) return;
+    endedRef.current = true;
+    const sorted = [...mp.session!.players].sort((a, b) => b.score - a.score);
+    mp.endGame(sorted[0].score !== sorted[1]?.score ? sorted[0].id : undefined);
+  }, [bothDone, mp]);
 
-  const advance = (s: number) => {
-    const next = current + 1;
-    if (next >= QUESTIONS_PER_GAME) { setFinished(true); mp.updateMyScore(s, true); }
-    else { setCurrent(next); setAnswered(null); setTimeLeft(15); }
-  };
+
 
   const answer = (idx: number) => {
     if (answered !== null || finished) return;

@@ -57,12 +57,8 @@ import {
   preloadReactionSounds,
   disposeReactionSounds,
 } from "@/utils/reactionSounds";
-import {
-  PremiumFloatingReaction,
-  createFloatingReaction,
-  FloatingReactionsOverlay,
-  PremiumReactionBar,
-} from "@/components/voice-room/PremiumReactions";
+import { PremiumFloatingReaction, FloatingReactionsOverlay, PremiumReactionBar } from "@/components/voice-room/PremiumReactions";
+import { createFloatingReaction } from "@/components/voice-room/floatingReactions";
 
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
 
@@ -861,12 +857,13 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         if (status === "SUBSCRIBED") broadcastChRef.current = ch;
       });
 
+    const playedAiAudioIds = playedAiAudioIdsRef.current;
     return () => {
       supabase.removeChannel(ch);
       broadcastChRef.current = null;
       voiceAiSessionRef.current = [];
       allChatMessagesRef.current = [];
-      playedAiAudioIdsRef.current.clear();
+      playedAiAudioIds.clear();
     };
   }, [roomId, currentUserId, t, addEvent, isScreenShareEnabled, playAiAudio, announce]);
 
@@ -1059,7 +1056,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     }
   }, [activeSpeakerNames]);
 
-  const toggleMic = async () => {
+  const toggleMic = useCallback(async () => {
     if (!roomPerms.mic && muted && !isOwner) {
       toast({ title: t("vroom.permDisabledByOwner"), variant: "destructive" });
       return;
@@ -1069,9 +1066,9 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
     setMuted(!next);
     playMuteSound(next); // next=true → unmuting, next=false → muting
     addEvent(next ? "🎙️" : "🔇", `${t("vroom.you")}: ${next ? t("vroom.unmute") : t("vroom.mute")}`);
-  };
+  }, [roomPerms.mic, muted, isOwner, t, localParticipant, addEvent]);
 
-  const toggleHand = async () => {
+  const toggleHand = useCallback(async () => {
     const newVal = !handRaised;
     setHandRaised(newVal);
     await supabase
@@ -1090,7 +1087,7 @@ function RoomContent({ onLeave, onKick, onBan, canModerate, isOwner, currentUser
         },
       });
     }
-  };
+  }, [handRaised, roomId, currentUserId, localParticipant]);
 
   const muteAll = () => {
     const myName = localParticipant.name || currentUserId;
@@ -3567,6 +3564,9 @@ export default function VoiceRoom() {
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => setVoiceAiEnabled(!!data));
+  // Keyed on user.id: a Supabase session refresh recreates the user object and
+  // must not re-query the purchase row.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAdmin, isOnTrial, adminLoading]);
 
   const handleActivateVoiceAi = useCallback(async () => {

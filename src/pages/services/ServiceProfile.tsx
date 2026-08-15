@@ -18,7 +18,8 @@ import {
   Volume2,
 } from "lucide-react";
 import { formatVX } from "@/systems/pricingSystem";
-import { AnimatedSection, scaleFade } from "@/components/AnimatedSection";
+import { AnimatedSection } from "@/components/AnimatedSection";
+import { scaleFade } from "@/components/animationVariants";
 
 import { getServiceEntry, entriesForHub } from "@/features/servicecenter/catalog";
 import { HUB_ACCENT_CLASSES, getHub } from "@/features/servicecenter/hubs";

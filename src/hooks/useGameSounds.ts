@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useSound } from "@/contexts/SoundContext";
 
 // ─── Low-level Web Audio helpers (mirrors SoundContext internals) ─────────────
@@ -430,7 +430,11 @@ export function useGameSounds() {
     return () => { if (enabledRef.current) fn(); };
   }, []);
 
-  return {
+  // Memoized as a whole: every handler must keep a stable identity across
+  // renders. Rebuilding them each render made each one an unusable dependency,
+  // so game callbacks left them out of their arrays and captured stale state.
+  // `enabled` is read through enabledRef, so nothing here goes stale.
+  return useMemo(() => ({
     // Dominoes
     dominoThud:    wrap(dominoThud),
     dominoInvalid: wrap(dominoInvalid),
@@ -513,5 +517,5 @@ export function useGameSounds() {
     akinatorThink:   wrap(akinatorThink),
     akinatorCorrect: wrap(akinatorCorrect),
     akinatorWrong:   wrap(akinatorWrong),
-  };
+  }), [wrap]);
 }

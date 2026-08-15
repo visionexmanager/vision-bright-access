@@ -8,7 +8,7 @@ import { useGameSounds } from "@/hooks/useGameSounds";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import heroImg from "@/assets/arcade/game-briscola-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
@@ -40,9 +40,13 @@ function BriscolaSolo() {
   const [cpuPlayed, setCpuPlayed] = useState<BCard | null>(null);
   const [score, setScore]    = useState(0);
 
+  // Latched so a re-render with an empty hand cannot settle the game twice.
+  const settledRef = useRef(false);
   useEffect(() => {
-    if (hand.length === 0) void settleGameResult(score > 0 ? "win" : "loss", "Briscola");
-  }, [hand.length]);
+    if (hand.length > 0 || settledRef.current) return;
+    settledRef.current = true;
+    void settleGameResult(score > 0 ? "win" : "loss", "Briscola");
+  }, [hand.length, score, settleGameResult]);
 
   const play = useCallback((idx: number) => {
     const card = hand[idx];
@@ -55,7 +59,7 @@ function BriscolaSolo() {
     else setTimeout(cardLose, 100);
     setHand(hand.filter((_, i) => i !== idx));
     setTimeout(() => { setPlayed(null); setCpuPlayed(null); }, 1500);
-  }, [hand, cpuHand, trump, playSound]);
+  }, [hand, cpuHand, trump, cardFlip, cardWin, cardLose]);
 
   const restart = () => { cardShuffle(); window.location.reload(); };
 
@@ -97,11 +101,13 @@ function BriscolaMulti() {
   const [resolving, setResolving] = useState(false);
 
   const gs      = mp.session?.game_state as Record<string, unknown> | null;
-  const hands   = (gs?.hands  as Record<string, BCard[]>) ?? {};
+  // Each  fallback used to mint a new object every render, so the
+  // trick-resolving effect below re-ran on every render instead of on a move.
+  const hands   = useMemo(() => (gs?.hands  as Record<string, BCard[]>) ?? {}, [gs]);
   const trump   = (gs?.trump  as BCard | null) ?? null;
-  const table   = (gs?.table  as Record<string, BCard | null>) ?? {};
-  const scoresG = (gs?.scores as Record<string, number>) ?? {};
-  const myHand  = hands[user?.id ?? ""] ?? [];
+  const table   = useMemo(() => (gs?.table  as Record<string, BCard | null>) ?? {}, [gs]);
+  const scoresG = useMemo(() => (gs?.scores as Record<string, number>) ?? {}, [gs]);
+  const myHand  = useMemo(() => hands[user?.id ?? ""] ?? [], [hands, user?.id]);
   const opp     = mp.opponents[0];
   const myTableCard  = table[user?.id ?? ""] ?? null;
   const oppTableCard = table[opp?.id ?? ""] ?? null;

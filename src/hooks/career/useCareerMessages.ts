@@ -17,7 +17,9 @@ export function useCareerMessages() {
     enabled: !!user,
   });
 
-  const messages = data ?? [];
+  // `data ?? []` minted a new array each render, so counterpartIds — and the
+  // name query keyed on it — churned on every render.
+  const messages = useMemo(() => data ?? [], [data]);
 
   const counterpartIds = useMemo(() => {
     if (!user) return [];

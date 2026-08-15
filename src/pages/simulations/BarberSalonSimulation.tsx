@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -127,6 +127,16 @@ export function BarberSalonSimulation({ simulationId }: Props) {
     playSound("snip");
   };
 
+  // Live values for the two interval effects below. Listing them as
+  // dependencies would tear down and restart the interval — the serving one
+  // updates the very state it is keyed on, so it would never reach 100%.
+  const pricesRef = useRef(prices);
+  pricesRef.current = prices;
+  const tRef = useRef(t);
+  tRef.current = t;
+  const playSoundRef = useRef(playSound);
+  playSoundRef.current = playSound;
+
   // Progress serving
   useEffect(() => {
     if (!serving) return;
@@ -137,21 +147,22 @@ export function BarberSalonSimulation({ simulationId }: Props) {
         const newProgress = prev.progress + 5;
         if (newProgress >= 100) {
           clearInterval(interval);
-          const price = prices[svc.id] ?? svc.basePrice;
+          const price = pricesRef.current[svc.id] ?? svc.basePrice;
           const priceRatio = price / svc.basePrice;
           const satisfied = priceRatio <= 1.5;
           const tipAmount = satisfied ? prev.customer.tip : 0;
           setRevenue((r) => r + price + tipAmount);
           setCustomersServed((c) => c + 1);
           setReputation((r) => Math.min(100, r + (satisfied ? 3 : -5)));
-          playSound("ding");
-          toast.success(t("sim.barber.notification.customerServed").replace("{name}", prev.customer.name).replace("{amount}", String(price + tipAmount)));
+          playSoundRef.current("ding");
+          toast.success(tRef.current("sim.barber.notification.customerServed").replace("{name}", prev.customer.name).replace("{amount}", String(price + tipAmount)));
           return null;
         }
         return { ...prev, progress: newProgress };
       });
     }, 200);
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the job, not on its progress
   }, [serving?.customer.id, serving?.service]);
 
   // Customer patience drain
@@ -164,7 +175,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
         if (leaving.length > 0) {
           setCustomersLost((l) => l + leaving.length);
           setReputation((r) => Math.max(0, r - leaving.length * 4));
-          leaving.forEach((c) => toast.error(t("sim.barber.notification.customerLeft").replace("{name}", c.name)));
+          leaving.forEach((c) => toast.error(tRef.current("sim.barber.notification.customerLeft").replace("{name}", c.name)));
         }
         return updated.filter((c) => c.patience > 0);
       });

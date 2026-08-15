@@ -16,6 +16,7 @@ export default function AcademyLeaderboard() {
   const { profile, celebration, dismissCelebration } = useAcademyGamificationTick();
 
   const [privacyVersion, setPrivacyVersion] = useState(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- privacyVersion is the store-changed tick, not a read input
   const privacy = useMemo(() => (user ? getLeaderboardPrivacy(user.id) : null), [user, privacyVersion]);
 
   const xpTotal = profile?.xp_total ?? 0;

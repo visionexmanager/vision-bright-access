@@ -41,7 +41,6 @@ export default function AcademyResourceViewer() {
 
   useEffect(() => {
     if (resourceId) recordResourceView(resourceId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resourceId]);
 
   const isBookmarked = user && resourceId ? getBookmarkedResourceIds(user.id).includes(resourceId) : false;

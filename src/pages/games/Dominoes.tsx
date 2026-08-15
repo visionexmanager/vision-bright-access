@@ -8,7 +8,7 @@ import { useGameSounds } from "@/hooks/useGameSounds";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import heroImg from "@/assets/arcade/game-dominoes-premium-v2.webp";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { MultiplayerLobby } from "@/components/multiplayer/MultiplayerLobby";
@@ -113,7 +113,7 @@ function DominoesSolo() {
   const deal = useCallback(() => {
     const all = createTiles().sort(() => Math.random() - 0.5);
     setHand(all.slice(0, 7)); setBoard([all[7]]); setScore(0); dominoSlide();
-  }, []);
+  }, [dominoSlide]);
 
   useEffect(() => { deal(); }, [deal]);
 
@@ -176,14 +176,14 @@ function DominoesMulti() {
   const mp = useMultiplayer("dominoes");
 
   const gs    = mp.session?.game_state as Record<string, unknown> | null;
-  const hands = (gs?.hands  as Record<string, Tile[]>) ?? {};
-  const board = (gs?.board  as Tile[]) ?? [];
-  const scoresG = (gs?.scores as Record<string, number>) ?? {};
-  const myHand  = hands[user?.id ?? ""] ?? [];
+  const hands = useMemo(() => (gs?.hands  as Record<string, Tile[]>) ?? {}, [gs]);
+  const board = useMemo(() => (gs?.board  as Tile[]) ?? [], [gs]);
+  const scoresG = useMemo(() => (gs?.scores as Record<string, number>) ?? {}, [gs]);
+  const myHand  = useMemo(() => hands[user?.id ?? ""] ?? [], [hands, user?.id]);
   const opp     = mp.opponents[0];
   const oppHandCount = (hands[opp?.id ?? ""] ?? []).length;
 
-  const nextPlayer = () => mp.session?.players.find((p) => p.id !== user?.id)?.id ?? user?.id ?? "";
+  const nextPlayer = useCallback(() => mp.session?.players.find((p) => p.id !== user?.id)?.id ?? user?.id ?? "", [mp.session?.players, user?.id]);
 
   const initState = useCallback(() => {
     const players = mp.session?.players ?? [];
@@ -210,14 +210,14 @@ function DominoesMulti() {
     }
     mp.makeMove({ hands: newHands, board: newBoard, scores: newScores }, nextPlayer());
     dominoThud();
-  }, [mp, user, myHand, board, hands, scoresG, playSound]);
+  }, [mp, user, myHand, board, hands, scoresG, nextPlayer, dominoThud, dominoInvalid]);
 
   // Pass (no playable tile) — just switch turns
   const pass = useCallback(() => {
     if (!mp.isMyTurn) return;
     mp.makeMove(gs ?? {}, nextPlayer());
     dominoInvalid();
-  }, [mp, gs, playSound]);
+  }, [mp, gs, nextPlayer, dominoInvalid]);
 
   const hasPlayable = myHand.some((t) => canPlay(t, board));
 

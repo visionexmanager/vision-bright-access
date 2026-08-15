@@ -27,7 +27,7 @@ import { ChannelCard } from "@/components/tv/ChannelCard";
 import { FavoriteButton } from "@/components/tv/FavoriteButton";
 import { TVSectionNav } from "@/components/tv/TVSectionNav";
 import { TVSubscriptionStatus } from "@/components/tv/TVSubscriptionStatus";
-import { detectType } from "@/components/OfficialStreamPlayer";
+import { detectType } from "@/components/streamUrlType";
 import { useWatchHistory } from "@/hooks/useWatchHistory";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
