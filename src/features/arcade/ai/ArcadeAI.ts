@@ -1,7 +1,11 @@
 import type { ArcadeGame } from "../catalog";
 import type { PlayerGameData } from "../core/types";
 
-export type ArcadeAIRecommendation = { game: ArcadeGame; reason: string; confidence: number };
+// The reason is a translation key, not a sentence: the recommender runs on the
+// device with no locale of its own, so the caller renders it with t().
+export const ARCADE_AI_REASON_KEYS = ["games.arcade.ai.reason.new", "games.arcade.ai.reason.accessible", "games.arcade.ai.reason.history"] as const;
+export type ArcadeAIReasonKey = (typeof ARCADE_AI_REASON_KEYS)[number];
+export type ArcadeAIRecommendation = { game: ArcadeGame; reasonKey: ArcadeAIReasonKey; confidence: number };
 
 /** Privacy-first, explainable recommender. No personal data leaves the device. */
 export function recommendGames(games: readonly ArcadeGame[], records: ReadonlyMap<string, PlayerGameData>, limit = 3, preferredAge?: ArcadeGame["age"]): ArcadeAIRecommendation[] {
@@ -15,8 +19,8 @@ export function recommendGames(games: readonly ArcadeGame[], records: ReadonlyMa
     const historyFit = game.categories.some(category => historyCategories.has(category)) ? 15 : 0;
     const difficultyFit = data && data.completionCount === 0 && game.difficulty === "Hard" ? -15 : 10;
     const score = 40 + unexplored + accessible + learning + historyFit + difficultyFit;
-    const reason = unexplored ? "تجربة جديدة مناسبة لملفك" : accessible ? "تدعم الوصول والتحكم الواضح" : "تكمل نمط ألعابك الحالي";
-    return { game, reason, confidence: Math.min(95, Math.max(40, score)) };
+    const reasonKey: ArcadeAIReasonKey = unexplored ? "games.arcade.ai.reason.new" : accessible ? "games.arcade.ai.reason.accessible" : "games.arcade.ai.reason.history";
+    return { game, reasonKey, confidence: Math.min(95, Math.max(40, score)) };
   }).sort((a,b) => b.confidence - a.confidence || a.game.title.localeCompare(b.game.title)).slice(0, limit);
 }
 
