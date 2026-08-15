@@ -5,11 +5,13 @@ import { useKidsReducedMotion } from "@/features/visionkids/hooks/useKidsReduced
 import { staggerContainer } from "@/features/visionkids/utils/animations";
 import { useSubjects } from "@/features/visionkids/hooks/academy/useAcademyCatalog";
 import { SubjectCard } from "@/features/visionkids/components/academy/SubjectCard";
+import { partitionSubjects } from "@/features/visionkids/utils/subjectAvailability";
 
 export default function Subjects() {
   const { t } = useLanguage();
   const reduced = useKidsReducedMotion();
   const { data: subjects = [], isLoading } = useSubjects();
+  const { available, preparingCount } = partitionSubjects(subjects);
 
   useDocumentHead({ title: t("kids.academy.subjectsTitle"), description: t("kids.academy.meta.description"), canonicalPath: "/kids/academy/subjects" });
 
@@ -23,9 +25,16 @@ export default function Subjects() {
           {Array.from({ length: 12 }).map((_, i) => <div key={i} className="h-32 animate-pulse rounded-2xl bg-muted" />)}
         </div>
       ) : (
-        <motion.div initial="hidden" animate="visible" variants={staggerContainer(reduced)} className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {subjects.map((subject) => <SubjectCard key={subject.id} subject={subject} />)}
-        </motion.div>
+        <>
+          <motion.div initial="hidden" animate="visible" variants={staggerContainer(reduced)} className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {available.map((subject) => <SubjectCard key={subject.id} subject={subject} />)}
+          </motion.div>
+          {preparingCount > 0 && (
+            <p className="mt-6 text-sm text-muted-foreground">
+              {t("kids.academy.subjectsPreparing").replace("{count}", String(preparingCount))}
+            </p>
+          )}
+        </>
       )}
     </div>
   );

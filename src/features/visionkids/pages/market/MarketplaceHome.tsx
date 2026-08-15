@@ -21,6 +21,10 @@ export default function MarketplaceHome() {
   });
 
   const typeList = Object.values(TYPE_PAGES);
+  // Every type tile is a filter over the same catalog. While it is empty they
+  // are ten dead ends dressed as a storefront, so the browse grid and the
+  // "see all" link only appear once there is something behind them.
+  const hasCatalog = popular.length > 0;
 
   return (
     <motion.div initial="hidden" animate="visible" variants={staggerContainer(reduced)}
@@ -42,6 +46,7 @@ export default function MarketplaceHome() {
       </motion.section>
 
       {/* Content types */}
+      {hasCatalog && (
       <motion.nav variants={fadeIn(reduced)} aria-label={t("kids.market.browseByType")} className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
         {typeList.map((tp) => {
           const meta = PRODUCT_TYPE_META[tp.type];
@@ -54,12 +59,13 @@ export default function MarketplaceHome() {
           );
         })}
       </motion.nav>
+      )}
 
       {/* Popular */}
       <section className="mt-10">
         <div className="flex items-center justify-between">
           <h2 className="font-heading text-2xl font-bold">{t("kids.market.popular")}</h2>
-          <Link to="/kids/market/discover" className="text-sm font-semibold text-kids-primary hover:underline">{t("kids.market.seeAll")}</Link>
+          {hasCatalog && <Link to="/kids/market/discover" className="text-sm font-semibold text-kids-primary hover:underline">{t("kids.market.seeAll")}</Link>}
         </div>
         {isLoading ? (
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-busy="true">
