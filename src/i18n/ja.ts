@@ -12436,6 +12436,15 @@ export const translations: Record<string, string> = {
   "content.refused.unknown": "The request was refused.",
   "content.refused.confidential_input": "Internal sourcing detail was found in the source records, so the AI was not called at all.",
   "owner.useContentProposals": "This is a content proposal. Decide it in the Content proposals section below.",
+  "home.tagline": "ショッピング、学習、仕事、遊び、支援技術をひとつにまとめたプラットフォーム。すべての人のために。",
+  "home.group.market": "ショップとサービス",
+  "home.group.learn": "学習とコンテンツ",
+  "home.group.play": "ゲームとコミュニティ",
+  "home.group.work": "仕事・お金・ツール",
+  "home.link.financeDesc": "市場を追跡し、ポートフォリオを構築し、AI 分析付きの金融ニュースをチェックできます。",
+  "home.link.toolsDesc": "VX コインでプロ向けの Windows ツールを購入してダウンロードできます。",
+  "home.arcade.desc": "アクセシブルなゲーム、学習チャレンジ、トーナメント、安全な VX 実績をひとつのプレミアムな場所で。",
+  "home.arcade.tournaments": "トーナメント",
 };
 
 export default translations;

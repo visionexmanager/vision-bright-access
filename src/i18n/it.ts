@@ -12436,6 +12436,15 @@ export const translations: Record<string, string> = {
   "content.refused.unknown": "The request was refused.",
   "content.refused.confidential_input": "Internal sourcing detail was found in the source records, so the AI was not called at all.",
   "owner.useContentProposals": "This is a content proposal. Decide it in the Content proposals section below.",
+  "home.tagline": "Un'unica piattaforma per acquistare, imparare, lavorare, giocare e usare tecnologie assistive — pensata per tutti.",
+  "home.group.market": "Acquisti e servizi",
+  "home.group.learn": "Formazione e contenuti",
+  "home.group.play": "Giochi e community",
+  "home.group.work": "Lavoro, finanza e strumenti",
+  "home.link.financeDesc": "Segui i mercati, crea un portafoglio e leggi le notizie finanziarie con analisi AI.",
+  "home.link.toolsDesc": "Acquista e scarica utility professionali per Windows con le tue monete VX.",
+  "home.arcade.desc": "Giochi accessibili, sfide didattiche, tornei e traguardi VX sicuri in un'unica destinazione premium.",
+  "home.arcade.tournaments": "Tornei",
 };
 
 export default translations;

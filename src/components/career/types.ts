@@ -6,10 +6,3 @@ export interface CareerServiceCardData {
   titleKey: string;
   descKey: string;
 }
-
-export interface CareerStatData {
-  id: string;
-  icon: LucideIcon;
-  value: string;
-  labelKey: string;
-}
