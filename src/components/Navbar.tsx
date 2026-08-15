@@ -80,22 +80,18 @@ export function Navbar() {
     }
   }, []);
 
-  // Desktop: keep only the most important links to avoid overcrowding.
+  // Desktop: six top-level destinations, everything else in the "More" menu.
+  // Eleven top-level links plus the language switcher made this bar 1687px wide
+  // on a 1280px viewport, which put a horizontal scrollbar on every page.
   // AI Studio and File Converter both live under /services, so they hang off the
-  // Services submenu below instead of taking two more top-level slots; VisionKids
-  // takes the slot they freed up.
-  const primaryNavLinks = [
+  // Services submenu below rather than taking two more slots.
+  const navLinks = [
     { to: "/", label: t("nav.home") },
     { to: "/bazaar", label: "VXBazaar" },
     { to: "/services", label: t("nav.services") },
-    { to: "/finance", label: t("nav.finance") },
-    { to: "/kids", label: t("nav.kids") },
-    { to: "/library", label: t("nav.library") },
-    { to: "/content", label: t("nav.content") },
     { to: "/games", label: t("nav.games") },
-    { to: "/careers", label: t("career.title") },
     { to: "/academy", label: t("home.feature.academy") },
-    { to: "/news", label: t("nav.news") },
+    { to: "/careers", label: t("career.title") },
   ];
 
   // Rendered as a dropdown anchored to the Services link.
@@ -104,9 +100,16 @@ export function Navbar() {
     { to: "/services/file-studio", label: t("nav.fileConverter") },
   ];
 
-  const secondaryNavLinks: { to: string; label: string }[] = [];
+  // Still one click away, and still every one of them in the mobile menu below.
+  const moreNavLinks = [
+    { to: "/finance", label: t("nav.finance") },
+    { to: "/kids", label: t("nav.kids") },
+    { to: "/library", label: t("nav.library") },
+    { to: "/content", label: t("nav.content") },
+    { to: "/news", label: t("nav.news") },
+  ];
 
-  const navLinks = [...primaryNavLinks, ...secondaryNavLinks];
+  const moreMenuIsActive = moreNavLinks.some((link) => link.to === location.pathname);
 
   // Grouped structure for mobile menu with visual separators
   const mobileNavGroups = [
@@ -165,15 +168,17 @@ export function Navbar() {
         </Link>
 
         {/* Desktop nav */}
-        <div ref={menubarRef} className="hidden items-center gap-0.5 lg:flex">
-          <LanguageSwitcher />
+        {/* The desktop bar appears at xl, not lg. Between 1024px and 1279px it
+            never fit — the hamburger menu below carries every link, grouped. */}
+        <div ref={menubarRef} className="hidden items-center gap-0.5 xl:flex">
+          <LanguageSwitcher compact />
           {navLinks.map((link) => (
             <Fragment key={link.to}>
               <Link
                 to={link.to}
                 data-nav-item
                 aria-current={location.pathname === link.to ? "page" : undefined}
-                className={`rounded-lg px-2.5 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 xl:px-3.5 xl:text-base ${
+                className={`rounded-lg px-2.5 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 2xl:px-3.5 2xl:text-base ${
                   location.pathname === link.to
                     ? "bg-primary/10 text-primary"
                     : "text-foreground"
@@ -215,15 +220,44 @@ export function Navbar() {
               )}
             </Fragment>
           ))}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                data-nav-item
+                onKeyDown={handleMenubarKeyDown}
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 2xl:px-3.5 2xl:text-base ${
+                  moreMenuIsActive ? "bg-primary/10 text-primary" : "text-foreground"
+                }`}
+              >
+                {t("nav.more")}
+                <ChevronDown className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {moreNavLinks.map((link) => (
+                <DropdownMenuItem key={link.to} asChild>
+                  <Link
+                    to={link.to}
+                    aria-current={location.pathname === link.to ? "page" : undefined}
+                    onClick={() => playSound("navigate")}
+                  >
+                    {link.label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        <div className="hidden items-center gap-1 lg:flex">
+        <div className="hidden items-center gap-1 xl:flex">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => { setSoundEnabled(!soundEnabled); }}
             aria-label={soundEnabled ? t("nav.muteSounds") : t("nav.unmuteSounds")}
-            className="hidden xl:inline-flex"
+            className="hidden 2xl:inline-flex"
           >
             {soundEnabled ? <Volume2 className="h-5 w-5" aria-hidden="true" /> : <VolumeX className="h-5 w-5 text-muted-foreground" aria-hidden="true" />}
           </Button>
@@ -231,7 +265,7 @@ export function Navbar() {
           <CartDrawer />
           {user && <NotificationBell />}
           {user && (
-            <Link to="/coins-store" className="hidden items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors xl:flex">
+            <Link to="/coins-store" className="hidden items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors 2xl:flex">
               <Coins className="h-4 w-4" aria-hidden="true" />
               <span>{totalPoints.toLocaleString()} VX</span>
             </Link>
@@ -245,7 +279,7 @@ export function Navbar() {
                   </Link>
                 </Button>
               )}
-              <Button asChild size="lg" className="text-base font-semibold">
+              <Button asChild size="lg" className="h-10 px-4 text-sm font-semibold 2xl:h-11 2xl:px-8 2xl:text-base">
                 <Link to="/dashboard">
                   {t("nav.dashboard")}
                 </Link>
@@ -285,12 +319,15 @@ export function Navbar() {
             </>
           ) : (
             <>
-              <Button asChild variant="outline" size="lg" className="text-base">
+              {/* Full size only at 2xl. "Anmelden"/"Registrieren" at size="lg"
+                  cost 299px of the bar in German — enough on their own to push
+                  it past a 1280px viewport. */}
+              <Button asChild variant="outline" size="lg" className="h-10 px-4 text-sm 2xl:h-11 2xl:px-8 2xl:text-base">
                 <Link to="/login">
                   {t("nav.login")}
                 </Link>
               </Button>
-              <Button asChild size="lg" className="text-base font-semibold">
+              <Button asChild size="lg" className="h-10 px-4 text-sm font-semibold 2xl:h-11 2xl:px-8 2xl:text-base">
                 <Link to="/signup">
                   {t("nav.signup")}
                 </Link>
@@ -300,7 +337,7 @@ export function Navbar() {
         </div>
 
         {/* Mobile toggle */}
-        <div className="flex items-center gap-1.5 lg:hidden">
+        <div className="flex items-center gap-1.5 xl:hidden">
           <LanguageSwitcher />
           <ThemeToggle />
           {user && (
@@ -329,7 +366,7 @@ export function Navbar() {
         <div
           ref={mobileMenuRef}
           id="mobile-nav"
-          className="border-t bg-card px-4 pb-4 pt-2 lg:hidden"
+          className="border-t bg-card px-4 pb-4 pt-2 xl:hidden"
           role="dialog"
           aria-modal="true"
           aria-label={t("nav.mainNavigation")}
