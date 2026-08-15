@@ -11,6 +11,7 @@ import { useSubjects, useFeaturedCourses } from "@/features/visionkids/hooks/aca
 import { useRecentLessonProgress } from "@/features/visionkids/hooks/academy/useAcademyProgress";
 import { useLearningRecommendations } from "@/features/visionkids/hooks/academy/useAcademyAnalytics";
 import { SubjectCard } from "@/features/visionkids/components/academy/SubjectCard";
+import { partitionSubjects } from "@/features/visionkids/utils/subjectAvailability";
 import { CourseRail } from "@/features/visionkids/components/academy/CourseRail";
 
 export default function AcademyHome() {
@@ -21,6 +22,7 @@ export default function AcademyHome() {
   useDocumentHead({ title: t("kids.academy.meta.title"), description: t("kids.academy.meta.description"), canonicalPath: "/kids/academy" });
 
   const { data: subjects = [] } = useSubjects();
+  const { available, preparingCount } = partitionSubjects(subjects);
   const { data: featured = [] } = useFeaturedCourses(10);
   const { data: recentProgress = [] } = useRecentLessonProgress(10);
   const { data: recommendations = [] } = useLearningRecommendations(3);
@@ -88,8 +90,13 @@ export default function AcademyHome() {
       <section className="px-4 py-6 sm:px-6 lg:px-8">
         <h2 className="mx-auto mb-4 max-w-6xl font-heading text-xl font-bold sm:text-2xl">{t("kids.academy.subjectsTitle")}</h2>
         <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
-          {subjects.map((subject) => <SubjectCard key={subject.id} subject={subject} />)}
+          {available.map((subject) => <SubjectCard key={subject.id} subject={subject} />)}
         </div>
+        {preparingCount > 0 && (
+          <p className="mx-auto mt-4 max-w-6xl text-sm text-muted-foreground">
+            {t("kids.academy.subjectsPreparing").replace("{count}", String(preparingCount))}
+          </p>
+        )}
       </section>
 
       <CourseRail title={t("kids.academy.featuredCourses")} courses={featured} />
