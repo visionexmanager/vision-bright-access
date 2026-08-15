@@ -12553,6 +12553,10 @@ export const translations: Record<string, string> = {
   "admin.kidsCourses.published": "게시됨: {title}",
   "admin.kidsCourses.discarded": "버림: {title}",
   "admin.kidsCourses.generated": "{provider}(으)로 “{title}” 작성됨",
+  "admin.dashboard.card.kidsCourses.title": "키즈 코스",
+  "admin.dashboard.card.kidsCourses.desc": "초안을 읽고 게시",
+  "admin.dashboard.card.kidsMarketModeration.title": "키즈 마켓 검토",
+  "admin.dashboard.card.kidsMarketModeration.desc": "아이가 보기 전에 상품 승인",
 };
 
 export default translations;

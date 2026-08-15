@@ -12553,6 +12553,10 @@ export const translations: Record<string, string> = {
   "admin.kidsCourses.published": "已发布：{title}",
   "admin.kidsCourses.discarded": "已丢弃：{title}",
   "admin.kidsCourses.generated": "已通过 {provider} 起草《{title}》",
+  "admin.dashboard.card.kidsCourses.title": "儿童课程",
+  "admin.dashboard.card.kidsCourses.desc": "阅读并发布草稿",
+  "admin.dashboard.card.kidsMarketModeration.title": "儿童市场审核",
+  "admin.dashboard.card.kidsMarketModeration.desc": "在孩子看到之前审批商品",
 };
 
 export default translations;

@@ -64,6 +64,22 @@ describe("the review screen makes publishing require reading", () => {
   });
 });
 
+describe("review queues are reachable from the product", () => {
+  // A queue nobody can navigate to is a queue nobody empties. Both of these
+  // existed, were routed, and worked — and neither had a single link to it, so
+  // a submission would have arrived and sat there unseen. Registering a route
+  // is not shipping a screen.
+  const dashboard = readFileSync("src/pages/admin/AdminDashboard.tsx", "utf8");
+
+  it("links the kids course review from the admin dashboard", () => {
+    expect(dashboard).toContain('link: "/admin/kids-courses"');
+  });
+
+  it("links the kids marketplace moderation queue from the admin dashboard", () => {
+    expect(dashboard).toContain('link: "/kids/market/moderation"');
+  });
+});
+
 describe("the generator asks for content that is safe to show a child", () => {
   it("instructs the model on accuracy and originality", () => {
     expect(source).toContain("factually correct");

@@ -12553,6 +12553,10 @@ export const translations: Record<string, string> = {
   "admin.kidsCourses.published": "شائع ہوا: {title}",
   "admin.kidsCourses.discarded": "مسترد ہوا: {title}",
   "admin.kidsCourses.generated": "{provider} کے ذریعے «{title}» تیار ہوا",
+  "admin.dashboard.card.kidsCourses.title": "بچوں کے کورسز",
+  "admin.dashboard.card.kidsCourses.desc": "مسودے پڑھیں اور شائع کریں",
+  "admin.dashboard.card.kidsMarketModeration.title": "بچوں کے بازار کا جائزہ",
+  "admin.dashboard.card.kidsMarketModeration.desc": "بچوں کے دیکھنے سے پہلے مصنوعات منظور کریں",
 };
 
 export default translations;

@@ -12943,6 +12943,10 @@ export const translations: Record<string, string> = {
   "admin.kidsCourses.published": "Published: {title}",
   "admin.kidsCourses.discarded": "Discarded: {title}",
   "admin.kidsCourses.generated": "Drafted “{title}” via {provider}",
+  "admin.dashboard.card.kidsCourses.title": "Kids courses",
+  "admin.dashboard.card.kidsCourses.desc": "Read and publish drafted courses",
+  "admin.dashboard.card.kidsMarketModeration.title": "Kids marketplace review",
+  "admin.dashboard.card.kidsMarketModeration.desc": "Approve products before children see them",
 };
 
 export default translations;
