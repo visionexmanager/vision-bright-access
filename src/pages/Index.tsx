@@ -34,7 +34,8 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSound } from "@/contexts/SoundContext";
-import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
+import { AnimatedSection, StaggerGrid, StaggerItem } from "@/components/AnimatedSection";
+import { scaleFade } from "@/components/animationVariants";
 import { VisionKidsHomeSection } from "@/components/VisionKidsHomeSection";
 import arcadeHero from "@/features/arcade/assets/visionex-arcade-hero.webp";
 import { ARCADE_GAMES } from "@/features/arcade/catalog";

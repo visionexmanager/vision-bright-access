@@ -9,7 +9,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { AnimatedSection, scaleFade } from "@/components/AnimatedSection";
+import { AnimatedSection } from "@/components/AnimatedSection";
+import { scaleFade } from "@/components/animationVariants";
 import { OCR_PRICES, formatVX } from "@/systems/pricingSystem";
 import {
   ScanText, Upload, Volume2, VolumeX, Copy, Download,

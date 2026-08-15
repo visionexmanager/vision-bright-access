@@ -18,7 +18,8 @@ import { useVXWallet } from "@/hooks/useVXWallet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
-import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
+import { AnimatedSection, StaggerGrid, StaggerItem } from "@/components/AnimatedSection";
+import { scaleFade } from "@/components/animationVariants";
 import communityImg from "@/assets/community-illustration.jpg";
 import { WatchAdButton } from "@/components/WatchAdButton";
 

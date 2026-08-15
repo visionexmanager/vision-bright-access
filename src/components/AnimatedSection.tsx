@@ -6,18 +6,7 @@
  * toggled by one shared IntersectionObserver per page.
  */
 import { useEffect, useRef, ReactNode } from "react";
-
-// Keep the same Variants type so existing callers don't need edits
-export type Variants = Record<string, unknown>;
-
-// Named preset variants — values are CSS class suffixes
-export const fadeUp:    Variants = { _variant: "fade-up" };
-export const scaleFade: Variants = { _variant: "scale-fade" };
-export const slideLeft: Variants = { _variant: "slide-left" };
-export const slideRight:Variants = { _variant: "slide-right" };
-
-// Stagger container / item presets kept for API compatibility
-export const staggerContainer: Variants = { _variant: "stagger" };
+import { fadeUp, type Variants } from "./animationVariants";
 
 // Animation CSS is now in index.css (no runtime injection needed)
 

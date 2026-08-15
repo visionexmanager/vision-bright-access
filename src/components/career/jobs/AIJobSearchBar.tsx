@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
-import { AnimatedSection, fadeUp } from "@/components/AnimatedSection";
+import { AnimatedSection } from "@/components/AnimatedSection";
+import { fadeUp } from "@/components/animationVariants";
 import { parseJobQuery } from "./aiParser";
 import type { ParsedAiQuery } from "./types";
 

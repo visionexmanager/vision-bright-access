@@ -7,7 +7,8 @@ import {
   MessageCircle, Wallet, Banknote,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { InstructorDashboardNav, getSectionLabel, type InstructorDashboardSection } from "@/components/academy/instructor/InstructorDashboardNav";
+import { InstructorDashboardNav } from "@/components/academy/instructor/InstructorDashboardNav";
+import { getSectionLabel, type InstructorDashboardSection } from "@/components/academy/instructor/instructorDashboardSections";
 import { InstructorCoursesSection } from "@/components/academy/instructor/InstructorCoursesSection";
 import { InstructorStudentsSection } from "@/components/academy/instructor/InstructorStudentsSection";
 import { InstructorReviewsSection } from "@/components/academy/instructor/InstructorReviewsSection";

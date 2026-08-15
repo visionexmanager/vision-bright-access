@@ -9,7 +9,7 @@ import { useRadioSubscription } from "@/hooks/useRadioSubscription";
 import { useTrial } from "@/hooks/useTrial";
 import { useAuth } from "@/contexts/AuthContext";
 import { StationCard } from "@/components/radio/StationCard";
-import { detectType } from "@/components/OfficialStreamPlayer";
+import { detectType } from "@/components/streamUrlType";
 import { RadioSubscriptionStatus } from "@/components/radio/RadioSubscriptionStatus";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { GameShell } from "@/features/visionkids/components/games/engine/GameShell";
 import { useGameSession } from "@/features/visionkids/components/games/engine/useGameSession";
-import { shuffle } from "@/features/visionkids/games/_shared/QuizGame";
+import { shuffle } from "@/features/visionkids/games/_shared/quizHelpers";
 import type { Game } from "@/features/visionkids/types/games.types";
 
 /**

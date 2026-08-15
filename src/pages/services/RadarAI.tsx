@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { AnimatedSection, scaleFade } from "@/components/AnimatedSection";
+import { AnimatedSection } from "@/components/AnimatedSection";
+import { scaleFade } from "@/components/animationVariants";
 import {
   Camera, Upload, Volume2, VolumeX, Loader2, Eye,
   AlertTriangle, Users, FileText, MapPin, Lightbulb, ScanLine,

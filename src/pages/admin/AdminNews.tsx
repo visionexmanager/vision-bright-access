@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Plus, Pencil, Trash2, Send, Newspaper, CheckCircle2, Eye, EyeOff, DollarSign, Landmark, AlertTriangle } from "lucide-react";
-import { CATEGORY_TOPIC } from "@/pages/News";
+import { CATEGORY_TOPIC } from "@/pages/newsCategories";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 type Article = {

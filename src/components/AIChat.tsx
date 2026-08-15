@@ -14,8 +14,7 @@ import { Bot, X, Send, Trash2, Square, Mic, MicOff, Timer, Phone, Brain, MapPinn
 import { VoiceChat } from "@/components/VoiceChat";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
-
-export type AIChatOpenEvent = CustomEvent<{ productName: string; prompt: string }>;
+import type { AIChatOpenEvent } from "./aiChatBus";
 
 type SpeechRecognitionEventLike = {
   results: ArrayLike<ArrayLike<{ transcript: string }>>;
@@ -46,10 +45,6 @@ declare global {
   interface WindowEventMap {
     "ai-chat-open": AIChatOpenEvent;
   }
-}
-
-export function openAIChatWithProduct(productName: string, prompt: string) {
-  window.dispatchEvent(new CustomEvent("ai-chat-open", { detail: { productName, prompt } }));
 }
 
 export function AIChat() {

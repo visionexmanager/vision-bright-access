@@ -9,7 +9,8 @@ import {
   Gamepad2, GraduationCap, Heart, Scale, TrendingUp, Plane, Sparkles,
   Trophy, Music, SmilePlus, Tv, Apple, DollarSign, Landmark, AlertTriangle,
 } from "lucide-react";
-import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/components/AnimatedSection";
+import { AnimatedSection, StaggerGrid, StaggerItem } from "@/components/AnimatedSection";
+import { scaleFade } from "@/components/animationVariants";
 import newsImg from "@/assets/news-illustration.jpg";
 import { WatchAdButton } from "@/components/WatchAdButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,28 +31,6 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 /* ── Category to newsletter topic mapping ── */
-export const CATEGORY_TOPIC: Record<string, string> = {
-  technology:    "news-technology",
-  ai:            "news-ai",
-  community:     "news-community",
-  accessibility: "news-accessibility",
-  platform:      "news-platform",
-  marketplace:   "news-marketplace",
-  games:         "news-games",
-  academy:       "news-academy",
-  health:        "news-health",
-  legal:         "news-legal",
-  business:      "news-business",
-  travel:        "news-travel",
-  beauty:        "news-beauty",
-  sports:        "news-sports",
-  music:         "news-music",
-  psychology:    "news-psychology",
-  entertainment:  "news-entertainment",
-  nutrition:      "news-nutrition",
-  world_economy:  "news-world-economy",
-  world_politics: "news-world-politics",
-};
 
 /* ── Static fallback (shown when DB has no articles yet) ── */
 const STATIC_ITEMS = [

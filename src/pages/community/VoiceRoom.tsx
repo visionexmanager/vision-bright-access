@@ -57,12 +57,8 @@ import {
   preloadReactionSounds,
   disposeReactionSounds,
 } from "@/utils/reactionSounds";
-import {
-  PremiumFloatingReaction,
-  createFloatingReaction,
-  FloatingReactionsOverlay,
-  PremiumReactionBar,
-} from "@/components/voice-room/PremiumReactions";
+import { PremiumFloatingReaction, FloatingReactionsOverlay, PremiumReactionBar } from "@/components/voice-room/PremiumReactions";
+import { createFloatingReaction } from "@/components/voice-room/floatingReactions";
 
 const FALLBACK_LIVEKIT_URL = "wss://visionex-hn3vb5hz.livekit.cloud";
 

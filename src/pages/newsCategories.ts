@@ -1,0 +1,23 @@
+/** Maps a news category slug to the topic key its articles are tagged with. */
+export const CATEGORY_TOPIC: Record<string, string> = {
+  technology:    "news-technology",
+  ai:            "news-ai",
+  community:     "news-community",
+  accessibility: "news-accessibility",
+  platform:      "news-platform",
+  marketplace:   "news-marketplace",
+  games:         "news-games",
+  academy:       "news-academy",
+  health:        "news-health",
+  legal:         "news-legal",
+  business:      "news-business",
+  travel:        "news-travel",
+  beauty:        "news-beauty",
+  sports:        "news-sports",
+  music:         "news-music",
+  psychology:    "news-psychology",
+  entertainment:  "news-entertainment",
+  nutrition:      "news-nutrition",
+  world_economy:  "news-world-economy",
+  world_politics: "news-world-politics",
+};

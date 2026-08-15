@@ -21,7 +21,7 @@ import {
   X, SlidersHorizontal, DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
-import { openAIChatWithProduct } from "@/components/AIChat";
+import { openAIChatWithProduct } from "@/components/aiChatBus";
 import { Link } from "react-router-dom";
 import { AnimatedSection } from "@/components/AnimatedSection";
 import { SmartSearch } from "@/components/SmartSearch";

@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { TVSectionNav } from "@/components/tv/TVSectionNav";
 import { ChannelCard } from "@/components/tv/ChannelCard";
 import { FavoriteButton } from "@/components/tv/FavoriteButton";
-import { detectType } from "@/components/OfficialStreamPlayer";
+import { detectType } from "@/components/streamUrlType";
 import { cn } from "@/lib/utils";
 import type { TVChannel } from "@/hooks/useTVSubscription";
 

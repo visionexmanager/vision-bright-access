@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { QuizGame, optionsWithAnswer, type QuizRound } from "@/features/visionkids/games/_shared/QuizGame";
+import { QuizGame, type QuizRound } from "@/features/visionkids/games/_shared/QuizGame";
+import { optionsWithAnswer } from "@/features/visionkids/games/_shared/quizHelpers";
 import type { Game } from "@/features/visionkids/types/games.types";
 
 /** Times tables 2..9. Distractors are near-misses (off-by-one row/column and
