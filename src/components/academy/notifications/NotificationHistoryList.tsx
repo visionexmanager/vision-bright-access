@@ -32,7 +32,7 @@ export function NotificationHistoryList() {
   const load = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
-    const { data } = await (supabase.from("notifications") as any)
+    const { data } = await supabase.from("notifications")
       .select("id, title, body, type, is_read, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
@@ -45,12 +45,12 @@ export function NotificationHistoryList() {
 
   const markAllRead = async () => {
     if (!user) return;
-    await (supabase.from("notifications") as any).update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
+    await supabase.from("notifications").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   };
 
   const markOneRead = async (id: string) => {
-    await (supabase.from("notifications") as any).update({ is_read: true }).eq("id", id);
+    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
   };
 

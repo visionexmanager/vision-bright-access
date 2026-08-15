@@ -1,5 +1,6 @@
 // Voice Studio — service layer (pure async, no React)
 import { supabase } from "@/integrations/supabase/client";
+import { jsonAs } from "@/integrations/supabase/json";
 import type {
   VoiceProfile,
   VoiceDataset,
@@ -9,10 +10,8 @@ import type {
   CreateVoiceProfileInput,
   UpdateVoiceProfileInput,
   DatasetStatus,
+  VoiceGenderOpt,
 } from "@/lib/types/voice-studio";
-
-const db = supabase as any;
-
 async function requireUserId(): Promise<string> {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) throw new Error("Not authenticated");
@@ -22,7 +21,7 @@ async function requireUserId(): Promise<string> {
 // ── Voice Profiles ────────────────────────────────────────────────────────────
 
 export async function listProfiles(filters: VoiceProfileFilters = {}): Promise<VoiceProfile[]> {
-  let q = db.from("vs_voice_profiles").select("*");
+  let q = supabase.from("vs_voice_profiles").select("*");
 
   if (filters.status && filters.status !== "all") {
     q = q.eq("status", filters.status);
@@ -43,7 +42,7 @@ export async function listProfiles(filters: VoiceProfileFilters = {}): Promise<V
   const { data, error } = await q;
   if (error) throw error;
 
-  let result: VoiceProfile[] = data ?? [];
+  let result: VoiceProfile[] = jsonAs<VoiceProfile[]>(data ?? []);
 
   if (filters.query?.trim()) {
     const q2 = filters.query.toLowerCase();
@@ -59,18 +58,18 @@ export async function listProfiles(filters: VoiceProfileFilters = {}): Promise<V
 }
 
 export async function getProfile(id: string): Promise<VoiceProfile | null> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("vs_voice_profiles")
     .select("*")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return jsonAs<VoiceProfile | null>(data);
 }
 
 export async function createProfile(input: CreateVoiceProfileInput): Promise<VoiceProfile> {
   const userId = await requireUserId();
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("vs_voice_profiles")
     .insert({
       user_id:     userId,
@@ -85,22 +84,22 @@ export async function createProfile(input: CreateVoiceProfileInput): Promise<Voi
     .select()
     .single();
   if (error) throw error;
-  return data;
+  return jsonAs<VoiceProfile>(data);
 }
 
 export async function updateProfile(id: string, input: UpdateVoiceProfileInput): Promise<VoiceProfile> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("vs_voice_profiles")
     .update({ ...input, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select()
     .single();
   if (error) throw error;
-  return data;
+  return jsonAs<VoiceProfile>(data);
 }
 
 export async function archiveProfile(id: string): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("vs_voice_profiles")
     .update({ status: "archived", updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -108,7 +107,7 @@ export async function archiveProfile(id: string): Promise<void> {
 }
 
 export async function restoreProfile(id: string): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("vs_voice_profiles")
     .update({ status: "draft", updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -116,7 +115,7 @@ export async function restoreProfile(id: string): Promise<void> {
 }
 
 export async function toggleFavoriteProfile(id: string, current: boolean): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("vs_voice_profiles")
     .update({ is_favorite: !current, updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -124,7 +123,7 @@ export async function toggleFavoriteProfile(id: string, current: boolean): Promi
 }
 
 export async function duplicateProfile(id: string): Promise<VoiceProfile> {
-  const { data: src, error } = await db
+  const { data: src, error } = await supabase
     .from("vs_voice_profiles")
     .select("*")
     .eq("id", id)
@@ -135,7 +134,7 @@ export async function duplicateProfile(id: string): Promise<VoiceProfile> {
     description: src.description,
     language:    src.language,
     accent:      src.accent,
-    gender:      src.gender,
+    gender:      jsonAs<VoiceGenderOpt>(src.gender),
     tags:        src.tags,
     project_id:  src.project_id,
   });
@@ -144,13 +143,13 @@ export async function duplicateProfile(id: string): Promise<VoiceProfile> {
 // ── Voice Datasets ────────────────────────────────────────────────────────────
 
 export async function listDatasets(profileId: string): Promise<VoiceDataset[]> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("vs_voice_datasets")
     .select("*")
     .eq("profile_id", profileId)
     .order("created_at");
   if (error) throw error;
-  return data ?? [];
+  return jsonAs<VoiceDataset[]>(data ?? []);
 }
 
 export async function createDatasetRecord(
@@ -172,7 +171,7 @@ export async function createDatasetRecord(
 ): Promise<VoiceDataset> {
   const userId = await requireUserId();
   const status: DatasetStatus = analysis?.is_valid === false ? "rejected" : "uploaded";
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("vs_voice_datasets")
     .insert({
       user_id:        userId,
@@ -187,7 +186,7 @@ export async function createDatasetRecord(
     .select()
     .single();
   if (error) throw error;
-  return data;
+  return jsonAs<VoiceDataset>(data);
 }
 
 export async function updateDatasetStatus(
@@ -195,7 +194,7 @@ export async function updateDatasetStatus(
   status: DatasetStatus,
   rejection_reason?: string
 ): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("vs_voice_datasets")
     .update({ status, ...(rejection_reason ? { rejection_reason } : {}) })
     .eq("id", id);
@@ -204,14 +203,14 @@ export async function updateDatasetStatus(
 
 export async function deleteDataset(id: string, storagePath: string): Promise<void> {
   // Delete from storage first
-  await (supabase as any).storage.from("voice-datasets").remove([storagePath]);
+  await supabase.storage.from("voice-datasets").remove([storagePath]);
   // Delete DB record
-  const { error } = await db.from("vs_voice_datasets").delete().eq("id", id);
+  const { error } = await supabase.from("vs_voice_datasets").delete().eq("id", id);
   if (error) throw error;
 }
 
 export async function syncProfileStats(profileId: string): Promise<void> {
-  await db.rpc("vs_sync_profile_stats", { p_profile_id: profileId });
+  await supabase.rpc("vs_sync_profile_stats", { p_profile_id: profileId });
 }
 
 // ── Upload to Supabase Storage ────────────────────────────────────────────────
@@ -261,7 +260,7 @@ export async function uploadDatasetFile(
 // ── Training Jobs ─────────────────────────────────────────────────────────────
 
 export async function getLatestTrainingJob(profileId: string): Promise<TrainingJob | null> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("vs_training_jobs")
     .select("*")
     .eq("profile_id", profileId)
@@ -269,15 +268,15 @@ export async function getLatestTrainingJob(profileId: string): Promise<TrainingJ
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return jsonAs<TrainingJob | null>(data);
 }
 
 export async function getTrainingLogs(jobId: string): Promise<TrainingLog[]> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("vs_training_logs")
     .select("*")
     .eq("job_id", jobId)
     .order("created_at");
   if (error) throw error;
-  return data ?? [];
+  return jsonAs<TrainingLog[]>(data ?? []);
 }

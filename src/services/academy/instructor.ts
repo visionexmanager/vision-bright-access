@@ -9,6 +9,7 @@
 // are explicitly NOT implemented here (out of scope).
 
 import { supabase } from "@/integrations/supabase/client";
+import { jsonAs, jsonPayload } from "@/integrations/supabase/json";
 import type { AcademyCourseRow, AcademyCourseModuleRow, AcademyInstructorRow } from "@/lib/types/academy-modules";
 import type {
   AcademyLessonRow,
@@ -27,7 +28,7 @@ import type {
 // ── Instructor Applications ───────────────────────────────────────────────────
 
 export async function fetchMyApplication(userId: string): Promise<AcademyInstructorApplicationRow | null> {
-  const { data, error } = await (supabase.from("academy_instructor_applications") as any)
+  const { data, error } = await supabase.from("academy_instructor_applications")
     .select("*")
     .eq("user_id", userId)
     .maybeSingle();
@@ -39,7 +40,7 @@ export async function fetchMyApplication(userId: string): Promise<AcademyInstruc
 export async function saveApplication(
   application: Partial<Omit<AcademyInstructorApplicationRow, "id" | "user_id" | "status">> & { user_id: string }
 ): Promise<AcademyInstructorApplicationRow> {
-  const { data, error } = await (supabase.from("academy_instructor_applications") as any)
+  const { data, error } = await supabase.from("academy_instructor_applications")
     .upsert(application, { onConflict: "user_id" })
     .select()
     .single();
@@ -48,7 +49,7 @@ export async function saveApplication(
 }
 
 export async function submitInstructorApplication(userId: string): Promise<AcademyInstructorApplicationRow | null> {
-  const { data, error } = await (supabase.from("academy_instructor_applications") as any)
+  const { data, error } = await supabase.from("academy_instructor_applications")
     .update({ status: "pending", submitted_at: new Date().toISOString() })
     .eq("user_id", userId)
     .select()
@@ -59,7 +60,7 @@ export async function submitInstructorApplication(userId: string): Promise<Acade
 
 /** Lets a rejected applicant edit and resubmit. */
 export async function resetApplicationToDraft(userId: string): Promise<AcademyInstructorApplicationRow | null> {
-  const { data, error } = await (supabase.from("academy_instructor_applications") as any)
+  const { data, error } = await supabase.from("academy_instructor_applications")
     .update({ status: "draft", submitted_at: null, review_note: null, reviewed_at: null, reviewed_by_user_id: null })
     .eq("user_id", userId)
     .select()
@@ -70,7 +71,7 @@ export async function resetApplicationToDraft(userId: string): Promise<AcademyIn
 
 /** Admin only — enforced by RLS. */
 export async function fetchAllApplications(): Promise<AcademyInstructorApplicationRow[]> {
-  const { data, error } = await (supabase.from("academy_instructor_applications") as any)
+  const { data, error } = await supabase.from("academy_instructor_applications")
     .select("*")
     .order("submitted_at", { ascending: false, nullsFirst: false });
   if (error) throw new Error(error.message);
@@ -86,7 +87,7 @@ export async function reviewApplication(
   reviewNote: string | null,
   adminUserId: string
 ): Promise<boolean> {
-  const { error } = await (supabase.from("academy_instructor_applications") as any)
+  const { error } = await supabase.from("academy_instructor_applications")
     .update({ status, review_note: reviewNote, reviewed_at: new Date().toISOString(), reviewed_by_user_id: adminUserId })
     .eq("id", applicationId);
   if (error) throw new Error(error.message);
@@ -96,7 +97,7 @@ export async function reviewApplication(
 // ── Instructor Profiles ───────────────────────────────────────────────────────
 
 export async function fetchInstructorById(instructorId: string): Promise<AcademyInstructorRow | null> {
-  const { data, error } = await (supabase.from("academy_instructors") as any)
+  const { data, error } = await supabase.from("academy_instructors")
     .select("*")
     .eq("id", instructorId)
     .maybeSingle();
@@ -105,7 +106,7 @@ export async function fetchInstructorById(instructorId: string): Promise<Academy
 }
 
 export async function fetchMyInstructorProfile(userId: string): Promise<AcademyInstructorRow | null> {
-  const { data, error } = await (supabase.from("academy_instructors") as any)
+  const { data, error } = await supabase.from("academy_instructors")
     .select("*")
     .eq("user_id", userId)
     .maybeSingle();
@@ -121,7 +122,7 @@ export async function getOrCreateMyInstructorProfile(userId: string): Promise<Ac
   const application = await fetchMyApplication(userId);
   if (!application || application.status !== "approved") return null;
 
-  const { data, error } = await (supabase.from("academy_instructors") as any)
+  const { data, error } = await supabase.from("academy_instructors")
     .insert({
       user_id: userId,
       name: application.headline || "مدرّس جديد",
@@ -146,7 +147,7 @@ export async function updateInstructorProfile(
   instructorId: string,
   updates: Partial<Omit<AcademyInstructorRow, "id" | "user_id">>
 ): Promise<boolean> {
-  const { error } = await (supabase.from("academy_instructors") as any).update(updates).eq("id", instructorId);
+  const { error } = await supabase.from("academy_instructors").update(updates).eq("id", instructorId);
   if (error) throw new Error(error.message);
   return true;
 }
@@ -167,7 +168,7 @@ export async function fetchOrganizationInstructors(orgId: string): Promise<Acade
 
 /** All of the instructor's own courses regardless of status — for their dashboard. */
 export async function fetchInstructorCourses(instructorId: string): Promise<AcademyCourseRow[]> {
-  const { data, error } = await (supabase.from("academy_courses") as any)
+  const { data, error } = await supabase.from("academy_courses")
     .select("*")
     .eq("instructor_id", instructorId)
     .order("updated_at", { ascending: false });
@@ -193,25 +194,25 @@ export async function createCourse(
     is_free: true,
     ...course,
   };
-  const { data, error } = await (supabase.from("academy_courses") as any).insert(payload).select().single();
+  const { data, error } = await supabase.from("academy_courses").insert(payload).select().single();
   if (error) throw new Error(error.message);
   return data as AcademyCourseRow;
 }
 
 export async function updateCourse(courseId: string, updates: Partial<AcademyCourseRow>): Promise<boolean> {
-  const { error } = await (supabase.from("academy_courses") as any).update(updates).eq("id", courseId);
+  const { error } = await supabase.from("academy_courses").update(updates).eq("id", courseId);
   if (error) throw new Error(error.message);
   return true;
 }
 
 export async function deleteCourse(courseId: string): Promise<boolean> {
-  const { error } = await (supabase.from("academy_courses") as any).delete().eq("id", courseId);
+  const { error } = await supabase.from("academy_courses").delete().eq("id", courseId);
   if (error) throw new Error(error.message);
   return true;
 }
 
 export async function duplicateCourse(courseId: string): Promise<AcademyCourseRow | null> {
-  const { data: source, error: sourceErr } = await (supabase.from("academy_courses") as any)
+  const { data: source, error: sourceErr } = await supabase.from("academy_courses")
     .select("*")
     .eq("id", courseId)
     .maybeSingle();
@@ -227,29 +228,32 @@ export async function duplicateCourse(courseId: string): Promise<AcademyCourseRo
     published: false,
   });
 
-  const { data: modules, error: modErr } = await (supabase.from("academy_course_modules") as any)
+  const { data: modules, error: modErr } = await supabase.from("academy_course_modules")
     .select("*")
     .eq("course_id", courseId)
     .order("order_index", { ascending: true });
   if (modErr) throw new Error(modErr.message);
 
   for (const m of (modules ?? []) as AcademyCourseModuleRow[]) {
-    const { data: newModule, error: newModErr } = await (supabase.from("academy_course_modules") as any)
+    const { data: newModule, error: newModErr } = await supabase.from("academy_course_modules")
       .insert({ course_id: newCourse.id, title: m.title, order_index: m.order_index, content_url: m.content_url })
       .select()
       .single();
     if (newModErr) throw new Error(newModErr.message);
 
-    const { data: lessons, error: lessonErr } = await (supabase.from("academy_lessons") as any)
+    const { data: lessons, error: lessonErr } = await supabase.from("academy_lessons")
       .select("*")
       .eq("module_id", m.id)
       .order("order_index", { ascending: true });
     if (lessonErr) throw new Error(lessonErr.message);
 
-    for (const l of (lessons ?? []) as AcademyLessonRow[]) {
-      const { id: _lid, ...lessonRest } = l as AcademyLessonRow & Record<string, unknown>;
-      await (supabase.from("academy_lessons") as any).insert({
+    for (const l of jsonAs<AcademyLessonRow[]>(lessons ?? [])) {
+      const { id: _lid, attachments, external_links, code_snippets, ...lessonRest } = l;
+      await supabase.from("academy_lessons").insert({
         ...lessonRest,
+        attachments:    jsonPayload(attachments),
+        external_links: jsonPayload(external_links),
+        code_snippets:  jsonPayload(code_snippets),
         module_id: newModule.id,
         course_id: newCourse.id,
       });
@@ -271,13 +275,13 @@ export async function setCourseStatus(courseId: string, status: AcademyCourseRow
 
 export async function saveCourseModules(courseId: string, modulesList: AcademyCourseModuleRow[]): Promise<boolean> {
   const keepIds = modulesList.map((m) => m.id);
-  let del = (supabase.from("academy_course_modules") as any).delete().eq("course_id", courseId);
+  let del = supabase.from("academy_course_modules").delete().eq("course_id", courseId);
   if (keepIds.length > 0) del = del.not("id", "in", `(${keepIds.join(",")})`);
   const { error: delErr } = await del;
   if (delErr) throw new Error(delErr.message);
 
   if (modulesList.length === 0) return true;
-  const { error } = await (supabase.from("academy_course_modules") as any)
+  const { error } = await supabase.from("academy_course_modules")
     .upsert(modulesList.map((m) => ({ ...m, course_id: courseId })), { onConflict: "id" });
   if (error) throw new Error(error.message);
   return true;
@@ -285,14 +289,23 @@ export async function saveCourseModules(courseId: string, modulesList: AcademyCo
 
 export async function saveCourseLessons(courseId: string, lessonsList: AcademyLessonRow[]): Promise<boolean> {
   const keepIds = lessonsList.map((l) => l.id);
-  let del = (supabase.from("academy_lessons") as any).delete().eq("course_id", courseId);
+  let del = supabase.from("academy_lessons").delete().eq("course_id", courseId);
   if (keepIds.length > 0) del = del.not("id", "in", `(${keepIds.join(",")})`);
   const { error: delErr } = await del;
   if (delErr) throw new Error(delErr.message);
 
   if (lessonsList.length === 0) return true;
-  const { error } = await (supabase.from("academy_lessons") as any)
-    .upsert(lessonsList.map((l) => ({ ...l, course_id: courseId })), { onConflict: "id" });
+  const { error } = await supabase.from("academy_lessons")
+    .upsert(
+      lessonsList.map(({ attachments, external_links, code_snippets, ...rest }) => ({
+        ...rest,
+        attachments:    jsonPayload(attachments),
+        external_links: jsonPayload(external_links),
+        code_snippets:  jsonPayload(code_snippets),
+        course_id: courseId,
+      })),
+      { onConflict: "id" }
+    );
   if (error) throw new Error(error.message);
   return true;
 }
@@ -360,7 +373,7 @@ export async function fetchInstructorAnalytics(instructorId: string): Promise<Ac
 
 export async function suspendInstructor(instructorId: string, adminUserId: string, note: string): Promise<boolean> {
   void adminUserId;
-  const { error } = await (supabase.from("academy_instructors") as any)
+  const { error } = await supabase.from("academy_instructors")
     .update({ verified: false, level: "new" })
     .eq("id", instructorId);
   if (error) throw new Error(error.message);
@@ -370,7 +383,7 @@ export async function suspendInstructor(instructorId: string, adminUserId: strin
 
 export async function verifyInstructor(instructorId: string, adminUserId: string): Promise<boolean> {
   void adminUserId;
-  const { error } = await (supabase.from("academy_instructors") as any).update({ verified: true }).eq("id", instructorId);
+  const { error } = await supabase.from("academy_instructors").update({ verified: true }).eq("id", instructorId);
   if (error) throw new Error(error.message);
   return true;
 }

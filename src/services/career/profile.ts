@@ -14,8 +14,8 @@ export interface CareerProfileWithName extends CareerProfileRow {
 
 export async function fetchMyCareerProfile(userId: string): Promise<CareerProfileWithName | null> {
   const [{ data: careerRow, error: careerErr }, { data: baseRow, error: baseErr }] = await Promise.all([
-    (supabase.from("career_profiles") as any).select("*").eq("user_id", userId).maybeSingle(),
-    (supabase.from("profiles") as any).select("display_name, avatar_url").eq("user_id", userId).maybeSingle(),
+    supabase.from("career_profiles").select("*").eq("user_id", userId).maybeSingle(),
+    supabase.from("profiles").select("display_name, avatar_url").eq("user_id", userId).maybeSingle(),
   ]);
   if (careerErr) throw new Error(careerErr.message);
   if (baseErr) throw new Error(baseErr.message);
@@ -41,7 +41,7 @@ export interface CareerProfilePatch {
 }
 
 export async function upsertCareerProfile(userId: string, patch: CareerProfilePatch): Promise<CareerProfileRow> {
-  const { data, error } = await (supabase.from("career_profiles") as any)
+  const { data, error } = await supabase.from("career_profiles")
     .upsert({ user_id: userId, ...patch }, { onConflict: "user_id" })
     .select("*")
     .single();
@@ -53,7 +53,7 @@ export async function upsertCareerProfile(userId: string, patch: CareerProfilePa
 export async function fetchDisplayNames(userIds: string[]): Promise<Record<string, string>> {
   const uniqueIds = [...new Set(userIds)].filter(Boolean);
   if (uniqueIds.length === 0) return {};
-  const { data, error } = await (supabase.from("profiles") as any)
+  const { data, error } = await supabase.from("profiles")
     .select("user_id, display_name")
     .in("user_id", uniqueIds);
   if (error) throw new Error(error.message);
@@ -75,7 +75,7 @@ export async function uploadResume(userId: string, file: File): Promise<string> 
   if (signErr) throw new Error(signErr.message);
 
   const resumeUrl = signed.signedUrl;
-  const { error: updateErr } = await (supabase.from("career_profiles") as any)
+  const { error: updateErr } = await supabase.from("career_profiles")
     .upsert({ user_id: userId, resume_url: resumeUrl }, { onConflict: "user_id" });
   if (updateErr) throw new Error(updateErr.message);
 

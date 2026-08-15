@@ -32,7 +32,7 @@ export function NotificationBell() {
 
   const refresh = useCallback(async () => {
     if (!user) return;
-    const { data } = await (supabase.from("notifications") as any)
+    const { data } = await supabase.from("notifications")
       .select("id, title, body, type, is_read, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
@@ -74,7 +74,7 @@ export function NotificationBell() {
   const handleOpen = async (open: boolean) => {
     if (!open || !user || unread === 0) return;
     // Mark all as read in Supabase
-    await (supabase.from("notifications") as any)
+    await supabase.from("notifications")
       .update({ is_read: true })
       .eq("user_id", user.id)
       .eq("is_read", false);

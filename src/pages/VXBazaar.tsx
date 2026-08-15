@@ -228,8 +228,6 @@ export default function VXBazaar() {
   const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
   const { playSound } = useSound();
-  // Generated Supabase types will include these tables after the production migration is applied.
-  const db = supabase as any;
   useAmbientSound("marketplace");
 
   const [view, setView] = useState<View>("street");
@@ -310,7 +308,7 @@ export default function VXBazaar() {
     queryKey: ["bazaar-reviews", activeShop?.id],
     enabled: !!activeShop,
     queryFn: async () => {
-      const { data, error } = await db.from("bazaar_reviews").select("*").eq("shop_id", activeShop!.id).order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("bazaar_reviews").select("*").eq("shop_id", activeShop!.id).order("created_at", { ascending: false });
       if (error) throw error;
       return data as BazaarReview[];
     },
@@ -320,7 +318,7 @@ export default function VXBazaar() {
     queryKey: ["bazaar-seller-orders", activeShop?.id],
     enabled: !!activeShop && activeShop.owner_id === user?.id,
     queryFn: async () => {
-      const { data, error } = await db.from("bazaar_orders").select("*").eq("shop_id", activeShop!.id).order("created_at", { ascending: false }).limit(50);
+      const { data, error } = await supabase.from("bazaar_orders").select("*").eq("shop_id", activeShop!.id).order("created_at", { ascending: false }).limit(50);
       if (error) throw error;
       return data as BazaarOrder[];
     },
@@ -334,7 +332,7 @@ export default function VXBazaar() {
     mutationFn: async () => {
       if (!user) throw new Error("not_authenticated");
 
-      const { error } = await db.rpc("create_bazaar_shop", {
+      const { error } = await supabase.rpc("create_bazaar_shop", {
         _name: createForm.name.trim(),
         _tier: createForm.tier,
         _description: createForm.description.trim() || null,
@@ -392,7 +390,7 @@ export default function VXBazaar() {
         }
       }
 
-      const { error } = await db.from("bazaar_products").insert({
+      const { error } = await supabase.from("bazaar_products").insert({
         shop_id: activeShop.id,
         name: productForm.name.trim(),
         description: productForm.description.trim() || null,
@@ -482,7 +480,7 @@ export default function VXBazaar() {
       ...current,
       [product.id]: Math.min(Number(product.stock_qty || 1), (current[product.id] || 0) + 1),
     }));
-    await db.from("bazaar_product_interactions").insert({
+    await supabase.from("bazaar_product_interactions").insert({
       product_id: product.id, shop_id: product.shop_id, actor_id: user.id, interaction_type: "add_to_cart",
     });
     void supabase.functions.invoke("bazaar-notify-seller", {
@@ -494,7 +492,7 @@ export default function VXBazaar() {
   const checkoutVX = async () => {
     if (!activeShop || !user || !cartSupportsVx) return;
     setCheckoutLoading("vx");
-    const { data, error } = await db.rpc("create_bazaar_vx_order", {
+    const { data, error } = await supabase.rpc("create_bazaar_vx_order", {
       _shop_id: activeShop.id,
       _items: cartItems.map(item => ({ product_id: item.product.id, quantity: item.quantity })),
       _buyer_note: null,
@@ -534,9 +532,9 @@ export default function VXBazaar() {
 
   const toggleWishlist = async (product: BazaarProduct) => {
     if (!user) return toast({ title: "Sign in to save products", variant: "destructive" });
-    const { error } = await db.from("bazaar_wishlists").upsert({ user_id: user.id, product_id: product.id });
+    const { error } = await supabase.from("bazaar_wishlists").upsert({ user_id: user.id, product_id: product.id });
     if (error) return toast({ title: error.message, variant: "destructive" });
-    await db.from("bazaar_product_interactions").insert({
+    await supabase.from("bazaar_product_interactions").insert({
       product_id: product.id, shop_id: product.shop_id, actor_id: user.id, interaction_type: "wishlist",
     });
     void supabase.functions.invoke("bazaar-notify-seller", {
@@ -547,7 +545,7 @@ export default function VXBazaar() {
 
   const submitReview = async () => {
     if (!user || !selectedProduct || !activeShop) return;
-    const { error } = await db.from("bazaar_reviews").upsert({
+    const { error } = await supabase.from("bazaar_reviews").upsert({
       product_id: selectedProduct.id,
       shop_id: activeShop.id,
       reviewer_id: user.id,
@@ -565,7 +563,7 @@ export default function VXBazaar() {
 
   const submitDispute = async () => {
     if (!user || !selectedProduct || !activeShop || !disputeForm.description.trim()) return;
-    const { error } = await db.from("bazaar_disputes").insert({
+    const { error } = await supabase.from("bazaar_disputes").insert({
       product_id: selectedProduct.id,
       shop_id: activeShop.id,
       buyer_id: user.id,
@@ -588,7 +586,7 @@ export default function VXBazaar() {
   const saveShopSettings = async () => {
     if (!activeShop || !isOwner) return;
     setSettingsSaving(true);
-    const { error } = await db.from("bazaar_shops").update({
+    const { error } = await supabase.from("bazaar_shops").update({
       email_notifications: activeShop.email_notifications !== false,
       whatsapp_notifications: !!activeShop.whatsapp_notifications,
       whatsapp_number: activeShop.whatsapp_number?.trim() || null,

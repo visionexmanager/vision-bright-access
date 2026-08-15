@@ -1,13 +1,11 @@
 // Video Studio — service layer (pure async, no React)
 import { supabase } from "@/integrations/supabase/client";
+import { jsonAs } from "@/integrations/supabase/json";
 import type {
   VideoJob,
   VideoTemplate,
   VideoLibraryFilters,
 } from "@/lib/types/video-studio";
-
-const db = supabase as any;
-
 async function requireUserId(): Promise<string> {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) throw new Error("Not authenticated");
@@ -17,7 +15,7 @@ async function requireUserId(): Promise<string> {
 // ── Video Jobs ────────────────────────────────────────────────────────────────
 
 export async function listVideoJobs(filters: VideoLibraryFilters = {}): Promise<VideoJob[]> {
-  let q = db.from("vx_video_jobs").select("*");
+  let q = supabase.from("vx_video_jobs").select("*");
 
   if (filters.status === "active") {
     q = q.in("status", ["queued", "preparing", "generating", "rendering", "optimizing", "uploading"]);
@@ -38,7 +36,7 @@ export async function listVideoJobs(filters: VideoLibraryFilters = {}): Promise<
   const { data, error } = await q;
   if (error) throw error;
 
-  let result: VideoJob[] = data ?? [];
+  let result: VideoJob[] = jsonAs<VideoJob[]>(data ?? []);
   if (filters.query?.trim()) {
     const qLower = filters.query.toLowerCase();
     result = result.filter(
@@ -52,20 +50,20 @@ export async function listVideoJobs(filters: VideoLibraryFilters = {}): Promise<
 }
 
 export async function getVideoJob(id: string): Promise<VideoJob | null> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("vx_video_jobs")
     .select("*")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return jsonAs<VideoJob | null>(data);
 }
 
 export async function updateVideoJob(
   id: string,
   patch: Partial<Pick<VideoJob, "title" | "is_favorite" | "is_archived">>
 ): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("vx_video_jobs")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -73,7 +71,7 @@ export async function updateVideoJob(
 }
 
 export async function getSignedVideoUrl(storagePath: string): Promise<string | null> {
-  const { data, error } = await (supabase as any).storage
+  const { data, error } = await supabase.storage
     .from("video-outputs")
     .createSignedUrl(storagePath, 3600); // 1 hour
   if (error) return null;
@@ -83,28 +81,28 @@ export async function getSignedVideoUrl(storagePath: string): Promise<string | n
 // ── Video Templates ───────────────────────────────────────────────────────────
 
 export async function listTemplates(): Promise<VideoTemplate[]> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("vx_video_templates")
     .select("*")
     .order("is_favorite", { ascending: false })
     .order("use_count", { ascending: false });
   if (error) throw error;
-  return data ?? [];
+  return jsonAs<VideoTemplate[]>(data ?? []);
 }
 
 export async function createTemplate(input: Omit<VideoTemplate, "id" | "user_id" | "use_count" | "created_at" | "updated_at">): Promise<VideoTemplate> {
   const userId = await requireUserId();
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("vx_video_templates")
     .insert({ ...input, user_id: userId })
     .select()
     .single();
   if (error) throw error;
-  return data;
+  return jsonAs<VideoTemplate>(data);
 }
 
 export async function updateTemplate(id: string, patch: Partial<VideoTemplate>): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("vx_video_templates")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -112,10 +110,10 @@ export async function updateTemplate(id: string, patch: Partial<VideoTemplate>):
 }
 
 export async function deleteTemplate(id: string): Promise<void> {
-  const { error } = await db.from("vx_video_templates").delete().eq("id", id);
+  const { error } = await supabase.from("vx_video_templates").delete().eq("id", id);
   if (error) throw error;
 }
 
 export async function useTemplate(id: string): Promise<void> {
-  await db.rpc("vx_use_template", { p_template_id: id });
+  await supabase.rpc("vx_use_template", { p_template_id: id });
 }

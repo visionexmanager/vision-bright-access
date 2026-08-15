@@ -14,9 +14,6 @@ import type {
   RoutingPreferences,
   RoutingDecision,
 } from "@/lib/types/provider-hub";
-
-const db = supabase as any;
-
 // ── Provider CRUD ─────────────────────────────────────────────────────────────
 
 export async function listProviders(type?: ProviderType): Promise<Provider[]> {

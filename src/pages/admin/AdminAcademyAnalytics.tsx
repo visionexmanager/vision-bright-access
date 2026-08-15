@@ -55,8 +55,8 @@ export default function AdminAcademyAnalytics() {
     const load = async () => {
       setIsLoading(true);
       const [p, x] = await Promise.all([
-        (supabase.from("academy_profiles") as any).select("xp_total, level, country, last_active, created_at").limit(5000),
-        (supabase.from("academy_xp_events") as any).select("reason, amount, created_at").order("created_at", { ascending: false }).limit(5000),
+        supabase.from("academy_profiles").select("xp_total, level, country, last_active, created_at").limit(5000),
+        supabase.from("academy_xp_events").select("reason, amount, created_at").order("created_at", { ascending: false }).limit(5000),
       ]);
       if (p.data) setProfiles(p.data as ProfileRow[]);
       if (x.data) setXpEvents(x.data as XPEventRow[]);

@@ -3,19 +3,20 @@
 // anyone; companies are fully public) — no auth required to browse.
 
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import type { JobWithCompany, CompanyRow } from "@/lib/types/career";
 
 export interface JobFilters {
   query?: string;
   remote?: boolean;
-  jobType?: string;
+  jobType?: Database["public"]["Enums"]["career_job_type"];
   limit?: number;
 }
 
 const JOB_WITH_COMPANY_SELECT = "*, company:companies(*)";
 
 export async function fetchActiveJobs(filters: JobFilters = {}): Promise<JobWithCompany[]> {
-  let q = (supabase.from("jobs") as any)
+  let q = supabase.from("jobs")
     .select(JOB_WITH_COMPANY_SELECT)
     .eq("status", "active")
     .order("created_at", { ascending: false });
@@ -34,7 +35,7 @@ export async function fetchActiveJobs(filters: JobFilters = {}): Promise<JobWith
 }
 
 export async function fetchJobById(jobId: string): Promise<JobWithCompany | null> {
-  const { data, error } = await (supabase.from("jobs") as any)
+  const { data, error } = await supabase.from("jobs")
     .select(JOB_WITH_COMPANY_SELECT)
     .eq("id", jobId)
     .maybeSingle();
@@ -43,7 +44,7 @@ export async function fetchJobById(jobId: string): Promise<JobWithCompany | null
 }
 
 export async function fetchCompanies(limit = 20): Promise<CompanyRow[]> {
-  const { data, error } = await (supabase.from("companies") as any)
+  const { data, error } = await supabase.from("companies")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -58,7 +59,7 @@ export async function fetchCompanies(limit = 20): Promise<CompanyRow[]> {
  * an honest, cheap first pass matching what the deployed schema can support.
  */
 export async function fetchRecommendedJobs(skills: string[], limit = 10): Promise<JobWithCompany[]> {
-  let q = (supabase.from("jobs") as any)
+  let q = supabase.from("jobs")
     .select(JOB_WITH_COMPANY_SELECT)
     .eq("status", "active");
 
