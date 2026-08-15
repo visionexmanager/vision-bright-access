@@ -38,6 +38,32 @@ describe("kids course generation never publishes to children", () => {
   });
 });
 
+describe("the review screen makes publishing require reading", () => {
+  const screen = readFileSync("src/pages/admin/AdminKidsCourses.tsx", "utf8");
+
+  it("only offers publish inside an opened draft", () => {
+    // The publish button must sit after the lesson bodies are rendered, not in
+    // the list row. A publish control on the list is how a whole course reaches
+    // children from a title alone.
+    // The rendered label, not the bare key — "…publish" is a prefix of
+    // "…published", which the publish handler's toast uses earlier in the file.
+    const listRow = screen.indexOf("aria-expanded={isOpen}");
+    const publishButton = screen.indexOf('t("admin.kidsCourses.publish")');
+    expect(listRow).toBeGreaterThan(0);
+    expect(publishButton).toBeGreaterThan(listRow);
+    expect(screen.indexOf("lesson.content")).toBeLessThan(publishButton);
+  });
+
+  it("reads only drafts into the queue", () => {
+    expect(screen).toContain('.eq("status", "draft")');
+  });
+
+  it("is registered behind the admin route guard", () => {
+    const app = readFileSync("src/App.tsx", "utf8");
+    expect(app).toContain('<Route path="/admin/kids-courses" element={<AdminRoute><AdminKidsCourses /></AdminRoute>} />');
+  });
+});
+
 describe("the generator asks for content that is safe to show a child", () => {
   it("instructs the model on accuracy and originality", () => {
     expect(source).toContain("factually correct");

@@ -415,6 +415,7 @@ const OwnerControlCenter = lazyWithRetry(() => import("./pages/admin/OwnerContro
 const AdminAnalytics = lazyWithRetry(() => import("./pages/admin/AdminAnalytics"));
 const AdminSubscribers = lazyWithRetry(() => import("./pages/admin/AdminSubscribers"));
 const AdminModeration = lazyWithRetry(() => import("./pages/admin/AdminModeration"));
+const AdminKidsCourses = lazyWithRetry(() => import("./pages/admin/AdminKidsCourses"));
 const AdminEmails = lazyWithRetry(() => import("./pages/admin/AdminEmails"));
 const AdminDatabase = lazyWithRetry(() => import("./pages/admin/AdminDatabase"));
 const AdminLogs = lazyWithRetry(() => import("./pages/admin/AdminLogs"));
@@ -1139,6 +1140,7 @@ function AppRoutes() {
                     <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
                     <Route path="/admin/subscribers" element={<AdminRoute><AdminSubscribers /></AdminRoute>} />
                     <Route path="/admin/moderation" element={<AdminRoute><AdminModeration /></AdminRoute>} />
+                    <Route path="/admin/kids-courses" element={<AdminRoute><AdminKidsCourses /></AdminRoute>} />
                     <Route path="/admin/emails" element={<AdminRoute><AdminEmails /></AdminRoute>} />
                     <Route path="/admin/database" element={<AdminRoute><AdminDatabase /></AdminRoute>} />
                     <Route path="/admin/vx" element={<AdminRoute><AdminVX /></AdminRoute>} />
