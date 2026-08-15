@@ -9916,9 +9916,9 @@ export const translations: Record<string, string> = {
 
   // ── VisionKids Academy (Phase 4) ─────────────────────────────────────────
   "kids.academy.meta.title": "Academy — VisionKids",
-  "kids.academy.meta.description": "A world-class, AI-personalized learning academy for kids — 22 subjects, courses, lessons, exercises, and certificates.",
+  "kids.academy.meta.description": "A world-class, AI-personalized learning academy for kids — courses, lessons, exercises, and certificates.",
   "kids.academy.heroTitle": "VisionKids Academy",
-  "kids.academy.heroSubtitle": "Learning made just for you — courses, lessons, and exercises across 22 subjects.",
+  "kids.academy.heroSubtitle": "Learning made just for you — courses, lessons, and exercises.",
   "kids.academy.exploreSubjects": "Explore Subjects",
   "kids.academy.myLearningPath": "My Learning Path",
   "kids.academy.recommendedForYou": "Recommended for You",
