@@ -12,6 +12,7 @@ import { gameManager } from "./core/gameManager";
 import { usePlayerGameData } from "./core/usePlayerGameData";
 import { ArcadeGameCard } from "./ArcadeGameCard";
 import { ARCADE_GAMES, getArcadeGame, localizeGame } from "./catalog";
+import { categoryLabel, difficultyLabel } from "./labels";
 import { accessibilityAudio } from "./audio/AccessibilityAudioLayer";
 import { advancedAudioEngine } from "./audio/AdvancedAudioEngine";
 import arcadeLoadingBackground from "@/assets/arcade/visionex-arcade-loading.webp";
@@ -33,7 +34,7 @@ export function ArcadeGameExperience({ children }: { children: ReactNode }) {
 
 function ArcadeGameRuntime({ children, gameId }: { children: ReactNode; gameId:string }) {
   const { pathname } = useLocation();
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const { announce } = useArcadeAccessibility();
   const runtime = useSyncExternalStore(gameManager.subscribe, gameManager.getSnapshot, gameManager.getSnapshot);
   const game = getArcadeGame(pathname)!;
@@ -76,7 +77,7 @@ function ArcadeGameRuntime({ children, gameId }: { children: ReactNode; gameId:s
           </nav>
           <header className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="mb-3 flex flex-wrap gap-2">{game.categories.map((category) => <Badge key={category} variant="outline" className="border-violet-300/30 bg-violet-500/10 text-violet-100">{category}</Badge>)}</div>
+              <div className="mb-3 flex flex-wrap gap-2">{game.categories.map((category) => <Badge key={category} variant="outline" className="border-violet-300/30 bg-violet-500/10 text-violet-100">{categoryLabel(t, category)}</Badge>)}</div>
               <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{copy.title}</h1>
               <p className="mt-2 max-w-2xl text-slate-300">{copy.description}</p>
             </div>
@@ -107,7 +108,7 @@ function ArcadeGameRuntime({ children, gameId }: { children: ReactNode; gameId:s
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <InfoTile icon={Keyboard} label={lang === "ar" ? "التحكم" : "Controls"} value={game.controls.join(" · ")} />
                 <InfoTile icon={Users} label={lang === "ar" ? "اللاعبون" : "Players"} value={game.players} />
-                <InfoTile icon={BarChart3} label={lang === "ar" ? "الصعوبة" : "Difficulty"} value={game.difficulty} />
+                <InfoTile icon={BarChart3} label={t("games.difficulty.select")} value={difficultyLabel(t, game.difficulty)} />
                 <InfoTile icon={Star} label={lang === "ar" ? "التقييم" : "User rating"} value={game.rating ? `${game.rating} / 5` : (lang === "ar" ? "لا توجد تقييمات بعد" : "Not rated yet")} />
               </div>
               <div className="mt-6 grid gap-5 border-t border-white/10 pt-6 md:grid-cols-2"><section aria-labelledby="how-to-play-title"><h3 id="how-to-play-title" className="font-black">{lang === "ar" ? "طريقة اللعب" : "How to play"}</h3><ol className="mt-3 list-decimal space-y-2 ps-5 text-sm text-slate-300">{release.howToPlay.map(step=><li key={step}>{step}</li>)}</ol></section><section aria-labelledby="change-log-title"><h3 id="change-log-title" className="font-black">{lang === "ar" ? "سجل التغييرات" : "Change log"}</h3><p className="mt-1 text-xs text-cyan-300">v{release.version} · <time dateTime={release.updatedAt}>{release.updatedAt}</time></p><ul className="mt-3 list-disc space-y-2 ps-5 text-sm text-slate-300">{release.changes.map(change=><li key={change}>{change}</li>)}</ul></section></div>

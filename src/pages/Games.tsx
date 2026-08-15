@@ -13,6 +13,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { GameSettingsPanel } from "@/features/arcade/GameSettingsPanel";
 import { ArcadeGameCard } from "@/features/arcade/ArcadeGameCard";
 import { ARCADE_CATEGORIES, ARCADE_GAMES, type ArcadeAge, type ArcadeCategory, type ArcadeDifficulty, localizeGame } from "@/features/arcade/catalog";
+import { ageLabel, categoryLabel, difficultyLabel } from "@/features/arcade/labels";
 import arcadeHero from "@/features/arcade/assets/visionex-arcade-hero.webp";
 import tournamentBanner from "@/assets/arcade/visionex-arcade-tournament-v1.webp";
 import { useDocumentHead } from "@/hooks/useDocumentHead";
@@ -23,12 +24,9 @@ import { gameReleaseInfo } from "@/features/arcade/gameReleaseNotes";
 
 type SectionProps = { title: string; eyebrow: string; games: typeof ARCADE_GAMES; lang: string };
 
-const categoryLabelAr: Record<ArcadeCategory, string> = {
-  Classic:"كلاسيكية", Puzzle:"ألغاز", Board:"لوحية", Card:"ورق", Educational:"تعليمية", Kids:"أطفال", Typing:"كتابة", Memory:"ذاكرة", Word:"كلمات", Math:"رياضيات", Logic:"منطق", Quiz:"اختبارات", Reaction:"سرعة استجابة", Arcade:"آركيد", Action:"أكشن", Adventure:"مغامرات", Platform:"منصات", Racing:"سباقات", Sports:"رياضة", Physics:"فيزياء", Simulation:"محاكاة", Idle:"خاملة", Strategy:"استراتيجية", "Tower Defense":"دفاع الأبراج", "City Builder":"بناء المدن", "Business Simulation":"محاكاة الأعمال", Cooking:"طبخ", Music:"موسيقى", Drawing:"رسم", Accessible:"ألعاب متاحة", Audio:"صوتية", Multiplayer:"متعددة اللاعبين",
-};
 
 export default function Games() {
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const ar = lang === "ar";
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<ArcadeCategory | "all">("all");
@@ -93,9 +91,9 @@ export default function Games() {
             </div>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
               <div className="relative lg:col-span-2"><Label htmlFor="arcade-search" className="sr-only">{ar ? "ابحث عن لعبة" : "Search games"}</Label><Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" /><Input id="arcade-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={ar ? "ابحث عن لعبة..." : "Search games..."} className="border-white/10 bg-black/30 ps-10 text-white placeholder:text-slate-500" /></div>
-              <Filter value={category} onChange={(value) => setCategory(value as ArcadeCategory | "all")} label={ar ? "النوع" : "Category"} options={ARCADE_CATEGORIES.map((item) => ({ value:item, label:ar ? categoryLabelAr[item] : item }))} allLabel={ar ? "كل الأنواع" : "All categories"} />
-              <Filter value={difficulty} onChange={(value) => setDifficulty(value as ArcadeDifficulty | "all")} label={ar ? "الصعوبة" : "Difficulty"} options={(["Easy","Medium","Hard"] as ArcadeDifficulty[]).map((item) => ({ value:item, label:item }))} allLabel={ar ? "كل المستويات" : "All levels"} />
-              <Filter value={age} onChange={(value) => setAge(value as ArcadeAge | "all")} label={ar ? "العمر" : "Age"} options={(["Everyone","Kids","Teens"] as ArcadeAge[]).map((item) => ({ value:item, label:item }))} allLabel={ar ? "كل الأعمار" : "All ages"} />
+              <Filter value={category} onChange={(value) => setCategory(value as ArcadeCategory | "all")} label={t("games.filter.category")} options={ARCADE_CATEGORIES.map((item) => ({ value:item, label:categoryLabel(t, item) }))} allLabel={t("games.filter.allCategories")} />
+              <Filter value={difficulty} onChange={(value) => setDifficulty(value as ArcadeDifficulty | "all")} label={t("games.difficulty.select")} options={(["Easy","Medium","Hard"] as ArcadeDifficulty[]).map((item) => ({ value:item, label:difficultyLabel(t, item) }))} allLabel={t("games.filter.allLevels")} />
+              <Filter value={age} onChange={(value) => setAge(value as ArcadeAge | "all")} label={t("games.filter.age")} options={(["Everyone","Kids","Teens"] as ArcadeAge[]).map((item) => ({ value:item, label:ageLabel(t, item) }))} allLabel={t("games.filter.allAges")} />
             </div>
             <div className="mt-3 flex items-center justify-between gap-3">
               <Button size="sm" variant={accessibility === "accessible" ? "default" : "outline"} className={accessibility === "accessible" ? "" : "border-white/15 bg-black/20 text-white hover:bg-white/10 hover:text-white"} aria-pressed={accessibility === "accessible"} onClick={() => setAccessibility((value) => value === "all" ? "accessible" : "all")}><Accessibility className="me-2 h-4 w-4" />{ar ? "ميزات إمكانية الوصول" : "Accessibility features"}</Button>
@@ -138,7 +136,8 @@ function PaginatedGameGrid({games,lang}:{games:typeof ARCADE_GAMES;lang:string})
 }
 
 function CategoryGrid({ lang, onSelect }: { lang: string; onSelect:(item:ArcadeCategory)=>void }) {
-  return <section aria-labelledby="categories-title" className="py-12"><p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">{lang === "ar" ? "لكل أسلوب لعب" : "Every way to play"}</p><h2 id="categories-title" className="mb-6 mt-1 text-3xl font-black">{lang === "ar" ? "التصنيفات" : "Categories"}</h2><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{ARCADE_CATEGORIES.map((item) => <button type="button" key={item} onClick={() => onSelect(item)} className="group flex items-center justify-between rounded-2xl border border-white/10 bg-gradient-to-br from-white/[.08] to-transparent p-5 text-start transition hover:-translate-y-0.5 hover:border-cyan-300/50 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"><span><span className="block text-lg font-bold">{lang === "ar" ? categoryLabelAr[item] : item}</span><span className="mt-1 block text-xs text-slate-400">{ARCADE_GAMES.filter((game) => game.categories.includes(item)).length} {lang === "ar" ? "ألعاب" : "games"}</span></span>{item === "Accessible" ? <Accessibility className="h-6 w-6 text-cyan-300" /> : item === "Multiplayer" ? <Users className="h-6 w-6 text-violet-300" /> : item === "Strategy" ? <Trophy className="h-6 w-6 text-amber-300" /> : <Gamepad2 className="h-6 w-6 text-violet-300" />}</button>)}</div></section>;
+  const { t } = useLanguage();
+  return <section aria-labelledby="categories-title" className="py-12"><p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">{lang === "ar" ? "لكل أسلوب لعب" : "Every way to play"}</p><h2 id="categories-title" className="mb-6 mt-1 text-3xl font-black">{lang === "ar" ? "التصنيفات" : "Categories"}</h2><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{ARCADE_CATEGORIES.map((item) => <button type="button" key={item} onClick={() => onSelect(item)} className="group flex items-center justify-between rounded-2xl border border-white/10 bg-gradient-to-br from-white/[.08] to-transparent p-5 text-start transition hover:-translate-y-0.5 hover:border-cyan-300/50 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"><span><span className="block text-lg font-bold">{categoryLabel(t, item)}</span><span className="mt-1 block text-xs text-slate-400">{ARCADE_GAMES.filter((game) => game.categories.includes(item)).length} {lang === "ar" ? "ألعاب" : "games"}</span></span>{item === "Accessible" ? <Accessibility className="h-6 w-6 text-cyan-300" /> : item === "Multiplayer" ? <Users className="h-6 w-6 text-violet-300" /> : item === "Strategy" ? <Trophy className="h-6 w-6 text-amber-300" /> : <Gamepad2 className="h-6 w-6 text-violet-300" />}</button>)}</div></section>;
 }
 
 function Filter({ value, onChange, label, allLabel, options }: { value:string; onChange:(value:string)=>void; label:string; allLabel:string; options:{ value:string; label:string }[] }) {

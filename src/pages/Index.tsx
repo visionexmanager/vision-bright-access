@@ -38,6 +38,7 @@ import { AnimatedSection, StaggerGrid, StaggerItem, scaleFade } from "@/componen
 import { VisionKidsHomeSection } from "@/components/VisionKidsHomeSection";
 import arcadeHero from "@/features/arcade/assets/visionex-arcade-hero.webp";
 import { ARCADE_GAMES } from "@/features/arcade/catalog";
+import { categoryLabel, difficultyLabel } from "@/features/arcade/labels";
 
 /**
  * Home page information architecture (single source of truth for the page):
@@ -325,7 +326,7 @@ export default function Index() {
                       />
                       <span className="min-w-0">
                         <strong className="block truncate">{lang === "ar" ? game.titleAr : game.title}</strong>
-                        <small className="text-slate-400">{game.categories[0]} · {game.difficulty}</small>
+                        <small className="text-slate-400">{categoryLabel(t, game.categories[0])} · {difficultyLabel(t, game.difficulty)}</small>
                       </span>
                     </Link>
                   </li>
