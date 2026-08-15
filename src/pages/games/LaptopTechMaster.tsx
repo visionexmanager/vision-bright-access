@@ -8,7 +8,7 @@ import { useGameSounds } from "@/hooks/useGameSounds";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import heroImg from "@/assets/arcade/game-laptop-tech-premium-v2.webp";
 import { ProductionWorldMotion } from "@/features/arcade/visual/ProductionWorldMotion";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -56,18 +56,10 @@ function LaptopBoard() {
   const iId = issueIds[current];
   const fix   = t(`laptoptech.i${iId}.f`);
   const wrong = t(`laptoptech.i${iId}.w`);
-  const seed  = iId * 0.137;
-  const rng   = seededRng(seed);
-  const [choices, correctIdx] = useMemo(() => buildChoices(rng, fix, wrong), [iId, fix, wrong]);
+  const rng   = useMemo(() => seededRng(iId * 0.137), [iId]);
+  const [choices, correctIdx] = useMemo(() => buildChoices(rng, fix, wrong), [rng, fix, wrong]);
 
-  useEffect(() => {
-    if (feedback !== null || current >= ISSUES_PER_GAME) return;
-    if (timeLeft <= 0) { setFeedback("⏱️ " + t("laptoptech.symptom")); techError(); advance(score, false); return; }
-    const timer = setTimeout(() => setTimeLeft(v => v - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [timeLeft, feedback, current]);
-
-  const advance = (s: number, correct: boolean) => {
+  const advance = useCallback((s: number, correct: boolean) => {
     setTimeout(() => {
       const next = current + 1;
       if (next >= ISSUES_PER_GAME) {
@@ -81,7 +73,14 @@ function LaptopBoard() {
       setEliminated(null);
       setTimeLeft(SECONDS_PER_ISSUE);
     }, correct ? 800 : 1200);
-  };
+  }, [current, updateHighScore, settleGameResult]);
+
+  useEffect(() => {
+    if (feedback !== null || current >= ISSUES_PER_GAME) return;
+    if (timeLeft <= 0) { setFeedback("⏱️ " + t("laptoptech.symptom")); techError(); advance(score, false); return; }
+    const timer = setTimeout(() => setTimeLeft(v => v - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [timeLeft, feedback, current, score, t, techError, advance]);
 
   const answer = (idx: number) => {
     if (feedback !== null) return;
@@ -192,12 +191,15 @@ function LaptopMulti() {
   const bothDone = gs && user && opp
     ? gs[`fin_${user.id}`] === true && gs[`fin_${opp.id}`] === true : false;
 
+  // Latched: mp changes identity on every session update, so without this the
+  // effect would call endGame again on each one.
+  const endedRef = useRef(false);
   useEffect(() => {
-    if (bothDone && mp.status === "playing") {
-      const sorted = [...mp.session!.players].sort((a, b) => b.score - a.score);
-      mp.endGame(sorted[0].score !== sorted[1]?.score ? sorted[0].id : undefined);
-    }
-  }, [bothDone]);
+    if (!bothDone || mp.status !== "playing" || endedRef.current) return;
+    endedRef.current = true;
+    const sorted = [...mp.session!.players].sort((a, b) => b.score - a.score);
+    mp.endGame(sorted[0].score !== sorted[1]?.score ? sorted[0].id : undefined);
+  }, [bothDone, mp]);
 
   const advance = (s: number) => {
     const next = current + 1;

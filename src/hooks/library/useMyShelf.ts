@@ -54,7 +54,7 @@ export function useMyShelf() {
         toast({ title: "Couldn't update your library", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
       }
     },
-    [user, uid, shelfIds, queryClient, toast]
+    [user, uid, shelfIds, queryClient]
   );
 
   const isOnShelf = useCallback((bookId: string) => shelfIds.has(bookId), [shelfIds]);

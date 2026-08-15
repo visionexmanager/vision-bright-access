@@ -45,6 +45,7 @@ export default function AcademyInstructorDashboard() {
   const { profile: instructor, isLoading: isProfileLoading } = useMyInstructorProfile();
   const { courses } = useInstructorCourses();
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey is the store-changed tick, not a read input
   const announcements = useMemo(() => (instructor ? getAnnouncementsForInstructor(instructor.id) : []), [instructor, refreshKey]);
 
   if (!user) {

@@ -8,7 +8,7 @@ import { useGameSounds } from "@/hooks/useGameSounds";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import heroImg from "@/assets/arcade/game-dream-home-premium-v2.webp";
 import { DesignStudioMotion } from "@/features/arcade/motion/DesignStudioMotion";
 import { useGameEconomy } from "@/components/game/GameEconomyGate";
@@ -51,6 +51,17 @@ function DreamChallenge() {
   const room = ROOM_KEYS[roomIdx];
   const requested = CLIENT_BRIEFS[room];
 
+  // Declared here, and latched, so both the timeout effect and placeItem can
+  // depend on it without settling the same run twice.
+  const doneRef = useRef(false);
+  const finishGame = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    setDone(true);
+    setNewRecord(updateHighScore(score));
+    void settleGameResult(score > 0 ? "win" : "loss", "Dream Home");
+  }, [score, updateHighScore, settleGameResult]);
+
   useEffect(() => {
     if (done || timeLeft <= 0) return;
     const timer = setTimeout(() => setTimeLeft(v => v - 1), 1000);
@@ -61,7 +72,7 @@ function DreamChallenge() {
     if (timeLeft <= 0 && !done) {
       finishGame();
     }
-  }, [timeLeft, done]);
+  }, [timeLeft, done, finishGame]);
 
   const placeItem = useCallback((item: string) => {
     if (placed.includes(item)) return;
@@ -95,18 +106,12 @@ function DreamChallenge() {
         }, 800);
       }
     }
-  }, [placed, requested, roomIdx, t]);
-
-  function finishGame() {
-    setDone(true);
-    const isNew = updateHighScore(score);
-    setNewRecord(isNew);
-    void settleGameResult(score > 0 ? "win" : "loss", "Dream Home");
-  }
+  }, [placed, requested, roomIdx, t, finishGame, homeKnock, homeApproval, homeWrong, homeComplete]);
 
   const restart = () => {
     setRoomIdx(0); setPlaced([]); setScore(0);
     setTimeLeft(ROUND_SECONDS); setDone(false); setNewRecord(false);
+    doneRef.current = false;
   };
 
   if (done) {

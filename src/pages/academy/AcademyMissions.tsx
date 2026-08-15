@@ -14,6 +14,7 @@ export default function AcademyMissions() {
   const { user } = useAuth();
   const { celebration, dismissCelebration } = useAcademyGamificationTick();
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- celebration is the store-changed tick, not a read input
   const missions = useMemo(() => (user ? getMissionsWithProgress(user.id) : []), [user, celebration]);
 
   if (!user) {

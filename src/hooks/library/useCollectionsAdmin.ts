@@ -37,7 +37,6 @@ export function useCollectionsAdmin() {
       await createCollection(input);
       invalidate();
       toast({ title: "Collection created" });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     } catch (err) {
       toast({ title: "Couldn't create collection", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
@@ -49,7 +48,6 @@ export function useCollectionsAdmin() {
     try {
       await updateCollection(id, patch);
       invalidate();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     } catch (err) {
       toast({ title: "Couldn't update collection", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     }
@@ -59,7 +57,6 @@ export function useCollectionsAdmin() {
     try {
       await deleteCollection(id);
       invalidate();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     } catch (err) {
       toast({ title: "Couldn't delete collection", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     }

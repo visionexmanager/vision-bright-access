@@ -13,7 +13,7 @@ export interface ReplayWithEvent extends KidsEventReplay {
 }
 
 export async function fetchReplays(searchQuery?: string): Promise<ReplayWithEvent[]> {
-  let query = kidsDb.from("kids_event_replays").select("*, event:kids_events(*)").order("created_at", { ascending: false });
+  const query = kidsDb.from("kids_event_replays").select("*, event:kids_events(*)").order("created_at", { ascending: false });
   const { data, error } = await query.returns<ReplayWithEvent[]>();
   if (error) throw error;
   const rows = data ?? [];

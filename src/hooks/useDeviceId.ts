@@ -48,8 +48,8 @@ async function buildFingerprint(): Promise<string> {
   parts.push((navigator.languages ?? []).slice(0, 3).join(","));
   parts.push(navigator.platform ?? "");
   parts.push(String(navigator.hardwareConcurrency ?? ""));
-  // @ts-ignore – deviceMemory is non-standard but widely supported
-  parts.push(String(navigator.deviceMemory ?? ""));
+  // deviceMemory is non-standard but widely supported, so it is not in lib.dom.
+  parts.push(String((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? ""));
   parts.push(String("ontouchstart" in window));
   parts.push(String(navigator.cookieEnabled));
 

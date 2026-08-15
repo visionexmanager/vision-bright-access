@@ -8,7 +8,7 @@ import { useGameSounds } from "@/hooks/useGameSounds";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import heroImg from "@/assets/arcade/game-trade-tycoon-premium-v2.webp";
 import { ProductionWorldMotion } from "@/features/arcade/visual/ProductionWorldMotion";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
@@ -237,16 +237,21 @@ function TradeTycoonMulti() {
   const bothDone = gs && user && opp
     ? gs[`fin_${user.id}`] === true && gs[`fin_${opp.id}`] === true : false;
 
+  // Read through a ref: publishing the score updates the session, which would
+  // re-trigger this effect and publish again if mp were a dependency.
+  const mpRef = useRef(mp);
+  mpRef.current = mp;
   useEffect(() => {
-    if (mp.status === "playing") mp.updateMyScore(totalValue, finished);
+    if (mpRef.current.status === "playing") mpRef.current.updateMyScore(totalValue, finished);
   }, [totalValue, finished]);
 
+  const endedRef = useRef(false);
   useEffect(() => {
-    if (bothDone && mp.status === "playing") {
-      const sorted = [...mp.session!.players].sort((a, b) => b.score - a.score);
-      mp.endGame(sorted[0].score !== sorted[1]?.score ? sorted[0].id : undefined);
-    }
-  }, [bothDone]);
+    if (!bothDone || mp.status !== "playing" || endedRef.current) return;
+    endedRef.current = true;
+    const sorted = [...mp.session!.players].sort((a, b) => b.score - a.score);
+    mp.endGame(sorted[0].score !== sorted[1]?.score ? sorted[0].id : undefined);
+  }, [bothDone, mp]);
 
   const nextDay = () => {
     if (day >= MAX_DAYS) { setFinished(true); mp.updateMyScore(totalValue, true); return; }

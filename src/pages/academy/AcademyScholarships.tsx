@@ -43,7 +43,7 @@ export default function AcademyScholarships() {
     () => searchScholarshipsLocal({ query, country: country || undefined, category: category || undefined, fundingLevel: fundingLevel || undefined, sort }),
     [query, country, category, fundingLevel, sort]
   );
-  const countries = useMemo(() => getAllScholarshipCountries(), [results]);
+  const countries = useMemo(() => getAllScholarshipCountries(), []);
 
   const savedScholarships = useMemo(
     () => (user ? getSavedScholarshipIds(user.id).map(getScholarshipByIdLocal).filter((s): s is AcademyScholarshipRow => s !== null) : []),

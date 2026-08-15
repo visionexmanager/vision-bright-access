@@ -57,7 +57,11 @@ export default function AcademyStudyPlanner() {
   const { user } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // The study goal lives in localStorage, which React cannot observe;
+  // refreshKey is the store-changed tick, not a read input.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const goal = useMemo(() => (user ? getStudyGoal(user.id) : null), [user, refreshKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const progress = useMemo(() => (user ? getStudyGoalProgress(user.id) : null), [user, refreshKey]);
 
   const [weeklyLessons, setWeeklyLessons] = useState<number | null>(null);

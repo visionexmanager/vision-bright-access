@@ -89,7 +89,6 @@ export function useChapterEditor(bookId: string | undefined, chapterId: string |
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when switching chapters, not on every editor re-render
   }, [editor, chapterId]);
 
   function scheduleAutosave() {

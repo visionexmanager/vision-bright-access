@@ -35,7 +35,8 @@ export function NegotiationAssistant() {
   const toggleBenefit = (b: string) => {
     setCheckedBenefits((prev) => {
       const next = new Set(prev);
-      next.has(b) ? next.delete(b) : next.add(b);
+      if (next.has(b)) next.delete(b);
+      else next.add(b);
       return next;
     });
   };

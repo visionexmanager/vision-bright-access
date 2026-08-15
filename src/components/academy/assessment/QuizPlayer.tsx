@@ -51,7 +51,6 @@ export function QuizPlayer({ quiz, questions, userId, onPassed }: QuizPlayerProp
     const attempt = submitQuizAttemptLocal(userId, quiz, orderedQuestions, answers, finalTimes);
     setResult(attempt);
     if (attempt.passed) onPassed?.(attempt);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, questionTimes, currentQuestion, orderedQuestions, quiz, userId, onPassed]);
 
   useEffect(() => {

@@ -38,7 +38,7 @@ export default function AcademyUniversities() {
     () => searchUniversitiesLocal({ query, country: country || undefined, sort }),
     [query, country, sort]
   );
-  const countries = useMemo(() => getAllUniversityCountries(), [results]);
+  const countries = useMemo(() => getAllUniversityCountries(), []);
 
   const favoriteUniversities = useMemo(
     () => (user ? getFavoriteUniversityIds(user.id).map(getUniversityByIdLocal).filter((u): u is AcademyUniversityRow => u !== null) : []),

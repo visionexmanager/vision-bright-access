@@ -51,7 +51,7 @@ export default function AcademyLearningPlayer() {
     const map: Record<string, typeof flatLessons> = {};
     modulesWithLessons.forEach(({ module, lessons }) => { map[module.id] = lessons; });
     return map;
-  }, [modulesWithLessons, flatLessons]);
+  }, [modulesWithLessons]);
   const currentIndex = flatLessons.findIndex((l) => l.id === lessonId);
   const prevLesson = currentIndex > 0 ? flatLessons[currentIndex - 1] : null;
   const nextLesson = currentIndex >= 0 && currentIndex < flatLessons.length - 1 ? flatLessons[currentIndex + 1] : null;

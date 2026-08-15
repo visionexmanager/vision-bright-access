@@ -27,7 +27,6 @@ export function useReadingListShares(listId: string) {
         toast({ title: "No account found with that email", variant: "destructive" });
       }
       return found;
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     } catch (err) {
       toast({ title: "Couldn't share list", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
       return false;

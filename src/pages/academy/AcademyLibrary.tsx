@@ -48,7 +48,7 @@ export default function AcademyLibrary() {
     () => searchResourcesLocal({ query, category: category || undefined, type: type || undefined, difficulty: difficulty || undefined, sort }),
     [query, category, type, difficulty, sort]
   );
-  const categories = useMemo(() => getAllLibraryCategories(), [results]);
+  const categories = useMemo(() => getAllLibraryCategories(), []);
   const collections = useMemo(() => getCollectionsLocal(), []);
 
   const continueReading = useMemo(() => (user ? getRecentlyOpenedResources(user.id, 4) : []), [user]);
