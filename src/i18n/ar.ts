@@ -9888,9 +9888,9 @@ export const translations: Record<string, string> = {
 
   // ── أكاديمية VisionKids (المرحلة 4) ──────────────────────────────────────
   "kids.academy.meta.title": "الأكاديمية — VisionKids",
-  "kids.academy.meta.description": "أكاديمية تعليمية عالمية للأطفال بتخصيص ذكي — 22 مادة ودورات ودروس وتمارين وشهادات.",
+  "kids.academy.meta.description": "أكاديمية تعليمية عالمية للأطفال بتخصيص ذكي — دورات ودروس وتمارين وشهادات.",
   "kids.academy.heroTitle": "أكاديمية VisionKids",
-  "kids.academy.heroSubtitle": "تعلّم مصمم خصيصًا لك — دورات ودروس وتمارين عبر 22 مادة.",
+  "kids.academy.heroSubtitle": "تعلّم مصمم خصيصًا لك — دورات ودروس وتمارين.",
   "kids.academy.exploreSubjects": "استكشف المواد",
   "kids.academy.myLearningPath": "خريطتي التعليمية",
   "kids.academy.recommendedForYou": "موصى بها لك",
