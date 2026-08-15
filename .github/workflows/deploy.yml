@@ -103,7 +103,7 @@ jobs:
           ref: ${{ needs.gate.outputs.deploy_sha }}
           fetch-depth: 2
       - name: Install Supabase CLI
-        run: npm install -g supabase@latest
+        run: npm install -g supabase@2.110.0
       - name: Sync OpenAI API key to Supabase
         shell: bash
         run: |
@@ -177,7 +177,7 @@ jobs:
           ref: ${{ needs.gate.outputs.deploy_sha }}
           fetch-depth: 2
       - name: Install Supabase CLI
-        run: npm install -g supabase@latest
+        run: npm install -g supabase@2.110.0
       - name: Link Supabase project
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
         env:
