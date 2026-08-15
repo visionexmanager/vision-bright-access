@@ -164,7 +164,7 @@ export function useAcademyChat(
         ]);
       }
     },
-    [messages, profile, user, isStreaming, sessionId, consumeStream, queryClient]
+    [messages, profile, user, isStreaming, sessionId, consumeStream, queryClient, lang]
   );
 
   // ── Clear chat ────────────────────────────────────────────────────────────

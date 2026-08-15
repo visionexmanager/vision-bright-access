@@ -65,7 +65,7 @@ export function SudokuKidsGame({ game }: { game: Game }) {
     start();
   };
 
-  const isGiven = (r: number, c: number) => puzzle[r][c] !== 0;
+  const isGiven = useCallback((r: number, c: number) => puzzle[r][c] !== 0, [puzzle]);
 
   const place = useCallback(
     (value: number) => {
@@ -89,7 +89,7 @@ export function SudokuKidsGame({ game }: { game: Game }) {
         finish({ won: true, isPerfectScore: state.lives === 3 });
       }
     },
-    [addScore, finish, grid, loseLife, puzzle, selected, solution, state.lives, state.status, t]
+    [addScore, finish, grid, loseLife, selected, solution, state.lives, state.status, t, isGiven]
   );
 
   const onKeyDown = (e: React.KeyboardEvent) => {

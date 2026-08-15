@@ -29,7 +29,7 @@ export function useCollectionsAdmin() {
     queryFn: fetchAllCollections,
   });
 
-  const invalidate = () => void queryClient.invalidateQueries({ queryKey: queryKeys.library.allCollections() });
+  const invalidate = useCallback(() => void queryClient.invalidateQueries({ queryKey: queryKeys.library.allCollections() }), [queryClient]);
 
   const create = useCallback(async (input: CollectionInput) => {
     setIsSaving(true);
@@ -42,7 +42,7 @@ export function useCollectionsAdmin() {
     } finally {
       setIsSaving(false);
     }
-  }, []);
+  }, [invalidate]);
 
   const update = useCallback(async (id: string, patch: Partial<CollectionInput>) => {
     try {
@@ -51,7 +51,7 @@ export function useCollectionsAdmin() {
     } catch (err) {
       toast({ title: "Couldn't update collection", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     }
-  }, []);
+  }, [invalidate]);
 
   const remove = useCallback(async (id: string) => {
     try {
@@ -60,7 +60,7 @@ export function useCollectionsAdmin() {
     } catch (err) {
       toast({ title: "Couldn't delete collection", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     }
-  }, []);
+  }, [invalidate]);
 
   return { collections, isLoading, isSaving, create, update, remove };
 }
@@ -68,7 +68,7 @@ export function useCollectionsAdmin() {
 export function useCollectionBooksAdmin(collectionId: string) {
   const queryClient = useQueryClient();
 
-  const invalidateBooks = () => void queryClient.invalidateQueries({ queryKey: queryKeys.library.collectionBooks(collectionId) });
+  const invalidateBooks = useCallback(() => void queryClient.invalidateQueries({ queryKey: queryKeys.library.collectionBooks(collectionId) }), [queryClient, collectionId]);
 
   const addBook = async (bookId: string, displayOrder = 0) => {
     try {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,8 @@ export default function AdminDatabase() {
   const [selectedTable, setSelectedTable] = useState(TABLES[0]); const [rows, setRows] = useState<Record<string, unknown>[]>([]); const [columns, setColumns] = useState<string[]>([]); const [counts, setCounts] = useState<Record<string, number>>({}); const [page, setPage] = useState(0); const [total, setTotal] = useState(0); const [search, setSearch] = useState(""); const debouncedSearch = useDebounce(search); const [loading, setLoading] = useState(false);
   const tableLabel = (name: string) => t(`admin.database.table.${name}`);
   const loadCounts = async () => { const results = await Promise.all(TABLES.map(name => supabase.from(name as any).select("*", { count: "exact", head: true }))); const map: Record<string, number> = {}; TABLES.forEach((name, i) => { map[name] = results[i].count || 0; }); setCounts(map); };
-  const loadTable = async () => { setLoading(true); const from = page * PAGE_SIZE; const { data, count, error } = await (supabase.from(selectedTable as any).select("*", { count: "exact" }).range(from, from + PAGE_SIZE - 1).order("created_at", { ascending: false }) as any); if (error) { toast.error(error.message); setLoading(false); return; } setRows(data || []); setTotal(count || 0); if (data && data.length > 0) setColumns(Object.keys(data[0])); setLoading(false); };
-  useEffect(() => { loadCounts(); }, []); useEffect(() => { setPage(0); setSearch(""); }, [selectedTable]); useEffect(() => { loadTable(); }, [selectedTable, page]);
+  const loadTable = useCallback(async () => { setLoading(true); const from = page * PAGE_SIZE; const { data, count, error } = await (supabase.from(selectedTable as any).select("*", { count: "exact" }).range(from, from + PAGE_SIZE - 1).order("created_at", { ascending: false }) as any); if (error) { toast.error(error.message); setLoading(false); return; } setRows(data || []); setTotal(count || 0); if (data && data.length > 0) setColumns(Object.keys(data[0])); setLoading(false); }, [selectedTable, page]);
+  useEffect(() => { loadCounts(); }, []); useEffect(() => { setPage(0); setSearch(""); }, [selectedTable]); useEffect(() => { loadTable(); }, [loadTable]);
   const filteredRows = debouncedSearch ? rows.filter(r => JSON.stringify(r).toLowerCase().includes(debouncedSearch.toLowerCase())) : rows;
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const formatCell = (col: string, val: unknown): string => { if (PII_COLUMNS.has(col)) return "••••••••"; if (val === null || val === undefined) return "-"; if (typeof val === "boolean") return val ? "✓" : "×"; if (typeof val === "object") { const json = JSON.stringify(val); return json.slice(0, 80) + (json.length > 80 ? "..." : ""); } const str = String(val); return str.length > 80 ? str.slice(0, 80) + "..." : str; };

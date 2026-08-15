@@ -14,7 +14,7 @@ export function useReadingListShares(listId: string) {
     enabled: !!listId,
   });
 
-  const invalidate = () => void queryClient.invalidateQueries({ queryKey: queryKeys.library.readingListShares(listId) });
+  const invalidate = useCallback(() => void queryClient.invalidateQueries({ queryKey: queryKeys.library.readingListShares(listId) }), [queryClient, listId]);
 
   const share = useCallback(async (email: string): Promise<boolean> => {
     setIsSharing(true);
@@ -33,7 +33,7 @@ export function useReadingListShares(listId: string) {
     } finally {
       setIsSharing(false);
     }
-  }, [listId]);
+  }, [listId, invalidate]);
 
   const unshare = useCallback(async (userId: string) => {
     try {
@@ -42,8 +42,7 @@ export function useReadingListShares(listId: string) {
     } catch (err) {
       toast({ title: "Couldn't remove share", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listId]);
+  }, [listId, invalidate]);
 
   return { shares, share, unshare, isSharing };
 }

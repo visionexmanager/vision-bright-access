@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,8 @@ export default function AdminModeration() {
   const [reports, setReports] = useState<Report[]>([]);
   const [filterStatus, setFilterStatus] = useState("all");
   const statusLabel = (status: string) => t(`admin.moderation.status.${status}`);
-  const load = async () => { let query = supabase.from("content_reports").select("*").order("created_at", { ascending: false }); if (filterStatus !== "all") query = query.eq("status", filterStatus); const { data } = await query; setReports(data ?? []); };
-  useEffect(() => { load(); }, [filterStatus]);
+  const load = useCallback(async () => { let query = supabase.from("content_reports").select("*").order("created_at", { ascending: false }); if (filterStatus !== "all") query = query.eq("status", filterStatus); const { data } = await query; setReports(data ?? []); }, [filterStatus]);
+  useEffect(() => { load(); }, [load]);
   const updateStatus = async (id: string, status: string) => { const { error } = await supabase.from("content_reports").update({ status, reviewed_at: new Date().toISOString() }).eq("id", id); if (error) toast.error(error.message); else { toast.success(t("admin.moderation.statusUpdated")); load(); } };
   const pending = reports.filter(r => r.status === "pending").length;
   return (

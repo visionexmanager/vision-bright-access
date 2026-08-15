@@ -87,12 +87,17 @@ export default function LiveEventRoom() {
     if (!event || !user || !hasStarted || attendance) return;
     checkIn.mutate(event.id);
     joinedAtRef.current = Date.now();
+    // Keyed on the ids: a refetch that returns an equal event, or a Supabase
+    // session refresh, must not check the child in a second time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id, user?.id, hasStarted]);
 
   useEffect(() => {
     if (!event || !user || !hasStarted) return;
     fetchLiveKitToken(event.id, user.user_metadata?.display_name || user.email || user.id).then(setConnection).catch(() => {});
+    // Keyed on the ids for the same reason: a new object identity must not mint
+    // a second LiveKit token for the same room.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id, user?.id, hasStarted]);
 
   useEffect(() => {

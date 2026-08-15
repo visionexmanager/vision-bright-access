@@ -133,7 +133,7 @@ export function AIChat() {
     recognitionRef.current = recognition;
     recognition.start();
     setIsListening(true);
-  }, [isListening, lang, hasSpeechRecognition, sendMessage]);
+  }, [isListening, lang, hasSpeechRecognition, sendMessage, t]);
 
   // Cleanup on unmount
   useEffect(() => {

@@ -35,6 +35,7 @@ export function useAdmin() {
     check();
   // Depend on user.id (stable string) not the whole user object, so a Supabase
   // session refresh that recreates the user object doesn't re-trigger the check.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, authLoading]);
 
   return { isAdmin, loading };

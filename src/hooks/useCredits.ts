@@ -21,10 +21,10 @@ export function useCreditConsume() {
     error:        string | null;
   }>({ consuming: false, lastResult: null, error: null });
 
-  const invalidate = () => {
+  const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: BILLING_KEY });
     qc.invalidateQueries({ queryKey: BALANCE_KEY });
-  };
+  }, [qc]);
 
   const consume = useCallback(async (params: {
     operation_type:   OperationType;
@@ -49,7 +49,7 @@ export function useCreditConsume() {
       setState((s) => ({ ...s, error: msg, consuming: false, lastResult: null }));
       return { ok: false, error: msg };
     }
-  }, [qc]);
+  }, [invalidate]);
 
   const refund = useCallback(async (jobId: string) => {
     try {
@@ -59,7 +59,7 @@ export function useCreditConsume() {
         toast({ title: `Refunded ${result.amount_vx} VX` });
       }
     } catch { /* best-effort */ }
-  }, [qc]);
+  }, [invalidate]);
 
   return { consume, refund, ...state };
 }

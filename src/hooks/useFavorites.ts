@@ -5,7 +5,7 @@
  * Toggle is optimistic: UI updates immediately, DB syncs in background.
  */
 
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,7 +17,7 @@ export function useFavorites() {
   const { t }    = useLanguage();
   const qc       = useQueryClient();
 
-  const queryKey   = ["tv-favorites", user?.id];
+  const queryKey   = useMemo(() => ["tv-favorites", user?.id], [user?.id]);
   // Track in-flight toggle calls to prevent race conditions from rapid clicks
   const pendingRef = useRef<Set<string>>(new Set());
 
