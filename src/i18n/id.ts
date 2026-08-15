@@ -12436,6 +12436,15 @@ export const translations: Record<string, string> = {
   "content.refused.unknown": "The request was refused.",
   "content.refused.confidential_input": "Internal sourcing detail was found in the source records, so the AI was not called at all.",
   "owner.useContentProposals": "This is a content proposal. Decide it in the Content proposals section below.",
+  "home.tagline": "Satu platform untuk berbelanja, belajar, bekerja, bermain, dan teknologi bantu — dibuat untuk semua orang.",
+  "home.group.market": "Belanja & Layanan",
+  "home.group.learn": "Belajar & Konten",
+  "home.group.play": "Bermain & Komunitas",
+  "home.group.work": "Kerja, Keuangan & Alat",
+  "home.link.financeDesc": "Pantau pasar, bangun portofolio, dan ikuti berita keuangan dengan analisis AI.",
+  "home.link.toolsDesc": "Beli dan unduh utilitas Windows profesional dengan koin VX Anda.",
+  "home.arcade.desc": "Game yang aksesibel, tantangan belajar, turnamen, dan pencapaian VX yang aman dalam satu destinasi premium.",
+  "home.arcade.tournaments": "Turnamen",
 };
 
 export default translations;

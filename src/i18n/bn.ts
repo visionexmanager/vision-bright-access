@@ -6221,6 +6221,15 @@ export const translations: Record<string, string> = {
   "content.refused.unknown": "The request was refused.",
   "content.refused.confidential_input": "Internal sourcing detail was found in the source records, so the AI was not called at all.",
   "owner.useContentProposals": "This is a content proposal. Decide it in the Content proposals section below.",
+  "home.tagline": "কেনাকাটা, শেখা, কাজ, খেলা এবং সহায়ক প্রযুক্তির জন্য একটিই প্ল্যাটফর্ম — সবার জন্য তৈরি।",
+  "home.group.market": "কেনাকাটা ও সেবা",
+  "home.group.learn": "শেখা ও কনটেন্ট",
+  "home.group.play": "খেলা ও কমিউনিটি",
+  "home.group.work": "কাজ, অর্থ ও টুল",
+  "home.link.financeDesc": "বাজার অনুসরণ করুন, পোর্টফোলিও তৈরি করুন এবং AI বিশ্লেষণসহ আর্থিক সংবাদ দেখুন।",
+  "home.link.toolsDesc": "আপনার VX কয়েন দিয়ে পেশাদার Windows টুল কিনুন ও ডাউনলোড করুন।",
+  "home.arcade.desc": "অ্যাক্সেসযোগ্য গেম, শেখার চ্যালেঞ্জ, টুর্নামেন্ট এবং নিরাপদ VX অর্জন — সব এক প্রিমিয়াম গন্তব্যে।",
+  "home.arcade.tournaments": "টুর্নামেন্ট",
 };
 
 export default translations;

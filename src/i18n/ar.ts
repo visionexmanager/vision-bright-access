@@ -12798,6 +12798,15 @@ export const translations: Record<string, string> = {
   "content.refused.unknown": "تم رفض الطلب.",
   "content.refused.confidential_input": "عُثر على تفاصيل توريد داخلية في السجلات المصدرية، فلم يُستدعَ الذكاء الاصطناعي إطلاقاً.",
   "owner.useContentProposals": "هذا اقتراح محتوى. قرّره من قسم اقتراحات المحتوى أدناه.",
+  "home.tagline": "منصة واحدة للتسوق والتعلّم والعمل واللعب والتقنيات المساعِدة — مصمَّمة للجميع.",
+  "home.group.market": "المتجر والخدمات",
+  "home.group.learn": "التعلّم والمحتوى",
+  "home.group.play": "اللعب والمجتمع",
+  "home.group.work": "العمل والمال والأدوات",
+  "home.link.financeDesc": "تابع الأسواق وأنشئ محفظتك واطّلع على الأخبار المالية مع تحليل بالذكاء الاصطناعي.",
+  "home.link.toolsDesc": "اشترِ أدوات ويندوز الاحترافية ونزّلها باستخدام عملات VX.",
+  "home.arcade.desc": "ألعاب متاحة للجميع وتحديات تعليمية وبطولات وإنجازات VX آمنة في وجهة واحدة متميزة.",
+  "home.arcade.tournaments": "البطولات",
 };
 
 export default translations;
