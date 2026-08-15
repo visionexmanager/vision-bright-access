@@ -1,25 +1,6 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import type { EmployerSection } from "@/components/career/employer/types";
-
-interface EmployerAccessibilitySettings {
-  highContrast: boolean;
-  reducedMotion: boolean;
-  largeText: boolean;
-  screenReaderOptimizedTables: boolean;
-}
-
-interface EmployerDashboardContextValue {
-  activeSection: EmployerSection;
-  setActiveSection: (section: EmployerSection) => void;
-
-  sidebarCollapsed: boolean;
-  toggleSidebar: () => void;
-  mobileSidebarOpen: boolean;
-  setMobileSidebarOpen: (open: boolean) => void;
-
-  accessibility: EmployerAccessibilitySettings;
-  updateAccessibility: (partial: Partial<EmployerAccessibilitySettings>) => void;
-}
+import { EmployerDashboardContext, type EmployerAccessibilitySettings } from "./EmployerDashboardContext";
 
 const defaultAccessibility: EmployerAccessibilitySettings = {
   highContrast: false,
@@ -27,8 +8,6 @@ const defaultAccessibility: EmployerAccessibilitySettings = {
   largeText: false,
   screenReaderOptimizedTables: true,
 };
-
-const EmployerDashboardContext = createContext<EmployerDashboardContextValue | null>(null);
 
 export function EmployerDashboardProvider({ children }: { children: ReactNode }) {
   const [activeSection, setActiveSection] = useState<EmployerSection>("overview");
@@ -57,10 +36,4 @@ export function EmployerDashboardProvider({ children }: { children: ReactNode })
       {children}
     </EmployerDashboardContext.Provider>
   );
-}
-
-export function useEmployerDashboard() {
-  const ctx = useContext(EmployerDashboardContext);
-  if (!ctx) throw new Error("useEmployerDashboard must be used inside <EmployerDashboardProvider>");
-  return ctx;
 }

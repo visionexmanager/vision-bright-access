@@ -1,24 +1,6 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import type { AgentAccessibilitySettings, AgentIdentity, AgentMemory, AgentSection } from "@/components/career/agent/types";
-
-interface AgentContextValue {
-  activeSection: AgentSection;
-  setActiveSection: (section: AgentSection) => void;
-
-  sidebarCollapsed: boolean;
-  toggleSidebar: () => void;
-  mobileSidebarOpen: boolean;
-  setMobileSidebarOpen: (open: boolean) => void;
-
-  identity: AgentIdentity;
-  updateIdentity: (partial: Partial<AgentIdentity>) => void;
-
-  memory: AgentMemory;
-  updateMemory: (partial: Partial<AgentMemory>) => void;
-
-  accessibility: AgentAccessibilitySettings;
-  updateAccessibility: (partial: Partial<AgentAccessibilitySettings>) => void;
-}
+import { AgentContext } from "./AgentContext";
 
 const defaultIdentity: AgentIdentity = {
   name: "Nova",
@@ -41,8 +23,6 @@ const defaultAccessibility: AgentAccessibilitySettings = {
   reducedMotion: false,
   largeText: false,
 };
-
-const AgentContext = createContext<AgentContextValue | null>(null);
 
 export function AgentProvider({ children }: { children: ReactNode }) {
   const [activeSection, setActiveSection] = useState<AgentSection>("home");
@@ -71,10 +51,4 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       {children}
     </AgentContext.Provider>
   );
-}
-
-export function useAgent() {
-  const ctx = useContext(AgentContext);
-  if (!ctx) throw new Error("useAgent must be used inside <AgentProvider>");
-  return ctx;
 }

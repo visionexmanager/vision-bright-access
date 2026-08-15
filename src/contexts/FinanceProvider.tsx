@@ -1,22 +1,7 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import type {
-  FinancePermission,
-  FinanceSettings,
-} from "@/lib/types/finance";
+import { useState, useCallback, type ReactNode } from "react";
+import type { FinancePermission, FinanceSettings } from "@/lib/types/finance";
 import { useAuth } from "@/contexts/AuthContext";
-
-interface FinanceContextValue {
-  // Permissions
-  hasPermission: (p: FinancePermission) => boolean;
-
-  // User settings
-  settings: FinanceSettings;
-  updateSettings: (partial: Partial<FinanceSettings>) => void;
-
-  // UI state
-  sidebarCollapsed: boolean;
-  toggleSidebar: () => void;
-}
+import { FinanceContext } from "./FinanceContext";
 
 const defaultSettings: FinanceSettings = {
   defaultCurrency: "USD",
@@ -24,8 +9,6 @@ const defaultSettings: FinanceSettings = {
   compactView: false,
   refreshInterval: 60,
 };
-
-const FinanceContext = createContext<FinanceContextValue | null>(null);
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -65,10 +48,4 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       {children}
     </FinanceContext.Provider>
   );
-}
-
-export function useFinance() {
-  const ctx = useContext(FinanceContext);
-  if (!ctx) throw new Error("useFinance must be used inside <FinanceProvider>");
-  return ctx;
 }

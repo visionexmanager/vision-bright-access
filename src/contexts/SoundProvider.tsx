@@ -1,4 +1,5 @@
-import { createContext, useContext, useCallback, useRef, useEffect, ReactNode, useState } from "react";
+import { useCallback, useRef, useEffect, useState, type ReactNode } from "react";
+import { SoundContext, type UISoundType } from "./SoundContext";
 
 // ─── Web Audio tone helpers ───────────────────────────────────────────
 let audioCtx: AudioContext | null = null;
@@ -27,30 +28,6 @@ function tone(freq: number, dur: number, type: OscillatorType = "sine", vol = 0.
 function chord(freqs: number[], dur: number, type: OscillatorType = "sine", vol = 0.08) {
   freqs.forEach((f, i) => setTimeout(() => tone(f, dur, type, vol), i * 50));
 }
-
-// ─── Sound catalogue ──────────────────────────────────────────────────
-export type UISoundType =
-  | "navigate"
-  | "click"
-  | "success"
-  | "error"
-  | "hover"
-  | "open"
-  | "close"
-  | "points"
-  | "levelUp"
-  | "achievement"
-  | "send"
-  | "receive"
-  | "toggle"
-  | "delete"
-  | "refresh"
-  | "tab"
-  | "notification"
-  | "complete"
-  | "start"
-  | "select"
-  | "scan";
 
 const UI_SOUNDS: Record<UISoundType, () => void> = {
   navigate: () => tone(500, 0.08, "sine", 0.08),
@@ -114,19 +91,6 @@ const UI_SOUNDS: Record<UISoundType, () => void> = {
   start: () => chord([440, 554], 0.2, "sine", 0.08),
 };
 
-// ─── Context ──────────────────────────────────────────────────────────
-type SoundContextType = {
-  playSound: (sound: UISoundType) => void;
-  enabled: boolean;
-  setEnabled: (v: boolean) => void;
-};
-
-const SoundContext = createContext<SoundContextType>({
-  playSound: () => {},
-  enabled: true,
-  setEnabled: () => {},
-});
-
 export function SoundProvider({ children }: { children: ReactNode }) {
   const [enabled, setEnabledState] = useState(() => {
     return localStorage.getItem("visionex-sound") !== "false";
@@ -163,8 +127,4 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       {children}
     </SoundContext.Provider>
   );
-}
-
-export function useSound() {
-  return useContext(SoundContext);
 }

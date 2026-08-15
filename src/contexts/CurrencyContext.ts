@@ -1,4 +1,8 @@
-import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from "react";
+import { createContext, useContext } from "react";
+
+// The provider lives in ./CurrencyProvider. Keeping the context, the catalog
+// and the hook in a module that exports no components is what lets both halves
+// hot-reload.
 
 export interface CurrencyInfo {
   code: string;
@@ -31,57 +35,19 @@ export const CURRENCIES: CurrencyInfo[] = [
   { code: "PKR", symbol: "₨", name: "Pakistani Rupee", flag: "🇵🇰", rateToUsd: 278 },
 ];
 
-const VX_PER_USD = 1000;
+export const VX_PER_USD = 1000;
 
-interface CurrencyContextType {
+export interface CurrencyContextType {
   currency: CurrencyInfo;
   setCurrency: (code: string) => void;
   /** Convert VX amount to local currency string, e.g. "≈ $59.99" */
   vxToLocal: (vx: number) => string;
 }
 
-const CurrencyContext = createContext<CurrencyContextType>({
+export const CurrencyContext = createContext<CurrencyContextType>({
   currency: CURRENCIES[0],
   setCurrency: () => {},
   vxToLocal: () => "",
 });
 
 export const useCurrency = () => useContext(CurrencyContext);
-
-export function CurrencyProvider({ children }: { children: ReactNode }) {
-  const [currencyCode, setCurrencyCode] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("visionex-currency") || "USD";
-    }
-    return "USD";
-  });
-
-  const currency = useMemo(
-    () => CURRENCIES.find((c) => c.code === currencyCode) || CURRENCIES[0],
-    [currencyCode]
-  );
-
-  const setCurrency = useCallback((code: string) => {
-    setCurrencyCode(code);
-    localStorage.setItem("visionex-currency", code);
-  }, []);
-
-  const vxToLocal = useCallback(
-    (vx: number): string => {
-      const usd = vx / VX_PER_USD;
-      const local = usd * currency.rateToUsd;
-      // Format nicely
-      const formatted = local >= 1000
-        ? local.toLocaleString(undefined, { maximumFractionDigits: 0 })
-        : local.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      return `≈ ${currency.symbol}${formatted}`;
-    },
-    [currency]
-  );
-
-  return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, vxToLocal }}>
-      {children}
-    </CurrencyContext.Provider>
-  );
-}

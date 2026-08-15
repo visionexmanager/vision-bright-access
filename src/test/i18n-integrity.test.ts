@@ -49,7 +49,7 @@ describe("global i18n integrity", () => {
   });
 
   it("never builds translated sentences by replacing isolated DOM words", () => {
-    const source = readFileSync("src/contexts/LanguageContext.tsx", "utf8");
+    const source = readFileSync("src/contexts/LanguageProvider.tsx", "utf8");
 
     expect(source).toContain("type SortedEntries = null");
     expect(source).toContain("return { map, sorted: null }");

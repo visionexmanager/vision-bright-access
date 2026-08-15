@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { LanguageProvider, useLanguage } from "./LanguageContext";
+import { LanguageProvider } from "./LanguageProvider";
+import { useLanguage } from "./LanguageContext";
 import faTranslations from "../i18n/fa";
 
 function LegacyArabicSection() {

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { EmployerDashboardProvider, useEmployerDashboard } from "@/contexts/EmployerDashboardContext";
+import { EmployerDashboardProvider } from "@/contexts/EmployerDashboardProvider";
+import { useEmployerDashboard } from "@/contexts/EmployerDashboardContext";
 import { EmployerDashboardSidebar } from "./EmployerDashboardSidebar";
 import { EmployerDashboardTopBar } from "./EmployerDashboardTopBar";
 import "./EmployerDashboardTokens.css";

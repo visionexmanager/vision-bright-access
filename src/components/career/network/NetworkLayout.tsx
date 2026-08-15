@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
+import { NetworkProvider } from "@/contexts/NetworkProvider";
+import { useNetwork } from "@/contexts/NetworkContext";
 import { NetworkSidebar } from "./NetworkSidebar";
 import { NetworkTopBar } from "./NetworkTopBar";
 import "./NetworkTokens.css";

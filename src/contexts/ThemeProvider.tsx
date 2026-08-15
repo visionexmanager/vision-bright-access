@@ -1,20 +1,5 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-
-export type Theme = "light" | "dark" | "high-contrast";
-
-interface ThemeContextType {
-  theme: Theme;
-  setTheme: (t: Theme) => void;
-  toggleTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextType>({
-  theme: "light",
-  setTheme: () => {},
-  toggleTheme: () => {},
-});
-
-export const useThemeToggle = () => useContext(ThemeContext);
+import { useEffect, useState, type ReactNode } from "react";
+import { ThemeContext, type Theme } from "./ThemeContext";
 
 const THEMES: Theme[] = ["light", "dark", "high-contrast"];
 
