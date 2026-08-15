@@ -6,11 +6,37 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 
 function Invoke-Git {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
-    $output = & git -C $repoRoot @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "git $($Arguments -join ' ') failed: $($output -join [Environment]::NewLine)"
+
+    # Windows PowerShell 5.1 wraps every stderr line from a native command in an
+    # ErrorRecord, and with $ErrorActionPreference = "Stop" that record is fatal
+    # even when the command exited 0. git reports routine progress on stderr —
+    # "From https://github.com/..." — so this function used to throw exactly when
+    # a fetch had something new to report, which is the only time the script has
+    # any work to do. It appeared to work only while the machine was up to date.
+    #
+    # Drop to "Continue" for the call, split the two streams apart, and let git's
+    # exit code alone decide success.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $captured = & git -C $repoRoot @Arguments 2>&1
     }
-    return $output
+    finally {
+        $ErrorActionPreference = $previous
+    }
+    $exitCode = $LASTEXITCODE
+
+    $stdout = @($captured | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { [string]$_ })
+    $stderr = @($captured | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { [string]$_ })
+
+    if ($exitCode -ne 0) {
+        $detail = (@($stderr) + @($stdout)) -join [Environment]::NewLine
+        throw "git $($Arguments -join ' ') exited $exitCode. $detail"
+    }
+
+    # Only the success stream is returned: callers parse this with Trim() and
+    # [int], and a stray progress line would corrupt the branch name or count.
+    return $stdout
 }
 
 try {

@@ -102,6 +102,30 @@ describe("Windows checkout synchronization preserves local work", () => {
     expect(windowsSyncInstaller).toContain("-RepetitionInterval");
     expect(windowsSyncInstaller).toContain("-MultipleInstances IgnoreNew");
   });
+
+  it("does not let git's stderr progress abort the sync", () => {
+    // Windows PowerShell 5.1 turns every stderr line from a native command into
+    // an ErrorRecord, and under $ErrorActionPreference = "Stop" that record is
+    // fatal even when git exited 0. git announces a fetch on stderr ("From
+    // https://github.com/..."), so capturing 2>&1 under Stop made the script
+    // throw exactly when a fetch had new commits to report — the only time it
+    // has any work to do. It looked healthy purely because an up-to-date fetch
+    // is silent.
+    const capture = /\$captured\s*=\s*&\s*git[^\n]*2>&1/;
+    expect(windowsSync).toMatch(capture);
+
+    const guarded = /\$ErrorActionPreference\s*=\s*"Continue"[\s\S]*?\$captured\s*=\s*&\s*git/;
+    expect(windowsSync, "the git call must drop out of Stop first").toMatch(guarded);
+
+    // Success is git's exit code, never the presence of stderr text.
+    expect(windowsSync).toContain("$exitCode = $LASTEXITCODE");
+    expect(windowsSync).toContain("if ($exitCode -ne 0)");
+
+    // Callers parse the result with Trim() and [int], so error records must not
+    // be returned alongside real output.
+    expect(windowsSync).toContain("-isnot [System.Management.Automation.ErrorRecord]");
+    expect(windowsSync).toContain("$ErrorActionPreference = $previous");
+  });
 });
 
 describe("locale generation cannot loop on a finished batch", () => {
