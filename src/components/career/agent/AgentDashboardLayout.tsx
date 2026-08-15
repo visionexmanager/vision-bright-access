@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { AgentProvider, useAgent } from "@/contexts/AgentContext";
+import { AgentProvider } from "@/contexts/AgentProvider";
+import { useAgent } from "@/contexts/AgentContext";
 import { AgentSidebar } from "./AgentSidebar";
 import { AgentTopBar } from "./AgentTopBar";
 import "./AgentTokens.css";

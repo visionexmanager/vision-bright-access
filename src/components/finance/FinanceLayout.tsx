@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { FinanceProvider } from "@/contexts/FinanceContext";
+import { FinanceProvider } from "@/contexts/FinanceProvider";
 import { FinanceSidebar } from "./FinanceSidebar";
 import { FinanceTopBar } from "./FinanceTopBar";
 import { FinanceBreadcrumbs } from "./FinanceBreadcrumbs";

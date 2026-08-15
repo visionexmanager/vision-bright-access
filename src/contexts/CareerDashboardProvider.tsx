@@ -1,21 +1,6 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import type { AccessibilitySettings, CareerSection, GeneralSettings } from "@/components/career/dashboard/types";
-
-interface CareerDashboardContextValue {
-  activeSection: CareerSection;
-  setActiveSection: (section: CareerSection) => void;
-
-  sidebarCollapsed: boolean;
-  toggleSidebar: () => void;
-  mobileSidebarOpen: boolean;
-  setMobileSidebarOpen: (open: boolean) => void;
-
-  accessibility: AccessibilitySettings;
-  updateAccessibility: (partial: Partial<AccessibilitySettings>) => void;
-
-  generalSettings: GeneralSettings;
-  updateGeneralSettings: (partial: Partial<GeneralSettings>) => void;
-}
+import { CareerDashboardContext } from "./CareerDashboardContext";
 
 const defaultAccessibility: AccessibilitySettings = {
   screenReaderMode: false,
@@ -33,8 +18,6 @@ const defaultGeneralSettings: GeneralSettings = {
   pushNotifications: true,
   profileVisibility: "employersOnly",
 };
-
-const CareerDashboardContext = createContext<CareerDashboardContextValue | null>(null);
 
 export function CareerDashboardProvider({ children }: { children: ReactNode }) {
   const [activeSection, setActiveSection] = useState<CareerSection>("overview");
@@ -71,10 +54,4 @@ export function CareerDashboardProvider({ children }: { children: ReactNode }) {
       {children}
     </CareerDashboardContext.Provider>
   );
-}
-
-export function useCareerDashboard() {
-  const ctx = useContext(CareerDashboardContext);
-  if (!ctx) throw new Error("useCareerDashboard must be used inside <CareerDashboardProvider>");
-  return ctx;
 }

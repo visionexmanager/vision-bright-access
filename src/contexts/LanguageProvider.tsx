@@ -1,28 +1,6 @@
-import { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { academyDomText } from "@/i18n/academyDomText";
-
-export const supportedLangs = ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "nl", "pl", "vi", "bn", "fa", "es", "de", "pt", "zh", "tr", "fr", "ru"] as const;
-export type Lang = (typeof supportedLangs)[number];
-
-interface LanguageContextType {
-  lang: Lang;
-  ready: boolean;
-  setLang: (lang: Lang) => void;
-  t: (key: string) => string;
-  translateText: (text: string) => string;
-  dir: "ltr" | "rtl";
-}
-
-const LanguageContext = createContext<LanguageContextType>({
-  lang: "en",
-  ready: false,
-  setLang: () => {},
-  t: (key) => key,
-  translateText: (text) => text,
-  dir: "ltr",
-});
-
-export const useLanguage = () => useContext(LanguageContext);
+import { LanguageContext, supportedLangs, type Lang } from "./LanguageContext";
 
 // All language files are loaded on demand — ~200-340 KB each.
 // English is also lazily loaded now so it's not in the main bundle (~242 KB saved).

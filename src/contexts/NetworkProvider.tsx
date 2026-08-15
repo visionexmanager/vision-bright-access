@@ -1,32 +1,12 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import type { NetworkSection } from "@/components/career/network/types";
-
-interface NetworkAccessibilitySettings {
-  highContrast: boolean;
-  reducedMotion: boolean;
-  largeText: boolean;
-}
-
-interface NetworkContextValue {
-  activeSection: NetworkSection;
-  setActiveSection: (section: NetworkSection) => void;
-
-  sidebarCollapsed: boolean;
-  toggleSidebar: () => void;
-  mobileSidebarOpen: boolean;
-  setMobileSidebarOpen: (open: boolean) => void;
-
-  accessibility: NetworkAccessibilitySettings;
-  updateAccessibility: (partial: Partial<NetworkAccessibilitySettings>) => void;
-}
+import { NetworkContext, type NetworkAccessibilitySettings } from "./NetworkContext";
 
 const defaultAccessibility: NetworkAccessibilitySettings = {
   highContrast: false,
   reducedMotion: false,
   largeText: false,
 };
-
-const NetworkContext = createContext<NetworkContextValue | null>(null);
 
 export function NetworkProvider({ children }: { children: ReactNode }) {
   const [activeSection, setActiveSection] = useState<NetworkSection>("feed");
@@ -46,10 +26,4 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       {children}
     </NetworkContext.Provider>
   );
-}
-
-export function useNetwork() {
-  const ctx = useContext(NetworkContext);
-  if (!ctx) throw new Error("useNetwork must be used inside <NetworkProvider>");
-  return ctx;
 }

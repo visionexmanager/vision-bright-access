@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CareerDashboardProvider, useCareerDashboard } from "@/contexts/CareerDashboardContext";
+import { CareerDashboardProvider } from "@/contexts/CareerDashboardProvider";
+import { useCareerDashboard } from "@/contexts/CareerDashboardContext";
 import { CareerDashboardSidebar } from "./CareerDashboardSidebar";
 import { CareerDashboardTopBar } from "./CareerDashboardTopBar";
 import "./CareerDashboardTokens.css";
