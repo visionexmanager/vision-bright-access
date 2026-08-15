@@ -47,7 +47,7 @@ export async function createVxCoinOrder(args: {
   referenceCode: string;
   proofUrl?: string | null;
 }): Promise<VxCoinOrderRow> {
-  const { data, error } = await (supabase.rpc as any)("create_vx_coin_order", {
+  const { data, error } = await supabase.rpc("create_vx_coin_order", {
     _coins: args.coins,
     _payment_method: args.paymentMethod,
     _reference_code: args.referenceCode,
@@ -58,7 +58,7 @@ export async function createVxCoinOrder(args: {
 }
 
 export async function fetchMyVxCoinOrders(userId: string): Promise<VxCoinOrderRow[]> {
-  const { data, error } = await (supabase.from("vx_coin_orders") as any)
+  const { data, error } = await supabase.from("vx_coin_orders")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
@@ -71,7 +71,7 @@ export interface VxCoinOrderWithBuyer extends VxCoinOrderRow {
 }
 
 export async function fetchVxCoinOrders(status?: VxCoinOrderStatus): Promise<VxCoinOrderWithBuyer[]> {
-  let q = (supabase.from("vx_coin_orders") as any).select("*").order("created_at", { ascending: false });
+  let q = supabase.from("vx_coin_orders").select("*").order("created_at", { ascending: false });
   if (status) q = q.eq("status", status);
   const { data: orders, error } = await q;
   if (error) throw new Error(error.message);
@@ -80,7 +80,7 @@ export async function fetchVxCoinOrders(status?: VxCoinOrderStatus): Promise<VxC
   const userIds = [...new Set(rows.map((r) => r.user_id))];
   let names: Record<string, string> = {};
   if (userIds.length > 0) {
-    const { data: profiles } = await (supabase.from("profiles") as any)
+    const { data: profiles } = await supabase.from("profiles")
       .select("user_id, display_name")
       .in("user_id", userIds);
     names = Object.fromEntries((profiles ?? []).map((p: { user_id: string; display_name: string | null }) => [p.user_id, p.display_name ?? ""]));

@@ -1,5 +1,6 @@
 // AI Media Studio — service layer (pure async functions, no React)
 import { supabase } from "@/integrations/supabase/client";
+import { jsonAs, jsonPayload } from "@/integrations/supabase/json";
 import type {
   AMSProject,
   AMSAsset,
@@ -13,9 +14,6 @@ import type {
   ProjectFilters,
   AssetFilters,
 } from "@/lib/types/ai-media-studio";
-
-const db = supabase as any;
-
 async function requireUserId(): Promise<string> {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) throw new Error("Not authenticated");
@@ -25,7 +23,7 @@ async function requireUserId(): Promise<string> {
 // ── Projects ──────────────────────────────────────────────────────────────────
 
 export async function listProjects(filters: ProjectFilters = {}): Promise<AMSProject[]> {
-  let q = db.from("ams_projects").select("*");
+  let q = supabase.from("ams_projects").select("*");
 
   if (filters.status) {
     q = q.eq("status", filters.status);
@@ -40,43 +38,43 @@ export async function listProjects(filters: ProjectFilters = {}): Promise<AMSPro
 
   const { data, error } = await q;
   if (error) throw error;
-  return data ?? [];
+  return jsonAs<AMSProject[]>(data ?? []);
 }
 
 export async function getProject(id: string): Promise<AMSProject | null> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_projects")
     .select("*")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return jsonAs<AMSProject | null>(data);
 }
 
 export async function createProject(input: CreateProjectInput): Promise<AMSProject> {
   const ownerId = await requireUserId();
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_projects")
     .insert({ ...input, owner_id: ownerId })
     .select()
     .single();
   if (error) throw error;
-  return data;
+  return jsonAs<AMSProject>(data);
 }
 
 export async function updateProject(id: string, input: UpdateProjectInput): Promise<AMSProject> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_projects")
     .update(input)
     .eq("id", id)
     .select()
     .single();
   if (error) throw error;
-  return data;
+  return jsonAs<AMSProject>(data);
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("ams_projects")
     .update({ status: "deleted" })
     .eq("id", id);
@@ -84,7 +82,7 @@ export async function deleteProject(id: string): Promise<void> {
 }
 
 export async function archiveProject(id: string): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("ams_projects")
     .update({ status: "archived" })
     .eq("id", id);
@@ -92,7 +90,7 @@ export async function archiveProject(id: string): Promise<void> {
 }
 
 export async function restoreProject(id: string): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("ams_projects")
     .update({ status: "active" })
     .eq("id", id);
@@ -113,7 +111,7 @@ export async function duplicateProject(id: string): Promise<AMSProject> {
 }
 
 export async function toggleFavoriteProject(id: string, value: boolean): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("ams_projects")
     .update({ is_favorite: value })
     .eq("id", id);
@@ -123,7 +121,7 @@ export async function toggleFavoriteProject(id: string, value: boolean): Promise
 // ── Assets ────────────────────────────────────────────────────────────────────
 
 export async function listAssets(filters: AssetFilters = {}): Promise<AMSAsset[]> {
-  let q = db.from("ams_assets").select("*");
+  let q = supabase.from("ams_assets").select("*");
 
   if (filters.project_id) q = q.eq("project_id", filters.project_id);
   if (filters.asset_type) q = q.eq("asset_type", filters.asset_type);
@@ -141,22 +139,22 @@ export async function listAssets(filters: AssetFilters = {}): Promise<AMSAsset[]
 
   const { data, error } = await q;
   if (error) throw error;
-  return data ?? [];
+  return jsonAs<AMSAsset[]>(data ?? []);
 }
 
 export async function createAssetRecord(input: CreateAssetInput): Promise<AMSAsset> {
   const ownerId = await requireUserId();
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_assets")
-    .insert({ ...input, owner_id: ownerId, status: "ready" })
+    .insert({ ...input, metadata: jsonPayload(input.metadata ?? {}), owner_id: ownerId, status: "ready" })
     .select()
     .single();
   if (error) throw error;
-  return data;
+  return jsonAs<AMSAsset>(data);
 }
 
 export async function deleteAsset(id: string): Promise<void> {
-  const asset = await db
+  const asset = await supabase
     .from("ams_assets")
     .select("storage_path")
     .eq("id", id)
@@ -170,7 +168,7 @@ export async function deleteAsset(id: string): Promise<void> {
     if (storageError) throw storageError;
   }
 
-  const { error } = await db
+  const { error } = await supabase
     .from("ams_assets")
     .update({ status: "deleted" })
     .eq("id", id);
@@ -230,24 +228,24 @@ export async function removeUploadedAsset(storagePath: string): Promise<void> {
 // ── Templates ─────────────────────────────────────────────────────────────────
 
 export async function listTemplates(type?: string): Promise<AMSTemplate[]> {
-  let q = db.from("ams_templates").select("*").eq("is_public", true);
+  let q = supabase.from("ams_templates").select("*").eq("is_public", true);
   if (type) q = q.eq("template_type", type);
   q = q.order("usage_count", { ascending: false });
   const { data, error } = await q;
   if (error) throw error;
-  return data ?? [];
+  return jsonAs<AMSTemplate[]>(data ?? []);
 }
 
 // ── Activity logs ─────────────────────────────────────────────────────────────
 
 export async function listActivity(limit = 20): Promise<AMSActivityLog[]> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_activity_logs")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return data ?? [];
+  return jsonAs<AMSActivityLog[]>(data ?? []);
 }
 
 export async function logActivity(
@@ -257,13 +255,13 @@ export async function logActivity(
   projectId?: string | null,
   details: Record<string, unknown> = {}
 ): Promise<void> {
-  const { error } = await db.rpc("ams_log_activity", {
+  const { error } = await supabase.rpc("ams_log_activity", {
     p_project_id:  projectId ?? null,
     p_asset_id:    null,
     p_action:      action,
     p_entity_type: entityType,
     p_entity_id:   entityId,
-    p_details:     details,
+    p_details:     jsonPayload(details),
   });
   if (error) console.warn("[ams] log activity failed:", error.message);
 }
@@ -271,7 +269,7 @@ export async function logActivity(
 // ── Storage usage ─────────────────────────────────────────────────────────────
 
 export async function getStorageUsage(): Promise<AMSStorageUsage | null> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_storage_usage")
     .select("*")
     .maybeSingle();
@@ -280,19 +278,19 @@ export async function getStorageUsage(): Promise<AMSStorageUsage | null> {
 }
 
 export async function recalculateStorage(): Promise<void> {
-  const { error } = await db.rpc("ams_recalculate_storage");
+  const { error } = await supabase.rpc("ams_recalculate_storage");
   if (error) throw error;
 }
 
 // ── User preferences ──────────────────────────────────────────────────────────
 
 export async function getUserPreferences(): Promise<AMSUserPreferences | null> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_user_preferences")
     .select("*")
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return jsonAs<AMSUserPreferences | null>(data);
 }
 
 export async function upsertUserPreferences(
@@ -303,7 +301,7 @@ export async function upsertUserPreferences(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const { error } = await db.from("ams_user_preferences").upsert({
+  const { error } = await supabase.from("ams_user_preferences").upsert({
     user_id: user.id,
     ...prefs,
     updated_at: new Date().toISOString(),

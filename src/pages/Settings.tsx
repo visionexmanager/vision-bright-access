@@ -1,5 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { useLanguage } from "@/contexts/LanguageContext";
+import type { Lang } from "@/contexts/LanguageContext";
 import { useThemeToggle, Theme } from "@/contexts/ThemeContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useCurrency, CURRENCIES } from "@/contexts/CurrencyContext";
@@ -134,7 +135,7 @@ export default function Settings() {
             </CardHeader>
             <CardContent>
               <Label className="mb-2 block text-base font-medium">{t("settings.selectLang")}</Label>
-              <Select value={lang} onValueChange={(v) => setLang(v as any)}>
+              <Select value={lang} onValueChange={(v) => setLang(v as Lang)}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>

@@ -48,7 +48,7 @@ export function PurchaseDialog({ open, onOpenChange, coins, total }: PurchaseDia
     setMethod("wishmoney");
     setReferenceCode("");
     setProofFile(null);
-    (supabase.from("site_settings") as any)
+    supabase.from("site_settings")
       .select("key, value")
       .in("key", Object.values(SETTINGS_KEY))
       .then(({ data }: { data: { key: string; value: unknown }[] | null }) => {

@@ -255,7 +255,7 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
   const { data: featuredInstructors = [] } = useQuery<AcademyInstructorRow[]>({
     queryKey: ["academy", "instructors", "featured"],
     queryFn: async () => {
-      const { data, error } = await (supabase.from("academy_instructors") as any)
+      const { data, error } = await supabase.from("academy_instructors")
         .select("*")
         .order("rating", { ascending: false, nullsFirst: false })
         .limit(3);

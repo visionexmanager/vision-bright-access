@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { CareerMessageRow } from "@/lib/types/career";
 
 export async function fetchMyCareerMessages(userId: string): Promise<CareerMessageRow[]> {
-  const { data, error } = await (supabase.from("messages") as any)
+  const { data, error } = await supabase.from("messages")
     .select("*")
     .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
     .order("created_at", { ascending: false });
@@ -18,7 +18,7 @@ export async function fetchMyCareerMessages(userId: string): Promise<CareerMessa
 }
 
 export async function sendCareerMessage(senderId: string, recipientId: string, body: string): Promise<CareerMessageRow> {
-  const { data, error } = await (supabase.from("messages") as any)
+  const { data, error } = await supabase.from("messages")
     .insert({ sender_id: senderId, recipient_id: recipientId, body })
     .select("*")
     .single();
@@ -27,7 +27,7 @@ export async function sendCareerMessage(senderId: string, recipientId: string, b
 }
 
 export async function markCareerMessageRead(messageId: string): Promise<void> {
-  const { error } = await (supabase.from("messages") as any)
+  const { error } = await supabase.from("messages")
     .update({ is_read: true })
     .eq("id", messageId);
   if (error) throw new Error(error.message);

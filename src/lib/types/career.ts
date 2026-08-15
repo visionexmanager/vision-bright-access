@@ -1,9 +1,9 @@
 // ─── Career Center — DB row types (Phase 1 backend) ───────────────────────────
 // Hand-written to match the deployed schema exactly (supabase/migrations/
 // 20260705020000_career_center_roles.sql through 20260706080000_*.sql).
-// The generated Supabase client types don't know about these tables yet, so
-// service-layer calls cast `supabase.from("table") as any` and rely on these
-// interfaces for shape — same convention as src/lib/types/academy-lms.ts.
+// The generated client types now cover these tables, so the service layer
+// queries them directly; these interfaces remain the app-side row shapes,
+// narrower than the columns where a text column carries a union.
 
 export type CareerJobType = "full_time" | "part_time" | "contract" | "temporary" | "internship" | "freelance";
 export type CareerExperienceLevel = "entry" | "mid" | "senior" | "lead";

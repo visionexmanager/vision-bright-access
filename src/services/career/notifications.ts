@@ -13,7 +13,7 @@ export const CAREER_NOTIFICATION_CATEGORIES = [
 ] as const;
 
 export async function fetchCareerNotifications(userId: string, limit = 30): Promise<CareerNotificationRow[]> {
-  const { data, error } = await (supabase.from("notifications") as any)
+  const { data, error } = await supabase.from("notifications")
     .select("id, user_id, title, body, type, category, is_read, created_at")
     .eq("user_id", userId)
     .in("category", CAREER_NOTIFICATION_CATEGORIES)
@@ -24,14 +24,14 @@ export async function fetchCareerNotifications(userId: string, limit = 30): Prom
 }
 
 export async function markCareerNotificationRead(notificationId: string): Promise<void> {
-  const { error } = await (supabase.from("notifications") as any)
+  const { error } = await supabase.from("notifications")
     .update({ is_read: true })
     .eq("id", notificationId);
   if (error) throw new Error(error.message);
 }
 
 export async function markAllCareerNotificationsRead(userId: string): Promise<void> {
-  const { error } = await (supabase.from("notifications") as any)
+  const { error } = await supabase.from("notifications")
     .update({ is_read: true })
     .eq("user_id", userId)
     .in("category", CAREER_NOTIFICATION_CATEGORIES)

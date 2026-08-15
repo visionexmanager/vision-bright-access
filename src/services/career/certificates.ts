@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { CertificateRow } from "@/lib/types/career";
 
 export async function fetchMyCertificates(userId: string): Promise<CertificateRow[]> {
-  const { data, error } = await (supabase.from("certificates") as any)
+  const { data, error } = await supabase.from("certificates")
     .select("*")
     .eq("user_id", userId)
     .order("issue_date", { ascending: false });
@@ -23,7 +23,7 @@ export interface NewCertificate {
 }
 
 export async function addCertificate(userId: string, cert: NewCertificate): Promise<CertificateRow> {
-  const { data, error } = await (supabase.from("certificates") as any)
+  const { data, error } = await supabase.from("certificates")
     .insert({ user_id: userId, ...cert })
     .select("*")
     .single();
@@ -32,6 +32,6 @@ export async function addCertificate(userId: string, cert: NewCertificate): Prom
 }
 
 export async function deleteCertificate(certificateId: string): Promise<void> {
-  const { error } = await (supabase.from("certificates") as any).delete().eq("id", certificateId);
+  const { error } = await supabase.from("certificates").delete().eq("id", certificateId);
   if (error) throw new Error(error.message);
 }

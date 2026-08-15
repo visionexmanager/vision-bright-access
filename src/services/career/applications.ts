@@ -9,7 +9,7 @@ import type { ApplicationWithJob, CareerApplicationStatus } from "@/lib/types/ca
 const APPLICATION_WITH_JOB_SELECT = "*, job:jobs(*, company:companies(*))";
 
 export async function fetchMyApplications(userId: string): Promise<ApplicationWithJob[]> {
-  const { data, error } = await (supabase.from("applications") as any)
+  const { data, error } = await supabase.from("applications")
     .select(APPLICATION_WITH_JOB_SELECT)
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
@@ -18,7 +18,7 @@ export async function fetchMyApplications(userId: string): Promise<ApplicationWi
 }
 
 export async function applyToJob(userId: string, jobId: string, coverLetter?: string): Promise<ApplicationWithJob> {
-  const { data, error } = await (supabase.from("applications") as any)
+  const { data, error } = await supabase.from("applications")
     .insert({ user_id: userId, job_id: jobId, cover_letter: coverLetter ?? null })
     .select(APPLICATION_WITH_JOB_SELECT)
     .single();
@@ -27,7 +27,7 @@ export async function applyToJob(userId: string, jobId: string, coverLetter?: st
 }
 
 export async function withdrawApplication(applicationId: string): Promise<void> {
-  const { error } = await (supabase.from("applications") as any)
+  const { error } = await supabase.from("applications")
     .update({ status: "withdrawn" satisfies CareerApplicationStatus })
     .eq("id", applicationId);
   if (error) throw new Error(error.message);

@@ -8,6 +8,7 @@
 // re-check permissions client-side beyond what's needed for a good UX.
 
 import { supabase } from "@/integrations/supabase/client";
+import { jsonAs } from "@/integrations/supabase/json";
 import type {
   AcademyLessonRow,
   AcademyLessonProgressRow,
@@ -37,7 +38,7 @@ export interface CourseFilters {
 }
 
 export async function fetchCourseCatalog(filters: CourseFilters = {}): Promise<AcademyCourseRow[]> {
-  let q = (supabase.from("academy_courses") as any).select("*").eq("status", "published");
+  let q = supabase.from("academy_courses").select("*").eq("status", "published");
 
   if (filters.query?.trim()) {
     const term = filters.query.trim().replace(/[%,]/g, "");
@@ -61,7 +62,7 @@ export async function fetchCourseCatalog(filters: CourseFilters = {}): Promise<A
 }
 
 export async function fetchCourseById(courseId: string): Promise<AcademyCourseRow | null> {
-  const { data, error } = await (supabase.from("academy_courses") as any)
+  const { data, error } = await supabase.from("academy_courses")
     .select("*")
     .eq("id", courseId)
     .maybeSingle();
@@ -72,7 +73,7 @@ export async function fetchCourseById(courseId: string): Promise<AcademyCourseRo
 export async function fetchSimilarCourses(courseId: string, limit = 4): Promise<AcademyCourseRow[]> {
   const course = await fetchCourseById(courseId);
   if (!course) return [];
-  const { data, error } = await (supabase.from("academy_courses") as any)
+  const { data, error } = await supabase.from("academy_courses")
     .select("*")
     .eq("status", "published")
     .neq("id", courseId)
@@ -83,7 +84,7 @@ export async function fetchSimilarCourses(courseId: string, limit = 4): Promise<
 }
 
 export async function fetchAllCategories(): Promise<string[]> {
-  const { data, error } = await (supabase.from("academy_courses") as any)
+  const { data, error } = await supabase.from("academy_courses")
     .select("category")
     .eq("status", "published");
   if (error) throw new Error(error.message);
@@ -94,7 +95,7 @@ export async function fetchAllCategories(): Promise<string[]> {
 // ── Modules & Lessons ─────────────────────────────────────────────────────────
 
 export async function fetchCourseModules(courseId: string): Promise<AcademyCourseModuleRow[]> {
-  const { data, error } = await (supabase.from("academy_course_modules") as any)
+  const { data, error } = await supabase.from("academy_course_modules")
     .select("*")
     .eq("course_id", courseId)
     .order("order_index", { ascending: true });
@@ -103,38 +104,38 @@ export async function fetchCourseModules(courseId: string): Promise<AcademyCours
 }
 
 export async function fetchModuleLessons(moduleId: string): Promise<AcademyLessonRow[]> {
-  const { data, error } = await (supabase.from("academy_lessons") as any)
+  const { data, error } = await supabase.from("academy_lessons")
     .select("*")
     .eq("module_id", moduleId)
     .order("order_index", { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []) as AcademyLessonRow[];
+  return jsonAs<AcademyLessonRow[]>(data ?? []);
 }
 
 /** All lessons across every module of a course, ordered — RLS naturally limits
  *  rows to preview/enrolled/owner content, same as browsing module-by-module. */
 export async function fetchCourseLessons(courseId: string): Promise<AcademyLessonRow[]> {
-  const { data, error } = await (supabase.from("academy_lessons") as any)
+  const { data, error } = await supabase.from("academy_lessons")
     .select("*")
     .eq("course_id", courseId)
     .order("order_index", { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []) as AcademyLessonRow[];
+  return jsonAs<AcademyLessonRow[]>(data ?? []);
 }
 
 export async function fetchLessonById(lessonId: string): Promise<AcademyLessonRow | null> {
-  const { data, error } = await (supabase.from("academy_lessons") as any)
+  const { data, error } = await supabase.from("academy_lessons")
     .select("*")
     .eq("id", lessonId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return data as AcademyLessonRow | null;
+  return jsonAs<AcademyLessonRow | null>(data);
 }
 
 // ── Enrollment & Progress ─────────────────────────────────────────────────────
 
 export async function fetchEnrollment(userId: string, courseId: string): Promise<AcademyEnrollmentRow | null> {
-  const { data, error } = await (supabase.from("academy_enrollments") as any)
+  const { data, error } = await supabase.from("academy_enrollments")
     .select("*")
     .eq("user_id", userId)
     .eq("course_id", courseId)
@@ -144,7 +145,7 @@ export async function fetchEnrollment(userId: string, courseId: string): Promise
 }
 
 export async function fetchMyEnrollments(userId: string): Promise<AcademyEnrollmentRow[]> {
-  const { data, error } = await (supabase.from("academy_enrollments") as any)
+  const { data, error } = await supabase.from("academy_enrollments")
     .select("*")
     .eq("user_id", userId)
     .order("enrolled_at", { ascending: false });
@@ -153,7 +154,7 @@ export async function fetchMyEnrollments(userId: string): Promise<AcademyEnrollm
 }
 
 export async function enrollInCourse(userId: string, courseId: string): Promise<AcademyEnrollmentRow | null> {
-  const { data, error } = await (supabase.rpc as any)("academy_enroll_course", {
+  const { data, error } = await supabase.rpc("academy_enroll_course", {
     _course_id: courseId,
   });
   if (error) throw new Error(error.message);
@@ -172,7 +173,7 @@ export async function markLessonProgress(
   lessonId: string,
   update: Partial<Pick<AcademyLessonProgressRow, "completed" | "last_position_seconds">>
 ): Promise<AcademyLessonProgressRow> {
-  const { data: progressRow, error: progressErr } = await (supabase.from("academy_lesson_progress") as any)
+  const { data: progressRow, error: progressErr } = await supabase.from("academy_lesson_progress")
     .upsert(
       { user_id: userId, course_id: courseId, lesson_id: lessonId, ...update, updated_at: new Date().toISOString() },
       { onConflict: "user_id,lesson_id" }
@@ -182,8 +183,8 @@ export async function markLessonProgress(
   if (progressErr) throw new Error(progressErr.message);
 
   const [{ count: totalLessons }, { count: completedLessons }] = await Promise.all([
-    (supabase.from("academy_lessons") as any).select("id", { count: "exact", head: true }).eq("course_id", courseId),
-    (supabase.from("academy_lesson_progress") as any)
+    supabase.from("academy_lessons").select("id", { count: "exact", head: true }).eq("course_id", courseId),
+    supabase.from("academy_lesson_progress")
       .select("lesson_id", { count: "exact", head: true })
       .eq("user_id", userId)
       .eq("course_id", courseId)
@@ -193,7 +194,7 @@ export async function markLessonProgress(
   const progressPercent = totalLessons ? Math.round(((completedLessons ?? 0) / totalLessons) * 100) : 0;
   const isCourseComplete = totalLessons != null && totalLessons > 0 && completedLessons === totalLessons;
 
-  await (supabase.from("academy_enrollments") as any)
+  await supabase.from("academy_enrollments")
     .update({
       current_lesson_id: lessonId,
       last_position_seconds: update.last_position_seconds ?? 0,
@@ -207,7 +208,7 @@ export async function markLessonProgress(
 }
 
 export async function fetchCourseProgress(userId: string, courseId: string): Promise<AcademyLessonProgressRow[]> {
-  const { data, error } = await (supabase.from("academy_lesson_progress") as any)
+  const { data, error } = await supabase.from("academy_lesson_progress")
     .select("*")
     .eq("user_id", userId)
     .eq("course_id", courseId);
@@ -216,7 +217,7 @@ export async function fetchCourseProgress(userId: string, courseId: string): Pro
 }
 
 export async function fetchAllProgressForUser(userId: string): Promise<AcademyLessonProgressRow[]> {
-  const { data, error } = await (supabase.from("academy_lesson_progress") as any).select("*").eq("user_id", userId);
+  const { data, error } = await supabase.from("academy_lesson_progress").select("*").eq("user_id", userId);
   if (error) throw new Error(error.message);
   return (data ?? []) as AcademyLessonProgressRow[];
 }
@@ -224,7 +225,7 @@ export async function fetchAllProgressForUser(userId: string): Promise<AcademyLe
 // ── Notes & Bookmarks ─────────────────────────────────────────────────────────
 
 export async function fetchLessonNotes(userId: string, lessonId: string): Promise<AcademyLessonNoteRow[]> {
-  const { data, error } = await (supabase.from("academy_lesson_notes") as any)
+  const { data, error } = await supabase.from("academy_lesson_notes")
     .select("*")
     .eq("user_id", userId)
     .eq("lesson_id", lessonId)
@@ -236,18 +237,18 @@ export async function fetchLessonNotes(userId: string, lessonId: string): Promis
 export async function saveLessonNote(
   note: Omit<AcademyLessonNoteRow, "id" | "created_at">
 ): Promise<AcademyLessonNoteRow> {
-  const { data, error } = await (supabase.from("academy_lesson_notes") as any).insert(note).select().single();
+  const { data, error } = await supabase.from("academy_lesson_notes").insert(note).select().single();
   if (error) throw new Error(error.message);
   return data as AcademyLessonNoteRow;
 }
 
 export async function removeLessonNote(noteId: string): Promise<void> {
-  const { error } = await (supabase.from("academy_lesson_notes") as any).delete().eq("id", noteId);
+  const { error } = await supabase.from("academy_lesson_notes").delete().eq("id", noteId);
   if (error) throw new Error(error.message);
 }
 
 export async function fetchAllNotesForUser(userId: string): Promise<AcademyLessonNoteRow[]> {
-  const { data, error } = await (supabase.from("academy_lesson_notes") as any)
+  const { data, error } = await supabase.from("academy_lesson_notes")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
@@ -256,7 +257,7 @@ export async function fetchAllNotesForUser(userId: string): Promise<AcademyLesso
 }
 
 export async function fetchLessonBookmarks(userId: string, lessonId: string): Promise<AcademyLessonBookmarkRow[]> {
-  const { data, error } = await (supabase.from("academy_lesson_bookmarks") as any)
+  const { data, error } = await supabase.from("academy_lesson_bookmarks")
     .select("*")
     .eq("user_id", userId)
     .eq("lesson_id", lessonId)
@@ -271,7 +272,7 @@ export async function addLessonBookmark(
   timestampSeconds: number | null,
   label: string | null = null
 ): Promise<AcademyLessonBookmarkRow> {
-  const { data, error } = await (supabase.from("academy_lesson_bookmarks") as any)
+  const { data, error } = await supabase.from("academy_lesson_bookmarks")
     .insert({ user_id: userId, lesson_id: lessonId, timestamp_seconds: timestampSeconds, label })
     .select()
     .single();
@@ -280,12 +281,12 @@ export async function addLessonBookmark(
 }
 
 export async function removeLessonBookmark(bookmarkId: string): Promise<void> {
-  const { error } = await (supabase.from("academy_lesson_bookmarks") as any).delete().eq("id", bookmarkId);
+  const { error } = await supabase.from("academy_lesson_bookmarks").delete().eq("id", bookmarkId);
   if (error) throw new Error(error.message);
 }
 
 export async function fetchAllBookmarksForUser(userId: string): Promise<AcademyLessonBookmarkRow[]> {
-  const { data, error } = await (supabase.from("academy_lesson_bookmarks") as any)
+  const { data, error } = await supabase.from("academy_lesson_bookmarks")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
@@ -296,7 +297,7 @@ export async function fetchAllBookmarksForUser(userId: string): Promise<AcademyL
 // ── Reviews & Ratings ─────────────────────────────────────────────────────────
 
 export async function fetchCourseReviews(courseId: string): Promise<AcademyCourseReviewRow[]> {
-  const { data, error } = await (supabase.from("academy_course_reviews") as any)
+  const { data, error } = await supabase.from("academy_course_reviews")
     .select("*")
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
@@ -307,7 +308,7 @@ export async function fetchCourseReviews(courseId: string): Promise<AcademyCours
 export async function submitCourseReview(
   review: Omit<AcademyCourseReviewRow, "id" | "created_at">
 ): Promise<AcademyCourseReviewRow> {
-  const { data, error } = await (supabase.from("academy_course_reviews") as any)
+  const { data, error } = await supabase.from("academy_course_reviews")
     .upsert(review, { onConflict: "user_id,course_id" })
     .select()
     .single();
@@ -318,13 +319,13 @@ export async function submitCourseReview(
 // ── Learning Tracks ────────────────────────────────────────────────────────────
 
 export async function fetchLearningTracks(): Promise<AcademyLearningTrackRow[]> {
-  const { data, error } = await (supabase.from("academy_learning_tracks") as any).select("*");
+  const { data, error } = await supabase.from("academy_learning_tracks").select("*");
   if (error) throw new Error(error.message);
   return (data ?? []) as AcademyLearningTrackRow[];
 }
 
 export async function fetchLearningTrackById(trackId: string): Promise<AcademyLearningTrackRow | null> {
-  const { data, error } = await (supabase.from("academy_learning_tracks") as any)
+  const { data, error } = await supabase.from("academy_learning_tracks")
     .select("*")
     .eq("id", trackId)
     .maybeSingle();
@@ -336,7 +337,7 @@ export async function fetchLearningTrackProgress(
   userId: string,
   trackId: string
 ): Promise<AcademyLearningTrackProgressRow | null> {
-  const { data, error } = await (supabase.from("academy_learning_track_progress") as any)
+  const { data, error } = await supabase.from("academy_learning_track_progress")
     .select("*")
     .eq("user_id", userId)
     .eq("track_id", trackId)
@@ -350,7 +351,7 @@ export async function upsertLearningTrackProgress(
   trackId: string,
   completedCourseIds: string[]
 ): Promise<AcademyLearningTrackProgressRow> {
-  const { data, error } = await (supabase.from("academy_learning_track_progress") as any)
+  const { data, error } = await supabase.from("academy_learning_track_progress")
     .upsert(
       { user_id: userId, track_id: trackId, completed_course_ids: completedCourseIds, updated_at: new Date().toISOString() },
       { onConflict: "user_id,track_id" }
@@ -364,7 +365,7 @@ export async function upsertLearningTrackProgress(
 // ── Instructors (public profile) ──────────────────────────────────────────────
 
 export async function fetchInstructorById(instructorId: string): Promise<AcademyInstructorRow | null> {
-  const { data, error } = await (supabase.from("academy_instructors") as any)
+  const { data, error } = await supabase.from("academy_instructors")
     .select("*")
     .eq("id", instructorId)
     .maybeSingle();
@@ -373,7 +374,7 @@ export async function fetchInstructorById(instructorId: string): Promise<Academy
 }
 
 export async function fetchInstructorCourses(instructorId: string): Promise<AcademyCourseRow[]> {
-  const { data, error } = await (supabase.from("academy_courses") as any)
+  const { data, error } = await supabase.from("academy_courses")
     .select("*")
     .eq("instructor_id", instructorId)
     .eq("status", "published")

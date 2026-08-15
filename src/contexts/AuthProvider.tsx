@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { AuthContext } from "./AuthContext";
 
 const TRIAL_DAYS = 30;
@@ -18,14 +19,14 @@ async function ensureUserEntitlements(user: User) {
   // created_at from auth.users comes through user.created_at
   const registeredAt = user.created_at ?? new Date().toISOString();
 
-  const profiles = supabase.from("profiles") as any;
-  const { data } = await profiles
+  const { data } = await supabase
+    .from("profiles")
     .select("user_id, display_name, trial_expires_at, created_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (!data) {
-    await profiles.insert({
+    await supabase.from("profiles").insert({
       user_id: user.id,
       display_name: displayName,
       // Anchor trial to auth registration time so existing sessions don't get extra time
@@ -34,7 +35,10 @@ async function ensureUserEntitlements(user: User) {
     return;
   }
 
-  const updates: Record<string, string> = {};
+  // Typed from the schema, not Record<string, string>: the pinned supabase-js
+  // in CI rejects an index signature here because it cannot rule out a column
+  // that does not exist.
+  const updates: Database["public"]["Tables"]["profiles"]["Update"] = {};
   if (!data.display_name) updates.display_name = displayName;
   if (!data.trial_expires_at) {
     // Use profile created_at (or auth created_at) — never Date.now() for existing users
@@ -43,7 +47,7 @@ async function ensureUserEntitlements(user: User) {
   }
 
   if (Object.keys(updates).length > 0) {
-    await profiles.update(updates).eq("user_id", user.id);
+    await supabase.from("profiles").update(updates).eq("user_id", user.id);
   }
 }
 

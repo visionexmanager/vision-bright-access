@@ -33,7 +33,7 @@ function exportCsv(rows: StudentRow[]) {
   const header = ["user_id", "name", "country", "level", "xp_total", "streak_days", "last_active", "created_at"];
   const lines = [header.join(",")];
   for (const r of rows) {
-    lines.push(header.map((k) => csvCell((r as any)[k])).join(","));
+    lines.push(header.map((k) => csvCell((r as Record<string, unknown>)[k])).join(","));
   }
   const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -56,7 +56,7 @@ export default function AdminAcademyStudents() {
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
-      const { data } = await (supabase.from("academy_profiles") as any)
+      const { data } = await supabase.from("academy_profiles")
         .select("user_id, name, country, level, xp_total, streak_days, last_active, created_at")
         .order("xp_total", { ascending: false })
         .limit(2000);

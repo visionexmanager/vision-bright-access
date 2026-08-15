@@ -109,7 +109,7 @@ export function rememberCompanionNote(note: string): CompanionMemory {
 export async function syncServerMemoryEnabled(enabled: boolean) {
   const { data } = await supabase.auth.getUser();
   if (!data.user) return;
-  await (supabase.from("ai_user_memory") as any).upsert(
+  await supabase.from("ai_user_memory").upsert(
     {
       user_id: data.user.id,
       memory_enabled: enabled,
@@ -122,7 +122,7 @@ export async function syncServerMemoryEnabled(enabled: boolean) {
 export async function clearServerCompanionMemory() {
   const { data } = await supabase.auth.getUser();
   if (!data.user) return;
-  await (supabase.from("ai_user_memory") as any).delete().eq("user_id", data.user.id);
+  await supabase.from("ai_user_memory").delete().eq("user_id", data.user.id);
 }
 
 export function buildCompanionPageContext(): CompanionPageContext {

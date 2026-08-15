@@ -35,7 +35,7 @@ export async function runGlobalSearch(query: string): Promise<GlobalSearchResult
 
   const [courses, instructorsResult] = await Promise.all([
     fetchCourseCatalog({ query: q }),
-    (supabase.from("academy_instructors") as any)
+    supabase.from("academy_instructors")
       .select("*")
       .or(`name.ilike.%${term}%,headline.ilike.%${term}%`)
       .limit(12),

@@ -50,7 +50,7 @@ export function useFileStudio() {
 
   useEffect(() => {
     if (!user) return;
-    void (supabase as any).rpc("refund_stale_file_conversions").then(
+    void supabase.rpc("refund_stale_file_conversions").then(
       ({ data, error }: { data: number | null; error: { message: string } | null }) => {
         if (error) {
           console.error("[FileStudio] stale refund check failed:", error.message);
@@ -99,7 +99,7 @@ export function useFileStudio() {
 
       if (!user) return null;
       const jobId = crypto.randomUUID();
-      const { data: chargedAmount, error: chargeError } = await (supabase as any).rpc("charge_file_conversion", {
+      const { data: chargedAmount, error: chargeError } = await supabase.rpc("charge_file_conversion", {
         _job_id: jobId,
         _module_type: moduleType,
         _target_format: targetFormat,
@@ -125,7 +125,7 @@ export function useFileStudio() {
       const unsub = jobQueue.subscribe((updated) => {
         if (updated.id !== job.id || !["failed", "completed", "cancelled"].includes(updated.status)) return;
         const succeeded = updated.status === "completed";
-        void (supabase as any).rpc("settle_file_conversion", {
+        void supabase.rpc("settle_file_conversion", {
           _job_id: job.id,
           _succeeded: succeeded,
         }).then(({ error }: { error: { message: string } | null }) => {

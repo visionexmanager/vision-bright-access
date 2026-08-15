@@ -1,5 +1,6 @@
 // Speech Studio — service layer (pure async, no React)
 import { supabase } from "@/integrations/supabase/client";
+import { jsonAs } from "@/integrations/supabase/json";
 import type {
   SpeechVoice,
   SpeechPreset,
@@ -8,9 +9,6 @@ import type {
   CreatePresetInput,
   UpdatePresetInput,
 } from "@/lib/types/speech-studio";
-
-const db = supabase as any;
-
 async function requireUserId(): Promise<string> {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) throw new Error("Not authenticated");
@@ -20,28 +18,28 @@ async function requireUserId(): Promise<string> {
 // ── Voices ────────────────────────────────────────────────────────────────────
 
 export async function listVoices(): Promise<SpeechVoice[]> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_voices")
     .select("*")
     .order("sort_order");
   if (error) throw error;
-  return data ?? [];
+  return jsonAs<SpeechVoice[]>(data ?? []);
 }
 
 export async function getVoice(id: string): Promise<SpeechVoice | null> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_voices")
     .select("*")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return jsonAs<SpeechVoice | null>(data);
 }
 
 // ── Voice Favorites ───────────────────────────────────────────────────────────
 
 export async function listFavoriteVoiceIds(): Promise<string[]> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_voice_favorites")
     .select("voice_id");
   if (error) throw error;
@@ -50,14 +48,14 @@ export async function listFavoriteVoiceIds(): Promise<string[]> {
 
 export async function addVoiceFavorite(voiceId: string): Promise<void> {
   const userId = await requireUserId();
-  const { error } = await db
+  const { error } = await supabase
     .from("ams_voice_favorites")
     .insert({ user_id: userId, voice_id: voiceId });
   if (error && error.code !== "23505") throw error; // ignore duplicate
 }
 
 export async function removeVoiceFavorite(voiceId: string): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("ams_voice_favorites")
     .delete()
     .eq("voice_id", voiceId);
@@ -67,7 +65,7 @@ export async function removeVoiceFavorite(voiceId: string): Promise<void> {
 // ── Voice Recent ──────────────────────────────────────────────────────────────
 
 export async function listRecentVoices(): Promise<{ voice_id: string; use_count: number; used_at: string }[]> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_voice_recent")
     .select("voice_id, use_count, used_at")
     .order("used_at", { ascending: false })
@@ -118,18 +116,18 @@ export function filterVoices(voices: SpeechVoice[], filters: VoiceFilters): Spee
 // ── Presets ───────────────────────────────────────────────────────────────────
 
 export async function listPresets(): Promise<SpeechPreset[]> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_speech_presets")
     .select("*")
     .order("is_favorite", { ascending: false })
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data ?? [];
+  return jsonAs<SpeechPreset[]>(data ?? []);
 }
 
 export async function createPreset(input: CreatePresetInput): Promise<SpeechPreset> {
   const userId = await requireUserId();
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_speech_presets")
     .insert({
       user_id:       userId,
@@ -146,27 +144,27 @@ export async function createPreset(input: CreatePresetInput): Promise<SpeechPres
     .select()
     .single();
   if (error) throw error;
-  return data;
+  return jsonAs<SpeechPreset>(data);
 }
 
 export async function updatePreset(id: string, input: UpdatePresetInput): Promise<SpeechPreset> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_speech_presets")
     .update(input)
     .eq("id", id)
     .select()
     .single();
   if (error) throw error;
-  return data;
+  return jsonAs<SpeechPreset>(data);
 }
 
 export async function deletePreset(id: string): Promise<void> {
-  const { error } = await db.from("ams_speech_presets").delete().eq("id", id);
+  const { error } = await supabase.from("ams_speech_presets").delete().eq("id", id);
   if (error) throw error;
 }
 
 export async function duplicatePreset(id: string): Promise<SpeechPreset> {
-  const preset = await db
+  const preset = await supabase
     .from("ams_speech_presets")
     .select("*")
     .eq("id", id)
@@ -189,32 +187,32 @@ export async function duplicatePreset(id: string): Promise<SpeechPreset> {
 // ── History (jobs) ────────────────────────────────────────────────────────────
 
 export async function listHistory(limit = 20, offset = 0): Promise<SpeechJob[]> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_speech_jobs")
     .select("*")
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) throw error;
-  return data ?? [];
+  return jsonAs<SpeechJob[]>(data ?? []);
 }
 
 export async function getJob(id: string): Promise<SpeechJob | null> {
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from("ams_speech_jobs")
     .select("*")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return jsonAs<SpeechJob | null>(data);
 }
 
 export async function deleteJob(id: string): Promise<void> {
-  const { error } = await db.from("ams_speech_jobs").delete().eq("id", id);
+  const { error } = await supabase.from("ams_speech_jobs").delete().eq("id", id);
   if (error) throw error;
 }
 
 export async function cancelJob(id: string): Promise<void> {
-  const { error } = await db
+  const { error } = await supabase
     .from("ams_speech_jobs")
     .update({ status: "cancelled" })
     .eq("id", id)
