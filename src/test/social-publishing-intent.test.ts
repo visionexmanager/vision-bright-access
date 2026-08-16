@@ -1202,13 +1202,23 @@ describe("requeue is bound to the existing owner-control model, and no wider", (
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe("PR C1 opens no publishing surface", () => {
-  it("adds no Edge Function, and there is still no publishing worker", () => {
+  it("adds no publishing Edge Function, and there is still no publishing worker", () => {
     const functions = readdirSync("supabase/functions", { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && entry.name !== "_shared")
       .map((entry) => entry.name);
 
-    expect(functions.filter((name) => /social|publish|oauth|reap|requeue/i.test(name))).toEqual([]);
-    for (const invented of ["social-publish", "content-publish", "social-oauth", "publish-worker", "publishing-worker"]) {
+    // `social-oauth` is Phase 9's connection flow. It mints access tokens and
+    // cannot spend them: social-oauth-connect.test.ts pins that it contacts no
+    // content API and calls none of claim_due_content_slot,
+    // record_content_publication or mark_publication_dispatched. The claim this
+    // test defends — that no worker exists — is unchanged, so it is exempted by
+    // name and every publishing name stays forbidden.
+    expect(
+      functions.filter(
+        (name) => name !== "social-oauth" && /social|publish|oauth|reap|requeue/i.test(name),
+      ),
+    ).toEqual([]);
+    for (const invented of ["social-publish", "content-publish", "publish-worker", "publishing-worker"]) {
       expect(existsSync(`supabase/functions/${invented}`), `${invented} must not exist`).toBe(false);
     }
     // And nothing under _shared either, which is where a worker's helpers would go.

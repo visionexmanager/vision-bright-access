@@ -605,17 +605,25 @@ describe("security model matches Phase 7", () => {
     }
   });
 
-  it("creates no Edge Function", () => {
+  it("creates no publishing Edge Function", () => {
     // Deliberately not a count. Pinning the total made every unrelated pull
     // request that adds a function fail here, which says nothing about this
     // phase. What PR A must not do is ship a publishing surface, so that is
     // what is asserted: no function directory belongs to this phase's subject.
+    //
+    // Phase 9 added `social-oauth`, which obtains OAuth grants and cannot
+    // publish — social-oauth-connect.test.ts pins that it calls no content API
+    // and none of the three queue functions. It is allowed through by name
+    // rather than by widening the pattern, so a `social-publish` appearing
+    // beside it still fails here.
     const functions = readdirSync("supabase/functions", { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && entry.name !== "_shared")
       .map((entry) => entry.name);
 
-    expect(functions.filter((name) => /social|publish|oauth/i.test(name))).toEqual([]);
-    for (const invented of ["social-publish", "content-publish", "social-oauth", "publish-worker"]) {
+    expect(
+      functions.filter((name) => name !== "social-oauth" && /social|publish|oauth/i.test(name)),
+    ).toEqual([]);
+    for (const invented of ["social-publish", "content-publish", "publish-worker"]) {
       expect(existsSync(`supabase/functions/${invented}`), `${invented} must not exist`).toBe(false);
     }
   });
