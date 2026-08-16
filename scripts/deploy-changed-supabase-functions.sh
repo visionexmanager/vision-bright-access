@@ -22,6 +22,10 @@ declare -A NO_VERIFY_JWT=(
   # Meta cannot present a Supabase JWT; the function authenticates each
   # delivery itself with an X-Hub-Signature-256 HMAC and fails closed.
   [whatsapp-webhook]=1
+  # The OAuth callback is a platform-issued browser redirect and carries no
+  # Supabase JWT. Its POST actions check the caller's session and admin role;
+  # its GET callback authenticates the sealed, expiring `state`.
+  [social-oauth]=1
 )
 
 list_all_functions() {
