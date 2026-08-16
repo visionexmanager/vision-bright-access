@@ -73,8 +73,18 @@ export async function runPublishAttempt(
   // ── 1. Claim ──────────────────────────────────────────────────────────────
   const claim = await ports.claimSlot(platform);
   if (!claim.ok || !claim.request) {
+    // `no_due_slot` is not the same as an empty calendar. The database refuses
+    // to claim a slot whose platform holds no live OAuth grant — that costs the
+    // slot no attempt, which is the point, but it also removes it from the
+    // queue, so the count comes back with the refusal and is carried here.
     return claim.error === "no_due_slot"
-      ? { status: "idle", ok: false, dispatched: false }
+      ? {
+          status: "idle",
+          ok: false,
+          dispatched: false,
+          withheldForConnection: claim.withheldForConnection,
+          awaitingConnection: claim.awaitingConnection,
+        }
       : { status: "claim_failed", ok: false, dispatched: false, errorCode: claim.error ?? "no_request" };
   }
 
@@ -226,7 +236,15 @@ export async function runPublishBatch(
 
   for (let i = 0; i < limit; i += 1) {
     const report = await runPublishAttempt(ports, adapters, options);
-    if (report.status === "idle") break;
+    if (report.status === "idle") {
+      // An empty queue is not worth a report and never was. A queue held back
+      // by a disconnected platform is: "nothing happened" and "nothing happened
+      // because four posts are waiting on a reconnection" are different
+      // operational facts, and only the second one needs a human. Kept as the
+      // last element rather than thrown away, then the loop still stops.
+      if (report.withheldForConnection > 0) reports.push(report);
+      break;
+    }
     reports.push(report);
     // A claim that failed for any reason other than "nothing due" means the
     // queue is not answering normally. Stopping is better than hammering it.

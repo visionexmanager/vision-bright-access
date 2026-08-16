@@ -117,8 +117,26 @@ export interface ClaimResult {
   readonly ok: boolean;
   /** Present when `ok` is true. */
   readonly request?: PublishRequest;
-  /** Present when `ok` is false. `no_due_slot` means the queue was empty. */
+  /**
+   * Present when `ok` is false.
+   *
+   * `no_due_slot` means nothing was claimable, which is not the same as the
+   * queue being empty — see the two fields below. `no_connected_account` and
+   * `no_active_account` are the two ways the chosen account can disappear
+   * between the claim predicate and the row being read.
+   */
   readonly error?: string;
+  /**
+   * With `no_due_slot`: how many due slots were withheld because the platform
+   * they are for holds no live OAuth grant.
+   *
+   * The database refuses to claim those, so they cost no attempt — but they
+   * also stop appearing in the queue, and without this the worker would report
+   * an empty calendar and a blocked one identically.
+   */
+  readonly withheldForConnection?: number;
+  /** With `no_due_slot`: which platforms those withheld slots were for. */
+  readonly awaitingConnection?: readonly Platform[];
 }
 
 export interface RpcResult {
@@ -151,7 +169,10 @@ export interface PublishingPorts {
 // inferred from the absence of an error. `ok` is true for exactly one status.
 
 export type AttemptStatus =
-  /** Nothing was due. Not an error. */
+  /**
+   * Nothing was claimable. Not an error — but read `withheldForConnection`
+   * before concluding there was nothing to do.
+   */
   | "idle"
   /** The claim itself failed or was refused. Nothing was dispatched. */
   | "claim_failed"
@@ -182,4 +203,11 @@ export interface AttemptReport {
   readonly errorCode?: string;
   /** Set when the slot needs manual review before any further attempt. */
   readonly needsManualReview?: boolean;
+  /**
+   * Set on `idle`: due slots the database withheld because their platform has
+   * no live OAuth grant. Zero, or absent, means the queue really was empty.
+   */
+  readonly withheldForConnection?: number;
+  /** Set on `idle` alongside the count above. */
+  readonly awaitingConnection?: readonly Platform[];
 }
