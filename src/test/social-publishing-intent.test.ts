@@ -1341,7 +1341,7 @@ describe("PR C1 opens no publishing surface", () => {
     }
   });
 
-  it("orders after both of them, and nothing later redefines its functions", () => {
+  it("orders after both of them, and only one named later migration replaces one", () => {
     const migrations = readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
     const at = (name: string) => migrations.indexOf(name);
     expect(at("20260908000000_social_publishing_intent_and_parking.sql"))
@@ -1349,9 +1349,24 @@ describe("PR C1 opens no publishing surface", () => {
     expect(at("20260907000000_social_publishing_recovery.sql"))
       .toBeGreaterThan(at("20260905000000_social_publishing_core.sql"));
 
+    // Phase 9, step 3 adds the OAuth connection to the claimability rule and
+    // therefore has to restate claim_due_content_slot in full — CREATE OR
+    // REPLACE has no partial form. That is the single exception, and naming the
+    // file here is what keeps it one: any other later migration touching any of
+    // these five, or that file touching a second one, fails this test.
+    // The replacement's own suite asserts it kept the signature, the grants and
+    // a byte-identical success payload.
+    const SUPERSEDED: Record<string, string> = {
+      claim_due_content_slot: "20260911000000_social_claim_requires_connection.sql",
+    };
+
     for (const file of migrations.filter((f) => f > "20260908000000_social_publishing_intent_and_parking.sql")) {
-      expect(readFileSync(`supabase/migrations/${file}`, "utf8"), `${file} redefines a Phase 8 publishing function`)
-        .not.toMatch(/FUNCTION public\.(claim_due_content_slot|record_content_publication|reap_stale_content_publications|requeue_content_slot|mark_publication_dispatched)\(/);
+      const sql = readFileSync(`supabase/migrations/${file}`, "utf8");
+      for (const fn of ["claim_due_content_slot", "record_content_publication",
+        "reap_stale_content_publications", "requeue_content_slot", "mark_publication_dispatched"]) {
+        if (!new RegExp(`FUNCTION public\\.${fn}\\(`).test(sql)) continue;
+        expect(SUPERSEDED[fn], `${file} redefines a Phase 8 publishing function`).toBe(file);
+      }
     }
   });
 });
