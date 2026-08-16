@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { createFakeAdapter, defaultAdapters, notConfiguredAdapter, NOT_CONFIGURED } from "@/lib/publishing/adapters";
 import { runPublishAttempt, runPublishBatch } from "@/lib/publishing/runner";
+import { PLATFORMS } from "@/lib/publishing/types";
 import type {
   ClaimResult,
   Platform,
@@ -792,7 +793,11 @@ describe("the runner publishes once, in one order, and never retries", () => {
 describe("not_configured is never success", () => {
   it("refuses every real platform today", () => {
     const adapters = defaultAdapters();
-    expect([...adapters.keys()].sort()).toEqual(["facebook", "instagram", "tiktok", "youtube"]);
+    // Derived from PLATFORMS rather than frozen as a literal, so adding a
+    // platform cannot quietly leave it without an adapter entry. The literal
+    // list is still pinned — social-platform-vocabulary.test.ts ties PLATFORMS
+    // to the CHECK in the migration, so this is not the code checking itself.
+    expect([...adapters.keys()].sort()).toEqual([...PLATFORMS].sort());
     for (const [platform, adapter] of adapters) {
       const readiness = adapter.readiness({} as PublishRequest);
       expect(readiness.ready, platform).toBe(false);

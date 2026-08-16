@@ -1,6 +1,6 @@
 // Phase 8, PR C1 — the adapters that exist today: none, and a fake.
 //
-// Facebook, Instagram, TikTok and YouTube each return `not_configured`. That is
+// Every platform in PLATFORMS returns `not_configured`. That is
 // the truthful answer and not a placeholder to be filled in casually: a real
 // adapter needs a reviewed app, granted publishing permissions, an assigned
 // asset, a resolved credential and a tested request shape. Visionex has a Meta

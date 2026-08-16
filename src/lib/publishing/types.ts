@@ -5,10 +5,33 @@
 // shape a real adapter will have to satisfy in PR C2, and the ports the runner
 // drives the database through.
 
-/** The four platforms with an external identity. website/newsletter publish themselves. */
-export type Platform = "facebook" | "instagram" | "tiktok" | "youtube";
+/**
+ * The platforms with an external identity. website/newsletter publish
+ * themselves and are absent here for that reason, not by oversight.
+ *
+ * Kept byte-for-byte in step with the CHECK in
+ * 20260909000000_social_platform_vocabulary.sql — a value this union accepts
+ * and the database refuses would fail at INSERT, after the code that built it
+ * had every reason to believe it was valid.
+ */
+export type Platform =
+  | "facebook"
+  | "instagram"
+  | "threads"
+  | "tiktok"
+  | "youtube"
+  | "x"
+  | "linkedin";
 
-export const PLATFORMS: readonly Platform[] = ["facebook", "instagram", "tiktok", "youtube"];
+export const PLATFORMS: readonly Platform[] = [
+  "facebook",
+  "instagram",
+  "threads",
+  "tiktok",
+  "youtube",
+  "x",
+  "linkedin",
+];
 
 /**
  * The account fields claim_due_content_slot() returns. `apiKeyRef` is the NAME

@@ -43,8 +43,17 @@ const SECTIONS = [
 
 const CONTENT_TYPES = ["post", "short_video", "reel", "story", "article", "carousel"] as const;
 
-/** Suggestion targets. Phase 7 dispatches to none of them. */
-const PLATFORMS = ["facebook", "instagram", "tiktok", "youtube", "website", "newsletter"] as const;
+/**
+ * Suggestion targets. Phase 7 dispatches to none of them.
+ *
+ * The order matches content_proposals_platform_check, and the list matches it
+ * exactly: an option this select offers that the CHECK refuses would fail only
+ * after the owner had written the proposal.
+ */
+const PLATFORMS = [
+  "facebook", "instagram", "threads", "tiktok", "youtube", "x", "linkedin",
+  "website", "newsletter",
+] as const;
 
 /** How long a case has been waiting, in words rather than a coloured dot. */
 function waitedFor(iso: string, t: (k: string) => string): string {
