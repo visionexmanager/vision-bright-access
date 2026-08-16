@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Package, FileText, Users, Settings, ShieldCheck, BarChart3,
   Mail, ShieldAlert, Database, ScrollText, Flag, Coins, Bell, AlertTriangle,
-  Gamepad2, Store, Newspaper, GraduationCap, Library, Award, Landmark, LayoutDashboard, Trophy, BookOpen,
+  Gamepad2, Store, Newspaper, GraduationCap, Library, Award, Landmark, LayoutDashboard, Trophy, BookOpen, Link2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -42,6 +42,7 @@ const ADMIN_CARDS = [
   { id: "arcadeEconomy", key: null, icon: Trophy, link: "/admin/arcade-economy", color: "text-amber-500", title: "Arcade Economy", description: "VX, rewards, tournaments and anti-cheat" },
   { id: "kidsCourses", key: null, icon: BookOpen, link: "/admin/kids-courses", color: "text-pink-500" },
   { id: "kidsMarketModeration", key: null, icon: ShieldCheck, link: "/kids/market/moderation", color: "text-red-500" },
+  { id: "socialConnections", key: null, icon: Link2, link: "/admin/social-connections", color: "text-sky-500" },
 ];
 
 export default function AdminDashboard() {

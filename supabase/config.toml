@@ -36,3 +36,16 @@ verify_jwt = false
 # stronger check than the publishable key the gateway would have accepted.
 [functions.whatsapp-webhook]
 verify_jwt = false
+
+# The OAuth callback is a redirect the PLATFORM sends the operator's browser to.
+# Facebook, TikTok and Google cannot attach a Supabase JWT to it, so gateway
+# verification would reject every completed authorisation with 401 before the
+# function ran — the connection would look configured and never finish.
+#
+# The endpoint is not open. Its POST actions verify the caller's real session
+# and admin role, and the GET callback authenticates the sealed `state`: an
+# AES-GCM blob only this function can produce, carrying the admin's id and
+# expiring in ten minutes. A callback with no state, a forged one or an expired
+# one is refused before the authorization code is exchanged.
+[functions.social-oauth]
+verify_jwt = false
