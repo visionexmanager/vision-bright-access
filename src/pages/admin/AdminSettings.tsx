@@ -11,6 +11,35 @@ import { ArrowLeft, Save } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+/**
+ * The settings this screen owns, and the only keys it will ever read or write.
+ *
+ * This list is the fix for a destructive bug. The screen used to `select("*")`
+ * and then save every key it had loaded, which for an admin included
+ * `owner_contact` — a jsonb OBJECT holding the owner's WhatsApp number. Loading
+ * stringified it and saving stringified it a second time, so the object was
+ * written back as a jsonb STRING. After that `value.whatsapp_number` is
+ * `undefined`, the webhook reads no owner at all, and owner control dies
+ * silently. Editing the site name was enough to trigger it.
+ *
+ * Two independent guards, because one is easy to undo by accident:
+ *   1. `load()` fetches only these keys, so nothing else is ever in state.
+ *   2. `handleSave()` iterates THIS list, never `Object.entries(settings)`.
+ *
+ * `owner_contact` is managed in the Owner Control Centre, which is the only
+ * surface that understands its shape. Adding a key here is safe only for a
+ * plain string setting.
+ */
+const MANAGED_KEYS = [
+  "site_name",
+  "hero_title",
+  "hero_highlight",
+  "hero_subtitle",
+  "vx_payment_wishmoney",
+  "vx_payment_omt",
+  "vx_payment_paypal",
+] as const;
+
 export default function AdminSettings() {
   const { t } = useLanguage();
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -18,9 +47,17 @@ export default function AdminSettings() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("site_settings").select("*");
+      const { data } = await supabase
+        .from("site_settings")
+        .select("key, value")
+        .in("key", [...MANAGED_KEYS]);
       const map: Record<string, string> = {};
-      (data ?? []).forEach((s: any) => { map[s.key] = typeof s.value === "string" ? s.value : JSON.stringify(s.value); });
+      (data ?? []).forEach((s: any) => {
+        // Every managed key is a plain string setting. Anything else is
+        // coerced rather than JSON-encoded, so a value can never gain a layer
+        // of quoting by passing through this screen.
+        map[s.key] = typeof s.value === "string" ? s.value : String(s.value ?? "");
+      });
       setSettings(map);
     };
     load();
@@ -28,11 +65,16 @@ export default function AdminSettings() {
 
   const handleSave = async () => {
     setLoading(true);
-    for (const [key, value] of Object.entries(settings)) {
-      const jsonValue = JSON.stringify(value);
+    for (const key of MANAGED_KEYS) {
+      const value = settings[key];
+      // A key the admin never touched is left exactly as it is.
+      if (value === undefined) continue;
       const { data: existing } = await supabase.from("site_settings").select("id").eq("key", key).maybeSingle();
-      if (existing) await supabase.from("site_settings").update({ value: jsonValue }).eq("key", key);
-      else await supabase.from("site_settings").insert({ key, value: jsonValue });
+      // `value` is passed through as a string. supabase-js encodes it once for
+      // the jsonb column; JSON.stringify() here would encode it twice and the
+      // stored value would grow a pair of quotes on every save.
+      if (existing) await supabase.from("site_settings").update({ value }).eq("key", key);
+      else await supabase.from("site_settings").insert({ key, value });
     }
     setLoading(false);
     toast.success(t("admin.settings.saved"));

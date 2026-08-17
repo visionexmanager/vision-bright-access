@@ -13,6 +13,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { proposeContent } from "../_shared/contentEngine.ts";
 import { decideUnlessContentApproval } from "../_shared/content/proposalRules.ts";
+import { normalizePhone } from "../_shared/ownerControl.ts";
 
 type Action =
   | "decide_approval"
@@ -26,7 +27,13 @@ type Action =
   | "decide_proposal"
   | "edit_proposal"
   | "regenerate_proposal"
-  | "schedule_proposal";
+  | "schedule_proposal"
+  // Configuring which handset owns this account. It arrives here for the same
+  // reason every other write does — the admin check below is server-side — and
+  // because merging one key into a jsonb object is a read-modify-write that
+  // must not be done from a browser, where two admins saving at once would
+  // silently drop one of the other keys.
+  | "set_owner_contact";
 
 /** Matches generate_action_reference()'s alphabet and length. */
 const REFERENCE_PATTERN = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/;
@@ -350,6 +357,65 @@ Deno.serve(async (req) => {
         const result = data as { ok?: boolean; error?: string; scheduled_for?: string };
         if (!result?.ok) return json({ ok: false, reason: result?.error ?? "not_approved" }, 409);
         return json({ ok: true, scheduled_for: result.scheduled_for });
+      }
+
+      // ── Owner contact configuration ───────────────────────────────────
+      //
+      // Sets which handset is the owner. Deliberately NOT a new authorization
+      // path: it reuses the admin check above, and it does not touch isOwner(),
+      // command parsing or the rate limit — it only writes the number those
+      // read. Storing a number that cannot be an owner would be worse than
+      // storing none, so the value is validated with the SAME normalizePhone()
+      // the webhook uses, against the same >= 8 digit floor isOwner() applies.
+      case "set_owner_contact": {
+        const raw = typeof body.whatsapp_number === "string" ? body.whatsapp_number : "";
+        const digits = normalizePhone(raw);
+
+        // isOwner() refuses an owner shorter than 8 digits, so accepting one
+        // here would save a number that can never match a sender.
+        if (digits.length < 8) return json({ ok: false, reason: "invalid_number" }, 400);
+        if (digits.length > 15) return json({ ok: false, reason: "invalid_number" }, 400);
+
+        // Read-modify-write: the row holds notification flags alongside the
+        // number and they must survive. A missing row is treated as an empty
+        // object rather than an error, so this works even if the seed migration
+        // never ran.
+        const { data: existing } = await service
+          .from("site_settings")
+          .select("value")
+          .eq("key", "owner_contact")
+          .maybeSingle();
+
+        const current = (existing?.value ?? {}) as Record<string, unknown>;
+        // A previous save may have stored a string instead of an object; in
+        // that case the other keys are already unrecoverable, so start clean
+        // rather than spreading a string into the object.
+        const preserved = (current && typeof current === "object" && !Array.isArray(current))
+          ? current
+          : {};
+
+        const value = { ...preserved, whatsapp_number: digits };
+
+        const { error } = existing
+          ? await service.from("site_settings").update({ value }).eq("key", "owner_contact")
+          : await service.from("site_settings").insert({ key: "owner_contact", value });
+
+        if (error) {
+          console.error("[owner-control] owner contact save failed:", error.message);
+          return json({ error: "The owner number could not be saved" }, 500);
+        }
+
+        // The number itself is never written to the audit log: the log is
+        // readable by every admin and the conversation list already masks it.
+        await service.from("audit_logs").insert({
+          actor_id: user.id,
+          action: "owner_contact_updated",
+          entity_type: "site_setting",
+          entity_id: null,
+          metadata: { via: "admin_ui", digits: digits.length },
+        });
+
+        return json({ ok: true });
       }
 
       default:

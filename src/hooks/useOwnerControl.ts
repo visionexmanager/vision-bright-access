@@ -155,6 +155,7 @@ export function useOwnerControl() {
   const [proposals, setProposals] = useState<ContentProposal[]>([]);
   const [calendar, setCalendar] = useState<CalendarSlot[]>([]);
   const [whatsappStatus, setWhatsappStatus] = useState<WhatsAppStatus>("NOT_CONFIGURED");
+  const [ownerWhatsappNumber, setOwnerNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -185,9 +186,18 @@ export function useOwnerControl() {
       setCalendar((cal.data ?? []) as unknown as CalendarSlot[]);
 
       // "Configured" means an owner number exists. It never says "connected":
-      // that requires a verified Meta integration, which does not exist, and
-      // the browser cannot observe it anyway.
-      const ownerNumber = (settings.data?.value as { whatsapp_number?: string } | null)?.whatsapp_number;
+      // that requires a verified Meta integration, which the browser cannot
+      // observe anyway.
+      //
+      // The shape is checked rather than asserted. `owner_contact` is a jsonb
+      // object, but a bad writer could have left a string there — in which case
+      // there is no owner number, and reporting NOT_CONFIGURED is both true and
+      // the thing that makes the damage visible on screen.
+      const contact = settings.data?.value;
+      const ownerNumber = (contact && typeof contact === "object" && !Array.isArray(contact))
+        ? (contact as { whatsapp_number?: string | null }).whatsapp_number ?? null
+        : null;
+      setOwnerNumber(ownerNumber);
       setWhatsappStatus(ownerNumber ? "CONFIGURED" : "NOT_CONFIGURED");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load the control centre");
@@ -213,8 +223,14 @@ export function useOwnerControl() {
 
   return {
     escalations, approvals, feedback, activity, conversations, whatsappStatus,
-    proposals, calendar,
+    proposals, calendar, ownerWhatsappNumber,
     loading, error, reload: load,
+
+    // Which handset owns this account. It goes through owner-control like every
+    // other write here: the row also holds notification flags, and merging one
+    // key into it is a read-modify-write that belongs on the server.
+    setOwnerWhatsappNumber: (whatsappNumber: string) =>
+      invoke({ action: "set_owner_contact", whatsapp_number: whatsappNumber }),
 
     // Phase 7. Every one of these goes through owner-control for the same
     // reason the decisions above do: the tables have no write policy, so the
