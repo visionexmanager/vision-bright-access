@@ -73,7 +73,7 @@ describe("the function connects and cannot publish", () => {
     // The publishing hosts, none of which belong in a connection flow. An
     // adapter that posts is a later change and a different file.
     for (const host of [
-      "graph.facebook.com/v21.0/me",
+      "graph.facebook.com/v26.0/me",
       "open.tiktokapis.com/v2/post",
       "googleapis.com/upload",
       "api.x.com/2/tweets",

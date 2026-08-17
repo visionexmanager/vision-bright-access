@@ -357,8 +357,18 @@ const PLATFORM_SECRETS: { name: string; impact: string }[] = [
   { name: "LIVEKIT_API_KEY",      impact: "Live voice rooms." },
   { name: "LIVEKIT_API_SECRET",   impact: "Live voice rooms." },
   { name: "LIVEKIT_URL",          impact: "Live voice rooms." },
-  { name: "WHATSAPP_ACCESS_TOKEN",    impact: "Bazaar seller notifications over WhatsApp." },
-  { name: "WHATSAPP_PHONE_NUMBER_ID", impact: "Bazaar seller notifications over WhatsApp." },
+  // WhatsApp Cloud API. The inventory previously listed only the two names the
+  // Bazaar path read, so the four the webhook depends on could be missing in
+  // production without any admin surface saying so — which is exactly what had
+  // happened. All of them are listed now, and WHATSAPP_ACCESS_TOKEN is gone:
+  // it was a second name for WHATSAPP_TOKEN and both send paths now read the
+  // canonical one.
+  { name: "WHATSAPP_TOKEN",           impact: "Sending any WhatsApp message: assistant replies and Bazaar seller notifications." },
+  { name: "WHATSAPP_PHONE_NUMBER_ID", impact: "Sending any WhatsApp message. The Cloud API phone number id, not the phone number." },
+  { name: "WHATSAPP_APP_SECRET",      impact: "Verifying X-Hub-Signature-256. Without it the webhook refuses every delivery with 503." },
+  { name: "WHATSAPP_VERIFY_TOKEN",    impact: "Meta's one-time callback handshake. Without it the callback URL cannot be registered." },
+  { name: "META_APP_ID",              impact: "Facebook and Instagram OAuth. Connections cannot be started without it." },
+  { name: "META_APP_SECRET",          impact: "Facebook and Instagram OAuth token exchange." },
   { name: "CRON_SECRET",          impact: "Scheduled jobs: news generation, trial billing, library background jobs." },
   { name: "LIBRARY_CERTIFICATE_SIGNING_SECRET", impact: "Signing Library completion certificates." },
   { name: "KIDS_CERTIFICATE_SIGNING_SECRET",    impact: "Signing VisionKids certificates." },

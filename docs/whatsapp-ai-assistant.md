@@ -40,10 +40,9 @@ Platform (Cloud API)**, which is set up in Meta's console, not in Git.
 1. A Meta Business account with a verified business.
 2. A WhatsApp Business Platform app in <https://developers.facebook.com>.
 3. A phone number registered to that app. **It cannot be a number already
-   active in the regular WhatsApp or WhatsApp Business app** — the current
-   `+961 70 750 609` would have to be migrated and would stop working as a
-   normal WhatsApp account, or a separate number can be used. Decide this
-   before migrating anything.
+   active in the regular WhatsApp or WhatsApp Business app.** This was settled
+   by taking a separate number rather than migrating the old Lebanese handset:
+   the Cloud API number is `+44 7732 729713`, and the site now links to it.
 4. In the app's WhatsApp → Configuration page, set the callback URL to
    `https://<project-ref>.supabase.co/functions/v1/whatsapp-webhook`, paste the
    same string used for `WHATSAPP_VERIFY_TOKEN`, and subscribe to the
@@ -67,8 +66,39 @@ is skipped, not an error.
 | --- | --- |
 | `WHATSAPP_VERIFY_TOKEN` | Any random string. Also typed into the Meta console for the one-time handshake. |
 | `WHATSAPP_APP_SECRET` | Meta app secret. Verifies that a delivery really came from Meta. |
-| `WHATSAPP_TOKEN` | Permanent System User access token used to send replies. |
+| `WHATSAPP_TOKEN` | Permanent System User access token. Used by **both** send paths. |
 | `WHATSAPP_PHONE_NUMBER_ID` | Cloud API phone number id (not the phone number). |
+
+`WHATSAPP_ACCESS_TOKEN` is **retired**. It was a second name for the same
+credential, read only by `bazaar-notify-seller`, which meant configuring one
+name left the other send path silently dead. Both paths now read
+`WHATSAPP_TOKEN`. Do not reintroduce the old name.
+
+### Confirmed Meta identifiers
+
+None of these are secret and none are read by the runtime — the code takes the
+phone number id from `WHATSAPP_PHONE_NUMBER_ID` and the app id from
+`META_APP_ID`. They are recorded here so the console and the server can be
+checked against each other.
+
+| Item | Value |
+| --- | --- |
+| Meta App (`visionex llc`) | `1423401982996953` |
+| Business portfolio (`visionex.app`) | `1394846605906328` |
+| WABA (`visionex`) | `1997975370907272` |
+| Phone number id | `1315463974979129` |
+| Phone number | `+44 7732 729713` |
+| System user (`visionex_whatsapp_server`) | `61593586373093` |
+| Graph API version | `v26.0` |
+
+The Graph version lives in `supabase/functions/_shared/meta.ts` and is used by
+every Meta call. `META_GRAPH_API_VERSION` overrides it and is intentionally not
+synced by `deploy.yml`; it exists so a retired version can be moved with
+`supabase secrets set` without waiting for a deploy.
+
+`appsecret_proof` is **not implemented**. Leave "Require app secret proof for
+server API calls" switched off in the App Dashboard — turning it on would make
+every Graph call fail with an error that reads like a token problem.
 
 No credential belongs in the source tree, and a test asserts the webhook reads
 all four from the environment.

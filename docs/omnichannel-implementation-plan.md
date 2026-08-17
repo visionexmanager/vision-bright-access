@@ -254,8 +254,9 @@ an accessibility pass, and a production probe — then a PR.
 
 ## 6. Decisions needed before Phase 1 starts
 
-1. **WhatsApp number** — migrate `+961 70 750 609` to Cloud API (it stops
-   working as a normal WhatsApp account) or use a separate number.
+1. ~~**WhatsApp number**~~ — settled: a separate number, `+44 7732 729713`, was
+   taken for the Cloud API rather than migrating `+961 70 750 609`, which would
+   have stopped working as a normal WhatsApp account.
 2. **Main-catalogue orders** — accept "recommend and hand off", or fund a real
    order system for `products` as a separate project.
 3. **Services catalogue** — index the code catalogue (recommended) or migrate
