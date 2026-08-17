@@ -85,6 +85,14 @@ export default function OwnerControlCenter() {
   const [announcement, setAnnouncement] = useState("");
   const detailRef = useRef<HTMLHeadingElement>(null);
 
+  // ── Owner contact ──────────────────────────────────────────────────────
+  // Starts empty rather than pre-filled with the stored number: the field is
+  // for entering a replacement, and the current value is shown masked beside
+  // it, so a full number is never put into a text input a shared screen or a
+  // browser autofill store could keep.
+  const [ownerNumberDraft, setOwnerNumberDraft] = useState("");
+  const [savingOwnerNumber, setSavingOwnerNumber] = useState(false);
+
   // ── Phase 7 content proposals ──────────────────────────────────────────
   const [openProposal, setOpenProposal] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -251,6 +259,59 @@ export default function OwnerControlCenter() {
             <span><strong>{t("owner.pendingCount")}:</strong> {pending.length}</span>
             <span><strong>{t("owner.humanControlledCount")}:</strong> {humanControlled.length}</span>
             <Button variant="outline" size="sm" onClick={() => void control.reload()}>{t("owner.refresh")}</Button>
+          </CardContent>
+        </Card>
+
+        {/* ── Owner WhatsApp number ───────────────────────────────────────
+            Which handset may command the assistant. Until it is set, isOwner()
+            matches nobody and every WhatsApp message is treated as a customer
+            message — so an empty value is a safe default, not a broken one. */}
+        <Card className="mb-6">
+          <CardContent className="space-y-3 p-4">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <label htmlFor="owner-whatsapp-number" className="text-sm font-bold">
+                {t("owner.ownerNumber")}
+              </label>
+              {/* Masked for the same reason the conversation list masks: this
+                  screen is often shared, and the last digits are enough to
+                  confirm which handset is configured. */}
+              <span className="font-mono text-sm" dir="ltr">
+                {control.ownerWhatsappNumber
+                  ? `•••${control.ownerWhatsappNumber.slice(-4)}`
+                  : t("owner.ownerNumberNotSet")}
+              </span>
+            </div>
+            <p id="owner-whatsapp-number-hint" className="text-sm text-muted-foreground">
+              {t("owner.ownerNumberHint")}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                id="owner-whatsapp-number"
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                dir="ltr"
+                aria-describedby="owner-whatsapp-number-hint"
+                className="flex h-10 w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={ownerNumberDraft}
+                onChange={(e) => setOwnerNumberDraft(e.target.value)}
+              />
+              <Button
+                disabled={savingOwnerNumber || ownerNumberDraft.trim() === ""}
+                onClick={async () => {
+                  setSavingOwnerNumber(true);
+                  const result = await control.setOwnerWhatsappNumber(ownerNumberDraft);
+                  setSavingOwnerNumber(false);
+                  if (result.ok) setOwnerNumberDraft("");
+                  // The server is the authority on what a usable owner number
+                  // is, so the message follows its answer rather than a second
+                  // rule written here that could drift from it.
+                  announce(result.ok ? t("owner.ownerNumberSaved") : t("owner.ownerNumberInvalid"));
+                }}
+              >
+                {savingOwnerNumber ? t("admin.settings.saving") : t("admin.settings.save")}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
