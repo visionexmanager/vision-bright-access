@@ -10,6 +10,8 @@
 // What is deliberately NOT here: any token, any client id, any client secret,
 // any account row, any hardcoded redirect for a specific Visionex account.
 
+import { FB_DIALOG_BASE, GRAPH_BASE } from "./meta.ts";
+
 /** The platforms with an external identity, matching social_accounts_platform_check. */
 export type Platform =
   | "facebook" | "instagram" | "threads" | "tiktok" | "youtube" | "x" | "linkedin";
@@ -52,8 +54,8 @@ export interface ProviderConfig {
   readonly blockedReason: string | null;
 }
 
-const META_TOKEN = "https://graph.facebook.com/v21.0/oauth/access_token";
-const META_AUTHORIZE = "https://www.facebook.com/v21.0/dialog/oauth";
+const META_TOKEN = `${GRAPH_BASE}/oauth/access_token`;
+const META_AUTHORIZE = `${FB_DIALOG_BASE}/dialog/oauth`;
 
 export const PROVIDERS: Readonly<Record<Platform, ProviderConfig>> = {
   // Facebook and Instagram are one Meta app with one credential pair. They stay

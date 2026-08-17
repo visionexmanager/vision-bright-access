@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { GRAPH_BASE } from "../_shared/meta.ts";
 
 type BazaarEventType =
   | "message" | "add_to_cart" | "wishlist" | "dispute" | "review" | "report"
@@ -155,11 +156,15 @@ Deno.serve(async (req) => {
     }
 
     if (shop.whatsapp_notifications && shop.whatsapp_number) {
-      const token = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
+      // WHATSAPP_TOKEN, not WHATSAPP_ACCESS_TOKEN. Both names existed and both
+      // meant the same Cloud API credential, so configuring one silently left
+      // the other send path dead. WHATSAPP_TOKEN is the canonical name because
+      // the webhook already uses it and a test asserts it.
+      const token = Deno.env.get("WHATSAPP_TOKEN");
       const phoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
       if (token && phoneNumberId) {
         const cleanPhone = String(shop.whatsapp_number).replace(/[^\d]/g, "");
-        const res = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+        const res = await fetch(`${GRAPH_BASE}/${phoneNumberId}/messages`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,

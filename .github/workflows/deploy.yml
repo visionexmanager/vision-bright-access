@@ -115,7 +115,7 @@ jobs:
       - name: Sync secondary AI provider keys to Supabase
         shell: bash
         run: |
-          for name in ANTHROPIC_API_KEY GEMINI_API_KEY GROQ_API_KEY MISTRAL_API_KEY ELEVENLABS_API_KEY LUMA_API_KEY REPLICATE_API_TOKEN FAL_KEY RESEND_API_KEY RESEND_FROM LIVEKIT_API_KEY LIVEKIT_API_SECRET LIVEKIT_URL STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_WEBHOOK_SECRET_LIBRARY CAREER_STRIPE_WEBHOOK_SECRET PAYPAL_CLIENT_ID PAYPAL_CLIENT_SECRET PAYPAL_WEBHOOK_ID COINBASE_COMMERCE_API_KEY COINBASE_COMMERCE_WEBHOOK_SECRET CRON_SECRET SITE_URL ALLOWED_ORIGINS LIBRARY_CERTIFICATE_SIGNING_SECRET KIDS_CERTIFICATE_SIGNING_SECRET WHATSAPP_VERIFY_TOKEN WHATSAPP_APP_SECRET WHATSAPP_TOKEN WHATSAPP_PHONE_NUMBER_ID WHATSAPP_ACCESS_TOKEN CONTACT_INTERNAL_RECIPIENTS; do
+          for name in ANTHROPIC_API_KEY GEMINI_API_KEY GROQ_API_KEY MISTRAL_API_KEY ELEVENLABS_API_KEY LUMA_API_KEY REPLICATE_API_TOKEN FAL_KEY RESEND_API_KEY RESEND_FROM LIVEKIT_API_KEY LIVEKIT_API_SECRET LIVEKIT_URL STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_WEBHOOK_SECRET_LIBRARY CAREER_STRIPE_WEBHOOK_SECRET PAYPAL_CLIENT_ID PAYPAL_CLIENT_SECRET PAYPAL_WEBHOOK_ID COINBASE_COMMERCE_API_KEY COINBASE_COMMERCE_WEBHOOK_SECRET CRON_SECRET SITE_URL ALLOWED_ORIGINS LIBRARY_CERTIFICATE_SIGNING_SECRET KIDS_CERTIFICATE_SIGNING_SECRET WHATSAPP_VERIFY_TOKEN WHATSAPP_APP_SECRET WHATSAPP_TOKEN WHATSAPP_PHONE_NUMBER_ID META_APP_ID META_APP_SECRET SOCIAL_TOKEN_ENCRYPTION_KEY SOCIAL_OAUTH_STATE_SECRET CONTACT_INTERNAL_RECIPIENTS; do
             value="${!name}"
             if [[ -z "$value" ]]; then
               echo "::notice::GitHub secret $name is not configured — skipping."
@@ -157,11 +157,22 @@ jobs:
           # WhatsApp Cloud API. All four are needed before whatsapp-webhook can
           # answer anyone; until then it verifies signatures and refuses, which
           # is the correct behaviour for an unconfigured public endpoint.
+          # WHATSAPP_TOKEN also drives the Bazaar seller notifications, which
+          # used to read a second name (WHATSAPP_ACCESS_TOKEN) for the same
+          # credential. That name is retired — do not re-add it.
           WHATSAPP_VERIFY_TOKEN:    ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
           WHATSAPP_APP_SECRET:      ${{ secrets.WHATSAPP_APP_SECRET }}
           WHATSAPP_TOKEN:           ${{ secrets.WHATSAPP_TOKEN }}
           WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
-          WHATSAPP_ACCESS_TOKEN:    ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          # Meta app credentials for the Facebook/Instagram OAuth connection
+          # flow, plus the passphrases that seal the state and encrypt stored
+          # tokens. social-oauth reads all four and refuses with
+          # `not_configured` while any is unset — it was never able to receive
+          # them because they were absent from this loop.
+          META_APP_ID:              ${{ secrets.META_APP_ID }}
+          META_APP_SECRET:          ${{ secrets.META_APP_SECRET }}
+          SOCIAL_TOKEN_ENCRYPTION_KEY: ${{ secrets.SOCIAL_TOKEN_ENCRYPTION_KEY }}
+          SOCIAL_OAUTH_STATE_SECRET:   ${{ secrets.SOCIAL_OAUTH_STATE_SECRET }}
           # Optional extra internal recipients for contact-form notifications.
           CONTACT_INTERNAL_RECIPIENTS: ${{ secrets.CONTACT_INTERNAL_RECIPIENTS }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

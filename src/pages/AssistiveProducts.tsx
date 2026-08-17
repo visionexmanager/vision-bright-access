@@ -126,7 +126,7 @@ export default function AssistiveProducts() {
       return `• ${name} → ${t("vep.deliverTo")}: ${country}`;
     });
     const message = `${t("vep.whatsappIntro")}\n\n${lines.join("\n")}`;
-    window.open(`https://wa.me/96170750609?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/447732729713?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   const handleAIConsultant = () => {

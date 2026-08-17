@@ -4,6 +4,8 @@
 // *what* to send can be tested without a Meta account. The webhook itself only
 // wires these together.
 
+import { GRAPH_BASE } from "./meta.ts";
+
 /** Greeting sent once per conversation, before the assistant takes over. */
 export const WELCOME_AR = `أهلاً وسهلاً في Visionex 👋
 شكراً لتواصلك معنا.
@@ -189,7 +191,7 @@ export async function sendWhatsAppText(params: {
   body: string;
 }): Promise<boolean> {
   const res = await fetch(
-    `https://graph.facebook.com/v21.0/${params.phoneNumberId}/messages`,
+    `${GRAPH_BASE}/${params.phoneNumberId}/messages`,
     {
       method: "POST",
       headers: {
