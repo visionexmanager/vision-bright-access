@@ -54,6 +54,9 @@ jobs:
         env:
           WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
           WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          # The logo upload opens a session against the Meta app rather than
+          # the phone number, so publishing a picture needs the app id too.
+          META_APP_ID: ${{ secrets.META_APP_ID }}
         run: node scripts/whatsapp-profile.mjs --${{ inputs.mode }}
 
       # check exits 1 on drift, which is the point of running it — but the

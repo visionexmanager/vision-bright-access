@@ -1,6 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
+
+import { pngSize, squarePng, squarePngProblem } from "../../scripts/lib/square-png.mjs";
 
 // The WhatsApp business profile is the company information every customer sees
 // when they tap the business name: the about line, the description, the support
@@ -26,6 +29,27 @@ const englishCopy = readFileSync("src/i18n/en.ts", "utf8");
 // its key onwards is its prompt. Slicing keeps the assertions off the other
 // assistants, several of which quote a different Visionex address.
 const whatsappPrompt = assistants.slice(assistants.indexOf('"whatsapp-support": assistant('));
+
+/**
+ * Pull the image data out of a PNG, so the padding can be checked on the
+ * scanlines rather than only on the header it also writes.
+ *
+ * Walking the chunks here rather than reusing the helper's own parser is
+ * deliberate: a test that reads the bytes back with the same code that wrote
+ * them would pass on a shared misunderstanding of the format.
+ */
+function idatOf(png: Buffer): Buffer {
+  const parts: Buffer[] = [];
+  let offset = 8;
+  while (offset < png.length) {
+    const length = png.readUInt32BE(offset);
+    const type = png.subarray(offset + 4, offset + 8).toString("ascii");
+    if (type === "IDAT") parts.push(png.subarray(offset + 8, offset + 8 + length));
+    if (type === "IEND") break;
+    offset += 12 + length;
+  }
+  return Buffer.concat(parts);
+}
 
 describe("WhatsApp business profile", () => {
   it("passes the validator the publish workflow runs before it writes", () => {
@@ -94,5 +118,65 @@ describe("WhatsApp business profile", () => {
     // A profile only in English is the one surface that would not.
     expect(profile.description).toMatch(/[؀-ۿ]/);
     expect(profile.description).toMatch(/[A-Za-z]/);
+  });
+});
+
+describe("the profile picture", () => {
+  it("is the logo the website itself serves", () => {
+    // Not a copy of the logo — the same file the browser tab shows. A second
+    // copy is a second thing to update, and the WhatsApp profile is precisely
+    // the surface nobody would think to update.
+    expect(profile.profile_picture).toBe("public/favicon.png");
+    expect(readFileSync("index.html", "utf8")).toContain('href="/favicon.png"');
+  });
+
+  it("is a format the padding can handle", () => {
+    // The padding works on the compressed scanline stream and relies on a zero
+    // byte meaning black, which is true of 8-bit RGB and of nothing else. If
+    // someone re-exports the logo with an alpha channel this fails here rather
+    // than producing a transparent smear on the live profile.
+    const png = readFileSync(profile.profile_picture);
+    expect(png.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    expect(png[24]).toBe(8); // bit depth
+    expect(png[25]).toBe(2); // colour type: truecolour, no alpha
+    expect(png[28]).toBe(0); // not interlaced
+    expect(squarePngProblem(png)).toBeNull();
+  });
+
+  it("pads to a square that still contains every original row", () => {
+    const source = readFileSync(profile.profile_picture);
+    const padded = squarePng(source);
+
+    const before = pngSize(source);
+    const after = pngSize(padded);
+    expect(after.width).toBe(before.width);
+    expect(after.height).toBe(after.width);
+    expect(before.height).toBeLessThan(before.width);
+
+    // Meta's floor, and its ceiling.
+    expect(after.width).toBeGreaterThanOrEqual(192);
+    expect(padded.length).toBeLessThan(5 * 1024 * 1024);
+
+    // Every row of the source survives, and the added rows are black: the
+    // inflated stream is exactly one filter byte plus one RGB triple per pixel
+    // per row, and the bars at top and bottom are all zeros.
+    const stride = after.width * 3 + 1;
+    const raw = inflateSync(idatOf(padded));
+    expect(raw.length).toBe(after.height * stride);
+
+    const bar = (after.height - before.height) / 2;
+    expect(raw.subarray(0, bar * stride).every((byte) => byte === 0)).toBe(true);
+    expect(raw.subarray((bar + before.height) * stride).every((byte) => byte === 0)).toBe(true);
+    // The original band is not blank — the artwork is still in there.
+    expect(raw.subarray(bar * stride, (bar + before.height) * stride).some((b) => b !== 0)).toBe(true);
+  });
+
+  it("refuses an image whose zero byte would not mean black", () => {
+    // Colour type 6 is RGBA, where a zero row is transparent rather than
+    // black. Flipping the header byte is enough to prove the guard reads it.
+    const rgba = Buffer.from(readFileSync(profile.profile_picture));
+    rgba[25] = 6;
+    expect(squarePngProblem(rgba)).toMatch(/8-bit truecolour/);
+    expect(() => squarePng(rgba)).toThrow(/8-bit truecolour/);
   });
 });
