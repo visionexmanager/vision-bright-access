@@ -369,7 +369,22 @@ const PLATFORM_SECRETS: { name: string; impact: string }[] = [
   { name: "WHATSAPP_VERIFY_TOKEN",    impact: "Meta's one-time callback handshake. Without it the callback URL cannot be registered." },
   { name: "META_APP_ID",              impact: "Facebook and Instagram OAuth. Connections cannot be started without it." },
   { name: "META_APP_SECRET",          impact: "Facebook and Instagram OAuth token exchange." },
-  { name: "CRON_SECRET",          impact: "Scheduled jobs: news generation, trial billing, library background jobs." },
+  // The rest of the social publishing credentials. They were missing from this
+  // inventory, and the omission mattered more than the others on this list:
+  // SOCIAL_TOKEN_ENCRYPTION_KEY is the one variable whose absence stops every
+  // connection from being storable at all, and the only place that said so was
+  // the connections screen itself — so the admin dashboard reported a healthy
+  // system while the feature could not work, which is the exact reading this
+  // inventory exists to prevent.
+  //
+  // THREADS_* are listed even though Threads is not configured yet: an
+  // inventory of what the platform needs is more useful than an inventory of
+  // what it happens to have, and "missing" is the correct, actionable answer.
+  { name: "SOCIAL_TOKEN_ENCRYPTION_KEY", impact: "Encrypts every stored social token. Without it no account can be connected and nothing can publish." },
+  { name: "SOCIAL_OAUTH_STATE_SECRET",   impact: "Seals the OAuth state. Optional — falls back to SOCIAL_TOKEN_ENCRYPTION_KEY, so 'missing' here is a hardening gap, not an outage." },
+  { name: "THREADS_APP_ID",              impact: "Threads only. A separate Meta app from META_APP_ID, which does not work in its place." },
+  { name: "THREADS_APP_SECRET",          impact: "Threads OAuth token exchange and long-lived token renewal." },
+  { name: "CRON_SECRET",          impact: "Scheduled jobs: news generation, trial billing, library background jobs, social publishing." },
   { name: "LIBRARY_CERTIFICATE_SIGNING_SECRET", impact: "Signing Library completion certificates." },
   { name: "KIDS_CERTIFICATE_SIGNING_SECRET",    impact: "Signing VisionKids certificates." },
   { name: "SITE_URL",             impact: "Checkout return URLs. Redirects break without it." },
