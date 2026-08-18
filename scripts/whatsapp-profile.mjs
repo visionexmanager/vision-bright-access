@@ -18,6 +18,7 @@
 // credentials, so it also works on a fork.
 
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 import { pngSize, squarePng, squarePngProblem } from "./lib/square-png.mjs";
 
@@ -302,7 +303,28 @@ async function pushProfile({ token, phoneNumberId, base }, profile, pictureHandl
   return Object.keys(payload).filter((key) => key !== "messaging_product");
 }
 
-function normalise(value) {
+/**
+ * Meta stores a URL canonicalised, not as it was sent: `https://visionex.app`
+ * comes back as `https://visionex.app/`. Compared as strings that is drift
+ * that no edit can settle — the file would have to be written in whatever form
+ * Meta happens to normalise to, and the next rule it applies would break it
+ * again. So websites are compared as URLs. `new URL().href` performs the same
+ * canonicalisation, including the trailing slash on a bare origin.
+ */
+export function canonicalUrl(value) {
+  try {
+    return new URL(value).href;
+  } catch {
+    // Not parseable as a URL — compare it as written and let the diff say so.
+    return value;
+  }
+}
+
+export function normalise(field, value) {
+  if (field === "websites") {
+    const list = Array.isArray(value) ? value : value ? [value] : [];
+    return list.map(canonicalUrl).join("\n");
+  }
   if (Array.isArray(value)) return value.join("\n");
   return value === undefined || value === null ? "" : String(value);
 }
@@ -312,8 +334,8 @@ function diff(local, live) {
   let differences = 0;
 
   for (const field of WRITABLE) {
-    const wanted = normalise(local[field]);
-    const actual = normalise(live[field]);
+    const wanted = normalise(field, local[field]);
+    const actual = normalise(field, live[field]);
     if (wanted === actual) {
       console.log(`  = ${field}: matches`);
       continue;
@@ -401,4 +423,6 @@ async function main() {
   process.exit(1);
 }
 
-await main();
+// Run only when invoked directly. Exporting the comparison helpers lets them
+// be unit tested, and an import that also fired a publish would be a trap.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) await main();
