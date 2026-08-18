@@ -31,10 +31,13 @@
 // losing customer messages — and no reply is sent.
 //
 // Required Edge Function secrets:
-//   INSTAGRAM_WEBHOOK_VERIFY_TOKEN - the one-time subscription handshake
-//   INSTAGRAM_APP_SECRET           - signs Instagram Login deliveries
-//   META_APP_SECRET                - signs Messenger (page) deliveries
-//   SOCIAL_TOKEN_ENCRYPTION_KEY    - decrypts the token that sends replies
+//   INSTAGRAM_WEBHOOK_VERIFY_TOKEN          - Instagram subscription handshake
+//   FACEBOOK_MESSENGER_WEBHOOK_VERIFY_TOKEN - Messenger subscription handshake
+//   INSTAGRAM_APP_SECRET                    - signs Instagram Login deliveries
+//   META_APP_SECRET                         - signs Messenger (page) deliveries
+//   INSTAGRAM_ACCESS_TOKEN                  - sends Instagram Direct replies
+//   FACEBOOK_PAGE_ACCESS_TOKEN              - sends Messenger replies
+//   SOCIAL_TOKEN_ENCRYPTION_KEY             - decrypts a stored OAuth grant
 //
 // ── Two app secrets, not one ───────────────────────────────────────────────
 //
@@ -190,18 +193,33 @@ Deno.serve(async (req) => {
   // the two inboxes stay isolated so that rotating one cannot disturb the other.
   if (req.method === "GET") {
     const params = new URL(req.url).searchParams;
-    const verifyToken = env("INSTAGRAM_WEBHOOK_VERIFY_TOKEN");
-    if (!verifyToken) return new Response("Not configured", { status: 503 });
+    // Messenger and Instagram are configured as SEPARATE webhooks in the Meta
+    // console — separate objects, separate field subscriptions, separate verify
+    // tokens — that happen to point at this one callback URL. Each console
+    // screen sends its own token, so both are accepted here.
+    //
+    // Keeping them as two secrets rather than one is what makes the channels
+    // independently revocable: rotating Messenger's token cannot break the
+    // Instagram subscription, and neither can touch WhatsApp's.
+    const verifyTokens = [
+      env("FACEBOOK_MESSENGER_WEBHOOK_VERIFY_TOKEN"),
+      env("INSTAGRAM_WEBHOOK_VERIFY_TOKEN"),
+    ].filter((value): value is string => typeof value === "string" && value !== "");
+
+    if (verifyTokens.length === 0) return new Response("Not configured", { status: 503 });
 
     const mode = params.get("hub.mode");
     const provided = params.get("hub.verify_token");
     const challenge = params.get("hub.challenge");
 
-    // Compared in constant time. The comparison is short and the attacker is
-    // remote, so the practical risk is slight — but this is the one place a
-    // secret is compared to caller-supplied input, and the cheap form is the
-    // one that stays correct if the token is ever lengthened.
-    if (mode === "subscribe" && provided !== null && constantTimeEquals(provided, verifyToken)) {
+    // Compared in constant time, and every candidate is compared even after a
+    // match, so the reply time does not reveal WHICH channel's token was sent.
+    let matched = false;
+    for (const candidate of verifyTokens) {
+      if (provided !== null && constantTimeEquals(provided, candidate)) matched = true;
+    }
+
+    if (mode === "subscribe" && matched) {
       // Meta requires the challenge echoed verbatim. A subscribe with no
       // challenge is malformed, and answering 200 with an empty body would let
       // Meta record the subscription as verified when nothing was proved.
@@ -352,8 +370,14 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (!token && incoming.channel === "instagram") {
-        token = env("INSTAGRAM_ACCESS_TOKEN") ?? null;
+      if (!token) {
+        // Per-channel, and never shared. A Page token cannot send as Instagram
+        // and an Instagram User token cannot post to a page, so falling back to
+        // "whichever token exists" would produce an error that reads like a
+        // permission problem on the wrong channel.
+        token = incoming.channel === "instagram"
+          ? env("INSTAGRAM_ACCESS_TOKEN") ?? null
+          : env("FACEBOOK_PAGE_ACCESS_TOKEN") ?? null;
       }
 
       if (!token) {
