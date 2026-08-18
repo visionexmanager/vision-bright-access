@@ -499,9 +499,9 @@ describe("the verification handshake", () => {
 
   it("echoes the challenge only when the token matches, in constant time", () => {
     expect(webhook).toContain('mode === "subscribe"');
-    expect(webhook).toContain("constantTimeEquals(provided, verifyToken)");
+    expect(webhook).toContain("constantTimeEquals(provided, candidate)");
     // Not a plain === against the secret.
-    expect(webhook).not.toMatch(/provided\s*===\s*verifyToken/);
+    expect(webhook).not.toMatch(/provided\s*===\s*(verifyToken|candidate)/);
     expect(webhook).toContain("new Response(challenge, { status: 200 })");
   });
 
@@ -513,8 +513,8 @@ describe("the verification handshake", () => {
     expect(webhook).toContain('new Response("Bad Request", { status: 400 })');
   });
 
-  it("refuses when the verify token is not configured", () => {
-    expect(webhook).toMatch(/if \(!verifyToken\) return new Response\("Not configured", \{ status: 503 \}\)/);
+  it("refuses when no verify token is configured", () => {
+    expect(webhook).toMatch(/verifyTokens\.length === 0[\s\S]{0,120}status: 503/);
   });
 });
 
@@ -535,5 +535,50 @@ describe("two app secrets, because there are two apps", () => {
   it("verifies over the raw body with the shared HMAC helper", () => {
     expect(webhook).toContain("verifySignature(rawBody,");
     expect(webhook).toContain("await req.text()");
+  });
+});
+
+describe("Messenger is its own channel, sharing one endpoint", () => {
+  it("accepts either channel's verify token on the shared callback URL", () => {
+    // Meta configures the `page` and `instagram` webhooks as separate
+    // subscriptions that happen to point at this one URL, and each console
+    // screen sends its own token.
+    expect(webhook).toContain('env("FACEBOOK_MESSENGER_WEBHOOK_VERIFY_TOKEN")');
+    expect(webhook).toContain('env("INSTAGRAM_WEBHOOK_VERIFY_TOKEN")');
+    expect(webhook).toContain("verifyTokens");
+  });
+
+  it("compares every candidate, so timing does not reveal which channel matched", () => {
+    // Scoped to the comparison loop itself: the lines above it legitimately
+    // return early when no token is configured at all.
+    const loop = webhook.slice(
+      webhook.indexOf("for (const candidate of verifyTokens)"),
+      webhook.indexOf('if (mode === "subscribe"'),
+    );
+    expect(loop).toContain("constantTimeEquals(provided, candidate)");
+    // No early exit once one matches.
+    expect(loop).not.toMatch(/\bbreak\b|\breturn\b/);
+  });
+
+  it("keeps the two send credentials strictly per channel", () => {
+    // A Page token cannot send as Instagram and an Instagram User token cannot
+    // post to a page. Falling back to whichever exists would fail on the wrong
+    // channel with a permission-shaped error.
+    expect(webhook).toContain('env("FACEBOOK_PAGE_ACCESS_TOKEN")');
+    expect(webhook).toContain('env("INSTAGRAM_ACCESS_TOKEN")');
+    expect(webhook).toMatch(/incoming\.channel === "instagram"\s*\?\s*env\("INSTAGRAM_ACCESS_TOKEN"\)/);
+  });
+
+  it("still reads none of WhatsApp's secrets", () => {
+    for (const secret of ["WHATSAPP_VERIFY_TOKEN", "WHATSAPP_APP_SECRET",
+      "WHATSAPP_TOKEN", "WHATSAPP_PHONE_NUMBER_ID"]) {
+      expect(webhook, secret).not.toContain(`env("${secret}")`);
+    }
+  });
+
+  it("inventories both Messenger secrets so a missing one is visible", () => {
+    const health = readFileSync("supabase/functions/health-check/index.ts", "utf8");
+    expect(health).toContain('name: "FACEBOOK_MESSENGER_WEBHOOK_VERIFY_TOKEN"');
+    expect(health).toContain('name: "FACEBOOK_PAGE_ACCESS_TOKEN"');
   });
 });
