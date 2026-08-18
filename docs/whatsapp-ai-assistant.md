@@ -103,6 +103,57 @@ every Graph call fail with an error that reads like a token problem.
 No credential belongs in the source tree, and a test asserts the webhook reads
 all four from the environment.
 
+## The business profile
+
+What a customer sees when they tap the business name — the about line, the
+description, the support address, the websites, the industry — is public
+company information. WhatsApp Manager will happily let it be typed in by hand,
+which leaves no review, no history, and no way to tell whether what is live is
+still what anyone agreed to. So it lives in the repository, in
+`supabase/functions/_shared/business-profile.json`, and
+`scripts/whatsapp-profile.mjs` is the only thing that writes it.
+
+| Field | Limit | What it is |
+| --- | --- | --- |
+| `about` | 139 chars | The line under the business name. |
+| `description` | 512 chars | The paragraph on the profile. Bilingual. |
+| `email` | 128 chars | `support@visionex.app`. One address only — the API has no second field. |
+| `websites` | 2 entries, 256 chars each | `https://visionex.app` and the contact form. |
+| `vertical` | enum | `PROF_SERVICES`. An unlisted value is rejected without listing the valid ones. |
+| `address` | 256 chars | Deliberately empty — Visionex has no walk-in office. |
+
+**The Cloud API has no field for business hours.** Opening hours are a feature
+of the WhatsApp Business *app*, not of the Business Platform, and no amount of
+looking for the field will produce one. Support hours are therefore stated in
+`description`, and the `whatsapp-support` prompt in `_shared/assistants.ts` is
+given the same facts so the assistant answers "when are you open?" with what
+the profile claims. `src/test/whatsapp-business-profile.test.ts` fails if the
+profile, the prompt, and the Contact page copy in `src/i18n/en.ts` drift apart
+on the hours or the response time.
+
+The **profile picture is not managed here**. Setting it needs a resumable
+upload handle rather than a plain field, so the logo is uploaded once in
+WhatsApp Manager; `--check` reports whether one is set.
+
+### Publishing
+
+Run **WhatsApp Business Profile** from the Actions tab:
+
+- `mode: check` — reads the live profile and reports every field that differs
+  from the file. Fails the run on drift. Safe at any time; it writes nothing.
+- `mode: push` — writes the file to Meta, then reads it back and diffs, so a
+  write Meta accepted but did not apply is a red run rather than a silent one.
+
+It is manual on purpose and is not part of Deploy: rewriting what customers
+read on the profile is a communications decision, not a side effect of shipping
+code. The job runs in Actions rather than on a laptop because `WHATSAPP_TOKEN`
+is a permanent System User token — running it locally means copying that token
+out of the secret store and into a shell history.
+
+`npm run whatsapp:profile` validates the file offline, with no credentials and
+no network. It is what the workflow runs before it touches Meta, and what the
+test suite runs in CI.
+
 ## Behaviour before the credentials exist
 
 The function is deployed and inert, and fails in the safe direction:

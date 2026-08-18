@@ -1,0 +1,67 @@
+name: WhatsApp Business Profile
+
+# Publishes supabase/functions/_shared/business-profile.json to the WhatsApp
+# Cloud API.
+#
+# Manual only, and deliberately not part of Deploy. The profile is public-facing
+# company information — the description, the support email, the industry — and
+# changing it is a communications decision, not a side effect of shipping code.
+# A merge should never rewrite what customers read on the profile without
+# someone choosing to publish it.
+#
+# It runs here rather than on a laptop because WHATSAPP_TOKEN is a permanent
+# System User token with send permissions on the WABA. Reaching it from a shell
+# means copying it out of the secret store and onto a machine, where it lives in
+# a history file. In a workflow it stays in the secret store and is masked in
+# the log.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check reads the live profile and reports drift; push writes the file to Meta."
+        type: choice
+        default: check
+        options:
+          - check
+          - push
+
+concurrency:
+  group: whatsapp-profile
+  cancel-in-progress: false
+
+jobs:
+  profile:
+    name: ${{ inputs.mode == 'push' && 'Publish the profile' || 'Check the live profile' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      # No `npm ci`. The script imports node:fs and calls global fetch, and
+      # nothing else — installing the repository's full dependency tree to run
+      # one file would be a minute of CI for no benefit, and it is the reason
+      # this job can be dispatched during an npm registry outage.
+      - name: Validate the profile before touching Meta
+        run: node scripts/whatsapp-profile.mjs --validate
+
+      - name: ${{ inputs.mode == 'push' && 'Push and read back' || 'Check for drift' }}
+        env:
+          WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+        run: node scripts/whatsapp-profile.mjs --${{ inputs.mode }}
+
+      # check exits 1 on drift, which is the point of running it — but the
+      # difference between "drifted" and "the token expired" is not obvious from
+      # a red X, so say which one to look for.
+      - name: Explain a failure
+        if: failure()
+        run: |
+          echo "::notice::check fails when the live profile differs from business-profile.json."
+          echo "::notice::Re-run with mode=push to publish the file, or fix the file to match what is live."
+          echo "::notice::An authentication error instead means WHATSAPP_TOKEN has expired — regenerate it for the System User."
