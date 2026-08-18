@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "De actie is niet voltooid.",
   "admin.dashboard.card.socialConnections.title": "Sociale verbindingen",
   "admin.dashboard.card.socialConnections.desc": "Verbind en bewaak de publicatieaccounts",
+  "social.connections.recordReview": "Platformbeoordeling vastleggen",
+  "social.connections.reviewRecorded": "Platformbeoordeling vastgelegd.",
+  "social.connections.reviewHint": "Leg de beoordeling vast zodra u in de console van het platform hebt bevestigd dat deze app namens dit account mag publiceren.",
+  "social.connections.activate": "Publiceren activeren",
+  "social.connections.activated": "Publiceren geactiveerd.",
+  "social.connections.deactivate": "Publiceren pauzeren",
+  "social.connections.deactivated": "Publiceren gepauzeerd.",
+  "social.outcome.upgradeFailed": "Het account is geautoriseerd, maar de publicatiereferentie kon niet worden opgehaald. Verbind het opnieuw.",
+  "social.outcome.noPages": "Dit account beheert geen pagina waarop Visionex kan publiceren.",
+  "social.outcome.pageNotMatched": "Geen pagina kwam overeen met die naam. Voer de exacte paginanaam of ID in en verbind opnieuw.",
+  "social.outcome.instagramMissing": "Er is geen professioneel Instagram-account aan die pagina gekoppeld.",
+  "social.error.refresh_not_supported": "Dit platform geeft geen vernieuwingstoken uit. De opgeslagen referentie verloopt niet; verbind opnieuw als deze stopt met werken.",
+  "social.error.review_not_recorded": "Leg de platformbeoordeling vast voordat u dit account activeert.",
+  "social.error.publishing_not_granted": "Het platform heeft de publicatietoestemming niet verleend, dus dit account kan niet worden geactiveerd.",
+  "social.error.api_key_ref_missing": "Voor dit account is geen geheimnaam vastgelegd. Leg eerst de platformbeoordeling vast.",
+  "social.error.not_connected": "Dit account heeft geen actieve machtiging. Verbind het voordat u het activeert.",
+  "social.error.threads_refresh_failed": "Het Threads-token kon niet worden verlengd. Probeer het later opnieuw of verbind het account opnieuw.",
 };
 
 export default translations;

@@ -16,6 +16,7 @@ import { PLATFORMS } from "@/lib/publishing/types";
 
 const registry = readFileSync("supabase/functions/_shared/socialOauth.ts", "utf8");
 const fn = readFileSync("supabase/functions/social-oauth/index.ts", "utf8");
+const grant = readFileSync("supabase/functions/_shared/metaGrant.ts", "utf8");
 const config = readFileSync("supabase/config.toml", "utf8");
 const deploy = readFileSync("scripts/deploy-changed-supabase-functions.sh", "utf8");
 const app = readFileSync("src/App.tsx", "utf8");
@@ -70,16 +71,27 @@ describe("the registry names secrets and holds none", () => {
 
 describe("the function connects and cannot publish", () => {
   it("contacts no content API", () => {
-    // The publishing hosts, none of which belong in a connection flow. An
+    // The publishing endpoints, none of which belong in a connection flow. An
     // adapter that posts is a later change and a different file.
-    for (const host of [
-      "graph.facebook.com/v26.0/me",
+    //
+    // This list named `graph.facebook.com/v26.0/me` until step 4. That was too
+    // broad to survive contact with how Meta actually works: obtaining a page
+    // token REQUIRES reading /me/accounts, and without it the flow stores a
+    // user token that cannot post to a page. The `/me` prefix was standing in
+    // for `/me/feed`, so the publishing edges are now named directly and the
+    // identity read is allowed — it is the OAuth flow finishing its own job,
+    // not a content API.
+    for (const endpoint of [
+      "/me/feed",
+      "/media_publish",
+      "/threads_publish",
       "open.tiktokapis.com/v2/post",
       "googleapis.com/upload",
       "api.x.com/2/tweets",
       "api.linkedin.com/rest/posts",
     ]) {
-      expect(fn).not.toContain(host);
+      expect(fn, endpoint).not.toContain(endpoint);
+      expect(grant, endpoint).not.toContain(endpoint);
     }
   });
 
@@ -99,8 +111,12 @@ describe("the function connects and cannot publish", () => {
   it("only calls the three token-store functions and the status function", () => {
     const calls = [...fn.matchAll(/\.rpc\("([a-z_]+)"/g)].map((m) => m[1]);
     expect([...new Set(calls)].sort()).toEqual([
+      // Added in step 5. Neither publishes; both are the administrative
+      // decisions that stand between a connected account and a publishing one.
+      "record_social_account_review",
       "resolve_social_account_token",
       "revoke_social_account_token",
+      "set_social_account_status",
       "social_connection_status",
       "store_social_account_token",
     ]);
@@ -108,9 +124,33 @@ describe("the function connects and cannot publish", () => {
 
   it("creates accounts as unverified, so a connection grants nothing", () => {
     expect(fn).toContain('status: "unverified"');
-    // The two columns that would let an account go active are not written here.
-    expect(fn).not.toContain("review_completed_at:");
-    expect(fn).not.toMatch(/status:\s*"active"/);
+    // Still true, and now the load-bearing half of the claim: the CALLBACK
+    // grants nothing. Step 5 added an activation path, but it is a separate
+    // admin action behind its own database function, not something completing
+    // an authorisation can reach.
+    const callback = fn.slice(fn.indexOf('if (req.method === "GET")'), fn.indexOf('if (req.method !== "POST")'));
+    expect(callback).not.toContain("review_completed_at");
+    expect(callback).not.toContain("set_social_account_status");
+    expect(callback).not.toMatch(/status:\s*"active"/);
+  });
+
+  it("keeps recording a review separate from activating an account", () => {
+    // One button doing both would mean a single click that both attests a
+    // review happened and starts publishing on the strength of that claim.
+    expect(fn).toContain('if (action === "record_review")');
+    expect(fn).toContain('if (action === "set_status")');
+    // The review function must not switch anything on by itself.
+    const review = fn.slice(fn.indexOf('if (action === "record_review")'), fn.indexOf('if (action === "set_status")'));
+    expect(review).not.toContain("set_social_account_status");
+    expect(review).not.toMatch(/status:\s*"active"/);
+  });
+
+  it("derives the secret name instead of accepting one from the browser", () => {
+    // api_key_ref names an app-level secret. A free-text field for it on an
+    // admin screen is how a real credential ends up pasted into a column that
+    // is only ever supposed to hold its name.
+    expect(fn).toContain("_api_key_ref: provider.clientSecretEnv");
+    expect(screen).not.toMatch(/api_key_ref:\s/);
   });
 });
 

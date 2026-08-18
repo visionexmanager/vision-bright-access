@@ -18,7 +18,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  AlertTriangle, ArrowLeft, CheckCircle2, Clock, Link2, Loader2, Plug, RefreshCw, Unplug,
+  AlertTriangle, ArrowLeft, CheckCircle2, ClipboardCheck, Clock, Link2, Loader2, Plug,
+  Power, PowerOff, RefreshCw, Unplug,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Layout } from "@/components/Layout";
@@ -39,6 +40,13 @@ type ProviderRow = {
   blocked_reason: string | null;
   requested_scopes: string[];
   publish_scope: string;
+  /**
+   * How this grant is kept alive, which the screen cannot infer. `can_refresh`
+   * on the account reports whether a refresh TOKEN is stored, and that answers
+   * the wrong question for Meta: Threads renews without one, and Facebook can
+   * never be refreshed even though nothing is visibly absent.
+   */
+  refresh_strategy: "oauth2" | "threads" | "none";
 };
 
 type AccountRow = {
@@ -52,6 +60,8 @@ type AccountRow = {
   can_refresh: boolean;
   publishing_permission_granted: boolean;
   review_completed_at: string | null;
+  /** Whether a secret NAME is recorded. Never the name, and never a value. */
+  api_key_ref_present: boolean;
   last_connected_at: string | null;
   health_score: number;
   consecutive_failures: number;
@@ -91,6 +101,16 @@ const OUTCOMES: Record<string, { tone: "success" | "warning" | "error"; key: str
   token_exchange_rejected: { tone: "error", key: "failed" },
   token_response_unreadable: { tone: "error", key: "failed" },
   token_response_missing_access_token: { tone: "error", key: "failed" },
+  // The grant upgrade — the step between "the platform authorised this" and
+  // "Visionex holds something that can post". These are kept apart from the
+  // generic failure above because each has a different remedy, and three of
+  // them are fixed in Meta rather than by retrying here.
+  long_lived_exchange_failed: { tone: "error", key: "upgradeFailed" },
+  page_list_failed: { tone: "error", key: "upgradeFailed" },
+  threads_exchange_failed: { tone: "error", key: "upgradeFailed" },
+  no_pages_available: { tone: "error", key: "noPages" },
+  page_not_matched: { tone: "error", key: "pageNotMatched" },
+  instagram_account_missing: { tone: "error", key: "instagramMissing" },
 };
 
 /** Action errors that have their own remedy. Everything else is generic. */
@@ -101,6 +121,14 @@ const ACTION_ERRORS = new Set([
   "reconnect_required",
   "no_refresh_token",
   "linkedin_company_page_missing",
+  "refresh_not_supported",
+  // The activation checklist. Each names the next thing to fix, in the order
+  // set_social_account_status() checks them.
+  "review_not_recorded",
+  "publishing_not_granted",
+  "api_key_ref_missing",
+  "not_connected",
+  "threads_refresh_failed",
 ]);
 
 function errorKey(code: unknown): string {
@@ -203,6 +231,40 @@ export default function AdminSocialConnections() {
     if (!data) return;
     if (data.ok) toast.success(t("social.connections.refreshed"));
     else toast.error(t(errorKey(data.error)));
+    await load();
+  };
+
+  /**
+   * Attest that a human checked the platform's own console.
+   *
+   * Separate from activation on purpose: this records evidence, activation acts
+   * on it. One button doing both would mean a single click that both claims a
+   * review happened and starts publishing on the strength of that claim.
+   */
+  const recordReview = async (account: AccountRow) => {
+    const data = await call(account.account_id, {
+      action: "record_review", account_id: account.account_id,
+    });
+    if (!data) return;
+    if (data.ok) toast.success(t("social.connections.reviewRecorded"));
+    else toast.error(t(errorKey(data.error)));
+    await load();
+  };
+
+  const changeStatus = async (account: AccountRow, status: "active" | "disabled") => {
+    const data = await call(account.account_id, {
+      action: "set_status", account_id: account.account_id, status,
+    });
+    if (!data) return;
+    if (data.ok) {
+      toast.success(t(status === "active"
+        ? "social.connections.activated"
+        : "social.connections.deactivated"));
+    } else {
+      // The refusal names the missing precondition rather than reporting a
+      // generic failure, so the operator learns what to do next.
+      toast.error(t(errorKey(data.error)));
+    }
     await load();
   };
 
@@ -357,6 +419,14 @@ export default function AdminSocialConnections() {
                         </p>
                       )}
 
+                      {/* Says what "record a review" is actually attesting to,
+                          next to the button that does it. */}
+                      {account && !account.review_completed_at && (
+                        <p className="mt-3 text-sm text-muted-foreground">
+                          {t("social.connections.reviewHint")}
+                        </p>
+                      )}
+
                       <div className="mt-4 flex flex-wrap items-end gap-3">
                         {!account && provider.configured && !provider.blocked_reason && (
                           <div className="min-w-[14rem] flex-1">
@@ -387,7 +457,17 @@ export default function AdminSocialConnections() {
                           </Button>
                         )}
 
-                        {account?.can_refresh && (
+                        {/* Offered only where a refresh actually exists.
+                            `can_refresh` alone would show the button for
+                            Facebook, where pressing it can only ever fail, and
+                            hide it for Threads, where it works without a
+                            refresh token being stored. */}
+                        {account && (
+                          provider.refresh_strategy === "oauth2"
+                            ? account.can_refresh
+                            : provider.refresh_strategy === "threads"
+                              && account.connection !== "not_connected"
+                        ) && (
                           <Button
                             variant="outline"
                             onClick={() => void refresh(account)}
@@ -395,6 +475,42 @@ export default function AdminSocialConnections() {
                           >
                             <RefreshCw className="me-2 h-4 w-4" aria-hidden="true" />
                             {t("social.connections.refresh")}
+                          </Button>
+                        )}
+
+                        {/* The step that was missing entirely: without a
+                            recorded review no account can ever be activated,
+                            and without activation nothing can be published. */}
+                        {account && !account.review_completed_at && (
+                          <Button
+                            variant="outline"
+                            onClick={() => void recordReview(account)}
+                            disabled={working}
+                          >
+                            <ClipboardCheck className="me-2 h-4 w-4" aria-hidden="true" />
+                            {t("social.connections.recordReview")}
+                          </Button>
+                        )}
+
+                        {account && account.status !== "active" && (
+                          <Button
+                            variant="outline"
+                            onClick={() => void changeStatus(account, "active")}
+                            disabled={working}
+                          >
+                            <Power className="me-2 h-4 w-4" aria-hidden="true" />
+                            {t("social.connections.activate")}
+                          </Button>
+                        )}
+
+                        {account && account.status === "active" && (
+                          <Button
+                            variant="outline"
+                            onClick={() => void changeStatus(account, "disabled")}
+                            disabled={working}
+                          >
+                            <PowerOff className="me-2 h-4 w-4" aria-hidden="true" />
+                            {t("social.connections.deactivate")}
                           </Button>
                         )}
 

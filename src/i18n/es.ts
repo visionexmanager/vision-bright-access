@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "La acción no se completó.",
   "admin.dashboard.card.socialConnections.title": "Conexiones sociales",
   "admin.dashboard.card.socialConnections.desc": "Conecta y supervisa las cuentas de publicación",
+  "social.connections.recordReview": "Registrar la revisión de la plataforma",
+  "social.connections.reviewRecorded": "Revisión de la plataforma registrada.",
+  "social.connections.reviewHint": "Registra la revisión una vez que hayas confirmado en la consola de la plataforma que esta aplicación puede publicar como esta cuenta.",
+  "social.connections.activate": "Activar la publicación",
+  "social.connections.activated": "Publicación activada.",
+  "social.connections.deactivate": "Pausar la publicación",
+  "social.connections.deactivated": "Publicación pausada.",
+  "social.outcome.upgradeFailed": "La cuenta fue autorizada, pero no se pudo obtener la credencial de publicación. Vuelve a conectarla.",
+  "social.outcome.noPages": "Esta cuenta no administra ninguna página en la que Visionex pueda publicar.",
+  "social.outcome.pageNotMatched": "Ninguna página coincidió con ese identificador. Introduce el nombre o ID exacto de la página y vuelve a conectar.",
+  "social.outcome.instagramMissing": "No hay ninguna cuenta profesional de Instagram vinculada a esa página.",
+  "social.error.refresh_not_supported": "Esta plataforma no emite ningún token de actualización. La credencial guardada no caduca; vuelve a conectar si deja de funcionar.",
+  "social.error.review_not_recorded": "Registra la revisión de la plataforma antes de activar esta cuenta.",
+  "social.error.publishing_not_granted": "La plataforma no concedió el permiso de publicación, por lo que esta cuenta no puede activarse.",
+  "social.error.api_key_ref_missing": "No hay ningún nombre de secreto registrado para esta cuenta. Registra primero la revisión de la plataforma.",
+  "social.error.not_connected": "Esta cuenta no tiene ninguna concesión activa. Conéctala antes de activarla.",
+  "social.error.threads_refresh_failed": "No se pudo extender el token de Threads. Inténtalo más tarde o vuelve a conectar la cuenta.",
 };
 
 export default translations;

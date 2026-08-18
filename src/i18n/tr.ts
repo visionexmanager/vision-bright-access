@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "İşlem tamamlanmadı.",
   "admin.dashboard.card.socialConnections.title": "Sosyal bağlantılar",
   "admin.dashboard.card.socialConnections.desc": "Yayın hesaplarını bağlayın ve izleyin",
+  "social.connections.recordReview": "Platform incelemesini kaydet",
+  "social.connections.reviewRecorded": "Platform incelemesi kaydedildi.",
+  "social.connections.reviewHint": "Bu uygulamanın bu hesap adına yayınlayabildiğini platformun kendi konsolunda doğruladıktan sonra incelemeyi kaydedin.",
+  "social.connections.activate": "Yayınlamayı etkinleştir",
+  "social.connections.activated": "Yayınlama etkinleştirildi.",
+  "social.connections.deactivate": "Yayınlamayı duraklat",
+  "social.connections.deactivated": "Yayınlama duraklatıldı.",
+  "social.outcome.upgradeFailed": "Hesap yetkilendirildi, ancak yayınlama kimlik bilgisi alınamadı. Yeniden bağlayın.",
+  "social.outcome.noPages": "Bu hesap, Visionex'in yayın yapabileceği bir sayfayı yönetmiyor.",
+  "social.outcome.pageNotMatched": "Bu adla eşleşen bir sayfa yok. Sayfanın tam adını veya kimliğini girip yeniden bağlanın.",
+  "social.outcome.instagramMissing": "Bu sayfaya bağlı bir Instagram profesyonel hesabı yok.",
+  "social.error.refresh_not_supported": "Bu platform yenileme belirteci vermez. Saklanan kimlik bilgisi süresiz geçerlidir; çalışmayı bırakırsa yeniden bağlanın.",
+  "social.error.review_not_recorded": "Bu hesabı etkinleştirmeden önce platform incelemesini kaydedin.",
+  "social.error.publishing_not_granted": "Platform yayınlama iznini vermedi, bu nedenle bu hesap etkinleştirilemez.",
+  "social.error.api_key_ref_missing": "Bu hesap için kayıtlı bir gizli anahtar adı yok. Önce platform incelemesini kaydedin.",
+  "social.error.not_connected": "Bu hesabın etkin bir izni yok. Etkinleştirmeden önce bağlayın.",
+  "social.error.threads_refresh_failed": "Threads belirteci uzatılamadı. Daha sonra deneyin veya hesabı yeniden bağlayın.",
 };
 
 export default translations;

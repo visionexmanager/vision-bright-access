@@ -6394,6 +6394,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "কাজটি সম্পূর্ণ হয়নি।",
   "admin.dashboard.card.socialConnections.title": "সোশ্যাল সংযোগ",
   "admin.dashboard.card.socialConnections.desc": "প্রকাশনা অ্যাকাউন্ট সংযুক্ত ও পর্যবেক্ষণ করুন",
+  "social.connections.recordReview": "প্ল্যাটফর্ম পর্যালোচনা রেকর্ড করুন",
+  "social.connections.reviewRecorded": "প্ল্যাটফর্ম পর্যালোচনা রেকর্ড করা হয়েছে।",
+  "social.connections.reviewHint": "প্ল্যাটফর্মের নিজস্ব কনসোলে নিশ্চিত করার পরে পর্যালোচনা রেকর্ড করুন যে এই অ্যাপটি এই অ্যাকাউন্ট হিসেবে প্রকাশ করতে পারে।",
+  "social.connections.activate": "প্রকাশনা সক্রিয় করুন",
+  "social.connections.activated": "প্রকাশনা সক্রিয় করা হয়েছে।",
+  "social.connections.deactivate": "প্রকাশনা বিরতি দিন",
+  "social.connections.deactivated": "প্রকাশনা বিরতি দেওয়া হয়েছে।",
+  "social.outcome.upgradeFailed": "অ্যাকাউন্টটি অনুমোদিত হয়েছে, কিন্তু প্রকাশনার শংসাপত্র পাওয়া যায়নি। আবার সংযুক্ত করুন।",
+  "social.outcome.noPages": "এই অ্যাকাউন্টটি এমন কোনও পেজ পরিচালনা করে না যেখানে Visionex প্রকাশ করতে পারে।",
+  "social.outcome.pageNotMatched": "সেই হ্যান্ডেলের সঙ্গে কোনও পেজ মেলেনি। পেজের সঠিক নাম বা আইডি লিখে আবার সংযুক্ত করুন।",
+  "social.outcome.instagramMissing": "সেই পেজের সঙ্গে কোনও Instagram পেশাদার অ্যাকাউন্ট যুক্ত নেই।",
+  "social.error.refresh_not_supported": "এই প্ল্যাটফর্ম কোনও রিফ্রেশ টোকেন ইস্যু করে না। সংরক্ষিত শংসাপত্রের মেয়াদ শেষ হয় না; কাজ করা বন্ধ করলে আবার সংযুক্ত করুন।",
+  "social.error.review_not_recorded": "এই অ্যাকাউন্ট সক্রিয় করার আগে প্ল্যাটফর্ম পর্যালোচনা রেকর্ড করুন।",
+  "social.error.publishing_not_granted": "প্ল্যাটফর্ম প্রকাশনার অনুমতি দেয়নি, তাই এই অ্যাকাউন্ট সক্রিয় করা যাবে না।",
+  "social.error.api_key_ref_missing": "এই অ্যাকাউন্টের জন্য কোনও সিক্রেট নাম রেকর্ড করা নেই। প্রথমে প্ল্যাটফর্ম পর্যালোচনা রেকর্ড করুন।",
+  "social.error.not_connected": "এই অ্যাকাউন্টের কোনও সক্রিয় অনুমোদন নেই। সক্রিয় করার আগে সংযুক্ত করুন।",
+  "social.error.threads_refresh_failed": "Threads টোকেনের মেয়াদ বাড়ানো যায়নি। পরে চেষ্টা করুন, বা অ্যাকাউন্টটি আবার সংযুক্ত করুন।",
 };
 
 export default translations;

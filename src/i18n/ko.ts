@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "작업이 완료되지 않았습니다.",
   "admin.dashboard.card.socialConnections.title": "소셜 연결",
   "admin.dashboard.card.socialConnections.desc": "게시 계정을 연결하고 모니터링",
+  "social.connections.recordReview": "플랫폼 심사 기록",
+  "social.connections.reviewRecorded": "플랫폼 심사를 기록했습니다.",
+  "social.connections.reviewHint": "이 앱이 이 계정으로 게시할 수 있음을 플랫폼 콘솔에서 확인한 뒤 심사를 기록하세요.",
+  "social.connections.activate": "게시 활성화",
+  "social.connections.activated": "게시를 활성화했습니다.",
+  "social.connections.deactivate": "게시 일시 중지",
+  "social.connections.deactivated": "게시를 일시 중지했습니다.",
+  "social.outcome.upgradeFailed": "계정은 승인되었지만 게시용 자격 증명을 가져오지 못했습니다. 다시 연결하세요.",
+  "social.outcome.noPages": "이 계정은 Visionex가 게시할 수 있는 페이지를 관리하지 않습니다.",
+  "social.outcome.pageNotMatched": "해당 핸들과 일치하는 페이지가 없습니다. 정확한 페이지 이름이나 ID를 입력하고 다시 연결하세요.",
+  "social.outcome.instagramMissing": "해당 페이지에 연결된 Instagram 프로페셔널 계정이 없습니다.",
+  "social.error.refresh_not_supported": "이 플랫폼은 갱신 토큰을 발급하지 않습니다. 저장된 자격 증명은 만료되지 않으며, 작동을 멈추면 다시 연결하세요.",
+  "social.error.review_not_recorded": "이 계정을 활성화하기 전에 플랫폼 심사를 기록하세요.",
+  "social.error.publishing_not_granted": "플랫폼이 게시 권한을 부여하지 않아 이 계정을 활성화할 수 없습니다.",
+  "social.error.api_key_ref_missing": "이 계정에 기록된 시크릿 이름이 없습니다. 먼저 플랫폼 심사를 기록하세요.",
+  "social.error.not_connected": "이 계정에는 유효한 권한이 없습니다. 활성화하기 전에 연결하세요.",
+  "social.error.threads_refresh_failed": "Threads 토큰을 연장하지 못했습니다. 나중에 다시 시도하거나 계정을 다시 연결하세요.",
 };
 
 export default translations;

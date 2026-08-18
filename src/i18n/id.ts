@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "Tindakan tidak selesai.",
   "admin.dashboard.card.socialConnections.title": "Koneksi media sosial",
   "admin.dashboard.card.socialConnections.desc": "Hubungkan dan pantau akun penerbitan",
+  "social.connections.recordReview": "Catat tinjauan platform",
+  "social.connections.reviewRecorded": "Tinjauan platform tercatat.",
+  "social.connections.reviewHint": "Catat tinjauan setelah Anda memastikan di konsol platform bahwa aplikasi ini boleh memublikasikan sebagai akun ini.",
+  "social.connections.activate": "Aktifkan penerbitan",
+  "social.connections.activated": "Penerbitan diaktifkan.",
+  "social.connections.deactivate": "Jeda penerbitan",
+  "social.connections.deactivated": "Penerbitan dijeda.",
+  "social.outcome.upgradeFailed": "Akun telah diotorisasi, tetapi kredensial penerbitan tidak dapat diperoleh. Hubungkan lagi.",
+  "social.outcome.noPages": "Akun ini tidak mengelola halaman yang dapat digunakan Visionex untuk memublikasikan.",
+  "social.outcome.pageNotMatched": "Tidak ada halaman yang cocok dengan nama itu. Masukkan nama atau ID halaman yang tepat lalu hubungkan lagi.",
+  "social.outcome.instagramMissing": "Tidak ada akun profesional Instagram yang tertaut ke halaman itu.",
+  "social.error.refresh_not_supported": "Platform ini tidak menerbitkan token penyegaran. Kredensial tersimpan tidak kedaluwarsa; hubungkan ulang jika berhenti bekerja.",
+  "social.error.review_not_recorded": "Catat tinjauan platform sebelum mengaktifkan akun ini.",
+  "social.error.publishing_not_granted": "Platform tidak memberikan izin penerbitan, sehingga akun ini tidak dapat diaktifkan.",
+  "social.error.api_key_ref_missing": "Tidak ada nama rahasia yang tercatat untuk akun ini. Catat tinjauan platform terlebih dahulu.",
+  "social.error.not_connected": "Akun ini tidak memiliki izin aktif. Hubungkan sebelum mengaktifkan.",
+  "social.error.threads_refresh_failed": "Token Threads tidak dapat diperpanjang. Coba lagi nanti, atau hubungkan ulang akun.",
 };
 
 export default translations;

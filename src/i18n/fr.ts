@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "L'action n'a pas abouti.",
   "admin.dashboard.card.socialConnections.title": "Connexions sociales",
   "admin.dashboard.card.socialConnections.desc": "Connectez et surveillez les comptes de publication",
+  "social.connections.recordReview": "Enregistrer la validation de la plateforme",
+  "social.connections.reviewRecorded": "Validation de la plateforme enregistrée.",
+  "social.connections.reviewHint": "Enregistrez la validation une fois que vous avez confirmé dans la console de la plateforme que cette application peut publier au nom de ce compte.",
+  "social.connections.activate": "Activer la publication",
+  "social.connections.activated": "Publication activée.",
+  "social.connections.deactivate": "Suspendre la publication",
+  "social.connections.deactivated": "Publication suspendue.",
+  "social.outcome.upgradeFailed": "Le compte a été autorisé, mais les identifiants de publication n'ont pas pu être obtenus. Reconnectez-le.",
+  "social.outcome.noPages": "Ce compte n'administre aucune page sur laquelle Visionex puisse publier.",
+  "social.outcome.pageNotMatched": "Aucune page ne correspond à cet identifiant. Saisissez le nom ou l'ID exact de la page et reconnectez-vous.",
+  "social.outcome.instagramMissing": "Aucun compte professionnel Instagram n'est lié à cette page.",
+  "social.error.refresh_not_supported": "Cette plateforme n'émet aucun jeton de rafraîchissement. L'identifiant enregistré n'expire pas ; reconnectez-vous s'il cesse de fonctionner.",
+  "social.error.review_not_recorded": "Enregistrez la validation de la plateforme avant d'activer ce compte.",
+  "social.error.publishing_not_granted": "La plateforme n'a pas accordé l'autorisation de publier ; ce compte ne peut donc pas être activé.",
+  "social.error.api_key_ref_missing": "Aucun nom de secret n'est enregistré pour ce compte. Enregistrez d'abord la validation de la plateforme.",
+  "social.error.not_connected": "Ce compte ne dispose d'aucune autorisation active. Connectez-le avant de l'activer.",
+  "social.error.threads_refresh_failed": "Le jeton Threads n'a pas pu être prolongé. Réessayez plus tard ou reconnectez le compte.",
 };
 
 export default translations;

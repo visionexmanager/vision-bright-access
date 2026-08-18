@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "عملیات کامل نشد.",
   "admin.dashboard.card.socialConnections.title": "اتصال‌های اجتماعی",
   "admin.dashboard.card.socialConnections.desc": "حساب‌های انتشار را متصل و پایش کنید",
+  "social.connections.recordReview": "ثبت بررسی پلتفرم",
+  "social.connections.reviewRecorded": "بررسی پلتفرم ثبت شد.",
+  "social.connections.reviewHint": "پس از آنکه در کنسول خودِ پلتفرم تأیید کردید این برنامه می‌تواند به نام این حساب منتشر کند، بررسی را ثبت کنید.",
+  "social.connections.activate": "فعال‌سازی انتشار",
+  "social.connections.activated": "انتشار فعال شد.",
+  "social.connections.deactivate": "توقف انتشار",
+  "social.connections.deactivated": "انتشار متوقف شد.",
+  "social.outcome.upgradeFailed": "حساب مجاز شد، اما اعتبارنامهٔ انتشار به دست نیامد. دوباره متصل کنید.",
+  "social.outcome.noPages": "این حساب هیچ صفحه‌ای را که Visionex بتواند در آن منتشر کند مدیریت نمی‌کند.",
+  "social.outcome.pageNotMatched": "هیچ صفحه‌ای با آن شناسه مطابقت نداشت. نام یا شناسهٔ دقیق صفحه را وارد کنید و دوباره متصل شوید.",
+  "social.outcome.instagramMissing": "هیچ حساب حرفه‌ای Instagram به آن صفحه متصل نیست.",
+  "social.error.refresh_not_supported": "این پلتفرم توکن تازه‌سازی صادر نمی‌کند. اعتبارنامهٔ ذخیره‌شده منقضی نمی‌شود؛ اگر از کار افتاد دوباره متصل شوید.",
+  "social.error.review_not_recorded": "پیش از فعال‌سازی این حساب، بررسی پلتفرم را ثبت کنید.",
+  "social.error.publishing_not_granted": "پلتفرم اجازهٔ انتشار را نداده است، بنابراین این حساب فعال نمی‌شود.",
+  "social.error.api_key_ref_missing": "هیچ نام رازی برای این حساب ثبت نشده است. ابتدا بررسی پلتفرم را ثبت کنید.",
+  "social.error.not_connected": "این حساب هیچ مجوز فعالی ندارد. پیش از فعال‌سازی آن را متصل کنید.",
+  "social.error.threads_refresh_failed": "توکن Threads تمدید نشد. بعداً دوباره تلاش کنید یا حساب را دوباره متصل کنید.",
 };
 
 export default translations;

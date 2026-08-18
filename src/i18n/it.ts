@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "L'azione non è stata completata.",
   "admin.dashboard.card.socialConnections.title": "Connessioni social",
   "admin.dashboard.card.socialConnections.desc": "Collega e monitora gli account di pubblicazione",
+  "social.connections.recordReview": "Registra la revisione della piattaforma",
+  "social.connections.reviewRecorded": "Revisione della piattaforma registrata.",
+  "social.connections.reviewHint": "Registra la revisione dopo aver verificato nella console della piattaforma che questa app può pubblicare come questo account.",
+  "social.connections.activate": "Attiva la pubblicazione",
+  "social.connections.activated": "Pubblicazione attivata.",
+  "social.connections.deactivate": "Sospendi la pubblicazione",
+  "social.connections.deactivated": "Pubblicazione sospesa.",
+  "social.outcome.upgradeFailed": "L'account è stato autorizzato, ma non è stato possibile ottenere la credenziale di pubblicazione. Collegalo di nuovo.",
+  "social.outcome.noPages": "Questo account non amministra alcuna pagina su cui Visionex possa pubblicare.",
+  "social.outcome.pageNotMatched": "Nessuna pagina corrisponde a quel nome. Inserisci il nome o l'ID esatto della pagina e collega di nuovo.",
+  "social.outcome.instagramMissing": "Nessun account professionale Instagram è collegato a quella pagina.",
+  "social.error.refresh_not_supported": "Questa piattaforma non emette alcun token di aggiornamento. La credenziale salvata non scade; ricollega se smette di funzionare.",
+  "social.error.review_not_recorded": "Registra la revisione della piattaforma prima di attivare questo account.",
+  "social.error.publishing_not_granted": "La piattaforma non ha concesso l'autorizzazione a pubblicare, quindi questo account non può essere attivato.",
+  "social.error.api_key_ref_missing": "Nessun nome di segreto è registrato per questo account. Registra prima la revisione della piattaforma.",
+  "social.error.not_connected": "Questo account non ha alcuna concessione attiva. Collegalo prima di attivarlo.",
+  "social.error.threads_refresh_failed": "Non è stato possibile estendere il token di Threads. Riprova più tardi o ricollega l'account.",
 };
 
 export default translations;

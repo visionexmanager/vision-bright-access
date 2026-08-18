@@ -13004,6 +13004,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "The action did not complete.",
   "admin.dashboard.card.socialConnections.title": "Social connections",
   "admin.dashboard.card.socialConnections.desc": "Connect and monitor the publishing accounts",
+  "social.connections.recordReview": "Record platform review",
+  "social.connections.reviewRecorded": "Platform review recorded.",
+  "social.connections.reviewHint": "Record a review once you have confirmed in the platform's own console that this app may publish as this account.",
+  "social.connections.activate": "Activate publishing",
+  "social.connections.activated": "Publishing activated.",
+  "social.connections.deactivate": "Pause publishing",
+  "social.connections.deactivated": "Publishing paused.",
+  "social.outcome.upgradeFailed": "The account was authorised, but the publishing credential could not be obtained. Connect it again.",
+  "social.outcome.noPages": "This account administers no page that Visionex can publish to.",
+  "social.outcome.pageNotMatched": "No page matched that handle. Enter the exact page name or ID and connect again.",
+  "social.outcome.instagramMissing": "No Instagram professional account is linked to that page.",
+  "social.error.refresh_not_supported": "This platform issues no refresh token. The stored credential does not expire; reconnect if it stops working.",
+  "social.error.review_not_recorded": "Record the platform review before activating this account.",
+  "social.error.publishing_not_granted": "The platform did not grant the publishing permission, so this account cannot be activated.",
+  "social.error.api_key_ref_missing": "No secret name is recorded for this account. Record the platform review first.",
+  "social.error.not_connected": "This account holds no live grant. Connect it before activating.",
+  "social.error.threads_refresh_failed": "The Threads token could not be extended. Try again later, or connect the account again.",
 };
 
 export default translations;

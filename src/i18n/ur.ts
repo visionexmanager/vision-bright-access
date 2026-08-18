@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "کارروائی مکمل نہیں ہوئی۔",
   "admin.dashboard.card.socialConnections.title": "سوشل کنکشنز",
   "admin.dashboard.card.socialConnections.desc": "اشاعتی اکاؤنٹس منسلک کریں اور نگرانی کریں",
+  "social.connections.recordReview": "پلیٹ فارم جائزہ ریکارڈ کریں",
+  "social.connections.reviewRecorded": "پلیٹ فارم جائزہ ریکارڈ ہو گیا۔",
+  "social.connections.reviewHint": "جائزہ اُس وقت ریکارڈ کریں جب آپ پلیٹ فارم کے اپنے کنسول میں تصدیق کر لیں کہ یہ ایپ اس اکاؤنٹ کے نام سے شائع کر سکتی ہے۔",
+  "social.connections.activate": "اشاعت فعال کریں",
+  "social.connections.activated": "اشاعت فعال ہو گئی۔",
+  "social.connections.deactivate": "اشاعت روکیں",
+  "social.connections.deactivated": "اشاعت روک دی گئی۔",
+  "social.outcome.upgradeFailed": "اکاؤنٹ کی اجازت مل گئی، مگر اشاعتی سند حاصل نہیں ہو سکی۔ دوبارہ منسلک کریں۔",
+  "social.outcome.noPages": "یہ اکاؤنٹ کسی ایسے صفحے کا انتظام نہیں کرتا جس پر Visionex شائع کر سکے۔",
+  "social.outcome.pageNotMatched": "اس شناخت سے کوئی صفحہ مطابقت نہیں رکھتا۔ صفحے کا درست نام یا شناختی نمبر درج کر کے دوبارہ منسلک کریں۔",
+  "social.outcome.instagramMissing": "اُس صفحے سے کوئی Instagram پروفیشنل اکاؤنٹ منسلک نہیں ہے۔",
+  "social.error.refresh_not_supported": "یہ پلیٹ فارم کوئی ریفریش ٹوکن جاری نہیں کرتا۔ محفوظ سند کی میعاد ختم نہیں ہوتی؛ کام رک جائے تو دوبارہ منسلک کریں۔",
+  "social.error.review_not_recorded": "اس اکاؤنٹ کو فعال کرنے سے پہلے پلیٹ فارم جائزہ ریکارڈ کریں۔",
+  "social.error.publishing_not_granted": "پلیٹ فارم نے اشاعت کی اجازت نہیں دی، اس لیے یہ اکاؤنٹ فعال نہیں کیا جا سکتا۔",
+  "social.error.api_key_ref_missing": "اس اکاؤنٹ کے لیے کوئی خفیہ نام ریکارڈ نہیں ہے۔ پہلے پلیٹ فارم جائزہ ریکارڈ کریں۔",
+  "social.error.not_connected": "اس اکاؤنٹ کے پاس کوئی فعال اجازت نہیں۔ فعال کرنے سے پہلے اسے منسلک کریں۔",
+  "social.error.threads_refresh_failed": "Threads ٹوکن میں توسیع نہیں ہو سکی۔ بعد میں کوشش کریں یا اکاؤنٹ دوبارہ منسلک کریں۔",
 };
 
 export default translations;
