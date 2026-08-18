@@ -26,6 +26,9 @@ declare -A NO_VERIFY_JWT=(
   # Supabase JWT. Its POST actions check the caller's session and admin role;
   # its GET callback authenticates the sealed, expiring `state`.
   [social-oauth]=1
+  # Messenger and Instagram deliveries carry no Supabase JWT. The function
+  # verifies each one with an X-Hub-Signature-256 HMAC and fails closed.
+  [meta-messaging-webhook]=1
 )
 
 list_all_functions() {
