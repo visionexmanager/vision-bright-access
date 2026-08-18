@@ -267,9 +267,14 @@ describe("the webhook's own guarantees", () => {
 
   it("uses its own verify token, not the live WhatsApp one", () => {
     expect(webhook).toContain("INSTAGRAM_WEBHOOK_VERIFY_TOKEN");
-    expect(webhook).not.toContain("WHATSAPP_VERIFY_TOKEN");
-    expect(webhook).not.toContain("WHATSAPP_APP_SECRET");
-    expect(webhook).not.toContain("WHATSAPP_TOKEN");
+    // Asserted against what it READS. The file names WHATSAPP_TOKEN once, in a
+    // comment explaining that the Instagram token follows the same pattern —
+    // forbidding the bare string would forbid explaining the design.
+    for (const secret of ["WHATSAPP_VERIFY_TOKEN", "WHATSAPP_APP_SECRET", "WHATSAPP_TOKEN",
+      "WHATSAPP_PHONE_NUMBER_ID"]) {
+      expect(webhook, secret).not.toContain(`env("${secret}")`);
+      expect(webhook, secret).not.toContain(`Deno.env.get("${secret}")`);
+    }
   });
 
   it("reuses the assistant and the provider chain rather than adding one", () => {

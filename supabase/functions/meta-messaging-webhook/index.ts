@@ -327,18 +327,37 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (!encryptionKey) {
-        console.error("[meta-messaging] SOCIAL_TOKEN_ENCRYPTION_KEY missing — recorded, no reply.");
-        continue;
+      // ── The sending credential ────────────────────────────────────────
+      //
+      // Preferred: the encrypted per-account grant from the OAuth flow, which
+      // is what a connected account has and what a second business would use.
+      //
+      // Fallback for Instagram: INSTAGRAM_ACCESS_TOKEN, the long-lived
+      // Instagram User token generated in the app dashboard for an account
+      // Visionex owns. This is the same shape as WHATSAPP_TOKEN — a permanent
+      // credential for one owned identity — and it is why a single-account
+      // deployment needs no Instagram Business Login onboarding at all. The
+      // gate above still decides WHETHER to reply; this only decides with what.
+      let token: string | null = null;
+
+      if (encryptionKey && accountId) {
+        const { data: grant } = await db.rpc("resolve_social_account_token", {
+          _account_id: accountId,
+          _key: encryptionKey,
+        });
+        if (grant?.ok === true && typeof grant.access_token === "string") {
+          token = grant.access_token;
+        } else {
+          console.error(`[meta-messaging] stored grant unusable — ${grant?.error ?? "unknown"}.`);
+        }
       }
 
-      const { data: grant } = await db.rpc("resolve_social_account_token", {
-        _account_id: accountId,
-        _key: encryptionKey,
-      });
-      const token = grant?.ok === true ? (grant.access_token as string) : null;
+      if (!token && incoming.channel === "instagram") {
+        token = env("INSTAGRAM_ACCESS_TOKEN") ?? null;
+      }
+
       if (!token) {
-        console.error(`[meta-messaging] no usable token — ${grant?.error ?? "unknown"}.`);
+        console.error("[meta-messaging] no sending credential available — recorded, no reply.");
         await escalate(db, conversation.id, "no_access_token");
         continue;
       }
