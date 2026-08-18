@@ -12,7 +12,8 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "claude:validate": "node .claude/scripts/validate-skills.mjs"
+    "claude:validate": "node .claude/scripts/validate-skills.mjs",
+    "whatsapp:profile": "node scripts/whatsapp-profile.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

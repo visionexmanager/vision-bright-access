@@ -103,6 +103,90 @@ every Graph call fail with an error that reads like a token problem.
 No credential belongs in the source tree, and a test asserts the webhook reads
 all four from the environment.
 
+## The business profile
+
+What a customer sees when they tap the business name — the about line, the
+description, the support address, the websites, the industry — is public
+company information. WhatsApp Manager will happily let it be typed in by hand,
+which leaves no review, no history, and no way to tell whether what is live is
+still what anyone agreed to. So it lives in the repository, in
+`supabase/functions/_shared/business-profile.json`, and
+`scripts/whatsapp-profile.mjs` is the only thing that writes it.
+
+| Field | Limit | What it is |
+| --- | --- | --- |
+| `about` | 139 chars | The line under the business name. |
+| `description` | 512 chars | The paragraph on the profile. Bilingual. |
+| `email` | 128 chars | `support@visionex.app`. One address only — the API has no second field. |
+| `websites` | 2 entries, 256 chars each | `https://visionex.app` and the contact form. |
+| `vertical` | enum | `PROF_SERVICES`. An unlisted value is rejected without listing the valid ones. |
+| `address` | 256 chars | Deliberately empty — Visionex has no walk-in office. |
+| `profile_picture` | 5 MB, square, ≥192px | A path, not a Graph field. See below. |
+
+**The Cloud API has no field for business hours.** Opening hours are a feature
+of the WhatsApp Business *app*, not of the Business Platform, and no amount of
+looking for the field will produce one. Support hours are therefore stated in
+`description`, and the `whatsapp-support` prompt in `_shared/assistants.ts` is
+given the same facts so the assistant answers "when are you open?" with what
+the profile claims. `src/test/whatsapp-business-profile.test.ts` fails if the
+profile, the prompt, and the Contact page copy in `src/i18n/en.ts` drift apart
+on the hours or the response time.
+
+### The profile picture
+
+`profile_picture` is a path in this repository, not a Graph field. Setting the
+picture takes two extra round trips — open a resumable upload session against
+the Meta app, send the bytes, receive a handle — and it is the handle that goes
+into the profile write as `profile_picture_handle`. The upload runs first, so a
+logo Meta rejects leaves the rest of the profile untouched.
+
+It points at `public/favicon.png`: the logo the website already serves, not a
+copy of it. A second copy is a second thing to keep current, and the WhatsApp
+profile is exactly the surface nobody would remember to update.
+
+WhatsApp wants a square of at least 192px and crops it to a circle, and the
+logo is 1536x1024. `scripts/lib/square-png.mjs` pads it to 1536x1536 with black
+bars, which are invisible against the artwork's own black background and keep
+the whole mark inside the circle — a centre crop would take the tips of the X
+first. The padding happens on every publish rather than being committed as a
+second image.
+
+It works on the compressed scanline stream, without an image library: a PNG row
+is a filter byte followed by the row's bytes, so a row of zeros is filter
+"None" plus RGB (0,0,0) — black — and because the filters treat the row above
+the first as zeros, prepending zero rows leaves every original row decoding
+exactly as before. That only holds for 8-bit truecolour. In an RGBA export a
+zero row is *transparent*, so the script refuses anything else rather than
+publishing a smear, and a test asserts the committed logo is still a format it
+can handle.
+
+The picture is the one field `check` cannot compare: reading returns a CDN URL,
+writing takes a single-use handle, and neither is derivable from the other. It
+reports whether a picture is set, and nothing about whether it is the current
+one.
+
+`META_APP_ID` is needed for this and only this — the upload session belongs to
+the app, not to the phone number.
+
+### Publishing
+
+Run **WhatsApp Business Profile** from the Actions tab:
+
+- `mode: check` — reads the live profile and reports every field that differs
+  from the file. Fails the run on drift. Safe at any time; it writes nothing.
+- `mode: push` — writes the file to Meta, then reads it back and diffs, so a
+  write Meta accepted but did not apply is a red run rather than a silent one.
+
+It is manual on purpose and is not part of Deploy: rewriting what customers
+read on the profile is a communications decision, not a side effect of shipping
+code. The job runs in Actions rather than on a laptop because `WHATSAPP_TOKEN`
+is a permanent System User token — running it locally means copying that token
+out of the secret store and into a shell history.
+
+`npm run whatsapp:profile` validates the file offline, with no credentials and
+no network. It is what the workflow runs before it touches Meta, and what the
+test suite runs in CI.
+
 ## Behaviour before the credentials exist
 
 The function is deployed and inert, and fails in the safe direction:
