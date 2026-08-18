@@ -4,6 +4,7 @@ import { inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 
 import { pngSize, squarePng, squarePngProblem } from "../../scripts/lib/square-png.mjs";
+import { normalise } from "../../scripts/whatsapp-profile.mjs";
 
 // The WhatsApp business profile is the company information every customer sees
 // when they tap the business name: the about line, the description, the support
@@ -118,6 +119,36 @@ describe("WhatsApp business profile", () => {
     // A profile only in English is the one surface that would not.
     expect(profile.description).toMatch(/[؀-ۿ]/);
     expect(profile.description).toMatch(/[A-Za-z]/);
+  });
+});
+
+describe("comparing the file against what Meta stores", () => {
+  it("treats a canonicalised URL as the same URL", () => {
+    // Meta stored `https://visionex.app` as `https://visionex.app/` on the
+    // first publish, which a string comparison called drift on every run
+    // afterwards — drift no edit could settle, because writing the trailing
+    // slash into the file just moves the guess to Meta's next rule.
+    expect(normalise("websites", ["https://visionex.app"]))
+      .toBe(normalise("websites", ["https://visionex.app/"]));
+
+    // The two configured websites, compared against the forms Meta actually
+    // returned on the first publish.
+    expect(normalise("websites", profile.websites))
+      .toBe(normalise("websites", ["https://visionex.app/", "https://visionex.app/contact"]));
+  });
+
+  it("still reports a URL that genuinely differs", () => {
+    expect(normalise("websites", ["https://visionex.app"]))
+      .not.toBe(normalise("websites", ["https://visionex.app/contact"]));
+    expect(normalise("websites", ["https://visionex.app"]))
+      .not.toBe(normalise("websites", ["https://example.com/"]));
+  });
+
+  it("compares every other field exactly", () => {
+    // Only URLs get canonicalised. A description that differs by a space is a
+    // description someone changed in the console.
+    expect(normalise("description", "a b")).not.toBe(normalise("description", "a  b"));
+    expect(normalise("about", undefined)).toBe("");
   });
 });
 
