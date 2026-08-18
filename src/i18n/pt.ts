@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "A ação não foi concluída.",
   "admin.dashboard.card.socialConnections.title": "Ligações sociais",
   "admin.dashboard.card.socialConnections.desc": "Ligue e monitorize as contas de publicação",
+  "social.connections.recordReview": "Registar a revisão da plataforma",
+  "social.connections.reviewRecorded": "Revisão da plataforma registada.",
+  "social.connections.reviewHint": "Registe a revisão depois de confirmar na consola da plataforma que esta aplicação pode publicar como esta conta.",
+  "social.connections.activate": "Ativar a publicação",
+  "social.connections.activated": "Publicação ativada.",
+  "social.connections.deactivate": "Pausar a publicação",
+  "social.connections.deactivated": "Publicação pausada.",
+  "social.outcome.upgradeFailed": "A conta foi autorizada, mas não foi possível obter a credencial de publicação. Ligue-a novamente.",
+  "social.outcome.noPages": "Esta conta não administra qualquer página onde o Visionex possa publicar.",
+  "social.outcome.pageNotMatched": "Nenhuma página correspondeu a esse identificador. Introduza o nome ou ID exato da página e ligue novamente.",
+  "social.outcome.instagramMissing": "Não há qualquer conta profissional do Instagram associada a essa página.",
+  "social.error.refresh_not_supported": "Esta plataforma não emite qualquer token de atualização. A credencial guardada não expira; ligue novamente se deixar de funcionar.",
+  "social.error.review_not_recorded": "Registe a revisão da plataforma antes de ativar esta conta.",
+  "social.error.publishing_not_granted": "A plataforma não concedeu a permissão de publicação, pelo que esta conta não pode ser ativada.",
+  "social.error.api_key_ref_missing": "Não há qualquer nome de segredo registado para esta conta. Registe primeiro a revisão da plataforma.",
+  "social.error.not_connected": "Esta conta não tem qualquer autorização ativa. Ligue-a antes de ativar.",
+  "social.error.threads_refresh_failed": "Não foi possível prolongar o token do Threads. Tente mais tarde ou ligue novamente a conta.",
 };
 
 export default translations;

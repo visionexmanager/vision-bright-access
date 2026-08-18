@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "操作が完了しませんでした。",
   "admin.dashboard.card.socialConnections.title": "ソーシャル連携",
   "admin.dashboard.card.socialConnections.desc": "配信アカウントを連携し監視する",
+  "social.connections.recordReview": "プラットフォーム審査を記録",
+  "social.connections.reviewRecorded": "プラットフォーム審査を記録しました。",
+  "social.connections.reviewHint": "このアプリがこのアカウントとして投稿できることをプラットフォームのコンソールで確認してから記録してください。",
+  "social.connections.activate": "投稿を有効にする",
+  "social.connections.activated": "投稿を有効にしました。",
+  "social.connections.deactivate": "投稿を停止する",
+  "social.connections.deactivated": "投稿を停止しました。",
+  "social.outcome.upgradeFailed": "アカウントは承認されましたが、投稿用の認証情報を取得できませんでした。もう一度接続してください。",
+  "social.outcome.noPages": "このアカウントは Visionex が投稿できるページを管理していません。",
+  "social.outcome.pageNotMatched": "そのハンドルに一致するページがありません。正確なページ名または ID を入力して接続し直してください。",
+  "social.outcome.instagramMissing": "そのページに Instagram プロアカウントが連携されていません。",
+  "social.error.refresh_not_supported": "このプラットフォームはリフレッシュトークンを発行しません。保存された認証情報に期限はありません。動作しなくなった場合は接続し直してください。",
+  "social.error.review_not_recorded": "このアカウントを有効にする前にプラットフォーム審査を記録してください。",
+  "social.error.publishing_not_granted": "プラットフォームが投稿権限を付与しなかったため、このアカウントは有効にできません。",
+  "social.error.api_key_ref_missing": "このアカウントにはシークレット名が記録されていません。先にプラットフォーム審査を記録してください。",
+  "social.error.not_connected": "このアカウントには有効な認可がありません。有効にする前に接続してください。",
+  "social.error.threads_refresh_failed": "Threads のトークンを延長できませんでした。後でもう一度試すか、アカウントを接続し直してください。",
 };
 
 export default translations;

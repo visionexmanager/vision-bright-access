@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "Działanie nie zostało ukończone.",
   "admin.dashboard.card.socialConnections.title": "Połączenia społecznościowe",
   "admin.dashboard.card.socialConnections.desc": "Połącz i monitoruj konta publikacyjne",
+  "social.connections.recordReview": "Zapisz weryfikację platformy",
+  "social.connections.reviewRecorded": "Zapisano weryfikację platformy.",
+  "social.connections.reviewHint": "Zapisz weryfikację po potwierdzeniu w konsoli platformy, że ta aplikacja może publikować jako to konto.",
+  "social.connections.activate": "Włącz publikowanie",
+  "social.connections.activated": "Publikowanie włączone.",
+  "social.connections.deactivate": "Wstrzymaj publikowanie",
+  "social.connections.deactivated": "Publikowanie wstrzymane.",
+  "social.outcome.upgradeFailed": "Konto zostało autoryzowane, ale nie udało się uzyskać poświadczenia do publikowania. Połącz je ponownie.",
+  "social.outcome.noPages": "To konto nie administruje żadną stroną, na której Visionex mógłby publikować.",
+  "social.outcome.pageNotMatched": "Żadna strona nie pasuje do tej nazwy. Wpisz dokładną nazwę lub identyfikator strony i połącz ponownie.",
+  "social.outcome.instagramMissing": "Do tej strony nie jest podłączone żadne profesjonalne konto Instagram.",
+  "social.error.refresh_not_supported": "Ta platforma nie wydaje tokenu odświeżania. Zapisane poświadczenie nie wygasa; połącz ponownie, jeśli przestanie działać.",
+  "social.error.review_not_recorded": "Zapisz weryfikację platformy przed włączeniem tego konta.",
+  "social.error.publishing_not_granted": "Platforma nie przyznała uprawnienia do publikowania, więc tego konta nie można włączyć.",
+  "social.error.api_key_ref_missing": "Dla tego konta nie zapisano nazwy sekretu. Najpierw zapisz weryfikację platformy.",
+  "social.error.not_connected": "To konto nie ma aktywnego zezwolenia. Połącz je przed włączeniem.",
+  "social.error.threads_refresh_failed": "Nie udało się przedłużyć tokenu Threads. Spróbuj później lub połącz konto ponownie.",
 };
 
 export default translations;

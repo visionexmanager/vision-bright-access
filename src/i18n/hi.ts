@@ -6394,6 +6394,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "कार्रवाई पूरी नहीं हुई।",
   "admin.dashboard.card.socialConnections.title": "सोशल कनेक्शन",
   "admin.dashboard.card.socialConnections.desc": "प्रकाशन खातों को जोड़ें और निगरानी करें",
+  "social.connections.recordReview": "प्लेटफ़ॉर्म समीक्षा दर्ज करें",
+  "social.connections.reviewRecorded": "प्लेटफ़ॉर्म समीक्षा दर्ज कर ली गई।",
+  "social.connections.reviewHint": "समीक्षा तब दर्ज करें जब आपने प्लेटफ़ॉर्म के अपने कंसोल में पुष्टि कर ली हो कि यह ऐप इस खाते के रूप में प्रकाशित कर सकता है।",
+  "social.connections.activate": "प्रकाशन सक्रिय करें",
+  "social.connections.activated": "प्रकाशन सक्रिय कर दिया गया।",
+  "social.connections.deactivate": "प्रकाशन रोकें",
+  "social.connections.deactivated": "प्रकाशन रोक दिया गया।",
+  "social.outcome.upgradeFailed": "खाते को अधिकृत कर दिया गया, पर प्रकाशन क्रेडेंशियल प्राप्त नहीं हो सका। इसे फिर से कनेक्ट करें।",
+  "social.outcome.noPages": "यह खाता ऐसा कोई पेज नहीं संभालता जिस पर Visionex प्रकाशित कर सके।",
+  "social.outcome.pageNotMatched": "उस हैंडल से कोई पेज मेल नहीं खाया। पेज का सटीक नाम या आईडी दर्ज करें और फिर से कनेक्ट करें।",
+  "social.outcome.instagramMissing": "उस पेज से कोई Instagram प्रोफ़ेशनल खाता जुड़ा नहीं है।",
+  "social.error.refresh_not_supported": "यह प्लेटफ़ॉर्म कोई रिफ़्रेश टोकन जारी नहीं करता। संग्रहीत क्रेडेंशियल समाप्त नहीं होता; काम करना बंद कर दे तो फिर से कनेक्ट करें।",
+  "social.error.review_not_recorded": "इस खाते को सक्रिय करने से पहले प्लेटफ़ॉर्म समीक्षा दर्ज करें।",
+  "social.error.publishing_not_granted": "प्लेटफ़ॉर्म ने प्रकाशन की अनुमति नहीं दी, इसलिए यह खाता सक्रिय नहीं किया जा सकता।",
+  "social.error.api_key_ref_missing": "इस खाते के लिए कोई सीक्रेट नाम दर्ज नहीं है। पहले प्लेटफ़ॉर्म समीक्षा दर्ज करें।",
+  "social.error.not_connected": "इस खाते के पास कोई सक्रिय अनुमति नहीं है। सक्रिय करने से पहले इसे कनेक्ट करें।",
+  "social.error.threads_refresh_failed": "Threads टोकन को बढ़ाया नहीं जा सका। बाद में प्रयास करें, या खाता फिर से कनेक्ट करें।",
 };
 
 export default translations;

@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "Die Aktion wurde nicht abgeschlossen.",
   "admin.dashboard.card.socialConnections.title": "Soziale Verbindungen",
   "admin.dashboard.card.socialConnections.desc": "Veröffentlichungskonten verbinden und überwachen",
+  "social.connections.recordReview": "Plattformprüfung erfassen",
+  "social.connections.reviewRecorded": "Plattformprüfung erfasst.",
+  "social.connections.reviewHint": "Erfassen Sie die Prüfung, sobald Sie in der Konsole der Plattform bestätigt haben, dass diese App als dieses Konto veröffentlichen darf.",
+  "social.connections.activate": "Veröffentlichung aktivieren",
+  "social.connections.activated": "Veröffentlichung aktiviert.",
+  "social.connections.deactivate": "Veröffentlichung pausieren",
+  "social.connections.deactivated": "Veröffentlichung pausiert.",
+  "social.outcome.upgradeFailed": "Das Konto wurde autorisiert, aber die Veröffentlichungs-Anmeldedaten konnten nicht abgerufen werden. Verbinden Sie es erneut.",
+  "social.outcome.noPages": "Dieses Konto verwaltet keine Seite, auf der Visionex veröffentlichen kann.",
+  "social.outcome.pageNotMatched": "Keine Seite stimmte mit diesem Namen überein. Geben Sie den genauen Seitennamen oder die ID ein und verbinden Sie erneut.",
+  "social.outcome.instagramMissing": "Mit dieser Seite ist kein professionelles Instagram-Konto verknüpft.",
+  "social.error.refresh_not_supported": "Diese Plattform stellt kein Aktualisierungstoken aus. Die gespeicherten Anmeldedaten laufen nicht ab; verbinden Sie erneut, wenn sie nicht mehr funktionieren.",
+  "social.error.review_not_recorded": "Erfassen Sie die Plattformprüfung, bevor Sie dieses Konto aktivieren.",
+  "social.error.publishing_not_granted": "Die Plattform hat die Veröffentlichungsberechtigung nicht erteilt, daher kann dieses Konto nicht aktiviert werden.",
+  "social.error.api_key_ref_missing": "Für dieses Konto ist kein Geheimnisname erfasst. Erfassen Sie zuerst die Plattformprüfung.",
+  "social.error.not_connected": "Dieses Konto hat keine aktive Berechtigung. Verbinden Sie es vor der Aktivierung.",
+  "social.error.threads_refresh_failed": "Das Threads-Token konnte nicht verlängert werden. Versuchen Sie es später erneut oder verbinden Sie das Konto neu.",
 };
 
 export default translations;

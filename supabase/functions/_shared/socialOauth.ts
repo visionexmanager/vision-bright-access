@@ -16,6 +16,26 @@ import { FB_DIALOG_BASE, GRAPH_BASE } from "./meta.ts";
 export type Platform =
   | "facebook" | "instagram" | "threads" | "tiktok" | "youtube" | "x" | "linkedin";
 
+/**
+ * How a grant is kept alive, which is not the same question for every platform.
+ *
+ * The first version of this flow assumed one answer — POST the token endpoint
+ * with `grant_type=refresh_token` — and that answer is wrong for all three Meta
+ * platforms. It is not merely unsupported: Facebook and Instagram never issue a
+ * refresh token at all, so the refresh action could only ever report that one
+ * was missing, which reads as a fault in the connection rather than as a fact
+ * about the platform.
+ *
+ *   oauth2   Standard RFC 6749 refresh. TikTok, YouTube, X, LinkedIn.
+ *   threads  `th_refresh_token` against a different host, presenting the access
+ *            token itself. There is no refresh token in the flow.
+ *   none     No refresh exists, and none is needed: the stored credential is a
+ *            page token that does not expire. If it stops working the cause is
+ *            a revoked grant or a changed password, and the fix is to connect
+ *            again — so saying "reconnect" is the whole truth here.
+ */
+export type RefreshStrategy = "oauth2" | "threads" | "none";
+
 export interface ProviderConfig {
   readonly platform: Platform;
   /** Human name for logs and the connection screen. Never a credential. */
@@ -46,6 +66,14 @@ export interface ProviderConfig {
   readonly usesPkce: boolean;
   /** Extra authorize-URL parameters this provider needs to return a refresh token. */
   readonly extraAuthorizeParams: Readonly<Record<string, string>>;
+  /** How this grant is kept alive. See RefreshStrategy — it is not uniform. */
+  readonly refreshStrategy: RefreshStrategy;
+  /**
+   * True when the authorisation-code exchange does NOT yield the credential
+   * that will actually be stored — Meta's three platforms, where a second
+   * exchange (and for pages, a lookup) stands between the two.
+   */
+  readonly needsGrantUpgrade: boolean;
   /**
    * Set when Visionex cannot complete this connection yet for a reason outside
    * the code. Non-null means `start` refuses with this code, and the reason is
@@ -75,6 +103,10 @@ export const PROVIDERS: Readonly<Record<Platform, ProviderConfig>> = {
     clientIdParam: "client_id",
     usesPkce: false,
     extraAuthorizeParams: {},
+    // A page token derived from a long-lived user token does not expire, and
+    // Meta issues no refresh token to rotate it with.
+    refreshStrategy: "none",
+    needsGrantUpgrade: true,
     blockedReason: null,
   },
   instagram: {
@@ -95,6 +127,10 @@ export const PROVIDERS: Readonly<Record<Platform, ProviderConfig>> = {
     clientIdParam: "client_id",
     usesPkce: false,
     extraAuthorizeParams: {},
+    // Instagram publishing is authorised by the linked page's token, which has
+    // the same non-expiry and the same absence of a refresh token.
+    refreshStrategy: "none",
+    needsGrantUpgrade: true,
     blockedReason: null,
   },
   // Threads is a separate app inside Meta with its own credentials and its own
@@ -113,6 +149,10 @@ export const PROVIDERS: Readonly<Record<Platform, ProviderConfig>> = {
     clientIdParam: "client_id",
     usesPkce: false,
     extraAuthorizeParams: {},
+    // `th_refresh_token`, against graph.threads.net, presenting the access
+    // token itself — there is no refresh token anywhere in the Threads flow.
+    refreshStrategy: "threads",
+    needsGrantUpgrade: true,
     blockedReason: null,
   },
   tiktok: {
@@ -129,6 +169,8 @@ export const PROVIDERS: Readonly<Record<Platform, ProviderConfig>> = {
     clientIdParam: "client_key",
     usesPkce: true,
     extraAuthorizeParams: {},
+    refreshStrategy: "oauth2",
+    needsGrantUpgrade: false,
     blockedReason: null,
   },
   youtube: {
@@ -150,6 +192,8 @@ export const PROVIDERS: Readonly<Record<Platform, ProviderConfig>> = {
     // saw, and only when asked for offline access. Without both, the connection
     // works until the first expiry and then silently dies.
     extraAuthorizeParams: { access_type: "offline", prompt: "consent" },
+    refreshStrategy: "oauth2",
+    needsGrantUpgrade: false,
     blockedReason: null,
   },
   x: {
@@ -167,6 +211,8 @@ export const PROVIDERS: Readonly<Record<Platform, ProviderConfig>> = {
     // Mandatory here, not optional.
     usesPkce: true,
     extraAuthorizeParams: {},
+    refreshStrategy: "oauth2",
+    needsGrantUpgrade: false,
     blockedReason: null,
   },
   linkedin: {
@@ -182,6 +228,8 @@ export const PROVIDERS: Readonly<Record<Platform, ProviderConfig>> = {
     clientIdParam: "client_id",
     usesPkce: false,
     extraAuthorizeParams: {},
+    refreshStrategy: "oauth2",
+    needsGrantUpgrade: false,
     // The Visionex World LLC company page does not exist yet, and an
     // organization grant cannot be issued against a page that is not there.
     // Connecting before it exists would store a member token that looks like a
@@ -460,4 +508,16 @@ export const SAFE_ERROR_CODES = [
   "state_invalid",
   "state_incomplete",
   "state_expired",
+  // The grant-upgrade codes from metaGrant.ts. Same contract: each names a
+  // condition the operator can act on and carries nothing the platform said.
+  "long_lived_exchange_failed",
+  "page_list_failed",
+  "no_pages_available",
+  "page_not_matched",
+  "instagram_account_missing",
+  "threads_exchange_failed",
+  "threads_refresh_failed",
+  // A refresh was asked for on a platform that has no refresh. Distinct from
+  // `no_refresh_token`, which means one was expected and is absent.
+  "refresh_not_supported",
 ] as const;

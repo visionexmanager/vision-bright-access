@@ -6394,6 +6394,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "Действие не выполнено.",
   "admin.dashboard.card.socialConnections.title": "Социальные подключения",
   "admin.dashboard.card.socialConnections.desc": "Подключайте и отслеживайте аккаунты для публикации",
+  "social.connections.recordReview": "Записать проверку платформы",
+  "social.connections.reviewRecorded": "Проверка платформы записана.",
+  "social.connections.reviewHint": "Запишите проверку после того, как убедитесь в консоли самой платформы, что это приложение может публиковать от имени этого аккаунта.",
+  "social.connections.activate": "Включить публикацию",
+  "social.connections.activated": "Публикация включена.",
+  "social.connections.deactivate": "Приостановить публикацию",
+  "social.connections.deactivated": "Публикация приостановлена.",
+  "social.outcome.upgradeFailed": "Аккаунт авторизован, но получить учётные данные для публикации не удалось. Подключите его снова.",
+  "social.outcome.noPages": "Этот аккаунт не управляет ни одной страницей, где Visionex мог бы публиковать.",
+  "social.outcome.pageNotMatched": "Ни одна страница не совпала с этим именем. Введите точное название или идентификатор страницы и подключитесь снова.",
+  "social.outcome.instagramMissing": "К этой странице не привязан профессиональный аккаунт Instagram.",
+  "social.error.refresh_not_supported": "Эта платформа не выдаёт токен обновления. Сохранённые учётные данные не истекают; подключитесь снова, если они перестанут работать.",
+  "social.error.review_not_recorded": "Запишите проверку платформы, прежде чем включать этот аккаунт.",
+  "social.error.publishing_not_granted": "Платформа не предоставила разрешение на публикацию, поэтому этот аккаунт нельзя включить.",
+  "social.error.api_key_ref_missing": "Для этого аккаунта не записано имя секрета. Сначала запишите проверку платформы.",
+  "social.error.not_connected": "У этого аккаунта нет действующего разрешения. Подключите его перед включением.",
+  "social.error.threads_refresh_failed": "Не удалось продлить токен Threads. Повторите позже или подключите аккаунт снова.",
 };
 
 export default translations;

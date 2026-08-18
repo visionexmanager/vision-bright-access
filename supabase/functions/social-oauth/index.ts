@@ -49,6 +49,11 @@ import {
   type Platform,
   type ProviderConfig,
 } from "../_shared/socialOauth.ts";
+import {
+  refreshThreadsToken,
+  upgradeMetaGrant,
+  type GrantFetch,
+} from "../_shared/metaGrant.ts";
 
 /** Where the operator is sent back to, and the only page this function links to. */
 const CONNECTIONS_PATH = "/admin/social-connections";
@@ -147,7 +152,8 @@ async function recordGrant(
   accountId: string,
   provider: ProviderConfig,
   grantedScopes: string[],
-  externalUserId?: string,
+  externalAccountId?: string | null,
+  displayName?: string | null,
 ) {
   const canPublish = grantedScopes.includes(provider.publishScope);
   const update: Record<string, unknown> = {
@@ -155,7 +161,15 @@ async function recordGrant(
     publishing_permission_granted: canPublish,
     updated_at: new Date().toISOString(),
   };
-  if (externalUserId) update.external_account_id = externalUserId;
+  // For Meta this is now the PAGE id or the Instagram account id — the thing a
+  // publish request is addressed to — rather than the id of the person who
+  // authorised it. The publisher cannot build a request from the latter.
+  if (externalAccountId) update.external_account_id = externalAccountId;
+  // The platform's own name for the identity, as resolved during the upgrade.
+  // Recorded on display_name rather than on handle: handle carries a uniqueness
+  // constraint the operator's row was created under, and rewriting it here
+  // could collide with another row mid-callback.
+  if (displayName) update.display_name = displayName;
   await service.from("social_accounts").update(update).eq("id", accountId);
   return canPublish;
 }
@@ -208,14 +222,63 @@ Deno.serve(async (req) => {
     if (!token.ok) return backToScreen(token.error!, platform, returnTo);
 
     const service = serviceClient();
+
+    // ── The credential that gets stored is not always the one just issued ──
+    //
+    // For Meta's three platforms the authorisation-code exchange returns a
+    // short-lived USER token, which cannot publish to a page and expires within
+    // the hour. What must be stored is a page token (Facebook, Instagram) or a
+    // long-lived Threads token, and reaching either takes further calls. See
+    // _shared/metaGrant.ts for why each one is necessary.
+    //
+    // Storing the raw exchange result instead would produce the most expensive
+    // failure this flow has: a connection screen that goes green, and a
+    // publishing system that is refused by the platform an hour later for a
+    // reason that reads like an incomplete app review.
+    let accessToken = token.accessToken!;
+    let externalAccountId = token.externalUserId ?? null;
+    let expiresAt = token.expiresAt ?? null;
+    let displayName: string | null = null;
+    let grantedScopes = token.scopes ?? [];
+
+    if (provider.needsGrantUpgrade) {
+      // The handle the operator typed, needed to pick among several pages.
+      const { data: account } = await service
+        .from("social_accounts").select("handle").eq("id", accountId).maybeSingle();
+
+      const upgraded = await upgradeMetaGrant(
+        platform as "facebook" | "instagram" | "threads",
+        credentials.clientId!,
+        credentials.clientSecret!,
+        accessToken,
+        account?.handle ?? "",
+        fetch as unknown as GrantFetch,
+      );
+      if (!upgraded.ok) return backToScreen(upgraded.error!, platform, returnTo);
+
+      accessToken = upgraded.accessToken!;
+      // Threads reports its user id on the authorisation response rather than
+      // on the upgrade, so the earlier value stands when the upgrade has none.
+      externalAccountId = upgraded.externalAccountId ?? externalAccountId;
+      expiresAt = upgraded.expiresAt ?? null;
+      displayName = upgraded.handle ?? null;
+      // Read from /me/permissions, because Meta's token response carries no
+      // `scope` at all. Taken only when it reported something: an empty answer
+      // leaves the earlier value rather than erasing it, and neither path ever
+      // falls back to the scopes Visionex asked for.
+      if (upgraded.grantedScopes && upgraded.grantedScopes.length > 0) {
+        grantedScopes = upgraded.grantedScopes;
+      }
+    }
+
     const { data: stored } = await service.rpc("store_social_account_token", {
       _account_id: accountId,
       _key: encryptionKey,
-      _access_token: token.accessToken,
+      _access_token: accessToken,
       _refresh_token: token.refreshToken ?? null,
-      _expires_at: token.expiresAt ?? null,
-      _scopes: token.scopes ?? [],
-      _external_user_id: token.externalUserId ?? null,
+      _expires_at: expiresAt,
+      _scopes: grantedScopes,
+      _external_user_id: externalAccountId,
       _token_type: token.tokenType ?? "bearer",
       _refresh_expires_at: token.refreshExpiresAt ?? null,
     });
@@ -225,7 +288,7 @@ Deno.serve(async (req) => {
     }
 
     const canPublish = await recordGrant(
-      service, accountId, provider, token.scopes ?? [], token.externalUserId,
+      service, accountId, provider, grantedScopes, externalAccountId, displayName,
     );
 
     // "connected" and "connected_without_publishing" are different outcomes on
@@ -284,6 +347,12 @@ Deno.serve(async (req) => {
           blocked_reason: provider.blockedReason,
           requested_scopes: provider.scopes,
           publish_scope: provider.publishScope,
+          // The screen cannot derive this. `can_refresh` on the account row
+          // reports whether a refresh TOKEN is stored, which answers the wrong
+          // question for both Meta strategies: Threads can be extended without
+          // one, and Facebook can never be refreshed even though nothing is
+          // visibly missing.
+          refresh_strategy: provider.refreshStrategy,
         };
       });
 
@@ -381,30 +450,62 @@ Deno.serve(async (req) => {
         }, 409);
       }
 
+      // Facebook and Instagram have nothing to refresh, and this is the honest
+      // answer rather than a failure. The stored credential is a page token
+      // that does not expire; Meta issues no refresh token to rotate it with.
+      // The previous code asked for one anyway and reported `no_refresh_token`,
+      // which describes a broken connection rather than a platform that works
+      // this way — and sent operators looking for a fault that does not exist.
+      if (provider.refreshStrategy === "none") {
+        return json({ ok: false, error: "refresh_not_supported" }, 409);
+      }
+
       // resolve_social_account_token refuses an expired access token but still
       // reports whether a refresh is possible, which is exactly the case this
-      // action exists for. The refresh token is read through the same function
-      // because it is the only path that decrypts anything.
+      // action exists for. Tokens are read through the same function because it
+      // is the only path that decrypts anything.
       const { data: current } = await service.rpc("resolve_social_account_token", {
         _account_id: accountId, _key: encryptionKey,
       });
 
-      const refreshToken = current?.refresh_token;
-      if (!refreshToken) {
-        return json({
-          ok: false,
-          // An expired grant with no refresh token is a reconnect, not a
-          // refresh, and saying so is the difference between one click and a
-          // support conversation.
-          error: current?.can_refresh === false ? "reconnect_required" : "no_refresh_token",
-        }, 409);
-      }
+      let token: ReturnType<typeof normaliseTokenResponse>;
 
-      const token = await exchange(provider, credentials.clientId!, credentials.clientSecret!, {
-        grant_type: "refresh_token",
-        refresh_token: refreshToken,
-      });
-      if (!token.ok) return json({ ok: false, error: token.error }, 502);
+      if (provider.refreshStrategy === "threads") {
+        // Threads extends the ACCESS token; there is no refresh token in the
+        // flow at all. An expired one cannot be extended — resolve refuses to
+        // return it — and that case is a reconnect, which is what it says.
+        const accessToken = current?.access_token;
+        if (!accessToken) return json({ ok: false, error: "reconnect_required" }, 409);
+
+        const extended = await refreshThreadsToken(accessToken, fetch as unknown as GrantFetch);
+        if (!extended.ok) return json({ ok: false, error: extended.error }, 502);
+        token = {
+          ok: true,
+          accessToken: extended.accessToken,
+          expiresAt: extended.expiresAt,
+          tokenType: "bearer",
+          // Threads restates neither, and the store keeps the previous values
+          // when they are absent rather than erasing them.
+          scopes: [],
+        };
+      } else {
+        const refreshToken = current?.refresh_token;
+        if (!refreshToken) {
+          return json({
+            ok: false,
+            // An expired grant with no refresh token is a reconnect, not a
+            // refresh, and saying so is the difference between one click and a
+            // support conversation.
+            error: current?.can_refresh === false ? "reconnect_required" : "no_refresh_token",
+          }, 409);
+        }
+
+        token = await exchange(provider, credentials.clientId!, credentials.clientSecret!, {
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+        });
+        if (!token.ok) return json({ ok: false, error: token.error }, 502);
+      }
 
       const { data: stored } = await service.rpc("store_social_account_token", {
         _account_id: accountId,
@@ -423,6 +524,68 @@ Deno.serve(async (req) => {
       if (!stored || stored.ok !== true) return json({ ok: false, error: "store_failed" }, 500);
 
       return json({ ok: true, expires_at: token.expiresAt ?? null });
+    }
+
+    // ── record_review: attest that the platform allows this ───────────────
+    //
+    // The one thing an OAuth grant cannot establish. A granted scope says the
+    // platform's API accepted the request; a review says a human opened the
+    // Meta console and confirmed this app may publish as this identity. Phase 8
+    // requires both, and until this action existed the second was unrecordable.
+    if (action === "record_review") {
+      const accountId = body.account_id;
+      if (typeof accountId !== "string" || !accountId) {
+        return json({ ok: false, error: "account_id_required" }, 400);
+      }
+
+      const { data: account } = await service
+        .from("social_accounts").select("id, platform").eq("id", accountId).maybeSingle();
+      if (!account || !isPlatform(account.platform)) {
+        return json({ ok: false, error: "account_not_found" }, 404);
+      }
+
+      // Derived, never typed. api_key_ref names the app-level secret, and the
+      // registry already knows which one each platform uses. Asking a human to
+      // enter it would put a text field next to the words "secret" and "token"
+      // on an admin screen, which is how a real credential ends up pasted into
+      // a column that is only supposed to hold its name.
+      const provider = PROVIDERS[account.platform as Platform];
+
+      const { data: recorded } = await service.rpc("record_social_account_review", {
+        _account_id: accountId,
+        _actor: user.id,
+        _api_key_ref: provider.clientSecretEnv,
+        _reference: typeof body.reference === "string" ? body.reference.slice(0, 200) : null,
+        _notes: typeof body.notes === "string" ? body.notes.slice(0, 2000) : null,
+      });
+      if (!recorded || recorded.ok !== true) {
+        return json({ ok: false, error: recorded?.error ?? "review_failed" }, 400);
+      }
+      return json({ ok: true });
+    }
+
+    // ── set_status: switch publishing on or off ───────────────────────────
+    if (action === "set_status") {
+      const accountId = body.account_id;
+      if (typeof accountId !== "string" || !accountId) {
+        return json({ ok: false, error: "account_id_required" }, 400);
+      }
+      if (body.status !== "active" && body.status !== "disabled") {
+        return json({ ok: false, error: "status_not_settable" }, 400);
+      }
+
+      const { data: changed } = await service.rpc("set_social_account_status", {
+        _account_id: accountId,
+        _actor: user.id,
+        _status: body.status,
+      });
+      if (!changed || changed.ok !== true) {
+        // The refusal codes are the checklist: review_not_recorded,
+        // publishing_not_granted, api_key_ref_missing, not_connected. Each
+        // names the next thing to fix rather than reporting a generic failure.
+        return json({ ok: false, error: changed?.error ?? "status_change_failed" }, 409);
+      }
+      return json({ ok: true, status: changed.status });
     }
 
     // ── disconnect ────────────────────────────────────────────────────────

@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "Thao tác chưa hoàn tất.",
   "admin.dashboard.card.socialConnections.title": "Kết nối mạng xã hội",
   "admin.dashboard.card.socialConnections.desc": "Kết nối và theo dõi các tài khoản đăng bài",
+  "social.connections.recordReview": "Ghi nhận đánh giá nền tảng",
+  "social.connections.reviewRecorded": "Đã ghi nhận đánh giá nền tảng.",
+  "social.connections.reviewHint": "Ghi nhận đánh giá sau khi bạn đã xác nhận trong bảng điều khiển của nền tảng rằng ứng dụng này được phép đăng với tư cách tài khoản này.",
+  "social.connections.activate": "Kích hoạt đăng bài",
+  "social.connections.activated": "Đã kích hoạt đăng bài.",
+  "social.connections.deactivate": "Tạm dừng đăng bài",
+  "social.connections.deactivated": "Đã tạm dừng đăng bài.",
+  "social.outcome.upgradeFailed": "Tài khoản đã được cấp quyền, nhưng không lấy được thông tin xác thực để đăng bài. Hãy kết nối lại.",
+  "social.outcome.noPages": "Tài khoản này không quản trị trang nào mà Visionex có thể đăng bài.",
+  "social.outcome.pageNotMatched": "Không có trang nào khớp với tên đó. Hãy nhập đúng tên hoặc ID trang rồi kết nối lại.",
+  "social.outcome.instagramMissing": "Không có tài khoản Instagram chuyên nghiệp nào được liên kết với trang đó.",
+  "social.error.refresh_not_supported": "Nền tảng này không cấp mã làm mới. Thông tin xác thực đã lưu không hết hạn; hãy kết nối lại nếu nó ngừng hoạt động.",
+  "social.error.review_not_recorded": "Hãy ghi nhận đánh giá nền tảng trước khi kích hoạt tài khoản này.",
+  "social.error.publishing_not_granted": "Nền tảng không cấp quyền đăng bài, nên không thể kích hoạt tài khoản này.",
+  "social.error.api_key_ref_missing": "Chưa ghi nhận tên bí mật nào cho tài khoản này. Hãy ghi nhận đánh giá nền tảng trước.",
+  "social.error.not_connected": "Tài khoản này không có quyền còn hiệu lực. Hãy kết nối trước khi kích hoạt.",
+  "social.error.threads_refresh_failed": "Không thể gia hạn mã Threads. Hãy thử lại sau, hoặc kết nối lại tài khoản.",
 };
 
 export default translations;

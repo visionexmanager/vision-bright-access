@@ -12976,6 +12976,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "لم يكتمل الإجراء.",
   "admin.dashboard.card.socialConnections.title": "روابط الحسابات الاجتماعية",
   "admin.dashboard.card.socialConnections.desc": "اربط حسابات النشر وراقب حالتها",
+  "social.connections.recordReview": "تسجيل مراجعة المنصة",
+  "social.connections.reviewRecorded": "تم تسجيل مراجعة المنصة.",
+  "social.connections.reviewHint": "سجّل المراجعة بعد أن تتأكد من داخل لوحة تحكم المنصة نفسها أن هذا التطبيق مسموح له بالنشر باسم هذا الحساب.",
+  "social.connections.activate": "تفعيل النشر",
+  "social.connections.activated": "تم تفعيل النشر.",
+  "social.connections.deactivate": "إيقاف النشر",
+  "social.connections.deactivated": "تم إيقاف النشر.",
+  "social.outcome.upgradeFailed": "تم التفويض للحساب، لكن تعذّر الحصول على بيانات اعتماد النشر. أعد الربط.",
+  "social.outcome.noPages": "هذا الحساب لا يدير أي صفحة يستطيع Visionex النشر عليها.",
+  "social.outcome.pageNotMatched": "لا توجد صفحة مطابقة لهذا المعرّف. أدخل اسم الصفحة أو رقمها بدقة ثم أعد الربط.",
+  "social.outcome.instagramMissing": "لا يوجد حساب Instagram احترافي مرتبط بتلك الصفحة.",
+  "social.error.refresh_not_supported": "هذه المنصة لا تصدر رمز تحديث. بيانات الاعتماد المخزّنة لا تنتهي صلاحيتها؛ أعد الربط إذا توقفت عن العمل.",
+  "social.error.review_not_recorded": "سجّل مراجعة المنصة قبل تفعيل هذا الحساب.",
+  "social.error.publishing_not_granted": "لم تمنح المنصة إذن النشر، لذلك لا يمكن تفعيل هذا الحساب.",
+  "social.error.api_key_ref_missing": "لا يوجد اسم سر مسجَّل لهذا الحساب. سجّل مراجعة المنصة أولًا.",
+  "social.error.not_connected": "هذا الحساب لا يملك تفويضًا ساريًا. اربطه قبل التفعيل.",
+  "social.error.threads_refresh_failed": "تعذّر تمديد رمز Threads. حاول لاحقًا أو أعد ربط الحساب.",
 };
 
 export default translations;

@@ -12614,6 +12614,23 @@ export const translations: Record<string, string> = {
   "social.error.generic": "操作未完成。",
   "admin.dashboard.card.socialConnections.title": "社交账号连接",
   "admin.dashboard.card.socialConnections.desc": "连接并监控发布账号",
+  "social.connections.recordReview": "记录平台审核",
+  "social.connections.reviewRecorded": "已记录平台审核。",
+  "social.connections.reviewHint": "在平台自身的控制台中确认此应用可以以该账号身份发布后，再记录审核。",
+  "social.connections.activate": "启用发布",
+  "social.connections.activated": "已启用发布。",
+  "social.connections.deactivate": "暂停发布",
+  "social.connections.deactivated": "已暂停发布。",
+  "social.outcome.upgradeFailed": "账号已授权，但无法获取发布凭据。请重新连接。",
+  "social.outcome.noPages": "该账号未管理任何 Visionex 可发布的主页。",
+  "social.outcome.pageNotMatched": "没有主页与该标识匹配。请输入准确的主页名称或 ID 后重新连接。",
+  "social.outcome.instagramMissing": "该主页未关联 Instagram 专业账号。",
+  "social.error.refresh_not_supported": "该平台不签发刷新令牌。已保存的凭据不会过期；若失效请重新连接。",
+  "social.error.review_not_recorded": "激活此账号前请先记录平台审核。",
+  "social.error.publishing_not_granted": "平台未授予发布权限，因此无法激活此账号。",
+  "social.error.api_key_ref_missing": "此账号未记录密钥名称。请先记录平台审核。",
+  "social.error.not_connected": "此账号没有有效授权。请先连接再激活。",
+  "social.error.threads_refresh_failed": "无法延长 Threads 令牌。请稍后重试，或重新连接该账号。",
 };
 
 export default translations;
