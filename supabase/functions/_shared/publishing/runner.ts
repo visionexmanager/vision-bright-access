@@ -32,8 +32,8 @@ import type {
   PublishAdapter,
   PublishRequest,
   PublishingPorts,
-} from "./types";
-import { NOT_CONFIGURED } from "./adapters";
+} from "./types.ts";
+import { NOT_CONFIGURED } from "./adapters.ts";
 
 /** Returned by the timeout race. Not an outcome — an absence of one. */
 const TIMED_OUT = "__publish_timed_out__" as const;

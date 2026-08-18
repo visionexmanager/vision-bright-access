@@ -59,6 +59,17 @@ export interface PublishRequest {
   hook: string;
   body: string;
   hashtags: string[];
+  /**
+   * A publicly reachable image or video for platforms that require one.
+   *
+   * Absent today for every proposal, because `content_proposals` has no media
+   * column — the content engine produces hook, body and hashtags and nothing
+   * else. It is declared here rather than left out because Instagram has no
+   * text-only post at all: without media that adapter must refuse, and the
+   * refusal needs something to test. When the engine gains media this is where
+   * it arrives, and no adapter changes.
+   */
+  mediaUrl?: string;
   attempt: number;
   maxAttempts: number;
   account: PublishAccount;

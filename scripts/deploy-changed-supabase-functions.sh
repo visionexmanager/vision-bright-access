@@ -26,6 +26,9 @@ declare -A NO_VERIFY_JWT=(
   # Supabase JWT. Its POST actions check the caller's session and admin role;
   # its GET callback authenticates the sealed, expiring `state`.
   [social-oauth]=1
+  # Driven by a scheduled Actions job presenting CRON_SECRET, not a JWT. The
+  # function fails closed: unset secret means it answers nobody.
+  [social-publish]=1
 )
 
 list_all_functions() {

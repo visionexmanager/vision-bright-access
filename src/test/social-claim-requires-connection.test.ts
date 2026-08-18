@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { runPublishAttempt, runPublishBatch } from "@/lib/publishing/runner";
+import { runPublishAttempt, runPublishBatch } from "../../supabase/functions/_shared/publishing/runner.ts";
 import type {
   AdapterOutcome,
   ClaimResult,
@@ -10,7 +10,7 @@ import type {
   PublishRequest,
   PublishingPorts,
   RpcResult,
-} from "@/lib/publishing/types";
+} from "../../supabase/functions/_shared/publishing/types.ts";
 
 // Phase 9, step 3 — the claim path stops handing slots to accounts that cannot
 // publish.

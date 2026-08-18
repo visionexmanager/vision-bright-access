@@ -1,9 +1,9 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { createFakeAdapter, defaultAdapters, notConfiguredAdapter, NOT_CONFIGURED } from "@/lib/publishing/adapters";
-import { runPublishAttempt, runPublishBatch } from "@/lib/publishing/runner";
-import { PLATFORMS } from "@/lib/publishing/types";
+import { createFakeAdapter, defaultAdapters, notConfiguredAdapter, NOT_CONFIGURED } from "../../supabase/functions/_shared/publishing/adapters.ts";
+import { runPublishAttempt, runPublishBatch } from "../../supabase/functions/_shared/publishing/runner.ts";
+import { PLATFORMS } from "../../supabase/functions/_shared/publishing/types.ts";
 import type {
   ClaimResult,
   Platform,
@@ -12,14 +12,14 @@ import type {
   PublishingPorts,
   RecordInput,
   RpcResult,
-} from "@/lib/publishing/types";
+} from "../../supabase/functions/_shared/publishing/types.ts";
 
 // Phase 8, PR C1 — the intent marker, parking, and one ceiling.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // WHAT THESE TESTS DO AND DO NOT ESTABLISH
 //
-// EXECUTED FOR REAL: src/lib/publishing/runner.ts. Every scenario below drives
+// EXECUTED FOR REAL: supabase/functions/_shared/publishing/runner.ts. Every scenario below drives
 // the actual runner — the same function PR C2 will call — against ports backed
 // by the in-memory model further down. Its ordering guarantees (readiness
 // before dispatch, marker before the external call, exactly one call per
@@ -1201,35 +1201,58 @@ describe("requeue is bound to the existing owner-control model, and no wider", (
 // 8. Nothing is opened
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe("PR C1 opens no publishing surface", () => {
-  it("adds no publishing Edge Function, and there is still no publishing worker", () => {
+describe("the publishing surface is exactly one worker", () => {
+  // Until Phase 9 step 7 this block asserted that no publishing surface existed
+  // at all, which was the correct claim for PR C1 and for every PR between. The
+  // worker now exists deliberately — it is the point of step 7 — so the claim
+  // that is still worth defending is the narrower one: there is exactly one of
+  // it, and the SQL below it still opens nothing on its own.
+
+  it("has one publishing worker, not one per platform", () => {
     const functions = readdirSync("supabase/functions", { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && entry.name !== "_shared")
       .map((entry) => entry.name);
 
-    // `social-oauth` is Phase 9's connection flow. It mints access tokens and
-    // cannot spend them: social-oauth-connect.test.ts pins that it contacts no
-    // content API and calls none of claim_due_content_slot,
-    // record_content_publication or mark_publication_dispatched. The claim this
-    // test defends — that no worker exists — is unchanged, so it is exempted by
-    // name and every publishing name stays forbidden.
+    // `social-oauth` connects accounts and cannot spend what it mints;
+    // `social-publish` is the worker. Nothing else in this family may appear:
+    // seven adapters behind seven functions is the shape this guards against,
+    // and the project is close enough to the Edge Function ceiling that it
+    // would also cost real headroom.
     expect(
-      functions.filter(
-        (name) => name !== "social-oauth" && /social|publish|oauth|reap|requeue/i.test(name),
-      ),
-    ).toEqual([]);
-    for (const invented of ["social-publish", "content-publish", "publish-worker", "publishing-worker"]) {
+      functions.filter((name) => /social|publish|oauth|reap|requeue/i.test(name)).sort(),
+    ).toEqual(["social-oauth", "social-publish"]);
+
+    for (const invented of ["content-publish", "publish-worker", "publishing-worker",
+      "facebook-publish", "instagram-publish", "threads-publish"]) {
       expect(existsSync(`supabase/functions/${invented}`), `${invented} must not exist`).toBe(false);
     }
-    // And nothing under _shared either, which is where a worker's helpers would go.
-    expect(existsSync("supabase/functions/_shared/social")).toBe(false);
   });
 
-  it("adds no GitHub Actions workflow of its own", () => {
+  it("keeps the worker thin — it drives the protocol and does not reimplement it", () => {
+    const worker = readFileSync("supabase/functions/social-publish/index.ts", "utf8");
+
+    // The protocol lives in the runner, under the suite in this file. A worker
+    // that claimed or recorded on its own terms would be a second, untested
+    // implementation of the one thing that must not go wrong twice.
+    expect(worker).toContain('from "../_shared/publishing/runner.ts"');
+    expect(worker).not.toMatch(/\bwhile\s*\(|\bfor\s*\(\s*let\s+\w+\s*=\s*0\s*;.*attempt/i);
+    // No retry, and no second dispatch, anywhere in the worker.
+    expect(worker).not.toMatch(/mark_publication_dispatched[\s\S]{0,200}mark_publication_dispatched/);
+  });
+
+  it("has exactly one publishing workflow, carrying no secret inline", () => {
     const workflows = existsSync(".github/workflows")
       ? readdirSync(".github/workflows").filter((f) => /\.ya?ml$/.test(f))
       : [];
-    expect(workflows.filter((f) => /publish|social|reap/i.test(f))).toEqual([]);
+    expect(workflows.filter((f) => /publish|social|reap/i.test(f)))
+      .toEqual(["social-publish-cron.yml"]);
+
+    const cron = readFileSync(".github/workflows/social-publish-cron.yml", "utf8");
+    // Every credential arrives from the secret store, never as a literal.
+    expect(cron).toContain("secrets.CRON_SECRET");
+    expect(cron).not.toMatch(/eyJ[A-Za-z0-9_-]{10,}|\b[A-Za-z0-9_-]{40,}\b/);
+    // It calls the worker and nothing else — no direct platform call from CI.
+    expect(cron).not.toMatch(/graph\.facebook|graph\.threads/);
   });
 
   it("schedules no cron job and makes no HTTP call from SQL", () => {
@@ -1241,7 +1264,7 @@ describe("PR C1 opens no publishing surface", () => {
 
   it("contacts no platform from the runner either", () => {
     for (const file of ["types.ts", "adapters.ts", "runner.ts"]) {
-      const src = readFileSync(`src/lib/publishing/${file}`, "utf8");
+      const src = readFileSync(`supabase/functions/_shared/publishing/${file}`, "utf8");
       expect(src, `${file} must not contain a URL`).not.toMatch(/https?:\/\//);
       expect(src, `${file} must not fetch`).not.toMatch(/\bfetch\s*\(|XMLHttpRequest|axios/);
       expect(src, `${file} must not read the environment`).not.toMatch(/process\.env|import\.meta\.env|Deno\.env/);
@@ -1364,7 +1387,11 @@ describe("PR C1 opens no publishing surface", () => {
       const sql = readFileSync(`supabase/migrations/${file}`, "utf8");
       for (const fn of ["claim_due_content_slot", "record_content_publication",
         "reap_stale_content_publications", "requeue_content_slot", "mark_publication_dispatched"]) {
-        if (!new RegExp(`FUNCTION public\\.${fn}\\(`).test(sql)) continue;
+        // Anchored to a REDEFINITION, which is what this test is about. The
+        // looser `FUNCTION public.x(` also matched `COMMENT ON FUNCTION`, so a
+        // later migration that only documents one of these five — as step 8
+        // does when it schedules the reaper — read as replacing it.
+        if (!new RegExp(`CREATE OR REPLACE FUNCTION public\\.${fn}\\(`).test(sql)) continue;
         expect(SUPERSEDED[fn], `${file} redefines a Phase 8 publishing function`).toBe(file);
       }
     }
