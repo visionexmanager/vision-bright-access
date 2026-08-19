@@ -24,6 +24,10 @@ import {
   extractMessages,
   failureNotice,
   handoverNotice,
+  rateLimitDecision,
+  rateLimitNotice,
+  RATE_LIMIT_COOLDOWN_MS,
+  REPEAT_LIMIT,
   replySignalsHandover,
   sendWhatsAppText,
   unsupportedTypeNotice,
@@ -290,7 +294,7 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, escalated, control")
+        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -337,6 +341,56 @@ Deno.serve(async (req) => {
           await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
         }
       };
+
+      // ── Abuse control ─────────────────────────────────────────────────
+      //
+      // Placed after the message is logged, so a throttled sender is still
+      // recorded in the transcript and the team can see what was sent. Only
+      // the model call and the reply are withheld. The owner is exempt: their
+      // commands have their own separate limit above.
+      if (!isNew && !isOwner(incoming.from, configuredOwner)) {
+        const nowMs = Date.now();
+        const [{ count: hourCount }, { count: minuteCount }, { data: recent }] = await Promise.all([
+          db.from("whatsapp_messages").select("id", { count: "exact", head: true })
+            .eq("conversation_id", conversationId).eq("direction", "inbound")
+            .gte("created_at", new Date(nowMs - 3_600_000).toISOString()),
+          db.from("whatsapp_messages").select("id", { count: "exact", head: true })
+            .eq("conversation_id", conversationId).eq("direction", "inbound")
+            .gte("created_at", new Date(nowMs - 60_000).toISOString()),
+          db.from("whatsapp_messages").select("body")
+            .eq("conversation_id", conversationId).eq("direction", "inbound")
+            .order("created_at", { ascending: false }).limit(REPEAT_LIMIT),
+        ]);
+
+        const body = incoming.text || `[${incoming.unsupportedType}]`;
+        const repeatCount = (recent ?? []).filter((row) => row.body === body).length;
+
+        const verdict = rateLimitDecision({
+          now: nowMs,
+          blockedUntil: existing?.blocked_until ? Date.parse(existing.blocked_until as string) : null,
+          notifiedAt: existing?.rate_notified_at ? Date.parse(existing.rate_notified_at as string) : null,
+          lastHourCount: hourCount ?? 0,
+          lastMinuteCount: minuteCount ?? 0,
+          repeatCount,
+        });
+
+        if (!verdict.allow) {
+          console.error(
+            `[whatsapp] throttled: reason=${verdict.reason} hour=${hourCount} minute=${minuteCount} repeat=${repeatCount}`,
+          );
+          await db
+            .from("whatsapp_conversations")
+            .update({
+              blocked_until: new Date(nowMs + RATE_LIMIT_COOLDOWN_MS).toISOString(),
+              rate_limit_hits: ((existing?.rate_limit_hits as number) ?? 0) + 1,
+              ...(verdict.notify ? { rate_notified_at: new Date(nowMs).toISOString() } : {}),
+            })
+            .eq("id", conversationId);
+
+          if (verdict.notify) await reply(rateLimitNotice(language), "unsupported");
+          continue;
+        }
+      }
 
       if (isNew) await reply(welcomeFor(language), "welcome");
 

@@ -43,6 +43,67 @@ export function handoverNotice(language: "ar" | "en"): string {
     : "I'm passing this conversation to the Visionex team so they can follow up. Your message has been logged and someone from the team will get back to you.";
 }
 
+// ── Abuse control ────────────────────────────────────────────────────────
+//
+// Only owner commands used to be limited, so any other number could drive
+// unbounded paid model calls in a loop. These are pure decisions over counts
+// the webhook already has, so the policy is testable without a Meta account.
+
+/** Inbound messages one sender may send per hour before the assistant pauses. */
+export const RATE_LIMIT_PER_HOUR = 60;
+/** Burst ceiling: a human types fast, but not this fast. */
+export const RATE_LIMIT_PER_MINUTE = 10;
+/** How long the assistant stays quiet once a budget is exceeded. */
+export const RATE_LIMIT_COOLDOWN_MS = 15 * 60_000;
+/** Identical consecutive messages tolerated before we stop re-answering. */
+export const REPEAT_LIMIT = 3;
+
+export type RateVerdict =
+  | { allow: true }
+  | { allow: false; reason: "cooldown" | "hourly" | "burst" | "repeat"; notify: boolean };
+
+/**
+ * Decide whether to answer this message.
+ *
+ * `notify` is true only the first time a window closes, so a sender gets one
+ * explanation rather than a reply to every throttled message — which would
+ * itself be the flood we are trying to stop.
+ */
+export function rateLimitDecision(input: {
+  now: number;
+  blockedUntil: number | null;
+  notifiedAt: number | null;
+  lastHourCount: number;
+  lastMinuteCount: number;
+  repeatCount: number;
+}): RateVerdict {
+  const notifiedRecently =
+    input.notifiedAt !== null && input.now - input.notifiedAt < RATE_LIMIT_COOLDOWN_MS;
+
+  if (input.blockedUntil !== null && input.blockedUntil > input.now) {
+    return { allow: false, reason: "cooldown", notify: false };
+  }
+  // A stuck resend loop is answered once and then ignored; it is usually a
+  // client retrying, not a person asking again.
+  if (input.repeatCount >= REPEAT_LIMIT) {
+    return { allow: false, reason: "repeat", notify: !notifiedRecently };
+  }
+  if (input.lastMinuteCount > RATE_LIMIT_PER_MINUTE) {
+    return { allow: false, reason: "burst", notify: !notifiedRecently };
+  }
+  if (input.lastHourCount > RATE_LIMIT_PER_HOUR) {
+    return { allow: false, reason: "hourly", notify: !notifiedRecently };
+  }
+  return { allow: true };
+}
+
+/** Told once per window to a sender who is being throttled. */
+export function rateLimitNotice(language: "ar" | "en"): string {
+  return language === "ar"
+    ? "وصلتني رسائل كثيرة بسرعة. سأتوقف قليلاً ثم أتابع معك — رسائلك محفوظة ولن تضيع. إذا كان الأمر عاجلاً راسلنا على https://visionex.app/contact"
+    : "That's a lot of messages very quickly, so I'll pause briefly and pick up again shortly — nothing you sent is lost. If it's urgent, reach us at https://visionex.app/contact";
+}
+
 /** Shown when the AI provider is unreachable, so the user is never left silent. */
 export function failureNotice(language: "ar" | "en"): string {
   return language === "ar"
@@ -183,35 +244,73 @@ export function clampReply(text: string, limit = 3900): string {
   return (cut > limit * 0.6 ? window.slice(0, cut + 1) : window).trim() + "…";
 }
 
-/** Send a text message through the Cloud API. Returns whether it was accepted. */
+/**
+ * Whether a failed send is worth repeating.
+ *
+ * A 4xx is a rejected message — the same bytes will be rejected again, and
+ * retrying only burns the window. 429 and 5xx are the transient ones.
+ */
+export function isRetryableSendStatus(status: number): boolean {
+  return status === 429 || (status >= 500 && status < 600);
+}
+
+/** Backoff before send attempt `attempt` (1-based). Short: Meta expects a prompt 200. */
+export function sendBackoffMs(attempt: number): number {
+  return Math.min(2_000, 250 * 2 ** (attempt - 1));
+}
+
+/**
+ * Send a text message through the Cloud API. Returns whether it was accepted.
+ *
+ * Retries only what is worth retrying, and at most twice: the webhook is inside
+ * Meta's delivery timeout, so a long retry loop would cost us the 200 and earn
+ * a redelivery of the whole batch.
+ */
 export async function sendWhatsAppText(params: {
   phoneNumberId: string;
   token: string;
   to: string;
   body: string;
+  attempts?: number;
+  sleep?: (ms: number) => Promise<void>;
 }): Promise<boolean> {
-  const res = await fetch(
-    `${GRAPH_BASE}/${params.phoneNumberId}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${params.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: params.to,
-        type: "text",
-        text: { preview_url: true, body: params.body },
-      }),
-    },
-  );
-  if (!res.ok) {
+  const attempts = params.attempts ?? 3;
+  const sleep = params.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    let status = 0;
+    try {
+      const res = await fetch(
+        `${GRAPH_BASE}/${params.phoneNumberId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${params.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to: params.to,
+            type: "text",
+            text: { preview_url: true, body: params.body },
+          }),
+        },
+      );
+      if (res.ok) return true;
+      status = res.status;
+    } catch (e) {
+      // A network fault is transient by definition; treat it like a 503.
+      status = 503;
+      console.error("[whatsapp] send transport error:", e instanceof Error ? e.name : "unknown");
+    }
+
     // The body echoes the recipient number; log the status only.
-    console.error("[whatsapp] send rejected:", res.status);
+    console.error(`[whatsapp] send rejected: status=${status} attempt=${attempt}/${attempts}`);
+    if (!isRetryableSendStatus(status) || attempt === attempts) return false;
+    await sleep(sendBackoffMs(attempt));
   }
-  return res.ok;
+  return false;
 }
 
 /**

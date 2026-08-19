@@ -207,3 +207,97 @@ describe("webhook safety contract", () => {
     expect(webhook).toContain('escalation_reason: "ai_unavailable"');
   });
 });
+
+// ── Phase 1: abuse control and send reliability ─────────────────────────────
+//
+// Before this, only owner commands were limited: any other number could drive
+// unbounded paid model calls in a loop, and a rejected send was dropped.
+
+describe("rate limiting", () => {
+  const base = {
+    now: 1_000_000,
+    blockedUntil: null,
+    notifiedAt: null,
+    lastHourCount: 1,
+    lastMinuteCount: 1,
+    repeatCount: 0,
+  };
+
+  it("lets an ordinary conversation through", async () => {
+    const { rateLimitDecision } = await loadHelpers();
+    expect(rateLimitDecision(base)).toEqual({ allow: true });
+  });
+
+  it("stops a burst and explains itself once", async () => {
+    const { rateLimitDecision, RATE_LIMIT_PER_MINUTE } = await loadHelpers();
+    const verdict = rateLimitDecision({ ...base, lastMinuteCount: RATE_LIMIT_PER_MINUTE + 1 });
+    expect(verdict).toMatchObject({ allow: false, reason: "burst", notify: true });
+  });
+
+  it("stops an hourly flood", async () => {
+    const { rateLimitDecision, RATE_LIMIT_PER_HOUR } = await loadHelpers();
+    expect(rateLimitDecision({ ...base, lastHourCount: RATE_LIMIT_PER_HOUR + 1 }))
+      .toMatchObject({ allow: false, reason: "hourly" });
+  });
+
+  it("stops answering a message that keeps repeating", async () => {
+    const { rateLimitDecision, REPEAT_LIMIT } = await loadHelpers();
+    expect(rateLimitDecision({ ...base, repeatCount: REPEAT_LIMIT }))
+      .toMatchObject({ allow: false, reason: "repeat" });
+  });
+
+  it("stays quiet during a cooldown without re-notifying", async () => {
+    const { rateLimitDecision } = await loadHelpers();
+    const verdict = rateLimitDecision({ ...base, blockedUntil: base.now + 60_000 });
+    expect(verdict).toEqual({ allow: false, reason: "cooldown", notify: false });
+  });
+
+  it("explains itself once per window, not on every throttled message", async () => {
+    const { rateLimitDecision, RATE_LIMIT_PER_MINUTE } = await loadHelpers();
+    const flooding = { ...base, lastMinuteCount: RATE_LIMIT_PER_MINUTE + 1 };
+    expect(rateLimitDecision({ ...flooding, notifiedAt: base.now - 1_000 }))
+      .toMatchObject({ notify: false });
+    expect(rateLimitDecision({ ...flooding, notifiedAt: base.now - 3_600_000 }))
+      .toMatchObject({ notify: true });
+  });
+
+  it("lets the sender back in once the cooldown has passed", async () => {
+    const { rateLimitDecision } = await loadHelpers();
+    expect(rateLimitDecision({ ...base, blockedUntil: base.now - 1 })).toEqual({ allow: true });
+  });
+
+  it("throttles after the message is logged, so nothing is lost from the transcript", () => {
+    const insertAt = webhook.indexOf("direction: \"inbound\"");
+    const throttleAt = webhook.indexOf("rateLimitDecision(");
+    expect(insertAt).toBeGreaterThan(-1);
+    expect(throttleAt).toBeGreaterThan(insertAt);
+  });
+
+  it("exempts the owner, whose commands have their own limit", () => {
+    expect(webhook).toContain("!isOwner(incoming.from, configuredOwner)");
+  });
+});
+
+describe("outbound send reliability", () => {
+  it("retries only what is worth retrying", async () => {
+    const { isRetryableSendStatus } = await loadHelpers();
+    expect(isRetryableSendStatus(429)).toBe(true);
+    expect(isRetryableSendStatus(500)).toBe(true);
+    expect(isRetryableSendStatus(503)).toBe(true);
+    // A rejected message is rejected the same way next time.
+    expect(isRetryableSendStatus(400)).toBe(false);
+    expect(isRetryableSendStatus(401)).toBe(false);
+    expect(isRetryableSendStatus(404)).toBe(false);
+  });
+
+  it("backs off, but stays well inside Meta's delivery timeout", async () => {
+    const { sendBackoffMs } = await loadHelpers();
+    expect(sendBackoffMs(1)).toBeLessThan(sendBackoffMs(2));
+    expect(sendBackoffMs(9)).toBeLessThanOrEqual(2_000);
+  });
+
+  it("logs the status but never the recipient number", () => {
+    expect(helpers).toContain("send rejected: status=");
+    expect(helpers).not.toMatch(/console\.(error|log)\([^)]*params\.to/);
+  });
+});

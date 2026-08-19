@@ -1,0 +1,153 @@
+# WhatsApp AI upgrade — progress
+
+Phase-by-phase upgrade of the live WhatsApp assistant. A phase is `DONE` only
+when it has evidence: tests, a commit, and where it applies a production check.
+A blocked phase records the real reason, never a claimed pass.
+
+Status vocabulary: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `DONE`.
+
+A later session should read Phase 0, then continue from the first phase that is
+not `DONE`.
+
+---
+
+## Phase 0 — Audit · **DONE**
+
+### What is already live and must not be rebuilt
+
+`supabase/functions/whatsapp-webhook/index.ts` (427 lines) is deployed and
+serving. Probed on 2026-08-19:
+
+| Probe | Result | What it proves |
+| --- | --- | --- |
+| `GET ?hub.verify_token=<wrong>` | **403** | Function is deployed and rejects a bad handshake |
+| `POST` with no `X-Hub-Signature-256` | **403** | Signature is enforced — and since the code returns **503** when `WHATSAPP_APP_SECRET` is unset, a 403 proves the Meta secret **is configured in production** |
+
+Working today:
+
+- Meta `GET` verification handshake, and HMAC `X-Hub-Signature-256` over the raw
+  body with a constant-time compare.
+- Deduplication: `whatsapp_messages.wa_message_id` is unique, and the `23505`
+  path turns a Meta retry into a no-op instead of a second AI call.
+- Always answers `200`, so a processing failure never causes a retry storm.
+- Per-message `try/catch`: one bad message cannot drop the rest of the batch.
+- Conversation + transcript in `whatsapp_conversations` / `whatsapp_messages`,
+  RLS on, service-role write, admin-only read.
+- Owner control centre over WhatsApp (approve / reject / take over / return),
+  authorised by configured number, rate-limited to 120 commands/hour.
+- Arabic/English detection, welcome message, handover and failure notices.
+- Escalation on: explicit request for a person, assistant self-handover, or AI
+  provider failure. `control='human'` silences the assistant entirely.
+- Bounded memory: last 12 conversational turns replayed.
+- Reply clamping under WhatsApp's 4096-character limit.
+- AI through the existing `_shared/assistants.ts` registry and
+  `_shared/aiProvider.ts` fallback chain — no separate model config.
+- `verify_jwt = false` correctly present in **both** `supabase/config.toml` and
+  `scripts/deploy-changed-supabase-functions.sh` (Meta cannot present a JWT).
+
+### What is missing
+
+- **All media.** `extractMessages` marks anything that is not `text` as
+  `unsupportedType` and the user gets "I can't read that kind of message yet."
+  No image, audio, document or video handling exists.
+- **No rate limiting or spam protection for ordinary users.** Only *owner
+  commands* are limited. A single number can drive unbounded AI calls.
+- **No outbound send retry.** `sendWhatsAppText` logs a non-OK status and gives
+  up; the reply is lost.
+- **No knowledge base retrieval.** The assistant answers about Visionex from
+  model priors, with nothing to ground it.
+- **No user preferences**, no classification, no summarisation, no Bazaar or
+  order lookup, no metrics.
+- **Language support is Arabic/English only**, by a character-range heuristic.
+
+### Reusable assets found (do not rebuild)
+
+| Capability | Where | Note |
+| --- | --- | --- |
+| Speech→text | `supabase/functions/speech-transcribe` | OpenAI `whisper-1` |
+| Text→speech | `speech-generate`, `text-to-speech` | ElevenLabs key present |
+| OCR | `ocr-scan` | Only if genuinely needed |
+| RAG | `ai_embeddings` + `match_embeddings()` RPC, `embed-content`, `ai-search` | pgvector, 1536-dim |
+| Structured output | `structuredCompletion` in `_shared/aiProvider.ts` | For classification |
+| Providers | openai · anthropic · gemini · **groq** · mistral | All keys already synced by `deploy.yml` |
+
+### Hard constraints
+
+- **96 of 100 edge functions used.** New functions are nearly out of budget, so
+  every capability here extends `whatsapp-webhook` and `_shared/` instead.
+  (Recorded previously: at 100, new functions fail with a 402 that reads like a
+  bundling error.)
+- Free-form replies only inside Meta's 24-hour customer-service window.
+- The repository is public — no production data in CI logs.
+
+### Out of scope, as instructed
+
+WhatsApp Calling API and Groups API: not enabled for this account and not
+verifiable from here. Marketing and paid template campaigns: excluded.
+
+---
+
+## Phase 1 — Core messaging hardening · **DONE**
+
+**Found.** Dedup, idempotency, malformed-payload safety, structured per-message
+error handling and the always-200 contract were **already correct** and were left
+alone. Two real gaps: ordinary senders had *no* rate limit (only owner commands
+did), so one number could drive unbounded paid model calls in a loop; and a
+rejected outbound send was logged and dropped, losing the reply.
+
+**Changed.**
+- `20260916000000_whatsapp_rate_limiting.sql` — `blocked_until`,
+  `rate_notified_at`, `rate_limit_hits` on `whatsapp_conversations`, plus a
+  partial index on inbound messages for the limiter's hot path and an abuse-triage
+  index. Self-expiring by design: a cooldown, not a ban.
+- `rateLimitDecision()` — a pure verdict over counts the webhook already has:
+  60/hour, 10/minute burst, and a repeat guard for a client stuck resending. It
+  notifies **once per window**, because replying to every throttled message is
+  the flood it is meant to stop.
+- `sendWhatsAppText()` now retries 429 and 5xx (and transport faults) up to
+  three attempts with capped backoff, and never retries a 4xx — the same bytes
+  would be rejected again, and the retry would cost the delivery window.
+- The limiter runs **after** the message is logged, so a throttled sender still
+  appears in the transcript; only the model call and the reply are withheld. The
+  owner is exempt.
+
+**Tests.** 12 new cases in `src/test/whatsapp-assistant.test.ts` (31 total in that
+file): each limit, cooldown expiry, notify-once, retryable-status classification,
+backoff bounds, plus two structural assertions — that throttling happens after the
+insert, and that no send log line can contain the recipient number.
+
+**Quality gate.** typecheck PASS · full suite 1301 PASS · both Deno sources parse
+· no secrets in the diff. The one failing file, `whatsapp-business-profile.test.ts`,
+fails identically on `main` from a Windows CRLF issue and is untouched here.
+
+**Not verified.** The migration could not be executed locally — this machine has
+no Docker, psql or PGlite — so it is reviewed, not run. It is additive
+(`ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`) and re-runnable.
+
+---
+
+## Phase status
+
+| Phase | Status | Commit |
+| --- | --- | --- |
+| 0 — Audit | **DONE** | this document |
+| 1 — Core messaging hardening | **DONE** | `feat(whatsapp): rate limit ordinary senders and retry rejected sends` |
+| 2 — Multilingual AI | NOT STARTED | |
+| 3 — Conversation memory | NOT STARTED | |
+| 4 — Knowledge base | NOT STARTED | |
+| 5 — Voice notes | NOT STARTED | |
+| 6 — Voice replies | NOT STARTED | |
+| 7 — Images | NOT STARTED | |
+| 8 — Documents | NOT STARTED | |
+| 9 — Video | NOT STARTED | |
+| 10 — Human handoff | NOT STARTED | partially exists (see Phase 0) |
+| 11 — Classification | NOT STARTED | |
+| 12 — Summaries | NOT STARTED | |
+| 13 — Bazaar assistant | NOT STARTED | |
+| 14 — Order tracking | NOT STARTED | |
+| 15 — User preferences | NOT STARTED | |
+| 16 — Observability | NOT STARTED | |
+| 17 — Cost control | NOT STARTED | |
+| 18 — Security audit | NOT STARTED | |
+| 19 — Accessibility and UX | NOT STARTED | |
+| 20 — End-to-end tests | NOT STARTED | |
