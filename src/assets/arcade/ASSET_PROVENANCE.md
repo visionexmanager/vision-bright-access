@@ -1,5 +1,12 @@
 # Visionex Arcade asset provenance
 
+## Snake cover (2026-08-19)
+
+`game-snake-v1.svg` is an original code-authored 1920×1080 vector composition
+made for Visionex Arcade. It contains no third-party marks, characters, fonts,
+photos, remote resources or embedded metadata, and no text, so it needs no
+localisation. It replaces the Neon Breach cover, which Snake had been reusing.
+
 ## Premium cognition covers — production pack 8 (2026-08-13)
 
 `game-quiz-challenge-premium-v2.webp` and `game-memory-premium-v2.webp` were created specifically for Visionex Arcade with ChatGPT built-in image generation. The accepted images contain no text, logos, brands, flags, copyrighted characters, or identifiable people. Sources were visually inspected, stripped of metadata, resized to 1920×1080, and encoded as WebP quality-84 production derivatives.
