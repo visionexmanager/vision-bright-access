@@ -84,3 +84,69 @@ jobs:
           else
             say "_Skipped — META_APP_ID or META_APP_SECRET is not configured._"
           fi
+
+      # ── Did anything ever arrive? ────────────────────────────────────────
+      #
+      # The webhook records every inbound message BEFORE it decides whether it
+      # may answer, so the presence or absence of an inbound row splits the
+      # remaining causes cleanly in two: no row means Meta never delivered, and
+      # a row means it delivered and something downstream declined.
+      #
+      # This repository is public, so what it prints is deliberately thin:
+      # counts, the page id (which appears in every webhook Meta sends anyway),
+      # and the reason column. Never a message body, never a sender id.
+      - name: Read what the inbox recorded
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [[ -z "$SUPABASE_ACCESS_TOKEN" || -z "$SUPABASE_PROJECT_REF" ]]; then
+            say "_Skipped — no Supabase management credentials._"
+            exit 0
+          fi
+
+          ask() {
+            curl -s -X POST \
+              "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query:$q}')"
+          }
+
+          say ""
+          say "## 4. What has the inbox actually recorded?"
+          say '```json'
+          ask "select
+                 count(*) filter (where direction = 'inbound')  as inbound_messages,
+                 count(*) filter (where direction = 'outbound') as outbound_messages,
+                 (select count(*) from public.meta_conversations) as conversations
+               from public.meta_messages" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+          say "**inbound_messages = 0 means Meta has never delivered a single message to this function** — the fault is entirely upstream, and no change to this codebase can fix it. Any number above zero means delivery works and the refusal is ours."
+
+          say ""
+          say "### Recent activity, without message text"
+          say '```json'
+          ask "select c.channel, c.external_account_id, c.escalated, c.escalation_reason,
+                      m.direction, m.kind, m.created_at
+                 from public.meta_messages m
+                 join public.meta_conversations c on c.id = m.conversation_id
+                order by m.created_at desc
+                limit 10" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+
+          say ""
+          say "### Is the account row the gate reads actually enabled?"
+          say '```json'
+          ask "select platform, handle, external_account_id, messaging_enabled,
+                      capabilities, status
+                 from public.social_accounts
+                where platform in ('facebook','instagram')" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
