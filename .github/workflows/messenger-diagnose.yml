@@ -83,7 +83,10 @@ jobs:
                --data-urlencode "input_token=$PAGE_TOKEN" \
                -H "Authorization: Bearer $META_APP_ID|$META_APP_SECRET" \
                -o /tmp/token.json
-          cat /tmp/token.json | tee -a "$GITHUB_STEP_SUMMARY"
+          # user_id identifies the Meta account that issued the token. It is not
+          # a credential, but this repository is public and its logs are world
+          # readable, so it is dropped rather than published.
+          jq -c "del(.data.user_id)" /tmp/token.json | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           fence
           say "Wanted: is_valid true, expires_at 0, and pages_messaging. A USER token is measured, not assumed, in 2b: this one is accepted by the Send API even though subscribed_apps refuses it."
@@ -291,12 +294,24 @@ jobs:
 
           say ""
           say "## 9. What the function printed"
-          say '```json'
+          # function_logs is project-wide: the query cannot be narrowed to one
+          # function, and an earlier version printed the raw response, which
+          # published another function's operational output to a world-readable
+          # log. So the rows are fetched unfiltered — a WHERE that matches
+          # nothing is indistinguishable from a log that recorded nothing — and
+          # filtered here, with the other functions counted rather than shown.
+          # The count is what keeps an empty result honest: it separates "this
+          # function said nothing" from "the query returned nothing at all".
           logs "select t.timestamp, t.event_message
                   from function_logs as t
-                 order by t.timestamp desc limit 50" | tee -a "$GITHUB_STEP_SUMMARY"
+                 order by t.timestamp desc limit 50" > /tmp/logs.json
+          OTHERS=$(jq '[.result[]? | select(.event_message | test("meta-messaging") | not)] | length' /tmp/logs.json)
+          say '```json'
+          jq -c '[.result[]? | select(.event_message | test("meta-messaging"))]' /tmp/logs.json \
+            | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           say '```'
+          say "Plus ${OTHERS:-0} lines from other functions, withheld — this repository is public."
           say "Lines beginning [meta-messaging] are this function's. A Send API failure prints there and nowhere else, so this is the only place its result appears."
 
       # ── 5. What the database holds, and cleaning up after the probes ────
