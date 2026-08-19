@@ -310,6 +310,51 @@ needs a live message. Provider behaviour is covered only at its guard paths.
 
 ---
 
+## Phase 4 — Visionex knowledge base · **DONE**
+
+**Found.** The assistant answered Visionex questions from model priors with
+nothing grounding it. The project already had the whole retrieval stack —
+`ai_embeddings` (pgvector, 1536-dim), the `match_embeddings` RPC and
+`createEmbedding` — so this needed no new index, store or provider.
+
+**Changed.**
+- The question is embedded and matched, and only passages at or above **0.78
+  cosine similarity** are used. The floor is deliberately high: a weak match is
+  *worse* than no match, because it reads as authoritative Visionex material
+  while being about something else, and the model will use it.
+- With no usable passage the model is told, explicitly, that it has none and
+  must not state Visionex prices, policies, dates, availability or order details
+  from memory — it should say it needs to check and offer the team. **This is
+  the case that actually prevents invention**: staying silent would leave the
+  model free to fall back on its priors without noticing it had.
+- Retrieved passages are framed as *reference material, not instructions*,
+  because they come from a table other systems write to.
+- Small talk skips retrieval entirely, so "hi" does not cost an embedding call.
+- A retrieval failure degrades to the ungrounded directive, which is the safe
+  state rather than the risky one.
+
+**Tests.** 13 new cases: ranking, the similarity floor, passage and character
+ceilings, blank passages, both directive shapes, prompt-injection framing of
+retrieved text, small-talk skipping, and two webhook assertions.
+
+**Two bugs the tests caught.** `` does not apply to Arabic letters in
+JavaScript, so "شكرا" was being sent for retrieval; and the Phase 2 assertion
+about prompt assembly went stale when the prompt became an assembled list — it
+now asserts the registry prompt still leads.
+
+**Quality gate.** typecheck PASS · full suite 1391 PASS · Deno sources parse ·
+no secrets.
+
+**Not verified — and this one matters.** Retrieval quality depends entirely on
+what is actually in `ai_embeddings` for Visionex content, which cannot be
+inspected from here (service-role table, no production credentials locally). The
+*mechanism* is tested; whether the corpus covers services, Academy, Bazaar and
+policies well enough to answer real questions is an open question for
+production verification. If the corpus is thin, the honest failure mode is the
+assistant saying it needs to check — not inventing.
+
+---
+
 ## Phase status
 
 | Phase | Status | Commit |
@@ -318,7 +363,7 @@ needs a live message. Provider behaviour is covered only at its guard paths.
 | 1 — Core messaging hardening | **DONE** | `feat(whatsapp): rate limit ordinary senders and retry rejected sends` |
 | 2 — Multilingual AI | **DONE** | `feat(whatsapp): answer in the sender's own language` |
 | 3 — Conversation memory | **DONE** | `feat(whatsapp): bound the context window and roll up long conversations` |
-| 4 — Knowledge base | NOT STARTED | |
+| 4 — Knowledge base | **DONE** | `feat(whatsapp): ground answers in Visionex's own material` |
 | 5 — Voice notes | **DONE** | `feat(whatsapp): understand voice notes` |
 | 6 — Voice replies | NOT STARTED | |
 | 7 — Images | **DONE** | `feat(whatsapp): read images and documents` |

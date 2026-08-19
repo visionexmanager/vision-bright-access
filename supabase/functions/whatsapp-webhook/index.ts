@@ -16,7 +16,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getAssistant } from "../_shared/assistants.ts";
-import { streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
+import { createEmbedding, streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import {
   budgetTurns,
   clampReply,
@@ -48,6 +48,13 @@ import { downloadMedia, mediaFailureNotice } from "../_shared/whatsappMedia.ts";
 import { transcribeVoice, transcriptionFailureNotice } from "../_shared/whatsappTranscribe.ts";
 import { understandDocument, understandImage } from "../_shared/whatsappUnderstand.ts";
 import { unreadableNotice, unsupportedDocumentNotice } from "../_shared/whatsappAttachments.ts";
+import {
+  knowledgeDirective,
+  MAX_PASSAGES,
+  needsGrounding,
+  selectPassages,
+  type KnowledgePassage,
+} from "../_shared/whatsappKnowledge.ts";
 import {
   formatAmbiguityPrompt,
   formatPendingList,
@@ -634,13 +641,47 @@ Deno.serve(async (req) => {
 
       const answerIn = answerLanguage;
 
+      // ── Grounding ─────────────────────────────────────────────────────
+      //
+      // Without retrieved material the model answers Visionex questions from
+      // its priors, and a confident invented refund policy is worse than "I
+      // don't know" because the customer acts on it. A weak match is worse
+      // still: it reads as authoritative while being about something else, so
+      // anything below the similarity floor is discarded and the model is told
+      // it has no source.
+      let passages: KnowledgePassage[] = [];
+      if (needsGrounding(questionText)) {
+        try {
+          const [vector] = await createEmbedding([questionText.slice(0, 2_000)]);
+          const { data: matches, error } = await db.rpc("match_embeddings", {
+            query_embedding: vector,
+            match_count: MAX_PASSAGES * 3,
+          });
+          if (error) throw error;
+          passages = selectPassages(
+            (matches ?? []).map((row: { content: string; source_table: string; similarity: number }) => ({
+              content: row.content,
+              sourceTable: row.source_table,
+              similarity: row.similarity,
+            })),
+          );
+        } catch (e) {
+          // Retrieval is best-effort. Losing it must not lose the reply — and
+          // the empty-passage directive is the safe state, not the risky one.
+          console.error("[whatsapp] retrieval failed:", e instanceof Error ? e.message : e);
+        }
+      }
+      console.log(`[whatsapp] grounded with ${passages.length} passages`);
+
       let answer: string;
       try {
         const { result: stream } = await streamChatCompletionWithFallback({
           targets: assistant.targets,
-          system: `${assistant.systemPrompt}
-
-${languageDirective(answerIn)}`,
+          system: [
+            assistant.systemPrompt,
+            languageDirective(answerIn),
+            knowledgeDirective(passages),
+          ].join("\n\n"),
           messages: [
             ...(summary ? [{ role: "user" as const, content: summaryPreamble(summary) }] : []),
             ...(turns.length > 0 ? turns : [{ role: "user" as const, content: questionText }]),
