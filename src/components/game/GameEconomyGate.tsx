@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ArcadeGameExperience } from "@/features/arcade/ArcadeGameExperience";
 import { gameManager } from "@/features/arcade/core/gameManager";
+import { useArcadeRuntime } from "@/features/arcade/core/useArcadeRuntime";
 import { accessibilityAudio } from "@/features/arcade/audio/AccessibilityAudioLayer";
 
 type GameResult = "win" | "loss" | "draw";
@@ -46,6 +47,7 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
   const sessionRef = useRef(crypto.randomUUID());
   const startedAtRef = useRef(Date.now());
   const inputCountRef = useRef(0);
+  const { revision } = useArcadeRuntime();
   const entryKey = `${location.pathname}:${gameTitle}`;
 
   useEffect(() => {
@@ -59,6 +61,16 @@ export function GameEconomyGate({ gameTitle, children }: GameEconomyGateProps) {
     if (!user) { setEntryStatus("blocked"); setMessage(t("game.loginToPlay")); }
     else setEntryStatus("ready");
   }, [entryKey, languageReady, t, user]);
+
+  // gameManager.restart() remounts the game but leaves this gate mounted, so
+  // without this the settle lock stayed closed and every round after the first
+  // silently reported nothing: no result overlay, no VX and no session record.
+  useEffect(() => {
+    settledRef.current = false;
+    sessionRef.current = crypto.randomUUID();
+    startedAtRef.current = Date.now();
+    inputCountRef.current = 0;
+  }, [revision]);
 
   useEffect(() => {
     const countInput = (event: Event) => { if (event.isTrusted) inputCountRef.current += 1; };
