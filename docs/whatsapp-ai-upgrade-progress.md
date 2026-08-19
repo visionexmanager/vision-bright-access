@@ -355,6 +355,51 @@ assistant saying it needs to check — not inventing.
 
 ---
 
+## Phases 15 and 6 — Preferences and voice replies · **DONE**
+
+Taken together: a voice reply has to be opt-in, and opting in needs somewhere
+to store the choice.
+
+**Changed.**
+- Three preferences, and only three: `preferred_language` (Phase 2),
+  `voice_replies` and `verbosity`. Marketing opt-in is deliberately **absent** —
+  there is no marketing send path in this feature, and a consent flag with
+  nothing reading it is a liability pretending to be a feature.
+- WhatsApp has no settings screen, so a preference can only be offered by
+  noticing someone ask. Matching is deliberately narrow: a language name alone
+  is not enough, because "my documents are in English" is a fact about
+  documents. An intent phrase has to be present too. Negations are checked
+  first, since "no voice replies" contains "voice replies".
+- Every change is **confirmed out loud**. Silently changing how someone is
+  answered is worse than not offering the setting.
+- Voice replies: OpenAI `tts-1` (chosen over ElevenLabs purely on cost — this
+  is an optional extra), uploaded to the phone number's media store and then
+  sent by id, because audio is two API calls rather than one. **The text reply
+  always goes first**, so a failed synthesis costs nothing; every failure in the
+  voice path is swallowed. Canned notices stay text — they carry links and
+  instructions that are useless read aloud — and URLs and Markdown are stripped
+  from anything spoken.
+
+**Tests.** 17 new cases (138 in the file): language switching in both scripts,
+the passing-mention cases that must *not* trigger, voice on/off with negation
+precedence, both length preferences, ordinary questions left alone, an
+over-long message ignored, confirmation wording, and the voice gates including
+canned-notice and length limits, plus ordering assertions that text precedes
+speech and upload precedes send.
+
+**Bug caught, third of its kind.** `` does not apply to Arabic in JavaScript,
+so "احكي معي بالعربي" matched no language. The table now applies `` to the
+Latin spellings only. This is the same trap as Phase 4's "شكرا" — worth
+remembering as a repo-wide hazard.
+
+**Quality gate.** typecheck PASS · full suite 1408 PASS · Deno sources parse ·
+no secrets.
+
+**Not verified.** No voice note has been synthesised or uploaded for real —
+that needs a live conversation with the preference enabled.
+
+---
+
 ## Phase status
 
 | Phase | Status | Commit |
@@ -365,7 +410,7 @@ assistant saying it needs to check — not inventing.
 | 3 — Conversation memory | **DONE** | `feat(whatsapp): bound the context window and roll up long conversations` |
 | 4 — Knowledge base | **DONE** | `feat(whatsapp): ground answers in Visionex's own material` |
 | 5 — Voice notes | **DONE** | `feat(whatsapp): understand voice notes` |
-| 6 — Voice replies | NOT STARTED | |
+| 6 — Voice replies | **DONE** | `feat(whatsapp): remember preferences and speak replies on request` |
 | 7 — Images | **DONE** | `feat(whatsapp): read images and documents` |
 | 8 — Documents | **DONE** | `feat(whatsapp): read images and documents` |
 | 9 — Video | NOT STARTED | |
@@ -374,7 +419,7 @@ assistant saying it needs to check — not inventing.
 | 12 — Summaries | **DONE** | summary engine built in Phase 3; handoff summary in Phase 10 |
 | 13 — Bazaar assistant | NOT STARTED | |
 | 14 — Order tracking | NOT STARTED | |
-| 15 — User preferences | NOT STARTED | |
+| 15 — User preferences | **DONE** | `feat(whatsapp): remember preferences and speak replies on request` |
 | 16 — Observability | NOT STARTED | |
 | 17 — Cost control | NOT STARTED | |
 | 18 — Security audit | NOT STARTED | |

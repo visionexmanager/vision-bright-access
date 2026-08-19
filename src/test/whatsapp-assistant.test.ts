@@ -877,3 +877,138 @@ describe("grounding directive", () => {
     expect(webhook).toContain("knowledgeDirective(passages)");
   });
 });
+
+// ── Phases 15 and 6: preferences and voice replies ──────────────────────────
+//
+// WhatsApp has no settings screen, so a preference can only be offered by
+// noticing someone ask for it. Matching too loosely silently changes how a
+// person is answered, which is worse than not offering the setting.
+
+const prefs = await import("../../supabase/functions/_shared/whatsappPreferences.ts");
+const voice = await import("../../supabase/functions/_shared/whatsappVoiceReply.ts");
+
+describe("preference requests", () => {
+  it("switches language when asked to", () => {
+    expect(prefs.parsePreferenceRequest("please reply in English")).toEqual({ preferred_language: "en" });
+    expect(prefs.parsePreferenceRequest("can you answer in French?")).toEqual({ preferred_language: "fr" });
+    expect(prefs.parsePreferenceRequest("احكي معي بالعربي")).toEqual({ preferred_language: "ar" });
+  });
+
+  it("does not treat a language mentioned in passing as an instruction", () => {
+    // "my documents are in English" is a fact about documents.
+    expect(prefs.parsePreferenceRequest("my documents are in English")).toEqual({});
+    expect(prefs.parsePreferenceRequest("I bought an English course")).toEqual({});
+    expect(prefs.parsePreferenceRequest("do you have Arabic subtitles?")).toEqual({});
+  });
+
+  it("turns voice replies on and off, reading the negation first", () => {
+    expect(prefs.parsePreferenceRequest("send voice replies please").voice_replies).toBe(true);
+    expect(prefs.parsePreferenceRequest("reply with audio")).toMatchObject({ voice_replies: true });
+    // "no voice replies" contains "voice replies" — the negative must win.
+    expect(prefs.parsePreferenceRequest("no voice replies please").voice_replies).toBe(false);
+    expect(prefs.parsePreferenceRequest("stop sending voice notes").voice_replies).toBe(false);
+    expect(prefs.parsePreferenceRequest("text only please").voice_replies).toBe(false);
+    expect(prefs.parsePreferenceRequest("بدون صوت").voice_replies).toBe(false);
+  });
+
+  it("reads a length preference in both languages", () => {
+    expect(prefs.parsePreferenceRequest("keep it short").verbosity).toBe("concise");
+    expect(prefs.parsePreferenceRequest("be brief please").verbosity).toBe("concise");
+    expect(prefs.parsePreferenceRequest("اختصر من فضلك").verbosity).toBe("concise");
+    expect(prefs.parsePreferenceRequest("explain more please").verbosity).toBe("detailed");
+    expect(prefs.parsePreferenceRequest("اشرح أكثر").verbosity).toBe("detailed");
+  });
+
+  it("leaves an ordinary question alone", () => {
+    for (const question of [
+      "how much is the academy?",
+      "my order has not arrived",
+      "ما هو سعر الاشتراك؟",
+      "",
+    ]) {
+      expect(prefs.hasPreferenceChange(prefs.parsePreferenceRequest(question)), question).toBe(false);
+    }
+  });
+
+  it("ignores a long message rather than pattern-matching an essay", () => {
+    const essay = "please reply in English. " + "x".repeat(400);
+    expect(prefs.parsePreferenceRequest(essay)).toEqual({});
+  });
+
+  it("confirms a change out loud, never silently", () => {
+    const confirmation = prefs.preferenceConfirmation("en", {
+      preferred_language: "fr", voice_replies: true, verbosity: "concise",
+    }, "French");
+    expect(confirmation).toMatch(/French/);
+    expect(confirmation).toMatch(/voice notes/i);
+    expect(confirmation).toMatch(/brief/i);
+  });
+
+  it("turns a length preference into an instruction, and nothing otherwise", () => {
+    expect(prefs.verbosityDirective("concise")).toMatch(/brief|two or three/i);
+    expect(prefs.verbosityDirective("detailed")).toMatch(/detail/i);
+    expect(prefs.verbosityDirective(null)).toBe("");
+  });
+});
+
+describe("voice replies", () => {
+  it("stays off unless the sender opted in", () => {
+    expect(voice.shouldSpeak({
+      voiceRepliesEnabled: false, replyText: "Here you go.", isCannedNotice: false,
+    })).toBe(false);
+  });
+
+  it("speaks an ordinary reply once enabled", () => {
+    expect(voice.shouldSpeak({
+      voiceRepliesEnabled: true, replyText: "Here you go.", isCannedNotice: false,
+    })).toBe(true);
+  });
+
+  it("keeps canned notices as text, since they carry links and instructions", () => {
+    expect(voice.shouldSpeak({
+      voiceRepliesEnabled: true, replyText: "Visit https://visionex.app/contact", isCannedNotice: true,
+    })).toBe(false);
+  });
+
+  it("does not read out a lecture", () => {
+    expect(voice.shouldSpeak({
+      voiceRepliesEnabled: true,
+      replyText: "x".repeat(voice.MAX_SPOKEN_CHARS + 1),
+      isCannedNotice: false,
+    })).toBe(false);
+    expect(voice.shouldSpeak({
+      voiceRepliesEnabled: true, replyText: "   ", isCannedNotice: false,
+    })).toBe(false);
+  });
+
+  it("strips what does not survive being read aloud", () => {
+    const spoken = voice.speakableText("See **this**: https://visionex.app/x for _details_.");
+    expect(spoken).not.toMatch(/https?:\/\//);
+    expect(spoken).not.toMatch(/[*_]/);
+    expect(spoken).toMatch(/See this/);
+  });
+
+  it("reports failure rather than throwing when no key is configured", async () => {
+    const result = await voice.synthesiseSpeech({ text: "hello" });
+    expect(result).toEqual({ ok: false });
+  });
+
+  it("sends the text first, so a failed voice note costs nothing", () => {
+    const textAt = webhook.indexOf("await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body })");
+    const speakAt = webhook.indexOf("speakReply({");
+    expect(textAt).toBeGreaterThan(-1);
+    expect(speakAt).toBeGreaterThan(textAt);
+  });
+
+  it("uploads before sending, because audio is two calls not one", () => {
+    const source = readFileSync("supabase/functions/_shared/whatsappVoiceReply.ts", "utf8");
+    expect(source.indexOf("uploadWhatsAppMedia")).toBeLessThan(source.indexOf("sendWhatsAppAudio"));
+    expect(source).toContain("/media");
+  });
+
+  it("picks the cheaper synthesiser, since this is an optional extra", () => {
+    const source = readFileSync("supabase/functions/_shared/whatsappVoiceReply.ts", "utf8");
+    expect(source).toContain("tts-1");
+    expect(source).toMatch(/cost/i);
+  });
+});

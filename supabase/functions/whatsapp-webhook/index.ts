@@ -49,6 +49,13 @@ import { transcribeVoice, transcriptionFailureNotice } from "../_shared/whatsapp
 import { understandDocument, understandImage } from "../_shared/whatsappUnderstand.ts";
 import { unreadableNotice, unsupportedDocumentNotice } from "../_shared/whatsappAttachments.ts";
 import {
+  hasPreferenceChange,
+  parsePreferenceRequest,
+  preferenceConfirmation,
+  verbosityDirective,
+} from "../_shared/whatsappPreferences.ts";
+import { shouldSpeak, speakReply } from "../_shared/whatsappVoiceReply.ts";
+import {
   knowledgeDirective,
   MAX_PASSAGES,
   needsGrounding,
@@ -327,7 +334,7 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count")
+        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -370,8 +377,18 @@ Deno.serve(async (req) => {
           body,
           kind,
         });
-        if (token && phoneNumberId) {
-          await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
+        if (!token || !phoneNumberId) return;
+        await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
+
+        // The text has already gone. A spoken copy is an addition, and every
+        // failure below is swallowed: a missing voice note is a smaller
+        // problem than an error message about one.
+        if (shouldSpeak({
+          voiceRepliesEnabled: existing?.voice_replies === true,
+          replyText: body,
+          isCannedNotice: kind !== "reply",
+        })) {
+          await speakReply({ phoneNumberId, token, to: incoming.from, text: body });
         }
       };
 
@@ -426,6 +443,27 @@ Deno.serve(async (req) => {
       }
 
       if (isNew) await reply(welcomeFor(language), "welcome");
+
+      // ── Preferences ───────────────────────────────────────────────────
+      //
+      // WhatsApp has no settings screen, so the only way to offer a preference
+      // is to notice someone asking for it. Confirmed out loud, never silently.
+      if (incoming.text) {
+        const requested = parsePreferenceRequest(incoming.text);
+        if (hasPreferenceChange(requested)) {
+          await db.from("whatsapp_conversations").update(requested).eq("id", conversationId);
+          const nextLanguage = requested.preferred_language ?? detected;
+          await reply(
+            preferenceConfirmation(
+              nextLanguage === "ar" ? "ar" : "en",
+              requested,
+              LANGUAGE_ENDONYM[nextLanguage],
+            ),
+            "reply",
+          );
+          continue;
+        }
+      }
 
       // ── Attachments ───────────────────────────────────────────────────
       //
@@ -681,7 +719,8 @@ Deno.serve(async (req) => {
             assistant.systemPrompt,
             languageDirective(answerIn),
             knowledgeDirective(passages),
-          ].join("\n\n"),
+            verbosityDirective(existing?.verbosity as string | null),
+          ].filter(Boolean).join("\n\n"),
           messages: [
             ...(summary ? [{ role: "user" as const, content: summaryPreamble(summary) }] : []),
             ...(turns.length > 0 ? turns : [{ role: "user" as const, content: questionText }]),
