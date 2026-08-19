@@ -18,6 +18,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getAssistant } from "../_shared/assistants.ts";
 import { streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import {
+  budgetTurns,
   clampReply,
   collectStream,
   detectLanguage,
@@ -31,7 +32,11 @@ import {
   rateLimitNotice,
   RATE_LIMIT_COOLDOWN_MS,
   REPEAT_LIMIT,
+  needsSummary,
+  redactSummary,
   replySignalsHandover,
+  SUMMARY_INSTRUCTION,
+  summaryPreamble,
   sendWhatsAppText,
   unsupportedTypeNotice,
   userAskedForHuman,
@@ -48,6 +53,15 @@ import {
 
 /** How much prior conversation the model sees. Enough for context, bounded. */
 const HISTORY_LIMIT = 12;
+
+/**
+ * Summaries are bulk text work with no user waiting on the wording, so they go
+ * to the cheapest capable provider rather than the one answering the customer.
+ */
+const SUMMARY_TARGETS = [
+  { provider: "groq" as const, model: "llama-3.3-70b-versatile" },
+  { provider: "openai" as const, model: "gpt-4o-mini" },
+];
 
 /** Owner commands are cheap but not free; this bounds a compromised handset. */
 const OWNER_COMMAND_LIMIT_PER_HOUR = 120;
@@ -300,7 +314,7 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language")
+        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -431,13 +445,70 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(HISTORY_LIMIT);
 
-      const turns = (history ?? [])
-        .filter((row) => row.kind === null || row.kind === "reply")
-        .reverse()
-        .map((row) => ({
-          role: row.direction === "inbound" ? ("user" as const) : ("assistant" as const),
-          content: row.body as string,
-        }));
+      const turns = budgetTurns(
+        (history ?? [])
+          .filter((row) => row.kind === null || row.kind === "reply")
+          .reverse()
+          .map((row) => ({
+            role: row.direction === "inbound" ? ("user" as const) : ("assistant" as const),
+            content: row.body as string,
+          })),
+      );
+
+      // ── Rolling summary ───────────────────────────────────────────────
+      //
+      // Older turns are condensed once and replayed as background, so a long
+      // conversation stays coherent without every message carrying its whole
+      // history. Refreshed on a message count, not on every turn.
+      const { count: inboundCount } = await db
+        .from("whatsapp_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("conversation_id", conversationId)
+        .eq("direction", "inbound");
+
+      let summary = (existing?.summary as string | null) ?? null;
+      if (needsSummary({
+        inboundCount: inboundCount ?? 0,
+        summarizedCount: (existing?.summarized_message_count as number) ?? 0,
+        hasSummary: !!summary,
+      })) {
+        try {
+          const { data: older } = await db
+            .from("whatsapp_messages")
+            .select("direction, body, kind")
+            .eq("conversation_id", conversationId)
+            .order("created_at", { ascending: false })
+            .range(HISTORY_LIMIT, HISTORY_LIMIT + 60);
+
+          const material = (older ?? [])
+            .filter((row) => row.kind === null || row.kind === "reply")
+            .reverse()
+            .map((row) => `${row.direction === "inbound" ? "Customer" : "Assistant"}: ${row.body}`)
+            .join("\n")
+            .slice(0, 12_000);
+
+          if (material) {
+            const { result: stream } = await streamChatCompletionWithFallback({
+              targets: SUMMARY_TARGETS,
+              system: SUMMARY_INSTRUCTION,
+              messages: [{ role: "user", content: material }],
+              maxTokens: 260,
+            });
+            const drafted = redactSummary(await collectStream(stream));
+            if (drafted) {
+              summary = drafted;
+              await db.from("whatsapp_conversations").update({
+                summary: drafted,
+                summary_updated_at: new Date().toISOString(),
+                summarized_message_count: inboundCount ?? 0,
+              }).eq("id", conversationId);
+            }
+          }
+        } catch (e) {
+          // A summary is an optimisation. Losing it costs context, not the reply.
+          console.error("[whatsapp] summary refresh failed:", e instanceof Error ? e.message : e);
+        }
+      }
 
       const assistant = getAssistant("whatsapp-support");
       if (!assistant) throw new Error("whatsapp-support assistant is not registered");
@@ -451,7 +522,10 @@ Deno.serve(async (req) => {
           system: `${assistant.systemPrompt}
 
 ${languageDirective(answerIn)}`,
-          messages: turns.length > 0 ? turns : [{ role: "user", content: incoming.text }],
+          messages: [
+            ...(summary ? [{ role: "user" as const, content: summaryPreamble(summary) }] : []),
+            ...(turns.length > 0 ? turns : [{ role: "user" as const, content: incoming.text }]),
+          ],
           maxTokens: 700,
         });
         answer = clampReply(await collectStream(stream));

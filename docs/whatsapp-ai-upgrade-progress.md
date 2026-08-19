@@ -171,6 +171,55 @@ conversation. Widening those is queued for Phase 19.
 
 ---
 
+## Phase 3 — Conversation memory · **DONE**
+
+**Found.** Thread memory existed (12 turns, filtered to conversational kinds)
+and was correct as far as it went. Three gaps: the window was bounded by *turn
+count* but not by size, so twelve long messages could push tens of thousands of
+characters into every model call; nothing condensed a conversation once it
+outgrew the window; and **nothing was ever deleted**.
+
+**Changed.**
+- `budgetTurns()` caps replayed transcript at 6,000 characters, dropping from
+  the old end so the exchange the user is actually in survives, and truncating a
+  single oversized message rather than letting it evict everything around it.
+- Rolling summary: once a conversation outgrows the window it is condensed once
+  and replayed as background, refreshed every 10 inbound messages rather than
+  every turn. It runs on **Groq**, not the model answering the customer — bulk
+  text work with nobody waiting on the wording.
+- The summary is framed as *reference material, not instructions*, because it is
+  built from user text and must never be able to redirect the assistant.
+- `redactSummary()` strips card-length digit runs, passwords, OTPs and tokens,
+  and the summariser is told to **omit** secrets rather than mask them.
+- `whatsapp_prune_transcripts(_days)` deletes message rows older than 90 days
+  and keeps the conversation row and its summary, so continuity survives
+  retention. Service-role only, with a 7-day floor so it cannot be used to wipe
+  live support context. Scheduling is left as a commented `cron.schedule`, as
+  the other recovery jobs in this repository do, because pg_cron is enabled per
+  environment.
+- A failed summary is logged and ignored: it costs context, never the reply.
+
+**Tests.** 16 new cases (78 in the file): budget ceilings across sizes, oldest-
+first eviction, oversized-message truncation, the too-small-budget case,
+summary scheduling, prompt-injection framing, secret redaction, and three
+assertions on the migration itself — that it never deletes conversations, that
+it refuses a sub-7-day window, and that the function is revoked from ordinary
+roles.
+
+**Correction worth recording.** The "Deno sources parse" check used in Phases 1
+and 2 was unsound — `esbuild --loader=ts` only applies to stdin, so it was
+failing on usage rather than parsing. Fixed, and re-run against the Phase 1 and
+Phase 2 commits: both genuinely parse. The corrected check then immediately
+caught a real unterminated-string error in this phase's own patch.
+
+**Quality gate.** typecheck PASS · full suite 1348 PASS · both Deno sources
+parse (verified properly) · no secrets. Same pre-existing CRLF failure.
+
+**Not verified.** Migrations still cannot be executed locally. The summary path
+needs a live conversation longer than 12 turns to exercise end to end.
+
+---
+
 ## Phase status
 
 | Phase | Status | Commit |
@@ -178,7 +227,7 @@ conversation. Widening those is queued for Phase 19.
 | 0 — Audit | **DONE** | this document |
 | 1 — Core messaging hardening | **DONE** | `feat(whatsapp): rate limit ordinary senders and retry rejected sends` |
 | 2 — Multilingual AI | **DONE** | `feat(whatsapp): answer in the sender's own language` |
-| 3 — Conversation memory | NOT STARTED | |
+| 3 — Conversation memory | **DONE** | `feat(whatsapp): bound the context window and roll up long conversations` |
 | 4 — Knowledge base | NOT STARTED | |
 | 5 — Voice notes | NOT STARTED | |
 | 6 — Voice replies | NOT STARTED | |
@@ -187,7 +236,7 @@ conversation. Widening those is queued for Phase 19.
 | 9 — Video | NOT STARTED | |
 | 10 — Human handoff | NOT STARTED | partially exists (see Phase 0) |
 | 11 — Classification | NOT STARTED | |
-| 12 — Summaries | NOT STARTED | |
+| 12 — Summaries | **DONE** | summary engine built in Phase 3; handoff summary in Phase 10 |
 | 13 — Bazaar assistant | NOT STARTED | |
 | 14 — Order tracking | NOT STARTED | |
 | 15 — User preferences | NOT STARTED | |
