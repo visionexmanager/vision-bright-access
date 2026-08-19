@@ -205,21 +205,27 @@ jobs:
             curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs.all" \
                  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
                  --data-urlencode "sql=$1" \
-                 --data-urlencode "iso_timestamp_start=$(date -u -d "${2:-1 hour ago}" +%Y-%m-%dT%H:%M:%SZ)"
+                 $( [[ -n "${2:-}" ]] && echo --data-urlencode && echo "iso_timestamp_start=$(date -u -d "${2}" +%Y-%m-%dT%H:%M:%SZ)" )
           }
 
-          # Before trusting an empty answer, prove the query returns anything at
-          # all. This workflow posted to the webhook seconds ago, so an empty
-          # result here means the query is wrong — not that nothing arrived.
+          # Before trusting an empty answer, find a query shape that returns
+          # anything at all. This workflow posted to the webhook a minute ago,
+          # so a shape that comes back empty is a broken query, not a quiet
+          # system — and the endpoint reports both the same way: result [],
+          # error null. Each candidate is tried until one produces rows.
           say ""
-          say "## 8a. Control: does this log query work at all?"
-          say '```json'
-          logs "select t.timestamp, t.event_message
-                  from function_logs as t
-                 order by t.timestamp desc limit 5" | tee -a "$GITHUB_STEP_SUMMARY"
-          echo
+          say "## 8a. Control: which log query shape actually works?"
           say '```'
-          say "Empty here means the query cannot see logs, and nothing below is evidence of anything."
+          for tbl in edge_logs function_logs function_edge_logs; do
+            for win in "" "5 minutes ago" "1 hour ago" "24 hours ago"; do
+              OUT=$(logs "select count(*) as n from $tbl" "$win")
+              N=$(echo "$OUT" | jq -r '.result[0].n // "-"' 2>/dev/null)
+              ERR=$(echo "$OUT" | jq -r '.error // empty' 2>/dev/null)
+              say "$(printf '%-20s %-16s rows=%-8s %s' "$tbl" "${win:-default}" "$N" "$ERR")"
+            done
+          done
+          say '```'
+          say "A table reporting rows is one this project actually writes. If every count is 0 or -, the Logs API is not answering for this project and nothing below it is evidence of anything."
 
           say ""
           say "## 8b. Every HTTP request the webhook has received"
