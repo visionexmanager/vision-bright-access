@@ -121,6 +121,31 @@ jobs:
           echo
           fence
 
+          # ── Who may the app talk to? ──────────────────────────────────
+          #
+          # While pages_messaging holds Standard Access the app is in
+          # development, and Meta delivers webhooks ONLY for people holding a
+          # role on the APP. Administering the Page is a different list: a
+          # personal account can own the page and still be a stranger here, and
+          # the symptom is total silence with every setting reading correct.
+          #
+          # Counts only. The endpoint returns names and ids of real people and
+          # this repository is public.
+          say ""
+          say "## 3b. How many people hold a role on the app?"
+          curl -s "https://graph.facebook.com/$GRAPH/$META_APP_ID/roles" \
+               -H "Authorization: Bearer $META_APP_ID|$META_APP_SECRET" -o /tmp/roles.json
+          if jq -e '.data' /tmp/roles.json >/dev/null 2>&1; then
+            say '```'
+            jq -r '.data | group_by(.role)[] | "\(.[0].role): \(length)"' /tmp/roles.json \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            echo
+            say '```'
+            say "If the account that sent the test message is not one of these, development mode alone explains the silence."
+          else
+            say "Could not read app roles: $(jq -r '.error.message // "unknown"' /tmp/roles.json)"
+          fi
+
       # ── 3. Does the live endpoint behave? ───────────────────────────────
       - name: Exercise the live webhook
         shell: bash
