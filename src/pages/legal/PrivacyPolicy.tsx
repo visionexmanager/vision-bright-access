@@ -1,5 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { Shield, Eye, Lock, Share2, UserCheck, Bell, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // "messaging" covers what arrives from Meta when someone writes to a Visionex
@@ -103,7 +104,7 @@ export default function PrivacyPolicy() {
           <p className="mt-4 text-sm text-muted-foreground">{t("legal.privacy.rightsContact")} <span className="font-semibold text-primary">hello@visionex.app</span>.</p>
           <p className="mt-2 text-sm text-muted-foreground">
             {t("legal.privacy.deletionLink")}{" "}
-            <a href="/data-deletion" className="font-semibold text-primary underline underline-offset-4">/data-deletion</a>
+            <Link to="/data-deletion" className="font-semibold text-primary underline underline-offset-4">/data-deletion</Link>
           </p>
         </div>
 
