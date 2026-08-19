@@ -126,13 +126,58 @@ no Docker, psql or PGlite — so it is reviewed, not run. It is additive
 
 ---
 
+## Phase 2 — Multilingual AI · **DONE**
+
+**Found.** Detection was a single regex — Arabic script, or English. The site is
+translated into twenty locales, so a sender writing Turkish, Hindi or Japanese
+was answered in English.
+
+**Changed.**
+- `detectLanguageCode()` covers all twenty locales. Script decides where a
+  script belongs to one language (Bengali, Devanagari, Hangul, kana, Cyrillic,
+  Han); marker words and diacritics decide the Latin-script ones. Deliberately
+  **not** a model call — this runs on every inbound message, and a round-trip
+  for something a regex settles is exactly the cost that accumulates unseen.
+- Arabic script is split three ways. Urdu is caught by its own letters
+  (`ٹ ڈ ڑ ں ھ ے ہ`); Persian is separated from Arabic by **orthography**
+  rather than vocabulary — Persian writes keheh (`ک` U+06A9) and farsi yeh
+  (`ی` U+06CC) where Arabic writes `ك` and `ي` — which survives sentences too
+  short to contain a known function word.
+- `preferred_language` (migration `20260916010000`) outranks detection, so a
+  user who asked for English is not switched back the moment they quote an
+  Arabic product name. NULL keeps the follow-the-message default.
+- `languageDirective()` is **appended** to the assistant's existing system
+  prompt, never replaces it, and tells the model not to mix languages. For
+  `ar`/`fa`/`ur` it also asks for natural right-to-left text with no Latin
+  chrome wrapped around it.
+- The conversation row now stores the detected locale rather than the narrowed
+  `ar`/`en` pair.
+
+**Tests.** 26 new cases: one per locale with a real sentence, the three-way
+Arabic-script split, empty and digit-only input, preference precedence, an
+invalid stored preference, and the RTL flag. 62 in the file.
+
+**Two real bugs the tests caught before commit.** `por favor` is shared between
+Portuguese and Spanish and was making every Spanish sentence read as Portuguese;
+and the Persian markers missed `سلام، من به کمک نیاز دارم`, which the
+orthography rule now catches.
+
+**Quality gate.** typecheck PASS · full suite 1332 PASS · Deno sources parse ·
+no secrets. Same single pre-existing CRLF failure, untouched.
+
+**Not verified.** Canned notices (welcome, handover, failure) still exist only in
+Arabic and English; a Turkish sender gets an English welcome and then a Turkish
+conversation. Widening those is queued for Phase 19.
+
+---
+
 ## Phase status
 
 | Phase | Status | Commit |
 | --- | --- | --- |
 | 0 — Audit | **DONE** | this document |
 | 1 — Core messaging hardening | **DONE** | `feat(whatsapp): rate limit ordinary senders and retry rejected sends` |
-| 2 — Multilingual AI | NOT STARTED | |
+| 2 — Multilingual AI | **DONE** | `feat(whatsapp): answer in the sender's own language` |
 | 3 — Conversation memory | NOT STARTED | |
 | 4 — Knowledge base | NOT STARTED | |
 | 5 — Voice notes | NOT STARTED | |

@@ -301,3 +301,106 @@ describe("outbound send reliability", () => {
     expect(helpers).not.toMatch(/console\.(error|log)\([^)]*params\.to/);
   });
 });
+
+// ── Phase 2: multilingual replies ───────────────────────────────────────────
+//
+// Detection used to be one regex: Arabic script, or English. The site is
+// translated into twenty languages, and a sender writing Turkish was answered
+// in English.
+
+describe("language detection", () => {
+  const cases: Array<[string, string, string]> = [
+    ["ar", "مرحبا، بدي مساعدة بخصوص حسابي", "Arabic"],
+    ["en", "Hello, I need help with my account", "English"],
+    ["fr", "Bonjour, j'ai besoin d'aide avec mon compte", "French"],
+    ["es", "Hola, necesito ayuda por favor", "Spanish"],
+    ["de", "Guten Tag, ich brauche bitte Hilfe", "German"],
+    ["tr", "Merhaba, hesabım için yardım lütfen", "Turkish"],
+    ["pt", "Olá, preciso de ajuda por favor", "Portuguese"],
+    ["it", "Ciao, ho bisogno di aiuto per favore", "Italian"],
+    ["nl", "Hallo, ik heb hulp nodig alstublieft", "Dutch"],
+    ["pl", "Dzień dobry, proszę o pomoc", "Polish"],
+    ["id", "Halo, saya butuh tolong", "Indonesian"],
+    ["vi", "Xin chào, tôi cần giúp đỡ", "Vietnamese"],
+    ["ru", "Здравствуйте, мне нужна помощь", "Russian"],
+    ["hi", "नमस्ते, मुझे मदद चाहिए", "Hindi"],
+    ["bn", "হ্যালো, আমার সাহায্য দরকার", "Bengali"],
+    ["ja", "こんにちは、助けが必要です", "Japanese"],
+    ["ko", "안녕하세요, 도움이 필요합니다", "Korean"],
+    ["zh", "你好，我需要帮助", "Chinese"],
+    ["ur", "ہیلو، مجھے مدد چاہیے", "Urdu"],
+    ["fa", "سلام، من به کمک نیاز دارم", "Persian"],
+  ];
+
+  it.each(cases)("detects %s", async (code, text) => {
+    const { detectLanguageCode } = await loadHelpers();
+    expect(detectLanguageCode(text)).toBe(code);
+  });
+
+  it("covers every locale the site ships", async () => {
+    const { SUPPORTED_LANGUAGES } = await loadHelpers();
+    expect([...SUPPORTED_LANGUAGES].sort()).toEqual(cases.map(([code]) => code).sort());
+  });
+
+  it("keeps Arabic, Persian and Urdu apart despite one shared script", async () => {
+    const { detectLanguageCode } = await loadHelpers();
+    expect(detectLanguageCode("ہیلو، یہ کیا ہے")).toBe("ur");
+    expect(detectLanguageCode("این برای شما است")).toBe("fa");
+    expect(detectLanguageCode("هذا هو الحساب الخاص بي")).toBe("ar");
+  });
+
+  it("answers an empty or unknown message in English rather than guessing", async () => {
+    const { detectLanguageCode } = await loadHelpers();
+    expect(detectLanguageCode("")).toBe("en");
+    expect(detectLanguageCode("   ")).toBe("en");
+    expect(detectLanguageCode("12345 !!!")).toBe("en");
+  });
+
+  it("still narrows to the ar/en pair the canned notices are written in", async () => {
+    const { detectLanguage } = await loadHelpers();
+    expect(detectLanguage("مرحبا")).toBe("ar");
+    expect(detectLanguage("Merhaba")).toBe("en");
+  });
+
+  it("marks only the right-to-left languages", async () => {
+    const { isRtl } = await loadHelpers();
+    for (const code of ["ar", "fa", "ur"]) expect(isRtl(code)).toBe(true);
+    for (const code of ["en", "fr", "hi", "ja"]) expect(isRtl(code)).toBe(false);
+  });
+});
+
+describe("reply language preference", () => {
+  it("follows the message when nothing is stored", async () => {
+    const { replyLanguage } = await loadHelpers();
+    expect(replyLanguage("fr", null)).toBe("fr");
+    expect(replyLanguage("fr", undefined)).toBe("fr");
+  });
+
+  it("lets a stored preference outrank detection", async () => {
+    // Quoting an Arabic product name must not switch an English speaker back.
+    const { replyLanguage } = await loadHelpers();
+    expect(replyLanguage("ar", "en")).toBe("en");
+  });
+
+  it("ignores a stored value that is not a supported locale", async () => {
+    const { replyLanguage } = await loadHelpers();
+    expect(replyLanguage("de", "klingon")).toBe("de");
+  });
+
+  it("instructs the model in the chosen language and warns against mixing", async () => {
+    const { languageDirective } = await loadHelpers();
+    expect(languageDirective("tr")).toContain("Turkish");
+    expect(languageDirective("tr")).toMatch(/Do not mix/i);
+    expect(languageDirective("ar")).toMatch(/right-to-left/i);
+    expect(languageDirective("en")).not.toMatch(/right-to-left/i);
+  });
+
+  it("appends the directive to the assistant prompt rather than replacing it", () => {
+    expect(webhook).toContain("${assistant.systemPrompt}");
+    expect(webhook).toContain("languageDirective(answerIn)");
+  });
+
+  it("stores the detected locale, not the narrowed pair", () => {
+    expect(webhook).toContain("language: detected");
+  });
+});

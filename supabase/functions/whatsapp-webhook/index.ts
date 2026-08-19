@@ -21,6 +21,9 @@ import {
   clampReply,
   collectStream,
   detectLanguage,
+  detectLanguageCode,
+  languageDirective,
+  replyLanguage,
   extractMessages,
   failureNotice,
   handoverNotice,
@@ -273,6 +276,9 @@ Deno.serve(async (req) => {
 
   for (const incoming of messages) {
     try {
+      const detected = detectLanguageCode(incoming.text);
+      // The canned notices exist in Arabic and English; the model answers in the
+      // sender's own language regardless.
       const language = detectLanguage(incoming.text);
 
       // ── Owner control centre ──────────────────────────────────────────
@@ -294,7 +300,7 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits")
+        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -304,7 +310,7 @@ Deno.serve(async (req) => {
       if (!conversationId) {
         const { data: created, error } = await db
           .from("whatsapp_conversations")
-          .insert({ wa_phone: incoming.from, language })
+          .insert({ wa_phone: incoming.from, language: detected })
           .select("id")
           .single();
         if (error) throw error;
@@ -312,7 +318,7 @@ Deno.serve(async (req) => {
       } else {
         await db
           .from("whatsapp_conversations")
-          .update({ language, last_message_at: new Date().toISOString() })
+          .update({ language: detected, last_message_at: new Date().toISOString() })
           .eq("id", conversationId);
       }
 
@@ -436,11 +442,15 @@ Deno.serve(async (req) => {
       const assistant = getAssistant("whatsapp-support");
       if (!assistant) throw new Error("whatsapp-support assistant is not registered");
 
+      const answerIn = replyLanguage(detected, existing?.preferred_language as string | null);
+
       let answer: string;
       try {
         const { result: stream } = await streamChatCompletionWithFallback({
           targets: assistant.targets,
-          system: assistant.systemPrompt,
+          system: `${assistant.systemPrompt}
+
+${languageDirective(answerIn)}`,
           messages: turns.length > 0 ? turns : [{ role: "user", content: incoming.text }],
           maxTokens: 700,
         });

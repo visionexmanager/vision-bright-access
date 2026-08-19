@@ -25,7 +25,128 @@ Just tell me what you need and I'll help.`;
  * the text itself is the only honest signal.
  */
 export function detectLanguage(text: string): "ar" | "en" {
-  return /[؀-ۿ]/.test(text) ? "ar" : "en";
+  const wide = detectLanguageCode(text);
+  return wide === "ar" ? "ar" : "en";
+}
+
+/**
+ * The twenty languages the Visionex site is translated into. WhatsApp gives no
+ * locale for a sender, so the message text is the only honest signal.
+ */
+export const SUPPORTED_LANGUAGES = [
+  "ar", "bn", "de", "en", "es", "fa", "fr", "hi", "id", "it",
+  "ja", "ko", "nl", "pl", "pt", "ru", "tr", "ur", "vi", "zh",
+] as const;
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+
+export function isSupportedLanguage(value: string | null | undefined): value is SupportedLanguage {
+  return !!value && (SUPPORTED_LANGUAGES as readonly string[]).includes(value);
+}
+
+/** Right-to-left scripts, so a reply is never wrapped in left-to-right chrome. */
+const RTL: ReadonlySet<string> = new Set(["ar", "fa", "ur"]);
+export const isRtl = (language: string): boolean => RTL.has(language);
+
+/** Words that only appear in one Latin-script language, or overwhelmingly so. */
+const LATIN_MARKERS: ReadonlyArray<[SupportedLanguage, RegExp]> = [
+  ["tr", /\b(merhaba|nasıl|için|değil|teşekkür|lütfen|yardım|bir|ben)\b/i],
+  ["de", /\b(ich|nicht|und|das|ist|eine|bitte|danke|hilfe|guten)\b/i],
+  ["nl", /\b(ik|niet|het|een|hallo|alstublieft|dank|hulp|goedemorgen)\b/i],
+  ["pl", /\b(nie|jest|dziękuję|proszę|pomoc|dzień|cześć|jak)\b/i],
+  // "por favor" is shared with Spanish and must not appear here, or every
+  // Spanish sentence containing it is read as Portuguese.
+  ["pt", /\b(não|você|obrigado|obrigada|ajuda|bom dia|olá|preciso)\b/i],
+  ["es", /\b(no|hola|gracias|por favor|ayuda|buenos días|necesito|cómo|qué)\b/i],
+  ["it", /\b(ciao|grazie|per favore|aiuto|buongiorno|come|non|sono)\b/i],
+  ["fr", /\b(bonjour|merci|s'il vous plaît|aide|comment|je suis|pas|besoin)\b/i],
+  ["vi", /\b(xin chào|cảm ơn|giúp|tôi|không|được|vui lòng)\b/i],
+  ["id", /\b(halo|terima kasih|tolong|saya|tidak|bagaimana|mohon)\b/i],
+];
+
+/**
+ * Best-effort language of a message.
+ *
+ * Script is decisive where a script belongs to one language, and a tie-breaker
+ * where it does not: Arabic script covers Arabic, Persian and Urdu, and CJK
+ * ideographs cover both Chinese and Japanese. Latin script carries no such
+ * signal, so it falls to marker words and then to English.
+ *
+ * Deliberately not a model call. This runs on every inbound message, and a
+ * model round-trip for something a regex settles is the kind of cost that adds
+ * up invisibly.
+ */
+export function detectLanguageCode(text: string): SupportedLanguage {
+  const sample = (text ?? "").slice(0, 400);
+  if (!sample.trim()) return "en";
+
+  // ── Scripts that identify a language on their own ──────────────────────
+  if (/[ঀ-৿]/.test(sample)) return "bn";   // Bengali
+  if (/[ऀ-ॿ]/.test(sample)) return "hi";   // Devanagari
+  if (/[가-힯ᄀ-ᇿ]/.test(sample)) return "ko"; // Hangul
+  if (/[぀-ゟ゠-ヿ]/.test(sample)) return "ja"; // kana
+  if (/[Ѐ-ӿ]/.test(sample)) return "ru";   // Cyrillic
+  if (/[฀-๿]/.test(sample)) return "en";   // Thai: not supported, answer in English
+
+  // Han without kana is Chinese; with kana it was already caught above.
+  if (/[一-鿿]/.test(sample)) return "zh";
+
+  // ── Arabic script: Arabic, Persian or Urdu ─────────────────────────────
+  if (/[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/.test(sample)) {
+    // Urdu-only letters and its most common function words.
+    if (/[ٹڈڑںھےہ]/.test(sample) || /(ہے|میں|آپ|نہیں|کیا|کریں)/.test(sample)) return "ur";
+    // Orthography separates Persian from Arabic more reliably than vocabulary:
+    // Persian writes keheh (ک U+06A9) and farsi yeh (ی U+06CC) where Arabic
+    // writes kaf (ك U+0643) and yeh (ي U+064A). Persian-only letters and
+    // function words are the backup for a sentence too short to contain either.
+    if (/[کیپچژگ]/.test(sample)) return "fa";
+    if (/(است|این|برای|هستم|چطور|لطفا|دارم|نیاز)/.test(sample)) return "fa";
+    return "ar";
+  }
+
+  // ── Latin script ───────────────────────────────────────────────────────
+  for (const [language, marker] of LATIN_MARKERS) {
+    if (marker.test(sample)) return language;
+  }
+  // Diacritics narrow it a little when no marker word appeared.
+  if (/[ğışŞĞİ]/.test(sample)) return "tr";
+  if (/[ãõçá]/i.test(sample)) return "pt";
+  if (/[ñ¿¡]/.test(sample)) return "es";
+  if (/[äöüß]/i.test(sample)) return "de";
+  if (/[àèìòù]/i.test(sample)) return "it";
+  if (/[éèêëçâîô]/i.test(sample)) return "fr";
+  return "en";
+}
+
+/**
+ * The language to answer in: a stored preference always wins over detection,
+ * because a user who asked for English does not want to be switched back every
+ * time they quote an Arabic product name.
+ */
+export function replyLanguage(
+  detected: SupportedLanguage,
+  preference: string | null | undefined,
+): SupportedLanguage {
+  return isSupportedLanguage(preference) ? preference : detected;
+}
+
+/** Endonym, used to instruct the model rather than to show the user. */
+const LANGUAGE_NAME: Record<SupportedLanguage, string> = {
+  ar: "Arabic", bn: "Bengali", de: "German", en: "English", es: "Spanish",
+  fa: "Persian", fr: "French", hi: "Hindi", id: "Indonesian", it: "Italian",
+  ja: "Japanese", ko: "Korean", nl: "Dutch", pl: "Polish", pt: "Portuguese",
+  ru: "Russian", tr: "Turkish", ur: "Urdu", vi: "Vietnamese", zh: "Chinese",
+};
+
+/**
+ * The one instruction that makes the reply match the user. Appended to the
+ * assistant's own system prompt rather than replacing it.
+ */
+export function languageDirective(language: SupportedLanguage): string {
+  const name = LANGUAGE_NAME[language];
+  const rtl = isRtl(language)
+    ? " Write naturally right-to-left; do not wrap the reply in Latin punctuation or brackets."
+    : "";
+  return `Reply entirely in ${name}. Do not mix in another language unless the user did, or unless a product name, URL or code has no translation.${rtl}`;
 }
 
 export function welcomeFor(language: "ar" | "en"): string {
