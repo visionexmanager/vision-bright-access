@@ -201,11 +201,18 @@ jobs:
           # $2 is how far back to look. Log retention is short, and asking for a
           # window wider than it is answered with an empty result rather than an
           # error — which reads exactly like "nothing ever happened".
+          # Both ends of the window, always. A start without an end is answered
+          # with almost nothing, which reads as silence rather than as a
+          # malformed request. The endpoint also throttles hard, so this makes
+          # two calls in total and waits between them — an earlier version swept
+          # twelve query shapes and spent the whole quota before asking anything
+          # that mattered.
           logs() {
             curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs.all" \
                  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
                  --data-urlencode "sql=$1" \
-                 $( [[ -n "${2:-}" ]] && echo --data-urlencode && echo "iso_timestamp_start=$(date -u -d "${2}" +%Y-%m-%dT%H:%M:%SZ)" )
+                 --data-urlencode "iso_timestamp_start=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
+                 --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
 
           # Before trusting an empty answer, find a query shape that returns
@@ -214,44 +221,33 @@ jobs:
           # system — and the endpoint reports both the same way: result [],
           # error null. Each candidate is tried until one produces rows.
           say ""
-          say "## 8a. Control: which log query shape actually works?"
-          say '```'
-          for tbl in edge_logs function_logs function_edge_logs; do
-            for win in "" "5 minutes ago" "1 hour ago" "24 hours ago"; do
-              OUT=$(logs "select count(*) as n from $tbl" "$win")
-              N=$(echo "$OUT" | jq -r '.result[0].n // "-"' 2>/dev/null)
-              ERR=$(echo "$OUT" | jq -r '.error // empty' 2>/dev/null)
-              say "$(printf '%-20s %-16s rows=%-8s %s' "$tbl" "${win:-default}" "$N" "$ERR")"
-            done
-          done
-          say '```'
-          say "A table reporting rows is one this project actually writes. If every count is 0 or -, the Logs API is not answering for this project and nothing below it is evidence of anything."
-
-          say ""
-          say "## 8b. Every HTTP request the webhook has received"
-          say "The decisive evidence: any request here that this workflow did not make came from Meta."
+          say "## 8. Every request the project's gateway saw for this function"
+          say "The decisive evidence. This workflow's own probes must appear; anything else on that path came from Meta."
           say '```json'
-          # pathname and status only — never the URL. Meta's GET handshake
+          # path and status only — never the full URL. Meta's GET handshake
           # carries the verify token in its query string, and this repo is public.
-          logs "select t.timestamp, r.method, r.pathname, resp.status_code
-                  from function_edge_logs as t
+          logs "select t.timestamp, r.method, r.path, resp.status_code
+                  from edge_logs as t
                   cross join unnest(t.metadata) as m
                   cross join unnest(m.request) as r
                   cross join unnest(m.response) as resp
-                 order by t.timestamp desc limit 50" "24 hours ago" | tee -a "$GITHUB_STEP_SUMMARY"
+                 where r.path like '%meta-messaging-webhook%'
+                 order by t.timestamp desc limit 50" | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           say '```'
-          say "Unfiltered on purpose: a filter that silently matches nothing is indistinguishable from silence. Read the pathnames."
+          say "An empty result WITH this workflow's own probes missing means the query is wrong. An empty result that omits only Meta means Meta has never called."
+
+          sleep 30   # the endpoint throttles; do not spend the quota
 
           say ""
           say "## 9. What the function printed"
           say '```json'
           logs "select t.timestamp, t.event_message
                   from function_logs as t
-                 order by t.timestamp desc limit 50" "24 hours ago" | tee -a "$GITHUB_STEP_SUMMARY"
+                 order by t.timestamp desc limit 50" | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           say '```'
-          say "Look for lines beginning [meta-messaging]. A send failure prints there and nowhere else, so this is the only place the Send API result appears."
+          say "Lines beginning [meta-messaging] are this function's. A Send API failure prints there and nowhere else, so this is the only place its result appears."
 
       # ── 5. What the database holds, and cleaning up after the probes ────
       - name: Read the inbox, then remove the probe rows
