@@ -1,5 +1,14 @@
 # Visionex Arcade asset provenance
 
+## Block Stacker cover (2026-08-19)
+
+`game-block-stacker-v1.svg` is an original code-authored 1920×1080 vector
+composition made for Visionex Arcade, with no third-party marks, characters,
+fonts, photos, remote resources or embedded metadata, and no text to localise.
+It replaces the LogiQuest cover, which Block Stacker had been reusing. The
+game's piece set, palette, naming and scoring are Visionex's own: falling-block
+puzzles are a genre, and nothing here is taken from another publisher's game.
+
 ## Breakout cover (2026-08-19)
 
 `game-breakout-v1.svg` is an original code-authored 1920×1080 vector composition

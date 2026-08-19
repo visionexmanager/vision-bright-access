@@ -84,14 +84,31 @@ server-settled results stay covered by tests rather than by the lab.
 | Result | build PASS · typecheck PASS · lint PASS · 1497 tests PASS (only the pre-existing Windows CRLF failure) · console errors 0 · broken assets 0 |
 | Commit | `feat(arcade): production upgrade for breakout` |
 
+## Cycle 3 — Block Stacker (`block-stacker`)
+
+| Item | Detail |
+| --- | --- |
+| Status | **PRODUCTION READY** |
+| Initial status | Not a falling-block game. One minified line in `ClassicPackGames.tsx`: four buttons, each labelled with a pair of columns, dropped two cells to the bottom of that pair. No falling piece, no rotation, no gravity, no next piece, no speed, no game over other than a blocked column. |
+| Problems found | The mechanic the genre is built on — a piece falling while you steer and turn it — did not exist. Nor did rotation, levels, a landing preview, a next-piece queue or a hard drop. Scoring was flat, so there was no reason to build for a multi-row clear. The catalogue reused the LogiQuest cover. |
+| Changes made | New engine (`src/lib/games/blockStackerEngine.ts`): seven original shapes with rotation states de-duplicated so a symmetric piece never wastes a keypress, wall-nudging rotation, gravity, locking, row clears with a multi-row scoring table, levels every eight rows with a speed ramp and a floor, a landing preview and a hard drop that pays for the distance. New component driven by the shared interval loop so it honours the shell pause: arrows and WASD, Up or X to rotate, Space to drop, Enter to start or replay, B to speak the board, plus a five-button on-screen pad. The board is one `role="img"` carrying the state as its accessible name; every filled cell also carries a glyph. Original cover authored, provenance recorded, catalogue copy, controls and release notes rewritten. |
+| Intellectual property | Falling-block puzzles are a genre, but nothing here is taken from another publisher's game: the piece set, palette, shape names, scoring table and presentation are Visionex's own, and no protected name, art or sound is used. Recorded in `ASSET_PROVENANCE.md`. |
+| Found by browser testing | The board summary named the piece and its landing row but never said how far it still had to fall, so a player who cannot see it had no idea how long they had left to steer. It now says how many rows are left, and "About to lock" at the end. |
+| Also fixed | On a phone the next-piece sidebar took a third of the width and squeezed the board to 16 px cells; below the `sm` breakpoint it is now a strip under the board, and cells are 28 px. |
+| Tests | 25 engine tests, including a placement bot with a hole-and-height heuristic that clears rows across 200 turns while the grid invariants are checked every turn; 21 component tests covering start, gravity, movement, WASD, rotation, hard drop, the on-screen pad, the spoken description, row clears, game over, replay, frozen controls after the end, shell pause, unmount cleanup and the accessibility surface. |
+| Browser verification | Played in Chrome through the dev lab: gravity closing the gap to the landing spot (16 → 14 → 13 → 12 rows), movement (columns 4–6 → 5–7 → 6–8), rotation narrowing the piece, the on-screen pad, pieces locking and the stack building, the new cover loading, no horizontal overflow at 375 px or 1280 px, no console errors beyond the local missing-Supabase-env notice. |
+| Not verified | The result overlay and VX settlement need a signed-in session; covered by `arcade-economy-settle.test.tsx`. No manual screen-reader session. |
+| Result | build PASS · typecheck PASS · lint PASS · 1542 tests PASS (only the pre-existing Windows CRLF failure) · console errors 0 · broken assets 0 |
+| Commit | `feat(arcade): production upgrade for block stacker` |
+
 ## Games
 
 | # | Game | Slug | Status | Notes |
 | --- | --- | --- | --- | --- |
 | 1 | Snake | `snake` | **PRODUCTION READY** | Rebuilt on a seeded engine — see Cycle 1. |
 | 2 | Breakout | `breakout` | **PRODUCTION READY** | Rebuilt with real physics — see Cycle 2. |
-| 3 | Block Stacker | `block-stacker` | NOT STARTED | Next. No falling piece, no rotation, no gravity; the player clicks a column pair. |
-| 4 | Bubble Shooter | `bubble-shooter` | NOT STARTED | No shooter and no aiming; it is a match-3 tap-to-pop grid. |
+| 3 | Block Stacker | `block-stacker` | **PRODUCTION READY** | Rebuilt as a real falling-block game — see Cycle 3. |
+| 4 | Bubble Shooter | `bubble-shooter` | NOT STARTED | Next. No shooter and no aiming; it is a match-3 tap-to-pop grid. |
 | — | remaining 112 games | — | NOT STARTED | Audited during their own cycle. |
 
 Games are ordered worst-first: no-ops and crashes, then games whose implementation does
