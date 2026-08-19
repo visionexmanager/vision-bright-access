@@ -1,5 +1,12 @@
 # Visionex Arcade asset provenance
 
+## Bubble Shooter cover (2026-08-19)
+
+`game-bubble-shooter-v1.svg` is an original code-authored 1920×1080 vector
+composition made for Visionex Arcade, with no third-party marks, characters,
+fonts, photos, remote resources or embedded metadata, and no text to localise.
+It replaces the Reaction Test cover, which Bubble Shooter had been reusing.
+
 ## Block Stacker cover (2026-08-19)
 
 `game-block-stacker-v1.svg` is an original code-authored 1920×1080 vector

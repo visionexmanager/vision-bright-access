@@ -1,1 +1,0 @@
-import{describe,expect,it}from"vitest";import{popBubbles}from"./arcadeClassicPackEngine";describe("Arcade classic pack engine",()=>{it("pops connected groups of at least three",()=>expect(popBubbles([[1,1,0],[1,2,2],[0,2,0]],0,0).popped).toBe(3))});

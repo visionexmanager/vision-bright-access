@@ -101,6 +101,22 @@ server-settled results stay covered by tests rather than by the lab.
 | Result | build PASS · typecheck PASS · lint PASS · 1542 tests PASS (only the pre-existing Windows CRLF failure) · console errors 0 · broken assets 0 |
 | Commit | `feat(arcade): production upgrade for block stacker` |
 
+## Cycle 4 — Bubble Shooter (`bubble-shooter`)
+
+| Item | Detail |
+| --- | --- |
+| Status | **PRODUCTION READY** |
+| Initial status | Not a shooter. One minified line in `ClassicPackGames.tsx`: a fixed 6×8 square grid where tapping a bubble popped any connected group of three or more. No launcher, no aiming, no projectile, no falling clusters, no new rows, no way to lose. |
+| Problems found | The mechanic the genre is named for — aim a launcher, fire a bubble, have it snap where it lands — did not exist, and neither did wall banking, unsupported clusters falling, incoming rows, a losing line or a win. The board never changed shape, so the same fixed layout was replayed every time. The catalogue reused the Reaction Test cover. |
+| Changes made | New hex-grid engine (`src/lib/games/bubbleShooterEngine.ts`): offset rows with proper six-way neighbours, a launcher arc, and a shot resolved analytically — marched in small steps with wall bounces, snapping to the free neighbour nearest where it actually was. Matching runs of three pop, anything left with no path to the top row falls for double points, six shots without a pop pushes a new row in, and crossing the last row ends the game. New component with keyboard aiming (three degrees a step, one with Shift), Space or Up to fire, pointer and touch aiming, a switchable dotted aim line and landing marker, and B to speak the board. Every bubble carries a glyph as well as a colour. Original cover authored, provenance recorded, catalogue copy, controls and release notes rewritten. |
+| Retired | With all four of its games rebuilt, `ClassicPackGames.tsx` and `arcadeClassicPackEngine.ts` are gone — no references remain. |
+| Found by browser testing | The board is portrait, and sized by width alone it rendered 720×1091 and ran off a laptop screen. Sizing by height fixed the overflow but a `max-width` clamp then squashed the bubbles into ellipses on a phone; the width is now driven by `min(100%, ratio × min(68vh, 34rem))`, which keeps circles circular at 375 px and 1280 px alike. |
+| Tests | 27 engine tests covering the hex geometry, straight and banked shots, landing inside the board at every angle in the arc, matching, floating clusters, the pressure counter, the losing line, the win, seeded replay, and a bot that plays from the description and pops repeatedly; 21 component tests covering aiming, fine aim, the arc limit, WASD, the on-screen pad, the landing preview, firing, the colour queue, the win, game over, replay, frozen controls and the accessibility surface. |
+| Browser verification | Played in Chrome through the dev lab: aiming moving the predicted landing cell (row 6 column 4 → column 3), firing landing a bubble (38 → 39), the colour queue advancing, the pressure counter dropping 6 → 5, the aim line drawing, the new cover loading, no horizontal overflow at 375 px or 1280 px, controls 98×56 px. |
+| Not verified | The result overlay and VX settlement need a signed-in session; covered by `arcade-economy-settle.test.tsx`. No manual screen-reader session. |
+| Result | build PASS · typecheck PASS · lint PASS · 1589 tests PASS (only the pre-existing Windows CRLF failure) · console errors 0 · broken assets 0 |
+| Commit | `feat(arcade): production upgrade for bubble shooter` |
+
 ## Games
 
 | # | Game | Slug | Status | Notes |
@@ -108,8 +124,8 @@ server-settled results stay covered by tests rather than by the lab.
 | 1 | Snake | `snake` | **PRODUCTION READY** | Rebuilt on a seeded engine — see Cycle 1. |
 | 2 | Breakout | `breakout` | **PRODUCTION READY** | Rebuilt with real physics — see Cycle 2. |
 | 3 | Block Stacker | `block-stacker` | **PRODUCTION READY** | Rebuilt as a real falling-block game — see Cycle 3. |
-| 4 | Bubble Shooter | `bubble-shooter` | NOT STARTED | Next. No shooter and no aiming; it is a match-3 tap-to-pop grid. |
-| — | remaining 112 games | — | NOT STARTED | Audited during their own cycle. |
+| 4 | Bubble Shooter | `bubble-shooter` | **PRODUCTION READY** | Rebuilt as a real shooter on a hex board — see Cycle 4. |
+| — | remaining 113 games | — | NOT STARTED | Audited during their own cycle. The next candidates are the other bulk "pack" files, where several games still share one minified source: `BatchTwoGames`, `BatchThreeGames`, `ExpansionGames`, `ArenaSportsGames`, `HeritageBoardGames` and the rest. |
 
 Games are ordered worst-first: no-ops and crashes, then games whose implementation does
 not match the game they claim to be, then placeholder-heavy ones, then polish.
