@@ -86,7 +86,7 @@ jobs:
           cat /tmp/token.json | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           fence
-          say "Wanted: type PAGE, profile_id $PAGE_ID, is_valid true, scopes including pages_messaging and pages_manage_metadata."
+          say "Wanted: is_valid true, expires_at 0, and pages_messaging. A USER token is measured, not assumed, in 2b: this one is accepted by the Send API even though subscribed_apps refuses it."
 
           # expires_at is the field that quietly ends the inbox. A page token
           # generated in the Graph API Explorer is short-lived by default and
@@ -95,7 +95,7 @@ jobs:
           EXP=$(jq -r '.data.expires_at // 0' /tmp/token.json)
           if [[ "$EXP" == "0" ]]; then
             say ""
-            say "Expiry: never. This is a permanent page token, which is what this inbox needs."
+            say "Expiry: never. That is what this inbox needs — see 2b for whether the credential is one the Send API accepts."
           else
             LEFT=$(( (EXP - $(date +%s)) / 3600 ))
             say ""
