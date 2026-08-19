@@ -401,6 +401,11 @@ const FinanceAcademy     = lazyWithRetry(() => import("./pages/finance/FinanceAc
 
 // Legal pages
 const LegalCenter = lazyWithRetry(() => import("./pages/legal/LegalCenter"));
+// Direct routes, not cards inside /legal: Meta App Review requires a URL that
+// lands on the policy itself, and a reviewer who has to click through a grid
+// to find it records the app as having no privacy policy.
+const PrivacyPolicy = lazyWithRetry(() => import("./pages/legal/PrivacyPolicy"));
+const DataDeletion = lazyWithRetry(() => import("./pages/legal/DataDeletion"));
 
 // Admin pages
 const AdminDashboard = lazyWithRetry(() => import("./pages/admin/AdminDashboard"));
@@ -1118,7 +1123,8 @@ function AppRoutes() {
                     <Route path="/finance/settings" element={<Navigate to="/settings" replace />} />
                     {/* Legal — all policies accessible through /legal (LegalCenter) */}
                     <Route path="/legal" element={<LegalCenter />} />
-                    <Route path="/privacy-policy"        element={<Navigate to="/legal" replace />} />
+                    <Route path="/privacy-policy"        element={<PrivacyPolicy />} />
+                    <Route path="/data-deletion"         element={<DataDeletion />} />
                     <Route path="/terms-of-use"          element={<Navigate to="/legal" replace />} />
                     <Route path="/marketplace-policy"    element={<Navigate to="/legal" replace />} />
                     <Route path="/community-guidelines"  element={<Navigate to="/legal" replace />} />

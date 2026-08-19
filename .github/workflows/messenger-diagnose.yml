@@ -86,7 +86,7 @@ jobs:
           cat /tmp/token.json | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           fence
-          say "Wanted: type PAGE, profile_id $PAGE_ID, is_valid true, scopes including pages_messaging and pages_manage_metadata."
+          say "Wanted: is_valid true, expires_at 0, and pages_messaging. A USER token is measured, not assumed, in 2b: this one is accepted by the Send API even though subscribed_apps refuses it."
 
           # expires_at is the field that quietly ends the inbox. A page token
           # generated in the Graph API Explorer is short-lived by default and
@@ -95,7 +95,7 @@ jobs:
           EXP=$(jq -r '.data.expires_at // 0' /tmp/token.json)
           if [[ "$EXP" == "0" ]]; then
             say ""
-            say "Expiry: never. This is a permanent page token, which is what this inbox needs."
+            say "Expiry: never. That is what this inbox needs — see 2b for whether the credential is one the Send API accepts."
           else
             LEFT=$(( (EXP - $(date +%s)) / 3600 ))
             say ""
@@ -106,11 +106,36 @@ jobs:
           say ""
           say "## 2. Is the page subscribed to the app?"
           fence
-          curl -s "https://graph.facebook.com/$GRAPH/$PAGE_ID/subscribed_apps?fields=subscribed_fields" \
+          curl -s "https://graph.facebook.com/$GRAPH/$PAGE_ID/subscribed_apps?fields=subscribed_fields,name" \
                -H "Authorization: Bearer $PAGE_TOKEN" \
             | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           fence
+
+          # ── Will this token actually send? ────────────────────────────
+          #
+          # The synthetic delivery cannot answer this. Its reply is addressed
+          # from the page to itself, so Meta rejects it on the recipient and
+          # the response never reveals whether the credential would have been
+          # accepted — a page token and a user token both come back as
+          # platform_rejected.
+          #
+          # So the Send API is asked directly, with recipient id 0. That is
+          # never a real person, and Graph validates the token before it
+          # validates parameters: code 190 means the credential is refused,
+          # anything else means it was accepted and only the recipient was
+          # wrong. Only the error object is printed.
+          say ""
+          say "## 2b. Does the Send API accept this credential?"
+          say '```json'
+          curl -s -X POST "https://graph.facebook.com/$GRAPH/$PAGE_ID/messages" \
+               -H "Authorization: Bearer $PAGE_TOKEN" \
+               -H "Content-Type: application/json" \
+               -d '{"recipient":{"id":"0"},"message":{"text":"."},"messaging_type":"RESPONSE"}' \
+            | jq -c '.error // .' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+          say "code 190 = the credential is refused and no reply can ever be sent. Any other code = the credential was accepted and only recipient 0 was rejected, which is the wanted answer."
 
           say ""
           say "## 3. Is the page webhook registered on the app?"
