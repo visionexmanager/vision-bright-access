@@ -1,5 +1,12 @@
 # Visionex Arcade asset provenance
 
+## Breakout cover (2026-08-19)
+
+`game-breakout-v1.svg` is an original code-authored 1920×1080 vector composition
+made for Visionex Arcade, under the same no-third-party-content conditions as the
+other vector covers, and with no text to localise. It replaces the Neon Breach
+cover, which Breakout had been reusing.
+
 ## Snake cover (2026-08-19)
 
 `game-snake-v1.svg` is an original code-authored 1920×1080 vector composition

@@ -21,6 +21,32 @@ export function useArcadePaused(): boolean {
  * itself on unmount. `intervalMs` may change between renders (difficulty
  * ramps) without the caller having to tear the loop down by hand.
  */
+/**
+ * A per-frame loop for games with continuous motion, in place of the fixed
+ * interval above. The callback receives the elapsed seconds, clamped so that a
+ * tab returning from the background replays one large frame rather than
+ * teleporting the world. Stops while the shell is paused and on unmount.
+ */
+export function useArcadeAnimationFrame(frame: (seconds: number) => void, active = true, maxSeconds = 0.05) {
+  const paused = useArcadePaused();
+  const saved = useRef(frame);
+  saved.current = frame;
+
+  useEffect(() => {
+    if (!active || paused) return;
+    let handle = 0;
+    let previous = performance.now();
+    const run = (now: number) => {
+      const seconds = Math.min(maxSeconds, Math.max(0, (now - previous) / 1000));
+      previous = now;
+      if (seconds > 0) saved.current(seconds);
+      handle = requestAnimationFrame(run);
+    };
+    handle = requestAnimationFrame(run);
+    return () => cancelAnimationFrame(handle);
+  }, [active, paused, maxSeconds]);
+}
+
 export function useArcadeGameLoop(tick: () => void, intervalMs: number, active = true) {
   const paused = useArcadePaused();
   const saved = useRef(tick);

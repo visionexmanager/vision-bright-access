@@ -69,13 +69,28 @@ server-settled results stay covered by tests rather than by the lab.
 | Result | build PASS · typecheck PASS · lint PASS · 1453 tests PASS (only the pre-existing Windows CRLF failure) · console errors 0 · broken assets 0 |
 | Commit | `feat(arcade): production upgrade for snake` |
 
+## Cycle 2 — Breakout (`breakout`)
+
+| Item | Detail |
+| --- | --- |
+| Status | **PRODUCTION READY** |
+| Initial status | Not Breakout at all. One minified line in `ClassicPackGames.tsx` with no ball, no paddle and no physics: the player clicked one of eight column buttons and the lowest brick in that column vanished. Forty clicks ended the round. The catalogue advertised paddle returns. |
+| Problems found | The whole game was missing. Everything else followed from that: no lives, no levels, no aiming, no failure state other than a click counter, no sound, and the catalogue text described a game that did not exist. It also reused Neon Breach's cover art. |
+| Changes made | New physics engine (`src/lib/games/breakoutEngine.ts`) in field units so the same physics run at any screen size: a ball with velocity, a paddle whose contact point sets the rebound angle, bricks with hit points, three lives, five levels that each add a row and speed, and a combo multiplier for bricks broken before the ball returns. The ball is integrated in sub-steps no longer than a third of its radius, so a slow frame cannot tunnel it through a brick or the paddle. The rebound angle is floored away from dead centre, because a perfectly vertical return locks the ball into one column and the level can never be cleared. New component driving it from `useArcadeAnimationFrame` — added alongside the interval loop for games with continuous motion — with arrows and A/D, drag-to-aim, tap-to-launch, Space to launch and replay, B to speak the board. The field is one `role="img"` carrying the state as its accessible name, brick damage is shown by pattern as well as colour, and an audio-guidance toggle calls the ball left or right as it comes down, throttled so it guides rather than chatters. Original cover authored, provenance recorded, catalogue copy, controls and release notes rewritten to match the real game. |
+| Also fixed while building | The frame loop was gated on a ref, so holding an arrow key before launch moved nothing — nothing re-renders when a ref changes. Two different controls were both named "Launch"; the duplicate is gone and tapping the field launches instead. |
+| Tests | 25 engine tests, including tunnelling under 250 ms frames and a bot that clears level one by aiming at the bricks still standing; 20 component tests covering launch, held-key paddle movement and release, A/D, the on-screen pad, the spoken description, brick breaking, losing a life, game over, the win, replay, score agreement with the runtime, shell pause and unmount cleanup. |
+| Browser verification | Layout, cover, controls and paddle movement confirmed in Chrome at 1280 px and 375 px: field holds its 200:140 aspect, no horizontal overflow, controls 112×56 px, one Launch control, no console errors beyond the local missing-Supabase-env notice. |
+| Not verified | **The ball in motion could not be watched in a browser in this environment.** The Browser pane does not composite, so `document.hidden` is true and `requestAnimationFrame` never fires — verified directly, 0 frames in 1 second. Motion, collisions, lives, levels and the win are covered by the jsdom component tests instead, which drive the same frame loop. As with Snake, the result overlay and VX settlement need a signed-in session and are covered by `arcade-economy-settle.test.tsx`. No manual screen-reader session. |
+| Result | build PASS · typecheck PASS · lint PASS · 1497 tests PASS (only the pre-existing Windows CRLF failure) · console errors 0 · broken assets 0 |
+| Commit | `feat(arcade): production upgrade for breakout` |
+
 ## Games
 
 | # | Game | Slug | Status | Notes |
 | --- | --- | --- | --- | --- |
 | 1 | Snake | `snake` | **PRODUCTION READY** | Rebuilt on a seeded engine — see Cycle 1. |
-| 2 | Breakout | `breakout` | NOT STARTED | Next. Advertised as Breakout but has no ball, paddle or physics — the player clicks a column to delete a brick. |
-| 3 | Block Stacker | `block-stacker` | NOT STARTED | No falling piece, no rotation, no gravity; the player clicks a column pair. |
+| 2 | Breakout | `breakout` | **PRODUCTION READY** | Rebuilt with real physics — see Cycle 2. |
+| 3 | Block Stacker | `block-stacker` | NOT STARTED | Next. No falling piece, no rotation, no gravity; the player clicks a column pair. |
 | 4 | Bubble Shooter | `bubble-shooter` | NOT STARTED | No shooter and no aiming; it is a match-3 tap-to-pop grid. |
 | — | remaining 112 games | — | NOT STARTED | Audited during their own cycle. |
 
