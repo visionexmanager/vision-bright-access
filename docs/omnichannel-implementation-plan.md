@@ -188,7 +188,14 @@ email, website), and show TikTok/YouTube as comment-only where their APIs allow.
    `supabase/config.toml` *and* the deploy script's `NO_VERIFY_JWT` list. Only
    the second reaches production. This already caused a silent failure today.
 6. **New user-facing text needs keys in all 20 locales**, and the locale bot
-   reacts to changes in generated dictionaries.
+   will not translate them for you. It treats a batch as finished once the
+   dictionaries its request names exist on `main` — see `locales_present_on_main`
+   in `.github/workflows/generate-locales.yml` — so once a phase has landed it
+   no-ops on every run, whatever changes afterwards. Keys added later sit at
+   whatever value they were committed with until someone raises a new request
+   in `.github/i18n-translation-request.json`. Parity tests pass either way,
+   and `t()` falls back to English, so an untranslated key is invisible in CI
+   and in English testing.
 7. **Accessibility is not optional here.** The primary user is blind. A numbered
    menu is genuinely good for screen readers, but it must be real focusable
    controls with announced state, not text listing numbers.

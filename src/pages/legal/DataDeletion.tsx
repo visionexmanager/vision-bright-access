@@ -12,6 +12,7 @@
 
 import { Layout } from "@/components/Layout";
 import { Trash2, MessageSquare, Clock, UserCog, Mail } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STEPS = ["step1", "step2", "step3"] as const;
@@ -81,9 +82,9 @@ export default function DataDeletion() {
         <div className="mt-10 rounded-2xl border bg-primary/5 p-6 text-center">
           <p className="text-sm text-muted-foreground">
             {t("legal.dataDeletion.footer")}{" "}
-            <a href="/privacy-policy" className="font-semibold text-primary underline underline-offset-4">
+            <Link to="/privacy-policy" className="font-semibold text-primary underline underline-offset-4">
               {t("legal.privacy.title")}
-            </a>
+            </Link>
           </p>
         </div>
       </section>
