@@ -43,6 +43,8 @@ import {
   verifySignature,
   welcomeFor,
 } from "../_shared/whatsapp.ts";
+import { downloadMedia, mediaFailureNotice } from "../_shared/whatsappMedia.ts";
+import { transcribeVoice, transcriptionFailureNotice } from "../_shared/whatsappTranscribe.ts";
 import {
   formatAmbiguityPrompt,
   formatPendingList,
@@ -290,7 +292,8 @@ Deno.serve(async (req) => {
 
   for (const incoming of messages) {
     try {
-      const detected = detectLanguageCode(incoming.text);
+      // Detection reruns on a transcript below, once there is one to read.
+      let detected = detectLanguageCode(incoming.text);
       // The canned notices exist in Arabic and English; the model answers in the
       // sender's own language regardless.
       const language = detectLanguage(incoming.text);
@@ -414,15 +417,67 @@ Deno.serve(async (req) => {
 
       if (isNew) await reply(welcomeFor(language), "welcome");
 
-      // Images, voice notes, locations: acknowledged rather than ignored.
-      if (incoming.unsupportedType) {
+      // ── Attachments ───────────────────────────────────────────────────
+      //
+      // A voice note becomes text and is then answered like any other
+      // question. Everything the assistant cannot yet read is acknowledged
+      // rather than ignored, so the sender is never left wondering.
+      let questionText = incoming.text;
+
+      if (incoming.media) {
+        if (!token) {
+          await reply(unsupportedTypeNotice(language, incoming.media.kind), "unsupported");
+          continue;
+        }
+
+        if (incoming.media.kind === "audio") {
+          const media = await downloadMedia({
+            mediaId: incoming.media.id,
+            kind: "audio",
+            token,
+          });
+          if (!media.ok) {
+            await reply(mediaFailureNotice(language, "audio", media.reason), "unsupported");
+            continue;
+          }
+
+          const heard = await transcribeVoice({ bytes: media.bytes, mimeType: media.mimeType });
+          if (!heard.ok) {
+            await reply(transcriptionFailureNotice(language, heard.reason), "unsupported");
+            continue;
+          }
+
+          console.log(`[whatsapp] transcribed a voice note via ${heard.provider}`);
+          questionText = [incoming.media.caption, heard.text].filter(Boolean).join("\n");
+
+          // Store what was heard, so the transcript and the replayed history
+          // read as a conversation rather than as a gap.
+          await db
+            .from("whatsapp_messages")
+            .update({ body: `[voice] ${heard.text}` })
+            .eq("wa_message_id", incoming.messageId);
+        } else {
+          await reply(unsupportedTypeNotice(language, incoming.media.kind), "unsupported");
+          continue;
+        }
+      } else if (incoming.unsupportedType) {
         await reply(unsupportedTypeNotice(language, incoming.unsupportedType), "unsupported");
+        continue;
+      }
+
+      // A voice note's language is in what was said, not in its caption.
+      if (incoming.media?.kind === "audio" && questionText.trim()) {
+        detected = detectLanguageCode(questionText);
+      }
+
+      if (!questionText.trim()) {
+        await reply(unsupportedTypeNotice(language, incoming.media?.kind ?? "empty"), "unsupported");
         continue;
       }
 
       // An explicit request for a person is honoured immediately — the model
       // does not get to talk the user out of it.
-      if (userAskedForHuman(incoming.text)) {
+      if (userAskedForHuman(questionText)) {
         await db
           .from("whatsapp_conversations")
           .update({ escalated: true, escalated_at: new Date().toISOString(), escalation_reason: "user_request" })
@@ -524,7 +579,7 @@ Deno.serve(async (req) => {
 ${languageDirective(answerIn)}`,
           messages: [
             ...(summary ? [{ role: "user" as const, content: summaryPreamble(summary) }] : []),
-            ...(turns.length > 0 ? turns : [{ role: "user" as const, content: incoming.text }]),
+            ...(turns.length > 0 ? turns : [{ role: "user" as const, content: questionText }]),
           ],
           maxTokens: 700,
         });

@@ -526,3 +526,172 @@ describe("retention", () => {
     }
   });
 });
+
+// ── Phase 5: voice notes ────────────────────────────────────────────────────
+//
+// Every attachment used to get "I can't read that kind of message yet". Media
+// now has a fetch path, and that path is the one place an SSRF could live: the
+// download URL arrives in a *response* and is then requested.
+
+const media = await import("../../supabase/functions/_shared/whatsappMedia.ts");
+const stt = await import("../../supabase/functions/_shared/whatsappTranscribe.ts");
+
+describe("media download safety", () => {
+  it("accepts the hosts Meta actually serves media from", () => {
+    for (const url of [
+      "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=1",
+      "https://graph.facebook.com/v26.0/123",
+      "https://scontent.xx.fbcdn.net/v/t1.0/x.jpg",
+      "https://anything.fbcdn.net/file",
+    ]) {
+      expect(media.isAllowedMediaUrl(url), url).toBe(true);
+    }
+  });
+
+  it("refuses a host that merely looks like Meta's", () => {
+    // A suffix check alone would accept the first two of these.
+    for (const url of [
+      "https://evil-fbcdn.net/payload",
+      "https://fbcdn.net.attacker.com/payload",
+      "https://attacker.com/?x=fbcdn.net",
+      "https://lookaside.fbsbx.com.evil.co/x",
+    ]) {
+      expect(media.isAllowedMediaUrl(url), url).toBe(false);
+    }
+  });
+
+  it("refuses everything that is not https, including the SSRF classics", () => {
+    for (const url of [
+      "http://lookaside.fbsbx.com/x",
+      "file:///etc/passwd",
+      "http://169.254.169.254/latest/meta-data/",
+      "http://localhost:54321/",
+      "https://127.0.0.1/",
+      "not a url",
+      "",
+    ]) {
+      expect(media.isAllowedMediaUrl(url), url).toBe(false);
+    }
+  });
+
+  it("allows the formats WhatsApp really sends, with codec parameters", () => {
+    expect(media.isAllowedMime("audio", "audio/ogg; codecs=opus")).toBe(true);
+    expect(media.isAllowedMime("image", "image/jpeg")).toBe(true);
+    expect(media.isAllowedMime("document", "application/pdf")).toBe(true);
+  });
+
+  it("declines an executable dressed as an attachment", () => {
+    expect(media.isAllowedMime("document", "application/x-msdownload")).toBe(false);
+    expect(media.isAllowedMime("image", "text/html")).toBe(false);
+    expect(media.isAllowedMime("audio", "application/pdf")).toBe(false);
+    expect(media.isAllowedMime("audio", undefined)).toBe(false);
+  });
+
+  it("bounds every kind, and keeps video from being the expensive one", () => {
+    for (const kind of ["audio", "image", "document", "video", "sticker"] as const) {
+      expect(media.MEDIA_LIMITS[kind]).toBeGreaterThan(0);
+      expect(media.MEDIA_LIMITS[kind]).toBeLessThanOrEqual(16 * 1024 * 1024);
+    }
+  });
+
+  it("explains a refusal in the user's language rather than going quiet", () => {
+    expect(media.mediaFailureNotice("en", "audio", "too_large")).toMatch(/too large/i);
+    expect(media.mediaFailureNotice("ar", "audio", "too_large")).toMatch(/كبير/);
+    expect(media.mediaFailureNotice("en", "document", "unsupported_type")).toMatch(/document/);
+  });
+
+  it("never logs the download URL, which carries an access token", () => {
+    const source = readFileSync("supabase/functions/_shared/whatsappMedia.ts", "utf8");
+    expect(source).not.toMatch(/console\.(error|log)\([^)]*descriptor\.url/);
+    expect(source).toMatch(/never the URL/i);
+  });
+});
+
+describe("voice transcription", () => {
+  it("declines audio longer than the ceiling before paying to transcribe it", async () => {
+    const tooLong = new Uint8Array(Math.ceil((stt.MAX_AUDIO_SECONDS + 60) * 16_000 / 8));
+    const result = await stt.transcribeVoice({ bytes: tooLong, mimeType: "audio/ogg" });
+    expect(result).toEqual({ ok: false, reason: "too_long" });
+  });
+
+  it("estimates duration from size, monotonically", () => {
+    expect(stt.estimateAudioSeconds(16_000 / 8)).toBeCloseTo(1, 5);
+    expect(stt.estimateAudioSeconds(200_000)).toBeGreaterThan(stt.estimateAudioSeconds(100_000));
+  });
+
+  it("names the file so the API can decode it", () => {
+    expect(stt.filenameForMime("audio/ogg; codecs=opus")).toBe("voice.ogg");
+    expect(stt.filenameForMime("audio/mpeg")).toBe("voice.mp3");
+    expect(stt.filenameForMime("audio/mp4")).toBe("voice.m4a");
+    // An unknown type still gets a name rather than failing the request.
+    expect(stt.filenameForMime("audio/unheard-of")).toBe("voice.ogg");
+  });
+
+  it("reports having no provider instead of pretending it heard nothing", async () => {
+    // Neither key is set under Vitest.
+    const result = await stt.transcribeVoice({ bytes: new Uint8Array(64), mimeType: "audio/ogg" });
+    expect(result).toEqual({ ok: false, reason: "no_provider" });
+  });
+
+  it("prefers Groq over OpenAI, which is the cost decision", () => {
+    const source = readFileSync("supabase/functions/_shared/whatsappTranscribe.ts", "utf8");
+    expect(source.indexOf("groq")).toBeLessThan(source.indexOf('name: "openai"'));
+    expect(source).toMatch(/whisper-large-v3-turbo/);
+  });
+
+  it("tells a user with an unusable voice note what to do instead", () => {
+    for (const reason of ["too_long", "empty", "no_provider", "provider_error"] as const) {
+      expect(stt.transcriptionFailureNotice("en", reason).length).toBeGreaterThan(20);
+      expect(stt.transcriptionFailureNotice("ar", reason).length).toBeGreaterThan(20);
+    }
+    expect(stt.transcriptionFailureNotice("en", "empty")).toMatch(/quieter|type/i);
+  });
+});
+
+describe("media message parsing", () => {
+  const envelope = (message: unknown) => ({
+    entry: [{ changes: [{ value: { messages: [message] } }] }],
+  });
+
+  it("pulls the media id and caption off a voice note", async () => {
+    const { extractMessages } = await loadHelpers();
+    const [parsed] = extractMessages(envelope({
+      from: "44700", id: "wamid.1", type: "audio",
+      audio: { id: "media-1", mime_type: "audio/ogg; codecs=opus", voice: true },
+    }));
+    expect(parsed.media).toMatchObject({ id: "media-1", kind: "audio", voice: true });
+  });
+
+  it("treats a caption as the question it usually is", async () => {
+    const { extractMessages } = await loadHelpers();
+    const [parsed] = extractMessages(envelope({
+      from: "44700", id: "wamid.2", type: "image",
+      image: { id: "media-2", mime_type: "image/jpeg", caption: "What is this error?" },
+    }));
+    expect(parsed.text).toBe("What is this error?");
+    expect(parsed.media?.kind).toBe("image");
+  });
+
+  it("still reports a type it cannot fetch, rather than dropping it", async () => {
+    const { extractMessages } = await loadHelpers();
+    const [parsed] = extractMessages(envelope({ from: "44700", id: "wamid.3", type: "location" }));
+    expect(parsed.unsupportedType).toBe("location");
+    expect(parsed.media).toBeUndefined();
+  });
+
+  it("ignores a media message with no id instead of throwing", async () => {
+    const { extractMessages } = await loadHelpers();
+    const [parsed] = extractMessages(envelope({ from: "44700", id: "wamid.4", type: "audio", audio: {} }));
+    expect(parsed.unsupportedType).toBe("audio");
+  });
+
+  it("answers the transcript, and re-detects language from what was said", () => {
+    expect(webhook).toContain("transcribeVoice");
+    expect(webhook).toContain("userAskedForHuman(questionText)");
+    expect(webhook).toMatch(/detected = detectLanguageCode\(questionText\)/);
+  });
+
+  it("stores what was heard so the transcript is not a gap", () => {
+    expect(webhook).toContain("[voice] ");
+  });
+});

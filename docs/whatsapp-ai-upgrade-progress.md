@@ -220,6 +220,52 @@ needs a live conversation longer than 12 turns to exercise end to end.
 
 ---
 
+## Phase 5 — Voice notes · **DONE**
+
+*Taken before Phase 4 deliberately: every attachment shares one fetch path, so
+building it here also unlocks Phases 7–9, and none of it depends on the
+knowledge base.*
+
+**Found.** Every attachment — voice note, photo, PDF — got the same reply: "I
+can't read that kind of message yet." `extractMessages` discarded the media id
+entirely, so there was nothing to fetch even if something had wanted to.
+
+**Changed.**
+- `_shared/whatsappMedia.ts` — the shared fetch path. Media arrives as an id;
+  turning it into bytes means asking Graph for a URL and then fetching it, which
+  is **the shape of an SSRF**, so the host is checked against Meta's before any
+  request is made. The URL carries an access token in its query string, so it is
+  never logged, stored or put in an error. Size is checked twice: the declared
+  size because it is free, and the bytes actually read because a declaration is a
+  claim, not a fact. Per-kind MIME allowlists and byte ceilings.
+- `_shared/whatsappTranscribe.ts` — **Groq `whisper-large-v3-turbo` first,
+  OpenAI `whisper-1` second.** Both keys already exist, so no new vendor and no
+  new credential; the order is the cost decision. Whisper detects the spoken
+  language itself, so nothing biases it — a hint would be a guess from the
+  *typed* language of earlier messages, and people switch.
+- `extractMessages` now carries the media id, MIME, filename, caption and the
+  `voice` flag. A caption is treated as the question, because it usually is.
+- The webhook transcribes a voice note, re-detects the language **from what was
+  said** rather than from an empty caption, answers it like any other question,
+  and rewrites the stored row as `[voice] …` so the transcript and the replayed
+  history read as a conversation rather than a gap.
+
+**Tests.** 20 new cases (98 in the file). The SSRF guard gets its own group:
+Meta's real hosts accepted; `evil-fbcdn.net`, `fbcdn.net.attacker.com` and
+`lookaside.fbsbx.com.evil.co` refused; and `file://`, `169.254.169.254`,
+`localhost` and plain http all refused. Plus MIME allow/deny, size ceilings,
+duration estimation, the no-provider path, provider ordering, caption parsing,
+and a check that the download URL can never reach a log line.
+
+**Quality gate.** typecheck PASS · full suite 1368 PASS · all four Deno sources
+parse · no secrets · **CI green on the PR** for the phases pushed so far.
+
+**Not verified.** No real voice note has been transcribed end to end — that
+needs a live message to the production number. The provider call itself is
+exercised only through its guard paths, since no key is set under Vitest.
+
+---
+
 ## Phase status
 
 | Phase | Status | Commit |
@@ -229,7 +275,7 @@ needs a live conversation longer than 12 turns to exercise end to end.
 | 2 — Multilingual AI | **DONE** | `feat(whatsapp): answer in the sender's own language` |
 | 3 — Conversation memory | **DONE** | `feat(whatsapp): bound the context window and roll up long conversations` |
 | 4 — Knowledge base | NOT STARTED | |
-| 5 — Voice notes | NOT STARTED | |
+| 5 — Voice notes | **DONE** | `feat(whatsapp): understand voice notes` |
 | 6 — Voice replies | NOT STARTED | |
 | 7 — Images | NOT STARTED | |
 | 8 — Documents | NOT STARTED | |

@@ -388,9 +388,23 @@ export interface IncomingMessage {
   from: string;
   messageId: string;
   text: string;
-  /** Present for anything that is not plain text (image, audio, location…). */
+  /** Present for a type nothing here can process (location, contacts…). */
   unsupportedType?: string;
+  /** Present for an attachment that can be fetched and understood. */
+  media?: {
+    id: string;
+    kind: "audio" | "image" | "document" | "video" | "sticker";
+    mimeType?: string;
+    /** A document's original name, and an image's caption. */
+    filename?: string;
+    caption?: string;
+    /** Voice notes are `voice: true`; a forwarded song is not. */
+    voice?: boolean;
+  };
 }
+
+/** Message types carrying a media id this assistant knows how to fetch. */
+const MEDIA_TYPES = ["audio", "image", "document", "video", "sticker"] as const;
 
 /**
  * Pull the text messages out of a Cloud API webhook payload.
@@ -413,17 +427,51 @@ export function extractMessages(payload: unknown): IncomingMessage[] {
       if (!Array.isArray(messages)) continue;
 
       for (const message of messages) {
+        type MediaPayload = {
+          id?: string;
+          mime_type?: string;
+          filename?: string;
+          caption?: string;
+          voice?: boolean;
+        };
         const m = message as {
           from?: string;
           id?: string;
           type?: string;
           text?: { body?: string };
-        };
+        } & Record<string, MediaPayload | undefined>;
         if (!m.from || !m.id) continue;
 
         if (m.type === "text" && typeof m.text?.body === "string") {
           out.push({ from: m.from, messageId: m.id, text: m.text.body });
-        } else if (m.type) {
+          continue;
+        }
+
+        // An attachment carries its own object named after the type, holding
+        // the media id. A caption travels with it and is the user's actual
+        // question more often than not.
+        const kind = MEDIA_TYPES.find((candidate) => candidate === m.type);
+        if (kind) {
+          const payload = m[kind];
+          if (payload?.id) {
+            out.push({
+              from: m.from,
+              messageId: m.id,
+              text: payload.caption ?? "",
+              media: {
+                id: payload.id,
+                kind,
+                mimeType: payload.mime_type,
+                filename: payload.filename,
+                caption: payload.caption,
+                voice: payload.voice === true,
+              },
+            });
+            continue;
+          }
+        }
+
+        if (m.type) {
           out.push({ from: m.from, messageId: m.id, text: "", unsupportedType: m.type });
         }
       }
