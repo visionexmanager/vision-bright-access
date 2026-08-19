@@ -106,7 +106,7 @@ jobs:
           say ""
           say "## 2. Is the page subscribed to the app?"
           fence
-          curl -s "https://graph.facebook.com/$GRAPH/$PAGE_ID/subscribed_apps?fields=subscribed_fields" \
+          curl -s "https://graph.facebook.com/$GRAPH/$PAGE_ID/subscribed_apps?fields=subscribed_fields,name" \
                -H "Authorization: Bearer $PAGE_TOKEN" \
             | tee -a "$GITHUB_STEP_SUMMARY"
           echo
