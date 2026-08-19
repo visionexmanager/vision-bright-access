@@ -204,7 +204,9 @@ describe("webhook safety contract", () => {
 
   it("tells the user something even when the provider is down", () => {
     expect(webhook).toContain("failureNotice(language)");
-    expect(webhook).toContain('escalation_reason: "ai_unavailable"');
+    // Escalation moved behind one helper in Phase 10 so every path also writes
+    // a handoff briefing; the reason is now passed to it.
+    expect(webhook).toContain('escalate("ai_unavailable")');
   });
 });
 
@@ -1010,5 +1012,125 @@ describe("voice replies", () => {
     const source = readFileSync("supabase/functions/_shared/whatsappVoiceReply.ts", "utf8");
     expect(source).toContain("tts-1");
     expect(source).toMatch(/cost/i);
+  });
+});
+
+// ── Phases 10, 11, 12 and 16: triage, handoff and counters ──────────────────
+
+const triage = await import("../../supabase/functions/_shared/whatsappTriage.ts");
+
+describe("message classification", () => {
+  it("settles the obvious cases without spending a model call", () => {
+    expect(triage.quickCategory({ text: "I want an agent", askedForHuman: true, hasMedia: false }))
+      .toBe("human_request");
+    expect(triage.quickCategory({ text: "", askedForHuman: false, hasMedia: true }))
+      .toBe("media");
+    // An attachment with a question is a real question about the attachment.
+    expect(triage.quickCategory({ text: "what is this error?", askedForHuman: false, hasMedia: true }))
+      .toBeNull();
+    expect(triage.quickCategory({ text: "how much is it?", askedForHuman: false, hasMedia: false }))
+      .toBeNull();
+  });
+
+  it("constrains the classifier to the categories the schema allows", () => {
+    expect(triage.CLASSIFY_SCHEMA.properties.category.enum).toEqual([...triage.CATEGORIES]);
+    expect(triage.isCategory("billing")).toBe(true);
+    expect(triage.isCategory("something-else")).toBe(false);
+    expect(triage.isCategory(null)).toBe(false);
+  });
+
+  it("tells the classifier its label is routing, not an answer", () => {
+    expect(triage.CLASSIFY_INSTRUCTION).toMatch(/routing hint, never an answer/i);
+  });
+
+  it("uses the cheapest model for a label", () => {
+    expect(webhook).toContain("CLASSIFY_TARGETS");
+    expect(webhook).toMatch(/llama-3\.1-8b-instant/);
+  });
+
+  it("never lets a classification failure block the reply", () => {
+    expect(webhook).toContain("classification failed");
+  });
+});
+
+describe("escalating without being asked", () => {
+  const base = { category: "general" as const, consecutiveDeclines: 0, text: "how much is it?" };
+
+  it("leaves a routine question alone", () => {
+    expect(triage.shouldEscalate(base)).toBeNull();
+  });
+
+  it("escalates a complaint and an explicit request", () => {
+    expect(triage.shouldEscalate({ ...base, category: "complaint" })).toBe("complaint");
+    expect(triage.shouldEscalate({ ...base, category: "human_request" })).toBe("user_request");
+  });
+
+  it("escalates a payment or access problem in either language", () => {
+    expect(triage.shouldEscalate({ ...base, text: "I was charged twice for this" })).toBe("sensitive");
+    expect(triage.shouldEscalate({ ...base, text: "my account was hacked" })).toBe("sensitive");
+    expect(triage.shouldEscalate({ ...base, text: "تم خصم مرتين من حسابي" })).toBe("sensitive");
+  });
+
+  it("escalates an assistant that has failed three turns running", () => {
+    expect(triage.shouldEscalate({ ...base, consecutiveDeclines: 2 })).toBeNull();
+    expect(triage.shouldEscalate({ ...base, consecutiveDeclines: 3 })).toBe("repeated_failure");
+  });
+
+  it("answers the customer before deciding to escalate", () => {
+    const replyAt = webhook.indexOf('await reply(answer, "reply")');
+    const escalateAt = webhook.indexOf("escalating unprompted");
+    expect(replyAt).toBeGreaterThan(-1);
+    expect(escalateAt).toBeGreaterThan(replyAt);
+  });
+});
+
+describe("handoff briefing", () => {
+  it("asks for facts and open issues, and refuses to carry secrets", () => {
+    expect(triage.HANDOFF_INSTRUCTION).toMatch(/what is still open/i);
+    expect(triage.HANDOFF_INSTRUCTION).toMatch(/never include passwords/i);
+    expect(triage.HANDOFF_INSTRUCTION).toMatch(/do not suggest a reply/i);
+  });
+
+  it("never leaves staff with a blank briefing", () => {
+    for (const reason of [
+      "user_request", "assistant_handover", "ai_unavailable",
+      "complaint", "repeated_failure", "sensitive",
+    ] as const) {
+      const text = triage.fallbackBriefing(reason, "my order never arrived");
+      expect(text.length).toBeGreaterThan(30);
+      expect(text).toContain("my order never arrived");
+    }
+  });
+
+  it("redacts the briefing before storing it", () => {
+    expect(webhook).toContain("redactSummary(await collectStream(stream))");
+    expect(webhook).toContain("handoff_summary");
+  });
+
+  it("writes a briefing on every escalation path", () => {
+    // All four escalation sites go through the one helper.
+    expect(webhook).toContain('escalate("user_request")');
+    expect(webhook).toContain('escalate("ai_unavailable")');
+    expect(webhook).toContain('escalate("assistant_handover")');
+    expect(webhook).not.toMatch(/escalation_reason: "user_request"[\s\S]{0,80}\.eq\("id", conversationId\)/);
+  });
+});
+
+describe("operational counters", () => {
+  const migration = readFileSync("supabase/migrations/20260916040000_whatsapp_triage.sql", "utf8");
+
+  it("counts from the rows that already exist rather than a second copy", () => {
+    expect(migration).toContain("CREATE OR REPLACE VIEW public.whatsapp_daily_metrics");
+    expect(migration).toContain("CREATE OR REPLACE VIEW public.whatsapp_health");
+  });
+
+  it("keeps the caller's RLS, so counters are not a way around admin-only", () => {
+    expect(migration.match(/security_invoker = true/g)?.length).toBe(2);
+  });
+
+  it("surfaces the things an outage or an abuse spike would move", () => {
+    for (const column of ["handovers", "declined", "rate_limited", "currently_paused", "escalated"]) {
+      expect(migration, column).toContain(column);
+    }
   });
 });

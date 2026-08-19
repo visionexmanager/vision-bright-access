@@ -400,6 +400,46 @@ that needs a live conversation with the preference enabled.
 
 ---
 
+## Phases 10, 11, 12 and 16 — Triage, handoff, summaries and counters · **DONE**
+
+**Changed.**
+- **Classification** into ten categories, on `llama-3.1-8b-instant` — the
+  cheapest model here, because a label is routing, not an answer. The obvious
+  cases skip the model entirely: an explicit request for a person, and an
+  attachment with no caption. A classification failure never blocks the reply,
+  and an unclassified message is a normal state.
+- **Escalation without being asked**, and deliberately conservative: escalating
+  a routine question wastes a person's time, but missing a complaint costs a
+  customer. It fires on a complaint, on fraud/double-charge/hacked-account
+  wording in either language, and on three unanswerable turns in a row — which
+  is the assistant failing, not the user. Checked *after* the reply, so the
+  customer is answered first.
+- **Handoff briefing.** Every escalation path now goes through one helper that
+  writes a briefing so the customer is not asked to repeat themselves. It is
+  redacted with the Phase 3 redactor, the instruction forbids carrying
+  credentials, and `fallbackBriefing()` guarantees staff never open a blank
+  field.
+- **Counters** as two `security_invoker` views over rows that already exist —
+  a second copy would be one more thing to keep true. Daily volume by message
+  kind, and a one-row health snapshot: escalations, human-controlled
+  conversations, rate-limit hits, currently paused, active in the last day.
+  `security_invoker` means the caller's RLS still applies, so the counters are
+  not a way around admin-only.
+
+**Tests.** 17 new cases (155 in the file): quick-path classification, schema
+enum containment, escalation thresholds in both languages, the reply-before-
+escalate ordering, briefing content rules, the non-blank guarantee, and three
+assertions on the views including that both keep `security_invoker`.
+
+**Quality gate.** typecheck PASS · full suite 1425 PASS · Deno sources parse ·
+no secrets. One pre-existing assertion updated: escalation moved behind a single
+helper, so the test now asserts the helper rather than the old inline string.
+
+**Not verified.** No real escalation has produced a briefing; classification
+accuracy is untested against real traffic.
+
+---
+
 ## Phase status
 
 | Phase | Status | Commit |
@@ -414,13 +454,13 @@ that needs a live conversation with the preference enabled.
 | 7 — Images | **DONE** | `feat(whatsapp): read images and documents` |
 | 8 — Documents | **DONE** | `feat(whatsapp): read images and documents` |
 | 9 — Video | NOT STARTED | |
-| 10 — Human handoff | NOT STARTED | partially exists (see Phase 0) |
-| 11 — Classification | NOT STARTED | |
-| 12 — Summaries | **DONE** | summary engine built in Phase 3; handoff summary in Phase 10 |
+| 10 — Human handoff | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
+| 11 — Classification | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
+| 12 — Summaries | **DONE** | rolling summary in Phase 3; handoff briefing in Phase 10 |
 | 13 — Bazaar assistant | NOT STARTED | |
 | 14 — Order tracking | NOT STARTED | |
 | 15 — User preferences | **DONE** | `feat(whatsapp): remember preferences and speak replies on request` |
-| 16 — Observability | NOT STARTED | |
+| 16 — Observability | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 17 — Cost control | NOT STARTED | |
 | 18 — Security audit | NOT STARTED | |
 | 19 — Accessibility and UX | NOT STARTED | |

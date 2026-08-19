@@ -16,7 +16,12 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getAssistant } from "../_shared/assistants.ts";
-import { createEmbedding, streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
+import {
+  createEmbedding,
+  streamChatCompletionWithFallback,
+  structuredCompletionWithFallback,
+  ProviderError,
+} from "../_shared/aiProvider.ts";
 import {
   budgetTurns,
   clampReply,
@@ -56,6 +61,17 @@ import {
 } from "../_shared/whatsappPreferences.ts";
 import { shouldSpeak, speakReply } from "../_shared/whatsappVoiceReply.ts";
 import {
+  CLASSIFY_INSTRUCTION,
+  CLASSIFY_SCHEMA,
+  fallbackBriefing,
+  HANDOFF_INSTRUCTION,
+  isCategory,
+  quickCategory,
+  shouldEscalate,
+  type Category,
+  type EscalationReason,
+} from "../_shared/whatsappTriage.ts";
+import {
   knowledgeDirective,
   MAX_PASSAGES,
   needsGrounding,
@@ -77,6 +93,12 @@ const HISTORY_LIMIT = 12;
  * Summaries are bulk text work with no user waiting on the wording, so they go
  * to the cheapest capable provider rather than the one answering the customer.
  */
+/** Classification is a routing label, so it runs on the cheapest model. */
+const CLASSIFY_TARGETS = [
+  { provider: "groq" as const, model: "llama-3.1-8b-instant" },
+  { provider: "openai" as const, model: "gpt-4o-mini" },
+];
+
 const SUMMARY_TARGETS = [
   { provider: "groq" as const, model: "llama-3.3-70b-versatile" },
   { provider: "openai" as const, model: "gpt-4o-mini" },
@@ -584,13 +606,83 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // An explicit request for a person is honoured immediately — the model
-      // does not get to talk the user out of it.
-      if (userAskedForHuman(questionText)) {
+      // ── Triage ────────────────────────────────────────────────────────
+      //
+      // A label, not an answer: it never blocks the reply, and an unclassified
+      // message is a normal state. The obvious cases skip the model entirely.
+      const askedForHuman = userAskedForHuman(questionText);
+      let category: Category | null = quickCategory({
+        text: questionText,
+        askedForHuman,
+        hasMedia: !!incoming.media,
+      });
+      if (!category) {
+        try {
+          const { result } = await structuredCompletionWithFallback({
+            targets: CLASSIFY_TARGETS,
+            system: CLASSIFY_INSTRUCTION,
+            userText: questionText.slice(0, 1_000),
+            schema: CLASSIFY_SCHEMA as unknown as Record<string, unknown>,
+            toolName: "classify_message",
+            maxTokens: 24,
+          });
+          const label = (result as { category?: unknown } | null)?.category;
+          if (isCategory(label)) category = label;
+        } catch (e) {
+          console.error("[whatsapp] classification failed:", e instanceof Error ? e.message : e);
+        }
+      }
+      if (category) {
+        await db.from("whatsapp_messages").update({ category }).eq("wa_message_id", incoming.messageId);
+        await db.from("whatsapp_conversations").update({ last_category: category }).eq("id", conversationId);
+      }
+      console.log(`[whatsapp] category=${category ?? "none"}`);
+
+      /** Escalate, and leave a briefing so the customer need not repeat themselves. */
+      const escalate = async (reason: EscalationReason) => {
+        let briefing: string | null = null;
+        try {
+          const { data: recent } = await db
+            .from("whatsapp_messages")
+            .select("direction, body, kind")
+            .eq("conversation_id", conversationId)
+            .order("created_at", { ascending: false })
+            .limit(20);
+          const material = (recent ?? [])
+            .reverse()
+            .map((row) => `${row.direction === "inbound" ? "Customer" : "Assistant"}: ${row.body}`)
+            .join("\n")
+            .slice(0, 8_000);
+          if (material) {
+            const { result: stream } = await streamChatCompletionWithFallback({
+              targets: SUMMARY_TARGETS,
+              system: HANDOFF_INSTRUCTION,
+              messages: [{ role: "user", content: material }],
+              maxTokens: 240,
+            });
+            briefing = redactSummary(await collectStream(stream));
+          }
+        } catch (e) {
+          console.error("[whatsapp] handoff briefing failed:", e instanceof Error ? e.message : e);
+        }
+
         await db
           .from("whatsapp_conversations")
-          .update({ escalated: true, escalated_at: new Date().toISOString(), escalation_reason: "user_request" })
+          .update({
+            escalated: true,
+            escalated_at: new Date().toISOString(),
+            escalation_reason: reason,
+            // Staff never see a blank briefing field.
+            handoff_summary: briefing || fallbackBriefing(reason, questionText),
+            handoff_summary_at: new Date().toISOString(),
+          })
           .eq("id", conversationId);
+      };
+
+      // An explicit request for a person is honoured immediately — the model
+      // does not get to talk the user out of it.
+      if (askedForHuman) {
+        await escalate("user_request");
         await reply(handoverNotice(language), "handover");
         continue;
       }
@@ -731,10 +823,7 @@ Deno.serve(async (req) => {
       } catch (e) {
         const status = e instanceof ProviderError ? e.status : 0;
         console.error("[whatsapp] provider error:", status || e);
-        await db
-          .from("whatsapp_conversations")
-          .update({ escalated: true, escalated_at: new Date().toISOString(), escalation_reason: "ai_unavailable" })
-          .eq("id", conversationId);
+        await escalate("ai_unavailable");
         await reply(failureNotice(language), "handover");
         continue;
       }
@@ -749,10 +838,32 @@ Deno.serve(async (req) => {
       // The model was told to say it is handing over when it cannot help.
       // Flag the conversation so the team sees it in the queue.
       if (replySignalsHandover(answer)) {
-        await db
-          .from("whatsapp_conversations")
-          .update({ escalated: true, escalated_at: new Date().toISOString(), escalation_reason: "assistant_handover" })
-          .eq("id", conversationId);
+        await escalate("assistant_handover");
+        continue;
+      }
+
+      // ── Escalating without being asked ────────────────────────────────
+      //
+      // A complaint, a payment or access problem, or an assistant that has
+      // failed several turns running. Deliberately conservative: escalating a
+      // routine question wastes a person's time, but missing a complaint costs
+      // a customer. Checked after the reply, so the customer is answered first.
+      const { data: recentOutbound } = await db
+        .from("whatsapp_messages")
+        .select("kind")
+        .eq("conversation_id", conversationId)
+        .eq("direction", "outbound")
+        .order("created_at", { ascending: false })
+        .limit(3);
+      const consecutiveDeclines = (recentOutbound ?? [])
+        .findIndex((row) => row.kind === "reply") === -1
+        ? (recentOutbound ?? []).length
+        : 0;
+
+      const reason = shouldEscalate({ category, consecutiveDeclines, text: questionText });
+      if (reason) {
+        console.log(`[whatsapp] escalating unprompted: ${reason}`);
+        await escalate(reason);
       }
     } catch (e) {
       // One bad message must not drop the rest of the batch.
