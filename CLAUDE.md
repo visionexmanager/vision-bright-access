@@ -18,4 +18,6 @@ Claude Code discovers the professional workflows in `.claude/skills/*/SKILL.md` 
 
 Specialized read-only reviewers are available in `.claude/agents/`. Delegate independent architecture, security, testing, accessibility, game-quality, and release checks when risk warrants it. Treat their output as evidence to verify, not automatic approval.
 
-Run `npm run claude:validate` after editing Claude skills, agents, hooks, settings, or this routing section. Project hooks block broad deletion, force pushes, direct pushes to the default branch, destructive Git resets, and destructive database commands.
+Run `npm run claude:validate` after editing Claude skills, agents, hooks, settings, or this routing section.
+
+Skills installed from elsewhere with `npx skills add` are recorded in `skills-lock.json` and validated more loosely than the ones written here: their frontmatter must parse and name their own directory, but the house authoring rules — description length, allowed frontmatter fields, the 120-line limit — apply only to skills this repository owns and can edit. Commit the lockfile alongside the skill so the set stays reviewable. Project hooks block broad deletion, force pushes, direct pushes to the default branch, destructive Git resets, and destructive database commands.
