@@ -1,0 +1,73 @@
+# Why is the Messenger inbox silent? — a read-only diagnosis.
+#
+# Run by hand only. It reads three facts from the Meta Graph API and prints
+# them; it subscribes nothing, enables nothing and writes nothing. Every
+# credential stays in the runner as a secret: tokens travel in the
+# Authorization header, never in a URL, so none reaches a log or a proxy.
+#
+# It exists because these three facts live behind bearer tokens that are
+# write-only secrets — unreadable from a developer machine, and readable here
+# only by the runner. Diagnosing this by hand meant copying a page token onto
+# a laptop, which this replaces.
+
+name: Diagnose Messenger delivery
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Read the Meta configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask Meta three questions
+        shell: bash
+        env:
+          PAGE_TOKEN:      ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          META_APP_ID:     ${{ secrets.META_APP_ID }}
+          META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
+        run: |
+          set -uo pipefail
+          PAGE_ID="1250177161514940"   # the id migration 20260915000000 enabled
+          V="v26.0"
+          CALLBACK="https://nnyxtaftwispowolajpl.supabase.co/functions/v1/meta-messaging-webhook"
+
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [[ -z "$PAGE_TOKEN" ]]; then
+            say "::error::FACEBOOK_PAGE_ACCESS_TOKEN is not set — nothing can be checked."
+            exit 1
+          fi
+
+          say "## 1. Does the token belong to the page the migration enabled?"
+          say '```json'
+          curl -s "https://graph.facebook.com/$V/me?fields=id,name,username" \
+               -H "Authorization: Bearer $PAGE_TOKEN" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+          say "Expected \`id\` = \`$PAGE_ID\`. A different id means the migration enabled the wrong page and every message is recorded, then silently dropped as \`account_not_connected\`."
+
+          say ""
+          say "## 2. Is the app subscribed to the page?"
+          say '```json'
+          curl -s "https://graph.facebook.com/$V/$PAGE_ID/subscribed_apps?fields=subscribed_fields" \
+               -H "Authorization: Bearer $PAGE_TOKEN" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+          say "Expected a non-empty \`data[]\` whose \`subscribed_fields\` contains \`messages\`. An empty array means Meta never delivers anything — and nothing in this repository performs this subscription."
+
+          say ""
+          say "## 3. Is the \`page\` webhook registered, and pointing here?"
+          if [[ -n "$META_APP_ID" && -n "$META_APP_SECRET" ]]; then
+            say '```json'
+            curl -s "https://graph.facebook.com/$V/$META_APP_ID/subscriptions" \
+                 -H "Authorization: Bearer $META_APP_ID|$META_APP_SECRET" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo
+            say '```'
+            say "Expected an entry with \`object: page\`, \`active: true\`, the field \`messages\`, and callback_url \`$CALLBACK\`."
+          else
+            say "_Skipped — META_APP_ID or META_APP_SECRET is not configured._"
+          fi
