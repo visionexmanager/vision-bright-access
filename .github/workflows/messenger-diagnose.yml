@@ -112,6 +112,31 @@ jobs:
           echo
           fence
 
+          # ── Will this token actually send? ────────────────────────────
+          #
+          # The synthetic delivery cannot answer this. Its reply is addressed
+          # from the page to itself, so Meta rejects it on the recipient and
+          # the response never reveals whether the credential would have been
+          # accepted — a page token and a user token both come back as
+          # platform_rejected.
+          #
+          # So the Send API is asked directly, with recipient id 0. That is
+          # never a real person, and Graph validates the token before it
+          # validates parameters: code 190 means the credential is refused,
+          # anything else means it was accepted and only the recipient was
+          # wrong. Only the error object is printed.
+          say ""
+          say "## 2b. Does the Send API accept this credential?"
+          say '```json'
+          curl -s -X POST "https://graph.facebook.com/$GRAPH/$PAGE_ID/messages" \
+               -H "Authorization: Bearer $PAGE_TOKEN" \
+               -H "Content-Type: application/json" \
+               -d '{"recipient":{"id":"0"},"message":{"text":"."},"messaging_type":"RESPONSE"}' \
+            | jq -c '.error // .' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+          say "code 190 = the credential is refused and no reply can ever be sent. Any other code = the credential was accepted and only recipient 0 was rejected, which is the wanted answer."
+
           say ""
           say "## 3. Is the page webhook registered on the app?"
           fence
