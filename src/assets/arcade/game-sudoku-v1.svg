@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="Visionex Arcade Sudoku cover"><defs><linearGradient id="deep" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1c1150"/><stop offset="0.6" stop-color="#0c0a28"/><stop offset="1" stop-color="#05060f"/></linearGradient><filter id="soften" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="32"/></filter></defs>
+
+<rect width="1920" height="1080" fill="url(#deep)"/>
+<circle cx="1560" cy="820" r="300" fill="#22d3ee" opacity="0.13" filter="url(#soften)"/>
+<circle cx="360" cy="220" r="260" fill="#a855f7" opacity="0.16" filter="url(#soften)"/>
+
+<g transform="translate(660 120)">
+  <rect x="0" y="0" width="828" height="828" rx="28" fill="#050914" stroke="#7dd3fc" stroke-opacity="0.35" stroke-width="4"/>
+
+  <g stroke="#334155" stroke-width="2">
+    <path d="M92 0V828M184 0V828M368 0V828M460 0V828M644 0V828M736 0V828"/>
+    <path d="M0 92H828M0 184H828M0 368H828M0 460H828M0 644H828M0 736H828"/>
+  </g>
+  <g stroke="#67e8f9" stroke-width="6" stroke-opacity="0.85">
+    <path d="M276 0V828M552 0V828"/>
+    <path d="M0 276H828M0 552H828"/>
+  </g>
+
+  <g fill="#e2e8f0" font-family="ui-monospace, monospace" font-size="58" font-weight="700" text-anchor="middle">
+    <text x="46" y="66">5</text><text x="230" y="66">7</text><text x="506" y="66">1</text><text x="782" y="66">9</text>
+    <text x="138" y="158">3</text><text x="414" y="158">6</text><text x="690" y="158">2</text>
+    <text x="46" y="250">8</text><text x="322" y="250">4</text><text x="598" y="250">7</text>
+    <text x="230" y="342">2</text><text x="506" y="342">8</text><text x="782" y="342">3</text>
+    <text x="138" y="434">9</text><text x="690" y="434">5</text>
+    <text x="46" y="526">6</text><text x="322" y="526">1</text><text x="598" y="526">4</text>
+    <text x="230" y="618">7</text><text x="506" y="618">3</text><text x="782" y="618">8</text>
+    <text x="138" y="710">4</text><text x="414" y="710">9</text><text x="690" y="710">6</text>
+    <text x="46" y="802">2</text><text x="322" y="802">5</text><text x="598" y="802">1</text>
+  </g>
+
+  <g fill="#22d3ee" font-family="ui-monospace, monospace" font-size="58" font-weight="900" text-anchor="middle">
+    <text x="414" y="434">7</text>
+  </g>
+  <rect x="368" y="368" width="92" height="92" fill="none" stroke="#67e8f9" stroke-width="6" rx="8"/>
+</g>
+</svg>

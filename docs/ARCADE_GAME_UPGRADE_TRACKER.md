@@ -117,6 +117,22 @@ server-settled results stay covered by tests rather than by the lab.
 | Result | build PASS · typecheck PASS · lint PASS · 1589 tests PASS (only the pre-existing Windows CRLF failure) · console errors 0 · broken assets 0 |
 | Commit | `feat(arcade): production upgrade for bubble shooter` |
 
+## Cycle 5 — Sudoku (`sudoku`)
+
+| Item | Detail |
+| --- | --- |
+| Status | **PRODUCTION READY** |
+| Initial status | One hard-coded 9×9 grid in `arcadeBatchThreeEngines.ts`, shared by every player on every visit, inside a minified block in `BatchThreeGames.tsx`. |
+| Problems found | Worse than a placeholder: a move was checked with `validSudokuMove`, which compared the digit against a *stored answer key* rather than the rules — so a digit that broke no rule was rejected as a conflict if the solver had picked a different one. Every session played the identical puzzle, so there was no replay value at all. No difficulty, no generator, no pencil marks, no hints, no clock, no mistake limit, no loss condition, and the board was a plain `<input>` grid without grid semantics or arrow-key navigation. The catalogue reused the LogiQuest cover and described "a maintained nine-by-nine number grid", which was accurate and is exactly the problem. |
+| Changes made | New engine (`src/lib/games/sudokuEngine.ts`): seeded backtracking generator, clue removal that keeps only the removals leaving exactly one solution, a solver, a solution counter with early exit, and legality judged by the rules of Sudoku. Three difficulties by clue count. New component: a real ARIA grid with row and column positions and one cell in the tab order, arrow-key navigation that wraps, digits 1–9, 0/Backspace to clear, N for pencil marks, H for a hint, B to speak the board and the current cell, a number pad showing how many of each digit are left, a clock, a five-mistake limit, and a score that follows time, mistakes and hints. Conflicts are marked with an exclamation mark and an underline as well as colour; given cells carry a dot and refuse edits. Original cover authored, provenance recorded, catalogue copy and release notes rewritten. The hard-coded puzzle and its answer-key check are deleted. |
+| Found by browser testing | Typing into a cell in the same tick it was focused wrote the digit into whichever cell the cursor state still pointed at — a stale-closure race that a fast player or an assistive tool could hit. `place` now takes the target cell from the key event; a regression test covers it. |
+| Also fixed | Every render rebuilt all 81 cell descriptions, each running the legality check — about 2,000 comparisons per render, including renders that only moved the cursor. The descriptions are memoised on the grid. |
+| Tests | 20 engine tests covering the rules, conflicts, completion, generation validity and uniqueness at all three difficulties, clue counts, seeded replay, solving, hints and the spoken descriptions; 21 component tests covering grid semantics, labels, read-only givens, arrow navigation, entry, clearing, mistakes, pencil marks, the number pad, hints, a new puzzle, a full solve through to the win, the five-mistake loss, the conflict marking, the tab order, the spoken board and the focus race. |
+| Browser verification | Played in Chrome through the dev lab: 81 cells, exactly one tabbable, arrow navigation moving focus, a rule-breaking digit counting a mistake (1/5), Backspace clearing, a hint filling the right digit, the clock running, the status line reading "medium puzzle. 46 cells left. No conflicts.", the new cover loading, no horizontal overflow at 375 px or 1280 px, 33 px cells and a 56 px number pad on mobile. |
+| Not verified | The result overlay and VX settlement need a signed-in session; covered by `arcade-economy-settle.test.tsx`. No manual screen-reader session. |
+| Result | build PASS · typecheck PASS · lint PASS · 1629 tests PASS (only the pre-existing Windows CRLF failure) · console errors 0 · broken assets 0 |
+| Commit | `feat(arcade): production upgrade for sudoku` |
+
 ## Games
 
 | # | Game | Slug | Status | Notes |
@@ -125,7 +141,8 @@ server-settled results stay covered by tests rather than by the lab.
 | 2 | Breakout | `breakout` | **PRODUCTION READY** | Rebuilt with real physics — see Cycle 2. |
 | 3 | Block Stacker | `block-stacker` | **PRODUCTION READY** | Rebuilt as a real falling-block game — see Cycle 3. |
 | 4 | Bubble Shooter | `bubble-shooter` | **PRODUCTION READY** | Rebuilt as a real shooter on a hex board — see Cycle 4. |
-| — | remaining 113 games | — | NOT STARTED | Audited during their own cycle. The next candidates are the other bulk "pack" files, where several games still share one minified source: `BatchTwoGames`, `BatchThreeGames`, `ExpansionGames`, `ArenaSportsGames`, `HeritageBoardGames` and the rest. |
+| 5 | Sudoku | `sudoku` | **PRODUCTION READY** | Real generator, unique solutions — see Cycle 5. |
+| — | remaining 112 games | — | NOT STARTED | Audited during their own cycle. The next candidates are the other bulk "pack" files, where several games still share one minified source: `BatchTwoGames`, `BatchThreeGames`, `ExpansionGames`, `ArenaSportsGames`, `HeritageBoardGames` and the rest. |
 
 Games are ordered worst-first: no-ops and crashes, then games whose implementation does
 not match the game they claim to be, then placeholder-heavy ones, then polish.

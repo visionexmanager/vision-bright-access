@@ -1,5 +1,13 @@
 # Visionex Arcade asset provenance
 
+## Sudoku cover (2026-08-19)
+
+`game-sudoku-v1.svg` is an original code-authored 1920×1080 vector composition
+made for Visionex Arcade, with no third-party marks, fonts, photos, remote
+resources or embedded metadata. The digits it draws are decorative and belong to
+no particular puzzle; it uses generic system monospace, so no font is embedded.
+It replaces the LogiQuest cover, which Sudoku had been reusing.
+
 ## Bubble Shooter cover (2026-08-19)
 
 `game-bubble-shooter-v1.svg` is an original code-authored 1920×1080 vector
