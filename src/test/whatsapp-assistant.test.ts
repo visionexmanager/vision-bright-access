@@ -695,3 +695,86 @@ describe("media message parsing", () => {
     expect(webhook).toContain("[voice] ");
   });
 });
+
+// ── Phases 7 and 8: images and documents ────────────────────────────────────
+
+// The pure half only. The provider-backed half imports the AI layer, which
+// reaches for Deno globals and cannot be loaded under Node.
+const understand = await import("../../supabase/functions/_shared/whatsappAttachments.ts");
+
+describe("attachment understanding", () => {
+  it("round-trips bytes exactly", () => {
+    const bytes = new Uint8Array([0, 1, 2, 253, 254, 255, 65, 66]);
+    const decoded = Uint8Array.from(atob(understand.toBase64(bytes)), (c) => c.charCodeAt(0));
+    expect([...decoded]).toEqual([...bytes]);
+  });
+
+  it("encodes a large attachment without blowing the stack", () => {
+    // A naive String.fromCharCode(...bytes) throws on an array this size.
+    const big = new Uint8Array(300_000).fill(65);
+    const encoded = understand.toBase64(big);
+    const decoded = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
+    expect(decoded.length).toBe(big.length);
+    expect(decoded[0]).toBe(65);
+    expect(decoded[decoded.length - 1]).toBe(65);
+  });
+
+  it("builds a data URL the provider layer already understands", () => {
+    const url = understand.toDataUrl(new Uint8Array([1, 2, 3]), "image/jpeg; quality=90");
+    expect(url.startsWith("data:image/jpeg;base64,")).toBe(true);
+  });
+
+  it("sends a PDF as a PDF, so no parser is needed", () => {
+    const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
+    expect(source).toContain('toDataUrl(params.bytes, "application/pdf")');
+    expect(source).toMatch(/inline_data/);
+  });
+
+  it("routes each document format to the right reader", () => {
+    expect(understand.classifyDocument("text/plain")).toBe("text");
+    expect(understand.classifyDocument("text/csv")).toBe("text");
+    expect(understand.classifyDocument("text/markdown; charset=utf-8")).toBe("text");
+    expect(understand.classifyDocument("application/pdf")).toBe("pdf");
+    // Word files are zip containers; declined rather than half-read.
+    expect(understand.classifyDocument(
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )).toBe("unsupported");
+    expect(understand.classifyDocument("application/x-msdownload")).toBe("unsupported");
+  });
+
+  it("caps how much of a text document reaches the model", () => {
+    expect(understand.DOCUMENT_TEXT_BUDGET).toBeLessThanOrEqual(32_000);
+    expect(understand.DOCUMENT_TEXT_BUDGET).toBeGreaterThan(1_000);
+  });
+
+  it("makes the model say whether it could read the attachment at all", () => {
+    // The schema is the anti-hallucination measure: a model asked for prose
+    // about an unreadable photo will write prose.
+    expect(understand.ATTACHMENT_ANSWER_SCHEMA.required).toEqual(["readable", "answer"]);
+    const prompt = understand.attachmentSystemPrompt("English", "image");
+    expect(prompt).toMatch(/do not guess/i);
+    expect(prompt).toMatch(/Never invent order numbers/i);
+  });
+
+  it("puts the cheap vision provider first", () => {
+    const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
+    expect(source.indexOf('provider: "gemini"')).toBeLessThan(source.indexOf('provider: "openai"'));
+  });
+
+  it("tells the user what to do when an attachment cannot be read", () => {
+    expect(understand.unreadableNotice("en", "image")).toMatch(/sharper photo/i);
+    expect(understand.unreadableNotice("ar", "document")).toMatch(/PDF/);
+    expect(understand.unsupportedDocumentNotice("en")).toMatch(/PDF/);
+  });
+
+  it("passes an unreadable verdict through instead of dressing it up", () => {
+    // The webhook must not turn readable:false into a description.
+    expect(webhook).toContain("!seen.readable");
+    expect(webhook).toContain('unreadableNotice(language, "image")');
+    expect(webhook).toContain("!read.value.readable");
+  });
+
+  it("answers an image in the language the conversation is in", () => {
+    expect(webhook).toContain("LANGUAGE_ENDONYM[answerLanguage]");
+  });
+});

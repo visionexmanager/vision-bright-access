@@ -130,7 +130,7 @@ export function replyLanguage(
 }
 
 /** Endonym, used to instruct the model rather than to show the user. */
-const LANGUAGE_NAME: Record<SupportedLanguage, string> = {
+export const LANGUAGE_ENDONYM: Record<SupportedLanguage, string> = {
   ar: "Arabic", bn: "Bengali", de: "German", en: "English", es: "Spanish",
   fa: "Persian", fr: "French", hi: "Hindi", id: "Indonesian", it: "Italian",
   ja: "Japanese", ko: "Korean", nl: "Dutch", pl: "Polish", pt: "Portuguese",
@@ -142,7 +142,7 @@ const LANGUAGE_NAME: Record<SupportedLanguage, string> = {
  * assistant's own system prompt rather than replacing it.
  */
 export function languageDirective(language: SupportedLanguage): string {
-  const name = LANGUAGE_NAME[language];
+  const name = LANGUAGE_ENDONYM[language];
   const rtl = isRtl(language)
     ? " Write naturally right-to-left; do not wrap the reply in Latin punctuation or brackets."
     : "";

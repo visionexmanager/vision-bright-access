@@ -24,6 +24,7 @@ import {
   detectLanguage,
   detectLanguageCode,
   languageDirective,
+  LANGUAGE_ENDONYM,
   replyLanguage,
   extractMessages,
   failureNotice,
@@ -45,6 +46,8 @@ import {
 } from "../_shared/whatsapp.ts";
 import { downloadMedia, mediaFailureNotice } from "../_shared/whatsappMedia.ts";
 import { transcribeVoice, transcriptionFailureNotice } from "../_shared/whatsappTranscribe.ts";
+import { understandDocument, understandImage } from "../_shared/whatsappUnderstand.ts";
+import { unreadableNotice, unsupportedDocumentNotice } from "../_shared/whatsappAttachments.ts";
 import {
   formatAmbiguityPrompt,
   formatPendingList,
@@ -423,6 +426,9 @@ Deno.serve(async (req) => {
       // question. Everything the assistant cannot yet read is acknowledged
       // rather than ignored, so the sender is never left wondering.
       let questionText = incoming.text;
+      // Attachments answer directly, so they need the reply language here
+      // rather than further down where the text pipeline resolves it.
+      const answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);
 
       if (incoming.media) {
         if (!token) {
@@ -456,6 +462,64 @@ Deno.serve(async (req) => {
             .from("whatsapp_messages")
             .update({ body: `[voice] ${heard.text}` })
             .eq("wa_message_id", incoming.messageId);
+        } else if (incoming.media.kind === "image" || incoming.media.kind === "sticker") {
+          const media = await downloadMedia({
+            mediaId: incoming.media.id,
+            kind: incoming.media.kind,
+            token,
+          });
+          if (!media.ok) {
+            await reply(mediaFailureNotice(language, incoming.media.kind, media.reason), "unsupported");
+            continue;
+          }
+
+          const seen = await understandImage({
+            bytes: media.bytes,
+            mimeType: media.mimeType,
+            question: incoming.media.caption ?? "",
+            languageName: LANGUAGE_ENDONYM[answerLanguage],
+          });
+          // "I could not read it" is a real answer and is passed on as one,
+          // rather than being dressed up as a description.
+          if (!seen || !seen.readable || !seen.answer) {
+            await reply(unreadableNotice(language, "image"), "unsupported");
+            continue;
+          }
+          await reply(clampReply(seen.answer), "reply");
+          continue;
+        } else if (incoming.media.kind === "document") {
+          const media = await downloadMedia({
+            mediaId: incoming.media.id,
+            kind: "document",
+            token,
+          });
+          if (!media.ok) {
+            await reply(mediaFailureNotice(language, "document", media.reason), "unsupported");
+            continue;
+          }
+
+          const read = await understandDocument({
+            bytes: media.bytes,
+            mimeType: media.mimeType,
+            filename: incoming.media.filename,
+            question: incoming.media.caption ?? "",
+            languageName: LANGUAGE_ENDONYM[answerLanguage],
+          });
+          if (!read.ok) {
+            await reply(
+              read.reason === "unreadable_format"
+                ? unsupportedDocumentNotice(language)
+                : unreadableNotice(language, "document"),
+              "unsupported",
+            );
+            continue;
+          }
+          if (!read.value.readable || !read.value.answer) {
+            await reply(unreadableNotice(language, "document"), "unsupported");
+            continue;
+          }
+          await reply(clampReply(read.value.answer), "reply");
+          continue;
         } else {
           await reply(unsupportedTypeNotice(language, incoming.media.kind), "unsupported");
           continue;
@@ -568,7 +632,7 @@ Deno.serve(async (req) => {
       const assistant = getAssistant("whatsapp-support");
       if (!assistant) throw new Error("whatsapp-support assistant is not registered");
 
-      const answerIn = replyLanguage(detected, existing?.preferred_language as string | null);
+      const answerIn = answerLanguage;
 
       let answer: string;
       try {

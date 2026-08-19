@@ -266,6 +266,50 @@ exercised only through its guard paths, since no key is set under Vitest.
 
 ---
 
+## Phases 7 and 8 — Images and documents · **DONE**
+
+Taken together: both ride the Phase 5 media path and differ only in what is
+sent to the model.
+
+**Changed.**
+- Images and stickers are downloaded, encoded and read by a vision model.
+  `gemini-flash-latest` first, `gpt-4o-mini` second — the cheap one leads.
+- Documents: plain text, CSV and Markdown are **decoded locally**, because
+  sending a text file to a vision model is paying for OCR nobody needs. A PDF
+  goes to Gemini *as a PDF* — Gemini passes the MIME type through to
+  `inline_data`, so no PDF parser is needed anywhere in this repository.
+  Word files are zip containers and are declined honestly rather than
+  half-read.
+- **The schema is the anti-hallucination measure.** A model asked for prose
+  about an unreadable photo will write prose; this one must answer
+  `readable: true|false` first, and the webhook passes a `false` straight
+  through as "I couldn't read that" instead of dressing it up as a description.
+  The prompt also forbids inventing order numbers, prices, dates and policies.
+- Attachments answer in the conversation's language, not the caption's.
+
+**Design correction made mid-phase.** The first version put the pure decisions
+(encoding, format policy, wording, schema) in the same module as the provider
+calls. That broke `npm run typecheck`: importing it into the test suite pulled
+`aiProvider.ts` and its `Deno` globals into the tsc project. Split into
+`whatsappAttachments.ts` (pure, imported by the tests) and
+`whatsappUnderstand.ts` (model calls). The type error was the design telling
+me the seam was in the wrong place.
+
+**Tests.** 11 new cases: base64 round-trip including a 300 KB payload that a
+naive `String.fromCharCode(...bytes)` would throw on, data-URL shape, format
+routing for text/CSV/Markdown/PDF/Word/executable, the budget cap, the schema's
+required fields, the refusal wording, provider ordering, and two webhook
+assertions — that an unreadable verdict is passed through, and that the reply
+language comes from the conversation.
+
+**Quality gate.** typecheck PASS · full suite 1379 PASS · all Deno sources
+parse · no secrets.
+
+**Not verified.** No real photo or PDF has been through this end to end; that
+needs a live message. Provider behaviour is covered only at its guard paths.
+
+---
+
 ## Phase status
 
 | Phase | Status | Commit |
@@ -277,8 +321,8 @@ exercised only through its guard paths, since no key is set under Vitest.
 | 4 — Knowledge base | NOT STARTED | |
 | 5 — Voice notes | **DONE** | `feat(whatsapp): understand voice notes` |
 | 6 — Voice replies | NOT STARTED | |
-| 7 — Images | NOT STARTED | |
-| 8 — Documents | NOT STARTED | |
+| 7 — Images | **DONE** | `feat(whatsapp): read images and documents` |
+| 8 — Documents | **DONE** | `feat(whatsapp): read images and documents` |
 | 9 — Video | NOT STARTED | |
 | 10 — Human handoff | NOT STARTED | partially exists (see Phase 0) |
 | 11 — Classification | NOT STARTED | |
