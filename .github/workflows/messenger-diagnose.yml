@@ -82,10 +82,26 @@ jobs:
           curl -s -G "https://graph.facebook.com/$GRAPH/debug_token" \
                --data-urlencode "input_token=$PAGE_TOKEN" \
                -H "Authorization: Bearer $META_APP_ID|$META_APP_SECRET" \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+               -o /tmp/token.json
+          cat /tmp/token.json | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           fence
           say "Wanted: type PAGE, profile_id $PAGE_ID, is_valid true, scopes including pages_messaging and pages_manage_metadata."
+
+          # expires_at is the field that quietly ends the inbox. A page token
+          # generated in the Graph API Explorer is short-lived by default and
+          # looks identical to a permanent one in every other respect — same
+          # type, same profile, same scopes — so it is checked rather than read.
+          EXP=$(jq -r '.data.expires_at // 0' /tmp/token.json)
+          if [[ "$EXP" == "0" ]]; then
+            say ""
+            say "Expiry: never. This is a permanent page token, which is what this inbox needs."
+          else
+            LEFT=$(( (EXP - $(date +%s)) / 3600 ))
+            say ""
+            say "::warning::This page token EXPIRES in ${LEFT}h (at $(date -u -d "@$EXP" +%Y-%m-%dT%H:%M:%SZ)). When it does, every reply stops with no error visible from GitHub. A permanent page token reports expires_at 0."
+            say "**Expiry: ${LEFT} hours from now.** A short-lived token is identical to a permanent one in type, profile and scopes — only this field differs."
+          fi
 
           say ""
           say "## 2. Is the page subscribed to the app?"
@@ -180,17 +196,33 @@ jobs:
         run: |
           set -uo pipefail
           say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
-          sleep 20   # let the probes reach the log pipeline
+          sleep 45   # let the probes reach the log pipeline
 
+          # $2 is how far back to look. Log retention is short, and asking for a
+          # window wider than it is answered with an empty result rather than an
+          # error — which reads exactly like "nothing ever happened".
           logs() {
             curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs.all" \
                  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
                  --data-urlencode "sql=$1" \
-                 --data-urlencode "iso_timestamp_start=$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)"
+                 --data-urlencode "iso_timestamp_start=$(date -u -d "${2:-1 hour ago}" +%Y-%m-%dT%H:%M:%SZ)"
           }
 
+          # Before trusting an empty answer, prove the query returns anything at
+          # all. This workflow posted to the webhook seconds ago, so an empty
+          # result here means the query is wrong — not that nothing arrived.
           say ""
-          say "## 8. Every HTTP request the webhook has received"
+          say "## 8a. Control: does this log query work at all?"
+          say '```json'
+          logs "select t.timestamp, t.event_message
+                  from function_logs as t
+                 order by t.timestamp desc limit 5" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+          say "Empty here means the query cannot see logs, and nothing below is evidence of anything."
+
+          say ""
+          say "## 8b. Every HTTP request the webhook has received"
           say "The decisive evidence: any request here that this workflow did not make came from Meta."
           say '```json'
           # pathname and status only — never the URL. Meta's GET handshake
@@ -200,20 +232,20 @@ jobs:
                   cross join unnest(t.metadata) as m
                   cross join unnest(m.request) as r
                   cross join unnest(m.response) as resp
-                 where r.pathname like '%meta-messaging-webhook%'
-                 order by t.timestamp desc limit 40" | tee -a "$GITHUB_STEP_SUMMARY"
+                 order by t.timestamp desc limit 50" "24 hours ago" | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           say '```'
+          say "Unfiltered on purpose: a filter that silently matches nothing is indistinguishable from silence. Read the pathnames."
 
           say ""
           say "## 9. What the function printed"
           say '```json'
           logs "select t.timestamp, t.event_message
                   from function_logs as t
-                 where t.event_message like '%meta-messaging%'
-                 order by t.timestamp desc limit 40" | tee -a "$GITHUB_STEP_SUMMARY"
+                 order by t.timestamp desc limit 50" "24 hours ago" | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           say '```'
+          say "Look for lines beginning [meta-messaging]. A send failure prints there and nowhere else, so this is the only place the Send API result appears."
 
       # ── 5. What the database holds, and cleaning up after the probes ────
       - name: Read the inbox, then remove the probe rows
