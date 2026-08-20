@@ -72,6 +72,16 @@ import {
 } from "../_shared/whatsappPreferences.ts";
 import { shouldSpeak, speakReply } from "../_shared/whatsappVoiceReply.ts";
 import {
+  asksForMenu,
+  awaitingImageNotice,
+  parseVisionMode,
+  translateTextPrompt,
+  visionMenu,
+  visionSystemPrompt,
+  VISION_MODE_TTL_MS,
+  type VisionMode,
+} from "../_shared/whatsappVisionModes.ts";
+import {
   CLASSIFY_INSTRUCTION,
   CLASSIFY_SCHEMA,
   fallbackBriefing,
@@ -367,7 +377,7 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity")
+        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -475,7 +485,13 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (isNew) await reply(welcomeFor(language), "welcome");
+      // The menu follows the welcome as its own message rather than being
+      // appended to it. A screen reader reads one message at a time, and a
+      // greeting glued to a five-item list buries the list.
+      if (isNew) {
+        await reply(welcomeFor(language), "welcome");
+        await reply(visionMenu(language), "welcome");
+      }
 
       // ── Preferences ───────────────────────────────────────────────────
       //
@@ -551,11 +567,45 @@ Deno.serve(async (req) => {
             continue;
           }
 
+          // ── Which of the five modes is this picture for? ──────────────
+          //
+          // The caption wins when there is one, because it is the most recent
+          // thing the sender said. Otherwise a mode armed by an earlier message
+          // — typically a voice note, which is the accessible way to set one —
+          // applies, provided it has not gone stale. Neither present means the
+          // general "what is this attachment" prompt, which is the behaviour
+          // that existed before modes.
+          const captionRequest = parseVisionMode(incoming.media.caption);
+          const armedAt = existing?.pending_vision_at
+            ? Date.parse(existing.pending_vision_at as string)
+            : 0;
+          const armedIsFresh = armedAt > 0 && Date.now() - armedAt < VISION_MODE_TTL_MS;
+          const armedMode = armedIsFresh
+            ? (existing?.pending_vision_mode as VisionMode | null) ?? null
+            : null;
+
+          const mode = captionRequest?.mode ?? armedMode;
+          const modeTarget = captionRequest
+            ? captionRequest.target
+            : (existing?.pending_vision_target as string | null) ?? null;
+
+          // Consumed whether or not it was used: a mode that survived its
+          // picture would reinterpret the next, unrelated one.
+          if (existing?.pending_vision_mode) {
+            await db
+              .from("whatsapp_conversations")
+              .update({ pending_vision_mode: null, pending_vision_target: null, pending_vision_at: null })
+              .eq("id", conversationId);
+          }
+
           const seen = await understandImage({
             bytes: media.bytes,
             mimeType: media.mimeType,
             question: incoming.media.caption ?? "",
             languageName: LANGUAGE_ENDONYM[answerLanguage],
+            systemPrompt: mode
+              ? visionSystemPrompt(mode, LANGUAGE_ENDONYM[answerLanguage], modeTarget)
+              : undefined,
           });
           // "I could not read it" is a real answer and is passed on as one,
           // rather than being dressed up as a description.
@@ -650,6 +700,52 @@ Deno.serve(async (req) => {
 
       if (!questionText.trim()) {
         await reply(unsupportedTypeNotice(language, incoming.media?.kind ?? "empty"), "unsupported");
+        continue;
+      }
+
+      // ── Visual assistance: the five modes ─────────────────────────────
+      //
+      // Placed after the attachment block on purpose, so `questionText` may be
+      // a transcribed voice note. Saying "read this" and then taking a photo is
+      // the flow that actually works one-handed with a screen reader running —
+      // typing a caption while aiming a camera is the step this audience can
+      // least afford.
+      if (asksForMenu(questionText)) {
+        await reply(visionMenu(language), "reply");
+        continue;
+      }
+
+      const visionRequest = parseVisionMode(questionText);
+      if (visionRequest) {
+        // Translation is the one mode that does not need a picture: when the
+        // text came with the request, answer it now rather than asking for a
+        // photo that was never coming.
+        if (visionRequest.mode === "translate" && visionRequest.inlineText) {
+          try {
+            const { result: stream } = await streamChatCompletionWithFallback({
+              targets: getAssistant("whatsapp-support")?.targets ?? [],
+              system: translateTextPrompt(LANGUAGE_ENDONYM[answerLanguage], visionRequest.target),
+              messages: [{ role: "user", content: visionRequest.inlineText }],
+              maxTokens: 700,
+            });
+            const translated = clampReply(await collectStream(stream));
+            await reply(translated || failureNotice(language), translated ? "reply" : "handover");
+          } catch (e) {
+            console.error("[whatsapp] translation failed:", e instanceof Error ? e.message : e);
+            await reply(failureNotice(language), "handover");
+          }
+          continue;
+        }
+
+        await db
+          .from("whatsapp_conversations")
+          .update({
+            pending_vision_mode: visionRequest.mode,
+            pending_vision_target: visionRequest.target,
+            pending_vision_at: new Date().toISOString(),
+          })
+          .eq("id", conversationId);
+        await reply(awaitingImageNotice(language, visionRequest.mode, visionRequest.target), "reply");
         continue;
       }
 
