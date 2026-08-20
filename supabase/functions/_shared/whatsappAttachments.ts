@@ -62,7 +62,22 @@ export const ATTACHMENT_ANSWER_SCHEMA = {
   },
 } as const;
 
-export function attachmentSystemPrompt(languageName: string, kind: "image" | "document"): string {
+/**
+ * Videos are capped far below the media limit.
+ *
+ * A model reads a video by sampling frames, and the cost climbs with length.
+ * Support questions are answered by a few seconds of screen recording; anything
+ * longer is a different kind of request and is declined with a reason.
+ */
+export const MAX_VIDEO_BYTES = 6 * 1024 * 1024;
+
+export function videoTooLongNotice(language: "ar" | "en"): string {
+  return language === "ar"
+    ? "الفيديو أطول مما أستطيع مشاهدته. أرسل مقطعاً قصيراً أو لقطة شاشة، أو صف المشكلة نصاً."
+    : "That video is longer than I can watch. Send a short clip or a screenshot, or describe the problem in text.";
+}
+
+export function attachmentSystemPrompt(languageName: string, kind: "image" | "document" | "video"): string {
   return [
     `You are the Visionex support assistant reading a customer's ${kind}.`,
     "Answer only from what the attachment actually contains.",
@@ -73,12 +88,14 @@ export function attachmentSystemPrompt(languageName: string, kind: "image" | "do
 }
 
 /** Told to the user when an attachment could not be read. Never a guess. */
-export function unreadableNotice(language: "ar" | "en", kind: "image" | "document"): string {
+export function unreadableNotice(language: "ar" | "en", kind: "image" | "document" | "video"): string {
   if (language === "ar") {
+    if (kind === "video") return "لم أتمكن من فهم الفيديو. جرّب لقطة شاشة أو صف المشكلة نصاً.";
     return kind === "image"
       ? "لم أتمكن من قراءة الصورة بوضوح كافٍ للإجابة. جرّب صورة أوضح، أو اكتب لي ما تريد معرفته."
       : "لم أتمكن من قراءة هذا الملف. جرّب PDF أو ملفاً نصياً، أو اكتب لي المحتوى.";
   }
+  if (kind === "video") return "I couldn't make out what's in that video. A screenshot or a written description works better.";
   return kind === "image"
     ? "I couldn't read that image clearly enough to answer. Try a sharper photo, or tell me what you'd like to know."
     : "I couldn't read that file. A PDF or a text file works best, or you can type the details.";

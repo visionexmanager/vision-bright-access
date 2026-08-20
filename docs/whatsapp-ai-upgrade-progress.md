@@ -440,6 +440,142 @@ accuracy is untested against real traffic.
 
 ---
 
+## Phase 9 — Short video · **DONE**
+
+Gemini takes video as `inline_data` exactly as it takes a PDF, so this needed
+**no ffmpeg, no frame extraction and no second pipeline**. Capped at 6 MB — far
+below the 16 MB media limit — because a model reads video by sampling frames and
+the cost climbs with length; a support question is answered by a few seconds of
+screen recording, and anything longer is declined with a reason. Gemini only, on
+purpose: if it is unavailable the honest answer is "I couldn't watch it", not a
+guess from the filename.
+
+---
+
+## Phase 13 — Bazaar assistant · **PARTIAL**
+
+**What works.** Product, shop and service questions are answered through the
+Phase 4 knowledge base, grounded in whatever Visionex content is embedded, with
+the same rule as everywhere else: no material, no invented answer.
+
+**What does not, and why.** Placing an order needs an authenticated buyer.
+`bazaar_orders.buyer_id` references `auth.users`, and a WhatsApp sender has no
+Visionex session — the same reason the original schema has no "users read their
+own" policy. Ordering over WhatsApp needs the account link described under
+Phase 14 before it can be built safely.
+
+---
+
+## Phase 14 — Order tracking · **BLOCKED — needs a product decision**
+
+**The blocker is real and specific.** `bazaar_orders.buyer_id` references
+`auth.users(id)`. The only phone number on an order is `shipping_phone`, which
+is:
+
+- unverified free text the buyer typed at checkout,
+- not unique, and
+- frequently **someone else's number** — a spouse, a colleague, a courier
+  contact.
+
+Matching an inbound WhatsApp number against `shipping_phone` would therefore
+disclose one person's order, delivery address and email to whoever happens to
+hold or spoof that number. The instruction for this phase was *"do not show
+another person's order"*, and with the schema as it stands there is no lookup
+that satisfies it. So it is **not implemented** — deliberately, rather than
+shipped with a caveat.
+
+**What would unblock it,** in increasing order of effort:
+
+1. **One-time code link.** The assistant asks for the account email, the site
+   emails a six-digit code, the sender types it back, and a verified
+   `whatsapp_identities(wa_phone, user_id, verified_at)` row is written. Lookup
+   then keys on `user_id`, never on a phone number. Roughly one migration, one
+   RPC and one webhook branch.
+2. **Order reference plus a second factor** — the customer supplies the order id
+   *and* something only the buyer would know, disclosing status only.
+3. **Status-only, no detail** — confirm "an order with that reference is out for
+   delivery" and nothing more. Weakest, and still leaks existence.
+
+Option 1 is the one worth building. **It needs your decision**, because it adds
+an identity table and an email-sending step, and neither can be inferred safely.
+
+---
+
+## Phase 17 — Cost control · **DONE**
+
+Routing was applied as each phase landed rather than bolted on afterwards, and
+is now pinned by tests:
+
+| Work | Runs on | Why |
+| --- | --- | --- |
+| Language detection | **no model** | script and marker regexes |
+| Preference parsing | **no model** | narrow pattern matching |
+| Obvious triage | **no model** | asked-for-a-person, bare attachment |
+| Classification | `llama-3.1-8b-instant` (Groq) | a label is routing, not an answer |
+| Rolling + handoff summaries | `llama-3.3-70b-versatile` (Groq) | bulk text, nobody waiting on the wording |
+| Images, PDFs, video | `gemini-flash-latest` | cheapest vision; reads PDF and video natively |
+| Voice in | Groq `whisper-large-v3-turbo` | a fraction of OpenAI's per-minute price |
+| Voice out | OpenAI `tts-1` | cheaper than ElevenLabs for an optional extra |
+| The customer's reply | the assistant registry's own targets | one place to change the model |
+
+Every model input is bounded: 6,000 characters of transcript, 4,000 of retrieved
+material, 24,000 of document text, 300 seconds of audio, 900 characters spoken,
+6 MB of video. Retrieval is skipped for small talk, so "hi" costs no embedding
+call. **No provider was added and no new key is required** — every key was
+already synced by `deploy.yml`.
+
+---
+
+## Phase 18 — Security audit · **DONE**
+
+| Area | Finding |
+| --- | --- |
+| Webhook signature | HMAC over the raw body, constant-time compare, checked before parsing; a missing secret fails closed with 503 |
+| Token handling | No token, phone number or media URL appears in any log line — asserted across five files by a test that scans every `console.*` call |
+| Media URL / SSRF | Download host allowlisted against Meta's **before** any request; suffix-only lookalikes (`evil-fbcdn.net`, `fbcdn.net.attacker.com`) and `file://`, `localhost`, `169.254.169.254` all refused |
+| File validation | Per-kind MIME allowlist and byte ceiling; size checked twice — declared and actual |
+| Payload size | Every model input bounded (Phase 17 table) |
+| Prompt injection | Summaries, retrieved passages and attachment content are all framed as *reference material, not instructions*; the classifier is told its label is routing, never an answer |
+| Data leakage | Summaries and briefings are redacted, and the instruction says omit rather than mask |
+| Cross-user leakage | Conversations key on `wa_phone`; **no order or account lookup exists** — see Phase 14 |
+| RLS | `whatsapp_*` tables are service-role write, admin-only read, with no "users read their own" policy; both metric views are `security_invoker` |
+| Rate limits | Per-sender hourly, burst and repeat guards; owner commands separately limited |
+
+**Unresolved, and worth stating:** the prune job is written but **not
+scheduled** — pg_cron is enabled per environment, so the `cron.schedule` call is
+left commented, as the other recovery jobs in this repository are. Until it is
+scheduled, transcripts are retained indefinitely.
+
+---
+
+## Phase 19 — Accessibility and UX · **PARTIAL**
+
+Replies are plain text with no reliance on emoji to carry meaning; every refusal
+says what to do instead rather than only what failed; links stay intact in text
+and are stripped only from spoken copies; RTL languages get an explicit
+instruction not to wrap replies in Latin punctuation.
+
+**Open item.** The canned notices — welcome, handover, failure, rate limit, media
+refusals — exist only in Arabic and English. A Turkish sender gets an English
+welcome and then a Turkish conversation. Widening them is a translation task
+rather than an engineering one, and is the honest remaining gap.
+
+---
+
+## Phase 20 — End-to-end tests · **PARTIAL**
+
+168 automated cases cover the scenarios that do not need a handset: Arabic and
+English text, all twenty locales, follow-up context, voice-note handling and its
+failure modes, image and document routing, invalid media, asking for a human,
+duplicate webhook delivery, provider outage, rate limiting and malformed
+payloads.
+
+**What automation cannot reach from here:** a real voice note transcribed, a real
+photo read, a spoken reply played back on a handset, and the Bazaar and order
+paths. Those need a live message to the production number.
+
+---
+
 ## Phase status
 
 | Phase | Status | Commit |
@@ -453,15 +589,15 @@ accuracy is untested against real traffic.
 | 6 — Voice replies | **DONE** | `feat(whatsapp): remember preferences and speak replies on request` |
 | 7 — Images | **DONE** | `feat(whatsapp): read images and documents` |
 | 8 — Documents | **DONE** | `feat(whatsapp): read images and documents` |
-| 9 — Video | NOT STARTED | |
+| 9 — Video | **DONE** | see Phase 9 |
 | 10 — Human handoff | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 11 — Classification | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 12 — Summaries | **DONE** | rolling summary in Phase 3; handoff briefing in Phase 10 |
-| 13 — Bazaar assistant | NOT STARTED | |
-| 14 — Order tracking | NOT STARTED | |
+| 13 — Bazaar assistant | **PARTIAL** | product questions via Phase 4; ordering needs an account link |
+| 14 — Order tracking | **BLOCKED** | no verified phone-to-account link |
 | 15 — User preferences | **DONE** | `feat(whatsapp): remember preferences and speak replies on request` |
 | 16 — Observability | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
-| 17 — Cost control | NOT STARTED | |
-| 18 — Security audit | NOT STARTED | |
-| 19 — Accessibility and UX | NOT STARTED | |
-| 20 — End-to-end tests | NOT STARTED | |
+| 17 — Cost control | **DONE** | routing applied across Phases 2-12, pinned by tests |
+| 18 — Security audit | **DONE** | reviewed; assertions in the suite |
+| 19 — Accessibility and UX | **PARTIAL** | canned notices still ar/en only |
+| 20 — End-to-end tests | **PARTIAL** | 168 automated cases; live scenarios need a handset |

@@ -66,6 +66,38 @@ export async function understandImage(params: {
   }
 }
 
+/**
+ * Watch a short video.
+ *
+ * Gemini only: it takes video as `inline_data` the same way it takes a PDF, so
+ * this needs no frame extraction, no ffmpeg and no second pipeline. There is no
+ * fallback provider on purpose — if Gemini is unavailable the honest answer is
+ * "I couldn't watch it", not a guess from the filename.
+ */
+export async function understandVideo(params: {
+  bytes: Uint8Array;
+  mimeType: string;
+  question: string;
+  languageName: string;
+  targets?: ProviderTarget[];
+}): Promise<UnderstandResult | null> {
+  try {
+    const { result } = await structuredCompletionWithFallback({
+      targets: params.targets ?? DOCUMENT_TARGETS,
+      system: attachmentSystemPrompt(params.languageName, "video"),
+      userText: params.question || "What happens in this clip, and what should the customer do about it?",
+      image: toDataUrl(params.bytes, params.mimeType),
+      schema: ATTACHMENT_ANSWER_SCHEMA as unknown as Record<string, unknown>,
+      toolName: "answer_from_video",
+      maxTokens: 600,
+    });
+    return coerce(result);
+  } catch (e) {
+    console.error("[whatsapp-vision] video read failed:", e instanceof Error ? e.message : "error");
+    return null;
+  }
+}
+
 export type DocumentFailure = "unreadable_format" | "empty" | "provider_error";
 
 export type DocumentResult =

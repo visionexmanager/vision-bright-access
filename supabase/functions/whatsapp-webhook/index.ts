@@ -51,8 +51,13 @@ import {
 } from "../_shared/whatsapp.ts";
 import { downloadMedia, mediaFailureNotice } from "../_shared/whatsappMedia.ts";
 import { transcribeVoice, transcriptionFailureNotice } from "../_shared/whatsappTranscribe.ts";
-import { understandDocument, understandImage } from "../_shared/whatsappUnderstand.ts";
-import { unreadableNotice, unsupportedDocumentNotice } from "../_shared/whatsappAttachments.ts";
+import { understandDocument, understandImage, understandVideo } from "../_shared/whatsappUnderstand.ts";
+import {
+  MAX_VIDEO_BYTES,
+  unreadableNotice,
+  unsupportedDocumentNotice,
+  videoTooLongNotice,
+} from "../_shared/whatsappAttachments.ts";
 import {
   hasPreferenceChange,
   parsePreferenceRequest,
@@ -89,16 +94,16 @@ import {
 /** How much prior conversation the model sees. Enough for context, bounded. */
 const HISTORY_LIMIT = 12;
 
-/**
- * Summaries are bulk text work with no user waiting on the wording, so they go
- * to the cheapest capable provider rather than the one answering the customer.
- */
-/** Classification is a routing label, so it runs on the cheapest model. */
+/** Classification is a routing label, so it runs on the smallest model. */
 const CLASSIFY_TARGETS = [
   { provider: "groq" as const, model: "llama-3.1-8b-instant" },
   { provider: "openai" as const, model: "gpt-4o-mini" },
 ];
 
+/**
+ * Summaries are bulk text work with no user waiting on the wording, so they go
+ * to the cheapest capable provider rather than the one answering the customer.
+ */
 const SUMMARY_TARGETS = [
   { provider: "groq" as const, model: "llama-3.3-70b-versatile" },
   { provider: "openai" as const, model: "gpt-4o-mini" },
@@ -586,6 +591,32 @@ Deno.serve(async (req) => {
             continue;
           }
           await reply(clampReply(read.value.answer), "reply");
+          continue;
+        } else if (incoming.media.kind === "video") {
+          const media = await downloadMedia({ mediaId: incoming.media.id, kind: "video", token });
+          if (!media.ok) {
+            await reply(mediaFailureNotice(language, "video", media.reason), "unsupported");
+            continue;
+          }
+          // Capped far below the media limit: a model reads a video by sampling
+          // frames and the cost climbs with length. A support question is
+          // answered by a few seconds of screen recording.
+          if (media.bytes.byteLength > MAX_VIDEO_BYTES) {
+            await reply(videoTooLongNotice(language), "unsupported");
+            continue;
+          }
+
+          const watched = await understandVideo({
+            bytes: media.bytes,
+            mimeType: media.mimeType,
+            question: incoming.media.caption ?? "",
+            languageName: LANGUAGE_ENDONYM[answerLanguage],
+          });
+          if (!watched || !watched.readable || !watched.answer) {
+            await reply(unreadableNotice(language, "video"), "unsupported");
+            continue;
+          }
+          await reply(clampReply(watched.answer), "reply");
           continue;
         } else {
           await reply(unsupportedTypeNotice(language, incoming.media.kind), "unsupported");

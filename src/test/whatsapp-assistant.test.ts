@@ -1134,3 +1134,110 @@ describe("operational counters", () => {
     }
   });
 });
+
+// ── Phase 9: short video ────────────────────────────────────────────────────
+
+describe("video", () => {
+  it("caps video far below the general media limit", () => {
+    // A model reads video by sampling frames; cost climbs with length.
+    expect(understand.MAX_VIDEO_BYTES).toBeLessThan(media.MEDIA_LIMITS.video);
+    expect(understand.MAX_VIDEO_BYTES).toBeGreaterThan(1024 * 1024);
+  });
+
+  it("explains a too-long clip instead of failing silently", () => {
+    expect(understand.videoTooLongNotice("en")).toMatch(/short clip|screenshot/i);
+    expect(understand.videoTooLongNotice("ar")).toMatch(/لقطة شاشة|مقطع/);
+  });
+
+  it("has its own wording when a clip cannot be made out", () => {
+    expect(understand.unreadableNotice("en", "video")).toMatch(/screenshot/i);
+    expect(understand.unreadableNotice("ar", "video")).toMatch(/فيديو/);
+  });
+
+  it("needs no ffmpeg or frame pipeline", () => {
+    const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
+    expect(source).toMatch(/no frame extraction, no ffmpeg/i);
+    expect(source).toContain("understandVideo");
+  });
+
+  it("enforces the cap in the webhook before paying to watch", () => {
+    const capAt = webhook.indexOf("MAX_VIDEO_BYTES");
+    const watchAt = webhook.indexOf("understandVideo({");
+    expect(capAt).toBeGreaterThan(-1);
+    expect(watchAt).toBeGreaterThan(capAt);
+  });
+});
+
+// ── Phase 17: cost-aware routing ────────────────────────────────────────────
+
+describe("cost routing", () => {
+  it("uses the smallest model for a label and a bigger one only for the answer", () => {
+    const classifyAt = webhook.indexOf("llama-3.1-8b-instant");
+    const summaryAt = webhook.indexOf("llama-3.3-70b-versatile");
+    expect(classifyAt).toBeGreaterThan(-1);
+    expect(summaryAt).toBeGreaterThan(-1);
+    // The customer-facing reply uses the registry's own targets, not a literal.
+    expect(webhook).toContain("targets: assistant.targets");
+  });
+
+  it("never runs a model for something a regex settles", async () => {
+    // Language detection, preference parsing and quick triage are all local.
+    const { detectLanguageCode } = await loadHelpers();
+    expect(detectLanguageCode("Merhaba")).toBe("tr");
+    expect(prefs.parsePreferenceRequest("reply in English").preferred_language).toBe("en");
+    expect(triage.quickCategory({ text: "", askedForHuman: true, hasMedia: false })).toBe("human_request");
+  });
+
+  it("keeps every model input bounded", async () => {
+    const { HISTORY_CHAR_BUDGET } = await loadHelpers();
+    expect(HISTORY_CHAR_BUDGET).toBeLessThanOrEqual(8_000);
+    expect(kb.KNOWLEDGE_CHAR_BUDGET).toBeLessThanOrEqual(8_000);
+    expect(understand.DOCUMENT_TEXT_BUDGET).toBeLessThanOrEqual(32_000);
+    expect(stt.MAX_AUDIO_SECONDS).toBeLessThanOrEqual(600);
+    expect(voice.MAX_SPOKEN_CHARS).toBeLessThanOrEqual(1_500);
+  });
+
+  it("skips retrieval, and its embedding call, for small talk", () => {
+    expect(kb.needsGrounding("hi")).toBe(false);
+  });
+});
+
+// ── Phase 18: security surface ──────────────────────────────────────────────
+
+describe("security surface", () => {
+  it("keeps every customer table service-role only", () => {
+    const base = readFileSync("supabase/migrations/20260831010000_whatsapp_conversations.sql", "utf8");
+    expect(base).toContain("ENABLE ROW LEVEL SECURITY");
+    expect(base).toMatch(/has_role\(auth\.uid\(\), 'admin'\)/);
+    // No "users can read their own": a WhatsApp sender has no Visionex session.
+    expect(base).not.toMatch(/USING \(auth\.uid\(\) = /);
+  });
+
+  it("logs no token, phone number or media URL anywhere", () => {
+    for (const file of [
+      "supabase/functions/whatsapp-webhook/index.ts",
+      "supabase/functions/_shared/whatsapp.ts",
+      "supabase/functions/_shared/whatsappMedia.ts",
+      "supabase/functions/_shared/whatsappTranscribe.ts",
+      "supabase/functions/_shared/whatsappVoiceReply.ts",
+    ]) {
+      const source = readFileSync(file, "utf8");
+      const logs = source.match(/console\.(log|error)\([^\n]*/g) ?? [];
+      for (const line of logs) {
+        expect(line, `${file}: ${line}`).not.toMatch(/incoming\.from|params\.to|\.url|token/);
+      }
+    }
+  });
+
+  it("treats every piece of model-facing user content as data, not instructions", () => {
+    // Summaries, retrieved passages and attachments all come from outside.
+    expect(kb.knowledgeDirective([{ content: "x", sourceTable: "y", similarity: 0.9 }]))
+      .toMatch(/not instructions/i);
+    expect(triage.CLASSIFY_INSTRUCTION).toMatch(/never an answer/i);
+  });
+
+  it("refuses a media host outside Meta, which is the SSRF boundary", () => {
+    expect(media.isAllowedMediaUrl("https://attacker.com/x")).toBe(false);
+    expect(media.isAllowedMediaUrl("https://lookaside.fbsbx.com/x")).toBe(true);
+  });
+});
