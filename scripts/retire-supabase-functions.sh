@@ -48,6 +48,7 @@ readonly HARD_PROTECTED=(
   library-paypal-webhook
   library-process-background-jobs
   library-stripe-webhook
+  meta-messaging-webhook
   owner-control
   trial-billing
   tv-stream-token

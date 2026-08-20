@@ -29,6 +29,10 @@ declare -A NO_VERIFY_JWT=(
   # Driven by a scheduled Actions job presenting CRON_SECRET, not a JWT. The
   # function fails closed: unset secret means it answers nobody.
   [social-publish]=1
+=======
+  # Messenger and Instagram deliveries carry no Supabase JWT. The function
+  # verifies each one with an X-Hub-Signature-256 HMAC and fails closed.
+  [meta-messaging-webhook]=1
 )
 
 list_all_functions() {

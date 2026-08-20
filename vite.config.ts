@@ -1,6 +1,36 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { execFileSync } from "child_process";
+
+/**
+ * Write crawler-readable copies of the two legal pages Meta App Review checks.
+ *
+ * A plugin rather than a step appended to the `build` script, because the VPS
+ * runs its own build command and this repository cannot see it. Hooking the
+ * bundle means it runs for `vite build` and `npm run build` alike.
+ *
+ * The script never throws — see its header — so a failure here costs the
+ * crawler copy and not the deploy.
+ */
+function prerenderLegalPages(): Plugin {
+  return {
+    name: "visionex-prerender-legal",
+    apply: "build",
+    closeBundle() {
+      try {
+        const output = execFileSync(
+          process.execPath,
+          [path.resolve(__dirname, "scripts/prerender-legal.mjs")],
+          { cwd: __dirname, encoding: "utf8" },
+        );
+        if (output.trim()) console.log(output.trim());
+      } catch (error) {
+        console.warn(`[prerender-legal] could not run: ${(error as Error).message}`);
+      }
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
@@ -11,7 +41,7 @@ export default defineConfig(() => ({
       overlay: false,
     },
   },
-  plugins: [react()],
+  plugins: [react(), prerenderLegalPages()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

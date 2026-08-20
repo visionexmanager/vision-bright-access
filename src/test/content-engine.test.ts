@@ -756,7 +756,13 @@ describe("no new Edge Function", () => {
     // The count was pinned at a snapshot, which any unrelated function tripped.
     // What actually matters is the ceiling: Supabase rejects the 101st function
     // with a 402 that reads like a bundling error, so keep real headroom.
-    expect(functions.length).toBeLessThanOrEqual(95);
+    //
+    // 96 as of `social-publish`, which is the deliberate addition this phase
+    // makes. `meta-messaging-webhook` took the previous slot while this branch
+    // was open. Four left. This number is meant to be argued with rather than
+    // bumped: the next addition should ask whether something can be retired
+    // through `supabase/retirement-manifest.json` instead.
+    expect(functions.length).toBeLessThanOrEqual(96);
   });
 
   it("routes everything through ai-generate and owner-control", () => {

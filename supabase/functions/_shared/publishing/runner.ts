@@ -242,7 +242,7 @@ export async function runPublishBatch(
       // because four posts are waiting on a reconnection" are different
       // operational facts, and only the second one needs a human. Kept as the
       // last element rather than thrown away, then the loop still stops.
-      if (report.withheldForConnection > 0) reports.push(report);
+      if ((report.withheldForConnection ?? 0) > 0) reports.push(report);
       break;
     }
     reports.push(report);

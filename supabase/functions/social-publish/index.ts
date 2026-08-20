@@ -43,7 +43,20 @@ const env = (name: string) => Deno.env.get(name);
 /** How many attempts one invocation may make. Bounded so a run cannot spin. */
 const DEFAULT_LIMIT = 10;
 
-type Service = ReturnType<typeof createClient>;
+/**
+ * The service-role client, and its type derived from this factory.
+ *
+ * Not `ReturnType<typeof createClient>`: that instantiates the generic with its
+ * *default* type arguments, where the schema is `never` — so every `.rpc()`
+ * call is typed as taking no arguments at all and each of the four RPCs below
+ * fails to compile. Deriving from a concrete call keeps the arguments the
+ * inference actually produced. Same shape as `whatsapp-webhook`.
+ */
+function serviceClient() {
+  return createClient(env("SUPABASE_URL")!, env("SUPABASE_SERVICE_ROLE_KEY")!);
+}
+
+type Service = ReturnType<typeof serviceClient>;
 
 // ── Reading the claim payload ────────────────────────────────────────────────
 //
@@ -197,7 +210,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const service = createClient(env("SUPABASE_URL")!, env("SUPABASE_SERVICE_ROLE_KEY")!);
+    const service = serviceClient();
 
     const body = await req.json().catch(() => ({}));
     const platform = typeof body.platform === "string" ? body.platform as Platform : null;
