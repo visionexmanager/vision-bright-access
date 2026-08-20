@@ -164,6 +164,80 @@ export function handoverNotice(language: "ar" | "en"): string {
     : "I'm passing this conversation to the Visionex team so they can follow up. Your message has been logged and someone from the team will get back to you.";
 }
 
+// ── Coming back from an escalation ──────────────────────────────────────
+//
+// `escalated` used to be a one-way door. It was set by a request for a human,
+// by the model handing over, or by a provider outage — and then this line ran
+// on every later message:
+//
+//   if (existing?.control === "human" || existing?.escalated) continue;
+//
+// A bare `continue` sends nothing. Nothing at all: no notice, no
+// acknowledgement, not even a repeat of the handover message. Measured
+// 2026-08-20, one conversation had taken eight messages over eleven hours and
+// received zero replies, while the assistant answered a different thread
+// normally in the same window. From the outside that is indistinguishable from
+// a broken bot, which is exactly what it was reported as.
+//
+// Silence is never the right answer to a person who is typing.
+
+/**
+ * A provider outage is temporary, so the escalation it causes must be too.
+ *
+ * `ai_unavailable` means the model could not be reached on one message. Letting
+ * that seal the thread permanently turns a blip into a dead conversation, so it
+ * expires and the assistant tries again.
+ */
+export const AUTO_RESUME_AFTER_MS = 30 * 60 * 1000;
+
+/**
+ * How often a still-escalated conversation gets a reminder that a person has
+ * it. Not per message: the point is to break the silence, not to flood someone
+ * who is waiting. Measured from the last outbound message of any kind.
+ */
+export const ESCALATION_NOTICE_EVERY_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Did the sender ask for the assistant back?
+ *
+ * Deliberately narrow and length-capped, for the reason documented in
+ * `whatsappPreferences.ts`: a long sentence that happens to contain "bot" is
+ * someone talking, not an instruction. Arabic gets no `\b` — JavaScript word
+ * boundaries are defined against [A-Za-z0-9_], so `\bالمساعد\b` matches nothing.
+ */
+const ASSISTANT_BACK = [
+  /\b(bot|assistant|ai)\b.{0,20}\b(back|again|please)\b/i,
+  /\b(back to|resume|restart)\b.{0,12}\b(bot|assistant|ai)\b/i,
+  /^\s*(bot|assistant|ai)\s*[!.?]?\s*$/i,
+  /(المساعد|الذكاء الاصطناعي|الروبوت|رجعلي المساعد|بدي المساعد|كمل انت|كمّل انت)/,
+];
+
+export function wantsAssistantBack(text: string | null | undefined): boolean {
+  const sample = (text ?? "").trim();
+  if (!sample || sample.length > 60) return false;
+  return ASSISTANT_BACK.some((pattern) => pattern.test(sample));
+}
+
+/** Sent when the thread is still with a person, so silence is never the reply. */
+export function escalationReminder(language: "ar" | "en", ownerHeld: boolean): string {
+  if (language === "ar") {
+    return ownerHeld
+      ? "رسالتك وصلت، والمحادثة الآن مع أحد أفراد الفريق وسيرد عليك."
+      : "رسالتك وصلت ومسجّلة، وطلبك عند الفريق. إن أردت أن يتابع المساعد الآلي معك في هذه الأثناء، اكتب: المساعد";
+  }
+  return ownerHeld
+    ? "Your message has reached us. Someone from the team has this conversation and will reply."
+    : "Your message is logged and the team has your request. If you'd like the assistant to carry on in the meantime, just reply: assistant";
+}
+
+/** Reasons the assistant may resume on its own, without the owner intervening. */
+export function mayAutoResume(reason: string | null | undefined, escalatedAtMs: number, nowMs: number): boolean {
+  // A person who asked for a person keeps their person. Only the outage case
+  // clears itself, and only once it is genuinely stale.
+  if (reason !== "ai_unavailable") return false;
+  return escalatedAtMs > 0 && nowMs - escalatedAtMs >= AUTO_RESUME_AFTER_MS;
+}
+
 // ── Conversation memory ──────────────────────────────────────────────────
 //
 // The window used to be bounded by turn count alone, so twelve long messages

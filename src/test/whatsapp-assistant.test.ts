@@ -154,11 +154,25 @@ describe("webhook safety contract", () => {
       .toContain("wa_message_id   text UNIQUE");
   });
 
-  it("stops answering once a human owns the conversation", () => {
+  it("does not let the assistant answer once a human owns the conversation", () => {
     // Phase 4 added an explicit owner-set `control` state alongside the
-    // automatic `escalated` flag. Either one must silence the assistant, so
-    // this asserts the guard rather than one particular spelling of it.
-    expect(webhook).toMatch(/if \(existing\?\.control === "human" \|\| existing\?\.escalated\) continue;/);
+    // automatic `escalated` flag. Either one must stop the *assistant*.
+    //
+    // This used to pin the exact source line — `… ) continue;` — despite its
+    // own comment claiming it asserted the guard "rather than one particular
+    // spelling of it". It did not, and the spelling it pinned was the bug:
+    // a bare `continue` answered a typing customer with nothing at all, for
+    // eleven hours in production. Now it asserts the durable claim, which is
+    // about the model call, not the control flow.
+    expect(webhook).toContain('const ownerHeld = existing?.control === "human";');
+    expect(webhook).toMatch(/if \(ownerHeld \|\| existing\?\.escalated\) \{/);
+
+    // The gate precedes the customer-facing model call, which is the thing
+    // that must not happen behind a human's back.
+    const gate = webhook.indexOf("if (ownerHeld || existing?.escalated)");
+    const answer = webhook.indexOf("// ── Ask the existing assistant");
+    expect(gate).toBeGreaterThan(0);
+    expect(gate).toBeLessThan(answer);
   });
 
   it("reuses the existing assistant registry and provider layer", () => {
@@ -1484,5 +1498,105 @@ describe("vision modes", () => {
       expect(migration, mode).toContain(`'${mode}'`);
     }
     expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS/);
+  });
+});
+
+// ── Coming back from an escalation ──────────────────────────────────────
+//
+// `escalated` was a one-way door. Set once — by a request for a human, by the
+// model handing over, or by a single provider outage — and this ran on every
+// later message:
+//
+//   if (existing?.control === "human" || existing?.escalated) continue;
+//
+// A bare continue sends nothing at all. Measured in production 2026-08-20: one
+// conversation took eight messages over eleven hours and got zero replies,
+// while a different thread was answered normally in the same window. From the
+// outside that is a broken bot, and that is how it was reported.
+
+const helpersModule = await loadHelpers();
+
+describe("a thread that is with a person", () => {
+  it("never answers a typing customer with silence", () => {
+    // The specific regression. A bare `continue` on the escalation branch is
+    // what produced eleven hours of nothing.
+    const branch = webhook.slice(
+      webhook.indexOf("ownerHeld || existing?.escalated"),
+      webhook.indexOf("// ── Ask the existing assistant"),
+    );
+    expect(branch.length).toBeGreaterThan(200);
+    expect(branch).toContain("escalationReminder(language, ownerHeld)");
+    // Throttled against the last outbound message, so a waiting customer is
+    // not flooded — but never left with nothing.
+    expect(branch).toContain("ESCALATION_NOTICE_EVERY_MS");
+    expect(branch).toContain('.eq("direction", "outbound")');
+  });
+
+  it("lets the sender ask for the assistant back, in either language", () => {
+    for (const text of ["assistant", "bot", "can I have the bot back", "المساعد", "بدي المساعد", "رجعلي المساعد"]) {
+      expect(helpersModule.wantsAssistantBack(text), text).toBe(true);
+    }
+  });
+
+  it("does not mistake someone talking for that request", () => {
+    // Same guard as the preference and vision-mode parsers: a long sentence
+    // that happens to contain "bot" is conversation, not an instruction.
+    for (const text of [
+      "I was talking to a bot earlier today and it could not help me with my order at all",
+      "your assistant told me yesterday that the delivery would arrive on Tuesday but it never came",
+      "",
+    ]) {
+      expect(helpersModule.wantsAssistantBack(text), text || "(empty)").toBe(false);
+    }
+  });
+
+  it("only resumes automatically after a provider outage, and only once stale", () => {
+    const now = 1_000_000_000;
+    const fresh = now - 60_000;
+    const stale = now - helpersModule.AUTO_RESUME_AFTER_MS - 1;
+
+    // A person who asked for a person keeps their person.
+    expect(helpersModule.mayAutoResume("user_request", stale, now)).toBe(false);
+    expect(helpersModule.mayAutoResume("assistant_handover", stale, now)).toBe(false);
+    // An outage is temporary, so the escalation it caused must be too.
+    expect(helpersModule.mayAutoResume("ai_unavailable", stale, now)).toBe(true);
+    expect(helpersModule.mayAutoResume("ai_unavailable", fresh, now)).toBe(false);
+    // No timestamp is not an excuse to resume.
+    expect(helpersModule.mayAutoResume("ai_unavailable", 0, now)).toBe(false);
+  });
+
+  it("keeps an owner-held conversation the owner's to hand back", () => {
+    // If the owner deliberately took the thread, the customer cannot take it
+    // back by typing "assistant" — that decision is not theirs.
+    const branch = webhook.slice(webhook.indexOf("const ownerHeld ="));
+    expect(branch).toContain("!ownerHeld && wantsAssistantBack");
+    expect(branch).toContain("!ownerHeld && mayAutoResume");
+  });
+
+  it("clears the flag when it resumes, rather than answering around it", () => {
+    const branch = webhook.slice(webhook.indexOf("const ownerHeld ="));
+    expect(branch).toContain("escalated: false");
+    expect(branch).toContain("escalation_reason: null");
+    // And it reads the columns it needs to make that decision.
+    expect(webhook).toContain("id, escalated, escalated_at, escalation_reason, control,");
+  });
+
+  it("tells the customer how to come back, but only when they can", () => {
+    // The owner-held wording must not offer an escape hatch that is refused.
+    const ownerHeldEn = helpersModule.escalationReminder("en", true);
+    const automaticEn = helpersModule.escalationReminder("en", false);
+    expect(automaticEn).toMatch(/assistant/i);
+    expect(ownerHeldEn).not.toMatch(/reply:? assistant/i);
+
+    const automaticAr = helpersModule.escalationReminder("ar", false);
+    expect(automaticAr).toContain("المساعد");
+    expect(helpersModule.escalationReminder("ar", true)).toContain("الفريق");
+  });
+
+  it("waits hours between reminders, not minutes", () => {
+    // The point is to break silence, not to nag someone who is waiting.
+    expect(helpersModule.ESCALATION_NOTICE_EVERY_MS).toBeGreaterThanOrEqual(60 * 60 * 1000);
+    expect(helpersModule.AUTO_RESUME_AFTER_MS).toBeGreaterThanOrEqual(5 * 60 * 1000);
+    expect(helpersModule.AUTO_RESUME_AFTER_MS).toBeLessThanOrEqual(6 * 60 * 60 * 1000);
   });
 });

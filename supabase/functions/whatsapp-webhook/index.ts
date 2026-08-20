@@ -34,6 +34,11 @@ import {
   extractMessages,
   failureNotice,
   handoverNotice,
+  AUTO_RESUME_AFTER_MS,
+  ESCALATION_NOTICE_EVERY_MS,
+  escalationReminder,
+  mayAutoResume,
+  wantsAssistantBack,
   rateLimitDecision,
   rateLimitNotice,
   RATE_LIMIT_COOLDOWN_MS,
@@ -377,7 +382,7 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at")
+        .select("id, escalated, escalated_at, escalation_reason, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -830,11 +835,58 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Once a human owns the conversation, the bot stops answering so the
-      // user is not talking to both at once. `control` is the explicit
-      // owner-set state; `escalated` is the automatic one. Either silences
-      // the assistant, and only the owner can hand control back.
-      if (existing?.control === "human" || existing?.escalated) continue;
+      // ── A thread that is with a person ────────────────────────────────
+      //
+      // This used to be `continue` — a bare one, sending nothing at all. That
+      // made `escalated` a one-way door: set once by a request for a human, by
+      // the model handing over, or by a single provider outage, and the
+      // assistant never spoke in that thread again. Eight messages over eleven
+      // hours got zero replies while a different thread was answered normally,
+      // which from the outside is simply a broken bot.
+      //
+      // Three ways out now, in order of who decides:
+      const ownerHeld = existing?.control === "human";
+      if (ownerHeld || existing?.escalated) {
+        const escalatedAtMs = existing?.escalated_at ? Date.parse(existing.escalated_at as string) : 0;
+        const reason = (existing?.escalation_reason as string | null) ?? null;
+
+        // 1. The sender asks for the assistant back. Honoured only when the
+        //    escalation was automatic: if the owner took the conversation
+        //    deliberately, it is theirs to hand back, not the customer's.
+        const asksForBot = !ownerHeld && wantsAssistantBack(questionText);
+
+        // 2. A provider outage expires on its own. A blip must not seal a
+        //    conversation permanently.
+        const staleOutage = !ownerHeld && mayAutoResume(reason, escalatedAtMs, Date.now());
+
+        if (asksForBot || staleOutage) {
+          await db
+            .from("whatsapp_conversations")
+            .update({ escalated: false, escalation_reason: null, escalated_at: null })
+            .eq("id", conversationId);
+          console.log(`[whatsapp] resumed after ${staleOutage ? "stale outage" : "sender request"}`);
+          // Falls through and is answered by the assistant below.
+        } else {
+          // 3. Still with a person — but say so rather than saying nothing.
+          //    Throttled against the last outbound message of any kind, so a
+          //    waiting customer is not flooded and a silent thread is not left
+          //    silent.
+          const { data: lastOut } = await db
+            .from("whatsapp_messages")
+            .select("created_at")
+            .eq("conversation_id", conversationId)
+            .eq("direction", "outbound")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const lastOutMs = lastOut?.created_at ? Date.parse(lastOut.created_at as string) : 0;
+          if (Date.now() - lastOutMs >= ESCALATION_NOTICE_EVERY_MS) {
+            await reply(escalationReminder(language, ownerHeld), "handover");
+          }
+          continue;
+        }
+      }
 
       // ── Ask the existing assistant ────────────────────────────────────
       const { data: history } = await db

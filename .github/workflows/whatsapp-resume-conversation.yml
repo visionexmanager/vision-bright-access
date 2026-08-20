@@ -1,0 +1,120 @@
+name: Resume a WhatsApp conversation
+
+# Hands one escalated conversation back to the assistant.
+#
+# Narrow on purpose. It takes a single conversation id, touches only the three
+# escalation columns on that one row, and reports the before and after. It
+# cannot reach any other conversation and cannot change anything else.
+#
+# ── Why it exists ──────────────────────────────────────────────────────────
+#
+# `escalated` had no clearing path. The owner command "return to ai" resolves
+# through `owner_approvals`, so it only works for an escalation that produced an
+# approval record — an escalation raised by `user_request` or `ai_unavailable`
+# has none, and nothing else in the system clears the flag. A conversation could
+# therefore be silenced permanently with no way back from either side.
+#
+# The webhook now recovers on its own in the two safe cases: the sender asking
+# for the assistant, and a stale `ai_unavailable` outage. This exists for the
+# rest — a `user_request` escalation the customer no longer wants, or a thread
+# stranded before that fix shipped.
+#
+# ── What it refuses ────────────────────────────────────────────────────────
+#
+# `control = 'human'` is not touched. That state means the owner deliberately
+# took the conversation, and taking it back is their decision, not this
+# workflow's. Such a row is reported and left alone.
+#
+# This repository is public: ids, flags and timestamps only. No phone number and
+# no message text.
+
+on:
+  workflow_dispatch:
+    inputs:
+      conversation_id:
+        description: "The whatsapp_conversations.id to hand back to the assistant"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  resume:
+    name: Resume
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Hand the conversation back
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+          CONVERSATION_ID: ${{ inputs.conversation_id }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [[ -z "$SUPABASE_ACCESS_TOKEN" || -z "$SUPABASE_PROJECT_REF" ]]; then
+            say "::error::SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF must be configured."
+            exit 1
+          fi
+
+          # A malformed id must not reach the database as SQL. Only a uuid is
+          # ever interpolated below, and anything else stops here.
+          if [[ ! "$CONVERSATION_ID" =~ ^[0-9a-fA-F-]{36}$ ]]; then
+            say "::error::conversation_id must be a uuid."
+            exit 1
+          fi
+
+          ask() {
+            curl -s -X POST \
+              "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query:$q}')"
+          }
+
+          say "# Resume a WhatsApp conversation"
+          say ""
+          say "Conversation \`$CONVERSATION_ID\`"
+
+          say ""
+          say "## Before"
+          say '```json'
+          ask "select id, escalated, escalation_reason, escalated_at, control, blocked_until
+                 from public.whatsapp_conversations where id = '$CONVERSATION_ID'" \
+            | tee /tmp/before.json | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+
+          if ! jq -e '.result[0]' /tmp/before.json >/dev/null 2>&1; then
+            say "::error::No conversation with that id."
+            exit 1
+          fi
+
+          if [[ "$(jq -r '.result[0].control // ""' /tmp/before.json)" == "human" ]]; then
+            say ""
+            say "::error::This conversation is held by the owner (control = 'human'). Handing it back is the owner's decision, so nothing was changed."
+            exit 1
+          fi
+
+          if [[ "$(jq -r '.result[0].escalated // false' /tmp/before.json)" != "true" ]]; then
+            say ""
+            say "::notice::Already with the assistant — nothing to do, and nothing was changed."
+            exit 0
+          fi
+
+          # The only write in this workflow, and the only row it can reach.
+          say ""
+          say "## After"
+          say '```json'
+          ask "update public.whatsapp_conversations
+                  set escalated = false, escalation_reason = null, escalated_at = null
+                where id = '$CONVERSATION_ID' and control is distinct from 'human'
+            returning id, escalated, escalation_reason, escalated_at, control" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+
+          say ""
+          say "The assistant will answer the next message in this thread. The transcript is untouched."
