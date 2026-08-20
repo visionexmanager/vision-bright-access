@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="Visionex Arcade Block Stacker cover"><defs><linearGradient id="night" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#241457"/><stop offset="0.65" stop-color="#0e0a2c"/><stop offset="1" stop-color="#050610"/></linearGradient><filter id="haze" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="34"/></filter><filter id="lift" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="12" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+
+<rect width="1920" height="1080" fill="url(#night)"/>
+<circle cx="1520" cy="240" r="300" fill="#22d3ee" opacity="0.15" filter="url(#haze)"/>
+<ellipse cx="820" cy="1030" rx="700" ry="240" fill="#7c3aed" opacity="0.24" filter="url(#haze)"/>
+
+<g transform="translate(560 120)">
+  <rect x="-40" y="-40" width="880" height="920" rx="48" fill="#04060e" opacity="0.7" stroke="#7dd3fc" stroke-opacity="0.2" stroke-width="3"/>
+
+  <g filter="url(#lift)">
+    <g fill="#22d3ee"><rect x="200" y="0" width="96" height="96" rx="16"/><rect x="304" y="0" width="96" height="96" rx="16"/><rect x="408" y="0" width="96" height="96" rx="16"/><rect x="512" y="0" width="96" height="96" rx="16"/></g>
+  </g>
+
+  <g opacity="0.35" fill="none" stroke="#67e8f9" stroke-width="4" stroke-dasharray="14 14">
+    <rect x="200" y="520" width="408" height="96" rx="16"/>
+  </g>
+
+  <g fill="#a78bfa"><rect x="0" y="624" width="96" height="96" rx="16"/><rect x="0" y="728" width="96" height="96" rx="16"/><rect x="104" y="728" width="96" height="96" rx="16"/></g>
+  <g fill="#fbbf24"><rect x="208" y="728" width="96" height="96" rx="16"/><rect x="312" y="728" width="96" height="96" rx="16"/><rect x="312" y="624" width="96" height="96" rx="16"/><rect x="416" y="624" width="96" height="96" rx="16"/></g>
+  <g fill="#34d399"><rect x="416" y="728" width="96" height="96" rx="16"/><rect x="520" y="728" width="96" height="96" rx="16"/><rect x="624" y="728" width="96" height="96" rx="16"/><rect x="624" y="624" width="96" height="96" rx="16"/></g>
+  <g fill="#f43f5e"><rect x="728" y="728" width="96" height="96" rx="16"/><rect x="728" y="624" width="96" height="96" rx="16"/></g>
+
+  <g fill="#ffffff" opacity="0.85"><rect x="0" y="832" width="824" height="14" rx="7"/></g>
+</g>
+</svg>

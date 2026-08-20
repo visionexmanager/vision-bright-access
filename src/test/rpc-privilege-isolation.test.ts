@@ -162,9 +162,18 @@ describe("the fix is scoped, and does not reach past its list", () => {
     };
     walk("src");
 
+    // One pass, one regex. This used to build a fresh RegExp per isolated name
+    // and scan every source file with it — O(files x names) — which was fine
+    // until the Arcade rebuild grew `src/` enough to push it past the 5s
+    // timeout under parallel load, failing at random. Collecting the called
+    // names once is the same assertion at a fraction of the work.
+    const called = new Set<string>();
+    for (const src of sources) {
+      for (const [, name] of src.matchAll(/rpc\(\s*["'`](\w+)["'`]/g)) called.add(name);
+    }
+
     for (const name of isolated) {
-      const called = sources.some((src) => new RegExp(`rpc\\(\\s*["'\`]${name}["'\`]`).test(src));
-      expect(called, `${name} is isolated but the app calls it directly`).toBe(false);
+      expect(called.has(name), `${name} is isolated but the app calls it directly`).toBe(false);
     }
   });
 });

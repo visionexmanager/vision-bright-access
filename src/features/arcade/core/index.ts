@@ -5,4 +5,5 @@ export { visualAssetsManager, VisualAssetsManager } from "./visualAssetsManager"
 export { playerGameData, LocalPlayerGameDataRepository } from "./playerGameData";
 export { gameAnalytics, GameAnalytics } from "./gameAnalytics";
 export { readGameSettings, saveGameSettings, DEFAULT_GAME_SETTINGS } from "./gameSettings";
+export { useArcadeRuntime, useArcadePaused, useArcadeGameLoop } from "./useArcadeRuntime";
 export type * from "./types";

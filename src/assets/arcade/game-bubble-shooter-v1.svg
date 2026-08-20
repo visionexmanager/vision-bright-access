@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="Visionex Arcade Bubble Shooter cover"><defs><radialGradient id="dome" cx="50%" cy="20%" r="90%"><stop offset="0" stop-color="#2b1b6b"/><stop offset="0.6" stop-color="#100b30"/><stop offset="1" stop-color="#05060f"/></radialGradient><linearGradient id="cannon" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#475569"/><stop offset="1" stop-color="#cbd5e1"/></linearGradient><filter id="blur" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="30"/></filter><filter id="shine" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="14" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+
+<rect width="1920" height="1080" fill="url(#dome)"/>
+<circle cx="1620" cy="180" r="240" fill="#22d3ee" opacity="0.14" filter="url(#blur)"/>
+<circle cx="280" cy="820" r="240" fill="#f43f5e" opacity="0.14" filter="url(#blur)"/>
+
+<g transform="translate(470 110)">
+  <g>
+    <g fill="#f43f5e"><circle cx="90" cy="90" r="58"/><circle cx="330" cy="90" r="58"/><circle cx="690" cy="90" r="58"/><circle cx="210" cy="194" r="58"/><circle cx="810" cy="194" r="58"/></g>
+    <g fill="#fbbf24"><circle cx="210" cy="90" r="58"/><circle cx="570" cy="90" r="58"/><circle cx="450" cy="194" r="58"/><circle cx="690" cy="194" r="58"/><circle cx="270" cy="298" r="58"/></g>
+    <g fill="#34d399"><circle cx="450" cy="90" r="58"/><circle cx="810" cy="90" r="58"/><circle cx="330" cy="194" r="58"/><circle cx="570" cy="194" r="58"/><circle cx="510" cy="298" r="58"/></g>
+    <g fill="#38bdf8"><circle cx="930" cy="90" r="58"/><circle cx="90" cy="194" r="58"/><circle cx="930" cy="194" r="58"/><circle cx="390" cy="298" r="58"/><circle cx="630" cy="298" r="58"/></g>
+  </g>
+
+  <g stroke="#67e8f9" stroke-width="7" stroke-linecap="round" stroke-dasharray="26 26" fill="none" opacity="0.65">
+    <path d="M490 760 L940 470 L740 300"/>
+  </g>
+
+  <circle cx="740" cy="300" r="52" fill="none" stroke="#a5f3fc" stroke-width="6" stroke-dasharray="16 14"/>
+
+  <g filter="url(#shine)">
+    <circle cx="490" cy="760" r="58" fill="#a78bfa"/>
+    <circle cx="470" cy="742" r="16" fill="#ffffff" opacity="0.6"/>
+  </g>
+
+  <g transform="translate(490 830)">
+    <rect x="-46" y="-120" width="92" height="150" rx="30" fill="url(#cannon)" transform="rotate(-32)"/>
+    <circle cx="0" cy="0" r="72" fill="#1e293b" stroke="#94a3b8" stroke-width="8"/>
+    <circle cx="0" cy="0" r="26" fill="#67e8f9"/>
+  </g>
+</g>
+</svg>
