@@ -1,0 +1,176 @@
+name: Social Publish Inspect
+
+# Read-only look at the publishing queue. Runs nothing, claims nothing,
+# publishes nothing — every statement below is a SELECT.
+#
+# It exists because the queue is invisible from outside the database: the
+# `social_*` and `content_*` tables are admin-read under RLS, so an anon probe
+# returns `[]` whether the queue is empty or simply not readable. Those two
+# answers look identical and mean opposite things, which is exactly the trap
+# that made the Messenger inbox take three sessions to diagnose.
+#
+# ── This repository is PUBLIC ──────────────────────────────────────────────
+#
+# Every line printed here is world-readable, so this reports the *shape* of the
+# queue, never its copy. Counts, platforms, states, reference codes, timestamps,
+# lengths and boolean token health are safe. The post text is not: `hook`,
+# `body`, `hashtags` and `rationale` are unpublished drafts, and `rationale` and
+# `source_refs` can carry the internal sourcing detail the content engine is
+# specifically built never to leak. Read those in the Owner Control Centre.
+#
+# No token, no cipher, no `external_url`, and error text is truncated — a
+# provider's error string can quote the payload back at you.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    name: Inspect the publishing queue
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read the queue
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [[ -z "$SUPABASE_ACCESS_TOKEN" || -z "$SUPABASE_PROJECT_REF" ]]; then
+            say "::error::SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF must be configured."
+            exit 1
+          fi
+
+          ask() {
+            curl -s -X POST \
+              "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query:$q}')"
+          }
+
+          block() {
+            say ""
+            say "## $1"
+            say '```json'
+            ask "$2" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo
+            say '```'
+          }
+
+          say "# Publishing queue — read-only inspection"
+          say ""
+          say "This repository is public. Shape only: counts, platforms, states, reference"
+          say "codes, timestamps and lengths. No post copy, no handles-as-credentials, no token."
+
+          # ── 1. What is actually claimable right now ──────────────────────
+          #
+          # The predicate is copied from claim_due_content_slot() so the number
+          # below is the number the worker would really see, not an optimistic
+          # count of everything on the calendar.
+          block "1. Due and claimable now (what a run would publish)" \
+            "select c.platform,
+                    count(*) as due_now,
+                    min(c.scheduled_for) as earliest,
+                    max(c.scheduled_for) as latest
+               from public.content_calendar c
+               join public.content_proposals p on p.id = c.proposal_id
+               join public.owner_approvals   o on o.id = p.approval_id
+              where c.slot_state in ('PLANNED','FAILED')
+                and c.scheduled_for <= now()
+                and c.attempts < 3
+                and p.state = 'SCHEDULED'
+                and o.action_type = 'content_publish'
+                and o.state in ('APPROVED','PROCESSING','COMPLETED')
+                and exists (select 1 from public.social_accounts a
+                             where a.platform = c.platform and a.status = 'active')
+              group by c.platform order by c.platform"
+
+          block "2. Every slot, by state and platform (the whole calendar)" \
+            "select c.slot_state, c.platform, count(*) as slots,
+                    min(c.scheduled_for) as earliest,
+                    max(c.scheduled_for) as latest
+               from public.content_calendar c
+              group by 1,2 order by 1,2"
+
+          # Per-slot detail. proposal_ref is the short code the Owner Control
+          # Centre shows, so each row here can be looked up there for its text.
+          block "3. Slots not yet published, oldest first (refs, not copy)" \
+            "select c.id,
+                    p.proposal_ref,
+                    c.platform,
+                    c.slot_state,
+                    c.scheduled_for,
+                    round(extract(epoch from (now() - c.scheduled_for))/86400.0, 1) as days_overdue,
+                    c.attempts,
+                    left(coalesce(c.last_error,''), 40) as last_error_head,
+                    c.park_reason,
+                    p.state as proposal_state,
+                    o.state as approval_state,
+                    p.content_type, p.section, p.language,
+                    length(p.hook)  as hook_chars,
+                    length(p.body)  as body_chars,
+                    coalesce(array_length(p.hashtags,1),0) as hashtags
+               from public.content_calendar c
+               join public.content_proposals p on p.id = c.proposal_id
+               left join public.owner_approvals o on o.id = p.approval_id
+              where c.slot_state not in ('PUBLISHED','CANCELLED')
+              order by c.scheduled_for
+              limit 50"
+
+          block "4. Connected accounts and their grants" \
+            "select a.platform, a.handle, a.status,
+                    a.publishing_permission_granted as granted,
+                    a.priority, a.health_score, a.consecutive_failures,
+                    a.last_connected_at,
+                    coalesce(array_length(a.capabilities,1),0) as capabilities,
+                    (t.account_id is not null) as has_stored_token,
+                    t.expires_at as token_expires_at,
+                    case when t.expires_at is null then null
+                         else t.expires_at > now() end as token_still_valid,
+                    coalesce(array_length(t.scopes,1),0) as scopes
+               from public.social_accounts a
+               left join public.social_account_tokens t on t.account_id = a.id
+              order by a.platform, a.priority"
+
+          block "5. Publication attempts so far, by state" \
+            "select state, platform, count(*) as attempts,
+                    count(*) filter (where external_post_id is not null) as with_external_id,
+                    min(created_at) as first_seen, max(created_at) as last_seen
+               from public.social_publications
+              group by 1,2 order by 1,2"
+
+          # Duplicate protection is structural, so it is asserted structurally:
+          # a slot that produced two PUBLISHED rows, or one external id reused,
+          # would appear here. Both should be empty.
+          block "6. Duplicate protection — both lists must be empty" \
+            "select 'calendar_published_twice' as check, calendar_id::text as subject, count(*) as n
+               from public.social_publications where state='PUBLISHED'
+              group by calendar_id having count(*) > 1
+              union all
+             select 'external_post_id_reused', external_post_id, count(*)
+               from public.social_publications
+              where external_post_id is not null
+              group by external_post_id having count(*) > 1"
+
+          block "7. Stuck CLAIMED rows the reaper would sweep" \
+            "select state, count(*) as rows,
+                    count(*) filter (where dispatched_at is null) as never_dispatched,
+                    min(created_at) as oldest
+               from public.social_publications
+              where state = 'CLAIMED'
+              group by state"
+
+          block "8. Is the reaper actually scheduled?" \
+            "select jobname, schedule, active
+               from cron.job
+              where jobname = 'reap-stale-content-publications'"
+
+          say ""
+          say "Nothing above modified anything: every statement is a SELECT."
