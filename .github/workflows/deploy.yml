@@ -115,7 +115,7 @@ jobs:
       - name: Sync secondary AI provider keys to Supabase
         shell: bash
         run: |
-          for name in ANTHROPIC_API_KEY GEMINI_API_KEY GROQ_API_KEY MISTRAL_API_KEY ELEVENLABS_API_KEY LUMA_API_KEY REPLICATE_API_TOKEN FAL_KEY RESEND_API_KEY RESEND_FROM LIVEKIT_API_KEY LIVEKIT_API_SECRET LIVEKIT_URL STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_WEBHOOK_SECRET_LIBRARY CAREER_STRIPE_WEBHOOK_SECRET PAYPAL_CLIENT_ID PAYPAL_CLIENT_SECRET PAYPAL_WEBHOOK_ID COINBASE_COMMERCE_API_KEY COINBASE_COMMERCE_WEBHOOK_SECRET CRON_SECRET SITE_URL ALLOWED_ORIGINS LIBRARY_CERTIFICATE_SIGNING_SECRET KIDS_CERTIFICATE_SIGNING_SECRET WHATSAPP_VERIFY_TOKEN WHATSAPP_APP_SECRET WHATSAPP_TOKEN WHATSAPP_PHONE_NUMBER_ID META_APP_ID META_APP_SECRET THREADS_APP_ID THREADS_APP_SECRET SOCIAL_TOKEN_ENCRYPTION_KEY SOCIAL_OAUTH_STATE_SECRET CONTACT_INTERNAL_RECIPIENTS; do
+          for name in ANTHROPIC_API_KEY GEMINI_API_KEY GROQ_API_KEY MISTRAL_API_KEY ELEVENLABS_API_KEY LUMA_API_KEY REPLICATE_API_TOKEN FAL_KEY RESEND_API_KEY RESEND_FROM LIVEKIT_API_KEY LIVEKIT_API_SECRET LIVEKIT_URL STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_WEBHOOK_SECRET_LIBRARY CAREER_STRIPE_WEBHOOK_SECRET PAYPAL_CLIENT_ID PAYPAL_CLIENT_SECRET PAYPAL_WEBHOOK_ID COINBASE_COMMERCE_API_KEY COINBASE_COMMERCE_WEBHOOK_SECRET CRON_SECRET SITE_URL ALLOWED_ORIGINS LIBRARY_CERTIFICATE_SIGNING_SECRET KIDS_CERTIFICATE_SIGNING_SECRET WHATSAPP_VERIFY_TOKEN WHATSAPP_APP_SECRET WHATSAPP_TOKEN WHATSAPP_PHONE_NUMBER_ID META_APP_ID META_APP_SECRET INSTAGRAM_APP_SECRET INSTAGRAM_ACCESS_TOKEN INSTAGRAM_WEBHOOK_VERIFY_TOKEN FACEBOOK_PAGE_ACCESS_TOKEN FACEBOOK_MESSENGER_WEBHOOK_VERIFY_TOKEN THREADS_APP_ID THREADS_APP_SECRET SOCIAL_TOKEN_ENCRYPTION_KEY SOCIAL_OAUTH_STATE_SECRET CONTACT_INTERNAL_RECIPIENTS; do
             value="${!name}"
             if [[ -z "$value" ]]; then
               echo "::notice::GitHub secret $name is not configured — skipping."
@@ -178,6 +178,26 @@ jobs:
           # The provider registry has named these two variables since #149; they
           # were simply never carried here, so Threads reported `not_configured`
           # no matter what was set in GitHub.
+          # The Messenger/Instagram webhook handshake token. Deliberately a
+          # SEPARATE secret from WHATSAPP_VERIFY_TOKEN: the two inboxes are
+          # isolated, so rotating one cannot disturb the other, and the live
+          # WhatsApp subscription is never touched by this feature.
+          # Instagram API with Instagram Login has its own app id and its own
+          # secret, separate from the Meta app that owns the page. Meta signs
+          # each delivery with the secret of the app the subscription belongs
+          # to, so the Instagram one is required for Instagram Direct.
+          INSTAGRAM_APP_SECRET:     ${{ secrets.INSTAGRAM_APP_SECRET }}
+          # The long-lived Instagram User token generated in the Instagram
+          # app dashboard. Same pattern as WHATSAPP_TOKEN: a single owned
+          # account authorised by a permanent token needs no OAuth onboarding.
+          INSTAGRAM_ACCESS_TOKEN:   ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_WEBHOOK_VERIFY_TOKEN: ${{ secrets.INSTAGRAM_WEBHOOK_VERIFY_TOKEN }}
+          # Facebook Messenger. The page token sends replies; the verify token
+          # is its own so rotating Messenger cannot disturb the Instagram or
+          # WhatsApp subscriptions. Messenger deliveries are signed with
+          # META_APP_SECRET, which is already synced above.
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          FACEBOOK_MESSENGER_WEBHOOK_VERIFY_TOKEN: ${{ secrets.FACEBOOK_MESSENGER_WEBHOOK_VERIFY_TOKEN }}
           THREADS_APP_ID:           ${{ secrets.THREADS_APP_ID }}
           THREADS_APP_SECRET:       ${{ secrets.THREADS_APP_SECRET }}
           SOCIAL_TOKEN_ENCRYPTION_KEY: ${{ secrets.SOCIAL_TOKEN_ENCRYPTION_KEY }}

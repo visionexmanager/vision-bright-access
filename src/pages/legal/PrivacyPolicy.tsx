@@ -1,10 +1,15 @@
 import { Layout } from "@/components/Layout";
 import { Shield, Eye, Lock, Share2, UserCheck, Bell, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const DATA_COLLECTED = ["account", "marketplace", "vx", "ai", "voice", "community", "technical", "newsletter", "tools", "radar", "finance", "payments"];
+// "messaging" covers what arrives from Meta when someone writes to a Visionex
+// page or account on Messenger or Instagram Direct. It is listed with the rest
+// rather than in a section of its own because it is collected the same way and
+// governed by the same retention, sharing and deletion terms below.
+const DATA_COLLECTED = ["account", "marketplace", "vx", "ai", "voice", "messaging", "community", "technical", "newsletter", "tools", "radar", "finance", "payments"];
 const DATA_USE = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const THIRD_PARTIES = ["supabase", "openai", "anthropic", "adsense", "livekit", "resend", "stripe", "coingecko"];
+const THIRD_PARTIES = ["supabase", "openai", "anthropic", "meta", "adsense", "livekit", "resend", "stripe", "coingecko"];
 const USER_RIGHTS = [
   { icon: Eye, key: "access" },
   { icon: UserCheck, key: "correction" },
@@ -97,6 +102,10 @@ export default function PrivacyPolicy() {
             ))}
           </div>
           <p className="mt-4 text-sm text-muted-foreground">{t("legal.privacy.rightsContact")} <span className="font-semibold text-primary">hello@visionex.app</span>.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t("legal.privacy.deletionLink")}{" "}
+            <Link to="/data-deletion" className="font-semibold text-primary underline underline-offset-4">/data-deletion</Link>
+          </p>
         </div>
 
         <div className="mb-8 rounded-2xl border bg-card p-6 shadow-sm">

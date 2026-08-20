@@ -367,6 +367,14 @@ const PLATFORM_SECRETS: { name: string; impact: string }[] = [
   { name: "WHATSAPP_PHONE_NUMBER_ID", impact: "Sending any WhatsApp message. The Cloud API phone number id, not the phone number." },
   { name: "WHATSAPP_APP_SECRET",      impact: "Verifying X-Hub-Signature-256. Without it the webhook refuses every delivery with 503." },
   { name: "WHATSAPP_VERIFY_TOKEN",    impact: "Meta's one-time callback handshake. Without it the callback URL cannot be registered." },
+  // The Messenger/Instagram counterpart. A separate secret on purpose: the two
+  // inboxes are isolated, so rotating one cannot disturb the live WhatsApp
+  // subscription.
+  { name: "INSTAGRAM_WEBHOOK_VERIFY_TOKEN", impact: "Messenger and Instagram Direct webhook handshake. Without it those callback URLs cannot be registered." },
+  { name: "FACEBOOK_MESSENGER_WEBHOOK_VERIFY_TOKEN", impact: "Facebook Messenger webhook handshake. Without it the Messenger callback URL cannot be registered." },
+  { name: "FACEBOOK_PAGE_ACCESS_TOKEN", impact: "Sending Facebook Messenger replies as the Visionex Page. Without it, and without a stored OAuth grant, messages are recorded and never answered." },
+  { name: "INSTAGRAM_ACCESS_TOKEN", impact: "Sending Instagram Direct replies for the Visionex-owned account. Without it, and without a stored OAuth grant, messages are recorded and never answered." },
+  { name: "INSTAGRAM_APP_SECRET", impact: "Verifies X-Hub-Signature-256 on Instagram Direct deliveries. The Instagram app has its own secret, separate from META_APP_SECRET." },
   { name: "META_APP_ID",              impact: "Facebook and Instagram OAuth. Connections cannot be started without it." },
   { name: "META_APP_SECRET",          impact: "Facebook and Instagram OAuth token exchange." },
   // The rest of the social publishing credentials. They were missing from this

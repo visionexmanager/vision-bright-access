@@ -49,3 +49,14 @@ verify_jwt = false
 # one is refused before the authorization code is exchanged.
 [functions.social-oauth]
 verify_jwt = false
+
+# Messenger and Instagram Direct deliveries come from Meta, which cannot present
+# a Supabase JWT — gateway verification would reject every inbound customer
+# message before the function ran.
+#
+# It is not open. Every POST is verified against META_APP_SECRET with an
+# X-Hub-Signature-256 HMAC over the raw body and fails closed with 503 when that
+# secret is unset, and the GET handshake requires INSTAGRAM_WEBHOOK_VERIFY_TOKEN.
+# Same reasoning, and the same exemption, as whatsapp-webhook.
+[functions.meta-messaging-webhook]
+verify_jwt = false
