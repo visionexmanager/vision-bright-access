@@ -59,7 +59,7 @@ verify_jwt = false
 # the pattern trial-billing uses, deliberately, because an unauthenticated
 # request here posts to the company's public accounts.
 [functions.social-publish]
-=======
+verify_jwt = false
 # Messenger and Instagram Direct deliveries come from Meta, which cannot present
 # a Supabase JWT — gateway verification would reject every inbound customer
 # message before the function ran.

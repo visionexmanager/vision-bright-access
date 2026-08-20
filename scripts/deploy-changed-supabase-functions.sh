@@ -10,6 +10,18 @@ readonly MAX_ATTEMPTS=4
 # function that needs the exemption must be listed in BOTH — config.toml for
 # `functions serve` locally, and here for production.
 declare -A NO_VERIFY_JWT=(
+  # These three were exempt in config.toml and missing here, which is the
+  # dangerous direction of that drift. Production already runs them without
+  # JWT verification — probed 2026-08-20, all three answer 400 from the
+  # function rather than 401 from the gateway — so this list was simply out of
+  # step with reality, and the mismatch was latent: harmless until one of them
+  # changed, at which point this script would have redeployed it *with*
+  # verification and Stripe's webhook would have started failing signature
+  # delivery with a 401 it cannot see. Listing them keeps a redeploy faithful
+  # to what is already live.
+  [bazaar-stripe-webhook]=1
+  [newsletter-preferences]=1
+  [ai-chat]=1
   [health-check]=1
   [library-crypto-webhook]=1
   [library-paypal-webhook]=1
@@ -29,7 +41,6 @@ declare -A NO_VERIFY_JWT=(
   # Driven by a scheduled Actions job presenting CRON_SECRET, not a JWT. The
   # function fails closed: unset secret means it answers nobody.
   [social-publish]=1
-=======
   # Messenger and Instagram deliveries carry no Supabase JWT. The function
   # verifies each one with an X-Hub-Signature-256 HMAC and fails closed.
   [meta-messaging-webhook]=1
