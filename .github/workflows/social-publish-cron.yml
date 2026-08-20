@@ -11,9 +11,26 @@ name: Social Publish Cron
 # claim uses FOR UPDATE SKIP LOCKED, so two overlapping runs take different
 # slots rather than the same one, and a slot can only ever succeed once.
 
+# ── The schedule is deliberately switched off for the first release ────────
+#
+# This is the first change in Visionex that can put a post on a public account,
+# and the queue it drains was filling for weeks while nothing could drain it.
+# How much owner-approved content is sitting due is not knowable from outside
+# the database, so a scheduled first run could publish a backlog several posts
+# deep before anyone saw the first one.
+#
+# Manual for now: run it once from the Actions tab, read what it reports, and
+# turn the schedule on afterwards. Each run is bounded to 10 attempts, so a
+# dispatch is a sample rather than a flood.
+#
+# To enable, restore the two lines below this comment:
+#
+#   schedule:
+#     - cron: "*/15 * * * *"
+#
+# Everything else — the concurrency group, the 503 handling, the warnings — is
+# already written for scheduled operation and needs no change.
 on:
-  schedule:
-    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       platform:
