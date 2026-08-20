@@ -19,10 +19,20 @@ import {
   toDataUrl,
 } from "./whatsappAttachments.ts";
 
-/** Vision-capable targets, cheapest first. */
+/**
+ * Vision-capable targets.
+ *
+ * Gemini is cheaper per image and led this list until the account's state was
+ * confirmed: it has no credit (2026-08-11), which is why `gemini` is absent
+ * from `DEFAULT_PROVIDER_ORDER` in `careerAiOrchestrator.ts`. Leading with it
+ * bought a guaranteed failed round trip on every photo a customer sends, so the
+ * funded key goes first and Gemini stays as the fallback it can be again the
+ * day the account is topped up — at which point swapping these two lines back
+ * restores the cheaper ordering.
+ */
 export const VISION_TARGETS: ProviderTarget[] = [
-  { provider: "gemini", model: "gemini-flash-latest" },
   { provider: "openai", model: "gpt-4o-mini" },
+  { provider: "gemini", model: "gemini-flash-latest" },
 ];
 
 /**
@@ -31,11 +41,28 @@ export const VISION_TARGETS: ProviderTarget[] = [
  * Gemini alone, because it is the only provider in this project's layer that
  * takes a PDF at all: `structuredOpenAICompatible` sends a `data:` URL as
  * `image_url`, and OpenAI rejects `application/pdf` there. So a PDF is
- * Gemini-or-nothing, and "nothing" is `unreadableNotice` rather than a guess.
+ * Gemini-or-nothing.
+ *
+ * **The chain is empty on purpose.** The Gemini account has no credit, so every
+ * PDF would cost a media download and a round trip only to arrive at a failure
+ * the customer then reads as "I couldn't read that file" — wording that blames
+ * the format they were told to send. Refusing before the call costs nothing and
+ * says something true and actionable instead.
+ *
+ * Re-enabling PDF reading is one line: put the Gemini target back.
  */
-export const DOCUMENT_TARGETS: ProviderTarget[] = [
-  { provider: "gemini", model: "gemini-flash-latest" },
-];
+export const DOCUMENT_TARGETS: ProviderTarget[] = [];
+
+/**
+ * Video is Gemini-only for the same reason a PDF is — it goes as `inline_data`
+ * and no other provider in this layer takes it — and is empty for the same
+ * reason too. The webhook checks this before downloading the clip, so an
+ * unwatchable video does not also cost the bandwidth.
+ */
+export const VIDEO_TARGETS: ProviderTarget[] = [];
+
+/** Whether a video can be watched at all right now. Read by the webhook. */
+export const VIDEO_READING_AVAILABLE = VIDEO_TARGETS.length > 0;
 
 /**
  * A text document is decoded here and travels as text, so it carries no image
@@ -92,7 +119,9 @@ export async function understandImage(params: {
  * Gemini only: it takes video as `inline_data` the same way it takes a PDF, so
  * this needs no frame extraction, no ffmpeg and no second pipeline. There is no
  * fallback provider on purpose — if Gemini is unavailable the honest answer is
- * "I couldn't watch it", not a guess from the filename.
+ * "I couldn't watch it", not a guess from the filename. With `VIDEO_TARGETS`
+ * empty the caller should not reach here at all; the guard below is the
+ * backstop for a caller that passes its own empty list.
  */
 export async function understandVideo(params: {
   bytes: Uint8Array;
@@ -101,9 +130,12 @@ export async function understandVideo(params: {
   languageName: string;
   targets?: ProviderTarget[];
 }): Promise<UnderstandResult | null> {
+  const targets = params.targets ?? VIDEO_TARGETS;
+  if (targets.length === 0) return null;
+
   try {
     const { result } = await structuredCompletionWithFallback({
-      targets: params.targets ?? DOCUMENT_TARGETS,
+      targets,
       system: attachmentSystemPrompt(params.languageName, "video"),
       userText: params.question || "What happens in this clip, and what should the customer do about it?",
       image: toDataUrl(params.bytes, params.mimeType),
@@ -118,7 +150,13 @@ export async function understandVideo(params: {
   }
 }
 
-export type DocumentFailure = "unreadable_format" | "empty" | "provider_error";
+/**
+ * `no_reader` is distinct from `unreadable_format` on purpose: the format is
+ * one this assistant knows how to read, and there is simply no provider funded
+ * to read it today. The two deserve different wording, because only one of them
+ * is fixed by the customer sending a different file.
+ */
+export type DocumentFailure = "unreadable_format" | "no_reader" | "empty" | "provider_error";
 
 export type DocumentResult =
   | { ok: true; value: UnderstandResult }
@@ -136,6 +174,9 @@ export async function understandDocument(params: {
   const shape = classifyDocument(params.mimeType);
   if (shape === "unsupported") return { ok: false, reason: "unreadable_format" };
 
+  const targets = params.targets ?? (shape === "text" ? DOCUMENT_TEXT_TARGETS : DOCUMENT_TARGETS);
+  if (targets.length === 0) return { ok: false, reason: "no_reader" };
+
   let userText = params.question || "Summarise this document and answer any obvious question it raises.";
   let image: string | undefined;
 
@@ -152,7 +193,7 @@ export async function understandDocument(params: {
 
   try {
     const { result } = await structuredCompletionWithFallback({
-      targets: params.targets ?? (shape === "text" ? DOCUMENT_TEXT_TARGETS : DOCUMENT_TARGETS),
+      targets,
       system: attachmentSystemPrompt(params.languageName, "document"),
       userText,
       image,

@@ -51,9 +51,15 @@ import {
 } from "../_shared/whatsapp.ts";
 import { downloadMedia, mediaFailureNotice } from "../_shared/whatsappMedia.ts";
 import { transcribeVoice, transcriptionFailureNotice } from "../_shared/whatsappTranscribe.ts";
-import { understandDocument, understandImage, understandVideo } from "../_shared/whatsappUnderstand.ts";
+import {
+  understandDocument,
+  understandImage,
+  understandVideo,
+  VIDEO_READING_AVAILABLE,
+} from "../_shared/whatsappUnderstand.ts";
 import {
   MAX_VIDEO_BYTES,
+  noReaderNotice,
   unreadableNotice,
   unsupportedDocumentNotice,
   videoTooLongNotice,
@@ -581,7 +587,9 @@ Deno.serve(async (req) => {
             await reply(
               read.reason === "unreadable_format"
                 ? unsupportedDocumentNotice(language)
-                : unreadableNotice(language, "document"),
+                : read.reason === "no_reader"
+                  ? noReaderNotice(language, "document")
+                  : unreadableNotice(language, "document"),
               "unsupported",
             );
             continue;
@@ -593,6 +601,14 @@ Deno.serve(async (req) => {
           await reply(clampReply(read.value.answer), "reply");
           continue;
         } else if (incoming.media.kind === "video") {
+          // Checked before the download: with no provider funded to watch it,
+          // fetching several megabytes of clip only to refuse is bandwidth
+          // spent to arrive at the same sentence.
+          if (!VIDEO_READING_AVAILABLE) {
+            await reply(noReaderNotice(language, "video"), "unsupported");
+            continue;
+          }
+
           const media = await downloadMedia({ mediaId: incoming.media.id, kind: "video", token });
           if (!media.ok) {
             await reply(mediaFailureNotice(language, "video", media.reason), "unsupported");

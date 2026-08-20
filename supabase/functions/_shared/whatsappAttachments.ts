@@ -118,6 +118,26 @@ export function unreadableNotice(language: "ar" | "en", kind: "image" | "documen
     : "I couldn't read that file. A PDF or a text file works best, or you can type the details.";
 }
 
+/**
+ * Told to the user when the format is one this assistant *can* read but no
+ * funded provider is available to read it.
+ *
+ * Deliberately not `unreadableNotice`, which says "a PDF or a text file works
+ * best" — advice that is actively wrong for someone who just sent a PDF, and
+ * that leaves them retrying a thing that cannot succeed. This says the capacity
+ * is missing and names the two routes that do work right now.
+ */
+export function noReaderNotice(language: "ar" | "en", kind: "document" | "video"): string {
+  if (language === "ar") {
+    return kind === "video"
+      ? "لا أستطيع مشاهدة مقاطع الفيديو حالياً. أرسل لقطة شاشة للحظة المهمة، أو صف ما يحدث نصاً وسأساعدك."
+      : "لا أستطيع قراءة ملفات PDF حالياً. أرسل لقطة شاشة للصفحة المهمة، أو انسخ النص في رسالة وسأساعدك.";
+  }
+  return kind === "video"
+    ? "I can't watch videos at the moment. Send a screenshot of the moment that matters, or describe what happens, and I'll help."
+    : "I can't read PDF files at the moment. Send a screenshot of the page that matters, or paste the text into a message, and I'll help.";
+}
+
 /** Told to the user when the format itself is one this assistant will not open. */
 export function unsupportedDocumentNotice(language: "ar" | "en"): string {
   return language === "ar"

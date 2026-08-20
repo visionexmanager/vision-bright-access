@@ -763,9 +763,55 @@ describe("attachment understanding", () => {
     expect(prompt).toMatch(/Never invent order numbers/i);
   });
 
-  it("puts the cheap vision provider first", () => {
+  it("puts a funded vision provider first", () => {
+    // Gemini is cheaper per image and used to lead, but the account has no
+    // credit — the reason `gemini` is absent from DEFAULT_PROVIDER_ORDER in
+    // careerAiOrchestrator.ts. Leading with it bought a guaranteed failed round
+    // trip on every photo. It stays as the fallback.
     const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
-    expect(source.indexOf('provider: "gemini"')).toBeLessThan(source.indexOf('provider: "openai"'));
+    const vision = source.slice(source.indexOf("export const VISION_TARGETS"));
+    const block = vision.slice(0, vision.indexOf("];"));
+    expect(block.indexOf('provider: "openai"')).toBeLessThan(block.indexOf('provider: "gemini"'));
+  });
+
+  it("refuses a PDF or a video outright rather than calling a dead provider", () => {
+    // Asserted against the source, not the module: whatsappUnderstand.ts
+    // imports the Deno provider layer and cannot be loaded under Node.
+    const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
+    expect(source).toContain("export const DOCUMENT_TARGETS: ProviderTarget[] = [];");
+    expect(source).toContain("export const VIDEO_TARGETS: ProviderTarget[] = [];");
+
+    // An empty chain must short-circuit, not fall through to the provider layer
+    // and surface as a generic failure.
+    expect(source).toContain('if (targets.length === 0) return { ok: false, reason: "no_reader" };');
+    expect(source).toContain("if (targets.length === 0) return null;");
+
+    // And the video refusal happens before the clip is downloaded.
+    const videoBranch = webhook.slice(webhook.indexOf('incoming.media.kind === "video"'));
+    expect(videoBranch.indexOf("VIDEO_READING_AVAILABLE"))
+      .toBeLessThan(videoBranch.indexOf("downloadMedia"));
+  });
+
+  it("does not blame the customer's format for a provider it cannot pay for", () => {
+    // unreadableNotice says "a PDF or a text file works best" — actively wrong
+    // advice for someone who just sent a PDF, and it leaves them retrying
+    // something that cannot succeed.
+    const doc = understand.noReaderNotice("en", "document");
+    expect(doc).toMatch(/can't read PDF files at the moment/i);
+    expect(doc).toMatch(/screenshot|paste the text/i);
+    expect(doc).not.toMatch(/works best/i);
+
+    const video = understand.noReaderNotice("en", "video");
+    expect(video).toMatch(/can't watch videos at the moment/i);
+
+    // Arabic says the same thing, and offers the same two routes.
+    expect(understand.noReaderNotice("ar", "document")).toMatch(/PDF/);
+    expect(understand.noReaderNotice("ar", "video")).toContain("لقطة شاشة");
+
+    // The webhook must route the distinct reason to the distinct wording.
+    expect(webhook).toContain('read.reason === "no_reader"');
+    expect(webhook).toContain('noReaderNotice(language, "document")');
+    expect(webhook).toContain('noReaderNotice(language, "video")');
   });
 
   it("gives a text document a fallback provider", () => {

@@ -266,7 +266,27 @@ exercised only through its guard paths, since no key is set under Vitest.
 
 ---
 
-## Phases 7 and 8 — Images and documents · **DONE**
+## Phases 7 and 8 — Images and documents · **DONE (PDF withheld)**
+
+> **Correction, 2026-08-20.** This phase was written assuming Gemini was
+> available. It is not: the account has no credit (confirmed by the owner, and
+> the reason `gemini` is absent from `DEFAULT_PROVIDER_ORDER` in
+> `careerAiOrchestrator.ts`). Three consequences were fixed before merge:
+>
+> - **Images** still work — the chain falls back to `gpt-4o-mini`. But Gemini
+>   led the list, so every photo paid a failed round trip first. OpenAI now
+>   leads; swap the two lines back when the account is funded.
+> - **Text documents** shared the PDF chain, which is Gemini-only. That gave the
+>   one attachment path needing no vision the *only* chain with no fallback, so
+>   a plain `.txt` came back as "I couldn't read that file. A PDF or a text file
+>   works best" — advice that blames the customer for a billing fault. They now
+>   use `DOCUMENT_TEXT_TARGETS`, which is `VISION_TARGETS`.
+> - **PDFs are genuinely Gemini-or-nothing** — `structuredOpenAICompatible`
+>   sends a `data:` URL as `image_url` and OpenAI rejects `application/pdf`.
+>   `DOCUMENT_TARGETS` is therefore **empty**, and `understandDocument` returns
+>   the distinct reason `no_reader`, which the webhook answers with
+>   `noReaderNotice` — "I can't read PDF files at the moment; send a screenshot
+>   or paste the text". Restoring it is one line: put the Gemini target back.
 
 Taken together: both ride the Phase 5 media path and differ only in what is
 sent to the model.
@@ -440,7 +460,16 @@ accuracy is untested against real traffic.
 
 ---
 
-## Phase 9 — Short video · **DONE**
+## Phase 9 — Short video · **BUILT, WITHHELD — needs Gemini credit**
+
+> **Correction, 2026-08-20.** Same cause as Phases 7 and 8. Video has no
+> alternative provider at all, so `VIDEO_TARGETS` is **empty** and
+> `VIDEO_READING_AVAILABLE` is false. The webhook checks it *before* the
+> download — refusing after fetching several megabytes would spend the
+> bandwidth to reach the same sentence — and replies with
+> `noReaderNotice(language, "video")`. The code below is complete and tested;
+> it is switched off, not missing. Funding the Gemini account and restoring the
+> target turns it on.
 
 Gemini takes video as `inline_data` exactly as it takes a PDF, so this needed
 **no ffmpeg, no frame extraction and no second pipeline**. Capped at 6 MB — far
@@ -587,9 +616,9 @@ paths. Those need a live message to the production number.
 | 4 — Knowledge base | **DONE** | `feat(whatsapp): ground answers in Visionex's own material` |
 | 5 — Voice notes | **DONE** | `feat(whatsapp): understand voice notes` |
 | 6 — Voice replies | **DONE** | `feat(whatsapp): remember preferences and speak replies on request` |
-| 7 — Images | **DONE** | `feat(whatsapp): read images and documents` |
-| 8 — Documents | **DONE** | `feat(whatsapp): read images and documents` |
-| 9 — Video | **DONE** | see Phase 9 |
+| 7 — Images | **DONE** (OpenAI leads; Gemini unfunded) | `feat(whatsapp): read images and documents` |
+| 8 — Documents | **PARTIAL** — text yes, PDF withheld pending Gemini credit | `feat(whatsapp): read images and documents` |
+| 9 — Video | **WITHHELD** — built and tested, needs Gemini credit | see Phase 9 |
 | 10 — Human handoff | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 11 — Classification | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 12 — Summaries | **DONE** | rolling summary in Phase 3; handoff briefing in Phase 10 |
