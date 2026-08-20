@@ -51,5 +51,9 @@ SELECT cron.schedule(
 -- and CRON_SECRET stored inside the database to call an Edge Function from
 -- Postgres — puts two credentials in a table to save one workflow file.
 
-COMMENT ON FUNCTION public.reap_stale_content_publications(interval) IS
+-- The signature is (interval, int), not (interval): 20260908000000 dropped the
+-- one-argument version and recreated it with a _limit. Naming the old one here
+-- fails the whole migration with 42883, and because the CLI runs each file in a
+-- transaction that takes the CREATE EXTENSION and the schedule down with it.
+COMMENT ON FUNCTION public.reap_stale_content_publications(interval, int) IS
   'Resolves publication rows left CLAIMED by a worker that died mid-attempt: undispatched attempts return to the retry budget, dispatched ones are parked for a human. Scheduled as the pg_cron job reap-stale-content-publications every 5 minutes by 20260913000000.';
