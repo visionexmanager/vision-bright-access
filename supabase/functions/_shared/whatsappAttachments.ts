@@ -27,6 +27,23 @@ export function toDataUrl(bytes: Uint8Array, mimeType: string): string {
 }
 
 /**
+ * A `Blob` from a byte view.
+ *
+ * `new Blob([someUint8Array])` does not typecheck under the lib TypeScript 5.7
+ * ships: a `Uint8Array` is `ArrayBufferLike`, which may be a `SharedArrayBuffer`,
+ * and `BlobPart` requires a plain `ArrayBuffer`. Copying the exact window the
+ * view covers produces one, and respects `byteOffset` — which `bytes.buffer`
+ * alone would silently ignore for a subarray.
+ */
+export function toBlob(bytes: Uint8Array, mimeType: string): Blob {
+  const copy = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  return new Blob([copy], { type: mimeType });
+}
+
+/**
  * How a document should be read.
  *
  * `text` is decoded here — sending a text file to a vision model is paying for

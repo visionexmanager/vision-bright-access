@@ -10,6 +10,7 @@
 // media store to get an id, then send a message referencing that id.
 
 import { GRAPH_BASE } from "./meta.ts";
+import { toBlob } from "./whatsappAttachments.ts";
 
 function env(name: string): string | undefined {
   const deno = (globalThis as {
@@ -115,7 +116,7 @@ export async function uploadWhatsAppMedia(params: {
   form.append("type", params.mimeType);
   form.append(
     "file",
-    new Blob([params.bytes], { type: params.mimeType }),
+    toBlob(params.bytes, params.mimeType),
     params.filename ?? "reply.ogg",
   );
 

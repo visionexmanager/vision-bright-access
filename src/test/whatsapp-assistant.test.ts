@@ -1241,3 +1241,25 @@ describe("security surface", () => {
     expect(media.isAllowedMediaUrl("https://lookaside.fbsbx.com/x")).toBe(true);
   });
 });
+
+describe("Blob construction", () => {
+  it("never passes a byte view straight to the Blob constructor", () => {
+    // CI runs pnpm, which resolves a TypeScript lib where a Uint8Array is
+    // ArrayBufferLike and so not assignable to BlobPart. The npm-resolved lib
+    // used locally accepted it, so this only failed in CI.
+    for (const file of [
+      "supabase/functions/_shared/whatsappTranscribe.ts",
+      "supabase/functions/_shared/whatsappVoiceReply.ts",
+    ]) {
+      expect(readFileSync(file, "utf8"), file).not.toMatch(/new Blob\(\[\s*\w+\.bytes/);
+    }
+  });
+
+  it("copies the exact window a view covers, respecting byteOffset", () => {
+    const backing = new Uint8Array([9, 9, 1, 2, 3, 9]);
+    const view = backing.subarray(2, 5);
+    const blob = understand.toBlob(view, "audio/ogg");
+    expect(blob.size).toBe(3);
+    expect(blob.type).toBe("audio/ogg");
+  });
+});

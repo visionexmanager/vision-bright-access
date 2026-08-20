@@ -8,6 +8,8 @@
 // project already uses (`speech-transcribe`), so behaviour degrades to
 // something known rather than to nothing.
 
+import { toBlob } from "./whatsappAttachments.ts";
+
 function env(name: string): string | undefined {
   const deno = (globalThis as {
     Deno?: { env?: { get(key: string): string | undefined } };
@@ -97,7 +99,7 @@ export async function transcribeVoice(params: {
       const form = new FormData();
       form.append(
         "file",
-        new Blob([params.bytes], { type: params.mimeType }),
+        toBlob(params.bytes, params.mimeType),
         filenameForMime(params.mimeType),
       );
       form.append("model", provider.model);
