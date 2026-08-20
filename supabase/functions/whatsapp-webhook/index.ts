@@ -16,21 +16,79 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getAssistant } from "../_shared/assistants.ts";
-import { streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import {
+  createEmbedding,
+  streamChatCompletionWithFallback,
+  structuredCompletionWithFallback,
+  ProviderError,
+} from "../_shared/aiProvider.ts";
+import {
+  budgetTurns,
   clampReply,
   collectStream,
   detectLanguage,
+  detectLanguageCode,
+  languageDirective,
+  LANGUAGE_ENDONYM,
+  replyLanguage,
   extractMessages,
   failureNotice,
   handoverNotice,
+  rateLimitDecision,
+  rateLimitNotice,
+  RATE_LIMIT_COOLDOWN_MS,
+  REPEAT_LIMIT,
+  needsSummary,
+  redactSummary,
   replySignalsHandover,
+  SUMMARY_INSTRUCTION,
+  summaryPreamble,
   sendWhatsAppText,
   unsupportedTypeNotice,
   userAskedForHuman,
   verifySignature,
   welcomeFor,
 } from "../_shared/whatsapp.ts";
+import { downloadMedia, mediaFailureNotice } from "../_shared/whatsappMedia.ts";
+import { transcribeVoice, transcriptionFailureNotice } from "../_shared/whatsappTranscribe.ts";
+import {
+  understandDocument,
+  understandImage,
+  understandVideo,
+  VIDEO_READING_AVAILABLE,
+} from "../_shared/whatsappUnderstand.ts";
+import {
+  MAX_VIDEO_BYTES,
+  noReaderNotice,
+  unreadableNotice,
+  unsupportedDocumentNotice,
+  videoTooLongNotice,
+} from "../_shared/whatsappAttachments.ts";
+import {
+  hasPreferenceChange,
+  parsePreferenceRequest,
+  preferenceConfirmation,
+  verbosityDirective,
+} from "../_shared/whatsappPreferences.ts";
+import { shouldSpeak, speakReply } from "../_shared/whatsappVoiceReply.ts";
+import {
+  CLASSIFY_INSTRUCTION,
+  CLASSIFY_SCHEMA,
+  fallbackBriefing,
+  HANDOFF_INSTRUCTION,
+  isCategory,
+  quickCategory,
+  shouldEscalate,
+  type Category,
+  type EscalationReason,
+} from "../_shared/whatsappTriage.ts";
+import {
+  knowledgeDirective,
+  MAX_PASSAGES,
+  needsGrounding,
+  selectPassages,
+  type KnowledgePassage,
+} from "../_shared/whatsappKnowledge.ts";
 import {
   formatAmbiguityPrompt,
   formatPendingList,
@@ -41,6 +99,21 @@ import {
 
 /** How much prior conversation the model sees. Enough for context, bounded. */
 const HISTORY_LIMIT = 12;
+
+/** Classification is a routing label, so it runs on the smallest model. */
+const CLASSIFY_TARGETS = [
+  { provider: "groq" as const, model: "llama-3.1-8b-instant" },
+  { provider: "openai" as const, model: "gpt-4o-mini" },
+];
+
+/**
+ * Summaries are bulk text work with no user waiting on the wording, so they go
+ * to the cheapest capable provider rather than the one answering the customer.
+ */
+const SUMMARY_TARGETS = [
+  { provider: "groq" as const, model: "llama-3.3-70b-versatile" },
+  { provider: "openai" as const, model: "gpt-4o-mini" },
+];
 
 /** Owner commands are cheap but not free; this bounds a compromised handset. */
 const OWNER_COMMAND_LIMIT_PER_HOUR = 120;
@@ -269,6 +342,10 @@ Deno.serve(async (req) => {
 
   for (const incoming of messages) {
     try {
+      // Detection reruns on a transcript below, once there is one to read.
+      let detected = detectLanguageCode(incoming.text);
+      // The canned notices exist in Arabic and English; the model answers in the
+      // sender's own language regardless.
       const language = detectLanguage(incoming.text);
 
       // ── Owner control centre ──────────────────────────────────────────
@@ -290,7 +367,7 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, escalated, control")
+        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -300,7 +377,7 @@ Deno.serve(async (req) => {
       if (!conversationId) {
         const { data: created, error } = await db
           .from("whatsapp_conversations")
-          .insert({ wa_phone: incoming.from, language })
+          .insert({ wa_phone: incoming.from, language: detected })
           .select("id")
           .single();
         if (error) throw error;
@@ -308,7 +385,7 @@ Deno.serve(async (req) => {
       } else {
         await db
           .from("whatsapp_conversations")
-          .update({ language, last_message_at: new Date().toISOString() })
+          .update({ language: detected, last_message_at: new Date().toISOString() })
           .eq("id", conversationId);
       }
 
@@ -333,26 +410,326 @@ Deno.serve(async (req) => {
           body,
           kind,
         });
-        if (token && phoneNumberId) {
-          await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
+        if (!token || !phoneNumberId) return;
+        await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
+
+        // The text has already gone. A spoken copy is an addition, and every
+        // failure below is swallowed: a missing voice note is a smaller
+        // problem than an error message about one.
+        if (shouldSpeak({
+          voiceRepliesEnabled: existing?.voice_replies === true,
+          replyText: body,
+          isCannedNotice: kind !== "reply",
+        })) {
+          await speakReply({ phoneNumberId, token, to: incoming.from, text: body });
         }
       };
 
+      // ── Abuse control ─────────────────────────────────────────────────
+      //
+      // Placed after the message is logged, so a throttled sender is still
+      // recorded in the transcript and the team can see what was sent. Only
+      // the model call and the reply are withheld. The owner is exempt: their
+      // commands have their own separate limit above.
+      if (!isNew && !isOwner(incoming.from, configuredOwner)) {
+        const nowMs = Date.now();
+        const [{ count: hourCount }, { count: minuteCount }, { data: recent }] = await Promise.all([
+          db.from("whatsapp_messages").select("id", { count: "exact", head: true })
+            .eq("conversation_id", conversationId).eq("direction", "inbound")
+            .gte("created_at", new Date(nowMs - 3_600_000).toISOString()),
+          db.from("whatsapp_messages").select("id", { count: "exact", head: true })
+            .eq("conversation_id", conversationId).eq("direction", "inbound")
+            .gte("created_at", new Date(nowMs - 60_000).toISOString()),
+          db.from("whatsapp_messages").select("body")
+            .eq("conversation_id", conversationId).eq("direction", "inbound")
+            .order("created_at", { ascending: false }).limit(REPEAT_LIMIT),
+        ]);
+
+        const body = incoming.text || `[${incoming.unsupportedType}]`;
+        const repeatCount = (recent ?? []).filter((row) => row.body === body).length;
+
+        const verdict = rateLimitDecision({
+          now: nowMs,
+          blockedUntil: existing?.blocked_until ? Date.parse(existing.blocked_until as string) : null,
+          notifiedAt: existing?.rate_notified_at ? Date.parse(existing.rate_notified_at as string) : null,
+          lastHourCount: hourCount ?? 0,
+          lastMinuteCount: minuteCount ?? 0,
+          repeatCount,
+        });
+
+        if (!verdict.allow) {
+          console.error(
+            `[whatsapp] throttled: reason=${verdict.reason} hour=${hourCount} minute=${minuteCount} repeat=${repeatCount}`,
+          );
+          await db
+            .from("whatsapp_conversations")
+            .update({
+              blocked_until: new Date(nowMs + RATE_LIMIT_COOLDOWN_MS).toISOString(),
+              rate_limit_hits: ((existing?.rate_limit_hits as number) ?? 0) + 1,
+              ...(verdict.notify ? { rate_notified_at: new Date(nowMs).toISOString() } : {}),
+            })
+            .eq("id", conversationId);
+
+          if (verdict.notify) await reply(rateLimitNotice(language), "unsupported");
+          continue;
+        }
+      }
+
       if (isNew) await reply(welcomeFor(language), "welcome");
 
-      // Images, voice notes, locations: acknowledged rather than ignored.
-      if (incoming.unsupportedType) {
+      // ── Preferences ───────────────────────────────────────────────────
+      //
+      // WhatsApp has no settings screen, so the only way to offer a preference
+      // is to notice someone asking for it. Confirmed out loud, never silently.
+      if (incoming.text) {
+        const requested = parsePreferenceRequest(incoming.text);
+        if (hasPreferenceChange(requested)) {
+          await db.from("whatsapp_conversations").update(requested).eq("id", conversationId);
+          const nextLanguage = requested.preferred_language ?? detected;
+          await reply(
+            preferenceConfirmation(
+              nextLanguage === "ar" ? "ar" : "en",
+              requested,
+              LANGUAGE_ENDONYM[nextLanguage],
+            ),
+            "reply",
+          );
+          continue;
+        }
+      }
+
+      // ── Attachments ───────────────────────────────────────────────────
+      //
+      // A voice note becomes text and is then answered like any other
+      // question. Everything the assistant cannot yet read is acknowledged
+      // rather than ignored, so the sender is never left wondering.
+      let questionText = incoming.text;
+      // Attachments answer directly, so they need the reply language here
+      // rather than further down where the text pipeline resolves it.
+      const answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);
+
+      if (incoming.media) {
+        if (!token) {
+          await reply(unsupportedTypeNotice(language, incoming.media.kind), "unsupported");
+          continue;
+        }
+
+        if (incoming.media.kind === "audio") {
+          const media = await downloadMedia({
+            mediaId: incoming.media.id,
+            kind: "audio",
+            token,
+          });
+          if (!media.ok) {
+            await reply(mediaFailureNotice(language, "audio", media.reason), "unsupported");
+            continue;
+          }
+
+          const heard = await transcribeVoice({ bytes: media.bytes, mimeType: media.mimeType });
+          if (!heard.ok) {
+            await reply(transcriptionFailureNotice(language, heard.reason), "unsupported");
+            continue;
+          }
+
+          console.log(`[whatsapp] transcribed a voice note via ${heard.provider}`);
+          questionText = [incoming.media.caption, heard.text].filter(Boolean).join("\n");
+
+          // Store what was heard, so the transcript and the replayed history
+          // read as a conversation rather than as a gap.
+          await db
+            .from("whatsapp_messages")
+            .update({ body: `[voice] ${heard.text}` })
+            .eq("wa_message_id", incoming.messageId);
+        } else if (incoming.media.kind === "image" || incoming.media.kind === "sticker") {
+          const media = await downloadMedia({
+            mediaId: incoming.media.id,
+            kind: incoming.media.kind,
+            token,
+          });
+          if (!media.ok) {
+            await reply(mediaFailureNotice(language, incoming.media.kind, media.reason), "unsupported");
+            continue;
+          }
+
+          const seen = await understandImage({
+            bytes: media.bytes,
+            mimeType: media.mimeType,
+            question: incoming.media.caption ?? "",
+            languageName: LANGUAGE_ENDONYM[answerLanguage],
+          });
+          // "I could not read it" is a real answer and is passed on as one,
+          // rather than being dressed up as a description.
+          if (!seen || !seen.readable || !seen.answer) {
+            await reply(unreadableNotice(language, "image"), "unsupported");
+            continue;
+          }
+          await reply(clampReply(seen.answer), "reply");
+          continue;
+        } else if (incoming.media.kind === "document") {
+          const media = await downloadMedia({
+            mediaId: incoming.media.id,
+            kind: "document",
+            token,
+          });
+          if (!media.ok) {
+            await reply(mediaFailureNotice(language, "document", media.reason), "unsupported");
+            continue;
+          }
+
+          const read = await understandDocument({
+            bytes: media.bytes,
+            mimeType: media.mimeType,
+            filename: incoming.media.filename,
+            question: incoming.media.caption ?? "",
+            languageName: LANGUAGE_ENDONYM[answerLanguage],
+          });
+          if (!read.ok) {
+            await reply(
+              read.reason === "unreadable_format"
+                ? unsupportedDocumentNotice(language)
+                : read.reason === "no_reader"
+                  ? noReaderNotice(language, "document")
+                  : unreadableNotice(language, "document"),
+              "unsupported",
+            );
+            continue;
+          }
+          if (!read.value.readable || !read.value.answer) {
+            await reply(unreadableNotice(language, "document"), "unsupported");
+            continue;
+          }
+          await reply(clampReply(read.value.answer), "reply");
+          continue;
+        } else if (incoming.media.kind === "video") {
+          // Checked before the download: with no provider funded to watch it,
+          // fetching several megabytes of clip only to refuse is bandwidth
+          // spent to arrive at the same sentence.
+          if (!VIDEO_READING_AVAILABLE) {
+            await reply(noReaderNotice(language, "video"), "unsupported");
+            continue;
+          }
+
+          const media = await downloadMedia({ mediaId: incoming.media.id, kind: "video", token });
+          if (!media.ok) {
+            await reply(mediaFailureNotice(language, "video", media.reason), "unsupported");
+            continue;
+          }
+          // Capped far below the media limit: a model reads a video by sampling
+          // frames and the cost climbs with length. A support question is
+          // answered by a few seconds of screen recording.
+          if (media.bytes.byteLength > MAX_VIDEO_BYTES) {
+            await reply(videoTooLongNotice(language), "unsupported");
+            continue;
+          }
+
+          const watched = await understandVideo({
+            bytes: media.bytes,
+            mimeType: media.mimeType,
+            question: incoming.media.caption ?? "",
+            languageName: LANGUAGE_ENDONYM[answerLanguage],
+          });
+          if (!watched || !watched.readable || !watched.answer) {
+            await reply(unreadableNotice(language, "video"), "unsupported");
+            continue;
+          }
+          await reply(clampReply(watched.answer), "reply");
+          continue;
+        } else {
+          await reply(unsupportedTypeNotice(language, incoming.media.kind), "unsupported");
+          continue;
+        }
+      } else if (incoming.unsupportedType) {
         await reply(unsupportedTypeNotice(language, incoming.unsupportedType), "unsupported");
         continue;
       }
 
-      // An explicit request for a person is honoured immediately — the model
-      // does not get to talk the user out of it.
-      if (userAskedForHuman(incoming.text)) {
+      // A voice note's language is in what was said, not in its caption.
+      if (incoming.media?.kind === "audio" && questionText.trim()) {
+        detected = detectLanguageCode(questionText);
+      }
+
+      if (!questionText.trim()) {
+        await reply(unsupportedTypeNotice(language, incoming.media?.kind ?? "empty"), "unsupported");
+        continue;
+      }
+
+      // ── Triage ────────────────────────────────────────────────────────
+      //
+      // A label, not an answer: it never blocks the reply, and an unclassified
+      // message is a normal state. The obvious cases skip the model entirely.
+      const askedForHuman = userAskedForHuman(questionText);
+      let category: Category | null = quickCategory({
+        text: questionText,
+        askedForHuman,
+        hasMedia: !!incoming.media,
+      });
+      if (!category) {
+        try {
+          const { result } = await structuredCompletionWithFallback({
+            targets: CLASSIFY_TARGETS,
+            system: CLASSIFY_INSTRUCTION,
+            userText: questionText.slice(0, 1_000),
+            schema: CLASSIFY_SCHEMA as unknown as Record<string, unknown>,
+            toolName: "classify_message",
+            maxTokens: 24,
+          });
+          const label = (result as { category?: unknown } | null)?.category;
+          if (isCategory(label)) category = label;
+        } catch (e) {
+          console.error("[whatsapp] classification failed:", e instanceof Error ? e.message : e);
+        }
+      }
+      if (category) {
+        await db.from("whatsapp_messages").update({ category }).eq("wa_message_id", incoming.messageId);
+        await db.from("whatsapp_conversations").update({ last_category: category }).eq("id", conversationId);
+      }
+      console.log(`[whatsapp] category=${category ?? "none"}`);
+
+      /** Escalate, and leave a briefing so the customer need not repeat themselves. */
+      const escalate = async (reason: EscalationReason) => {
+        let briefing: string | null = null;
+        try {
+          const { data: recent } = await db
+            .from("whatsapp_messages")
+            .select("direction, body, kind")
+            .eq("conversation_id", conversationId)
+            .order("created_at", { ascending: false })
+            .limit(20);
+          const material = (recent ?? [])
+            .reverse()
+            .map((row) => `${row.direction === "inbound" ? "Customer" : "Assistant"}: ${row.body}`)
+            .join("\n")
+            .slice(0, 8_000);
+          if (material) {
+            const { result: stream } = await streamChatCompletionWithFallback({
+              targets: SUMMARY_TARGETS,
+              system: HANDOFF_INSTRUCTION,
+              messages: [{ role: "user", content: material }],
+              maxTokens: 240,
+            });
+            briefing = redactSummary(await collectStream(stream));
+          }
+        } catch (e) {
+          console.error("[whatsapp] handoff briefing failed:", e instanceof Error ? e.message : e);
+        }
+
         await db
           .from("whatsapp_conversations")
-          .update({ escalated: true, escalated_at: new Date().toISOString(), escalation_reason: "user_request" })
+          .update({
+            escalated: true,
+            escalated_at: new Date().toISOString(),
+            escalation_reason: reason,
+            // Staff never see a blank briefing field.
+            handoff_summary: briefing || fallbackBriefing(reason, questionText),
+            handoff_summary_at: new Date().toISOString(),
+          })
           .eq("id", conversationId);
+      };
+
+      // An explicit request for a person is honoured immediately — the model
+      // does not get to talk the user out of it.
+      if (askedForHuman) {
+        await escalate("user_request");
         await reply(handoverNotice(language), "handover");
         continue;
       }
@@ -371,33 +748,129 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(HISTORY_LIMIT);
 
-      const turns = (history ?? [])
-        .filter((row) => row.kind === null || row.kind === "reply")
-        .reverse()
-        .map((row) => ({
-          role: row.direction === "inbound" ? ("user" as const) : ("assistant" as const),
-          content: row.body as string,
-        }));
+      const turns = budgetTurns(
+        (history ?? [])
+          .filter((row) => row.kind === null || row.kind === "reply")
+          .reverse()
+          .map((row) => ({
+            role: row.direction === "inbound" ? ("user" as const) : ("assistant" as const),
+            content: row.body as string,
+          })),
+      );
+
+      // ── Rolling summary ───────────────────────────────────────────────
+      //
+      // Older turns are condensed once and replayed as background, so a long
+      // conversation stays coherent without every message carrying its whole
+      // history. Refreshed on a message count, not on every turn.
+      const { count: inboundCount } = await db
+        .from("whatsapp_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("conversation_id", conversationId)
+        .eq("direction", "inbound");
+
+      let summary = (existing?.summary as string | null) ?? null;
+      if (needsSummary({
+        inboundCount: inboundCount ?? 0,
+        summarizedCount: (existing?.summarized_message_count as number) ?? 0,
+        hasSummary: !!summary,
+      })) {
+        try {
+          const { data: older } = await db
+            .from("whatsapp_messages")
+            .select("direction, body, kind")
+            .eq("conversation_id", conversationId)
+            .order("created_at", { ascending: false })
+            .range(HISTORY_LIMIT, HISTORY_LIMIT + 60);
+
+          const material = (older ?? [])
+            .filter((row) => row.kind === null || row.kind === "reply")
+            .reverse()
+            .map((row) => `${row.direction === "inbound" ? "Customer" : "Assistant"}: ${row.body}`)
+            .join("\n")
+            .slice(0, 12_000);
+
+          if (material) {
+            const { result: stream } = await streamChatCompletionWithFallback({
+              targets: SUMMARY_TARGETS,
+              system: SUMMARY_INSTRUCTION,
+              messages: [{ role: "user", content: material }],
+              maxTokens: 260,
+            });
+            const drafted = redactSummary(await collectStream(stream));
+            if (drafted) {
+              summary = drafted;
+              await db.from("whatsapp_conversations").update({
+                summary: drafted,
+                summary_updated_at: new Date().toISOString(),
+                summarized_message_count: inboundCount ?? 0,
+              }).eq("id", conversationId);
+            }
+          }
+        } catch (e) {
+          // A summary is an optimisation. Losing it costs context, not the reply.
+          console.error("[whatsapp] summary refresh failed:", e instanceof Error ? e.message : e);
+        }
+      }
 
       const assistant = getAssistant("whatsapp-support");
       if (!assistant) throw new Error("whatsapp-support assistant is not registered");
+
+      const answerIn = answerLanguage;
+
+      // ── Grounding ─────────────────────────────────────────────────────
+      //
+      // Without retrieved material the model answers Visionex questions from
+      // its priors, and a confident invented refund policy is worse than "I
+      // don't know" because the customer acts on it. A weak match is worse
+      // still: it reads as authoritative while being about something else, so
+      // anything below the similarity floor is discarded and the model is told
+      // it has no source.
+      let passages: KnowledgePassage[] = [];
+      if (needsGrounding(questionText)) {
+        try {
+          const [vector] = await createEmbedding([questionText.slice(0, 2_000)]);
+          const { data: matches, error } = await db.rpc("match_embeddings", {
+            query_embedding: vector,
+            match_count: MAX_PASSAGES * 3,
+          });
+          if (error) throw error;
+          passages = selectPassages(
+            (matches ?? []).map((row: { content: string; source_table: string; similarity: number }) => ({
+              content: row.content,
+              sourceTable: row.source_table,
+              similarity: row.similarity,
+            })),
+          );
+        } catch (e) {
+          // Retrieval is best-effort. Losing it must not lose the reply — and
+          // the empty-passage directive is the safe state, not the risky one.
+          console.error("[whatsapp] retrieval failed:", e instanceof Error ? e.message : e);
+        }
+      }
+      console.log(`[whatsapp] grounded with ${passages.length} passages`);
 
       let answer: string;
       try {
         const { result: stream } = await streamChatCompletionWithFallback({
           targets: assistant.targets,
-          system: assistant.systemPrompt,
-          messages: turns.length > 0 ? turns : [{ role: "user", content: incoming.text }],
+          system: [
+            assistant.systemPrompt,
+            languageDirective(answerIn),
+            knowledgeDirective(passages),
+            verbosityDirective(existing?.verbosity as string | null),
+          ].filter(Boolean).join("\n\n"),
+          messages: [
+            ...(summary ? [{ role: "user" as const, content: summaryPreamble(summary) }] : []),
+            ...(turns.length > 0 ? turns : [{ role: "user" as const, content: questionText }]),
+          ],
           maxTokens: 700,
         });
         answer = clampReply(await collectStream(stream));
       } catch (e) {
         const status = e instanceof ProviderError ? e.status : 0;
         console.error("[whatsapp] provider error:", status || e);
-        await db
-          .from("whatsapp_conversations")
-          .update({ escalated: true, escalated_at: new Date().toISOString(), escalation_reason: "ai_unavailable" })
-          .eq("id", conversationId);
+        await escalate("ai_unavailable");
         await reply(failureNotice(language), "handover");
         continue;
       }
@@ -412,10 +885,32 @@ Deno.serve(async (req) => {
       // The model was told to say it is handing over when it cannot help.
       // Flag the conversation so the team sees it in the queue.
       if (replySignalsHandover(answer)) {
-        await db
-          .from("whatsapp_conversations")
-          .update({ escalated: true, escalated_at: new Date().toISOString(), escalation_reason: "assistant_handover" })
-          .eq("id", conversationId);
+        await escalate("assistant_handover");
+        continue;
+      }
+
+      // ── Escalating without being asked ────────────────────────────────
+      //
+      // A complaint, a payment or access problem, or an assistant that has
+      // failed several turns running. Deliberately conservative: escalating a
+      // routine question wastes a person's time, but missing a complaint costs
+      // a customer. Checked after the reply, so the customer is answered first.
+      const { data: recentOutbound } = await db
+        .from("whatsapp_messages")
+        .select("kind")
+        .eq("conversation_id", conversationId)
+        .eq("direction", "outbound")
+        .order("created_at", { ascending: false })
+        .limit(3);
+      const consecutiveDeclines = (recentOutbound ?? [])
+        .findIndex((row) => row.kind === "reply") === -1
+        ? (recentOutbound ?? []).length
+        : 0;
+
+      const reason = shouldEscalate({ category, consecutiveDeclines, text: questionText });
+      if (reason) {
+        console.log(`[whatsapp] escalating unprompted: ${reason}`);
+        await escalate(reason);
       }
     } catch (e) {
       // One bad message must not drop the rest of the batch.
