@@ -1,0 +1,163 @@
+name: Diagnose WhatsApp silence
+
+# Why did a message arrive and get no reply?
+#
+# Read-only. Every statement is a SELECT and nothing is posted to Meta, so this
+# cannot itself create the conversation it is meant to explain.
+#
+# The assistant has exactly one path that answers with **nothing at all**:
+#
+#   if (existing?.control === "human" || existing?.escalated) continue;
+#
+# Every other refusal sends something back — a rate-limit notice, a handover
+# notice, a failure notice, an "I can't read that". So silence points first at
+# an escalated or human-controlled conversation, and this reports that state
+# before anything else. Once `escalated` is set nothing clears it automatically:
+# the assistant stays quiet in that thread forever until the owner returns it.
+#
+# ── This repository is PUBLIC ──────────────────────────────────────────────
+#
+# No phone number, no message text, no media URL. Conversations are identified
+# by id and by the language they were detected as; message bodies are reported
+# as lengths. `function_logs` is project-wide, so those rows are fetched
+# unfiltered — a WHERE that matches nothing looks identical to a log that
+# recorded nothing — and filtered here, with the other functions counted rather
+# than shown.
+
+on:
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "How far back to look"
+        required: false
+        default: "6"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Diagnose
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Ask the database and the logs
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+          HOURS: ${{ inputs.hours || '6' }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [[ -z "$SUPABASE_ACCESS_TOKEN" || -z "$SUPABASE_PROJECT_REF" ]]; then
+            say "::error::SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF must be configured."
+            exit 1
+          fi
+
+          ask() {
+            curl -s -X POST \
+              "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query:$q}')"
+          }
+
+          block() {
+            say ""
+            say "## $1"
+            say '```json'
+            ask "$2" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo
+            say '```'
+          }
+
+          say "# Why WhatsApp went quiet"
+          say ""
+          say "Read-only. No phone number, no message text — this repository is public."
+          say "Looking back ${HOURS} hours."
+
+          # The one silent path, first.
+          block "1. Conversations that are silenced right now" \
+            "select id, language, escalated, escalation_reason, control,
+                    control_changed_at, control_changed_by,
+                    blocked_until, rate_limit_hits,
+                    pending_vision_mode,
+                    last_message_at
+               from public.whatsapp_conversations
+              where escalated = true or control = 'human' or blocked_until > now()
+              order by last_message_at desc nulls last
+              limit 20"
+
+          block "2. Every conversation touched recently" \
+            "select id, language, escalated, escalation_reason, control,
+                    blocked_until, rate_limit_hits, pending_vision_mode,
+                    created_at, last_message_at
+               from public.whatsapp_conversations
+              where last_message_at > now() - interval '${HOURS} hours'
+                 or created_at      > now() - interval '${HOURS} hours'
+              order by coalesce(last_message_at, created_at) desc
+              limit 20"
+
+          # Direction and kind tell the whole story without a single character
+          # of what anyone wrote: an inbound with no outbound after it is the
+          # silence being investigated.
+          block "3. Message flow, newest first (kinds and sizes, never text)" \
+            "select m.conversation_id, m.direction, m.kind,
+                    length(m.body) as body_chars,
+                    (m.wa_message_id is not null) as from_meta,
+                    m.created_at
+               from public.whatsapp_messages m
+              where m.created_at > now() - interval '${HOURS} hours'
+              order by m.created_at desc
+              limit 40"
+
+          block "4. Inbound vs outbound in the window" \
+            "select direction, kind, count(*) as messages,
+                    min(created_at) as first, max(created_at) as last
+               from public.whatsapp_messages
+              where created_at > now() - interval '${HOURS} hours'
+              group by 1,2 order by 1,2"
+
+          logs() {
+            curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs.all" \
+                 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+                 --data-urlencode "sql=$1" \
+                 --data-urlencode "iso_timestamp_start=$(date -u -d "${HOURS} hours ago" +%Y-%m-%dT%H:%M:%SZ)" \
+                 --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+
+          say ""
+          say "## 5. Did Meta actually call the webhook?"
+          say "Method, path and status only — the GET handshake carries the verify token in its query string."
+          say '```json'
+          logs "select t.timestamp, r.method, r.path, resp.status_code
+                  from edge_logs as t
+                  cross join unnest(t.metadata) as m
+                  cross join unnest(m.request) as r
+                  cross join unnest(m.response) as resp
+                 where r.path like '%whatsapp-webhook%'
+                 order by t.timestamp desc limit 40" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+          say "A 403 is a rejected signature. A 401 would mean the JWT exemption was lost. No rows at all means Meta never called."
+
+          sleep 30   # the analytics endpoint throttles hard
+
+          say ""
+          say "## 6. What the function printed"
+          logs "select t.timestamp, t.event_message
+                  from function_logs as t
+                 order by t.timestamp desc limit 100" > /tmp/wa-logs.json
+          OTHERS=$(jq '[.result[]? | select(.event_message | test("whatsapp") | not)] | length' /tmp/wa-logs.json)
+          say '```json'
+          jq -c '[.result[]? | select(.event_message | test("whatsapp"))]' /tmp/wa-logs.json \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+          say "Plus ${OTHERS:-0} lines from other functions, withheld — this repository is public."
+          say "A provider error, a failed send, or an uncaught exception in one message prints here and nowhere else."
+
+          say ""
+          say "Nothing above modified anything: every statement is a SELECT."
