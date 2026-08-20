@@ -605,27 +605,34 @@ describe("security model matches Phase 7", () => {
     }
   });
 
-  it("creates no publishing Edge Function", () => {
+  it("creates no publishing Edge Function of its own", () => {
     // Deliberately not a count. Pinning the total made every unrelated pull
     // request that adds a function fail here, which says nothing about this
-    // phase. What PR A must not do is ship a publishing surface, so that is
-    // what is asserted: no function directory belongs to this phase's subject.
+    // phase.
     //
-    // Phase 9 added `social-oauth`, which obtains OAuth grants and cannot
-    // publish — social-oauth-connect.test.ts pins that it calls no content API
-    // and none of the three queue functions. It is allowed through by name
-    // rather than by widening the pattern, so a `social-publish` appearing
-    // beside it still fails here.
+    // What this phase must not do is ship a publishing surface, and it does
+    // not: everything below is SQL. The worker arrived later, in Phase 9 step
+    // 7, as `social-publish`, and `social-oauth` before it. Both are allowed
+    // through by name rather than by widening the pattern, so an eighth
+    // function in this family still fails here.
+    //
+    // That the worker exists is no longer this file's business. What it must
+    // still be true of THIS migration is that it opens nothing itself, which
+    // the assertions below and throughout this suite cover.
     const functions = readdirSync("supabase/functions", { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && entry.name !== "_shared")
       .map((entry) => entry.name);
 
     expect(
-      functions.filter((name) => name !== "social-oauth" && /social|publish|oauth/i.test(name)),
-    ).toEqual([]);
-    for (const invented of ["social-publish", "content-publish", "publish-worker"]) {
+      functions.filter((name) => /social|publish|oauth/i.test(name)).sort(),
+    ).toEqual(["social-oauth", "social-publish"]);
+    for (const invented of ["content-publish", "publish-worker"]) {
       expect(existsSync(`supabase/functions/${invented}`), `${invented} must not exist`).toBe(false);
     }
+
+    // The phase's own migration still contains no endpoint, no scheduling and
+    // no outbound call — the property that actually belongs to this file.
+    expect(phase8).not.toMatch(/cron\.schedule|pg_net|net\.http|https?:\/\//);
   });
 });
 

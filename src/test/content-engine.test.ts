@@ -742,14 +742,27 @@ describe("no new Edge Function", () => {
 
     // The rule this guards is that the content engine reuses ai-generate
     // instead of minting a function per capability.
-    for (const invented of ["content-writer", "content-engine", "content-generate", "social-publish"]) {
+    //
+    // `social-publish` was on this list until Phase 9 step 7 and has been
+    // removed, because it is no longer an example of the thing being guarded
+    // against. It is not a content-engine capability that should have been a
+    // shared module; it is the publishing worker — a separate concern, on a
+    // schedule, with its own authorisation — and there is exactly one of it for
+    // all seven platforms, which is the same discipline this rule asks for.
+    for (const invented of ["content-writer", "content-engine", "content-generate"]) {
       expect(existsSync(`supabase/functions/${invented}`), `${invented} must not exist`).toBe(false);
     }
 
     // The count was pinned at a snapshot, which any unrelated function tripped.
     // What actually matters is the ceiling: Supabase rejects the 101st function
     // with a 402 that reads like a bundling error, so keep real headroom.
-    expect(functions.length).toBeLessThanOrEqual(95);
+    //
+    // 96 as of `social-publish`, which is the deliberate addition this phase
+    // makes. `meta-messaging-webhook` took the previous slot while this branch
+    // was open. Four left. This number is meant to be argued with rather than
+    // bumped: the next addition should ask whether something can be retired
+    // through `supabase/retirement-manifest.json` instead.
+    expect(functions.length).toBeLessThanOrEqual(96);
   });
 
   it("routes everything through ai-generate and owner-control", () => {

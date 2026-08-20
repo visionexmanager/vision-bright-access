@@ -1,0 +1,122 @@
+name: Social Publish Cron
+
+# Drains the content publishing queue.
+#
+# Every fifteen minutes rather than every five: a slot is scheduled to the
+# minute in content_calendar, and the queue is bounded by how much the content
+# engine proposes, which is a handful of posts a day. Polling three times as
+# often would triple the invocations to publish the same posts.
+#
+# The job is safe to run when nothing is due and safe to run twice at once. The
+# claim uses FOR UPDATE SKIP LOCKED, so two overlapping runs take different
+# slots rather than the same one, and a slot can only ever succeed once.
+
+# ── The schedule is deliberately switched off for the first release ────────
+#
+# This is the first change in Visionex that can put a post on a public account,
+# and the queue it drains was filling for weeks while nothing could drain it.
+# How much owner-approved content is sitting due is not knowable from outside
+# the database, so a scheduled first run could publish a backlog several posts
+# deep before anyone saw the first one.
+#
+# Manual for now: run it once from the Actions tab, read what it reports, and
+# turn the schedule on afterwards. Each run is bounded to 10 attempts, so a
+# dispatch is a sample rather than a flood.
+#
+# To enable, restore the two lines below this comment:
+#
+#   schedule:
+#     - cron: "*/15 * * * *"
+#
+# Everything else — the concurrency group, the 503 handling, the warnings — is
+# already written for scheduled operation and needs no change.
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Restrict to one platform (blank = any)"
+        required: false
+        default: ""
+      limit:
+        description: "Maximum attempts in this run"
+        required: false
+        default: "10"
+
+# A second run starting while the first is mid-publish is not harmful, but it is
+# not useful either. Queued rather than cancelled: cancelling a run that has
+# dispatched would abandon an attempt the database is waiting to hear about.
+concurrency:
+  group: social-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Drain the publishing queue
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PLATFORM: ${{ inputs.platform }}
+          LIMIT: ${{ inputs.limit || '10' }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::Repository secrets SUPABASE_URL and CRON_SECRET must be configured."
+            exit 1
+          fi
+
+          if [ -n "$PLATFORM" ]; then
+            payload=$(printf '{"platform":"%s","limit":%s}' "$PLATFORM" "$LIMIT")
+          else
+            payload=$(printf '{"limit":%s}' "$LIMIT")
+          fi
+
+          # The status is read rather than handed to --fail-with-body, because
+          # one of these responses is not a failure.
+          #
+          # Until the Meta secrets exist the function answers 503 — that is its
+          # correct, designed behaviour, and it will be the answer on every run
+          # for as long as the credentials are outstanding. Failing the job on
+          # it would put a red cross on this repository four times an hour and
+          # train everyone to ignore the one signal that means something.
+          #
+          # The response carries ids, status codes and counts only — never a
+          # token and never a provider's error text — so it is safe in a log.
+          body=$(mktemp)
+          code=$(curl -sS -X POST \
+            "$SUPABASE_URL/functions/v1/social-publish" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            -o "$body" -w '%{http_code}')
+
+          response=$(cat "$body")
+          echo "$response"
+
+          case "$code" in
+            200) ;;
+            503)
+              echo "::notice::The publishing worker is not configured yet, so nothing was attempted. This is expected until the Meta secrets are set."
+              exit 0
+              ;;
+            401)
+              echo "::error::The worker rejected CRON_SECRET. The repository secret and the Supabase secret have diverged."
+              exit 1
+              ;;
+            *)
+              echo "::error::The publishing worker answered HTTP $code."
+              exit 1
+              ;;
+          esac
+
+          # Surface the two states that need a person. Everything else is
+          # ordinary operation and does not deserve a red run.
+          review=$(printf '%s' "$response" | grep -o '"needs_manual_review":[0-9]*' | head -1 | cut -d: -f2)
+          withheld=$(printf '%s' "$response" | grep -o '"withheld_for_connection":[0-9]*' | head -1 | cut -d: -f2)
+
+          if [ -n "$review" ] && [ "$review" -gt 0 ]; then
+            echo "::warning::$review attempt(s) were parked and need manual review — a post may or may not exist."
+          fi
+          if [ -n "$withheld" ] && [ "$withheld" -gt 0 ]; then
+            echo "::warning::$withheld due slot(s) were withheld because their platform holds no live OAuth grant. Reconnect the account."
+          fi

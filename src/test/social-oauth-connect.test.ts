@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { PLATFORMS } from "@/lib/publishing/types";
+import { PLATFORMS } from "../../supabase/functions/_shared/publishing/types.ts";
 
 // Phase 9, step 3 — the connection flow, before any platform is configured.
 //

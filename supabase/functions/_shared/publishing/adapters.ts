@@ -20,8 +20,8 @@ import type {
   Platform,
   PublishAdapter,
   PublishRequest,
-} from "./types";
-import { PLATFORMS } from "./types";
+} from "./types.ts";
+import { PLATFORMS } from "./types.ts";
 
 /** The code every real platform answers with today. */
 export const NOT_CONFIGURED = "adapter_not_configured";

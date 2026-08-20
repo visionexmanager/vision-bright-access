@@ -50,6 +50,16 @@ verify_jwt = false
 [functions.social-oauth]
 verify_jwt = false
 
+# The publishing worker is driven by a scheduled GitHub Actions job, which
+# presents CRON_SECRET rather than a Supabase JWT — the gateway would reject it
+# before the function ran, and the queue would simply never drain.
+#
+# It fails CLOSED instead: with CRON_SECRET unset the function answers 503 to
+# everyone, and with it set every request must carry it. That is stricter than
+# the pattern trial-billing uses, deliberately, because an unauthenticated
+# request here posts to the company's public accounts.
+[functions.social-publish]
+=======
 # Messenger and Instagram Direct deliveries come from Meta, which cannot present
 # a Supabase JWT — gateway verification would reject every inbound customer
 # message before the function ran.

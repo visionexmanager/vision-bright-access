@@ -32,8 +32,8 @@ import type {
   PublishAdapter,
   PublishRequest,
   PublishingPorts,
-} from "./types";
-import { NOT_CONFIGURED } from "./adapters";
+} from "./types.ts";
+import { NOT_CONFIGURED } from "./adapters.ts";
 
 /** Returned by the timeout race. Not an outcome — an absence of one. */
 const TIMED_OUT = "__publish_timed_out__" as const;
@@ -242,7 +242,7 @@ export async function runPublishBatch(
       // because four posts are waiting on a reconnection" are different
       // operational facts, and only the second one needs a human. Kept as the
       // last element rather than thrown away, then the loop still stops.
-      if (report.withheldForConnection > 0) reports.push(report);
+      if ((report.withheldForConnection ?? 0) > 0) reports.push(report);
       break;
     }
     reports.push(report);

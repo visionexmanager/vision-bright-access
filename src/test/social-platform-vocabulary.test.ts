@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { PLATFORMS } from "@/lib/publishing/types";
-import { defaultAdapters } from "@/lib/publishing/adapters";
+import { PLATFORMS } from "../../supabase/functions/_shared/publishing/types.ts";
+import { defaultAdapters } from "../../supabase/functions/_shared/publishing/adapters.ts";
 
 // Phase 9, step 1 — the platform vocabulary, before any connection exists.
 //
