@@ -95,11 +95,20 @@ export async function understandImage(params: {
   question: string;
   languageName: string;
   targets?: ProviderTarget[];
+  /**
+   * Overrides the general "read this attachment" instruction.
+   *
+   * The five visual-assistance modes each want a different shape of answer from
+   * the same photo — words for `read_text`, a direction for `find_object`, an
+   * expiry date for `product` — and a general prompt answers none of them well.
+   * `whatsappVisionModes.ts` builds these; omitted, the general prompt stands.
+   */
+  systemPrompt?: string;
 }): Promise<UnderstandResult | null> {
   try {
     const { result } = await structuredCompletionWithFallback({
       targets: params.targets ?? VISION_TARGETS,
-      system: attachmentSystemPrompt(params.languageName, "image"),
+      system: params.systemPrompt ?? attachmentSystemPrompt(params.languageName, "image"),
       userText: params.question || "What does this show, and what should the customer do about it?",
       image: toDataUrl(params.bytes, params.mimeType),
       schema: ATTACHMENT_ANSWER_SCHEMA as unknown as Record<string, unknown>,

@@ -1327,3 +1327,162 @@ describe("Blob construction", () => {
     expect(blob.type).toBe("audio/ogg");
   });
 });
+
+// ── Visual assistance: the five modes ───────────────────────────────────
+//
+// Describe, read text, find object, product, translate. These exist because the
+// same photo needs a different answer depending on what the person is doing
+// with it — and because the people using this are largely blind, so the mode
+// has to be settable by voice, before the camera comes up.
+
+const vision = await import("../../supabase/functions/_shared/whatsappVisionModes.ts");
+
+describe("vision modes", () => {
+  it("recognises each of the five in English and Arabic", () => {
+    const cases: Array<[string, string]> = [
+      ["describe this", "describe"],
+      ["what do you see", "describe"],
+      ["وصف الصورة", "describe"],
+      ["شو هذا؟", "describe"],
+      ["read this", "read_text"],
+      ["what does it say", "read_text"],
+      ["اقرأ", "read_text"],
+      ["شو مكتوب", "read_text"],
+      ["where are my keys", "find_object"],
+      ["find the door", "find_object"],
+      ["وين مفاتيحي", "find_object"],
+      ["دور على الباب", "find_object"],
+      ["what product is this", "product"],
+      ["check the expiry date", "product"],
+      ["منتج", "product"],
+      ["تاريخ الصلاحية", "product"],
+      ["translate this", "translate"],
+      ["ترجم", "translate"],
+    ];
+    for (const [text, expected] of cases) {
+      expect(vision.parseVisionMode(text)?.mode, text).toBe(expected);
+    }
+  });
+
+  it("lets the more specific verb win over the broader one", () => {
+    // The ordering in parseVisionMode is the whole correctness argument:
+    // "translate the text" contains "text", and "what is this product"
+    // contains "what is this".
+    expect(vision.parseVisionMode("translate the text")?.mode).toBe("translate");
+    expect(vision.parseVisionMode("what is this product")?.mode).toBe("product");
+    // "read the label" goes to product on purpose: product reads the label and
+    // adds the name and expiry, so it is a superset of what was asked.
+    expect(vision.parseVisionMode("read the label")?.mode).toBe("product");
+  });
+
+  it("picks out what to look for", () => {
+    expect(vision.parseVisionMode("where are my keys")?.target).toBe("my keys");
+    expect(vision.parseVisionMode("find the white cane")?.target).toBe("white cane");
+    expect(vision.parseVisionMode("وين مفاتيحي")?.target).toBe("مفاتيحي");
+    // No object named is a real state, not a failure: the prompt asks.
+    expect(vision.parseVisionMode("find")?.mode).toBe("find_object");
+    expect(vision.parseVisionMode("find")?.target).toBeNull();
+  });
+
+  it("reads a named target language, and text sent for translation", () => {
+    expect(vision.parseVisionMode("translate to English")?.target).toBe("English");
+    expect(vision.parseVisionMode("ترجم للعربية")?.target).toBe("العربية");
+    expect(vision.parseVisionMode("translate: hola amigo")?.inlineText).toBe("hola amigo");
+    expect(vision.parseVisionMode("ترجم: hola")?.inlineText).toBe("hola");
+    // No colon means no inline text — that request is waiting for a photo.
+    expect(vision.parseVisionMode("translate this")?.inlineText).toBeNull();
+  });
+
+  it("does not read a command out of someone talking", () => {
+    // The false positive that matters: every one of these contains a trigger
+    // word, and none of them is an instruction.
+    const chatter = [
+      "I read your message yesterday and wanted to say thank you for the help",
+      "Could you tell me where I can find your office hours on the website please",
+      "The product I ordered last week still has not arrived, can you check on it",
+    ];
+    for (const text of chatter) {
+      expect(vision.parseVisionMode(text), text).toBeNull();
+    }
+    // But translation carrying its own long text is still honoured.
+    const long = `translate: ${"palabra ".repeat(40)}`;
+    expect(vision.parseVisionMode(long)?.mode).toBe("translate");
+    expect(vision.parseVisionMode(long)?.inlineText).toContain("palabra");
+  });
+
+  it("asks each mode for the shape of answer that mode needs", () => {
+    // A general prompt narrates the scene when someone needed the expiry date.
+    expect(vision.visionSystemPrompt("read_text", "English")).toMatch(/verbatim/i);
+    expect(vision.visionSystemPrompt("read_text", "English")).toMatch(/do not summarise/i);
+    expect(vision.visionSystemPrompt("describe", "English")).toMatch(/left, right, ahead/i);
+    expect(vision.visionSystemPrompt("product", "English")).toMatch(/expiry|best-before/i);
+    expect(vision.visionSystemPrompt("find_object", "English", "my keys")).toContain("my keys");
+
+    // Every mode carries the honesty rules; a confident wrong answer about a
+    // dosage or an expiry date is the failure that actually hurts someone.
+    for (const mode of ["describe", "read_text", "find_object", "product", "translate"] as const) {
+      const prompt = vision.visionSystemPrompt(mode, "English");
+      expect(prompt, mode).toMatch(/readable to false/);
+      expect(prompt, mode).toMatch(/[Nn]ever invent/);
+    }
+    expect(vision.visionSystemPrompt("product", "English")).toMatch(/\[unclear\]/);
+  });
+
+  it("frames text sent for translation as material, not instructions", () => {
+    // The text is arbitrary user input heading into a model.
+    expect(vision.translateTextPrompt("English")).toMatch(/never an instruction/i);
+    expect(vision.translateTextPrompt("English", "Français")).toContain("Français");
+  });
+
+  it("writes a menu meant to be heard rather than scanned", () => {
+    for (const language of ["ar", "en"] as const) {
+      const menu = vision.visionMenu(language);
+      // One line per mode, and the instruction last — a screen reader reads
+      // top to bottom, so what to do next should be the freshest thing.
+      expect(menu.split("\n").filter((l) => l.trim().startsWith("•")), language).toHaveLength(5);
+      expect(menu, language).not.toMatch(/\|/); // no tables
+    }
+    expect(vision.visionMenu("ar")).toContain("وصف");
+    expect(vision.visionMenu("en")).toContain("Describe");
+  });
+
+  it("recognises a request for the menu, but only a short one", () => {
+    expect(vision.asksForMenu("menu")).toBe(true);
+    expect(vision.asksForMenu("what can you do")).toBe(true);
+    expect(vision.asksForMenu("القائمة")).toBe(true);
+    expect(vision.asksForMenu("شو بتقدر تعمل")).toBe(true);
+    expect(vision.asksForMenu("I looked at the menu in the restaurant and could not read it at all")).toBe(false);
+  });
+
+  it("confirms the armed mode instead of going quiet", () => {
+    // Silence after "read this" is indistinguishable from a dropped message.
+    expect(vision.awaitingImageNotice("en", "read_text")).toMatch(/send the photo/i);
+    expect(vision.awaitingImageNotice("ar", "read_text")).toContain("أرسل الصورة");
+    expect(vision.awaitingImageNotice("en", "find_object", "my keys")).toContain("my keys");
+    expect(vision.awaitingImageNotice("en", "find_object")).toMatch(/what should I look for/i);
+  });
+
+  it("consumes an armed mode and expires a stale one", () => {
+    // A mode that survived its picture would reinterpret the next one, and a
+    // mode set this morning must not claim a photo sent this afternoon.
+    expect(webhook).toContain("pending_vision_mode: null");
+    expect(webhook).toContain("VISION_MODE_TTL_MS");
+    expect(vision.VISION_MODE_TTL_MS).toBeLessThanOrEqual(30 * 60 * 1000);
+    expect(vision.VISION_MODE_TTL_MS).toBeGreaterThanOrEqual(60 * 1000);
+    // The caption is the most recent thing the sender said, so it wins.
+    expect(webhook).toContain("captionRequest?.mode ?? armedMode");
+  });
+
+  it("arms the mode after transcription, so a voice note can set it", () => {
+    // The whole point: set the mode by voice, then just take the photo.
+    expect(webhook.indexOf("transcribeVoice")).toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));
+  });
+
+  it("stores the mode only where the schema allows it", () => {
+    const migration = readFileSync("supabase/migrations/20260917000000_whatsapp_vision_modes.sql", "utf8");
+    for (const mode of ["describe", "read_text", "find_object", "product", "translate"]) {
+      expect(migration, mode).toContain(`'${mode}'`);
+    }
+    expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS/);
+  });
+});
