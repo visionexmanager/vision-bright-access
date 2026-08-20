@@ -768,6 +768,24 @@ describe("attachment understanding", () => {
     expect(source.indexOf('provider: "gemini"')).toBeLessThan(source.indexOf('provider: "openai"'));
   });
 
+  it("gives a text document a fallback provider", () => {
+    // A text document carries no image, so nothing about it requires the one
+    // provider this project does not treat as verified. It used to share the
+    // PDF chain, which is Gemini-only by necessity — leaving the single path
+    // that needs no vision as the single path with no fallback.
+    // Asserted against the source, not the module: whatsappUnderstand.ts
+    // imports the Deno provider layer and cannot be loaded under Node.
+    const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
+    expect(source).toContain("export const DOCUMENT_TEXT_TARGETS: ProviderTarget[] = VISION_TARGETS;");
+    expect(source).toContain('shape === "text" ? DOCUMENT_TEXT_TARGETS : DOCUMENT_TARGETS');
+
+    // VISION_TARGETS is the chain it borrows, so it inherits a real fallback.
+    const vision = source.slice(source.indexOf("export const VISION_TARGETS"));
+    const block = vision.slice(0, vision.indexOf("];"));
+    expect(block).toContain('provider: "openai"');
+    expect(block).toContain('provider: "gemini"');
+  });
+
   it("tells the user what to do when an attachment cannot be read", () => {
     expect(understand.unreadableNotice("en", "image")).toMatch(/sharper photo/i);
     expect(understand.unreadableNotice("ar", "document")).toMatch(/PDF/);

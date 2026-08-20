@@ -25,10 +25,30 @@ export const VISION_TARGETS: ProviderTarget[] = [
   { provider: "openai", model: "gpt-4o-mini" },
 ];
 
-/** Documents lean on Gemini, which reads PDFs natively. */
+/**
+ * PDFs lean on Gemini, which reads them natively.
+ *
+ * Gemini alone, because it is the only provider in this project's layer that
+ * takes a PDF at all: `structuredOpenAICompatible` sends a `data:` URL as
+ * `image_url`, and OpenAI rejects `application/pdf` there. So a PDF is
+ * Gemini-or-nothing, and "nothing" is `unreadableNotice` rather than a guess.
+ */
 export const DOCUMENT_TARGETS: ProviderTarget[] = [
   { provider: "gemini", model: "gemini-flash-latest" },
 ];
+
+/**
+ * A text document is decoded here and travels as text, so it carries no image
+ * and any chat model can read it.
+ *
+ * Sending it down the PDF chain gave the one attachment path that needs no
+ * vision the *only* chain with no fallback: a single Gemini outage — or an
+ * unfunded key, which is why `gemini` is absent from `DEFAULT_PROVIDER_ORDER`
+ * in `careerAiOrchestrator.ts` — turned a plain `.txt` into "I couldn't read
+ * that file", a message that then blames the customer's format. Same targets
+ * as an image, for the same reason.
+ */
+export const DOCUMENT_TEXT_TARGETS: ProviderTarget[] = VISION_TARGETS;
 
 export interface UnderstandResult {
   readable: boolean;
@@ -132,7 +152,7 @@ export async function understandDocument(params: {
 
   try {
     const { result } = await structuredCompletionWithFallback({
-      targets: params.targets ?? DOCUMENT_TARGETS,
+      targets: params.targets ?? (shape === "text" ? DOCUMENT_TEXT_TARGETS : DOCUMENT_TARGETS),
       system: attachmentSystemPrompt(params.languageName, "document"),
       userText,
       image,
