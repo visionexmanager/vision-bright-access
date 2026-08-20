@@ -1244,8 +1244,25 @@ describe("the publishing surface is exactly one worker", () => {
     const workflows = existsSync(".github/workflows")
       ? readdirSync(".github/workflows").filter((f) => /\.ya?ml$/.test(f))
       : [];
-    expect(workflows.filter((f) => /publish|social|reap/i.test(f)))
-      .toEqual(["social-publish-cron.yml"]);
+    // Two files match the family now, and only one of them can publish. The
+    // claim worth defending was never "one file whose name matches a regex" —
+    // it is that there is exactly one surface capable of putting a post on a
+    // platform. `social-publish-inspect.yml` reads the queue and nothing else,
+    // and the assertions below are what make that a fact rather than a promise:
+    // renaming it out of the pattern would have passed this test while leaving
+    // the real invariant unguarded.
+    expect(workflows.filter((f) => /publish|social|reap/i.test(f)).sort())
+      .toEqual(["social-publish-cron.yml", "social-publish-inspect.yml"]);
+
+    const inspect = readFileSync(".github/workflows/social-publish-inspect.yml", "utf8");
+    // It cannot reach the worker, so it cannot cause a publish indirectly.
+    expect(inspect, "the inspector must not call the publishing worker")
+      .not.toMatch(/functions\/v1\/social-publish/);
+    // Every statement it runs is a SELECT.
+    expect(inspect, "the inspector must not write")
+      .not.toMatch(/\b(insert|update|delete|drop|alter|truncate)\s+/i);
+    // And it never runs on its own.
+    expect(inspect, "the inspector must stay manual").not.toMatch(/^\s*schedule:/m);
 
     const cron = readFileSync(".github/workflows/social-publish-cron.yml", "utf8");
     // Every credential arrives from the secret store, never as a literal.
