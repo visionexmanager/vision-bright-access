@@ -57,7 +57,7 @@ export default function Games() {
     <Layout>
       <div className="min-h-screen bg-[#070914] text-white">
         <section className="relative isolate min-h-[560px] overflow-hidden border-b border-white/10">
-          <img src={arcadeHero} alt="" className="absolute inset-0 -z-20 h-full w-full object-cover object-center" width={1672} height={941} fetchPriority="high" decoding="async" />
+          <img src={arcadeHero} alt="" className="absolute inset-0 -z-20 h-full w-full object-cover object-center" width={1672} height={941} {...{ fetchpriority: "high" }} decoding="async" />
           <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#070914] via-[#070914]/85 to-[#070914]/15 rtl:bg-gradient-to-l" />
           <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[#070914] via-transparent to-black/25" />
           <div className="section-container flex min-h-[560px] items-center py-16">

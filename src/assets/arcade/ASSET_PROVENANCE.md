@@ -1,5 +1,43 @@
 # Visionex Arcade asset provenance
 
+## Sudoku cover (2026-08-19)
+
+`game-sudoku-v1.svg` is an original code-authored 1920×1080 vector composition
+made for Visionex Arcade, with no third-party marks, fonts, photos, remote
+resources or embedded metadata. The digits it draws are decorative and belong to
+no particular puzzle; it uses generic system monospace, so no font is embedded.
+It replaces the LogiQuest cover, which Sudoku had been reusing.
+
+## Bubble Shooter cover (2026-08-19)
+
+`game-bubble-shooter-v1.svg` is an original code-authored 1920×1080 vector
+composition made for Visionex Arcade, with no third-party marks, characters,
+fonts, photos, remote resources or embedded metadata, and no text to localise.
+It replaces the Reaction Test cover, which Bubble Shooter had been reusing.
+
+## Block Stacker cover (2026-08-19)
+
+`game-block-stacker-v1.svg` is an original code-authored 1920×1080 vector
+composition made for Visionex Arcade, with no third-party marks, characters,
+fonts, photos, remote resources or embedded metadata, and no text to localise.
+It replaces the LogiQuest cover, which Block Stacker had been reusing. The
+game's piece set, palette, naming and scoring are Visionex's own: falling-block
+puzzles are a genre, and nothing here is taken from another publisher's game.
+
+## Breakout cover (2026-08-19)
+
+`game-breakout-v1.svg` is an original code-authored 1920×1080 vector composition
+made for Visionex Arcade, under the same no-third-party-content conditions as the
+other vector covers, and with no text to localise. It replaces the Neon Breach
+cover, which Breakout had been reusing.
+
+## Snake cover (2026-08-19)
+
+`game-snake-v1.svg` is an original code-authored 1920×1080 vector composition
+made for Visionex Arcade. It contains no third-party marks, characters, fonts,
+photos, remote resources or embedded metadata, and no text, so it needs no
+localisation. It replaces the Neon Breach cover, which Snake had been reusing.
+
 ## Premium cognition covers — production pack 8 (2026-08-13)
 
 `game-quiz-challenge-premium-v2.webp` and `game-memory-premium-v2.webp` were created specifically for Visionex Arcade with ChatGPT built-in image generation. The accepted images contain no text, logos, brands, flags, copyrighted characters, or identifiable people. Sources were visually inspected, stripped of metadata, resized to 1920×1080, and encoded as WebP quality-84 production derivatives.

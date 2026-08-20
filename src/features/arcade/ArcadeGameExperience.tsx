@@ -55,6 +55,23 @@ function ArcadeGameRuntime({ children, gameId }: { children: ReactNode; gameId:s
       window.removeEventListener("keydown", unlock);
     };
   }, []);
+  const paused = runtime.status === "paused";
+  useEffect(() => {
+    if (!paused) return;
+    const swallow = (event: KeyboardEvent) => {
+      if (event.key === "Escape" || event.altKey || event.ctrlKey || event.metaKey || event.key === "Tab") return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-arcade-chrome]")) return;
+      event.stopPropagation();
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", swallow, true);
+    window.addEventListener("keyup", swallow, true);
+    return () => {
+      window.removeEventListener("keydown", swallow, true);
+      window.removeEventListener("keyup", swallow, true);
+    };
+  }, [paused]);
   useEffect(() => {
     applyGraphicsProfile();
     const refresh = () => applyGraphicsProfile();
@@ -81,7 +98,7 @@ function ArcadeGameRuntime({ children, gameId }: { children: ReactNode; gameId:s
               <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{copy.title}</h1>
               <p className="mt-2 max-w-2xl text-slate-300">{copy.description}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div data-arcade-chrome className="flex flex-wrap gap-2">
               <Button variant="outline" className="border-white/15 bg-black/20 text-white hover:bg-white/10 hover:text-white" onClick={() => { const message = runtime.status === "paused" ? "Game resumed." : "Game paused."; if (runtime.status === "paused") gameManager.resume(); else gameManager.pause(); announce(message); accessibilityAudio.announce(message, "status"); }} aria-pressed={runtime.status === "paused"}>{runtime.status === "paused" ? <Play className="me-2 h-4 w-4" /> : <Pause className="me-2 h-4 w-4" />}{runtime.status === "paused" ? "Resume" : "Pause"}</Button>
               <Button variant="outline" className="border-white/15 bg-black/20 text-white hover:bg-white/10 hover:text-white" onClick={() => { gameManager.restart(); announce("Game restarted.", "assertive"); accessibilityAudio.announce("Game restarted.", "instructions"); }}><RotateCcw className="me-2 h-4 w-4" />Restart</Button>
               <Button variant="outline" className="border-white/15 bg-black/20 text-white hover:bg-white/10 hover:text-white" aria-pressed={favorite} onClick={() => setFavorite(toggleFavoriteGame(gameId).includes(gameId))}><Heart className={`me-2 h-4 w-4 ${favorite ? "fill-rose-400 text-rose-400" : ""}`} />{favorite ? "Saved" : "Favorite"}</Button>
@@ -94,10 +111,13 @@ function ArcadeGameRuntime({ children, gameId }: { children: ReactNode; gameId:s
               <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400" aria-hidden="true" />Ready to play</span>
               <span>Visionex Arcade Secure Session</span>
             </div>
-            <div className={`relative min-h-[55vh] ${runtime.status === "paused" ? "pointer-events-none select-none opacity-40" : ""}`} aria-busy={runtime.status === "loading"} aria-label={runtime.status === "paused" ? "Game paused" : undefined}>
-              {runtime.status === "loading" && <div className="arcade-loading absolute inset-0 z-20 grid place-items-center bg-slate-950 bg-cover bg-center text-white" style={{ backgroundImage:`linear-gradient(rgba(7,9,20,.42),rgba(7,9,20,.8)),url(${arcadeLoadingBackground})` }} role="status"><div className="text-center"><span className="arcade-loading__ring mx-auto block h-12 w-12 rounded-full border-4 border-white/20 border-t-cyan-300" aria-hidden="true" /><p className="mt-4 font-semibold">Loading game…</p></div></div>}
-              <EmbeddedLayout><div key={runtime.revision}>{children}</div></EmbeddedLayout>
-              {runtime.status === "completed" && <div data-arcade-result className="absolute inset-0 z-30 grid place-items-center bg-slate-950/90 p-6 text-center text-white backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="arcade-result-title"><div><Medal className="mx-auto h-12 w-12 text-amber-300" aria-hidden="true" /><h2 id="arcade-result-title" className="mt-3 text-2xl font-black">Round complete</h2><p className="mt-2 text-slate-300">Score: {runtime.score.toLocaleString(lang)}</p><Button className="arcade-pressable mt-5" onClick={() => gameManager.restart()}><RotateCcw className="me-2 h-4 w-4" />Play again</Button></div></div>}
+            <div className="relative min-h-[55vh]" aria-busy={runtime.status === "loading"}>
+              <div className={paused ? "pointer-events-none select-none opacity-30" : ""} {...(paused ? { inert: "" } : {})}>
+                {runtime.status === "loading" && <div className="arcade-loading absolute inset-0 z-20 grid place-items-center bg-slate-950 bg-cover bg-center text-white" style={{ backgroundImage:`linear-gradient(rgba(7,9,20,.42),rgba(7,9,20,.8)),url(${arcadeLoadingBackground})` }} role="status"><div className="text-center"><span className="arcade-loading__ring mx-auto block h-12 w-12 rounded-full border-4 border-white/20 border-t-cyan-300" aria-hidden="true" /><p className="mt-4 font-semibold">Loading game…</p></div></div>}
+                <EmbeddedLayout><div key={runtime.revision}>{children}</div></EmbeddedLayout>
+              </div>
+              {paused && <div data-arcade-chrome data-arcade-paused className="absolute inset-0 z-30 grid place-items-center bg-slate-950/80 p-6 text-center text-white backdrop-blur-sm" role="dialog" aria-modal="false" aria-labelledby="arcade-paused-title"><div><Pause className="mx-auto h-10 w-10 text-cyan-300" aria-hidden="true" /><h2 id="arcade-paused-title" className="mt-3 text-2xl font-black">{lang === "ar" ? "اللعبة متوقفة مؤقتاً" : "Game paused"}</h2><p className="mt-2 text-sm text-slate-300">{lang === "ar" ? "لا يصل أي إدخال إلى اللعبة أثناء الإيقاف." : "No input reaches the game while it is paused."}</p><Button className="arcade-pressable mt-5" onClick={() => { gameManager.resume(); announce("Game resumed."); accessibilityAudio.announce("Game resumed.", "status"); }}><Play className="me-2 h-4 w-4" aria-hidden="true" />{lang === "ar" ? "متابعة" : "Resume"}</Button></div></div>}
+              {runtime.status === "completed" && <div data-arcade-chrome data-arcade-result className="absolute inset-0 z-30 grid place-items-center bg-slate-950/90 p-6 text-center text-white backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="arcade-result-title"><div><Medal className="mx-auto h-12 w-12 text-amber-300" aria-hidden="true" /><h2 id="arcade-result-title" className="mt-3 text-2xl font-black">Round complete</h2><p className="mt-2 text-slate-300">Score: {runtime.score.toLocaleString(lang)}</p><Button className="arcade-pressable mt-5" onClick={() => gameManager.restart()}><RotateCcw className="me-2 h-4 w-4" />Play again</Button></div></div>}
             </div>
           </section>
 

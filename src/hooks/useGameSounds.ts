@@ -417,6 +417,38 @@ export function akinatorWrong() {
   tone(280, 0.2, "square", 0.07);
 }
 
+// ─── Generic arcade cues ─────────────────────────────────────────────────────
+// Shared by the expansion library so a grid or reflex game does not have to
+// invent its own vocabulary. Each one is short enough to fire on every tick
+// without smearing into the next.
+
+/** A step, turn or cursor move — deliberately almost subliminal. */
+export function arcadeMove() {
+  tone(420, 0.04, "triangle", 0.03);
+}
+/** Picked something up: a short rising two-note blip. */
+export function arcadePickup() {
+  tone(660, 0.07, "square", 0.06);
+  setTimeout(() => tone(880, 0.09, "square", 0.05), 60);
+}
+/** Reached a new level or stage. */
+export function arcadeLevelUp() {
+  chord([523, 659, 784], 0.3, "triangle", 0.07);
+}
+/** Something is about to go wrong — a wall or hazard one step ahead. */
+export function arcadeDanger() {
+  tone(200, 0.12, "sawtooth", 0.05);
+}
+/** Crashed, failed or ran out. */
+export function arcadeCrash() {
+  filteredNoise(0.25, 900, 0.08);
+  sweep(360, 90, 0.35, "sawtooth", 0.07);
+}
+/** Finished the round successfully. */
+export function arcadeVictory() {
+  chord([523, 659, 784, 1047, 1319], 0.55, "triangle", 0.08);
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export type GameSoundFn = () => void;
@@ -517,5 +549,12 @@ export function useGameSounds() {
     akinatorThink:   wrap(akinatorThink),
     akinatorCorrect: wrap(akinatorCorrect),
     akinatorWrong:   wrap(akinatorWrong),
+    // Generic arcade cues, shared across the expansion library
+    arcadeMove:    wrap(arcadeMove),
+    arcadePickup:  wrap(arcadePickup),
+    arcadeLevelUp: wrap(arcadeLevelUp),
+    arcadeDanger:  wrap(arcadeDanger),
+    arcadeCrash:   wrap(arcadeCrash),
+    arcadeVictory: wrap(arcadeVictory),
   }), [wrap]);
 }
