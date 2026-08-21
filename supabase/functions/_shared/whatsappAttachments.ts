@@ -144,3 +144,88 @@ export function unsupportedDocumentNotice(language: "ar" | "en"): string {
     ? "لا أستطيع فتح ملفات Word حالياً. أرسله بصيغة PDF أو انسخ النص في رسالة."
     : "I can't open Word files yet. Send it as a PDF, or paste the text into a message.";
 }
+
+// ── PDF ──────────────────────────────────────────────────────────────────
+//
+// A PDF used to be Gemini-or-nothing: `structuredOpenAICompatible` sends a
+// `data:` URL as `image_url` and OpenAI rejects `application/pdf`, so with the
+// Gemini account unfunded `DOCUMENT_TARGETS` was empty and every PDF was
+// declined. The way out is not a second vendor — it is to stop sending the PDF
+// to a model at all. `npm:pdf-parse` extracts the text locally (the same
+// library `library-import-book` already runs in this runtime), and the text
+// then travels down the ordinary text chain that any chat model can read.
+//
+// The decisions live here, provider-free, so the suite can test them: how much
+// text is enough to count as extracted, how much of it the model sees, and what
+// to say when a PDF turns out to be photographs of paper.
+
+/**
+ * Characters of extracted PDF text handed to the model.
+ *
+ * Larger than `DOCUMENT_TEXT_BUDGET` because a PDF is usually the longer
+ * artefact — a contract, an invoice run, a manual — and the first 24 000
+ * characters of one can be entirely front matter. Still bounded: this is a
+ * support answer, not a document-processing service.
+ */
+export const PDF_TEXT_BUDGET = 40_000;
+
+/**
+ * Below this many characters, the extraction is treated as having failed.
+ *
+ * A scanned PDF is a stack of photographs with no text layer, and `pdf-parse`
+ * returns page breaks and stray ligatures for one rather than an error. Handing
+ * that fragment to a model produces a confident summary of nothing, which is
+ * the exact failure the `readable` flag exists to prevent — so it is caught
+ * here, before a model is ever asked.
+ */
+export const PDF_MIN_TEXT_CHARS = 120;
+
+/** And below this many characters *per page*, for a long document of images. */
+export const PDF_MIN_CHARS_PER_PAGE = 24;
+
+/**
+ * Whether extracted PDF text is worth sending to a model.
+ *
+ * Counts characters that carry meaning, not raw length: a scanned file often
+ * comes back as hundreds of newlines and form feeds, which passes a naive
+ * `length` check while containing nothing to read.
+ */
+export function pdfTextIsUsable(text: string, pageCount?: number | null): boolean {
+  // `\s` already covers the form feeds a PDF text layer is full of, and the
+  // non-breaking spaces, so spelling them out only puts a control character
+  // into the source that ESLint is right to object to.
+  const meaningful = text.replace(/\s+/g, " ").trim();
+  if (meaningful.length < PDF_MIN_TEXT_CHARS) return false;
+  if (pageCount && pageCount > 0 && meaningful.length / pageCount < PDF_MIN_CHARS_PER_PAGE) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Told to the user when a PDF is a scan.
+ *
+ * Deliberately not `unreadableNotice`, which advises sending a PDF — advice
+ * that cannot succeed for someone whose PDF is a photograph of a page. This
+ * names the route that does work, and it is a route this assistant is
+ * genuinely good at: the image path reads a photographed page well.
+ */
+export function scannedPdfNotice(language: "ar" | "en"): string {
+  return language === "ar"
+    ? "هذا الملف يبدو صوراً ممسوحة ضوئياً بدون نص يمكن استخراجه. صوّر الصفحة المهمة وأرسلها كصورة وسأقرأها لك."
+    : "That PDF looks like scanned images with no text layer. Photograph the page that matters and send it as a picture — I read those well.";
+}
+
+/** Told to the user when a PDF has pages but no words at all on them. */
+export function emptyDocumentNotice(language: "ar" | "en"): string {
+  return language === "ar"
+    ? "الملف وصل لكنه فارغ — لا يوجد نص لأقرأه. تأكد من إرسال الملف الصحيح."
+    : "The file arrived but it's empty — there's no text in it to read. Check you sent the file you meant to.";
+}
+
+/** Told to the user when a PDF is password-protected. */
+export function encryptedDocumentNotice(language: "ar" | "en"): string {
+  return language === "ar"
+    ? "هذا الملف محمي بكلمة مرور فلا أستطيع فتحه. احفظ نسخة بدون حماية وأرسلها، أو انسخ النص المهم في رسالة."
+    : "That file is password-protected, so I can't open it. Save an unprotected copy and send that, or paste the part that matters into a message.";
+}

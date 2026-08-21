@@ -58,12 +58,51 @@ import {
   VIDEO_READING_AVAILABLE,
 } from "../_shared/whatsappUnderstand.ts";
 import {
+  emptyDocumentNotice,
+  encryptedDocumentNotice,
   MAX_VIDEO_BYTES,
   noReaderNotice,
+  scannedPdfNotice,
   unreadableNotice,
   unsupportedDocumentNotice,
   videoTooLongNotice,
 } from "../_shared/whatsappAttachments.ts";
+import { capabilityMenu } from "../_shared/whatsappCapabilities.ts";
+import {
+  fetchNearby,
+  fetchWeather,
+  geocodePlace,
+  reverseGeocode,
+} from "../_shared/whatsappGeo.ts";
+import {
+  asksWhatIsNearby,
+  asksWhereAmI,
+  formatNearby,
+  formatWhereYouAre,
+  geocodeUnavailableNotice,
+  isUsableCoordinate,
+  LOCATION_TTL_MS,
+  locationNeededNotice,
+  nearbyHint,
+  placeLabel,
+  shortPlaceLabel,
+} from "../_shared/whatsappLocation.ts";
+import {
+  formatWeather,
+  parseWeatherRequest,
+  placeNotFoundNotice,
+  weatherNeedsPlaceNotice,
+  weatherUnavailableNotice,
+} from "../_shared/whatsappWeather.ts";
+import {
+  bazaarUnavailableNotice,
+  browseNotice,
+  formatListings,
+  noListingsNotice,
+  parseBazaarRequest,
+  sellGuidance,
+  type BazaarListing,
+} from "../_shared/whatsappBazaar.ts";
 import {
   hasPreferenceChange,
   parsePreferenceRequest,
@@ -377,7 +416,7 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at")
+        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -399,6 +438,18 @@ Deno.serve(async (req) => {
           .eq("id", conversationId);
       }
 
+      // What the transcript records for a message with no text of its own.
+      //
+      // A pin is logged as `[location]` and nothing more: the coordinates live
+      // in their own columns, which are cleared on their own short clock, and
+      // copying them into a transcript kept for ninety days would quietly undo
+      // that. The kind is also named where it was not before — an attachment
+      // with no caption used to be filed as the literal string
+      // `[undefined]`, which tells whoever reads the transcript nothing.
+      const transcriptBody = incoming.text
+        || (incoming.location ? "[location]" : "")
+        || `[${incoming.unsupportedType ?? incoming.media?.kind ?? "empty"}]`;
+
       // Meta redelivers on any non-200, so the same message id can arrive
       // twice. The unique index on wa_message_id makes the retry a no-op
       // instead of a second AI call and a duplicate reply.
@@ -406,7 +457,7 @@ Deno.serve(async (req) => {
         conversation_id: conversationId,
         direction: "inbound",
         wa_message_id: incoming.messageId,
-        body: incoming.text || `[${incoming.unsupportedType}]`,
+        body: transcriptBody,
       });
       if (dupe) {
         if (dupe.code === "23505") continue;
@@ -455,8 +506,17 @@ Deno.serve(async (req) => {
             .order("created_at", { ascending: false }).limit(REPEAT_LIMIT),
         ]);
 
-        const body = incoming.text || `[${incoming.unsupportedType}]`;
-        const repeatCount = (recent ?? []).filter((row) => row.body === body).length;
+        // Only *text* can repeat in the sense this limit means.
+        //
+        // The rule exists to stop a client stuck in a resend loop, and genuine
+        // redelivery is already a no-op via the unique `wa_message_id`. But an
+        // attachment with no caption is logged by its kind, so three photos in
+        // a row are three identical bodies — and three photos in a row is the
+        // most ordinary thing a blind sender does here. Counting those silenced
+        // exactly the person this assistant is for, for fifteen minutes.
+        const repeatCount = incoming.text
+          ? (recent ?? []).filter((row) => row.body === transcriptBody).length
+          : 0;
 
         const verdict = rateLimitDecision({
           now: nowMs,
@@ -491,6 +551,7 @@ Deno.serve(async (req) => {
       if (isNew) {
         await reply(welcomeFor(language), "welcome");
         await reply(visionMenu(language), "welcome");
+        await reply(capabilityMenu(language), "welcome");
       }
 
       // ── Preferences ───────────────────────────────────────────────────
@@ -523,6 +584,101 @@ Deno.serve(async (req) => {
       // Attachments answer directly, so they need the reply language here
       // rather than further down where the text pipeline resolves it.
       const answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);
+
+      /**
+       * Which of the two canned-notice languages the new capabilities use.
+       *
+       * `language` above comes from this one message, so somebody who set
+       * Arabic and then typed one English word would get an English forecast.
+       * These features answer in the language the conversation settled on.
+       */
+      const noticeLanguage = answerLanguage === "ar" ? "ar" : "en";
+
+      /**
+       * Whether a person now owns this conversation.
+       *
+       * The triage section makes this same check, but far below — after every
+       * capability added here. A forecast or a product list arriving in the
+       * middle of a conversation with a human is exactly the two-voices
+       * confusion that check exists to prevent, so the new paths honour it at
+       * their own entry points. Anything that falls through still meets the
+       * original check downstream, which is why they need no reply of their own.
+       */
+      const humanOwnsThis = existing?.control === "human" || existing?.escalated === true;
+
+      // ── A shared pin ──────────────────────────────────────────────────
+      //
+      // Answered before the attachment block because a location carries no
+      // media id — there is nothing to download — and answered at all because
+      // the alternative, which is what shipped before this, was to tell
+      // somebody who had just said precisely where they were standing that
+      // their message could not be read.
+      //
+      // The coordinates are also kept, briefly, so the next question does not
+      // need a second pin. See the six-hour ceiling in `whatsappLocation.ts`
+      // and the erasure job in the migration.
+      if (incoming.location) {
+        // The pin is already in the transcript, where the person handling
+        // the conversation can see it. A second voice answering it is not help.
+        if (humanOwnsThis) continue;
+        const { latitude, longitude } = incoming.location;
+        if (!isUsableCoordinate(latitude, longitude)) {
+          await reply(unsupportedTypeNotice(noticeLanguage, "location"), "unsupported");
+          continue;
+        }
+
+        const place = await reverseGeocode(latitude, longitude, noticeLanguage);
+        if (!place) {
+          await reply(geocodeUnavailableNotice(noticeLanguage), "unsupported");
+          continue;
+        }
+
+        const label = placeLabel(place, incoming.location.name ?? incoming.location.address);
+        await db
+          .from("whatsapp_conversations")
+          .update({
+            last_latitude: latitude,
+            last_longitude: longitude,
+            last_place: label || null,
+            last_location_at: new Date().toISOString(),
+          })
+          .eq("id", conversationId);
+
+        await reply(
+          [
+            formatWhereYouAre({
+              language: noticeLanguage,
+              place,
+              pinName: incoming.location.name,
+              pinAddress: incoming.location.address,
+              latitude,
+              longitude,
+            }),
+            "",
+            nearbyHint(noticeLanguage),
+          ].join("\n"),
+          "reply",
+        );
+
+        // The weather follows as its own message rather than being appended.
+        // It is a second topic, and a screen reader reads one message at a
+        // time. A failure here costs the forecast, never the location answer
+        // that has already been sent.
+        const reading = await fetchWeather(latitude, longitude);
+        if (reading) {
+          await reply(
+            formatWeather({
+              language: noticeLanguage,
+              placeName: shortPlaceLabel(place, incoming.location.name) || label,
+              current: reading.current,
+              daily: reading.daily,
+              includeForecast: false,
+            }),
+            "reply",
+          );
+        }
+        continue;
+      }
 
       if (incoming.media) {
         if (!token) {
@@ -634,12 +790,23 @@ Deno.serve(async (req) => {
             languageName: LANGUAGE_ENDONYM[answerLanguage],
           });
           if (!read.ok) {
+            // Each reason needs a different thing from the sender, so each one
+            // says a different thing back. A scan needs a photograph of the
+            // page — which this assistant reads well — an empty file needs a
+            // different file, a protected one needs an unprotected copy, and a
+            // provider fault needs nothing from them at all.
             await reply(
               read.reason === "unreadable_format"
                 ? unsupportedDocumentNotice(language)
-                : read.reason === "no_reader"
-                  ? noReaderNotice(language, "document")
-                  : unreadableNotice(language, "document"),
+                : read.reason === "scanned_pdf"
+                  ? scannedPdfNotice(language)
+                  : read.reason === "encrypted_pdf"
+                    ? encryptedDocumentNotice(language)
+                    : read.reason === "empty"
+                      ? emptyDocumentNotice(language)
+                      : read.reason === "no_reader"
+                        ? noReaderNotice(language, "document")
+                        : unreadableNotice(language, "document"),
               "unsupported",
             );
             continue;
@@ -712,6 +879,133 @@ Deno.serve(async (req) => {
       // least afford.
       if (asksForMenu(questionText)) {
         await reply(visionMenu(language), "reply");
+        await reply(capabilityMenu(language), "reply");
+        continue;
+      }
+
+      // ── Where am I, what's around me, what's the weather ───────────────
+      //
+      // Placed ahead of the visual-assistance modes on purpose. "وين أقرب
+      // صيدلية" and "وين مفاتيحي" both open with وين, and only the second is
+      // waiting for a photograph — matching the more specific phrase first is
+      // what stops "where's the nearest pharmacy" arming the camera and then
+      // sitting there for ten minutes waiting for a picture that never comes.
+      //
+      // Reached with `questionText`, so every one of these works spoken: a
+      // voice note has already become text by this point, which for this
+      // audience is the difference between a feature and a demo.
+
+      /** The pin on file, if it is recent enough to still be where they are. */
+      const rememberedLocation = (() => {
+        const at = existing?.last_location_at
+          ? Date.parse(existing.last_location_at as string)
+          : 0;
+        const latitude = existing?.last_latitude as number | null | undefined;
+        const longitude = existing?.last_longitude as number | null | undefined;
+        if (!at || Date.now() - at > LOCATION_TTL_MS) return null;
+        if (!isUsableCoordinate(latitude, longitude)) return null;
+        return {
+          latitude: latitude as number,
+          longitude: longitude as number,
+          label: (existing?.last_place as string | null) ?? null,
+        };
+      })();
+
+      if (asksWhereAmI(questionText) && !humanOwnsThis) {
+        if (!rememberedLocation) {
+          await reply(locationNeededNotice(noticeLanguage), "reply");
+          continue;
+        }
+        // The cached label is why the pin's words were stored at all: asking
+        // again should not cost a second round trip to a map service.
+        const place = rememberedLocation.label
+          ? { locality: null, city: rememberedLocation.label, region: null, country: null }
+          : await reverseGeocode(rememberedLocation.latitude, rememberedLocation.longitude, noticeLanguage);
+        if (!place) {
+          await reply(geocodeUnavailableNotice(noticeLanguage), "unsupported");
+          continue;
+        }
+        await reply(
+          formatWhereYouAre({
+            language: noticeLanguage,
+            place,
+            latitude: rememberedLocation.latitude,
+            longitude: rememberedLocation.longitude,
+          }),
+          "reply",
+        );
+        continue;
+      }
+
+      if (asksWhatIsNearby(questionText) && !humanOwnsThis) {
+        if (!rememberedLocation) {
+          await reply(locationNeededNotice(noticeLanguage), "reply");
+          continue;
+        }
+        const nearby = await fetchNearby(
+          rememberedLocation.latitude,
+          rememberedLocation.longitude,
+          noticeLanguage,
+        );
+        // `null` is a failed lookup; `[]` is a genuinely unmapped area. Telling
+        // somebody standing outside a pharmacy that nothing is near them is
+        // false in a way they cannot check for themselves.
+        if (nearby === null) {
+          await reply(geocodeUnavailableNotice(noticeLanguage), "unsupported");
+          continue;
+        }
+        await reply(
+          formatNearby({ language: noticeLanguage, origin: rememberedLocation, places: nearby }),
+          nearby.length > 0 ? "reply" : "unsupported",
+        );
+        continue;
+      }
+
+      const weatherRequest = parseWeatherRequest(questionText);
+      if (weatherRequest && !humanOwnsThis) {
+        let latitude: number;
+        let longitude: number;
+        let placeName: string;
+
+        if (weatherRequest.place) {
+          const geocoded = await geocodePlace(weatherRequest.place);
+          if (!geocoded) {
+            await reply(placeNotFoundNotice(noticeLanguage, weatherRequest.place), "unsupported");
+            continue;
+          }
+          latitude = geocoded.latitude;
+          longitude = geocoded.longitude;
+          placeName = geocoded.name;
+        } else if (rememberedLocation) {
+          latitude = rememberedLocation.latitude;
+          longitude = rememberedLocation.longitude;
+          placeName = rememberedLocation.label ?? "";
+        } else {
+          // No city named and no pin on file. Asking is the only honest move:
+          // a forecast for the wrong continent reads exactly like a right one.
+          await reply(weatherNeedsPlaceNotice(noticeLanguage), "reply");
+          continue;
+        }
+
+        const reading = await fetchWeather(latitude, longitude);
+        if (!reading) {
+          await reply(weatherUnavailableNotice(noticeLanguage), "unsupported");
+          continue;
+        }
+        if (!placeName) {
+          const place = await reverseGeocode(latitude, longitude, noticeLanguage);
+          placeName = place ? shortPlaceLabel(place) : "";
+        }
+        await reply(
+          formatWeather({
+            language: noticeLanguage,
+            placeName: placeName || (language === "ar" ? "موقعك" : "your location"),
+            current: reading.current,
+            daily: reading.daily,
+            includeForecast: weatherRequest.forecast,
+          }),
+          "reply",
+        );
         continue;
       }
 
@@ -747,6 +1041,107 @@ Deno.serve(async (req) => {
           .eq("id", conversationId);
         await reply(awaitingImageNotice(language, visionRequest.mode, visionRequest.target), "reply");
         continue;
+      }
+
+      // ── Buying and selling ────────────────────────────────────────────
+      //
+      // Placed after the visual modes so "دوّر على مفاتيحي" keeps meaning the
+      // camera, and answered from the tables rather than the knowledge base
+      // because embedded prose does not know today's price or whether a thing
+      // is in stock — and a model asked anyway will supply both.
+      const bazaarRequest = parseBazaarRequest(questionText);
+      /**
+       * Set when a weak shopping guess found nothing, so the message falls
+       * through to the ordinary assistant instead of being answered.
+       *
+       * The alternative is telling somebody who asked "do you have a number I
+       * can call" that no products matched — technically true, and useless.
+       */
+      let bazaarFellThrough = false;
+      if (bazaarRequest && !humanOwnsThis) {
+        if (bazaarRequest.intent === "sell") {
+          await reply(sellGuidance(noticeLanguage), "reply");
+          continue;
+        }
+
+        try {
+          if (bazaarRequest.intent === "browse") {
+            const { count } = await db
+              .from("bazaar_products")
+              .select("id, bazaar_shops!inner(id)", { count: "exact", head: true })
+              .eq("bazaar_shops.is_active", true);
+            await reply(browseNotice(noticeLanguage, count ?? 0), "reply");
+            continue;
+          }
+
+          // Every term has already been stripped of everything that is not a
+          // letter, a digit or a space by `searchTerms`, which is what makes
+          // interpolating them into a PostgREST filter safe: a comma, a
+          // parenthesis or a quote cannot survive that far.
+          const filter = bazaarRequest.terms
+            .flatMap((term) => [`name.ilike.%${term}%`, `description.ilike.%${term}%`])
+            .join(",");
+
+          const { data: rows, error } = await db
+            .from("bazaar_products")
+            .select("name, description, price, in_stock, bazaar_shops!inner(name, is_active)")
+            .or(filter)
+            .eq("bazaar_shops.is_active", true)
+            .limit(25);
+          if (error) throw error;
+
+          type Row = {
+            name: string; description: string | null; price: number; in_stock: boolean | null;
+            bazaar_shops: { name: string | null } | { name: string | null }[] | null;
+          };
+
+          // OR at the database and ranked here, rather than AND at the
+          // database. "زيت زيتون" against a listing called "زيت الزيتون"
+          // matches both terms and should lead; a listing matching one term
+          // should still appear rather than vanishing into an empty result.
+          const scored = ((rows ?? []) as Row[])
+            .map((row) => {
+              const haystack = `${row.name} ${row.description ?? ""}`.toLowerCase();
+              const hits = bazaarRequest.terms.filter((term) => haystack.includes(term)).length;
+              const shop = Array.isArray(row.bazaar_shops) ? row.bazaar_shops[0] : row.bazaar_shops;
+              const listing: BazaarListing = {
+                name: row.name,
+                description: row.description,
+                price: Number(row.price),
+                inStock: row.in_stock !== false,
+                shopName: shop?.name ?? null,
+              };
+              return { listing, hits };
+            })
+            // In-stock first among equally relevant listings: "we have it" is
+            // a better answer than "we had it" when both are true.
+            .sort((a, b) => b.hits - a.hits || Number(b.listing.inStock) - Number(a.listing.inStock))
+            .slice(0, 5)
+            .map((entry) => entry.listing);
+
+          if (scored.length > 0) {
+            await reply(
+              formatListings({ language: noticeLanguage, listings: scored, terms: bazaarRequest.terms }),
+              "reply",
+            );
+          } else if (bazaarRequest.confident) {
+            await reply(noListingsNotice(noticeLanguage, bazaarRequest.terms), "unsupported");
+          } else {
+            console.log("[whatsapp] weak bazaar guess found nothing — handing back to the assistant");
+            bazaarFellThrough = true;
+          }
+        } catch (e) {
+          console.error("[whatsapp] bazaar lookup failed:", e instanceof Error ? e.message : e);
+          // A database fault is worth saying out loud to somebody who clearly
+          // meant the shop, and worth swallowing for somebody who probably did
+          // not — they get the assistant, which is what they wanted anyway.
+          if (bazaarRequest.confident) {
+            await reply(bazaarUnavailableNotice(noticeLanguage), "unsupported");
+          } else {
+            bazaarFellThrough = true;
+          }
+        }
+        if (!bazaarFellThrough) continue;
       }
 
       // ── Triage ────────────────────────────────────────────────────────

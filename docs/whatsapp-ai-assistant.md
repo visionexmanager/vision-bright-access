@@ -222,3 +222,113 @@ Once the Meta setup exists:
 4. Confirm a repeated delivery does not double-answer: Meta retries on any
    non-200, and the unique index on `wa_message_id` makes the retry a no-op.
 5. Check `supabase functions logs whatsapp-webhook` for refused signatures.
+
+## Beyond support: what else the assistant answers
+
+The webhook started as a support channel. It is now the accessible front door
+to several things the website already had, reachable by voice note and answered
+in the sender's own language.
+
+Every one of these is checked **before** the five visual-assistance modes, and
+all of them run on `questionText` — the transcript, by that point — so each
+works spoken as well as typed. That ordering is not cosmetic: `وين أقرب صيدلية`
+and `وين مفاتيحي` both open with وين, and only the second one is waiting for a
+photograph.
+
+### Weather · `whatsappWeather.ts` + `whatsappGeo.ts`
+
+`الطقس في عمّان`, `weather tomorrow`, `كم درجة الحرارة`. A named city is
+geocoded; with no city named, the last shared pin is used; with neither, the
+assistant asks rather than guessing — a forecast for the wrong continent reads
+exactly like a right one.
+
+WMO condition codes are turned into words **in this repository**, not by a
+model. It costs nothing, it cannot hallucinate light snow in Riyadh, and it is
+the part a screen reader reads out.
+
+### Locations · `whatsappLocation.ts`
+
+A pin — 📎 → Location — is two taps, no typing and no camera to aim, which
+makes it the cheapest precise input this channel has for a blind sender. It
+used to be answered with *"I can't read that kind of message (location) yet"*.
+
+Now it is reverse-geocoded and answered with where you are, then the weather
+there as a second message. `شو حولي` / `what's near me` lists mapped places
+within 500 m, nearest first, each with a distance **and a compass direction** —
+a distance alone is true of every point on a circle.
+
+The coordinates are held on the conversation row for at most six hours
+(`LOCATION_TTL_MS`) so a follow-up question needs no second pin, and are erased
+by `whatsapp_forget_locations()` on its own hourly schedule. They are
+deliberately **not** written into `whatsapp_messages`, which is kept for ninety
+days — the transcript records `[location]` and nothing more.
+
+### The bazaar · `whatsappBazaar.ts`
+
+`عندكم عسل؟`, `I want to buy headphones`, `أريد أن أبيع`. Product questions are
+answered from `bazaar_products` and `bazaar_shops` directly, filtered to active
+shops, with price, shop name and stock — not from the knowledge base, which
+does not know today's price and will let a model invent one.
+
+Two guards matter more than the search does:
+
+- **Short Arabic words never reach the query.** `ilike '%في%'` matches
+  essentially every row. `searchTerms` applies a stopword list and a
+  three-character floor, and strips the definite article so `العسل` finds a
+  listing called `عسل`. It also strips everything that is not a letter, a digit
+  or a space, which is what makes interpolating the terms into a PostgREST
+  `.or()` filter safe.
+- **A weak guess that finds nothing is handed back.** "عندك رقم الدعم؟" is the
+  same phrase shape as "عندك عسل؟" and is not a shopping question. Price and
+  "do you have" are marked `confident: false`; a miss on one falls through to
+  the assistant instead of replying "no products matched".
+
+Selling is explained, not performed: `bazaar_shops.owner_id` references
+`auth.users`, and a phone number is not an account.
+
+### PDFs, which now actually get read
+
+PDF reading was Gemini-only and therefore **switched off** — `DOCUMENT_TARGETS`
+was empty, because `structuredOpenAICompatible` sends a `data:` URL as
+`image_url` and OpenAI rejects `application/pdf` there.
+
+The fix was to stop sending the PDF to a model. `whatsappPdfText.ts` extracts
+the text layer with `npm:pdf-parse@1.1.1` — already pinned and running in
+`library-import-book` in this same runtime — and the text then rides the
+ordinary chain any provider can serve. A PDF is no longer hostage to one
+account's balance.
+
+A PDF with no text layer is a stack of photographs, and `pdfTextIsUsable`
+catches that before a model is asked: handing a model the page breaks and stray
+ligatures a scan produces gets a confident summary of nothing. Each failure
+gets the advice that can fix it — a scan needs a photograph of the page (which
+the image path reads well), an empty file needs a different file, a protected
+one needs an unprotected copy, and a provider fault needs nothing from the
+sender at all.
+
+Video is still dark. It has no alternative provider and `VIDEO_TARGETS` is
+still empty; funding the Gemini account is the one line that restores it.
+
+### What leaves the function, and to whom
+
+All four map and weather services are **keyless**, which was the selection
+criterion rather than a coincidence: two capabilities here have already gone
+dark because a provider account ran dry, and "what's the weather" must never
+answer "the account has no credit".
+
+| Service | Used for | Sent to it |
+| --- | --- | --- |
+| Open-Meteo | forecast, forward geocoding | a coordinate pair, or a place name |
+| Nominatim (OSM) | Arabic place names, which Open-Meteo's index lacks | a place name |
+| BigDataCloud | reverse geocoding, localised | a coordinate pair |
+| Overpass (OSM) | what is nearby | a coordinate pair |
+
+Never the sender's phone number, never their message, never anything tying a
+coordinate to a person. Every call has a deadline and fails to a sentence the
+sender can act on.
+
+> **Open follow-up.** `src/pages/legal/PrivacyPolicy.tsx` renders a
+> `THIRD_PARTIES` list from i18n keys. These four processors are not in it yet.
+> Adding them means one entry each in `THIRD_PARTIES` plus
+> `legal.privacy.third.<name>.{name,purpose}` across every locale, and the
+> wording is a decision for the owner rather than one to infer.

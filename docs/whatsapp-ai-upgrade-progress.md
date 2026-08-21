@@ -617,16 +617,206 @@ paths. Those need a live message to the production number.
 | 5 — Voice notes | **DONE** | `feat(whatsapp): understand voice notes` |
 | 6 — Voice replies | **DONE** | `feat(whatsapp): remember preferences and speak replies on request` |
 | 7 — Images | **DONE** (OpenAI leads; Gemini unfunded) | `feat(whatsapp): read images and documents` |
-| 8 — Documents | **PARTIAL** — text yes, PDF withheld pending Gemini credit | `feat(whatsapp): read images and documents` |
+| 8 — Documents | **DONE** — PDF unblocked by local text extraction | `feat(whatsapp): read PDFs, weather, locations and the bazaar` |
 | 9 — Video | **WITHHELD** — built and tested, needs Gemini credit | see Phase 9 |
 | 10 — Human handoff | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 11 — Classification | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 12 — Summaries | **DONE** | rolling summary in Phase 3; handoff briefing in Phase 10 |
-| 13 — Bazaar assistant | **PARTIAL** | product questions via Phase 4; ordering needs an account link |
+| 13 — Bazaar assistant | **DONE for search** | listings read from the tables; ordering still needs the Phase 14 account link |
 | 14 — Order tracking | **BLOCKED** | no verified phone-to-account link |
 | 15 — User preferences | **DONE** | `feat(whatsapp): remember preferences and speak replies on request` |
 | 16 — Observability | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 17 — Cost control | **DONE** | routing applied across Phases 2-12, pinned by tests |
 | 18 — Security audit | **DONE** | reviewed; assertions in the suite |
 | 19 — Accessibility and UX | **PARTIAL** | canned notices still ar/en only |
-| 20 — End-to-end tests | **PARTIAL** | 168 automated cases; live scenarios need a handset |
+| 20 — End-to-end tests | **PARTIAL** | 229 automated cases; live scenarios need a handset |
+| 21 — Weather | **DONE** | keyless Open-Meteo; `feat(whatsapp): read PDFs, weather, locations and the bazaar` |
+| 22 — Shared locations | **DONE** | pin, nearby, six-hour memory with its own erasure job |
+
+---
+
+## Phase 8 revisited — PDF, unblocked · **DONE**
+
+**The blocker was never the format.** `DOCUMENT_TARGETS` was empty because the
+only provider in this project's layer that accepts `application/pdf` is Gemini,
+and the Gemini account has no credit. Every PDF a customer sent was refused
+with `no_reader` before the call — an honest refusal, and still a refusal.
+
+**Changed.** The PDF stops going to a model at all. `whatsappPdfText.ts`
+extracts the text layer with `npm:pdf-parse@1.1.1` and the text travels down
+`DOCUMENT_TEXT_TARGETS`, which is `VISION_TARGETS` — OpenAI first. `pdf-parse`
+is not a new dependency: it is already pinned and running in
+`library-import-book/index.ts` in this same Deno runtime, so the runtime
+question was answered before this phase started.
+
+Consequences worth stating:
+
+- A PDF is no longer hostage to one account's balance. Neither is it paying
+  image-token rates for pages that are mostly prose.
+- `PDF_TEXT_BUDGET` (40 000) is larger than `DOCUMENT_TEXT_BUDGET` (24 000),
+  because a PDF is usually the longer artefact and the first 24 000 characters
+  of a contract can be entirely front matter.
+- A scanned PDF is caught **before** a model is asked. `pdf-parse` returns page
+  breaks and stray ligatures for a stack of photographs rather than an error,
+  and a model handed that fragment writes a confident summary of nothing —
+  precisely what the `readable` flag exists to prevent. `pdfTextIsUsable`
+  counts meaningful characters, and per page as well as in total.
+- Four distinct failures, four distinct replies: `scanned_pdf` (photograph the
+  page — the image path reads those well), `empty`, `encrypted_pdf` (send an
+  unprotected copy), and a provider fault, which asks the sender for nothing
+  because it was not their doing.
+
+**Video is unchanged and still dark.** It has no alternative provider at all;
+`VIDEO_TARGETS` stays empty and the webhook still refuses before downloading.
+
+**Not verified.** No real PDF has been through this end to end; that needs a
+live message. `pdf-parse` is exercised in production by the library importer,
+not by this path.
+
+---
+
+## Phase 13 revisited — Bazaar search · **DONE for search**
+
+**Found.** Product questions were answered through the Phase 4 knowledge base,
+grounded in whatever Visionex prose happened to be embedded. That is right for
+"how do returns work" and wrong for "do you have honey": embedded prose does
+not know today's price or whether a thing is in stock, and a model asked anyway
+supplies both.
+
+**Changed.** `whatsappBazaar.ts` reads intent and search terms; the webhook
+queries `bazaar_products` joined to `bazaar_shops`, filtered to `is_active`,
+and answers with name, price, shop and stock — or an honest nothing, naming
+what it searched for so the sender can correct a word.
+
+Three decisions carry the weight:
+
+- **A three-character floor and a stopword list.** `ilike '%في%'` matches
+  essentially every row and returns a random shelf as though it were a result —
+  a hazard this repository has already been bitten by. The Arabic definite
+  article is stripped too, so `العسل` finds a listing called `عسل`.
+- **The terms are sanitised by construction.** Everything that is not a letter,
+  a digit or a space is removed before a term exists, which is what makes
+  interpolating them into a PostgREST `.or()` filter safe rather than merely
+  convenient.
+- **A weak guess that finds nothing is handed back to the assistant.** "عندك
+  رقم الدعم؟" and "كم سعر الاشتراك" are the same phrase shapes a shopper uses
+  and are not shopping questions. They are marked `confident: false`, allowed
+  to search, and — on a miss — fall through instead of replying "no products
+  matched" to somebody asking about their subscription.
+
+**Still not possible.** Placing an order, which needs the Phase 14 account
+link. Selling is explained rather than performed: `bazaar_shops.owner_id`
+references `auth.users`, and a phone number is not an account. Saying so
+plainly is the point — the alternative ends with somebody typing a password
+into a chat window.
+
+---
+
+## Phase 21 — Weather · **DONE**
+
+**Why it belongs here.** Knowing whether to take a coat is a glance out of a
+window for most people and a message for this audience. It is also the single
+most common thing a voice assistant is asked, and this one is reached by voice
+note.
+
+**Changed.** `whatsappWeather.ts` holds intent, place extraction, the WMO code
+table and the formatting; `whatsappGeo.ts` does the fetching. A named city is
+geocoded, an unnamed one falls back to the last shared pin, and with neither
+the assistant asks — a forecast for the wrong continent reads exactly like a
+right one.
+
+- **Keyless on purpose.** Two capabilities in this assistant have already gone
+  dark because a provider account ran dry. Open-Meteo needs no key, so this one
+  cannot. A test asserts that `whatsappGeo.ts` reads no environment variable
+  and sends no `Authorization` header, which is what stops a later edit
+  quietly reintroducing the failure mode.
+- **Arabic place names needed a second geocoder.** Probed on 2026-08-21,
+  Open-Meteo's geocoder returns **no results at all** for `الرياض` while
+  returning Riyadh for `Riyadh`; its index is romanised. Nominatim resolves
+  Arabic, so it is the fallback — second, because its usage policy asks for
+  restraint and most lookups never reach it.
+- **Condition codes become words here, not in a model.** It costs nothing and
+  it cannot hallucinate light snow in Riyadh.
+- **A sixty-character cap separates a question from a sentence.** "The weather
+  has been awful ever since my order went missing" contains the word and is a
+  complaint about support.
+
+---
+
+## Phase 22 — Shared locations · **DONE**
+
+**Found.** WhatsApp's location attachment was falling through to *"I can't read
+that kind of message (location) yet"* — a strange thing to tell somebody who
+has just said precisely where they are standing, and the input this channel
+handles best: two taps, no typing, no camera to aim.
+
+**Changed.** A pin is reverse-geocoded through BigDataCloud, which localises
+properly (`الرياض، منطقة الرياض، السعودية`), and answered with where you are,
+then the weather there as a second message — two topics, and a screen reader
+reads one message at a time. `شو حولي` lists mapped places within 500 m from
+Overpass, nearest first, with a distance **and** a compass bearing, because a
+distance alone is true of every point on a circle.
+
+**The privacy shape is the design.**
+
+- Coordinates live on the conversation row, not in a history table. There is
+  one current location; a trail of where somebody has been is a different
+  product with a different consent conversation attached.
+- They are used for at most six hours (`LOCATION_TTL_MS`). A stale location is
+  worse than none — confidently wrong about the one thing the sender could not
+  check for themselves.
+- They are erased by `whatsapp_forget_locations()`, service-role only, on its
+  own hourly schedule. Deliberately not folded into
+  `whatsapp_prune_transcripts`, whose contract is different and whose clock is
+  ninety days.
+- They never enter `whatsapp_messages`. The transcript records `[location]`,
+  which is what keeps the short clock meaningful.
+
+**Ordering matters and is pinned by a test.** These checks run *before* the
+five visual modes: `وين أقرب صيدلية` and `وين مفاتيحي` both open with وين, and
+only the second is waiting for a photograph. Without that ordering the first
+one arms the camera and then waits ten minutes for a picture nobody was going
+to send.
+
+**Two fixes fell out of the same code.**
+
+- An attachment with no caption was logged to the transcript as the literal
+  string `[undefined]`. It is now named by its kind.
+- Which in turn exposed a live defect: the repeat limiter compares message
+  bodies, so three captionless photos in a row were three identical bodies and
+  tripped a fifteen-minute cooldown. Three photos in a row is the most ordinary
+  thing a blind sender does here, so the limiter now counts text only —
+  genuine redelivery is already a no-op through the unique `wa_message_id`.
+
+---
+
+## Discoverability · `whatsappCapabilities.ts`
+
+A capability that is not announced does not exist. This audience cannot
+discover a feature by noticing a new button, so the menu **is** the interface.
+`capabilityMenu` lists weather, locations, nearby, the bazaar, selling, files
+and voice notes, and is sent as its own message on first contact and whenever
+someone asks for the menu — never appended to the five-item photo menu, which
+would bury both lists.
+
+---
+
+## Quality gate for this batch
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` (`tsc -b`) | PASS |
+| `npm test` | 1879 passed, 0 failed; `whatsapp-assistant` 229 of 229 |
+| `npm run lint` | clean on every file touched here |
+| `npm run build` | PASS |
+| Deno sources parse | all ten whatsapp modules parse clean |
+| Guards re-run against known-bad input | three new guards confirmed to fail when the behaviour they pin is removed |
+
+`src/test/whatsapp-business-profile.test.ts` fails to load on this Windows
+checkout and does so identically with every change here stashed — it is a line
+endings problem in the repository, not a regression from this work.
+
+**Not verified.** Nothing here has been through a live handset: no real pin, no
+real PDF, no real Overpass round trip from the edge runtime. The three public
+map services were probed directly on 2026-08-21 and behaved as the code
+assumes; that is evidence about the services, not about the deployment.

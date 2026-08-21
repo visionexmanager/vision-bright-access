@@ -7,10 +7,13 @@
 // Both go through the project's existing `structuredCompletionWithFallback`,
 // which already carries an image as a `data:` URL across OpenAI, Anthropic and
 // Gemini — so this adds no provider, no key and no second model configuration.
-// Gemini passes the MIME type straight through to `inline_data`, which is why a
-// PDF needs no parser here: it is sent as a PDF and read as one.
+// A PDF is the exception, and deliberately so: rather than needing a provider
+// that accepts `application/pdf`, its text layer is extracted locally in
+// `whatsappPdfText.ts` and travels as text. That removed the single-vendor
+// dependency that had PDF reading switched off entirely.
 
 import { structuredCompletionWithFallback, type ProviderTarget } from "./aiProvider.ts";
+import { extractPdfText } from "./whatsappPdfText.ts";
 import {
   ATTACHMENT_ANSWER_SCHEMA,
   attachmentSystemPrompt,
@@ -36,22 +39,20 @@ export const VISION_TARGETS: ProviderTarget[] = [
 ];
 
 /**
- * PDFs lean on Gemini, which reads them natively.
+ * PDFs no longer need a provider that can take a PDF.
  *
- * Gemini alone, because it is the only provider in this project's layer that
- * takes a PDF at all: `structuredOpenAICompatible` sends a `data:` URL as
- * `image_url`, and OpenAI rejects `application/pdf` there. So a PDF is
- * Gemini-or-nothing.
+ * They used to be Gemini-or-nothing — `structuredOpenAICompatible` sends a
+ * `data:` URL as `image_url` and OpenAI rejects `application/pdf` there — and
+ * with the Gemini account unfunded this chain was empty, so every PDF was
+ * declined before the call. The fix was not a second vendor: `extractPdfText`
+ * pulls the text layer out locally with the `pdf-parse` already running in
+ * `library-import-book`, which turns a PDF into text and lets it ride the same
+ * fallback chain a `.txt` does.
  *
- * **The chain is empty on purpose.** The Gemini account has no credit, so every
- * PDF would cost a media download and a round trip only to arrive at a failure
- * the customer then reads as "I couldn't read that file" — wording that blames
- * the format they were told to send. Refusing before the call costs nothing and
- * says something true and actionable instead.
- *
- * Re-enabling PDF reading is one line: put the Gemini target back.
+ * A PDF with no text layer is a stack of photographs, and it is answered as one
+ * — see the `scanned_pdf` reason — rather than summarised from fragments.
  */
-export const DOCUMENT_TARGETS: ProviderTarget[] = [];
+export const DOCUMENT_TARGETS: ProviderTarget[] = VISION_TARGETS;
 
 /**
  * Video is Gemini-only for the same reason a PDF is — it goes as `inline_data`
@@ -165,7 +166,13 @@ export async function understandVideo(params: {
  * to read it today. The two deserve different wording, because only one of them
  * is fixed by the customer sending a different file.
  */
-export type DocumentFailure = "unreadable_format" | "no_reader" | "empty" | "provider_error";
+export type DocumentFailure =
+  | "unreadable_format"
+  | "no_reader"
+  | "empty"
+  | "scanned_pdf"
+  | "encrypted_pdf"
+  | "provider_error";
 
 export type DocumentResult =
   | { ok: true; value: UnderstandResult }
@@ -187,7 +194,6 @@ export async function understandDocument(params: {
   if (targets.length === 0) return { ok: false, reason: "no_reader" };
 
   let userText = params.question || "Summarise this document and answer any obvious question it raises.";
-  let image: string | undefined;
 
   if (shape === "text") {
     const text = new TextDecoder("utf-8", { fatal: false })
@@ -197,7 +203,31 @@ export async function understandDocument(params: {
     if (!text) return { ok: false, reason: "empty" };
     userText = `${userText}\n\nDocument${params.filename ? ` (${params.filename})` : ""}:\n${text}`;
   } else {
-    image = toDataUrl(params.bytes, "application/pdf");
+    // Read locally, then travel as text. The alternative — a `data:` URL of
+    // several megabytes of PDF on every turn — costs a provider that accepts
+    // PDFs and pays image-token rates for pages that are mostly prose.
+    const extracted = await extractPdfText(params.bytes);
+    if (!extracted.ok) {
+      return {
+        ok: false,
+        reason: extracted.reason === "scanned"
+          ? "scanned_pdf"
+          : extracted.reason === "encrypted"
+            ? "encrypted_pdf"
+            : extracted.reason === "empty"
+              ? "empty"
+              : "provider_error",
+      };
+    }
+    // The page count is given to the model because "page 3 of 40" is a
+    // different answer from "page 3 of 3", and it cannot see the pagination.
+    const label = [params.filename, extracted.title].filter(Boolean).join(" — ");
+    userText = [
+      userText,
+      "",
+      `PDF${label ? ` (${label})` : ""}${extracted.pages ? `, ${extracted.pages} page(s)` : ""}:`,
+      extracted.text,
+    ].join("\n");
   }
 
   try {
@@ -205,7 +235,6 @@ export async function understandDocument(params: {
       targets,
       system: attachmentSystemPrompt(params.languageName, "document"),
       userText,
-      image,
       schema: ATTACHMENT_ANSWER_SCHEMA as unknown as Record<string, unknown>,
       toolName: "answer_from_document",
       maxTokens: 700,
