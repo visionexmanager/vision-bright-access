@@ -731,10 +731,22 @@ describe("attachment understanding", () => {
     expect(url.startsWith("data:image/jpeg;base64,")).toBe(true);
   });
 
-  it("sends a PDF as a PDF, so no parser is needed", () => {
+  it("reads a PDF locally instead of needing a provider that accepts one", () => {
+    // PDF reading used to be Gemini-or-nothing and was therefore switched off
+    // entirely. Extracting the text layer here removes the single-vendor
+    // dependency: what reaches the model is text, which every provider takes.
     const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
-    expect(source).toContain('toDataUrl(params.bytes, "application/pdf")');
-    expect(source).toMatch(/inline_data/);
+    expect(source).toContain("await extractPdfText(params.bytes)");
+    // And it must NOT go back to shipping megabytes of PDF as a data URL.
+    expect(source).not.toContain('toDataUrl(params.bytes, "application/pdf")');
+
+    const reader = readFileSync("supabase/functions/_shared/whatsappPdfText.ts", "utf8");
+    // Pinned to the version this repository already runs in the same Deno
+    // runtime, in library-import-book. A second PDF library would be a second
+    // thing to audit for no gain.
+    expect(reader).toContain('npm:pdf-parse@1.1.1');
+    // Never throws: a malformed file is a normal thing for a customer to send.
+    expect(reader).toContain("return { ok: false, reason: encrypted ? \"encrypted\" : \"failed\" };");
   });
 
   it("routes each document format to the right reader", () => {
@@ -774,11 +786,13 @@ describe("attachment understanding", () => {
     expect(block.indexOf('provider: "openai"')).toBeLessThan(block.indexOf('provider: "gemini"'));
   });
 
-  it("refuses a PDF or a video outright rather than calling a dead provider", () => {
+  it("refuses a video outright rather than calling a dead provider", () => {
     // Asserted against the source, not the module: whatsappUnderstand.ts
     // imports the Deno provider layer and cannot be loaded under Node.
     const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
-    expect(source).toContain("export const DOCUMENT_TARGETS: ProviderTarget[] = [];");
+    // A PDF no longer needs a provider that accepts PDFs — its text is
+    // extracted locally — so only video is still gated on an unfunded chain.
+    expect(source).toContain("export const DOCUMENT_TARGETS: ProviderTarget[] = VISION_TARGETS;");
     expect(source).toContain("export const VIDEO_TARGETS: ProviderTarget[] = [];");
 
     // An empty chain must short-circuit, not fall through to the provider layer
@@ -1484,5 +1498,600 @@ describe("vision modes", () => {
       expect(migration, mode).toContain(`'${mode}'`);
     }
     expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS/);
+  });
+});
+
+// ── Locations, weather, the bazaar, and PDFs that finally get read ───────
+//
+// All four modules below are deliberately provider-free so they can be
+// imported here rather than pinned by reading their source. What cannot be
+// imported — the fetching, the npm PDF reader, the webhook itself — is still
+// asserted against the source, which is what the sections above already do.
+
+describe("shared locations", () => {
+  async function loadLocation() {
+    return await import("../../supabase/functions/_shared/whatsappLocation.ts");
+  }
+
+  it("reads a pin out of the Cloud API envelope", async () => {
+    const { extractMessages } = await loadHelpers();
+    const parsed = extractMessages({
+      entry: [{
+        changes: [{
+          value: {
+            messages: [{
+              from: "962790000000",
+              id: "wamid.LOC",
+              type: "location",
+              location: { latitude: 31.9539, longitude: 35.9106, name: "Home", address: "Amman" },
+            }],
+          },
+        }],
+      }],
+    });
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].location).toEqual({
+      latitude: 31.9539,
+      longitude: 35.9106,
+      name: "Home",
+      address: "Amman",
+    });
+    // A pin is not an attachment and must not be filed as an unreadable type:
+    // that was the reply this whole feature replaces.
+    expect(parsed[0].unsupportedType).toBeUndefined();
+    expect(parsed[0].media).toBeUndefined();
+  });
+
+  it("treats coordinates it cannot parse as a broken payload, not a place", async () => {
+    const { extractMessages } = await loadHelpers();
+    const parsed = extractMessages({
+      entry: [{
+        changes: [{
+          value: {
+            messages: [{
+              from: "962790000000",
+              id: "wamid.BAD",
+              type: "location",
+              location: { latitude: "not-a-number", longitude: null },
+            }],
+          },
+        }],
+      }],
+    });
+    expect(parsed[0].location).toBeUndefined();
+    expect(parsed[0].unsupportedType).toBe("location");
+  });
+
+  it("refuses impossible coordinates and Null Island", async () => {
+    const { isUsableCoordinate } = await loadLocation();
+    expect(isUsableCoordinate(31.95, 35.91)).toBe(true);
+    expect(isUsableCoordinate(-33.86, 151.2)).toBe(true);
+    expect(isUsableCoordinate(900, 35)).toBe(false);
+    expect(isUsableCoordinate(31, 900)).toBe(false);
+    expect(isUsableCoordinate(Number.NaN, 35)).toBe(false);
+    expect(isUsableCoordinate("31.9", 35)).toBe(false);
+    // 0,0 is what a broken GPS reports, never where somebody is standing.
+    expect(isUsableCoordinate(0, 0)).toBe(false);
+  });
+
+  it("does not repeat the same word three times when reading a place aloud", async () => {
+    const { placeLabel } = await loadLocation();
+    expect(placeLabel({
+      locality: "الرياض", city: "الرياض", region: "منطقة الرياض", country: "السعودية",
+    })).toBe("الرياض، منطقة الرياض، السعودية");
+    // Nothing known at all falls back to whatever the pin called itself.
+    expect(placeLabel(
+      { locality: null, city: null, region: null, country: null },
+      "Home",
+    )).toBe("Home");
+  });
+
+  it("measures distance and direction well enough to walk on", async () => {
+    const { distanceMetres, bearingLabel, formatDistance } = await loadLocation();
+    const origin = { latitude: 31.9539, longitude: 35.9106 };
+    // One minute of latitude is ~1852 m, due north.
+    const north = { latitude: 31.9539 + 1 / 60, longitude: 35.9106 };
+    expect(distanceMetres(origin, north)).toBeGreaterThan(1_700);
+    expect(distanceMetres(origin, north)).toBeLessThan(2_000);
+    expect(bearingLabel(origin, north, "en")).toBe("north");
+    expect(bearingLabel(origin, { latitude: 31.9539, longitude: 36.5 }, "en")).toBe("east");
+    expect(bearingLabel(origin, north, "ar")).toBe("شمالاً");
+
+    expect(formatDistance(80, "en")).toBe("80 m");
+    expect(formatDistance(80, "ar")).toBe("80 متر");
+    expect(formatDistance(2_400, "en")).toBe("2.4 km");
+  });
+
+  it("separates 'where am I' from 'where are my keys'", async () => {
+    const { asksWhereAmI, asksWhatIsNearby } = await loadLocation();
+    expect(asksWhereAmI("وين أنا")).toBe(true);
+    expect(asksWhereAmI("where am I?")).toBe(true);
+    expect(asksWhereAmI("what's my location")).toBe(true);
+
+    // The one that must not match: it belongs to the camera, not the map.
+    expect(asksWhereAmI("وين مفاتيحي")).toBe(false);
+    expect(asksWhereAmI("where are my keys")).toBe(false);
+
+    expect(asksWhatIsNearby("شو حولي")).toBe(true);
+    expect(asksWhatIsNearby("وين أقرب صيدلية")).toBe(true);
+    expect(asksWhatIsNearby("what's near me")).toBe(true);
+    expect(asksWhatIsNearby("nearest pharmacy")).toBe(true);
+    expect(asksWhatIsNearby("وين مفاتيحي")).toBe(false);
+  });
+
+  it("names the taps rather than the feature when it has to ask for a pin", async () => {
+    const { locationNeededNotice } = await loadLocation();
+    // Somebody who cannot see the interface needs the path, not an invitation.
+    expect(locationNeededNotice("en")).toMatch(/📎/);
+    expect(locationNeededNotice("en")).toMatch(/Location/);
+    expect(locationNeededNotice("ar")).toMatch(/📎/);
+    expect(locationNeededNotice("ar")).toMatch(/الموقع/);
+  });
+
+  it("holds a pin for hours, not for days", async () => {
+    const { LOCATION_TTL_MS } = await loadLocation();
+    expect(LOCATION_TTL_MS).toBeGreaterThanOrEqual(60 * 60 * 1000);
+    expect(LOCATION_TTL_MS).toBeLessThanOrEqual(12 * 60 * 60 * 1000);
+    expect(webhook).toContain("LOCATION_TTL_MS");
+  });
+
+  it("keeps coordinates out of the ninety-day transcript", async () => {
+    // The columns have their own, much shorter, erasure clock. Copying the
+    // coordinates into whatsapp_messages would quietly undo that.
+    expect(webhook).toContain('incoming.location ? "[location]" : ""');
+    const migration = readFileSync(
+      "supabase/migrations/20260918000000_whatsapp_location_memory.sql",
+      "utf8",
+    );
+    expect(migration).toContain("whatsapp_forget_locations");
+    expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS last_latitude/);
+    // Service role only: a sender's whereabouts is not readable by anon or
+    // by an ordinary authenticated caller.
+    expect(migration).toContain("REVOKE ALL ON FUNCTION public.whatsapp_forget_locations(integer) FROM anon;");
+    expect(migration).toContain("REVOKE ALL ON FUNCTION public.whatsapp_forget_locations(integer) FROM authenticated;");
+    expect(migration).toMatch(/retention floor is 1 hour/);
+  });
+
+  it("answers a pin before it ever reaches the attachment code", () => {
+    // A location carries no media id, so the download path cannot serve it.
+    //
+    // Both branches are asserted present first: `indexOf` returns -1 for a
+    // string that is not there, and -1 is less than everything — an ordering
+    // check on a missing needle passes without checking anything.
+    expect(webhook).toContain("if (incoming.location)");
+    expect(webhook).toContain("if (incoming.media)");
+    expect(webhook.indexOf("if (incoming.location)"))
+      .toBeLessThan(webhook.indexOf("if (incoming.media)"));
+  });
+});
+
+describe("weather", () => {
+  async function loadWeather() {
+    return await import("../../supabase/functions/_shared/whatsappWeather.ts");
+  }
+
+  it("recognises a weather question in either language", async () => {
+    const { parseWeatherRequest } = await loadWeather();
+    expect(parseWeatherRequest("الطقس")).not.toBeNull();
+    expect(parseWeatherRequest("شو الجو اليوم؟")).not.toBeNull();
+    expect(parseWeatherRequest("what's the weather")).not.toBeNull();
+    expect(parseWeatherRequest("is it going to rain tomorrow?")).not.toBeNull();
+    expect(parseWeatherRequest("كم درجة الحرارة")).not.toBeNull();
+  });
+
+  it("does not mistake a complaint for a forecast request", async () => {
+    const { parseWeatherRequest } = await loadWeather();
+    // Contains "weather" and is plainly not a weather question. The length
+    // guard is what catches it: this is somebody talking, not asking.
+    expect(parseWeatherRequest(
+      "the weather has been awful ever since my order went missing last week and nobody replied",
+    )).toBeNull();
+    expect(parseWeatherRequest("")).toBeNull();
+    expect(parseWeatherRequest("I need help with my subscription")).toBeNull();
+  });
+
+  it("picks the city out, and refuses to treat 'today' as one", async () => {
+    const { parseWeatherRequest } = await loadWeather();
+    expect(parseWeatherRequest("weather in Amman")?.place).toBe("Amman");
+    expect(parseWeatherRequest("الطقس في عمّان")?.place).toBe("عمّان");
+    expect(parseWeatherRequest("طقس دبي")?.place).toBe("دبي");
+    // "today" geocodes to a village in Kansas, which is worse than no place.
+    expect(parseWeatherRequest("weather in London today")?.place).toBe("London");
+    expect(parseWeatherRequest("الطقس اليوم")?.place).toBeNull();
+    expect(parseWeatherRequest("what's the weather")?.place).toBeNull();
+  });
+
+  it("notices when the question is about the days ahead", async () => {
+    const { parseWeatherRequest } = await loadWeather();
+    expect(parseWeatherRequest("weather tomorrow")?.forecast).toBe(true);
+    expect(parseWeatherRequest("توقعات الطقس بكرا")?.forecast).toBe(true);
+    expect(parseWeatherRequest("الطقس الآن")?.forecast).toBe(false);
+  });
+
+  it("describes a WMO code rather than inventing one", async () => {
+    const { describeCode } = await loadWeather();
+    expect(describeCode(0, "en").text).toBe("clear sky");
+    expect(describeCode(0, "ar").text).toBe("صحو");
+    expect(describeCode(95, "ar").text).toBe("عاصفة رعدية");
+    // An unknown code says it is unknown. It does not guess "partly cloudy".
+    expect(describeCode(1234, "en").text).toMatch(/unavailable/i);
+    expect(describeCode(1234, "ar").text).toMatch(/غير معروفة/);
+  });
+
+  it("names the right day whatever the reader's timezone is", async () => {
+    const { dayName } = await loadWeather();
+    // 2026-08-22 is a Saturday. Parsed at midnight UTC it is still Friday in
+    // every negative offset, which would shift the whole forecast by a day.
+    expect(dayName("2026-08-22", "en")).toBe("Saturday");
+    expect(dayName("2026-08-22", "ar")).toBe("السبت");
+    expect(dayName("nonsense", "en")).toBe("nonsense");
+  });
+
+  it("leads with the answer, because that is the line that gets heard", async () => {
+    const { formatWeather } = await loadWeather();
+    const message = formatWeather({
+      language: "en",
+      placeName: "Amman",
+      current: { temperature: 31.4, feelsLike: 33.1, humidity: 28, windSpeed: 12.9, code: 0 },
+      daily: [
+        { date: "2026-08-22", code: 3, max: 34, min: 21, rainChance: 0 },
+        { date: "2026-08-23", code: 61, max: 29, min: 20, rainChance: 60 },
+      ],
+      includeForecast: true,
+    });
+    const [headline, conditions] = message.split("\n");
+    expect(headline).toContain("Amman");
+    expect(conditions).toContain("clear sky");
+    expect(conditions).toContain("31°");
+    expect(message).toContain("Saturday");
+    expect(message).toContain("60% chance of rain");
+    // A dry day is not padded with a rain probability of zero.
+    const saturday = message.split(/\n/).find((line) => line.startsWith("Saturday"));
+    expect(saturday).toBeDefined();
+    expect(saturday).not.toMatch(/chance of rain/);
+  });
+
+  it("asks which city rather than guessing one", async () => {
+    const { weatherNeedsPlaceNotice, placeNotFoundNotice } = await loadWeather();
+    expect(weatherNeedsPlaceNotice("en")).toMatch(/📎/);
+    expect(weatherNeedsPlaceNotice("ar")).toMatch(/الطقس في/);
+    // The unfound place is quoted back, so the sender can correct the spelling.
+    expect(placeNotFoundNotice("en", "Qwertyville")).toContain("Qwertyville");
+    expect(placeNotFoundNotice("ar", "كذا")).toContain("كذا");
+  });
+
+  it("uses only services that cannot be switched off by a billing failure", () => {
+    // Two capabilities in this assistant are already dark because a provider
+    // account ran dry. Weather must never be the third, so every service it
+    // calls is keyless — asserted here so a future edit cannot quietly
+    // introduce one that needs a key.
+    const geo = readFileSync("supabase/functions/_shared/whatsappGeo.ts", "utf8");
+    expect(geo).not.toMatch(/Deno\.env\.get\(/);
+    expect(geo).not.toMatch(/api[_-]?key|apikey|Authorization/i);
+    // And a hung map service cannot hold a WhatsApp reply open indefinitely.
+    expect(geo).toContain("AbortController");
+    // OSM's usage policy requires an identifiable caller with a contact URL.
+    expect(geo).toMatch(/User-Agent/);
+    expect(geo).toContain("visionex.app");
+  });
+});
+
+describe("the bazaar", () => {
+  async function loadBazaar() {
+    return await import("../../supabase/functions/_shared/whatsappBazaar.ts");
+  }
+
+  it("never searches on a word short enough to match every row", async () => {
+    const { searchTerms, MIN_TERM_CHARS } = await loadBazaar();
+    expect(MIN_TERM_CHARS).toBeGreaterThanOrEqual(3);
+    // `ilike` on a two-letter Arabic particle matches essentially every row.
+    expect(searchTerms("هل عندكم عسل في المتجر")).toEqual(["عسل"]);
+    expect(searchTerms("من في ما هل")).toEqual([]);
+    expect(searchTerms("do you have any honey in stock")).toEqual(["honey"]);
+  });
+
+  it("strips the Arabic definite article, which no listing is named with", async () => {
+    const { searchTerms } = await loadBazaar();
+    // Someone typing العسل is looking for a listing called عسل.
+    expect(searchTerms("بكم العسل")).toEqual(["عسل"]);
+    // But not when what is left would be too short to search on: stripping
+    // الجو down to جو would produce a two-letter term that matches everything,
+    // so the word is kept whole instead.
+    expect(searchTerms("الجو")).toEqual(["الجو"]);
+  });
+
+  it("caps how many words reach the query", async () => {
+    const { searchTerms, MAX_TERMS } = await loadBazaar();
+    const terms = searchTerms("laptop keyboard monitor speakers headphones charger");
+    expect(terms).toHaveLength(MAX_TERMS);
+  });
+
+  it("strips anything a PostgREST filter could be broken with", async () => {
+    const { searchTerms } = await loadBazaar();
+    // The webhook interpolates these straight into an `.or()` filter, so the
+    // guarantee that matters is that nothing structural survives here.
+    const hostile = 'honey,name.ilike.*(bad)"quote' + "'";
+    for (const term of searchTerms(hostile)) {
+      expect(term).not.toMatch(/[,().*"'%]/);
+    }
+  });
+
+  it("tells buying, selling and browsing apart", async () => {
+    const { parseBazaarRequest } = await loadBazaar();
+    expect(parseBazaarRequest("أريد أن أبيع منتجاتي")?.intent).toBe("sell");
+    expect(parseBazaarRequest("how do I sell on here")?.intent).toBe("sell");
+    expect(parseBazaarRequest("أفتح متجر")?.intent).toBe("sell");
+
+    expect(parseBazaarRequest("افتح لي السوق")?.intent).toBe("browse");
+    expect(parseBazaarRequest("show me the bazaar")?.intent).toBe("browse");
+
+    expect(parseBazaarRequest("أريد شراء عسل")?.intent).toBe("buy");
+    expect(parseBazaarRequest("I want to buy headphones")?.intent).toBe("buy");
+  });
+
+  it("stays out of the way of a support question that sounds like shopping", async () => {
+    const { parseBazaarRequest } = await loadBazaar();
+    // "How much is the subscription" is about Visionex, not the marketplace.
+    // It is allowed to search — but not to answer, so a miss falls back to the
+    // assistant that actually knows.
+    expect(parseBazaarRequest("كم سعر الاشتراك")?.confident).toBe(false);
+    expect(parseBazaarRequest("do you have a support number")?.confident).toBe(false);
+    // A purchase verb is unambiguous, so a miss is answered honestly.
+    expect(parseBazaarRequest("أريد شراء عسل")?.confident).toBe(true);
+    expect(parseBazaarRequest("show me the bazaar")?.confident).toBe(true);
+
+    // And "I want to talk to someone" must not become a product search at all.
+    expect(parseBazaarRequest("بدي أتكلم مع موظف")).toBeNull();
+    expect(parseBazaarRequest("I want to speak to a human")).toBeNull();
+  });
+
+  it("hands a weak miss back to the assistant instead of answering it", () => {
+    expect(webhook).toContain("bazaarRequest.confident");
+    expect(webhook).toContain("bazaarFellThrough = true");
+    expect(webhook).toContain("if (!bazaarFellThrough) continue;");
+  });
+
+  it("shows the price and the shop, and does not hide what is out of stock", async () => {
+    const { formatListings, BAZAAR_URL } = await loadBazaar();
+    const message = formatListings({
+      language: "en",
+      terms: ["honey"],
+      listings: [
+        { name: "Sidr honey", description: "500g jar", price: 25, inStock: true, shopName: "Nabil" },
+        { name: "Acacia honey", description: null, price: 18.5, inStock: false, shopName: null },
+      ],
+    });
+    expect(message).toContain("Sidr honey");
+    expect(message).toContain("25");
+    expect(message).toContain("Nabil");
+    // "We have it but not right now" is a useful answer; silence is not.
+    expect(message).toContain("Acacia honey");
+    expect(message).toContain("out of stock");
+    expect(message).toContain("18.50");
+    expect(message).toContain(BAZAAR_URL);
+  });
+
+  it("says what it searched for when it finds nothing", async () => {
+    const { noListingsNotice } = await loadBazaar();
+    // The commonest cause is a word the listings do not use, and a sender who
+    // can hear the search terms can correct them.
+    expect(noListingsNotice("en", ["saffron"])).toContain("saffron");
+    expect(noListingsNotice("ar", ["زعفران"])).toContain("زعفران");
+  });
+
+  it("is honest that a shop cannot be opened from a phone number", async () => {
+    const { sellGuidance } = await loadBazaar();
+    // bazaar_shops.owner_id references auth.users, so there is no safe way —
+    // and the wrong answer here ends with somebody typing a password into a
+    // chat window.
+    expect(sellGuidance("en")).toMatch(/Sign in/i);
+    expect(sellGuidance("en")).toMatch(/can't create one from here/i);
+    expect(sellGuidance("ar")).toMatch(/سجّل الدخول/);
+    expect(sellGuidance("ar")).toMatch(/لا أستطيع إنشاءه من هنا/);
+    for (const language of ["en", "ar"] as const) {
+      expect(sellGuidance(language)).not.toMatch(/password|كلمة المرور|كلمة السر/i);
+    }
+  });
+
+  it("reads only shops that are actually open", () => {
+    // bazaar_shops.is_active gates the public policy; the service role does
+    // not get that for free, so the webhook has to filter for it.
+    expect(webhook).toContain('.eq("bazaar_shops.is_active", true)');
+  });
+});
+
+describe("PDFs, which are now actually read", () => {
+  it("decides a scanned file is a scan before a model is ever asked", () => {
+    // pdf-parse returns page breaks and stray ligatures for a stack of
+    // photographs rather than an error, and a model handed that fragment will
+    // confidently summarise nothing at all.
+    expect(understand.pdfTextIsUsable("Contract of sale. ".repeat(30))).toBe(true);
+    expect(understand.pdfTextIsUsable("\n\n\f  \n")).toBe(false);
+    expect(understand.pdfTextIsUsable("page 1")).toBe(false);
+    // Long enough overall, but nothing on any of its forty pages.
+    expect(understand.pdfTextIsUsable("word ".repeat(40), 40)).toBe(false);
+    expect(understand.pdfTextIsUsable("word ".repeat(400), 4)).toBe(true);
+  });
+
+  it("gives each failure the advice that can actually fix it", () => {
+    const scanned = understand.scannedPdfNotice("en");
+    // Not "send a PDF" — that is what they just did, and it cannot work.
+    expect(scanned).not.toMatch(/works best/i);
+    expect(scanned).toMatch(/photograph|picture/i);
+    expect(understand.scannedPdfNotice("ar")).toMatch(/صوّر الصفحة/);
+
+    expect(understand.encryptedDocumentNotice("en")).toMatch(/password-protected/i);
+    expect(understand.encryptedDocumentNotice("ar")).toMatch(/كلمة مرور/);
+
+    expect(understand.emptyDocumentNotice("en")).toMatch(/empty/i);
+    expect(understand.emptyDocumentNotice("ar")).toMatch(/فارغ/);
+
+    // All four are distinguishable, so the webhook can route to them.
+    const notices = new Set([
+      understand.scannedPdfNotice("en"),
+      understand.encryptedDocumentNotice("en"),
+      understand.emptyDocumentNotice("en"),
+      understand.unreadableNotice("en", "document"),
+    ]);
+    expect(notices.size).toBe(4);
+  });
+
+  it("routes every document failure to its own reply", () => {
+    for (const reason of ["scanned_pdf", "encrypted_pdf", "unreadable_format", "no_reader"]) {
+      expect(webhook, reason).toContain(`read.reason === "${reason}"`);
+    }
+  });
+
+  it("gives a PDF more room than a text file, and still a ceiling", () => {
+    expect(understand.PDF_TEXT_BUDGET).toBeGreaterThan(understand.DOCUMENT_TEXT_BUDGET);
+    expect(understand.PDF_TEXT_BUDGET).toBeLessThanOrEqual(60_000);
+  });
+});
+
+describe("announcing what the assistant can do", () => {
+  async function loadCapabilities() {
+    return await import("../../supabase/functions/_shared/whatsappCapabilities.ts");
+  }
+
+  it("names every capability a sender could not otherwise discover", async () => {
+    const { capabilityMenu } = await loadCapabilities();
+    const english = capabilityMenu("en");
+    for (const feature of ["Weather", "location", "bazaar", "Selling", "Files", "Voice"]) {
+      expect(english, feature).toContain(feature);
+    }
+    const arabic = capabilityMenu("ar");
+    for (const feature of ["الطقس", "موقعك", "السوق", "أبيع", "ملفات", "صوتية"]) {
+      expect(arabic, feature).toContain(feature);
+    }
+  });
+
+  it("is sent on first contact and whenever the menu is asked for", () => {
+    // A capability that is not announced does not exist: this audience cannot
+    // discover a feature by noticing a new button.
+    expect(webhook).toContain('await reply(capabilityMenu(language), "welcome");');
+    expect(webhook).toContain('await reply(capabilityMenu(language), "reply");');
+  });
+
+  it("keeps the map questions ahead of the camera modes", () => {
+    // "وين أقرب صيدلية" and "وين مفاتيحي" both open with وين, and only the
+    // second is waiting for a photograph. Matching the more specific phrase
+    // first is what stops the first one arming the camera and then waiting ten
+    // minutes for a picture that was never coming.
+    //
+    // Every needle is asserted present before it is ordered: `indexOf` returns
+    // -1 for a call that is not in the file, and -1 is less than everything, so
+    // an ordering check on a deleted call would pass while proving nothing.
+    for (const call of [
+      "asksWhatIsNearby(questionText)",
+      "parseWeatherRequest(questionText)",
+      "parseVisionMode(questionText)",
+      "parseBazaarRequest(questionText)",
+    ]) {
+      expect(webhook, call).toContain(call);
+    }
+    expect(webhook.indexOf("asksWhatIsNearby(questionText)"))
+      .toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));
+    expect(webhook.indexOf("parseWeatherRequest(questionText)"))
+      .toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));
+    // And the shop stays behind them, so "دوّر على مفاتيحي" still means the camera.
+    expect(webhook.indexOf("parseVisionMode(questionText)"))
+      .toBeLessThan(webhook.indexOf("parseBazaarRequest(questionText)"));
+  });
+
+  it("answers all of it from a voice note, not only from typing", () => {
+    // Everything above is reached with `questionText`, which is the transcript
+    // by this point. For this audience that is the difference between a
+    // feature and a demo.
+    const afterTranscription = webhook.slice(webhook.indexOf("transcribeVoice"));
+    for (const call of [
+      "asksWhereAmI(questionText)",
+      "asksWhatIsNearby(questionText)",
+      "parseWeatherRequest(questionText)",
+      "parseBazaarRequest(questionText)",
+    ]) {
+      expect(afterTranscription, call).toContain(call);
+    }
+  });
+});
+
+describe("the new capabilities respect the rules that were already here", () => {
+  it("stays silent once a human owns the conversation", () => {
+    // "Once a human owns the conversation, the bot stops answering so the user
+    // is not talking to both at once." The triage section makes that check,
+    // but far below everything added here — so each new entry point honours it
+    // itself. A forecast landing in the middle of a human conversation is
+    // exactly the two-voices confusion the rule exists to stop.
+    expect(webhook).toContain(
+      'const humanOwnsThis = existing?.control === "human" || existing?.escalated === true;',
+    );
+    for (const guarded of [
+      "if (asksWhereAmI(questionText) && !humanOwnsThis) {",
+      "if (asksWhatIsNearby(questionText) && !humanOwnsThis) {",
+      "if (weatherRequest && !humanOwnsThis) {",
+      "if (bazaarRequest && !humanOwnsThis) {",
+    ]) {
+      expect(webhook, guarded).toContain(guarded);
+    }
+    // A pin cannot fall through — the code below it would answer it as an
+    // unreadable attachment — so it returns rather than being guarded inline.
+    const pinBranch = webhook.slice(webhook.indexOf("if (incoming.location) {"));
+    expect(pinBranch.indexOf("if (humanOwnsThis) continue;"))
+      .toBeGreaterThan(-1);
+    expect(pinBranch.indexOf("if (humanOwnsThis) continue;"))
+      .toBeLessThan(pinBranch.indexOf("reverseGeocode"));
+  });
+
+  it("answers in the language the conversation settled on, not this message's", () => {
+    // `language` is detected from the message in hand, so somebody who set
+    // Arabic and then typed one English word would get an English forecast.
+    expect(webhook).toContain('const noticeLanguage = answerLanguage === "ar" ? "ar" : "en";');
+    expect(webhook).toContain("weatherNeedsPlaceNotice(noticeLanguage)");
+    expect(webhook).toContain("locationNeededNotice(noticeLanguage)");
+    expect(webhook).toContain("sellGuidance(noticeLanguage)");
+  });
+
+  it("does not report a failed nearby lookup as an empty neighbourhood", async () => {
+    // Telling somebody standing outside a pharmacy that nothing is near them
+    // is false in a way they cannot check for themselves.
+    const geo = readFileSync("supabase/functions/_shared/whatsappGeo.ts", "utf8");
+    expect(geo).toContain("Promise<NearbyPlace[] | null>");
+    expect(webhook).toContain("if (nearby === null) {");
+
+    // And a genuinely empty area still gets a truthful sentence.
+    const { formatNearby } = await import("../../supabase/functions/_shared/whatsappLocation.ts");
+    const empty = formatNearby({
+      language: "en",
+      origin: { latitude: 31.95, longitude: 35.91 },
+      places: [],
+    });
+    expect(empty).toMatch(/couldn't find anything mapped/i);
+  });
+
+  it("orders nearby places by distance and points a direction at each", async () => {
+    const { formatNearby } = await import("../../supabase/functions/_shared/whatsappLocation.ts");
+    const origin = { latitude: 31.9539, longitude: 35.9106 };
+    const message = formatNearby({
+      language: "en",
+      origin,
+      places: [
+        { name: "Corner Pharmacy", category: "pharmacy", latitude: 31.9545, longitude: 35.9106 },
+        { name: "Bus stop", category: "bus_stop", latitude: 31.9539, longitude: 35.9126 },
+      ],
+    });
+    expect(message).toContain("Corner Pharmacy");
+    expect(message).toContain("pharmacy");
+    // A distance alone is true of every point on a circle.
+    expect(message).toMatch(/north/);
+    expect(message).toMatch(/east/);
+    expect(message).toMatch(/straight-line/i);
+  });
+
+  it("stops three captionless photos from silencing a blind sender", () => {
+    // The repeat limiter compares message bodies, and an attachment with no
+    // caption is logged by its kind — so three photos in a row were three
+    // identical bodies and a fifteen-minute cooldown. Three photos in a row is
+    // the most ordinary thing this audience does here.
+    expect(webhook).toContain("const repeatCount = incoming.text");
+    expect(webhook).toContain(": 0;");
   });
 });

@@ -388,8 +388,23 @@ export interface IncomingMessage {
   from: string;
   messageId: string;
   text: string;
-  /** Present for a type nothing here can process (location, contacts…). */
+  /** Present for a type nothing here can process (contacts, orders…). */
   unsupportedType?: string;
+  /**
+   * Present when the sender shared a pin.
+   *
+   * A location carries no media id and cannot be downloaded — the coordinates
+   * arrive inline — so it is neither `media` nor unsupported. It is also the
+   * cheapest precise input this channel has for a blind sender: two taps, no
+   * typing, no camera to aim.
+   */
+  location?: {
+    latitude: number;
+    longitude: number;
+    /** The label the sender's phone attached, e.g. a saved place. */
+    name?: string;
+    address?: string;
+  };
   /** Present for an attachment that can be fetched and understood. */
   media?: {
     id: string;
@@ -444,6 +459,35 @@ export function extractMessages(payload: unknown): IncomingMessage[] {
 
         if (m.type === "text" && typeof m.text?.body === "string") {
           out.push({ from: m.from, messageId: m.id, text: m.text.body });
+          continue;
+        }
+
+        // A pin is inline, not a media id: the coordinates are in the payload
+        // and there is nothing to download. Checked before the media loop so it
+        // never falls through to "I can't read that kind of message", which is
+        // a poor thing to tell someone who just said exactly where they are.
+        if (m.type === "location") {
+          const pin = (message as {
+            location?: {
+              latitude?: number | string;
+              longitude?: number | string;
+              name?: string;
+              address?: string;
+            };
+          }).location;
+          const latitude = Number(pin?.latitude);
+          const longitude = Number(pin?.longitude);
+          if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+            out.push({
+              from: m.from,
+              messageId: m.id,
+              text: "",
+              location: { latitude, longitude, name: pin?.name, address: pin?.address },
+            });
+            continue;
+          }
+          // Coordinates that will not parse are a broken payload, not a place.
+          out.push({ from: m.from, messageId: m.id, text: "", unsupportedType: "location" });
           continue;
         }
 
