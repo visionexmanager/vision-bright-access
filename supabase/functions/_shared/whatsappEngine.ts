@@ -32,6 +32,14 @@ import {
   ROOT_ID,
 } from "./whatsappCatalog.ts";
 import {
+  foldDigits,
+  isGreeting,
+  type NavigationCommand,
+  parseChoice,
+  parseCommand,
+} from "./whatsappCommands.ts";
+import { resolveSelection } from "./whatsappRouter.ts";
+import {
   cancelPending,
   currentNodeId,
   enter,
@@ -72,6 +80,7 @@ export type EngineReason =
   | "invalid_selection"
   | "disabled_feature"
   | "missing_capability"
+  | "named_feature"
   | "stale_selection"
   | "inside_feature"
   | "not_navigation";
@@ -94,78 +103,10 @@ export interface EngineContext {
   isNewConversation: boolean;
 }
 
-// ── The universal commands ────────────────────────────────────────────────
-//
-// Recognised whatever the case, and in Arabic as well as English. Kept
-// deliberately tiny: every word here is a word a sender can no longer use as an
-// ordinary message, so the list earns each entry. "0" and "00" are the two that
-// carry the traffic, and both are unambiguous — nobody sends a bare zero to
-// mean anything else.
-
-export type NavigationCommand = "back" | "home" | "cancel" | "help" | "menu";
-
-const HOME_WORDS = /^(00|menu|main|main menu|home)$/i;
-const BACK_WORDS = /^(0|back|return)$/i;
-const CANCEL_WORDS = /^(#|cancel|stop|abort)$/i;
-const HELP_WORDS = /^(help|\?|commands)$/i;
-
-const HOME_WORDS_AR = /^(القائمة|قائمة|القائمة الرئيسية|الرئيسية|الرجوع للقائمة)$/;
-const BACK_WORDS_AR = /^(رجوع|ارجع|عودة|السابق|للخلف)$/;
-const CANCEL_WORDS_AR = /^(الغاء|إلغاء|ألغِ|توقف|إلغاء العملية)$/;
-const HELP_WORDS_AR = /^(مساعدة|المساعدة|الأوامر|اوامر|شرح)$/;
-
-/**
- * Arabic-Indic and Persian digits, folded to the ones the parser reads.
- *
- * ٣ and 3 are the same key to the person pressing it. Treating only one of them
- * as a menu choice would make the whole engine work for half the audience.
- */
-export function foldDigits(text: string): string {
-  return text
-    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
-    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
-}
-
-/** Strip what people add around a command without meaning it: spaces, a dot. */
-function normalise(text: string): string {
-  return foldDigits((text ?? "").trim())
-    .replace(/^[\s.)؟?!،,-]+|[\s.)؟?!،,-]+$/g, "")
-    .trim();
-}
-
-/** The universal command a message is, or null for anything else. */
-export function parseCommand(text: string | null | undefined): NavigationCommand | null {
-  const value = normalise(text ?? "");
-  if (!value || value.length > 24) return null;
-  if (HOME_WORDS.test(value) || HOME_WORDS_AR.test(value)) return "home";
-  if (BACK_WORDS.test(value) || BACK_WORDS_AR.test(value)) return "back";
-  if (CANCEL_WORDS.test(value) || CANCEL_WORDS_AR.test(value)) return "cancel";
-  if (HELP_WORDS.test(value) || HELP_WORDS_AR.test(value)) return "help";
-  return null;
-}
-
-/**
- * A menu choice typed on its own.
- *
- * Only a number and nothing else. "3" is a choice; "3 kilos of rice" is a
- * sentence that starts with a number, and answering it with the OCR menu would
- * be worse than not offering numbers at all.
- */
-export function parseChoice(text: string | null | undefined): number | null {
-  const value = normalise(text ?? "");
-  if (!/^[0-9]{1,2}$/.test(value)) return null;
-  const choice = Number(value);
-  // Zero is the back command and never reaches this. Anything else the sender
-  // typed as a bare number is a menu choice, valid or not: telling them "that
-  // is not on the menu" is the point of having numbers.
-  return choice >= 1 ? choice : null;
-}
-
-/** A first message that is only a greeting, which should open the menu. */
-const GREETING = /^(hi|hello|hey|start|hei|salam|salaam)$|^(مرحبا|مرحبًا|السلام عليكم|اهلا|أهلا|هلا|بداية|ابدأ)$/i;
-
-export const isGreeting = (text: string | null | undefined): boolean =>
-  GREETING.test(normalise(text ?? ""));
+// Re-exported so every existing caller keeps its import path: the words moved,
+// the vocabulary did not.
+export { foldDigits, isGreeting, parseChoice, parseCommand };
+export type { NavigationCommand };
 
 // ── The strings the engine itself says ────────────────────────────────────
 //
@@ -362,18 +303,25 @@ export function runEngine(message: EngineMessage, session: SessionState, context
     };
   }
 
-  // 5. A number, read against the menu the sender is looking at. Inside a
-  //    feature the number belongs to the menu that feature sits in, so "2"
-  //    after opening the wrong one is a correction rather than a dead end.
-  const choice = parseChoice(message.text);
-  if (choice !== null) {
-    const menuId = state.feature ? (nodeById(state.feature)?.parent ?? ROOT_ID) : currentNodeId(state);
-    const target = childAt(menuId, choice);
-    if (target) return openNode(target, state, context);
+  // 5. Everything else goes to the router, which is the only thing that turns a
+  //    message into a feature id. A number is read against the menu the sender
+  //    is looking at — inside a feature that means the menu the feature sits in,
+  //    so "2" after opening the wrong one is a correction rather than a dead
+  //    end. A tapped row and a named feature come back through the same call.
+  const menuId = state.feature ? (nodeById(state.feature)?.parent ?? ROOT_ID) : currentNodeId(state);
+  const routed = resolveSelection({
+    menuId,
+    text: message.text,
+    selection: message.selection,
+    language: context.language,
+    disabled: context.disabled ?? [],
+    available: context.available,
+  });
 
+  if (routed.kind === "invalid") {
     return {
       kind: "reply",
-      replies: [{ type: "menu", nodeId: menuId, note: say("invalidChoice", context.language) }],
+      replies: [{ type: "menu", nodeId: routed.menuId, note: say("invalidChoice", context.language) }],
       // Emphatically not a reset: an invalid number is a typo, and throwing
       // somebody back to the main menu for a typo is how a menu becomes a maze.
       session: state,
@@ -381,9 +329,37 @@ export function runEngine(message: EngineMessage, session: SessionState, context
     };
   }
 
-  // 6. Not a command and not a number. If a feature is open it owns this, and
-  //    if it does not accept this kind of message the feature says so — the
-  //    engine does not guess on its behalf.
+  if (routed.kind === "unavailable") {
+    // Resolved first, refused second — including when it was *named* rather
+    // than numbered, which is what stops a word being a way around a flag.
+    return {
+      kind: "reply",
+      replies: [{
+        type: "menu",
+        nodeId: routed.parentId,
+        note: say(routed.reason === "disabled" ? "disabled" : "unavailable", context.language),
+      }],
+      session: state,
+      reason: routed.reason === "disabled" ? "disabled_feature" : "missing_capability",
+    };
+  }
+
+  if (routed.kind === "feature") {
+    // A number or a tap opens the feature and moves the sender into it. A word
+    // does not, and — while a feature is open — a word does not even preempt
+    // it: somebody inside Ask AI who types "weather" asked the assistant about
+    // the weather. The feature holding the floor keeps it until they leave.
+    if (routed.via === "alias") {
+      const open = nodeById(state.feature);
+      if (open) return { kind: "delegate", node: open, session: state, reason: "inside_feature" };
+      return { kind: "passthrough", session: state, reason: "named_feature" };
+    }
+    return openNode(routed.node, state, context);
+  }
+
+  // 6. Not a command, not a feature. If a feature is open it owns this, and if
+  //    it does not accept this kind of message the feature says so — the engine
+  //    does not guess on its behalf.
   const feature = nodeById(state.feature);
   if (feature) {
     return { kind: "delegate", node: feature, session: state, reason: "inside_feature" };
@@ -392,6 +368,7 @@ export function runEngine(message: EngineMessage, session: SessionState, context
   // 7. Nothing here claims it. The conversational pipeline answers, exactly as
   //    it did before this engine existed.
   return { kind: "passthrough", session: state, reason: "not_navigation" };
+
 }
 
 /** Opening a node: a menu is shown, an action is checked and then delegated. */
