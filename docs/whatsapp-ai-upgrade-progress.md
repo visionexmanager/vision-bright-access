@@ -790,14 +790,28 @@ to send.
 
 ---
 
-## Discoverability · `whatsappCapabilities.ts`
+## Discoverability · `whatsappMenu.ts`
 
 A capability that is not announced does not exist. This audience cannot
 discover a feature by noticing a new button, so the menu **is** the interface.
-`capabilityMenu` lists weather, locations, nearby, the bazaar, selling, files
-and voice notes, and is sent as its own message on first contact and whenever
-someone asks for the menu — never appended to the five-item photo menu, which
-would bury both lists.
+
+It is now one numbered menu of ten rows — weather, location, nearby, read,
+describe, find, translate, the bazaar, voice replies, a person — reachable
+three ways: tap a row in an interactive list, send the number, or say the
+words. The number is the one that matters: tapping means opening a modal and
+navigating it with a screen reader, where "3" is one keystroke and can be
+spoken into a voice note.
+
+No row dispatches on its own. Each carries the phrase it stands in for, which
+is handed to the parser that already answers those words, so a row cannot drift
+from what typing the same request does — and the suite asserts every row
+against the real parser it lands in, plus every Meta limit, because a row title
+one character too long rejects the whole message and the sender gets nothing.
+
+`capabilityMenu` and `visionMenu` are gone; their ten items are these rows, and
+the two capabilities with no row of their own — sending a file, opening a shop —
+are named in the body text, which is also what goes out when the interactive
+message is refused.
 
 ---
 

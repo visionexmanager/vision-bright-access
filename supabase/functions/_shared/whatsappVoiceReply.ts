@@ -40,13 +40,36 @@ export const MAX_SPOKEN_CHARS = 900;
  */
 export const MAX_SPOKEN_PARTS = 3;
 
+/**
+ * How a conversation wants its replies delivered.
+ *
+ *   mirror - the medium the sender used. A voice note is answered out loud, a
+ *            typed message in writing. The default, and the one nobody has to
+ *            ask for: sending a voice note already says how you want to be
+ *            answered, and making somebody set a preference to get that is
+ *            asking them to configure the obvious.
+ *   always - spoken even when they typed, because they asked for that.
+ *   never  - text only, because they asked for that.
+ */
+export type VoiceMode = "mirror" | "always" | "never";
+
+export const DEFAULT_VOICE_MODE: VoiceMode = "mirror";
+
+/** Read the column safely: an unknown or missing value means the default. */
+export function voiceModeOf(value: string | null | undefined): VoiceMode {
+  return value === "always" || value === "never" || value === "mirror" ? value : DEFAULT_VOICE_MODE;
+}
+
 /** Whether this particular reply should also be spoken. */
 export function shouldSpeak(params: {
-  voiceRepliesEnabled: boolean;
+  mode: VoiceMode;
+  /** Whether the message being answered was itself a voice note. */
+  spokenInput: boolean;
   replyText: string;
   isCannedNotice: boolean;
 }): boolean {
-  if (!params.voiceRepliesEnabled) return false;
+  if (params.mode === "never") return false;
+  if (params.mode === "mirror" && !params.spokenInput) return false;
   // The welcome and the menus stay text: they are lists of links and taps,
   // which is the one thing audio is worse at than text.
   if (params.isCannedNotice) return false;

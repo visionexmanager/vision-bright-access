@@ -405,6 +405,8 @@ export interface IncomingMessage {
     name?: string;
     address?: string;
   };
+  /** The id of a menu row or button the sender tapped, e.g. `menu_weather`. */
+  selection?: string;
   /** Present for an attachment that can be fetched and understood. */
   media?: {
     id: string;
@@ -459,6 +461,35 @@ export function extractMessages(payload: unknown): IncomingMessage[] {
 
         if (m.type === "text" && typeof m.text?.body === "string") {
           out.push({ from: m.from, messageId: m.id, text: m.text.body });
+          continue;
+        }
+
+        // A tapped menu row, or a tapped button.
+        //
+        // Checked before the media loop and before the unsupported fallback,
+        // because `interactive` is a message type this assistant sends itself:
+        // answering a tap on its own menu with "I can't read that kind of
+        // message" would be the assistant refusing its own interface. The id
+        // is what was tapped; the title is what the sender saw, and is kept as
+        // the message text so the transcript reads like a conversation.
+        if (m.type === "interactive") {
+          const chosen = (message as {
+            interactive?: {
+              list_reply?: { id?: string; title?: string };
+              button_reply?: { id?: string; title?: string };
+            };
+          }).interactive;
+          const reply = chosen?.list_reply ?? chosen?.button_reply;
+          if (reply?.id) {
+            out.push({
+              from: m.from,
+              messageId: m.id,
+              text: reply.title ?? "",
+              selection: reply.id,
+            });
+            continue;
+          }
+          out.push({ from: m.from, messageId: m.id, text: "", unsupportedType: "interactive" });
           continue;
         }
 
@@ -560,17 +591,18 @@ export function sendBackoffMs(attempt: number): number {
 }
 
 /**
- * Send a text message through the Cloud API. Returns whether it was accepted.
+ * Post one message payload, with the retry policy above. Returns whether Meta
+ * accepted it.
  *
- * Retries only what is worth retrying, and at most twice: the webhook is inside
- * Meta's delivery timeout, so a long retry loop would cost us the 200 and earn
- * a redelivery of the whole batch.
+ * The text and interactive senders differ only in the `type` field and its
+ * object, so the attempt loop, the backoff and the never-log-the-body rule
+ * live here once rather than being copied and drifting apart.
  */
-export async function sendWhatsAppText(params: {
+async function sendMessage(params: {
   phoneNumberId: string;
   token: string;
   to: string;
-  body: string;
+  payload: Record<string, unknown>;
   attempts?: number;
   sleep?: (ms: number) => Promise<void>;
 }): Promise<boolean> {
@@ -592,8 +624,7 @@ export async function sendWhatsAppText(params: {
             messaging_product: "whatsapp",
             recipient_type: "individual",
             to: params.to,
-            type: "text",
-            text: { preview_url: true, body: params.body },
+            ...params.payload,
           }),
         },
       );
@@ -611,6 +642,58 @@ export async function sendWhatsAppText(params: {
     await sleep(sendBackoffMs(attempt));
   }
   return false;
+}
+
+/**
+ * Send a text message through the Cloud API. Returns whether it was accepted.
+ *
+ * Retries only what is worth retrying, and at most twice: the webhook is inside
+ * Meta's delivery timeout, so a long retry loop would cost us the 200 and earn
+ * a redelivery of the whole batch.
+ */
+export async function sendWhatsAppText(params: {
+  phoneNumberId: string;
+  token: string;
+  to: string;
+  body: string;
+  attempts?: number;
+  sleep?: (ms: number) => Promise<void>;
+}): Promise<boolean> {
+  return await sendMessage({
+    phoneNumberId: params.phoneNumberId,
+    token: params.token,
+    to: params.to,
+    payload: { type: "text", text: { preview_url: true, body: params.body } },
+    attempts: params.attempts,
+    sleep: params.sleep,
+  });
+}
+
+/**
+ * Send an interactive message — the tappable menu.
+ *
+ * Never the only copy of what it says. Meta rejects an interactive message
+ * outright if a row title runs one character long, and it cannot be delivered
+ * at all outside the 24-hour service window, so every caller sends the same
+ * options as text when this returns false. A menu that exists only inside a
+ * modal is a menu half this audience cannot reach.
+ */
+export async function sendWhatsAppInteractive(params: {
+  phoneNumberId: string;
+  token: string;
+  to: string;
+  interactive: Record<string, unknown>;
+  attempts?: number;
+  sleep?: (ms: number) => Promise<void>;
+}): Promise<boolean> {
+  return await sendMessage({
+    phoneNumberId: params.phoneNumberId,
+    token: params.token,
+    to: params.to,
+    payload: { type: "interactive", interactive: params.interactive },
+    attempts: params.attempts,
+    sleep: params.sleep,
+  });
 }
 
 /**

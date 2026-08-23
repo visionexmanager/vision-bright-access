@@ -287,41 +287,6 @@ const MODE_NAME_EN: Record<VisionMode, string> = {
 export const visionModeName = (language: "ar" | "en", mode: VisionMode): string =>
   (language === "ar" ? MODE_NAME_AR : MODE_NAME_EN)[mode];
 
-/**
- * The menu.
- *
- * Written to be *heard*, not scanned: no emoji carrying meaning, no table, and
- * each line is a phrase the person can simply say back. A screen reader reads
- * this top to bottom, so the instruction to send a photo comes last, where it
- * is the most recent thing in the listener's memory.
- */
-export function visionMenu(language: "ar" | "en"): string {
-  if (language === "ar") {
-    return [
-      "*ما أستطيع فعله بصورة*",
-      "",
-      "• *وصف* — أصف لك ما في الصورة",
-      "• *اقرأ* — أقرأ النص المكتوب كما هو",
-      "• *وين* — أدلّك على غرض تبحث عنه، مثل: وين مفاتيحي",
-      "• *منتج* — اسم المنتج وتاريخ الصلاحية والمكوّنات",
-      "• *ترجم* — أترجم ما في الصورة أو نصاً ترسله",
-      "",
-      "قل الكلمة ثم أرسل الصورة، أو اكتبها مع الصورة نفسها. الرسالة الصوتية تعمل أيضاً.",
-    ].join("\n");
-  }
-  return [
-    "*What I can do with a photo*",
-    "",
-    "• *Describe* — I tell you what is in the picture",
-    "• *Read* — I read the text exactly as written",
-    "• *Find* — I locate something for you, e.g. \"where are my keys\"",
-    "• *Product* — name, expiry date and ingredients from the label",
-    "• *Translate* — a photo, or text you send me",
-    "",
-    "Say the word and then send the photo, or put it in the caption. A voice note works too.",
-  ].join("\n");
-}
-
 /** Asks for a picture and shows the sender which mode is now armed. */
 export function awaitingImageNotice(language: "ar" | "en", mode: VisionMode, target?: string | null): string {
   if (language === "ar") {
