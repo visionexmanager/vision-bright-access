@@ -132,6 +132,7 @@ import {
   runEngine,
 } from "../_shared/whatsappEngine.ts";
 import { askAssistant } from "../_shared/whatsappAsk.ts";
+import { noticeReasonFor, voiceToText } from "../_shared/whatsappVoiceTurn.ts";
 import { chainProvider } from "../_shared/whatsappAskProvider.ts";
 import {
   AI_CONVERSATION,
@@ -650,12 +651,12 @@ Deno.serve(async (req) => {
       log("received", { chars: questionTextLength(incoming), selection: !!incoming.selection });
 
       const reply = async (body: string, kind: string, options?: { speak?: boolean }) => {
-        await db.from("whatsapp_messages").insert({
+        const { data: written } = await db.from("whatsapp_messages").insert({
           conversation_id: conversationId,
           direction: "outbound",
           body,
           kind,
-        });
+        }).select("id").maybeSingle();
         if (!token || !phoneNumberId) return;
         const sent = await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
         log("replied", { replyKind: kind, chars: body.length, sent });
@@ -677,7 +678,17 @@ Deno.serve(async (req) => {
           replyText: body,
           isCannedNotice: kind === "welcome" || kind === "handover",
         })) {
-          await speakReply({ phoneNumberId, token, to: incoming.from, text: body });
+          const spoken = await speakReply({ phoneNumberId, token, to: incoming.from, text: body });
+          // Marked on the row that was already written rather than as a second
+          // one: the words are the same words, and a duplicate row would double
+          // the transcript and the replayed history with it. This is the only
+          // record that a reply was *heard* rather than read — without it,
+          // "voice replies are broken" and "nobody has them switched on" look
+          // identical from the database.
+          if (spoken && written?.id) {
+            await db.from("whatsapp_messages").update({ medium: "voice" }).eq("id", written.id);
+          }
+          log("spoke", { replyKind: kind, spoken });
         }
       };
 
@@ -971,51 +982,95 @@ Deno.serve(async (req) => {
         }
 
         if (incoming.media.kind === "audio") {
-          const media = await downloadMedia({
-            mediaId: incoming.media.id,
-            kind: "audio",
-            token,
+          /**
+           * The whole chain, in one call, with its steps handed to it.
+           *
+           * Download and transcription are the same two functions this webhook
+           * has always used — host-checked fetch, size ceiling enforced twice,
+           * Groq then OpenAI. What `voiceToText` adds is a timeout and three
+           * named outcomes, and what that buys is a suite that can drive a
+           * corrupt file, a silent recording and a provider that never answers
+           * without any of them touching the network.
+           */
+          const inAssistant = assistantOwnsInput(session.feature);
+          if (inAssistant) {
+            // Processing covers the *whole* chain, not just the model call:
+            // downloading and transcribing are the slow half, and a sender
+            // whose state says "waiting for your voice note" while the note is
+            // already being transcribed is being told something untrue.
+            session = { ...session, step: AI_PROCESSING };
+            await saveSession();
+          }
+
+          /** Back where they were, whatever went wrong. Never left processing. */
+          const recoverVoiceState = async () => {
+            if (!inAssistant) return;
+            session = { ...session, step: AI_VOICE_INPUT };
+            await saveSession();
+          };
+
+          const turn = await voiceToText(incoming.media.id, {
+            download: (mediaId) => downloadMedia({ mediaId, kind: "audio", token }),
+            transcribe: (input) => transcribeVoice(input),
           });
-          if (!media.ok) {
-            await reply(mediaFailureNotice(language, "audio", media.reason), "unsupported");
+
+          if (turn.status === "media_failed") {
+            log("voice_media_failed", { reason: turn.reason, ms: turn.ms });
+            await reply(mediaFailureNotice(language, "audio", turn.reason), "unsupported");
+            await recoverVoiceState();
+            continue;
+          }
+          if (turn.status === "not_heard") {
+            log("voice_not_heard", { reason: turn.reason, ms: turn.ms });
+            await reply(
+              transcriptionFailureNotice(language, noticeReasonFor(turn.reason)),
+              "unsupported",
+            );
+            // Still waiting for a voice note: somebody whose recording did not
+            // come through should be able to simply record it again.
+            await recoverVoiceState();
             continue;
           }
 
-          const heard = await transcribeVoice({ bytes: media.bytes, mimeType: media.mimeType });
-          if (!heard.ok) {
-            await reply(transcriptionFailureNotice(language, heard.reason), "unsupported");
-            continue;
-          }
-
-          console.log(`[whatsapp] transcribed a voice note via ${heard.provider}`);
-          questionText = [incoming.media.caption, heard.text].filter(Boolean).join("\n");
+          log("voice_heard", { provider: turn.provider, ms: turn.ms, chars: turn.text.length });
+          questionText = [incoming.media.caption, turn.text].filter(Boolean).join("\n");
 
           // Store what was heard, so the transcript and the replayed history
-          // read as a conversation rather than as a gap.
+          // read as a conversation rather than as a gap — and mark the row as
+          // having arrived by voice, which the body prefix could only imply.
           await db
             .from("whatsapp_messages")
-            .update({ body: `[voice] ${heard.text}` })
+            .update({ body: `[voice] ${turn.text}`, medium: "voice" })
             .eq("wa_message_id", incoming.messageId);
 
-          // A voice note's language is in what was said, not in its caption,
-          // and a caption is all the detection above had to work with — which
-          // for a voice note is nothing at all. Everything downstream reads
-          // these four: the language the model is told to answer in, the
-          // canned notices, and the weather and location replies. Refreshed
-          // here rather than further down because the preference parse, the
-          // vision modes and the location answers all sit in between, and all
-          // of them were reading a language detected from an empty string.
+          /**
+           * The language a voice note is answered in.
+           *
+           * A stored preference wins, then whatever this conversation has been
+           * speaking, and only then the transcript. Whisper mishears a language
+           * far more often than a person changes theirs mid-conversation, and
+           * answering an Arabic customer in English because one sentence came
+           * back as English is the worse failure by a distance. Saying «احكي
+           * معي بالإنجليزي» still switches it — that is a preference, and
+           * preferences are read from this same transcript a few lines below.
+           */
           if (questionText.trim()) {
-            detected = detectLanguageCode(questionText);
-            language = detected === "ar" ? "ar" : "en";
-            answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);
-            noticeLanguage = answerLanguage === "ar" ? "ar" : "en";
+            const heardLanguage = detectLanguageCode(questionText);
+            const spokenBefore = existing?.language as string | null | undefined;
+            const settled = isSupportedLanguage(spokenBefore) ? spokenBefore : heardLanguage;
+            answerLanguage = replyLanguage(settled, existing?.preferred_language as string | null);
+            language = answerLanguage === "ar" ? "ar" : "en";
+            noticeLanguage = language;
           }
 
           // A preference asked for out loud is set here, where the words
           // finally exist. Before this, only a typed request counted.
-          if (await applyPreferences(questionText)) continue;
+          if (await applyPreferences(questionText)) {
+            await recoverVoiceState();
+            continue;
+          }
         } else if (incoming.media.kind === "image" || incoming.media.kind === "sticker") {
+
           const media = await downloadMedia({
             mediaId: incoming.media.id,
             kind: incoming.media.kind,

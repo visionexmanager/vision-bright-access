@@ -239,12 +239,17 @@ describe("voice", () => {
 
   it("15. leaves speech-to-text failures with the existing voice code, untouched", () => {
     // Transcription runs before the engine, and its own failure notices are the
-    // ones that answer — this phase added nothing to that path.
-    expect(webhook).toContain("transcriptionFailureNotice(language, heard.reason)");
-    expect(webhook.indexOf("transcribeVoice(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
+    // ones that answer. Since the voice phase both steps are composed by
+    // `voiceToText`, which calls the same two functions and adds a clock.
+    expect(webhook).toContain("transcriptionFailureNotice(language, noticeReasonFor(turn.reason))");
+    expect(webhook).toContain("transcribe: (input) => transcribeVoice(input),");
+    expect(webhook.indexOf("voiceToText(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
     // A failed transcription never reaches the provider.
-    const audioBlock = webhook.slice(webhook.indexOf("const heard = await transcribeVoice({"), webhook.indexOf("} else if (incoming.media.kind === \"image\""));
-    expect(audioBlock).toContain("if (!heard.ok) {");
+    const audioBlock = webhook.slice(
+      webhook.indexOf('if (incoming.media.kind === "audio")'),
+      webhook.indexOf('} else if (incoming.media.kind === "image"'),
+    );
+    expect(audioBlock).toContain('if (turn.status === "not_heard")');
     expect(audioBlock).toContain("continue;");
   });
 

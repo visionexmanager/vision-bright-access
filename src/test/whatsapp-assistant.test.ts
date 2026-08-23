@@ -715,7 +715,10 @@ describe("media message parsing", () => {
   it("answers the transcript, and re-detects language from what was said", () => {
     expect(webhook).toContain("transcribeVoice");
     expect(webhook).toContain("userAskedForHuman(questionText)");
-    expect(webhook).toMatch(/detected = detectLanguageCode\(questionText\)/);
+    // The transcript is still what the language is read from — but only when
+    // the conversation has not already settled on one. See the voice phase.
+    expect(webhook).toMatch(/const heardLanguage = detectLanguageCode\(questionText\)/);
+    expect(webhook).toContain("isSupportedLanguage(spokenBefore) ? spokenBefore : heardLanguage");
   });
 
   it("stores what was heard so the transcript is not a gap", () => {
@@ -1231,8 +1234,8 @@ describe("voice replies", () => {
   it("reads a spoken preference request, not only a typed one", () => {
     // The parse used to run on `incoming.text`, which for a voice note is the
     // caption — and a voice note has no caption.
-    const transcribedAt = webhook.indexOf("`[voice] ${heard.text}`");
-    const spokenPreferenceAt = webhook.indexOf("if (await applyPreferences(questionText)) continue;");
+    const transcribedAt = webhook.indexOf("`[voice] ${turn.text}`");
+    const spokenPreferenceAt = webhook.indexOf("if (await applyPreferences(questionText)) {");
     expect(transcribedAt).toBeGreaterThan(-1);
     expect(spokenPreferenceAt).toBeGreaterThan(transcribedAt);
     expect(webhook).toContain(
@@ -1240,13 +1243,16 @@ describe("voice replies", () => {
     );
   });
 
-  it("answers a voice note in the language it was spoken in", () => {
+  it("answers a voice note in the language the conversation settled on", () => {
     // Detection ran on the caption, so an Arabic voice note was answered in
-    // English. The refresh has to precede everything that reads a language.
-    const refreshAt = webhook.indexOf("detected = detectLanguageCode(questionText);");
+    // English. Since the voice phase the transcript is only the *last* resort:
+    // a preference wins, then what the conversation has been speaking, because
+    // a transcriber mishears a language more often than a person changes one.
+    const refreshAt = webhook.indexOf("const heardLanguage = detectLanguageCode(questionText);");
     expect(refreshAt).toBeGreaterThan(-1);
-    expect(webhook).toContain("answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);");
-    expect(webhook).toContain('noticeLanguage = answerLanguage === "ar" ? "ar" : "en";');
+    expect(webhook).toContain("isSupportedLanguage(spokenBefore) ? spokenBefore : heardLanguage");
+    expect(webhook).toContain("answerLanguage = replyLanguage(settled, existing?.preferred_language as string | null);");
+    expect(webhook).toContain("noticeLanguage = language;");
     expect(refreshAt).toBeLessThan(webhook.indexOf("const answerIn = answerLanguage;"));
     expect(refreshAt).toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));
   });

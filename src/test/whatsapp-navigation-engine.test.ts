@@ -369,7 +369,7 @@ describe("language and other message kinds", () => {
     expect(spoken.session.feature).toBe("assistant");
 
     // The transcription runs before the engine, which is what makes both true.
-    expect(webhook.indexOf("transcribeVoice(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
+    expect(webhook.indexOf("voiceToText(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
   });
 
   it("21. gives an image to the feature that is open", () => {
@@ -622,9 +622,9 @@ describe("the webhook stays thin", () => {
   it("keeps the existing voice path in front of the engine, untouched", () => {
     // The engine must see the transcript, so transcription runs first — and
     // the voice reply still happens inside reply(), for every route.
-    expect(webhook).toContain("const heard = await transcribeVoice({");
+    expect(webhook).toContain("transcribe: (input) => transcribeVoice(input),");
     expect(webhook).toContain("await speakReply({ phoneNumberId, token, to: incoming.from, text: body });");
-    expect(webhook.indexOf("transcribeVoice(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
+    expect(webhook.indexOf("voiceToText(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
   });
 
   it("declares which capabilities exist from the environment, not from a guess", () => {

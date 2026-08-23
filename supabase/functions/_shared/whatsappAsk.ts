@@ -129,7 +129,7 @@ export async function askAssistant(input: AskInput, provider: AskProvider): Prom
       timer = setTimeout(() => reject(new AskTimeout()), timeoutMs);
     });
 
-    const result = await Promise.race([provider(request), timeout]);
+    const result: AskResult = await Promise.race([provider(request), timeout]);
     const text = (result?.text ?? "").trim();
     const provenance = { provider: result?.provider ?? "unknown", model: result?.model ?? "unknown" };
 
