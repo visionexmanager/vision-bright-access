@@ -20,12 +20,25 @@ function env(name: string): string | undefined {
 }
 
 /**
- * Longest reply worth speaking.
+ * Longest single voice note.
  *
  * Past this a voice note stops being convenient and becomes a lecture nobody
  * can skim, and the synthesis cost rises with every character.
  */
 export const MAX_SPOKEN_CHARS = 900;
+
+/**
+ * How many voice notes one reply may become.
+ *
+ * A reply is clamped at 3900 characters, and this used to be spoken only if the
+ * whole of it fitted in one 900-character note — so every thorough answer, which
+ * is exactly the kind somebody asks for out loud, arrived as text and nothing
+ * else. The sender heard silence and read that as the feature being broken. A
+ * long answer is now spoken in order, in pieces that end on sentence
+ * boundaries, and this count is what bounds the cost: 2700 characters spoken
+ * at the very most, with the text reply carrying every word either way.
+ */
+export const MAX_SPOKEN_PARTS = 3;
 
 /** Whether this particular reply should also be spoken. */
 export function shouldSpeak(params: {
@@ -34,11 +47,10 @@ export function shouldSpeak(params: {
   isCannedNotice: boolean;
 }): boolean {
   if (!params.voiceRepliesEnabled) return false;
-  // Canned notices (welcome, handover, rate limit) stay text: they carry links
-  // and instructions that are useless read aloud.
+  // The welcome and the menus stay text: they are lists of links and taps,
+  // which is the one thing audio is worse at than text.
   if (params.isCannedNotice) return false;
-  const text = params.replyText.trim();
-  return text.length > 0 && text.length <= MAX_SPOKEN_CHARS;
+  return speakableText(params.replyText).length > 0;
 }
 
 /**
@@ -54,6 +66,64 @@ export function speakableText(text: string): string {
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/**
+ * Cut a reply into voice notes that each end where a sentence does.
+ *
+ * Splitting on a character count alone would cut mid-word, and mid-word in
+ * Arabic is often mid-meaning. Sentence enders are matched for both scripts —
+ * the Arabic question mark is `؟`, not `?` — and a single sentence too long for
+ * one note is split on the last space that fits, because a sentence that long
+ * is a list, and any word boundary reads better than none.
+ */
+export function speechSegments(
+  text: string,
+  limit = MAX_SPOKEN_CHARS,
+  maxParts = MAX_SPOKEN_PARTS,
+): string[] {
+  const spoken = speakableText(text);
+  if (!spoken) return [];
+
+  // The delimiter stays with the sentence it closes.
+  const sentences = spoken
+    .split(/(?<=[.!?؟…])\s+|\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const segments: string[] = [];
+  let current = "";
+
+  const flush = () => {
+    if (current.trim()) segments.push(current.trim());
+    current = "";
+  };
+
+  for (const sentence of sentences) {
+    if (segments.length >= maxParts) break;
+
+    let rest = sentence;
+    // A sentence that cannot fit in a note of its own is broken on spaces.
+    while (rest.length > limit) {
+      flush();
+      if (segments.length >= maxParts) return segments.slice(0, maxParts);
+      const window = rest.slice(0, limit);
+      const cut = window.lastIndexOf(" ");
+      const head = cut > limit / 2 ? window.slice(0, cut) : window;
+      segments.push(head.trim());
+      rest = rest.slice(head.length).trim();
+    }
+
+    if (!current) current = rest;
+    else if (current.length + 1 + rest.length <= limit) current = `${current} ${rest}`;
+    else {
+      flush();
+      current = rest;
+    }
+  }
+
+  if (segments.length < maxParts) flush();
+  return segments.slice(0, maxParts);
 }
 
 export type SpeechResult =
@@ -74,7 +144,10 @@ export async function synthesiseSpeech(params: {
   fetchImpl?: typeof fetch;
 }): Promise<SpeechResult> {
   const key = env("OPENAI_API_KEY");
-  if (!key) return { ok: false };
+  if (!key) {
+    console.error("[whatsapp-tts] no OPENAI_API_KEY — the reply went out as text only");
+    return { ok: false };
+  }
 
   const doFetch = params.fetchImpl ?? fetch;
   try {
@@ -93,7 +166,10 @@ export async function synthesiseSpeech(params: {
       return { ok: false };
     }
     const bytes = new Uint8Array(await res.arrayBuffer());
-    if (bytes.byteLength === 0) return { ok: false };
+    if (bytes.byteLength === 0) {
+      console.error("[whatsapp-tts] synthesis returned no audio");
+      return { ok: false };
+    }
     return { ok: true, bytes, mimeType: "audio/ogg" };
   } catch {
     console.error("[whatsapp-tts] synthesis transport error");
@@ -131,6 +207,7 @@ export async function uploadWhatsAppMedia(params: {
       return null;
     }
     const body = await res.json() as { id?: string };
+    if (!body.id) console.error("[whatsapp-tts] media upload returned no id");
     return body.id ?? null;
   } catch {
     console.error("[whatsapp-tts] media upload transport error");
@@ -174,7 +251,14 @@ export async function sendWhatsAppAudio(params: {
  * Speak a reply that has already been sent as text.
  *
  * Every failure is swallowed: the customer has their answer, and a missing
- * voice note is a smaller problem than an error message about one.
+ * voice note is a smaller problem than an error message about one. Every
+ * failure is now also printed. Nothing about a spoken reply is recorded in the
+ * transcript — by design, it is the same words as the text row above it — so
+ * without these lines a reply that was never spoken looked exactly like a reply
+ * nobody had asked to hear, which is the state this feature was reported in.
+ *
+ * Parts are sent one at a time and a failed part ends the sequence: three notes
+ * arriving out of order would be worse than two in order.
  */
 export async function speakReply(params: {
   phoneNumberId: string;
@@ -182,24 +266,36 @@ export async function speakReply(params: {
   to: string;
   text: string;
 }): Promise<boolean> {
-  const spoken = speakableText(params.text);
-  if (!spoken) return false;
+  const segments = speechSegments(params.text);
+  if (segments.length === 0) return false;
 
-  const speech = await synthesiseSpeech({ text: spoken.slice(0, MAX_SPOKEN_CHARS) });
-  if (!speech.ok) return false;
+  let spoken = 0;
+  for (const segment of segments) {
+    const speech = await synthesiseSpeech({ text: segment });
+    if (!speech.ok) break;
 
-  const mediaId = await uploadWhatsAppMedia({
-    phoneNumberId: params.phoneNumberId,
-    token: params.token,
-    bytes: speech.bytes,
-    mimeType: speech.mimeType,
-  });
-  if (!mediaId) return false;
+    const mediaId = await uploadWhatsAppMedia({
+      phoneNumberId: params.phoneNumberId,
+      token: params.token,
+      bytes: speech.bytes,
+      mimeType: speech.mimeType,
+    });
+    if (!mediaId) break;
 
-  return await sendWhatsAppAudio({
-    phoneNumberId: params.phoneNumberId,
-    token: params.token,
-    to: params.to,
-    mediaId,
-  });
+    const sent = await sendWhatsAppAudio({
+      phoneNumberId: params.phoneNumberId,
+      token: params.token,
+      to: params.to,
+      mediaId,
+    });
+    if (!sent) break;
+    spoken += 1;
+  }
+
+  if (spoken === 0) {
+    console.error("[whatsapp-tts] nothing was spoken; the reply stands as text");
+    return false;
+  }
+  console.log(`[whatsapp-tts] spoke a reply in ${spoken}/${segments.length} parts`);
+  return true;
 }

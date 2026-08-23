@@ -30,7 +30,7 @@ export function capabilityMenu(language: "ar" | "en"): string {
       "• *السوق* — «عندكم عسل؟» وأبحث في سوق Visionex بالسعر والتوفّر",
       "• *أبيع* — أشرح لك كيف تفتح متجرك وتضيف منتجاتك",
       "• *ملفات* — أرسل PDF أو ملفاً نصياً وألخّصه أو أجيبك عمّا فيه",
-      "• *رسالة صوتية* — تكلّم بدل الكتابة، وأقدر أرد بصوت إذا طلبت",
+      "• *رسالة صوتية* — تكلّم بدل الكتابة، وقل «ردّ عليّ صوتياً» لأجيبك بصوت، و«اكتب فقط» لإيقافها",
       "",
       "اكتب «قائمة» في أي وقت لتسمع هذه الخيارات مرة أخرى.",
     ].join("\n");
@@ -44,7 +44,7 @@ export function capabilityMenu(language: "ar" | "en"): string {
     "• *The bazaar* — \"do you have honey?\" and I'll search listings, prices and stock",
     "• *Selling* — I'll walk you through opening a shop and listing your products",
     "• *Files* — send a PDF or a text file and I'll summarise it or answer questions on it",
-    "• *Voice notes* — talk instead of typing, and I can reply out loud if you ask",
+    "• *Voice notes* — talk instead of typing; say \"reply with voice\" to be answered out loud, \"text only\" to stop",
     "",
     "Say \"menu\" any time to hear these again.",
   ].join("\n");

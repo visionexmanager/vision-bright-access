@@ -21,12 +21,44 @@ function env(name: string): string | undefined {
 export const MAX_AUDIO_SECONDS = 300;
 
 /**
- * Rough duration from byte length, used only to decline something absurd
- * before paying to transcribe it. WhatsApp voice notes are Opus at roughly
- * 16 kbit/s, so a byte is about half a millisecond.
+ * Assumed bit rate per format, used only to guess a duration from a size.
+ *
+ * One number for every format was wrong in the expensive direction. WhatsApp
+ * records voice notes as Opus at roughly 16–24 kbit/s, but the same `audio`
+ * message type also carries a *forwarded* file — an MP3 or an M4A at 128 kbit/s
+ * and up. Measured against 16 kbit/s, two minutes of ordinary music-quality
+ * audio looks like sixteen minutes, and was refused as "too long" without ever
+ * being listened to. Each format is now measured against its own rate, and the
+ * rates are the generous end of each range: over-estimating the bit rate
+ * under-estimates the duration, which errs towards transcribing something
+ * slightly long rather than refusing something perfectly short. The byte
+ * ceiling in `whatsappMedia.ts` is what actually bounds the cost.
  */
-export function estimateAudioSeconds(byteLength: number, bitsPerSecond = 16_000): number {
-  return (byteLength * 8) / bitsPerSecond;
+export const ASSUMED_BITRATES: Readonly<Record<string, number>> = {
+  "audio/ogg": 24_000,
+  "audio/opus": 24_000,
+  "audio/webm": 24_000,
+  "audio/amr": 12_800,
+  "audio/mpeg": 128_000,
+  "audio/mp4": 128_000,
+  "audio/aac": 128_000,
+  "audio/wav": 256_000,
+  "audio/x-wav": 256_000,
+};
+
+/** The rate to measure a format against; the Opus rate for anything unknown. */
+export function assumedBitrate(mimeType: string | undefined): number {
+  const base = (mimeType ?? "").split(";")[0].trim().toLowerCase();
+  return ASSUMED_BITRATES[base] ?? 24_000;
+}
+
+/**
+ * Rough duration from byte length, used only to decline something absurd
+ * before paying to transcribe it. Never precise, and never meant to be: it
+ * exists to catch the hour-long recording, not to time anything.
+ */
+export function estimateAudioSeconds(byteLength: number, mimeType = "audio/ogg"): number {
+  return (byteLength * 8) / assumedBitrate(mimeType);
 }
 
 export type TranscriptionFailure = "too_long" | "no_provider" | "empty" | "provider_error";
@@ -87,12 +119,18 @@ export async function transcribeVoice(params: {
   mimeType: string;
   fetchImpl?: typeof fetch;
 }): Promise<TranscriptionResult> {
-  const seconds = estimateAudioSeconds(params.bytes.byteLength);
-  if (seconds > MAX_AUDIO_SECONDS) return { ok: false, reason: "too_long" };
+  const seconds = estimateAudioSeconds(params.bytes.byteLength, params.mimeType);
+  if (seconds > MAX_AUDIO_SECONDS) {
+    console.error(`[whatsapp-stt] declined ~${Math.round(seconds)}s of audio as too long`);
+    return { ok: false, reason: "too_long" };
+  }
 
   const doFetch = params.fetchImpl ?? fetch;
   const available = PROVIDERS.filter((p) => !!env(p.envKey));
-  if (available.length === 0) return { ok: false, reason: "no_provider" };
+  if (available.length === 0) {
+    console.error("[whatsapp-stt] no transcription provider is configured");
+    return { ok: false, reason: "no_provider" };
+  }
 
   for (const provider of available) {
     try {
@@ -118,7 +156,10 @@ export async function transcribeVoice(params: {
       }
 
       const text = (await res.text()).trim();
-      if (!text) return { ok: false, reason: "empty" };
+      if (!text) {
+        console.error(`[whatsapp-stt] ${provider.name} heard nothing`);
+        return { ok: false, reason: "empty" };
+      }
       return { ok: true, text, provider: provider.name };
     } catch {
       console.error(`[whatsapp-stt] ${provider.name} transport error`);

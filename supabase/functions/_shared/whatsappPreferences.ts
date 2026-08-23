@@ -55,16 +55,41 @@ const LANGUAGE_INTENT = [
   /(بالعربي|بالإنجليزي|بالانجليزي|بالفرنسية|بالتركية)/i,
 ];
 
+/**
+ * Asking to be answered out loud.
+ *
+ * Wider than it was, in Arabic especially. The first version matched only
+ * "ابعت/أرسل/بدي … صوت", which leaves out how most people actually say it —
+ * «ردّ عليّ صوتياً», «جاوبني بالصوت», «احكيلي صوت» — and a preference nobody
+ * can phrase is a preference nobody has.
+ *
+ * Wider, but not loose. "صوت" on its own is an ordinary word on a site that
+ * also sells televisions and radios: "بدي أعرف كيف أشغل الصوت" is a support
+ * question, and answering it by silently changing how every later reply
+ * arrives would be worse than never offering the setting. So the adjectival
+ * forms — صوتي، صوتية، صوتياً، بالصوت — carry the intent on their own after an
+ * asking verb, while the bare noun counts only immediately after a verb that
+ * means *reply*.
+ */
 const VOICE_ON = [
   /\b(send|reply|answer|respond)\b.{0,20}\b(voice|audio|voice note|voice message)\b/i,
-  /\b(voice|audio)\b.{0,12}\b(reply|replies|answer|answers|please|on)\b/i,
-  /(ابعت|أرسل|بدي|ارسل).{0,20}(صوت|صوتية|رسالة صوتية)/i,
+  /\b(voice|audio|spoken)\b.{0,16}\b(reply|replies|answer|answers|response|mode)\b/i,
+  // "on" and "please" only where the sentence ends: "voice replies on" is an
+  // instruction, "the audio on this file is broken" is a support question.
+  /\b(voice|audio)\b ?(notes?|messages?|replies|reply)? ?(please|on)\s*$/i,
+  /\b(speak|say)\b.{0,16}\b(reply|replies|answer|answers)\b/i,
+  /\btalk to me\b/i,
+  /(ابعت|ابعث|إبعت|أرسل|ارسل|بدي|بدّي|أريد|اريد|رد|ردّ|ردود|جاوب|جاوبني|احكي|احكيلي|كلمني|تكلم|خليك).{0,20}(صوتياً|صوتيا|صوتية|صوتي|بالصوت)/i,
+  /(بدي|بدّي|أريد|اريد|رد|ردّ|جاوب|جاوبني|احكي|احكيلي|كلمني|ابعتلي|ابعث لي)\s*(لي|عليّ|علي)?\s*(بال)?صوت/i,
 ];
 
 const VOICE_OFF = [
   /\b(no|stop|don'?t|disable|turn off)\b.{0,20}\b(voice|audio)\b/i,
   /\b(text|written)\b.{0,20}\b(only|please|instead)\b/i,
   /(بدون|وقف|لا).{0,15}(صوت|صوتية)/i,
+  // Syrian and Egyptian negation, which the list above misses entirely: left
+  // out, "ما بدي صوت" reads as a request for exactly what it refuses.
+  /(ما|مو|مش)\s*(بدي|بدّي|أريد|اريد|عايز|عاوز).{0,15}(صوت)/i,
   /(اكتب|نص).{0,12}(فقط|بس)/i,
 ];
 

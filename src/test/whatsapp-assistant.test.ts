@@ -616,14 +616,34 @@ describe("media download safety", () => {
 
 describe("voice transcription", () => {
   it("declines audio longer than the ceiling before paying to transcribe it", async () => {
-    const tooLong = new Uint8Array(Math.ceil((stt.MAX_AUDIO_SECONDS + 60) * 16_000 / 8));
+    const tooLong = new Uint8Array(
+      Math.ceil((stt.MAX_AUDIO_SECONDS + 60) * stt.assumedBitrate("audio/ogg") / 8),
+    );
     const result = await stt.transcribeVoice({ bytes: tooLong, mimeType: "audio/ogg" });
     expect(result).toEqual({ ok: false, reason: "too_long" });
   });
 
+  it("measures each format against its own bit rate, not Opus's", async () => {
+    // Two minutes of a forwarded 128 kbit/s MP3 is ~1.9 MB. Measured against
+    // the Opus rate it looked like sixteen minutes and was refused unheard.
+    const twoMinuteMp3 = new Uint8Array(2 * 60 * 128_000 / 8);
+    expect(stt.estimateAudioSeconds(twoMinuteMp3.byteLength, "audio/mpeg")).toBeCloseTo(120, 0);
+    expect(stt.estimateAudioSeconds(twoMinuteMp3.byteLength, "audio/ogg"))
+      .toBeGreaterThan(stt.MAX_AUDIO_SECONDS);
+
+    // It now reaches a provider — there is none configured under Vitest, which
+    // is a different answer from "too long" and the point of the test.
+    const result = await stt.transcribeVoice({ bytes: twoMinuteMp3, mimeType: "audio/mpeg" });
+    expect(result).toEqual({ ok: false, reason: "no_provider" });
+  });
+
   it("estimates duration from size, monotonically", () => {
-    expect(stt.estimateAudioSeconds(16_000 / 8)).toBeCloseTo(1, 5);
+    expect(stt.estimateAudioSeconds(24_000 / 8, "audio/ogg")).toBeCloseTo(1, 5);
     expect(stt.estimateAudioSeconds(200_000)).toBeGreaterThan(stt.estimateAudioSeconds(100_000));
+    // Codec parameters travel with the type WhatsApp sends.
+    expect(stt.assumedBitrate("audio/ogg; codecs=opus")).toBe(stt.assumedBitrate("audio/ogg"));
+    // An unknown format is measured as Opus, the most cautious of the rates.
+    expect(stt.assumedBitrate("audio/unheard-of")).toBe(stt.assumedBitrate("audio/ogg"));
   });
 
   it("names the file so the API can decode it", () => {
@@ -981,6 +1001,66 @@ describe("preference requests", () => {
     expect(prefs.parsePreferenceRequest("do you have Arabic subtitles?")).toEqual({});
   });
 
+  it("hears the ways people actually ask to be answered out loud", () => {
+    // Every one of these was ignored by the first version of the parser, and
+    // a preference nobody can phrase is a preference nobody has.
+    for (const asked of [
+      "ردّ عليّ صوتياً",
+      "جاوبني بالصوت",
+      "احكيلي صوت",
+      "بدي الردود صوتية",
+      "خليك ترد صوت",
+      "reply with voice please",
+      "voice replies on",
+      "spoken answers please",
+      "speak your answers",
+      "talk to me",
+    ]) {
+      expect(prefs.parsePreferenceRequest(asked).voice_replies, asked).toBe(true);
+    }
+  });
+
+  it("still lets the negative win over every one of them", () => {
+    for (const asked of [
+      "لا ترد صوتياً",
+      "بدون صوت",
+      "اكتب فقط",
+      "no voice replies please",
+      "text only please",
+      "stop sending voice notes",
+    ]) {
+      expect(prefs.parsePreferenceRequest(asked).voice_replies, asked).toBe(false);
+    }
+  });
+
+  it("does not turn a question about sound into a settings change", () => {
+    // "صوت" is an ordinary word on a site that also sells televisions.
+    // Changing how every later answer arrives, on the strength of a support
+    // question, is worse than not offering the setting at all.
+    for (const asked of [
+      "بدي أعرف كيف أشغل الصوت في التلفاز",
+      "الصوت في هذا الفيديو ضعيف",
+      "the audio on this file is broken",
+      "can you fix the sound on my radio",
+    ]) {
+      expect(prefs.parsePreferenceRequest(asked).voice_replies, asked).toBeUndefined();
+    }
+  });
+
+  it("reads Syrian and Egyptian negation as a refusal, not a request", () => {
+    // "ما بدي صوت" contains every word a request contains.
+    for (const asked of ["ما بدي صوت", "مش عايز صوت", "مو بدي صوتيات"]) {
+      expect(prefs.parsePreferenceRequest(asked).voice_replies, asked).toBe(false);
+    }
+  });
+
+  it("reads a caption as being about its picture, not about settings", () => {
+    // Acting on a caption here would answer the setting and swallow the photo.
+    expect(webhook).toContain(
+      "if (!incoming.media && incoming.text && await applyPreferences(incoming.text)) continue;",
+    );
+  });
+
   it("turns voice replies on and off, reading the negation first", () => {
     expect(prefs.parsePreferenceRequest("send voice replies please").voice_replies).toBe(true);
     expect(prefs.parsePreferenceRequest("reply with audio")).toMatchObject({ voice_replies: true });
@@ -1050,15 +1130,116 @@ describe("voice replies", () => {
     })).toBe(false);
   });
 
-  it("does not read out a lecture", () => {
+  it("speaks a long answer in parts instead of silently skipping it", () => {
+    // A reply is clamped at 3900 characters and a note holds 900, so the old
+    // "one note or nothing" rule left every thorough answer unspoken.
     expect(voice.shouldSpeak({
       voiceRepliesEnabled: true,
       replyText: "x".repeat(voice.MAX_SPOKEN_CHARS + 1),
       isCannedNotice: false,
-    })).toBe(false);
+    })).toBe(true);
     expect(voice.shouldSpeak({
       voiceRepliesEnabled: true, replyText: "   ", isCannedNotice: false,
     })).toBe(false);
+    // A reply that is nothing but a link has nothing left to say out loud.
+    expect(voice.shouldSpeak({
+      voiceRepliesEnabled: true, replyText: "https://visionex.app/x", isCannedNotice: false,
+    })).toBe(false);
+  });
+
+  it("cuts a long reply on sentence boundaries, in order, within budget", () => {
+    // Numbered so the order can actually be checked: identical sentences
+    // would all report the same position.
+    const long = Array.from(
+      { length: 120 },
+      (_, index) => `الجملة رقم ${index} عن خدمات فيجن اكس وكيفية استخدامها.`,
+    ).join(" ");
+    const segments = voice.speechSegments(long);
+    expect(segments.length).toBeGreaterThan(1);
+    expect(segments.length).toBeLessThanOrEqual(voice.MAX_SPOKEN_PARTS);
+    for (const segment of segments) {
+      expect(segment.length).toBeLessThanOrEqual(voice.MAX_SPOKEN_CHARS);
+      expect(segment.trim()).toBe(segment);
+    }
+    // Order is the whole point: part two must not open the sequence.
+    expect(long.indexOf(segments[0])).toBe(0);
+    expect(long.indexOf(segments[0])).toBeLessThan(long.indexOf(segments[1]));
+    // Nothing is dropped between one part and the next.
+    expect(long.indexOf(segments[1])).toBeLessThanOrEqual(segments[0].length + 1);
+  });
+
+  it("breaks a single unbroken sentence rather than refusing to speak it", () => {
+    const segments = voice.speechSegments(`${"word ".repeat(600)}end.`);
+    expect(segments.length).toBe(voice.MAX_SPOKEN_PARTS);
+    for (const segment of segments) {
+      expect(segment.length).toBeLessThanOrEqual(voice.MAX_SPOKEN_CHARS);
+    }
+  });
+
+  it("keeps a short reply as a single voice note", () => {
+    expect(voice.speechSegments("تفضل، هذا هو الجواب.")).toEqual(["تفضل، هذا هو الجواب."]);
+    expect(voice.speechSegments("   ")).toEqual([]);
+  });
+
+  it("prints why a reply was not spoken, since nothing else records it", () => {
+    const source = readFileSync("supabase/functions/_shared/whatsappVoiceReply.ts", "utf8");
+    // Every exit from the path says so: an unspoken reply used to be
+    // indistinguishable from one nobody had asked to hear.
+    expect(source).toMatch(/console\.error\("\[whatsapp-tts\] no OPENAI_API_KEY/);
+    expect(source).toMatch(/console\.error\("\[whatsapp-tts\] nothing was spoken/);
+    expect(source).toMatch(/console\.log\(`\[whatsapp-tts\] spoke a reply/);
+  });
+
+  it("speaks a failure notice, so silence never means two different things", () => {
+    // Somebody who asked to be answered out loud and hears nothing cannot
+    // tell a voice note that failed from an assistant that failed.
+    expect(voice.shouldSpeak({
+      voiceRepliesEnabled: true,
+      replyText: "لم أسمع شيئاً في الرسالة الصوتية.",
+      isCannedNotice: false,
+    })).toBe(true);
+    expect(webhook).toContain('isCannedNotice: kind === "welcome" || kind === "handover"');
+    // …except the rate-limit notice, which is the one case for silence.
+    expect(webhook).toContain('await reply(rateLimitNotice(language), "unsupported", { speak: false })');
+  });
+
+  it("applies a just-enabled preference to the confirmation itself", () => {
+    // The confirmation is the only proof a blind sender gets that it worked.
+    expect(webhook).toContain("let voiceRepliesEnabled = existing?.voice_replies === true;");
+    expect(webhook).toContain("voiceRepliesEnabled = requested.voice_replies;");
+    expect(webhook).toContain("voiceRepliesEnabled,");
+  });
+
+  it("reads a spoken preference request, not only a typed one", () => {
+    // The parse used to run on `incoming.text`, which for a voice note is the
+    // caption — and a voice note has no caption.
+    const transcribedAt = webhook.indexOf("`[voice] ${heard.text}`");
+    const spokenPreferenceAt = webhook.indexOf("if (await applyPreferences(questionText)) continue;");
+    expect(transcribedAt).toBeGreaterThan(-1);
+    expect(spokenPreferenceAt).toBeGreaterThan(transcribedAt);
+    expect(webhook).toContain(
+      "if (!incoming.media && incoming.text && await applyPreferences(incoming.text)) continue;",
+    );
+  });
+
+  it("answers a voice note in the language it was spoken in", () => {
+    // Detection ran on the caption, so an Arabic voice note was answered in
+    // English. The refresh has to precede everything that reads a language.
+    const refreshAt = webhook.indexOf("detected = detectLanguageCode(questionText);");
+    expect(refreshAt).toBeGreaterThan(-1);
+    expect(webhook).toContain("answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);");
+    expect(webhook).toContain('noticeLanguage = answerLanguage === "ar" ? "ar" : "en";');
+    expect(refreshAt).toBeLessThan(webhook.indexOf("const answerIn = answerLanguage;"));
+    expect(refreshAt).toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));
+  });
+
+  it("keeps a text-less message from overwriting the conversation's language", () => {
+    // The English default was written back over an Arabic conversation, and
+    // every notice after it went out in English. Production showed exactly
+    // that: an image notice in English on a conversation recorded as Arabic.
+    expect(webhook).toContain("const remembered = existing?.language as string | null | undefined;");
+    expect(webhook).toContain("if (!incoming.text.trim() && isSupportedLanguage(remembered)) {");
+    expect(webhook).toContain('.select("id, language, escalated, control,');
   });
 
   it("strips what does not survive being read aloud", () => {
@@ -2044,7 +2225,7 @@ describe("the new capabilities respect the rules that were already here", () => 
   it("answers in the language the conversation settled on, not this message's", () => {
     // `language` is detected from the message in hand, so somebody who set
     // Arabic and then typed one English word would get an English forecast.
-    expect(webhook).toContain('const noticeLanguage = answerLanguage === "ar" ? "ar" : "en";');
+    expect(webhook).toContain('let noticeLanguage = answerLanguage === "ar" ? "ar" : "en";');
     expect(webhook).toContain("weatherNeedsPlaceNotice(noticeLanguage)");
     expect(webhook).toContain("locationNeededNotice(noticeLanguage)");
     expect(webhook).toContain("sellGuidance(noticeLanguage)");
