@@ -986,6 +986,7 @@ describe("grounding directive", () => {
 
 const prefs = await import("../../supabase/functions/_shared/whatsappPreferences.ts");
 const voice = await import("../../supabase/functions/_shared/whatsappVoiceReply.ts");
+const menu = await import("../../supabase/functions/_shared/whatsappMenu.ts");
 
 describe("preference requests", () => {
   it("switches language when asked to", () => {
@@ -1097,7 +1098,7 @@ describe("preference requests", () => {
 
   it("confirms a change out loud, never silently", () => {
     const confirmation = prefs.preferenceConfirmation("en", {
-      preferred_language: "fr", voice_replies: true, verbosity: "concise",
+      preferred_language: "fr", voice_mode: "always", verbosity: "concise",
     }, "French");
     expect(confirmation).toMatch(/French/);
     expect(confirmation).toMatch(/voice notes/i);
@@ -1112,39 +1113,54 @@ describe("preference requests", () => {
 });
 
 describe("voice replies", () => {
-  it("stays off unless the sender opted in", () => {
-    expect(voice.shouldSpeak({
-      voiceRepliesEnabled: false, replyText: "Here you go.", isCannedNotice: false,
-    })).toBe(false);
+  const speak = (over: Partial<Parameters<typeof voice.shouldSpeak>[0]>) =>
+    voice.shouldSpeak({
+      mode: "mirror",
+      spokenInput: false,
+      replyText: "Here you go.",
+      isCannedNotice: false,
+      ...over,
+    });
+
+  it("answers a typed message in text and a voice note out loud", () => {
+    // The default, and the whole point of it: sending a voice note already
+    // says how you want to be answered.
+    expect(speak({ mode: "mirror", spokenInput: false })).toBe(false);
+    expect(speak({ mode: "mirror", spokenInput: true })).toBe(true);
   });
 
-  it("speaks an ordinary reply once enabled", () => {
-    expect(voice.shouldSpeak({
-      voiceRepliesEnabled: true, replyText: "Here you go.", isCannedNotice: false,
-    })).toBe(true);
+  it("honours the two settings that override the mirror", () => {
+    expect(speak({ mode: "always", spokenInput: false })).toBe(true);
+    expect(speak({ mode: "always", spokenInput: true })).toBe(true);
+    expect(speak({ mode: "never", spokenInput: true })).toBe(false);
+    expect(speak({ mode: "never", spokenInput: false })).toBe(false);
+  });
+
+  it("reads an unknown or missing column as the mirror, never as silence", () => {
+    // A conversation predating the column, or a value from a later release.
+    expect(voice.voiceModeOf(null)).toBe("mirror");
+    expect(voice.voiceModeOf(undefined)).toBe("mirror");
+    expect(voice.voiceModeOf("shouting")).toBe("mirror");
+    expect(voice.voiceModeOf("always")).toBe("always");
+    expect(voice.voiceModeOf("never")).toBe("never");
+    expect(voice.DEFAULT_VOICE_MODE).toBe("mirror");
   });
 
   it("keeps canned notices as text, since they carry links and instructions", () => {
-    expect(voice.shouldSpeak({
-      voiceRepliesEnabled: true, replyText: "Visit https://visionex.app/contact", isCannedNotice: true,
+    expect(speak({
+      mode: "always",
+      replyText: "Visit https://visionex.app/contact",
+      isCannedNotice: true,
     })).toBe(false);
   });
 
   it("speaks a long answer in parts instead of silently skipping it", () => {
     // A reply is clamped at 3900 characters and a note holds 900, so the old
     // "one note or nothing" rule left every thorough answer unspoken.
-    expect(voice.shouldSpeak({
-      voiceRepliesEnabled: true,
-      replyText: "x".repeat(voice.MAX_SPOKEN_CHARS + 1),
-      isCannedNotice: false,
-    })).toBe(true);
-    expect(voice.shouldSpeak({
-      voiceRepliesEnabled: true, replyText: "   ", isCannedNotice: false,
-    })).toBe(false);
+    expect(speak({ mode: "always", replyText: "x".repeat(voice.MAX_SPOKEN_CHARS + 1) })).toBe(true);
+    expect(speak({ mode: "always", replyText: "   " })).toBe(false);
     // A reply that is nothing but a link has nothing left to say out loud.
-    expect(voice.shouldSpeak({
-      voiceRepliesEnabled: true, replyText: "https://visionex.app/x", isCannedNotice: false,
-    })).toBe(false);
+    expect(speak({ mode: "always", replyText: "https://visionex.app/x" })).toBe(false);
   });
 
   it("cuts a long reply on sentence boundaries, in order, within budget", () => {
@@ -1194,8 +1210,9 @@ describe("voice replies", () => {
     // Somebody who asked to be answered out loud and hears nothing cannot
     // tell a voice note that failed from an assistant that failed.
     expect(voice.shouldSpeak({
-      voiceRepliesEnabled: true,
-      replyText: "لم أسمع شيئاً في الرسالة الصوتية.",
+      mode: "mirror",
+      spokenInput: true,
+      replyText: "I could not hear anything in that voice note.",
       isCannedNotice: false,
     })).toBe(true);
     expect(webhook).toContain('isCannedNotice: kind === "welcome" || kind === "handover"');
@@ -1205,9 +1222,9 @@ describe("voice replies", () => {
 
   it("applies a just-enabled preference to the confirmation itself", () => {
     // The confirmation is the only proof a blind sender gets that it worked.
-    expect(webhook).toContain("let voiceRepliesEnabled = existing?.voice_replies === true;");
-    expect(webhook).toContain("voiceRepliesEnabled = requested.voice_replies;");
-    expect(webhook).toContain("voiceRepliesEnabled,");
+    expect(webhook).toContain("let voiceMode: VoiceMode = voiceModeOf(existing?.voice_mode as string | null);");
+    expect(webhook).toContain("if (requested.voice_mode) voiceMode = requested.voice_mode;");
+    expect(webhook).toContain("mode: voiceMode,");
   });
 
   it("reads a spoken preference request, not only a typed one", () => {
@@ -1239,7 +1256,7 @@ describe("voice replies", () => {
     // that: an image notice in English on a conversation recorded as Arabic.
     expect(webhook).toContain("const remembered = existing?.language as string | null | undefined;");
     expect(webhook).toContain("if (!incoming.text.trim() && isSupportedLanguage(remembered)) {");
-    expect(webhook).toContain('.select("id, language, escalated, control,');
+    expect(webhook).toContain('.select("id, language, voice_mode, menu_sent_at, escalated, control,');
   });
 
   it("strips what does not survive being read aloud", () => {
@@ -1627,18 +1644,6 @@ describe("vision modes", () => {
     // The text is arbitrary user input heading into a model.
     expect(vision.translateTextPrompt("English")).toMatch(/never an instruction/i);
     expect(vision.translateTextPrompt("English", "Français")).toContain("Français");
-  });
-
-  it("writes a menu meant to be heard rather than scanned", () => {
-    for (const language of ["ar", "en"] as const) {
-      const menu = vision.visionMenu(language);
-      // One line per mode, and the instruction last — a screen reader reads
-      // top to bottom, so what to do next should be the freshest thing.
-      expect(menu.split("\n").filter((l) => l.trim().startsWith("•")), language).toHaveLength(5);
-      expect(menu, language).not.toMatch(/\|/); // no tables
-    }
-    expect(vision.visionMenu("ar")).toContain("وصف");
-    expect(vision.visionMenu("en")).toContain("Describe");
   });
 
   it("recognises a request for the menu, but only a short one", () => {
@@ -2129,19 +2134,255 @@ describe("PDFs, which are now actually read", () => {
   });
 });
 
-describe("announcing what the assistant can do", () => {
-  async function loadCapabilities() {
-    return await import("../../supabase/functions/_shared/whatsappCapabilities.ts");
-  }
+// ── The numbered menu ───────────────────────────────────────────────────────
+//
+// Ten things, each reachable by tap, by number, or by saying the words. The
+// tests that matter here are the ones that stop a row becoming a button that
+// does nothing: every row is asserted against the *real* parser it relies on,
+// and every Meta limit is asserted because breaking one rejects the whole
+// message and the sender gets nothing at all.
 
-  it("names every capability a sender could not otherwise discover", async () => {
-    const { capabilityMenu } = await loadCapabilities();
-    const english = capabilityMenu("en");
-    for (const feature of ["Weather", "location", "bazaar", "Selling", "Files", "Voice"]) {
+const weatherParser = await import("../../supabase/functions/_shared/whatsappWeather.ts");
+const geoParser = await import("../../supabase/functions/_shared/whatsappLocation.ts");
+const bazaarParser = await import("../../supabase/functions/_shared/whatsappBazaar.ts");
+
+describe("the numbered menu", () => {
+  it("routes every row to the code that already answers those words", async () => {
+    const wa = await loadHelpers();
+    const expectations: Record<string, (phrase: string) => boolean> = {
+      weather: (p) => !!weatherParser.parseWeatherRequest(p),
+      where_am_i: (p) => geoParser.asksWhereAmI(p),
+      nearby: (p) => geoParser.asksWhatIsNearby(p),
+      read_text: (p) => vision.parseVisionMode(p)?.mode === "read_text",
+      describe: (p) => vision.parseVisionMode(p)?.mode === "describe",
+      find_object: (p) => vision.parseVisionMode(p)?.mode === "find_object",
+      translate: (p) => vision.parseVisionMode(p)?.mode === "translate",
+      bazaar: (p) => bazaarParser.parseBazaarRequest(p)?.intent === "browse",
+      human: (p) => wa.userAskedForHuman(p),
+    };
+
+    for (const item of menu.MENU_ITEMS) {
+      // The voice row is answered on the spot and carries no phrase.
+      if (item.action === "voice") {
+        expect(item.phraseAr).toBe("");
+        expect(item.phraseEn).toBe("");
+        continue;
+      }
+      const check = expectations[item.action];
+      expect(check, `no expectation declared for row ${item.action}`).toBeTypeOf("function");
+      for (const language of ["ar", "en"] as const) {
+        const phrase = menu.menuPhrase(item, language);
+        expect(phrase, `${item.action} ${language}`).not.toBe("");
+        expect(check(phrase), `${item.action} ${language}: "${phrase}"`).toBe(true);
+      }
+    }
+  });
+
+  it("keeps the where-am-i row out of the camera, which shares its word", () => {
+    // "وين أنا" and "وين غرضي" both open with وين. The webhook checks the map
+    // question first, so row 2 must be the one that matches it and row 6 the
+    // one that does not.
+    const whereAmI = menu.MENU_ITEMS.find((i) => i.action === "where_am_i")!;
+    const findObject = menu.MENU_ITEMS.find((i) => i.action === "find_object")!;
+    expect(geoParser.asksWhereAmI(whereAmI.phraseAr)).toBe(true);
+    expect(geoParser.asksWhereAmI(findObject.phraseAr)).toBe(false);
+  });
+
+  it("stays inside every limit Meta rejects a message for", () => {
+    for (const language of ["ar", "en"] as const) {
+      const list = menu.menuListMessage(language);
+      const rows = list.action.sections.flatMap((section) => section.rows);
+
+      expect(rows.length, language).toBe(menu.MENU_ITEMS.length);
+      expect(rows.length, language).toBeLessThanOrEqual(menu.MAX_LIST_ROWS);
+      expect(list.action.sections.length, language).toBeLessThanOrEqual(10);
+      expect(list.action.button.length, language).toBeLessThanOrEqual(20);
+      expect(list.header.text.length, language).toBeLessThanOrEqual(60);
+      expect(list.body.text.length, language).toBeLessThanOrEqual(1_024);
+      expect(list.footer.text.length, language).toBeLessThanOrEqual(60);
+
+      for (const row of rows) {
+        expect(row.title.length, row.title).toBeLessThanOrEqual(24);
+        expect(row.description.length, row.description).toBeLessThanOrEqual(72);
+        expect(row.id.length, row.id).toBeLessThanOrEqual(200);
+        expect(row.title.trim(), row.title).not.toBe("");
+      }
+      // Ids are what a tap comes back as; duplicates would route two rows to one.
+      expect(new Set(rows.map((row) => row.id)).size, language).toBe(rows.length);
+    }
+  });
+
+  it("numbers the rows 1..n with no gaps, because people memorise them", () => {
+    const numbers = menu.MENU_ITEMS.map((item) => item.number);
+    expect(numbers).toEqual(Array.from({ length: menu.MENU_ITEMS.length }, (_, i) => i + 1));
+    for (const item of menu.MENU_ITEMS) {
+      expect(menu.menuItemByNumber(item.number)?.action).toBe(item.action);
+      expect(item.titleAr.startsWith(String(item.number)), item.titleAr).toBe(true);
+      expect(item.titleEn.startsWith(String(item.number)), item.titleEn).toBe(true);
+    }
+  });
+
+  it("reads a bare number, in either set of digits", () => {
+    expect(menu.parseMenuNumber("1")?.action).toBe("weather");
+    expect(menu.parseMenuNumber("3")?.action).toBe("nearby");
+    expect(menu.parseMenuNumber("10")?.action).toBe("human");
+    // An Arabic keyboard produces these, and they are the same key.
+    expect(menu.parseMenuNumber("٣")?.action).toBe("nearby");
+    expect(menu.parseMenuNumber("١٠")?.action).toBe("human");
+    // Persian digits reach this bot too, on Farsi and Urdu handsets.
+    expect(menu.parseMenuNumber("۵")?.action).toBe("describe");
+    // Punctuation people add without thinking.
+    expect(menu.parseMenuNumber(" 2. ")?.action).toBe("where_am_i");
+    expect(menu.parseMenuNumber("4)")?.action).toBe("read_text");
+  });
+
+  it("does not read a sentence containing a number as a tap", () => {
+    for (const text of [
+      "3 kilos please",
+      "٣ حبات",
+      "11",
+      "0",
+      "99",
+      "شكرا",
+      "",
+      "   ",
+    ]) {
+      expect(menu.parseMenuNumber(text), text).toBeNull();
+    }
+  });
+
+  it("recognises a tapped row and ignores an id that is not one", () => {
+    expect(menu.menuItemById("menu_weather")?.number).toBe(1);
+    expect(menu.menuItemById("menu_human")?.action).toBe("human");
+    expect(menu.menuItemById("menu_nothing")).toBeNull();
+    expect(menu.menuItemById("weather")).toBeNull();
+    expect(menu.menuItemById(null)).toBeNull();
+  });
+
+  it("carries the numbers in words as well, never only in a modal", () => {
+    // Meta refuses an interactive message outside the 24-hour window and for
+    // any row a character too long; a menu that lives only in a modal is a
+    // menu half this audience cannot reach.
+    for (const language of ["ar", "en"] as const) {
+      const text = menu.menuText(language);
+      for (const item of menu.MENU_ITEMS) {
+        expect(text, `${item.action} ${language}`).toContain(
+          language === "ar" ? item.titleAr : item.titleEn,
+        );
+      }
+    }
+    expect(webhook).toContain("const tapped = await sendWhatsAppInteractive({");
+    expect(webhook).toContain("await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });");
+    expect(webhook).toMatch(/if \(!tapped\) \{/);
+  });
+
+  it("turns a tap into the words, rather than into a second implementation", () => {
+    // A row that dispatched on its own would drift from what typing the same
+    // request does. Both go through `questionText` and the parsers below it.
+    expect(webhook).toContain("questionText = menuPhrase(chosenRow, noticeLanguage);");
+    expect(webhook.indexOf("questionText = menuPhrase(chosenRow, noticeLanguage);"))
+      .toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));
+  });
+
+  it("honours a tap whenever it arrives, and a bare number only while fresh", () => {
+    // A tap is unambiguous; "3" is the number three most of the time.
+    expect(webhook).toContain("const chosenRow = incoming.selection");
+    expect(webhook).toContain("menuItemById(incoming.selection)");
+    expect(webhook).toContain("Date.now() < menuFreshUntil ? parseMenuNumber(questionText) : null");
+    expect(webhook).toContain("MENU_SELECTION_TTL_MS");
+    expect(menu.MENU_SELECTION_TTL_MS).toBeGreaterThanOrEqual(5 * 60 * 1000);
+    expect(menu.MENU_SELECTION_TTL_MS).toBeLessThanOrEqual(60 * 60 * 1000);
+    // And the stamp that window is measured from is actually written.
+    expect(webhook).toContain("menu_sent_at: new Date().toISOString()");
+  });
+
+  it("answers a tap on a row this build no longer has, with the menu", () => {
+    // An old menu can sit on a phone for weeks after a row is renamed.
+    expect(webhook).toContain("} else if (incoming.selection) {");
+  });
+
+  it("explains the voice row instead of silently flipping it", () => {
+    expect(webhook).toContain('await reply(voiceModeExplainer(noticeLanguage, voiceMode), "reply");');
+    for (const language of ["ar", "en"] as const) {
+      for (const mode of ["mirror", "always", "never"] as const) {
+        const text = prefs.voiceModeExplainer(language, mode);
+        expect(text.length, `${language} ${mode}`).toBeGreaterThan(40);
+      }
+    }
+    // The current setting is stated, not just the options.
+    expect(prefs.voiceModeExplainer("en", "always")).toMatch(/always reply out loud/i);
+    expect(prefs.voiceModeExplainer("en", "never")).toMatch(/text only/i);
+    expect(prefs.voiceModeExplainer("ar", "mirror")).toContain("بنفس طريقتك");
+  });
+
+  it("advertises only phrases the parser actually understands", () => {
+    // A setting you cannot phrase is a setting you do not have — so the words
+    // the explainer tells people to say have to round-trip.
+    const advertised: Array<[string, "mirror" | "always" | "never"]> = [
+      ["ردّ عليّ صوتياً", "always"],
+      ["اكتب فقط", "never"],
+      ["رد مثل ما أرسل", "mirror"],
+      ["reply with voice", "always"],
+      ["text only", "never"],
+      ["reply the same way I send", "mirror"],
+    ];
+    for (const [phrase, mode] of advertised) {
+      expect(prefs.parsePreferenceRequest(phrase).voice_mode, phrase).toBe(mode);
+    }
+    for (const [phrase] of advertised.filter(([, mode]) => mode !== "mirror")) {
+      const language = /[؀-ۿ]/.test(phrase) ? "ar" : "en";
+      expect(prefs.voiceModeExplainer(language, "mirror"), phrase).toContain(phrase);
+    }
+  });
+
+  it("keeps the old column truthful, so a rollback still behaves", () => {
+    expect(prefs.parsePreferenceRequest("reply with voice").voice_replies).toBe(true);
+    expect(prefs.parsePreferenceRequest("text only").voice_replies).toBe(false);
+    expect(prefs.parsePreferenceRequest("رد مثل ما أرسل").voice_replies).toBe(false);
+  });
+
+  it("parses a tapped row off the webhook envelope", async () => {
+    const wa = await loadHelpers();
+    const [parsed] = wa.extractMessages({
+      entry: [{
+        changes: [{
+          value: {
+            messages: [{
+              from: "962700000000",
+              id: "wamid.tap",
+              type: "interactive",
+              interactive: {
+                type: "list_reply",
+                list_reply: { id: "menu_weather", title: "1 الطقس" },
+              },
+            }],
+          },
+        }],
+      }],
+    });
+    expect(parsed.selection).toBe("menu_weather");
+    // The title is kept as the text, so the transcript reads like a message.
+    expect(parsed.text).toBe("1 الطقس");
+    expect(parsed.unsupportedType).toBeUndefined();
+  });
+
+  it("does not answer its own interface with I cannot read that", () => {
+    // Before this, an interactive reply fell through to the unsupported
+    // branch: the assistant refusing a tap on the menu it had just sent.
+    expect(webhook).not.toContain('unsupportedTypeNotice(language, "interactive")');
+  });
+});
+
+describe("announcing what the assistant can do", () => {
+  it("names every capability a sender could not otherwise discover", () => {
+    const english = menu.menuText("en");
+    for (const feature of ["Weather", "location", "Near me", "Read text", "Describe",
+      "Translate", "product", "Voice replies", "person", "PDF", "sell"]) {
       expect(english, feature).toContain(feature);
     }
-    const arabic = capabilityMenu("ar");
-    for (const feature of ["الطقس", "موقعك", "السوق", "أبيع", "ملفات", "صوتية"]) {
+    const arabic = menu.menuText("ar");
+    for (const feature of ["الطقس", "موقعي", "حولي", "اقرأ", "صف لي", "ترجم",
+      "منتج", "الردود الصوتية", "موظف", "PDF", "أبيع"]) {
       expect(arabic, feature).toContain(feature);
     }
   });
@@ -2149,8 +2390,8 @@ describe("announcing what the assistant can do", () => {
   it("is sent on first contact and whenever the menu is asked for", () => {
     // A capability that is not announced does not exist: this audience cannot
     // discover a feature by noticing a new button.
-    expect(webhook).toContain('await reply(capabilityMenu(language), "welcome");');
-    expect(webhook).toContain('await reply(capabilityMenu(language), "reply");');
+    expect(webhook).toContain("await sendMenu(language, { asked: false });");
+    expect(webhook).toContain("await sendMenu(noticeLanguage, { asked: true });");
   });
 
   it("keeps the map questions ahead of the camera modes", () => {

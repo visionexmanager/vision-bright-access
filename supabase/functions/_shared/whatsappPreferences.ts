@@ -13,6 +13,9 @@ import { isSupportedLanguage, type SupportedLanguage } from "./whatsapp.ts";
 
 export interface PreferenceChange {
   preferred_language?: SupportedLanguage;
+  /** How replies are delivered. See `VoiceMode` in whatsappVoiceReply.ts. */
+  voice_mode?: "mirror" | "always" | "never";
+  /** Kept in step with `voice_mode` so a rolled-back function still works. */
   voice_replies?: boolean;
   verbosity?: "concise" | "detailed" | null;
 }
@@ -93,6 +96,22 @@ const VOICE_OFF = [
   /(اكتب|نص).{0,12}(فقط|بس)/i,
 ];
 
+/**
+ * Asking for the medium to be matched rather than fixed.
+ *
+ * The default already does this, so these phrases exist to *undo* an earlier
+ * "always" or "never" — and to be understood when somebody states the rule out
+ * loud, which people do: «رد متل ما بحكيك» is an instruction, and answering it
+ * with a paragraph about the weather would be absurd.
+ */
+const VOICE_MIRROR = [
+  /\b(match|mirror)\b.{0,16}\b(me|my|the way)\b/i,
+  /\b(same way|however i|the way i)\b.{0,16}\b(send|write|ask|message|speak|talk)\b/i,
+  /\breply (in|the) (same|kind)\b/i,
+  /(مثل|متل|زي)\s*(ما)\s*(أرسل|ارسل|ابعت|أبعت|بعتلك|احكي|بحكيك|أحكي|اكتب)/i,
+  /(بنفس|نفس)\s*(الطريقة|الأسلوب|طريقتي)/i,
+];
+
 const CONCISE = [
   /\b(be )?(brief|short|concise|shorter)\b/i,
   /\b(keep it|make it)\b.{0,12}\b(short|brief)\b/i,
@@ -112,6 +131,12 @@ const DETAILED = [
  * is not enough: "my documents are in English" is a fact about documents, not
  * an instruction, so an intent phrase has to be present too.
  */
+/** Writes the mode and the boolean the old column still expects. */
+function setVoice(change: PreferenceChange, mode: "mirror" | "always" | "never"): void {
+  change.voice_mode = mode;
+  change.voice_replies = mode === "always";
+}
+
 export function parsePreferenceRequest(text: string): PreferenceChange {
   const change: PreferenceChange = {};
   const sample = (text ?? "").trim();
@@ -127,9 +152,12 @@ export function parsePreferenceRequest(text: string): PreferenceChange {
     }
   }
 
-  // Off is checked first: "no voice replies" contains "voice replies".
-  if (VOICE_OFF.some((pattern) => pattern.test(sample))) change.voice_replies = false;
-  else if (VOICE_ON.some((pattern) => pattern.test(sample))) change.voice_replies = true;
+  // Off is checked first: "no voice replies" contains "voice replies". Mirror
+  // is checked before on for the same reason: "reply the same way I write"
+  // contains neither, but "answer me the same way, voice or text" contains on.
+  if (VOICE_OFF.some((pattern) => pattern.test(sample))) setVoice(change, "never");
+  else if (VOICE_MIRROR.some((pattern) => pattern.test(sample))) setVoice(change, "mirror");
+  else if (VOICE_ON.some((pattern) => pattern.test(sample))) setVoice(change, "always");
 
   if (CONCISE.some((pattern) => pattern.test(sample))) change.verbosity = "concise";
   else if (DETAILED.some((pattern) => pattern.test(sample))) change.verbosity = "detailed";
@@ -150,11 +178,18 @@ export function preferenceConfirmation(
   if (change.preferred_language) {
     parts.push(language === "ar" ? `سأتابع بـ${languageName}.` : `I'll continue in ${languageName}.`);
   }
-  if (change.voice_replies === true) {
+  if (change.voice_mode === "always") {
     parts.push(language === "ar" ? "سأرسل الردود صوتياً أيضاً." : "I'll send replies as voice notes too.");
   }
-  if (change.voice_replies === false) {
+  if (change.voice_mode === "never") {
     parts.push(language === "ar" ? "سأرد نصاً فقط." : "I'll reply with text only.");
+  }
+  if (change.voice_mode === "mirror") {
+    parts.push(
+      language === "ar"
+        ? "سأرد بنفس طريقتك: صوت على الصوت، وكتابة على الكتابة."
+        : "I'll answer the way you write: voice for voice, text for text.",
+    );
   }
   if (change.verbosity === "concise") {
     parts.push(language === "ar" ? "وسأختصر." : "And I'll keep it brief.");
@@ -163,6 +198,50 @@ export function preferenceConfirmation(
     parts.push(language === "ar" ? "وسأشرح بتفصيل أكثر." : "And I'll go into more detail.");
   }
   return parts.join(" ");
+}
+
+/**
+ * The three ways replies can arrive, and which one is on.
+ *
+ * Sent when the sender opens the voice row of the menu. It says the state
+ * first, because that is the question they actually have, and then the exact
+ * words for the other two — a setting you cannot phrase is a setting you do not
+ * have, which is the lesson the matching above is built on.
+ */
+export function voiceModeExplainer(
+  language: "ar" | "en",
+  mode: "mirror" | "always" | "never",
+): string {
+  if (language === "ar") {
+    const now = mode === "always"
+      ? "الآن: أرد بصوت دائماً."
+      : mode === "never"
+      ? "الآن: أرد نصاً فقط."
+      : "الآن: أرد بنفس طريقتك — صوت على الصوت، وكتابة على الكتابة.";
+    return [
+      "*الردود الصوتية*",
+      "",
+      now,
+      "",
+      "• قل «ردّ عليّ صوتياً» لأرد بصوت دائماً",
+      "• قل «اكتب فقط» لأرد نصاً فقط",
+      "• قل «رد مثل ما أرسل» للعودة للوضع الافتراضي",
+    ].join("\n");
+  }
+  const now = mode === "always"
+    ? "Right now: I always reply out loud."
+    : mode === "never"
+    ? "Right now: I reply with text only."
+    : "Right now: I match you — voice for voice, text for text.";
+  return [
+    "*Voice replies*",
+    "",
+    now,
+    "",
+    "• Say \"reply with voice\" and I'll always speak",
+    "• Say \"text only\" and I'll always write",
+    "• Say \"reply the same way I send\" for the default",
+  ].join("\n");
 }
 
 /** Appended to the system prompt when a length preference is stored. */

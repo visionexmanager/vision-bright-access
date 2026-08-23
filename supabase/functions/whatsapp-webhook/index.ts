@@ -44,6 +44,7 @@ import {
   replySignalsHandover,
   SUMMARY_INSTRUCTION,
   summaryPreamble,
+  sendWhatsAppInteractive,
   sendWhatsAppText,
   unsupportedTypeNotice,
   userAskedForHuman,
@@ -68,7 +69,6 @@ import {
   unsupportedDocumentNotice,
   videoTooLongNotice,
 } from "../_shared/whatsappAttachments.ts";
-import { capabilityMenu } from "../_shared/whatsappCapabilities.ts";
 import {
   fetchNearby,
   fetchWeather,
@@ -108,15 +108,23 @@ import {
   hasPreferenceChange,
   parsePreferenceRequest,
   preferenceConfirmation,
+  voiceModeExplainer,
   verbosityDirective,
 } from "../_shared/whatsappPreferences.ts";
-import { shouldSpeak, speakReply } from "../_shared/whatsappVoiceReply.ts";
+import { shouldSpeak, speakReply, voiceModeOf, type VoiceMode } from "../_shared/whatsappVoiceReply.ts";
+import {
+  MENU_SELECTION_TTL_MS,
+  menuItemById,
+  menuListMessage,
+  menuPhrase,
+  menuText,
+  parseMenuNumber,
+} from "../_shared/whatsappMenu.ts";
 import {
   asksForMenu,
   awaitingImageNotice,
   parseVisionMode,
   translateTextPrompt,
-  visionMenu,
   visionSystemPrompt,
   VISION_MODE_TTL_MS,
   type VisionMode,
@@ -417,7 +425,7 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, language, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at")
+        .select("id, language, voice_mode, menu_sent_at, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -479,14 +487,23 @@ Deno.serve(async (req) => {
       }
 
       /**
-       * Whether replies in this conversation are also spoken.
+       * How this conversation wants its replies delivered.
        *
        * Read from the row, but kept in a variable rather than read from it
-       * again: the sender can turn voice replies on in this very message, and
-       * the confirmation is then the first thing they hear. For somebody who
-       * asked out loud, hearing it is the only proof the setting took.
+       * again: the sender can change it in this very message, and the
+       * confirmation is then the first thing they hear. For somebody who asked
+       * out loud, hearing it is the only proof the setting took.
        */
-      let voiceRepliesEnabled = existing?.voice_replies === true;
+      let voiceMode: VoiceMode = voiceModeOf(existing?.voice_mode as string | null);
+
+      /**
+       * Whether the message being answered was itself spoken.
+       *
+       * The whole of the default behaviour: somebody who sends a voice note
+       * has already said how they want to be answered, and somebody who typed
+       * has said the opposite in the same breath.
+       */
+      const spokenInput = incoming.media?.kind === "audio";
 
       const reply = async (body: string, kind: string, options?: { speak?: boolean }) => {
         await db.from("whatsapp_messages").insert({
@@ -510,10 +527,63 @@ Deno.serve(async (req) => {
         // `speak: false`: paying a synthesis bill to tell a flood of messages
         // to slow down is the one case where silence is correct.
         if (options?.speak !== false && shouldSpeak({
-          voiceRepliesEnabled,
+          mode: voiceMode,
+          spokenInput,
           replyText: body,
           isCannedNotice: kind === "welcome" || kind === "handover",
         })) {
+          await speakReply({ phoneNumberId, token, to: incoming.from, text: body });
+        }
+      };
+
+      /**
+       * Offer the numbered menu.
+       *
+       * Sent as a tappable list, and as the same numbered lines in text when
+       * that is refused — Meta rejects an interactive message outright for a
+       * row title one character too long, and refuses it entirely outside the
+       * 24-hour service window. A menu that exists only inside a modal is a
+       * menu half this audience cannot reach, so the numbers always go out as
+       * words as well.
+       *
+       * The transcript records the text version, so whoever reads the thread
+       * later sees what was offered, and `menu_sent_at` is what lets a bare
+       * "3" mean row three for the next quarter of an hour.
+       */
+      const sendMenu = async (lang: "ar" | "en", options: { asked: boolean }) => {
+        const body = menuText(lang);
+        // Filed as canned text whether it was asked for or not: replaying a
+        // ten-row menu back to the model as a turn of the conversation would
+        // spend the history budget on something nobody said.
+        await db.from("whatsapp_messages").insert({
+          conversation_id: conversationId,
+          direction: "outbound",
+          body,
+          kind: "welcome",
+        });
+        await db
+          .from("whatsapp_conversations")
+          .update({ menu_sent_at: new Date().toISOString() })
+          .eq("id", conversationId);
+
+        if (!token || !phoneNumberId) return;
+        const tapped = await sendWhatsAppInteractive({
+          phoneNumberId,
+          token,
+          to: incoming.from,
+          interactive: menuListMessage(lang) as unknown as Record<string, unknown>,
+        });
+        if (!tapped) {
+          console.error("[whatsapp] interactive menu refused; sent the numbers as text");
+          await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
+        }
+
+        // Spoken only when it was asked for, and then only if this sender is
+        // being answered out loud anyway. Ten short lines is about a minute of
+        // audio â worth it for somebody who cannot read the screen and just
+        // asked what the numbers are, and noise on top of a welcome nobody
+        // requested.
+        if (options.asked && shouldSpeak({ mode: voiceMode, spokenInput, replyText: body, isCannedNotice: false })) {
           await speakReply({ phoneNumberId, token, to: incoming.from, text: body });
         }
       };
@@ -579,11 +649,10 @@ Deno.serve(async (req) => {
 
       // The menu follows the welcome as its own message rather than being
       // appended to it. A screen reader reads one message at a time, and a
-      // greeting glued to a five-item list buries the list.
+      // greeting glued to a ten-item list buries the list.
       if (isNew) {
         await reply(welcomeFor(language), "welcome");
-        await reply(visionMenu(language), "welcome");
-        await reply(capabilityMenu(language), "welcome");
+        await sendMenu(language, { asked: false });
       }
 
       // ── Preferences ───────────────────────────────────────────────────
@@ -609,9 +678,7 @@ Deno.serve(async (req) => {
         await db.from("whatsapp_conversations").update(requested).eq("id", conversationId);
         // Applied to this message, not just to the next one, so the
         // confirmation is itself spoken when voice replies were just enabled.
-        if (requested.voice_replies !== undefined) {
-          voiceRepliesEnabled = requested.voice_replies;
-        }
+        if (requested.voice_mode) voiceMode = requested.voice_mode;
 
         const nextLanguage = requested.preferred_language ?? detected;
         await reply(
@@ -941,16 +1008,48 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // ── Visual assistance: the five modes ─────────────────────────────
+      // ── The numbered menu ─────────────────────────────────────────────
       //
-      // Placed after the attachment block on purpose, so `questionText` may be
-      // a transcribed voice note. Saying "read this" and then taking a photo is
-      // the flow that actually works one-handed with a screen reader running —
-      // typing a caption while aiming a camera is the step this audience can
-      // least afford.
+      // Three ways in, one place out. A tapped row arrives as `selection` and
+      // is honoured whenever it comes, because a tap is unambiguous. A bare
+      // number is honoured only shortly after the menu was offered: outside
+      // that window "3" is the number three — a quantity, a house number, an
+      // answer to a question — and reading it as a tap would hijack an
+      // ordinary sentence.
+      //
+      // Neither one dispatches on its own. Both are turned into the words the
+      // sender would have said, and handed to the parsers that already answer
+      // those words. A menu row is a shortcut, never a second implementation:
+      // "1" and "الطقس" cannot drift apart because they are the same code path
+      // from here on, and the suite pins every row to the parser it lands in.
+      const menuFreshUntil = existing?.menu_sent_at
+        ? Date.parse(existing.menu_sent_at as string) + MENU_SELECTION_TTL_MS
+        : 0;
+      const chosenRow = incoming.selection
+        ? menuItemById(incoming.selection)
+        : (Date.now() < menuFreshUntil ? parseMenuNumber(questionText) : null);
+
+      if (chosenRow) {
+        console.log(`[whatsapp] menu row chosen: ${chosenRow.action}`);
+        if (chosenRow.action === "voice") {
+          // Explained, never toggled. A row that silently flips how every
+          // later answer arrives is the same mistake the preference parser
+          // spends fifty lines avoiding — and the sender cannot see what it
+          // set. Saying which of the three is on, and what to say for the
+          // other two, leaves the decision where it belongs.
+          await reply(voiceModeExplainer(noticeLanguage, voiceMode), "reply");
+          continue;
+        }
+        questionText = menuPhrase(chosenRow, noticeLanguage);
+      } else if (incoming.selection) {
+        // A tap this build does not know: an older menu still on the sender's
+        // phone after a row was renamed. The menu, not an apology.
+        await sendMenu(noticeLanguage, { asked: true });
+        continue;
+      }
+
       if (asksForMenu(questionText)) {
-        await reply(visionMenu(language), "reply");
-        await reply(capabilityMenu(language), "reply");
+        await sendMenu(noticeLanguage, { asked: true });
         continue;
       }
 
@@ -1080,6 +1179,13 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // ── Visual assistance: the five modes ─────────────────────────────
+      //
+      // Reached with `questionText`, so it may be a transcribed voice note or
+      // a menu row. Saying "read this" and then taking a photo is the flow
+      // that actually works one-handed with a screen reader running — typing a
+      // caption while aiming a camera is the step this audience can least
+      // afford, and tapping row 4 is one step fewer still.
       const visionRequest = parseVisionMode(questionText);
       if (visionRequest) {
         // Translation is the one mode that does not need a picture: when the

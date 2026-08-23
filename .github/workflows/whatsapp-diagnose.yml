@@ -142,10 +142,12 @@ jobs:
                 and created_at > now() - interval '${HOURS} hours'
               group by 1 order by 1"
 
-          block "4c. Who has asked to be answered out loud" \
-            "select count(*) filter (where voice_replies) as voice_on,
-                    count(*)                              as conversations
-               from public.whatsapp_conversations"
+          block "4c. How each conversation is being answered" \
+            "select voice_mode,
+                    count(*) as conversations,
+                    count(*) filter (where menu_sent_at > now() - interval '${HOURS} hours') as saw_the_menu
+               from public.whatsapp_conversations
+              group by 1 order by 1"
 
           logs() {
             curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs.all" \
