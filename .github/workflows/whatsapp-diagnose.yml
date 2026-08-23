@@ -120,6 +120,33 @@ jobs:
               where created_at > now() - interval '${HOURS} hours'
               group by 1,2 order by 1,2"
 
+          # Voice, which is the part with no transcript of its own.
+          #
+          # An inbound voice note is stored as `[voice] …` once it has been
+          # transcribed and stays `[audio]` when it could not be, so the prefix
+          # alone separates "heard" from "arrived and was never understood"
+          # without printing a word anyone said. A spoken *reply* is deliberately
+          # not a row — it is the same words as the text message above it — so
+          # the only record of one is the `[whatsapp-tts]` line the function
+          # prints, which is why those lines exist.
+          block "4b. Voice notes in, by whether they were understood" \
+            "select case
+                      when body like '[voice]%' then 'transcribed'
+                      when body = '[audio]'     then 'never transcribed'
+                    end as outcome,
+                    count(*) as messages,
+                    max(created_at) as last
+               from public.whatsapp_messages
+              where direction = 'inbound'
+                and (body like '[voice]%' or body = '[audio]')
+                and created_at > now() - interval '${HOURS} hours'
+              group by 1 order by 1"
+
+          block "4c. Who has asked to be answered out loud" \
+            "select count(*) filter (where voice_replies) as voice_on,
+                    count(*)                              as conversations
+               from public.whatsapp_conversations"
+
           logs() {
             curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs.all" \
                  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \

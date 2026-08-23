@@ -34,6 +34,7 @@ import {
   extractMessages,
   failureNotice,
   handoverNotice,
+  isSupportedLanguage,
   rateLimitDecision,
   rateLimitNotice,
   RATE_LIMIT_COOLDOWN_MS,
@@ -395,7 +396,7 @@ Deno.serve(async (req) => {
       let detected = detectLanguageCode(incoming.text);
       // The canned notices exist in Arabic and English; the model answers in the
       // sender's own language regardless.
-      const language = detectLanguage(incoming.text);
+      let language = detectLanguage(incoming.text);
 
       // ── Owner control centre ──────────────────────────────────────────
       //
@@ -416,9 +417,22 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at")
+        .select("id, language, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
+
+      // A message with no text of its own — a voice note, a photo, a pin —
+      // says nothing about which language its sender speaks, and detection on
+      // an empty string returns the English default. That default was then
+      // written straight back over the conversation's own language and used
+      // for every notice below it, which is why an Arabic sender whose voice
+      // note could not be read was apologised to in English. What this
+      // conversation last actually spoke is the more honest answer.
+      const remembered = existing?.language as string | null | undefined;
+      if (!incoming.text.trim() && isSupportedLanguage(remembered)) {
+        detected = remembered;
+        language = remembered === "ar" ? "ar" : "en";
+      }
 
       let conversationId = existing?.id as string | undefined;
       const isNew = !conversationId;
@@ -464,7 +478,17 @@ Deno.serve(async (req) => {
         throw dupe;
       }
 
-      const reply = async (body: string, kind: string) => {
+      /**
+       * Whether replies in this conversation are also spoken.
+       *
+       * Read from the row, but kept in a variable rather than read from it
+       * again: the sender can turn voice replies on in this very message, and
+       * the confirmation is then the first thing they hear. For somebody who
+       * asked out loud, hearing it is the only proof the setting took.
+       */
+      let voiceRepliesEnabled = existing?.voice_replies === true;
+
+      const reply = async (body: string, kind: string, options?: { speak?: boolean }) => {
         await db.from("whatsapp_messages").insert({
           conversation_id: conversationId,
           direction: "outbound",
@@ -477,10 +501,18 @@ Deno.serve(async (req) => {
         // The text has already gone. A spoken copy is an addition, and every
         // failure below is swallowed: a missing voice note is a smaller
         // problem than an error message about one.
-        if (shouldSpeak({
-          voiceRepliesEnabled: existing?.voice_replies === true,
+        //
+        // A short notice — "I couldn't hear anything in that voice note" — is
+        // now spoken too, where before only a model answer was. Somebody who
+        // has asked to be answered out loud and hears nothing back cannot tell
+        // a failed voice note from a failed assistant. The welcome and the
+        // menus stay text, and so does the rate-limit notice, which passes
+        // `speak: false`: paying a synthesis bill to tell a flood of messages
+        // to slow down is the one case where silence is correct.
+        if (options?.speak !== false && shouldSpeak({
+          voiceRepliesEnabled,
           replyText: body,
-          isCannedNotice: kind !== "reply",
+          isCannedNotice: kind === "welcome" || kind === "handover",
         })) {
           await speakReply({ phoneNumberId, token, to: incoming.from, text: body });
         }
@@ -540,7 +572,7 @@ Deno.serve(async (req) => {
             })
             .eq("id", conversationId);
 
-          if (verdict.notify) await reply(rateLimitNotice(language), "unsupported");
+          if (verdict.notify) await reply(rateLimitNotice(language), "unsupported", { speak: false });
           continue;
         }
       }
@@ -558,22 +590,47 @@ Deno.serve(async (req) => {
       //
       // WhatsApp has no settings screen, so the only way to offer a preference
       // is to notice someone asking for it. Confirmed out loud, never silently.
-      if (incoming.text) {
-        const requested = parsePreferenceRequest(incoming.text);
-        if (hasPreferenceChange(requested)) {
-          await db.from("whatsapp_conversations").update(requested).eq("id", conversationId);
-          const nextLanguage = requested.preferred_language ?? detected;
-          await reply(
-            preferenceConfirmation(
-              nextLanguage === "ar" ? "ar" : "en",
-              requested,
-              LANGUAGE_ENDONYM[nextLanguage],
-            ),
-            "reply",
-          );
-          continue;
+      /**
+       * Act on a preference the sender just asked for, if they asked for one.
+       *
+       * Reached twice: once for typed text, and again below for a transcript.
+       * The second call is the one that matters. Asking out loud — "ردّ عليّ
+       * صوتياً" — is how this audience sets a preference at all, and the parse
+       * ran only on `incoming.text`, which for a voice note is the caption, and
+       * a voice note has no caption. So the request to be answered by voice was
+       * answered as an ordinary question, the setting never changed, and every
+       * reply after it arrived as text: the feature looked dead from the one
+       * direction it was built for.
+       */
+      const applyPreferences = async (text: string): Promise<boolean> => {
+        const requested = parsePreferenceRequest(text);
+        if (!hasPreferenceChange(requested)) return false;
+
+        await db.from("whatsapp_conversations").update(requested).eq("id", conversationId);
+        // Applied to this message, not just to the next one, so the
+        // confirmation is itself spoken when voice replies were just enabled.
+        if (requested.voice_replies !== undefined) {
+          voiceRepliesEnabled = requested.voice_replies;
         }
-      }
+
+        const nextLanguage = requested.preferred_language ?? detected;
+        await reply(
+          preferenceConfirmation(
+            nextLanguage === "ar" ? "ar" : "en",
+            requested,
+            LANGUAGE_ENDONYM[nextLanguage],
+          ),
+          "reply",
+        );
+        return true;
+      };
+
+      // A caption is about the picture it arrived with, not an instruction
+      // about how to answer, so an attachment's text is not read as one: "بدي
+      // صوت" written under a photo is a question about that photo, and acting
+      // on it here would swallow the photo entirely. A voice note's transcript
+      // is read as one, further down, where the words actually exist.
+      if (!incoming.media && incoming.text && await applyPreferences(incoming.text)) continue;
 
       // ── Attachments ───────────────────────────────────────────────────
       //
@@ -583,7 +640,7 @@ Deno.serve(async (req) => {
       let questionText = incoming.text;
       // Attachments answer directly, so they need the reply language here
       // rather than further down where the text pipeline resolves it.
-      const answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);
+      let answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);
 
       /**
        * Which of the two canned-notice languages the new capabilities use.
@@ -592,7 +649,7 @@ Deno.serve(async (req) => {
        * Arabic and then typed one English word would get an English forecast.
        * These features answer in the language the conversation settled on.
        */
-      const noticeLanguage = answerLanguage === "ar" ? "ar" : "en";
+      let noticeLanguage = answerLanguage === "ar" ? "ar" : "en";
 
       /**
        * Whether a person now owns this conversation.
@@ -712,6 +769,25 @@ Deno.serve(async (req) => {
             .from("whatsapp_messages")
             .update({ body: `[voice] ${heard.text}` })
             .eq("wa_message_id", incoming.messageId);
+
+          // A voice note's language is in what was said, not in its caption,
+          // and a caption is all the detection above had to work with — which
+          // for a voice note is nothing at all. Everything downstream reads
+          // these four: the language the model is told to answer in, the
+          // canned notices, and the weather and location replies. Refreshed
+          // here rather than further down because the preference parse, the
+          // vision modes and the location answers all sit in between, and all
+          // of them were reading a language detected from an empty string.
+          if (questionText.trim()) {
+            detected = detectLanguageCode(questionText);
+            language = detected === "ar" ? "ar" : "en";
+            answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);
+            noticeLanguage = answerLanguage === "ar" ? "ar" : "en";
+          }
+
+          // A preference asked for out loud is set here, where the words
+          // finally exist. Before this, only a typed request counted.
+          if (await applyPreferences(questionText)) continue;
         } else if (incoming.media.kind === "image" || incoming.media.kind === "sticker") {
           const media = await downloadMedia({
             mediaId: incoming.media.id,
@@ -858,11 +934,6 @@ Deno.serve(async (req) => {
       } else if (incoming.unsupportedType) {
         await reply(unsupportedTypeNotice(language, incoming.unsupportedType), "unsupported");
         continue;
-      }
-
-      // A voice note's language is in what was said, not in its caption.
-      if (incoming.media?.kind === "audio" && questionText.trim()) {
-        detected = detectLanguageCode(questionText);
       }
 
       if (!questionText.trim()) {
