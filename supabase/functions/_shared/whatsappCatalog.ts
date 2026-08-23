@@ -506,6 +506,50 @@ export function requiredCapabilities(): Capability[] {
   return [...all];
 }
 
+// ── Turning a feature off without a deploy ────────────────────────────────
+//
+// `enabled` in the catalog is the compile-time answer: a feature nobody has
+// built yet. This is the runtime one, read from `site_settings` — the table
+// Visionex already keeps its configuration in, and the same one the owner's
+// phone number comes from. Editing a row there takes a feature off every menu
+// on the next message, which is what you want at three in the morning when a
+// provider is down and the alternative is a deploy.
+//
+//   key:   whatsapp_features
+//   value: { "disabled": ["news", "services.bazaar"] }
+//
+// Ids, not numbers: a number is a position and positions move, so a row that
+// disabled "3" would disable something else the moment the menu was reordered.
+
+/** Read the disabled list out of whatever the settings row holds. */
+export function parseDisabledFeatures(value: unknown): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const disabled = (value as { disabled?: unknown }).disabled;
+  if (!Array.isArray(disabled)) return [];
+  // Only ids this build actually has: a stale id names nothing and would
+  // otherwise sit in the list looking like it was doing something.
+  return disabled.filter((id): id is string => typeof id === "string" && !!nodeById(id));
+}
+
+/**
+ * Whether a node can be opened right now.
+ *
+ * Both answers have to agree. A parent that is off takes its children with it —
+ * otherwise a disabled menu would still be reachable by anything that knows a
+ * child's id, which is exactly the bypass the flag is there to prevent.
+ */
+export function isAvailable(
+  node: CatalogNode | null | undefined,
+  disabled: readonly string[] = [],
+): boolean {
+  let cursor: CatalogNode | null = node ?? null;
+  while (cursor) {
+    if (!cursor.enabled || disabled.includes(cursor.id)) return false;
+    cursor = nodeById(cursor.parent);
+  }
+  return true;
+}
+
 // ── The tappable version ──────────────────────────────────────────────────
 
 /** Meta's hard limits on an interactive list. Breaking one rejects the message. */

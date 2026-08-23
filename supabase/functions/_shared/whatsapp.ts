@@ -93,7 +93,11 @@ export function detectLanguageCode(text: string): SupportedLanguage {
   if (/[一-鿿]/.test(sample)) return "zh";
 
   // ── Arabic script: Arabic, Persian or Urdu ─────────────────────────────
-  if (/[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/.test(sample)) {
+  // Written as escapes rather than as literal characters: the last range ends
+  // at U+FEFF, a zero-width no-break space, which is invisible in an editor and
+  // which the linter flags as irregular whitespace. Identical ranges — Arabic,
+  // Arabic Supplement, and the two presentation-form blocks.
+  if (/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/.test(sample)) {
     // Urdu-only letters and its most common function words.
     if (/[ٹڈڑںھےہ]/.test(sample) || /(ہے|میں|آپ|نہیں|کیا|کریں)/.test(sample)) return "ur";
     // Orthography separates Persian from Arabic more reliably than vocabulary:

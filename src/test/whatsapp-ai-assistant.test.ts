@@ -150,8 +150,8 @@ describe("asking", () => {
       "asksWhereAmI(questionText) && !humanOwnsThis && !aiFocused",
       "asksWhatIsNearby(questionText) && !humanOwnsThis && !aiFocused",
       "weatherRequest && !humanOwnsThis && !aiFocused",
-      "const visionRequest = aiFocused ? null : parseVisionMode(questionText);",
-      "const bazaarRequest = aiFocused ? null : parseBazaarRequest(questionText);",
+      "const visionRequest = aiFocused || !featureOn(\"ocr\") ? null : parseVisionMode(questionText);",
+      "const bazaarRequest = aiFocused || !featureOn(\"services.bazaar\") ? null : parseBazaarRequest(questionText);",
     ]) {
       expect(webhook, gate).toContain(gate);
     }
@@ -385,6 +385,228 @@ describe("security", () => {
     expect(aiLogs).toContain("ms:");
     expect(aiLogs).not.toContain("questionText");
     expect(aiLogs).not.toContain("answer:");
+  });
+});
+
+
+// ── The user-facing flow, end to end ────────────────────────────────────────
+//
+// One delivery in, columns out; those columns back in, the next delivery. This
+// is the part an engine test cannot reach on its own: the persistence between
+// two webhook requests, which is where a navigation engine usually dies.
+
+describe("the flow a person actually walks", () => {
+  /** One webhook delivery: read the row, run the engine, write the row back. */
+  const delivery = (
+    row: Record<string, unknown> | null,
+    text: string,
+    over: Partial<EngineContext> = {},
+  ) => {
+    const state = sessions.readSession(row);
+    const outcome = engine.runEngine({ text, kind: "text" }, state, context({
+      ...over,
+      nowMs: over.nowMs ?? NOW,
+    }));
+    const columns = sessions.sessionColumns(
+      outcome.session,
+      new Date(over.nowMs ?? NOW).toISOString(),
+    );
+    return { outcome, row: columns };
+  };
+
+  it("main menu → 1 → AI Assistant → 1 → Ask AI → question → answer → 0 → 0", () => {
+    // 1. "1" from the main menu opens the assistant's menu.
+    const first = delivery(null, "1");
+    expect(first.outcome.kind).toBe("reply");
+    expect(first.row.nav_path).toEqual(["main", "assistant"]);
+
+    // 2. A *separate* delivery, carrying nothing but those columns, knows where
+    //    the sender is — this is the whole point of persisting the stack.
+    const second = delivery(first.row, "1");
+    expect(second.outcome.kind).toBe("delegate");
+    if (second.outcome.kind !== "delegate") return;
+    expect(second.outcome.node.id).toBe("assistant.ask");
+    expect(second.row.current_feature).toBe("assistant.ask");
+
+    // 3. The question itself. Still the assistant's floor, and still delegated
+    //    rather than parsed as a command.
+    const third = delivery(
+      { ...second.row, current_step: ai.AI_TEXT_INPUT },
+      "What is Visionex?",
+    );
+    expect(third.outcome.kind).toBe("delegate");
+    expect(third.outcome.reason).toBe("inside_feature");
+    expect(third.row.current_feature).toBe("assistant.ask");
+
+    // 4. And the next question after the answer, without re-entering anything.
+    const fourth = delivery(
+      { ...third.row, current_step: ai.AI_CONVERSATION },
+      "And what does it cost?",
+    );
+    expect(fourth.outcome.kind).toBe("delegate");
+    expect(fourth.row.current_feature).toBe("assistant.ask");
+
+    // 5. 0 → the assistant's own menu.
+    const fifth = delivery(fourth.row, "0");
+    expect(fifth.row.nav_path).toEqual(["main", "assistant"]);
+    expect(fifth.row.current_feature).toBeNull();
+
+    // 6. 0 again → the main menu.
+    const sixth = delivery(fifth.row, "0");
+    expect(sixth.row.nav_path).toEqual(["main"]);
+  });
+
+  it("00 returns to the main menu from every state the assistant has", () => {
+    for (const step of ai.AI_STATES) {
+      const { row } = delivery(
+        {
+          nav_path: ["main", "assistant", "assistant.ask"],
+          current_feature: "assistant.ask",
+          current_step: step,
+          session_updated_at: new Date(NOW - 60_000).toISOString(),
+        },
+        "00",
+      );
+      expect(row.nav_path, step).toEqual(["main"]);
+      expect(row.current_feature, step).toBeNull();
+      expect(row.current_step, step).toBeNull();
+    }
+  });
+
+  it("# stops what is running and leaves the sender in the assistant", () => {
+    const { outcome, row } = delivery(
+      {
+        nav_path: ["main", "assistant", "assistant.ask"],
+        current_feature: "assistant.ask",
+        current_step: ai.AI_PROCESSING,
+        pending_operation: { operation: ai.AI_TEXT_INPUT, startedAt: new Date(NOW - 5_000).toISOString() },
+        session_updated_at: new Date(NOW - 60_000).toISOString(),
+      },
+      "#",
+    );
+    expect(outcome.reason).toBe("cancel_command");
+    expect(row.pending_operation).toBeNull();
+    expect(row.current_step).toBeNull();
+    // Still inside the assistant: "#" means stop this, not forget where I was.
+    expect(row.nav_path).toEqual(["main", "assistant", "assistant.ask"]);
+  });
+
+  it("starts the next message at the main menu once the session has expired", () => {
+    const stale = {
+      nav_path: ["main", "assistant", "assistant.ask"],
+      current_feature: "assistant.ask",
+      current_step: ai.AI_TEXT_INPUT,
+      session_updated_at: new Date(NOW - 120 * 60_000).toISOString(),
+    };
+    const { outcome, row } = delivery(stale, "are you there?");
+    expect(outcome.reason).toBe("timeout_reset");
+    expect(row.nav_path).toEqual(["main"]);
+    // Nothing permanent is in these columns at all, which is what protects the
+    // language, the voice mode and the conversation history from a timeout.
+    expect(Object.keys(row)).not.toContain("preferred_language");
+    expect(Object.keys(row)).not.toContain("summary");
+  });
+
+  it("answers an invalid number with the same menu, not with a reset", () => {
+    const { outcome, row } = delivery(
+      { nav_path: ["main", "assistant"], session_updated_at: new Date(NOW - 60_000).toISOString() },
+      "7",
+    );
+    expect(outcome.reason).toBe("invalid_selection");
+    expect(row.nav_path).toEqual(["main", "assistant"]);
+  });
+});
+
+// ── Feature flags, as production actually sets them ─────────────────────────
+
+describe("feature flags", () => {
+  it("reads the disabled list out of the settings row, ignoring nonsense", () => {
+    expect(catalog.parseDisabledFeatures({ disabled: ["assistant", "news"] }))
+      .toEqual(["assistant", "news"]);
+    // A stale id names nothing and is dropped rather than sitting there
+    // looking like it is doing something.
+    expect(catalog.parseDisabledFeatures({ disabled: ["assistant", "retired.thing"] }))
+      .toEqual(["assistant"]);
+    for (const value of [null, undefined, {}, [], "off", { disabled: "assistant" }, { disabled: [1, 2] }]) {
+      expect(catalog.parseDisabledFeatures(value), JSON.stringify(value)).toEqual([]);
+    }
+  });
+
+  it("takes a disabled feature off the numbers, and its children with it", () => {
+    const off = { disabled: ["assistant"] };
+    const disabled = catalog.parseDisabledFeatures(off);
+
+    // The number does not open it.
+    const byNumber = engine.runEngine({ text: "1", kind: "text" }, live(), context({ disabled }));
+    expect(byNumber.kind).toBe("reply");
+    expect(byNumber.reason).toBe("disabled_feature");
+    expect(byNumber.session.feature).toBeNull();
+
+    // Nor does a child of it, reached directly by a tapped row — which is the
+    // bypass a flag on the parent alone would leave open.
+    const byChild = engine.runEngine(
+      { text: "", kind: "interactive", selection: "assistant.ask" },
+      live(),
+      context({ disabled }),
+    );
+    expect(byChild.kind).toBe("reply");
+    expect(byChild.reason).toBe("disabled_feature");
+    expect(catalog.isAvailable(catalog.nodeById("assistant.ask"), disabled)).toBe(false);
+  });
+
+  it("marks it in the menu rather than pretending it was never there", () => {
+    const menu = engine.renderMenu(catalog.ROOT_ID, "en", ["assistant"]);
+    expect(menu).toContain("AI Assistant");
+    expect(menu).toMatch(/AI Assistant.*coming soon/);
+    const arabic = engine.renderMenu(catalog.ROOT_ID, "ar", ["assistant"]);
+    expect(arabic).toContain("قريباً");
+  });
+
+  it("closes the other door too: the words, not only the numbers", () => {
+    // Typing «الطقس» would otherwise reach the weather while the weather is
+    // switched off. Both doors ask the same function about the same id.
+    expect(webhook).toContain('const featureOn = (id: string) => isAvailable(nodeById(id), disabled);');
+    for (const gate of [
+      'featureOn("services.where")',
+      'featureOn("services.nearby")',
+      'featureOn("services.weather")',
+      'featureOn("ocr")',
+      'featureOn("services.bazaar")',
+    ]) {
+      expect(webhook, gate).toContain(gate);
+    }
+  });
+
+  it("reads the flags from the table Visionex already configures, per delivery", () => {
+    expect(webhook).toContain('.eq("key", "whatsapp_features")');
+    expect(webhook).toContain("const [configuredOwner, disabled] = await Promise.all([ownerPhone(db), disabledFeatures(db)]);");
+    // A database that will not answer must not switch every feature off.
+    expect(webhook).toMatch(/could not read feature flags[\s\S]{0,80}return \[\];/);
+  });
+});
+
+// ── Language ────────────────────────────────────────────────────────────────
+
+describe("language", () => {
+  it("renders every menu in the session's language, both ways", () => {
+    for (const nodeId of ["main", "assistant"]) {
+      const english = engine.renderMenu(nodeId, "en");
+      const arabic = engine.renderMenu(nodeId, "ar");
+      expect(english, nodeId).not.toBe(arabic);
+      // No English left inside an Arabic menu beyond the product's own name.
+      expect(arabic.replace(/Visionex|PDF/g, ""), nodeId).not.toMatch(/[A-Za-z]{4,}/);
+    }
+  });
+
+  it("switches the menu when the sender switches language, without losing the place", () => {
+    const inAssistant = live({ path: ["main", "assistant"] });
+    const arabic = engine.runEngine({ text: "0", kind: "text" }, inAssistant, context({ language: "ar" }));
+    const english = engine.runEngine({ text: "0", kind: "text" }, inAssistant, context({ language: "en" }));
+    // Same navigation, different words: the language is an argument, not state.
+    expect(arabic.session.path).toEqual(english.session.path);
+    expect(engine.renderMenu("main", "ar")).not.toBe(engine.renderMenu("main", "en"));
+    // And the language itself lives outside the session columns entirely.
+    expect(Object.keys(sessions.sessionColumns(live(), "now"))).not.toContain("preferred_language");
   });
 });
 

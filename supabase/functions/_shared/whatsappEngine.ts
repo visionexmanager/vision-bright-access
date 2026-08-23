@@ -22,6 +22,7 @@
 import {
   childAt,
   childrenOf,
+  isAvailable,
   type CatalogNode,
   type Capability,
   type Language,
@@ -82,6 +83,13 @@ export interface EngineContext {
   timeoutMs: number;
   /** Capabilities the environment actually has right now. */
   available: readonly Capability[];
+  /**
+   * Feature ids switched off in `site_settings`, live.
+   *
+   * Separate from the catalog's own `enabled`, which is about what has been
+   * built. This is about what is answering today.
+   */
+  disabled?: readonly string[];
   /** True when this is the sender's first message ever. */
   isNewConversation: boolean;
 }
@@ -390,9 +398,11 @@ export function runEngine(message: EngineMessage, session: SessionState, context
 function openNode(node: CatalogNode, session: SessionState, context: EngineContext): EngineOutcome {
   const parentId = node.parent ?? ROOT_ID;
 
-  if (!node.enabled) {
+  if (!isAvailable(node, context.disabled ?? [])) {
     return {
       kind: "reply",
+      // Shown against the parent the sender is standing in, never against the
+      // node they may not open.
       replies: [{ type: "menu", nodeId: parentId, note: say("disabled", context.language) }],
       session,
       reason: "disabled_feature",
@@ -430,7 +440,11 @@ function openNode(node: CatalogNode, session: SessionState, context: EngineConte
  * screen reader that announces it says the name first, and one that skips it
  * loses nothing at all.
  */
-export function renderMenu(nodeId: string, language: Language): string {
+export function renderMenu(
+  nodeId: string,
+  language: Language,
+  disabled: readonly string[] = [],
+): string {
   const node = nodeById(nodeId);
   if (!node) return "";
   const children = childrenOf(nodeId);
@@ -439,7 +453,7 @@ export function renderMenu(nodeId: string, language: Language): string {
     const number = numberOf(child);
     const title = localized(child.title, language);
     const description = localized(child.description, language);
-    const tail = child.enabled ? "" : (language === "ar" ? " (قريباً)" : " (coming soon)");
+    const tail = isAvailable(child, disabled) ? "" : (language === "ar" ? " (قريباً)" : " (coming soon)");
     return `${number}. ${title}${child.emoji ? ` ${child.emoji}` : ""} — ${description}${tail}`;
   });
 
@@ -449,8 +463,10 @@ export function renderMenu(nodeId: string, language: Language): string {
       ? "أرسل الرقم فقط. اكتب «مساعدة» لمعرفة بقية الأوامر."
       : "Just send the number. Say \"help\" for the other commands.")
     : (language === "ar"
-      ? "أرسل الرقم، أو *0* للرجوع."
-      : "Send the number, or *0* to go back.");
+      // Both ways out are named, every time. A submenu that only mentions 0
+      // leaves somebody three levels down counting their way back.
+      ? "أرسل الرقم، أو *0* للرجوع، أو *00* للقائمة الرئيسية."
+      : "Send the number, *0* to go back, or *00* for the main menu.");
 
   return [header, "", ...lines, "", footer].join("\n");
 }

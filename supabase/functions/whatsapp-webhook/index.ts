@@ -116,8 +116,11 @@ import { shouldSpeak, speakReply, voiceModeOf, type VoiceMode } from "../_shared
 import {
   type Capability,
   type CatalogNode,
+  isAvailable,
   listMessageFor,
   localized,
+  nodeById,
+  parseDisabledFeatures,
   ROOT_ID,
 } from "../_shared/whatsappCatalog.ts";
 import {
@@ -129,6 +132,10 @@ import {
   runEngine,
 } from "../_shared/whatsappEngine.ts";
 import {
+  AI_CONVERSATION,
+  AI_MENU,
+  AI_NEW_CONVERSATION,
+  AI_PROCESSING,
   AI_TEXT_INPUT,
   AI_VOICE_INPUT,
   assistantLimits,
@@ -209,6 +216,31 @@ async function ownerPhone(db: ReturnType<typeof service>): Promise<string | null
     .maybeSingle();
   const value = (data?.value ?? {}) as { whatsapp_number?: string | null };
   return value.whatsapp_number ?? null;
+}
+
+/**
+ * Features switched off in production, read from the table Visionex already
+ * keeps its configuration in.
+ *
+ *   key:   whatsapp_features
+ *   value: { "disabled": ["news", "services.bazaar"] }
+ *
+ * Read once per delivery, next to the owner's number, and never cached across
+ * deliveries: the point of a flag is that it takes effect on the next message.
+ * A missing row means nothing is switched off, which is the state that has to
+ * survive a database that will not answer.
+ */
+async function disabledFeatures(db: ReturnType<typeof service>): Promise<string[]> {
+  const { data, error } = await db
+    .from("site_settings")
+    .select("value")
+    .eq("key", "whatsapp_features")
+    .maybeSingle();
+  if (error) {
+    console.error("[whatsapp] could not read feature flags:", error.message);
+    return [];
+  }
+  return parseDisabledFeatures(data?.value);
 }
 
 /**
@@ -465,7 +497,7 @@ Deno.serve(async (req) => {
   }
 
   const db = service();
-  const configuredOwner = await ownerPhone(db);
+  const [configuredOwner, disabled] = await Promise.all([ownerPhone(db), disabledFeatures(db)]);
 
   for (const incoming of messages) {
     try {
@@ -664,7 +696,7 @@ Deno.serve(async (req) => {
         lang: "ar" | "en",
         options: { asked: boolean; note?: string },
       ) => {
-        const menu = renderMenu(nodeId, lang);
+        const menu = renderMenu(nodeId, lang, disabled);
         const body = options.note ? `${options.note}\n\n${menu}` : menu;
 
         // Filed as canned text: replaying a ten-row menu back to the model as a
@@ -1162,6 +1194,7 @@ Deno.serve(async (req) => {
           nowMs: Date.now(),
           timeoutMs: sessionTimeoutMs(),
           available: availableCapabilities(),
+          disabled,
           isNewConversation: isNew,
         },
       );
@@ -1175,6 +1208,9 @@ Deno.serve(async (req) => {
       });
 
       if (outcome.kind === "reply") {
+        // Standing in the assistant.s own menu is a state, so the transcript and
+        // the next delivery both know where the sender is.
+        if (currentNodeId(session) === "assistant") session = { ...session, step: AI_MENU };
         // Cancelling has to cancel the thing that is actually pending. The
         // camera modes were armed before this engine existed and keep their own
         // column with its own ten-minute clock, so "#" clears that too —
@@ -1241,7 +1277,7 @@ Deno.serve(async (req) => {
                 summarized_message_count: 0,
               })
               .eq("id", conversationId);
-            log("ai_thread_reset");
+            log("ai_thread_reset", { state: AI_NEW_CONVERSATION });
 
             // Left ready for the next question rather than at a menu: somebody
             // who just asked for a new conversation wants to start one.
@@ -1311,6 +1347,18 @@ Deno.serve(async (req) => {
        */
       const aiFocused = assistantOwnsInput(session.feature);
 
+      /**
+       * Whether a feature may answer at all, by catalog id.
+       *
+       * The menu path already asks this — the engine refuses a number whose
+       * node is off. This is the other door: the words. Somebody who knows to
+       * type «الطقس» would otherwise reach the weather while the weather is
+       * switched off, and a flag with a way around it is not a flag. Both
+       * doors now ask the same function about the same id.
+       */
+      const featureOn = (id: string) => isAvailable(nodeById(id), disabled);
+
+
       if (!aiFocused && asksForMenu(questionText)) {
         await sendMenu(ROOT_ID, noticeLanguage, { asked: true });
         await saveSession();
@@ -1345,7 +1393,7 @@ Deno.serve(async (req) => {
         };
       })();
 
-      if (asksWhereAmI(questionText) && !humanOwnsThis && !aiFocused) {
+      if (asksWhereAmI(questionText) && !humanOwnsThis && !aiFocused && featureOn("services.where")) {
         if (!rememberedLocation) {
           await reply(locationNeededNotice(noticeLanguage), "reply");
           continue;
@@ -1371,7 +1419,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (asksWhatIsNearby(questionText) && !humanOwnsThis && !aiFocused) {
+      if (asksWhatIsNearby(questionText) && !humanOwnsThis && !aiFocused && featureOn("services.nearby")) {
         if (!rememberedLocation) {
           await reply(locationNeededNotice(noticeLanguage), "reply");
           continue;
@@ -1396,7 +1444,7 @@ Deno.serve(async (req) => {
       }
 
       const weatherRequest = parseWeatherRequest(questionText);
-      if (weatherRequest && !humanOwnsThis && !aiFocused) {
+      if (weatherRequest && !humanOwnsThis && !aiFocused && featureOn("services.weather")) {
         let latitude: number;
         let longitude: number;
         let placeName: string;
@@ -1450,7 +1498,7 @@ Deno.serve(async (req) => {
       // that actually works one-handed with a screen reader running — typing a
       // caption while aiming a camera is the step this audience can least
       // afford, and tapping row 4 is one step fewer still.
-      const visionRequest = aiFocused ? null : parseVisionMode(questionText);
+      const visionRequest = aiFocused || !featureOn("ocr") ? null : parseVisionMode(questionText);
       if (visionRequest) {
         // Translation is the one mode that does not need a picture: when the
         // text came with the request, answer it now rather than asking for a
@@ -1490,7 +1538,7 @@ Deno.serve(async (req) => {
       // camera, and answered from the tables rather than the knowledge base
       // because embedded prose does not know today's price or whether a thing
       // is in stock — and a model asked anyway will supply both.
-      const bazaarRequest = aiFocused ? null : parseBazaarRequest(questionText);
+      const bazaarRequest = aiFocused || !featureOn("services.bazaar") ? null : parseBazaarRequest(questionText);
       /**
        * Set when a weak shopping guess found nothing, so the message falls
        * through to the ordinary assistant instead of being answered.
@@ -1825,6 +1873,9 @@ Deno.serve(async (req) => {
         await reply(assistantSays("working", noticeLanguage), "unsupported", { speak: false });
       }
 
+      session = { ...session, step: AI_PROCESSING };
+      await saveSession();
+
       let answer: string;
       const askedAt = Date.now();
       try {
@@ -1853,6 +1904,8 @@ Deno.serve(async (req) => {
         // message.
         console.error("[whatsapp] provider error:", status || "unknown");
         log("ai_failed", { status, ms: Date.now() - askedAt });
+        // Out of AI_PROCESSING whatever happened, so nobody is left standing in it.
+        session = { ...session, step: assistantOwnsInput(session.feature) ? AI_CONVERSATION : null };
         await escalate("ai_unavailable");
         await reply(failureNotice(language), "handover");
         // The place in the tree survives a provider outage: the sender is still
@@ -1862,6 +1915,7 @@ Deno.serve(async (req) => {
       }
 
       if (!answer) {
+        session = { ...session, step: assistantOwnsInput(session.feature) ? AI_CONVERSATION : null };
         await reply(failureNotice(language), "handover");
         await saveSession();
         continue;
@@ -1871,6 +1925,9 @@ Deno.serve(async (req) => {
       // and the parts are sent in order, each ending somewhere a reader can
       // stop. The ceiling is configurable and bounded; nothing past the last
       // part is sent, because the prompt asks for brevity in the first place.
+      // Answered: the floor is still the assistant.s, and the next message is
+      // the next turn rather than a fresh "send me your question".
+      session = { ...session, step: assistantOwnsInput(session.feature) ? AI_CONVERSATION : null, pending: null };
       const parts = splitAnswer(answer, limits);
       for (const part of parts) await reply(part, "reply");
       if (parts.length > 1) log("ai_split", { parts: parts.length });
