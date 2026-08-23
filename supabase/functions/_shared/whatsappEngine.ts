@@ -39,6 +39,14 @@ import {
   parseCommand,
 } from "./whatsappCommands.ts";
 import { resolveSelection } from "./whatsappRouter.ts";
+import { isStuck, lifecycleOf } from "./whatsappLifecycle.ts";
+import {
+  comingSoonNotice,
+  featureErrorNotice,
+  footerFor,
+  UI_STRINGS,
+  type UiKey,
+} from "./whatsappStrings.ts";
 import {
   cancelPending,
   currentNodeId,
@@ -80,6 +88,7 @@ export type EngineReason =
   | "invalid_selection"
   | "disabled_feature"
   | "missing_capability"
+  | "feature_withdrawn"
   | "named_feature"
   | "stale_selection"
   | "inside_feature"
@@ -108,75 +117,16 @@ export interface EngineContext {
 export { foldDigits, isGreeting, parseChoice, parseCommand };
 export type { NavigationCommand };
 
-// ── The strings the engine itself says ────────────────────────────────────
+// ── What the engine says ──────────────────────────────────────────────────
 //
-// Everything user-visible is a function of the language, and the language comes
-// from the session. There is no English default hiding in a template literal
-// further down: a message the engine cannot say in the sender's language is a
-// message this file may not send.
+// Moved to `whatsappStrings.ts`, which every feature shares: a footer phrased
+// one way in the main menu and another way three levels down is not a cosmetic
+// difference, it is a person learning two systems. Re-exported under the name
+// callers already use, so nothing had to be rewritten to follow it.
 
-export const ENGINE_STRINGS = {
-  invalidChoice: {
-    ar: "لم أفهم هذا الاختيار. اختر رقماً من القائمة:",
-    en: "I didn't recognise that option. Please choose one of these numbers:",
-  },
-  disabled: {
-    ar: "هذه الخدمة لم تُفتح بعد. سأخبرك ما إن تصبح جاهزة — اختر رقماً آخر من القائمة:",
-    en: "That service isn't open yet. I'll say so when it is — pick another number for now:",
-  },
-  unavailable: {
-    ar: "هذه الخدمة غير متاحة الآن. جرّب رقماً آخر من القائمة:",
-    en: "That one isn't available right now. Try another number:",
-  },
-  cancelled: {
-    ar: "ألغيت العملية. أنت الآن هنا:",
-    en: "Cancelled. You're here now:",
-  },
-  nothingToCancel: {
-    ar: "لا يوجد شيء قيد التنفيذ. أنت هنا:",
-    en: "There was nothing running. You're here:",
-  },
-  atMainMenu: {
-    ar: "أنت في القائمة الرئيسية:",
-    en: "You're at the main menu:",
-  },
-  timedOut: {
-    ar: "مرّ وقت طويل، فبدأت من جديد. لغتك وإعداداتك كما هي.",
-    en: "It had been a while, so I started fresh. Your language and settings are unchanged.",
-  },
-  staleSelection: {
-    ar: "هذا الخيار لم يعد موجوداً. هذه القائمة الحالية:",
-    en: "That option has moved. Here's the current menu:",
-  },
-  help: {
-    ar: [
-      "*كيف تتنقل*",
-      "",
-      "• أرسل *رقم* الخدمة لتفتحها",
-      "• *0* للرجوع خطوة واحدة",
-      "• *00* أو *قائمة* للقائمة الرئيسية",
-      "• *#* أو *إلغاء* لإيقاف العملية الحالية",
-      "• *مساعدة* لعرض هذا الشرح",
-      "",
-      "وتقدر دائماً تكتب سؤالك أو ترسله صوتياً بدون أي رقم.",
-    ].join("\n"),
-    en: [
-      "*Getting around*",
-      "",
-      "• Send the *number* of a service to open it",
-      "• *0* goes back one step",
-      "• *00* or *menu* returns to the main menu",
-      "• *#* or *cancel* stops what's running",
-      "• *help* shows this again",
-      "",
-      "You can always just ask a question, typed or as a voice note, with no number at all.",
-    ].join("\n"),
-  },
-} as const;
+export const ENGINE_STRINGS = UI_STRINGS;
 
-const say = (key: keyof typeof ENGINE_STRINGS, language: Language): string =>
-  ENGINE_STRINGS[key][language];
-
+const say = (key: UiKey, language: Language): string => UI_STRINGS[key][language];
 // ── The engine ────────────────────────────────────────────────────────────
 
 /**
@@ -254,7 +204,35 @@ export function runEngine(message: EngineMessage, session: SessionState, context
     };
   }
 
-  // 4. The universal commands.
+  // 3a. Work that says it is still running, long after it could be.
+  //
+  //     A delivery that died mid-request leaves the row saying `processing`
+  //     with nothing behind it. The sender sees a state they cannot leave and
+  //     cannot see, which is the one failure this whole lifecycle exists to
+  //     prevent. Cleared, quietly: they were already told something went out,
+  //     and a second apology for a message they may not remember is worse.
+  if (isStuck(lifecycleOf(state.step), state.pending?.startedAt, context.nowMs)) {
+    state = { ...state, step: null, pending: null };
+  }
+  // 3b. A feature switched off while somebody was standing in it.
+  //
+  //     Flags are read fresh on every delivery, so this is a real state: the
+  //     session says `services.weather` and the configuration now says that
+  //     is closed. Executing it would be the flag failing at the only moment
+  //     it mattered, and leaving them there would strand them in a menu they
+  //     cannot use. They are moved to the nearest place that still exists.
+  const standing = nodeById(currentNodeId(state));
+  if (standing && !isAvailable(standing, context.disabled ?? [])) {
+    const refuge = nearestAvailable(standing, context.disabled ?? []);
+    const next = enter(state, refuge.id);
+    return {
+      kind: "reply",
+      replies: [{ type: "menu", nodeId: refuge.id, note: say("withdrawn", context.language) }],
+      session: { ...next, feature: null, step: null, pending: null },
+      reason: "feature_withdrawn",
+    };
+  }
+  // 4. The universal commands.
   if (command === "help") {
     return {
       kind: "reply",
@@ -371,7 +349,17 @@ export function runEngine(message: EngineMessage, session: SessionState, context
 
 }
 
-/** Opening a node: a menu is shown, an action is checked and then delegated. */
+/** The closest ancestor that is still available, or the root. */
+function nearestAvailable(node: CatalogNode, disabled: readonly string[]): CatalogNode {
+  let cursor: CatalogNode | null = nodeById(node.parent);
+  while (cursor) {
+    if (isAvailable(cursor, disabled)) return cursor;
+    cursor = nodeById(cursor.parent);
+  }
+  return nodeById(ROOT_ID)!;
+}
+
+/** Opening a node: a menu is shown, an action is checked and then delegated. */
 function openNode(node: CatalogNode, session: SessionState, context: EngineContext): EngineOutcome {
   const parentId = node.parent ?? ROOT_ID;
 
@@ -435,35 +423,10 @@ export function renderMenu(
   });
 
   const header = `*${localized(node.title, language)}*`;
-  const footer = nodeId === ROOT_ID
-    ? (language === "ar"
-      ? "أرسل الرقم فقط. اكتب «مساعدة» لمعرفة بقية الأوامر."
-      : "Just send the number. Say \"help\" for the other commands.")
-    : (language === "ar"
-      // Both ways out are named, every time. A submenu that only mentions 0
-      // leaves somebody three levels down counting their way back.
-      ? "أرسل الرقم، أو *0* للرجوع، أو *00* للقائمة الرئيسية."
-      : "Send the number, *0* to go back, or *00* for the main menu.");
+  const footer = footerFor(nodeId === ROOT_ID, language);
 
   return [header, "", ...lines, "", footer].join("\n");
 }
 
-/** A feature that is declared and announced but not built yet. */
-export function comingSoonNotice(language: Language, title: string): string {
-  return language === "ar"
-    ? `«${title}» لم تُفتح بعد — سأخبرك ما إن تصبح جاهزة. اكتب «0» للرجوع أو «قائمة» للقائمة الرئيسية.`
-    : `"${title}" isn't open yet — I'll say so when it is. Send 0 to go back, or "menu" for the main menu.`;
-}
-
-/**
- * What a failed feature says.
- *
- * No error code, no provider name, no stack: none of it is actionable by the
- * person reading it, and some of it would be a leak. The technical detail goes
- * to the log, and the sender is told what to do next instead.
- */
-export function featureErrorNotice(language: Language): string {
-  return language === "ar"
-    ? "تعذّر إتمام هذه الخدمة الآن. جرّب مرة أخرى، أو اختر رقماً آخر من القائمة."
-    : "Sorry — that didn't go through. Please try again, or pick another number from the menu.";
-}
+// Re-exported: both sentences now live with the rest of the interface's words.
+export { comingSoonNotice, featureErrorNotice };

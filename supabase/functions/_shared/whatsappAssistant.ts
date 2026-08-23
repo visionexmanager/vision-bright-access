@@ -17,6 +17,7 @@
 // Pure and provider-free: no `Deno`, no fetch, no database.
 
 import type { Language } from "./whatsappCatalog.ts";
+import { UI_STRINGS } from "./whatsappStrings.ts";
 
 /**
  * The states the assistant puts a sender in.
@@ -268,10 +269,7 @@ const STRINGS = {
     ar: "هذا السؤال أطول مما أستطيع قراءته دفعة واحدة. اختصره أو قسّمه إلى سؤالين.",
     en: "That question is longer than I can take in one go. Shorten it, or split it in two.",
   },
-  working: {
-    ar: "⏳ أفكر في سؤالك…",
-    en: "⏳ Working on that…",
-  },
+  working: UI_STRINGS.processing,
   newThread: {
     ar: "بدأنا محادثة جديدة. ما سبق محفوظ، لكنني لن أعود إليه. تفضل بسؤالك.",
     en: "New conversation started. What came before is kept but set aside. Go ahead.",

@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "test:whatsapp": "vitest run src/test/whatsapp-",
     "test:whatsapp:router": "vitest run src/test/whatsapp-router.test.ts",
+    "test:whatsapp:experience": "vitest run src/test/whatsapp-experience.test.ts",
     "test:whatsapp:navigation": "vitest run src/test/whatsapp-navigation-engine.test.ts",
     "test:whatsapp:ai": "vitest run src/test/whatsapp-ai-assistant.test.ts",
     "test:whatsapp:voice": "vitest run src/test/whatsapp-voice-assistant.test.ts && vitest run src/test/whatsapp-assistant.test.ts -t voice",
