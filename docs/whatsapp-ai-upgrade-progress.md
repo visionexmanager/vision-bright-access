@@ -790,28 +790,45 @@ to send.
 
 ---
 
-## Discoverability · `whatsappMenu.ts`
+## Navigation · `whatsappCatalog.ts`, `whatsappSession.ts`, `whatsappEngine.ts`
 
 A capability that is not announced does not exist. This audience cannot
-discover a feature by noticing a new button, so the menu **is** the interface.
+discover a feature by noticing a new button, so the menu **is** the interface —
+and from this phase the menu is a tree with a state machine behind it.
 
-It is now one numbered menu of ten rows — weather, location, nearby, read,
-describe, find, translate, the bazaar, voice replies, a person — reachable
-three ways: tap a row in an interactive list, send the number, or say the
-words. The number is the one that matters: tapping means opening a modal and
-navigating it with a screen reader, where "3" is one keystroke and can be
-spoken into a voice note.
+**The catalog is data.** One array of nodes: id, parent, order, enabled,
+titles and descriptions in both languages, the capabilities the node needs, and
+either a `phrase` or a `handler`. Adding a feature is an entry in that array
+plus, if it needs one, a handler in the webhook's map. Nothing in the engine
+names a feature, which is what lets the next person add, reorder or disable one
+without touching the engine.
 
-No row dispatches on its own. Each carries the phrase it stands in for, which
-is handed to the parser that already answers those words, so a row cannot drift
-from what typing the same request does — and the suite asserts every row
-against the real parser it lands in, plus every Meta limit, because a row title
-one character too long rejects the whole message and the sender gets nothing.
+**A `phrase` is why nothing was reimplemented.** A leaf like *Weather* carries
+the words it stands in for; choosing it hands those words to the parser that
+already answers them. "1" and «الطقس» are the same code path from there on, so
+a menu row cannot drift from what typing the request does — and the suite pins
+every phrase-backed leaf against the real parser it lands in.
 
-`capabilityMenu` and `visionMenu` are gone; their ten items are these rows, and
-the two capabilities with no row of their own — sending a file, opening a shop —
-are named in the body text, which is also what goes out when the interactive
-message is refused.
+**The engine is pure.** `(message, session, clock) → decision`, one of three:
+`reply` (it answered), `delegate` (a feature owns this) or `passthrough` (not
+navigation — the conversational pipeline answers, exactly as before). That third
+outcome is why adding the layer changed nothing that already worked: a customer
+who has never seen a menu and simply asks a question matches no command and no
+number, and reaches the same code as always.
+
+**The session is the conversation row.** No new table: `whatsapp_conversations`
+is already one row per phone number, and a second table keyed on the same number
+would only be a way for the two to disagree. Navigation state and short-lived
+working context live in six new columns; `preferred_language`, `voice_mode` and
+`verbosity` stay in their own columns and are *not* part of the session, which
+is what makes "the timeout dropped your half-finished upload but not your
+language" a property of the schema rather than a rule to remember.
+
+Universal commands, case-insensitive, Arabic and English: `0` back, `00` or
+*menu* home, `#` or *cancel* stops what is pending — including the camera mode
+armed in its own column — and *help* explains all of it. Arabic-Indic and
+Persian digits are folded, because ٣ and 3 are the same key to the person
+pressing it.
 
 ---
 

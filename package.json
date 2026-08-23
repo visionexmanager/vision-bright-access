@@ -12,6 +12,12 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:whatsapp": "vitest run src/test/whatsapp-",
+    "test:whatsapp:navigation": "vitest run src/test/whatsapp-navigation-engine.test.ts",
+    "test:whatsapp:ai": "vitest run src/test/whatsapp-ai-assistant.test.ts",
+    "test:whatsapp:voice": "vitest run src/test/whatsapp-voice-assistant.test.ts && vitest run src/test/whatsapp-assistant.test.ts -t voice",
+    "test:whatsapp:security": "vitest run src/test/whatsapp-ai-assistant.test.ts -t security",
+    "test:whatsapp:static": "vitest run src/test/whatsapp-assistant.test.ts",
     "claude:validate": "node .claude/scripts/validate-skills.mjs",
     "whatsapp:profile": "node scripts/whatsapp-profile.mjs"
   },

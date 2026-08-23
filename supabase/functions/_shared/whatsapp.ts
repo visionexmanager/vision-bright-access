@@ -11,13 +11,15 @@ export const WELCOME_AR = `أهلاً وسهلاً في Visionex 👋
 شكراً لتواصلك معنا.
 أنا المساعد الذكي لـVisionex، وفيني ساعدك مباشرة.
 فيني ساعدك بالدعم الفني، الفوترة والدفع، معلومات Visionex، المتاجر والخدمات، أو أي استفسار آخر.
-اكتب طلبك مباشرة وأنا رح ساعدك.`;
+اكتب طلبك مباشرة وأنا رح ساعدك.
+أو اكتب «قائمة» لتشوف الخدمات بالأرقام.`;
 
 export const WELCOME_EN = `Welcome to Visionex 👋
 Thank you for reaching out.
 I'm the Visionex AI assistant, and I can help you right here.
 I can help with technical support, billing and payments, information about Visionex, stores and services, or anything else you need.
-Just tell me what you need and I'll help.`;
+Just tell me what you need and I'll help.
+Or say "menu" to see the numbered services.`;
 
 /**
  * Arabic script anywhere in the message means answer in Arabic. WhatsApp gives
@@ -91,7 +93,11 @@ export function detectLanguageCode(text: string): SupportedLanguage {
   if (/[一-鿿]/.test(sample)) return "zh";
 
   // ── Arabic script: Arabic, Persian or Urdu ─────────────────────────────
-  if (/[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/.test(sample)) {
+  // Written as escapes rather than as literal characters: the last range ends
+  // at U+FEFF, a zero-width no-break space, which is invisible in an editor and
+  // which the linter flags as irregular whitespace. Identical ranges — Arabic,
+  // Arabic Supplement, and the two presentation-form blocks.
+  if (/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/.test(sample)) {
     // Urdu-only letters and its most common function words.
     if (/[ٹڈڑںھےہ]/.test(sample) || /(ہے|میں|آپ|نہیں|کیا|کریں)/.test(sample)) return "ur";
     // Orthography separates Persian from Arabic more reliably than vocabulary:
