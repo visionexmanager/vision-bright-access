@@ -129,6 +129,16 @@ import {
   runEngine,
 } from "../_shared/whatsappEngine.ts";
 import {
+  AI_TEXT_INPUT,
+  AI_VOICE_INPUT,
+  assistantLimits,
+  assistantOwnsInput,
+  assistantSays,
+  checkQuestion,
+  shouldAnnounceWork,
+  splitAnswer,
+} from "../_shared/whatsappAssistant.ts";
+import {
   currentNodeId,
   readSession,
   sessionColumns,
@@ -484,7 +494,7 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, language, voice_mode, menu_sent_at, nav_path, current_feature, current_step, pending_operation, session_context, session_updated_at, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at")
+        .select("id, language, voice_mode, menu_sent_at, ai_thread_id, ai_thread_started_at, nav_path, current_feature, current_step, pending_operation, session_context, session_updated_at, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -1192,19 +1202,69 @@ Deno.serve(async (req) => {
           // engine's, not each feature's, so no feature has to remember it.
           const opening = outcome.reason === "selection";
 
-          if (node.handler === "help") {
+          if (node.handler === "ai_ask" || node.handler === "ai_voice") {
+            const step = node.handler === "ai_ask" ? AI_TEXT_INPUT : AI_VOICE_INPUT;
+            if (opening) {
+              // Opening the state and saying so. The step is what makes the
+              // *next* message a question rather than a menu command, and it is
+              // cleared by the engine's own rules — 0, 00, # and the timeout —
+              // so this feature implements none of them again.
+              session = {
+                ...session,
+                step,
+                pending: { operation: step, startedAt: new Date().toISOString() },
+              };
+              await reply(
+                assistantSays(node.handler === "ai_ask" ? "askForQuestion" : "askForVoice", noticeLanguage),
+                "reply",
+              );
+              await saveSession();
+              continue;
+            }
+            // Already inside: this message is the question. A typed message in
+            // the voice state is still answered — insisting on a voice note
+            // from somebody who has just typed their question is pedantry.
+            await saveSession();
+            // falls through to the assistant pipeline
+          } else if (node.handler === "ai_new") {
+            // A line drawn, not a delete. Everything before stays exactly where
+            // it is — the team triaging an escalation still needs it — and the
+            // replay simply starts here. The summary goes with it: a summary
+            // describes the thread it was written for.
+            await db
+              .from("whatsapp_conversations")
+              .update({
+                ai_thread_id: crypto.randomUUID(),
+                ai_thread_started_at: new Date().toISOString(),
+                summary: null,
+                summary_updated_at: null,
+                summarized_message_count: 0,
+              })
+              .eq("id", conversationId);
+            log("ai_thread_reset");
+
+            // Left ready for the next question rather than at a menu: somebody
+            // who just asked for a new conversation wants to start one.
+            session = {
+              ...session,
+              feature: "assistant.ask",
+              path: ["main", "assistant", "assistant.ask"],
+              step: AI_TEXT_INPUT,
+              pending: { operation: AI_TEXT_INPUT, startedAt: new Date().toISOString() },
+              context: {},
+            };
+            await reply(assistantSays("newThread", noticeLanguage), "reply");
+            await saveSession();
+            continue;
+          } else if (node.handler === "help") {
             await reply(ENGINE_STRINGS.help[noticeLanguage], "reply");
             await saveSession();
             continue;
-          }
-
-          if (node.handler === "voice_settings") {
+          } else if (node.handler === "voice_settings") {
             await reply(voiceModeExplainer(noticeLanguage, voiceMode), "reply");
             await saveSession();
             continue;
-          }
-
-          if (node.handler === "coming_soon") {
+          } else if (node.handler === "coming_soon") {
             await reply(
               node.intro
                 ? localized(node.intro, noticeLanguage)
@@ -1213,22 +1273,6 @@ Deno.serve(async (req) => {
             );
             await saveSession();
             continue;
-          }
-
-          if (node.handler === "chat") {
-            // The conversational assistant *is* the fall-through. Opening it
-            // says so and waits; anything after that is an ordinary question
-            // and is answered by the pipeline below.
-            if (opening) {
-              await reply(
-                node.intro ? localized(node.intro, noticeLanguage) : ENGINE_STRINGS.help[noticeLanguage],
-                "reply",
-              );
-              await saveSession();
-              continue;
-            }
-            await saveSession();
-            // falls through to the conversational pipeline
           } else if (node.phrase) {
             // A leaf that stands in for words: hand those words to the code
             // that already answers them. This is the whole reason the engine
@@ -1255,7 +1299,19 @@ Deno.serve(async (req) => {
         await saveSession();
       }
 
-      if (asksForMenu(questionText)) {
+      /**
+       * Whether the AI Assistant owns whatever was just sent.
+       *
+       * Somebody who chose "Ask AI" and then typed «الطقس» asked the assistant
+       * about the weather. Answering with a forecast card would be a different
+       * feature interrupting a conversation it was never part of — so while the
+       * assistant holds the floor, the capability parsers below stand down.
+       * They are still reached by everyone else, which is every sender who has
+       * not opened the assistant.
+       */
+      const aiFocused = assistantOwnsInput(session.feature);
+
+      if (!aiFocused && asksForMenu(questionText)) {
         await sendMenu(ROOT_ID, noticeLanguage, { asked: true });
         await saveSession();
         continue;
@@ -1289,7 +1345,7 @@ Deno.serve(async (req) => {
         };
       })();
 
-      if (asksWhereAmI(questionText) && !humanOwnsThis) {
+      if (asksWhereAmI(questionText) && !humanOwnsThis && !aiFocused) {
         if (!rememberedLocation) {
           await reply(locationNeededNotice(noticeLanguage), "reply");
           continue;
@@ -1315,7 +1371,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (asksWhatIsNearby(questionText) && !humanOwnsThis) {
+      if (asksWhatIsNearby(questionText) && !humanOwnsThis && !aiFocused) {
         if (!rememberedLocation) {
           await reply(locationNeededNotice(noticeLanguage), "reply");
           continue;
@@ -1340,7 +1396,7 @@ Deno.serve(async (req) => {
       }
 
       const weatherRequest = parseWeatherRequest(questionText);
-      if (weatherRequest && !humanOwnsThis) {
+      if (weatherRequest && !humanOwnsThis && !aiFocused) {
         let latitude: number;
         let longitude: number;
         let placeName: string;
@@ -1394,7 +1450,7 @@ Deno.serve(async (req) => {
       // that actually works one-handed with a screen reader running — typing a
       // caption while aiming a camera is the step this audience can least
       // afford, and tapping row 4 is one step fewer still.
-      const visionRequest = parseVisionMode(questionText);
+      const visionRequest = aiFocused ? null : parseVisionMode(questionText);
       if (visionRequest) {
         // Translation is the one mode that does not need a picture: when the
         // text came with the request, answer it now rather than asking for a
@@ -1434,7 +1490,7 @@ Deno.serve(async (req) => {
       // camera, and answered from the tables rather than the knowledge base
       // because embedded prose does not know today's price or whether a thing
       // is in stock — and a model asked anyway will supply both.
-      const bazaarRequest = parseBazaarRequest(questionText);
+      const bazaarRequest = aiFocused ? null : parseBazaarRequest(questionText);
       /**
        * Set when a weak shopping guess found nothing, so the message falls
        * through to the ordinary assistant instead of being answered.
@@ -1616,13 +1672,44 @@ Deno.serve(async (req) => {
       // the assistant, and only the owner can hand control back.
       if (existing?.control === "human" || existing?.escalated) continue;
 
+      // ── The assistant's own input rules ───────────────────────────────
+      //
+      // Checked here rather than at the top of the webhook because this is the
+      // only path that spends money on the message: a question too long to
+      // answer is a question worth refusing before a provider reads it, and an
+      // empty one is worth refusing before a model is asked to answer nothing.
+      const limits = assistantLimits();
+      const checked = checkQuestion(questionText, limits);
+      if (!checked.ok) {
+        await reply(
+          assistantSays(checked.problem === "empty" ? "emptyQuestion" : "tooLong", noticeLanguage),
+          "unsupported",
+        );
+        log("ai_input_rejected", { problem: checked.problem, chars: questionText.length });
+        await saveSession();
+        continue;
+      }
+      questionText = checked.question;
+
       // ── Ask the existing assistant ────────────────────────────────────
-      const { data: history } = await db
-        .from("whatsapp_messages")
-        .select("direction, body, kind")
-        .eq("conversation_id", conversationId)
+      //
+      // Scoped to the current thread. "New conversation" moves
+      // `ai_thread_started_at` forward and nothing before it is replayed —
+      // which is the whole of what that button does, since none of it is
+      // deleted.
+      const threadStartedAt = (existing?.ai_thread_started_at as string | null) ?? null;
+      const threadFilter = <T extends { gte: (column: string, value: string) => T }>(query: T): T =>
+        threadStartedAt ? query.gte("created_at", threadStartedAt) : query;
+
+      const { data: history } = await threadFilter(
+        db
+          .from("whatsapp_messages")
+          .select("direction, body, kind")
+          .eq("conversation_id", conversationId),
+      )
         .order("created_at", { ascending: false })
         .limit(HISTORY_LIMIT);
+
 
       const turns = budgetTurns(
         (history ?? [])
@@ -1639,11 +1726,13 @@ Deno.serve(async (req) => {
       // Older turns are condensed once and replayed as background, so a long
       // conversation stays coherent without every message carrying its whole
       // history. Refreshed on a message count, not on every turn.
-      const { count: inboundCount } = await db
-        .from("whatsapp_messages")
-        .select("id", { count: "exact", head: true })
-        .eq("conversation_id", conversationId)
-        .eq("direction", "inbound");
+      const { count: inboundCount } = await threadFilter(
+        db
+          .from("whatsapp_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("conversation_id", conversationId)
+          .eq("direction", "inbound"),
+      );
 
       let summary = (existing?.summary as string | null) ?? null;
       if (needsSummary({
@@ -1652,10 +1741,12 @@ Deno.serve(async (req) => {
         hasSummary: !!summary,
       })) {
         try {
-          const { data: older } = await db
-            .from("whatsapp_messages")
-            .select("direction, body, kind")
-            .eq("conversation_id", conversationId)
+          const { data: older } = await threadFilter(
+            db
+              .from("whatsapp_messages")
+              .select("direction, body, kind")
+              .eq("conversation_id", conversationId),
+          )
             .order("created_at", { ascending: false })
             .range(HISTORY_LIMIT, HISTORY_LIMIT + 60);
 
@@ -1726,9 +1817,18 @@ Deno.serve(async (req) => {
       }
       console.log(`[whatsapp] grounded with ${passages.length} passages`);
 
+      // One notice, before the call and never inside a retry: two "working on
+      // it" messages read as stuck rather than busy. Filed as canned text so it
+      // never returns to the model as a turn, and never spoken — a notification
+      // sound saying "hold on" is not worth a voice note.
+      if (shouldAnnounceWork(questionText, limits)) {
+        await reply(assistantSays("working", noticeLanguage), "unsupported", { speak: false });
+      }
+
       let answer: string;
+      const askedAt = Date.now();
       try {
-        const { result: stream } = await streamChatCompletionWithFallback({
+        const { result: stream, provider, model } = await streamChatCompletionWithFallback({
           targets: assistant.targets,
           system: [
             assistant.systemPrompt,
@@ -1742,21 +1842,39 @@ Deno.serve(async (req) => {
           ],
           maxTokens: 700,
         });
-        answer = clampReply(await collectStream(stream));
+        answer = (await collectStream(stream)).trim();
+        // Which provider actually answered, and how long it took. Neither is a
+        // secret and both are the first thing anyone asks when it feels slow.
+        log("ai_answered", { provider, model, ms: Date.now() - askedAt, chars: answer.length });
       } catch (e) {
         const status = e instanceof ProviderError ? e.status : 0;
-        console.error("[whatsapp] provider error:", status || e);
+        // The status and the provider's name are as much as the log gets: a
+        // provider body can echo the prompt, and the prompt is the customer's
+        // message.
+        console.error("[whatsapp] provider error:", status || "unknown");
+        log("ai_failed", { status, ms: Date.now() - askedAt });
         await escalate("ai_unavailable");
         await reply(failureNotice(language), "handover");
+        // The place in the tree survives a provider outage: the sender is still
+        // in the assistant, and their next message is still a question.
+        await saveSession();
         continue;
       }
 
       if (!answer) {
         await reply(failureNotice(language), "handover");
+        await saveSession();
         continue;
       }
 
-      await reply(answer, "reply");
+      // Split rather than truncated. A cut-off answer is worse than a long one,
+      // and the parts are sent in order, each ending somewhere a reader can
+      // stop. The ceiling is configurable and bounded; nothing past the last
+      // part is sent, because the prompt asks for brevity in the first place.
+      const parts = splitAnswer(answer, limits);
+      for (const part of parts) await reply(part, "reply");
+      if (parts.length > 1) log("ai_split", { parts: parts.length });
+      await saveSession();
 
       // The model was told to say it is handing over when it cannot help.
       // Flag the conversation so the team sees it in the queue.

@@ -98,10 +98,11 @@ describe("arriving", () => {
 
   it("3. opens option 1 from the main menu", () => {
     const outcome = send("1");
-    expect(outcome.kind).toBe("delegate");
-    if (outcome.kind !== "delegate") return;
-    expect(outcome.node.id).toBe("assistant");
-    expect(outcome.session.feature).toBe("assistant");
+    // The AI Assistant is a menu of its own since the assistant phase: Ask,
+    // Voice question, New conversation.
+    expect(outcome.kind).toBe("reply");
+    expect(outcome.session.path).toEqual(["main", "assistant"]);
+    expect(catalog.childrenOf("assistant").length).toBe(3);
   });
 
   it("4. opens option 2 from the main menu", () => {
@@ -348,8 +349,7 @@ describe("language and other message kinds", () => {
     // word inside an Arabic conversation cannot flip a menu mid-session.
     const arabic = engine.runEngine({ text: "1", kind: "text" }, live(), context({ language: "ar" }));
     const english = engine.runEngine({ text: "1", kind: "text" }, live(), context({ language: "en" }));
-    expect(arabic.kind).toBe("delegate");
-    expect(english.kind).toBe("delegate");
+    expect(arabic.session.path).toEqual(english.session.path);
     expect(session.sessionLanguage("ar", "en")).toBe("ar");
     expect(session.sessionLanguage(null, "en")).toBe("en");
     expect(webhook).toContain("language: noticeLanguage,");
@@ -587,7 +587,7 @@ describe("the webhook stays thin", () => {
     // A route that answers without saving would lose the sender's place.
     const engineBlock = webhook.slice(
       webhook.indexOf("const outcome = runEngine("),
-      webhook.indexOf("if (asksForMenu(questionText))"),
+      webhook.indexOf("const aiFocused = assistantOwnsInput(session.feature);"),
     );
     const continues = engineBlock.match(/continue;/g)?.length ?? 0;
     const saves = engineBlock.match(/await saveSession\(\);/g)?.length ?? 0;

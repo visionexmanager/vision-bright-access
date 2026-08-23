@@ -45,7 +45,9 @@ export type MessageKind = "text" | "image" | "audio" | "document" | "video" | "l
 
 /** Handlers the engine can name; the webhook maps each id to an implementation. */
 export type HandlerId =
-  | "chat"            // the conversational assistant: free text, no menu
+  | "ai_ask"          // the assistant: the next message is a question
+  | "ai_voice"        // the assistant: the next voice note is a question
+  | "ai_new"          // the assistant: close this thread and open another
   | "voice_settings"  // explain and set how replies are delivered
   | "human"           // hand over to a person
   | "help"            // the navigation commands
@@ -105,18 +107,56 @@ export const CATALOG: readonly CatalogNode[] = [
     id: "assistant",
     parent: ROOT_ID,
     order: 1,
+    kind: "menu",
+    enabled: true,
+    emoji: "🤖",
+    title: { ar: "المساعد الذكي", en: "AI Assistant" },
+    description: { ar: "اسأل أي سؤال، كتابةً أو صوتاً", en: "Ask anything, typed or spoken" },
+    requires: ["ai"],
+  },
+  {
+    id: "assistant.ask",
+    parent: "assistant",
+    order: 1,
     kind: "action",
     enabled: true,
-    emoji: "💬",
-    title: { ar: "المساعد الذكي", en: "AI Assistant" },
-    description: { ar: "اسأل أي سؤال واكتب بحرية", en: "Ask anything, in your own words" },
-    handler: "chat",
+    title: { ar: "اسأل المساعد", en: "Ask AI" },
+    description: { ar: "اكتب سؤالك وأجيبك", en: "Type your question" },
+    handler: "ai_ask",
     requires: ["ai"],
     accepts: ["text", "audio"],
     intro: {
-      ar: "تفضل، اسأل ما تريد. اكتب أو أرسل رسالة صوتية، و«0» للرجوع.",
-      en: "Go ahead — ask anything. Type or send a voice note. Send 0 to go back.",
+      ar: "تفضل، اكتب سؤالك. أنا أتذكر سياق حديثنا، و«0» للرجوع.",
+      en: "Go ahead — send me your question. I'll keep the thread in mind. Send 0 to go back.",
     },
+  },
+  {
+    id: "assistant.voice",
+    parent: "assistant",
+    order: 2,
+    kind: "action",
+    enabled: true,
+    title: { ar: "سؤال صوتي", en: "Voice question" },
+    description: { ar: "أرسل سؤالك برسالة صوتية", en: "Send your question as a voice note" },
+    handler: "ai_voice",
+    requires: ["ai", "speech_to_text"],
+    accepts: ["audio", "text"],
+    intro: {
+      ar: "أرسل سؤالك برسالة صوتية وسأسمعه وأجيبك. «0» للرجوع.",
+      en: "Send your question as a voice note and I'll listen and answer. Send 0 to go back.",
+    },
+  },
+  {
+    id: "assistant.new",
+    parent: "assistant",
+    order: 3,
+    kind: "action",
+    enabled: true,
+    title: { ar: "محادثة جديدة", en: "New conversation" },
+    description: { ar: "ابدأ من صفحة بيضاء", en: "Start a fresh thread" },
+    handler: "ai_new",
+    requires: ["ai"],
+    accepts: ["text"],
   },
   {
     id: "voice",

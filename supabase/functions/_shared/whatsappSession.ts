@@ -95,10 +95,11 @@ export function isStale(session: SessionState, nowMs: number, timeoutMs: number)
 /**
  * The row's session columns, as a session.
  *
- * Tolerant on purpose: a path naming a node this build no longer has, or a
- * column holding something that is not an array, resolves to the main menu
- * rather than throwing. A person mid-conversation should never be shown an
- * error because a menu was reorganised under them.
+ * Tolerant on purpose. A node this build no longer has is dropped from the
+ * path, which leaves the deepest surviving ancestor â a real menu rather than
+ * the top of the tree â and a column holding something that is not a path at
+ * all resolves to the main menu. A person mid-conversation should never be
+ * shown an error because a menu was reorganised under them.
  */
 export function readSession(row: Record<string, unknown> | null | undefined): SessionState {
   const session = freshSession();
