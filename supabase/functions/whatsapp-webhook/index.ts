@@ -549,14 +549,15 @@ Deno.serve(async (req) => {
       const ESTABLISHED_COLUMNS =
         "escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at";
 
-      let { data: existing, error: readFailed } = await db
+      const firstRead = await db
         .from("whatsapp_conversations")
         .select(SESSION_COLUMNS + ESTABLISHED_COLUMNS)
         .eq("wa_phone", incoming.from)
         .maybeSingle();
+      let existing = firstRead.data;
 
-      if (readFailed) {
-        console.error("[whatsapp] reading the session columns failed:", readFailed.code ?? "unknown");
+      if (firstRead.error) {
+        console.error("[whatsapp] reading the session columns failed:", firstRead.error.code ?? "unknown");
         ({ data: existing } = await db
           .from("whatsapp_conversations")
           .select("id, " + ESTABLISHED_COLUMNS)

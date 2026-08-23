@@ -72,6 +72,16 @@ export interface CatalogNode {
   requires?: readonly Capability[];
   /** Action only: the words this stands in for, given to the existing pipeline. */
   phrase?: Localized;
+  /**
+   * Words that name this feature outright, beyond its `phrase`.
+   *
+   * Whole-message matches only, and the router folds case, punctuation and the
+   * diacritics an Arabic keyboard adds. This is not the feature's parser — the
+   * weather still reads "what's the weather in Amman tomorrow" itself. What
+   * these buy is a *name*: an id for the words, so a switched-off feature can
+   * be refused rather than quietly answered by the assistant instead.
+   */
+  aliases?: { readonly ar: readonly string[]; readonly en: readonly string[] };
   /** Action only: a handler the webhook implements. */
   handler?: HandlerId;
   /** Which message kinds this feature acts on once it is current. */
@@ -112,6 +122,7 @@ export const CATALOG: readonly CatalogNode[] = [
     emoji: "🤖",
     title: { ar: "المساعد الذكي", en: "AI Assistant" },
     description: { ar: "اسأل أي سؤال، كتابةً أو صوتاً", en: "Ask anything, typed or spoken" },
+    aliases: { ar: ["المساعد", "الذكاء الاصطناعي"], en: ["ai", "assistant", "ai assistant"] },
     requires: ["ai"],
   },
   {
@@ -266,6 +277,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     title: { ar: "اقرأ لي", en: "Read the text" },
     description: { ar: "أقرأ النص المكتوب كما هو", en: "Exactly as written" },
+    aliases: { ar: ["اقرا لي", "اقرأ لي"], en: ["read", "read text"] },
     phrase: { ar: "اقرأ", en: "read this" },
     accepts: ["image", "text"],
   },
@@ -277,6 +289,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     title: { ar: "صف لي الصورة", en: "Describe the photo" },
     description: { ar: "أصف ما أمامك", en: "What is in front of you" },
+    aliases: { ar: ["صف", "وصف"], en: ["describe", "describe photo"] },
     phrase: { ar: "صف لي", en: "describe this" },
     accepts: ["image", "text"],
   },
@@ -288,6 +301,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     title: { ar: "ابحث عن غرض", en: "Find a thing" },
     description: { ar: "أدلّك على غرض داخل الصورة", en: "Locate something in the photo" },
+    aliases: { ar: ["وين غرضي", "دور على"], en: ["find", "find object"] },
     phrase: { ar: "وين غرضي", en: "find my keys" },
     accepts: ["image", "text"],
   },
@@ -299,6 +313,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     title: { ar: "تعريف منتج", en: "Identify a product" },
     description: { ar: "الاسم والصلاحية والمكوّنات", en: "Name, expiry and ingredients" },
+    aliases: { ar: ["المنتج", "باركود"], en: ["product", "barcode"] },
     phrase: { ar: "منتج", en: "product label" },
     accepts: ["image", "text"],
   },
@@ -310,6 +325,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     title: { ar: "ترجم", en: "Translate" },
     description: { ar: "صورة أو نص ترسله", en: "A photo, or text you send" },
+    aliases: { ar: ["ترجمة", "ترجملي"], en: ["translation", "translate this"] },
     phrase: { ar: "ترجم", en: "translate" },
     accepts: ["image", "text"],
   },
@@ -338,6 +354,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     title: { ar: "الطقس", en: "Weather" },
     description: { ar: "طقس مكانك أو أي مدينة", en: "Where you are, or any city" },
+    aliases: { ar: ["الجو", "طقس"], en: ["weather", "forecast"] },
     phrase: { ar: "الطقس", en: "weather" },
     accepts: ["text", "location"],
   },
@@ -349,6 +366,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     title: { ar: "أين أنا", en: "Where am I" },
     description: { ar: "عنوان مكانك الحالي", en: "Your current place" },
+    aliases: { ar: ["اين انا", "وين انا", "موقعي"], en: ["where am i", "my location"] },
     phrase: { ar: "وين أنا", en: "where am I" },
     requires: ["location"],
     accepts: ["text", "location"],
@@ -361,6 +379,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     title: { ar: "ما حولي", en: "Near me" },
     description: { ar: "أقرب صيدلية أو مطعم أو موقف", en: "Closest pharmacy, café or stop" },
+    aliases: { ar: ["حولي", "شو حواليي", "ما حولي"], en: ["near me", "nearby"] },
     phrase: { ar: "شو حولي", en: "what is near me" },
     requires: ["location"],
     accepts: ["text", "location"],
@@ -373,6 +392,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     title: { ar: "طلب منتج", en: "Find a product" },
     description: { ar: "أبحث لك في سوق Visionex", en: "Search the Visionex bazaar" },
+    aliases: { ar: ["البازار", "المتجر"], en: ["bazaar", "the shop"] },
     phrase: { ar: "السوق", en: "the bazaar" },
     requires: ["bazaar"],
     accepts: ["text"],
@@ -385,6 +405,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     title: { ar: "أريد أن أبيع", en: "I want to sell" },
     description: { ar: "كيف تفتح متجرك", en: "How to open a shop" },
+    aliases: { ar: ["ابيع", "بدي ابيع"], en: ["sell", "i want to sell"] },
     phrase: { ar: "أبيع", en: "I want to sell" },
     accepts: ["text"],
   },
@@ -398,6 +419,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     title: { ar: "موظف بشري", en: "Talk to a person" },
     description: { ar: "أحوّلك لشخص من الفريق", en: "Hand you to the team" },
+    aliases: { ar: ["موظف", "موظف بشري", "بدي حدا"], en: ["human", "agent", "person"] },
     phrase: { ar: "بدي أحكي مع موظف", en: "I want to speak to a person" },
     accepts: ["text"],
   },
@@ -483,6 +505,18 @@ export function childAt(parentId: string, choice: number): CatalogNode | null {
 export function numberOf(node: CatalogNode): number {
   if (!node.parent) return 0;
   return childrenOf(node.parent).findIndex((child) => child.id === node.id) + 1;
+}
+
+/**
+ * Every word that names a node, its `phrase` first.
+ *
+ * The canonical phrase is an alias by definition — it is what the menu row
+ * stands in for — so it never has to be written twice.
+ */
+export function aliasesOf(node: CatalogNode, language: Language): string[] {
+  const phrase = node.phrase ? [localized(node.phrase, language)] : [];
+  const extra = node.aliases ? [...node.aliases[language]] : [];
+  return [...phrase, ...extra].filter((word) => word.trim().length > 0);
 }
 
 /** Root-first path to a node: ["main", "ocr", "ocr.read"]. */
