@@ -166,7 +166,7 @@ describe("asking", () => {
     // `streamChatCompletionWithFallback` in the file is the classifier, which
     // is why this looks for the call that carries the assistant.s targets.)
     expect(webhook.indexOf("checkQuestion(questionText, limits)"))
-      .toBeLessThan(webhook.indexOf("targets: assistant.targets"));
+      .toBeLessThan(webhook.indexOf("const asked = await askAssistant("));
   });
 
   it("9. refuses a question longer than the configured ceiling", () => {
@@ -183,11 +183,12 @@ describe("asking", () => {
   it("10. keeps a multi-turn thread, bounded rather than unlimited", () => {
     // History is replayed from the transcript, budgeted by characters, with a
     // rolling summary behind it — all of which predates this phase and none of
-    // which was duplicated here.
+    // which was duplicated. The webhook gathers it; `askAssistant` assembles
+    // it, and whatsapp-ai-provider.test.ts checks the assembly for real.
     expect(webhook).toContain("budgetTurns(");
     expect(webhook).toContain("HISTORY_LIMIT");
     expect(webhook).toContain("needsSummary({");
-    expect(webhook).toContain("summaryPreamble(summary)");
+    expect(webhook).toMatch(/askAssistant\(\s*\{[\s\S]{0,400}summary,[\s\S]{0,200}turns,/);
   });
 
   it("11. scopes the thread so a new conversation starts clean, deleting nothing", () => {
@@ -248,14 +249,22 @@ describe("voice", () => {
   });
 
   it("16. keeps the sender in the assistant when the provider fails after transcription", () => {
+    // The failure *behaviour* now lives in whatsapp-ai-provider.test.ts, which
+    // drives the real ask with a provider that throws. What is left here is the
+    // one thing a fake cannot show: that this webhook, on that outcome, says
+    // the friendly sentence, saves the session and escalates.
     const failure = webhook.slice(
-      webhook.indexOf("log(\"ai_failed\""),
-      webhook.indexOf("if (!answer) {"),
+      webhook.indexOf('if (asked.status !== "answered")'),
+      webhook.indexOf('log("ai_answered"'),
     );
     expect(failure).toContain("failureNotice(language)");
     expect(failure).toContain("await saveSession();");
-    // Nothing about the provider reaches the sender.
-    expect(failure).not.toMatch(/e\.message|stack|OPENAI|apiKey/i);
+    expect(failure).toContain('await escalate("ai_unavailable");');
+    // Nothing about the provider reaches the sender, or the log. Comments are
+    // stripped first — this block's prose is *about* not leaking a message or a
+    // stack, and would otherwise match the very check it describes.
+    const code = failure.replace(/\/\/[^\n]*/g, "");
+    expect(code).not.toMatch(/e\.message|\.stack|OPENAI|apiKey/i);
   });
 
   it("17. answers a spoken question the same way as a typed one, and can speak back", () => {
@@ -273,7 +282,7 @@ describe("reliability", () => {
   it("18. reuses the engine's idempotency: one event, one answer", () => {
     expect(webhook).toMatch(/if \(dupe\) \{[\s\S]*?dupe\.code === "23505"[\s\S]*?continue;/);
     expect(webhook.indexOf("wa_message_id: incoming.messageId"))
-      .toBeLessThan(webhook.indexOf("streamChatCompletionWithFallback({"));
+      .toBeLessThan(webhook.indexOf("const asked = await askAssistant("));
   });
 
   it("19. warns once that a long question will take a moment, never twice", () => {
@@ -288,8 +297,7 @@ describe("reliability", () => {
 
   it("20. answers a provider error with a sentence, and escalates it", () => {
     expect(webhook).toContain("await escalate(\"ai_unavailable\");");
-    expect(webhook).toContain("log(\"ai_failed\", { status, ms: Date.now() - askedAt });");
-    // The provider chain itself is the existing one — four providers deep.
+    expect(webhook).toContain('log("ai_failed", { reason: asked.reason, status: asked.httpStatus, ms: asked.ms });');
     // Four providers deep, and the WhatsApp assistant is registered in one of
     // the ordered sets rather than falling through to the default.
     expect(assistantsSource).toMatch(/MISTRAL_FIRST = new Set\(\[[^\]]*"whatsapp-support"/s);

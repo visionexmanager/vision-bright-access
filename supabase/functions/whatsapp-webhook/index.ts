@@ -131,6 +131,8 @@ import {
   renderMenu,
   runEngine,
 } from "../_shared/whatsappEngine.ts";
+import { askAssistant } from "../_shared/whatsappAsk.ts";
+import { chainProvider } from "../_shared/whatsappAskProvider.ts";
 import {
   AI_CONVERSATION,
   AI_MENU,
@@ -1876,58 +1878,64 @@ Deno.serve(async (req) => {
       session = { ...session, step: AI_PROCESSING };
       await saveSession();
 
-      let answer: string;
-      const askedAt = Date.now();
-      try {
-        const { result: stream, provider, model } = await streamChatCompletionWithFallback({
-          targets: assistant.targets,
-          system: [
+      // The ask itself is one call with the provider handed to it. Production
+      // passes the registry's chain; the suite passes a function that returns
+      // what the case needs. Nothing here knows which it has, and no
+      // environment variable decides — that is what makes the failure, timeout
+      // and empty-answer paths testable rather than merely written down.
+      const asked = await askAssistant(
+        {
+          systemParts: [
             assistant.systemPrompt,
             languageDirective(answerIn),
             knowledgeDirective(passages),
             verbosityDirective(existing?.verbosity as string | null),
-          ].filter(Boolean).join("\n\n"),
-          messages: [
-            ...(summary ? [{ role: "user" as const, content: summaryPreamble(summary) }] : []),
-            ...(turns.length > 0 ? turns : [{ role: "user" as const, content: questionText }]),
           ],
-          maxTokens: 700,
-        });
-        answer = (await collectStream(stream)).trim();
-        // Which provider actually answered, and how long it took. Neither is a
-        // secret and both are the first thing anyone asks when it feels slow.
-        log("ai_answered", { provider, model, ms: Date.now() - askedAt, chars: answer.length });
-      } catch (e) {
-        const status = e instanceof ProviderError ? e.status : 0;
-        // The status and the provider's name are as much as the log gets: a
-        // provider body can echo the prompt, and the prompt is the customer's
-        // message.
-        console.error("[whatsapp] provider error:", status || "unknown");
-        log("ai_failed", { status, ms: Date.now() - askedAt });
-        // Out of AI_PROCESSING whatever happened, so nobody is left standing in it.
-        session = { ...session, step: assistantOwnsInput(session.feature) ? AI_CONVERSATION : null };
-        await escalate("ai_unavailable");
+          summary,
+          turns,
+          question: questionText,
+        },
+        chainProvider(),
+      );
+
+      // Out of AI_PROCESSING on every path out of the ask: a state a sender can
+      // enter and not leave is worse than no state at all.
+      session = {
+        ...session,
+        step: assistantOwnsInput(session.feature) ? AI_CONVERSATION : null,
+        pending: null,
+      };
+
+      if (asked.status !== "answered") {
+        if (asked.status === "failed") {
+          // A reason and a status number. Never a message, never a stack: a
+          // provider's error body can quote the prompt back, and the prompt
+          // contains the customer's message.
+          console.error(`[whatsapp] provider ${asked.reason}:`, asked.httpStatus || "unknown");
+          log("ai_failed", { reason: asked.reason, status: asked.httpStatus, ms: asked.ms });
+          await escalate("ai_unavailable");
+        } else {
+          // Answered with nothing. WhatsApp rejects an empty message, and a
+          // blank bubble is a worse answer than an apology.
+          log("ai_empty", { provider: asked.provider, ms: asked.ms });
+        }
         await reply(failureNotice(language), "handover");
-        // The place in the tree survives a provider outage: the sender is still
-        // in the assistant, and their next message is still a question.
         await saveSession();
         continue;
       }
 
-      if (!answer) {
-        session = { ...session, step: assistantOwnsInput(session.feature) ? AI_CONVERSATION : null };
-        await reply(failureNotice(language), "handover");
-        await saveSession();
-        continue;
-      }
+      log("ai_answered", {
+        provider: asked.provider,
+        model: asked.model,
+        ms: asked.ms,
+        chars: asked.text.length,
+      });
+      const answer = asked.text;
 
       // Split rather than truncated. A cut-off answer is worse than a long one,
       // and the parts are sent in order, each ending somewhere a reader can
       // stop. The ceiling is configurable and bounded; nothing past the last
       // part is sent, because the prompt asks for brevity in the first place.
-      // Answered: the floor is still the assistant.s, and the next message is
-      // the next turn rather than a fresh "send me your question".
-      session = { ...session, step: assistantOwnsInput(session.feature) ? AI_CONVERSATION : null, pending: null };
       const parts = splitAnswer(answer, limits);
       for (const part of parts) await reply(part, "reply");
       if (parts.length > 1) log("ai_split", { parts: parts.length });

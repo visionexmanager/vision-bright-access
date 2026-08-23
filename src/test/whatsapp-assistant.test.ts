@@ -1457,7 +1457,13 @@ describe("cost routing", () => {
     expect(classifyAt).toBeGreaterThan(-1);
     expect(summaryAt).toBeGreaterThan(-1);
     // The customer-facing reply uses the registry's own targets, not a literal.
-    expect(webhook).toContain("targets: assistant.targets");
+    // Since the provider seam, that line lives in the adapter — which is the
+    // only place allowed to name the registry at all.
+    const askAdapter = readFileSync("supabase/functions/_shared/whatsappAskProvider.ts", "utf8");
+    expect(askAdapter).toContain("targets: assistant.targets");
+    // And no customer-facing model is hard-coded in the webhook: the two
+    // literals above are the classifier and the summariser, which are ours.
+    expect(webhook).not.toMatch(/targets: \[\s*\{ provider: "(openai|mistral|gemini)"/);
   });
 
   it("never runs a model for something a regex settles", async () => {
