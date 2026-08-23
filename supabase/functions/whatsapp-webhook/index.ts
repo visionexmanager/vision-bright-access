@@ -527,11 +527,42 @@ Deno.serve(async (req) => {
       }
 
       // ── Conversation record ───────────────────────────────────────────
-      const { data: existing } = await db
+      /**
+       * The conversation row, read tolerantly.
+       *
+       * `deploy.yml` runs `Run DB migrations` and `Deploy → Supabase Edge
+       * Functions` in parallel — both only `needs: gate` — so for a few minutes
+       * on release day this function can be live against a schema that does not
+       * yet have the columns it asks for. PostgREST answers the whole select
+       * with an error in that case, `existing` comes back null, and every
+       * conversation looks brand new: a second welcome, an insert that collides
+       * with the unique phone number, and a customer who gets nothing back.
+       *
+       * So a failed read falls back to the columns that predate this release.
+       * Everything the new ones drive has a safe default — no session, mirror
+       * voice, no thread filter — and the assistant keeps answering until the
+       * migration lands. The fallback costs one extra round trip on a path that
+       * should never be taken twice in the lifetime of a deploy.
+       */
+      const SESSION_COLUMNS =
+        "id, language, voice_mode, menu_sent_at, ai_thread_id, ai_thread_started_at, nav_path, current_feature, current_step, pending_operation, session_context, session_updated_at, ";
+      const ESTABLISHED_COLUMNS =
+        "escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at";
+
+      let { data: existing, error: readFailed } = await db
         .from("whatsapp_conversations")
-        .select("id, language, voice_mode, menu_sent_at, ai_thread_id, ai_thread_started_at, nav_path, current_feature, current_step, pending_operation, session_context, session_updated_at, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at")
+        .select(SESSION_COLUMNS + ESTABLISHED_COLUMNS)
         .eq("wa_phone", incoming.from)
         .maybeSingle();
+
+      if (readFailed) {
+        console.error("[whatsapp] reading the session columns failed:", readFailed.code ?? "unknown");
+        ({ data: existing } = await db
+          .from("whatsapp_conversations")
+          .select("id, " + ESTABLISHED_COLUMNS)
+          .eq("wa_phone", incoming.from)
+          .maybeSingle());
+      }
 
       // A message with no text of its own — a voice note, a photo, a pin —
       // says nothing about which language its sender speaks, and detection on

@@ -1263,10 +1263,18 @@ describe("voice replies", () => {
     // that: an image notice in English on a conversation recorded as Arabic.
     expect(webhook).toContain("const remembered = existing?.language as string | null | undefined;");
     expect(webhook).toContain("if (!incoming.text.trim() && isSupportedLanguage(remembered)) {");
-    const selectLine = webhook.split("\n").find((line) => line.includes(".select(\"id, language")) ?? "";
+    // The select is built from two named constants since the release gate: the
+    // columns this release added, and the ones that predate it, so a failed
+    // read can fall back to the second set during a deploy window.
+    expect(webhook).toContain("const SESSION_COLUMNS =");
+    expect(webhook).toContain("const ESTABLISHED_COLUMNS =");
+    const columns = webhook.slice(webhook.indexOf("const SESSION_COLUMNS ="), webhook.indexOf("let { data: existing"));
     for (const column of ["language", "voice_mode", "nav_path", "current_feature", "session_updated_at"]) {
-      expect(selectLine, column).toContain(column);
+      expect(columns, column).toContain(column);
     }
+    // And the fallback keeps the assistant answering if those columns are not
+    // there yet, rather than treating every conversation as brand new.
+    expect(webhook).toContain('.select("id, " + ESTABLISHED_COLUMNS)');
   });
 
   it("strips what does not survive being read aloud", () => {
