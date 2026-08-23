@@ -32,6 +32,7 @@ import {
   LANGUAGE_ENDONYM,
   replyLanguage,
   extractMessages,
+  type IncomingMessage,
   failureNotice,
   handoverNotice,
   isSupportedLanguage,
@@ -113,13 +114,26 @@ import {
 } from "../_shared/whatsappPreferences.ts";
 import { shouldSpeak, speakReply, voiceModeOf, type VoiceMode } from "../_shared/whatsappVoiceReply.ts";
 import {
-  MENU_SELECTION_TTL_MS,
-  menuItemById,
-  menuListMessage,
-  menuPhrase,
-  menuText,
-  parseMenuNumber,
-} from "../_shared/whatsappMenu.ts";
+  type Capability,
+  type CatalogNode,
+  listMessageFor,
+  localized,
+  ROOT_ID,
+} from "../_shared/whatsappCatalog.ts";
+import {
+  comingSoonNotice,
+  type EngineMessage,
+  ENGINE_STRINGS,
+  featureErrorNotice,
+  renderMenu,
+  runEngine,
+} from "../_shared/whatsappEngine.ts";
+import {
+  currentNodeId,
+  readSession,
+  sessionColumns,
+  sessionTimeoutMs,
+} from "../_shared/whatsappSession.ts";
 import {
   asksForMenu,
   awaitingImageNotice,
@@ -330,6 +344,51 @@ async function handleOwnerCommand(
   return null;
 }
 
+/**
+ * The engine's view of a message kind.
+ *
+ * A sticker is an image with feelings; everything else maps across unchanged.
+ * The engine never sees a Meta payload — this is the only place the two
+ * vocabularies meet.
+ */
+function engineMessageKind(incoming: IncomingMessage): EngineMessage["kind"] {
+  if (incoming.selection) return "interactive";
+  if (incoming.location) return "location";
+  if (incoming.media) return incoming.media.kind === "sticker" ? "image" : incoming.media.kind;
+  if (incoming.text) return "text";
+  return "unknown";
+}
+
+/**
+ * What this deployment can actually do, read from the environment once.
+ *
+ * A feature declares what it needs; this says what is there. The two meet in
+ * the engine, so a missing key becomes "that isn't available right now" in the
+ * sender's language instead of a feature that accepts a tap and fails later.
+ * Location and the bazaar need no key at all — one is a keyless map service,
+ * the other is this project's own database.
+ */
+function availableCapabilities(): Capability[] {
+  const has = (name: string) => !!Deno.env.get(name);
+  const available: Capability[] = ["location", "bazaar"];
+  if (has("OPENAI_API_KEY") || has("GROQ_API_KEY")) {
+    available.push("ai", "speech_to_text");
+  }
+  if (has("OPENAI_API_KEY")) available.push("vision", "text_to_speech");
+  return available;
+}
+
+/**
+ * How much text a message carried, without carrying any of it.
+ *
+ * A length separates an empty transcription from a real one, a one-word reply
+ * from a paragraph, and tells a reader of the log nothing whatsoever about what
+ * was said. This repository is public.
+ */
+function questionTextLength(incoming: IncomingMessage): number {
+  return (incoming.text ?? "").length;
+}
+
 function service() {
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -425,7 +484,7 @@ Deno.serve(async (req) => {
       // ── Conversation record ───────────────────────────────────────────
       const { data: existing } = await db
         .from("whatsapp_conversations")
-        .select("id, language, voice_mode, menu_sent_at, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at")
+        .select("id, language, voice_mode, menu_sent_at, nav_path, current_feature, current_step, pending_operation, session_context, session_updated_at, escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at")
         .eq("wa_phone", incoming.from)
         .maybeSingle();
 
@@ -505,6 +564,47 @@ Deno.serve(async (req) => {
        */
       const spokenInput = incoming.media?.kind === "audio";
 
+      /**
+       * Where this sender is, loaded from the row they already have.
+       *
+       * `readSession` is tolerant: a path naming a node this build no longer
+       * has resolves to the main menu rather than throwing. Somebody mid-task
+       * should never meet an error because the menu was reorganised under them.
+       */
+      let session = readSession(existing as Record<string, unknown> | null);
+
+      /** Written once per message, whatever route it took. */
+      const saveSession = async () => {
+        await db
+          .from("whatsapp_conversations")
+          .update(sessionColumns(session, new Date().toISOString()))
+          .eq("id", conversationId);
+      };
+
+      /**
+       * Structured logs, safe to read in a public CI log.
+       *
+       * The conversation id identifies the thread without naming the person:
+       * no phone number, no message text, no token, no media URL. This
+       * repository is public and its CI logs are world-readable, so the rule is
+       * structural rather than a habit â everything here is an id, a kind or a
+       * duration.
+       */
+      const startedAt = Date.now();
+      const log = (event: string, fields: Record<string, unknown> = {}) => {
+        console.log(JSON.stringify({
+          at: "whatsapp",
+          event,
+          conversation: conversationId,
+          message: incoming.messageId,
+          kind: engineMessageKind(incoming),
+          ms: Date.now() - startedAt,
+          ...fields,
+        }));
+      };
+
+      log("received", { chars: questionTextLength(incoming), selection: !!incoming.selection });
+
       const reply = async (body: string, kind: string, options?: { speak?: boolean }) => {
         await db.from("whatsapp_messages").insert({
           conversation_id: conversationId,
@@ -513,7 +613,8 @@ Deno.serve(async (req) => {
           kind,
         });
         if (!token || !phoneNumberId) return;
-        await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
+        const sent = await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
+        log("replied", { replyKind: kind, chars: body.length, sent });
 
         // The text has already gone. A spoken copy is an addition, and every
         // failure below is swallowed: a missing voice note is a smaller
@@ -537,24 +638,28 @@ Deno.serve(async (req) => {
       };
 
       /**
-       * Offer the numbered menu.
+       * Offer a menu — any menu, named by its node id.
        *
        * Sent as a tappable list, and as the same numbered lines in text when
-       * that is refused — Meta rejects an interactive message outright for a
-       * row title one character too long, and refuses it entirely outside the
-       * 24-hour service window. A menu that exists only inside a modal is a
-       * menu half this audience cannot reach, so the numbers always go out as
-       * words as well.
+       * that is refused: Meta rejects an interactive message for a row title one
+       * character too long, and refuses it entirely outside the 24-hour service
+       * window. A menu that exists only inside a modal is a menu half this
+       * audience cannot reach, so the numbers always go out as words as well.
        *
        * The transcript records the text version, so whoever reads the thread
-       * later sees what was offered, and `menu_sent_at` is what lets a bare
-       * "3" mean row three for the next quarter of an hour.
+       * later sees what was offered.
        */
-      const sendMenu = async (lang: "ar" | "en", options: { asked: boolean }) => {
-        const body = menuText(lang);
-        // Filed as canned text whether it was asked for or not: replaying a
-        // ten-row menu back to the model as a turn of the conversation would
-        // spend the history budget on something nobody said.
+      const sendMenu = async (
+        nodeId: string,
+        lang: "ar" | "en",
+        options: { asked: boolean; note?: string },
+      ) => {
+        const menu = renderMenu(nodeId, lang);
+        const body = options.note ? `${options.note}\n\n${menu}` : menu;
+
+        // Filed as canned text: replaying a ten-row menu back to the model as a
+        // turn of the conversation would spend the history budget on something
+        // nobody said.
         await db.from("whatsapp_messages").insert({
           conversation_id: conversationId,
           direction: "outbound",
@@ -567,20 +672,30 @@ Deno.serve(async (req) => {
           .eq("id", conversationId);
 
         if (!token || !phoneNumberId) return;
-        const tapped = await sendWhatsAppInteractive({
-          phoneNumberId,
-          token,
-          to: incoming.from,
-          interactive: menuListMessage(lang) as unknown as Record<string, unknown>,
-        });
+
+        const interactive = listMessageFor(nodeId, lang);
+        // A note has to travel with the list or it is lost: the list's own body
+        // is fixed text, so "that option has moved" goes out as its own line
+        // first, and the list follows.
+        if (options.note && interactive) {
+          await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: options.note });
+        }
+        const tapped = interactive
+          ? await sendWhatsAppInteractive({
+            phoneNumberId,
+            token,
+            to: incoming.from,
+            interactive: interactive as unknown as Record<string, unknown>,
+          })
+          : false;
         if (!tapped) {
-          console.error("[whatsapp] interactive menu refused; sent the numbers as text");
+          if (interactive) console.error("[whatsapp] interactive menu refused; sent the numbers as text");
           await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
         }
 
         // Spoken only when it was asked for, and then only if this sender is
-        // being answered out loud anyway. Ten short lines is about a minute of
-        // audio â worth it for somebody who cannot read the screen and just
+        // being answered out loud anyway. A menu read aloud is about a minute
+        // of audio — worth it for somebody who cannot read the screen and just
         // asked what the numbers are, and noise on top of a welcome nobody
         // requested.
         if (options.asked && shouldSpeak({ mode: voiceMode, spokenInput, replyText: body, isCannedNotice: false })) {
@@ -647,12 +762,13 @@ Deno.serve(async (req) => {
         }
       }
 
-      // The menu follows the welcome as its own message rather than being
-      // appended to it. A screen reader reads one message at a time, and a
-      // greeting glued to a ten-item list buries the list.
+      // The welcome is its own message and nothing is glued to it: a screen
+      // reader reads one message at a time, and a greeting with a ten-item list
+      // stapled on buries the list. Whether the menu follows is the engine.s
+      // decision, a few lines below â "hi" gets it, a real question gets its
+      // answer instead, and the welcome names the menu either way.
       if (isNew) {
         await reply(welcomeFor(language), "welcome");
-        await sendMenu(language, { asked: false });
       }
 
       // ── Preferences ───────────────────────────────────────────────────
@@ -1008,48 +1124,140 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // ── The numbered menu ─────────────────────────────────────────────
+      // ── The navigation engine ─────────────────────────────────────────
       //
-      // Three ways in, one place out. A tapped row arrives as `selection` and
-      // is honoured whenever it comes, because a tap is unambiguous. A bare
-      // number is honoured only shortly after the menu was offered: outside
-      // that window "3" is the number three — a quantity, a house number, an
-      // answer to a question — and reading it as a tap would hijack an
-      // ordinary sentence.
+      // Everything about *where the sender is* is decided in
+      // `whatsappEngine.ts`, which is pure: it reads the message, the session
+      // and the clock, and returns one of three answers. This block performs
+      // them and nothing else.
       //
-      // Neither one dispatches on its own. Both are turned into the words the
-      // sender would have said, and handed to the parsers that already answer
-      // those words. A menu row is a shortcut, never a second implementation:
-      // "1" and "الطقس" cannot drift apart because they are the same code path
-      // from here on, and the suite pins every row to the parser it lands in.
-      const menuFreshUntil = existing?.menu_sent_at
-        ? Date.parse(existing.menu_sent_at as string) + MENU_SELECTION_TTL_MS
-        : 0;
-      const chosenRow = incoming.selection
-        ? menuItemById(incoming.selection)
-        : (Date.now() < menuFreshUntil ? parseMenuNumber(questionText) : null);
+      //   reply       - the engine answered. Send it, save, done.
+      //   delegate    - a feature owns this message. Run its handler, inside a
+      //                 try/catch that never shows the sender an internal error.
+      //   passthrough - not navigation. Fall through to the conversational
+      //                 pipeline below, exactly as before this engine existed.
+      //
+      // The third case is why adding this layer changed nothing that already
+      // worked: a customer who has never seen a menu and simply asks a question
+      // matches no command and no number, and reaches the same code as always.
+      const outcome = runEngine(
+        {
+          text: questionText,
+          kind: engineMessageKind(incoming),
+          selection: incoming.selection,
+        },
+        session,
+        {
+          language: noticeLanguage,
+          nowMs: Date.now(),
+          timeoutMs: sessionTimeoutMs(),
+          available: availableCapabilities(),
+          isNewConversation: isNew,
+        },
+      );
+      session = outcome.session;
 
-      if (chosenRow) {
-        console.log(`[whatsapp] menu row chosen: ${chosenRow.action}`);
-        if (chosenRow.action === "voice") {
-          // Explained, never toggled. A row that silently flips how every
-          // later answer arrives is the same mistake the preference parser
-          // spends fifty lines avoiding — and the sender cannot see what it
-          // set. Saying which of the three is on, and what to say for the
-          // other two, leaves the decision where it belongs.
-          await reply(voiceModeExplainer(noticeLanguage, voiceMode), "reply");
-          continue;
+      log("route", {
+        outcome: outcome.kind,
+        reason: outcome.reason,
+        node: currentNodeId(session),
+        feature: session.feature,
+      });
+
+      if (outcome.kind === "reply") {
+        // Cancelling has to cancel the thing that is actually pending. The
+        // camera modes were armed before this engine existed and keep their own
+        // column with its own ten-minute clock, so "#" clears that too —
+        // otherwise a cancelled request would still be waiting for a photo, and
+        // the next unrelated picture would be answered as if it were this one.
+        if (outcome.reason === "cancel_command") {
+          await db
+            .from("whatsapp_conversations")
+            .update({ pending_vision_mode: null, pending_vision_target: null, pending_vision_at: null })
+            .eq("id", conversationId);
         }
-        questionText = menuPhrase(chosenRow, noticeLanguage);
-      } else if (incoming.selection) {
-        // A tap this build does not know: an older menu still on the sender's
-        // phone after a row was renamed. The menu, not an apology.
-        await sendMenu(noticeLanguage, { asked: true });
+        for (const message of outcome.replies) {
+          if (message.type === "text") await reply(message.text, "reply");
+          else await sendMenu(message.nodeId, noticeLanguage, { asked: true, note: message.note });
+        }
+        await saveSession();
         continue;
       }
 
+      if (outcome.kind === "delegate") {
+        const node = outcome.node;
+        try {
+          // A feature the sender has just opened introduces itself; one they
+          // are already inside gets the message. The distinction is the
+          // engine's, not each feature's, so no feature has to remember it.
+          const opening = outcome.reason === "selection";
+
+          if (node.handler === "help") {
+            await reply(ENGINE_STRINGS.help[noticeLanguage], "reply");
+            await saveSession();
+            continue;
+          }
+
+          if (node.handler === "voice_settings") {
+            await reply(voiceModeExplainer(noticeLanguage, voiceMode), "reply");
+            await saveSession();
+            continue;
+          }
+
+          if (node.handler === "coming_soon") {
+            await reply(
+              node.intro
+                ? localized(node.intro, noticeLanguage)
+                : comingSoonNotice(noticeLanguage, localized(node.title, noticeLanguage)),
+              "reply",
+            );
+            await saveSession();
+            continue;
+          }
+
+          if (node.handler === "chat") {
+            // The conversational assistant *is* the fall-through. Opening it
+            // says so and waits; anything after that is an ordinary question
+            // and is answered by the pipeline below.
+            if (opening) {
+              await reply(
+                node.intro ? localized(node.intro, noticeLanguage) : ENGINE_STRINGS.help[noticeLanguage],
+                "reply",
+              );
+              await saveSession();
+              continue;
+            }
+            await saveSession();
+            // falls through to the conversational pipeline
+          } else if (node.phrase) {
+            // A leaf that stands in for words: hand those words to the code
+            // that already answers them. This is the whole reason the engine
+            // needed to reimplement nothing.
+            if (opening) questionText = localized(node.phrase, noticeLanguage);
+            await saveSession();
+            // falls through, now carrying the phrase
+          } else {
+            await reply(comingSoonNotice(noticeLanguage, localized(node.title, noticeLanguage)), "reply");
+            await saveSession();
+            continue;
+          }
+        } catch (e) {
+          // The sender never sees this. They see a sentence, and they stay
+          // exactly where they were: a failed feature must not also lose
+          // somebody their place.
+          console.error(`[whatsapp] feature ${node.id} failed:`, e instanceof Error ? e.message : "unknown");
+          log("feature_error", { node: node.id });
+          await reply(featureErrorNotice(noticeLanguage), "unsupported");
+          await saveSession();
+          continue;
+        }
+      } else {
+        await saveSession();
+      }
+
       if (asksForMenu(questionText)) {
-        await sendMenu(noticeLanguage, { asked: true });
+        await sendMenu(ROOT_ID, noticeLanguage, { asked: true });
+        await saveSession();
         continue;
       }
 

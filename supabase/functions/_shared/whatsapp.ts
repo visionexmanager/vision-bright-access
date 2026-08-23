@@ -11,13 +11,15 @@ export const WELCOME_AR = `أهلاً وسهلاً في Visionex 👋
 شكراً لتواصلك معنا.
 أنا المساعد الذكي لـVisionex، وفيني ساعدك مباشرة.
 فيني ساعدك بالدعم الفني، الفوترة والدفع، معلومات Visionex، المتاجر والخدمات، أو أي استفسار آخر.
-اكتب طلبك مباشرة وأنا رح ساعدك.`;
+اكتب طلبك مباشرة وأنا رح ساعدك.
+أو اكتب «قائمة» لتشوف الخدمات بالأرقام.`;
 
 export const WELCOME_EN = `Welcome to Visionex 👋
 Thank you for reaching out.
 I'm the Visionex AI assistant, and I can help you right here.
 I can help with technical support, billing and payments, information about Visionex, stores and services, or anything else you need.
-Just tell me what you need and I'll help.`;
+Just tell me what you need and I'll help.
+Or say "menu" to see the numbered services.`;
 
 /**
  * Arabic script anywhere in the message means answer in Arabic. WhatsApp gives
