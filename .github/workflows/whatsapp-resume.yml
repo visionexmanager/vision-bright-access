@@ -1,0 +1,123 @@
+name: Return a WhatsApp conversation to the assistant
+
+# Undo an escalation.
+#
+# `whatsapp_conversations.escalated` is set the moment a sender asks for a
+# person, and until now **nothing** cleared it: the Owner Control Centre only
+# reads the table, and the WhatsApp owner commands write `control`, never
+# `escalated`. The webhook's one completely silent path is
+#
+#   if (existing?.control === "human" || existing?.escalated) continue;
+#
+# so a conversation that once asked for a human never gets another reply, and
+# every feature tested from that number looks broken. This is the way back.
+#
+# It is deliberately one conversation at a time, by id, and the id comes from
+# the `whatsapp-diagnose` workflow — which prints ids and never phone numbers,
+# because this repository is public. Nothing here reveals who anyone is.
+#
+# Handing a conversation back to the assistant is not the same as declaring the
+# customer's problem solved: `handoff_summary` is left exactly as it was, so
+# whoever picks the thread up can still read why it was escalated.
+
+on:
+  workflow_dispatch:
+    inputs:
+      conversation_id:
+        description: "Conversation id, from the diagnose workflow (a UUID)"
+        required: true
+      note:
+        description: "Why it is being returned — recorded in audit_logs"
+        required: false
+        default: "returned to the assistant by the owner"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: whatsapp-resume
+  cancel-in-progress: false
+
+jobs:
+  resume:
+    name: Return to the assistant
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Hand the conversation back
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+          CONVERSATION_ID: ${{ inputs.conversation_id }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [[ -z "$SUPABASE_ACCESS_TOKEN" || -z "$SUPABASE_PROJECT_REF" ]]; then
+            say "::error::SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF must be configured."
+            exit 1
+          fi
+
+          # The id is interpolated into SQL, so it is checked against the exact
+          # shape of a UUID first. Anything else is refused before a statement
+          # is built, not escaped afterwards.
+          if [[ ! "$CONVERSATION_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            say "::error::That is not a conversation id. Copy the \`id\` field from the diagnose workflow."
+            exit 1
+          fi
+
+          # The note is recorded, so it is stripped to plain characters for the
+          # same reason.
+          CLEAN_NOTE="$(printf '%s' "$NOTE" | tr -cd '[:alnum:][:space:].,;:@()/-' | cut -c1-200)"
+
+          ask() {
+            curl -s -X POST \
+              "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query:$q}')"
+          }
+
+          say "# Returning ${CONVERSATION_ID} to the assistant"
+          say ""
+
+          say "## Before"
+          say '```json'
+          ask "select id, language, escalated, escalation_reason, control,
+                      (handoff_summary is not null) as has_briefing,
+                      last_message_at
+                 from public.whatsapp_conversations
+                where id = '${CONVERSATION_ID}'" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+
+          say ""
+          say "## After"
+          say '```json'
+          ask "update public.whatsapp_conversations
+                  set escalated = false,
+                      escalated_at = null,
+                      escalation_reason = null,
+                      control = 'ai',
+                      control_changed_at = now(),
+                      control_changed_by = 'owner'
+                where id = '${CONVERSATION_ID}'
+            returning id, escalated, escalation_reason, control, control_changed_at" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+          say "An empty \`[]\` means no conversation has that id and nothing changed."
+
+          # Every owner decision in this project leaves a trail; this one is no
+          # different, and the trail carries the id, never the number.
+          ask "insert into public.audit_logs (action, entity_type, entity_id, metadata)
+               values ('whatsapp_returned_to_ai', 'whatsapp_conversation',
+                       '${CONVERSATION_ID}',
+                       jsonb_build_object('via', 'github_actions',
+                                          'note', '${CLEAN_NOTE}'))" >/dev/null
+
+          say ""
+          say "The assistant will answer the next message in that thread. The handoff"
+          say "briefing was left in place, so why it escalated is still on the record."
