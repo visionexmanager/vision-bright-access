@@ -1,10 +1,23 @@
-// Speaking a reply back.
+// Answering in the medium the question arrived in.
 //
-// Opt-in only. A voice note cannot be skimmed, searched, quoted or read in a
-// meeting, and it arrives in whatever room the sender happens to be in — so the
-// text reply is always sent as well, and the audio is an addition rather than a
-// replacement. If anything in this path fails, the customer has already been
-// answered.
+// ── What changed, and why ───────────────────────────────────────────────────
+//
+// Audio used to be an *addition*: the text always went out, and a voice note
+// followed it when a stored preference said so. That meant somebody who asked a
+// question out loud received the answer twice — once to read and once to hear —
+// and somebody who had once asked for voice kept getting audio for questions
+// they typed weeks later, on a train, in a meeting.
+//
+// Now the medium of the answer is the medium of the question. A voice note is
+// answered with a voice note and nothing else; a typed message is answered in
+// writing and nothing else. No stored preference can make it sticky, because
+// the only thing that knows which one a person wants right now is the message
+// they just sent.
+//
+// The interface is the exception, and stays text: menus, onboarding questions,
+// language lists and refusals. A list of things to tap cannot be a voice note,
+// and a failure notice that needs a second provider to be heard is a failure
+// notice that can itself go missing.
 //
 // Sending audio is two calls, not one: upload the bytes to the phone number's
 // media store to get an id, then send a message referencing that id.
@@ -30,26 +43,24 @@ export const MAX_SPOKEN_CHARS = 900;
 /**
  * How many voice notes one reply may become.
  *
- * A reply is clamped at 3900 characters, and this used to be spoken only if the
- * whole of it fitted in one 900-character note — so every thorough answer, which
- * is exactly the kind somebody asks for out loud, arrived as text and nothing
- * else. The sender heard silence and read that as the feature being broken. A
- * long answer is now spoken in order, in pieces that end on sentence
- * boundaries, and this count is what bounds the cost: 2700 characters spoken
- * at the very most, with the text reply carrying every word either way.
+ * A long answer is spoken in order, in pieces that end on sentence boundaries,
+ * and this count is what bounds the cost: 2700 characters at the very most.
+ *
+ * It is also the reason a spoken answer is no longer put through `splitAnswer`
+ * first. That split exists for WhatsApp's 4096-character text ceiling, which
+ * does not apply to audio at all — and three text parts each becoming three
+ * voice notes is nine voice notes for one question, which is not an answer,
+ * it is a podcast.
  */
 export const MAX_SPOKEN_PARTS = 3;
 
 /**
  * How a conversation wants its replies delivered.
  *
- *   mirror - the medium the sender used. A voice note is answered out loud, a
- *            typed message in writing. The default, and the one nobody has to
- *            ask for: sending a voice note already says how you want to be
- *            answered, and making somebody set a preference to get that is
- *            asking them to configure the obvious.
- *   always - spoken even when they typed, because they asked for that.
- *   never  - text only, because they asked for that.
+ * Kept as a type and a column reader because the preference parser still
+ * recognises the phrases people say — but it no longer decides anything. The
+ * medium of an answer is the medium of the question and nothing else; see
+ * `replyMedium` for why.
  */
 export type VoiceMode = "mirror" | "always" | "never";
 
@@ -60,27 +71,63 @@ export function voiceModeOf(value: string | null | undefined): VoiceMode {
   return value === "always" || value === "never" || value === "mirror" ? value : DEFAULT_VOICE_MODE;
 }
 
-/** Whether this particular reply should also be spoken. */
-export function shouldSpeak(params: {
-  mode: VoiceMode;
+/** How one reply travels. There is no third option and no "both". */
+export type ReplyMedium = "text" | "voice";
+
+/**
+ * The kinds of message that are an *answer* rather than the interface talking.
+ *
+ * Only an answer mirrors the medium. A menu, a language list, an onboarding
+ * question and a refusal are the interface, and the interface is text: a list
+ * of things to tap cannot be a voice note, and a failure notice that depends on
+ * a second provider is a failure notice that can itself vanish.
+ */
+const ANSWER_KINDS: ReadonlySet<string> = new Set(["reply"]);
+
+/**
+ * The medium one reply goes out in.
+ *
+ * The inbound message decides, and nothing else does. A voice note is answered
+ * out loud and *only* out loud; a typed message is answered in writing and only
+ * in writing. Nobody receives the same answer twice in two forms, which is what
+ * used to happen and what made a spoken reply feel like an echo rather than an
+ * answer.
+ *
+ * ── Why no preference is consulted ──────────────────────────────────────────
+ *
+ * There used to be a stored `voice_mode`, and it could say "always speak" or
+ * "never speak". Both are wrong here, and wrong in the same way: they make the
+ * medium sticky. Somebody who sent one voice note last Tuesday would get audio
+ * for a question they typed on a train today, and somebody who once asked for
+ * text would get silence in reply to a voice note they recorded because their
+ * hands were full. The question in hand is the only thing that knows which of
+ * those a person wants right now, so it is the only thing asked.
+ *
+ * Pure, and deliberately not async: the decision is separable from the sending,
+ * which is what lets the suite assert the transport of a whole conversation
+ * without a Meta account or a synthesis bill.
+ */
+export function replyMedium(params: {
   /** Whether the message being answered was itself a voice note. */
   spokenInput: boolean;
-  replyText: string;
-  isCannedNotice: boolean;
-}): boolean {
-  if (params.mode === "never") return false;
-  if (params.mode === "mirror" && !params.spokenInput) return false;
-  // The welcome and the menus stay text: they are lists of links and taps,
-  // which is the one thing audio is worse at than text.
-  if (params.isCannedNotice) return false;
-  return speakableText(params.replyText).length > 0;
+  /** The row's `kind`: "reply" is an answer, everything else is the interface. */
+  kind: string;
+  /** Text with nothing speakable in it — a bare URL — cannot be a voice note. */
+  body?: string;
+}): ReplyMedium {
+  if (!params.spokenInput) return "text";
+  if (!ANSWER_KINDS.has(params.kind)) return "text";
+  if (params.body !== undefined && speakableText(params.body).length === 0) return "text";
+  return "voice";
 }
 
 /**
  * Strip what does not survive being read aloud.
  *
- * A URL read character by character is noise; the text reply that accompanies
- * every voice note still carries it, so nothing is lost.
+ * A URL read character by character is noise, and markdown emphasis read aloud
+ * is a star. What is left is what a person would actually say — and if that
+ * turns out to be nothing at all, `replyMedium` sends the reply as text
+ * instead, because an empty voice note is worse than a short message.
  */
 export function speakableText(text: string): string {
   return text
@@ -321,4 +368,78 @@ export async function speakReply(params: {
   }
   console.log(`[whatsapp-tts] spoke a reply in ${spoken}/${segments.length} parts`);
   return true;
+}
+
+// ── Delivering one reply ─────────────────────────────────────────────────────
+//
+// The decision above and the two ways of sending, joined — with the sending
+// handed in rather than reached for. That is the whole reason this function
+// exists instead of an `if` in the webhook: a suite can drive a text question,
+// a voice question, a failed synthesis and four alternating turns through the
+// real policy and count what actually went out, without a Meta account, a
+// synthesis bill, or a single assertion about the shape of the source.
+
+export interface ReplyTransport {
+  /** Send the words. Returns whether Meta accepted them. */
+  sendText(body: string): Promise<boolean>;
+  /** Speak the words. Returns whether at least one voice note was delivered. */
+  speak(body: string): Promise<boolean>;
+}
+
+export interface ReplyDelivery {
+  /** What was chosen, before anything was attempted. */
+  medium: ReplyMedium;
+  /** Whether the sender received it. */
+  sent: boolean;
+  /**
+   * Set when audio was chosen, could not be produced, and the minimal notice
+   * went out in its place. Logged; never a second copy of the answer.
+   */
+  spokenFailed: boolean;
+}
+
+/**
+ * Send one reply, in one medium, exactly once.
+ *
+ * ── When synthesis fails ────────────────────────────────────────────────────
+ *
+ * The answer is *not* posted as text instead. That was the old behaviour and it
+ * is the thing this whole change removes: a voice question answered with a wall
+ * of text is the assistant ignoring how it was asked. What goes out instead is
+ * the short failure sentence the caller passes in — already translated, already
+ * free of provider names and status codes — so somebody who hears nothing knows
+ * to ask again rather than wondering whether they were heard.
+ *
+ * The answer itself is not lost: the caller records it in the transcript either
+ * way, so the team triaging the thread sees exactly what the assistant said.
+ */
+export async function deliverReply(
+  params: {
+    body: string;
+    kind: string;
+    spokenInput: boolean;
+    /** Short, translated, and safe to show. Used only if synthesis fails. */
+    failureNotice: string;
+  },
+  transport: ReplyTransport,
+): Promise<ReplyDelivery> {
+  const medium = replyMedium({
+    spokenInput: params.spokenInput,
+    kind: params.kind,
+    body: params.body,
+  });
+
+  if (medium === "text") {
+    return { medium, sent: await transport.sendText(params.body), spokenFailed: false };
+  }
+
+  if (await transport.speak(params.body)) {
+    return { medium, sent: true, spokenFailed: false };
+  }
+
+  // A kind, and nothing else. Not the answer, not the transcript, not the
+  // number: this repository is public and its CI logs are world-readable.
+  console.error(`[whatsapp-tts] a spoken reply could not be delivered: kind=${params.kind}`);
+  const sent = await transport.sendText(params.failureNotice);
+  return { medium, sent, spokenFailed: true };
 }

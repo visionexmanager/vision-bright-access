@@ -110,7 +110,7 @@ import {
   voiceModeExplainer,
   verbosityDirective,
 } from "../_shared/whatsappPreferences.ts";
-import { shouldSpeak, speakReply, voiceModeOf, type VoiceMode } from "../_shared/whatsappVoiceReply.ts";
+import { deliverReply, replyMedium, speakReply } from "../_shared/whatsappVoiceReply.ts";
 import {
   type Capability,
   type CatalogNode,
@@ -153,7 +153,6 @@ import {
   comingSoonNotice,
   type EngineMessage,
   featureErrorNotice,
-  renderMenu,
   runEngine,
 } from "../_shared/whatsappEngine.ts";
 import { askAssistant } from "../_shared/whatsappAsk.ts";
@@ -662,16 +661,6 @@ Deno.serve(async (req) => {
       }
 
       /**
-       * How this conversation wants its replies delivered.
-       *
-       * Read from the row, but kept in a variable rather than read from it
-       * again: the sender can change it in this very message, and the
-       * confirmation is then the first thing they hear. For somebody who asked
-       * out loud, hearing it is the only proof the setting took.
-       */
-      let voiceMode: VoiceMode = voiceModeOf(existing?.voice_mode as string | null);
-
-      /**
        * Whether the message being answered was itself spoken.
        *
        * The whole of the default behaviour: somebody who sends a voice note
@@ -744,46 +733,56 @@ Deno.serve(async (req) => {
        */
       let noticeLanguage: "ar" | "en" = answerLanguage === "ar" ? "ar" : "en";
 
-      const reply = async (body: string, kind: string, options?: { speak?: boolean }) => {
+      /**
+       * One reply, in one medium, sent exactly once.
+       *
+       * The medium is decided by `replyMedium` and by nothing here: a voice
+       * note is answered out loud and only out loud, a typed message in writing
+       * and only in writing, and the interface — menus, onboarding, refusals —
+       * is always text. Nobody receives the same answer twice in two forms.
+       *
+       * The transcript records the words whichever way they travelled, so a
+       * spoken answer is still readable by whoever triages the thread later,
+       * and `medium` is the only record that it was *heard* rather than read.
+       */
+      const reply = async (body: string, kind: string) => {
+        const medium = replyMedium({ spokenInput, kind, body });
         const { data: written } = await db.from("whatsapp_messages").insert({
           conversation_id: conversationId,
           direction: "outbound",
           body,
           kind,
+          medium,
         }).select("id").maybeSingle();
         if (!token || !phoneNumberId) return;
-        const sent = await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
-        log("replied", { replyKind: kind, chars: body.length, sent });
 
-        // The text has already gone. A spoken copy is an addition, and every
-        // failure below is swallowed: a missing voice note is a smaller
-        // problem than an error message about one.
-        //
-        // A short notice — "I couldn't hear anything in that voice note" — is
-        // now spoken too, where before only a model answer was. Somebody who
-        // has asked to be answered out loud and hears nothing back cannot tell
-        // a failed voice note from a failed assistant. The welcome and the
-        // menus stay text, and so does the rate-limit notice, which passes
-        // `speak: false`: paying a synthesis bill to tell a flood of messages
-        // to slow down is the one case where silence is correct.
-        if (options?.speak !== false && shouldSpeak({
-          mode: voiceMode,
-          spokenInput,
-          replyText: body,
-          isCannedNotice: kind === "welcome" || kind === "handover",
-        })) {
-          const spoken = await speakReply({ phoneNumberId, token, to: incoming.from, text: body });
-          // Marked on the row that was already written rather than as a second
-          // one: the words are the same words, and a duplicate row would double
-          // the transcript and the replayed history with it. This is the only
-          // record that a reply was *heard* rather than read — without it,
-          // "voice replies are broken" and "nobody has them switched on" look
-          // identical from the database.
-          if (spoken && written?.id) {
-            await db.from("whatsapp_messages").update({ medium: "voice" }).eq("id", written.id);
-          }
-          log("spoke", { replyKind: kind, spoken });
+        // The two ways of sending, handed to the policy rather than chosen
+        // here. Production passes these; the suite passes counters, which is
+        // what lets it assert the transport of a whole conversation without a
+        // Meta account or a synthesis bill.
+        const delivered = await deliverReply(
+          { body, kind, spokenInput, failureNotice: say("failed", answerLanguage) },
+          {
+            sendText: (text) => sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text }),
+            speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text }),
+          },
+        );
+
+        // A synthesis that failed did not travel by voice, whatever was written
+        // a moment ago. The row is corrected rather than left claiming a voice
+        // note nobody received — that column is what "is the voice reply
+        // broken?" is answered from.
+        if (delivered.spokenFailed && written?.id) {
+          await db.from("whatsapp_messages").update({ medium: "text" }).eq("id", written.id);
         }
+
+        log("replied", {
+          replyKind: kind,
+          chars: body.length,
+          medium: delivered.medium,
+          sent: delivered.sent,
+          spokenFailed: delivered.spokenFailed,
+        });
       };
 
       /**
@@ -829,7 +828,7 @@ Deno.serve(async (req) => {
       const sendMenu = async (
         nodeId: string,
         lang: Language,
-        options: { asked: boolean; note?: string },
+        options: { note?: string } = {},
       ) => {
         // A leaf has no children to list. It is reachable here after a cancel,
         // which leaves the sender standing inside the feature they cancelled,
@@ -841,25 +840,20 @@ Deno.serve(async (req) => {
         // A note has to travel as its own message or it is lost: an interactive
         // list's body is its own fixed text, so "that option has moved" goes
         // out first and the list follows.
-        if (options.note) await reply(options.note, "welcome", { speak: false });
+        if (options.note) await reply(options.note, "welcome");
 
-        const message = await sendInteractiveMenu(delivery, target, lang, disabled);
+        // Never spoken, however the sender asked. A menu is a set of things to
+        // tap, and a minute of audio listing them still leaves somebody with
+        // nothing to press — the interactive message itself is the accessible
+        // form, and its text twin is what a screen reader reads when Meta
+        // refuses it. Reading it aloud on top would be the third copy of one
+        // thing, and for a voice question it would be a spoken message
+        // arriving next to a spoken answer.
+        await sendInteractiveMenu(delivery, target, lang, disabled);
         await db
           .from("whatsapp_conversations")
           .update({ menu_sent_at: new Date().toISOString() })
           .eq("id", conversationId);
-
-        // Spoken only when it was asked for, and then only if this sender is
-        // being answered out loud anyway. A menu read aloud is about a minute
-        // of audio — worth it for somebody who cannot see the screen and just
-        // asked what is on offer, and noise on top of a welcome nobody wanted.
-        const body = message?.text ?? renderMenu(target, lang, disabled);
-        if (
-          token && phoneNumberId && options.asked
-          && shouldSpeak({ mode: voiceMode, spokenInput, replyText: body, isCannedNotice: false })
-        ) {
-          await speakReply({ phoneNumberId, token, to: incoming.from, text: body });
-        }
       };
 
       // ── Abuse control ─────────────────────────────────────────────────
@@ -916,7 +910,7 @@ Deno.serve(async (req) => {
             })
             .eq("id", conversationId);
 
-          if (verdict.notify) await reply(rateLimitNotice(language), "unsupported", { speak: false });
+          if (verdict.notify) await reply(rateLimitNotice(language), "unsupported");
           continue;
         }
       }
@@ -955,7 +949,7 @@ Deno.serve(async (req) => {
       /** One prompt, performed. The builders are pure; this is the sending. */
       const offerPrompt = async (prompt: OnboardingPrompt, lang: SupportedLanguage) => {
         if (prompt.type === "text") {
-          await reply(say(prompt.key, lang), "welcome", { speak: false });
+          await reply(say(prompt.key, lang), "welcome");
         } else if (prompt.type === "question") {
           // A sentence with a way out under it. The numeric `0` never had one
           // that could be seen, which is most of why people got stuck in it.
@@ -967,7 +961,7 @@ Deno.serve(async (req) => {
         } else if (prompt.type === "gender" || prompt.type === "country") {
           await sendProfileChoice(delivery, prompt.type, lang, incoming.from);
         } else {
-          await sendMenu(ROOT_ID, lang, { asked: false });
+          await sendMenu(ROOT_ID, lang);
         }
       };
 
@@ -1023,7 +1017,7 @@ Deno.serve(async (req) => {
           // for anybody who can see it; the sentence — itself in the new
           // language — is the proof for everybody else.
           await reply(say("languageSet", chosen), "reply");
-          await sendMenu(ROOT_ID, chosen, { asked: false });
+          await sendMenu(ROOT_ID, chosen);
           continue;
         }
       }
@@ -1048,20 +1042,28 @@ Deno.serve(async (req) => {
         const requested = parsePreferenceRequest(text);
         if (!hasPreferenceChange(requested)) return false;
 
-        await db.from("whatsapp_conversations").update(requested).eq("id", conversationId);
-        // Applied to this message, not just to the next one, so the
-        // confirmation is itself spoken when voice replies were just enabled.
-        if (requested.voice_mode) voiceMode = requested.voice_mode;
+        // Everything except the voice mode. Asking to "always reply with
+        // voice" cannot be honoured any more and must not be recorded as
+        // though it had been: the medium of an answer is the medium of the
+        // question now, and a column saying otherwise would be a promise the
+        // sender never gets. What they asked for is explained instead.
+        const { voice_mode: spokenRequest, ...stored } = requested;
+        if (Object.keys(stored).length > 0) {
+          await db.from("whatsapp_conversations").update(stored).eq("id", conversationId);
+        }
 
-        const nextLanguage = requested.preferred_language ?? detected;
-        await reply(
-          preferenceConfirmation(
-            nextLanguage === "ar" ? "ar" : "en",
-            requested,
-            LANGUAGE_ENDONYM[nextLanguage],
-          ),
-          "reply",
-        );
+        const nextLanguage = stored.preferred_language ?? detected;
+        if (Object.keys(stored).length > 0) {
+          await reply(
+            preferenceConfirmation(
+              nextLanguage === "ar" ? "ar" : "en",
+              stored,
+              LANGUAGE_ENDONYM[nextLanguage],
+            ),
+            "reply",
+          );
+        }
+        if (spokenRequest) await reply(voiceModeExplainer(noticeLanguage), "reply");
         return true;
       };
 
@@ -1471,7 +1473,7 @@ Deno.serve(async (req) => {
         }
         for (const message of outcome.replies) {
           if (message.type === "text") await reply(message.text, "reply");
-          else await sendMenu(message.nodeId, answerLanguage, { asked: true, note: message.note });
+          else await sendMenu(message.nodeId, answerLanguage, { note: message.note });
         }
         await saveSession();
         continue;
@@ -1552,7 +1554,7 @@ Deno.serve(async (req) => {
             await saveSession();
             continue;
           } else if (node.handler === "voice_settings") {
-            await reply(voiceModeExplainer(noticeLanguage, voiceMode), "reply");
+            await reply(voiceModeExplainer(noticeLanguage), "reply");
             await saveSession();
             continue;
           } else if (node.handler === "coming_soon") {
@@ -1615,7 +1617,7 @@ Deno.serve(async (req) => {
 
 
       if (!aiFocused && asksForMenu(questionText)) {
-        await sendMenu(ROOT_ID, answerLanguage, { asked: true });
+        await sendMenu(ROOT_ID, answerLanguage);
         await saveSession();
         continue;
       }
@@ -2125,7 +2127,7 @@ Deno.serve(async (req) => {
       // never returns to the model as a turn, and never spoken — a notification
       // sound saying "hold on" is not worth a voice note.
       if (shouldAnnounceWork(questionText, limits)) {
-        await reply(assistantSays("working", answerLanguage), "unsupported", { speak: false });
+        await reply(assistantSays("working", answerLanguage), "unsupported");
       }
 
       session = { ...session, step: AI_PROCESSING };
@@ -2208,7 +2210,12 @@ Deno.serve(async (req) => {
       // and the parts are sent in order, each ending somewhere a reader can
       // stop. The ceiling is configurable and bounded; nothing past the last
       // part is sent, because the prompt asks for brevity in the first place.
-      const parts = splitAnswer(answer, limits);
+      // A typed answer is split to WhatsApp's text ceiling. A spoken one is
+      // not: that ceiling is about text, `speechSegments` does the bounding for
+      // audio, and three text parts each becoming three voice notes would be
+      // nine voice notes for one question. The answer itself was generated
+      // exactly once either way — this only chooses how it travels.
+      const parts = spokenInput ? [answer] : splitAnswer(answer, limits);
       for (const part of parts) await reply(part, "reply");
       if (parts.length > 1) log("ai_split", { parts: parts.length });
       await saveSession();

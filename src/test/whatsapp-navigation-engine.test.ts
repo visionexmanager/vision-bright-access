@@ -634,14 +634,14 @@ describe("the webhook stays thin", () => {
     expect(webhook).toContain("ms: Date.now() - startedAt");
     expect(webhook).toContain("kind: engineMessageKind(incoming)");
     // Whether Meta accepted the reply, which is the response status.
-    expect(webhook).toContain("log(\"replied\", { replyKind: kind, chars: body.length, sent })");
+    expect(webhook).toMatch(/log\("replied", \{[\s\S]{0,200}medium: delivered\.medium,/);
   });
 
   it("keeps the existing voice path in front of the engine, untouched", () => {
     // The engine must see the transcript, so transcription runs first — and
     // the voice reply still happens inside reply(), for every route.
     expect(webhook).toContain("transcribe: (input) => transcribeVoice(input),");
-    expect(webhook).toContain("await speakReply({ phoneNumberId, token, to: incoming.from, text: body });");
+    expect(webhook).toContain("speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text }),");
     expect(webhook.indexOf("voiceToText(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
   });
 

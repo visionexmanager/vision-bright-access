@@ -208,39 +208,41 @@ export function preferenceConfirmation(
  * words for the other two — a setting you cannot phrase is a setting you do not
  * have, which is the lesson the matching above is built on.
  */
-export function voiceModeExplainer(
-  language: "ar" | "en",
-  mode: "mirror" | "always" | "never",
-): string {
+/**
+ * How replies are delivered, which is no longer a setting.
+ *
+ * It used to be three: always speak, never speak, or match the sender. All
+ * three are gone, and what is left is the third one made unconditional — the
+ * medium of an answer is the medium of the question, decided by the message in
+ * hand rather than by anything stored.
+ *
+ * The two that were removed were removed because they were *sticky*, and a
+ * sticky medium is wrong in both directions: one voice note last Tuesday should
+ * not put audio into a question typed on a train today, and one request for
+ * text should not answer a voice note with silence months later.
+ *
+ * Kept as a message rather than deleted, because "Voice replies" is still a row
+ * on the menu and somebody who taps it deserves an answer — and because people
+ * who learned to say "reply with voice" will keep saying it, and being told
+ * plainly that it already works that way is better than a setting that quietly
+ * does nothing.
+ */
+export function voiceModeExplainer(language: "ar" | "en"): string {
   if (language === "ar") {
-    const now = mode === "always"
-      ? "الآن: أرد بصوت دائماً."
-      : mode === "never"
-      ? "الآن: أرد نصاً فقط."
-      : "الآن: أرد بنفس طريقتك — صوت على الصوت، وكتابة على الكتابة.";
     return [
       "*الردود الصوتية*",
       "",
-      now,
+      "أرد بنفس طريقتك: رسالة صوتية يقابلها رد صوتي، ورسالة مكتوبة يقابلها رد مكتوب.",
       "",
-      "• قل «ردّ عليّ صوتياً» لأرد بصوت دائماً",
-      "• قل «اكتب فقط» لأرد نصاً فقط",
-      "• قل «رد مثل ما أرسل» للعودة للوضع الافتراضي",
+      "لا يوجد إعداد تضبطه — الطريقة التي ترسل بها هي الطريقة التي أرد بها.",
     ].join("\n");
   }
-  const now = mode === "always"
-    ? "Right now: I always reply out loud."
-    : mode === "never"
-    ? "Right now: I reply with text only."
-    : "Right now: I match you — voice for voice, text for text.";
   return [
     "*Voice replies*",
     "",
-    now,
+    "I answer the way you ask: a voice note gets a voice note back, and a typed message gets text.",
     "",
-    "• Say \"reply with voice\" and I'll always speak",
-    "• Say \"text only\" and I'll always write",
-    "• Say \"reply the same way I send\" for the default",
+    "There's nothing to set — how you send is how I answer.",
   ].join("\n");
 }
 

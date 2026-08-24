@@ -432,48 +432,66 @@ describe("the language a voice question is answered in", () => {
 // ── Speaking the answer back ────────────────────────────────────────────────
 
 describe("answering out loud", () => {
-  it("mirrors by default: a spoken question gets a spoken answer", () => {
-    expect(speech.shouldSpeak({
-      mode: "mirror", spokenInput: true, replyText: "Here you go.", isCannedNotice: false,
-    })).toBe(true);
-    expect(speech.shouldSpeak({
-      mode: "mirror", spokenInput: false, replyText: "Here you go.", isCannedNotice: false,
-    })).toBe(false);
-    // And the two explicit settings still override it.
-    expect(speech.shouldSpeak({
-      mode: "never", spokenInput: true, replyText: "Here you go.", isCannedNotice: false,
-    })).toBe(false);
-    expect(speech.shouldSpeak({
-      mode: "always", spokenInput: false, replyText: "Here you go.", isCannedNotice: false,
-    })).toBe(true);
+  it("mirrors, always: a spoken question gets a spoken answer and nothing else", () => {
+    expect(speech.replyMedium({ spokenInput: true, kind: "reply" })).toBe("voice");
+    expect(speech.replyMedium({ spokenInput: false, kind: "reply" })).toBe("text");
+
+    // There is no setting left that can override it. "Always speak" and "never
+    // speak" both made the medium sticky, which is wrong in both directions:
+    // one voice note last week should not put audio into a question typed on a
+    // train today, and one request for text should not answer a voice note
+    // with silence months later.
+    const source = readFileSync("supabase/functions/_shared/whatsappVoiceReply.ts", "utf8");
+    expect(source).not.toContain("export function shouldSpeak");
+    expect(source).not.toMatch(/mode === "always"[\s\S]{0,200}return true/);
   });
 
-  it("keeps the text reply when speaking fails", () => {
-    // The text goes first and unconditionally; the spoken copy is an addition
-    // whose every failure is swallowed. That ordering is the fallback.
-    const textAt = webhook.indexOf("const sent = await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });");
-    const speakAt = webhook.indexOf("const spoken = await speakReply({");
-    expect(textAt).toBeGreaterThan(-1);
-    expect(speakAt).toBeGreaterThan(textAt);
-    // And `speakReply` reports rather than throws, so a TTS outage cannot take
-    // the answer down with it.
+  it("does not post the answer as text when speaking fails", async () => {
+    // The old behaviour sent the text first and treated audio as an extra, so a
+    // failed voice note cost nothing. It also meant every spoken answer arrived
+    // twice. Now the answer travels one way only — and if that way fails, what
+    // goes out is the short failure sentence, not a wall of text nobody asked
+    // to read.
+    const sent: Array<{ medium: string; body: string }> = [];
+    const delivered = await speech.deliverReply(
+      { body: "The long answer.", kind: "reply", spokenInput: true, failureNotice: "Please try again." },
+      {
+        sendText: async (body) => { sent.push({ medium: "text", body }); return true; },
+        speak: async () => false,
+      },
+    );
+
+    expect(delivered.medium).toBe("voice");
+    expect(delivered.spokenFailed).toBe(true);
+    expect(sent).toEqual([{ medium: "text", body: "Please try again." }]);
+
+    // And `speakReply` still reports rather than throws, so a TTS outage cannot
+    // take the delivery down with it.
     const source = readFileSync("supabase/functions/_shared/whatsappVoiceReply.ts", "utf8");
-    expect(source).toMatch(/nothing was spoken; the reply stands as text/);
+    expect(source).toMatch(/nothing was spoken/);
   });
 
   it("never speaks an empty answer", async () => {
     expect(speech.speechSegments("   ")).toEqual([]);
-    expect(speech.shouldSpeak({
-      mode: "always", spokenInput: true, replyText: "   ", isCannedNotice: false,
-    })).toBe(false);
+    // Nothing speakable left in it means it travels as text instead — an empty
+    // voice note is worse than a short message.
+    expect(speech.replyMedium({ spokenInput: true, kind: "reply", body: "   " })).toBe("text");
+    expect(speech.replyMedium({ spokenInput: true, kind: "reply", body: "https://visionex.app/x" }))
+      .toBe("text");
     // An empty provider answer never reaches the reply path at all.
     const provider = fakeProvider([""]);
     const { asked } = await voiceTurn(heard("Anything"), provider.provider);
     expect(asked?.status).toBe("empty");
   });
 
-  it("records that a reply was spoken, which nothing else could tell you", () => {
-    expect(webhook).toContain('await db.from("whatsapp_messages").update({ medium: "voice" }).eq("id", written.id);');
+  it("records how a reply travelled, which nothing else could tell you", () => {
+    // Written with the row rather than patched onto it afterwards: the medium
+    // is decided before anything is sent, so the transcript can simply carry it.
+    expect(webhook).toContain("const medium = replyMedium({ spokenInput, kind, body });");
+    expect(webhook).toMatch(/direction: "outbound",[\s\S]{0,80}medium,/);
+    // And a synthesis that failed is corrected back to text, so the column
+    // never claims a voice note the sender never received.
+    expect(webhook).toContain('.update({ medium: "text" }).eq("id", written.id)');
     const migration = readFileSync("supabase/migrations/20260922000000_whatsapp_message_medium.sql", "utf8");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS medium text");
     // Smallest safe change: one nullable column, no new table, nothing dropped.
