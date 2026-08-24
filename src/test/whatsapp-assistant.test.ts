@@ -2173,9 +2173,14 @@ describe("announcing what the assistant can do", () => {
     }
   });
 
-  it("is sent on first contact and whenever the menu is asked for", () => {
-    expect(webhook).toContain('await sendMenu(ROOT_ID, noticeLanguage, { asked: true });');
-    expect(webhook).toContain('await reply(welcomeFor(language), "welcome");');
+  it("is sent whenever the menu is asked for, and after onboarding finishes", () => {
+    expect(webhook).toContain('await sendMenu(ROOT_ID, answerLanguage, { asked: true });');
+    // First contact is no longer a welcome-plus-menu. A brand new sender is
+    // asked their language first, in English, and meets the feature menu only
+    // once their profile is done — which is the last prompt onboarding returns.
+    expect(webhook).toContain("if (isOnboarding(onboardingState))");
+    expect(webhook).toContain('await sendMenu(ROOT_ID, lang, { asked: false });');
+    expect(webhook).not.toContain("welcomeFor(");
   });
 
   it("keeps the map questions ahead of the camera modes", () => {
@@ -2250,7 +2255,7 @@ describe("the new capabilities respect the rules that were already here", () => 
   it("answers in the language the conversation settled on, not this message's", () => {
     // `language` is detected from the message in hand, so somebody who set
     // Arabic and then typed one English word would get an English forecast.
-    expect(webhook).toContain('let noticeLanguage = answerLanguage === "ar" ? "ar" : "en";');
+    expect(webhook).toContain('let noticeLanguage: "ar" | "en" = answerLanguage === "ar" ? "ar" : "en";');
     expect(webhook).toContain("weatherNeedsPlaceNotice(noticeLanguage)");
     expect(webhook).toContain("locationNeededNotice(noticeLanguage)");
     expect(webhook).toContain("sellGuidance(noticeLanguage)");

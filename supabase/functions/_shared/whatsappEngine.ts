@@ -21,22 +21,24 @@
 
 import {
   childAt,
-  childrenOf,
   isAvailable,
   type CatalogNode,
   type Capability,
   type Language,
   localized,
   nodeById,
-  numberOf,
+  pathTo,
   ROOT_ID,
+  visibleChildrenOf,
 } from "./whatsappCatalog.ts";
 import {
   foldDigits,
   isGreeting,
+  localisedCommand,
   type NavigationCommand,
   parseChoice,
   parseCommand,
+  parseControlId,
 } from "./whatsappCommands.ts";
 import { resolveSelection } from "./whatsappRouter.ts";
 import { isStuck, lifecycleOf } from "./whatsappLifecycle.ts";
@@ -44,6 +46,7 @@ import {
   comingSoonNotice,
   featureErrorNotice,
   footerFor,
+  say as speak,
   UI_STRINGS,
   type UiKey,
 } from "./whatsappStrings.ts";
@@ -126,7 +129,7 @@ export type { NavigationCommand };
 
 export const ENGINE_STRINGS = UI_STRINGS;
 
-const say = (key: UiKey, language: Language): string => UI_STRINGS[key][language];
+const say = (key: UiKey, language: Language): string => speak(key, language);
 // ── The engine ────────────────────────────────────────────────────────────
 
 /**
@@ -149,10 +152,18 @@ export function runEngine(message: EngineMessage, session: SessionState, context
     timedOut = true;
   }
 
-  // 2. A tapped row. Unambiguous whenever it arrives, so it is honoured
-  //    without a freshness window — but an old menu can name a row this build
-  //    no longer has, and that is not the sender's mistake to apologise for.
-  if (message.selection) {
+  // 2. A tapped row.
+  //
+  //    Unambiguous whenever it arrives, so it is honoured without a freshness
+  //    window — but an old menu can name a row this build no longer has, and
+  //    that is not the sender's mistake to apologise for.
+  //
+  //    Back and Main menu are read out of the tap first. They are ids the
+  //    catalog does not contain, so looking them up as features would answer a
+  //    tap on Back with "that option has moved" — which is the one message a
+  //    person trying to leave must never get.
+  const tapped = parseControlId(message.selection);
+  if (message.selection && !tapped) {
     const node = nodeById(message.selection);
     if (!node || node.hidden) {
       return {
@@ -165,7 +176,11 @@ export function runEngine(message: EngineMessage, session: SessionState, context
     return openNode(node, state, context);
   }
 
-  const command = parseCommand(message.text);
+  // Typed `0`, typed "back", typed «Retour» and a tapped Back row all arrive
+  // here as the same word. The numeric forms are still parsed and no longer
+  // taught; the localised ones are what the text copy of a menu asks for.
+  const command = tapped
+    ?? (message.selection ? null : parseCommand(message.text) ?? localisedCommand(message.text, context.language));
 
   // 3. A session that timed out is announced before anything is read out of
   //    it. The sender is about to be somewhere other than where they left off,
@@ -359,7 +374,7 @@ function nearestAvailable(node: CatalogNode, disabled: readonly string[]): Catal
   return nodeById(ROOT_ID)!;
 }
 
-/** Opening a node: a menu is shown, an action is checked and then delegated. */
+/** Opening a node: a menu is shown, an action is checked and then delegated. */
 function openNode(node: CatalogNode, session: SessionState, context: EngineContext): EngineOutcome {
   const parentId = node.parent ?? ROOT_ID;
 
@@ -400,10 +415,20 @@ function openNode(node: CatalogNode, session: SessionState, context: EngineConte
 /**
  * A menu as text.
  *
- * Numbered lines, one per child, with the number first because that is what the
- * sender has to send back. The emoji trails the words and carries nothing: a
- * screen reader that announces it says the name first, and one that skips it
- * loses nothing at all.
+ * The words a sender is shown when Meta refuses the tappable version — outside
+ * the 24-hour service window, or on a client too old for interactive messages.
+ * This is not the normal interface and has not been since the numbers went; it
+ * is the copy that still has to work when the interface cannot be delivered.
+ *
+ * Named lines, not numbered ones. The name is what the sender replies with and
+ * what the router resolves against the menu in view, so the instruction at the
+ * bottom is true rather than decorative. The emoji trails the words and carries
+ * nothing: a screen reader that announces it says the name first, and one that
+ * skips it loses nothing at all.
+ *
+ * A feature declared but not built keeps its line and says so. A feature a live
+ * flag has switched off is not listed at all — the same rule the tappable menu
+ * follows, so the two copies never offer different things.
  */
 export function renderMenu(
   nodeId: string,
@@ -412,20 +437,30 @@ export function renderMenu(
 ): string {
   const node = nodeById(nodeId);
   if (!node) return "";
-  const children = childrenOf(nodeId);
+  const children = visibleChildrenOf(nodeId, disabled);
 
   const lines = children.map((child) => {
-    const number = numberOf(child);
     const title = localized(child.title, language);
     const description = localized(child.description, language);
-    const tail = isAvailable(child, disabled) ? "" : (language === "ar" ? " (قريباً)" : " (coming soon)");
-    return `${number}. ${title}${child.emoji ? ` ${child.emoji}` : ""} — ${description}${tail}`;
+    const soon = isAvailable(child, disabled) ? "" : ` — ${say("disabled", language)}`;
+    return `• ${title}${child.emoji ? ` ${child.emoji}` : ""} — ${description}${soon}`;
   });
 
+  // The way out, named rather than numbered, and only where there is one. One
+  // level down, Back and Main menu are the same place; offering both would be
+  // two lines that do the same thing, read aloud on every submenu.
+  const depth = pathTo(nodeId).length;
+  const exits = depth <= 1
+    ? []
+    : depth === 2
+      ? [`• ${say("back", language)}`]
+      : [`• ${say("back", language)}`, `• ${say("mainMenu", language)}`];
+
   const header = `*${localized(node.title, language)}*`;
+  const body = localized(node.description, language);
   const footer = footerFor(nodeId === ROOT_ID, language);
 
-  return [header, "", ...lines, "", footer].join("\n");
+  return [header, body, "", ...lines, ...exits, "", footer].join("\n");
 }
 
 // Re-exported: both sentences now live with the rest of the interface's words.

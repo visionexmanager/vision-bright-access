@@ -20,6 +20,7 @@ import type {
 import type { SessionState } from "../../supabase/functions/_shared/whatsappSession.ts";
 
 const catalog = await import("../../supabase/functions/_shared/whatsappCatalog.ts");
+const interactive = await import("../../supabase/functions/_shared/whatsappInteractive.ts");
 const session = await import("../../supabase/functions/_shared/whatsappSession.ts");
 const engine = await import("../../supabase/functions/_shared/whatsappEngine.ts");
 const vision = await import("../../supabase/functions/_shared/whatsappVisionModes.ts");
@@ -226,7 +227,11 @@ describe("navigation commands", () => {
     expect(outcome.session.path).toEqual(["main", "ocr"]);
     if (outcome.kind !== "reply") return;
     const text = (outcome.replies[0] as { text: string }).text;
-    for (const command of ["0", "00", "#", "help"]) expect(text).toContain(command);
+    // Names, not keys. Help used to teach a keypad — 0, 00, # — which every
+    // sender then had to remember; the ways out are rows on the message now, so
+    // help names them instead of drilling them.
+    for (const exit of ["Back", "Main menu"]) expect(text).toContain(exit);
+    expect(text).not.toMatch(/(^|\s)00(\s|$)/);
   });
 
   it("11b. recognises every command in Arabic too", () => {
@@ -315,7 +320,7 @@ describe("the awkward cases", () => {
   });
 
   it("16. keeps a failing feature inside its own try/catch, with a clean message", () => {
-    expect(webhook).toContain("await reply(featureErrorNotice(noticeLanguage), \"unsupported\");");
+    expect(webhook).toContain("await reply(featureErrorNotice(answerLanguage), \"unsupported\");");
     expect(webhook).toMatch(/catch \(e\) \{[\s\S]*?feature \$\{node\.id\} failed/);
     for (const language of ["ar", "en"] as const) {
       const notice = engine.featureErrorNotice(language);
@@ -338,10 +343,12 @@ describe("language and other message kinds", () => {
     expect(menu).not.toMatch(/[A-Za-z]{4,}/); // no English leaking into an Arabic menu
   });
 
-  it("18. answers English input in English", () => {
+  it("18. answers English input in English, and names the way back", () => {
     const menu = engine.renderMenu("ocr", "en");
     expect(menu).toContain("Read the text");
-    expect(menu).toContain("0");
+    // The exit is a word now, not a digit somebody has to have been taught.
+    expect(menu).toContain("Back");
+    expect(menu).not.toMatch(/(^|\s)0(\s|$)/);
   });
 
   it("19. takes the language from the session, not from the message", () => {
@@ -352,7 +359,7 @@ describe("language and other message kinds", () => {
     expect(arabic.session.path).toEqual(english.session.path);
     expect(session.sessionLanguage("ar", "en")).toBe("ar");
     expect(session.sessionLanguage(null, "en")).toBe("en");
-    expect(webhook).toContain("language: noticeLanguage,");
+    expect(webhook).toContain("language: answerLanguage,");
   });
 
   it("20. lets a voice note choose a number and stay in the feature", () => {
@@ -451,21 +458,32 @@ describe("the catalog", () => {
     for (const node of catalog.CATALOG) {
       if (node.kind !== "menu") continue;
       for (const language of ["ar", "en"] as const) {
-        const list = catalog.listMessageFor(node.id, language);
-        expect(list, `${node.id} ${language}`).not.toBeNull();
-        if (!list) continue;
-        const rows = list.action.sections.flatMap((section) => section.rows);
+        const message = interactive.menuMessage(node.id, language);
+        expect(message, `${node.id} ${language}`).not.toBeNull();
+        if (!message) continue;
+        const payload = message.interactive as {
+          type: string;
+          header?: { text: string };
+          body: { text: string };
+          action: {
+            button?: string;
+            sections?: Array<{ rows: Array<{ id: string; title: string; description?: string }> }>;
+            buttons?: Array<{ reply: { id: string; title: string } }>;
+          };
+        };
+        const rows = payload.type === "list"
+          ? payload.action.sections![0].rows
+          : payload.action.buttons!.map((b) => ({ id: b.reply.id, title: b.reply.title, description: undefined }));
         expect(rows.length, node.id).toBeLessThanOrEqual(catalog.LIST_LIMITS.rows);
-        expect(list.action.button.length).toBeLessThanOrEqual(catalog.LIST_LIMITS.button);
-        expect(list.header.text.length).toBeLessThanOrEqual(catalog.LIST_LIMITS.header);
-        expect(list.body.text.length).toBeLessThanOrEqual(catalog.LIST_LIMITS.body);
-        expect(list.footer.text.length).toBeLessThanOrEqual(catalog.LIST_LIMITS.footer);
+        expect((payload.action.button ?? "").length).toBeLessThanOrEqual(catalog.LIST_LIMITS.button);
+        expect((payload.header?.text ?? "").length).toBeLessThanOrEqual(catalog.LIST_LIMITS.header);
+        expect(payload.body.text.length).toBeLessThanOrEqual(catalog.LIST_LIMITS.body);
         for (const row of rows) {
-          expect(row.title.length, row.title).toBeLessThanOrEqual(catalog.LIST_LIMITS.rowTitle);
-          expect(row.description.length, row.description).toBeLessThanOrEqual(catalog.LIST_LIMITS.rowDescription);
+          const cap = payload.type === "button" ? catalog.LIST_LIMITS.buttonTitle : catalog.LIST_LIMITS.rowTitle;
+          expect(row.title.length, row.title).toBeLessThanOrEqual(cap);
+          expect((row.description ?? "").length, row.description).toBeLessThanOrEqual(catalog.LIST_LIMITS.rowDescription);
           // Clipping exists as a seatbelt; nothing in the catalog should reach it.
           expect(row.title, row.title).not.toContain("…");
-          expect(row.description, row.description).not.toContain("…");
         }
         expect(new Set(rows.map((row) => row.id)).size).toBe(rows.length);
       }

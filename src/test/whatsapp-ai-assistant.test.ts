@@ -297,7 +297,7 @@ describe("reliability", () => {
     expect(ai.shouldAnnounceWork("x".repeat(500), { ...limits, slowQuestionChars: 0 })).toBe(false);
     expect(webhook.match(/assistantSays\("working"/g)?.length).toBe(1);
     // Canned, so it never returns to the model as a turn, and never spoken.
-    expect(webhook).toContain('await reply(assistantSays("working", noticeLanguage), "unsupported", { speak: false });');
+    expect(webhook).toContain('await reply(assistantSays("working", answerLanguage), "unsupported", { speak: false });');
   });
 
   it("20. answers a provider error with a sentence, and escalates it", () => {
@@ -567,12 +567,17 @@ describe("feature flags", () => {
     expect(catalog.isAvailable(catalog.nodeById("assistant.ask"), disabled)).toBe(false);
   });
 
-  it("marks it in the menu rather than pretending it was never there", () => {
+  it("takes it off the menu rather than offering a row that refuses", () => {
+    // A live flag is turned when something is broken. Leaving the row there
+    // means every sender taps it, hears "not available", and taps it again —
+    // and for somebody listening to the menu read out, it is one more thing to
+    // sit through on every single message until the flag comes back off.
     const menu = engine.renderMenu(catalog.ROOT_ID, "en", ["assistant"]);
-    expect(menu).toContain("AI Assistant");
-    expect(menu).toMatch(/AI Assistant.*coming soon/);
+    expect(menu).not.toContain("AI Assistant");
     const arabic = engine.renderMenu(catalog.ROOT_ID, "ar", ["assistant"]);
-    expect(arabic).toContain("قريباً");
+    expect(arabic).not.toContain("المساعد الذكي");
+    // A feature merely declared and not built is the other case, and keeps its row.
+    expect(engine.renderMenu(catalog.ROOT_ID, "en")).toMatch(/Visionex Academy.*isn't open yet/);
   });
 
   it("closes the other door too: the words, not only the numbers", () => {
