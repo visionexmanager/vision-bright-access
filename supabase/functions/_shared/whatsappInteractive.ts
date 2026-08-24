@@ -416,6 +416,59 @@ export async function sendInteractiveMenu(
   return message;
 }
 
+// ── A menu for somebody who asked out loud ───────────────────────────────────
+
+export type MenuMedium = "interactive" | "voice";
+
+export interface MenuTransport {
+  /** Post the tappable message, falling back to its own words. */
+  tap(message: Tappable): Promise<boolean>;
+  /** Read the menu aloud. Returns whether any of it was delivered. */
+  speak(text: string): Promise<boolean>;
+}
+
+export interface MenuDelivery {
+  medium: MenuMedium;
+  sent: boolean;
+  /** Set when audio was chosen, failed, and the tappable message went instead. */
+  spokenFailed: boolean;
+}
+
+/**
+ * Deliver one menu in the medium the sender used.
+ *
+ * ── Why a spoken menu is a real menu ────────────────────────────────────────
+ *
+ * A tappable list read aloud would be a second copy of something already on
+ * screen, so a voice sender gets the words and only the words. That works
+ * because a name is now a way to choose: the router resolves a row's title
+ * against the menu in view, and the legacy numbers still resolve too. Somebody
+ * who hears "AI Assistant, Voice Assistant, OCR and photos" can answer with any
+ * of those and land exactly where a tap would have put them.
+ *
+ * ── The documented fallback ─────────────────────────────────────────────────
+ *
+ * If synthesis fails there is nothing to hear, and a menu nobody received is a
+ * dead end rather than a degraded experience — so the tappable message goes
+ * instead. It is the one case where a voice sender is shown text, it is
+ * recorded as such, and it is tested.
+ */
+export async function deliverMenu(
+  params: { message: Tappable; spokenInput: boolean },
+  transport: MenuTransport,
+): Promise<MenuDelivery> {
+  if (!params.spokenInput) {
+    return { medium: "interactive", sent: await transport.tap(params.message), spokenFailed: false };
+  }
+
+  if (await transport.speak(params.message.text)) {
+    return { medium: "voice", sent: true, spokenFailed: false };
+  }
+
+  console.error("[whatsapp-tts] a spoken menu could not be delivered; sent the tappable one");
+  return { medium: "voice", sent: await transport.tap(params.message), spokenFailed: true };
+}
+
 /** The language list, at a page. Written in English: nothing yet knows better. */
 export async function sendLanguageMenu(to: Delivery, page: number): Promise<Tappable> {
   const message = languageMessage(page);

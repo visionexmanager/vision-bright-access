@@ -1120,7 +1120,6 @@ describe("voice replies", () => {
   const medium = (over: Partial<Parameters<typeof voice.replyMedium>[0]> = {}) =>
     voice.replyMedium({
       spokenInput: false,
-      kind: "reply",
       body: "Here you go.",
       ...over,
     });
@@ -1154,15 +1153,19 @@ describe("voice replies", () => {
     expect(voice.DEFAULT_VOICE_MODE).toBe("mirror");
   });
 
-  it("keeps the interface as text, since it carries links and things to tap", () => {
-    for (const kind of ["welcome", "unsupported", "handover"]) {
-      expect(medium({ spokenInput: true, kind }), kind).toBe("text");
+  it("speaks every kind of response to somebody who spoke, not only the answer", () => {
+    // Half a conversation in audio and half on screen is worse than either on
+    // its own for the person this channel is built for, so a refusal and an
+    // apology are spoken exactly as an answer is.
+    for (const kind of ["reply", "welcome", "unsupported", "handover"]) {
+      expect(voice.replyMedium({ spokenInput: true, body: "Here you go." }), kind).toBe("voice");
+      expect(voice.replyMedium({ spokenInput: false, body: "Here you go." }), kind).toBe("text");
     }
     // A reply that is nothing but a link has nothing left to say out loud.
     expect(medium({ spokenInput: true, body: "https://visionex.app/contact" })).toBe("text");
-    // One that has words around the link keeps them, and is spoken — the link
-    // itself is dropped, because reading a URL out character by character is
-    // noise rather than an answer.
+    // One with words around the link keeps them and is spoken — the link itself
+    // is dropped, because reading a URL out character by character is noise
+    // rather than an answer.
     expect(medium({ spokenInput: true, body: "Visit https://visionex.app/contact" })).toBe("voice");
     expect(voice.speakableText("Visit https://visionex.app/contact")).toBe("Visit");
   });
@@ -1220,14 +1223,28 @@ describe("voice replies", () => {
     expect(source).toMatch(/console\.log\(`\[whatsapp-tts\] spoke a reply/);
   });
 
-  it("answers a failure with words, never with a second provider that can also fail", () => {
-    // A notice is the interface, not an answer, and it goes out as text. That
-    // is deliberate: a "I could not hear that" spoken through the same
-    // synthesis that has just gone down would be a failure notice that itself
-    // goes missing, which is the one message that must always arrive.
-    expect(medium({ spokenInput: true, kind: "unsupported" })).toBe("text");
-    // The rate-limit notice needs no special case any more — it is a notice,
-    // and notices are text.
+  it("speaks a failure to somebody who spoke, and writes it out only if that fails too", async () => {
+    // Synthesis and transcription are separate providers, so a voice note that
+    // could not be transcribed can still be apologised for out loud.
+    expect(medium({ spokenInput: true, body: "I could not hear that." })).toBe("voice");
+
+    // And the documented exception: when synthesis is down as well, the notice
+    // is written out as itself rather than replaced by a vaguer one, because
+    // silence after a voice note reads as never having been heard.
+    const sent: string[] = [];
+    const delivered = await voice.deliverReply(
+      {
+        body: "I could not hear that.",
+        kind: "unsupported",
+        spokenInput: true,
+        failureNotice: "Something went wrong.",
+      },
+      { sendText: async (body) => { sent.push(body); return true; }, speak: async () => false },
+    );
+    expect(delivered.spokenFailed).toBe(true);
+    expect(sent).toEqual(["I could not hear that."]);
+
+    // The rate-limit notice needs no special case any more.
     expect(webhook).toContain('await reply(rateLimitNotice(language), "unsupported")');
     expect(webhook).not.toContain("speak: false");
   });

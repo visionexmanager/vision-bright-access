@@ -278,6 +278,23 @@ export const assistantSays = (key: AssistantString, language: Language): string 
  * One notice, never two: the caller sends it once before the model call and
  * never inside a retry, because two "working on it" messages read as the
  * assistant being stuck rather than busy.
+ *
+ * ── Never for somebody who asked out loud ───────────────────────────────────
+ *
+ * A voice sender is answered in audio and in nothing else, and a text
+ * "⏳ Processing your request…" landing in front of a voice note is exactly the
+ * mixed conversation this channel is not supposed to have. Speaking it instead
+ * would be worse: a voice note that says "hold on", arriving seconds before the
+ * voice note that says the answer, costs a synthesis call to tell somebody
+ * something they are about to find out anyway.
+ *
+ * The progress they get instead is the state on the row — `AI_PROCESSING`,
+ * which is what makes a stuck request recoverable — and it is internal, which
+ * is what the notice never was.
  */
-export const shouldAnnounceWork = (question: string, limits: AssistantLimits): boolean =>
-  question.length >= limits.slowQuestionChars && limits.slowQuestionChars > 0;
+export const shouldAnnounceWork = (
+  question: string,
+  limits: AssistantLimits,
+  spokenInput = false,
+): boolean =>
+  !spokenInput && question.length >= limits.slowQuestionChars && limits.slowQuestionChars > 0;

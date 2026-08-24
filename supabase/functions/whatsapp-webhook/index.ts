@@ -124,15 +124,18 @@ import {
 } from "../_shared/whatsappCatalog.ts";
 import {
   BACK_ID,
+  deliverMenu,
   type Delivery,
-  sendInteractiveMenu,
+  menuMessage,
   sendLanguageMenu,
   sendProfileChoice,
   sendQuestion,
+  sendTappable,
 } from "../_shared/whatsappInteractive.ts";
 import {
   isOnboarding,
   type OnboardingPrompt,
+  promptsForMedium,
   readOnboardingState,
   runOnboarding,
 } from "../_shared/whatsappOnboarding.ts";
@@ -746,7 +749,7 @@ Deno.serve(async (req) => {
        * and `medium` is the only record that it was *heard* rather than read.
        */
       const reply = async (body: string, kind: string) => {
-        const medium = replyMedium({ spokenInput, kind, body });
+        const medium = replyMedium({ spokenInput, body });
         const { data: written } = await db.from("whatsapp_messages").insert({
           conversation_id: conversationId,
           direction: "outbound",
@@ -839,21 +842,39 @@ Deno.serve(async (req) => {
 
         // A note has to travel as its own message or it is lost: an interactive
         // list's body is its own fixed text, so "that option has moved" goes
-        // out first and the list follows.
+        // out first and the list follows. It obeys the medium rule like
+        // everything else — spoken to somebody who spoke.
         if (options.note) await reply(options.note, "welcome");
 
-        // Never spoken, however the sender asked. A menu is a set of things to
-        // tap, and a minute of audio listing them still leaves somebody with
-        // nothing to press — the interactive message itself is the accessible
-        // form, and its text twin is what a screen reader reads when Meta
-        // refuses it. Reading it aloud on top would be the third copy of one
-        // thing, and for a voice question it would be a spoken message
-        // arriving next to a spoken answer.
-        await sendInteractiveMenu(delivery, target, lang, disabled);
+        const message = menuMessage(target, lang, disabled);
+        if (!message) return;
+
+        // Recorded before it is sent, and recorded as words either way, so the
+        // thread reads as a conversation for whoever triages it later.
+        await db.from("whatsapp_messages").insert({
+          conversation_id: conversationId,
+          direction: "outbound",
+          body: message.text,
+          kind: "welcome",
+          medium: spokenInput ? "voice" : "text",
+        });
         await db
           .from("whatsapp_conversations")
           .update({ menu_sent_at: new Date().toISOString() })
           .eq("id", conversationId);
+        if (!token || !phoneNumberId) return;
+
+        // A voice sender hears the menu and is shown nothing. That works
+        // because a name is a way to choose: the router resolves a row's title
+        // against the menu in view, and the old numbers still resolve too.
+        const shown = await deliverMenu(
+          { message, spokenInput },
+          {
+            tap: (tappable) => sendTappable(delivery, tappable),
+            speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text }),
+          },
+        );
+        log("menu", { node: target, medium: shown.medium, sent: shown.sent, spokenFailed: shown.spokenFailed });
       };
 
       // ── Abuse control ─────────────────────────────────────────────────
@@ -987,7 +1008,12 @@ Deno.serve(async (req) => {
             .update({ ...outcome.columns, profile_updated_at: new Date().toISOString() })
             .eq("id", conversationId);
         }
-        for (const prompt of outcome.prompts) await offerPrompt(prompt, outcome.language);
+
+        // What a voice note gets while onboarding is still running, and the one
+        // documented exception to "somebody who spoke is shown nothing". The
+        // rule itself is `promptsForMedium`, which the suite drives directly.
+        const prompts = promptsForMedium(outcome.prompts, spokenInput, isNew);
+        for (const prompt of prompts) await offerPrompt(prompt, outcome.language);
         continue;
       }
 
@@ -2126,7 +2152,7 @@ Deno.serve(async (req) => {
       // it" messages read as stuck rather than busy. Filed as canned text so it
       // never returns to the model as a turn, and never spoken — a notification
       // sound saying "hold on" is not worth a voice note.
-      if (shouldAnnounceWork(questionText, limits)) {
+      if (shouldAnnounceWork(questionText, limits, spokenInput)) {
         await reply(assistantSays("working", answerLanguage), "unsupported");
       }
 

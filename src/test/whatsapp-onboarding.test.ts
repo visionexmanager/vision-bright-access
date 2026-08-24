@@ -564,7 +564,7 @@ describe("the interface itself", () => {
     for (const shape of ['"type": "list"', '"type": "button"', "type: \"list\"", "type: \"button\"", "list_reply", "action: {"]) {
       expect(webhook, shape).not.toContain(shape);
     }
-    for (const helper of ["sendInteractiveMenu(", "sendLanguageMenu(", "sendProfileChoice(", "sendQuestion("]) {
+    for (const helper of ["menuMessage(", "deliverMenu(", "sendLanguageMenu(", "sendProfileChoice(", "sendQuestion("]) {
       expect(webhook, helper).toContain(helper);
     }
     // And the retry policy is still the shared sender's, not a second copy.

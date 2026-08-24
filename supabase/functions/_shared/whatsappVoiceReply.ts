@@ -77,10 +77,12 @@ export type ReplyMedium = "text" | "voice";
 /**
  * The kinds of message that are an *answer* rather than the interface talking.
  *
- * Only an answer mirrors the medium. A menu, a language list, an onboarding
- * question and a refusal are the interface, and the interface is text: a list
- * of things to tap cannot be a voice note, and a failure notice that depends on
- * a second provider is a failure notice that can itself vanish.
+ * Both mirror the medium — a refusal to somebody who asked out loud is spoken
+ * exactly as an answer is. What the distinction decides is what happens when
+ * synthesis *fails*: see `deliverReply`, where an answer that could not be
+ * spoken is replaced by a short apology rather than dumped as a wall of text,
+ * and a notice that could not be spoken is simply written out, because it was
+ * already one short safe sentence.
  */
 const ANSWER_KINDS: ReadonlySet<string> = new Set(["reply"]);
 
@@ -89,9 +91,14 @@ const ANSWER_KINDS: ReadonlySet<string> = new Set(["reply"]);
  *
  * The inbound message decides, and nothing else does. A voice note is answered
  * out loud and *only* out loud; a typed message is answered in writing and only
- * in writing. Nobody receives the same answer twice in two forms, which is what
+ * in writing. Nobody receives the same thing twice in two forms, which is what
  * used to happen and what made a spoken reply feel like an echo rather than an
  * answer.
+ *
+ * Every user-facing response, not only the answer. A refusal, an apology, a
+ * "that service isn't open yet" — somebody who asked out loud hears all of it,
+ * because half a conversation in audio and half on screen is worse than either
+ * on its own for the person this channel is built for.
  *
  * ── Why no preference is consulted ──────────────────────────────────────────
  *
@@ -110,13 +117,10 @@ const ANSWER_KINDS: ReadonlySet<string> = new Set(["reply"]);
 export function replyMedium(params: {
   /** Whether the message being answered was itself a voice note. */
   spokenInput: boolean;
-  /** The row's `kind`: "reply" is an answer, everything else is the interface. */
-  kind: string;
   /** Text with nothing speakable in it — a bare URL — cannot be a voice note. */
   body?: string;
 }): ReplyMedium {
   if (!params.spokenInput) return "text";
-  if (!ANSWER_KINDS.has(params.kind)) return "text";
   if (params.body !== undefined && speakableText(params.body).length === 0) return "text";
   return "voice";
 }
@@ -403,31 +407,38 @@ export interface ReplyDelivery {
  *
  * ── When synthesis fails ────────────────────────────────────────────────────
  *
- * The answer is *not* posted as text instead. That was the old behaviour and it
- * is the thing this whole change removes: a voice question answered with a wall
- * of text is the assistant ignoring how it was asked. What goes out instead is
- * the short failure sentence the caller passes in — already translated, already
- * free of provider names and status codes — so somebody who hears nothing knows
- * to ask again rather than wondering whether they were heard.
+ * This is the one documented exception to "a voice sender receives no text",
+ * and it exists because the alternative is silence. Somebody who asked a
+ * question and hears nothing back cannot tell a broken synthesiser from a
+ * broken assistant, and for a blind sender that silence is the whole failure.
  *
- * The answer itself is not lost: the caller records it in the transcript either
- * way, so the team triaging the thread sees exactly what the assistant said.
+ * What goes out depends on what could not be spoken, and neither case is ever
+ * a second copy of something already delivered:
+ *
+ *   an answer  - replaced by the short failure sentence the caller passes in.
+ *                Emphatically *not* the answer as text: a voice question
+ *                answered with a wall of text is the assistant ignoring how it
+ *                was asked, and that is the behaviour this whole change
+ *                removes. The answer is not lost — the caller has already put
+ *                it in the transcript, where the team triaging the thread sees
+ *                exactly what the assistant said.
+ *
+ *   a notice   - written out as itself. It is already one short, translated,
+ *                provider-free sentence, and replacing "I couldn't hear that
+ *                voice note" with "something went wrong" would tell the sender
+ *                less than the thing it replaced.
  */
 export async function deliverReply(
   params: {
     body: string;
     kind: string;
     spokenInput: boolean;
-    /** Short, translated, and safe to show. Used only if synthesis fails. */
+    /** Short, translated, and safe to show. Used only if an *answer* cannot be spoken. */
     failureNotice: string;
   },
   transport: ReplyTransport,
 ): Promise<ReplyDelivery> {
-  const medium = replyMedium({
-    spokenInput: params.spokenInput,
-    kind: params.kind,
-    body: params.body,
-  });
+  const medium = replyMedium({ spokenInput: params.spokenInput, body: params.body });
 
   if (medium === "text") {
     return { medium, sent: await transport.sendText(params.body), spokenFailed: false };
@@ -440,6 +451,7 @@ export async function deliverReply(
   // A kind, and nothing else. Not the answer, not the transcript, not the
   // number: this repository is public and its CI logs are world-readable.
   console.error(`[whatsapp-tts] a spoken reply could not be delivered: kind=${params.kind}`);
-  const sent = await transport.sendText(params.failureNotice);
+  const fallback = ANSWER_KINDS.has(params.kind) ? params.failureNotice : params.body;
+  const sent = await transport.sendText(fallback);
   return { medium, sent, spokenFailed: true };
 }

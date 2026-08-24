@@ -433,8 +433,8 @@ describe("the language a voice question is answered in", () => {
 
 describe("answering out loud", () => {
   it("mirrors, always: a spoken question gets a spoken answer and nothing else", () => {
-    expect(speech.replyMedium({ spokenInput: true, kind: "reply" })).toBe("voice");
-    expect(speech.replyMedium({ spokenInput: false, kind: "reply" })).toBe("text");
+    expect(speech.replyMedium({ spokenInput: true })).toBe("voice");
+    expect(speech.replyMedium({ spokenInput: false })).toBe("text");
 
     // There is no setting left that can override it. "Always speak" and "never
     // speak" both made the medium sticky, which is wrong in both directions:
@@ -475,9 +475,8 @@ describe("answering out loud", () => {
     expect(speech.speechSegments("   ")).toEqual([]);
     // Nothing speakable left in it means it travels as text instead — an empty
     // voice note is worse than a short message.
-    expect(speech.replyMedium({ spokenInput: true, kind: "reply", body: "   " })).toBe("text");
-    expect(speech.replyMedium({ spokenInput: true, kind: "reply", body: "https://visionex.app/x" }))
-      .toBe("text");
+    expect(speech.replyMedium({ spokenInput: true, body: "   " })).toBe("text");
+    expect(speech.replyMedium({ spokenInput: true, body: "https://visionex.app/x" })).toBe("text");
     // An empty provider answer never reaches the reply path at all.
     const provider = fakeProvider([""]);
     const { asked } = await voiceTurn(heard("Anything"), provider.provider);
@@ -487,7 +486,7 @@ describe("answering out loud", () => {
   it("records how a reply travelled, which nothing else could tell you", () => {
     // Written with the row rather than patched onto it afterwards: the medium
     // is decided before anything is sent, so the transcript can simply carry it.
-    expect(webhook).toContain("const medium = replyMedium({ spokenInput, kind, body });");
+    expect(webhook).toContain("const medium = replyMedium({ spokenInput, body });");
     expect(webhook).toMatch(/direction: "outbound",[\s\S]{0,80}medium,/);
     // And a synthesis that failed is corrected back to text, so the column
     // never claims a voice note the sender never received.

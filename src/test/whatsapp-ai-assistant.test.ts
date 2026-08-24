@@ -276,7 +276,7 @@ describe("voice", () => {
     // Both land in the same delegate and the same provider chain. Only the
     // final transport differs, and it is the inbound message that picks it.
     expect(webhook).toContain("const spokenInput = incoming.media?.kind === \"audio\";");
-    expect(webhook).toContain("const medium = replyMedium({ spokenInput, kind, body });");
+    expect(webhook).toContain("const medium = replyMedium({ spokenInput, body });");
     expect(webhook).toContain("speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text }),");
     // One assistant call, whichever way the answer leaves.
     expect(webhook.match(/askAssistant\(/g)?.length).toBe(1);

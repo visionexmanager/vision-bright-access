@@ -240,6 +240,45 @@ export function runOnboarding(
 /** The id every Back control carries, on a row and on a button alike. */
 export const BACK_ID = "back";
 
+/**
+ * Which of an outcome's prompts a sender actually receives, given how they
+ * wrote.
+ *
+ * Onboarding is a set of *controls* — a language list, gender rows, a country
+ * shortlist — and a control has no audio form: nobody can tap a voice note. So
+ * a spoken message is answered out loud with the one sentence that matters and
+ * nothing is re-sent, because the control is already sitting in the thread from
+ * the message before, and WhatsApp keeps it tappable indefinitely.
+ *
+ * ── The one documented exception ────────────────────────────────────────────
+ *
+ * The very first message of a conversation. Nothing has been sent yet, so there
+ * is nothing in the thread to tap, and a spoken "please send this as text"
+ * would leave a brand-new sender with no way to begin at all: the language list
+ * is the only thing that can start the flow, and it cannot be spoken, because a
+ * language is chosen by tapping a row and never by typing a name.
+ *
+ * So that first list goes out as an interactive message with nothing spoken
+ * beside it — one message, once, in the lifetime of a conversation. It is the
+ * only point in this whole channel where somebody who spoke is shown something
+ * they did not ask to read, and the suite asserts it deliberately rather than
+ * letting it pass unnoticed.
+ *
+ * Pure, so the rule is one function rather than a condition copied into the
+ * webhook and quietly diverging from the tests that describe it.
+ */
+export function promptsForMedium(
+  prompts: readonly OnboardingPrompt[],
+  spokenInput: boolean,
+  isFirstMessage: boolean,
+): OnboardingPrompt[] {
+  if (!spokenInput) return [...prompts];
+  // First contact: the controls, and nothing spoken beside them.
+  if (isFirstMessage) return prompts.filter((prompt) => prompt.type !== "text");
+  // Every message after: the sentence, spoken, and no control re-sent.
+  return prompts.filter((prompt) => prompt.type === "text");
+}
+
 /** The ids the gender rows carry. Stable; never the label, never a position. */
 export const GENDER_ID_PREFIX = "gender.";
 export const genderRowId = (value: Gender): string => `${GENDER_ID_PREFIX}${value}`;
