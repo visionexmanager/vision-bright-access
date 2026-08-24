@@ -34,7 +34,7 @@ import {
   type SupportedLanguage,
 } from "./whatsappLanguages.ts";
 import { parseCountry, parseCountrySelection, type Country } from "./whatsappCountries.ts";
-import { GENDERS, type Gender } from "./whatsappProfile.ts";
+import { isNameShaped, MAX_NAME_CHARS, GENDERS, type Gender } from "./whatsappProfile.ts";
 import type { UiKey } from "./whatsappStrings.ts";
 
 // ── The states ───────────────────────────────────────────────────────────────
@@ -406,8 +406,10 @@ function invalidPrompts(state: OnboardingState): OnboardingPrompt[] {
 
 // ── Validation ───────────────────────────────────────────────────────────────
 
-/** Longest name this will store. Long enough for four parts; short enough not to be an essay. */
-export const MAX_NAME_CHARS = 80;
+// The length and the alphabet a name is allowed live with the profile, because
+// the same two rules are applied again where a name is put in front of a model.
+export { MAX_NAME_CHARS };
+
 /** The oldest a person can plausibly be. Anything past it is a typo, not a birthday. */
 export const MAX_AGE_YEARS = 120;
 
@@ -415,14 +417,17 @@ export const MAX_AGE_YEARS = 120;
  * A name, or null.
  *
  * Whitespace collapsed, because a name pasted out of a form arrives with
- * newlines in it. Must contain a letter: "12345" and "..." are not names, and
- * greeting somebody as "12345" in every subsequent message is worse than having
- * asked twice.
+ * newlines in it. Must contain a letter and nothing a name is not spelled with:
+ * "12345" and "..." are not names, and greeting somebody as "12345" in every
+ * subsequent message is worse than having asked twice — and the alphabet is
+ * narrow because this value is the one piece of free text that later reaches a
+ * model. See `isNameShaped` for why that is closed here rather than there.
  */
 export function normaliseName(text: string | null | undefined): string | null {
   const value = (text ?? "").replace(/\s+/g, " ").trim();
   if (value.length < 2 || value.length > MAX_NAME_CHARS) return null;
   if (!/\p{L}/u.test(value)) return null;
+  if (!isNameShaped(value)) return null;
   return value;
 }
 

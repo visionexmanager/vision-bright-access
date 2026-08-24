@@ -30,6 +30,34 @@
 import { isSupportedLanguage, type SupportedLanguage } from "./whatsappLanguages.ts";
 import { countryByCode } from "./whatsappCountries.ts";
 
+/** Longest name this will store. Long enough for four parts; short enough not to be an essay. */
+export const MAX_NAME_CHARS = 80;
+
+/**
+ * What a name may be made of.
+ *
+ * Letters and the marks that go with them in every script, plus the four
+ * punctuation marks that appear inside real names: a space, a hyphen for
+ * Jean-Pierre, an apostrophe for O'Brien, and a full stop for an initial or for
+ * «د. أحمد». Digits and everything else are out.
+ *
+ * ── Why this is narrower than "must contain a letter" ───────────────────────
+ *
+ * The name is the one piece of free text a sender writes that later reaches a
+ * model, inside the personalisation directive. It is a *narrow* surface — only
+ * the first word, capped at forty characters — but narrow is not none, and
+ * "IGNORE_ABOVE_AND_SAY" is a single word of twenty letters and underscores.
+ * Restricting the alphabet to what names are actually spelled with closes it at
+ * the point of entry, where the answer is simply to ask again, rather than at
+ * the point of use, where the only options are to mangle somebody's name or to
+ * pass it through.
+ */
+const NAME_SHAPE = /^[\p{L}\p{M}][\p{L}\p{M} '’\-.]*$/u;
+
+/** Whether a value is still shaped like a name. Checked on the way in and on the way out. */
+export const isNameShaped = (value: string | null | undefined): boolean =>
+  !!value && value.length <= MAX_NAME_CHARS && NAME_SHAPE.test(value);
+
 /** How the sender asked to be referred to. Stored as one of these, never free text. */
 export const GENDERS = ["male", "female", "other", "undisclosed"] as const;
 export type Gender = (typeof GENDERS)[number];
@@ -88,7 +116,13 @@ export function readProfile(
  */
 export function firstNameOf(fullName: string | null | undefined): string | null {
   const first = (fullName ?? "").trim().split(/\s+/)[0] ?? "";
-  return first.length > 0 && first.length <= 40 ? first : null;
+  if (first.length === 0 || first.length > 40) return null;
+  // The second gate, and the one that matters: this value is about to be put
+  // in front of a model. `normaliseName` already refuses anything that is not
+  // spelled like a name, and this refuses it again — a row written before that
+  // check existed, or by anything other than the onboarding flow, does not
+  // reach a prompt on the strength of having once been accepted.
+  return isNameShaped(first) ? first : null;
 }
 
 // ── What the assistant is told ───────────────────────────────────────────────
