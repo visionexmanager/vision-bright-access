@@ -1117,27 +1117,30 @@ describe("preference requests", () => {
 });
 
 describe("voice replies", () => {
-  const speak = (over: Partial<Parameters<typeof voice.shouldSpeak>[0]>) =>
-    voice.shouldSpeak({
-      mode: "mirror",
+  const medium = (over: Partial<Parameters<typeof voice.replyMedium>[0]> = {}) =>
+    voice.replyMedium({
       spokenInput: false,
-      replyText: "Here you go.",
-      isCannedNotice: false,
+      body: "Here you go.",
       ...over,
     });
 
   it("answers a typed message in text and a voice note out loud", () => {
-    // The default, and the whole point of it: sending a voice note already
-    // says how you want to be answered.
-    expect(speak({ mode: "mirror", spokenInput: false })).toBe(false);
-    expect(speak({ mode: "mirror", spokenInput: true })).toBe(true);
+    // Sending a voice note already says how you want to be answered, and
+    // typing says the opposite in the same breath.
+    expect(medium({ spokenInput: false })).toBe("text");
+    expect(medium({ spokenInput: true })).toBe("voice");
   });
 
-  it("honours the two settings that override the mirror", () => {
-    expect(speak({ mode: "always", spokenInput: false })).toBe(true);
-    expect(speak({ mode: "always", spokenInput: true })).toBe(true);
-    expect(speak({ mode: "never", spokenInput: true })).toBe(false);
-    expect(speak({ mode: "never", spokenInput: false })).toBe(false);
+  it("has no setting left that can override the medium of the question", () => {
+    // Both of the old ones made the medium sticky, and a sticky medium is
+    // wrong in both directions — audio arriving for a question typed in a
+    // meeting, and silence answering a voice note recorded hands-free.
+    for (const stored of ["always", "never", "mirror", null]) {
+      expect(voice.voiceModeOf(stored), String(stored)).toBeTruthy();
+      expect(medium({ spokenInput: false }), String(stored)).toBe("text");
+      expect(medium({ spokenInput: true }), String(stored)).toBe("voice");
+    }
+    expect(webhook).not.toMatch(/voiceMode\b/);
   });
 
   it("reads an unknown or missing column as the mirror, never as silence", () => {
@@ -1150,21 +1153,31 @@ describe("voice replies", () => {
     expect(voice.DEFAULT_VOICE_MODE).toBe("mirror");
   });
 
-  it("keeps canned notices as text, since they carry links and instructions", () => {
-    expect(speak({
-      mode: "always",
-      replyText: "Visit https://visionex.app/contact",
-      isCannedNotice: true,
-    })).toBe(false);
+  it("speaks every kind of response to somebody who spoke, not only the answer", () => {
+    // Half a conversation in audio and half on screen is worse than either on
+    // its own for the person this channel is built for, so a refusal and an
+    // apology are spoken exactly as an answer is.
+    for (const kind of ["reply", "welcome", "unsupported", "handover"]) {
+      expect(voice.replyMedium({ spokenInput: true, body: "Here you go." }), kind).toBe("voice");
+      expect(voice.replyMedium({ spokenInput: false, body: "Here you go." }), kind).toBe("text");
+    }
+    // A reply that is nothing but a link has nothing left to say out loud.
+    expect(medium({ spokenInput: true, body: "https://visionex.app/contact" })).toBe("text");
+    // One with words around the link keeps them and is spoken — the link itself
+    // is dropped, because reading a URL out character by character is noise
+    // rather than an answer.
+    expect(medium({ spokenInput: true, body: "Visit https://visionex.app/contact" })).toBe("voice");
+    expect(voice.speakableText("Visit https://visionex.app/contact")).toBe("Visit");
   });
 
   it("speaks a long answer in parts instead of silently skipping it", () => {
-    // A reply is clamped at 3900 characters and a note holds 900, so the old
-    // "one note or nothing" rule left every thorough answer unspoken.
-    expect(speak({ mode: "always", replyText: "x".repeat(voice.MAX_SPOKEN_CHARS + 1) })).toBe(true);
-    expect(speak({ mode: "always", replyText: "   " })).toBe(false);
-    // A reply that is nothing but a link has nothing left to say out loud.
-    expect(speak({ mode: "always", replyText: "https://visionex.app/x" })).toBe(false);
+    // A note holds 900 characters, so the old "one note or nothing" rule left
+    // every thorough answer unspoken.
+    expect(medium({ spokenInput: true, body: "x".repeat(voice.MAX_SPOKEN_CHARS + 1) })).toBe("voice");
+    expect(voice.speechSegments("x".repeat(voice.MAX_SPOKEN_CHARS + 1)).length).toBeGreaterThan(1);
+    // And nothing with nothing to say travels as audio.
+    expect(medium({ spokenInput: true, body: "   " })).toBe("text");
+    expect(medium({ spokenInput: true, body: "https://visionex.app/x" })).toBe("text");
   });
 
   it("cuts a long reply on sentence boundaries, in order, within budget", () => {
@@ -1210,25 +1223,42 @@ describe("voice replies", () => {
     expect(source).toMatch(/console\.log\(`\[whatsapp-tts\] spoke a reply/);
   });
 
-  it("speaks a failure notice, so silence never means two different things", () => {
-    // Somebody who asked to be answered out loud and hears nothing cannot
-    // tell a voice note that failed from an assistant that failed.
-    expect(voice.shouldSpeak({
-      mode: "mirror",
-      spokenInput: true,
-      replyText: "I could not hear anything in that voice note.",
-      isCannedNotice: false,
-    })).toBe(true);
-    expect(webhook).toContain('isCannedNotice: kind === "welcome" || kind === "handover"');
-    // …except the rate-limit notice, which is the one case for silence.
-    expect(webhook).toContain('await reply(rateLimitNotice(language), "unsupported", { speak: false })');
+  it("speaks a failure to somebody who spoke, and writes it out only if that fails too", async () => {
+    // Synthesis and transcription are separate providers, so a voice note that
+    // could not be transcribed can still be apologised for out loud.
+    expect(medium({ spokenInput: true, body: "I could not hear that." })).toBe("voice");
+
+    // And the documented exception: when synthesis is down as well, the notice
+    // is written out as itself rather than replaced by a vaguer one, because
+    // silence after a voice note reads as never having been heard.
+    const sent: string[] = [];
+    const delivered = await voice.deliverReply(
+      {
+        body: "I could not hear that.",
+        kind: "unsupported",
+        spokenInput: true,
+        failureNotice: "Something went wrong.",
+      },
+      { sendText: async (body) => { sent.push(body); return true; }, speak: async () => false },
+    );
+    expect(delivered.spokenFailed).toBe(true);
+    expect(sent).toEqual(["I could not hear that."]);
+
+    // The rate-limit notice needs no special case any more.
+    expect(webhook).toContain('await reply(rateLimitNotice(language), "unsupported")');
+    expect(webhook).not.toContain("speak: false");
   });
 
-  it("applies a just-enabled preference to the confirmation itself", () => {
-    // The confirmation is the only proof a blind sender gets that it worked.
-    expect(webhook).toContain("let voiceMode: VoiceMode = voiceModeOf(existing?.voice_mode as string | null);");
-    expect(webhook).toContain("if (requested.voice_mode) voiceMode = requested.voice_mode;");
-    expect(webhook).toContain("mode: voiceMode,");
+  it("does not record a voice preference it can no longer honour", () => {
+    // Writing `voice_mode` would be a promise the sender never gets, because
+    // the medium of an answer is the medium of the question now. What they
+    // asked for is explained instead — which is the only proof a blind sender
+    // gets that they were understood at all.
+    expect(webhook).toContain("const { voice_mode: spokenRequest, ...stored } = requested;");
+    expect(webhook).toContain('if (spokenRequest) await reply(voiceModeExplainer(noticeLanguage), "reply");');
+    expect(webhook).not.toMatch(/update\(requested\)/);
+    // The other preferences still persist exactly as before.
+    expect(webhook).toContain('await db.from("whatsapp_conversations").update(stored).eq("id", conversationId);');
   });
 
   it("reads a spoken preference request, not only a typed one", () => {
@@ -1289,11 +1319,14 @@ describe("voice replies", () => {
     expect(result).toEqual({ ok: false });
   });
 
-  it("sends the text first, so a failed voice note costs nothing", () => {
-    const textAt = webhook.indexOf("await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body })");
-    const speakAt = webhook.indexOf("speakReply({");
-    expect(textAt).toBeGreaterThan(-1);
-    expect(speakAt).toBeGreaterThan(textAt);
+  it("hands both ways of sending to one policy, and chooses between them there", () => {
+    // Neither is reached for directly any more: `deliverReply` is given both
+    // and picks, which is what lets the suite drive a whole conversation
+    // through the real decision with counters instead of a Meta account.
+    expect(webhook).toContain("const delivered = await deliverReply(");
+    expect(webhook).toContain("sendText: (text) => sendWhatsAppText({");
+    expect(webhook).toContain("speak: (text) => speakReply({");
+    expect(webhook.match(/const delivered = await deliverReply\(/g)?.length).toBe(1);
   });
 
   it("uploads before sending, because audio is two calls not one", () => {
@@ -2173,9 +2206,14 @@ describe("announcing what the assistant can do", () => {
     }
   });
 
-  it("is sent on first contact and whenever the menu is asked for", () => {
-    expect(webhook).toContain('await sendMenu(ROOT_ID, noticeLanguage, { asked: true });');
-    expect(webhook).toContain('await reply(welcomeFor(language), "welcome");');
+  it("is sent whenever the menu is asked for, and after onboarding finishes", () => {
+    expect(webhook).toContain('await sendMenu(ROOT_ID, answerLanguage);');
+    // First contact is no longer a welcome-plus-menu. A brand new sender is
+    // asked their language first, in English, and meets the feature menu only
+    // once their profile is done — which is the last prompt onboarding returns.
+    expect(webhook).toContain("if (isOnboarding(onboardingState))");
+    expect(webhook).toContain('await sendMenu(ROOT_ID, lang);');
+    expect(webhook).not.toContain("welcomeFor(");
   });
 
   it("keeps the map questions ahead of the camera modes", () => {
@@ -2250,7 +2288,7 @@ describe("the new capabilities respect the rules that were already here", () => 
   it("answers in the language the conversation settled on, not this message's", () => {
     // `language` is detected from the message in hand, so somebody who set
     // Arabic and then typed one English word would get an English forecast.
-    expect(webhook).toContain('let noticeLanguage = answerLanguage === "ar" ? "ar" : "en";');
+    expect(webhook).toContain('let noticeLanguage: "ar" | "en" = answerLanguage === "ar" ? "ar" : "en";');
     expect(webhook).toContain("weatherNeedsPlaceNotice(noticeLanguage)");
     expect(webhook).toContain("locationNeededNotice(noticeLanguage)");
     expect(webhook).toContain("sellGuidance(noticeLanguage)");

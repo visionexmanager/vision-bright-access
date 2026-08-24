@@ -63,16 +63,22 @@ const live = (over: Partial<SessionState> = {}): SessionState => ({
 // ── The main menu ───────────────────────────────────────────────────────────
 
 describe("the main menu", () => {
-  it("renders stable numbered options, in both languages", () => {
-    for (const language of ["ar", "en"] as const) {
+  it("renders named options, in every language", () => {
+    // Named, not numbered. The name is what a sender replies with when Meta
+    // refuses the tappable version, and what the router resolves against the
+    // menu in view — so the line has to carry the meaning on its own.
+    for (const language of ["ar", "en", "fr", "ja"] as const) {
       const menu = engine.renderMenu(catalog.ROOT_ID, language);
-      const numbered = menu.split("\n").filter((line) => /^\d+\./.test(line));
-      expect(numbered.length, language).toBe(catalog.childrenOf(catalog.ROOT_ID).length);
-      // Every line says something, with the number first and words after it.
-      for (const line of numbered) expect(line, language).toMatch(/^\d+\.\s+\S+/);
+      const rows = menu.split("\n").filter((line) => line.startsWith("• "));
+      expect(rows.length, language).toBe(catalog.childrenOf(catalog.ROOT_ID).length);
+      for (const line of rows) {
+        expect(line, language).not.toMatch(/^• \d/);
+        expect(line.replace(/\p{Extended_Pictographic}️?/gu, ""), language).toMatch(/^• \s*\p{L}/u);
+      }
     }
     // The labels differ by language: nothing is hard-coded English.
     expect(engine.renderMenu(catalog.ROOT_ID, "ar")).not.toBe(engine.renderMenu(catalog.ROOT_ID, "en"));
+    expect(engine.renderMenu(catalog.ROOT_ID, "fr")).not.toBe(engine.renderMenu(catalog.ROOT_ID, "en"));
   });
 
   it("resolves each number to the feature id in that position, not to a name", () => {
@@ -225,10 +231,19 @@ describe("feature flags, applied after resolution", () => {
     expect(engine.ENGINE_STRINGS.unavailable.en).not.toMatch(/key|provider|capab/i);
   });
 
-  it("marks an unavailable row in the menu rather than pretending it never existed", () => {
-    const menu = engine.renderMenu(catalog.ROOT_ID, "en", ["services"]);
-    expect(menu).toContain("Visionex Services");
-    expect(menu).toMatch(/Visionex Services.*coming soon/);
+  it("marks a declared feature as not open, and hides one a flag switched off", () => {
+    // Two different states that used to look the same. A feature Visionex has
+    // announced and not built keeps its row and says so — taking VisionKids off
+    // the menu would tell the people waiting for it that it was cancelled.
+    const menu = engine.renderMenu(catalog.ROOT_ID, "en");
+    expect(menu).toContain("Visionex Academy");
+    expect(menu).toMatch(/Visionex Academy.*isn't open yet/);
+
+    // A live flag is the other thing entirely: turned at three in the morning
+    // because a provider is down, and a row that answers a tap with "not
+    // available" is a row that wasted somebody's time.
+    const flagged = engine.renderMenu(catalog.ROOT_ID, "en", ["services"]);
+    expect(flagged).not.toContain("Visionex Services");
   });
 });
 
@@ -298,14 +313,27 @@ describe("words that name a feature", () => {
     expect(two.node.id).toBe("assistant.voice");
   });
 
-  it("does not move the sender when they name a feature mid-conversation", () => {
-    // Their place in the tree is not the assistant's to rearrange; the
-    // feature's own parser answers them, exactly as before this router.
+  it("does not let a word preempt the feature holding the floor", () => {
+    // Somebody inside Ask AI who types "weather" asked the assistant about the
+    // weather. The feature keeps the floor until they leave it.
+    const inAssistant = live({ path: ["main", "assistant", "assistant.ask"], feature: "assistant.ask" });
+    const outcome = engine.runEngine({ text: "weather", kind: "text" }, inAssistant, context());
+    expect(outcome.kind).toBe("delegate");
+    expect(outcome.reason).toBe("inside_feature");
+    expect(outcome.session.path).toEqual(["main", "assistant", "assistant.ask"]);
+  });
+
+  it("opens a row the sender names off the menu in front of them", () => {
+    // This is the other half of removing the numbers: the text copy of a menu
+    // says "reply with the name of what you need", and that has to be true.
     const inServices = live({ path: ["main", "services"] });
-    const outcome = engine.runEngine({ text: "weather", kind: "text" }, inServices, context());
-    expect(outcome.kind).toBe("passthrough");
-    expect(outcome.reason).toBe("named_feature");
-    expect(outcome.session.path).toEqual(["main", "services"]);
+    const outcome = engine.runEngine({ text: "Weather", kind: "text" }, inServices, context());
+    expect(outcome.kind).toBe("delegate");
+    expect(outcome.session.feature).toBe("services.weather");
+
+    // A word naming nothing on this menu is still not navigation.
+    const idle = engine.runEngine({ text: "how much is a subscription?", kind: "text" }, inServices, context());
+    expect(idle.kind).toBe("passthrough");
   });
 });
 

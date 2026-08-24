@@ -272,12 +272,14 @@ describe("voice", () => {
     expect(code).not.toMatch(/e\.message|\.stack|OPENAI|apiKey/i);
   });
 
-  it("17. answers a spoken question the same way as a typed one, and can speak back", () => {
-    // Both land in the same delegate; the reply path decides text or voice from
-    // the sender's own voice mode, which mirrors them by default.
+  it("17. answers a spoken question the same way as a typed one, and speaks back", () => {
+    // Both land in the same delegate and the same provider chain. Only the
+    // final transport differs, and it is the inbound message that picks it.
     expect(webhook).toContain("const spokenInput = incoming.media?.kind === \"audio\";");
-    expect(webhook).toContain("mode: voiceMode,");
-    expect(webhook).toContain("await speakReply({ phoneNumberId, token, to: incoming.from, text: body });");
+    expect(webhook).toContain("const medium = replyMedium({ spokenInput, body });");
+    expect(webhook).toContain("speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text }),");
+    // One assistant call, whichever way the answer leaves.
+    expect(webhook.match(/askAssistant\(/g)?.length).toBe(1);
   });
 });
 
@@ -297,7 +299,7 @@ describe("reliability", () => {
     expect(ai.shouldAnnounceWork("x".repeat(500), { ...limits, slowQuestionChars: 0 })).toBe(false);
     expect(webhook.match(/assistantSays\("working"/g)?.length).toBe(1);
     // Canned, so it never returns to the model as a turn, and never spoken.
-    expect(webhook).toContain('await reply(assistantSays("working", noticeLanguage), "unsupported", { speak: false });');
+    expect(webhook).toContain('await reply(assistantSays("working", answerLanguage), "unsupported");');
   });
 
   it("20. answers a provider error with a sentence, and escalates it", () => {
@@ -567,12 +569,17 @@ describe("feature flags", () => {
     expect(catalog.isAvailable(catalog.nodeById("assistant.ask"), disabled)).toBe(false);
   });
 
-  it("marks it in the menu rather than pretending it was never there", () => {
+  it("takes it off the menu rather than offering a row that refuses", () => {
+    // A live flag is turned when something is broken. Leaving the row there
+    // means every sender taps it, hears "not available", and taps it again —
+    // and for somebody listening to the menu read out, it is one more thing to
+    // sit through on every single message until the flag comes back off.
     const menu = engine.renderMenu(catalog.ROOT_ID, "en", ["assistant"]);
-    expect(menu).toContain("AI Assistant");
-    expect(menu).toMatch(/AI Assistant.*coming soon/);
+    expect(menu).not.toContain("AI Assistant");
     const arabic = engine.renderMenu(catalog.ROOT_ID, "ar", ["assistant"]);
-    expect(arabic).toContain("قريباً");
+    expect(arabic).not.toContain("المساعد الذكي");
+    // A feature merely declared and not built is the other case, and keeps its row.
+    expect(engine.renderMenu(catalog.ROOT_ID, "en")).toMatch(/Visionex Academy.*isn't open yet/);
   });
 
   it("closes the other door too: the words, not only the numbers", () => {
@@ -666,8 +673,11 @@ describe("long answers", () => {
     expect(ai.assistantLimits(() => "800").maxMessageChars).toBe(800);
     expect(ai.assistantLimits(() => "9000").maxMessageChars).toBe(4_000);
     expect(ai.assistantLimits(() => "2").maxReplyParts).toBe(2);
-    expect(webhook).toContain("const parts = splitAnswer(answer, limits);");
+    expect(webhook).toContain("splitAnswer(answer, limits)");
     expect(webhook).toContain("for (const part of parts) await reply(part, \"reply\");");
+    // A spoken answer is not split against a ceiling that is about text: three
+    // text parts each becoming three voice notes is nine notes for one question.
+    expect(webhook).toContain("const parts = spokenInput ? [answer] : splitAnswer(answer, limits);");
     // The old behaviour truncated at 3900 characters and lost the rest.
     expect(webhook).not.toContain("answer = clampReply(");
   });

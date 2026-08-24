@@ -21,15 +21,38 @@
 // Pure and provider-free: no `Deno`, no fetch, no database. Every rule here is
 // exercised by the Vitest suite directly.
 
-export type Language = "ar" | "en";
+import { NODE_TEXT } from "./whatsappCatalogLocales.ts";
+import type { SupportedLanguage } from "./whatsappLanguages.ts";
 
-/** Both languages of one string. Every user-visible label carries both. */
-export interface Localized {
-  ar: string;
-  en: string;
-}
+/**
+ * The language a menu is rendered in.
+ *
+ * Every language the site speaks, not two. It was `"ar" | "en"` while the only
+ * way to reach this menu was to type at it in one of those; a sender now picks
+ * their language from a list before they ever see a feature, and a menu that
+ * could not answer in the language they just chose would make the choice a lie.
+ */
+export type Language = SupportedLanguage;
 
-export const localized = (value: Localized, language: Language): string => value[language];
+/**
+ * One user-visible string, in as many languages as it has been written in.
+ *
+ * English is the only one required. That is not a preference — it is the
+ * fallback, and making it structural means a label can never resolve to
+ * `undefined` and be sent as the word "undefined" to somebody who cannot see
+ * that it is wrong. Arabic is required too, because every string in this
+ * repository already had it and losing one would be a regression.
+ *
+ * A language a string has not been written in yet reads in English. Visibly
+ * incomplete beats invisibly broken, and the suite reports which are which.
+ */
+export type Localized =
+  & { en: string; ar: string }
+  & Partial<Record<SupportedLanguage, string>>;
+
+/** One string, in the sender's language, or in English when it has no other. */
+export const localized = (value: Localized, language: Language): string =>
+  value[language] ?? value.en;
 
 /**
  * What a feature needs from the environment to be usable.
@@ -51,6 +74,7 @@ export type HandlerId =
   | "voice_settings"  // explain and set how replies are delivered
   | "human"           // hand over to a person
   | "help"            // the navigation commands
+  | "language_menu"   // offer the language list again
   | "coming_soon";    // declared, announced, not built yet
 
 export interface CatalogNode {
@@ -100,7 +124,7 @@ export const ROOT_ID = "main";
  * number. Ten top-level entries is the ceiling Meta's interactive list allows
  * and about the ceiling a person can hold in their head at once.
  */
-export const CATALOG: readonly CatalogNode[] = [
+const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: ROOT_ID,
     parent: null,
@@ -177,7 +201,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     emoji: "🎙️",
     title: { ar: "المساعد الصوتي", en: "Voice Assistant" },
-    description: { ar: "تكلم بدل الكتابة، واختر كيف أرد", en: "Talk instead of typing, and how I answer" },
+    description: { ar: "تكلم بدل الكتابة", en: "Talk instead of typing" },
     handler: "voice_settings",
     requires: ["speech_to_text"],
     accepts: ["text", "audio"],
@@ -255,7 +279,7 @@ export const CATALOG: readonly CatalogNode[] = [
     enabled: true,
     emoji: "🆘",
     title: { ar: "الدعم", en: "Support" },
-    description: { ar: "موظف بشري وشرح الأوامر", en: "A person, and how to get around" },
+    description: { ar: "موظف بشري وكيفية الاستخدام", en: "A person, and how to get around" },
   },
   {
     id: "more",
@@ -429,8 +453,8 @@ export const CATALOG: readonly CatalogNode[] = [
     order: 2,
     kind: "action",
     enabled: true,
-    title: { ar: "شرح الأوامر", en: "How to get around" },
-    description: { ar: "الرجوع، الإلغاء، القائمة", en: "Back, cancel, menu" },
+    title: { ar: "كيف أتنقل", en: "How to get around" },
+    description: { ar: "كيف يعمل هذا المساعد", en: "How this assistant works" },
     handler: "help",
     accepts: ["text"],
   },
@@ -443,7 +467,7 @@ export const CATALOG: readonly CatalogNode[] = [
     kind: "action",
     enabled: true,
     title: { ar: "الردود الصوتية", en: "Voice replies" },
-    description: { ar: "صوت، كتابة، أو مثل ما ترسل", en: "Voice, text, or match me" },
+    description: { ar: "أرد بنفس طريقتك", en: "I answer the way you ask" },
     handler: "voice_settings",
     accepts: ["text"],
   },
@@ -454,13 +478,10 @@ export const CATALOG: readonly CatalogNode[] = [
     kind: "action",
     enabled: true,
     title: { ar: "اللغة", en: "Language" },
-    description: { ar: "قل «احكي معي بالإنجليزي» مثلاً", en: "Say \"reply in Arabic\", for example" },
-    handler: "coming_soon",
+    description: { ar: "غيّر اللغة التي أرد بها", en: "Change the language I answer in" },
+    aliases: { ar: ["اللغة", "غير اللغة"], en: ["language", "change language"] },
+    handler: "language_menu",
     accepts: ["text"],
-    intro: {
-      ar: "قل لي بأي لغة تريد أن أرد — مثلاً «احكي معي بالإنجليزي» — وسأتابع بها.",
-      en: "Tell me which language to answer in — \"reply in Arabic\", for example — and I'll keep to it.",
-    },
   },
   {
     id: "more.help",
@@ -468,12 +489,35 @@ export const CATALOG: readonly CatalogNode[] = [
     order: 3,
     kind: "action",
     enabled: true,
-    title: { ar: "شرح الأوامر", en: "How to get around" },
-    description: { ar: "الرجوع، الإلغاء، القائمة", en: "Back, cancel, menu" },
+    title: { ar: "كيف أتنقل", en: "How to get around" },
+    description: { ar: "كيف يعمل هذا المساعد", en: "How this assistant works" },
     handler: "help",
     accepts: ["text"],
   },
 ];
+
+// ── The tree, in every language ───────────────────────────────────────────
+//
+// A node above declares English and Arabic inline, which is what somebody
+// adding a feature has to write and all they have to write. The other eighteen
+// languages live in `whatsappCatalogLocales.ts`, keyed by node id, and are
+// folded in here — once, at module load, so every reader downstream sees one
+// tree and there is no second place a label can be looked up from.
+//
+// Merged rather than replaced: a language missing from the table keeps whatever
+// the node declared, and `localized` falls back to English past that. Adding a
+// feature therefore never breaks a build, and adding a translation is a data
+// edit that touches no code at all.
+
+export const CATALOG: readonly CatalogNode[] = BASE_CATALOG.map((node) => {
+  const text = NODE_TEXT[node.id];
+  if (!text) return node;
+  return {
+    ...node,
+    title: { ...node.title, ...text.title },
+    description: { ...node.description, ...text.description },
+  };
+});
 
 // ── Lookups ───────────────────────────────────────────────────────────────
 
@@ -487,6 +531,41 @@ export function childrenOf(id: string): CatalogNode[] {
   return CATALOG
     .filter((node) => node.parent === id && !node.hidden)
     .sort((a, b) => a.order - b.order);
+}
+
+/**
+ * The children a sender is *shown*.
+ *
+ * Everything `childrenOf` returns, minus whatever a live feature flag has
+ * switched off. A flag is turned at three in the morning because a provider is
+ * down, and a row that answers a tap with "that isn't available" is a row that
+ * wasted somebody's time — for a screen-reader user, one more thing to listen
+ * past on every menu until the flag comes back off.
+ *
+ * A node whose `enabled` is false in the catalog is a different thing and stays
+ * visible. That is a feature Visionex has announced and not built yet, and
+ * removing Academy and VisionKids from the menu would tell the audience waiting
+ * for them that they had been cancelled. They are shown, and opening one says
+ * so in the sender's own language.
+ *
+ * Deliberately *not* what `childAt` counts against. A number is a legacy
+ * command now, and a number that meant News last week has to still mean News
+ * this week — even while News is flagged off, in which case it is refused
+ * rather than silently redirected to whatever moved up into its place.
+ */
+export function visibleChildrenOf(id: string, disabled: readonly string[] = []): CatalogNode[] {
+  if (disabled.length === 0) return childrenOf(id);
+  return childrenOf(id).filter((child) => !isFlaggedOff(child, disabled));
+}
+
+/** Whether a live flag has switched this node, or anything above it, off. */
+export function isFlaggedOff(node: CatalogNode | null | undefined, disabled: readonly string[]): boolean {
+  let cursor: CatalogNode | null = node ?? null;
+  while (cursor) {
+    if (disabled.includes(cursor.id)) return true;
+    cursor = nodeById(cursor.parent);
+  }
+  return false;
 }
 
 /**
@@ -584,73 +663,25 @@ export function isAvailable(
   return true;
 }
 
-// ── The tappable version ──────────────────────────────────────────────────
+// ── What Meta will accept ─────────────────────────────────────────────────
+//
+// The limits live here, next to the labels they constrain, so the test that
+// walks every title and description can check them against the catalog without
+// importing the sender. Building the messages themselves is
+// `whatsappInteractive.ts`: this file is data and lookups, and a file that both
+// declares the menu and knows how to post it to Meta is two files.
 
-/** Meta's hard limits on an interactive list. Breaking one rejects the message. */
+/** Meta's hard limits on an interactive message. Breaking one rejects the send. */
 export const LIST_LIMITS = {
+  /** Rows in a list, in total, across every section. Not per section. */
   rows: 10,
+  /** Reply buttons on a button message. */
+  buttons: 3,
   rowTitle: 24,
   rowDescription: 72,
+  buttonTitle: 20,
   button: 20,
   header: 60,
   body: 1_024,
   footer: 60,
 } as const;
-
-export interface InteractiveList {
-  type: "list";
-  header: { type: "text"; text: string };
-  body: { text: string };
-  footer: { text: string };
-  action: {
-    button: string;
-    sections: Array<{ title: string; rows: Array<{ id: string; title: string; description: string }> }>;
-  };
-}
-
-const clip = (text: string, limit: number): string =>
-  text.length <= limit ? text : `${text.slice(0, limit - 1).trimEnd()}…`;
-
-/**
- * One menu as a tappable list.
- *
- * Never the only copy of what it says: Meta refuses an interactive message
- * outright outside the 24-hour service window, and the caller sends
- * `renderMenu` as text either way. Clipping is a last resort that keeps a
- * too-long label from rejecting the whole message — the suite asserts nothing
- * in the catalog actually reaches it, so the clip is a seatbelt, not a design.
- */
-export function listMessageFor(nodeId: string, language: Language): InteractiveList | null {
-  const node = nodeById(nodeId);
-  if (!node) return null;
-  const children = childrenOf(nodeId).slice(0, LIST_LIMITS.rows);
-  if (children.length === 0) return null;
-
-  const ar = language === "ar";
-  return {
-    type: "list",
-    header: { type: "text", text: clip(localized(node.title, language), LIST_LIMITS.header) },
-    body: {
-      text: clip(
-        ar
-          ? "اختر رقماً، أو أرسل الرقم كرسالة. «0» للرجوع و«مساعدة» لبقية الأوامر."
-          : "Pick a number, or just send the number. 0 goes back, \"help\" explains the rest.",
-        LIST_LIMITS.body,
-      ),
-    },
-    footer: {
-      text: clip(ar ? "Visionex" : "Visionex", LIST_LIMITS.footer),
-    },
-    action: {
-      button: clip(ar ? "اختر" : "Choose", LIST_LIMITS.button),
-      sections: [{
-        title: clip(localized(node.title, language), LIST_LIMITS.rowTitle),
-        rows: children.map((child) => ({
-          id: child.id,
-          title: clip(`${numberOf(child)}. ${localized(child.title, language)}`, LIST_LIMITS.rowTitle),
-          description: clip(localized(child.description, language), LIST_LIMITS.rowDescription),
-        })),
-      }],
-    },
-  };
-}

@@ -9,6 +9,9 @@
 // Kept deliberately tiny. Every word here is a word a sender can no longer use
 // as an ordinary message.
 
+import { localized, type Language } from "./whatsappCatalog.ts";
+import { UI_STRINGS } from "./whatsappStrings.ts";
+
 // ── The universal commands ────────────────────────────────────────────────
 //
 // Recognised whatever the case, and in Arabic as well as English. Kept
@@ -81,3 +84,51 @@ const GREETING = /^(hi|hello|hey|start|hei|salam|salaam)$|^(مرحبا|مرحب�
 
 export const isGreeting = (text: string | null | undefined): boolean =>
   GREETING.test(normalise(text ?? ""));
+
+// ── The ids the control rows carry ────────────────────────────────────────
+//
+// A tapped Back row and a typed `0` mean exactly the same thing, so they
+// resolve through exactly the same table. Declared here rather than beside the
+// message builders because both the router and the onboarding gate need them,
+// and a second copy of "what does back mean" is the class of bug this file
+// exists to prevent.
+//
+// Stable, and deliberately not the label: `back` keeps meaning back on the day
+// somebody improves the French for «Retour».
+
+export const CONTROL_IDS = {
+  back: "back",
+  mainMenu: "main_menu",
+} as const;
+
+/** The command a tapped control row is, or null for a feature row. */
+export function parseControlId(id: string | null | undefined): NavigationCommand | null {
+  if (id === CONTROL_IDS.back) return "back";
+  if (id === CONTROL_IDS.mainMenu) return "home";
+  return null;
+}
+
+/**
+ * The command a message names in the sender's own language, or null.
+ *
+ * The text copy of a menu — the one Meta falls back to outside the service
+ * window — tells the sender to reply with "Back". In French it says «Retour»,
+ * and «Retour» has to work, or the instruction is a lie in eighteen languages.
+ *
+ * Matched against the sender's language and against English, which is the
+ * fallback everybody can be shown. Whole message only: "retour à la maison" is
+ * a sentence.
+ */
+export function localisedCommand(
+  text: string | null | undefined,
+  language: Language,
+): NavigationCommand | null {
+  const value = normalise(text ?? "").toLowerCase();
+  if (!value || value.length > 24) return null;
+
+  for (const lang of [language, "en"] as const) {
+    if (value === localized(UI_STRINGS.back, lang).toLowerCase()) return "back";
+    if (value === localized(UI_STRINGS.mainMenu, lang).toLowerCase()) return "home";
+  }
+  return null;
+}

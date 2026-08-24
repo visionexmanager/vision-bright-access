@@ -52,43 +52,55 @@ const noteOf = (outcome: ReturnType<typeof send>): string | undefined =>
 
 // ── 1–3: the footer ─────────────────────────────────────────────────────────
 
-describe("the navigation footer", () => {
-  it("1. names every exit under every menu, and only the ones that exist", () => {
-    for (const language of ["ar", "en"] as const) {
+describe("the way out of a menu", () => {
+  // The footer used to teach a keypad — "0 Back · 00 Main menu · # Cancel" —
+  // under every menu, every time, which a screen reader then read out at the
+  // end of every menu. The exits are rows on the message now, so what is left
+  // is one line telling somebody whose client refused the interactive version
+  // what to reply with.
+
+  it("1. names every exit that exists, and only where it exists", () => {
+    for (const language of ["ar", "en", "fr"] as const) {
       const main = engine.renderMenu(catalog.ROOT_ID, language);
       const submenu = engine.renderMenu("services", language);
+      const back = strings.say("back", language);
+      const home = strings.say("mainMenu", language);
 
-      // The main menu has nowhere to go back to, so it does not offer 0.
-      expect(main, language).toContain("00");
-      expect(main, language).toContain("#");
-      expect(main.split("\n").at(-1), language).not.toMatch(/(^|\s)0(\s|$)/);
+      // The main menu has nowhere to go back to, so it offers neither.
+      expect(main, language).not.toContain(`• ${back}`);
+      expect(main, language).not.toContain(`• ${home}`);
 
-      // Every other menu offers all three, in the same order, every time.
-      const footer = submenu.split("\n").slice(-2).join("\n");
-      expect(footer.indexOf("0")).toBeLessThan(footer.indexOf("00"));
-      expect(footer.indexOf("00")).toBeLessThan(footer.indexOf("#"));
+      // One level down, Back and Main menu are the same place: offering both
+      // would be two rows that do the same thing, read aloud, every time.
+      expect(submenu, language).toContain(`• ${back}`);
+      expect(submenu, language).not.toContain(`• ${home}`);
+
+      // Deeper than that they differ, and both are named, Back first.
+      const deep = engine.renderMenu("assistant", language);
+      expect(deep, language).toContain(`• ${back}`);
     }
   });
 
   it("2. reads in Arabic for an Arabic session", () => {
+    expect(strings.say("back", "ar")).toBe("رجوع");
+    expect(strings.say("mainMenu", "ar")).toBe("القائمة الرئيسية");
     const footer = strings.footerFor(false, "ar");
     expect(footer).toContain("رجوع");
-    expect(footer).toContain("القائمة الرئيسية");
-    expect(footer).toContain("إلغاء");
     expect(footer).not.toMatch(/[A-Za-z]{3,}/);
   });
 
-  it("3. reads in English for an English session", () => {
+  it("3. reads in English for an English session, and teaches no keypad", () => {
     const footer = strings.footerFor(false, "en");
     expect(footer).toMatch(/back/i);
-    expect(footer).toMatch(/main menu/i);
-    expect(footer).toMatch(/cancel/i);
+    expect(footer).toMatch(/name/i);
+    expect(footer).not.toMatch(/(^|\s)0{1,2}(\s|$)/);
+    expect(footer).not.toContain("#");
   });
 
-  it("3b. is the same footer everywhere, not one per feature", () => {
+  it("3b. is the same closing line everywhere, not one per feature", () => {
     const menus = catalog.CATALOG.filter((node) => node.kind === "menu" && node.id !== catalog.ROOT_ID);
     expect(menus.length).toBeGreaterThan(2);
-    const footers = new Set(menus.map((node) => engine.renderMenu(node.id, "en").split("\n").slice(-2).join("\n")));
+    const footers = new Set(menus.map((node) => engine.renderMenu(node.id, "en").split("\n").at(-1)));
     expect(footers.size).toBe(1);
   });
 });
@@ -384,17 +396,22 @@ describe("the shared lifecycle", () => {
 // ── 22–25: reading, digits, language, secrecy ───────────────────────────────
 
 describe("what a screen reader hears", () => {
-  it("22. puts the number before the name, on every line of every menu", () => {
+  it("22. puts the meaning in the label, on every line of every menu", () => {
+    // The number used to come first, because the number was what the sender
+    // had to send back. Nothing is sent back now — the row is tapped — so the
+    // label has to be the whole of what a screen reader announces.
     for (const node of catalog.CATALOG) {
       if (node.kind !== "menu") continue;
-      for (const language of ["ar", "en"] as const) {
-        const lines = engine.renderMenu(node.id, language).split("\n").filter((l) => /^\d+\./.test(l));
-        expect(lines.length, `${node.id} ${language}`).toBe(catalog.childrenOf(node.id).length);
+      for (const language of ["ar", "en", "tr", "ko"] as const) {
+        const lines = engine.renderMenu(node.id, language).split("\n").filter((l) => l.startsWith("• "));
+        // Every child, plus however many exits this depth has.
+        expect(lines.length, `${node.id} ${language}`)
+          .toBeGreaterThanOrEqual(catalog.childrenOf(node.id).length);
         for (const line of lines) {
-          // Number, then a word — never an emoji standing in for the label.
+          // A word, never a digit and never an emoji standing in for the label.
           const withoutEmoji = line.replace(/\p{Extended_Pictographic}️?/gu, "").trim();
-          expect(withoutEmoji, line).toMatch(/^\d+\.\s+\p{L}/u);
-          expect(withoutEmoji.length, line).toBeGreaterThan(6);
+          expect(withoutEmoji, line).toMatch(/^•\s+\p{L}/u);
+          expect(withoutEmoji, line).not.toMatch(/^•\s+\d/);
         }
       }
     }

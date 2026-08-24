@@ -5,6 +5,7 @@
 // wires these together.
 
 import { GRAPH_BASE } from "./meta.ts";
+import { isSupportedLanguage, type SupportedLanguage } from "./whatsappLanguages.ts";
 
 /** Greeting sent once per conversation, before the assistant takes over. */
 export const WELCOME_AR = `أهلاً وسهلاً في Visionex 👋
@@ -31,23 +32,18 @@ export function detectLanguage(text: string): "ar" | "en" {
   return wide === "ar" ? "ar" : "en";
 }
 
-/**
- * The twenty languages the Visionex site is translated into. WhatsApp gives no
- * locale for a sender, so the message text is the only honest signal.
- */
-export const SUPPORTED_LANGUAGES = [
-  "ar", "bn", "de", "en", "es", "fa", "fr", "hi", "id", "it",
-  "ja", "ko", "nl", "pl", "pt", "ru", "tr", "ur", "vi", "zh",
-] as const;
-export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
-
-export function isSupportedLanguage(value: string | null | undefined): value is SupportedLanguage {
-  return !!value && (SUPPORTED_LANGUAGES as readonly string[]).includes(value);
-}
-
-/** Right-to-left scripts, so a reply is never wrapped in left-to-right chrome. */
-const RTL: ReadonlySet<string> = new Set(["ar", "fa", "ur"]);
-export const isRtl = (language: string): boolean => RTL.has(language);
+// The language list, the codes, the script direction and the endonyms live in
+// `whatsappLanguages.ts`, which the language menu and the onboarding gate read
+// as well. Re-exported here under exactly the names callers already import, so
+// the move cost nothing to anybody importing from this file.
+export {
+  isRtl,
+  isSupportedLanguage,
+  LANGUAGE_ENDONYM,
+  languageDirective,
+  SUPPORTED_LANGUAGES,
+} from "./whatsappLanguages.ts";
+export type { SupportedLanguage } from "./whatsappLanguages.ts";
 
 /** Words that only appear in one Latin-script language, or overwhelmingly so. */
 const LATIN_MARKERS: ReadonlyArray<[SupportedLanguage, RegExp]> = [
@@ -133,26 +129,6 @@ export function replyLanguage(
   preference: string | null | undefined,
 ): SupportedLanguage {
   return isSupportedLanguage(preference) ? preference : detected;
-}
-
-/** Endonym, used to instruct the model rather than to show the user. */
-export const LANGUAGE_ENDONYM: Record<SupportedLanguage, string> = {
-  ar: "Arabic", bn: "Bengali", de: "German", en: "English", es: "Spanish",
-  fa: "Persian", fr: "French", hi: "Hindi", id: "Indonesian", it: "Italian",
-  ja: "Japanese", ko: "Korean", nl: "Dutch", pl: "Polish", pt: "Portuguese",
-  ru: "Russian", tr: "Turkish", ur: "Urdu", vi: "Vietnamese", zh: "Chinese",
-};
-
-/**
- * The one instruction that makes the reply match the user. Appended to the
- * assistant's own system prompt rather than replacing it.
- */
-export function languageDirective(language: SupportedLanguage): string {
-  const name = LANGUAGE_ENDONYM[language];
-  const rtl = isRtl(language)
-    ? " Write naturally right-to-left; do not wrap the reply in Latin punctuation or brackets."
-    : "";
-  return `Reply entirely in ${name}. Do not mix in another language unless the user did, or unless a product name, URL or code has no translation.${rtl}`;
 }
 
 export function welcomeFor(language: "ar" | "en"): string {

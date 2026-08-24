@@ -16,7 +16,7 @@
 //
 // Pure and provider-free: no `Deno`, no fetch, no database.
 
-import type { Language } from "./whatsappCatalog.ts";
+import { localized, type Language } from "./whatsappCatalog.ts";
 import { UI_STRINGS } from "./whatsappStrings.ts";
 
 /**
@@ -252,38 +252,25 @@ function lastListBreak(window: string): number {
   return last;
 }
 
+// Every one of these now lives in `whatsappStrings.ts`, with the rest of what a
+// sender reads, and is translated by the same table. They were moved rather
+// than copied: two of them used to end in "or 0 to go back", and the numeric
+// interface teaching itself inside the feature people use most is exactly the
+// kind of thing that survives a redesign when the words live off to one side.
 const STRINGS = {
-  askForQuestion: {
-    ar: "تفضل، اكتب سؤالك.",
-    en: "Go ahead — send me your question.",
-  },
-  askForVoice: {
-    ar: "أرسل سؤالك برسالة صوتية وسأسمعه.",
-    en: "Send your voice question and I'll listen.",
-  },
-  emptyQuestion: {
-    ar: "لم يصلني سؤال. اكتب سؤالك وسأجيبك، أو «0» للرجوع.",
-    en: "I didn't get a question there. Send one and I'll answer, or 0 to go back.",
-  },
-  tooLong: {
-    ar: "هذا السؤال أطول مما أستطيع قراءته دفعة واحدة. اختصره أو قسّمه إلى سؤالين.",
-    en: "That question is longer than I can take in one go. Shorten it, or split it in two.",
-  },
+  askForQuestion: UI_STRINGS.askForQuestion,
+  askForVoice: UI_STRINGS.askForVoice,
+  emptyQuestion: UI_STRINGS.emptyQuestion,
+  tooLong: UI_STRINGS.tooLong,
   working: UI_STRINGS.processing,
-  newThread: {
-    ar: "بدأنا محادثة جديدة. ما سبق محفوظ، لكنني لن أعود إليه. تفضل بسؤالك.",
-    en: "New conversation started. What came before is kept but set aside. Go ahead.",
-  },
-  voiceExpected: {
-    ar: "أنا بانتظار رسالة صوتية. أرسلها، أو اكتب سؤالك مباشرة، أو «0» للرجوع.",
-    en: "I'm waiting for a voice note. Send one, or just type your question, or 0 to go back.",
-  },
+  newThread: UI_STRINGS.newThread,
+  voiceExpected: UI_STRINGS.voiceExpected,
 } as const;
 
 export type AssistantString = keyof typeof STRINGS;
 
 export const assistantSays = (key: AssistantString, language: Language): string =>
-  STRINGS[key][language];
+  localized(STRINGS[key], language);
 
 /**
  * Whether to warn that this one will take a moment.
@@ -291,6 +278,23 @@ export const assistantSays = (key: AssistantString, language: Language): string 
  * One notice, never two: the caller sends it once before the model call and
  * never inside a retry, because two "working on it" messages read as the
  * assistant being stuck rather than busy.
+ *
+ * ── Never for somebody who asked out loud ───────────────────────────────────
+ *
+ * A voice sender is answered in audio and in nothing else, and a text
+ * "⏳ Processing your request…" landing in front of a voice note is exactly the
+ * mixed conversation this channel is not supposed to have. Speaking it instead
+ * would be worse: a voice note that says "hold on", arriving seconds before the
+ * voice note that says the answer, costs a synthesis call to tell somebody
+ * something they are about to find out anyway.
+ *
+ * The progress they get instead is the state on the row — `AI_PROCESSING`,
+ * which is what makes a stuck request recoverable — and it is internal, which
+ * is what the notice never was.
  */
-export const shouldAnnounceWork = (question: string, limits: AssistantLimits): boolean =>
-  question.length >= limits.slowQuestionChars && limits.slowQuestionChars > 0;
+export const shouldAnnounceWork = (
+  question: string,
+  limits: AssistantLimits,
+  spokenInput = false,
+): boolean =>
+  !spokenInput && question.length >= limits.slowQuestionChars && limits.slowQuestionChars > 0;

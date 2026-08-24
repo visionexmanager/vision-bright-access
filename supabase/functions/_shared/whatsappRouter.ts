@@ -22,14 +22,23 @@ import {
   aliasesOf,
   CATALOG,
   childAt,
+  childrenOf,
   type CatalogNode,
   type Capability,
   isAvailable,
   type Language,
+  localized,
   nodeById,
   ROOT_ID,
 } from "./whatsappCatalog.ts";
-import { foldDigits, type NavigationCommand, parseChoice, parseCommand } from "./whatsappCommands.ts";
+import {
+  foldDigits,
+  localisedCommand,
+  type NavigationCommand,
+  parseChoice,
+  parseCommand,
+  parseControlId,
+} from "./whatsappCommands.ts";
 
 /** Everything the router needs. No session object: only the menu in view. */
 export interface RouterInput {
@@ -47,7 +56,7 @@ export interface RouterInput {
 }
 
 /** How a feature was named. Logged, and used to decide how far to move. */
-export type RoutedVia = "number" | "tap" | "alias";
+export type RoutedVia = "number" | "tap" | "name" | "alias";
 
 export type Routing =
   /** A universal command: back, home, cancel, help. Never a feature. */
@@ -78,9 +87,13 @@ export type Routing =
 export function resolveSelection(input: RouterInput): Routing {
   const disabled = input.disabled ?? [];
   const available = input.available ?? [];
+  const menuId = nodeById(input.menuId) ? input.menuId : ROOT_ID;
 
-  const command = parseCommand(input.text);
-  if (command) return { kind: "command", command };
+  // A tapped control row. Checked before the catalog is consulted at all,
+  // because `back` and `main_menu` are ids the catalog does not have and
+  // looking them up would answer a tap on Back with "that option has moved".
+  const tappedCommand = parseControlId(input.selection);
+  if (tappedCommand) return { kind: "command", command: tappedCommand };
 
   if (input.selection) {
     const node = nodeById(input.selection);
@@ -88,18 +101,56 @@ export function resolveSelection(input: RouterInput): Routing {
     return gate(node, "tap", disabled, available);
   }
 
+  // The typed commands: `0`, `00`, `#` and their words — still supported,
+  // no longer taught — and then the same words in the sender's own language,
+  // which is what the text copy of a menu tells them to send.
+  const command = parseCommand(input.text) ?? localisedCommand(input.text, input.language);
+  if (command) return { kind: "command", command };
+
   const choice = parseChoice(input.text);
   if (choice !== null) {
-    const menuId = nodeById(input.menuId) ? input.menuId : ROOT_ID;
     const node = childAt(menuId, choice);
     if (!node) return { kind: "invalid", menuId, choice };
     return gate(node, "number", disabled, available);
   }
 
+  // The name of a row on the menu in view.
+  //
+  // This is the other half of removing the numbers. The text copy of a menu now
+  // says "reply with the name of what you need", and that instruction has to be
+  // true — including for the eighteen languages whose rows carry no alias of
+  // their own. Scoped to the menu being looked at, which is what makes it safe:
+  // two menus may both have a row called "How to get around" and each resolves
+  // to its own, where a global table would have to pick one and be wrong half
+  // the time.
+  const onMenu = resolveTitleIn(menuId, input.text, input.language);
+  if (onMenu) return gate(onMenu, "name", disabled, available);
+
   const named = resolveAlias(input.text, input.language);
   if (named) return gate(named, "alias", disabled, available);
 
   return { kind: "passthrough" };
+}
+
+/**
+ * The child of one menu whose title is this whole message, or null.
+ *
+ * Whole-message only, and folded through the same normaliser the aliases use,
+ * so case, punctuation and the diacritics an Arabic keyboard adds do not
+ * decide whether somebody reaches the weather.
+ */
+export function resolveTitleIn(
+  menuId: string,
+  text: string | null | undefined,
+  language: Language,
+): CatalogNode | null {
+  const needle = normaliseAlias(text ?? "");
+  if (!needle || needle.length > 60) return null;
+
+  for (const child of childrenOf(menuId)) {
+    if (normaliseAlias(localized(child.title, language)) === needle) return child;
+  }
+  return null;
 }
 
 /** The one gate every route passes through. */
