@@ -595,86 +595,95 @@ jobs:
               ;;
           esac
 
-          # ── Arabic: three renderings, and the container's own language list ──
+          # ── Arabic: the last two variables ───────────────────────────────────
           #
-          # Where this got to. The first run returned unsupported_language — a
-          # real bug, a plus in a query decodes to a space, fixed in #200. The
-          # second was accepted and read nothing. The third shaped the text with
-          # pango, measured 0.856 mean intensity, and still read nothing, which
-          # ruled out "the image is blank" and left a real question.
+          # What is settled. `ara.traineddata` is installed — the container was
+          # asked and answered `ara eng osd`. Tesseract exits 0. A 1055x270
+          # correctly shaped Arabic image with ink coverage of 0.93 reads as
+          # empty. The unshaped `-annotate` rendering measured ink 1.0, meaning
+          # it drew literally nothing, so that earlier failure was the renderer
+          # and is now accounted for.
           #
-          # Tesseract exited 0 in all of those, which is itself evidence: a
-          # missing `ara.traineddata` is a hard failure, not an empty result. So
-          # the model loads and finds no words in an image that has ink.
+          # Two variables were never tested, and both are plausible.
           #
-          # The remaining difference between the Arabic and English probes was
-          # scale. English is 900x220 at 96pt with wide margins; the pango output
-          # was tight-cropped around 48pt text. Tesseract wants x-height and it
-          # wants a quiet border. So rather than guess once more, all three
-          # renderings are sent and reported together, and the container is asked
-          # what languages it actually has.
+          # `ara+eng` combines two models in one pass. That is supported, but a
+          # combined pass can score worse on both scripts than either alone, and
+          # every Arabic probe so far has used the combined form.
           #
-          # None of this is asserted on quality. The one contract assertion —
-          # that `ara+eng` is accepted at all — is below and does fail the job.
+          # Segmentation. Tesseract's default assumes a page. A photograph of a
+          # sign is one or two lines of large text on empty background, and the
+          # layout pass can decide there is no text region at all — returning
+          # nothing, exiting 0, indistinguishable from "no words here".
+          #
+          # So the matrix is run instead of another single guess. Six probes,
+          # one image, and the log shows which combination works.
           sudo apt-get install -y -qq fonts-noto-core >/dev/null 2>&1 || true
 
           say "languages in the container: $(ssh target 'docker exec visionex-media tesseract --list-langs 2>&1 | tr "\n" " "' 2>/dev/null || echo 'could not ask')"
 
-          ar_probe() {
-            label="$1"
-            file="$2"
-            if [ ! -s "$file" ]; then
-              say "  $label: no image rendered"
-              return
-            fi
-            ink=$("$IM" "$file" -format '%[fx:mean]' info: 2>/dev/null || echo 1)
-            dims=$("$IM" "$file" -format '%wx%h' info: 2>/dev/null || echo '?')
-            body=$(curl -s --max-time 40 \
-              -H "authorization: Bearer $TOKEN" \
-              -H 'content-type: image/png' \
-              --data-binary @"$file" \
-              'https://visionex.app/internal/media/ocr?lang=ara%2Beng')
-            say "  $label: $dims, ink $ink"
-            say "    -> $(printf '%s' "$body" | head -c 160)"
-            case "$body" in
-              *unsupported_language*)
-                echo '::error::The service refused ara+eng - the language-encoding bug is back.'
-                exit 1
-                ;;
-            esac
-            case "$body" in
-              *'"readable":true'*) AR_ANY_READ="yes" ;;
-            esac
-          }
-
-          AR_ANY_READ="no"
-          say 'arabic renderings:'
-
-          # Large, shaped, with a quiet border - the closest match to the English
-          # probe that produced a clean read.
+          # One image for the whole matrix: large, shaped, wide quiet border.
+          # It is the closest match to the English probe that reads perfectly.
           "$IM" -background white -fill black \
             'pango:<span font="96">مخرج المستشفى</span>' \
-            -bordercolor white -border 60 /tmp/vx-ar-large.png 2>/dev/null || true
-          ar_probe "pango 96pt + border" /tmp/vx-ar-large.png
+            -bordercolor white -border 60 /tmp/vx-ar.png 2>/dev/null || true
 
-          # The rendering that has been failing, kept so the comparison is real.
-          "$IM" -background white -fill black \
-            'pango:<span font="48">مخرج المستشفى</span>' /tmp/vx-ar-small.png 2>/dev/null || true
-          ar_probe "pango 48pt, tight" /tmp/vx-ar-small.png
-
-          # Unshaped, expected to fail. It is here so that "shaping matters" is
-          # something this log shows rather than something a comment claims.
-          "$IM" -size 900x220 xc:white -fill black -pointsize 96 -gravity center \
-            -annotate 0 'مخرج المستشفى' /tmp/vx-ar-flat.png 2>/dev/null || true
-          ar_probe "annotate, unshaped" /tmp/vx-ar-flat.png
-
-          if [ "$AR_ANY_READ" = "yes" ]; then
-            say 'arabic: at least one rendering was read. Tesseract can read Arabic here.'
+          if [ ! -s /tmp/vx-ar.png ]; then
+            say 'arabic: no image could be rendered - the harness, not the service.'
           else
-            say 'arabic: no rendering was read. Local OCR should not be relied on for Arabic yet.'
+            say "arabic image  : $("$IM" /tmp/vx-ar.png -format '%wx%h, ink %[fx:mean]' info: 2>/dev/null)"
+            say 'arabic matrix :'
+            AR_WORKS=""
+
+            for lang in ara ara%2Beng; do
+              for psm in default 6 7 11; do
+                if [ "$psm" = "default" ]; then
+                  q="lang=$lang"
+                else
+                  q="lang=$lang&psm=$psm"
+                fi
+                body=$(curl -s --max-time 40 \
+                  -H "authorization: Bearer $TOKEN" \
+                  -H 'content-type: image/png' \
+                  --data-binary @/tmp/vx-ar.png \
+                  "https://visionex.app/internal/media/ocr?$q")
+
+                case "$body" in
+                  *unsupported_language*)
+                    echo '::error::The service refused a supported language - the encoding bug is back.'
+                    exit 1
+                    ;;
+                esac
+
+                # An older container has no `psm` parameter and will refuse it.
+                # That is a deployment ordering problem, not an OCR result, and
+                # it should say so rather than look like Arabic failing again.
+                case "$body" in
+                  *unsupported_psm*)
+                    say "  $lang psm=$psm -> the running container predates the psm parameter"
+                    continue
+                    ;;
+                esac
+
+                case "$body" in
+                  *'"readable":true'*)
+                    say "  $lang psm=$psm -> READ: $(printf '%s' "$body" | head -c 120)"
+                    AR_WORKS="$AR_WORKS $lang/psm=$psm"
+                    ;;
+                  *)
+                    say "  $lang psm=$psm -> nothing"
+                    ;;
+                esac
+              done
+            done
+
+            if [ -n "$AR_WORKS" ]; then
+              say "arabic: readable with$AR_WORKS"
+            else
+              say 'arabic: no combination read it. Arabic should not use local OCR yet.'
+            fi
           fi
 
-          rm -f /tmp/vx-ocr-test.png /tmp/vx-ar-large.png /tmp/vx-ar-small.png /tmp/vx-ar-flat.png /tmp/vx-im-err
+          rm -f /tmp/vx-ocr-test.png /tmp/vx-ar.png /tmp/vx-im-err
       - name: Forget the key
         if: always()
         run: rm -f ~/.ssh/id_deploy ~/.ssh/config

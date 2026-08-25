@@ -39,6 +39,7 @@ import {
   checkUpload,
   isSupportedLanguage,
   languageFromQuery,
+  isSupportedPsm,
   textIsUsable,
 } from "./limits.mjs";
 
@@ -136,7 +137,7 @@ function readBody(req) {
  * `finally` — including when the run times out, which is the case that would
  * otherwise leak.
  */
-async function runOcr(bytes, language) {
+async function runOcr(bytes, language, psm) {
   const dir = await mkdtemp(join(tmpdir(), "ocr-"));
   const input = join(dir, "in");
   const output = join(dir, "out");
@@ -149,7 +150,13 @@ async function runOcr(bytes, language) {
       // Arguments are passed as an array, never a shell string, so nothing in
       // them can be interpreted. `language` has already been checked against an
       // allowlist of whole strings.
-      const child = spawn("tesseract", [input, output, "-l", language], {
+      // Arguments stay an array. `psm` has been checked against an allowlist
+      // of whole strings, the same as `language`, because both reach a command
+      // line and neither is worth parsing.
+      const args = [input, output, "-l", language];
+      if (psm) args.push("--psm", psm);
+
+      const child = spawn("tesseract", args, {
         stdio: ["ignore", "ignore", "pipe"],
       });
 
@@ -205,6 +212,14 @@ async function handleOcr(req, res, correlation) {
     return send(res, 400, { ok: false, reason: "unsupported_language" });
   }
 
+  // Absent means Tesseract's own default, so this changes nothing for a caller
+  // that does not ask. It exists to make a segmentation question testable
+  // against the real service rather than argued about.
+  const psm = url.searchParams.get("psm");
+  if (psm !== null && !isSupportedPsm(psm)) {
+    return send(res, 400, { ok: false, reason: "unsupported_psm" });
+  }
+
   let bytes;
   try {
     bytes = await readBody(req);
@@ -228,7 +243,7 @@ async function handleOcr(req, res, correlation) {
 
   const startedAt = Date.now();
   try {
-    const raw = await runOcr(bytes, language);
+    const raw = await runOcr(bytes, language, psm);
     const text = raw.slice(0, MAX_TEXT_CHARS).trim();
     const usable = textIsUsable(text);
 
@@ -240,6 +255,7 @@ async function handleOcr(req, res, correlation) {
       chars: text.length,
       usable,
       lang: language,
+      psm: psm ?? "default",
     });
 
     return send(res, 200, {

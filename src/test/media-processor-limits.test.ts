@@ -64,6 +64,33 @@ describe("reading the language out of a query string", () => {
   });
 });
 
+describe("how the page is carved up", () => {
+  it("allows only the modes that suit a photograph", async () => {
+    // 3 is Tesseract's own default and assumes a page. 6, 7 and 11 are a
+    // uniform block, a single line, and sparse text — which is what a
+    // photograph of a sign actually is.
+    const { SUPPORTED_PSM, isSupportedPsm } = await limits();
+    expect(SUPPORTED_PSM).toEqual(["3", "6", "7", "11"]);
+    for (const good of SUPPORTED_PSM) expect(isSupportedPsm(good)).toBe(true);
+  });
+
+  it("refuses anything else, because this reaches a command line too", async () => {
+    const { isSupportedPsm } = await limits();
+    for (const bad of ["0", "13", "6; whoami", "$(id)", "--oem 0", "", " 6", "6 ", null, 6]) {
+      expect(isSupportedPsm(bad as string)).toBe(false);
+    }
+  });
+
+  it("is a whole-string allowlist, not a numeric range check", async () => {
+    // A range check on a parsed number would accept "6abc" and " 6 ", and both
+    // would then be handed to a process. Whole strings are simpler to be sure
+    // about, which is the same argument the language allowlist makes.
+    const { isSupportedPsm } = await limits();
+    expect(isSupportedPsm("6abc")).toBe(false);
+    expect(isSupportedPsm("06")).toBe(false);
+  });
+});
+
 describe("what counts as recognised text", () => {
   it("rejects what Tesseract does to a photograph of a wall", async () => {
     const { textIsUsable } = await limits();
