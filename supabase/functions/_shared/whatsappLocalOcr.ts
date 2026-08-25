@@ -242,7 +242,18 @@ export async function readTextLocally(params: {
     // Sending `.buffer` would send it. This cannot.
     const body = new ArrayBuffer(params.bytes.byteLength);
     new Uint8Array(body).set(params.bytes);
-    const response = await doFetch(`${config.url}/ocr?lang=${language}`, {
+    // Encoded, because `ara+eng` in a raw query string is not `ara+eng`.
+    //
+    // A plus sign in a query decodes to a space, so `?lang=ara+eng` reached the
+    // service as `ara eng`, missed its allowlist, and came back 400. English
+    // was unaffected — `eng` has no plus in it — so every English test passed
+    // while Arabic, which is the primary audience here, failed on every single
+    // photograph and fell silently back to the paid model.
+    //
+    // Found by the self-test's Arabic probe, which is deliberately not asserted
+    // and reported the failure anyway.
+    const query = new URLSearchParams({ lang: language });
+    const response = await doFetch(`${config.url}/ocr?${query}`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${config.token}`,
