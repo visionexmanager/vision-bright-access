@@ -626,13 +626,25 @@ describe("the webhook stays thin", () => {
     // which drives the allowlist itself.
     expect(webhook).toContain("const log = createTelemetry(");
     expect(webhook).toContain("conversation: conversationId");
-    expect(webhook).toContain("message: incoming.messageId");
     expect(webhook).toContain("correlation: correlationId");
+
+    // ── This line used to assert the opposite ─────────────────────────────
+    //
+    // It required `message: incoming.messageId` to be present, in a test named
+    // "never logs anything that identifies a person". Meta's `wamid` is base64
+    // and decodes to bytes containing the sender's E.164 phone number, so the
+    // field this test was protecting was the one identifying the person — and a
+    // diagnostic run published one into a public job summary before anybody
+    // noticed. It is gone from the base, from `TELEMETRY_FIELDS`, from
+    // `TelemetryBase` and from the workflow's own field list.
+    expect(webhook).not.toContain("message: incoming.messageId");
+
     // The phone number and the message body are the two things that must never
     // reach a log line: this repository's CI logs are world-readable.
     const start = webhook.indexOf("const log = createTelemetry(");
     const logBlock = webhook.slice(start, webhook.indexOf(");", start));
     expect(logBlock).not.toContain("incoming.from");
+    expect(logBlock).not.toContain("incoming.messageId");
     expect(logBlock).not.toContain("questionText");
     expect(logBlock).not.toMatch(/token|secret|key/i);
   });

@@ -68,12 +68,20 @@ export function newCorrelationId(): string {
  * Notably absent, and permanently so: anything holding message text, a phone
  * number, an email address, a name, a date of birth, a gender, a media URL, a
  * token, a provider response body, a passage, a prompt, or a transcript.
+ *
+ * ── And Meta's message id, which looks like an identifier and is not ─────────
+ *
+ * A `wamid` is base64. Decoding one yields bytes containing the sender's E.164
+ * phone number — verified on a real id from production. It sat on this list as
+ * a "machine identifier" until a diagnostic run published one into a public job
+ * summary. The lesson is the one this whole module is built around: an
+ * allowlist is only as good as the claim made about each entry, so an entry
+ * whose safety rests on "it is an id" deserves the decoder run over it once.
  */
 export const TELEMETRY_FIELDS: readonly string[] = [
   // Who and what, without saying who.
   "correlation",
   "conversation",
-  "message",
   "kind",
 
   // Navigation and routing.
@@ -151,8 +159,8 @@ const SAFE_LABEL = /^[a-z][a-z0-9_-]*$/i;
  * The same question for a machine identifier.
  *
  * Wider, because these carry the punctuation real ids have: `services.weather`,
- * `llama-3.3-70b-versatile`, `wamid.HBgL…`, a UUID. Still no whitespace, no
- * angle brackets, no quotes — nothing that is prose or markup.
+ * `llama-3.3-70b-versatile`, a UUID. Still no whitespace, no angle brackets,
+ * no quotes — nothing that is prose or markup.
  */
 const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
 
@@ -167,19 +175,51 @@ const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
  * catalog and this file's own enumerations — a customer cannot influence any of
  * them — so they keep the rest of the rules and drop that one.
  *
- * `conversation`, `message` and `correlation` are ids: a UUID and Meta's
- * `wam.…` are both digit-bearing, and both name a record rather than a person.
+ * `conversation` and `correlation` are ids: a row's UUID and a random
+ * per-delivery value. Both are digit-bearing, and neither is derived from the
+ * person — which is the property that matters, and the one Meta's own message
+ * id turned out not to have. See the note on `TELEMETRY_FIELDS` above.
  */
 const MACHINE_FIELDS = new Set([
   "correlation",
   "conversation",
-  "message",
   "provider",
   "model",
   "node",
   "feature",
   "code",
 ]);
+
+/**
+ * Whether a value looks like a provider message id, whatever it is called.
+ *
+ * ── Why this is checked on every field ──────────────────────────────────────
+ *
+ * Removing `message` from the allowlist stops the *known* path. It does not
+ * stop the next one: `MACHINE_FIELDS` deliberately waives the digit-run rule so
+ * a model id like `claude-haiku-4-5-20251001` survives, and a `wamid` assigned
+ * to `correlation`, `conversation`, `node` or `code` sailed through that
+ * waiver — a test that put one in each allowed field in turn is what found it.
+ * An exemption reachable by choosing a field name is not an exemption.
+ *
+ * Two shapes, both cheap:
+ *
+ *   the prefix     Meta writes `wamid.`, and Messenger's `mid.`. Anything
+ *                  carrying either is a message id by construction.
+ *   the payload    a long unbroken run of base64 that mixes upper case, lower
+ *                  case and digits. Nothing this system legitimately logs looks
+ *                  like that: a correlation id is lower-case hex, a UUID is
+ *                  lower-case hex with dashes, and every model and node id is
+ *                  short words joined by dots or dashes.
+ */
+function looksLikeMessageId(value: string): boolean {
+  if (/\b(?:wamid|mid)\./i.test(value)) return true;
+
+  for (const run of value.match(/[A-Za-z0-9+/]{24,}/g) ?? []) {
+    if (/[a-z]/.test(run) && /[A-Z]/.test(run) && /[0-9]/.test(run)) return true;
+  }
+  return false;
+}
 
 /** One value, if it is safe to publish. `undefined` when it is not. */
 function safeValue(key: string, value: unknown): string | number | boolean | undefined {
@@ -188,6 +228,11 @@ function safeValue(key: string, value: unknown): string | number | boolean | und
   if (typeof value === "string") {
     if (!value) return undefined;
     if (value.length > MAX_FIELD_CHARS) return undefined;
+    // Checked before anything else and for every field, machine or not. See
+    // `looksLikeMessageId`: the machine-field exemption is what let a `wamid`
+    // through when it was named `correlation`, and an exemption that can be
+    // reached by choosing a field name is not an exemption, it is a gap.
+    if (looksLikeMessageId(value)) return undefined;
     // Both directions: it has to look like the thing it claims to be, and it
     // has to not look like anybody's data.
     const machine = MACHINE_FIELDS.has(key);
@@ -233,9 +278,20 @@ export interface TelemetryBase {
   correlation: string;
   /** The conversation row's id. Names a thread, never a person. */
   conversation?: string;
-  /** Meta's message id. Names one delivery, and is not derived from the sender. */
-  message?: string;
   kind?: string;
+  /**
+   * ── There is deliberately no message id here ──────────────────────────────
+   *
+   * Meta's `wamid` is base64 and decodes to bytes containing the sender's
+   * E.164 phone number. One was published in a public job summary before this
+   * was noticed. It is not merely dropped by the allowlist — it is absent from
+   * this shape, so a caller cannot offer it and a future reviewer cannot
+   * re-add it to the allowlist without also changing the type.
+   *
+   * `correlation` is what traces one delivery end to end, and
+   * `conversation` is what groups a thread. Both already do the job the
+   * message id was there for.
+   */
 }
 
 export interface Telemetry {
