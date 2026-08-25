@@ -311,12 +311,19 @@ jobs:
           ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
           set -uo pipefail
 
-          SITE=$(grep -rlE 'server_name[^;]*visionex' /etc/nginx/sites-enabled/ 2>/dev/null | head -1)
+          # Chosen by which file terminates TLS, not by alphabetical order.
+          # Two sites are enabled and both claim visionex.app; only one serves
+          # HTTPS, and the Edge Function will call over HTTPS.
+          SITE=""
+          for f in $(grep -rlE 'server_name[^;]*visionex' /etc/nginx/sites-enabled/ 2>/dev/null); do
+            if grep -qE 'ssl_certificate' "$f"; then SITE="$f"; break; fi
+          done
           if [ -z "${SITE:-}" ]; then
-            echo 'FATAL: no nginx site matches visionex. Nothing was changed.'
+            echo 'FATAL: no TLS-terminating nginx site matches visionex. Nothing was changed.'
             exit 1
           fi
           echo "site file    : $(basename "$SITE")"
+          echo "chosen for   : it is the one with ssl_certificate"
 
           if grep -q 'internal/media' "$SITE"; then
             echo 'already present - nothing to do.'
@@ -344,17 +351,42 @@ jobs:
           sudo cp /tmp/vx-media-limit.conf /etc/nginx/conf.d/visionex-media-limit.conf
           echo 'rate limit   : installed'
 
-          # Insert before the file's final closing brace - the end of the
-          # server block. awk finds it by position rather than by a pattern
-          # that could match a nested brace.
-          sudo awk 'FNR==NR { block[++n] = $0; next }
-                    { line[++m] = $0; if ($0 ~ /^}/) last = m }
+          # Inserted into the block that serves 443, found by tracking brace
+          # depth from its listen line. The file has a second server block that
+          # only redirects port 80; a route placed there is unreachable over
+          # TLS, which is how the Edge Function will call it.
+          # Written to a temporary file first, so a failed insertion cannot leave
+          # a half-written site config behind: the real file is only replaced
+          # once awk has succeeded.
+          if ! sudo awk 'FNR==NR { block[++n] = $0; next }
+                    { line[++m] = $0 }
                     END {
+                      start = 0
+                      for (i = 1; i <= m; i++)
+                        if (line[i] ~ /listen[ \t]+(\[::\]:)?443/) { start = i; break }
+                      if (start == 0) { print "NO_443_BLOCK" > "/dev/stderr"; exit 1 }
+
+                      depth = 1
+                      close_at = 0
+                      for (i = start; i <= m; i++) {
+                        o = gsub(/\{/, "{", line[i])
+                        c = gsub(/\}/, "}", line[i])
+                        depth += o - c
+                        if (depth <= 0) { close_at = i; break }
+                      }
+                      if (close_at == 0) { print "NO_CLOSING_BRACE" > "/dev/stderr"; exit 1 }
+
                       for (i = 1; i <= m; i++) {
-                        if (i == last) for (j = 1; j <= n; j++) print "    " block[j]
+                        if (i == close_at) for (j = 1; j <= n; j++) print "    " block[j]
                         print line[i]
                       }
-                    }' /tmp/vx-media-location.conf "$BACKUP" | sudo tee "$SITE" >/dev/null
+                    }' /tmp/vx-media-location.conf "$BACKUP" > /tmp/vx-site-new 2>/tmp/vx-awk-err; then
+            echo "insertion    : FAILED ($(cat /tmp/vx-awk-err))"
+            restore
+            exit 1
+          fi
+          sudo cp /tmp/vx-site-new "$SITE"
+          echo "inserted     : inside the 443 server block"
 
           if ! sudo nginx -t >/dev/null 2>&1; then
             echo 'nginx -t     : FAILED'
@@ -376,7 +408,7 @@ jobs:
 
           echo "media health : $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1/internal/media/health) (expect 200)"
           echo "media unauth : $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1/internal/media/capabilities) (expect 401)"
-          rm -f /tmp/vx-media-location.conf /tmp/vx-media-limit.conf
+          rm -f /tmp/vx-media-location.conf /tmp/vx-media-limit.conf /tmp/vx-site-new /tmp/vx-awk-err
           echo 'done.'
           REMOTE
           STATUS=$?
@@ -394,7 +426,10 @@ jobs:
             ssh target 'bash -s' <<'ROLLBACK'
             set -uo pipefail
             BACKUP=$(ls -t /etc/nginx/visionex-site.*.bak 2>/dev/null | head -1)
-            SITE=$(grep -rlE 'server_name[^;]*visionex' /etc/nginx/sites-enabled/ | head -1)
+            SITE=""
+            for f in $(grep -rlE 'server_name[^;]*visionex' /etc/nginx/sites-enabled/ 2>/dev/null); do
+              if grep -qE 'ssl_certificate' "$f"; then SITE="$f"; break; fi
+            done
             if [ -n "${BACKUP:-}" ] && [ -n "${SITE:-}" ]; then
               sudo cp "$BACKUP" "$SITE"
               sudo rm -f /etc/nginx/conf.d/visionex-media-limit.conf
