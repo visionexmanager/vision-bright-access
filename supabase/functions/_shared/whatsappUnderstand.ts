@@ -20,8 +20,10 @@ import {
   attachmentSystemPrompt,
   classifyDocument,
   DOCUMENT_TEXT_BUDGET,
+  officeKind,
   toDataUrl,
 } from "./whatsappAttachments.ts";
+import { readOfficeLocally } from "./whatsappOffice.ts";
 
 /**
  * Vision-capable targets.
@@ -179,6 +181,13 @@ export type DocumentFailure =
   | "empty"
   | "scanned_pdf"
   | "encrypted_pdf"
+  // A `.docx` or `.pptx` that opened and had no words in it — a deck of
+  // photographs, a sheet of figures. Distinct from `empty`, which is a file
+  // with nothing in it at all, because the two need different advice.
+  | "office_no_text"
+  // A `.docx` or `.pptx` that would not open: truncated, not really a ZIP, or
+  // an archive built to be expensive to unpack.
+  | "office_corrupt"
   | "provider_error";
 
 export type DocumentResult =
@@ -197,7 +206,13 @@ export async function understandDocument(params: {
   const shape = classifyDocument(params.mimeType);
   if (shape === "unsupported") return { ok: false, reason: "unreadable_format" };
 
-  const targets = params.targets ?? (shape === "text" ? DOCUMENT_TEXT_TARGETS : DOCUMENT_TARGETS);
+  // `office` joins `text` on the text chain rather than the document chain. By
+  // the time a model sees it there is no `.docx` left — the service returned
+  // words — so requiring a provider that accepts documents would be asking for
+  // a capability that is no longer needed, and would decline the file whenever
+  // that narrower chain happened to be empty.
+  const textShaped = shape === "text" || shape === "office";
+  const targets = params.targets ?? (textShaped ? DOCUMENT_TEXT_TARGETS : DOCUMENT_TARGETS);
   if (targets.length === 0) return { ok: false, reason: "no_reader" };
 
   let userText = params.question || "Summarise this document and answer any obvious question it raises.";
@@ -209,6 +224,42 @@ export async function understandDocument(params: {
       .trim();
     if (!text) return { ok: false, reason: "empty" };
     userText = `${userText}\n\nDocument${params.filename ? ` (${params.filename})` : ""}:\n${text}`;
+  } else if (shape === "office") {
+    // Unpacked on Visionex's own server and then travelling as text, which is
+    // the same shape the PDF branch below already has. This replaces a refusal
+    // rather than a provider call: a `.docx` used to be answered with "send it
+    // as a PDF instead".
+    const extracted = await readOfficeLocally({ bytes: params.bytes, mimeType: params.mimeType });
+    if (!extracted.ok) {
+      return {
+        ok: false,
+        reason: extracted.reason === "no_text"
+          ? "office_no_text"
+          : extracted.reason === "corrupt"
+            ? "office_corrupt"
+            : extracted.reason === "unsupported_kind"
+              ? "unreadable_format"
+              : extracted.reason === "not_configured"
+                // The service is switched off, so the file cannot be read here
+                // at all — which is what `no_reader` means, and it is the state
+                // every deployment was in before this shipped.
+                ? "no_reader"
+                : "provider_error",
+      };
+    }
+    // The part count is given to the model for the same reason the PDF branch
+    // gives it a page count: "slide 3 of 40" is a different answer from "slide
+    // 3 of 3", and it cannot see the deck.
+    const kind = officeKind(params.mimeType);
+    const label = params.filename ? ` (${params.filename})` : "";
+    userText = [
+      userText,
+      "",
+      kind === "pptx"
+        ? `Presentation${label}, ${extracted.parts} slide(s):`
+        : `Document${label}:`,
+      extracted.text,
+    ].join("\n");
   } else {
     // Read locally, then travel as text. The alternative — a `data:` URL of
     // several megabytes of PDF on every turn — costs a provider that accepts

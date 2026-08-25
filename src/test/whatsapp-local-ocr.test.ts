@@ -457,8 +457,20 @@ describe("the invariants this module shares with the service and the proxy", () 
     expect(product).toBe(MAX_OCR_UPLOAD_BYTES);
 
     const nginx = readFileSync("services/media-processor/nginx/visionex-media.location.conf", "utf8");
-    const bodyLimit = /client_max_body_size\s+(\d+)m/.exec(nginx)?.[1];
-    expect(Number(bodyLimit) * 1024 * 1024).toBe(MAX_OCR_UPLOAD_BYTES);
+    const bodyLimit = Number(/client_max_body_size\s+(\d+)m/.exec(nginx)?.[1]) * 1024 * 1024;
+    // nginx admits at least this, rather than exactly this.
+    //
+    // It used to be an equality, and that was right while `/ocr` was the only
+    // endpoint behind the route. There are now two upload kinds with different
+    // ceilings — an image at eight megabytes, a document at twelve — and one
+    // proxy in front of both, so the proxy has to admit the larger. Pinning it
+    // to the image ceiling would refuse readable documents at the proxy with a
+    // 413 that names neither ceiling.
+    //
+    // The property that still matters is that nginx is not the tightest of the
+    // three: if it were, the service's own limit would become decoration and
+    // the refusal would arrive as a closed connection instead of a reason.
+    expect(bodyLimit).toBeGreaterThanOrEqual(MAX_OCR_UPLOAD_BYTES);
   });
 });
 

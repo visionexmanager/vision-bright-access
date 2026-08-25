@@ -219,6 +219,7 @@ import {
   scanBarcodes,
   textPayloads,
 } from "../_shared/whatsappBarcode.ts";
+import { corruptOfficeNotice, emptyOfficeNotice, officeKind } from "../_shared/whatsappOffice.ts";
 import {
   CLASSIFY_INSTRUCTION,
   CLASSIFY_SCHEMA,
@@ -1746,9 +1747,16 @@ Deno.serve(async (req) => {
                     ? encryptedDocumentNotice(language)
                     : read.reason === "empty"
                       ? emptyDocumentNotice(language)
-                      : read.reason === "no_reader"
-                        ? noReaderNotice(language, "document")
-                        : unreadableNotice(language, "document"),
+                      // A Word file or a deck that opened and had no words in
+                      // it needs different advice from one that would not open
+                      // at all: photograph the page, versus send it as a PDF.
+                      : read.reason === "office_no_text"
+                        ? emptyOfficeNotice(language, officeKind(media.mimeType) ?? "docx")
+                        : read.reason === "office_corrupt"
+                          ? corruptOfficeNotice(language)
+                          : read.reason === "no_reader"
+                            ? noReaderNotice(language, "document")
+                            : unreadableNotice(language, "document"),
               "unsupported",
             );
             continue;

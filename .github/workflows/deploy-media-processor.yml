@@ -824,6 +824,99 @@ jobs:
             exit 1
           fi
           say 'zbar decoded both symbols and labelled each correctly. Barcodes work end to end.'
+      # ── Office documents: the endpoint that replaces a refusal ───────────────
+      #
+      # This one is checked differently from the other two, and the reason is
+      # worth stating. OCR and barcode scanning both fall through to a vision
+      # model when they fail, so a broken deployment costs a few seconds and the
+      # customer gets the answer they would have got anyway. There is no model
+      # behind this endpoint. A `.docx` used to be answered with "I can't open
+      # Word files yet"; if the unpacker is broken and nobody notices, a sender
+      # gets a wrong answer where they used to get an honest refusal.
+      #
+      # So the check asserts the *words that were put in the file* come back,
+      # not that the endpoint answered. A 200 with an empty extraction is the
+      # exact failure this is for.
+      #
+      # The document is built here, in this job, out of a string this workflow
+      # chose. `.docx` is a ZIP of XML, which is why `zip` is all it takes.
+      - name: Prove it can read a document
+        if: inputs.action == 'selftest'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [ -z "${TOKEN:-}" ]; then
+            echo '::error::PROCESSOR_TOKEN is not set. Nothing to authenticate with.'
+            exit 1
+          fi
+
+          if ! command -v zip >/dev/null 2>&1; then
+            sudo apt-get update -qq >/dev/null 2>&1
+            sudo apt-get install -y -qq zip >/dev/null 2>&1
+          fi
+          if ! command -v zip >/dev/null 2>&1; then
+            echo '::error::zip is not available, so no test document can be made.'
+            exit 1
+          fi
+
+          # Two paragraphs, in two scripts. The Arabic half is the part that
+          # matters: local OCR cannot read Arabic on this box, and the whole
+          # argument for this endpoint is that unzipping has no such limit. If
+          # only the English line came back, this would have the same shape of
+          # gap as OCR and should not be announced as though it did not.
+          PHRASE_EN='VISIONEX GATE 47'
+          PHRASE_AR='موعد الفحص'
+
+          WORK=$(mktemp -d)
+          mkdir -p "$WORK/word"
+          printf '%s' '<?xml version="1.0" encoding="UTF-8"?><Types/>' >"$WORK/[Content_Types].xml"
+          printf '%s' "<?xml version=\"1.0\" encoding=\"UTF-8\"?><w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body><w:p><w:r><w:t>$PHRASE_EN</w:t></w:r></w:p><w:p><w:r><w:t>$PHRASE_AR</w:t></w:r></w:p></w:body></w:document>" >"$WORK/word/document.xml"
+          ( cd "$WORK" && zip -q -r /tmp/vx-test.docx '[Content_Types].xml' word )
+
+          SIZE=$(stat -c%s /tmp/vx-test.docx 2>/dev/null || echo 0)
+          if [ "$SIZE" -lt 200 ]; then
+            echo "::error::The test document did not build ($SIZE bytes) - this is the generator, not the service."
+            exit 1
+          fi
+          echo "test docx    : $SIZE bytes"
+
+          BODY=$(curl -s --max-time 40 \
+            -H "authorization: Bearer $TOKEN" \
+            -H 'content-type: application/vnd.openxmlformats-officedocument.wordprocessingml.document' \
+            --data-binary @/tmp/vx-test.docx \
+            'https://visionex.app/internal/media/office?kind=docx')
+
+          # Printing the reply is printing what was written into the file four
+          # commands ago. No customer's document is involved at any point.
+          say '## Local Office self-test'
+          say '```'
+          say "sent     : $PHRASE_EN / $PHRASE_AR"
+          say "returned : $(printf '%s' "$BODY" | head -c 400)"
+          say '```'
+
+          rm -rf "$WORK" /tmp/vx-test.docx
+
+          FAILED=0
+          case "$BODY" in
+            *VISIONEX*) ;;
+            *) echo '::error::The English text did not come back.'; FAILED=1 ;;
+          esac
+          # JSON escapes non-ASCII as \uXXXX, so the Arabic is matched by its
+          # escaped form rather than by the literal - which is also proof the
+          # service encoded it rather than mangling it.
+          case "$BODY" in
+            *'موعد'*|*"$PHRASE_AR"*) ;;
+            *) echo '::error::The Arabic text did not come back. This endpoint must not be described as language-neutral.'; FAILED=1 ;;
+          esac
+
+          if [ "$FAILED" -ne 0 ]; then
+            say 'Office extraction must not be relied on. A sender would get a wrong answer where they used to get a refusal.'
+            exit 1
+          fi
+          say 'Both paragraphs came back, in both scripts. Office extraction works end to end.'
       - name: Forget the key
         if: always()
         run: rm -f ~/.ssh/id_deploy ~/.ssh/config

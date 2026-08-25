@@ -2,13 +2,15 @@
 //
 // ── What it is for ──────────────────────────────────────────────────────────
 //
-// Reading a photograph without sending it to anybody. Today that is OCR and
-// barcodes; the image also carries ffmpeg for the phases after this one.
+// Reading a file without sending it to anybody. Today that is OCR, barcodes and
+// Office documents; the image also carries ffmpeg for the phases after this one.
 //
-// The two are not equally useful to the same people, and that is the point of
-// adding the second. OCR here is English-only — Arabic recognition does not
-// work on this box, measured over six runs — so it serves half of this
-// channel's audience. A barcode has no language, so it serves all of it.
+// The three are not equally useful to the same people, and that is the point of
+// having added the second and third. OCR here is English-only — Arabic
+// recognition does not work on this box, measured over six runs — so it serves
+// half of this channel's audience. A barcode has no language. Neither does the
+// text inside a `.docx`. Both of those arrived complete for everybody on their
+// first day.
 //
 // It exists as a separate process because a Supabase Edge Function cannot host
 // one: no persistent disk, no long-lived process, no way to ship a Tesseract
@@ -20,7 +22,8 @@
 // Plain `node:http`, no packages, no lockfile. Something that will eventually
 // be reachable from the internet and is handed files by strangers should have
 // as little third-party code in its request path as it can manage — and for an
-// HTTP server with four endpoints, that is none.
+// HTTP server with five endpoints, that is none. Unpacking a `.docx` was the
+// first real temptation to add a package, and it is answered by `node:zlib`.
 //
 // ── Bound to localhost by the deployment, not by this file ──────────────────
 //
@@ -39,10 +42,12 @@ import {
   BARCODE_TIMEOUT_MS,
   MAX_BARCODE_SYMBOLS,
   MAX_CONCURRENT,
+  MAX_DOCUMENT_BYTES,
   MAX_QUEUED,
   MAX_TEXT_CHARS,
   MAX_UPLOAD_BYTES,
   OCR_TIMEOUT_MS,
+  checkDocumentUpload,
   checkUpload,
   isSupportedLanguage,
   languageFromQuery,
@@ -51,6 +56,12 @@ import {
   parseBarcodeOutput,
   textIsUsable,
 } from "./limits.mjs";
+import {
+  MAX_OFFICE_TEXT_CHARS,
+  SUPPORTED_OFFICE_KINDS,
+  extractOfficeText,
+  isSupportedOfficeKind,
+} from "./office.mjs";
 
 const PORT = Number(process.env.PORT ?? 8081);
 const HOST = process.env.HOST ?? "0.0.0.0";
@@ -114,8 +125,14 @@ function authorised(req) {
   return diff === 0;
 }
 
-/** Read the body, refusing anything over the ceiling as it arrives. */
-function readBody(req) {
+/**
+ * Read the body, refusing anything over the ceiling as it arrives.
+ *
+ * The ceiling is a parameter because the two upload kinds differ: an image is
+ * capped at eight megabytes and a document at twelve, matching what the Edge
+ * Function will download in the first place.
+ */
+function readBody(req, limit = MAX_UPLOAD_BYTES) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
@@ -123,7 +140,7 @@ function readBody(req) {
       size += chunk.length;
       // Refused mid-stream rather than after: the point of a ceiling is to
       // avoid holding the bytes, not to measure them once they are all here.
-      if (size > MAX_UPLOAD_BYTES) {
+      if (size > limit) {
         reject(Object.assign(new Error("too_large"), { code: "too_large" }));
         req.destroy();
         return;
@@ -457,6 +474,104 @@ async function handleBarcode(req, res, correlation) {
   }
 }
 
+/**
+ * Read the words out of a Word document or a slide deck.
+ *
+ * ── Why this is a gap worth closing ─────────────────────────────────────────
+ *
+ * Today a `.docx` arriving on WhatsApp is answered with "I can't open Word
+ * files yet. Send it as a PDF" — advice that assumes the sender has a machine
+ * with Word on it and can see the export dialog. Frequently they have a phone
+ * and cannot see the screen at all. This is one of the few remaining places
+ * where the assistant refuses a file it could perfectly well read.
+ *
+ * ── Why it runs here and not in the Edge Function ───────────────────────────
+ *
+ * It needs a DEFLATE decoder. Deno has `DecompressionStream("deflate-raw")`,
+ * so it *could* live there — but CI runs the Vitest suite on Node 20, which
+ * does not have `deflate-raw`, and a capability that cannot be tested on the
+ * machine that gates the merge is not one worth having. Here it is
+ * `node:zlib.inflateRawSync`, which every Node this service will ever run on
+ * has had for a decade.
+ *
+ * ── No CPU spent on a model, and none spent on a core either ────────────────
+ *
+ * Unlike OCR and barcode scanning, this is not CPU-bound work: it is an inflate
+ * and a regular expression over a few hundred kilobytes, measured in
+ * milliseconds. It still takes a worker slot, because the ceilings it enforces
+ * are about a hostile archive rather than about time, and an archive designed
+ * to be expensive should be queued behind the same two workers as everything
+ * else rather than given a lane of its own.
+ */
+async function handleOffice(req, res, correlation) {
+  if (tooBusy(res, correlation)) return;
+
+  const url = new URL(req.url, "http://internal");
+  // Allowlisted whole strings, the same as the OCR language. This one does not
+  // reach a command line — nothing here spawns a process — but it selects which
+  // parts of an archive are unpacked, and an allowlist is still the simplest
+  // thing to be sure about.
+  const kind = url.searchParams.get("kind") ?? "";
+  if (!isSupportedOfficeKind(kind)) {
+    return send(res, 400, { ok: false, reason: "unsupported_kind", supported: SUPPORTED_OFFICE_KINDS });
+  }
+
+  let bytes;
+  try {
+    bytes = await readBody(req, MAX_DOCUMENT_BYTES);
+  } catch (error) {
+    log("rejected", { correlation, reason: error.code ?? "unreadable" });
+    return send(res, 413, { ok: false, reason: error.code ?? "unreadable" });
+  }
+
+  const verdict = checkDocumentUpload(bytes);
+  if (!verdict.ok) {
+    log("rejected", { correlation, reason: verdict.reason, bytes: bytes.length });
+    return send(res, 400, { ok: false, reason: verdict.reason });
+  }
+
+  await acquireSlot();
+
+  const startedAt = Date.now();
+  try {
+    const extracted = extractOfficeText(bytes, kind);
+
+    log("office", {
+      correlation,
+      ms: Date.now() - startedAt,
+      bytes: bytes.length,
+      kind,
+      ok: extracted.ok,
+      // A length and a part count. Never the text: this is somebody's contract,
+      // medical letter or invoice.
+      chars: extracted.ok ? extracted.text.length : 0,
+      parts: extracted.ok ? extracted.parts : 0,
+      reason: extracted.ok ? "read" : extracted.reason,
+    });
+
+    if (!extracted.ok) {
+      // 200 with `ok: false`, the same as a failed OCR run. The request was
+      // handled correctly; the file was the problem, and the caller decides
+      // what to say about it.
+      return send(res, 200, { ok: false, reason: extracted.reason });
+    }
+
+    return send(res, 200, {
+      ok: true,
+      readable: true,
+      text: extracted.text.slice(0, MAX_OFFICE_TEXT_CHARS),
+      chars: extracted.text.length,
+      parts: extracted.parts,
+      ms: Date.now() - startedAt,
+    });
+  } catch (error) {
+    log("office_failed", { correlation, ms: Date.now() - startedAt, reason: error?.code ?? "unknown" });
+    return send(res, 200, { ok: false, reason: error?.code ?? "unknown" });
+  } finally {
+    releaseSlot();
+  }
+}
+
 const server = createServer(async (req, res) => {
   const correlation = randomUUID().replace(/-/g, "").slice(0, 16);
   const url = new URL(req.url ?? "/", "http://internal");
@@ -483,8 +598,10 @@ const server = createServer(async (req, res) => {
         // because a caller needs to know which of the two it can rely on: this
         // deployment may have been rolled back to an image with only one.
         barcode: true,
+        office: SUPPORTED_OFFICE_KINDS,
         languages: ["ara", "eng", "ara+eng"],
         max_bytes: MAX_UPLOAD_BYTES,
+        max_document_bytes: MAX_DOCUMENT_BYTES,
         concurrency: MAX_CONCURRENT,
       });
     }
@@ -495,6 +612,10 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/barcode") {
       return await handleBarcode(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/office") {
+      return await handleOffice(req, res, correlation);
     }
 
     return send(res, 404, { ok: false, reason: "not_found" });
