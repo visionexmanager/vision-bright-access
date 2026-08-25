@@ -38,6 +38,7 @@ import {
   OCR_TIMEOUT_MS,
   checkUpload,
   isSupportedLanguage,
+  languageFromQuery,
   textIsUsable,
 } from "./limits.mjs";
 
@@ -196,7 +197,10 @@ async function handleOcr(req, res, correlation) {
   }
 
   const url = new URL(req.url, "http://internal");
-  const language = url.searchParams.get("lang") ?? "ara+eng";
+  // Normalised before it is checked: a plus in a query decodes to a space, so
+  // the obvious `?lang=ara+eng` arrives as `ara eng`. The allowlist below is
+  // still the only thing that decides.
+  const language = languageFromQuery(url.searchParams.get("lang")) ?? "ara+eng";
   if (!isSupportedLanguage(language)) {
     return send(res, 400, { ok: false, reason: "unsupported_language" });
   }

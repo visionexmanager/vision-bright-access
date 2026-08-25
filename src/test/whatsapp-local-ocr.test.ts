@@ -223,7 +223,12 @@ describe("the call itself", () => {
     });
 
     expect(result).toEqual({ ok: true, text: "EXIT", ms: 900 });
-    expect(seenUrl).toBe("https://visionex.app/internal/media/ocr?lang=ara+eng");
+    // Asserted by decoding it the way a server does, not by matching the
+    // string. The previous version of this test asserted `?lang=ara+eng`
+    // literally - which is the bug, written down and locked in: a plus in a
+    // query decodes to a space, so the service was hearing `ara eng`.
+    expect(seenUrl).toBe("https://visionex.app/internal/media/ocr?lang=ara%2Beng");
+    expect(new URL(seenUrl).searchParams.get("lang")).toBe("ara+eng");
     expect(seenInit?.method).toBe("POST");
     const headers = seenInit?.headers as Record<string, string>;
     expect(headers.authorization).toBe("Bearer t0ken");
@@ -263,6 +268,31 @@ describe("the call itself", () => {
     expect(new Uint8Array(sent!)).toEqual(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]));
     // The 0xaa filler either side of the view must not have travelled.
     expect(Array.from(new Uint8Array(sent!))).not.toContain(0xaa);
+  });
+
+  it("asks for both scripts in a way the service can hear", async () => {
+    // This is the one that English could never have caught. `eng` has no
+    // plus in it, so every English test passed while Arabic - the primary
+    // audience - failed on every photograph and fell back to the paid model.
+    const { readTextLocally } = await load();
+    let seen = "";
+    const fetchImpl = (async (url: string) => {
+      seen = url;
+      return new Response(JSON.stringify({ ok: true, readable: true, text: "مخرج" }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    await readTextLocally({
+      bytes: IMAGE,
+      mimeType: "image/jpeg",
+      answerLanguage: "ar",
+      config: CONFIG,
+      fetchImpl,
+    });
+
+    // What the service actually receives after decoding.
+    const received = new URL(seen).searchParams.get("lang");
+    expect(received).toBe("ara+eng");
+    expect(received).not.toBe("ara eng");
   });
 
   it("steps aside when the service is full", async () => {

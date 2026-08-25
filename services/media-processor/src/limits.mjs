@@ -52,8 +52,22 @@ export const SUPPORTED_LANGUAGES = ["ara", "eng", "ara+eng"];
  * Tesseract takes `-l ara+eng`, so a plus is legitimate and an allowlist of
  * whole strings is simpler to be sure about than a parser.
  */
-export const isSupportedLanguage = (value) =>
-  typeof value === "string" && SUPPORTED_LANGUAGES.includes(value);
+export const isSupportedLanguage = (value) => typeof value === "string" && SUPPORTED_LANGUAGES.includes(value);
+
+/**
+ * The language a query string actually asked for.
+ *
+ * A plus sign in a query decodes to a space, so a caller writing the obvious
+ * `?lang=ara+eng` is heard as `ara eng` and refused. The caller was fixed to
+ * encode it, but the ambiguity is in the URL syntax rather than in that one
+ * caller, and the next one will make the same mistake.
+ *
+ * A space is never valid in a Tesseract language spec, so reading it as the
+ * plus it must have been is unambiguous. The allowlist above is still the only
+ * thing that decides — this normalises the input to it, it does not widen it.
+ */
+export const languageFromQuery = (value) =>
+  typeof value === "string" ? value.trim().replace(/\s+/g, "+") : value;
 
 /**
  * What the bytes say this file is. A narrow copy of `sniffMime`.
