@@ -595,40 +595,51 @@ jobs:
               ;;
           esac
 
-          # ── Arabic: is there an Arabic font at all? ──────────────────────────
+          # ── Arabic: install the font properly, and name it ───────────────────
           #
-          # The matrix came back empty. Two languages by four segmentation modes,
-          # one large correctly shaped image, ink coverage 0.93, and not one
-          # combination read a word. `ara.traineddata` is present — the container
-          # answers `ara eng osd` — and Tesseract exits 0 every time.
+          # The previous run reported "a real Arabic font, correctly shaped, and
+          # still nothing" and was about to become a product decision. Two things
+          # in its own output contradict it.
           #
-          # That reads like "Tesseract cannot read Arabic here", and it was very
-          # nearly written down as that. But ink coverage cannot tell letters
-          # from boxes. A font with no Arabic glyphs makes pango draw tofu — ▯▯▯
-          # — which is ink, is shaped like text, occupies the same area, and
-          # contains no letters at all. Every measurement taken so far is
-          # identical for "Arabic Tesseract cannot read" and "boxes nobody could
-          # read", and the conclusion drawn from them would have been wrong in
-          # the second case.
+          # `fc-match :lang=ar` answered DejaVu Sans. DejaVu carries some Arabic
+          # code points but no Arabic joining tables, so pango lays it out as
+          # isolated, unjoined letterforms - which is not how Arabic is written
+          # and not what Tesseract was trained on. fontconfig's `:lang=ar` match
+          # is satisfied by partial coverage, so "35 fonts installed" was never
+          # the question worth asking.
           #
-          # So fontconfig is asked directly, before anything else is concluded.
-          sudo apt-get install -y -qq fonts-noto-core fonts-kacst fonts-freefont-ttf >/dev/null 2>&1 || true
+          # And the ink measured 0.928423, to the digit, in both runs. The image
+          # did not change when the font was named, which means the font was
+          # never the one being asked for.
+          #
+          # The cause is one line up: `apt-get install a b c` installs *nothing*
+          # if any one of them is unavailable, and `|| true` swallowed the
+          # failure. So they go in one at a time, and what actually arrived is
+          # reported rather than assumed.
+          sudo apt-get update -qq >/dev/null 2>&1 || true
+          FONTS_IN=""
+          for pkg in fonts-noto-core fonts-kacst fonts-hosny-amiri fonts-arabeyes; do
+            if sudo apt-get install -y -qq "$pkg" >/dev/null 2>&1; then
+              FONTS_IN="$FONTS_IN $pkg"
+            fi
+          done
+          say "arabic font packages installed:${FONTS_IN:- none}"
 
           say "languages in the container: $(ssh target 'docker exec visionex-media tesseract --list-langs 2>&1 | tr "\n" " "' 2>/dev/null || echo 'could not ask')"
 
-          AR_FONTS=$(fc-list :lang=ar family 2>/dev/null | sort -u | head -5 | tr '\n' ';')
-          AR_FONT_COUNT=$(fc-list :lang=ar 2>/dev/null | wc -l)
-          say "arabic fonts  : $AR_FONT_COUNT installed${AR_FONTS:+ ($AR_FONTS)}"
+          # Chosen by name, not by fontconfig's language match. A font that
+          # merely contains Arabic code points satisfies `:lang=ar` and still
+          # cannot join them; these four are real Arabic typefaces.
+          AR_FAMILY=""
+          for want in "Noto Sans Arabic" "Amiri" "KacstOne" "Scheherazade"; do
+            if fc-list 2>/dev/null | grep -qi "$want"; then AR_FAMILY="$want"; break; fi
+          done
 
-          if [ "$AR_FONT_COUNT" -eq 0 ]; then
-            say 'arabic: no font on this runner covers Arabic, so every image so far was boxes.'
-            say 'This says nothing about Tesseract. The harness could not draw the question.'
+          if [ -z "$AR_FAMILY" ]; then
+            say 'arabic: still no true Arabic typeface on this runner.'
+            say 'Nothing can be concluded about Tesseract from a page of unjoined letters.'
           else
-            # Named explicitly rather than left to pango's default, so the log
-            # records which letterforms were actually tested.
-            AR_FAMILY=$(fc-match :lang=ar family 2>/dev/null | head -1)
             say "arabic font   : $AR_FAMILY"
-
             "$IM" -background white -fill black \
               "pango:<span font=\"$AR_FAMILY 96\">مخرج المستشفى</span>" \
               -bordercolor white -border 60 /tmp/vx-ar.png 2>/dev/null || true
@@ -636,6 +647,10 @@ jobs:
             if [ ! -s /tmp/vx-ar.png ]; then
               say 'arabic: no image could be rendered - the harness, not the service.'
             else
+              # Printed so the next run can be compared against this one. An ink
+              # value identical to the last run means the render did not change,
+              # whatever the font was said to be - which is how the DejaVu
+              # fallback was caught.
               say "arabic image  : $("$IM" /tmp/vx-ar.png -format '%wx%h, ink %[fx:mean]' info: 2>/dev/null)"
               say 'arabic matrix :'
               AR_WORKS=""
@@ -675,8 +690,8 @@ jobs:
               if [ -n "$AR_WORKS" ]; then
                 say "arabic: readable with$AR_WORKS"
               else
-                say 'arabic: a real Arabic font, correctly shaped, and still nothing.'
-                say 'That is now a Tesseract answer rather than a harness one.'
+                say 'arabic: a true Arabic typeface, correctly joined, and still nothing.'
+                say 'That is a Tesseract answer, and Arabic should not use local OCR.'
               fi
             fi
           fi
