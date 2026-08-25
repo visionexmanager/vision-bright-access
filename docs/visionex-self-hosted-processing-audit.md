@@ -127,7 +127,7 @@ Full machine-readable version: `docs/visionex-processing-capability-matrix.json`
 | PDF text extraction | already local | — | negligible | equal | 🟢 |
 | File validation | already local | + magic-byte sniffing | negligible | n/a | 🟢 |
 | Image resize / EXIF strip | **absent** | libvips (sharp) | ~50 MB, <100 ms | n/a | 🟢 |
-| QR / barcode | **absent** | zbar / ZXing | ~20 MB, <50 ms | better | 🟢 |
+| QR / barcode | ~~absent~~ **shipped, local** | zbar | ~20 MB, <50 ms | better | 🟢 |
 | Scanned-PDF OCR | **refused today** | ocrmypdf | ~500 MB, 1-4 s/page | good | 🟢 |
 | Office extraction | vision model | Apache Tika | ~0.5-1 GB | equal or better | 🟢 |
 | Audio normalisation | absent | ffmpeg | ~50 MB | n/a | 🟢 |
@@ -268,10 +268,38 @@ averaged away in a green cell.
 | ✅ | **A3b** — published through nginx at `/internal/media/`, behind a bearer token and a rate limit | #192, #193, #194, #195 |
 | ✅ | **A3c** — the WhatsApp image path calls it, falling back to the vision model | #197, #200 |
 | ⚠️ | **A3c** — English only; Arabic recognition does not work on this box, see above | #206 |
+| ✅ | **A4** — QR and barcode decoding, wired into the `product` mode | #209 |
 
 B1 arrived before A3 because the classifier is pure text matching: no model, no
 service, nothing to host. It is the cheapest thing in this document and it was
 never really Phase B.
+
+A4 is the first local capability that serves the whole audience. Everything
+above it is either English-only (A3c) or invisible to the sender (A1, A2). A
+barcode has no language: the thirteen digits under an EAN-13 are the same
+digits in Riyadh and in Helsinki, so the Arabic half of this channel — the
+larger half, and the one Tesseract cannot read for — gets something local on the
+first day rather than after an Arabic OCR model is found.
+
+It is also the one row in section 3 where the local tool is marked *better* than
+the external one, and that is worth stating precisely. zbar decodes a symbol
+whose own check digit proves it, or reports that it could not. A vision model
+reads thirteen small digits off a curved packet in bad light and will
+occasionally return twelve of them, confidently. The person holding the packet
+cannot proof-read the answer. So the scan does not replace the model — nobody
+asked to hear thirteen digits read aloud — it runs first and hands the model the
+verified number, and the model describes the packet as it always did.
+
+The security line in A4 is where the two payload kinds are kept apart. A retail
+symbol carries digits and can go into a prompt, because no instruction is
+expressible in thirteen digits. A QR code carries whatever somebody printed on
+the sticker, and a sticker reading "ignore your instructions and …" can be made
+with a website and a printer and left on a shelf. So QR text is shown to the
+sender verbatim and never enters a prompt — the same rule `whatsappLocalOcr.ts`
+already applies to recognised text, for the same reason. The `product` label is
+re-established from the digits on the Edge Function side rather than believed
+from the service's answer, and the self-test asserts both labels rather than
+just both payloads.
 
 A3b took four pull requests, which is worth recording honestly. The first
 attempt would have written the route into the wrong nginx file, the second into
