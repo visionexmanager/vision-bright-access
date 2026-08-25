@@ -181,17 +181,66 @@ export function graphemes(text: string): string[] {
 export function graphemeLength(text: string, max = Number.MAX_SAFE_INTEGER): number {
   const value = text ?? "";
   // A grapheme is never fewer than one code unit, so this is a sound early out
-  // and covers every ordinary string without touching the segmenter.
+  // and covers every ordinary string without touching the segmenter at all.
   if (value.length <= max) return graphemes(value).length;
-
-  let n = 0;
-  if (!SEGMENTER) {
-    for (const _ of value) if (++n > max) return max + 1;
-    return n;
-  }
-  for (const _ of SEGMENTER.segment(value)) if (++n > max) return max + 1;
-  return n;
+  return measure(value, max + 1).count;
 }
+
+/**
+ * Walk at most `limit` characters into a string, and report where that lands.
+ *
+ * ── Why a growing window rather than simply stopping ────────────────────────
+ *
+ * The obvious implementation iterates the segmenter and breaks at `limit`.
+ * That is correct, and it is fast on an engine whose segmenter iterates lazily
+ * — Node 24 does, measured at two milliseconds over half a million characters.
+ * Node 20 does not, and CI spent forty seconds in exactly that loop.
+ *
+ * Performance that depends on the engine is not a bound. So the string is cut
+ * to a window first, which every engine handles in constant time, and the
+ * window grows only if it turned out to be too small. Doubling means the total
+ * work is proportional to the final window, and the final window is at most
+ * twice the smallest one that could have contained the answer.
+ *
+ * One cluster more than asked for is consumed, so the last one returned is
+ * known to be whole rather than truncated by the window's own edge.
+ */
+function measure(value: string, limit: number): { units: number; count: number } {
+  if (limit <= 0) return { units: 0, count: 0 };
+
+  let width = Math.min(value.length, Math.max(limit * 2, MIN_WINDOW));
+  for (;;) {
+    const whole = width >= value.length;
+    const window = whole ? value : value.slice(0, width);
+
+    let units = 0;
+    let count = 0;
+    let sawMore = false;
+    for (const cluster of clustersOf(window)) {
+      if (count >= limit) { sawMore = true; break; }
+      units += cluster.length;
+      count += 1;
+    }
+
+    // Enough characters, and proof that the last one was not cut off by the
+    // window; or the window is the whole string and there is no more to find.
+    if (whole || sawMore) return { units, count };
+    width = Math.min(value.length, width * 2);
+  }
+}
+
+/** The smallest window worth segmenting. Below this the overhead dominates. */
+const MIN_WINDOW = 64;
+
+/** Clusters of an already-bounded string, segmenter or code points. */
+function* clustersOf(value: string): Generator<string> {
+  if (!SEGMENTER) {
+    for (const point of value) yield point;
+    return;
+  }
+  for (const piece of SEGMENTER.segment(value)) yield piece.segment;
+}
+
 
 
 /**
@@ -207,35 +256,9 @@ export function sliceGraphemes(text: string, limit: number): string {
   const value = text ?? "";
   // A grapheme is at least one code unit, so anything this short already fits.
   if (value.length <= limit) return value;
-
-  // ── Why there is no window here ──────────────────────────────────────────
-  //
-  // `Intl.Segmenter` iteration is lazy: it walks the string one cluster at a
-  // time and computes nothing beyond what is consumed. So taking the first
-  // `limit` clusters costs `limit`, whatever the string's length — measured at
-  // two milliseconds on half a million characters.
-  //
-  // The first attempt at this bounded the work with a window of
-  // `limit * WIDEST_CHARACTER` instead, which for a four-thousand ceiling is a
-  // quarter of a million characters and barely a bound at all: CI spent eighty
-  // seconds in it. Stopping is the bound.
-  let units = 0;
-  let taken = 0;
-  if (!SEGMENTER) {
-    for (const point of value) {
-      if (taken >= limit) break;
-      units += point.length;
-      taken += 1;
-    }
-    return value.slice(0, units);
-  }
-  for (const cluster of SEGMENTER.segment(value)) {
-    if (taken >= limit) break;
-    units += cluster.segment.length;
-    taken += 1;
-  }
-  return value.slice(0, units);
+  return value.slice(0, measure(value, limit).units);
 }
+
 
 
 /**

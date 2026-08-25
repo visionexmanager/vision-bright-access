@@ -536,6 +536,74 @@ describe("prompts, histories and responses are bounded", () => {
     within(2_000, "splitAnswer", () => ai.splitAnswer(HUGE_EMOJI, limits));
   });
 
+  it("hands the segmenter work proportional to the ceiling, not to the input", () => {
+    // ── Why this counts instead of timing ─────────────────────────────────
+    //
+    // The first version of this test measured wall time against an eager
+    // segmenter, and it was vacuous on a fast machine: a deliberately
+    // regressed implementation passed it, because segmenting half a million
+    // characters takes 68ms here and the budget was two seconds. It would have
+    // failed only on CI — which is not a guard, it is a coin toss.
+    //
+    // What it should have asserted is the invariant itself. `Intl.Segmenter`
+    // iterates lazily on Node 24 and eagerly on the Node 20 CI runs, so "stop
+    // consuming at the limit" is fast here and took forty seconds there. The
+    // implementation must therefore never *hand* the segmenter more than it
+    // needs, whatever the engine then does with it — and that is a number this
+    // test can read directly.
+    const prototype = (Intl as unknown as {
+      Segmenter: { prototype: { segment(input: string): Iterable<unknown> } };
+    }).Segmenter.prototype;
+    const real = prototype.segment;
+    let handed = 0;
+    prototype.segment = function (input: string) {
+      handed += input.length;
+      return real.call(this, input);
+    };
+
+    const measured = (work: () => unknown): number => {
+      handed = 0;
+      work();
+      return handed;
+    };
+
+    try {
+      const LIMIT = 4_000;
+      // Generous: the widest realistic character is about a dozen code units,
+      // and the window doubles, so a factor of forty is far above any correct
+      // implementation and far below the 500,000 a linear one hands over.
+      const ceiling = LIMIT * 40;
+
+      for (const [label, work] of [
+        ["boundText/ascii", () => safety.boundText(HUGE, LIMIT)],
+        ["boundText/emoji", () => safety.boundText(HUGE_EMOJI, LIMIT)],
+        ["sliceGraphemes", () => safety.sliceGraphemes(HUGE, LIMIT)],
+        ["sliceGraphemes/emoji", () => safety.sliceGraphemes(HUGE_EMOJI, LIMIT)],
+        ["graphemeLength", () => safety.graphemeLength(HUGE, LIMIT)],
+        ["safeCut", () => safety.safeCut(HUGE_EMOJI, LIMIT)],
+      ] as Array<[string, () => unknown]>) {
+        const units = measured(work);
+        expect(units, `${label}` + " handed the segmenter " + units + " code units")
+          .toBeLessThan(ceiling);
+        // And it must be far below the input, or nothing has been bounded.
+        expect(units, label).toBeLessThan(HUGE.length / 4);
+      }
+
+      // The whole prompt assembly, which is where the forty seconds actually
+      // went: several huge fields, each bounded separately.
+      const assembling = measured(() => ask.buildRequest({
+        systemParts: ["rules", HUGE, HUGE_EMOJI],
+        summary: HUGE,
+        turns: [{ role: "user", content: HUGE }, { role: "assistant", content: HUGE_EMOJI }],
+        question: HUGE,
+      }));
+      expect(assembling, "buildRequest handed over " + assembling + " code units")
+        .toBeLessThan(safety.MAX_SYSTEM_PROMPT_CHARS * 40);
+    } finally {
+      prototype.segment = real;
+    }
+  });
+
   it("names every ceiling as an exported constant", () => {
     expect(safety.MAX_SYSTEM_PROMPT_CHARS).toBeGreaterThan(0);
     expect(safety.MAX_SUMMARY_CHARS).toBeGreaterThan(0);
