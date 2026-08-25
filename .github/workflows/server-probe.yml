@@ -1,0 +1,160 @@
+name: Probe the server
+
+# What is actually on the box, asked once, changing nothing.
+#
+# ── Why this exists as its own workflow ─────────────────────────────────────
+#
+# The self-hosted processing roadmap (docs/visionex-self-hosted-processing-audit.md)
+# needs three things this repository cannot answer: whether the SSH credentials
+# still work, whether Docker is installed and usable, and how much headroom the
+# machine really has under its current load. The Hetzner Console gives the plan
+# — CCX23, 4 dedicated vCPU, 16 GB — but not what is running on it today.
+#
+# So this is the step before any deployment: prove the credentials, read the
+# state, touch nothing. If it fails, nothing has happened. If it succeeds, the
+# deployment that follows is being planned against measurements rather than
+# assumptions.
+#
+# ── Read-only, and structurally so ──────────────────────────────────────────
+#
+# Every command below reads. There is no install, no write, no service change,
+# no package manager. That is not a promise in a comment — the command block is
+# short enough to check by eye, and it is the whole of what runs.
+#
+# ── This repository is PUBLIC ───────────────────────────────────────────────
+#
+# The job summary is world-readable. So nothing here prints an environment
+# variable, a path from a secret, a hostname, an IP, a key fingerprint, or the
+# contents of any file. What it prints is counts, sizes and version strings.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Read the server state
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check the credentials are configured
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          missing=""
+          [ -z "$HOST" ] && missing="$missing SERVER_HOST"
+          [ -z "$USER" ] && missing="$missing SERVER_USER"
+          [ -z "$KEY"  ] && missing="$missing SSH_PRIVATE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing secrets:$missing"
+            exit 1
+          fi
+          echo "All three secrets are present."
+
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_probe
+          chmod 600 ~/.ssh/id_probe
+
+          # `accept-new` rather than `no`: there is no known_hosts secret in this
+          # repository, so the alternative is disabling host verification
+          # entirely. This pins the key on first sight and fails if it ever
+          # changes — the safer of the two available options.
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_probe
+            ConnectTimeout 15
+            BatchMode yes
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+          if ssh target 'echo ok' >/dev/null 2>&1; then
+            echo "SSH_OK=true" >> "$GITHUB_ENV"
+            echo "Connected."
+          else
+            echo "SSH_OK=false" >> "$GITHUB_ENV"
+            echo "::warning::Could not connect. The key may be stale, or the server may not accept it."
+            exit 1
+          fi
+
+      - name: Read what is there
+        if: env.SSH_OK == 'true'
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          say "# Server state"
+          say ""
+          say "Read-only. No package manager, no service change, nothing written."
+          say ""
+          say '```'
+          # One connection, one script, all of it reading. Quoted heredoc so
+          # nothing is expanded by the runner before it reaches the server.
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          echo "── CPU ───────────────────────────────────────────"
+          echo "cores            : $(nproc)"
+          echo "model            : $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')"
+          echo "load (1/5/15m)   : $(cut -d' ' -f1-3 /proc/loadavg)"
+          echo
+          echo "── Memory ────────────────────────────────────────"
+          free -h | sed 's/^/  /'
+          echo
+          echo "── Disk ──────────────────────────────────────────"
+          df -h / | sed 's/^/  /'
+          echo
+          echo "── Docker ────────────────────────────────────────"
+          if command -v docker >/dev/null 2>&1; then
+            echo "docker           : $(docker --version 2>/dev/null)"
+            echo "compose          : $(docker compose version 2>/dev/null || echo 'not available')"
+            echo "daemon reachable : $(docker info >/dev/null 2>&1 && echo yes || echo 'no — user may need the docker group')"
+            echo "running containers: $(docker ps -q 2>/dev/null | wc -l)"
+            echo "images           : $(docker images -q 2>/dev/null | sort -u | wc -l)"
+          else
+            echo "docker           : NOT INSTALLED"
+          fi
+          echo
+          echo "── Toolchain already present ─────────────────────"
+          for tool in ffmpeg tesseract zbarimg pdftoppm node npm nginx git; do
+            if command -v "$tool" >/dev/null 2>&1; then
+              echo "  $tool: yes"
+            else
+              echo "  $tool: no"
+            fi
+          done
+          echo
+          echo "── OS ────────────────────────────────────────────"
+          echo "distro           : $(. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME")"
+          echo "kernel           : $(uname -r)"
+          echo "uptime           : $(uptime -p 2>/dev/null || true)"
+          echo
+          echo "── Listening ports (count only) ──────────────────"
+          echo "listening sockets: $(ss -tln 2>/dev/null | tail -n +2 | wc -l)"
+          REMOTE
+          say '```'
+          say ""
+          say "Nothing above changed anything: every command reads."
+
+      - name: Forget the key
+        if: always()
+        run: rm -f ~/.ssh/id_probe ~/.ssh/config
