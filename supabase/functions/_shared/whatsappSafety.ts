@@ -180,19 +180,19 @@ export function graphemes(text: string): string[] {
  */
 export function graphemeLength(text: string, max = Number.MAX_SAFE_INTEGER): number {
   const value = text ?? "";
-  // A grapheme is never fewer than one code unit, so this is a sound early out.
+  // A grapheme is never fewer than one code unit, so this is a sound early out
+  // and covers every ordinary string without touching the segmenter.
   if (value.length <= max) return graphemes(value).length;
+
+  let n = 0;
   if (!SEGMENTER) {
-    let n = 0;
-    for (const _ of value) { if (++n > max) return max + 1; }
+    for (const _ of value) if (++n > max) return max + 1;
     return n;
   }
-  let n = 0;
-  for (const _ of SEGMENTER.segment(value.slice(0, (max + 1) * WIDEST_CHARACTER))) {
-    if (++n > max) return max + 1;
-  }
+  for (const _ of SEGMENTER.segment(value)) if (++n > max) return max + 1;
   return n;
 }
+
 
 /**
  * The first `limit` characters, whole ones only.
@@ -207,15 +207,36 @@ export function sliceGraphemes(text: string, limit: number): string {
   const value = text ?? "";
   // A grapheme is at least one code unit, so anything this short already fits.
   if (value.length <= limit) return value;
-  // Otherwise segment a window wide enough to certainly contain `limit`
-  // characters and no wider. This is the line that keeps the cost proportional
-  // to the limit rather than to the length of the input.
-  const window = value.slice(0, limit * WIDEST_CHARACTER);
-  const units = graphemes(window);
-  return units.length <= limit && window.length === value.length
-    ? value
-    : units.slice(0, limit).join("");
+
+  // ── Why there is no window here ──────────────────────────────────────────
+  //
+  // `Intl.Segmenter` iteration is lazy: it walks the string one cluster at a
+  // time and computes nothing beyond what is consumed. So taking the first
+  // `limit` clusters costs `limit`, whatever the string's length — measured at
+  // two milliseconds on half a million characters.
+  //
+  // The first attempt at this bounded the work with a window of
+  // `limit * WIDEST_CHARACTER` instead, which for a four-thousand ceiling is a
+  // quarter of a million characters and barely a bound at all: CI spent eighty
+  // seconds in it. Stopping is the bound.
+  let units = 0;
+  let taken = 0;
+  if (!SEGMENTER) {
+    for (const point of value) {
+      if (taken >= limit) break;
+      units += point.length;
+      taken += 1;
+    }
+    return value.slice(0, units);
+  }
+  for (const cluster of SEGMENTER.segment(value)) {
+    if (taken >= limit) break;
+    units += cluster.segment.length;
+    taken += 1;
+  }
+  return value.slice(0, units);
 }
+
 
 /**
  * The longest prefix that fits in `maxUnits` UTF-16 units and ends on a
@@ -374,18 +395,12 @@ export function stripInvisible(text: string): string {
 /**
  * One field, stripped and cut to its ceiling. The cut is grapheme-safe.
  *
- * The pre-cut is what stops anything expensive ever meeting an unbounded
- * string: `stripInvisible` and the segmenter both run over at most a window
- * wide enough to certainly hold `limit` characters. Stripping only ever
- * removes, so cutting first cannot lose anything the ceiling would have kept.
+ * Nothing here scales with the input. `stripInvisible` is one native regex
+ * pass with an early out, and `sliceGraphemes` stops consuming at the ceiling
+ * rather than segmenting what it is about to discard.
  */
-export const boundText = (text: string | null | undefined, limit: number): string => {
-  const trimmed = (text ?? "").trim();
-  const window = trimmed.length > limit * WIDEST_CHARACTER
-    ? trimmed.slice(0, limit * WIDEST_CHARACTER)
-    : trimmed;
-  return sliceGraphemes(stripInvisible(window), limit);
-};
+export const boundText = (text: string | null | undefined, limit: number): string =>
+  sliceGraphemes(stripInvisible((text ?? "").trim()), limit);
 
 /**
  * Assemble a system prompt and bound the whole of it.

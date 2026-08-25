@@ -428,8 +428,16 @@ describe("prompts, histories and responses are bounded", () => {
   // production — so it was not a slow test, it was a webhook that never answers
   // and a message Meta redelivers.
   //
-  // The budgets are deliberately loose. They are there to catch a return to
-  // "cost grows with the input" rather than to police milliseconds.
+  // The budgets are loose in absolute terms — a shared CI runner is slow and
+  // unpredictable — but they are two orders of magnitude below the numbers a
+  // linear implementation produces, which is what makes them a real gate. Every
+  // one of these completes in single-digit milliseconds when it is correct.
+  //
+  // A first attempt at the fix bounded the work with a window of `limit ×
+  // WIDEST_CHARACTER`, which for a four-thousand ceiling is a quarter of a
+  // million characters and barely a bound at all: it still took CI eighty
+  // seconds, and this test is what said so. `Intl.Segmenter` iteration is lazy,
+  // so the answer was to stop consuming rather than to pre-slice.
   const HUGE = "x".repeat(500_000);
   const HUGE_EMOJI = "👩🏽‍🚀".repeat(50_000);
 
