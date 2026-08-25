@@ -111,6 +111,7 @@ import {
   verbosityDirective,
 } from "../_shared/whatsappPreferences.ts";
 import { deliverReply, replyMedium, speakReply } from "../_shared/whatsappVoiceReply.ts";
+import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
   type Capability,
   type CatalogNode,
@@ -587,6 +588,15 @@ Deno.serve(async (req) => {
   }
 
   const db = service();
+  /**
+   * Where a voice note that has already been synthesised is remembered.
+   *
+   * Built from the client that is already here rather than opening a second
+   * connection, and handed to `speakReply` rather than reached for by it — so
+   * the whole policy stays testable without a Postgres. Every failure inside it
+   * is a cache miss, which is the behaviour that existed before it.
+   */
+  const speechCache = speechCacheStore(db);
   const [configuredOwner, featureConfig] = await Promise.all([ownerPhone(db), readFeatureConfig(db)]);
   const disabled = featureConfig.disabled;
   /**
@@ -986,7 +996,8 @@ Deno.serve(async (req) => {
           { body, kind, spokenInput, failureNotice: say("failed", answerLanguage), trace: correlationId },
           {
             sendText: (text) => sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text }),
-            speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId }),
+            speak: (text) =>
+              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache }),
           },
         );
 
@@ -1099,7 +1110,8 @@ Deno.serve(async (req) => {
           { message, spokenInput },
           {
             tap: (tappable) => sendTappable(delivery, tappable),
-            speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId }),
+            speak: (text) =>
+              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache }),
           },
         );
         // A menu that could not be spoken went out as a tappable message

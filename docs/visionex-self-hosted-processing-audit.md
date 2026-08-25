@@ -270,6 +270,7 @@ averaged away in a green cell.
 | ⚠️ | **A3c** — English only; Arabic recognition does not work on this box, see above | #206 |
 | ✅ | **A4** — QR and barcode decoding, wired into the `product` mode | #209 |
 | ✅ | **A7** — Word and PowerPoint unpacked locally, replacing a refusal | #210 |
+| ✅ | **E1** — voice notes cached by hash, so a canned string is synthesised once | #211 |
 
 B1 arrived before A3 because the classifier is pure text matching: no model, no
 service, nothing to host. It is the cheapest thing in this document and it was
@@ -315,6 +316,41 @@ shared-string table and its numbers in the sheets, so extracting the strings
 returns an invoice with every line item and no amounts. For somebody who cannot
 see the file, a confident half-answer is worse than a refusal — the same
 judgement local OCR makes about a bilingual sign.
+
+E1 arrived out of order, ahead of the rest of Phase B, and section 4 answer 8
+is the reason: **the biggest near-term win is TTS**, billed per character on
+every single voice reply. This audit named two ways to take it. Piper on the
+VPS is "good English, weak Arabic" — the same shape of gap Tesseract already
+has, on a capability blind users depend on more, not less. Caching takes the
+same saving and trades nothing at all, because a hit returns the audio the
+provider returned the first time.
+
+What made it worth doing before measuring anything is the shape of the traffic.
+The main menu, the twenty language names, every refusal notice and every welcome
+message are fixed strings that were synthesised again for every sender who ever
+heard them. Those repeat; an answer about a photograph does not, and is not
+cached at all — a row for it could never be hit.
+
+What is cached is Meta's media id rather than the audio, so a hit costs one
+Graph call where a miss costs three. The price is expiry: Meta keeps uploaded
+media for thirty days, the TTL sits at fourteen, and a send that fails on a
+cached id drops the row and synthesises once. A stale entry costs a retry, never
+a missing voice note.
+
+The table stores a SHA-256 and a media id. Not the words, and no reference to
+who heard them. That is worth stating precisely rather than claiming more than
+it is: somebody who could read this table *and* guess a sentence exactly could
+confirm the assistant once said it. It is also strictly less than what the same
+reader already has, because `whatsapp_messages.body` holds those words in full
+alongside the conversation they belong to — which is why no pepper was added.
+Defending a weaker copy of data sitting in plain text one table away is theatre,
+not a control.
+
+**Piper is not cancelled by this, it is deferred.** Caching removes the repeated
+strings from the bill, which is most of the calls; what is left is unique text,
+which is exactly the traffic a local TTS would have to be good at. So the case
+for Piper is now narrower and clearer than it was, and it still needs the Arabic
+quality baseline blocker 5 names.
 
 The security line in A4 is where the two payload kinds are kept apart. A retail
 symbol carries digits and can go into a prompt, because no instruction is

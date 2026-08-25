@@ -1248,7 +1248,10 @@ describe("voice replies", () => {
     // indistinguishable from one nobody had asked to hear.
     expect(source).toMatch(/console\.error\("\[whatsapp-tts\] no OPENAI_API_KEY/);
     expect(source).toMatch(/console\.error\(`\[whatsapp-tts\] nothing was spoken/);
-    expect(source).toMatch(/console\.log\(`\[whatsapp-tts\] spoke a reply/);
+    // The success line moved onto its own `console.log(` line when it grew a
+    // cache-reuse count, so the pattern matches the message rather than the
+    // call that carries it.
+    expect(source).toMatch(/`\[whatsapp-tts\] spoke a reply/);
   });
 
   it("speaks a failure to somebody who spoke, and writes it out only if that fails too", async () => {
@@ -1353,7 +1356,8 @@ describe("voice replies", () => {
     // through the real decision with counters instead of a Meta account.
     expect(webhook).toContain("const delivered = await deliverReply(");
     expect(webhook).toContain("sendText: (text) => sendWhatsAppText({");
-    expect(webhook).toContain("speak: (text) => speakReply({");
+    expect(webhook).toContain("speak: (text) =>");
+    expect(webhook).toContain("speakReply({ phoneNumberId, token");
     expect(webhook.match(/const delivered = await deliverReply\(/g)?.length).toBe(1);
   });
 
