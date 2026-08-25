@@ -228,7 +228,41 @@ describe("the call itself", () => {
     const headers = seenInit?.headers as Record<string, string>;
     expect(headers.authorization).toBe("Bearer t0ken");
     expect(headers["content-type"]).toBe("image/jpeg");
-    expect(seenInit?.body).toBe(IMAGE);
+    // An ArrayBuffer carrying exactly these bytes - not the array itself, and
+    // not the whole backing buffer a subarray would have pointed into.
+    const body = seenInit?.body as ArrayBuffer;
+    expect(body).toBeInstanceOf(ArrayBuffer);
+    expect(body.byteLength).toBe(IMAGE.byteLength);
+    expect(new Uint8Array(body)).toEqual(IMAGE);
+  });
+
+  it("sends only the view it was given, not the buffer behind it", async () => {
+    // `inspected.bytes` is the output of EXIF stripping, and a stripper that
+    // returns a subarray of the original would otherwise put the original —
+    // metadata and all — on the wire while every other test still passed.
+    const { readTextLocally } = await load();
+    const backing = new Uint8Array(64).fill(0xaa);
+    backing.set([0xff, 0xd8, 0xff, 0xe0], 8);
+    const view = backing.subarray(8, 12);
+
+    let sent: ArrayBuffer | undefined;
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      sent = init.body as ArrayBuffer;
+      return new Response(JSON.stringify({ ok: true, readable: true, text: "EXIT" }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    await readTextLocally({
+      bytes: view,
+      mimeType: "image/jpeg",
+      answerLanguage: "en",
+      config: CONFIG,
+      fetchImpl,
+    });
+
+    expect(sent?.byteLength).toBe(4);
+    expect(new Uint8Array(sent!)).toEqual(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]));
+    // The 0xaa filler either side of the view must not have travelled.
+    expect(Array.from(new Uint8Array(sent!))).not.toContain(0xaa);
   });
 
   it("steps aside when the service is full", async () => {

@@ -228,13 +228,27 @@ export async function readTextLocally(params: {
 
   try {
     const language = ocrLanguageFor(params.answerLanguage);
+
+    // An explicit ArrayBuffer, for two separate reasons.
+    //
+    // A `Uint8Array` is not assignable to `BodyInit` under the lib types CI
+    // resolves — the npm and pnpm trees differ here and only the pnpm job sees
+    // it — and declaring the buffer is the honest fix rather than a cast that
+    // silences the checker without answering it.
+    //
+    // And it copies exactly this view's range. `inspected.bytes` is the output
+    // of EXIF stripping; if that ever returns a subarray of the original, the
+    // backing buffer still holds the metadata that was supposed to be gone.
+    // Sending `.buffer` would send it. This cannot.
+    const body = new ArrayBuffer(params.bytes.byteLength);
+    new Uint8Array(body).set(params.bytes);
     const response = await doFetch(`${config.url}/ocr?lang=${language}`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${config.token}`,
         "content-type": params.mimeType,
       },
-      body: params.bytes,
+      body,
       signal: controller.signal,
     });
 
