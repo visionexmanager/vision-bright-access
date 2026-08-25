@@ -162,6 +162,7 @@ import {
   withDeadline,
 } from "../_shared/whatsappReliability.ts";
 import { createTelemetry, newCorrelationId, trace } from "../_shared/whatsappTelemetry.ts";
+import { localCategory } from "../_shared/whatsappClassifier.ts";
 import { inspectImage } from "../_shared/whatsappFileSafety.ts";
 import {
   cached as geoCached,
@@ -2220,6 +2221,31 @@ Deno.serve(async (req) => {
         askedForHuman,
         hasMedia: !!incoming.media,
       });
+      // ── Ask locally before paying anybody to read it ────────────────────
+      //
+      // A category is a routing label: never shown to the customer, never part
+      // of an answer, and an unclassified message is already a state this
+      // function handles. So it is the safest thing to answer without a model,
+      // and until now every message `quickCategory` could not settle cost a
+      // provider round trip to produce a word nobody reads.
+      //
+      // `localCategory` returns a label only when it is confident, and holds
+      // `complaint` — one of the two labels that escalate to a person — to a
+      // higher bar than the rest. Everything below the floor falls through to
+      // exactly the call that was being made before, so this can save a call
+      // but cannot cost an answer.
+      if (!category) {
+        const local = localCategory({ text: questionText });
+        if (local.category) category = local.category;
+        log("classified", {
+          reason: local.category ? "local" : "deferred",
+          category: local.category ?? undefined,
+          // A count and a rounded score. Never the message.
+          count: local.matched,
+          status: Math.round(local.confidence * 100),
+        });
+      }
+
       if (!category) {
         // A label, on a clock. Classification does not gate the reply — an
         // unclassified message is a normal state — so a provider that hangs
