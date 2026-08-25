@@ -40,6 +40,7 @@ import {
   isSupportedLanguage,
   languageFromQuery,
   isSupportedPsm,
+  isSupportedOem,
   textIsUsable,
 } from "./limits.mjs";
 
@@ -137,7 +138,7 @@ function readBody(req) {
  * `finally` — including when the run times out, which is the case that would
  * otherwise leak.
  */
-async function runOcr(bytes, language, psm) {
+async function runOcr(bytes, language, psm, oem) {
   const dir = await mkdtemp(join(tmpdir(), "ocr-"));
   const input = join(dir, "in");
   const output = join(dir, "out");
@@ -155,6 +156,7 @@ async function runOcr(bytes, language, psm) {
       // line and neither is worth parsing.
       const args = [input, output, "-l", language];
       if (psm) args.push("--psm", psm);
+      if (oem) args.push("--oem", oem);
 
       const child = spawn("tesseract", args, {
         stdio: ["ignore", "ignore", "pipe"],
@@ -220,6 +222,13 @@ async function handleOcr(req, res, correlation) {
     return send(res, 400, { ok: false, reason: "unsupported_psm" });
   }
 
+  // Same shape, same reason: absent means Tesseract's own default, and the
+  // value is allowlisted because it reaches a command line.
+  const oem = url.searchParams.get("oem");
+  if (oem !== null && !isSupportedOem(oem)) {
+    return send(res, 400, { ok: false, reason: "unsupported_oem" });
+  }
+
   let bytes;
   try {
     bytes = await readBody(req);
@@ -243,7 +252,7 @@ async function handleOcr(req, res, correlation) {
 
   const startedAt = Date.now();
   try {
-    const raw = await runOcr(bytes, language, psm);
+    const raw = await runOcr(bytes, language, psm, oem);
     const text = raw.slice(0, MAX_TEXT_CHARS).trim();
     const usable = textIsUsable(text);
 
@@ -256,6 +265,7 @@ async function handleOcr(req, res, correlation) {
       usable,
       lang: language,
       psm: psm ?? "default",
+      code: oem ?? "default",
     });
 
     return send(res, 200, {

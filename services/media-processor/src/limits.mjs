@@ -92,6 +92,27 @@ export const SUPPORTED_PSM = ["3", "6", "7", "11"];
 export const isSupportedPsm = (value) => typeof value === "string" && SUPPORTED_PSM.includes(value);
 
 /**
+ * Which recognition engine Tesseract should use.
+ *
+ * 0 is the legacy engine, 1 is LSTM, 3 is "whichever the model supports".
+ * 3 is the default and is what has been running.
+ *
+ * This exists because of a specific, reproducible result: a 995x391 image of
+ * two Arabic words, set in Noto Sans Arabic at 96pt with a wide quiet border,
+ * reads as completely empty under every segmentation mode and both language
+ * settings — while the identical English probe reads perfectly. Reading
+ * *nothing at all* from clean large text is not what poor accuracy looks like;
+ * it is what an engine that cannot use the model it was handed looks like.
+ *
+ * A language pack built for one engine and run under another can produce
+ * exactly this: exit 0, no error, no text. Naming the engine turns that from a
+ * theory into a measurement.
+ */
+export const SUPPORTED_OEM = ["0", "1", "3"];
+
+export const isSupportedOem = (value) => typeof value === "string" && SUPPORTED_OEM.includes(value);
+
+/**
  * What the bytes say this file is. A narrow copy of `sniffMime`.
  *
  * The Edge Function already checks this before forwarding, so this is the

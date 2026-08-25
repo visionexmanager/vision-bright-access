@@ -91,6 +91,23 @@ describe("how the page is carved up", () => {
   });
 });
 
+describe("which recognition engine runs", () => {
+  it("allows the legacy engine, the LSTM one, and the automatic choice", async () => {
+    const { SUPPORTED_OEM, isSupportedOem } = await limits();
+    expect(SUPPORTED_OEM).toEqual(["0", "1", "3"]);
+    for (const good of SUPPORTED_OEM) expect(isSupportedOem(good)).toBe(true);
+  });
+
+  it("refuses anything else, including the mode Tesseract does not have", async () => {
+    // 2 exists in the enum and is not implemented in any current build. It is
+    // absent here for that reason, not by oversight.
+    const { isSupportedOem } = await limits();
+    for (const bad of ["2", "4", "-1", "1; whoami", "$(id)", "", " 1", null, 1]) {
+      expect(isSupportedOem(bad as string)).toBe(false);
+    }
+  });
+});
+
 describe("what counts as recognised text", () => {
   it("rejects what Tesseract does to a photograph of a wall", async () => {
     const { textIsUsable } = await limits();
