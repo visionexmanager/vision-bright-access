@@ -1,0 +1,14 @@
+{
+  "name": "visionex-media-processor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local file processing for Visionex: OCR today, ffmpeg and zbar next. Dependency-free on purpose.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.mjs"
+  }
+}

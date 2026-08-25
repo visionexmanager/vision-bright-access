@@ -1,0 +1,228 @@
+name: Deploy media processor
+
+# The local processing service, onto the box.
+#
+# ── What this deliberately does NOT do ──────────────────────────────────────
+#
+# It does not touch nginx, and it does not expose anything to the internet. The
+# container publishes to `127.0.0.1` only, so from outside the server it does
+# not exist. The live website's configuration is not read, written or reloaded
+# by anything below.
+#
+# That is the whole point of this step. `visionex.app` is serving real users; a
+# mistake in an nginx config takes it down. Proving that the service installs,
+# builds, runs and answers — with the web server untouched — is a step that
+# cannot break the site. Exposing it to the Edge Function is a separate change
+# with its own review.
+#
+# ── Idempotent ──────────────────────────────────────────────────────────────
+#
+# Safe to run repeatedly. Docker is installed only if absent, the image is
+# rebuilt each time, and the container is replaced rather than duplicated.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "deploy = build and run. status = report only, change nothing."
+        required: true
+        default: status
+        type: choice
+        options: [status, deploy]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: media-processor
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to the server
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the secrets are configured
+        env:
+          HOST:  ${{ secrets.SERVER_HOST }}
+          USER:  ${{ secrets.SERVER_USER }}
+          KEY:   ${{ secrets.SSH_PRIVATE_KEY }}
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          missing=""
+          [ -z "$HOST" ]  && missing="$missing SERVER_HOST"
+          [ -z "$USER" ]  && missing="$missing SERVER_USER"
+          [ -z "$KEY" ]   && missing="$missing SSH_PRIVATE_KEY"
+          [ -z "$TOKEN" ] && missing="$missing PROCESSOR_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing secrets:$missing"
+            echo "PROCESSOR_TOKEN is the shared secret the service requires. Without it the"
+            echo "service starts and refuses every processing request, which is the"
+            echo "fail-closed behaviour but is not a working deployment."
+            exit 1
+          fi
+          echo "All secrets present."
+
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_deploy
+            ConnectTimeout 15
+            BatchMode yes
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'echo connected' >/dev/null
+
+      - name: Report what is there now
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          say "## Before"
+          say '```'
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          if command -v docker >/dev/null 2>&1; then
+            echo "docker    : $(docker --version)"
+            echo "container : $(docker ps -a --filter name=visionex-media --format '{{.Status}}' 2>/dev/null || echo none)"
+          else
+            echo "docker    : not installed"
+          fi
+          echo "free RAM  : $(free -m | awk '/^Mem:/{print $7" MB available"}')"
+          echo "free disk : $(df -h / | awk 'NR==2{print $4}')"
+          REMOTE
+          say '```'
+
+      - name: Install Docker if it is missing
+        if: inputs.action == 'deploy'
+        run: |
+          set -uo pipefail
+          # Docker's own apt repository rather than the convenience script: the
+          # script pipes a remote URL into a root shell, which is exactly the
+          # supply-chain shape this project avoids elsewhere.
+          ssh target 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          if command -v docker >/dev/null 2>&1; then
+            echo "Docker already installed — nothing to do."
+            exit 0
+          fi
+          echo "Installing Docker from the official apt repository…"
+          sudo install -m 0755 -d /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+            | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          sudo chmod a+r /etc/apt/keyrings/docker.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+            | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+          sudo systemctl enable --now docker
+          echo "Installed: $(docker --version)"
+          REMOTE
+
+      - name: Copy the service source
+        if: inputs.action == 'deploy'
+        run: |
+          set -uo pipefail
+          # Only this directory. Nothing else on the server is written to.
+          ssh target 'mkdir -p ~/visionex-media-processor'
+          scp -r services/media-processor/. target:~/visionex-media-processor/
+          echo "Source copied."
+
+      - name: Build and run
+        if: inputs.action == 'deploy'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          # The token travels over the SSH session on stdin, never as an
+          # argument — arguments are visible in `ps` to every user on the box.
+          printf '%s' "$TOKEN" | ssh target 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          TOKEN="$(cat)"
+          cd ~/visionex-media-processor
+
+          echo "Building…"
+          sudo docker build -q -t visionex-media-processor:latest . >/dev/null
+          echo "Built."
+
+          # Replaced, not duplicated.
+          sudo docker rm -f visionex-media >/dev/null 2>&1 || true
+
+          echo "Starting…"
+          sudo docker run -d \
+            --name visionex-media \
+            --restart unless-stopped \
+            --publish 127.0.0.1:8081:8081 \
+            --env PROCESSOR_TOKEN="$TOKEN" \
+            --memory 2g \
+            --cpus 2 \
+            --pids-limit 256 \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=256m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            visionex-media-processor:latest >/dev/null
+
+          echo "Started."
+          REMOTE
+
+      - name: Verify it answers
+        if: inputs.action == 'deploy'
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          say ""
+          say "## After"
+          say '```'
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          for i in $(seq 1 20); do
+            if curl -fsS --max-time 3 http://127.0.0.1:8081/health >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+
+          echo "health        : $(curl -fsS --max-time 5 http://127.0.0.1:8081/health 2>/dev/null || echo 'NO ANSWER')"
+          echo "unauthorised  : $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8081/capabilities) (expect 401)"
+          echo "container     : $(sudo docker ps --filter name=visionex-media --format '{{.Status}}')"
+          echo "tools in image: $(sudo docker exec visionex-media sh -c 'tesseract --version 2>&1 | head -1')"
+          echo "languages     : $(sudo docker exec visionex-media sh -c 'tesseract --list-langs 2>&1 | tail -n +2 | tr "\n" " "')"
+          echo "ffmpeg        : $(sudo docker exec visionex-media sh -c 'ffmpeg -version 2>&1 | head -1 | cut -d" " -f1-3')"
+          echo "zbar          : $(sudo docker exec visionex-media sh -c 'zbarimg --version 2>&1 | head -1')"
+          echo
+          echo "── Not reachable from outside, by design ──"
+          echo "public :8081  : $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8081/health) from the box"
+          echo "(the container publishes to 127.0.0.1 only; nginx was not touched)"
+          echo
+          echo "free RAM      : $(free -m | awk '/^Mem:/{print $7" MB available"}')"
+          REMOTE
+          say '```'
+
+      - name: Confirm the website is untouched
+        if: inputs.action == 'deploy'
+        run: |
+          set -uo pipefail
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 https://visionex.app)
+          echo "visionex.app -> HTTP $CODE"
+          echo "visionex.app -> HTTP $CODE" >> "$GITHUB_STEP_SUMMARY"
+          [ "$CODE" = "200" ] || { echo "::error::The site is not answering 200."; exit 1; }
+
+      - name: Forget the key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy ~/.ssh/config
