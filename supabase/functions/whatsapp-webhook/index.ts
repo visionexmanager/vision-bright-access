@@ -163,6 +163,14 @@ import {
 } from "../_shared/whatsappReliability.ts";
 import { createTelemetry, newCorrelationId, trace } from "../_shared/whatsappTelemetry.ts";
 import { inspectImage } from "../_shared/whatsappFileSafety.ts";
+import {
+  cached as geoCached,
+  geocodeKey,
+  type GeoCacheStore,
+  nearbyKey,
+  reverseKey,
+  weatherKey,
+} from "../_shared/whatsappGeoCache.ts";
 import { say } from "../_shared/whatsappStrings.ts";
 import {
   comingSoonNotice,
@@ -749,6 +757,50 @@ Deno.serve(async (req) => {
       );
       log("received", { chars: questionTextLength(incoming), selection: !!incoming.selection });
 
+      /**
+       * Where map answers are remembered.
+       *
+       * Every geo service here is keyless and free, so this saves no credits.
+       * What it protects is the usage policy — Nominatim asks for at most one
+       * request per second and Overpass is a volunteer cluster, and this
+       * channel called both once per message with no cache and no throttle.
+       *
+       * Both halves swallow their own failures and return the safe answer. A
+       * cache that can break a lookup is worse than no cache, and `geoCached`
+       * treats an unreachable store as a miss.
+       */
+      const geoStore: GeoCacheStore = {
+        read: async (key) => {
+          const { data } = await db
+            .from("whatsapp_geo_cache")
+            .select("value")
+            .eq("cache_key", key)
+            .gt("expires_at", new Date().toISOString())
+            .maybeSingle();
+          return data?.value ?? null;
+        },
+        write: async (key, value, ttlMs) => {
+          await db.from("whatsapp_geo_cache").upsert({
+            cache_key: key,
+            value,
+            expires_at: new Date(Date.now() + ttlMs).toISOString(),
+          }, { onConflict: "cache_key" });
+        },
+      };
+
+      /** One lookup, cached, with the outcome logged as a label and nothing else. */
+      const viaCache = async <T>(
+        key: string,
+        kind: Parameters<typeof geoCached>[1],
+        fetcher: () => Promise<T | null>,
+      ): Promise<T | null> => {
+        const result = await geoCached<T>(key, kind, geoStore, fetcher);
+        // A kind and an outcome. Never the coordinate, which is the whole
+        // reason the key is rounded in the first place.
+        log("geo_lookup", { reason: kind, outcome: result.outcome });
+        return result.value;
+      };
+
       // What the transcript records for a message with no text of its own.
       //
       // A pin is logged as `[location]` and nothing more: the coordinates live
@@ -1314,7 +1366,11 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const place = await reverseGeocode(latitude, longitude, noticeLanguage);
+        const place = await viaCache(
+          reverseKey(latitude, longitude, noticeLanguage),
+          "reverse",
+          () => reverseGeocode(latitude, longitude, noticeLanguage),
+        );
         if (!place) {
           await reply(geocodeUnavailableNotice(noticeLanguage), "unsupported");
           continue;
@@ -1351,7 +1407,11 @@ Deno.serve(async (req) => {
         // It is a second topic, and a screen reader reads one message at a
         // time. A failure here costs the forecast, never the location answer
         // that has already been sent.
-        const reading = await fetchWeather(latitude, longitude);
+        const reading = await viaCache(
+          weatherKey(latitude, longitude, Date.now()),
+          "weather",
+          () => fetchWeather(latitude, longitude),
+        );
         if (reading) {
           await reply(
             formatWeather({
@@ -1903,7 +1963,11 @@ Deno.serve(async (req) => {
         // again should not cost a second round trip to a map service.
         const place = rememberedLocation.label
           ? { locality: null, city: rememberedLocation.label, region: null, country: null }
-          : await reverseGeocode(rememberedLocation.latitude, rememberedLocation.longitude, noticeLanguage);
+          : await viaCache(
+            reverseKey(rememberedLocation.latitude, rememberedLocation.longitude, noticeLanguage),
+            "reverse",
+            () => reverseGeocode(rememberedLocation.latitude, rememberedLocation.longitude, noticeLanguage),
+          );
         if (!place) {
           await reply(geocodeUnavailableNotice(noticeLanguage), "unsupported");
           continue;
@@ -1925,10 +1989,10 @@ Deno.serve(async (req) => {
           await reply(locationNeededNotice(noticeLanguage), "reply");
           continue;
         }
-        const nearby = await fetchNearby(
-          rememberedLocation.latitude,
-          rememberedLocation.longitude,
-          noticeLanguage,
+        const nearby = await viaCache(
+          nearbyKey(rememberedLocation.latitude, rememberedLocation.longitude, noticeLanguage),
+          "nearby",
+          () => fetchNearby(rememberedLocation.latitude, rememberedLocation.longitude, noticeLanguage),
         );
         // `null` is a failed lookup; `[]` is a genuinely unmapped area. Telling
         // somebody standing outside a pharmacy that nothing is near them is
@@ -1951,7 +2015,11 @@ Deno.serve(async (req) => {
         let placeName: string;
 
         if (weatherRequest.place) {
-          const geocoded = await geocodePlace(weatherRequest.place);
+          const geocoded = await viaCache(
+            geocodeKey(weatherRequest.place),
+            "geocode",
+            () => geocodePlace(weatherRequest.place as string),
+          );
           if (!geocoded) {
             await reply(placeNotFoundNotice(noticeLanguage, weatherRequest.place), "unsupported");
             continue;
@@ -1970,13 +2038,21 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const reading = await fetchWeather(latitude, longitude);
+        const reading = await viaCache(
+          weatherKey(latitude, longitude, Date.now()),
+          "weather",
+          () => fetchWeather(latitude, longitude),
+        );
         if (!reading) {
           await reply(weatherUnavailableNotice(noticeLanguage), "unsupported");
           continue;
         }
         if (!placeName) {
-          const place = await reverseGeocode(latitude, longitude, noticeLanguage);
+          const place = await viaCache(
+            reverseKey(latitude, longitude, noticeLanguage),
+            "reverse",
+            () => reverseGeocode(latitude, longitude, noticeLanguage),
+          );
           placeName = place ? shortPlaceLabel(place) : "";
         }
         await reply(
