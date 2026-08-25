@@ -9,6 +9,37 @@
 /** Plain-text formats decoded locally rather than sent to a model as bytes. */
 export const PLAIN_TEXT_MIME = ["text/plain", "text/csv", "text/markdown"];
 
+export type OfficeKind = "docx" | "pptx";
+
+/**
+ * The Office formats Visionex's own processing service unpacks.
+ *
+ * `.xlsx` is deliberately absent, and this is the reason. A spreadsheet keeps
+ * its text in a shared-string table and its numbers in the sheets, so pulling
+ * the strings out returns a price list with every product name and no prices,
+ * an invoice with every line item and no amounts. For somebody who cannot see
+ * the file, a confident half-answer is worse than a refusal — the same
+ * judgement `whatsappLocalOcr.ts` makes when it declines to read the English
+ * half of a bilingual sign. Excel is still declined, by name.
+ *
+ * `.doc` is absent for a duller reason: it is a pre-2007 binary container, not
+ * a ZIP, and nothing here can open one.
+ *
+ * The map lives in this module rather than beside the client, because this is
+ * where format policy lives and because `classifyDocument` below has to agree
+ * with it. Two places deciding what a `.docx` is would be one place too many.
+ */
+export const OFFICE_MIME: Record<string, OfficeKind> = {
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+};
+
+/** The format, or null for anything the service does not read. */
+export function officeKind(mimeType: string): OfficeKind | null {
+  const mime = mimeType.split(";")[0].trim().toLowerCase();
+  return OFFICE_MIME[mime] ?? null;
+}
+
 /** Characters of a text document handed to the model. */
 export const DOCUMENT_TEXT_BUDGET = 24_000;
 
@@ -47,14 +78,23 @@ export function toBlob(bytes: Uint8Array, mimeType: string): Blob {
  * How a document should be read.
  *
  * `text` is decoded here — sending a text file to a vision model is paying for
- * OCR that is not needed. `pdf` goes to Gemini as a PDF, which reads it
- * natively. Word files are zip containers and would need an unpacker, so they
- * are declined rather than half-read.
+ * OCR that is not needed. `pdf` has its text extracted locally by `pdf-parse`
+ * and then travels as text. `office` is unpacked by Visionex's own processing
+ * service and then travels as text too: a `.docx` and a `.pptx` are ZIP
+ * archives full of XML, and the unpacker the original version of this comment
+ * said they would need now exists.
+ *
+ * Everything else is still declined rather than half-read. That list is
+ * shorter than it was but it is not empty, and two entries on it are
+ * deliberate: `.doc` is a pre-2007 binary format that is not a ZIP at all, and
+ * `.xlsx` keeps its text and its numbers in different places, so extracting the
+ * text alone returns an invoice with every line item and no amounts.
  */
-export function classifyDocument(mimeType: string): "text" | "pdf" | "unsupported" {
+export function classifyDocument(mimeType: string): "text" | "pdf" | "office" | "unsupported" {
   const mime = mimeType.split(";")[0].trim().toLowerCase();
   if (PLAIN_TEXT_MIME.includes(mime)) return "text";
   if (mime === "application/pdf") return "pdf";
+  if (officeKind(mime)) return "office";
   return "unsupported";
 }
 
@@ -138,11 +178,20 @@ export function noReaderNotice(language: "ar" | "en", kind: "document" | "video"
     : "I can't read PDF files at the moment. Send a screenshot of the page that matters, or paste the text into a message, and I'll help.";
 }
 
-/** Told to the user when the format itself is one this assistant will not open. */
+/**
+ * Told to the user when the format itself is one this assistant will not open.
+ *
+ * Reworded when Word and PowerPoint started working. The old line — "I can't
+ * open Word files yet" — is now false, and a false refusal is worse than a
+ * vague one: it sends somebody off to export a PDF they did not need to make.
+ * What is left is Excel and the pre-2007 binary formats, and the advice differs
+ * between them, so the sentence names the ones that do work instead of
+ * listing the ones that do not.
+ */
 export function unsupportedDocumentNotice(language: "ar" | "en"): string {
   return language === "ar"
-    ? "لا أستطيع فتح ملفات Word حالياً. أرسله بصيغة PDF أو انسخ النص في رسالة."
-    : "I can't open Word files yet. Send it as a PDF, or paste the text into a message.";
+    ? "لا أستطيع فتح هذه الصيغة. أستطيع قراءة PDF وWord وPowerPoint والملفات النصية — أرسله بإحداها، أو انسخ النص في رسالة."
+    : "I can't open that format. I can read PDF, Word, PowerPoint and text files — send it as one of those, or paste the text into a message.";
 }
 
 // ── PDF ──────────────────────────────────────────────────────────────────

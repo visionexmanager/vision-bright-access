@@ -73,6 +73,11 @@ export const ALLOWED_MIME: Record<MediaKind, readonly string[]> = {
     "text/markdown",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    // Added when the processing service learned to unpack OOXML. A `.docx` was
+    // already downloaded and then declined; a `.pptx` was refused one step
+    // earlier, at this list, and would have gone on being refused after the
+    // unpacker could read it.
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   ],
   video: ["video/mp4", "video/3gpp", "video/quicktime"],
   sticker: ["image/webp"],

@@ -129,7 +129,7 @@ Full machine-readable version: `docs/visionex-processing-capability-matrix.json`
 | Image resize / EXIF strip | **absent** | libvips (sharp) | ~50 MB, <100 ms | n/a | 🟢 |
 | QR / barcode | ~~absent~~ **shipped, local** | zbar | ~20 MB, <50 ms | better | 🟢 |
 | Scanned-PDF OCR | **refused today** | ocrmypdf | ~500 MB, 1-4 s/page | good | 🟢 |
-| Office extraction | vision model | Apache Tika | ~0.5-1 GB | equal or better | 🟢 |
+| Office extraction | ~~vision model~~ **refused; now local** | ~~Apache Tika~~ `node:zlib` | ~~0.5-1 GB~~ **0** | better | 🟢 |
 | Audio normalisation | absent | ffmpeg | ~50 MB | n/a | 🟢 |
 | Video demux / key-frames | refused | ffmpeg | CPU, seconds | n/a | 🟢 |
 | Language detection | script heuristic | fastText lid.176 | <10 MB | much better | 🟢 |
@@ -269,6 +269,7 @@ averaged away in a green cell.
 | ✅ | **A3c** — the WhatsApp image path calls it, falling back to the vision model | #197, #200 |
 | ⚠️ | **A3c** — English only; Arabic recognition does not work on this box, see above | #206 |
 | ✅ | **A4** — QR and barcode decoding, wired into the `product` mode | #209 |
+| ✅ | **A7** — Word and PowerPoint unpacked locally, replacing a refusal | #210 |
 
 B1 arrived before A3 because the classifier is pure text matching: no model, no
 service, nothing to host. It is the cheapest thing in this document and it was
@@ -289,6 +290,31 @@ occasionally return twelve of them, confidently. The person holding the packet
 cannot proof-read the answer. So the scan does not replace the model — nobody
 asked to hear thirteen digits read aloud — it runs first and hands the model the
 verified number, and the model describes the packet as it always did.
+
+A7 is the first one that replaces a *refusal* rather than a provider call, and
+that changes what it costs to get wrong. A `.docx` was answered with "I can't
+open Word files yet. Send it as a PDF" — advice that assumes the sender has a
+machine with Word on it and can see the export dialog. OCR and barcodes both
+fall through to a model when they fail, so their worst case is the behaviour
+that existed before them; there is no model behind this one, so a broken
+unpacker turns an honest refusal into a wrong answer. The deploy self-test
+therefore asserts the words that were written into the file come back, in both
+scripts, rather than that the endpoint answered.
+
+**This audit recommended Apache Tika for A7 and that recommendation is not what
+shipped.** Tika is the right tool for a hundred formats, including the pre-2007
+binary ones. It is the wrong tool for the two that actually arrive on WhatsApp:
+`.docx` and `.pptx` are ZIP archives full of XML, Node ships a DEFLATE decoder
+in its standard library, and the visible text is in one kind of element. That is
+a few hundred lines against a gigabyte of Java, a second container to patch and
+a second thing that can be down. If `.doc`, `.rtf` or `.odt` ever become common
+here, that is when Tika earns its place.
+
+`.xlsx` is still declined, deliberately. A spreadsheet keeps its text in a
+shared-string table and its numbers in the sheets, so extracting the strings
+returns an invoice with every line item and no amounts. For somebody who cannot
+see the file, a confident half-answer is worse than a refusal — the same
+judgement local OCR makes about a bilingual sign.
 
 The security line in A4 is where the two payload kinds are kept apart. A retail
 symbol carries digits and can go into a prompt, because no instruction is

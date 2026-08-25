@@ -783,9 +783,21 @@ describe("attachment understanding", () => {
     expect(understand.classifyDocument("text/csv")).toBe("text");
     expect(understand.classifyDocument("text/markdown; charset=utf-8")).toBe("text");
     expect(understand.classifyDocument("application/pdf")).toBe("pdf");
-    // Word files are zip containers; declined rather than half-read.
+    // Word files and decks are ZIP containers, and the processing service now
+    // unpacks them. This assertion used to read `unsupported` with the comment
+    // "declined rather than half-read" — that was true while nothing here had
+    // an unpacker.
     expect(understand.classifyDocument(
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )).toBe("office");
+    expect(understand.classifyDocument(
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    )).toBe("office");
+    // Spreadsheets still are declined rather than half-read, and for the
+    // original reason: the text and the numbers live in different parts, so
+    // pulling the text out returns an invoice with no amounts on it.
+    expect(understand.classifyDocument(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )).toBe("unsupported");
     expect(understand.classifyDocument("application/x-msdownload")).toBe("unsupported");
   });
@@ -866,7 +878,12 @@ describe("attachment understanding", () => {
     // imports the Deno provider layer and cannot be loaded under Node.
     const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
     expect(source).toContain("export const DOCUMENT_TEXT_TARGETS: ProviderTarget[] = VISION_TARGETS;");
-    expect(source).toContain('shape === "text" ? DOCUMENT_TEXT_TARGETS : DOCUMENT_TARGETS');
+    // The condition gained a second shape rather than changing meaning. An
+    // Office file is unpacked into words before any model sees it, so by the
+    // time a provider is chosen there is no document left to require one that
+    // accepts documents — it belongs on the text chain with the text files.
+    expect(source).toContain('const textShaped = shape === "text" || shape === "office";');
+    expect(source).toContain("textShaped ? DOCUMENT_TEXT_TARGETS : DOCUMENT_TARGETS");
 
     // VISION_TARGETS is the chain it borrows, so it inherits a real fallback.
     const vision = source.slice(source.indexOf("export const VISION_TARGETS"));

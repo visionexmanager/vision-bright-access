@@ -345,3 +345,39 @@ export function parseBarcodeOutput(stdout) {
   }
   return symbols;
 }
+
+// ── Office documents ────────────────────────────────────────────────────────
+
+/**
+ * Bytes accepted in one document body.
+ *
+ * Larger than the image ceiling, and deliberately: this one mirrors
+ * `MEDIA_LIMITS.document` in `whatsappMedia.ts`, which is twelve megabytes. A
+ * service that refused at eight would let the Edge Function download a
+ * ten-megabyte report, spend the bandwidth, and then fail at the proxy with a
+ * 413 that says nothing about which of the two ceilings was hit.
+ *
+ * nginx's `client_max_body_size` is set to this rather than to the image
+ * ceiling, because it is one route in front of both endpoints and has to admit
+ * the larger. The endpoints themselves still enforce their own.
+ */
+export const MAX_DOCUMENT_BYTES = 12 * 1024 * 1024;
+
+/**
+ * What an Office file has to look like before it is unpacked.
+ *
+ * `PK\x03\x04` is a ZIP local file header, which is what `.docx` and `.pptx`
+ * are. The declared MIME is checked too, but it is checked *second*: a MIME
+ * type is a claim made by the sender's phone, and the bytes are not.
+ *
+ * A `.doc` or `.rtf` arriving here is not a ZIP and is refused by this check
+ * rather than by an unpacker discovering it several steps later.
+ */
+export function checkDocumentUpload(bytes) {
+  if (!bytes || bytes.length === 0) return { ok: false, reason: "empty" };
+  if (bytes.length > MAX_DOCUMENT_BYTES) return { ok: false, reason: "too_large" };
+  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 0x03 || bytes[3] !== 0x04) {
+    return { ok: false, reason: "not_an_office_file" };
+  }
+  return { ok: true };
+}
