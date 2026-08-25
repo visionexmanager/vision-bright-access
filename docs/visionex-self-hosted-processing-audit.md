@@ -68,7 +68,13 @@ question, and should be treated as one.
 ### What the repository proves
 
 - A VPS at `204.168.191.20`, deploy webhook on `:9000`, nginx, SPA **built on the box**.
-- **Docker is available** — `infra/stream-proxy` is built and pushed by the Deploy workflow.
+- ~~**Docker is available** — `infra/stream-proxy` is built and pushed by the Deploy
+  workflow.~~ **This was wrong.** The Deploy workflow builds that image on the GitHub
+  runner and pushes it to a registry; nothing in it proves the VPS can run a container.
+  The read-only server probe (2026-08-25) found no Docker on the box at all. It was
+  installed as part of Phase A3, so Docker is available *now* — but it was an inference
+  from a build step, not something the repository proved, and this section is about
+  what the repository proves.
 - Supabase Postgres with pgvector: `ai_embeddings.embedding vector(1536)`, ivfflat/cosine.
 
 ### RESOLVED — the machine, measured
@@ -213,6 +219,30 @@ replaces a provider, so nothing can regress an answer — which is exactly why i
 ## 5. Roadmap
 
 Each phase is independently shippable and independently reversible.
+
+### What has shipped since this audit was written
+
+| | Phase | Shipped |
+|---|---|---|
+| ✅ | **A1** — file validation, magic bytes, decompression bombs, EXIF/GPS stripping | #186 |
+| ✅ | **A2** — geo caching, coordinate rounding, TTL, service-role-only table | #187 |
+| ✅ | **B1** — local intent classifier, ahead of schedule because it needs no model at all | #188 |
+| ✅ | **A3a** — the processing service itself: Node + Tesseract + ffmpeg + zbar in a container on the VPS | #190, #191 |
+| ✅ | **A3b** — published through nginx at `/internal/media/`, behind a bearer token and a rate limit | #192, #193, #194, #195 |
+| ⬜ | **A3c** — the WhatsApp image path calls it, falling back to the vision model | — |
+
+B1 arrived before A3 because the classifier is pure text matching: no model, no
+service, nothing to host. It is the cheapest thing in this document and it was
+never really Phase B.
+
+A3b took four pull requests, which is worth recording honestly. The first
+attempt would have written the route into the wrong nginx file, the second into
+the wrong block of the right file, and the verification would have reported
+success either way because this SPA answers 200 for any unmatched path. None of
+those reached production: a read-only `status` run and a baseline probe caught
+them first. The one `expose` attempt that did run stopped at its own guard —
+`grep -r` does not follow the symlinks in `sites-enabled` — and changed
+nothing.
 
 ### Phase A — zero-risk local processing *(no model, no quality risk)*
 
