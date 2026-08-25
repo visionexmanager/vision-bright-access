@@ -211,6 +211,7 @@ import {
   VISION_MODE_TTL_MS,
   type VisionMode,
 } from "../_shared/whatsappVisionModes.ts";
+import { readTextLocally } from "../_shared/whatsappLocalOcr.ts";
 import {
   CLASSIFY_INSTRUCTION,
   CLASSIFY_SCHEMA,
@@ -1601,6 +1602,39 @@ Deno.serve(async (req) => {
               .from("whatsapp_conversations")
               .update({ pending_vision_mode: null, pending_vision_target: null, pending_vision_at: null })
               .eq("id", conversationId);
+          }
+
+          // ── Read it here first, when "here" can actually do the job ───
+          //
+          // Only for `read_text`. Tesseract reads words; it does not describe a
+          // room, find an object in one, or read an expiry date off a curved
+          // packet, and those are what the other four modes ask for. Sending
+          // them here would trade a good answer for a cheap one.
+          //
+          // Every failure below falls through to exactly the code that ran
+          // before this block existed, so the worst outcome is the current
+          // outcome plus the local deadline. A blind user who asks a sign to be
+          // read is the most common thing this assistant is asked to do, and it
+          // is now the one thing that does not depend on a funded provider
+          // account — but only when the local read is unambiguously good.
+          if (mode === "read_text") {
+            const local = await readTextLocally({
+              // The stripped copy, the same bytes the model would have seen.
+              bytes: inspected.bytes,
+              mimeType: media.mimeType,
+              answerLanguage,
+            });
+            log("local_ocr", {
+              ok: local.ok,
+              reason: local.ok ? "read" : local.reason,
+              // A length and a duration. Never the words.
+              chars: local.ok ? local.text.length : 0,
+              ms: local.ok ? local.ms : 0,
+            });
+            if (local.ok) {
+              await reply(clampReply(local.text), "reply");
+              continue;
+            }
           }
 
           const seen = await understandImage({
