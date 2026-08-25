@@ -472,7 +472,8 @@ describe("nothing regressed and nothing was duplicated", () => {
     expect(engineSource).toContain("resolveSelection({");
     expect(engineSource).toContain("export const ENGINE_STRINGS = UI_STRINGS;");
     // The footer is not written out a second time anywhere.
-    expect(engineSource).toContain("footerFor(nodeId === ROOT_ID, language)");
+    expect(engineSource).toContain('return menuMessage(nodeId, language, disabled)?.text ?? "";');
+    expect(engineSource).not.toContain("footerFor(nodeId === ROOT_ID, language)");
     expect(webhook).not.toContain("Reply with a number");
     expect(webhook).not.toContain("0 Back");
   });
@@ -489,7 +490,7 @@ describe("nothing regressed and nothing was duplicated", () => {
   it("29. leaves the voice pipeline alone", () => {
     expect(webhook.match(/voiceToText\(/g)?.length).toBe(1);
     expect(webhook.match(/askAssistant\(/g)?.length).toBe(1);
-    expect(webhook).toContain("transcribe: (input) => transcribeVoice(input),");
+    expect(webhook).toContain("transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),");
   });
 
   it("30. leaves every existing feature reachable", () => {

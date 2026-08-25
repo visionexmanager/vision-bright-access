@@ -151,6 +151,17 @@ import {
   parseLanguageSelection,
   type SupportedLanguage,
 } from "../_shared/whatsappLanguages.ts";
+import { boundSystemPrompt, describeError, MAX_SUMMARY_CHARS, boundText } from "../_shared/whatsappSafety.ts";
+import {
+  BRIEFING_TIMEOUT_MS,
+  CLASSIFY_TIMEOUT_MS,
+  claimDecision,
+  isRepeatOf,
+  isSendable,
+  SUMMARY_TIMEOUT_MS,
+  withDeadline,
+} from "../_shared/whatsappReliability.ts";
+import { createTelemetry, newCorrelationId, trace } from "../_shared/whatsappTelemetry.ts";
 import { say } from "../_shared/whatsappStrings.ts";
 import {
   comingSoonNotice,
@@ -202,11 +213,12 @@ import {
   type EscalationReason,
 } from "../_shared/whatsappTriage.ts";
 import {
+  availableFeatures,
+  catalogDirective,
+  HANDLER_AUTHORITY_DIRECTIVE,
   knowledgeDirective,
-  MAX_PASSAGES,
-  needsGrounding,
-  selectPassages,
-  type KnowledgePassage,
+  type MatchRow,
+  retrieveKnowledge,
 } from "../_shared/whatsappKnowledge.ts";
 import {
   formatAmbiguityPrompt,
@@ -248,6 +260,21 @@ async function ownerPhone(db: ReturnType<typeof service>): Promise<string | null
   return value.whatsapp_number ?? null;
 }
 
+/** The flag list, and whether it is actually known. */
+interface FeatureConfig {
+  disabled: string[];
+  /**
+   * False when the settings row could not be read at all.
+   *
+   * The distinction is the whole point. A row that says nothing is switched off
+   * and a query that failed look identical if both produce an empty list, and
+   * they mean opposite things: the first is a verified "everything is on", the
+   * second is "I do not know". Carrying the difference is what lets the engine
+   * fail closed on the second without punishing the first.
+   */
+  verified: boolean;
+}
+
 /**
  * Features switched off in production, read from the table Visionex already
  * keeps its configuration in.
@@ -257,20 +284,34 @@ async function ownerPhone(db: ReturnType<typeof service>): Promise<string | null
  *
  * Read once per delivery, next to the owner's number, and never cached across
  * deliveries: the point of a flag is that it takes effect on the next message.
- * A missing row means nothing is switched off, which is the state that has to
- * survive a database that will not answer.
+ *
+ * ── A missing row and a failed read are not the same thing ──────────────────
+ *
+ * A missing row is a real answer — nothing is switched off — and is verified.
+ * A failed read is not an answer at all, and used to be treated as one: the
+ * catch returned an empty list, and an empty list means "everything is on". So
+ * the one moment a flag most needs to hold — a provider melting down at three
+ * in the morning, which is also when a database is least likely to answer — was
+ * the exact moment every flag silently lifted.
+ *
+ * Now a failed read is reported as unverified, and the engine refuses every
+ * feature until it can be established. Navigation, help, the way back and the
+ * assistant's own refusals all keep working, so nobody is stranded; what stops
+ * is executing a feature nobody can currently vouch for.
  */
-async function disabledFeatures(db: ReturnType<typeof service>): Promise<string[]> {
+async function readFeatureConfig(db: ReturnType<typeof service>): Promise<FeatureConfig> {
   const { data, error } = await db
     .from("site_settings")
     .select("value")
     .eq("key", "whatsapp_features")
     .maybeSingle();
   if (error) {
-    console.error("[whatsapp] could not read feature flags:", error.message);
-    return [];
+    // A normalised code, never the driver's message: a PostgREST error quotes
+    // the failing statement, and this repository is public.
+    console.error("[whatsapp] could not read feature flags:", describeError(error));
+    return { disabled: [], verified: false };
   }
-  return parseDisabledFeatures(data?.value);
+  return { disabled: parseDisabledFeatures(data?.value), verified: true };
 }
 
 /**
@@ -348,7 +389,7 @@ async function handleOwnerCommand(
       _note: command.note,
     });
     if (error) {
-      console.error("[whatsapp] decide_owner_approval failed:", error.message);
+      console.error("[whatsapp] decide_owner_approval failed:", describeError(error));
       return "That decision could not be recorded. Please try again.";
     }
     const result = data as { ok?: boolean; error?: string };
@@ -527,9 +568,42 @@ Deno.serve(async (req) => {
   }
 
   const db = service();
-  const [configuredOwner, disabled] = await Promise.all([ownerPhone(db), disabledFeatures(db)]);
+  const [configuredOwner, featureConfig] = await Promise.all([ownerPhone(db), readFeatureConfig(db)]);
+  const disabled = featureConfig.disabled;
+  /**
+   * Whether a feature may be executed at all this delivery.
+   *
+   * False only when the flag list could not be read. Every gate — the router,
+   * the engine, and the word-driven capability parsers below — asks this same
+   * value, so there is no door into a feature that skips it.
+   */
+  const configVerified = featureConfig.verified;
+  if (!configVerified) {
+    console.error("[whatsapp] feature configuration unverified — features fail closed for this delivery");
+  }
 
   for (const incoming of messages) {
+    /**
+     * One id for this delivery, and for everything it causes.
+     *
+     * Generated per message rather than per request: a Meta payload can carry
+     * several, and two messages sharing one id would be exactly the confusion
+     * this exists to remove. Random and derived from nothing about the sender,
+     * so it ties log lines to each other and to nobody.
+     */
+    const correlationId = newCorrelationId();
+
+    /**
+     * The message id this delivery has taken responsibility for, if any.
+     *
+     * Null until the claim succeeds, and null for a redelivery that decided to
+     * skip — so the `finally` below can tell "we finished this" from "we never
+     * started it", which are the two states that must not be confused.
+     */
+    let claimedMessageId: string | null = null;
+    /** Set by the catch, so a failed delivery is never marked finished. */
+    let handlingFailed = false;
+
     try {
       // Detection reruns on a transcript below, once there is one to read.
       let detected = detectLanguageCode(incoming.text);
@@ -637,6 +711,38 @@ Deno.serve(async (req) => {
           .eq("id", conversationId);
       }
 
+      /**
+       * Structured logs, safe to read in a public CI log.
+       *
+       * The rule is no longer a habit, it is a function. `createTelemetry`
+       * drops every field whose name is not on `TELEMETRY_FIELDS` and every
+       * value that is not a count, a duration or an ASCII label — so a phone
+       * number, a message body, a retrieved passage or a provider's response
+       * body cannot be published by somebody adding a field to a log call.
+       * This repository is public and its CI logs are world-readable, which
+       * makes a log line a publication rather than a debugging convenience.
+       *
+       * `correlation` is the thread tying one delivery's lines together —
+       * routing, transcription, retrieval, the provider call, the send — and
+       * it is random rather than derived from the sender, so it joins log
+       * lines up without joining a person up.
+       *
+       * Nothing here can throw. A delivery that answered the customer and
+       * then died writing a log line would be redelivered by Meta and the
+       * customer answered twice.
+       */
+      const startedAt = Date.now();
+      const log = createTelemetry(
+        {
+          correlation: correlationId,
+          conversation: conversationId,
+          message: incoming.messageId,
+          kind: engineMessageKind(incoming),
+        },
+        { startedAt },
+      );
+      log("received", { chars: questionTextLength(incoming), selection: !!incoming.selection });
+
       // What the transcript records for a message with no text of its own.
       //
       // A pin is logged as `[location]` and nothing more: the coordinates live
@@ -649,19 +755,62 @@ Deno.serve(async (req) => {
         || (incoming.location ? "[location]" : "")
         || `[${incoming.unsupportedType ?? incoming.media?.kind ?? "empty"}]`;
 
+      // ── Claiming this message, before anything expensive happens ─────────
+      //
       // Meta redelivers on any non-200, so the same message id can arrive
       // twice. The unique index on wa_message_id makes the retry a no-op
-      // instead of a second AI call and a duplicate reply.
+      // instead of a second transcription, a second model call and a duplicate
+      // reply — and the claim is taken here, above the rate limiter and far
+      // above any provider, so nothing is ever paid for twice.
+      //
+      // What is new is that the claim records whether the work *finished*. It
+      // did not before, and a delivery that died halfway therefore left the row
+      // inserted and the customer unanswered: Meta redelivered, the insert
+      // collided, and the retry was discarded as a duplicate. The mechanism
+      // that made retries safe was also the one that made recovery impossible,
+      // and the result was silence — which for a blind sender is the worst
+      // outcome this system has.
+      const claimedAt = new Date().toISOString();
       const { error: dupe } = await db.from("whatsapp_messages").insert({
         conversation_id: conversationId,
         direction: "inbound",
         wa_message_id: incoming.messageId,
         body: transcriptBody,
+        processing_state: "processing",
+        processing_started_at: claimedAt,
       });
+
       if (dupe) {
-        if (dupe.code === "23505") continue;
-        throw dupe;
+        if (dupe.code !== "23505") throw dupe;
+
+        // Somebody already claimed this id. `claimDecision` is a pure function
+        // of the row and the clock, so which of the three answers this is can be
+        // driven directly by the suite.
+        const { data: prior } = await db
+          .from("whatsapp_messages")
+          .select("processing_state, processing_started_at")
+          .eq("wa_message_id", incoming.messageId)
+          .maybeSingle();
+
+        const claim = claimDecision(prior, Date.now());
+        log("redelivery", {
+          outcome: claim.action,
+          reason: claim.action === "skip" ? claim.reason : "recovered",
+        });
+        if (claim.action === "skip") continue;
+
+        // Retake it, so a third delivery arriving now sees work in flight
+        // rather than a second abandoned claim to rescue.
+        await db
+          .from("whatsapp_messages")
+          .update({ processing_state: "processing", processing_started_at: claimedAt })
+          .eq("wa_message_id", incoming.messageId);
       }
+
+      // From here the work is ours, and the `finally` at the bottom of the loop
+      // is what marks it finished. Set after the claim rather than before, so a
+      // message this delivery decided to skip is never marked done by it.
+      claimedMessageId = incoming.messageId;
 
       /**
        * Whether the message being answered was itself spoken.
@@ -689,29 +838,6 @@ Deno.serve(async (req) => {
           .eq("id", conversationId);
       };
 
-      /**
-       * Structured logs, safe to read in a public CI log.
-       *
-       * The conversation id identifies the thread without naming the person:
-       * no phone number, no message text, no token, no media URL. This
-       * repository is public and its CI logs are world-readable, so the rule is
-       * structural rather than a habit â everything here is an id, a kind or a
-       * duration.
-       */
-      const startedAt = Date.now();
-      const log = (event: string, fields: Record<string, unknown> = {}) => {
-        console.log(JSON.stringify({
-          at: "whatsapp",
-          event,
-          conversation: conversationId,
-          message: incoming.messageId,
-          kind: engineMessageKind(incoming),
-          ms: Date.now() - startedAt,
-          ...fields,
-        }));
-      };
-
-      log("received", { chars: questionTextLength(incoming), selection: !!incoming.selection });
 
       /**
        * The language the interface is written in for this message.
@@ -748,7 +874,32 @@ Deno.serve(async (req) => {
        * spoken answer is still readable by whoever triages the thread later,
        * and `medium` is the only record that it was *heard* rather than read.
        */
+      /** The words that went out last, so the same ones cannot go out twice. */
+      let lastSentBody: string | null = null;
+
       const reply = async (body: string, kind: string) => {
+        // ── Two things that must never be sent ──────────────────────────────
+        //
+        // Nothing at all: WhatsApp rejects an empty message outright, so a
+        // blank body is not a quiet no-op — it is a failed send, an error in
+        // the log, and a customer who got no reply to a question the assistant
+        // believed it had answered.
+        //
+        // The same thing twice: deduplication stops one *inbound* message being
+        // answered twice, and this stops one delivery saying the same words
+        // twice — two branches that both believed they owned the message, or a
+        // split answer whose parts collapsed into one. Neither is common; both
+        // read to somebody using a screen reader as the assistant stuttering.
+        if (!isSendable(body)) {
+          log("reply_suppressed", { replyKind: kind, reason: "empty" });
+          return;
+        }
+        if (isRepeatOf(body, lastSentBody)) {
+          log("reply_suppressed", { replyKind: kind, reason: "duplicate" });
+          return;
+        }
+        lastSentBody = body;
+
         const medium = replyMedium({ spokenInput, body });
         const { data: written } = await db.from("whatsapp_messages").insert({
           conversation_id: conversationId,
@@ -764,10 +915,10 @@ Deno.serve(async (req) => {
         // what lets it assert the transport of a whole conversation without a
         // Meta account or a synthesis bill.
         const delivered = await deliverReply(
-          { body, kind, spokenInput, failureNotice: say("failed", answerLanguage) },
+          { body, kind, spokenInput, failureNotice: say("failed", answerLanguage), trace: correlationId },
           {
             sendText: (text) => sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text }),
-            speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text }),
+            speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId }),
           },
         );
 
@@ -807,6 +958,7 @@ Deno.serve(async (req) => {
         phoneNumberId,
         token,
         to: incoming.from,
+        trace: correlationId,
         record: async (text: string) => {
           await db.from("whatsapp_messages").insert({
             conversation_id: conversationId,
@@ -851,13 +1003,21 @@ Deno.serve(async (req) => {
 
         // Recorded before it is sent, and recorded as words either way, so the
         // thread reads as a conversation for whoever triages it later.
-        await db.from("whatsapp_messages").insert({
+        //
+        // The medium comes from `replyMedium` and from nothing here. It used to
+        // be decided inline — `spokenInput ? "voice" : "text"` — which was a
+        // second delivery-medium policy that happened to agree with the real
+        // one. Two policies that agree today are two policies that will
+        // disagree the first time one of them learns something, and this one
+        // would not have learned that a menu with nothing speakable in it goes
+        // out as text.
+        const { data: menuRow } = await db.from("whatsapp_messages").insert({
           conversation_id: conversationId,
           direction: "outbound",
           body: message.text,
           kind: "welcome",
-          medium: spokenInput ? "voice" : "text",
-        });
+          medium: replyMedium({ spokenInput, body: message.text }),
+        }).select("id").maybeSingle();
         await db
           .from("whatsapp_conversations")
           .update({ menu_sent_at: new Date().toISOString() })
@@ -871,9 +1031,17 @@ Deno.serve(async (req) => {
           { message, spokenInput },
           {
             tap: (tappable) => sendTappable(delivery, tappable),
-            speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text }),
+            speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId }),
           },
         );
+        // A menu that could not be spoken went out as a tappable message
+        // instead, so the row is corrected rather than left claiming a voice
+        // note nobody heard — the same correction `reply` makes, for the same
+        // reason: that column is what "is the voice reply broken?" is answered
+        // from.
+        if (shown.spokenFailed && menuRow?.id) {
+          await db.from("whatsapp_messages").update({ medium: "text" }).eq("id", menuRow.id);
+        }
         log("menu", { node: target, medium: shown.medium, sent: shown.sent, spokenFailed: shown.spokenFailed });
       };
 
@@ -1228,8 +1396,8 @@ Deno.serve(async (req) => {
           };
 
           const turn = await voiceToText(incoming.media.id, {
-            download: (mediaId) => downloadMedia({ mediaId, kind: "audio", token }),
-            transcribe: (input) => transcribeVoice(input),
+            download: (mediaId) => downloadMedia({ mediaId, kind: "audio", token, trace: correlationId }),
+            transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),
           });
 
           if (turn.status === "media_failed") {
@@ -1293,6 +1461,7 @@ Deno.serve(async (req) => {
             mediaId: incoming.media.id,
             kind: incoming.media.kind,
             token,
+            trace: correlationId,
           });
           if (!media.ok) {
             await reply(mediaFailureNotice(language, incoming.media.kind, media.reason), "unsupported");
@@ -1352,6 +1521,7 @@ Deno.serve(async (req) => {
             mediaId: incoming.media.id,
             kind: "document",
             token,
+            trace: correlationId,
           });
           if (!media.ok) {
             await reply(mediaFailureNotice(language, "document", media.reason), "unsupported");
@@ -1402,7 +1572,7 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          const media = await downloadMedia({ mediaId: incoming.media.id, kind: "video", token });
+          const media = await downloadMedia({ mediaId: incoming.media.id, kind: "video", token, trace: correlationId });
           if (!media.ok) {
             await reply(mediaFailureNotice(language, "video", media.reason), "unsupported");
             continue;
@@ -1471,6 +1641,9 @@ Deno.serve(async (req) => {
           available: availableCapabilities(),
           disabled,
           isNewConversation: isNew,
+          // The fail-closed flag. Passed to the engine, which passes it to the
+          // router, so a tap, a number and a word all meet the same answer.
+          configVerified,
         },
       );
       session = outcome.session;
@@ -1608,7 +1781,7 @@ Deno.serve(async (req) => {
           // The sender never sees this. They see a sentence, and they stay
           // exactly where they were: a failed feature must not also lose
           // somebody their place.
-          console.error(`[whatsapp] feature ${node.id} failed:`, e instanceof Error ? e.message : "unknown");
+          console.error(`[whatsapp] feature ${node.id} failed:`, describeError(e));
           log("feature_error", { node: node.id });
           await reply(featureErrorNotice(answerLanguage), "unsupported");
           await saveSession();
@@ -1639,7 +1812,7 @@ Deno.serve(async (req) => {
        * switched off, and a flag with a way around it is not a flag. Both
        * doors now ask the same function about the same id.
        */
-      const featureOn = (id: string) => isAvailable(nodeById(id), disabled);
+      const featureOn = (id: string) => configVerified && isAvailable(nodeById(id), disabled);
 
 
       if (!aiFocused && asksForMenu(questionText)) {
@@ -1797,7 +1970,7 @@ Deno.serve(async (req) => {
             const translated = clampReply(await collectStream(stream));
             await reply(translated || failureNotice(language), translated ? "reply" : "handover");
           } catch (e) {
-            console.error("[whatsapp] translation failed:", e instanceof Error ? e.message : e);
+            console.error("[whatsapp] translation failed:", describeError(e));
             await reply(failureNotice(language), "handover");
           }
           continue;
@@ -1903,7 +2076,7 @@ Deno.serve(async (req) => {
             bazaarFellThrough = true;
           }
         } catch (e) {
-          console.error("[whatsapp] bazaar lookup failed:", e instanceof Error ? e.message : e);
+          console.error("[whatsapp] bazaar lookup failed:", describeError(e));
           // A database fault is worth saying out loud to somebody who clearly
           // meant the shop, and worth swallowing for somebody who probably did
           // not — they get the assistant, which is what they wanted anyway.
@@ -1927,20 +2100,25 @@ Deno.serve(async (req) => {
         hasMedia: !!incoming.media,
       });
       if (!category) {
-        try {
-          const { result } = await structuredCompletionWithFallback({
+        // A label, on a clock. Classification does not gate the reply — an
+        // unclassified message is a normal state — so a provider that hangs
+        // must cost the label and nothing else. `withDeadline` returns null
+        // for both a timeout and a failure, because the answer to each is the
+        // same: carry on without it.
+        const classified = await withDeadline(
+          () => structuredCompletionWithFallback({
             targets: CLASSIFY_TARGETS,
             system: CLASSIFY_INSTRUCTION,
             userText: questionText.slice(0, 1_000),
             schema: CLASSIFY_SCHEMA as unknown as Record<string, unknown>,
             toolName: "classify_message",
             maxTokens: 24,
-          });
-          const label = (result as { category?: unknown } | null)?.category;
-          if (isCategory(label)) category = label;
-        } catch (e) {
-          console.error("[whatsapp] classification failed:", e instanceof Error ? e.message : e);
-        }
+          }),
+          CLASSIFY_TIMEOUT_MS,
+          (error, timedOut) => log.fail("classify_failed", error, { reason: timedOut ? "timeout" : "error" }),
+        );
+        const label = (classified?.result as { category?: unknown } | null)?.category;
+        if (isCategory(label)) category = label;
       }
       if (category) {
         await db.from("whatsapp_messages").update({ category }).eq("wa_message_id", incoming.messageId);
@@ -1964,16 +2142,27 @@ Deno.serve(async (req) => {
             .join("\n")
             .slice(0, 8_000);
           if (material) {
-            const { result: stream } = await streamChatCompletionWithFallback({
-              targets: SUMMARY_TARGETS,
-              system: HANDOFF_INSTRUCTION,
-              messages: [{ role: "user", content: material }],
-              maxTokens: 240,
-            });
-            briefing = redactSummary(await collectStream(stream));
+            // Bounded, because staff never see a blank briefing field anyway:
+            // `fallbackBriefing` fills it below. Waiting indefinitely for a
+            // nicer summary of a conversation that has already been escalated
+            // is the least valuable thing this function could be doing.
+            const drafted = await withDeadline(
+              async () => {
+                const { result: stream } = await streamChatCompletionWithFallback({
+                  targets: SUMMARY_TARGETS,
+                  system: HANDOFF_INSTRUCTION,
+                  messages: [{ role: "user", content: material }],
+                  maxTokens: 240,
+                });
+                return redactSummary(await collectStream(stream));
+              },
+              BRIEFING_TIMEOUT_MS,
+              (error, timedOut) => log.fail("briefing_failed", error, { reason: timedOut ? "timeout" : "error" }),
+            );
+            briefing = drafted;
           }
         } catch (e) {
-          console.error("[whatsapp] handoff briefing failed:", e instanceof Error ? e.message : e);
+          console.error("[whatsapp] handoff briefing failed:", describeError(e));
         }
 
         await db
@@ -2089,13 +2278,22 @@ Deno.serve(async (req) => {
             .slice(0, 12_000);
 
           if (material) {
-            const { result: stream } = await streamChatCompletionWithFallback({
-              targets: SUMMARY_TARGETS,
-              system: SUMMARY_INSTRUCTION,
-              messages: [{ role: "user", content: material }],
-              maxTokens: 260,
-            });
-            const drafted = redactSummary(await collectStream(stream));
+            // A summary is an optimisation. Losing it costs context, not the
+            // reply — so it gets a clock, and a provider that hangs here does
+            // not hold up the answer the customer is actually waiting for.
+            const drafted = await withDeadline(
+              async () => {
+                const { result: stream } = await streamChatCompletionWithFallback({
+                  targets: SUMMARY_TARGETS,
+                  system: SUMMARY_INSTRUCTION,
+                  messages: [{ role: "user", content: material }],
+                  maxTokens: 260,
+                });
+                return redactSummary(await collectStream(stream));
+              },
+              SUMMARY_TIMEOUT_MS,
+              (error, timedOut) => log.fail("summary_failed", error, { reason: timedOut ? "timeout" : "error" }),
+            );
             if (drafted) {
               summary = drafted;
               await db.from("whatsapp_conversations").update({
@@ -2107,7 +2305,7 @@ Deno.serve(async (req) => {
           }
         } catch (e) {
           // A summary is an optimisation. Losing it costs context, not the reply.
-          console.error("[whatsapp] summary refresh failed:", e instanceof Error ? e.message : e);
+          console.error("[whatsapp] summary refresh failed:", describeError(e));
         }
       }
 
@@ -2124,29 +2322,31 @@ Deno.serve(async (req) => {
       // still: it reads as authoritative while being about something else, so
       // anything below the similarity floor is discarded and the model is told
       // it has no source.
-      let passages: KnowledgePassage[] = [];
-      if (needsGrounding(questionText)) {
-        try {
-          const [vector] = await createEmbedding([questionText.slice(0, 2_000)]);
-          const { data: matches, error } = await db.rpc("match_embeddings", {
+      // Every bound lives in `whatsappKnowledge.ts` — query length, candidate
+      // rows, passages kept, characters per passage and in total, the trusted
+      // source list, and a wall-clock deadline over the whole thing. Nothing
+      // throws out of it: a slow embedding provider or a database that will not
+      // answer costs the grounding and never the reply, and the no-passage
+      // directive is the *safe* state rather than the degraded one.
+      const grounding = await retrieveKnowledge(questionText, {
+        embed: async (text) => (await createEmbedding([text]))[0] ?? [],
+        match: async (vector, limit) => {
+          const { data, error } = await db.rpc("match_embeddings", {
             query_embedding: vector,
-            match_count: MAX_PASSAGES * 3,
+            match_count: limit,
           });
           if (error) throw error;
-          passages = selectPassages(
-            (matches ?? []).map((row: { content: string; source_table: string; similarity: number }) => ({
-              content: row.content,
-              sourceTable: row.source_table,
-              similarity: row.similarity,
-            })),
-          );
-        } catch (e) {
-          // Retrieval is best-effort. Losing it must not lose the reply — and
-          // the empty-passage directive is the safe state, not the risky one.
-          console.error("[whatsapp] retrieval failed:", e instanceof Error ? e.message : e);
-        }
-      }
-      console.log(`[whatsapp] grounded with ${passages.length} passages`);
+          return (data ?? []) as MatchRow[];
+        },
+      });
+      const passages = grounding.passages;
+      log("grounding", {
+        status: grounding.status,
+        passages: passages.length,
+        candidates: grounding.candidates,
+        ms: grounding.ms,
+        ...(grounding.status === "degraded" ? { reason: grounding.reason } : {}),
+      });
 
       // One notice, before the call and never inside a retry: two "working on
       // it" messages read as stuck rather than busy. Filed as canned text so it
@@ -2188,6 +2388,15 @@ Deno.serve(async (req) => {
             assistant.systemPrompt,
             languageDirective(answerIn),
             persona,
+            // The catalog, not the retrieved prose, is what this channel can
+            // do — filtered by exactly the flags and capabilities that decide
+            // whether a tap would work, so the list the model is given and the
+            // menu the sender is shown cannot disagree.
+            catalogDirective(availableFeatures(answerIn, disabled, availableCapabilities())),
+            // Weather, OCR, location, the bazaar and the handover read live
+            // data at the moment they are asked. A passage embedded last month
+            // does not, and a model handed both will prefer the prose.
+            HANDLER_AUTHORITY_DIRECTIVE,
             knowledgeDirective(passages),
             verbosityDirective(existing?.verbosity as string | null),
           ],
@@ -2277,8 +2486,31 @@ Deno.serve(async (req) => {
         await escalate(reason);
       }
     } catch (e) {
-      // One bad message must not drop the rest of the batch.
-      console.error("[whatsapp] failed to handle a message:", e instanceof Error ? e.message : e);
+      // One bad message must not drop the rest of the batch — and a message
+      // that failed is deliberately left claimed but unfinished, so Meta's
+      // redelivery rescues it instead of discarding it as a duplicate.
+      handlingFailed = true;
+      console.error("[whatsapp] failed to handle a message:", describeError(e));
+    } finally {
+      // Reached by every ordinary way out of the block above, `continue`
+      // included — which is what makes this the one place the claim is closed,
+      // rather than a line that has to be repeated at each of the thirty-odd
+      // exits and will eventually be forgotten at one of them.
+      //
+      // Its own try/catch: a failure to record that the work finished must not
+      // become a failure of the batch. The cost of losing this write is one
+      // redelivery re-answering the message after the recovery window, which is
+      // the safe direction.
+      if (claimedMessageId && !handlingFailed) {
+        try {
+          await db
+            .from("whatsapp_messages")
+            .update({ processing_state: "done" })
+            .eq("wa_message_id", claimedMessageId);
+        } catch (e) {
+          console.error("[whatsapp] could not close the processing claim:", describeError(e));
+        }
+      }
     }
   }
 

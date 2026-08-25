@@ -24,6 +24,8 @@
 
 import { GRAPH_BASE } from "./meta.ts";
 import { toBlob } from "./whatsappAttachments.ts";
+import { clampUnits } from "./whatsappSafety.ts";
+import { trace } from "./whatsappTelemetry.ts";
 
 function env(name: string): string | undefined {
   const deno = (globalThis as {
@@ -181,7 +183,9 @@ export function speechSegments(
     while (rest.length > limit) {
       flush();
       if (segments.length >= maxParts) return segments.slice(0, maxParts);
-      const window = rest.slice(0, limit);
+      // Whole characters only. A voice note is synthesised from these bytes,
+      // and half a surrogate pair is a character the synthesiser cannot say.
+      const window = clampUnits(rest, limit);
       const cut = window.lastIndexOf(" ");
       const head = cut > limit / 2 ? window.slice(0, cut) : window;
       segments.push(head.trim());
@@ -339,6 +343,14 @@ export async function speakReply(params: {
   token: string;
   to: string;
   text: string;
+  /**
+   * The delivery's correlation id, for the lines this prints.
+   *
+   * Optional, and used for nothing but a log suffix. It is what lets a failed
+   * synthesis or an unreadable download be tied to the delivery that asked
+   * for it, without the log line naming the person who sent it.
+   */
+  trace?: string;
 }): Promise<boolean> {
   const segments = speechSegments(params.text);
   if (segments.length === 0) return false;
@@ -367,10 +379,10 @@ export async function speakReply(params: {
   }
 
   if (spoken === 0) {
-    console.error("[whatsapp-tts] nothing was spoken; the reply stands as text");
+    console.error(`[whatsapp-tts] nothing was spoken; the reply stands as text${trace(params.trace)}`);
     return false;
   }
-  console.log(`[whatsapp-tts] spoke a reply in ${spoken}/${segments.length} parts`);
+  console.log(`[whatsapp-tts] spoke a reply in ${spoken}/${segments.length} parts${trace(params.trace)}`);
   return true;
 }
 
@@ -435,6 +447,8 @@ export async function deliverReply(
     spokenInput: boolean;
     /** Short, translated, and safe to show. Used only if an *answer* cannot be spoken. */
     failureNotice: string;
+    /** The delivery's correlation id, for the one line this prints. */
+    trace?: string;
   },
   transport: ReplyTransport,
 ): Promise<ReplyDelivery> {
@@ -450,7 +464,7 @@ export async function deliverReply(
 
   // A kind, and nothing else. Not the answer, not the transcript, not the
   // number: this repository is public and its CI logs are world-readable.
-  console.error(`[whatsapp-tts] a spoken reply could not be delivered: kind=${params.kind}`);
+  console.error(`[whatsapp-tts] a spoken reply could not be delivered: kind=${params.kind}${trace(params.trace)}`);
   const fallback = ANSWER_KINDS.has(params.kind) ? params.failureNotice : params.body;
   const sent = await transport.sendText(fallback);
   return { medium, sent, spokenFailed: true };

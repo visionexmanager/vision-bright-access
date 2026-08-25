@@ -17,6 +17,7 @@
 // Pure and provider-free: no `Deno`, no fetch, no database.
 
 import { localized, type Language } from "./whatsappCatalog.ts";
+import { clampUnits, safeCut, stripInvisible } from "./whatsappSafety.ts";
 import { UI_STRINGS } from "./whatsappStrings.ts";
 
 /**
@@ -162,13 +163,13 @@ export type QuestionCheck =
  * collapsed at the ends only, so a deliberately formatted question survives.
  */
 export function checkQuestion(raw: string | null | undefined, limits: AssistantLimits): QuestionCheck {
-  const cleaned = (raw ?? "")
-    // Control characters carry nothing a person typed and are a favourite way
-    // to hide instructions inside text. Tabs and newlines are kept: a
-    // deliberately formatted question is still a question.
-    // eslint-disable-next-line no-control-regex -- stripping them is the point
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-    .trim();
+  // Control characters carry nothing a person typed and are a favourite way to
+  // hide instructions inside text; bidirectional overrides do the same to a
+  // human reader while leaving the text intact to a tokeniser. Tabs and
+  // newlines are kept: a deliberately formatted question is still a question.
+  // `stripInvisible` is the one definition of that rule — the sanitiser that
+  // cleans a retrieved passage before a model reads it uses the same one.
+  const cleaned = stripInvisible(raw ?? "").trim();
   if (!cleaned) return { ok: false, problem: "empty" };
   if (cleaned.length > limits.maxQuestionChars) return { ok: false, problem: "too_long" };
   return { ok: true, question: cleaned };
@@ -203,8 +204,17 @@ export function splitAnswer(text: string, limits: AssistantLimits): string[] {
       break;
     }
 
-    const window = rest.slice(0, limits.maxMessageChars);
-    const cut = bestCut(window);
+    // `clampUnits` rather than `slice`. The ceiling is WhatsApp's, counted in
+    // the units `String.length` returns — so the ceiling stays exactly what it
+    // was, and only the cut moves: backwards, onto a character boundary. A
+    // window ending inside an emoji or between an Arabic letter and its vowel
+    // mark delivers half a character, which is a replacement box on screen and
+    // silence in a screen reader: on this channel, the whole message lost.
+    const window = clampUnits(rest, limits.maxMessageChars);
+    // And the cut `bestCut` finds is moved back onto a boundary too: it is
+    // found with `lastIndexOf`, which returns a UTF-16 index, and the character
+    // it lands after may itself be several units long.
+    const cut = safeCut(window, bestCut(window));
     parts.push(window.slice(0, cut).trim());
     rest = rest.slice(cut).trim();
   }

@@ -38,9 +38,9 @@ import {
   LIST_LIMITS,
   localized,
   nodeById,
+  offeredChildrenOf,
   pathTo,
   ROOT_ID,
-  visibleChildrenOf,
   type CatalogNode,
   type Language,
 } from "./whatsappCatalog.ts";
@@ -61,6 +61,7 @@ import { BACK_ID, genderRowId } from "./whatsappOnboarding.ts";
 import { GENDERS } from "./whatsappProfile.ts";
 import { say } from "./whatsappStrings.ts";
 import { sendWhatsAppInteractive, sendWhatsAppText } from "./whatsapp.ts";
+import { trace } from "./whatsappTelemetry.ts";
 
 /** The id the "start again from the top" control carries, everywhere. */
 export const MAIN_MENU_ID = "main_menu";
@@ -197,8 +198,11 @@ export function menuMessage(
   if (!node) return null;
 
   const controls = controlRows(nodeId, language);
-  const room = LIST_LIMITS.rows - controls.length;
-  const children = visibleChildrenOf(nodeId, disabled).slice(0, room);
+  // `offeredChildrenOf` applies the same ten-row ceiling this used to apply
+  // inline. It is the catalog's answer now because the router needs the same
+  // one: a row that does not fit on the menu is a row nobody can have tapped,
+  // and an id naming it is refused rather than executed.
+  const children = offeredChildrenOf(nodeId, disabled);
   if (children.length === 0) return null;
 
   const rows = [...children.map((child) => featureRow(child, language, disabled)), ...controls];
@@ -369,6 +373,8 @@ export interface Delivery {
    * what a reader of a broken deployment needs to see.
    */
   record?: (text: string) => Promise<void>;
+  /** The delivery's correlation id, for the lines this prints. */
+  trace?: string;
 }
 
 /**
@@ -393,7 +399,7 @@ export async function sendTappable(to: Delivery, message: Tappable): Promise<boo
     interactive: message.interactive as unknown as Record<string, unknown>,
   });
   if (!accepted) {
-    console.error("[whatsapp] interactive message refused; sent the same choices as text");
+    console.error(`[whatsapp] interactive message refused; sent the same choices as text${trace(to.trace)}`);
     await sendWhatsAppText({
       phoneNumberId: to.phoneNumberId,
       token: to.token,

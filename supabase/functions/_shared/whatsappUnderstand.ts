@@ -14,6 +14,7 @@
 
 import { structuredCompletionWithFallback, type ProviderTarget } from "./aiProvider.ts";
 import { extractPdfText } from "./whatsappPdfText.ts";
+import { describeError } from "./whatsappSafety.ts";
 import {
   ATTACHMENT_ANSWER_SCHEMA,
   attachmentSystemPrompt,
@@ -118,7 +119,10 @@ export async function understandImage(params: {
     });
     return coerce(result);
   } catch (e) {
-    console.error("[whatsapp-vision] image read failed:", e instanceof Error ? e.message : "error");
+    // A normalised code, never the model's message: a vision provider's
+    // error quotes what it was asked to read, and what it was asked to read
+    // is a photograph or a document somebody sent in.
+    console.error("[whatsapp-vision] image read failed:", describeError(e));
     return null;
   }
 }
@@ -155,7 +159,10 @@ export async function understandVideo(params: {
     });
     return coerce(result);
   } catch (e) {
-    console.error("[whatsapp-vision] video read failed:", e instanceof Error ? e.message : "error");
+    // A normalised code, never the model's message: a vision provider's
+    // error quotes what it was asked to read, and what it was asked to read
+    // is a photograph or a document somebody sent in.
+    console.error("[whatsapp-vision] video read failed:", describeError(e));
     return null;
   }
 }
@@ -242,7 +249,10 @@ export async function understandDocument(params: {
     const value = coerce(result);
     return value ? { ok: true, value } : { ok: false, reason: "provider_error" };
   } catch (e) {
-    console.error("[whatsapp-vision] document read failed:", e instanceof Error ? e.message : "error");
+    // A normalised code, never the model's message: a vision provider's
+    // error quotes what it was asked to read, and what it was asked to read
+    // is a photograph or a document somebody sent in.
+    console.error("[whatsapp-vision] document read failed:", describeError(e));
     return { ok: false, reason: "provider_error" };
   }
 }

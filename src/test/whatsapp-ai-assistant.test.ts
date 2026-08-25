@@ -188,7 +188,7 @@ describe("asking", () => {
     expect(webhook).toContain("budgetTurns(");
     expect(webhook).toContain("HISTORY_LIMIT");
     expect(webhook).toContain("needsSummary({");
-    expect(webhook).toMatch(/askAssistant\(\s*\{[\s\S]{0,400}summary,[\s\S]{0,200}turns,/);
+    expect(webhook).toMatch(/askAssistant\(\s*\{[\s\S]{0,1600}summary,[\s\S]{0,200}turns,/);
   });
 
   it("11. scopes the thread so a new conversation starts clean, deleting nothing", () => {
@@ -242,7 +242,7 @@ describe("voice", () => {
     // ones that answer. Since the voice phase both steps are composed by
     // `voiceToText`, which calls the same two functions and adds a clock.
     expect(webhook).toContain("transcriptionFailureNotice(language, noticeReasonFor(turn.reason))");
-    expect(webhook).toContain("transcribe: (input) => transcribeVoice(input),");
+    expect(webhook).toContain("transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),");
     expect(webhook.indexOf("voiceToText(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
     // A failed transcription never reaches the provider.
     const audioBlock = webhook.slice(
@@ -277,7 +277,7 @@ describe("voice", () => {
     // final transport differs, and it is the inbound message that picks it.
     expect(webhook).toContain("const spokenInput = incoming.media?.kind === \"audio\";");
     expect(webhook).toContain("const medium = replyMedium({ spokenInput, body });");
-    expect(webhook).toContain("speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text }),");
+    expect(webhook).toContain("speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId }),");
     // One assistant call, whichever way the answer leaves.
     expect(webhook.match(/askAssistant\(/g)?.length).toBe(1);
   });
@@ -287,7 +287,12 @@ describe("voice", () => {
 
 describe("reliability", () => {
   it("18. reuses the engine's idempotency: one event, one answer", () => {
-    expect(webhook).toMatch(/if \(dupe\) \{[\s\S]*?dupe\.code === "23505"[\s\S]*?continue;/);
+    // One event, one answer — and, since Phase 7, one answer rather than none
+    // when a delivery dies halfway. The claim is still taken on the unique
+    // index before any model call; what changed is that it now records whether
+    // the work finished, so a redelivery can tell a duplicate from a rescue.
+    expect(webhook).toMatch(/if \(dupe\) \{[\s\S]*?dupe\.code !== "23505"[\s\S]*?claimDecision/);
+    expect(webhook).toContain('if (claim.action === "skip") continue;');
     expect(webhook.indexOf("wa_message_id: incoming.messageId"))
       .toBeLessThan(webhook.indexOf("const asked = await askAssistant("));
   });
@@ -584,8 +589,12 @@ describe("feature flags", () => {
 
   it("closes the other door too: the words, not only the numbers", () => {
     // Typing «الطقس» would otherwise reach the weather while the weather is
-    // switched off. Both doors ask the same function about the same id.
-    expect(webhook).toContain('const featureOn = (id: string) => isAvailable(nodeById(id), disabled);');
+    // switched off. Both doors ask the same function about the same id — and
+    // that function now also refuses when the flag list could not be read at
+    // all, so the word door fails closed exactly as the menu door does.
+    expect(webhook).toContain(
+      "const featureOn = (id: string) => configVerified && isAvailable(nodeById(id), disabled);",
+    );
     for (const gate of [
       'featureOn("services.where")',
       'featureOn("services.nearby")',
@@ -599,9 +608,28 @@ describe("feature flags", () => {
 
   it("reads the flags from the table Visionex already configures, per delivery", () => {
     expect(webhook).toContain('.eq("key", "whatsapp_features")');
-    expect(webhook).toContain("const [configuredOwner, disabled] = await Promise.all([ownerPhone(db), disabledFeatures(db)]);");
-    // A database that will not answer must not switch every feature off.
-    expect(webhook).toMatch(/could not read feature flags[\s\S]{0,80}return \[\];/);
+    expect(webhook).toContain(
+      "const [configuredOwner, featureConfig] = await Promise.all([ownerPhone(db), readFeatureConfig(db)]);",
+    );
+  });
+
+  // ── A reversal, on purpose ──────────────────────────────────────────────
+  //
+  // This used to assert the opposite: that a database which would not answer
+  // returned an empty list, so nothing was switched off. That reads as the
+  // cautious choice and is the dangerous one. A flag exists for the minutes a
+  // feature must not run, and those are the same minutes a database is most
+  // likely to be the thing that is unwell — so the old behaviour lifted every
+  // flag at precisely the moment they mattered.
+  //
+  // Nobody is stranded by the new rule: navigation, help, Back, Main menu and
+  // the assistant's own refusals are all unaffected. What stops is executing a
+  // feature nobody can currently vouch for.
+  it("fails closed when the flag list cannot be read", () => {
+    expect(webhook).toContain("[whatsapp] could not read feature flags:");
+    expect(webhook).toContain("return { disabled: [], verified: false };");
+    expect(webhook).toContain("const configVerified = featureConfig.verified;");
+    expect(webhook).toContain("configVerified,");
   });
 });
 
