@@ -532,16 +532,44 @@ jobs:
           # A real font rather than a hand-drawn bitmap. Tesseract is trained on
           # real letterforms, and blocky approximations produce false failures
           # that look like a broken service.
-          if ! command -v convert >/dev/null 2>&1; then
-            echo '::error::ImageMagick is not on this runner, so no test image can be made.'
+          #
+          # ImageMagick 7 renamed `convert` to `magick`, and a runner image may
+          # ship either, or neither. All three cases are handled rather than
+          # assumed - the first attempt at this step failed on exactly that.
+          IM=""
+          for candidate in magick convert; do
+            if command -v "$candidate" >/dev/null 2>&1; then IM="$candidate"; break; fi
+          done
+          if [ -z "$IM" ]; then
+            echo 'ImageMagick is not here; installing it.'
+            sudo apt-get update -qq >/dev/null 2>&1
+            sudo apt-get install -y -qq imagemagick fonts-dejavu-core >/dev/null 2>&1
+            for candidate in magick convert; do
+              if command -v "$candidate" >/dev/null 2>&1; then IM="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$IM" ]; then
+            echo '::error::No ImageMagick available, so no test image can be made.'
             exit 1
           fi
+          echo "image tool   : $IM"
 
           PHRASE='VISIONEX GATE 47'
-          convert -size 900x220 xc:white \
+          "$IM" -size 900x220 xc:white \
             -fill black -pointsize 96 -gravity center \
-            -annotate 0 "$PHRASE" /tmp/vx-ocr-test.png
-          echo "test image   : $(stat -c%s /tmp/vx-ocr-test.png) bytes, saying '$PHRASE'"
+            -annotate 0 "$PHRASE" /tmp/vx-ocr-test.png 2>/tmp/vx-im-err || true
+
+          # A missing font produces a tiny blank PNG, and a blank PNG produces
+          # exactly the same 'no text came back' as a broken Tesseract. They
+          # need different answers, so they are told apart here rather than
+          # both being reported as an OCR failure.
+          SIZE=$(stat -c%s /tmp/vx-ocr-test.png 2>/dev/null || echo 0)
+          if [ "$SIZE" -lt 1000 ]; then
+            echo "::error::The test image did not render ($SIZE bytes) - this is the image generator, not the OCR service."
+            head -c 300 /tmp/vx-im-err 2>/dev/null
+            exit 1
+          fi
+          echo "test image   : $SIZE bytes, saying '$PHRASE'"
 
           BODY=$(curl -s --max-time 40 \
             -H "authorization: Bearer $TOKEN" \
@@ -582,7 +610,7 @@ jobs:
             say "arabic (not asserted): $(printf '%s' "$AR" | head -c 200)"
           fi
 
-          rm -f /tmp/vx-ocr-test.png /tmp/vx-ocr-ar.png
+          rm -f /tmp/vx-ocr-test.png /tmp/vx-ocr-ar.png /tmp/vx-im-err
       - name: Forget the key
         if: always()
         run: rm -f ~/.ssh/id_deploy ~/.ssh/config
