@@ -368,18 +368,35 @@ export const MAX_TURN_CHARS = 4_000;
 export const MAX_PROVIDER_RESPONSE_CHARS = 24_000;
 
 /**
- * Strip what nobody typed and nothing needs.
+ * Strip what nobody typed and nothing needs — and nothing else.
  *
  * Control characters carry no meaning a person intended and are the standard
  * way to hide text from whoever reviews it while leaving it perfectly legible
- * to a tokeniser. Bidirectional overrides do the same to a human reader.
- * Newline, tab and carriage return survive: a deliberately formatted message is
- * still a message.
+ * to a tokeniser. The bidirectional *overrides* do the same to a human reader:
+ * U+202A–U+202E and the isolates U+2066–U+2069 can make a string display as
+ * something other than what it says. Those go, with the zero-width space and
+ * the byte-order mark. Newline, tab and carriage return stay: a deliberately
+ * formatted message is still a message.
  *
- * Written as a loop over code points rather than a regex so the source of this
- * file contains no literal control characters of its own.
+ * ── What is deliberately kept ───────────────────────────────────────────────
+ *
+ * This class was briefly wider, and the wider version was wrong in a way that
+ * mattered to exactly this audience:
+ *
+ *   U+200C  zero-width non-joiner, required in Persian and Urdu — both of the
+ *           twenty languages here. «می‌روم» without it becomes «میروم», which is
+ *           a different and incorrect word form.
+ *   U+200D  zero-width joiner, which is what holds an emoji together and joins
+ *           letters in Indic scripts. Without it 👨‍👩‍👧‍👦 is four separate people.
+ *   U+200E  left-to-right mark
+ *   U+200F  right-to-left mark, both ordinary in the mixed Arabic-and-Latin
+ *           text this audience writes constantly, and neither able to override
+ *           anything — they nudge ordering, they do not disguise it.
+ *
+ * Sanitising a message must not corrupt the message. A guard that quietly
+ * rewrites somebody's language is worse than the thing it was guarding against.
  */
-const INVISIBLE = new RegExp("[" + "\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F\\u200B-\\u200F\\u202A-\\u202E\\u2066-\\u2069\\uFEFF" + "]", "g");
+const INVISIBLE = new RegExp("[" + "\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF" + "]", "g");
 
 export function stripInvisible(text: string): string {
   const value = text ?? "";

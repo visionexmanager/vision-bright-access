@@ -171,9 +171,11 @@ export function sanitisePassage(text: string | null | undefined, limit = MAX_PAS
   let value = (text ?? "")
     // eslint-disable-next-line no-control-regex -- stripping them is the point
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
-    // Bidirectional overrides and zero-width marks: invisible to a reviewer,
-    // and a way to make a passage read differently to a person than to a model.
-    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, "");
+    // Zero-width space, the bidirectional overrides and isolates, and the
+    // byte-order mark. Not the joiners: U+200C is required in Persian and Urdu
+    // and U+200D holds an emoji together, so stripping them would corrupt the
+    // passage rather than sanitise it. See `stripInvisible` for the full note.
+    .replace(/[\u200B\u202A-\u202E\u2066-\u2069\uFEFF]/g, "")
 
   for (const shape of INJECTION_SHAPES) value = value.replace(shape, "[removed]");
 

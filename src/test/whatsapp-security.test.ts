@@ -17,6 +17,7 @@ import type { EngineContext } from "../../supabase/functions/_shared/whatsappEng
 import type { SessionState } from "../../supabase/functions/_shared/whatsappSession.ts";
 
 const safety = await import("../../supabase/functions/_shared/whatsappSafety.ts");
+const knowledge = await import("../../supabase/functions/_shared/whatsappKnowledge.ts");
 const catalog = await import("../../supabase/functions/_shared/whatsappCatalog.ts");
 const router = await import("../../supabase/functions/_shared/whatsappRouter.ts");
 const engine = await import("../../supabase/functions/_shared/whatsappEngine.ts");
@@ -375,6 +376,69 @@ describe("provider errors are sanitised", () => {
 // ── 5. Prompt injection from the sender ──────────────────────────────────────
 
 describe("hostile input is bounded and stripped", () => {
+  // ── Sanitising must not corrupt the message ───────────────────────────────
+  //
+  // The strip class was briefly wide enough to include the joiners, and the
+  // wider version was wrong in a way that mattered to exactly this audience:
+  // it silently rewrote Persian and took every ZWJ emoji apart. Nothing caught
+  // it — no lone surrogate is produced, so every surrogate assertion passed —
+  // until a performance test made it visible for an unrelated reason.
+  //
+  // A guard that quietly rewrites somebody's language is worse than the thing
+  // it was guarding against, so these are here permanently.
+  const ZWNJ = String.fromCharCode(0x200c);
+  const ZWJ = String.fromCharCode(0x200d);
+
+  it("keeps the zero-width non-joiner that Persian and Urdu need", () => {
+    const persian = `می${ZWNJ}روم`; // "I go" — without the ZWNJ it is a different word
+    expect(safety.stripInvisible(persian)).toBe(persian);
+    expect(knowledge.sanitisePassage(persian)).toBe(persian);
+    const checked = ai.checkQuestion(persian, limits);
+    expect(checked.ok && checked.question).toBe(persian);
+  });
+
+  it("keeps the zero-width joiner that holds an emoji together", () => {
+    const family = `👨${ZWJ}👩${ZWJ}👧${ZWJ}👦`;
+    const astronaut = `👩🏽${ZWJ}🚀`;
+    for (const emoji of [family, astronaut]) {
+      expect(safety.stripInvisible(emoji), emoji).toBe(emoji);
+      expect(knowledge.sanitisePassage(emoji), emoji).toBe(emoji);
+      expect(safety.graphemeLength(emoji), emoji).toBe(1);
+    }
+  });
+
+  it("keeps the bidirectional marks that mixed Arabic and Latin text uses", () => {
+    const mixed = `الطقس ${String.fromCharCode(0x200e)}Visionex${String.fromCharCode(0x200f)} اليوم`;
+    expect(safety.stripInvisible(mixed)).toBe(mixed);
+  });
+
+  it("still removes the overrides, which are what actually disguise text", () => {
+    for (const code of [0x200b, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2069, 0xfeff]) {
+      const hidden = `real${String.fromCharCode(code)}text`;
+      expect(safety.stripInvisible(hidden), code.toString(16)).toBe("realtext");
+      expect(knowledge.sanitisePassage(hidden), code.toString(16)).toBe("realtext");
+    }
+  });
+
+  it("survives a round trip through every language's own script", () => {
+    // A sanitiser that mangles a script is a sanitiser that has broken the
+    // channel for whoever writes in it.
+    const samples = [
+      "مرحبا بك في Visionex",     // Arabic
+      `اردو میں${ZWNJ} خوش آمدید`, // Urdu, with a ZWNJ
+      "नमस्ते दुनिया",              // Hindi
+      "こんにちは世界",              // Japanese
+      "안녕하세요",                  // Korean
+      "Xin chào thế giới",       // Vietnamese
+      "স্বাগতম",                    // Bengali
+      `فارسی می${ZWNJ}گویم`,       // Persian, with a ZWNJ
+    ];
+    for (const text of samples) {
+      expect(safety.stripInvisible(text), text).toBe(text);
+      expect(safety.boundText(text, 1_000), text).toBe(text);
+    }
+  });
+
   it("strips control characters and bidirectional overrides from a question", () => {
     const hidden = `real question${String.fromCharCode(0x202e)}${String.fromCharCode(1)}hidden`;
     const checked = ai.checkQuestion(hidden, limits);
