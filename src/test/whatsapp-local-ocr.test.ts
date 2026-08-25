@@ -74,18 +74,49 @@ describe("whether local OCR is configured at all", () => {
   });
 });
 
-describe("which language Tesseract is asked for", () => {
-  it("reads both scripts for an Arabic conversation", async () => {
-    // Signage and packaging in the region are routinely bilingual, and a
-    // single-script pass drops half of a label.
-    const { ocrLanguageFor } = await load();
-    expect(ocrLanguageFor("ar")).toBe("ara+eng");
+describe("which conversations local OCR may answer", () => {
+  it("answers English", async () => {
+    const { localOcrLanguage } = await load();
+    expect(localOcrLanguage("en")).toBe("eng");
   });
 
-  it("reads English for everything else", async () => {
-    const { ocrLanguageFor } = await load();
-    expect(ocrLanguageFor("en")).toBe("eng");
-    expect(ocrLanguageFor("fr")).toBe("eng");
+  it("does not answer Arabic, because Arabic recognition does not work here", async () => {
+    // Measured, not assumed: a clean 96pt Noto Sans Arabic image read as empty
+    // across both language settings, four segmentation modes and every engine
+    // mode the build has, with an English control reading perfectly throughout.
+    const { localOcrLanguage } = await load();
+    expect(localOcrLanguage("ar")).toBeNull();
+  });
+
+  it("does not quietly send English for an Arabic conversation", async () => {
+    // The rejected middle path. Signage in the region is routinely bilingual,
+    // so `eng` would read the English half of a sign, report a clean success,
+    // and stop the model being called at all — telling a blind Arabic speaker
+    // half of what is in front of them, confidently.
+    const { localOcrLanguage } = await load();
+    expect(localOcrLanguage("ar")).not.toBe("eng");
+  });
+
+  it("answers no other language either", async () => {
+    // Only `eng` and `ara` are in the container, and `ara` does not work.
+    const { localOcrLanguage } = await load();
+    for (const other of ["fr", "es", "ur", "fa", "hi", "tr", "sw"]) {
+      expect(localOcrLanguage(other)).toBeNull();
+    }
+  });
+
+  it("goes nowhere near the network for a language it cannot read", async () => {
+    const { readTextLocally } = await load();
+    const fetchImpl = vi.fn();
+    const result = await readTextLocally({
+      bytes: IMAGE,
+      mimeType: "image/jpeg",
+      answerLanguage: "ar",
+      config: CONFIG,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(result).toEqual({ ok: false, reason: "language_unsupported" });
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
 
@@ -217,18 +248,18 @@ describe("the call itself", () => {
     const result = await readTextLocally({
       bytes: IMAGE,
       mimeType: "image/jpeg",
-      answerLanguage: "ar",
+      answerLanguage: "en",
       config: CONFIG,
       fetchImpl,
     });
 
     expect(result).toEqual({ ok: true, text: "EXIT", ms: 900 });
     // Asserted by decoding it the way a server does, not by matching the
-    // string. The previous version of this test asserted `?lang=ara+eng`
-    // literally - which is the bug, written down and locked in: a plus in a
-    // query decodes to a space, so the service was hearing `ara eng`.
-    expect(seenUrl).toBe("https://visionex.app/internal/media/ocr?lang=ara%2Beng");
-    expect(new URL(seenUrl).searchParams.get("lang")).toBe("ara+eng");
+    // string. An earlier version asserted `?lang=ara+eng` literally, which
+    // was the bug written down and locked in: a plus in a query decodes to a
+    // space, so the service was hearing `ara eng` and refusing it.
+    expect(seenUrl).toBe("https://visionex.app/internal/media/ocr?lang=eng");
+    expect(new URL(seenUrl).searchParams.get("lang")).toBe("eng");
     expect(seenInit?.method).toBe("POST");
     const headers = seenInit?.headers as Record<string, string>;
     expect(headers.authorization).toBe("Bearer t0ken");
@@ -270,29 +301,28 @@ describe("the call itself", () => {
     expect(Array.from(new Uint8Array(sent!))).not.toContain(0xaa);
   });
 
-  it("asks for both scripts in a way the service can hear", async () => {
-    // This is the one that English could never have caught. `eng` has no
-    // plus in it, so every English test passed while Arabic - the primary
-    // audience - failed on every photograph and fell back to the paid model.
+  it("encodes the language so the service hears what was meant", async () => {
+    // A plus in a query decodes to a space. That was a real bug: `ara+eng`
+    // arrived as `ara eng`, missed the service's allowlist and came back 400,
+    // silently, on every Arabic photograph. Arabic no longer goes out at all,
+    // but the encoding is asserted by decoding rather than by matching a
+    // string, so the next value with a plus in it cannot repeat it.
     const { readTextLocally } = await load();
     let seen = "";
     const fetchImpl = (async (url: string) => {
       seen = url;
-      return new Response(JSON.stringify({ ok: true, readable: true, text: "مخرج" }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true, readable: true, text: "EXIT" }), { status: 200 });
     }) as unknown as typeof fetch;
 
     await readTextLocally({
       bytes: IMAGE,
       mimeType: "image/jpeg",
-      answerLanguage: "ar",
+      answerLanguage: "en",
       config: CONFIG,
       fetchImpl,
     });
 
-    // What the service actually receives after decoding.
-    const received = new URL(seen).searchParams.get("lang");
-    expect(received).toBe("ara+eng");
-    expect(received).not.toBe("ara eng");
+    expect(new URL(seen).searchParams.get("lang")).toBe("eng");
   });
 
   it("steps aside when the service is full", async () => {
