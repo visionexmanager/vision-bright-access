@@ -162,6 +162,7 @@ import {
   withDeadline,
 } from "../_shared/whatsappReliability.ts";
 import { createTelemetry, newCorrelationId, trace } from "../_shared/whatsappTelemetry.ts";
+import { inspectImage } from "../_shared/whatsappFileSafety.ts";
 import { say } from "../_shared/whatsappStrings.ts";
 import {
   comingSoonNotice,
@@ -1473,6 +1474,43 @@ Deno.serve(async (req) => {
             continue;
           }
 
+          // ── Before a photograph leaves this server ────────────────────────
+          //
+          // Three things, in one call, in the order they have to happen.
+          //
+          // The MIME Meta reports comes from the sending client, so it is a
+          // claim. `inspectImage` reads the bytes and refuses a file whose
+          // real format is a different known format — a PDF sent as a JPEG is
+          // not something a phone does by accident.
+          //
+          // The size ceiling in `MEDIA_LIMITS` bounds the download, not the
+          // decode. A hundred-megapixel image compresses to a few megabytes of
+          // flat colour and expands to hundreds of megabytes of pixels; the
+          // dimensions are in the header, ahead of the pixels, so they are read
+          // before anything is committed to.
+          //
+          // And then the metadata goes. A phone photograph carries EXIF, EXIF
+          // carries GPS, and until now this function forwarded all of it to the
+          // vision provider — for an audience that includes blind users
+          // photographing their own medication and their own front door. The
+          // picture is unchanged; only the part of it that was never the
+          // picture is gone.
+          const inspected = inspectImage(media.bytes, media.mimeType);
+          if (!inspected.ok) {
+            log("image_rejected", { reason: inspected.reason, chars: media.bytes.byteLength });
+            await reply(unreadableNotice(language, "image"), "unsupported");
+            continue;
+          }
+          log("image_accepted", {
+            // The slash is replaced because a telemetry label has to look like
+            // a label: `sanitiseFields` drops `image/jpeg` and would have made
+            // this field silently vanish from every log line.
+            kind: inspected.sniffed.replace("/", "_"),
+            // A count of bytes removed, never what they said.
+            chars: inspected.removed,
+            ok: inspected.stripped,
+          });
+
           // ── Which of the five modes is this picture for? ──────────────
           //
           // The caption wins when there is one, because it is the most recent
@@ -1505,7 +1543,9 @@ Deno.serve(async (req) => {
           }
 
           const seen = await understandImage({
-            bytes: media.bytes,
+            // The stripped copy. This is the line that makes the whole check
+            // load-bearing rather than decorative.
+            bytes: inspected.bytes,
             mimeType: media.mimeType,
             question: incoming.media.caption ?? "",
             languageName: LANGUAGE_ENDONYM[answerLanguage],
