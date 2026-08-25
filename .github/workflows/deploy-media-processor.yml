@@ -145,21 +145,36 @@ jobs:
           scp -r services/media-processor/. target:~/visionex-media-processor/
           echo "Source copied."
 
-      - name: Build and run
+      - name: Send the token
         if: inputs.action == 'deploy'
         env:
           TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
         run: |
           set -uo pipefail
-          # The token travels over the SSH session on stdin, never as an
-          # argument — arguments are visible in `ps` to every user on the box.
-          printf '%s' "$TOKEN" | ssh target 'bash -s' <<'REMOTE'
+          # Its own connection, because stdin can only carry one thing. The
+          # first version piped the token into an ssh call that also had a
+          # heredoc; the heredoc won, the pipe was discarded, and the remote
+          # script read itself as the token.
+          #
+          # Written under `umask 077` and consumed by `--env-file` below, so the
+          # value never appears in argv on either hop — a token in
+          # `docker run --env` is visible in `ps` to every user on the box.
+          printf 'PROCESSOR_TOKEN=%s\n' "$TOKEN" \
+            | ssh target 'umask 077 && cat > ~/.visionex-processor.env'
+          echo "Token delivered."
+
+      - name: Build and run
+        if: inputs.action == 'deploy'
+        run: |
+          set -uo pipefail
+          # `set -e` on the remote side, so a failed build or a failed start
+          # ends the step rather than being echoed past.
+          ssh target 'bash -s' <<'REMOTE'
           set -euo pipefail
-          TOKEN="$(cat)"
           cd ~/visionex-media-processor
 
           echo "Building…"
-          sudo docker build -q -t visionex-media-processor:latest . >/dev/null
+          sudo docker build -t visionex-media-processor:latest . >/dev/null
           echo "Built."
 
           # Replaced, not duplicated.
@@ -170,7 +185,7 @@ jobs:
             --name visionex-media \
             --restart unless-stopped \
             --publish 127.0.0.1:8081:8081 \
-            --env PROCESSOR_TOKEN="$TOKEN" \
+            --env-file ~/.visionex-processor.env \
             --memory 2g \
             --cpus 2 \
             --pids-limit 256 \
@@ -180,12 +195,16 @@ jobs:
             --security-opt no-new-privileges \
             visionex-media-processor:latest >/dev/null
 
+          # Docker has read it; it does not need to stay on disk.
+          rm -f ~/.visionex-processor.env
           echo "Started."
           REMOTE
 
       - name: Verify it answers
         if: inputs.action == 'deploy'
         run: |
+          # `pipefail` matters here: the remote script's exit status is on the
+          # left of a `tee`, and without it the pipeline reports tee's success.
           set -uo pipefail
           say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
           say ""
@@ -198,8 +217,26 @@ jobs:
             sleep 2
           done
 
-          echo "health        : $(curl -fsS --max-time 5 http://127.0.0.1:8081/health 2>/dev/null || echo 'NO ANSWER')"
-          echo "unauthorised  : $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8081/capabilities) (expect 401)"
+          # ── These two decide the job ──────────────────────────────────────
+          #
+          # The first version printed "NO ANSWER" and let the job go green,
+          # because every check was an echo in a block with no `set -e`. The
+          # container had not started and the deployment reported success.
+          HEALTH=$(curl -fsS --max-time 5 http://127.0.0.1:8081/health 2>/dev/null || echo '')
+          AUTH=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8081/capabilities)
+
+          echo "health        : ${HEALTH:-NO ANSWER}"
+          echo "unauthorised  : $AUTH (expect 401)"
+
+          if [ -z "$HEALTH" ]; then
+            echo "FATAL: the service did not answer its health endpoint."
+            sudo docker logs --tail 40 visionex-media 2>&1 | sed 's/^/  log: /' || true
+            exit 1
+          fi
+          if [ "$AUTH" != "401" ]; then
+            echo "FATAL: an unauthenticated request returned $AUTH, not 401."
+            exit 1
+          fi
           echo "container     : $(sudo docker ps --filter name=visionex-media --format '{{.Status}}')"
           echo "tools in image: $(sudo docker exec visionex-media sh -c 'tesseract --version 2>&1 | head -1')"
           echo "languages     : $(sudo docker exec visionex-media sh -c 'tesseract --list-langs 2>&1 | tail -n +2 | tr "\n" " "')"
