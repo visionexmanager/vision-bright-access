@@ -10,7 +10,7 @@
 // leg of a delivery, because a privacy-safe log that cannot be followed end to
 // end is a log nobody will use.
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { TelemetryBase } from "../../supabase/functions/_shared/whatsappTelemetry.ts";
 
@@ -344,5 +344,200 @@ describe("the diagnose workflow", () => {
       expect(diagnose.toLowerCase().split("say ").join(""), statement).not.toContain(statement + "into");
     }
     expect(diagnose).toContain("every statement is a SELECT");
+  });
+});
+
+// ── 8. Meta's message id, which is a phone number in disguise ────────────────
+//
+// A `wamid` is base64. Decoding one yields bytes containing the sender's E.164
+// number. It sat on the allowlist as a "machine identifier" — the comment said
+// these ids "name a record rather than a person" — until a diagnostic run
+// published one into a world-readable job summary.
+//
+// The number used throughout this section is fabricated. The real one belonged
+// to a customer, and repeating it here to test that it is not published would
+// be its own small joke at their expense.
+
+describe("a WhatsApp message id never reaches a log", () => {
+  /** Build a wamid the way Meta does: base64 over bytes carrying the number. */
+  const wamidFor = (e164: string): string => {
+    const prefix = String.fromCharCode(0x1c, 0x18, e164.length);
+    const body = `${prefix}${e164}\u0015\u0002\u0000\u0012\u0018\u00142AB953DDDDB767DFF5AA\u0000`;
+    let binary = "";
+    for (const character of body) binary += character;
+    return "wamid." + btoa(binary);
+  };
+
+  const PHONE = "962790001234";           // fabricated, not a real customer
+  const WAMID = wamidFor(PHONE);
+
+  it("really does encode the number, or this suite proves nothing", () => {
+    // If this ever stops being true the tests below become vacuous, so the
+    // premise is checked rather than assumed.
+    const decoded = atob(WAMID.slice("wamid.".length));
+    expect(decoded).toContain(PHONE);
+  });
+
+  it("is not on the allowlist", () => {
+    expect(telemetry.TELEMETRY_FIELDS).not.toContain("message");
+    expect(telemetry.TELEMETRY_FIELDS).not.toContain("messageId");
+    expect(telemetry.TELEMETRY_FIELDS).not.toContain("wa_message_id");
+    expect(telemetry.TELEMETRY_FIELDS).not.toContain("wamid");
+  });
+
+  it("is dropped when offered as a field, under any name", () => {
+    for (const name of ["message", "messageId", "wamid", "wa_message_id", "id", "external_message_id"]) {
+      const published = JSON.stringify(telemetry.sanitiseFields({ [name]: WAMID }));
+      expect(published, name).toBe("{}");
+      expect(published, name).not.toContain("wamid");
+      expect(published, name).not.toContain(PHONE);
+    }
+  });
+
+  it("is dropped when smuggled into a field that IS allowed", () => {
+    // The allowlist is the first gate; the value rules are the second. A wamid
+    // carries a long run of digits and fails them whatever it is called.
+    for (const name of telemetry.TELEMETRY_FIELDS) {
+      const published = JSON.stringify(telemetry.sanitiseFields({ [name]: WAMID }));
+      expect(published, name).not.toContain("wamid");
+      expect(published, name).not.toContain(PHONE);
+    }
+  });
+
+  it("cannot be put on the base of a logger", () => {
+    // Not merely dropped — absent from `TelemetryBase`, so this does not
+    // typecheck without the cast, and does not publish with it either.
+    const lines: string[] = [];
+    const log = telemetry.createTelemetry(
+      { correlation: "cid0123456789ab", message: WAMID } as unknown as TelemetryBase,
+      { write: (line) => lines.push(line) },
+    );
+    log("received", { chars: 4 });
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).not.toContain("wamid");
+    expect(lines[0]).not.toContain(PHONE);
+    expect(lines[0]).toContain("cid0123456789ab");
+  });
+
+  it("cannot be logged as an event name or a nested value", () => {
+    const lines: string[] = [];
+    const log = telemetry.createTelemetry(
+      { correlation: "cid0123456789ab" },
+      { write: (line) => lines.push(line) },
+    );
+    log(WAMID, { reason: WAMID, node: WAMID, code: WAMID, conversation: WAMID });
+    log("replied", { reason: { nested: WAMID } as unknown as string });
+    for (const line of lines) {
+      expect(line).not.toContain("wamid");
+      expect(line).not.toContain(PHONE);
+    }
+  });
+
+  it("is absent from the production telemetry base", () => {
+    const start = webhook.indexOf("const log = createTelemetry(");
+    const base = webhook.slice(start, webhook.indexOf(");", start));
+    expect(base).not.toContain("incoming.messageId");
+    expect(base).toContain("correlation: correlationId");
+    expect(base).toContain("conversation: conversationId");
+  });
+
+  it("is absent from the diagnostic workflow's own field list", () => {
+    const declared = diagnose.slice(diagnose.indexOf("FIELDS='["));
+    const list: string[] = JSON.parse(declared.slice(declared.indexOf("["), declared.indexOf("]") + 1));
+    expect(list).not.toContain("message");
+    expect(list).not.toContain("messageId");
+    expect(list).not.toContain("wamid");
+    // And the two that replaced it are still there, or tracing is gone.
+    expect(list).toContain("correlation");
+    expect(list).toContain("conversation");
+  });
+
+  it("survives the workflow's filter even if something upstream emits it", () => {
+    // The workflow is the second gate. Re-implemented here exactly as the jq
+    // filter does it, so a future edit that widens the list is caught.
+    const declared = diagnose.slice(diagnose.indexOf("FIELDS='["));
+    const allowed: string[] = JSON.parse(declared.slice(declared.indexOf("["), declared.indexOf("]") + 1));
+    const emitted = {
+      at: "whatsapp", event: "replied", correlation: "cid0123456789ab",
+      conversation: "26ce09de-db97", message: WAMID, kind: "text", ms: 812,
+    } as Record<string, unknown>;
+
+    const shown = Object.fromEntries(
+      Object.entries(emitted).filter(([key]) => allowed.includes(key)),
+    );
+    const rendered = JSON.stringify(shown);
+    expect(rendered).not.toContain("wamid");
+    expect(rendered).not.toContain(PHONE);
+    expect(rendered).toContain("cid0123456789ab");
+  });
+
+  it("still lives in the database, where deduplication needs the real value", () => {
+    // The fix is about *publication*, not about losing the id. The unique index
+    // on wa_message_id is what makes a Meta retry a no-op, and the column is
+    // service-role only with admin-only RLS.
+    expect(webhook).toContain("wa_message_id: incoming.messageId");
+    expect(webhook).toContain('.eq("wa_message_id", incoming.messageId)');
+  });
+
+  it("is not printed by any console line in the WhatsApp code", () => {
+    const files = ["supabase/functions/whatsapp-webhook/index.ts"];
+    for (const file of readdirSync("supabase/functions/_shared").filter((f) => f.startsWith("whatsapp"))) {
+      files.push(`supabase/functions/_shared/${file}`);
+    }
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      for (const line of source.split(NL).filter((l) => l.includes("console."))) {
+        expect(line, `${file}: ${line.trim()}`).not.toMatch(/messageId|wamid|wa_message_id/i);
+      }
+    }
+  });
+});
+
+// ── 9. Correlation still does the job the message id was doing ───────────────
+
+describe("correlation ids still provide tracing", () => {
+  it("ties every line of one delivery together", () => {
+    const { log, parsed } = recorder();
+    // The full shape of a delivery: received, routed, retrieved, asked, replied.
+    log("received", { chars: 12, selection: false });
+    log("route", { outcome: "delegate", reason: "selection", node: "assistant.ask" });
+    log("grounding", { status: "grounded", passages: 3, candidates: 15 });
+    log("ai_answered", { provider: "groq", model: "llama-3.3-70b-versatile", chars: 240 });
+    log("replied", { replyKind: "reply", medium: "text", sent: true });
+
+    const lines = parsed();
+    expect(lines).toHaveLength(5);
+    const ids = new Set(lines.map((line) => line.correlation));
+    expect(ids.size, "one delivery must have exactly one correlation id").toBe(1);
+    // And the sequence is readable end to end from that one id.
+    expect(lines.map((line) => line.event))
+      .toEqual(["received", "route", "grounding", "ai_answered", "replied"]);
+  });
+
+  it("keeps two deliveries apart", () => {
+    const a = recorder({ correlation: "aaaaaaaaaaaaaaaa" });
+    const b = recorder({ correlation: "bbbbbbbbbbbbbbbb" });
+    a.log("received", { chars: 1 });
+    b.log("received", { chars: 1 });
+    expect(a.parsed()[0].correlation).not.toBe(b.parsed()[0].correlation);
+  });
+
+  it("groups a thread by conversation without naming anybody", () => {
+    const { log, parsed } = recorder({ conversation: "26ce09de-db97-4dc6" });
+    log("received", { chars: 1 });
+    expect(parsed()[0].conversation).toBe("26ce09de-db97-4dc6");
+  });
+
+  it("reaches the modules that print their own lines", () => {
+    expect(telemetry.trace("cid0123456789ab")).toBe(" cid=cid0123456789ab");
+    for (const name of ["whatsappVoiceReply", "whatsappTranscribe", "whatsappMedia", "whatsappInteractive"]) {
+      const source = readFileSync(`supabase/functions/_shared/${name}.ts`, "utf8");
+      expect(source, name).toContain("trace(");
+    }
+  });
+
+  it("is what the diagnostic tells a reader to follow", () => {
+    expect(diagnose).toContain("correlation");
+    expect(diagnose).toMatch(/Follow one delivery end to end with its/);
   });
 });

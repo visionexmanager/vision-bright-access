@@ -195,7 +195,19 @@ jobs:
           # way out. A line that is not one of those events is counted, never
           # shown: an unstructured line is by definition one nothing has
           # vouched for.
-          FIELDS='["at","event","correlation","conversation","message","kind","outcome","reason","node","feature","via","selection","state","step","menu","chars","parts","passages","candidates","turns","attempt","count","ms","status","code","provider","model","medium","sent","spokenFailed","replyKind","problem","category","language","verified","ok"]'
+          #
+          # ── `message` is absent on purpose ──────────────────────────────────
+          #
+          # It carried Meta's `wamid`, which is base64 and decodes to bytes
+          # containing the sender's E.164 phone number. This step published one
+          # into a public job summary before that was noticed. It is gone from
+          # `TELEMETRY_FIELDS` too, so the function no longer emits it — this
+          # list is the second gate, and re-adding the name here would publish
+          # the field again the moment anything upstream started emitting it.
+          #
+          # Trace a delivery with `correlation`, and a thread with
+          # `conversation`. Both already do what the message id was used for.
+          FIELDS='["at","event","correlation","conversation","kind","outcome","reason","node","feature","via","selection","state","step","menu","chars","parts","passages","candidates","turns","attempt","count","ms","status","code","provider","model","medium","sent","spokenFailed","replyKind","problem","category","language","verified","ok"]'
 
           say '```json'
           jq -c --argjson fields "$FIELDS" '

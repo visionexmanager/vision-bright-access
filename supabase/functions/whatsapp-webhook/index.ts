@@ -727,6 +727,12 @@ Deno.serve(async (req) => {
        * it is random rather than derived from the sender, so it joins log
        * lines up without joining a person up.
        *
+       * Meta's own message id is deliberately not here. It decodes to the
+       * sender's phone number, and `correlation` already does what it was
+       * being used for. It remains in the database, on `wa_message_id`,
+       * where deduplication needs the real value and where nothing public can
+       * read it.
+       *
        * Nothing here can throw. A delivery that answered the customer and
        * then died writing a log line would be redelivered by Meta and the
        * customer answered twice.
@@ -736,7 +742,6 @@ Deno.serve(async (req) => {
         {
           correlation: correlationId,
           conversation: conversationId,
-          message: incoming.messageId,
           kind: engineMessageKind(incoming),
         },
         { startedAt },
