@@ -480,10 +480,17 @@ describe("where the webhook calls it from", () => {
     // The fall-through is the entire safety argument. If a future edit made
     // the local read terminal, a busy service would become "I couldn't read
     // it" for a blind user holding up a sign.
+    //
+    // Bounded by the end of the image branch rather than by a character count.
+    // A fixed window measures how much commentary sits between the two calls,
+    // which is not the property, and it fails the moment anything is added
+    // between them — as it did when the barcode scan landed there.
     const source = webhook();
     const call = source.indexOf("readTextLocally({");
-    const after = source.slice(call, call + 2_000);
-    expect(after).toContain("understandImage({");
+    expect(call).toBeGreaterThan(0);
+    const branchEnd = source.indexOf(`incoming.media.kind === "document"`, call);
+    expect(branchEnd).toBeGreaterThan(call);
+    expect(source.slice(call, branchEnd)).toContain("understandImage({");
   });
 
   it("sends the stripped copy, not the original bytes", async () => {

@@ -227,3 +227,121 @@ export function textIsUsable(text) {
   const meaningful = trimmed.replace(/[^\p{L}\p{N}]/gu, "");
   return meaningful.length >= 3;
 }
+
+// ── Barcodes ────────────────────────────────────────────────────────────────
+//
+// The second thing this service can do to a photograph, and the first one that
+// works in every language. OCR here is English-only because Arabic recognition
+// does not work on this box; a barcode has no language at all. The digits under
+// a retail symbol are the same digits in Riyadh and in Helsinki, so this
+// capability serves the whole audience rather than the half Tesseract can read.
+
+/**
+ * How long one zbar run may take.
+ *
+ * Shorter than OCR's fifteen seconds because the work is smaller: zbar scans
+ * for a finder pattern rather than recognising letterforms, and on a phone
+ * photograph it either finds one quickly or does not find one at all. Ten
+ * seconds is the point past which the process should be reclaimed.
+ */
+export const BARCODE_TIMEOUT_MS = 10_000;
+
+/**
+ * Symbols returned from one image.
+ *
+ * A shelf photographed straight on can legitimately contain a dozen barcodes.
+ * Reading all of them back to somebody is not an answer, so the scan is bounded
+ * and the caller is told how many were seen.
+ */
+export const MAX_BARCODE_SYMBOLS = 8;
+
+/**
+ * Characters kept from one symbol's payload.
+ *
+ * A QR code can carry several kilobytes. This goes into a WhatsApp message that
+ * somebody is going to hear read aloud, and past a certain length the honest
+ * answer is "this is a long code" rather than four kilobytes of it.
+ */
+export const MAX_BARCODE_VALUE_CHARS = 1_200;
+
+/**
+ * The retail symbologies, whose payload is a product number and nothing else.
+ *
+ * This distinction is the whole security argument for the endpoint, so it is
+ * data rather than a regex written at the call site. A symbol in this set
+ * carries digits — it cannot carry a sentence, and therefore cannot carry an
+ * instruction. Everything else (QR above all) carries arbitrary text somebody
+ * else printed, and is treated the way `whatsappLocalOcr.ts` treats recognised
+ * text: returned to the sender, never put in a prompt.
+ */
+export const RETAIL_SYMBOLOGIES = ["EAN-13", "EAN-8", "UPC-A", "UPC-E", "ISBN-13", "ISBN-10", "I2/5", "DataBar"];
+
+export const isRetailSymbology = (value) => typeof value === "string" && RETAIL_SYMBOLOGIES.includes(value);
+
+/**
+ * Whether a string of digits is a real GTIN, by its own check digit.
+ *
+ * Every retail barcode carries a mod-10 checksum in its last digit precisely so
+ * that a misread is detectable. Checking it here costs nothing and turns "zbar
+ * returned some digits" into "these digits are internally consistent", which is
+ * the difference between reading a product number aloud and reading a
+ * misdecode aloud to somebody who cannot check it against the packet.
+ *
+ * ISBN-10 is deliberately not handled: it uses a mod-11 checksum with an `X`
+ * terminator, so it fails this test and is reported as text rather than
+ * silently accepted. That is the safe direction to be wrong in.
+ */
+export function gtinChecksumOk(digits) {
+  if (typeof digits !== "string" || !/^\d+$/.test(digits)) return false;
+  if (![8, 12, 13, 14].includes(digits.length)) return false;
+
+  // Weights alternate 3 and 1 from the right, excluding the check digit.
+  let sum = 0;
+  for (let i = digits.length - 2, weight = 3; i >= 0; i--, weight = weight === 3 ? 1 : 3) {
+    sum += Number(digits[i]) * weight;
+  }
+  const expected = (10 - (sum % 10)) % 10;
+  return expected === Number(digits[digits.length - 1]);
+}
+
+/**
+ * What zbar said, as structured symbols.
+ *
+ * `zbarimg -q` prints one `SYMBOLOGY:payload` line per symbol. The payload may
+ * itself contain a colon — a QR code holding a URL always does — so the split
+ * is on the first colon only, and everything after it is the value.
+ *
+ * A line with no colon, an unknown symbology or an empty payload is dropped
+ * rather than guessed at. This is parsing the output of a program that is being
+ * handed hostile images; the failure mode to design for is a line that does not
+ * look like the ones in the manual.
+ */
+export function parseBarcodeOutput(stdout) {
+  const symbols = [];
+  for (const line of String(stdout ?? "").split("\n")) {
+    const trimmed = line.replace(/\r$/, "");
+    if (!trimmed) continue;
+
+    const colon = trimmed.indexOf(":");
+    if (colon <= 0) continue;
+
+    const symbology = trimmed.slice(0, colon).trim();
+    const value = trimmed.slice(colon + 1);
+    // A symbology name is short and has no spaces in it. Anything else is a
+    // diagnostic line that escaped `-q`, not a symbol.
+    if (!/^[A-Za-z0-9/+.-]{2,16}$/.test(symbology)) continue;
+    if (!value) continue;
+
+    const retail = isRetailSymbology(symbology) && gtinChecksumOk(value);
+    symbols.push({
+      symbology,
+      value: value.slice(0, MAX_BARCODE_VALUE_CHARS),
+      // `kind` rather than a boolean, because the caller branches on it and
+      // "not retail" is a real category with its own handling, not an absence.
+      kind: retail ? "product" : "text",
+      truncated: value.length > MAX_BARCODE_VALUE_CHARS,
+    });
+    if (symbols.length >= MAX_BARCODE_SYMBOLS) break;
+  }
+  return symbols;
+}

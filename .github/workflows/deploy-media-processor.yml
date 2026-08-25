@@ -699,6 +699,131 @@ jobs:
           fi
 
           rm -f /tmp/vx-ocr-test.png /tmp/vx-ar.png /tmp/vx-im-err
+
+      # ── Barcodes: the capability that is not English-only ────────────────────
+      #
+      # Local OCR reads English and nothing else on this box, so it serves half
+      # of this channel's audience. A barcode has no language, so this half of
+      # the self-test is checking the part that arrives complete for everybody —
+      # which makes it worth proving as carefully as the OCR half was.
+      #
+      # Two symbols, because they take two different paths through the service
+      # and only one of them may ever reach a model prompt.
+      #
+      #   a QR code   - carries text somebody else authored. Must come back
+      #                 labelled `text`, and the Edge Function shows it to the
+      #                 sender without ever putting it in a prompt.
+      #   an EAN-13   - carries digits with a mod-10 check digit. Must come back
+      #                 labelled `product`, which is what allows it into a
+      #                 prompt as ground truth.
+      #
+      # If the labels were ever swapped, a sticker printed by a stranger would
+      # be writing part of the model's instructions. So the labels are asserted,
+      # not just the payloads.
+      #
+      # Both images are generated here, in this job, from strings this workflow
+      # chose. No customer's file is involved and nothing is read from the
+      # database.
+      - name: Prove it can decode a barcode
+        if: inputs.action == 'selftest'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [ -z "${TOKEN:-}" ]; then
+            echo '::error::PROCESSOR_TOKEN is not set. Nothing to authenticate with.'
+            exit 1
+          fi
+
+          # `qrencode` draws a QR code and `zint` draws a real EAN-13 with its
+          # quiet zone and guard bars. Both are in the runner's archive; a
+          # hand-drawn approximation of either is not a barcode and would fail
+          # for reasons that have nothing to do with the service.
+          if ! command -v qrencode >/dev/null 2>&1 || ! command -v zint >/dev/null 2>&1; then
+            sudo apt-get update -qq >/dev/null 2>&1
+            sudo apt-get install -y -qq qrencode zint >/dev/null 2>&1
+          fi
+          for tool in qrencode zint; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              echo "::error::$tool is not available, so no test barcode can be made."
+              exit 1
+            fi
+          done
+
+          # A URL rather than a word, because that is what a QR code on a poster
+          # actually holds and because a colon in the payload is the case that
+          # broke a naive parser.
+          QR_PAYLOAD='https://visionex.app/selftest?id=47'
+          qrencode -s 8 -m 4 -o /tmp/vx-qr.png "$QR_PAYLOAD"
+
+          # A real EAN-13 whose check digit is correct. `-b 13` is EAN, and zint
+          # computes the thirteenth digit from the twelve given.
+          EAN='5000112637922'
+          zint -b 13 -d "${EAN%?}" -o /tmp/vx-ean.png --height=60 >/dev/null 2>&1
+
+          for f in /tmp/vx-qr.png /tmp/vx-ean.png; do
+            SIZE=$(stat -c%s "$f" 2>/dev/null || echo 0)
+            if [ "$SIZE" -lt 200 ]; then
+              echo "::error::$f did not render ($SIZE bytes) - this is the image generator, not the service."
+              exit 1
+            fi
+          done
+
+          scan() {
+            curl -s --max-time 40 \
+              -H "authorization: Bearer $TOKEN" \
+              -H 'content-type: image/png' \
+              --data-binary "@$1" \
+              'https://visionex.app/internal/media/barcode'
+          }
+
+          QR_BODY=$(scan /tmp/vx-qr.png)
+          EAN_BODY=$(scan /tmp/vx-ean.png)
+
+          # Printing these is printing what was sent four commands ago.
+          say '## Local barcode self-test'
+          say '```'
+          say "sent qr   : $QR_PAYLOAD"
+          say "returned  : $(printf '%s' "$QR_BODY" | head -c 300)"
+          say "sent ean  : $EAN"
+          say "returned  : $(printf '%s' "$EAN_BODY" | head -c 300)"
+          say '```'
+
+          FAILED=0
+
+          case "$QR_BODY" in
+            *"$QR_PAYLOAD"*) ;;
+            *) echo '::error::The QR payload did not come back.'; FAILED=1 ;;
+          esac
+          # A QR code must never be labelled a product: that label is what lets a
+          # payload into a model prompt.
+          case "$QR_BODY" in
+            *'"kind":"product"'*) echo '::error::A QR code came back labelled `product`. That payload could reach a prompt.'; FAILED=1 ;;
+            *'"kind":"text"'*) ;;
+            *) echo '::error::The QR symbol came back with no kind at all.'; FAILED=1 ;;
+          esac
+
+          case "$EAN_BODY" in
+            *"$EAN"*) ;;
+            *) echo "::error::The EAN-13 digits did not come back."; FAILED=1 ;;
+          esac
+          # And a checksummed retail symbol must be labelled a product, or the
+          # ground-truth sentence is never built and the model goes back to
+          # squinting at the digits.
+          case "$EAN_BODY" in
+            *'"kind":"product"'*) ;;
+            *) echo '::error::The EAN-13 was not recognised as a product code.'; FAILED=1 ;;
+          esac
+
+          rm -f /tmp/vx-qr.png /tmp/vx-ean.png
+
+          if [ "$FAILED" -ne 0 ]; then
+            say 'Local barcode decoding must not be relied on. Fix this before it is announced.'
+            exit 1
+          fi
+          say 'zbar decoded both symbols and labelled each correctly. Barcodes work end to end.'
       - name: Forget the key
         if: always()
         run: rm -f ~/.ssh/id_deploy ~/.ssh/config

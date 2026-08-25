@@ -135,3 +135,97 @@ describe("the ceilings", () => {
     expect(MAX_CONCURRENT).toBeLessThanOrEqual(2);
   });
 });
+
+// ── Barcodes ────────────────────────────────────────────────────────────────
+//
+// Two things are load-bearing here and both are security properties rather than
+// features.
+//
+// The check digit is what separates "zbar returned some digits" from "these
+// digits are a real product number". Without it a misdecode is read aloud to
+// somebody who cannot check it against the packet.
+//
+// And the `product` / `text` split is what keeps a stranger's sentence out of a
+// model prompt. A QR code can be printed by anybody and left on a shelf, so the
+// rule is that only digits are ever treated as verified — everything else is
+// somebody else's text.
+
+describe("the check digit, which is what makes a barcode provable", () => {
+  it("accepts real retail numbers", async () => {
+    const { gtinChecksumOk } = await limits();
+    // EAN-13, EAN-8 and UPC-A, each with its own correct check digit.
+    for (const good of ["5000112637922", "6281006540019", "96385074", "036000291452"]) {
+      expect(gtinChecksumOk(good)).toBe(true);
+    }
+  });
+
+  it("rejects a number whose last digit is wrong", async () => {
+    const { gtinChecksumOk } = await limits();
+    // The same EAN-13 as above with the check digit moved by one. A misdecode
+    // looks exactly like this, and it is the case the checksum exists for.
+    expect(gtinChecksumOk("5000112637923")).toBe(false);
+    expect(gtinChecksumOk("1234567890123")).toBe(false);
+  });
+
+  it("rejects anything that is not a run of digits of a retail length", async () => {
+    const { gtinChecksumOk } = await limits();
+    for (const bad of ["", "12345", "50001126379221", "500011263792X", "  5000112637922  ", null, 5000112637922]) {
+      expect(gtinChecksumOk(bad as string)).toBe(false);
+    }
+  });
+});
+
+describe("reading what zbar printed", () => {
+  it("splits on the first colon, so a URL survives intact", async () => {
+    const { parseBarcodeOutput } = await limits();
+    const symbols = parseBarcodeOutput("QR-Code:https://visionex.app/a?b=1&c=2\n");
+    expect(symbols).toHaveLength(1);
+    expect(symbols[0].value).toBe("https://visionex.app/a?b=1&c=2");
+    // Nobody printed this on a packet with a check digit, so it is text.
+    expect(symbols[0].kind).toBe("text");
+  });
+
+  it("calls a checksummed retail symbol a product, and nothing else one", async () => {
+    const { parseBarcodeOutput } = await limits();
+    const symbols = parseBarcodeOutput(
+      [
+        "EAN-13:5000112637922",
+        // A retail symbology whose digits do not check out. zbar can misdecode;
+        // this is the case where it did, and it must not be trusted as a number.
+        "EAN-13:5000112637923",
+        // A symbology that carries free text, holding digits. Still text: the
+        // symbology, not the shape of the payload, is what decides.
+        "CODE-128:5000112637922",
+      ].join("\n"),
+    );
+    expect(symbols.map((symbol) => symbol.kind)).toEqual(["product", "text", "text"]);
+  });
+
+  it("drops the lines that are not symbols", async () => {
+    const { parseBarcodeOutput } = await limits();
+    const symbols = parseBarcodeOutput(
+      ["scanned 1 barcode symbols from 1 images", "", "no colon here", "QR-Code:", ":leading colon", "QR-Code:ok"].join("\n"),
+    );
+    expect(symbols).toHaveLength(1);
+    expect(symbols[0].value).toBe("ok");
+  });
+
+  it("bounds both the payload and the number of symbols", async () => {
+    const { parseBarcodeOutput, MAX_BARCODE_VALUE_CHARS, MAX_BARCODE_SYMBOLS } = await limits();
+
+    const long = parseBarcodeOutput(`QR-Code:${"x".repeat(MAX_BARCODE_VALUE_CHARS + 500)}`);
+    expect(long[0].value).toHaveLength(MAX_BARCODE_VALUE_CHARS);
+    expect(long[0].truncated).toBe(true);
+
+    // A shelf photographed straight on genuinely contains a dozen barcodes.
+    const many = parseBarcodeOutput(Array.from({ length: 30 }, (_, i) => `QR-Code:v${i}`).join("\n"));
+    expect(many).toHaveLength(MAX_BARCODE_SYMBOLS);
+  });
+
+  it("survives being handed nothing at all", async () => {
+    const { parseBarcodeOutput } = await limits();
+    for (const empty of ["", null, undefined]) {
+      expect(parseBarcodeOutput(empty as string)).toEqual([]);
+    }
+  });
+});

@@ -213,6 +213,13 @@ import {
 } from "../_shared/whatsappVisionModes.ts";
 import { readTextLocally } from "../_shared/whatsappLocalOcr.ts";
 import {
+  barcodeGroundTruth,
+  productCodes,
+  qrCodeNotice,
+  scanBarcodes,
+  textPayloads,
+} from "../_shared/whatsappBarcode.ts";
+import {
   CLASSIFY_INSTRUCTION,
   CLASSIFY_SCHEMA,
   fallbackBriefing,
@@ -1637,6 +1644,49 @@ Deno.serve(async (req) => {
             }
           }
 
+          // ── The barcode, which has no language ────────────────────────
+          //
+          // Only for `product`, the mode that already asks for "the product or
+          // its barcode". zbar cannot describe a room or find a cane, so the
+          // other modes would spend a scan to learn nothing.
+          //
+          // This does not replace the model, it precedes it. Nobody asked to
+          // hear thirteen digits read aloud — they asked what they are holding,
+          // and the model answers that. What the scan changes is that the model
+          // is *told* the number instead of squinting at it, and a misread
+          // digit on a box of medicine is not a cosmetic error.
+          //
+          // It is also the first local capability that serves this channel's
+          // whole audience. Local OCR is English-only because Arabic
+          // recognition does not work on this box; a barcode is digits, and
+          // digits are the same in every language.
+          let barcodeTruth: string | null = null;
+          let barcodeText: string | null = null;
+          if (mode === "product") {
+            const scan = await scanBarcodes({
+              bytes: inspected.bytes,
+              mimeType: media.mimeType,
+            });
+            log("barcode", {
+              ok: scan.ok,
+              reason: scan.ok ? "decoded" : scan.reason,
+              // Counts and a duration. Never the payload: a QR code routinely
+              // carries somebody's booking reference.
+              found: scan.ok ? scan.symbols.length : 0,
+              ms: scan.ok ? scan.ms : 0,
+            });
+            if (scan.ok) {
+              barcodeTruth = barcodeGroundTruth(productCodes(scan.symbols));
+              // Never merged into the prompt. A sticker is attacker-controlled
+              // text and this is the one path that keeps it out of one.
+              barcodeText = qrCodeNotice(language, textPayloads(scan.symbols));
+            }
+          }
+
+          const basePrompt = mode
+            ? visionSystemPrompt(mode, LANGUAGE_ENDONYM[answerLanguage], modeTarget)
+            : undefined;
+
           const seen = await understandImage({
             // The stripped copy. This is the line that makes the whole check
             // load-bearing rather than decorative.
@@ -1644,17 +1694,23 @@ Deno.serve(async (req) => {
             mimeType: media.mimeType,
             question: incoming.media.caption ?? "",
             languageName: LANGUAGE_ENDONYM[answerLanguage],
-            systemPrompt: mode
-              ? visionSystemPrompt(mode, LANGUAGE_ENDONYM[answerLanguage], modeTarget)
-              : undefined,
+            systemPrompt: barcodeTruth ? `${basePrompt ?? ""} ${barcodeTruth}`.trim() : basePrompt,
           });
           // "I could not read it" is a real answer and is passed on as one,
           // rather than being dressed up as a description.
           if (!seen || !seen.readable || !seen.answer) {
+            // Unless the scanner read something the model could not. A
+            // photograph of a QR code on a poster is exactly that case: the
+            // model sees a square it cannot decode and gives up, while the link
+            // inside it is the only thing the sender wanted.
+            if (barcodeText) {
+              await reply(clampReply(barcodeText), "reply");
+              continue;
+            }
             await reply(unreadableNotice(language, "image"), "unsupported");
             continue;
           }
-          await reply(clampReply(seen.answer), "reply");
+          await reply(clampReply(barcodeText ? `${seen.answer}\n\n${barcodeText}` : seen.answer), "reply");
           continue;
         } else if (incoming.media.kind === "document") {
           const media = await downloadMedia({

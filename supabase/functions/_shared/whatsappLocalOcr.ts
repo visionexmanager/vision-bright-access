@@ -41,6 +41,14 @@
 // goes into a WhatsApp message and a message has limits.
 
 import { boundText, describeError, stripInvisible } from "./whatsappSafety.ts";
+import {
+  MAX_PROCESSOR_UPLOAD_BYTES,
+  imageBody,
+  processorAvailable,
+  processorConfig,
+  type EnvReader,
+  type ProcessorConfig,
+} from "./whatsappProcessor.ts";
 
 /**
  * The local attempt's own deadline.
@@ -79,74 +87,17 @@ export type LocalOcrResult =
   | { ok: true; text: string; ms: number }
   | { ok: false; reason: LocalOcrFailure };
 
-export interface LocalOcrConfig {
-  url: string;
-  token: string;
-}
-
-/**
- * The environment is probed rather than referenced.
- *
- * `Deno` is undefined under Vitest, and a bare `Deno.env.get` at module scope
- * would throw at import time and take the whole test file with it — the same
- * reason `meta.ts` does this. Passing an explicit reader also lets the tests
- * drive every configuration state without touching a real environment.
- */
-export type EnvReader = (name: string) => string | undefined;
-
-const denoEnv: EnvReader = (name) => {
-  const deno = (globalThis as {
-    Deno?: { env?: { get(key: string): string | undefined } };
-  }).Deno;
-  return deno?.env?.get(name);
-};
-
-/**
- * Configuration, or nothing at all.
- *
- * Returning null is a supported, quiet state — not an error. It is what every
- * deployment looks like until the secrets are set, and what a deployment that
- * wants local OCR switched off looks like afterwards. The caller treats it the
- * same as a failure: use the model.
- *
- * The URL must be HTTPS. The image is a photograph somebody sent privately,
- * and it is not going over a plaintext hop because a config value had a typo
- * in the scheme. A hostname is required for the same reason: an IP literal
- * cannot be checked against a certificate the way a name can.
- */
-export function localOcrConfig(read: EnvReader = denoEnv): LocalOcrConfig | null {
-  const url = (read("MEDIA_PROCESSOR_URL") ?? "").trim();
-  const token = (read("MEDIA_PROCESSOR_TOKEN") ?? "").trim();
-  if (!url || !token) return null;
-
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== "https:") return null;
-  // Rejects `https://127.0.0.1/…` and `https://[::1]/…`: the Edge Function is
-  // not on the box, so a loopback address here is always a misconfiguration,
-  // and one that would otherwise fail slowly on every single photograph.
-  if (!parsed.hostname || /^[\d.]+$/.test(parsed.hostname) || parsed.hostname.includes(":")) {
-    return null;
-  }
-
-  return { url: parsed.toString().replace(/\/+$/, ""), token };
-}
-
-/** Whether local OCR is available at all. Read by the webhook for telemetry. */
-export const localOcrAvailable = (read: EnvReader = denoEnv): boolean => localOcrConfig(read) !== null;
-
-/**
- * The upload ceiling, matching the service and the nginx `client_max_body_size`.
- *
- * Checked here as well so an oversized photograph is refused before it is put
- * on the wire, rather than after nginx has read eight megabytes of it and
- * closed the connection.
- */
-export const MAX_OCR_UPLOAD_BYTES = 8 * 1024 * 1024;
+// The configuration is the processing service's, not this feature's: one URL,
+// one token, and now two capabilities behind them. It lives in
+// `whatsappProcessor.ts` so that the barcode client cannot develop a second
+// opinion about what a valid URL is. These names are kept because they are what
+// the webhook and the tests call it, and because "is local OCR available" is
+// the question the caller is actually asking.
+export type LocalOcrConfig = ProcessorConfig;
+export type { EnvReader };
+export const localOcrConfig = processorConfig;
+export const localOcrAvailable = processorAvailable;
+export const MAX_OCR_UPLOAD_BYTES = MAX_PROCESSOR_UPLOAD_BYTES;
 
 /**
  * Which conversations local OCR is allowed to answer at all.
@@ -248,19 +199,7 @@ export async function readTextLocally(params: {
   const deadline = setTimeout(() => controller.abort(), params.timeoutMs ?? LOCAL_OCR_TIMEOUT_MS);
 
   try {
-    // An explicit ArrayBuffer, for two separate reasons.
-    //
-    // A `Uint8Array` is not assignable to `BodyInit` under the lib types CI
-    // resolves — the npm and pnpm trees differ here and only the pnpm job sees
-    // it — and declaring the buffer is the honest fix rather than a cast that
-    // silences the checker without answering it.
-    //
-    // And it copies exactly this view's range. `inspected.bytes` is the output
-    // of EXIF stripping; if that ever returns a subarray of the original, the
-    // backing buffer still holds the metadata that was supposed to be gone.
-    // Sending `.buffer` would send it. This cannot.
-    const body = new ArrayBuffer(params.bytes.byteLength);
-    new Uint8Array(body).set(params.bytes);
+    const body = imageBody(params.bytes);
     // Encoded, because `ara+eng` in a raw query string is not `ara+eng`.
     //
     // A plus sign in a query decodes to a space, so `?lang=ara+eng` reached the
