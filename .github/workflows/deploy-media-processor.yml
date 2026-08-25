@@ -24,11 +24,11 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "status = report only. deploy = build and run. expose = publish through nginx."
+        description: "status = report only. deploy = build and run. expose = publish through nginx. selftest = prove OCR reads a known image."
         required: true
         default: status
         type: choice
-        options: [status, deploy, expose]
+        options: [status, deploy, expose, selftest]
 
 permissions:
   contents: read
@@ -500,6 +500,89 @@ jobs:
           UNAUTH=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://visionex.app/internal/media/capabilities)
           echo "unauthenticated request -> HTTP $UNAUTH (expect 401)" | tee -a "$GITHUB_STEP_SUMMARY"
           [ "$UNAUTH" = "401" ] || { echo '::error::The route is reachable without a token.'; exit 1; }
+
+      # -- Does it actually read? ---------------------------------------------
+      #
+      # Everything up to here proved the route answers and the token gate holds.
+      # Neither proves Tesseract can read a word, and that is the only thing the
+      # feature is for. Before this is switched on for people who are blind and
+      # relying on it to read a sign, something has to send it a picture with
+      # known words in it and check the words come back.
+      #
+      # The picture is generated here, in this job, with text this workflow
+      # chose. No customer's file is involved, nothing is read from the
+      # database, and the only string printed to a world-readable log is the one
+      # written into the image two lines earlier.
+      #
+      # The token comes from secrets and is never echoed - it goes into a curl
+      # header from the environment, so it is not in the log and not in `ps`.
+      - name: Prove it can read
+        if: inputs.action == 'selftest'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [ -z "${TOKEN:-}" ]; then
+            echo '::error::PROCESSOR_TOKEN is not set. Nothing to authenticate with.'
+            exit 1
+          fi
+
+          # A real font rather than a hand-drawn bitmap. Tesseract is trained on
+          # real letterforms, and blocky approximations produce false failures
+          # that look like a broken service.
+          if ! command -v convert >/dev/null 2>&1; then
+            echo '::error::ImageMagick is not on this runner, so no test image can be made.'
+            exit 1
+          fi
+
+          PHRASE='VISIONEX GATE 47'
+          convert -size 900x220 xc:white \
+            -fill black -pointsize 96 -gravity center \
+            -annotate 0 "$PHRASE" /tmp/vx-ocr-test.png
+          echo "test image   : $(stat -c%s /tmp/vx-ocr-test.png) bytes, saying '$PHRASE'"
+
+          BODY=$(curl -s --max-time 40 \
+            -H "authorization: Bearer $TOKEN" \
+            -H 'content-type: image/png' \
+            --data-binary @/tmp/vx-ocr-test.png \
+            'https://visionex.app/internal/media/ocr?lang=eng')
+
+          # The reply is this workflow's own phrase coming back. Printing it is
+          # printing what was sent two commands ago.
+          say '## Local OCR self-test'
+          say '```'
+          say "sent     : $PHRASE"
+          say "returned : $(printf '%s' "$BODY" | head -c 300)"
+          say '```'
+
+          case "$BODY" in
+            *VISIONEX*)
+              say 'Tesseract read the image. Local OCR works end to end.'
+              ;;
+            *)
+              echo '::error::The words did not come back. Local OCR must not be switched on.'
+              exit 1
+              ;;
+          esac
+
+          # Informational only, and deliberately not asserted. If this fails it
+          # is at least as likely to be ImageMagick shaping Arabic badly as
+          # Tesseract reading it badly, and a test that cannot tell the two
+          # apart should not be able to fail the job.
+          convert -size 900x220 xc:white -fill black -pointsize 96 -gravity center \
+            -annotate 0 'مخرج' /tmp/vx-ocr-ar.png 2>/dev/null || true
+          if [ -s /tmp/vx-ocr-ar.png ]; then
+            AR=$(curl -s --max-time 40 \
+              -H "authorization: Bearer $TOKEN" \
+              -H 'content-type: image/png' \
+              --data-binary @/tmp/vx-ocr-ar.png \
+              'https://visionex.app/internal/media/ocr?lang=ara+eng')
+            say "arabic (not asserted): $(printf '%s' "$AR" | head -c 200)"
+          fi
+
+          rm -f /tmp/vx-ocr-test.png /tmp/vx-ocr-ar.png
       - name: Forget the key
         if: always()
         run: rm -f ~/.ssh/id_deploy ~/.ssh/config
