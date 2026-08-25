@@ -143,7 +143,26 @@ const SEGMENTER: { segment(input: string): Iterable<{ segment: string }> } | nul
   }
 })();
 
-/** One string as the characters a reader would count. */
+/**
+ * The widest a single character can plausibly be, in UTF-16 units.
+ *
+ * A family emoji with four people, joiners and skin tones is around twenty-five;
+ * this is far past anything real. It is the width of the window every function
+ * below segments, which is what keeps their cost proportional to the *cut*
+ * rather than to the length of what is being cut.
+ */
+const WIDEST_CHARACTER = 64;
+
+/**
+ * One string as the characters a reader would count.
+ *
+ * Segments the whole input, so it is only for strings already known to be
+ * small — a row title, a window near a cut. Everything that takes an unbounded
+ * string goes through the bounded helpers below instead: this used to be called
+ * on a 500,000-character provider response, and segmenting that took CI four
+ * hundred seconds, which in production is a webhook that never answers and a
+ * message Meta redelivers.
+ */
 export function graphemes(text: string): string[] {
   const value = text ?? "";
   if (!SEGMENTER) return [...value];
@@ -152,8 +171,28 @@ export function graphemes(text: string): string[] {
   return out;
 }
 
-/** How many characters a reader would count. Never a UTF-16 unit count. */
-export const graphemeLength = (text: string): number => graphemes(text).length;
+/**
+ * How many characters a reader would count.
+ *
+ * Bounded: past `max` it stops counting and returns `max + 1`, which is all any
+ * caller needs to know — every one of them is asking "does this fit". Counting
+ * the rest of a very long string to answer "no, by a lot" is work nobody reads.
+ */
+export function graphemeLength(text: string, max = Number.MAX_SAFE_INTEGER): number {
+  const value = text ?? "";
+  // A grapheme is never fewer than one code unit, so this is a sound early out.
+  if (value.length <= max) return graphemes(value).length;
+  if (!SEGMENTER) {
+    let n = 0;
+    for (const _ of value) { if (++n > max) return max + 1; }
+    return n;
+  }
+  let n = 0;
+  for (const _ of SEGMENTER.segment(value.slice(0, (max + 1) * WIDEST_CHARACTER))) {
+    if (++n > max) return max + 1;
+  }
+  return n;
+}
 
 /**
  * The first `limit` characters, whole ones only.
@@ -165,8 +204,17 @@ export const graphemeLength = (text: string): number => graphemes(text).length;
  */
 export function sliceGraphemes(text: string, limit: number): string {
   if (limit <= 0) return "";
-  const units = graphemes(text);
-  return units.length <= limit ? (text ?? "") : units.slice(0, limit).join("");
+  const value = text ?? "";
+  // A grapheme is at least one code unit, so anything this short already fits.
+  if (value.length <= limit) return value;
+  // Otherwise segment a window wide enough to certainly contain `limit`
+  // characters and no wider. This is the line that keeps the cost proportional
+  // to the limit rather than to the length of the input.
+  const window = value.slice(0, limit * WIDEST_CHARACTER);
+  const units = graphemes(window);
+  return units.length <= limit && window.length === value.length
+    ? value
+    : units.slice(0, limit).join("");
 }
 
 /**
@@ -219,19 +267,62 @@ export function isGraphemeBoundary(text: string, index: number): boolean {
  * split in the first place.
  */
 export function safeCut(text: string, index: number): number {
-  if (index <= 0) return 0;
   const value = text ?? "";
+  if (index <= 0) return 0;
   if (index >= value.length) return value.length;
-  let seen = 0;
-  let last = 0;
-  for (const unit of graphemes(value)) {
-    if (seen > index) break;
-    last = seen;
-    if (seen === index) return seen;
-    seen += unit.length;
+
+  // Only the neighbourhood of the cut is segmented, never the whole string.
+  // A character cannot be wider than `WIDEST_CHARACTER`, so a boundary at or
+  // before `index` is certainly inside this window — and the first cluster of
+  // the window is discarded because starting mid-character could mis-segment
+  // it, which is harmless that far from the cut.
+  let start = Math.max(0, index - WIDEST_CHARACTER * 2);
+  // Never begin on the tail of a surrogate pair.
+  if (start > 0 && isLowSurrogate(value.charCodeAt(start))) start -= 1;
+
+  // ── The one character whose width is not local ──────────────────────────────
+  //
+  // A flag is two regional indicators, and they pair up from the *start* of the
+  // run: 🇯🇴🇺🇸 is two flags, and a window opening one indicator later reads the
+  // same bytes as two lone letters and offers a boundary between them. That cut
+  // splits a flag in half — no lone surrogate, so the surrogate check never
+  // catches it, and a property test against the exact definition is what did.
+  //
+  // Parity cannot be recovered locally, so the window is opened before the
+  // whole run instead. Bounded, because a message of nothing but flags is not a
+  // message; past the bound the worst case is a split flag, which is where this
+  // started and is still never a broken surrogate.
+  let scanned = 0;
+  while (start > 0 && scanned < REGIONAL_SCAN_LIMIT && isRegionalIndicatorAt(value, start)) {
+    start -= 2;
+    scanned += 2;
   }
-  return last;
+  if (start < 0) start = 0;
+
+  const window = value.slice(start, Math.min(value.length, index + WIDEST_CHARACTER));
+  let at = start;
+  let best = start === 0 ? 0 : -1;
+  for (const cluster of graphemes(window)) {
+    if (at > index) break;
+    if (at <= index && (best === -1 ? at > start : true)) best = at;
+    at += cluster.length;
+  }
+  if (at === index && index <= value.length) best = index;
+  return best <= 0 ? 0 : best;
 }
+
+const isLowSurrogate = (unit: number): boolean => unit >= 0xdc00 && unit <= 0xdfff;
+
+/** How far back the scan for the start of a flag run will go, in code units. */
+const REGIONAL_SCAN_LIMIT = 4_096;
+
+/** Whether a regional indicator (U+1F1E6–U+1F1FF) begins at this offset. */
+function isRegionalIndicatorAt(text: string, at: number): boolean {
+  if (at < 0 || at + 1 >= text.length) return false;
+  const point = text.codePointAt(at);
+  return point !== undefined && point >= 0x1f1e6 && point <= 0x1f1ff;
+}
+
 
 // ── Bounding what reaches a provider ─────────────────────────────────────────
 
@@ -267,24 +358,34 @@ export const MAX_PROVIDER_RESPONSE_CHARS = 24_000;
  * Written as a loop over code points rather than a regex so the source of this
  * file contains no literal control characters of its own.
  */
+const INVISIBLE = new RegExp("[" + "\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F\\u200B-\\u200F\\u202A-\\u202E\\u2066-\\u2069\\uFEFF" + "]", "g");
+
 export function stripInvisible(text: string): string {
-  let out = "";
-  for (const character of text ?? "") {
-    const point = character.codePointAt(0) ?? 0;
-    if (point < 0x20 && point !== 0x09 && point !== 0x0a && point !== 0x0d) continue;
-    if (point === 0x7f) continue;
-    if (point >= 0x200b && point <= 0x200f) continue;
-    if (point >= 0x202a && point <= 0x202e) continue;
-    if (point >= 0x2066 && point <= 0x2069) continue;
-    if (point === 0xfeff) continue;
-    out += character;
-  }
-  return out;
+  const value = text ?? "";
+  // One native pass, and an early out for the overwhelmingly common case of a
+  // message containing none of these at all. This was a character-by-character
+  // loop building a new string, which on a long provider response is quadratic
+  // and was the single slowest thing in this file.
+  INVISIBLE.lastIndex = 0;
+  return INVISIBLE.test(value) ? value.replace(INVISIBLE, "") : value;
 }
 
-/** One field, stripped and cut to its ceiling. The cut is grapheme-safe. */
-export const boundText = (text: string | null | undefined, limit: number): string =>
-  sliceGraphemes(stripInvisible((text ?? "").trim()), limit);
+
+/**
+ * One field, stripped and cut to its ceiling. The cut is grapheme-safe.
+ *
+ * The pre-cut is what stops anything expensive ever meeting an unbounded
+ * string: `stripInvisible` and the segmenter both run over at most a window
+ * wide enough to certainly hold `limit` characters. Stripping only ever
+ * removes, so cutting first cannot lose anything the ceiling would have kept.
+ */
+export const boundText = (text: string | null | undefined, limit: number): string => {
+  const trimmed = (text ?? "").trim();
+  const window = trimmed.length > limit * WIDEST_CHARACTER
+    ? trimmed.slice(0, limit * WIDEST_CHARACTER)
+    : trimmed;
+  return sliceGraphemes(stripInvisible(window), limit);
+};
 
 /**
  * Assemble a system prompt and bound the whole of it.
@@ -312,7 +413,9 @@ export function boundSystemPrompt(
     const separator = kept.length > 0 ? 2 : 0;
     const remaining = limit - used - separator;
     if (remaining <= 0) break;
-    if (graphemeLength(text) <= remaining) {
+    // Bounded comparison: a part far longer than the room left needs no exact
+    // count, only the answer "no".
+    if (graphemeLength(text, remaining) <= remaining) {
       kept.push(text);
       used += text.length + separator;
       continue;

@@ -419,6 +419,51 @@ describe("hostile input is bounded and stripped", () => {
 // ── 6. Every field that reaches a provider is bounded ────────────────────────
 
 describe("prompts, histories and responses are bounded", () => {
+  // ── Bounded in time as well as in size ────────────────────────────────────
+  //
+  // These are not micro-benchmarks. The first version of these helpers
+  // segmented the *whole* input to find a boundary near one end of it, and CI
+  // spent four hundred and sixty seconds bounding a single 500,000-character
+  // string. That is the same code path a long provider response takes in
+  // production — so it was not a slow test, it was a webhook that never answers
+  // and a message Meta redelivers.
+  //
+  // The budgets are deliberately loose. They are there to catch a return to
+  // "cost grows with the input" rather than to police milliseconds.
+  const HUGE = "x".repeat(500_000);
+  const HUGE_EMOJI = "👩🏽‍🚀".repeat(50_000);
+
+  const within = (budgetMs: number, label: string, work: () => unknown) => {
+    const started = Date.now();
+    work();
+    const took = Date.now() - started;
+    expect(took, `${label} took ${took}ms`).toBeLessThan(budgetMs);
+  };
+
+  it("bounds a huge string in time proportional to the ceiling, not the input", () => {
+    within(1_000, "boundText", () => safety.boundText(HUGE, 4_000));
+    within(1_000, "boundText/emoji", () => safety.boundText(HUGE_EMOJI, 4_000));
+    within(1_000, "sliceGraphemes", () => safety.sliceGraphemes(HUGE, 4_000));
+    within(1_000, "clampUnits", () => safety.clampUnits(HUGE_EMOJI, 4_000));
+    within(1_000, "stripInvisible", () => safety.stripInvisible(HUGE));
+    within(1_000, "safeCut", () => safety.safeCut(HUGE_EMOJI, 4_000));
+    within(1_000, "graphemeLength", () => safety.graphemeLength(HUGE, 4_000));
+  });
+
+  it("assembles a huge prompt without segmenting all of it", () => {
+    within(2_000, "boundSystemPrompt", () =>
+      ask.buildRequest({
+        systemParts: ["rules", HUGE, HUGE_EMOJI],
+        summary: HUGE,
+        turns: [{ role: "user", content: HUGE }, { role: "assistant", content: HUGE_EMOJI }],
+        question: HUGE,
+      }));
+  });
+
+  it("splits a huge answer without segmenting all of it", () => {
+    within(2_000, "splitAnswer", () => ai.splitAnswer(HUGE_EMOJI, limits));
+  });
+
   it("names every ceiling as an exported constant", () => {
     expect(safety.MAX_SYSTEM_PROMPT_CHARS).toBeGreaterThan(0);
     expect(safety.MAX_SUMMARY_CHARS).toBeGreaterThan(0);
@@ -545,6 +590,54 @@ describe("Unicode graphemes survive being split", () => {
   it("clamps a reply without cutting a character in half", () => {
     const clamped = ask.buildRequest({ systemParts: [EMOJI.repeat(100_000)], question: "q" }).system;
     expect(clamped).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+  });
+
+  it("agrees exactly with the definition, at every index of every nasty string", () => {
+    // `safeCut` is fast because it segments a window rather than the whole
+    // string, and a window cannot see everything: a flag is two regional
+    // indicators that pair from the *start* of a run, so a window opening one
+    // indicator late reads two flags as four letters and offers a cut down the
+    // middle of one. That produces no lone surrogate, so every surrogate check
+    // passes — this property check against the exact definition is what caught
+    // it, and is why it is here rather than a spot assertion.
+    // Reached through a cast for the same reason the production module does it:
+    // this project's `lib` is ES2021 and `Intl.Segmenter` is ES2022.
+    const Segmenter = (Intl as unknown as {
+      Segmenter: new (locale?: string, options?: unknown) => {
+        segment(input: string): Iterable<{ segment: string }>;
+      };
+    }).Segmenter;
+    const segmenter = new Segmenter(undefined, { granularity: "grapheme" });
+    const definition = (text: string, index: number): number => {
+      if (index <= 0) return 0;
+      if (index >= text.length) return text.length;
+      let at = 0;
+      let best = 0;
+      for (const { segment } of segmenter.segment(text)) {
+        if (at > index) break;
+        best = at;
+        if (at === index) return at;
+        at += segment.length;
+      }
+      return best;
+    };
+
+    const nasty = [
+      "plain ascii text here",
+      EMOJI.repeat(30),
+      FAMILY.repeat(20),
+      `${ARABIC} `.repeat(30),
+      `${FLAG}🇺🇸🇬🇧`.repeat(20),
+      `a${EMOJI}b${FAMILY}c`.repeat(15),
+      "ȩ́".repeat(40),
+      `${"x".repeat(300)}${EMOJI}${"y".repeat(300)}`,
+    ];
+
+    for (const text of nasty) {
+      for (let i = 0; i <= text.length; i++) {
+        expect(safety.safeCut(text, i), `${text.slice(0, 12)}… @${i}`).toBe(definition(text, i));
+      }
+    }
   });
 
   it("MUTATION: a plain slice at the same index does break one", () => {
