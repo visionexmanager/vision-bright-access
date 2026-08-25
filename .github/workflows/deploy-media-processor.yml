@@ -406,8 +406,31 @@ jobs:
             *) echo 'The site stopped answering.'; restore; exit 1 ;;
           esac
 
-          echo "media health : $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1/internal/media/health) (expect 200)"
-          echo "media unauth : $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1/internal/media/capabilities) (expect 401)"
+          # Over TLS with the Host header, because that is the block the route is
+          # in and the path a real caller takes. Plain http://127.0.0.1/ lands in
+          # the port-80 redirect block and would never reach the service.
+          # -k because the certificate is for the hostname, not for 127.0.0.1.
+          PROBE="curl -sk --resolve visionex.app:443:127.0.0.1 --max-time 10"
+
+          HEALTH_BODY=$($PROBE https://visionex.app/internal/media/health)
+          case "$HEALTH_BODY" in
+            *uptime_s*) echo 'media health : the service answered' ;;
+            *)
+              # index.html comes back here when the route did not take effect.
+              echo 'media health : NOT the service - the route is not live'
+              echo "  answered with: $(printf '%s' "$HEALTH_BODY" | head -c 80)"
+              restore
+              exit 1
+              ;;
+          esac
+
+          UNAUTH=$($PROBE -o /dev/null -w '%{http_code}' https://visionex.app/internal/media/capabilities)
+          if [ "$UNAUTH" != "401" ]; then
+            echo "media unauth : expected 401, got $UNAUTH - the token gate is not in front"
+            restore
+            exit 1
+          fi
+          echo 'media unauth : 401, the token gate is in front'
           rm -f /tmp/vx-media-location.conf /tmp/vx-media-limit.conf /tmp/vx-site-new /tmp/vx-awk-err
           echo 'done.'
           REMOTE
@@ -440,9 +463,27 @@ jobs:
             exit 1
           fi
 
-          HEALTH=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://visionex.app/internal/media/health)
-          echo "media health from the internet -> HTTP $HEALTH" | tee -a "$GITHUB_STEP_SUMMARY"
-          [ "$HEALTH" = "200" ] || { echo '::error::The media route is not answering.'; exit 1; }
+          # Not the status code: this SPA answers 200 with index.html for any
+          # unmatched path, so a 200 here proves nothing. The service returns
+          # JSON with uptime_s and index.html cannot.
+          BODY=$(curl -s --max-time 20 https://visionex.app/internal/media/health)
+          case "$BODY" in
+            *uptime_s*)
+              echo 'media route from the internet -> the service answered' | tee -a "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              echo 'media route from the internet -> NOT the service' | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "answered with: $(printf '%s' "$BODY" | head -c 120)" | tee -a "$GITHUB_STEP_SUMMARY"
+              echo '::error::The media route is not answering. The site is up, so this is not rolled back automatically - re-run with action=status and look at the nginx report.'
+              exit 1
+              ;;
+          esac
+
+          # The token gate, from outside. Without it the OCR endpoint would be
+          # open to anyone who guesses the path.
+          UNAUTH=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://visionex.app/internal/media/capabilities)
+          echo "unauthenticated request -> HTTP $UNAUTH (expect 401)" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$UNAUTH" = "401" ] || { echo '::error::The route is reachable without a token.'; exit 1; }
       - name: Forget the key
         if: always()
         run: rm -f ~/.ssh/id_deploy ~/.ssh/config
