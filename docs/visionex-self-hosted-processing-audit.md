@@ -220,6 +220,43 @@ replaces a provider, so nothing can regress an answer — which is exactly why i
 
 Each phase is independently shippable and independently reversible.
 
+### MEASURED — Tesseract cannot read Arabic on this box
+
+This is the most important finding since the server specification, and it goes
+against what this document assumed.
+
+Local OCR reads English perfectly. A 900x220 image at 96pt returns
+`VISIONEX GATE 47` exactly, in about 140ms.
+
+Arabic returns nothing. Not wrong words — nothing, with a zero exit code. That
+was established over six runs, each of which removed one explanation:
+
+| Ruled out | How |
+|---|---|
+| The language was refused | `?lang=ara+eng` decoded to `ara eng`; real bug, fixed (#200) |
+| The model is missing | container answers `ara eng osd`; Tesseract exits 0 |
+| The image was blank | `-annotate` measured ink 1.0 — it drew nothing; replaced with pango |
+| The text was unjoined | `fc-match` was returning DejaVu Sans, which has no Arabic joining tables |
+| The font never installed | `apt-get install a b c` installs nothing if one is unavailable |
+| Page segmentation | four modes, including single-line and sparse |
+| The engine | every mode the build has, with an English control on the same axis |
+
+Final state: Noto Sans Arabic, 995x391, ink 0.952, correctly joined, high
+contrast, 96pt. Tesseract 5.3.0. Every combination reads empty.
+
+**So local OCR is English-only**, and an Arabic conversation goes straight to
+the vision model exactly as it did before. Sending `eng` for an Arabic
+conversation was considered and rejected: signage in the region is routinely
+bilingual, so it would read the English half of a sign, report success, and stop
+the model — telling a blind Arabic speaker half of what is in front of them,
+confidently.
+
+The unfinished work is a better Arabic model, not a better prompt. `tessdata_best`
+Arabic, or a different engine entirely, has to be evaluated before Arabic
+photographs can be read here — and until then this capability serves the
+smaller half of the audience. That should be stated plainly rather than
+averaged away in a green cell.
+
 ### What has shipped since this audit was written
 
 | | Phase | Shipped |
@@ -229,7 +266,8 @@ Each phase is independently shippable and independently reversible.
 | ✅ | **B1** — local intent classifier, ahead of schedule because it needs no model at all | #188 |
 | ✅ | **A3a** — the processing service itself: Node + Tesseract + ffmpeg + zbar in a container on the VPS | #190, #191 |
 | ✅ | **A3b** — published through nginx at `/internal/media/`, behind a bearer token and a rate limit | #192, #193, #194, #195 |
-| ⬜ | **A3c** — the WhatsApp image path calls it, falling back to the vision model | — |
+| ✅ | **A3c** — the WhatsApp image path calls it, falling back to the vision model | #197, #200 |
+| ⚠️ | **A3c** — English only; Arabic recognition does not work on this box, see above | #206 |
 
 B1 arrived before A3 because the classifier is pure text matching: no model, no
 service, nothing to host. It is the cheapest thing in this document and it was

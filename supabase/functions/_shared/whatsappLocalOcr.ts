@@ -66,6 +66,7 @@ export const MAX_OCR_ANSWER_CHARS = 3_000;
  */
 export type LocalOcrFailure =
   | "not_configured"
+  | "language_unsupported"
   | "unsupported_mode"
   | "too_large"
   | "busy"
@@ -148,17 +149,32 @@ export const localOcrAvailable = (read: EnvReader = denoEnv): boolean => localOc
 export const MAX_OCR_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 /**
- * Tesseract's language argument.
+ * Which conversations local OCR is allowed to answer at all.
  *
- * `ara+eng` is the default for a reason particular to this audience: signage,
- * packaging and government forms in the region are routinely bilingual, and a
- * single-language pass drops half of a label. Both scripts cost one pass, so
- * the combined model is used unless the conversation is unambiguously one or
- * the other — and even then, English text inside an Arabic conversation is
- * common enough that `ara+eng` stays the answer for Arabic.
+ * English only, and that is a measurement rather than a preference.
+ *
+ * The service was asked to read a 995x391 image of two Arabic words, set in
+ * Noto Sans Arabic at 96pt with a wide quiet border — clean, high contrast,
+ * correctly joined. It returned nothing. Not wrong words: nothing. That was
+ * repeated across both language settings, four segmentation modes and every
+ * engine mode the build has, with an English control on the same axis reading
+ * perfectly throughout. `ara.traineddata` is installed and Tesseract exits 0
+ * each time. Arabic recognition on this box does not work.
+ *
+ * The tempting middle path is to send `eng` for an Arabic conversation, since
+ * signage in the region is routinely bilingual and the English half would at
+ * least be read. That is rejected deliberately. A bilingual sign would come
+ * back with only its English half, this module would report a clean success,
+ * and the model — which reads the whole sign — would never be called. A blind
+ * Arabic speaker would be told half of what is in front of them, confidently.
+ * A slower complete answer beats a fast partial one every time here.
+ *
+ * So an Arabic conversation falls straight through to the vision model, which
+ * is exactly what happened before local OCR existed. Nothing is lost. When
+ * Arabic recognition works, this function is the one place that changes.
  */
-export function ocrLanguageFor(answerLanguage: string): "ara+eng" | "eng" {
-  return answerLanguage === "ar" ? "ara+eng" : "eng";
+export function localOcrLanguage(answerLanguage: string): "eng" | null {
+  return answerLanguage === "en" ? "eng" : null;
 }
 
 /**
@@ -218,6 +234,11 @@ export async function readTextLocally(params: {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }): Promise<LocalOcrResult> {
+  // Before anything else, including the configuration check: there is no
+  // point holding a connection open for a language this cannot read.
+  const language = localOcrLanguage(params.answerLanguage);
+  if (!language) return { ok: false, reason: "language_unsupported" };
+
   const config = params.config === undefined ? localOcrConfig() : params.config;
   if (!config) return { ok: false, reason: "not_configured" };
   if (params.bytes.byteLength > MAX_OCR_UPLOAD_BYTES) return { ok: false, reason: "too_large" };
@@ -227,8 +248,6 @@ export async function readTextLocally(params: {
   const deadline = setTimeout(() => controller.abort(), params.timeoutMs ?? LOCAL_OCR_TIMEOUT_MS);
 
   try {
-    const language = ocrLanguageFor(params.answerLanguage);
-
     // An explicit ArrayBuffer, for two separate reasons.
     //
     // A `Uint8Array` is not assignable to `BodyInit` under the lib types CI
