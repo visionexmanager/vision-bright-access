@@ -595,91 +595,89 @@ jobs:
               ;;
           esac
 
-          # ── Arabic: the last two variables ───────────────────────────────────
+          # ── Arabic: is there an Arabic font at all? ──────────────────────────
           #
-          # What is settled. `ara.traineddata` is installed — the container was
-          # asked and answered `ara eng osd`. Tesseract exits 0. A 1055x270
-          # correctly shaped Arabic image with ink coverage of 0.93 reads as
-          # empty. The unshaped `-annotate` rendering measured ink 1.0, meaning
-          # it drew literally nothing, so that earlier failure was the renderer
-          # and is now accounted for.
+          # The matrix came back empty. Two languages by four segmentation modes,
+          # one large correctly shaped image, ink coverage 0.93, and not one
+          # combination read a word. `ara.traineddata` is present — the container
+          # answers `ara eng osd` — and Tesseract exits 0 every time.
           #
-          # Two variables were never tested, and both are plausible.
+          # That reads like "Tesseract cannot read Arabic here", and it was very
+          # nearly written down as that. But ink coverage cannot tell letters
+          # from boxes. A font with no Arabic glyphs makes pango draw tofu — ▯▯▯
+          # — which is ink, is shaped like text, occupies the same area, and
+          # contains no letters at all. Every measurement taken so far is
+          # identical for "Arabic Tesseract cannot read" and "boxes nobody could
+          # read", and the conclusion drawn from them would have been wrong in
+          # the second case.
           #
-          # `ara+eng` combines two models in one pass. That is supported, but a
-          # combined pass can score worse on both scripts than either alone, and
-          # every Arabic probe so far has used the combined form.
-          #
-          # Segmentation. Tesseract's default assumes a page. A photograph of a
-          # sign is one or two lines of large text on empty background, and the
-          # layout pass can decide there is no text region at all — returning
-          # nothing, exiting 0, indistinguishable from "no words here".
-          #
-          # So the matrix is run instead of another single guess. Six probes,
-          # one image, and the log shows which combination works.
-          sudo apt-get install -y -qq fonts-noto-core >/dev/null 2>&1 || true
+          # So fontconfig is asked directly, before anything else is concluded.
+          sudo apt-get install -y -qq fonts-noto-core fonts-kacst fonts-freefont-ttf >/dev/null 2>&1 || true
 
           say "languages in the container: $(ssh target 'docker exec visionex-media tesseract --list-langs 2>&1 | tr "\n" " "' 2>/dev/null || echo 'could not ask')"
 
-          # One image for the whole matrix: large, shaped, wide quiet border.
-          # It is the closest match to the English probe that reads perfectly.
-          "$IM" -background white -fill black \
-            'pango:<span font="96">مخرج المستشفى</span>' \
-            -bordercolor white -border 60 /tmp/vx-ar.png 2>/dev/null || true
+          AR_FONTS=$(fc-list :lang=ar family 2>/dev/null | sort -u | head -5 | tr '\n' ';')
+          AR_FONT_COUNT=$(fc-list :lang=ar 2>/dev/null | wc -l)
+          say "arabic fonts  : $AR_FONT_COUNT installed${AR_FONTS:+ ($AR_FONTS)}"
 
-          if [ ! -s /tmp/vx-ar.png ]; then
-            say 'arabic: no image could be rendered - the harness, not the service.'
+          if [ "$AR_FONT_COUNT" -eq 0 ]; then
+            say 'arabic: no font on this runner covers Arabic, so every image so far was boxes.'
+            say 'This says nothing about Tesseract. The harness could not draw the question.'
           else
-            say "arabic image  : $("$IM" /tmp/vx-ar.png -format '%wx%h, ink %[fx:mean]' info: 2>/dev/null)"
-            say 'arabic matrix :'
-            AR_WORKS=""
+            # Named explicitly rather than left to pango's default, so the log
+            # records which letterforms were actually tested.
+            AR_FAMILY=$(fc-match :lang=ar family 2>/dev/null | head -1)
+            say "arabic font   : $AR_FAMILY"
 
-            for lang in ara ara%2Beng; do
-              for psm in default 6 7 11; do
-                if [ "$psm" = "default" ]; then
-                  q="lang=$lang"
-                else
-                  q="lang=$lang&psm=$psm"
-                fi
-                body=$(curl -s --max-time 40 \
-                  -H "authorization: Bearer $TOKEN" \
-                  -H 'content-type: image/png' \
-                  --data-binary @/tmp/vx-ar.png \
-                  "https://visionex.app/internal/media/ocr?$q")
+            "$IM" -background white -fill black \
+              "pango:<span font=\"$AR_FAMILY 96\">مخرج المستشفى</span>" \
+              -bordercolor white -border 60 /tmp/vx-ar.png 2>/dev/null || true
 
-                case "$body" in
-                  *unsupported_language*)
-                    echo '::error::The service refused a supported language - the encoding bug is back.'
-                    exit 1
-                    ;;
-                esac
-
-                # An older container has no `psm` parameter and will refuse it.
-                # That is a deployment ordering problem, not an OCR result, and
-                # it should say so rather than look like Arabic failing again.
-                case "$body" in
-                  *unsupported_psm*)
-                    say "  $lang psm=$psm -> the running container predates the psm parameter"
-                    continue
-                    ;;
-                esac
-
-                case "$body" in
-                  *'"readable":true'*)
-                    say "  $lang psm=$psm -> READ: $(printf '%s' "$body" | head -c 120)"
-                    AR_WORKS="$AR_WORKS $lang/psm=$psm"
-                    ;;
-                  *)
-                    say "  $lang psm=$psm -> nothing"
-                    ;;
-                esac
-              done
-            done
-
-            if [ -n "$AR_WORKS" ]; then
-              say "arabic: readable with$AR_WORKS"
+            if [ ! -s /tmp/vx-ar.png ]; then
+              say 'arabic: no image could be rendered - the harness, not the service.'
             else
-              say 'arabic: no combination read it. Arabic should not use local OCR yet.'
+              say "arabic image  : $("$IM" /tmp/vx-ar.png -format '%wx%h, ink %[fx:mean]' info: 2>/dev/null)"
+              say 'arabic matrix :'
+              AR_WORKS=""
+
+              for lang in ara ara%2Beng; do
+                for psm in default 6 7 11; do
+                  if [ "$psm" = "default" ]; then q="lang=$lang"; else q="lang=$lang&psm=$psm"; fi
+                  body=$(curl -s --max-time 40 \
+                    -H "authorization: Bearer $TOKEN" \
+                    -H 'content-type: image/png' \
+                    --data-binary @/tmp/vx-ar.png \
+                    "https://visionex.app/internal/media/ocr?$q")
+
+                  case "$body" in
+                    *unsupported_language*)
+                      echo '::error::The service refused a supported language - the encoding bug is back.'
+                      exit 1
+                      ;;
+                    *unsupported_psm*)
+                      say "  $lang psm=$psm -> the running container predates the psm parameter"
+                      continue
+                      ;;
+                  esac
+
+                  case "$body" in
+                    *'"readable":true'*)
+                      say "  $lang psm=$psm -> READ: $(printf '%s' "$body" | head -c 120)"
+                      AR_WORKS="$AR_WORKS $lang/psm=$psm"
+                      ;;
+                    *)
+                      say "  $lang psm=$psm -> nothing"
+                      ;;
+                  esac
+                done
+              done
+
+              if [ -n "$AR_WORKS" ]; then
+                say "arabic: readable with$AR_WORKS"
+              else
+                say 'arabic: a real Arabic font, correctly shaped, and still nothing.'
+                say 'That is now a Tesseract answer rather than a harness one.'
+              fi
             fi
           fi
 
