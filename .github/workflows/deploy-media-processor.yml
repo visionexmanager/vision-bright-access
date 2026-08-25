@@ -124,6 +124,7 @@ jobs:
             echo "    names     : $(grep -hoE 'server_name[^;]*' "$f" 2>/dev/null | tr '\n' '|')"
             echo "    locations : $(grep -hoE 'location [^{]*' "$f" 2>/dev/null | tr '\n' '|')"
             echo "    tls       : $(grep -qE 'ssl_certificate' "$f" && echo yes || echo no)"
+            echo "    symlink   : $(readlink "$f" 2>/dev/null || echo 'no, a real file')"
             echo "    ours      : $(grep -q 'internal/media' "$f" && echo present || echo absent)"
           done
           echo "backups     : $(ls /etc/nginx/visionex-site.*.bak 2>/dev/null | wc -l)"
@@ -314,12 +315,23 @@ jobs:
           # Chosen by which file terminates TLS, not by alphabetical order.
           # Two sites are enabled and both claim visionex.app; only one serves
           # HTTPS, and the Edge Function will call over HTTPS.
+          # Globbed, not `grep -r`: everything in sites-enabled is a symlink into
+          # sites-available, and grep -r does not follow a symlink it finds while
+          # recursing - only one named on the command line. A -f test does
+          # follow it, so this sees the same files the status report sees.
           SITE=""
-          for f in $(grep -rlE 'server_name[^;]*visionex' /etc/nginx/sites-enabled/ 2>/dev/null); do
-            if grep -qE 'ssl_certificate' "$f"; then SITE="$f"; break; fi
+          for f in /etc/nginx/sites-enabled/*; do
+            [ -f "$f" ] || continue
+            grep -qE 'server_name[^;]*visionex' "$f" || continue
+            grep -qE 'ssl_certificate' "$f" || continue
+            SITE="$f"
+            break
           done
           if [ -z "${SITE:-}" ]; then
             echo 'FATAL: no TLS-terminating nginx site matches visionex. Nothing was changed.'
+            # Enough to tell "found nothing at all" from "found files, none of
+            # which terminate TLS" - which is what went wrong the first time.
+            echo "candidates   : $(ls /etc/nginx/sites-enabled/ 2>/dev/null | xargs)"
             exit 1
           fi
           echo "site file    : $(basename "$SITE")"
@@ -450,8 +462,12 @@ jobs:
             set -uo pipefail
             BACKUP=$(ls -t /etc/nginx/visionex-site.*.bak 2>/dev/null | head -1)
             SITE=""
-            for f in $(grep -rlE 'server_name[^;]*visionex' /etc/nginx/sites-enabled/ 2>/dev/null); do
-              if grep -qE 'ssl_certificate' "$f"; then SITE="$f"; break; fi
+            for f in /etc/nginx/sites-enabled/*; do
+              [ -f "$f" ] || continue
+              grep -qE 'server_name[^;]*visionex' "$f" || continue
+              grep -qE 'ssl_certificate' "$f" || continue
+              SITE="$f"
+              break
             done
             if [ -n "${BACKUP:-}" ] && [ -n "${SITE:-}" ]; then
               sudo cp "$BACKUP" "$SITE"
