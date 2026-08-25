@@ -667,7 +667,11 @@ describe("the webhook stays thin", () => {
     // The engine must see the transcript, so transcription runs first — and
     // the voice reply still happens inside reply(), for every route.
     expect(webhook).toContain("transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),");
-    expect(webhook).toContain("speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId }),");
+    // Asserted by its parts rather than as one literal line. The call gained
+    // a `cache` argument and wrapped onto two lines, which broke this without
+    // changing anything it was protecting.
+    expect(webhook).toContain("speak: (text) =>");
+    expect(webhook).toContain("speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId");
     expect(webhook.indexOf("voiceToText(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
   });
 

@@ -277,7 +277,11 @@ describe("voice", () => {
     // final transport differs, and it is the inbound message that picks it.
     expect(webhook).toContain("const spokenInput = incoming.media?.kind === \"audio\";");
     expect(webhook).toContain("const medium = replyMedium({ spokenInput, body });");
-    expect(webhook).toContain("speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId }),");
+    // Asserted by its parts rather than as one literal line. The call gained
+    // a `cache` argument and wrapped onto two lines, which broke this without
+    // changing anything it was protecting.
+    expect(webhook).toContain("speak: (text) =>");
+    expect(webhook).toContain("speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId");
     // One assistant call, whichever way the answer leaves.
     expect(webhook.match(/askAssistant\(/g)?.length).toBe(1);
   });

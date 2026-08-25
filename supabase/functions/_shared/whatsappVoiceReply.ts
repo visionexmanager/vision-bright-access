@@ -26,6 +26,13 @@ import { GRAPH_BASE } from "./meta.ts";
 import { toBlob } from "./whatsappAttachments.ts";
 import { clampUnits } from "./whatsappSafety.ts";
 import { trace } from "./whatsappTelemetry.ts";
+import {
+  isCacheableSpeech,
+  neverThrows,
+  speechCacheKey,
+  SPEECH_CACHE_TTL_MS,
+  type SpeechCacheStore,
+} from "./whatsappSpeechCache.ts";
 
 function env(name: string): string | undefined {
   const deno = (globalThis as {
@@ -216,6 +223,17 @@ export type SpeechResult =
  * cheaper one is the right default. Opus in an OGG container is what WhatsApp
  * wants for a voice note.
  */
+/**
+ * The model and the voice, named rather than repeated.
+ *
+ * They were both defaults inside `synthesiseSpeech` until the cache needed
+ * them: a cache key has to include everything that changes the audio, and a
+ * default buried in a call site is exactly the kind of thing that changes one
+ * day and silently starts returning the old voice from cache.
+ */
+export const SPEECH_MODEL = "tts-1";
+export const DEFAULT_VOICE = "alloy";
+
 export async function synthesiseSpeech(params: {
   text: string;
   voice?: string;
@@ -233,8 +251,8 @@ export async function synthesiseSpeech(params: {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "tts-1",
-        voice: params.voice ?? "alloy",
+        model: SPEECH_MODEL,
+        voice: params.voice ?? DEFAULT_VOICE,
         input: params.text,
         response_format: "opus",
       }),
@@ -326,6 +344,26 @@ export async function sendWhatsAppAudio(params: {
 }
 
 /**
+ * The three calls one voice note costs, as a unit that can be substituted.
+ *
+ * A miss pays all three. A hit pays only `send`, which is the whole point of
+ * the cache.
+ */
+export interface SpeechOperations {
+  synthesise(text: string): Promise<SpeechResult>;
+  upload(bytes: Uint8Array, mimeType: string, phoneNumberId: string, token: string): Promise<string | null>;
+  send(mediaId: string, phoneNumberId: string, token: string, to: string): Promise<boolean>;
+}
+
+const DEFAULT_SPEECH_OPS: SpeechOperations = {
+  synthesise: (text) => synthesiseSpeech({ text }),
+  upload: (bytes, mimeType, phoneNumberId, token) =>
+    uploadWhatsAppMedia({ phoneNumberId, token, bytes, mimeType }),
+  send: (mediaId, phoneNumberId, token, to) =>
+    sendWhatsAppAudio({ phoneNumberId, token, to, mediaId }),
+};
+
+/**
  * Speak a reply that has already been sent as text.
  *
  * Every failure is swallowed: the customer has their answer, and a missing
@@ -351,38 +389,121 @@ export async function speakReply(params: {
    * for it, without the log line naming the person who sent it.
    */
   trace?: string;
+  /**
+   * Where already-synthesised voice notes are remembered, if anywhere.
+   *
+   * Omitted means every segment is synthesised and uploaded, which is what this
+   * function did before the cache existed and is what it still does in every
+   * test that does not ask for one. A cache is an optimisation on a path that
+   * already worked; it is never a dependency.
+   */
+  cache?: SpeechCacheStore | null;
+  /**
+   * The three operations a voice note is made of, injectable.
+   *
+   * The same seam `deliverReply` already has, and for the same reason it gives:
+   * a suite can drive a cache hit, a cache miss, and a cached id Meta has
+   * forgotten, through the real policy, counting what actually happened —
+   * without a Meta account, a synthesis bill, or a single assertion about the
+   * shape of this file.
+   *
+   * That is not a luxury here. The branch that matters most is the one where a
+   * cached id is refused and the segment is synthesised again, and it is
+   * unreachable from a test that cannot make a send fail.
+   */
+  ops?: Partial<SpeechOperations>;
 }): Promise<boolean> {
+  const ops: SpeechOperations = { ...DEFAULT_SPEECH_OPS, ...(params.ops ?? {}) };
+  // Wrapped rather than trusted. The parameter's type is an interface, so the
+  // store is whatever the caller passed, and a throw from it would come out of
+  // a function whose whole contract is that it never costs somebody their
+  // answer. The live store already swallows its errors; this makes that true of
+  // any store.
+  const store = params.cache ? neverThrows(params.cache) : null;
   const segments = speechSegments(params.text);
   if (segments.length === 0) return false;
 
   let spoken = 0;
+  let reused = 0;
+
   for (const segment of segments) {
-    const speech = await synthesiseSpeech({ text: segment });
-    if (!speech.ok) break;
+    // ── Has this exact sentence already been said? ─────────────────────
+    //
+    // The main menu, the twenty language names and every refusal notice are
+    // fixed strings that are synthesised again for every sender who hears
+    // them. A hit skips the synthesis *and* the upload, so the whole segment
+    // costs one Graph call instead of three.
+    //
+    // The key is computed only for text short enough to be worth a row — see
+    // `isCacheableSpeech`. A long answer is almost certainly unique, and
+    // hashing it would buy a row that is never hit again.
+    const key = store && isCacheableSpeech(segment)
+      ? await speechCacheKey({
+          phoneNumberId: params.phoneNumberId,
+          voice: DEFAULT_VOICE,
+          model: SPEECH_MODEL,
+          text: segment,
+        })
+      : null;
 
-    const mediaId = await uploadWhatsAppMedia({
-      phoneNumberId: params.phoneNumberId,
-      token: params.token,
-      bytes: speech.bytes,
-      mimeType: speech.mimeType,
-    });
-    if (!mediaId) break;
+    let mediaId = key ? await store!.get(key) : null;
+    const fromCache = mediaId !== null;
 
-    const sent = await sendWhatsAppAudio({
-      phoneNumberId: params.phoneNumberId,
-      token: params.token,
-      to: params.to,
-      mediaId,
-    });
+    if (!mediaId) {
+      const speech = await ops.synthesise(segment);
+      if (!speech.ok) break;
+
+      mediaId = await ops.upload(speech.bytes, speech.mimeType, params.phoneNumberId, params.token);
+      if (!mediaId) break;
+    }
+
+    let sent = await ops.send(mediaId, params.phoneNumberId, params.token, params.to);
+
+    // ── A cached id Meta no longer recognises ──────────────────────────
+    //
+    // Meta keeps uploaded media for thirty days and the TTL sits well inside
+    // that, but "well inside" is not "never". When a send fails on an id that
+    // came from the cache, the row is dropped and the segment takes the
+    // ordinary path once. That single retry is the entire cost of a stale
+    // entry, and it is why a cache miss and a cache lie both end with the
+    // customer hearing their answer.
+    //
+    // Only for a cached id. Retrying a freshly uploaded one would be retrying
+    // a genuine send failure, which is the case where stopping is right.
+    if (!sent && fromCache && key) {
+      console.log(`[whatsapp-tts] a cached voice note was refused; synthesising again${trace(params.trace)}`);
+      await store!.drop(key);
+
+      const speech = await ops.synthesise(segment);
+      if (!speech.ok) break;
+      const fresh = await ops.upload(speech.bytes, speech.mimeType, params.phoneNumberId, params.token);
+      if (!fresh) break;
+      mediaId = fresh;
+      sent = await ops.send(mediaId, params.phoneNumberId, params.token, params.to);
+    }
+
     if (!sent) break;
     spoken += 1;
+    if (fromCache) reused += 1;
+
+    // Written after the send, never before. A row that promises audio which
+    // was never successfully delivered would hand the same broken id to
+    // everybody who hears this sentence next.
+    if (key && !fromCache) {
+      await store!.put(key, mediaId, new Date(Date.now() + SPEECH_CACHE_TTL_MS));
+    }
   }
 
   if (spoken === 0) {
     console.error(`[whatsapp-tts] nothing was spoken; the reply stands as text${trace(params.trace)}`);
     return false;
   }
-  console.log(`[whatsapp-tts] spoke a reply in ${spoken}/${segments.length} parts${trace(params.trace)}`);
+  // The reuse count is how "is this cache doing anything" is answered, and it
+  // is answered here rather than by a column, because a counter in the table
+  // would mean a database write on the very path the cache exists to shorten.
+  console.log(
+    `[whatsapp-tts] spoke a reply in ${spoken}/${segments.length} parts, ${reused} from cache${trace(params.trace)}`,
+  );
   return true;
 }
 

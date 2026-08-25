@@ -278,7 +278,9 @@ describe("the webhook logs through the allowlist", () => {
     for (const leg of [
       "transcribe: (input) => transcribeVoice({ ...input, trace: correlationId })",
       'download: (mediaId) => downloadMedia({ mediaId, kind: "audio", token, trace: correlationId })',
-      "speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId })",
+      // No closing brace: the call now also carries `cache`, and what this
+      // leg is about is that the correlation id reaches it.
+      "speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId",
       "trace: correlationId,",
     ]) {
       expect(webhook, leg).toContain(leg);
