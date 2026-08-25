@@ -24,11 +24,11 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "deploy = build and run. status = report only, change nothing."
+        description: "status = report only. deploy = build and run. expose = publish through nginx."
         required: true
         default: status
         type: choice
-        options: [status, deploy]
+        options: [status, deploy, expose]
 
 permissions:
   contents: read
@@ -107,6 +107,26 @@ jobs:
           fi
           echo "free RAM  : $(free -m | awk '/^Mem:/{print $7" MB available"}')"
           echo "free disk : $(df -h / | awk 'NR==2{print $4}')"
+          echo
+          echo "-- nginx --"
+          # Deliberately not `nginx -T`: a full config dump can carry proxy
+          # credentials and auth files, and this summary is world-readable.
+          # Filenames, listen lines, server names and location prefixes are
+          # enough to plan a change and reveal nothing.
+          echo "version     : $(nginx -v 2>&1)"
+          echo "config ok   : $(sudo nginx -t >/dev/null 2>&1 && echo yes || echo 'NO - already broken')"
+          echo "sites       : $(ls /etc/nginx/sites-enabled/ 2>/dev/null | tr '\n' ' ')"
+          echo "conf.d      : $(ls /etc/nginx/conf.d/ 2>/dev/null | tr '\n' ' ')"
+          for f in /etc/nginx/sites-enabled/*; do
+            [ -f "$f" ] || continue
+            echo "  file      : $(basename "$f")"
+            echo "    listen    : $(grep -hoE 'listen[^;]*' "$f" 2>/dev/null | tr '\n' '|')"
+            echo "    names     : $(grep -hoE 'server_name[^;]*' "$f" 2>/dev/null | tr '\n' '|')"
+            echo "    locations : $(grep -hoE 'location [^{]*' "$f" 2>/dev/null | tr '\n' '|')"
+            echo "    tls       : $(grep -qE 'ssl_certificate' "$f" && echo yes || echo no)"
+            echo "    ours      : $(grep -q 'internal/media' "$f" && echo present || echo absent)"
+          done
+          echo "backups     : $(ls /etc/nginx/visionex-site.*.bak 2>/dev/null | wc -l)"
           REMOTE
           say '```'
 
@@ -260,6 +280,134 @@ jobs:
           echo "visionex.app -> HTTP $CODE" >> "$GITHUB_STEP_SUMMARY"
           [ "$CODE" = "200" ] || { echo "::error::The site is not answering 200."; exit 1; }
 
+
+      # -- Publishing it, with a rollback that runs by itself ----------------
+      #
+      # This is the only step in this repository that edits the live web
+      # server's configuration. visionex.app is serving real users and a bad
+      # nginx config takes it down, so the sequence is written so that every
+      # way it can fail ends with the original file restored:
+      #
+      #   1. copy the config aside, timestamped
+      #   2. do nothing at all if the block is already there
+      #   3. insert one new location, a prefix nothing else uses, so no
+      #      existing route can be matched differently because of it
+      #   4. nginx -t; on failure restore, re-test, stop
+      #   5. reload, never restart - reload keeps serving through it
+      #   6. ask the site for a page; on anything but 200/301/302 restore
+      #
+      # The rollback is not a note in a runbook. It is in the script, ahead of
+      # the thing it protects against.
+      - name: Publish through nginx
+        if: inputs.action == 'expose'
+        run: |
+          set -uo pipefail
+          scp services/media-processor/nginx/visionex-media.location.conf target:/tmp/vx-media-location.conf
+          scp services/media-processor/nginx/visionex-media-limit.conf     target:/tmp/vx-media-limit.conf
+
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          say "## Exposing"
+          say '```'
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+
+          SITE=$(grep -rlE 'server_name[^;]*visionex' /etc/nginx/sites-enabled/ 2>/dev/null | head -1)
+          if [ -z "${SITE:-}" ]; then
+            echo 'FATAL: no nginx site matches visionex. Nothing was changed.'
+            exit 1
+          fi
+          echo "site file    : $(basename "$SITE")"
+
+          if grep -q 'internal/media' "$SITE"; then
+            echo 'already present - nothing to do.'
+            exit 0
+          fi
+
+          STAMP=$(date +%Y%m%d-%H%M%S)
+          BACKUP="/etc/nginx/visionex-site.${STAMP}.bak"
+          sudo cp "$SITE" "$BACKUP"
+          echo "backup       : $(basename "$BACKUP")"
+
+          restore() {
+            echo 'ROLLING BACK...'
+            sudo cp "$BACKUP" "$SITE"
+            sudo rm -f /etc/nginx/conf.d/visionex-media-limit.conf
+            if sudo nginx -t >/dev/null 2>&1; then
+              sudo systemctl reload nginx
+              echo 'restored     : config valid, nginx reloaded'
+            else
+              echo 'restored     : CONFIG STILL BROKEN - NEEDS ATTENTION'
+            fi
+          }
+
+          # The zone must be declared at http scope, so it goes to conf.d.
+          sudo cp /tmp/vx-media-limit.conf /etc/nginx/conf.d/visionex-media-limit.conf
+          echo 'rate limit   : installed'
+
+          # Insert before the file's final closing brace - the end of the
+          # server block. awk finds it by position rather than by a pattern
+          # that could match a nested brace.
+          sudo awk 'FNR==NR { block[++n] = $0; next }
+                    { line[++m] = $0; if ($0 ~ /^}/) last = m }
+                    END {
+                      for (i = 1; i <= m; i++) {
+                        if (i == last) for (j = 1; j <= n; j++) print "    " block[j]
+                        print line[i]
+                      }
+                    }' /tmp/vx-media-location.conf "$BACKUP" | sudo tee "$SITE" >/dev/null
+
+          if ! sudo nginx -t >/dev/null 2>&1; then
+            echo 'nginx -t     : FAILED'
+            sudo nginx -t 2>&1 | sed 's/^/  /' | head -10
+            restore
+            exit 1
+          fi
+          echo 'nginx -t     : passed'
+
+          sudo systemctl reload nginx
+          sleep 2
+
+          LOCAL=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1/ 2>/dev/null)
+          echo "site locally : $LOCAL"
+          case "$LOCAL" in
+            200|301|302) ;;
+            *) echo 'The site stopped answering.'; restore; exit 1 ;;
+          esac
+
+          echo "media health : $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1/internal/media/health) (expect 200)"
+          echo "media unauth : $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1/internal/media/capabilities) (expect 401)"
+          rm -f /tmp/vx-media-location.conf /tmp/vx-media-limit.conf
+          echo 'done.'
+          REMOTE
+          STATUS=$?
+          say '```'
+          exit $STATUS
+
+      - name: Confirm from the internet, and roll back if the site is down
+        if: inputs.action == 'expose'
+        run: |
+          set -uo pipefail
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 https://visionex.app)
+          echo "visionex.app -> HTTP $CODE" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$CODE" != "200" ]; then
+            echo '::error::The site is not answering from outside. Rolling back.'
+            ssh target 'bash -s' <<'ROLLBACK'
+            set -uo pipefail
+            BACKUP=$(ls -t /etc/nginx/visionex-site.*.bak 2>/dev/null | head -1)
+            SITE=$(grep -rlE 'server_name[^;]*visionex' /etc/nginx/sites-enabled/ | head -1)
+            if [ -n "${BACKUP:-}" ] && [ -n "${SITE:-}" ]; then
+              sudo cp "$BACKUP" "$SITE"
+              sudo rm -f /etc/nginx/conf.d/visionex-media-limit.conf
+              sudo nginx -t && sudo systemctl reload nginx
+              echo "rolled back to $(basename "$BACKUP")"
+            fi
+          ROLLBACK
+            exit 1
+          fi
+
+          HEALTH=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://visionex.app/internal/media/health)
+          echo "media health from the internet -> HTTP $HEALTH" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$HEALTH" = "200" ] || { echo '::error::The media route is not answering.'; exit 1; }
       - name: Forget the key
         if: always()
         run: rm -f ~/.ssh/id_deploy ~/.ssh/config
