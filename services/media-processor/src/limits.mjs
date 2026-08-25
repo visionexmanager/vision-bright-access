@@ -70,6 +70,28 @@ export const languageFromQuery = (value) =>
   typeof value === "string" ? value.trim().replace(/\s+/g, "+") : value;
 
 /**
+ * How Tesseract should carve the page up.
+ *
+ * Tesseract's default is 3, "fully automatic page segmentation", which assumes
+ * a page. A photograph of a sign is not a page: it is one or two lines of large
+ * text on a mostly empty background, and the layout analysis can decide there
+ * is no text region at all and return nothing — exiting 0, having read nothing,
+ * which is indistinguishable from "there were no words".
+ *
+ * That is the open question about Arabic on this box. `ara.traineddata` is
+ * installed, Tesseract exits 0, and a large, correctly shaped, high-contrast
+ * Arabic image reads as empty. Segmentation is one of the two remaining
+ * explanations and this makes it testable instead of arguable.
+ *
+ * Allowlisted rather than parsed, for the same reason the language is: the
+ * value reaches a command line. 6 is a uniform block, 7 a single line, 11
+ * sparse text — the three that suit a photograph rather than a scanned page.
+ */
+export const SUPPORTED_PSM = ["3", "6", "7", "11"];
+
+export const isSupportedPsm = (value) => typeof value === "string" && SUPPORTED_PSM.includes(value);
+
+/**
  * What the bytes say this file is. A narrow copy of `sniffMime`.
  *
  * The Edge Function already checks this before forwarding, so this is the
