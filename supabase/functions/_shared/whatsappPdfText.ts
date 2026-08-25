@@ -56,7 +56,9 @@ export async function extractPdfText(bytes: Uint8Array): Promise<PdfTextResult> 
     const message = e instanceof Error ? e.message : String(e);
     // pdf-parse surfaces a password-protected file as a message, not a type.
     const encrypted = /password|encrypt/i.test(message);
-    console.error(`[whatsapp-pdf] extraction failed: ${message}`);
+    // The reason, never the parser's message: it quotes the file it choked on,
+    // and that file is a document somebody photographed and sent in.
+    console.error(`[whatsapp-pdf] extraction failed: ${encrypted ? "encrypted" : "unreadable"}`);
     return { ok: false, reason: encrypted ? "encrypted" : "failed" };
   }
 

@@ -9,6 +9,7 @@
 // something known rather than to nothing.
 
 import { toBlob } from "./whatsappAttachments.ts";
+import { trace } from "./whatsappTelemetry.ts";
 
 function env(name: string): string | undefined {
   const deno = (globalThis as {
@@ -118,17 +119,25 @@ export async function transcribeVoice(params: {
   bytes: Uint8Array;
   mimeType: string;
   fetchImpl?: typeof fetch;
+  /**
+   * The delivery's correlation id, for the lines this prints.
+   *
+   * Optional, and used for nothing but a log suffix. It is what lets a failed
+   * synthesis or an unreadable download be tied to the delivery that asked
+   * for it, without the log line naming the person who sent it.
+   */
+  trace?: string;
 }): Promise<TranscriptionResult> {
   const seconds = estimateAudioSeconds(params.bytes.byteLength, params.mimeType);
   if (seconds > MAX_AUDIO_SECONDS) {
-    console.error(`[whatsapp-stt] declined ~${Math.round(seconds)}s of audio as too long`);
+    console.error(`[whatsapp-stt] declined ~${Math.round(seconds)}s of audio as too long${trace(params.trace)}`);
     return { ok: false, reason: "too_long" };
   }
 
   const doFetch = params.fetchImpl ?? fetch;
   const available = PROVIDERS.filter((p) => !!env(p.envKey));
   if (available.length === 0) {
-    console.error("[whatsapp-stt] no transcription provider is configured");
+    console.error(`[whatsapp-stt] no transcription provider is configured${trace(params.trace)}`);
     return { ok: false, reason: "no_provider" };
   }
 
@@ -151,18 +160,18 @@ export async function transcribeVoice(params: {
 
       if (!res.ok) {
         // Never log the body: it can echo request content.
-        console.error(`[whatsapp-stt] ${provider.name} rejected: ${res.status}`);
+        console.error(`[whatsapp-stt] ${provider.name} rejected: ${res.status}${trace(params.trace)}`);
         continue;
       }
 
       const text = (await res.text()).trim();
       if (!text) {
-        console.error(`[whatsapp-stt] ${provider.name} heard nothing`);
+        console.error(`[whatsapp-stt] ${provider.name} heard nothing${trace(params.trace)}`);
         return { ok: false, reason: "empty" };
       }
       return { ok: true, text, provider: provider.name };
     } catch {
-      console.error(`[whatsapp-stt] ${provider.name} transport error`);
+      console.error(`[whatsapp-stt] ${provider.name} transport error${trace(params.trace)}`);
     }
   }
   return { ok: false, reason: "provider_error" };

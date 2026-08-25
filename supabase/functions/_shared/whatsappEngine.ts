@@ -27,9 +27,9 @@ import {
   type Language,
   localized,
   nodeById,
+  offeredChildrenOf,
   pathTo,
   ROOT_ID,
-  visibleChildrenOf,
 } from "./whatsappCatalog.ts";
 import {
   foldDigits,
@@ -40,7 +40,8 @@ import {
   parseCommand,
   parseControlId,
 } from "./whatsappCommands.ts";
-import { resolveSelection } from "./whatsappRouter.ts";
+import { menuMessage } from "./whatsappInteractive.ts";
+import { resolveSelection, type Routing } from "./whatsappRouter.ts";
 import { isStuck, lifecycleOf } from "./whatsappLifecycle.ts";
 import {
   comingSoonNotice,
@@ -91,6 +92,8 @@ export type EngineReason =
   | "invalid_selection"
   | "disabled_feature"
   | "missing_capability"
+  /** The feature configuration could not be read, so nothing was let through. */
+  | "unverified_config"
   | "feature_withdrawn"
   | "named_feature"
   | "stale_selection"
@@ -113,6 +116,14 @@ export interface EngineContext {
   disabled?: readonly string[];
   /** True when this is the sender's first message ever. */
   isNewConversation: boolean;
+  /**
+   * Whether the feature configuration was actually read this delivery.
+   *
+   * False fails every feature closed. See `RouterInput.configVerified` for why
+   * an unreadable flag list is not the same thing as an empty one, and why the
+   * safe reading of "I do not know whether this is switched off" is "no".
+   */
+  configVerified?: boolean;
 }
 
 // Re-exported so every existing caller keeps its import path: the words moved,
@@ -162,10 +173,29 @@ export function runEngine(message: EngineMessage, session: SessionState, context
   //    catalog does not contain, so looking them up as features would answer a
   //    tap on Back with "that option has moved" — which is the one message a
   //    person trying to leave must never get.
+  //
+  //    ── Why this asks the router rather than the catalog ────────────────────
+  //
+  //    It used to call `nodeById` itself, which made two places that turn a tap
+  //    into a feature. They agreed on the day they were written and then the
+  //    router grew a scope check, a row-ceiling check and a fail-closed
+  //    configuration case that this one did not have — so the tap, which is the
+  //    *primary* way anybody uses this channel, was the one path that skipped
+  //    them. One resolver now, and `whatsapp-security.test.ts` fails the build
+  //    if a second one appears.
   const tapped = parseControlId(message.selection);
   if (message.selection && !tapped) {
-    const node = nodeById(message.selection);
-    if (!node || node.hidden) {
+    const routedTap = resolveSelection({
+      menuId: currentNodeId(state),
+      text: "",
+      selection: message.selection,
+      language: context.language,
+      disabled: context.disabled ?? [],
+      available: context.available,
+      configVerified: context.configVerified !== false,
+    });
+
+    if (routedTap.kind === "stale") {
       return {
         kind: "reply",
         replies: [{ type: "menu", nodeId: currentNodeId(state), note: say("staleSelection", context.language) }],
@@ -173,7 +203,16 @@ export function runEngine(message: EngineMessage, session: SessionState, context
         reason: "stale_selection",
       };
     }
-    return openNode(node, state, context);
+    if (routedTap.kind === "unavailable") return refuse(routedTap, state, context);
+    if (routedTap.kind === "feature") return openNode(routedTap.node, state, context);
+    // A tap can only be one of those three; anything else is a row this build
+    // does not have, which is the same answer as a stale one.
+    return {
+      kind: "reply",
+      replies: [{ type: "menu", nodeId: currentNodeId(state), note: say("staleSelection", context.language) }],
+      session: state,
+      reason: "stale_selection",
+    };
   }
 
   // Typed `0`, typed "back", typed «Retour» and a tapped Back row all arrive
@@ -309,6 +348,7 @@ export function runEngine(message: EngineMessage, session: SessionState, context
     language: context.language,
     disabled: context.disabled ?? [],
     available: context.available,
+    configVerified: context.configVerified !== false,
   });
 
   if (routed.kind === "invalid") {
@@ -325,16 +365,7 @@ export function runEngine(message: EngineMessage, session: SessionState, context
   if (routed.kind === "unavailable") {
     // Resolved first, refused second — including when it was *named* rather
     // than numbered, which is what stops a word being a way around a flag.
-    return {
-      kind: "reply",
-      replies: [{
-        type: "menu",
-        nodeId: routed.parentId,
-        note: say(routed.reason === "disabled" ? "disabled" : "unavailable", context.language),
-      }],
-      session: state,
-      reason: routed.reason === "disabled" ? "disabled_feature" : "missing_capability",
-    };
+    return refuse(routed, state, context);
   }
 
   if (routed.kind === "feature") {
@@ -362,6 +393,41 @@ export function runEngine(message: EngineMessage, session: SessionState, context
   //    it did before this engine existed.
   return { kind: "passthrough", session: state, reason: "not_navigation" };
 
+}
+
+/**
+ * One refusal, however the feature was named.
+ *
+ * A tap, a number and a word all end here, which is what makes "a word is not a
+ * way around a flag" true by construction rather than by two branches happening
+ * to agree. The sender is shown the menu they are standing in and told which of
+ * the three things happened, in their own language; the distinction between
+ * "switched off" and "not available" is a real one to them, and the third —
+ * a configuration this delivery could not read — is deliberately reported as
+ * "not available", because "we cannot currently verify our own settings" is not
+ * something anybody can act on.
+ */
+function refuse(
+  routed: Extract<Routing, { kind: "unavailable" }>,
+  state: SessionState,
+  context: EngineContext,
+): EngineOutcome {
+  const reason: EngineReason = routed.reason === "disabled"
+    ? "disabled_feature"
+    : routed.reason === "capability"
+      ? "missing_capability"
+      : "unverified_config";
+
+  return {
+    kind: "reply",
+    replies: [{
+      type: "menu",
+      nodeId: routed.parentId,
+      note: say(routed.reason === "disabled" ? "disabled" : "unavailable", context.language),
+    }],
+    session: state,
+    reason,
+  };
 }
 
 /** The closest ancestor that is still available, or the root. */
@@ -401,6 +467,19 @@ function openNode(node: CatalogNode, session: SessionState, context: EngineConte
     };
   }
 
+  // The fail-closed case, checked here as well as in the router because this is
+  // the other door into opening a node — and a gate with a second door is not a
+  // gate. A configuration that could not be read refuses the feature and leaves
+  // the sender exactly where they were, with a way out still under them.
+  if (context.configVerified === false) {
+    return {
+      kind: "reply",
+      replies: [{ type: "menu", nodeId: parentId, note: say("unavailable", context.language) }],
+      session,
+      reason: "unverified_config",
+    };
+  }
+
   const next = enter(session, node.id);
 
   if (node.kind === "menu") {
@@ -420,47 +499,34 @@ function openNode(node: CatalogNode, session: SessionState, context: EngineConte
  * This is not the normal interface and has not been since the numbers went; it
  * is the copy that still has to work when the interface cannot be delivered.
  *
+ * ── Why this is four lines now ──────────────────────────────────────────────
+ *
+ * It used to build that copy itself, which made two renderers: this one, and
+ * the `text` twin inside `menuMessage`. Only the twin ever shipped —
+ * `sendTappable` sends it when Meta refuses the list — so this one was a
+ * second, unshipped answer to "what does a menu look like", and a large part of
+ * the suite was asserting against it rather than against anything a customer
+ * receives. They agreed when they were written and had already begun to drift:
+ * this one applied the row ceiling only after it was told to.
+ *
+ * So it delegates. One renderer, and every assertion about menu text is now an
+ * assertion about the words that actually go out.
+ *
  * Named lines, not numbered ones. The name is what the sender replies with and
  * what the router resolves against the menu in view, so the instruction at the
  * bottom is true rather than decorative. The emoji trails the words and carries
  * nothing: a screen reader that announces it says the name first, and one that
  * skips it loses nothing at all.
  *
- * A feature declared but not built keeps its line and says so. A feature a live
- * flag has switched off is not listed at all — the same rule the tappable menu
- * follows, so the two copies never offer different things.
+ * Empty when the node has no rows a sender may see, which is not an error: a
+ * flag can switch off everything under a submenu.
  */
 export function renderMenu(
   nodeId: string,
   language: Language,
   disabled: readonly string[] = [],
 ): string {
-  const node = nodeById(nodeId);
-  if (!node) return "";
-  const children = visibleChildrenOf(nodeId, disabled);
-
-  const lines = children.map((child) => {
-    const title = localized(child.title, language);
-    const description = localized(child.description, language);
-    const soon = isAvailable(child, disabled) ? "" : ` — ${say("disabled", language)}`;
-    return `• ${title}${child.emoji ? ` ${child.emoji}` : ""} — ${description}${soon}`;
-  });
-
-  // The way out, named rather than numbered, and only where there is one. One
-  // level down, Back and Main menu are the same place; offering both would be
-  // two lines that do the same thing, read aloud on every submenu.
-  const depth = pathTo(nodeId).length;
-  const exits = depth <= 1
-    ? []
-    : depth === 2
-      ? [`• ${say("back", language)}`]
-      : [`• ${say("back", language)}`, `• ${say("mainMenu", language)}`];
-
-  const header = `*${localized(node.title, language)}*`;
-  const body = localized(node.description, language);
-  const footer = footerFor(nodeId === ROOT_ID, language);
-
-  return [header, body, "", ...lines, ...exits, "", footer].join("\n");
+  return menuMessage(nodeId, language, disabled)?.text ?? "";
 }
 
 // Re-exported: both sentences now live with the rest of the interface's words.

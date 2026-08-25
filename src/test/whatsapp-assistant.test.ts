@@ -149,7 +149,13 @@ describe("webhook safety contract", () => {
   });
 
   it("makes a Meta retry a no-op instead of a duplicate reply", () => {
-    expect(webhook).toContain('dupe.code === "23505"');
+    // The unique index is still what detects the retry. What decides whether
+    // it is a duplicate to discard or an abandoned delivery to rescue is now
+    // `claimDecision` — see whatsapp-reliability.test.ts, which drives all
+    // three of its answers directly.
+    expect(webhook).toContain('if (dupe.code !== "23505") throw dupe;');
+    expect(webhook).toContain("claimDecision(prior, Date.now())");
+    expect(webhook).toContain('if (claim.action === "skip") continue;');
     expect(readFileSync("supabase/migrations/20260831010000_whatsapp_conversations.sql", "utf8"))
       .toContain("wa_message_id   text UNIQUE");
   });
@@ -975,8 +981,13 @@ describe("grounding directive", () => {
   });
 
   it("treats a retrieval failure as ungrounded, which is the safe state", () => {
-    expect(webhook).toContain("retrieval failed");
-    // The catch leaves `passages` empty, which triggers the no-source directive.
+    // The webhook no longer catches this itself: `retrieveKnowledge` owns every
+    // ending — timeout, failed embedder, database that will not answer — and
+    // returns no passages for all of them, which is what feeds the no-source
+    // directive below. whatsapp-knowledge.test.ts drives each of those endings
+    // through the real module.
+    expect(webhook).toContain("retrieveKnowledge(");
+    expect(webhook).toContain("const passages = grounding.passages;");
     expect(webhook).toContain("knowledgeDirective(passages)");
   });
 });
@@ -1219,7 +1230,7 @@ describe("voice replies", () => {
     // Every exit from the path says so: an unspoken reply used to be
     // indistinguishable from one nobody had asked to hear.
     expect(source).toMatch(/console\.error\("\[whatsapp-tts\] no OPENAI_API_KEY/);
-    expect(source).toMatch(/console\.error\("\[whatsapp-tts\] nothing was spoken/);
+    expect(source).toMatch(/console\.error\(`\[whatsapp-tts\] nothing was spoken/);
     expect(source).toMatch(/console\.log\(`\[whatsapp-tts\] spoke a reply/);
   });
 
@@ -1376,7 +1387,14 @@ describe("message classification", () => {
   });
 
   it("never lets a classification failure block the reply", () => {
-    expect(webhook).toContain("classification failed");
+    // It is bounded as well as caught now: `withDeadline` returns null for a
+    // timeout and for a failure alike, because the answer to both is the same —
+    // an unclassified message is a normal state, and a provider that hangs must
+    // cost the label rather than the reply.
+    expect(webhook).toContain("CLASSIFY_TIMEOUT_MS");
+    expect(webhook).toContain('log.fail("classify_failed"');
+    const block = webhook.slice(webhook.indexOf("const classified = await withDeadline("));
+    expect(block.slice(0, 900)).toContain("if (isCategory(label)) category = label;");
   });
 });
 

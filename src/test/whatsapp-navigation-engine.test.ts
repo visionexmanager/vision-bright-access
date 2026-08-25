@@ -283,7 +283,12 @@ describe("the awkward cases", () => {
     // idempotency key: the second copy hits the unique index and stops there,
     // before the engine, before the model and before any reply.
     expect(webhook).toContain("wa_message_id: incoming.messageId");
-    expect(webhook).toMatch(/if \(dupe\) \{[\s\S]*?dupe\.code === "23505"[\s\S]*?continue;/);
+    // The unique index still detects the redelivery. What it does about it is
+    // now `claimDecision`: a finished claim is skipped exactly as before, and
+    // an abandoned one is rescued rather than discarded — which is the case
+    // that used to leave a customer with silence.
+    expect(webhook).toMatch(/if \(dupe\) \{[\s\S]*?dupe\.code !== "23505"[\s\S]*?claimDecision/);
+    expect(webhook).toContain('if (claim.action === "skip") continue;');
     const insertAt = webhook.indexOf("wa_message_id: incoming.messageId");
     expect(insertAt).toBeGreaterThan(-1);
     expect(insertAt).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
@@ -614,12 +619,19 @@ describe("the webhook stays thin", () => {
   });
 
   it("logs structurally, and never logs anything that identifies a person", () => {
-    expect(webhook).toMatch(/console\.log\(JSON\.stringify\(\{/);
+    // Logging is no longer hand-rolled here: `createTelemetry` drops every
+    // field whose name is not on the allowlist and every value that is not a
+    // count, a duration or an ASCII label. That is the stronger form of what
+    // this test has always been about — see whatsapp-observability.test.ts,
+    // which drives the allowlist itself.
+    expect(webhook).toContain("const log = createTelemetry(");
     expect(webhook).toContain("conversation: conversationId");
     expect(webhook).toContain("message: incoming.messageId");
+    expect(webhook).toContain("correlation: correlationId");
     // The phone number and the message body are the two things that must never
     // reach a log line: this repository's CI logs are world-readable.
-    const logBlock = webhook.slice(webhook.indexOf("const log = ("), webhook.indexOf("};", webhook.indexOf("const log = (")));
+    const start = webhook.indexOf("const log = createTelemetry(");
+    const logBlock = webhook.slice(start, webhook.indexOf(");", start));
     expect(logBlock).not.toContain("incoming.from");
     expect(logBlock).not.toContain("questionText");
     expect(logBlock).not.toMatch(/token|secret|key/i);
@@ -631,7 +643,9 @@ describe("the webhook stays thin", () => {
       expect(webhook, event).toContain(`log("${event}"`);
     }
     // Duration and kind travel on every line, so one log tells the whole story.
-    expect(webhook).toContain("ms: Date.now() - startedAt");
+    // `ms` is now added by the logger itself rather than written at each call.
+    expect(webhook).toContain("const startedAt = Date.now();");
+    expect(webhook).toContain("{ startedAt },");
     expect(webhook).toContain("kind: engineMessageKind(incoming)");
     // Whether Meta accepted the reply, which is the response status.
     expect(webhook).toMatch(/log\("replied", \{[\s\S]{0,200}medium: delivered\.medium,/);
@@ -640,8 +654,8 @@ describe("the webhook stays thin", () => {
   it("keeps the existing voice path in front of the engine, untouched", () => {
     // The engine must see the transcript, so transcription runs first — and
     // the voice reply still happens inside reply(), for every route.
-    expect(webhook).toContain("transcribe: (input) => transcribeVoice(input),");
-    expect(webhook).toContain("speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text }),");
+    expect(webhook).toContain("transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),");
+    expect(webhook).toContain("speak: (text) => speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId }),");
     expect(webhook.indexOf("voiceToText(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
   });
 

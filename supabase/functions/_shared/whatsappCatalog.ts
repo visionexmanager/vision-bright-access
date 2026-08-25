@@ -558,6 +558,67 @@ export function visibleChildrenOf(id: string, disabled: readonly string[] = []):
   return childrenOf(id).filter((child) => !isFlaggedOff(child, disabled));
 }
 
+/**
+ * How many of a menu's ten rows are spent on the way out.
+ *
+ * At the top there is nowhere to go. One level down, Back and Main menu are the
+ * same place and only Back is offered. Deeper, both are. The rule lives here,
+ * next to the ten, because two things need it: `whatsappInteractive.ts` builds
+ * the rows, and `offeredChildrenOf` below decides what a tap may execute — and
+ * those two answers must be the same answer.
+ */
+export function controlRowCount(nodeId: string): number {
+  const depth = pathTo(nodeId).length;
+  return depth <= 1 ? 0 : depth === 2 ? 1 : 2;
+}
+
+/**
+ * The children a menu actually puts in front of somebody.
+ *
+ * `visibleChildrenOf` minus whatever does not fit: Meta allows ten rows in a
+ * list *in total*, controls included, and an eleventh is not truncated — the
+ * whole message is rejected. So a menu with too many children shows the first
+ * few and the rest are unreachable.
+ *
+ * That is what makes this the security-relevant answer rather than a rendering
+ * detail. A row nobody can be shown is a row nobody can have tapped, so an id
+ * naming one did not come from a message this channel sent. The router refuses
+ * it here, at the same function the menu is built from, which is the only way
+ * the two can be guaranteed to agree.
+ *
+ * Today no menu is over its ceiling — the main menu is at exactly ten and every
+ * submenu is well under. This is the guard for the eleventh row somebody adds.
+ */
+export function offeredChildrenOf(id: string, disabled: readonly string[] = []): CatalogNode[] {
+  const room = LIST_LIMITS.rows - controlRowCount(id);
+  return visibleChildrenOf(id, disabled).slice(0, Math.max(room, 0));
+}
+
+/**
+ * Whether this node is a row this channel is structurally capable of showing.
+ *
+ * The root is not: it is hidden and has no parent to be listed under. A hidden
+ * node is not. A node past its parent's ten-row ceiling is not — this channel
+ * has never rendered it, so nobody can have tapped it.
+ *
+ * ── Why the live flags are deliberately not consulted ───────────────────────
+ *
+ * A flagged-off feature *is* a real row that people have really seen, and it
+ * has a much better answer than "that option has moved": `isAvailable` refuses
+ * it and the sender is told the service is closed, in their own language. So
+ * the flag stays where it was, at the gate, and this asks the narrower question
+ * — could this row ever have been on a menu at all?
+ *
+ * Asking it with no flags applied is also the stricter reading. A flag frees a
+ * slot, so a row that does not fit today might fit while something above it is
+ * switched off; refusing on the unflagged layout means a flag can never widen
+ * what a stale id may execute.
+ */
+export function isOffered(node: CatalogNode | null | undefined): boolean {
+  if (!node || node.hidden || !node.parent) return false;
+  return offeredChildrenOf(node.parent, []).some((child) => child.id === node.id);
+}
+
 /** Whether a live flag has switched this node, or anything above it, off. */
 export function isFlaggedOff(node: CatalogNode | null | undefined, disabled: readonly string[]): boolean {
   let cursor: CatalogNode | null = node ?? null;

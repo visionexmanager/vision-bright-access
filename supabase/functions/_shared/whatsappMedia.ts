@@ -16,6 +16,7 @@
 // allowed, how big, which type — is testable without a Meta account.
 
 import { GRAPH_BASE } from "./meta.ts";
+import { trace } from "./whatsappTelemetry.ts";
 
 /** Hosts Meta serves media from. Anything else is refused before a request. */
 const ALLOWED_MEDIA_HOSTS = [
@@ -140,6 +141,14 @@ export async function downloadMedia(params: {
   kind: MediaKind;
   token: string;
   descriptor?: MediaDescriptor | null;
+  /**
+   * The delivery's correlation id, for the lines this prints.
+   *
+   * Optional, and used for nothing but a log suffix. It is what lets a failed
+   * synthesis or an unreadable download be tied to the delivery that asked
+   * for it, without the log line naming the person who sent it.
+   */
+  trace?: string;
 }): Promise<MediaResult> {
   const descriptor = params.descriptor !== undefined
     ? params.descriptor
@@ -148,7 +157,7 @@ export async function downloadMedia(params: {
 
   // Checked before any request is made to it.
   if (!isAllowedMediaUrl(descriptor.url)) {
-    console.error("[whatsapp-media] refused a download host outside Meta");
+    console.error(`[whatsapp-media] refused a download host outside Meta${trace(params.trace)}`);
     return { ok: false, reason: "blocked_host" };
   }
   if (!isAllowedMime(params.kind, descriptor.mimeType)) {
@@ -163,11 +172,11 @@ export async function downloadMedia(params: {
     res = await fetch(descriptor.url, { headers: { Authorization: `Bearer ${params.token}` } });
   } catch {
     // The URL carries an access token; log the failure, never the URL.
-    console.error("[whatsapp-media] download transport error");
+    console.error(`[whatsapp-media] download transport error${trace(params.trace)}`);
     return { ok: false, reason: "download_failed" };
   }
   if (!res.ok) {
-    console.error("[whatsapp-media] download rejected:", res.status);
+    console.error(`[whatsapp-media] download rejected: ${res.status}${trace(params.trace)}`);
     return { ok: false, reason: "download_failed" };
   }
 

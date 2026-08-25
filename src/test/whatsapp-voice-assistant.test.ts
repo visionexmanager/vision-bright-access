@@ -518,7 +518,12 @@ describe("duplicate deliveries and the limits that were already there", () => {
     expect(provider.calls).toBe(1);
 
     // And the guard that stops the second delivery ever getting here.
-    expect(webhook).toMatch(/if \(dupe\) \{[\s\S]*?dupe\.code === "23505"[\s\S]*?continue;/);
+    // The unique index still detects the redelivery. What it does about it is
+    // now `claimDecision`: a finished claim is skipped exactly as before, and
+    // an abandoned one is rescued rather than discarded — which is the case
+    // that used to leave a customer with silence.
+    expect(webhook).toMatch(/if \(dupe\) \{[\s\S]*?dupe\.code !== "23505"[\s\S]*?claimDecision/);
+    expect(webhook).toContain('if (claim.action === "skip") continue;');
     expect(webhook.indexOf("wa_message_id: incoming.messageId"))
       .toBeLessThan(webhook.indexOf('if (incoming.media.kind === "audio")'));
   });
@@ -531,7 +536,7 @@ describe("duplicate deliveries and the limits that were already there", () => {
     expect(media.isAllowedMime("audio", "application/x-msdownload")).toBe(false);
     expect(media.MEDIA_LIMITS.audio).toBeLessThanOrEqual(16 * 1024 * 1024);
     // The webhook still asks for the audio kind, so the audio ceiling applies.
-    expect(webhook).toContain('downloadMedia({ mediaId, kind: "audio", token })');
+    expect(webhook).toContain('downloadMedia({ mediaId, kind: "audio", token, trace: correlationId })');
   });
 
   it("logs the shape of a voice turn and none of its content", () => {

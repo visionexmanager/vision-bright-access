@@ -5,6 +5,7 @@
 // wires these together.
 
 import { GRAPH_BASE } from "./meta.ts";
+import { clampUnits, safeCut } from "./whatsappSafety.ts";
 import { isSupportedLanguage, type SupportedLanguage } from "./whatsappLanguages.ts";
 
 /** Greeting sent once per conversation, before the assistant takes over. */
@@ -552,9 +553,13 @@ export function clampReply(text: string, limit = 3900): string {
   const trimmed = text.trim();
   if (trimmed.length <= limit) return trimmed;
 
-  const window = trimmed.slice(0, limit);
+  // Cut by characters a reader would count, never by UTF-16 units: a window
+  // ending inside an emoji or between an Arabic letter and its vowel mark
+  // delivers half a character, which is a replacement box on screen and
+  // silence in a screen reader.
+  const window = clampUnits(trimmed, limit);
   const cut = Math.max(window.lastIndexOf("\n\n"), window.lastIndexOf(". "), window.lastIndexOf("۔ "));
-  return (cut > limit * 0.6 ? window.slice(0, cut + 1) : window).trim() + "…";
+  return (cut > limit * 0.6 ? window.slice(0, safeCut(window, cut + 1)) : window).trim() + "…";
 }
 
 /**

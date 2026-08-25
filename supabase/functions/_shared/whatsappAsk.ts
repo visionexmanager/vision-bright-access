@@ -20,6 +20,13 @@
 // The seam is structural instead: a provider is a function of this shape.
 
 import { summaryPreamble, type Turn } from "./whatsapp.ts";
+import {
+  boundSystemPrompt,
+  boundText,
+  MAX_PROVIDER_RESPONSE_CHARS,
+  MAX_SUMMARY_CHARS,
+  MAX_TURN_CHARS,
+} from "./whatsappSafety.ts";
 
 /** What a provider is given. Everything the model sees, and nothing else. */
 export interface AskRequest {
@@ -86,16 +93,38 @@ export const DEFAULT_MAX_TOKENS = 700;
  */
 export const DEFAULT_ASK_TIMEOUT_MS = 30_000;
 
-/** Build exactly what the provider will be given. Pure, so a test can read it. */
+/**
+ * Build exactly what the provider will be given. Pure, so a test can read it.
+ *
+ * ── Every field bounded, here, once ─────────────────────────────────────────
+ *
+ * This is the last place before the wire, which makes it the only place a bound
+ * cannot be forgotten. Each part arrives already bounded by whoever built it —
+ * the grounding has its own character budget, the persona is three short
+ * fields, the history is budgeted by `budgetTurns` — and every one of those is
+ * a bound somebody could remove without this file noticing. So each is applied
+ * again, against a named ceiling, over the values that actually travel.
+ *
+ * The system parts keep their order, and the caller puts the rules first and
+ * the retrieved material last: what a ceiling costs under pressure is then
+ * reference material rather than a rule.
+ */
 export function buildRequest(input: AskInput): AskRequest {
-  const turns = input.turns ?? [];
+  const turns = (input.turns ?? []).map((turn) => ({
+    role: turn.role,
+    content: boundText(turn.content, MAX_TURN_CHARS),
+  })).filter((turn) => turn.content.length > 0);
+
+  const summary = boundText(input.summary ?? "", MAX_SUMMARY_CHARS);
+  const question = boundText(input.question, MAX_TURN_CHARS);
+
   return {
-    system: input.systemParts.filter(Boolean).join("\n\n"),
+    system: boundSystemPrompt(input.systemParts),
     messages: [
       // The summary is reference material and says so in its own preamble; it
       // is not a turn anybody took.
-      ...(input.summary ? [{ role: "user" as const, content: summaryPreamble(input.summary) }] : []),
-      ...(turns.length > 0 ? turns : [{ role: "user" as const, content: input.question }]),
+      ...(summary ? [{ role: "user" as const, content: summaryPreamble(summary) }] : []),
+      ...(turns.length > 0 ? turns : [{ role: "user" as const, content: question }]),
     ],
     maxTokens: input.maxTokens ?? DEFAULT_MAX_TOKENS,
   };
@@ -130,7 +159,12 @@ export async function askAssistant(input: AskInput, provider: AskProvider): Prom
     });
 
     const result: AskResult = await Promise.race([provider(request), timeout]);
-    const text = (result?.text ?? "").trim();
+    // Bounded on the way back as well as on the way out. A provider that
+    // ignores `maxTokens`, or returns a stream that does not stop, would
+    // otherwise put an unbounded string through the splitter, the transcript
+    // and the synthesiser. The cut is grapheme-safe, so what survives is whole
+    // characters.
+    const text = boundText(result?.text ?? "", MAX_PROVIDER_RESPONSE_CHARS);
     const provenance = { provider: result?.provider ?? "unknown", model: result?.model ?? "unknown" };
 
     // An empty answer is its own outcome, not a failure and not something to

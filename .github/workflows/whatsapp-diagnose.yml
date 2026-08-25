@@ -176,17 +176,46 @@ jobs:
 
           say ""
           say "## 6. What the function printed"
+          say "Structured events only, and only their allowlisted fields. See below."
           logs "select t.timestamp, t.event_message
                   from function_logs as t
                  order by t.timestamp desc limit 100" > /tmp/wa-logs.json
-          OTHERS=$(jq '[.result[]? | select(.event_message | test("whatsapp") | not)] | length' /tmp/wa-logs.json)
+
+          # ── Why this is filtered rather than dumped ──────────────────────────
+          #
+          # This step used to print every line matching "whatsapp" verbatim into
+          # a job summary that anybody on the internet can open. That was safe
+          # only for as long as every one of those lines happened to be safe,
+          # which is not a property a workflow can check and not one a future
+          # `console.error` will preserve.
+          #
+          # So it now reads the structured events the function emits — one JSON
+          # object per line, already filtered by the allowlist in
+          # `whatsappTelemetry.ts` — and re-applies that allowlist here, on the
+          # way out. A line that is not one of those events is counted, never
+          # shown: an unstructured line is by definition one nothing has
+          # vouched for.
+          FIELDS='["at","event","correlation","conversation","message","kind","outcome","reason","node","feature","via","selection","state","step","menu","chars","parts","passages","candidates","turns","attempt","count","ms","status","code","provider","model","medium","sent","spokenFailed","replyKind","problem","category","language","verified","ok"]'
+
           say '```json'
-          jq -c '[.result[]? | select(.event_message | test("whatsapp"))]' /tmp/wa-logs.json \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+          jq -c --argjson fields "$FIELDS" '
+            [ .result[]?
+              | .event_message
+              | select(type == "string")
+              # Only lines that parse as one of our structured events.
+              | (try fromjson catch empty)
+              | select(type == "object" and .at == "whatsapp")
+              | with_entries(select(.key as $k | $fields | index($k)))
+            ]' /tmp/wa-logs.json | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           say '```'
-          say "Plus ${OTHERS:-0} lines from other functions, withheld — this repository is public."
-          say "A provider error, a failed send, or an uncaught exception in one message prints here and nowhere else."
+
+          SHOWN=$(jq --argjson fields "$FIELDS" '[.result[]? | .event_message | select(type=="string") | (try fromjson catch empty) | select(type=="object" and .at=="whatsapp")] | length' /tmp/wa-logs.json)
+          TOTAL=$(jq '[.result[]?] | length' /tmp/wa-logs.json)
+          say ""
+          say "Showed ${SHOWN:-0} structured WhatsApp events out of ${TOTAL:-0} log lines in the window."
+          say "The remainder — unstructured lines, and lines from other functions — are withheld: this repository is public and only the allowlisted fields above have been vouched for."
+          say "A provider failure appears as a normalised \`code\` and \`status\`, never as a provider message. Follow one delivery end to end with its \`correlation\`."
 
           say ""
           say "Nothing above modified anything: every statement is a SELECT."

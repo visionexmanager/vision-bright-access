@@ -20,6 +20,7 @@
 // `whatsappWeather.ts` and `whatsappLocation.ts`, which the test suite imports
 // under Node. This module is only the fetching.
 
+import { describeError } from "./whatsappSafety.ts";
 import type { CurrentWeather, DailyWeather } from "./whatsappWeather.ts";
 import { distanceMetres } from "./whatsappLocation.ts";
 import type { NearbyPlace, PlaceDescription } from "./whatsappLocation.ts";
@@ -55,7 +56,9 @@ async function getJson<T>(url: string, timeoutMs = TIMEOUT_MS): Promise<T | null
     }
     return (await response.json()) as T;
   } catch (e) {
-    console.error(`[whatsapp-geo] request failed: ${e instanceof Error ? e.message : "error"}`);
+    // A code, never the message: a fetch failure quotes the URL it was given,
+    // and that URL carries the coordinates somebody just shared.
+    console.error(`[whatsapp-geo] request failed: ${describeError(e)}`);
     return null;
   } finally {
     clearTimeout(timer);
@@ -269,7 +272,7 @@ export async function fetchNearby(
     }
     data = await response.json();
   } catch (e) {
-    console.error(`[whatsapp-geo] overpass failed: ${e instanceof Error ? e.message : "error"}`);
+    console.error(`[whatsapp-geo] overpass failed: ${describeError(e)}`);
     return null;
   } finally {
     clearTimeout(timer);

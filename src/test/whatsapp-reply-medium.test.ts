@@ -502,8 +502,15 @@ describe("the webhook is wired to exactly this policy", () => {
 
   it("29. records how each message travelled", () => {
     expect(webhook).toMatch(/direction: "outbound",[\s\S]{0,80}medium,/);
-    expect(webhook).toContain('medium: spokenInput ? "voice" : "text",');
+    // Every medium in the webhook comes from `replyMedium` and from nothing
+    // else. The menu row used to decide its own inline — a second policy that
+    // happened to agree with the real one, and would have stopped agreeing the
+    // moment either learned something the other had not.
+    expect(webhook).toContain("medium: replyMedium({ spokenInput, body: message.text })");
+    expect(webhook).not.toContain('medium: spokenInput ? "voice" : "text"');
     expect(webhook).toContain('.update({ medium: "text" }).eq("id", written.id)');
+    // And a menu that could not be spoken is corrected the same way a reply is.
+    expect(webhook).toContain('.update({ medium: "text" }).eq("id", menuRow.id)');
   });
 
   it("30. logs a medium and a length, never the words", () => {

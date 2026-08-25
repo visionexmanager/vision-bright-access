@@ -26,6 +26,7 @@ import {
   type CatalogNode,
   type Capability,
   isAvailable,
+  isOffered,
   type Language,
   localized,
   nodeById,
@@ -39,6 +40,7 @@ import {
   parseCommand,
   parseControlId,
 } from "./whatsappCommands.ts";
+import { selectionScope } from "./whatsappSafety.ts";
 
 /** Everything the router needs. No session object: only the menu in view. */
 export interface RouterInput {
@@ -53,6 +55,21 @@ export interface RouterInput {
   disabled?: readonly string[];
   /** Capabilities this deployment actually has. */
   available?: readonly Capability[];
+  /**
+   * Whether the feature configuration was actually read this delivery.
+   *
+   * False when the settings row could not be fetched. A missing answer is not
+   * the same as "nothing is switched off": a flag exists precisely for the
+   * minutes when a feature must not run, and those are the minutes a database
+   * is most likely to be the thing that is unwell. So an unverified
+   * configuration refuses every feature rather than assuming the permissive
+   * case. Navigation, help and the way back are unaffected — the sender can
+   * still move around and still be told why.
+   *
+   * Defaulted to `true` so every existing caller and every test keeps its
+   * meaning; the webhook is what passes `false`, and only when it has to.
+   */
+  configVerified?: boolean;
 }
 
 /** How a feature was named. Logged, and used to decide how far to move. */
@@ -68,7 +85,19 @@ export type Routing =
    * a capability this deployment does not have. Resolved *first* and refused
    * second, which is what stops a word being a way around a flag.
    */
-  | { kind: "unavailable"; featureId: string; node: CatalogNode; parentId: string; via: RoutedVia; reason: "disabled" | "capability" }
+  | {
+    kind: "unavailable";
+    featureId: string;
+    node: CatalogNode;
+    parentId: string;
+    via: RoutedVia;
+    /**
+     * `unverified` is the fail-closed case: the feature may well be on, and
+     * this delivery could not establish that it is. Refusing is the only
+     * answer that cannot be wrong in the direction that matters.
+     */
+    reason: "disabled" | "capability" | "unverified";
+  }
   /** A number that is not on the menu in view. */
   | { kind: "invalid"; menuId: string; choice: number }
   /** A tapped row this build no longer has. */
@@ -87,6 +116,7 @@ export type Routing =
 export function resolveSelection(input: RouterInput): Routing {
   const disabled = input.disabled ?? [];
   const available = input.available ?? [];
+  const verified = input.configVerified !== false;
   const menuId = nodeById(input.menuId) ? input.menuId : ROOT_ID;
 
   // A tapped control row. Checked before the catalog is consulted at all,
@@ -96,9 +126,34 @@ export function resolveSelection(input: RouterInput): Routing {
   if (tappedCommand) return { kind: "command", command: tappedCommand };
 
   if (input.selection) {
+    // ── What a tapped id is allowed to be ──────────────────────────────────
+    //
+    // Three checks, and each closes a different door.
+    //
+    // The *scope* check: an id belongs to exactly one interaction. A language
+    // row, a gender row and a country row are answered elsewhere, before the
+    // engine is ever reached, so one arriving here came from an old message or
+    // from somewhere that is not this channel — and either way it is not a
+    // feature. Resolving it as one would mean a prefix collision was all that
+    // stood between a profile row and executing something.
+    //
+    // The *shape* check is inside `selectionScope`: oversized, empty, or
+    // carrying characters this channel never issues. Refused as stale rather
+    // than parsed, because there is nothing there to parse.
+    //
+    // The *offered* check: the id has to name a row a sender could actually
+    // have been shown — not hidden, not the root, not switched off, and inside
+    // its parent menu's ten-row ceiling. `isOffered` is the same function
+    // `menuMessage` builds its rows from, which is what makes "you can only
+    // execute what the menu offers" a fact rather than an intention. Without
+    // it, an id for a row past the ceiling — a row this channel has never once
+    // rendered — would execute on a tap that could not have happened.
+    const scope = selectionScope(input.selection);
+    if (scope !== "catalog") return { kind: "stale", selection: input.selection };
+
     const node = nodeById(input.selection);
-    if (!node || node.hidden) return { kind: "stale", selection: input.selection };
-    return gate(node, "tap", disabled, available);
+    if (!node || !isOffered(node)) return { kind: "stale", selection: input.selection };
+    return gate(node, "tap", disabled, available, verified);
   }
 
   // The typed commands: `0`, `00`, `#` and their words — still supported,
@@ -111,7 +166,7 @@ export function resolveSelection(input: RouterInput): Routing {
   if (choice !== null) {
     const node = childAt(menuId, choice);
     if (!node) return { kind: "invalid", menuId, choice };
-    return gate(node, "number", disabled, available);
+    return gate(node, "number", disabled, available, verified);
   }
 
   // The name of a row on the menu in view.
@@ -124,10 +179,10 @@ export function resolveSelection(input: RouterInput): Routing {
   // to its own, where a global table would have to pick one and be wrong half
   // the time.
   const onMenu = resolveTitleIn(menuId, input.text, input.language);
-  if (onMenu) return gate(onMenu, "name", disabled, available);
+  if (onMenu) return gate(onMenu, "name", disabled, available, verified);
 
   const named = resolveAlias(input.text, input.language);
-  if (named) return gate(named, "alias", disabled, available);
+  if (named) return gate(named, "alias", disabled, available, verified);
 
   return { kind: "passthrough" };
 }
@@ -153,12 +208,22 @@ export function resolveTitleIn(
   return null;
 }
 
-/** The one gate every route passes through. */
+/**
+ * The one gate every route passes through.
+ *
+ * Order matters and runs from most certain to least. A feature that is off is
+ * off whatever else is true. A feature this deployment cannot run is refused
+ * next, because that is a fact about the environment rather than about the
+ * configuration. Only then does the unverified case apply — so a configuration
+ * this delivery could not read never *widens* anything, it only refuses what it
+ * cannot vouch for.
+ */
 function gate(
   node: CatalogNode,
   via: RoutedVia,
   disabled: readonly string[],
   available: readonly Capability[],
+  configVerified = true,
 ): Routing {
   const parentId = node.parent ?? ROOT_ID;
   if (!isAvailable(node, disabled)) {
@@ -167,6 +232,9 @@ function gate(
   const missing = (node.requires ?? []).filter((capability) => !available.includes(capability));
   if (missing.length > 0) {
     return { kind: "unavailable", featureId: node.id, node, parentId, via, reason: "capability" };
+  }
+  if (!configVerified) {
+    return { kind: "unavailable", featureId: node.id, node, parentId, via, reason: "unverified" };
   }
   return { kind: "feature", featureId: node.id, node, parentId, via };
 }
