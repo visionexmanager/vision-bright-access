@@ -569,10 +569,13 @@ describe("prompts, histories and responses are bounded", () => {
 
     try {
       const LIMIT = 4_000;
-      // Generous: the widest realistic character is about a dozen code units,
-      // and the window doubles, so a factor of forty is far above any correct
-      // implementation and far below the 500,000 a linear one hands over.
-      const ceiling = LIMIT * 40;
+      // The widest realistic character is about a dozen code units and the
+      // window doubles, so a correct implementation hands over at most a few
+      // multiples of the ceiling — measured, the worst of these is fourteen
+      // times it, and `boundText` is under two hundred units flat because its
+      // ceiling is counted in code units and needs no segmentation at all.
+      // A linear implementation hands over 500,000.
+      const ceiling = LIMIT * 20;
 
       for (const [label, work] of [
         ["boundText/ascii", () => safety.boundText(HUGE, LIMIT)],

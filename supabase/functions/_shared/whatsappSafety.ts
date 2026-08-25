@@ -435,12 +435,22 @@ export function stripInvisible(text: string): string {
 /**
  * One field, stripped and cut to its ceiling. The cut is grapheme-safe.
  *
- * Nothing here scales with the input. `stripInvisible` is one native regex
- * pass with an early out, and `sliceGraphemes` stops consuming at the ceiling
- * rather than segmenting what it is about to discard.
+ * ── Code units, deliberately ────────────────────────────────────────────────
+ *
+ * The ceilings this serves are *size* limits: how much may reach a provider,
+ * how much may come back, how much history may be replayed. They stand in for
+ * tokens and bytes, not for what a reader counts, so a code-unit count is both
+ * the more meaningful measure and a constant-time one.
+ *
+ * The grapheme rule is a separate promise and is kept by `clampUnits`: never
+ * cut *through* a character. That costs an O(1) slice plus a small window at the
+ * cut, so nothing here walks the input.
+ *
+ * `sliceGraphemes` is for the other case — where a limit really is a count of
+ * characters somebody reads, like a row title or a passage quoted to a model.
  */
 export const boundText = (text: string | null | undefined, limit: number): string =>
-  sliceGraphemes(stripInvisible((text ?? "").trim()), limit);
+  clampUnits(stripInvisible((text ?? "").trim()), limit);
 
 /**
  * Assemble a system prompt and bound the whole of it.
@@ -468,16 +478,15 @@ export function boundSystemPrompt(
     const separator = kept.length > 0 ? 2 : 0;
     const remaining = limit - used - separator;
     if (remaining <= 0) break;
-    // Bounded comparison: a part far longer than the room left needs no exact
-    // count, only the answer "no".
-    if (graphemeLength(text, remaining) <= remaining) {
+    // Code units, matching the ceiling above, and O(1).
+    if (text.length <= remaining) {
       kept.push(text);
       used += text.length + separator;
       continue;
     }
     // Only worth keeping a fragment if it is long enough to still say
     // something; a forty-character stub of a directive is noise in a prompt.
-    if (remaining > 400) kept.push(sliceGraphemes(text, remaining));
+    if (remaining > 400) kept.push(clampUnits(text, remaining));
     break;
   }
 
