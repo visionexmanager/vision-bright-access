@@ -23,6 +23,13 @@
  */
 export const LOCATION_TTL_MS = 6 * 60 * 60 * 1000;
 
+// The words — compass points, category names, the headings — are in
+// `whatsappStrings.ts` with the rest of the interface's vocabulary, in all
+// twenty languages. What stays here is the arithmetic: bearings, distances,
+// which OSM tag counts as which category, and the six-hour clock above.
+import type { Language } from "./whatsappCatalog.ts";
+import { say, type UiKey } from "./whatsappStrings.ts";
+
 /** A pin as WhatsApp delivers it. */
 export interface SharedLocation {
   latitude: number;
@@ -133,10 +140,12 @@ export function distanceMetres(
   return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(a))));
 }
 
-const COMPASS: Record<"ar" | "en", string[]> = {
-  en: ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"],
-  ar: ["شمالاً", "شمال شرق", "شرقاً", "جنوب شرق", "جنوباً", "جنوب غرب", "غرباً", "شمال غرب"],
-};
+// Clockwise from north, in 45° steps. The words are in `whatsappStrings.ts`;
+// what is here is the order, which is geometry rather than language.
+const COMPASS: readonly UiKey[] = [
+  "compassNorth", "compassNorthEast", "compassEast", "compassSouthEast",
+  "compassSouth", "compassSouthWest", "compassWest", "compassNorthWest",
+];
 
 /**
  * Which way to walk.
@@ -148,7 +157,7 @@ const COMPASS: Record<"ar" | "en", string[]> = {
 export function bearingLabel(
   from: { latitude: number; longitude: number },
   to: { latitude: number; longitude: number },
-  language: "ar" | "en",
+  language: Language,
 ): string {
   const toRad = (value: number) => (value * Math.PI) / 180;
   const dLon = toRad(to.longitude - from.longitude);
@@ -158,15 +167,30 @@ export function bearingLabel(
     Math.sin(toRad(from.latitude)) * Math.cos(toRad(to.latitude)) * Math.cos(dLon);
   const degrees = (Math.atan2(y, x) * 180) / Math.PI;
   const index = Math.round(((degrees + 360) % 360) / 45) % 8;
-  return COMPASS[language][index];
+  return say(COMPASS[index], language);
 }
 
-export function formatDistance(metres: number, language: "ar" | "en"): string {
-  if (metres < 1000) {
-    return language === "ar" ? `${metres} متر` : `${metres} m`;
+/**
+ * A distance with its unit, in the sender's language.
+ *
+ * `Intl` rather than two hand-written suffixes: it knows the abbreviation in
+ * all twenty languages, including which ones put it before the number. The
+ * `-u-nu-latn` is deliberate — Arabic and Persian would otherwise be written
+ * in Arabic-Indic digits while the coordinates on the next line are not, and
+ * one message with two numbering systems in it is worse than either.
+ */
+export function formatDistance(metres: number, language: Language): string {
+  const below = metres < 1000;
+  const value = below ? metres : Number((metres / 1000).toFixed(1));
+  try {
+    return new Intl.NumberFormat(`${language}-u-nu-latn`, {
+      style: "unit",
+      unit: below ? "meter" : "kilometer",
+      unitDisplay: "short",
+    }).format(value);
+  } catch {
+    return below ? `${value} m` : `${value} km`;
   }
-  const km = (metres / 1000).toFixed(1);
-  return language === "ar" ? `${km} كم` : `${km} km`;
 }
 
 /** A place worth mentioning near the sender. */
@@ -183,30 +207,31 @@ export interface NearbyPlace {
  * Chosen for what someone standing on a pavement actually needs: a way to get
  * somewhere, something to eat, medicine, money, and a landmark to orient by.
  */
-export const NEARBY_CATEGORIES: Record<string, { en: string; ar: string }> = {
-  pharmacy: { en: "pharmacy", ar: "صيدلية" },
-  hospital: { en: "hospital", ar: "مستشفى" },
-  clinic: { en: "clinic", ar: "عيادة" },
-  supermarket: { en: "supermarket", ar: "سوبرماركت" },
-  bakery: { en: "bakery", ar: "مخبز" },
-  restaurant: { en: "restaurant", ar: "مطعم" },
-  cafe: { en: "café", ar: "مقهى" },
-  bank: { en: "bank", ar: "بنك" },
-  atm: { en: "ATM", ar: "صراف آلي" },
-  bus_stop: { en: "bus stop", ar: "موقف حافلات" },
-  station: { en: "station", ar: "محطة" },
-  place_of_worship: { en: "place of worship", ar: "مسجد أو دار عبادة" },
-  fuel: { en: "petrol station", ar: "محطة وقود" },
-  police: { en: "police station", ar: "مركز شرطة" },
-  post_office: { en: "post office", ar: "مكتب بريد" },
-  school: { en: "school", ar: "مدرسة" },
-  convenience: { en: "corner shop", ar: "بقالة" },
+export const NEARBY_CATEGORIES: Record<string, UiKey> = {
+  pharmacy: "catPharmacy",
+  hospital: "catHospital",
+  clinic: "catClinic",
+  supermarket: "catSupermarket",
+  bakery: "catBakery",
+  restaurant: "catRestaurant",
+  cafe: "catCafe",
+  bank: "catBank",
+  atm: "catAtm",
+  bus_stop: "catBusStop",
+  station: "catStation",
+  place_of_worship: "catWorship",
+  fuel: "catFuel",
+  police: "catPolice",
+  post_office: "catPostOffice",
+  school: "catSchool",
+  convenience: "catConvenience",
 };
 
-export function categoryLabel(category: string, language: "ar" | "en"): string {
-  const entry = NEARBY_CATEGORIES[category];
-  if (entry) return language === "ar" ? entry.ar : entry.en;
-  return category.replace(/_/g, " ");
+export function categoryLabel(category: string, language: Language): string {
+  const key = NEARBY_CATEGORIES[category];
+  // An OSM tag this table has never seen is shown as the tag with its
+  // underscores removed — visibly foreign, rather than silently missing.
+  return key ? say(key, language) : category.replace(/_/g, " ");
 }
 
 /**
@@ -218,7 +243,7 @@ export function categoryLabel(category: string, language: "ar" | "en"): string {
  * to them than any street the map knows about.
  */
 export function formatWhereYouAre(params: {
-  language: "ar" | "en";
+  language: Language;
   place: PlaceDescription;
   pinName?: string | null;
   pinAddress?: string | null;
@@ -227,29 +252,14 @@ export function formatWhereYouAre(params: {
 }): string {
   const { language, place, pinName, pinAddress, latitude, longitude } = params;
   const label = placeLabel(place, pinName ?? pinAddress);
-  const lines: string[] = [];
+  const lines: string[] = [`📍 ${say("whereHeading", language)}`];
 
-  if (language === "ar") {
-    lines.push(`📍 *أنت هنا*`);
-    if (label) lines.push(label);
-    if (pinName && pinName.trim() && !label.includes(pinName.trim())) lines.push(pinName.trim());
-    if (pinAddress && pinAddress.trim() && pinAddress.trim() !== pinName?.trim()) {
-      lines.push(pinAddress.trim());
-    }
-    if (!label && !pinName && !pinAddress) {
-      lines.push("لم أتعرّف على اسم المكان، لكن الإحداثيات وصلت.");
-    }
-  } else {
-    lines.push(`📍 *You are here*`);
-    if (label) lines.push(label);
-    if (pinName && pinName.trim() && !label.includes(pinName.trim())) lines.push(pinName.trim());
-    if (pinAddress && pinAddress.trim() && pinAddress.trim() !== pinName?.trim()) {
-      lines.push(pinAddress.trim());
-    }
-    if (!label && !pinName && !pinAddress) {
-      lines.push("I couldn't name the place, but the coordinates came through.");
-    }
+  if (label) lines.push(label);
+  if (pinName && pinName.trim() && !label.includes(pinName.trim())) lines.push(pinName.trim());
+  if (pinAddress && pinAddress.trim() && pinAddress.trim() !== pinName?.trim()) {
+    lines.push(pinAddress.trim());
   }
+  if (!label && !pinName && !pinAddress) lines.push(say("whereUnknown", language));
 
   lines.push("");
   lines.push(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
@@ -258,48 +268,36 @@ export function formatWhereYouAre(params: {
 
 /** Nearby places, nearest first, as a message. */
 export function formatNearby(params: {
-  language: "ar" | "en";
+  language: Language;
   origin: { latitude: number; longitude: number };
   places: NearbyPlace[];
 }): string {
   const { language, origin, places } = params;
-  if (places.length === 0) {
-    return language === "ar"
-      ? "لم أجد أماكن معروفة على الخريطة قريبة منك. الخرائط المفتوحة أحياناً ناقصة في بعض المناطق."
-      : "I couldn't find anything mapped near you. Open map data is patchy in some areas.";
-  }
+  if (places.length === 0) return say("nearbyNone", language);
 
-  const lines = [language === "ar" ? "🧭 *حولك*" : "🧭 *Around you*"];
+  const lines = [`🧭 ${say("nearbyHeading", language)}`];
   for (const place of places) {
-    const metres = distanceMetres(origin, place);
-    const direction = bearingLabel(origin, place, language);
     lines.push(
-      language === "ar"
-        ? `• ${place.name} (${categoryLabel(place.category, language)}) — ${formatDistance(metres, language)} ${direction}`
-        : `• ${place.name} (${categoryLabel(place.category, language)}) — ${formatDistance(metres, language)} ${direction}`,
+      say("nearbyLine", language)
+        .replace("{name}", place.name)
+        .replace("{category}", categoryLabel(place.category, language))
+        .replace("{distance}", formatDistance(distanceMetres(origin, place), language))
+        .replace("{direction}", bearingLabel(origin, place, language)),
     );
   }
   lines.push("");
-  lines.push(
-    language === "ar"
-      ? "المسافات بالخط المستقيم، وليست مسار مشي."
-      : "Distances are straight-line, not walking routes.",
-  );
+  lines.push(say("nearbyStraightLine", language));
   return lines.join("\n");
 }
 
 /** Asked about here, with no pin on file and none in the message. */
-export function locationNeededNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "شارك موقعك أولاً: اضغط 📎 ثم «الموقع» ثم «إرسال موقعي الحالي». سأخبرك بمكانك وما حولك وطقس المنطقة."
-    : "Share your location first: tap 📎 → Location → Send your current location. I'll tell you where you are, what's around you, and the weather there.";
+export function locationNeededNotice(language: Language): string {
+  return say("locationNeeded", language);
 }
 
 /** The map service failed. Coordinates still arrived, and that is said plainly. */
-export function geocodeUnavailableNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "وصلني موقعك لكن خدمة الخرائط لا تستجيب الآن. جرّب بعد قليل."
-    : "Your location arrived, but the map service isn't responding right now. Try again shortly.";
+export function geocodeUnavailableNotice(language: Language): string {
+  return say("geocodeUnavailable", language);
 }
 
 /**
@@ -310,8 +308,6 @@ export function geocodeUnavailableNotice(language: "ar" | "en"): string {
  * on every pin. It is also how the capability gets discovered at the exact
  * moment it is useful, which is worth more than a line in a menu read weeks ago.
  */
-export function nearbyHint(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "قل «حولي» لأخبرك بأقرب الأماكن، أو «الطقس» لطقس هذا المكان."
-    : "Say \"near me\" for what's around you, or \"weather\" for the forecast here.";
+export function nearbyHint(language: Language): string {
+  return say("nearbyHint", language);
 }

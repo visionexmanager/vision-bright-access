@@ -9,6 +9,14 @@
 // take a coat is a glance out of a window for most people, and a WhatsApp
 // message for this audience. It is also the single most common thing a voice
 // assistant is asked, and this one is reached by voice note.
+//
+// The words live in `whatsappStrings.ts` with the rest of the interface's
+// vocabulary, in all twenty languages. What stays here is everything that is
+// not words: which code means which condition, which icon goes with it, when a
+// chance of rain is worth mentioning, and the sixty-character rule below.
+
+import type { Language } from "./whatsappCatalog.ts";
+import { say, type UiKey } from "./whatsappStrings.ts";
 
 /**
  * Longest a message can be and still be read as a weather question.
@@ -103,44 +111,49 @@ export function parseWeatherRequest(text: string): WeatherRequest | null {
 // nothing, it cannot hallucinate "light snow" in Riyadh, and it is the part a
 // screen reader actually reads out.
 
-const CONDITIONS: Record<number, { en: string; ar: string; icon: string }> = {
-  0: { en: "clear sky", ar: "صحو", icon: "☀️" },
-  1: { en: "mainly clear", ar: "صحو غالباً", icon: "🌤️" },
-  2: { en: "partly cloudy", ar: "غائم جزئياً", icon: "⛅" },
-  3: { en: "overcast", ar: "غائم", icon: "☁️" },
-  45: { en: "fog", ar: "ضباب", icon: "🌫️" },
-  48: { en: "freezing fog", ar: "ضباب متجمد", icon: "🌫️" },
-  51: { en: "light drizzle", ar: "رذاذ خفيف", icon: "🌦️" },
-  53: { en: "drizzle", ar: "رذاذ", icon: "🌦️" },
-  55: { en: "heavy drizzle", ar: "رذاذ كثيف", icon: "🌧️" },
-  56: { en: "freezing drizzle", ar: "رذاذ متجمد", icon: "🌧️" },
-  57: { en: "heavy freezing drizzle", ar: "رذاذ متجمد كثيف", icon: "🌧️" },
-  61: { en: "light rain", ar: "مطر خفيف", icon: "🌦️" },
-  63: { en: "rain", ar: "مطر", icon: "🌧️" },
-  65: { en: "heavy rain", ar: "مطر غزير", icon: "🌧️" },
-  66: { en: "freezing rain", ar: "مطر متجمد", icon: "🌧️" },
-  67: { en: "heavy freezing rain", ar: "مطر متجمد غزير", icon: "🌧️" },
-  71: { en: "light snow", ar: "ثلج خفيف", icon: "🌨️" },
-  73: { en: "snow", ar: "ثلج", icon: "❄️" },
-  75: { en: "heavy snow", ar: "ثلج كثيف", icon: "❄️" },
-  77: { en: "snow grains", ar: "حبيبات ثلجية", icon: "🌨️" },
-  80: { en: "light showers", ar: "زخات خفيفة", icon: "🌦️" },
-  81: { en: "showers", ar: "زخات مطر", icon: "🌧️" },
-  82: { en: "violent showers", ar: "زخات مطر عنيفة", icon: "⛈️" },
-  85: { en: "light snow showers", ar: "زخات ثلج خفيفة", icon: "🌨️" },
-  86: { en: "heavy snow showers", ar: "زخات ثلج كثيفة", icon: "❄️" },
-  95: { en: "thunderstorm", ar: "عاصفة رعدية", icon: "⛈️" },
-  96: { en: "thunderstorm with hail", ar: "عاصفة رعدية مع برد", icon: "⛈️" },
-  99: { en: "thunderstorm with heavy hail", ar: "عاصفة رعدية مع برد شديد", icon: "⛈️" },
+const CONDITIONS: Record<number, { key: UiKey; icon: string }> = {
+  0: { key: "wxClear", icon: "☀️" },
+  1: { key: "wxMainlyClear", icon: "🌤️" },
+  2: { key: "wxPartlyCloudy", icon: "⛅" },
+  3: { key: "wxOvercast", icon: "☁️" },
+  45: { key: "wxFog", icon: "🌫️" },
+  48: { key: "wxFreezingFog", icon: "🌫️" },
+  51: { key: "wxLightDrizzle", icon: "🌦️" },
+  53: { key: "wxDrizzle", icon: "🌦️" },
+  55: { key: "wxHeavyDrizzle", icon: "🌧️" },
+  56: { key: "wxFreezingDrizzle", icon: "🌧️" },
+  57: { key: "wxHeavyFreezingDrizzle", icon: "🌧️" },
+  61: { key: "wxLightRain", icon: "🌦️" },
+  63: { key: "wxRain", icon: "🌧️" },
+  65: { key: "wxHeavyRain", icon: "🌧️" },
+  66: { key: "wxFreezingRain", icon: "🌧️" },
+  67: { key: "wxHeavyFreezingRain", icon: "🌧️" },
+  71: { key: "wxLightSnow", icon: "🌨️" },
+  73: { key: "wxSnow", icon: "❄️" },
+  75: { key: "wxHeavySnow", icon: "❄️" },
+  77: { key: "wxSnowGrains", icon: "🌨️" },
+  80: { key: "wxLightShowers", icon: "🌦️" },
+  81: { key: "wxShowers", icon: "🌧️" },
+  82: { key: "wxViolentShowers", icon: "⛈️" },
+  85: { key: "wxLightSnowShowers", icon: "🌨️" },
+  86: { key: "wxHeavySnowShowers", icon: "❄️" },
+  95: { key: "wxThunderstorm", icon: "⛈️" },
+  96: { key: "wxThunderstormHail", icon: "⛈️" },
+  99: { key: "wxThunderstormHeavyHail", icon: "⛈️" },
 };
 
-/** Words for a WMO code. An unknown code is described as unknown, not guessed. */
-export function describeCode(code: number, language: "ar" | "en"): { text: string; icon: string } {
+/**
+ * Words for a WMO code. An unknown code is described as unknown, not guessed.
+ *
+ * The words moved to `whatsappStrings.ts` and the icons stayed here, because an
+ * icon is not a translation: ☀️ means the same thing in Urdu, and a table that
+ * repeated it twenty times would be twenty chances to disagree about which
+ * picture goes with which code.
+ */
+export function describeCode(code: number, language: Language): { text: string; icon: string } {
   const entry = CONDITIONS[code];
-  if (!entry) {
-    return { text: language === "ar" ? "حالة غير معروفة" : "conditions unavailable", icon: "🌡️" };
-  }
-  return { text: language === "ar" ? entry.ar : entry.en, icon: entry.icon };
+  if (!entry) return { text: say("wxUnknown", language), icon: "🌡️" };
+  return { text: say(entry.key, language), icon: entry.icon };
 }
 
 export interface CurrentWeather {
@@ -159,12 +172,6 @@ export interface DailyWeather {
   rainChance: number;
 }
 
-/** Day names, so a forecast reads as "Saturday" and not as "2026-08-22". */
-const DAY_NAMES: Record<"ar" | "en", string[]> = {
-  en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-  ar: ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"],
-};
-
 /**
  * A calendar day's name from an ISO date.
  *
@@ -172,16 +179,45 @@ const DAY_NAMES: Record<"ar" | "en", string[]> = {
  * UTC, and in any negative offset that is still the 21st, which shifts every
  * day name in the forecast by one. Noon is far enough from either boundary that
  * no real timezone crosses it.
+ *
+ * `Intl` rather than a table. Twenty languages of weekday names is twenty
+ * chances to be wrong about somebody's calendar, and the runtime already ships
+ * the right answer for all of them — including which day the week starts on,
+ * which a hand-written array indexed by `getUTCDay()` quietly assumes.
  */
-export function dayName(isoDate: string, language: "ar" | "en"): string {
+export function dayName(isoDate: string, language: Language): string {
   const parsed = new Date(`${isoDate}T12:00:00Z`);
   if (Number.isNaN(parsed.getTime())) return isoDate;
-  return DAY_NAMES[language][parsed.getUTCDay()];
+  try {
+    return new Intl.DateTimeFormat(language, { weekday: "long", timeZone: "UTC" }).format(parsed);
+  } catch {
+    return isoDate;
+  }
 }
 
 /** Whole degrees. Nobody needs a tenth of a degree read aloud to them. */
 function deg(value: number): string {
   return `${Math.round(value)}°`;
+}
+
+/**
+ * Wind speed with its unit, in the sender's language.
+ *
+ * `-u-nu-latn` on purpose: `Intl` would otherwise write Arabic-Indic digits for
+ * `ar` and `fa`, and the temperatures beside it are plain `${Math.round}`
+ * output. One message with two numbering systems in it is worse than either.
+ */
+function windSpeed(value: number, language: Language): string {
+  const rounded = Math.round(value);
+  try {
+    return new Intl.NumberFormat(`${language}-u-nu-latn`, {
+      style: "unit",
+      unit: "kilometer-per-hour",
+      unitDisplay: "short",
+    }).format(rounded);
+  } catch {
+    return `${rounded} km/h`;
+  }
 }
 
 /**
@@ -192,7 +228,7 @@ function deg(value: number): string {
  * has what they asked for. The detail follows for anyone who wants it.
  */
 export function formatWeather(params: {
-  language: "ar" | "en";
+  language: Language;
   placeName: string;
   current: CurrentWeather;
   daily: DailyWeather[];
@@ -202,32 +238,37 @@ export function formatWeather(params: {
   const condition = describeCode(current.code, language);
   const lines: string[] = [];
 
-  if (language === "ar") {
-    lines.push(`${condition.icon} *الطقس في ${placeName}*`);
-    lines.push(`${condition.text}، ${deg(current.temperature)}`);
-    lines.push(`الإحساس الفعلي ${deg(current.feelsLike)} · الرطوبة ${Math.round(current.humidity)}% · الرياح ${Math.round(current.windSpeed)} كم/س`);
-  } else {
-    lines.push(`${condition.icon} *Weather in ${placeName}*`);
-    lines.push(`${condition.text}, ${deg(current.temperature)}`);
-    lines.push(`Feels like ${deg(current.feelsLike)} · humidity ${Math.round(current.humidity)}% · wind ${Math.round(current.windSpeed)} km/h`);
-  }
+  lines.push(`${condition.icon} ${say("weatherHeading", language).replace("{place}", placeName)}`);
+  lines.push(
+    say("weatherNow", language)
+      .replace("{condition}", condition.text)
+      .replace("{temp}", deg(current.temperature)),
+  );
+  lines.push(
+    say("weatherDetail", language)
+      .replace("{feels}", deg(current.feelsLike))
+      .replace("{humidity}", String(Math.round(current.humidity)))
+      .replace("{wind}", windSpeed(current.windSpeed, language)),
+  );
 
   const upcoming = includeForecast ? daily.slice(0, 3) : daily.slice(0, 1);
   if (upcoming.length > 0) {
     lines.push("");
-    lines.push(language === "ar" ? "*الأيام القادمة*" : "*The days ahead*");
+    lines.push(say("weatherDaysAhead", language));
     for (const day of upcoming) {
       const shape = describeCode(day.code, language);
-      const name = dayName(day.date, language);
+      // Below one chance in five, the forecast says nothing about rain rather
+      // than reading out a number that means "probably not".
       const rain = day.rainChance >= 20
-        ? language === "ar"
-          ? ` · احتمال مطر ${Math.round(day.rainChance)}%`
-          : ` · ${Math.round(day.rainChance)}% chance of rain`
+        ? say("weatherRain", language).replace("{chance}", String(Math.round(day.rainChance)))
         : "";
       lines.push(
-        language === "ar"
-          ? `${name}: ${shape.text}، من ${deg(day.min)} إلى ${deg(day.max)}${rain}`
-          : `${name}: ${shape.text}, ${deg(day.min)} to ${deg(day.max)}${rain}`,
+        say("weatherDayLine", language)
+          .replace("{day}", dayName(day.date, language))
+          .replace("{condition}", shape.text)
+          .replace("{min}", deg(day.min))
+          .replace("{max}", deg(day.max))
+          .replace("{rain}", rain),
       );
     }
   }
@@ -236,22 +277,16 @@ export function formatWeather(params: {
 }
 
 /** Asked about the weather with no place named and no location on file. */
-export function weatherNeedsPlaceNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "أخبرني عن أي مدينة تسأل — مثلاً «الطقس في عمّان» — أو شارك موقعك من زر 📎 ← الموقع وسأخبرك بطقس مكانك."
-    : "Tell me which city you mean — for example \"weather in Amman\" — or share your location from 📎 → Location and I'll use where you are.";
+export function weatherNeedsPlaceNotice(language: Language): string {
+  return say("weatherNeedsPlace", language);
 }
 
 /** The place was named but no map service recognised it. Never a guess. */
-export function placeNotFoundNotice(language: "ar" | "en", place: string): string {
-  return language === "ar"
-    ? `لم أجد مكاناً باسم «${place}». جرّب اسم المدينة الأكبر القريبة، أو شارك موقعك من زر 📎 ← الموقع.`
-    : `I couldn't find anywhere called "${place}". Try the nearest larger city, or share your location from 📎 → Location.`;
+export function placeNotFoundNotice(language: Language, place: string): string {
+  return say("weatherPlaceNotFound", language).replace("{place}", place);
 }
 
 /** The weather service itself failed. Not the sender's fault, and said so. */
-export function weatherUnavailableNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "خدمة الطقس لا تستجيب حالياً. جرّب بعد قليل وسأحضر لك التفاصيل."
-    : "The weather service isn't responding right now. Try again shortly and I'll fetch it for you.";
+export function weatherUnavailableNotice(language: Language): string {
+  return say("weatherUnavailable", language);
 }

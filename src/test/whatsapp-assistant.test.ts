@@ -1294,7 +1294,7 @@ describe("voice replies", () => {
     // asked for is explained instead — which is the only proof a blind sender
     // gets that they were understood at all.
     expect(webhook).toContain("const { voice_mode: spokenRequest, ...stored } = requested;");
-    expect(webhook).toContain('if (spokenRequest) await reply(voiceModeExplainer(noticeLanguage), "reply");');
+    expect(webhook).toContain('if (spokenRequest) await reply(voiceModeExplainer(answerLanguage), "reply");');
     expect(webhook).not.toMatch(/update\(requested\)/);
     // The other preferences still persist exactly as before.
     expect(webhook).toContain('await db.from("whatsapp_conversations").update(stored).eq("id", conversationId);');
@@ -1321,7 +1321,7 @@ describe("voice replies", () => {
     expect(refreshAt).toBeGreaterThan(-1);
     expect(webhook).toContain("isSupportedLanguage(spokenBefore) ? spokenBefore : heardLanguage");
     expect(webhook).toContain("answerLanguage = replyLanguage(settled, existing?.preferred_language as string | null);");
-    expect(webhook).toContain("noticeLanguage = language;");
+    expect(webhook).toContain("parserLanguage = language;");
     expect(refreshAt).toBeLessThan(webhook.indexOf("const answerIn = answerLanguage;"));
     expect(refreshAt).toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));
   });
@@ -1888,8 +1888,19 @@ describe("shared locations", () => {
     expect(bearingLabel(origin, north, "ar")).toBe("شمالاً");
 
     expect(formatDistance(80, "en")).toBe("80 m");
-    expect(formatDistance(80, "ar")).toBe("80 متر");
+    // `Intl` writes the counted noun the way Arabic actually counts it —
+    // «80 مترًا», not the bare «متر» this used to hard-code. The distances are
+    // read aloud, and the accusative is what a listener expects to hear.
+    expect(formatDistance(80, "ar")).toBe("80 مترًا");
     expect(formatDistance(2_400, "en")).toBe("2.4 km");
+    // And in a third language, which is the point of the change: the unit is
+    // the runtime's, not a table somebody has to maintain twenty times.
+    expect(formatDistance(80, "tr")).toBe("80 m");
+    expect(formatDistance(2_400, "ru")).toBe("2,4 км");
+    // Latin digits everywhere, so one message never mixes numbering systems.
+    // (Persian puts the unit straight against the number — «80متر» — which is
+    // the runtime's judgement about Persian typography, not a missing space.)
+    expect(formatDistance(80, "fa")).toMatch(/^80/);
   });
 
   it("separates 'where am I' from 'where are my keys'", async () => {
@@ -2335,10 +2346,12 @@ describe("the new capabilities respect the rules that were already here", () => 
   it("answers in the language the conversation settled on, not this message's", () => {
     // `language` is detected from the message in hand, so somebody who set
     // Arabic and then typed one English word would get an English forecast.
-    expect(webhook).toContain('let noticeLanguage: "ar" | "en" = answerLanguage === "ar" ? "ar" : "en";');
-    expect(webhook).toContain("weatherNeedsPlaceNotice(noticeLanguage)");
-    expect(webhook).toContain("locationNeededNotice(noticeLanguage)");
-    expect(webhook).toContain("sellGuidance(noticeLanguage)");
+    expect(webhook).toContain('let parserLanguage: "ar" | "en" = answerLanguage === "ar" ? "ar" : "en";');
+    // `answerLanguage` is the same property held more strongly: the language
+    // the conversation settled on, in all twenty rather than narrowed to two.
+    expect(webhook).toContain("weatherNeedsPlaceNotice(answerLanguage)");
+    expect(webhook).toContain("locationNeededNotice(answerLanguage)");
+    expect(webhook).toContain("sellGuidance(answerLanguage)");
   });
 
   it("does not report a failed nearby lookup as an empty neighbourhood", async () => {

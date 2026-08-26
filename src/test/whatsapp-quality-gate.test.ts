@@ -431,7 +431,7 @@ describe("GATE: answered in the medium you asked in", () => {
 
     // And asking for it out loud is explained rather than silently recorded.
     expect(webhook).toContain("const { voice_mode: spokenRequest, ...stored } = requested;");
-    expect(webhook).toContain("if (spokenRequest) await reply(voiceModeExplainer(noticeLanguage), \"reply\");");
+    expect(webhook).toContain("if (spokenRequest) await reply(voiceModeExplainer(answerLanguage), \"reply\");");
   });
 
   it("never sends the AI answer as text when synthesis fails", async () => {

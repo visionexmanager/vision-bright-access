@@ -246,6 +246,13 @@ WMO condition codes are turned into words **in this repository**, not by a
 model. It costs nothing, it cannot hallucinate light snow in Riyadh, and it is
 the part a screen reader reads out.
 
+Those words exist in all twenty languages. Three things beside them deliberately
+do not: day names, wind speed and distances come from `Intl`, because twenty
+hand-written weekday tables is twenty chances to be wrong about somebody's
+calendar and the unit abbreviations are worse — `km/sa` in Turkish, `км/ч` in
+Russian. All three are forced to Latin digits so a single message never carries
+two numbering systems.
+
 ### Locations · `whatsappLocation.ts`
 
 A pin — 📎 → Location — is two taps, no typing and no camera to aim, which

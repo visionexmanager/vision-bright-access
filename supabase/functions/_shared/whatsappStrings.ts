@@ -530,6 +530,279 @@ const BASE_STRINGS = {
     ar: "لم أتمكن من فتح هذا الملف — يبدو أنه تالف أو غير مكتمل. جرّب إرساله بصيغة PDF.",
     en: "I couldn't open that file — it looks damaged or incomplete. Try sending it as a PDF instead.",
   },
+
+  // ── The weather, in words ────────────────────────────────────────────────
+  //
+  // Open-Meteo reports a WMO code, which is a number, and turning it into words
+  // here rather than asking a model to costs nothing and cannot hallucinate
+  // light snow in Riyadh. These were the last sentences in the assistant that
+  // existed only in Arabic and English: the *refusals* were widened first
+  // because an English refusal leaves somebody stuck, but an English forecast
+  // read out by a screen reader in the middle of a Turkish conversation is the
+  // same failure with better manners.
+  //
+  // Day names and units are **not** here. `Intl` already knows them in all
+  // twenty, and a hand-maintained table of month names is twenty chances to be
+  // wrong about a calendar.
+
+  wxClear: { ar: "صحو", en: "clear sky" },
+  wxMainlyClear: { ar: "صحو غالباً", en: "mainly clear" },
+  wxPartlyCloudy: { ar: "غائم جزئياً", en: "partly cloudy" },
+  wxOvercast: { ar: "غائم", en: "overcast" },
+  wxFog: { ar: "ضباب", en: "fog" },
+  wxFreezingFog: { ar: "ضباب متجمد", en: "freezing fog" },
+  wxLightDrizzle: { ar: "رذاذ خفيف", en: "light drizzle" },
+  wxDrizzle: { ar: "رذاذ", en: "drizzle" },
+  wxHeavyDrizzle: { ar: "رذاذ كثيف", en: "heavy drizzle" },
+  wxFreezingDrizzle: { ar: "رذاذ متجمد", en: "freezing drizzle" },
+  wxHeavyFreezingDrizzle: { ar: "رذاذ متجمد كثيف", en: "heavy freezing drizzle" },
+  wxLightRain: { ar: "مطر خفيف", en: "light rain" },
+  wxRain: { ar: "مطر", en: "rain" },
+  wxHeavyRain: { ar: "مطر غزير", en: "heavy rain" },
+  wxFreezingRain: { ar: "مطر متجمد", en: "freezing rain" },
+  wxHeavyFreezingRain: { ar: "مطر متجمد غزير", en: "heavy freezing rain" },
+  wxLightSnow: { ar: "ثلج خفيف", en: "light snow" },
+  wxSnow: { ar: "ثلج", en: "snow" },
+  wxHeavySnow: { ar: "ثلج كثيف", en: "heavy snow" },
+  wxSnowGrains: { ar: "حبيبات ثلجية", en: "snow grains" },
+  wxLightShowers: { ar: "زخات خفيفة", en: "light showers" },
+  wxShowers: { ar: "زخات مطر", en: "showers" },
+  wxViolentShowers: { ar: "زخات مطر عنيفة", en: "violent showers" },
+  wxLightSnowShowers: { ar: "زخات ثلج خفيفة", en: "light snow showers" },
+  wxHeavySnowShowers: { ar: "زخات ثلج كثيفة", en: "heavy snow showers" },
+  wxThunderstorm: { ar: "عاصفة رعدية", en: "thunderstorm" },
+  wxThunderstormHail: { ar: "عاصفة رعدية مع برد", en: "thunderstorm with hail" },
+  wxThunderstormHeavyHail: { ar: "عاصفة رعدية مع برد شديد", en: "thunderstorm with heavy hail" },
+  /** A code the table does not have. Described as unknown, never guessed. */
+  wxUnknown: { ar: "حالة غير معروفة", en: "conditions unavailable" },
+
+  /** Carries `{place}`. */
+  weatherHeading: { ar: "*الطقس في {place}*", en: "*Weather in {place}*" },
+  /** Carries `{condition}` and `{temp}`. The whole answer, on one line. */
+  weatherNow: { ar: "{condition}، {temp}", en: "{condition}, {temp}" },
+  /** Carries `{feels}`, `{humidity}` and `{wind}`. */
+  weatherDetail: {
+    ar: "الإحساس الفعلي {feels} · الرطوبة {humidity}% · الرياح {wind}",
+    en: "Feels like {feels} · humidity {humidity}% · wind {wind}",
+  },
+  weatherDaysAhead: { ar: "*الأيام القادمة*", en: "*The days ahead*" },
+  /** Carries `{day}`, `{condition}`, `{min}`, `{max}` and `{rain}`. */
+  weatherDayLine: {
+    ar: "{day}: {condition}، من {min} إلى {max}{rain}",
+    en: "{day}: {condition}, {min} to {max}{rain}",
+  },
+  /** Carries `{chance}`. Written as a suffix, leading separator included. */
+  weatherRain: { ar: " · احتمال مطر {chance}%", en: " · {chance}% chance of rain" },
+  weatherNeedsPlace: {
+    ar: "أخبرني عن أي مدينة تسأل — مثلاً «الطقس في عمّان» — أو شارك موقعك من زر 📎 ← الموقع وسأخبرك بطقس مكانك.",
+    en: "Tell me which city you mean — for example \"weather in Amman\" — or share your location from 📎 → Location and I'll use where you are.",
+  },
+  /** Carries `{place}`, the name the sender used. */
+  weatherPlaceNotFound: {
+    ar: "لم أجد مكاناً باسم «{place}». جرّب اسم المدينة الأكبر القريبة، أو شارك موقعك من زر 📎 ← الموقع.",
+    en: "I couldn't find anywhere called \"{place}\". Try the nearest larger city, or share your location from 📎 → Location.",
+  },
+  weatherUnavailable: {
+    ar: "خدمة الطقس لا تستجيب حالياً. جرّب بعد قليل وسأحضر لك التفاصيل.",
+    en: "The weather service isn't responding right now. Try again shortly and I'll fetch it for you.",
+  },
+  /** Used as a place name when the reverse lookup found nothing to call it. */
+  weatherHere: { ar: "موقعك", en: "your location" },
+
+  // ── Where you are, and what is around you ────────────────────────────────
+  //
+  // The eight compass points and the seventeen categories are the part of this
+  // feature that gets *heard* rather than read: a distance on its own is true
+  // of every point on a circle, and "pharmacy" is the word somebody is standing
+  // on a pavement waiting for. Distances themselves are not here — `Intl`
+  // formats metres and kilometres in all twenty.
+
+  compassNorth: { ar: "شمالاً", en: "north" },
+  compassNorthEast: { ar: "شمال شرق", en: "north-east" },
+  compassEast: { ar: "شرقاً", en: "east" },
+  compassSouthEast: { ar: "جنوب شرق", en: "south-east" },
+  compassSouth: { ar: "جنوباً", en: "south" },
+  compassSouthWest: { ar: "جنوب غرب", en: "south-west" },
+  compassWest: { ar: "غرباً", en: "west" },
+  compassNorthWest: { ar: "شمال غرب", en: "north-west" },
+
+  catPharmacy: { ar: "صيدلية", en: "pharmacy" },
+  catHospital: { ar: "مستشفى", en: "hospital" },
+  catClinic: { ar: "عيادة", en: "clinic" },
+  catSupermarket: { ar: "سوبرماركت", en: "supermarket" },
+  catBakery: { ar: "مخبز", en: "bakery" },
+  catRestaurant: { ar: "مطعم", en: "restaurant" },
+  catCafe: { ar: "مقهى", en: "café" },
+  catBank: { ar: "بنك", en: "bank" },
+  catAtm: { ar: "صراف آلي", en: "ATM" },
+  catBusStop: { ar: "موقف حافلات", en: "bus stop" },
+  catStation: { ar: "محطة", en: "station" },
+  catWorship: { ar: "مسجد أو دار عبادة", en: "place of worship" },
+  catFuel: { ar: "محطة وقود", en: "petrol station" },
+  catPolice: { ar: "مركز شرطة", en: "police station" },
+  catPostOffice: { ar: "مكتب بريد", en: "post office" },
+  catSchool: { ar: "مدرسة", en: "school" },
+  catConvenience: { ar: "بقالة", en: "corner shop" },
+
+  whereHeading: { ar: "*أنت هنا*", en: "*You are here*" },
+  whereUnknown: {
+    ar: "لم أتعرّف على اسم المكان، لكن الإحداثيات وصلت.",
+    en: "I couldn't name the place, but the coordinates came through.",
+  },
+  nearbyHeading: { ar: "*حولك*", en: "*Around you*" },
+  nearbyNone: {
+    ar: "لم أجد أماكن معروفة على الخريطة قريبة منك. الخرائط المفتوحة أحياناً ناقصة في بعض المناطق.",
+    en: "I couldn't find anything mapped near you. Open map data is patchy in some areas.",
+  },
+  /** Carries `{name}`, `{category}`, `{distance}` and `{direction}`. */
+  nearbyLine: {
+    ar: "• {name} ({category}) — {distance} {direction}",
+    en: "• {name} ({category}) — {distance} {direction}",
+  },
+  nearbyStraightLine: {
+    ar: "المسافات بالخط المستقيم، وليست مسار مشي.",
+    en: "Distances are straight-line, not walking routes.",
+  },
+  locationNeeded: {
+    ar: "شارك موقعك أولاً: اضغط 📎 ثم «الموقع» ثم «إرسال موقعي الحالي». سأخبرك بمكانك وما حولك وطقس المنطقة.",
+    en: "Share your location first: tap 📎 → Location → Send your current location. I'll tell you where you are, what's around you, and the weather there.",
+  },
+  geocodeUnavailable: {
+    ar: "وصلني موقعك لكن خدمة الخرائط لا تستجيب الآن. جرّب بعد قليل.",
+    en: "Your location arrived, but the map service isn't responding right now. Try again shortly.",
+  },
+  nearbyHint: {
+    ar: "قل «حولي» لأخبرك بأقرب الأماكن، أو «الطقس» لطقس هذا المكان.",
+    en: "Say \"near me\" for what's around you, or \"weather\" for the forecast here.",
+  },
+
+  // ── The bazaar ───────────────────────────────────────────────────────────
+  //
+  // Counted nouns are kept out of every sentence here on purpose. "3 listings"
+  // needs one plural form in English, two in Arabic and four in Russian, and a
+  // template that pretends otherwise reads as broken grammar to a native
+  // speaker. `bazaarBrowseCount` says "listed right now:" and then the number,
+  // which is correct in all twenty and reads perfectly well aloud.
+
+  bazaarResultsHeading: { ar: "*في سوق Visionex*", en: "*In the Visionex bazaar*" },
+  /** Carries `{name}`, `{price}`, `{shop}` and `{stock}`. */
+  bazaarListingLine: { ar: "• *{name}* — {price}{shop}{stock}", en: "• *{name}* — {price}{shop}{stock}" },
+  /** Carries `{shop}`. A suffix, its separator included. */
+  bazaarFromShop: { ar: " — من {shop}", en: " — from {shop}" },
+  bazaarOutOfStock: { ar: " (غير متوفر حالياً)", en: " (out of stock)" },
+  /** Carries `{url}`. */
+  bazaarBuyLink: { ar: "للشراء أو لرؤية الصور: {url}", en: "To buy or see photos: {url}" },
+  /** Carries `{terms}`. */
+  bazaarSearchedFor: { ar: "بحثت عن: {terms}", en: "Searched for: {terms}" },
+  /** Carries `{terms}`, the words the sender used. */
+  bazaarNoMatch: {
+    ar: "لم أجد أي منتج مطابق لـ«{terms}» في سوق Visionex حالياً.",
+    en: "Nothing in the Visionex bazaar matches \"{terms}\" right now.",
+  },
+  bazaarNoMatchAny: {
+    ar: "لم أجد أي منتج مطابق في سوق Visionex حالياً.",
+    en: "Nothing in the Visionex bazaar matches that right now.",
+  },
+  /** Carries `{url}`. */
+  bazaarBrowseAll: { ar: "تصفّح كل المعروض هنا: {url}", en: "Browse everything listed here: {url}" },
+  bazaarTryAnother: {
+    ar: "أو اكتب اسماً آخر للمنتج وسأبحث مرة ثانية.",
+    en: "Or give me another name for it and I'll search again.",
+  },
+  bazaarBrowseHeading: { ar: "*سوق Visionex*", en: "*The Visionex bazaar*" },
+  /** Carries `{count}`. Never inside a counted noun — see the note above. */
+  bazaarBrowseCount: { ar: "المعروض الآن: {count}", en: "Listed right now: {count}" },
+  bazaarBrowseEmpty: {
+    ar: "لا توجد منتجات معروضة في الوقت الحالي.",
+    en: "Nothing is listed at the moment.",
+  },
+  /** Carries `{url}`. */
+  bazaarBrowseLink: { ar: "تصفّح: {url}", en: "Browse: {url}" },
+  bazaarBrowseAsk: {
+    ar: "أو اسألني عن منتج معيّن — مثلاً «عندكم عسل؟» — وسأبحث لك.",
+    en: "Or ask me about something specific — \"do you have honey?\" — and I'll search.",
+  },
+  /** Carries `{url}`. */
+  bazaarUnavailable: {
+    ar: "تعذّر الوصول إلى السوق الآن. جرّب بعد قليل، أو تصفّح مباشرة: {url}",
+    en: "I couldn't reach the bazaar just now. Try again shortly, or browse directly: {url}",
+  },
+
+  sellHeading: { ar: "🏪 *تبيع في سوق Visionex*", en: "🏪 *Selling in the Visionex bazaar*" },
+  sellStep1: {
+    ar: "١. سجّل الدخول إلى حسابك على visionex.app",
+    en: "1. Sign in to your account on visionex.app",
+  },
+  /** Carries `{url}`. */
+  sellStep2: { ar: "٢. افتح السوق: {url}", en: "2. Open the bazaar: {url}" },
+  /**
+   * "set its tier", not "pick its tier", and «حدّد» rather than «اختر».
+   *
+   * Moving this sentence into the interface's vocabulary put it under the guard
+   * that bans keypad words in every one of the twenty languages. The guard is
+   * blunt — it cannot tell "choose a shop tier on the website" from "choose an
+   * option from this menu" — and the right answer to a blunt guard protecting
+   * something real is different words, not an exception.
+   */
+  sellStep3: {
+    ar: "٣. أنشئ متجرك وحدّد مستواه، ثم أضف منتجاتك بالاسم والسعر والصورة.",
+    en: "3. Create your shop, set its tier, then add products with a name, a price and a photo.",
+  },
+  sellNote: {
+    ar: "المتجر مربوط بحسابك على الموقع، فلا أستطيع إنشاءه من هنا — لكن اسألني عن أي خطوة وسأشرحها لك بالتفصيل.",
+    en: "A shop belongs to your website account, so I can't create one from here — but ask me about any step and I'll walk you through it.",
+  },
+
+  // ── The camera, and what it is armed for ─────────────────────────────────
+
+  modeDescribe: { ar: "وصف الصورة", en: "Describe" },
+  modeReadText: { ar: "قراءة النص", en: "Read text" },
+  modeFindObject: { ar: "البحث عن غرض", en: "Find object" },
+  modeProduct: { ar: "تعريف منتج", en: "Product" },
+  modeTranslate: { ar: "الترجمة", en: "Translate" },
+
+  /** Carries `{target}`, the thing the sender asked to find. */
+  awaitFindTarget: { ar: "أرسل الصورة وسأبحث عن {target}.", en: "Send the photo and I'll look for {target}." },
+  awaitFind: {
+    ar: "عن أي غرض أبحث؟ قل لي ثم أرسل الصورة.",
+    en: "What should I look for? Tell me, then send the photo.",
+  },
+  awaitRead: { ar: "أرسل الصورة وسأقرأ ما فيها.", en: "Send the photo and I'll read it." },
+  awaitProduct: { ar: "أرسل صورة المنتج أو الباركود.", en: "Send a photo of the product or its barcode." },
+  awaitTranslate: {
+    ar: "أرسل الصورة أو النص الذي تريد ترجمته.",
+    en: "Send the photo, or the text you want translated.",
+  },
+  awaitDescribe: { ar: "أرسل الصورة وسأصفها لك.", en: "Send the photo and I'll describe it." },
+
+  /** Carries `{values}`, the decoded payload, already quoted line by line. */
+  qrContains: {
+    ar: "الرمز المقروء في الصورة يحتوي على:\n{values}",
+    en: "The code in the image contains:\n{values}",
+  },
+
+  // ── How replies arrive, and what a preference change confirms ────────────
+
+  /** Carries `{language}`, the language's own name. */
+  prefLanguage: { ar: "سأتابع بـ{language}.", en: "I'll continue in {language}." },
+  prefVoiceAlways: { ar: "سأرسل الردود صوتياً أيضاً.", en: "I'll send replies as voice notes too." },
+  prefVoiceNever: { ar: "سأرد نصاً فقط.", en: "I'll reply with text only." },
+  prefVoiceMirror: {
+    ar: "سأرد بنفس طريقتك: صوت على الصوت، وكتابة على الكتابة.",
+    en: "I'll answer the way you write: voice for voice, text for text.",
+  },
+  prefConcise: { ar: "وسأختصر.", en: "And I'll keep it brief." },
+  prefDetailed: { ar: "وسأشرح بتفصيل أكثر.", en: "And I'll go into more detail." },
+
+  voiceHeading: { ar: "*الردود الصوتية*", en: "*Voice replies*" },
+  voiceBody: {
+    ar: "أرد بنفس طريقتك: رسالة صوتية يقابلها رد صوتي، ورسالة مكتوبة يقابلها رد مكتوب.",
+    en: "I answer the way you ask: a voice note gets a voice note back, and a typed message gets text.",
+  },
+  voiceNote: {
+    ar: "لا يوجد إعداد تضبطه — الطريقة التي ترسل بها هي الطريقة التي أرد بها.",
+    en: "There's nothing to set — how you send is how I answer.",
+  },
 } as const;
 
 export type UiKey = keyof typeof BASE_STRINGS;

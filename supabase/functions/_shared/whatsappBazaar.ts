@@ -14,6 +14,12 @@
 // Vitest suite can pin them; the query itself is three lines in the webhook,
 // where the Supabase client already is.
 
+// The sentences are in `whatsappStrings.ts`, in all twenty languages. What
+// stays here is the part that is not words: what counts as a shopping phrase,
+// which terms are worth searching for, and how a listing is ordered.
+import type { Language } from "./whatsappCatalog.ts";
+import { say } from "./whatsappStrings.ts";
+
 /** Where a sender is sent to finish what they started here. */
 export const BAZAAR_URL = "https://visionex.app/bazaar";
 
@@ -226,47 +232,53 @@ export function formatPrice(price: number): string {
  * makes the assistant look like it does not stock the thing at all.
  */
 export function formatListings(params: {
-  language: "ar" | "en";
+  language: Language;
   listings: BazaarListing[];
   terms: string[];
 }): string {
   const { language, listings, terms } = params;
-  const lines: string[] = [];
-
-  lines.push(
-    language === "ar"
-      ? `🛍️ *وجدت ${listings.length} ${listings.length === 1 ? "منتجاً" : "منتجات"} في سوق Visionex*`
-      : `🛍️ *${listings.length} ${listings.length === 1 ? "listing" : "listings"} in the Visionex bazaar*`,
-  );
-  lines.push("");
+  // The count used to be in this heading — "3 listings" — which needs one
+  // plural form in English, two in Arabic and four in Russian. A template that
+  // pretends otherwise reads as broken grammar, and the list is right below
+  // anyway: nobody is counting it from the heading.
+  const lines: string[] = [`🛍️ ${say("bazaarResultsHeading", language)}`, ""];
 
   for (const listing of listings) {
     const shop = listing.shopName
-      ? language === "ar" ? ` — من ${listing.shopName}` : ` — from ${listing.shopName}`
+      ? say("bazaarFromShop", language).replace("{shop}", listing.shopName)
       : "";
-    const stock = listing.inStock
-      ? ""
-      : language === "ar" ? " (غير متوفر حالياً)" : " (out of stock)";
-    lines.push(`• *${listing.name}* — ${formatPrice(listing.price)}${shop}${stock}`);
+    lines.push(
+      say("bazaarListingLine", language)
+        .replace("{name}", listing.name)
+        .replace("{price}", formatPrice(listing.price))
+        .replace("{shop}", shop)
+        .replace("{stock}", listing.inStock ? "" : say("bazaarOutOfStock", language)),
+    );
     if (listing.description) {
       lines.push(`  ${listing.description.replace(/\s+/g, " ").trim().slice(0, 140)}`);
     }
   }
 
   lines.push("");
-  lines.push(
-    language === "ar"
-      ? `للشراء أو لرؤية الصور: ${BAZAAR_URL}`
-      : `To buy or see photos: ${BAZAAR_URL}`,
-  );
+  lines.push(say("bazaarBuyLink", language).replace("{url}", BAZAAR_URL));
   if (terms.length > 0) {
-    lines.push(
-      language === "ar"
-        ? `بحثت عن: ${terms.join("، ")}`
-        : `Searched for: ${terms.join(", ")}`,
-    );
+    lines.push(say("bazaarSearchedFor", language).replace("{terms}", terms.join(listSeparator(language))));
   }
   return lines.join("\n");
+}
+
+/**
+ * How this language separates items in a list.
+ *
+ * Arabic, Persian and Urdu use their own comma, and Chinese and Japanese use a
+ * full-width one. `Intl.ListFormat` would be the complete answer but it also
+ * inserts "and", which is wrong for a list of search terms — this is the half
+ * of it that applies.
+ */
+function listSeparator(language: Language): string {
+  if (language === "ar" || language === "fa" || language === "ur") return "، ";
+  if (language === "zh" || language === "ja") return "、";
+  return ", ";
 }
 
 /**
@@ -276,40 +288,27 @@ export function formatListings(params: {
  * listings do not use, and a sender who can see the search terms can correct
  * them. It does not apologise for the marketplace being small.
  */
-export function noListingsNotice(language: "ar" | "en", terms: string[]): string {
-  const searched = terms.join(language === "ar" ? "، " : ", ");
-  return language === "ar"
-    ? [
-        `لم أجد أي منتج مطابق${searched ? ` لـ«${searched}»` : ""} في سوق Visionex حالياً.`,
-        `تصفّح كل المعروض هنا: ${BAZAAR_URL}`,
-        "أو اكتب اسماً آخر للمنتج وسأبحث مرة ثانية.",
-      ].join("\n")
-    : [
-        `Nothing in the Visionex bazaar matches${searched ? ` "${searched}"` : ""} right now.`,
-        `Browse everything listed here: ${BAZAAR_URL}`,
-        "Or give me another name for it and I'll search again.",
-      ].join("\n");
+export function noListingsNotice(language: Language, terms: string[]): string {
+  const searched = terms.join(listSeparator(language));
+  return [
+    searched
+      ? say("bazaarNoMatch", language).replace("{terms}", searched)
+      : say("bazaarNoMatchAny", language),
+    say("bazaarBrowseAll", language).replace("{url}", BAZAAR_URL),
+    say("bazaarTryAnother", language),
+  ].join("\n");
 }
 
 /** The marketplace was named with nothing to look for. Point at the door. */
-export function browseNotice(language: "ar" | "en", listingCount: number): string {
-  return language === "ar"
-    ? [
-        `🛍️ *سوق Visionex*`,
-        listingCount > 0
-          ? `فيه الآن ${listingCount} منتج معروض من متاجر مختلفة.`
-          : "لا توجد منتجات معروضة في الوقت الحالي.",
-        `تصفّح: ${BAZAAR_URL}`,
-        "أو اسألني عن منتج معيّن — مثلاً «عندكم عسل؟» — وسأبحث لك.",
-      ].join("\n")
-    : [
-        `🛍️ *The Visionex bazaar*`,
-        listingCount > 0
-          ? `${listingCount} items are listed right now, across several shops.`
-          : "Nothing is listed at the moment.",
-        `Browse: ${BAZAAR_URL}`,
-        "Or ask me about something specific — \"do you have honey?\" — and I'll search.",
-      ].join("\n");
+export function browseNotice(language: Language, listingCount: number): string {
+  return [
+    `🛍️ ${say("bazaarBrowseHeading", language)}`,
+    listingCount > 0
+      ? say("bazaarBrowseCount", language).replace("{count}", String(listingCount))
+      : say("bazaarBrowseEmpty", language),
+    say("bazaarBrowseLink", language).replace("{url}", BAZAAR_URL),
+    say("bazaarBrowseAsk", language),
+  ].join("\n");
 }
 
 /**
@@ -321,31 +320,19 @@ export function browseNotice(language: "ar" | "en", listingCount: number): strin
  * number alone — and pretending otherwise would end with someone typing their
  * password into a chat window.
  */
-export function sellGuidance(language: "ar" | "en"): string {
-  return language === "ar"
-    ? [
-        "🏪 *تبيع في سوق Visionex*",
-        "",
-        "١. سجّل الدخول إلى حسابك على visionex.app",
-        `٢. افتح السوق: ${BAZAAR_URL}`,
-        "٣. أنشئ متجرك واختر مستواه، ثم أضف منتجاتك بالاسم والسعر والصورة.",
-        "",
-        "المتجر مربوط بحسابك على الموقع، فلا أستطيع إنشاءه من هنا — لكن اسألني عن أي خطوة وسأشرحها لك بالتفصيل.",
-      ].join("\n")
-    : [
-        "🏪 *Selling in the Visionex bazaar*",
-        "",
-        "1. Sign in to your account on visionex.app",
-        `2. Open the bazaar: ${BAZAAR_URL}`,
-        "3. Create your shop, pick its tier, then add products with a name, a price and a photo.",
-        "",
-        "A shop belongs to your website account, so I can't create one from here — but ask me about any step and I'll walk you through it.",
-      ].join("\n");
+export function sellGuidance(language: Language): string {
+  return [
+    say("sellHeading", language),
+    "",
+    say("sellStep1", language),
+    say("sellStep2", language).replace("{url}", BAZAAR_URL),
+    say("sellStep3", language),
+    "",
+    say("sellNote", language),
+  ].join("\n");
 }
 
 /** The bazaar could not be read. A database fault, and not the sender's fault. */
-export function bazaarUnavailableNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? `تعذّر الوصول إلى السوق الآن. جرّب بعد قليل، أو تصفّح مباشرة: ${BAZAAR_URL}`
-    : `I couldn't reach the bazaar just now. Try again shortly, or browse directly: ${BAZAAR_URL}`;
+export function bazaarUnavailableNotice(language: Language): string {
+  return say("bazaarUnavailable", language).replace("{url}", BAZAAR_URL);
 }

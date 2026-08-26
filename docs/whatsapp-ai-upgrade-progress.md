@@ -628,12 +628,13 @@ paths. Those need a live message to the production number.
 | 16 — Observability | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 17 — Cost control | **DONE** | routing applied across Phases 2-12, pinned by tests |
 | 18 — Security audit | **DONE** | reviewed; assertions in the suite. The retention gap it recorded is closed: all four jobs are scheduled |
-| 19 — Accessibility and UX | **DONE for the notices** | welcome, handover, failure, rate limit and every media refusal are in all twenty; the weather and nearby *formatters* are not — see Phase 23 |
+| 19 — Accessibility and UX | **DONE** | every refusal in all twenty (Phase 19 revisited), every composed sentence too (Phase 25) |
 | 20 — End-to-end tests | **PARTIAL** | 268 automated cases; live scenarios need a handset |
 | 21 — Weather | **DONE** | keyless Open-Meteo; `feat(whatsapp): read PDFs, weather, locations and the bazaar` |
 | 22 — Shared locations | **DONE** | pin, nearby, six-hour memory — and as of Phase 24 the erasure job actually runs |
 | 23 — Account link and orders | **DONE** | one-time code to the account email; `services.orders` in the menu |
 | 24 — Retention, scheduled | **DONE** | `20260927000000_whatsapp_retention_schedule.sql` — four jobs that had only ever been written down |
+| 25 — The formatters, in twenty | **DONE** | weather, nearby, bazaar, camera prompts and preferences; `Intl` for days, units and distances |
 
 ---
 
@@ -995,14 +996,9 @@ right: dropping an English noun into another language's sentence reads badly,
 and a screen reader announces the switch mid-sentence. The kind stays in the
 signature, because it belongs in the log line.
 
-**What is still two languages, stated precisely.** Not the refusals — the
-*formatters*: the WMO condition words in `whatsappWeather.ts`, its day names,
-the compass points and category labels in `whatsappLocation.ts`, the bazaar
-listing block, the vision-mode names and the voice explainer. A Turkish sender
-asking about the weather gets a Turkish conversation and an English forecast
-card. That is a smaller and more visible gap than the one just closed, it is
-~600 more strings plus an `Intl` pass for the day names, and it is the next
-piece of this work rather than a caveat on it.
+**What was still two languages when this was written** — the *formatters* —
+was closed immediately afterwards in Phase 25 below. Nothing the assistant
+composes is Arabic-and-English only any more.
 
 ---
 
@@ -1025,3 +1021,75 @@ endings problem in the repository, not a regression from this work.
 exercised through an injected fetcher, not against the account. The first real
 link on the production number is the thing left to watch, and the honest place
 to watch it is the first `account_link` log line with `outcome: "verified"`.
+
+---
+
+## Phase 25 — The formatters, in twenty languages · **DONE**
+
+Phase 19 widened the *refusals* and named what was left: the sentences the
+assistant **composes** rather than merely picks. A Turkish sender got a Turkish
+conversation and an English forecast card, an English neighbourhood list and an
+English bazaar block. That is now closed too, and nothing the assistant writes
+is Arabic-and-English only.
+
+**What moved.** 115 more keys into `whatsappStrings.ts`, ×18 into
+`whatsappStringsLocales.ts`:
+
+| Feature | What was two languages |
+| --- | --- |
+| Weather | the 28 WMO condition words plus "unknown", the heading, the now-line, the detail line, the days-ahead block, the rain suffix, three notices |
+| Location | 8 compass points, 17 nearby categories, both headings, the "unnamed place" line, the straight-line caveat, three notices |
+| Bazaar | the results block, the listing line, shop and stock suffixes, both link lines, the searched-for line, four no-match lines, five browse lines, five selling steps, the unavailable notice |
+| Camera | the five mode names and all six "send the photo" prompts |
+| Preferences | six confirmation fragments and the three-line voice explainer |
+| Barcode | the line that quotes a decoded code |
+
+**Three things were deliberately *not* translated, because the runtime already
+knows them.** Day names come from `Intl.DateTimeFormat`, wind speed and
+distances from `Intl.NumberFormat` with `style: "unit"`. Twenty languages of
+weekday names is twenty chances to be wrong about somebody's calendar, and the
+unit abbreviations are worse: `km/sa` in Turkish, `км/ч` in Russian,
+`कि॰मी॰/घं॰` in Hindi. All three are forced to Latin digits (`-u-nu-latn`)
+because the temperatures beside them are plain `Math.round` output, and one
+message carrying two numbering systems is worse than either.
+
+**Counted nouns were designed out rather than pluralised.** "3 listings" needs
+one plural form in English, two in Arabic and four in Russian. The results
+heading no longer carries the count at all — the list is directly beneath it —
+and the browse line reads "listed right now: 7", which is correct in all twenty
+and reads perfectly well aloud.
+
+**Two more languages of reach came free.** `reverseGeocode` passes the sender's
+language to BigDataCloud, and `fetchNearby` reads OpenStreetMap's `name:<lang>`
+tag — both were hard-wired to `ar`/`en` and both take a language code. A Turkish
+sender now gets Turkish place names where OSM has them.
+
+**One bug found while wiring it.** The geo cache keys on
+`reverse:<lat>:<lon>:<language>`. Widening the *fetch* to twenty languages
+without widening the *key* would have served a Turkish sender whatever Arabic
+answer somebody else's lookup had cached. Both moved together.
+
+**One word changed in Arabic and one in English.** `sellStep3` said "pick its
+tier" and «واختر مستواه»; moving it into the interface's vocabulary put it under
+the guard that bans keypad words in all twenty languages, and that guard cannot
+tell "choose a shop tier" from "choose an option". The right answer to a blunt
+guard protecting something real is different words — "set its tier", «حدّد
+مستواه» — not an exception.
+
+**What pins it.** `src/test/whatsapp-locale-coverage.test.ts` renders **every**
+sentence the assistant composes in **all twenty** languages and asserts: no
+`{placeholder}` left standing, nothing empty, no English sentence wedged into a
+non-Latin-script reply, every template keeping the exact placeholder set its
+English carries, every WMO code described rather than falling through to
+"unknown", every category named, and the day names coming from the runtime.
+Confirmed to fail against a real break: dropping `{place}` from the Turkish
+weather heading turns it red.
+
+**Where two languages remain, and why that is the right answer.** One variable:
+`parserLanguage`, formerly `noticeLanguage`. It has exactly one use left —
+handing a menu leaf's `phrase` to the parser that answers it. Those parsers
+match Arabic and English words, so a Turkish sender who taps *Weather* reaches
+them with the word "weather" and then gets a forecast written in Turkish.
+Widening that is widening the *parsers*, which carries a different risk: a false
+match answers the wrong question, where a missing translation merely reads
+oddly.

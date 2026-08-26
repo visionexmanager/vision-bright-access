@@ -945,20 +945,23 @@ Deno.serve(async (req) => {
       let answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);
 
       /**
-       * Which of the two languages the older feature *formatters* are written in.
+       * The language the *parsers* read, which is not the language anything is
+       * said in any more.
        *
-       * The refusals no longer belong here: handover, the rate limit, the
-       * provider failure, every media and attachment refusal and every Office
-       * one moved into `whatsappStrings.ts` and take `answerLanguage`, in all
-       * twenty. What is left on this narrow pair is the formatted content —
-       * weather condition words and day names, the compass points and category
-       * labels behind "what's near me", the bazaar listing block, the
-       * vision-mode names and the voice explainer. Those are ~600 strings and
-       * their own piece of work; until then a Turkish sender gets a Turkish
-       * conversation and an English forecast card, which is visible and
-       * survivable in a way an English *refusal* was not.
+       * This was `noticeLanguage`, and it was the narrow pair every feature's
+       * words were written in. Nothing is written in it now: the refusals, the
+       * forecast, the neighbourhood, the bazaar, the camera modes and the
+       * preference confirmations all take `answerLanguage` and exist in all
+       * twenty. What is left is one line — handing a menu leaf's `phrase` to
+       * the parser that answers it. Those parsers match Arabic and English
+       * words, so a Turkish sender who taps *Weather* has to reach them with
+       * the word "weather", and then gets a forecast written in Turkish.
+       *
+       * Widening this is widening the *parsers*, which is a different piece of
+       * work with a different risk: a false match there answers the wrong
+       * question, where a missing translation only reads oddly.
        */
-      let noticeLanguage: "ar" | "en" = answerLanguage === "ar" ? "ar" : "en";
+      let parserLanguage: "ar" | "en" = answerLanguage === "ar" ? "ar" : "en";
 
       /**
        * One reply, in one medium, sent exactly once.
@@ -1305,7 +1308,7 @@ Deno.serve(async (req) => {
             .update({ preferred_language: chosen, language: chosen })
             .eq("id", conversationId);
           answerLanguage = chosen;
-          noticeLanguage = chosen === "ar" ? "ar" : "en";
+          parserLanguage = chosen === "ar" ? "ar" : "en";
           log("language_changed");
           // Said, then shown. The menu redrawn in the new language is the proof
           // for anybody who can see it; the sentence — itself in the new
@@ -1350,14 +1353,14 @@ Deno.serve(async (req) => {
         if (Object.keys(stored).length > 0) {
           await reply(
             preferenceConfirmation(
-              nextLanguage === "ar" ? "ar" : "en",
+              nextLanguage,
               stored,
               LANGUAGE_ENDONYM[nextLanguage],
             ),
             "reply",
           );
         }
-        if (spokenRequest) await reply(voiceModeExplainer(noticeLanguage), "reply");
+        if (spokenRequest) await reply(voiceModeExplainer(answerLanguage), "reply");
         return true;
       };
 
@@ -1409,12 +1412,12 @@ Deno.serve(async (req) => {
         }
 
         const place = await viaCache(
-          reverseKey(latitude, longitude, noticeLanguage),
+          reverseKey(latitude, longitude, answerLanguage),
           "reverse",
-          () => reverseGeocode(latitude, longitude, noticeLanguage),
+          () => reverseGeocode(latitude, longitude, answerLanguage),
         );
         if (!place) {
-          await reply(geocodeUnavailableNotice(noticeLanguage), "unsupported");
+          await reply(geocodeUnavailableNotice(answerLanguage), "unsupported");
           continue;
         }
 
@@ -1432,7 +1435,7 @@ Deno.serve(async (req) => {
         await reply(
           [
             formatWhereYouAre({
-              language: noticeLanguage,
+              language: answerLanguage,
               place,
               pinName: incoming.location.name,
               pinAddress: incoming.location.address,
@@ -1440,7 +1443,7 @@ Deno.serve(async (req) => {
               longitude,
             }),
             "",
-            nearbyHint(noticeLanguage),
+            nearbyHint(answerLanguage),
           ].join("\n"),
           "reply",
         );
@@ -1457,7 +1460,7 @@ Deno.serve(async (req) => {
         if (reading) {
           await reply(
             formatWeather({
-              language: noticeLanguage,
+              language: answerLanguage,
               placeName: shortPlaceLabel(place, incoming.location.name) || label,
               current: reading.current,
               daily: reading.daily,
@@ -1554,7 +1557,7 @@ Deno.serve(async (req) => {
             const settled = isSupportedLanguage(spokenBefore) ? spokenBefore : heardLanguage;
             answerLanguage = replyLanguage(settled, existing?.preferred_language as string | null);
             language = answerLanguage === "ar" ? "ar" : "en";
-            noticeLanguage = language;
+            parserLanguage = language;
           }
 
           // A preference asked for out loud is set here, where the words
@@ -1712,7 +1715,7 @@ Deno.serve(async (req) => {
               barcodeTruth = barcodeGroundTruth(productCodes(scan.symbols));
               // Never merged into the prompt. A sticker is attacker-controlled
               // text and this is the one path that keeps it out of one.
-              barcodeText = qrCodeNotice(language, textPayloads(scan.symbols));
+              barcodeText = qrCodeNotice(answerLanguage, textPayloads(scan.symbols));
             }
           }
 
@@ -1989,7 +1992,7 @@ Deno.serve(async (req) => {
             await saveSession();
             continue;
           } else if (node.handler === "voice_settings") {
-            await reply(voiceModeExplainer(noticeLanguage), "reply");
+            await reply(voiceModeExplainer(answerLanguage), "reply");
             await saveSession();
             continue;
           } else if (node.handler === "coming_soon") {
@@ -2005,7 +2008,7 @@ Deno.serve(async (req) => {
             // A leaf that stands in for words: hand those words to the code
             // that already answers them. This is the whole reason the engine
             // needed to reimplement nothing.
-            if (opening) questionText = localized(node.phrase, noticeLanguage);
+            if (opening) questionText = localized(node.phrase, parserLanguage);
             await saveSession();
             // falls through, now carrying the phrase
           } else {
@@ -2327,7 +2330,7 @@ Deno.serve(async (req) => {
 
       if (asksWhereAmI(questionText) && !humanOwnsThis && !aiFocused && featureOn("services.where")) {
         if (!rememberedLocation) {
-          await reply(locationNeededNotice(noticeLanguage), "reply");
+          await reply(locationNeededNotice(answerLanguage), "reply");
           continue;
         }
         // The cached label is why the pin's words were stored at all: asking
@@ -2335,17 +2338,17 @@ Deno.serve(async (req) => {
         const place = rememberedLocation.label
           ? { locality: null, city: rememberedLocation.label, region: null, country: null }
           : await viaCache(
-            reverseKey(rememberedLocation.latitude, rememberedLocation.longitude, noticeLanguage),
+            reverseKey(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
             "reverse",
-            () => reverseGeocode(rememberedLocation.latitude, rememberedLocation.longitude, noticeLanguage),
+            () => reverseGeocode(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
           );
         if (!place) {
-          await reply(geocodeUnavailableNotice(noticeLanguage), "unsupported");
+          await reply(geocodeUnavailableNotice(answerLanguage), "unsupported");
           continue;
         }
         await reply(
           formatWhereYouAre({
-            language: noticeLanguage,
+            language: answerLanguage,
             place,
             latitude: rememberedLocation.latitude,
             longitude: rememberedLocation.longitude,
@@ -2357,23 +2360,23 @@ Deno.serve(async (req) => {
 
       if (asksWhatIsNearby(questionText) && !humanOwnsThis && !aiFocused && featureOn("services.nearby")) {
         if (!rememberedLocation) {
-          await reply(locationNeededNotice(noticeLanguage), "reply");
+          await reply(locationNeededNotice(answerLanguage), "reply");
           continue;
         }
         const nearby = await viaCache(
-          nearbyKey(rememberedLocation.latitude, rememberedLocation.longitude, noticeLanguage),
+          nearbyKey(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
           "nearby",
-          () => fetchNearby(rememberedLocation.latitude, rememberedLocation.longitude, noticeLanguage),
+          () => fetchNearby(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
         );
         // `null` is a failed lookup; `[]` is a genuinely unmapped area. Telling
         // somebody standing outside a pharmacy that nothing is near them is
         // false in a way they cannot check for themselves.
         if (nearby === null) {
-          await reply(geocodeUnavailableNotice(noticeLanguage), "unsupported");
+          await reply(geocodeUnavailableNotice(answerLanguage), "unsupported");
           continue;
         }
         await reply(
-          formatNearby({ language: noticeLanguage, origin: rememberedLocation, places: nearby }),
+          formatNearby({ language: answerLanguage, origin: rememberedLocation, places: nearby }),
           nearby.length > 0 ? "reply" : "unsupported",
         );
         continue;
@@ -2392,7 +2395,7 @@ Deno.serve(async (req) => {
             () => geocodePlace(weatherRequest.place as string),
           );
           if (!geocoded) {
-            await reply(placeNotFoundNotice(noticeLanguage, weatherRequest.place), "unsupported");
+            await reply(placeNotFoundNotice(answerLanguage, weatherRequest.place), "unsupported");
             continue;
           }
           latitude = geocoded.latitude;
@@ -2405,7 +2408,7 @@ Deno.serve(async (req) => {
         } else {
           // No city named and no pin on file. Asking is the only honest move:
           // a forecast for the wrong continent reads exactly like a right one.
-          await reply(weatherNeedsPlaceNotice(noticeLanguage), "reply");
+          await reply(weatherNeedsPlaceNotice(answerLanguage), "reply");
           continue;
         }
 
@@ -2415,21 +2418,21 @@ Deno.serve(async (req) => {
           () => fetchWeather(latitude, longitude),
         );
         if (!reading) {
-          await reply(weatherUnavailableNotice(noticeLanguage), "unsupported");
+          await reply(weatherUnavailableNotice(answerLanguage), "unsupported");
           continue;
         }
         if (!placeName) {
           const place = await viaCache(
-            reverseKey(latitude, longitude, noticeLanguage),
+            reverseKey(latitude, longitude, answerLanguage),
             "reverse",
-            () => reverseGeocode(latitude, longitude, noticeLanguage),
+            () => reverseGeocode(latitude, longitude, answerLanguage),
           );
           placeName = place ? shortPlaceLabel(place) : "";
         }
         await reply(
           formatWeather({
-            language: noticeLanguage,
-            placeName: placeName || (language === "ar" ? "موقعك" : "your location"),
+            language: answerLanguage,
+            placeName: placeName || say("weatherHere", answerLanguage),
             current: reading.current,
             daily: reading.daily,
             includeForecast: weatherRequest.forecast,
@@ -2476,7 +2479,7 @@ Deno.serve(async (req) => {
             pending_vision_at: new Date().toISOString(),
           })
           .eq("id", conversationId);
-        await reply(awaitingImageNotice(language, visionRequest.mode, visionRequest.target), "reply");
+        await reply(awaitingImageNotice(answerLanguage, visionRequest.mode, visionRequest.target), "reply");
         continue;
       }
 
@@ -2497,7 +2500,7 @@ Deno.serve(async (req) => {
       let bazaarFellThrough = false;
       if (bazaarRequest && !humanOwnsThis) {
         if (bazaarRequest.intent === "sell") {
-          await reply(sellGuidance(noticeLanguage), "reply");
+          await reply(sellGuidance(answerLanguage), "reply");
           continue;
         }
 
@@ -2507,7 +2510,7 @@ Deno.serve(async (req) => {
               .from("bazaar_products")
               .select("id, bazaar_shops!inner(id)", { count: "exact", head: true })
               .eq("bazaar_shops.is_active", true);
-            await reply(browseNotice(noticeLanguage, count ?? 0), "reply");
+            await reply(browseNotice(answerLanguage, count ?? 0), "reply");
             continue;
           }
 
@@ -2558,11 +2561,11 @@ Deno.serve(async (req) => {
 
           if (scored.length > 0) {
             await reply(
-              formatListings({ language: noticeLanguage, listings: scored, terms: bazaarRequest.terms }),
+              formatListings({ language: answerLanguage, listings: scored, terms: bazaarRequest.terms }),
               "reply",
             );
           } else if (bazaarRequest.confident) {
-            await reply(noListingsNotice(noticeLanguage, bazaarRequest.terms), "unsupported");
+            await reply(noListingsNotice(answerLanguage, bazaarRequest.terms), "unsupported");
           } else {
             console.log("[whatsapp] weak bazaar guess found nothing — handing back to the assistant");
             bazaarFellThrough = true;
@@ -2573,7 +2576,7 @@ Deno.serve(async (req) => {
           // meant the shop, and worth swallowing for somebody who probably did
           // not — they get the assistant, which is what they wanted anyway.
           if (bazaarRequest.confident) {
-            await reply(bazaarUnavailableNotice(noticeLanguage), "unsupported");
+            await reply(bazaarUnavailableNotice(answerLanguage), "unsupported");
           } else {
             bazaarFellThrough = true;
           }

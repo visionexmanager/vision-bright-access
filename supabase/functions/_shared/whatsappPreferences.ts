@@ -10,6 +10,8 @@
 // Pure and provider-free so the matching can be tested exhaustively.
 
 import { isSupportedLanguage, type SupportedLanguage } from "./whatsapp.ts";
+import type { Language } from "./whatsappCatalog.ts";
+import { say } from "./whatsappStrings.ts";
 
 export interface PreferenceChange {
   preferred_language?: SupportedLanguage;
@@ -170,33 +172,19 @@ export const hasPreferenceChange = (change: PreferenceChange): boolean =>
 
 /** Confirms a change in the sender's language, so it is never silent. */
 export function preferenceConfirmation(
-  language: "ar" | "en",
+  language: Language,
   change: PreferenceChange,
   languageName: string,
 ): string {
   const parts: string[] = [];
   if (change.preferred_language) {
-    parts.push(language === "ar" ? `سأتابع بـ${languageName}.` : `I'll continue in ${languageName}.`);
+    parts.push(say("prefLanguage", language).replace("{language}", languageName));
   }
-  if (change.voice_mode === "always") {
-    parts.push(language === "ar" ? "سأرسل الردود صوتياً أيضاً." : "I'll send replies as voice notes too.");
-  }
-  if (change.voice_mode === "never") {
-    parts.push(language === "ar" ? "سأرد نصاً فقط." : "I'll reply with text only.");
-  }
-  if (change.voice_mode === "mirror") {
-    parts.push(
-      language === "ar"
-        ? "سأرد بنفس طريقتك: صوت على الصوت، وكتابة على الكتابة."
-        : "I'll answer the way you write: voice for voice, text for text.",
-    );
-  }
-  if (change.verbosity === "concise") {
-    parts.push(language === "ar" ? "وسأختصر." : "And I'll keep it brief.");
-  }
-  if (change.verbosity === "detailed") {
-    parts.push(language === "ar" ? "وسأشرح بتفصيل أكثر." : "And I'll go into more detail.");
-  }
+  if (change.voice_mode === "always") parts.push(say("prefVoiceAlways", language));
+  if (change.voice_mode === "never") parts.push(say("prefVoiceNever", language));
+  if (change.voice_mode === "mirror") parts.push(say("prefVoiceMirror", language));
+  if (change.verbosity === "concise") parts.push(say("prefConcise", language));
+  if (change.verbosity === "detailed") parts.push(say("prefDetailed", language));
   return parts.join(" ");
 }
 
@@ -227,22 +215,13 @@ export function preferenceConfirmation(
  * plainly that it already works that way is better than a setting that quietly
  * does nothing.
  */
-export function voiceModeExplainer(language: "ar" | "en"): string {
-  if (language === "ar") {
-    return [
-      "*الردود الصوتية*",
-      "",
-      "أرد بنفس طريقتك: رسالة صوتية يقابلها رد صوتي، ورسالة مكتوبة يقابلها رد مكتوب.",
-      "",
-      "لا يوجد إعداد تضبطه — الطريقة التي ترسل بها هي الطريقة التي أرد بها.",
-    ].join("\n");
-  }
+export function voiceModeExplainer(language: Language): string {
   return [
-    "*Voice replies*",
+    say("voiceHeading", language),
     "",
-    "I answer the way you ask: a voice note gets a voice note back, and a typed message gets text.",
+    say("voiceBody", language),
     "",
-    "There's nothing to set — how you send is how I answer.",
+    say("voiceNote", language),
   ].join("\n");
 }
 
