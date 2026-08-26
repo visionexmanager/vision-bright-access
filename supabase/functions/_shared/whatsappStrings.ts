@@ -809,6 +809,27 @@ const BASE_STRINGS = {
   // The list is the sender's own voices and nothing else. No provider id and
   // no profile id reaches these strings: `{name}` is the name the person gave
   // their voice in the studio, which is the only identifier they ever see.
+  // ── When the bazaar has nothing, the catalogue might ──────────────────
+  //
+  // A code (VX-…) is the only identifier a customer sees: it names nothing
+  // about where the offer came from. Supplier and margin stay in
+  // `sourcing_results`, admin-read only, on every channel.
+  sourcingHeading: { ar: "*وأيضًا في كتالوج Visionex*", en: "*Also in the Visionex catalogue*" },
+  sourcingHint: {
+    ar: "أرسل لي رمز المنتج الذي تريده وأكمل معك.",
+    en: "Tell me the code of the one you want and I'll take it from there.",
+  },
+  sourcingNone: {
+    ar: "لم أجد هذا في السوق ولا في الكتالوج. جرّب كلمات أخرى، أو انظر هنا: {url}",
+    en: "I couldn't find that in the bazaar or the catalogue. Try different words, or look here: {url}",
+  },
+  sourcingUnavailable: {
+    ar: "لم أستطع الوصول إلى الكتالوج الآن. حاول بعد قليل، أو انظر هنا: {url}",
+    en: "I couldn't reach the catalogue just now. Try again shortly, or look here: {url}",
+  },
+  condNew: { ar: "جديد", en: "New" },
+  condUsed: { ar: "مستعمل", en: "Used" },
+  condRefurbished: { ar: "مجدّد", en: "Refurbished" },
   voiceMyVoicesHeading: { ar: "*أصواتي*", en: "*My voices*" },
   voiceMyVoicesBody: { ar: "بأي صوت أرد عليك؟", en: "Which voice should I answer in?" },
   voiceDefaultRow: { ar: "الصوت الافتراضي", en: "Default voice" },
