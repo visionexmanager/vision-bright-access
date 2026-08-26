@@ -58,6 +58,16 @@ verify_jwt = false
 # everyone, and with it set every request must carry it. That is stricter than
 # the pattern trial-billing uses, deliberately, because an unauthenticated
 # request here posts to the company's public accounts.
+[functions.voice-studio]
+verify_jwt = false
+# The retention drainer is called by a GitHub Actions schedule with CRON_SECRET,
+# which is not a JWT — the gateway rejected it as UNAUTHORIZED_INVALID_JWT_FORMAT
+# before the function ever ran, so the queue could never be emptied.
+#
+# The function loses nothing by this. It checks CRON_SECRET on the drain branch
+# and calls auth.getUser() on the user branch, both before doing any work, so a
+# bogus bearer still gets a 401 — one line later than it used to.
+
 [functions.social-publish]
 verify_jwt = false
 # Messenger and Instagram Direct deliveries come from Meta, which cannot present

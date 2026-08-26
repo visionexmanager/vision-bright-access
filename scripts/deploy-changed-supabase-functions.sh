@@ -28,6 +28,9 @@ declare -A NO_VERIFY_JWT=(
   [library-process-background-jobs]=1
   [library-stripe-webhook]=1
   [news-generate]=1
+  # Cron-driven retention drain, authenticated with CRON_SECRET rather than a
+  # JWT. See the note beside [functions.voice-studio] in config.toml.
+  [voice-studio]=1
   [trial-billing]=1
   [tv-stream-token]=1
   [tv-validate-stream]=1
