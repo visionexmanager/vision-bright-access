@@ -104,6 +104,13 @@ import {
   type BazaarListing,
 } from "../_shared/whatsappBazaar.ts";
 import {
+  formatSourcedOffers,
+  readSourcedOffers,
+  sourcingNoneNotice,
+  sourcingUnavailableNotice,
+} from "../_shared/whatsappSourcing.ts";
+import { handleSourceProducts } from "../_shared/sourcing/handler.ts";
+import {
   hasPreferenceChange,
   parsePreferenceRequest,
   preferenceConfirmation,
@@ -636,6 +643,44 @@ Deno.serve(async (req) => {
    * is a cache miss, which is the behaviour that existed before it.
    */
   const speechCache = speechCacheStore(db);
+
+  /**
+   * Ask the Commerce Agent what the catalogue has.
+   *
+   * Returns the offers, or `null` when the agent could not be reached — which
+   * is a different sentence from "there is nothing", and the two must not be
+   * told to somebody as though they were the same.
+   *
+   * The query is the terms `searchTerms` already extracted: stripped of
+   * everything that is not a letter, a digit or a space, so nothing a sender
+   * types can reach the agent as syntax.
+   *
+   * Nothing about the sender is passed. The agent records `channel` and the
+   * query on `sourcing_requests`, and there is no user to attribute a WhatsApp
+   * message to — the number is not an account.
+   */
+  const sourceFromCatalogue = async (query: string) => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2 || trimmed.length > 500) return [];
+    try {
+      const response = await handleSourceProducts(
+        new Request("https://visionex.internal/source_products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: trimmed, channel: "whatsapp" }),
+        }),
+      );
+      if (!response.ok) {
+        // A status, never the body: an agent's error text can echo the query.
+        console.error("[whatsapp] catalogue sourcing refused:", response.status);
+        return null;
+      }
+      return readSourcedOffers(await response.json());
+    } catch (e) {
+      console.error("[whatsapp] catalogue sourcing failed:", describeError(e));
+      return null;
+    }
+  };
 
   /**
    * Which voice this sender is answered in.
@@ -2772,7 +2817,33 @@ Deno.serve(async (req) => {
               "reply",
             );
           } else if (bazaarRequest.confident) {
-            await reply(noListingsNotice(answerLanguage, bazaarRequest.terms), "unsupported");
+            // ── Nothing in the bazaar. Ask the catalogue ──────────────────
+            //
+            // `bazaar_products` is what shops have listed; `products` is the
+            // Visionex catalogue, and the Commerce Agent searches it properly —
+            // intent, ranking, de-duplication, condition grouping, pricing. It
+            // has taken a `channel` since it was written and nothing ever
+            // passed it "whatsapp", so a sender whose thing no shop happened to
+            // list was told "nothing found" while the website had an agent.
+            //
+            // Called in process rather than over HTTP: the handler builds its
+            // own service-role client, and a second network hop inside a
+            // webhook that Meta is timing buys nothing.
+            //
+            // Only for a confident shopping request. A weak guess still falls
+            // through to the assistant — searching a catalogue because somebody
+            // said "do you have a minute" is worse than not searching.
+            const offers = await sourceFromCatalogue(bazaarRequest.terms.join(" "));
+
+            if (offers === null) {
+              await reply(sourcingUnavailableNotice(answerLanguage), "unsupported");
+            } else if (offers.length > 0) {
+              log("sourcing", { outcome: "offered", count: offers.length });
+              await reply(formatSourcedOffers({ language: answerLanguage, offers }), "reply");
+            } else {
+              log("sourcing", { outcome: "empty" });
+              await reply(sourcingNoneNotice(answerLanguage), "unsupported");
+            }
           } else {
             console.log("[whatsapp] weak bazaar guess found nothing — handing back to the assistant");
             bazaarFellThrough = true;
