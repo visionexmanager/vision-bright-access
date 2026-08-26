@@ -28,7 +28,7 @@ export function ReadAloudControls({ bookId, text }: ReadAloudControlsProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const {
-    isPlaying, isLoading, currentSentenceIndex, sentenceCount,
+    isPlaying, isLoading, error, currentSentenceIndex, sentenceCount,
     speed, pitch, voice, play, pause, resume, stop, setSpeed, setPitch, setVoice,
   } = useReadAloud(text);
 
@@ -86,6 +86,15 @@ export function ReadAloudControls({ bookId, text }: ReadAloudControlsProps) {
           </Button>
         )}
       </div>
+
+      {error && (
+        // Announced, not merely shown: this panel is used by readers who never
+        // see it. `alert` interrupts the screen reader, which is right —
+        // nothing is going to play until they act on it.
+        <p role="alert" className="text-center text-sm text-destructive">
+          {error === "not-signed-in" ? t("tool.loginRequired") : t("library.quotes.listenFailed")}
+        </p>
+      )}
 
       {sentenceCount > 0 && (
         <p className="text-center text-xs text-muted-foreground" aria-live="polite">

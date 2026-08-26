@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLibraryAiAssistant } from "@/hooks/library/useLibraryAiAssistant";
-import { synthesizeSpeech } from "@/lib/library/textToSpeech";
+import { NOT_SIGNED_IN, synthesizeSpeech } from "@/lib/library/textToSpeech";
 
 interface SmartDictionaryPopoverProps {
   word: string;
@@ -22,6 +22,8 @@ export function SmartDictionaryPopover({ word, sentenceContext, onClose }: Smart
   const { t } = useLanguage();
   const { run, result, isRunning, error } = useLibraryAiAssistant();
   const [isPronouncing, setIsPronouncing] = useState(false);
+  /** Set when pronunciation needs an account, which is now its likeliest miss. */
+  const [needsAccount, setNeedsAccount] = useState(false);
 
   useEffect(() => {
     void run({ mode: "explain-word", text: sentenceContext ? `${word}\n\nContext: "${sentenceContext}"` : word });
@@ -30,13 +32,19 @@ export function SmartDictionaryPopover({ word, sentenceContext, onClose }: Smart
 
   const handlePronounce = async () => {
     setIsPronouncing(true);
+    setNeedsAccount(false);
     try {
       const url = await synthesizeSpeech(word);
       const audio = new Audio(url);
       audio.onended = () => URL.revokeObjectURL(url);
       await audio.play();
-    } catch {
-      // Non-critical — pronunciation is a nice-to-have, silently ignore failures.
+    } catch (err) {
+      // A genuine failure stays silent: pronunciation is a nice-to-have and a
+      // toast over a definition would be worse than nothing. Needing an account
+      // is different — it is now the likeliest reason this button does nothing,
+      // it will not resolve by itself, and somebody who cannot see the button
+      // has no other way to find that out.
+      setNeedsAccount(err instanceof Error && err.message === NOT_SIGNED_IN);
     } finally {
       setIsPronouncing(false);
     }
@@ -55,6 +63,12 @@ export function SmartDictionaryPopover({ word, sentenceContext, onClose }: Smart
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
       </div>
+
+      {needsAccount && (
+        // Announced, not merely shown: the reader who most needs pronunciation
+        // is the one who cannot see that the button did nothing.
+        <p role="alert" className="mb-2 text-sm text-destructive">{t("tool.loginRequired")}</p>
+      )}
 
       {isRunning && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

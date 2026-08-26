@@ -1,0 +1,265 @@
+{
+  "version": 2,
+  "authored": "2026-08-26",
+  "note": "Sentences written for this baseline. No recording of any real person is used, referenced or required. Coverage is deep for Arabic and English and one conversational sentence for each other product language — the same sentence throughout, so a difference between languages is the provider's rather than the sentence's. Each `text` is both the thing to be spoken and the reference transcript it is scored against.",
+  "fixtures": [
+    {
+      "id": "ar-msa-greeting",
+      "language": "ar",
+      "dialect": "msa",
+      "category": "conversational",
+      "text": "مرحباً، أريد أن أسأل عن حالة طلبي من فضلك."
+    },
+    {
+      "id": "ar-msa-numbers",
+      "language": "ar",
+      "dialect": "msa",
+      "category": "numbers",
+      "text": "رقم الطلب سبعة أربعة اثنان تسعة، والمبلغ مئة وخمسة وعشرون دولاراً."
+    },
+    {
+      "id": "ar-msa-names",
+      "language": "ar",
+      "dialect": "msa",
+      "category": "names",
+      "text": "اسمي ريم الحاج، وأسكن في بيروت قرب ساحة ساسين."
+    },
+    {
+      "id": "ar-msa-date",
+      "language": "ar",
+      "dialect": "msa",
+      "category": "dates",
+      "text": "الموعد يوم الخميس الحادي عشر من أيلول الساعة الثالثة والنصف."
+    },
+    {
+      "id": "ar-msa-support",
+      "language": "ar",
+      "dialect": "msa",
+      "category": "conversational",
+      "text": "لم يصلني الطلب حتى الآن، وأريد أن أعرف متى سيصل."
+    },
+    {
+      "id": "ar-mixed-tech",
+      "language": "ar",
+      "dialect": "msa",
+      "category": "code-switching",
+      "text": "افتح تطبيق Visionex واضغط على زر WhatsApp، ثم أرسل لي screenshot."
+    },
+    {
+      "id": "ar-leb-greeting",
+      "language": "ar",
+      "dialect": "lebanese",
+      "category": "conversational",
+      "requiresRealAudio": true,
+      "text": "كيفك؟ بدي إسأل عن طلبيتي شو صار فيها."
+    },
+    {
+      "id": "ar-leb-order",
+      "language": "ar",
+      "dialect": "lebanese",
+      "category": "conversational",
+      "requiresRealAudio": true,
+      "text": "بعتولي الغرض غلط، بدي إرجّعو وشوف شو الحل."
+    },
+    {
+      "id": "ar-leb-numbers",
+      "language": "ar",
+      "dialect": "lebanese",
+      "category": "numbers",
+      "requiresRealAudio": true,
+      "text": "رقمي واحد سبعة تلاتة تمانية، وبكون بالبيت بعد الساعة خمسة."
+    },
+    {
+      "id": "ar-leb-mixed",
+      "language": "ar",
+      "dialect": "lebanese",
+      "category": "code-switching",
+      "requiresRealAudio": true,
+      "text": "عملت order من الموقع بس ما إجاني confirmation عالإيميل."
+    },
+    {
+      "id": "ar-noisy-short",
+      "language": "ar",
+      "dialect": "lebanese",
+      "category": "noisy-short",
+      "requiresRealAudio": true,
+      "text": "وين صار الطلب؟"
+    },
+    {
+      "id": "en-conversational",
+      "language": "en",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Hello, I would like to ask about the status of my order please."
+    },
+    {
+      "id": "en-numbers",
+      "language": "en",
+      "dialect": "general",
+      "category": "numbers",
+      "text": "My order number is seven four two nine and the total was one hundred and twenty five dollars."
+    },
+    {
+      "id": "en-names",
+      "language": "en",
+      "dialect": "general",
+      "category": "names",
+      "text": "My name is Reem El Hajj and I live in Beirut near Sassine Square."
+    },
+    {
+      "id": "en-date",
+      "language": "en",
+      "dialect": "general",
+      "category": "dates",
+      "text": "The appointment is on Thursday the eleventh of September at half past three."
+    },
+    {
+      "id": "en-technical",
+      "language": "en",
+      "dialect": "general",
+      "category": "code-switching",
+      "text": "Open the Visionex app, tap the WhatsApp button, then send me a screenshot of the error."
+    },
+    {
+      "id": "en-short",
+      "language": "en",
+      "dialect": "general",
+      "category": "noisy-short",
+      "text": "Where is my order?"
+    },
+    {
+      "id": "en-noisy",
+      "language": "en",
+      "dialect": "general",
+      "category": "noisy-short",
+      "requiresRealAudio": true,
+      "text": "Can you read this label for me?"
+    },
+    {
+      "id": "fr-conversational",
+      "language": "fr",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Bonjour, je voudrais connaître l'état de ma commande s'il vous plaît."
+    },
+    {
+      "id": "es-conversational",
+      "language": "es",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Hola, me gustaría saber el estado de mi pedido por favor."
+    },
+    {
+      "id": "de-conversational",
+      "language": "de",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Guten Tag, ich möchte bitte den Status meiner Bestellung erfahren."
+    },
+    {
+      "id": "pt-conversational",
+      "language": "pt",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Olá, gostaria de saber o estado da minha encomenda, por favor."
+    },
+    {
+      "id": "it-conversational",
+      "language": "it",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Buongiorno, vorrei sapere lo stato del mio ordine per favore."
+    },
+    {
+      "id": "nl-conversational",
+      "language": "nl",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Hallo, ik zou graag de status van mijn bestelling willen weten."
+    },
+    {
+      "id": "pl-conversational",
+      "language": "pl",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Dzień dobry, chciałbym poznać status mojego zamówienia."
+    },
+    {
+      "id": "tr-conversational",
+      "language": "tr",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Merhaba, siparişimin durumunu öğrenmek istiyorum lütfen."
+    },
+    {
+      "id": "ru-conversational",
+      "language": "ru",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Здравствуйте, я хотел бы узнать статус моего заказа."
+    },
+    {
+      "id": "hi-conversational",
+      "language": "hi",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "नमस्ते, मैं अपने ऑर्डर की स्थिति जानना चाहता हूँ।"
+    },
+    {
+      "id": "ur-conversational",
+      "language": "ur",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "السلام علیکم، میں اپنے آرڈر کی صورتحال جاننا چاہتا ہوں۔"
+    },
+    {
+      "id": "bn-conversational",
+      "language": "bn",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "নমস্কার, আমি আমার অর্ডারের অবস্থা জানতে চাই।"
+    },
+    {
+      "id": "fa-conversational",
+      "language": "fa",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "سلام، می‌خواهم وضعیت سفارشم را بدانم."
+    },
+    {
+      "id": "id-conversational",
+      "language": "id",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Halo, saya ingin mengetahui status pesanan saya."
+    },
+    {
+      "id": "vi-conversational",
+      "language": "vi",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "Xin chào, tôi muốn biết tình trạng đơn hàng của mình."
+    },
+    {
+      "id": "ko-conversational",
+      "language": "ko",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "안녕하세요, 제 주문 상태를 알고 싶습니다."
+    },
+    {
+      "id": "ja-conversational",
+      "language": "ja",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "こんにちは、注文の状況を知りたいのですが。"
+    },
+    {
+      "id": "zh-conversational",
+      "language": "zh",
+      "dialect": "general",
+      "category": "conversational",
+      "text": "您好，我想了解一下我的订单状态。"
+    }
+  ]
+}

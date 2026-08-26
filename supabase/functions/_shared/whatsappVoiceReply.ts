@@ -23,6 +23,7 @@
 // media store to get an id, then send a message referencing that id.
 
 import { GRAPH_BASE } from "./meta.ts";
+import { synthesize } from "./voice/tts.ts";
 import { toBlob } from "./whatsappAttachments.ts";
 import { clampUnits } from "./whatsappSafety.ts";
 import { trace } from "./whatsappTelemetry.ts";
@@ -239,38 +240,38 @@ export async function synthesiseSpeech(params: {
   voice?: string;
   fetchImpl?: typeof fetch;
 }): Promise<SpeechResult> {
-  const key = env("OPENAI_API_KEY");
-  if (!key) {
-    console.error("[whatsapp-tts] no OPENAI_API_KEY — the reply went out as text only");
-    return { ok: false };
-  }
+  // The call itself moved to `voice/tts.ts`, which every other synthesising
+  // path now uses as well. What stays here is this channel's policy — the
+  // model, the voice, opus in an OGG container — and this channel's answer to
+  // a failure, which is silence plus a log line, because the text reply has
+  // already been delivered and a missing voice note is an absent extra rather
+  // than a lost answer.
+  const result = await synthesize({
+    text: params.text,
+    provider: "openai",
+    model: SPEECH_MODEL,
+    voice: params.voice ?? DEFAULT_VOICE,
+    format: "opus",
+    fetchImpl: params.fetchImpl,
+    read: env,
+  });
 
-  const doFetch = params.fetchImpl ?? fetch;
-  try {
-    const res = await doFetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: SPEECH_MODEL,
-        voice: params.voice ?? DEFAULT_VOICE,
-        input: params.text,
-        response_format: "opus",
-      }),
-    });
-    if (!res.ok) {
-      console.error("[whatsapp-tts] synthesis rejected:", res.status);
-      return { ok: false };
-    }
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    if (bytes.byteLength === 0) {
-      console.error("[whatsapp-tts] synthesis returned no audio");
-      return { ok: false };
-    }
-    return { ok: true, bytes, mimeType: "audio/ogg" };
-  } catch {
+  if (result.outcome === "audio") return { ok: true, bytes: result.bytes, mimeType: result.mimeType };
+
+  // The same four sentences this file has always logged, chosen by the same
+  // four conditions. A voice note that failed must still be diagnosable from
+  // the log alone, and nothing here names the sender or the words.
+  const { failure } = result;
+  if (failure.reason === "no_key") {
+    console.error("[whatsapp-tts] no OPENAI_API_KEY — the reply went out as text only");
+  } else if (failure.reason === "rejected") {
+    console.error("[whatsapp-tts] synthesis rejected:", failure.status);
+  } else if (failure.reason === "empty") {
+    console.error("[whatsapp-tts] synthesis returned no audio");
+  } else {
     console.error("[whatsapp-tts] synthesis transport error");
-    return { ok: false };
   }
+  return { ok: false };
 }
 
 /** Upload bytes to the phone number's media store. Returns the media id. */

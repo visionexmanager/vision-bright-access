@@ -1,4 +1,6 @@
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { synthesize } from "../_shared/voice/tts.ts";
+import { guardVoiceRequest, refusalResponse } from "../_shared/voice/guard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import {
   streamChatCompletionWithFallback,
@@ -73,6 +75,13 @@ const ASSISTANT_VOICE: Record<string, string> = {
 Deno.serve(async (req) => {
   const cors = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+
+  // Identity and quota before anything that costs money. This used to be
+  // absent entirely: the gateway accepts the public anon key as a JWT, so
+  // every request here reached a paid provider unauthenticated and
+  // unmetered. See `_shared/voice/guard.ts`.
+  const guard = await guardVoiceRequest(req, "ai-voice-chat");
+  if (guard.outcome === "refused") return refusalResponse(guard.refusal, cors);
 
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
   if (!OPENAI_API_KEY) {
@@ -151,31 +160,26 @@ Deno.serve(async (req) => {
   }
 
   // ── Step 2: Convert to expressive speech with gpt-4o-mini-tts ───────────
-  const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini-tts",
-      input: transcript,
-      voice,
-      instructions: voiceStyle,
-      response_format: "mp3",
-    }),
+  const spoken = await synthesize({
+    text: transcript,
+    provider: "openai",
+    model: "gpt-4o-mini-tts",
+    voice,
+    instructions: voiceStyle,
+    format: "mp3",
   });
 
-  if (!ttsRes.ok) {
-    const err = await ttsRes.text();
-    console.error("TTS error:", ttsRes.status, err);
+  if (spoken.outcome === "failed") {
+    const status = spoken.failure.reason === "rejected" ? spoken.failure.status : 0;
+    const detail = spoken.failure.reason === "rejected" ? spoken.failure.detail : "";
+    console.error("TTS error:", status, detail);
     // Return text-only so the client can still show the response
     return new Response(JSON.stringify({ transcript, audio: null }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   }
 
-  const audioBytes = new Uint8Array(await ttsRes.arrayBuffer());
+  const audioBytes = spoken.bytes;
   let binary = "";
   for (let i = 0; i < audioBytes.length; i += 0x8000) {
     binary += String.fromCharCode(...audioBytes.subarray(i, i + 0x8000));

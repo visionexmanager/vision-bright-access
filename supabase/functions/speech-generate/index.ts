@@ -11,150 +11,25 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import {
+  describeTtsFailure,
+  mimeFor,
+  synthesize,
+  type TtsFormat,
+  type TtsProvider,
+} from "../_shared/voice/tts.ts";
 
-// ─── Provider Interface ───────────────────────────────────────────────────────
+// ─── Providers ───────────────────────────────────────────────────────────────
+//
+// Both providers moved to `_shared/voice/tts.ts`, which the WhatsApp voice
+// reply and the two assistant-voice functions now share. What stays here is
+// this endpoint's own policy: it is the only caller that lets a *user* pick
+// the provider, the model, the voice, the speed and the container, and the
+// only one that shows a provider's failure to a person — which is why the
+// sentences in `describeTtsFailure` were written for this screen.
 
-interface SpeechProviderConfig {
-  providerVoiceId: string;
-  text: string;
-  speed: number;
-  outputFormat: string;
-  model: string;
-  language?: string;
-}
-
-interface SpeechProviderResult {
-  audioBuffer: ArrayBuffer;
-  mimeType: string;
-}
-
-// ─── OpenAI Provider ──────────────────────────────────────────────────────────
-
-class OpenAISpeechProvider {
-  readonly name = "openai";
-
-  async generateSpeech(cfg: SpeechProviderConfig): Promise<SpeechProviderResult> {
-    const apiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
-
-    const fmtMap: Record<string, string> = {
-      mp3: "mp3", wav: "wav", flac: "flac", opus: "opus", aac: "aac",
-    };
-    const mimeMap: Record<string, string> = {
-      mp3: "audio/mpeg", wav: "audio/wav", flac: "audio/flac",
-      opus: "audio/opus", aac: "audio/aac",
-    };
-    const fmt = fmtMap[cfg.outputFormat] ?? "mp3";
-
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: cfg.model || "tts-1",
-        input: cfg.text,
-        voice: cfg.providerVoiceId,
-        speed: Math.min(4.0, Math.max(0.25, cfg.speed)),
-        response_format: fmt,
-      }),
-    });
-
-    if (!response.ok) {
-      let detail = `HTTP ${response.status}`;
-      try {
-        const errJson = await response.json();
-        detail = errJson?.error?.message ?? errJson?.detail ?? detail;
-      } catch {
-        const text = await response.text().catch(() => "");
-        if (text) detail = text.slice(0, 200);
-      }
-      const statusMap: Record<number, string> = {
-        401: "OpenAI API key is invalid or revoked. Check OPENAI_API_KEY in Supabase secrets.",
-        403: "OpenAI API key lacks permission for text-to-speech. Verify the key's allowed models.",
-        429: "OpenAI rate limit reached. Please wait a moment and try again.",
-        500: "OpenAI service error. This is temporary — please retry in a few seconds.",
-        503: "OpenAI is temporarily unavailable. Please retry shortly.",
-      };
-      const friendlyMsg = statusMap[response.status] ?? `OpenAI TTS error (${response.status}): ${detail}`;
-      throw new Error(friendlyMsg);
-    }
-
-    return {
-      audioBuffer: await response.arrayBuffer(),
-      mimeType: mimeMap[fmt] ?? "audio/mpeg",
-    };
-  }
-}
-
-// ─── ElevenLabs Provider (cloned / library voices) ────────────────────────────
-
-class ElevenLabsSpeechProvider {
-  readonly name = "elevenlabs";
-
-  async generateSpeech(cfg: SpeechProviderConfig): Promise<SpeechProviderResult> {
-    const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
-    if (!apiKey) {
-      throw new Error(
-        "ELEVENLABS_API_KEY is not configured in Supabase Edge Function secrets. " +
-        "This voice was cloned via ElevenLabs and needs that key to speak — add it in Project Settings → Edge Functions → Secrets."
-      );
-    }
-
-    const mimeMap: Record<string, string> = {
-      mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg",
-    };
-    // ElevenLabs only outputs mp3 (at various bitrates); map anything else to mp3.
-    const outputFormat = cfg.outputFormat === "wav" ? "pcm_16000" : "mp3_44100_128";
-
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(cfg.providerVoiceId)}?output_format=${outputFormat}`,
-      {
-        method: "POST",
-        headers: {
-          "xi-api-key": apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: cfg.text,
-          model_id: cfg.model && cfg.model !== "tts-1" ? cfg.model : "eleven_multilingual_v2",
-          voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: Math.min(1.2, Math.max(0.7, cfg.speed)) },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      let detail = `HTTP ${response.status}`;
-      try {
-        const errJson = await response.json();
-        detail = errJson?.detail?.message ?? errJson?.detail ?? detail;
-      } catch {
-        const text = await response.text().catch(() => "");
-        if (text) detail = text.slice(0, 200);
-      }
-      const statusMap: Record<number, string> = {
-        401: "ElevenLabs API key is invalid or revoked. Check ELEVENLABS_API_KEY in Supabase secrets.",
-        403: "ElevenLabs API key lacks permission for this voice.",
-        404: "This voice no longer exists on ElevenLabs — it may have been deleted or wasn't cloned successfully.",
-        422: `Invalid request to ElevenLabs: ${detail}`,
-        429: "ElevenLabs rate limit or quota reached. Please wait or check your ElevenLabs plan usage.",
-      };
-      throw new Error(statusMap[response.status] ?? `ElevenLabs TTS error (${response.status}): ${detail}`);
-    }
-
-    return {
-      audioBuffer: await response.arrayBuffer(),
-      mimeType: mimeMap[cfg.outputFormat] ?? "audio/mpeg",
-    };
-  }
-}
-
-// ─── Provider Manager ────────────────────────────────────────────────────────
-
-function getProvider(name: string): OpenAISpeechProvider | ElevenLabsSpeechProvider {
-  if (name === "openai") return new OpenAISpeechProvider();
-  if (name === "elevenlabs") return new ElevenLabsSpeechProvider();
+function speechProviderOf(name: string): TtsProvider {
+  if (name === "openai" || name === "elevenlabs") return name;
   throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs`);
 }
 
@@ -286,19 +161,22 @@ Deno.serve(async (req: Request) => {
 
   // Generate
   try {
-    const speechProvider = getProvider(provider);
-    const result = await speechProvider.generateSpeech({
-      providerVoiceId: provider_voice_id,
+    const result = await synthesize({
+      provider: speechProviderOf(provider),
+      voice: provider_voice_id,
       text: text.trim(),
       speed,
-      outputFormat: output_format,
+      format: output_format as TtsFormat,
       model,
-      language,
     });
+    // Thrown, not returned: this endpoint's error path already turns a thrown
+    // message into the JSON body the studio shows, and the wording is the
+    // wording it has always shown.
+    if (result.outcome === "failed") throw new Error(describeTtsFailure(result.failure));
 
-    const audioBase64 = bufferToBase64(result.audioBuffer);
+    const audioBase64 = bufferToBase64(result.bytes.buffer as ArrayBuffer);
     const durationSec = estimateDuration(text, speed);
-    const sizeBytes   = result.audioBuffer.byteLength;
+    const sizeBytes   = result.bytes.byteLength;
 
     // Create asset record
     const filename = `speech_${jobId.slice(0, 8)}.${output_format}`;
@@ -310,7 +188,7 @@ Deno.serve(async (req: Request) => {
         filename,
         original_name: filename,
         asset_type:    "generated",
-        mime_type:     result.mimeType,
+        mime_type:     mimeFor(speechProviderOf(provider), output_format as TtsFormat),
         size_bytes:    sizeBytes,
         duration_sec:  durationSec,
         status:        "ready",
@@ -355,7 +233,7 @@ Deno.serve(async (req: Request) => {
       job_id:       jobId,
       asset_id:     assetId,
       audio_base64: audioBase64,
-      mime_type:    result.mimeType,
+      mime_type:    mimeFor(speechProviderOf(provider), output_format as TtsFormat),
       duration_sec: durationSec,
       size_bytes:   sizeBytes,
       output_format,
