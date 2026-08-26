@@ -111,6 +111,12 @@ import {
 } from "../_shared/whatsappSourcing.ts";
 import { handleSourceProducts } from "../_shared/sourcing/handler.ts";
 import {
+  formatStations,
+  parseRadioRequest,
+  radioUnavailableNotice,
+  readStations,
+} from "../_shared/whatsappRadio.ts";
+import {
   hasPreferenceChange,
   parsePreferenceRequest,
   preferenceConfirmation,
@@ -2741,6 +2747,63 @@ Deno.serve(async (req) => {
       // camera, and answered from the tables rather than the knowledge base
       // because embedded prose does not know today's price or whether a thing
       // is in stock — and a model asked anyway will supply both.
+      // ── Something to listen to ──────────────────────────────────────
+      //
+      // Ahead of the bazaar on purpose: "play me some jazz" is a listening
+      // request, and the shopping parser would otherwise take "jazz" for
+      // something to sell. Only a confident one is answered here — a weak
+      // guess falls through, the same rule the bazaar already follows.
+      //
+      // `radio_stations_public` is the anon-safe view: it excludes
+      // `stream_url` by construction, so no station's stream can leave here
+      // however this code changes. Playing happens on the Visionex page,
+      // where the token flow and the subscription check live.
+      const radioRequest = aiFocused || !featureOn("services.radio")
+        ? null
+        : parseRadioRequest(questionText);
+      if (radioRequest?.confident && !humanOwnsThis) {
+        try {
+          // Terms are stripped of everything that is not a letter, a digit or
+          // a space by `stationTerms`, which is what makes interpolating them
+          // into a PostgREST filter safe.
+          let query = db
+            .from("radio_stations_public")
+            .select("name, name_ar, language, country, bitrate, is_featured");
+          if (radioRequest.terms.length > 0) {
+            query = query.or(
+              radioRequest.terms
+                .flatMap((term) => [
+                  `name.ilike.%${term}%`,
+                  `name_ar.ilike.%${term}%`,
+                  `country.ilike.%${term}%`,
+                  `language.ilike.%${term}%`,
+                ])
+                .join(","),
+            );
+          }
+
+          const { data: rows, error } = await query
+            // Featured first: somebody who said only "music" gets the stations
+            // Visionex would put in front of them, not an alphabetical accident.
+            .order("is_featured", { ascending: false })
+            .order("sort_order", { ascending: true })
+            .limit(25);
+          if (error) throw error;
+
+          const stations = readStations(rows);
+          log("radio", { outcome: stations.length > 0 ? "listed" : "empty" });
+          await reply(
+            formatStations({ language: answerLanguage, stations }),
+            stations.length > 0 ? "reply" : "unsupported",
+          );
+          continue;
+        } catch (e) {
+          console.error("[whatsapp] radio lookup failed:", describeError(e));
+          await reply(radioUnavailableNotice(answerLanguage), "unsupported");
+          continue;
+        }
+      }
+
       const bazaarRequest = aiFocused || !featureOn("services.bazaar") ? null : parseBazaarRequest(questionText);
       /**
        * Set when a weak shopping guess found nothing, so the message falls

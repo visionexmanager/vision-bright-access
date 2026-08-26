@@ -809,6 +809,20 @@ const BASE_STRINGS = {
   // The list is the sender's own voices and nothing else. No provider id and
   // no profile id reaches these strings: `{name}` is the name the person gave
   // their voice in the studio, which is the only identifier they ever see.
+  // ── Something to listen to ────────────────────────────────────────────
+  //
+  // Stations, never a stream: `stream_url` is hidden on purpose and playing
+  // happens on the Visionex page, where the token flow is.
+  radioHeading: { ar: "*محطات يمكنك الاستماع إليها*", en: "*Stations you can listen to*" },
+  radioHint: { ar: "افتح هذا لتشغيل أي منها: {url}", en: "Open this to play any of them: {url}" },
+  radioNone: {
+    ar: "لم أجد محطة بهذا الوصف. جرّب نوعًا موسيقيًا أو بلدًا، أو شاهدها كلها: {url}",
+    en: "I couldn't find a station like that. Try a genre or a country, or see them all: {url}",
+  },
+  radioUnavailable: {
+    ar: "لم أستطع قراءة قائمة المحطات الآن. حاول بعد قليل، أو شاهدها كلها: {url}",
+    en: "I couldn't reach the station list just now. Try again shortly, or see them all: {url}",
+  },
   // ── When the bazaar has nothing, the catalogue might ──────────────────
   //
   // A code (VX-…) is the only identifier a customer sees: it names nothing
