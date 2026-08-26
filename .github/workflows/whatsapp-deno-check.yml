@@ -76,3 +76,33 @@ jobs:
             echo "::endgroup::"
           done
           exit "$failed"
+
+      # ── The entry points, for syntax alone ────────────────────────────────
+      #
+      # The step above deliberately covers `_shared` only: the function entry
+      # points carry long-standing type errors from the generated Supabase
+      # types, so a full `deno check` on them is red before anyone touches
+      # anything.
+      #
+      # That gap shipped a BOOT_ERROR to production on 2026-08-26. An `await`
+      # was added inside a non-async callback in whatsapp-webhook — TS1308, a
+      # parse error, not a type error — and it was invisible because the file
+      # was excluded wholesale. The function then failed to start, and the
+      # WhatsApp assistant was down until it was noticed.
+      #
+      # So: check them, and fail only on TS1xxx. Those are the diagnostics that
+      # mean the file does not parse, which is the class that cannot reach
+      # production. Type errors stay excluded, loudly, until the generated
+      # types are regenerated.
+      - name: entry points must at least parse
+        run: |
+          failed=0
+          for f in supabase/functions/*/index.ts; do
+            out=$(deno check --no-lock --node-modules-dir=none "$f" 2>&1 || true)
+            if echo "$out" | grep -qE ^TS1[0-9]{3}; then
+              echo "::error file=$f::$f does not parse"
+              echo "$out" | grep -E ^TS1[0-9]{3} | head -5
+              failed=1
+            fi
+          done
+          exit "$failed"
