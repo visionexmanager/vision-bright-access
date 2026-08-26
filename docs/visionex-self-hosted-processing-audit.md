@@ -1,10 +1,18 @@
 # Visionex Self-Hosted Processing & External API Reduction Audit
 
-**Date:** 2026-08-25 · **Commit audited:** `d2690c7b` · **Status:** audit only
+**Date:** 2026-08-25 · **Commit audited:** `d2690c7b` · **Status:** ~~audit only~~
+**partly delivered — see §5 "What has shipped" and §5b "What is left"**
 
-Nothing in this document has been installed, benchmarked or deployed. No production
-behaviour was changed. Every "current" claim was read out of the repository; every
-"local" proposal is exactly that.
+~~Nothing in this document has been installed, benchmarked or deployed. No production
+behaviour was changed.~~ That was true when it was written and is not true now:
+A1, A2, A3, A4, A7, B1 and E1 have shipped, and the paragraphs recording what
+each one changed are struck through or corrected in place rather than rewritten,
+so the original reasoning stays readable next to what actually happened.
+
+Every "current" claim below was read out of the repository at the time. Where one
+turned out to be wrong — Docker on the VPS, Tesseract's Arabic, Apache Tika as
+the answer for Office files — it is corrected where it stands rather than quietly
+edited away.
 
 ---
 
@@ -406,16 +414,48 @@ Ship each behind a flag, local-first with external fallback on low confidence.
 
 Embeddings via bge-m3 or multilingual-e5. **This is a migration, not a swap** — see §6.
 
-### Phase D — optional GPU
+### Phase D — ~~optional GPU~~ **closed: not available on this infrastructure**
 
-Only if you decide to move image description or chat local. Both are RED on quality
-today, so this is speculative. A 12 GB card would make Whisper-large, a 7-8B LLM and a
-VLM all viable — revisit once Phases A-C are measured.
+~~Only if you decide to move image description or chat local.~~ This was written
+before the machine was identified. Hetzner Cloud has **no GPU family at all** —
+only Cost-Optimized (ARM), Regular Performance (shared vCPU) and Dedicated vCPU;
+see section 2. A GPU here means a different Hetzner product (dedicated GEX) or a
+different provider entirely, which is a migration rather than a plan change.
+
+This is not a phase that is waiting for a decision. It is closed until the
+hosting decision is reopened, and everything that depended on it — image
+description, video description, chat — stays external for that reason on top of
+the quality reasons already recorded.
 
 ### Phase E — external fallback optimisation
 
 Cache aggressively; route by difficulty rather than by provider order; keep the
 existing chain untouched as the escalation path.
+
+E1 has shipped: see the table above. What remains here is difficulty routing,
+which needs traffic data this channel has not accumulated yet.
+
+---
+
+## 5b. What is left, and what each one is actually waiting for
+
+Written after A1, A2, A3, A4, A7, B1 and E1 shipped, because "remaining" is not
+the same as "next" and the difference matters when deciding what to fund.
+
+| | Waiting for | Not blocked by effort |
+|---|---|---|
+| **A5** scanned-PDF OCR | An Arabic OCR engine that works on this box | ocrmypdf is one `apt` line; it would be English-only, and the current answer — "photograph the page, I read photographs well" — already works in both languages |
+| **A6** ffmpeg audio/video | A reason | Groq's Whisper accepts WhatsApp's ogg directly, so normalising it first saves nothing measurable; video description needs a VLM, which is Phase D, which is closed |
+| **A8** queue (pgmq) | Something slow enough to queue | Every local capability shipped so far answers in milliseconds to a second: OCR ~140 ms, barcode under a second, Office extraction is an inflate. The queue is a genuine prerequisite for **Phase B**, and speculative until then |
+| **Phase B** Piper / faster-whisper / reranker | **Blocker 5: an Arabic quality baseline** | There is still no measured WER or CER for the current STT or TTS, so "as good as today" cannot be *proved* for any replacement. For an audience that cannot see the output, that measurement is the work, not a formality — and this document's own instruction is to gate every Phase B item on it |
+| **Phase C** embeddings | Its own project | Section 6. A new column, a new index, re-embedding the corpus, both indexes live through cut-over, with `match_embeddings` correct throughout — used by the WhatsApp knowledge layer, `ai-search`, the library stack and the sourcing adapter |
+| **Phase D** GPU | A different host | Closed, above |
+
+The honest summary: **Phase A is finished apart from two items with no case for
+them, and everything past it is gated on one measurement and one migration** —
+not on engineering time. The next thing worth funding is the Arabic baseline in
+blocker 5, because it unblocks the whole of Phase B and because it is the one
+piece of work here that nothing else can substitute for.
 
 ---
 
@@ -503,9 +543,13 @@ built in Phases 3-9.
 1. ~~Server specification unknown.~~ **RESOLVED** — Hetzner Cloud CCX23: 4 dedicated
    vCPU, 16 GB RAM, ~125 GB free, no GPU and no GPU option on the product line.
    See section 2.
-2. **No processing service exists.** Edge Functions cannot host models; this must be
-   built before any Phase B item.
-3. **No queue exists.** Without it, local latency becomes Meta redelivery.
+2. ~~**No processing service exists.**~~ **RESOLVED** — it was built in A3a and
+   published in A3b, and now carries three endpoints: OCR, barcode and Office
+   extraction. Edge Functions still cannot host models; that constraint has not
+   changed, it has been answered.
+3. **No queue exists.** Still true, and still the prerequisite it was described
+   as — but for Phase B rather than for what has shipped. Nothing local is slow
+   enough to become a Meta redelivery today; see section 5b.
 4. **Embedding dimension mismatch.** Section 6.
 5. **No Arabic quality baseline.** There is no measured WER/CER for the current STT or
    OCR, so "as good as today" cannot currently be *proved* for any replacement. For a
