@@ -27,6 +27,7 @@ const vision = await import("../../supabase/functions/_shared/whatsappVisionMode
 const weather = await import("../../supabase/functions/_shared/whatsappWeather.ts");
 const geo = await import("../../supabase/functions/_shared/whatsappLocation.ts");
 const bazaar = await import("../../supabase/functions/_shared/whatsappBazaar.ts");
+const radio = await import("../../supabase/functions/_shared/whatsappRadio.ts");
 const helpers = await import("../../supabase/functions/_shared/whatsapp.ts");
 const identity = await import("../../supabase/functions/_shared/whatsappIdentity.ts");
 const news = await import("../../supabase/functions/_shared/whatsappNews.ts");
@@ -414,6 +415,7 @@ describe("the catalog", () => {
       "services.where": (p) => geo.asksWhereAmI(p),
       "services.nearby": (p) => geo.asksWhatIsNearby(p),
       "services.bazaar": (p) => bazaar.parseBazaarRequest(p)?.intent === "browse",
+      "services.radio": (p) => radio.parseRadioRequest(p)?.confident === true,
       "services.sell": (p) => bazaar.parseBazaarRequest(p)?.intent === "sell",
       "news": (p) => news.parseNewsRequest(p),
       "services.orders": (p) => identity.parseAccountIntent(p) === "orders",

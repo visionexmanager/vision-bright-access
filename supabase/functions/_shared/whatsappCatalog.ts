@@ -456,6 +456,21 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     requires: ["bazaar"],
     accepts: ["text"],
   },
+  {
+    // Keyless by construction: a table read, no provider, no key. That is not
+    // incidental — a WhatsApp feature here has to work without one, and a test
+    // enforces it.
+    id: "services.radio",
+    parent: "services",
+    order: 7,
+    kind: "action",
+    enabled: true,
+    title: { ar: "استمع للراديو", en: "Listen to radio" },
+    description: { ar: "محطات من كل العالم", en: "Stations from around the world" },
+    aliases: { ar: ["راديو", "إذاعة", "أغاني", "اغاني"], en: ["radio", "music", "songs", "listen"] },
+    phrase: { ar: "موسيقى", en: "music" },
+    accepts: ["text"],
+  },
 
   // ── Support ─────────────────────────────────────────────────────────────
   {
