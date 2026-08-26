@@ -44,15 +44,20 @@ export const normalizeCacheText = (text: string): string =>
   (text ?? "").replace(/\s+/g, " ").trim();
 
 async function sha256Hex(material: Uint8Array): Promise<string> {
-  // Copied into a plain `ArrayBuffer` rather than passed as a view: a
-  // `Uint8Array` may be backed by a shared buffer, which several TypeScript
-  // lib versions refuse as a `BufferSource`. The same reason
-  // `whatsappAttachments.toBlob` exists.
-  const copy = material.buffer.slice(
-    material.byteOffset,
-    material.byteOffset + material.byteLength,
-  ) as ArrayBuffer;
-  const digest = await crypto.subtle.digest("SHA-256", copy);
+  // The view is passed as-is, and the cast is the only way to say so.
+  //
+  // Deno's `lib.dom` types this parameter as `BufferSource`, which a
+  // `Uint8Array<ArrayBufferLike>` does not satisfy — `deno check` rejects the
+  // call outright. Copying into a plain `ArrayBuffer` silences that and then
+  // fails at runtime in the test environment: jsdom's `crypto.subtle` accepts a
+  // typed array through `ArrayBuffer.isView`, which works across realms, but
+  // validates a raw buffer with `instanceof ArrayBuffer`, which does not. A
+  // buffer allocated inside the module realm is refused. So the copy type-checks
+  // and breaks; the view breaks the type-check and works.
+  //
+  // A view is a valid `BufferSource` in Deno, Node and every browser. The cast
+  // asserts what is already true rather than papering over a real mismatch.
+  const digest = await crypto.subtle.digest("SHA-256", material as unknown as BufferSource);
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
