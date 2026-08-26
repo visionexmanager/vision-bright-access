@@ -28,6 +28,7 @@ const weather = await import("../../supabase/functions/_shared/whatsappWeather.t
 const geo = await import("../../supabase/functions/_shared/whatsappLocation.ts");
 const bazaar = await import("../../supabase/functions/_shared/whatsappBazaar.ts");
 const helpers = await import("../../supabase/functions/_shared/whatsapp.ts");
+const identity = await import("../../supabase/functions/_shared/whatsappIdentity.ts");
 
 const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
 
@@ -298,7 +299,7 @@ describe("the awkward cases", () => {
     const outcome = engine.runEngine({ text: "", kind: "unknown" }, live(), context());
     expect(outcome.kind).toBe("passthrough");
     // And the webhook's own notice for a type nothing can read still exists.
-    expect(webhook).toContain("unsupportedTypeNotice(language, incoming.unsupportedType)");
+    expect(webhook).toContain("unsupportedTypeNotice(answerLanguage, incoming.unsupportedType)");
   });
 
   it("15. announces a disabled feature instead of opening it", () => {
@@ -413,6 +414,7 @@ describe("the catalog", () => {
       "services.nearby": (p) => geo.asksWhatIsNearby(p),
       "services.bazaar": (p) => bazaar.parseBazaarRequest(p)?.intent === "browse",
       "services.sell": (p) => bazaar.parseBazaarRequest(p)?.intent === "sell",
+      "services.orders": (p) => identity.parseAccountIntent(p) === "orders",
       "support.human": (p) => helpers.userAskedForHuman(p),
     };
 

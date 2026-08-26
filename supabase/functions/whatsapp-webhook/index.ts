@@ -110,6 +110,21 @@ import {
   voiceModeExplainer,
   verbosityDirective,
 } from "../_shared/whatsappPreferences.ts";
+import {
+  ACCOUNT_CODE_STEP,
+  ACCOUNT_EMAIL_STEP,
+  ACCOUNT_FEATURE,
+  formatOrders,
+  generateLinkCode,
+  hashLinkCode,
+  LINK_CODE_TTL_MINUTES,
+  normaliseEmail,
+  ORDER_PAGE,
+  parseAccountIntent,
+  readLinkCode,
+  readOrders,
+  sendLinkCodeEmail,
+} from "../_shared/whatsappIdentity.ts";
 import { deliverReply, replyMedium, speakReply } from "../_shared/whatsappVoiceReply.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
@@ -930,13 +945,18 @@ Deno.serve(async (req) => {
       let answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);
 
       /**
-       * Which of the two languages the older feature notices are written in.
+       * Which of the two languages the older feature *formatters* are written in.
        *
-       * Weather, OCR, the bazaar and the media failures still say what they say
-       * in Arabic or English only — they were written before the menu spoke
-       * twenty languages and translating them is a separate piece of work.
-       * `answerLanguage` is the real answer and is what the menus, the
-       * onboarding and the model receive.
+       * The refusals no longer belong here: handover, the rate limit, the
+       * provider failure, every media and attachment refusal and every Office
+       * one moved into `whatsappStrings.ts` and take `answerLanguage`, in all
+       * twenty. What is left on this narrow pair is the formatted content —
+       * weather condition words and day names, the compass points and category
+       * labels behind "what's near me", the bazaar listing block, the
+       * vision-mode names and the voice explainer. Those are ~600 strings and
+       * their own piece of work; until then a Turkish sender gets a Turkish
+       * conversation and an English forecast card, which is visible and
+       * survivable in a way an English *refusal* was not.
        */
       let noticeLanguage: "ar" | "en" = answerLanguage === "ar" ? "ar" : "en";
 
@@ -1179,7 +1199,7 @@ Deno.serve(async (req) => {
             })
             .eq("id", conversationId);
 
-          if (verdict.notify) await reply(rateLimitNotice(language), "unsupported");
+          if (verdict.notify) await reply(rateLimitNotice(answerLanguage), "unsupported");
           continue;
         }
       }
@@ -1384,7 +1404,7 @@ Deno.serve(async (req) => {
         if (humanOwnsThis) continue;
         const { latitude, longitude } = incoming.location;
         if (!isUsableCoordinate(latitude, longitude)) {
-          await reply(unsupportedTypeNotice(noticeLanguage, "location"), "unsupported");
+          await reply(unsupportedTypeNotice(answerLanguage, "location"), "unsupported");
           continue;
         }
 
@@ -1451,7 +1471,7 @@ Deno.serve(async (req) => {
 
       if (incoming.media) {
         if (!token) {
-          await reply(unsupportedTypeNotice(language, incoming.media.kind), "unsupported");
+          await reply(unsupportedTypeNotice(answerLanguage, incoming.media.kind), "unsupported");
           continue;
         }
 
@@ -1490,14 +1510,14 @@ Deno.serve(async (req) => {
 
           if (turn.status === "media_failed") {
             log("voice_media_failed", { reason: turn.reason, ms: turn.ms });
-            await reply(mediaFailureNotice(language, "audio", turn.reason), "unsupported");
+            await reply(mediaFailureNotice(answerLanguage, "audio", turn.reason), "unsupported");
             await recoverVoiceState();
             continue;
           }
           if (turn.status === "not_heard") {
             log("voice_not_heard", { reason: turn.reason, ms: turn.ms });
             await reply(
-              transcriptionFailureNotice(language, noticeReasonFor(turn.reason)),
+              transcriptionFailureNotice(answerLanguage, noticeReasonFor(turn.reason)),
               "unsupported",
             );
             // Still waiting for a voice note: somebody whose recording did not
@@ -1552,7 +1572,7 @@ Deno.serve(async (req) => {
             trace: correlationId,
           });
           if (!media.ok) {
-            await reply(mediaFailureNotice(language, incoming.media.kind, media.reason), "unsupported");
+            await reply(mediaFailureNotice(answerLanguage, incoming.media.kind, media.reason), "unsupported");
             continue;
           }
 
@@ -1580,7 +1600,7 @@ Deno.serve(async (req) => {
           const inspected = inspectImage(media.bytes, media.mimeType);
           if (!inspected.ok) {
             log("image_rejected", { reason: inspected.reason, chars: media.bytes.byteLength });
-            await reply(unreadableNotice(language, "image"), "unsupported");
+            await reply(unreadableNotice(answerLanguage, "image"), "unsupported");
             continue;
           }
           log("image_accepted", {
@@ -1720,7 +1740,7 @@ Deno.serve(async (req) => {
               await reply(clampReply(barcodeText), "reply");
               continue;
             }
-            await reply(unreadableNotice(language, "image"), "unsupported");
+            await reply(unreadableNotice(answerLanguage, "image"), "unsupported");
             continue;
           }
           await reply(clampReply(barcodeText ? `${seen.answer}\n\n${barcodeText}` : seen.answer), "reply");
@@ -1733,7 +1753,7 @@ Deno.serve(async (req) => {
             trace: correlationId,
           });
           if (!media.ok) {
-            await reply(mediaFailureNotice(language, "document", media.reason), "unsupported");
+            await reply(mediaFailureNotice(answerLanguage, "document", media.reason), "unsupported");
             continue;
           }
 
@@ -1752,29 +1772,29 @@ Deno.serve(async (req) => {
             // provider fault needs nothing from them at all.
             await reply(
               read.reason === "unreadable_format"
-                ? unsupportedDocumentNotice(language)
+                ? unsupportedDocumentNotice(answerLanguage)
                 : read.reason === "scanned_pdf"
-                  ? scannedPdfNotice(language)
+                  ? scannedPdfNotice(answerLanguage)
                   : read.reason === "encrypted_pdf"
-                    ? encryptedDocumentNotice(language)
+                    ? encryptedDocumentNotice(answerLanguage)
                     : read.reason === "empty"
-                      ? emptyDocumentNotice(language)
+                      ? emptyDocumentNotice(answerLanguage)
                       // A Word file or a deck that opened and had no words in
                       // it needs different advice from one that would not open
                       // at all: photograph the page, versus send it as a PDF.
                       : read.reason === "office_no_text"
-                        ? emptyOfficeNotice(language, officeKind(media.mimeType) ?? "docx")
+                        ? emptyOfficeNotice(answerLanguage, officeKind(media.mimeType) ?? "docx")
                         : read.reason === "office_corrupt"
-                          ? corruptOfficeNotice(language)
+                          ? corruptOfficeNotice(answerLanguage)
                           : read.reason === "no_reader"
-                            ? noReaderNotice(language, "document")
-                            : unreadableNotice(language, "document"),
+                            ? noReaderNotice(answerLanguage, "document")
+                            : unreadableNotice(answerLanguage, "document"),
               "unsupported",
             );
             continue;
           }
           if (!read.value.readable || !read.value.answer) {
-            await reply(unreadableNotice(language, "document"), "unsupported");
+            await reply(unreadableNotice(answerLanguage, "document"), "unsupported");
             continue;
           }
           await reply(clampReply(read.value.answer), "reply");
@@ -1784,20 +1804,20 @@ Deno.serve(async (req) => {
           // fetching several megabytes of clip only to refuse is bandwidth
           // spent to arrive at the same sentence.
           if (!VIDEO_READING_AVAILABLE) {
-            await reply(noReaderNotice(language, "video"), "unsupported");
+            await reply(noReaderNotice(answerLanguage, "video"), "unsupported");
             continue;
           }
 
           const media = await downloadMedia({ mediaId: incoming.media.id, kind: "video", token, trace: correlationId });
           if (!media.ok) {
-            await reply(mediaFailureNotice(language, "video", media.reason), "unsupported");
+            await reply(mediaFailureNotice(answerLanguage, "video", media.reason), "unsupported");
             continue;
           }
           // Capped far below the media limit: a model reads a video by sampling
           // frames and the cost climbs with length. A support question is
           // answered by a few seconds of screen recording.
           if (media.bytes.byteLength > MAX_VIDEO_BYTES) {
-            await reply(videoTooLongNotice(language), "unsupported");
+            await reply(videoTooLongNotice(answerLanguage), "unsupported");
             continue;
           }
 
@@ -1808,22 +1828,22 @@ Deno.serve(async (req) => {
             languageName: LANGUAGE_ENDONYM[answerLanguage],
           });
           if (!watched || !watched.readable || !watched.answer) {
-            await reply(unreadableNotice(language, "video"), "unsupported");
+            await reply(unreadableNotice(answerLanguage, "video"), "unsupported");
             continue;
           }
           await reply(clampReply(watched.answer), "reply");
           continue;
         } else {
-          await reply(unsupportedTypeNotice(language, incoming.media.kind), "unsupported");
+          await reply(unsupportedTypeNotice(answerLanguage, incoming.media.kind), "unsupported");
           continue;
         }
       } else if (incoming.unsupportedType) {
-        await reply(unsupportedTypeNotice(language, incoming.unsupportedType), "unsupported");
+        await reply(unsupportedTypeNotice(answerLanguage, incoming.unsupportedType), "unsupported");
         continue;
       }
 
       if (!questionText.trim()) {
-        await reply(unsupportedTypeNotice(language, incoming.media?.kind ?? "empty"), "unsupported");
+        await reply(unsupportedTypeNotice(answerLanguage, incoming.media?.kind ?? "empty"), "unsupported");
         continue;
       }
 
@@ -2037,6 +2057,246 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // ── Your account, and the orders on it ────────────────────────────
+      //
+      // The one feature here that has to know *who* is writing, and the only
+      // one that refuses to guess. `bazaar_orders.shipping_phone` is free text
+      // a buyer typed at checkout and is frequently a courier's or a relative's
+      // number, so nothing below ever reads it: a number is bound to an account
+      // by a code emailed to that account, or it is bound to nothing and the
+      // lookup returns nothing at all.
+      //
+      // Placed after the engine on purpose. `0`, `#` and the session timeout
+      // therefore cancel a half-finished link exactly as they cancel a
+      // half-finished upload, and this feature re-implements none of that.
+      const accountStep = session.step === ACCOUNT_EMAIL_STEP || session.step === ACCOUNT_CODE_STEP
+        ? session.step
+        : null;
+      const accountIntent = aiFocused ? null : parseAccountIntent(questionText);
+
+      if (!humanOwnsThis && (accountStep || accountIntent)) {
+        /** Leaves the flow without leaving the sender anywhere strange. */
+        const closeAccountFlow = () => {
+          session = { ...session, feature: null, step: null, pending: null };
+        };
+        const enterAccountStep = (step: string) => {
+          session = {
+            ...session,
+            feature: ACCOUNT_FEATURE,
+            path: ["main", "services", ACCOUNT_FEATURE],
+            step,
+            pending: { operation: step, startedAt: new Date().toISOString() },
+          };
+        };
+
+        // The words door, the same one every other feature has: a flag with a
+        // way around it is not a flag.
+        if (!featureOn(ACCOUNT_FEATURE)) {
+          await reply(say("unavailable", answerLanguage), "unsupported");
+          closeAccountFlow();
+          await saveSession();
+          continue;
+        }
+
+        // An address or a code dictated into a voice note is an address or a
+        // code the transcriber guessed at, and one wrong character fails
+        // silently. The same refusal onboarding already makes, for the same
+        // reason, and only during these two steps.
+        if (spokenInput && accountStep) {
+          await reply(say("onboardingNeedsText", answerLanguage), "reply");
+          await saveSession();
+          continue;
+        }
+
+        try {
+          if (accountIntent === "unlink") {
+            const { data: removed, error } = await db.rpc("whatsapp_unlink_identity", {
+              _wa_phone: incoming.from,
+            });
+            if (error) throw error;
+            log("account_link", { outcome: removed ? "unlinked" : "not_linked" });
+            await reply(say(removed ? "linkUnlinked" : "linkNotLinked", answerLanguage), "reply");
+            closeAccountFlow();
+            await saveSession();
+            continue;
+          }
+
+          // The code, while one is outstanding. Read before the intents so that
+          // six digits mean the code they were just sent and nothing else.
+          if (accountStep === ACCOUNT_CODE_STEP) {
+            const typed = readLinkCode(questionText);
+            if (typed) {
+              const { data: verdict, error } = await db.rpc("whatsapp_link_confirm", {
+                _wa_phone: incoming.from,
+                _code_hash: await hashLinkCode(typed, appSecret ?? ""),
+              });
+              if (error) throw error;
+              log("account_link", { outcome: String(verdict) });
+
+              if (verdict === "verified") {
+                closeAccountFlow();
+                await reply(say("linkVerified", answerLanguage), "reply");
+                // The error is checked, and that is the whole point of the
+                // line. A failed lookup returns no rows, and no rows formats
+                // as "there are no orders on your account yet" — which is a
+                // confident, wrong answer to somebody who has just proved the
+                // account is theirs and is waiting to hear where their parcel
+                // is. A failure has to read as a failure.
+                const { data: orders, error: lookupError } = await db.rpc("whatsapp_recent_orders", {
+                  _wa_phone: incoming.from,
+                  _limit: ORDER_PAGE,
+                });
+                if (lookupError) throw lookupError;
+                await reply(formatOrders({ language: answerLanguage, orders: readOrders(orders) }), "reply");
+                await saveSession();
+                continue;
+              }
+              if (verdict === "invalid") {
+                // The count comes from the database rather than from a counter
+                // held here: two deliveries of the same wrong code arriving at
+                // once must not spend two of the five tries and report three.
+                const { data: state } = await db.rpc("whatsapp_identity_state", {
+                  _wa_phone: incoming.from,
+                });
+                const left = Number((state as { attempts_left?: number } | null)?.attempts_left ?? 0);
+                await reply(
+                  say("linkCodeWrong", answerLanguage).replace("{n}", String(Math.max(0, left))),
+                  "reply",
+                );
+                await saveSession();
+                continue;
+              }
+              closeAccountFlow();
+              await reply(
+                say(
+                  verdict === "expired"
+                    ? "linkCodeExpired"
+                    : verdict === "locked"
+                    ? "linkCodeLocked"
+                    : "linkNoCodePending",
+                  answerLanguage,
+                ),
+                "reply",
+              );
+              await saveSession();
+              continue;
+            }
+            // Not a code and not an account request: they have moved on. The
+            // flow closes quietly and the message is answered by whoever would
+            // have answered it anyway — being nagged for a code you have
+            // decided not to use is how a feature becomes a trap.
+            if (!accountIntent) {
+              closeAccountFlow();
+              await saveSession();
+            }
+          }
+
+          if (accountStep === ACCOUNT_EMAIL_STEP && !accountIntent) {
+            const address = normaliseEmail(questionText);
+            if (!address) {
+              // Only a message that was *trying* to be an address is corrected.
+              // Anything else means they are talking about something else now.
+              if ((questionText ?? "").includes("@")) {
+                await reply(say("emailInvalid", answerLanguage), "reply");
+                await saveSession();
+                continue;
+              }
+              closeAccountFlow();
+              await saveSession();
+            } else {
+              if (!Deno.env.get("RESEND_API_KEY")) {
+                console.error("[whatsapp] account link asked for, but no email provider is configured");
+                await reply(featureErrorNotice(answerLanguage), "unsupported");
+                closeAccountFlow();
+                await saveSession();
+                continue;
+              }
+
+              const code = generateLinkCode();
+              const { data: outcome, error } = await db.rpc("whatsapp_link_request", {
+                _wa_phone: incoming.from,
+                _email: address,
+                _code_hash: await hashLinkCode(code, appSecret ?? ""),
+                _ttl_minutes: LINK_CODE_TTL_MINUTES,
+              });
+              if (error) throw error;
+              const status = String((outcome as { status?: string } | null)?.status ?? "sent");
+              const deliver = (outcome as { deliver?: boolean } | null)?.deliver === true;
+              log("account_link", { outcome: status });
+
+              if (status === "sent" || status === "cooldown") enterAccountStep(ACCOUNT_CODE_STEP);
+              else closeAccountFlow();
+
+              await reply(
+                say(
+                  status === "cooldown"
+                    ? "linkCooldown"
+                    : status === "throttled"
+                    ? "linkThrottled"
+                    : status === "already_linked"
+                    ? "linkAlreadyLinked"
+                    : "linkCodeSent",
+                  answerLanguage,
+                ),
+                "reply",
+              );
+              await saveSession();
+
+              // Sent after the reply, deliberately. The sender is told the same
+              // sentence whether or not there is an account behind the address,
+              // and doing the slow part afterwards keeps the *timing* the same
+              // too — a reply that arrives late for real accounts and quickly
+              // for the rest would answer the question these words refuse to.
+              if (status === "sent" && deliver) {
+                await sendLinkCodeEmail({ to: address, code, language: answerLanguage });
+              }
+              continue;
+            }
+          }
+
+          if (accountIntent === "link" || accountIntent === "orders") {
+            const { data: state, error } = await db.rpc("whatsapp_identity_state", {
+              _wa_phone: incoming.from,
+            });
+            if (error) throw error;
+            const linked = (state as { linked?: boolean } | null)?.linked === true;
+
+            if (linked && accountIntent === "link") {
+              await reply(say("linkAlreadyLinked", answerLanguage), "reply");
+              closeAccountFlow();
+              await saveSession();
+              continue;
+            }
+
+            if (linked) {
+              const { data: orders, error: lookupError } = await db.rpc("whatsapp_recent_orders", {
+                _wa_phone: incoming.from,
+                _limit: ORDER_PAGE,
+              });
+              if (lookupError) throw lookupError;
+              closeAccountFlow();
+              await reply(formatOrders({ language: answerLanguage, orders: readOrders(orders) }), "reply");
+              await saveSession();
+              continue;
+            }
+
+            enterAccountStep(ACCOUNT_EMAIL_STEP);
+            await reply(say("linkAskEmail", answerLanguage), "reply");
+            await saveSession();
+            continue;
+          }
+        } catch (e) {
+          // Nothing about the failure reaches the sender, and nothing about the
+          // sender reaches the log: no address, no code, no order.
+          console.error("[whatsapp] account link failed:", describeError(e));
+          log("feature_error", { node: ACCOUNT_FEATURE });
+          await reply(featureErrorNotice(answerLanguage), "unsupported");
+          closeAccountFlow();
+          await saveSession();
+          continue;
+        }
+      }
+
       // ── Where am I, what's around me, what's the weather ───────────────
       //
       // Placed ahead of the visual-assistance modes on purpose. "وين أقرب
@@ -2200,10 +2460,10 @@ Deno.serve(async (req) => {
               maxTokens: 700,
             });
             const translated = clampReply(await collectStream(stream));
-            await reply(translated || failureNotice(language), translated ? "reply" : "handover");
+            await reply(translated || failureNotice(answerLanguage), translated ? "reply" : "handover");
           } catch (e) {
             console.error("[whatsapp] translation failed:", describeError(e));
-            await reply(failureNotice(language), "handover");
+            await reply(failureNotice(answerLanguage), "handover");
           }
           continue;
         }
@@ -2439,7 +2699,7 @@ Deno.serve(async (req) => {
       // does not get to talk the user out of it.
       if (askedForHuman) {
         await escalate("user_request");
-        await reply(handoverNotice(language), "handover");
+        await reply(handoverNotice(answerLanguage), "handover");
         continue;
       }
 
@@ -2685,7 +2945,7 @@ Deno.serve(async (req) => {
           // blank bubble is a worse answer than an apology.
           log("ai_empty", { provider: asked.provider, ms: asked.ms });
         }
-        await reply(failureNotice(language), "handover");
+        await reply(failureNotice(answerLanguage), "handover");
         await saveSession();
         continue;
       }

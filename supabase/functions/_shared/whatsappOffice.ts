@@ -44,6 +44,8 @@
 
 import { boundText, describeError, stripInvisible } from "./whatsappSafety.ts";
 import { officeKind, type OfficeKind } from "./whatsappAttachments.ts";
+import type { Language } from "./whatsappCatalog.ts";
+import { say } from "./whatsappStrings.ts";
 import {
   imageBody,
   processorConfig,
@@ -217,15 +219,8 @@ export async function readOfficeLocally(params: {
  * sender should do about that — photograph a page, or ask about a specific
  * part — is different from what they should do about an unsupported format.
  */
-export function emptyOfficeNotice(language: "ar" | "en", kind: OfficeKind): string {
-  if (language === "ar") {
-    return kind === "pptx"
-      ? "فتحت العرض التقديمي لكن لا يوجد نص فيه — يبدو أنه صور فقط. أرسل صورة الشريحة المهمة وسأصفها لك."
-      : "فتحت الملف لكن لا يوجد نص فيه — قد يكون صوراً أو جدول أرقام. أرسل صورة الصفحة المهمة وسأقرأها.";
-  }
-  return kind === "pptx"
-    ? "I opened the deck but there's no text in it — it looks like images only. Send a photo of the slide you need and I'll describe it."
-    : "I opened the file but there's no text in it — it may be images, or a table of figures. Send a photo of the page you need and I'll read it.";
+export function emptyOfficeNotice(language: Language, kind: OfficeKind): string {
+  return say(kind === "pptx" ? "officeEmptyDeck" : "officeEmptyDocument", language);
 }
 
 /**
@@ -235,8 +230,6 @@ export function emptyOfficeNotice(language: "ar" | "en", kind: OfficeKind): stri
  * that arrived truncated will arrive truncated again. A PDF export is a
  * different path through their own device and usually works.
  */
-export function corruptOfficeNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "لم أتمكن من فتح هذا الملف — يبدو أنه تالف أو غير مكتمل. جرّب إرساله بصيغة PDF."
-    : "I couldn't open that file — it looks damaged or incomplete. Try sending it as a PDF instead.";
+export function corruptOfficeNotice(language: Language): string {
+  return say("officeCorrupt", language);
 }

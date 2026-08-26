@@ -209,7 +209,7 @@ describe("webhook safety contract", () => {
   });
 
   it("tells the user something even when the provider is down", () => {
-    expect(webhook).toContain("failureNotice(language)");
+    expect(webhook).toContain("failureNotice(answerLanguage)");
     // Escalation moved behind one helper in Phase 10 so every path also writes
     // a handoff briefing; the reason is now passed to it.
     expect(webhook).toContain('escalate("ai_unavailable")');
@@ -610,7 +610,15 @@ describe("media download safety", () => {
   it("explains a refusal in the user's language rather than going quiet", () => {
     expect(media.mediaFailureNotice("en", "audio", "too_large")).toMatch(/too large/i);
     expect(media.mediaFailureNotice("ar", "audio", "too_large")).toMatch(/كبير/);
-    expect(media.mediaFailureNotice("en", "document", "unsupported_type")).toMatch(/document/);
+    expect(media.mediaFailureNotice("en", "document", "unsupported_type")).toMatch(/format/i);
+    // And in a language that is neither of those two, which is the point of
+    // moving these sentences into the interface's own vocabulary. This used to
+    // assert that the English sentence named the kind ("that document format");
+    // it no longer does, because the Arabic never did — dropping an English
+    // noun into another language's sentence reads badly and a screen reader
+    // announces the switch mid-sentence.
+    expect(media.mediaFailureNotice("tr", "document", "unsupported_type")).toMatch(/biçimi/i);
+    expect(media.mediaFailureNotice("ja", "audio", "too_large")).toMatch(/大きすぎ/);
   });
 
   it("never logs the download URL, which carries an access token", () => {
@@ -865,8 +873,8 @@ describe("attachment understanding", () => {
 
     // The webhook must route the distinct reason to the distinct wording.
     expect(webhook).toContain('read.reason === "no_reader"');
-    expect(webhook).toContain('noReaderNotice(language, "document")');
-    expect(webhook).toContain('noReaderNotice(language, "video")');
+    expect(webhook).toContain('noReaderNotice(answerLanguage, "document")');
+    expect(webhook).toContain('noReaderNotice(answerLanguage, "video")');
   });
 
   it("gives a text document a fallback provider", () => {
@@ -901,7 +909,7 @@ describe("attachment understanding", () => {
   it("passes an unreadable verdict through instead of dressing it up", () => {
     // The webhook must not turn readable:false into a description.
     expect(webhook).toContain("!seen.readable");
-    expect(webhook).toContain('unreadableNotice(language, "image")');
+    expect(webhook).toContain('unreadableNotice(answerLanguage, "image")');
     expect(webhook).toContain("!read.value.readable");
   });
 
@@ -1276,7 +1284,7 @@ describe("voice replies", () => {
     expect(sent).toEqual(["I could not hear that."]);
 
     // The rate-limit notice needs no special case any more.
-    expect(webhook).toContain('await reply(rateLimitNotice(language), "unsupported")');
+    expect(webhook).toContain('await reply(rateLimitNotice(answerLanguage), "unsupported")');
     expect(webhook).not.toContain("speak: false");
   });
 

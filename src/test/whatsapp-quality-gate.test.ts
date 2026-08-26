@@ -694,7 +694,7 @@ describe("GATE: provider failure", () => {
     expect(outcome.status).toBe("failed");
     // And the webhook answers a failed ask with a notice, and escalates.
     expect(webhook).toContain('await escalate("ai_unavailable");');
-    expect(webhook).toContain('await reply(failureNotice(language), "handover");');
+    expect(webhook).toContain('await reply(failureNotice(answerLanguage), "handover");');
   });
 
   it("gives up on a hanging provider rather than being redelivered", async () => {

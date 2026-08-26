@@ -622,16 +622,18 @@ paths. Those need a live message to the production number.
 | 10 — Human handoff | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 11 — Classification | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 12 — Summaries | **DONE** | rolling summary in Phase 3; handoff briefing in Phase 10 |
-| 13 — Bazaar assistant | **DONE for search** | listings read from the tables; ordering still needs the Phase 14 account link |
-| 14 — Order tracking | **BLOCKED** | no verified phone-to-account link |
+| 13 — Bazaar assistant | **DONE for search and orders** | listings read from the tables; placing an order is still the website's job, because a checkout is a payment |
+| 14 — Order tracking | **DONE** | `20260928000000_whatsapp_identities.sql` — a code emailed to the account, never a match on `shipping_phone` |
 | 15 — User preferences | **DONE** | `feat(whatsapp): remember preferences and speak replies on request` |
 | 16 — Observability | **DONE** | `feat(whatsapp): triage messages and brief the human who takes over` |
 | 17 — Cost control | **DONE** | routing applied across Phases 2-12, pinned by tests |
-| 18 — Security audit | **DONE** | reviewed; assertions in the suite |
-| 19 — Accessibility and UX | **PARTIAL** | canned notices still ar/en only |
-| 20 — End-to-end tests | **PARTIAL** | 229 automated cases; live scenarios need a handset |
+| 18 — Security audit | **DONE** | reviewed; assertions in the suite. The retention gap it recorded is closed: all four jobs are scheduled |
+| 19 — Accessibility and UX | **DONE for the notices** | welcome, handover, failure, rate limit and every media refusal are in all twenty; the weather and nearby *formatters* are not — see Phase 23 |
+| 20 — End-to-end tests | **PARTIAL** | 268 automated cases; live scenarios need a handset |
 | 21 — Weather | **DONE** | keyless Open-Meteo; `feat(whatsapp): read PDFs, weather, locations and the bazaar` |
-| 22 — Shared locations | **DONE** | pin, nearby, six-hour memory with its own erasure job |
+| 22 — Shared locations | **DONE** | pin, nearby, six-hour memory — and as of Phase 24 the erasure job actually runs |
+| 23 — Account link and orders | **DONE** | one-time code to the account email; `services.orders` in the menu |
+| 24 — Retention, scheduled | **DONE** | `20260927000000_whatsapp_retention_schedule.sql` — four jobs that had only ever been written down |
 
 ---
 
@@ -851,3 +853,175 @@ endings problem in the repository, not a regression from this work.
 real PDF, no real Overpass round trip from the edge runtime. The three public
 map services were probed directly on 2026-08-21 and behaved as the code
 assumes; that is evidence about the services, not about the deployment.
+
+---
+
+## Phase 23 — The account link, and the orders behind it · **DONE**
+
+Phase 14 was blocked, not deferred, and the blocker was recorded precisely: the
+only phone number on an order is `bazaar_orders.shipping_phone` — unverified
+free text the buyer typed at checkout, not unique, and frequently somebody
+else's. Nothing about that has changed. What changed is that the assistant no
+longer needs it.
+
+**The proof is control of the mailbox on the account.** The sender is asked for
+the email they sign in with, a six-digit code is emailed to it, and typing that
+code back writes a `whatsapp_identities` row binding `wa_phone` to `user_id`.
+Every lookup keys on that row. `shipping_phone` is read by nothing.
+
+**What is deliberately absent from every sentence.** Whether an address has a
+Visionex account. `whatsapp_link_request` returns `status: 'sent'` for an
+address with an account and for one without, and only an internal `deliver`
+flag differs; a wrong code and a code for an unregistered address both return
+`'invalid'`. Without that symmetry this feature is an oracle for testing who is
+a customer, one address at a time. The email is also sent **after** the reply
+goes out, so the *timing* says nothing either.
+
+**Where each decision lives.** All of them in SQL, in one transaction, under
+`FOR UPDATE`: 60 seconds between codes, five per hour per number, three per
+hour per mailbox, five wrong attempts, ten minutes' life. Two deliveries of the
+same wrong code arriving at once cannot spend two attempts and report three.
+
+**What the code is, and is not.** Six digits from `crypto.getRandomValues` with
+rejection sampling rather than `% 1e6`, and what reaches the database is an
+HMAC-SHA256 of it keyed with `WHATSAPP_APP_SECRET` — which the webhook already
+refuses to start without. A bare digest of six digits is a million-row table to
+anyone holding a copy of this one; a keyed one is not.
+
+**What the lookup returns.** Status, date, shop, totals, an eight-character
+reference. No shipping address, no email, no phone. If it ever ran for the
+wrong person there would be nothing there to disclose — which is the property
+worth having, rather than a promise that it never will.
+
+**No new edge function.** The project is at 92 of 100, so this is five SQL
+functions, one shared module and one block in the webhook. The email goes
+through the `RESEND_API_KEY` that `deploy.yml` already syncs and
+`bazaar-notify-seller` already uses.
+
+**In the menu, because a capability nobody is told about does not exist.**
+`services.orders` is a `phrase`-backed leaf, named in all twenty languages, so
+tapping the row and typing «طلباتي» reach the same parser. The flow sits after
+the navigation engine, which means `#`, `0` and the session timeout cancel a
+half-finished link without this feature implementing any of that.
+
+**Two refusals inside the flow.** A voice note during the email or code step is
+declined in favour of typing — a misheard address or a misheard digit fails
+silently and looks like the feature is broken — and a message that is neither a
+code nor an account request closes the flow quietly rather than nagging.
+
+**Verified by execution, not by reading.** The migration was run against PGlite
+with stub `auth.users` and `bazaar_*` tables: 26 assertions covering the
+throttles, the attempt lock, expiry, the verified-pair constraint, the sweep,
+re-running the migration twice — and the one that matters most, that a number
+written on an order's `shipping_phone` gets **zero rows**.
+
+**One bug that PGlite caught before production.** The five functions were
+revoked from `PUBLIC` without being granted back to `service_role`, so every
+RPC the webhook makes would have failed with "permission denied for function".
+`decide_owner_approval` pairs the two lines; this now does too, and a test
+asserts both halves for all five signatures.
+
+**Still the website's job:** placing an order. A checkout is a payment.
+
+---
+
+## Phase 24 — Retention, actually scheduled · **DONE**
+
+Four housekeeping functions existed and none had ever run:
+`whatsapp_prune_transcripts`, `whatsapp_forget_locations`,
+`sweep_whatsapp_geo_cache`, `sweep_whatsapp_speech_cache`. Each was written
+with its `cron.schedule` call commented out and the same reason above it —
+pg_cron is enabled per environment, and a migration that assumes it fails on
+the ones without it.
+
+**That reason expired on 2026-08-08.** `20260808000000_library_enable_pg_cron.sql`
+installs the extension on this project and registers three Library jobs with
+bare `SELECT cron.schedule(...)` calls. The WhatsApp jobs simply never followed.
+Phase 18 recorded the consequence for transcripts; the location one is worse and
+was not recorded: the read path stops using a pin after six hours
+(`LOCATION_TTL_MS`), so coordinates were unusable *and* still there.
+
+`20260927000000_whatsapp_retention_schedule.sql` registers all four.
+`whatsapp-forget-locations` runs hourly with **six** hours, not the twenty-four
+the original comment suggested, and a test pins that number to `LOCATION_TTL_MS`
+so the two cannot drift.
+
+**It warns rather than swallowing.** The Library migration's own header records
+what the alternative cost: three jobs wrapped in `EXCEPTION WHEN OTHERS THEN
+NULL` silently no-op'd for months and nobody found out. A missing extension is
+still not a reason to fail a deploy, but it is a reason to say so in the log,
+and `RAISE WARNING` reaches the log where `NULL` reaches nobody. Executed
+against PGlite — which has no pg_cron — to confirm that path is the one taken.
+
+---
+
+## Phase 19 revisited — the notices, in twenty languages · **DONE for the notices**
+
+The open item was recorded as a translation task. It was, and it also concealed
+a crash.
+
+**The crash.** `aliasesOf` in `whatsappCatalog.ts` read `node.aliases[language]`
+on a table typed with only `ar` and `en`. For any of the other eighteen
+languages that spread `undefined` and threw
+`TypeError: node.aliases[language] is not iterable` — and every typed message
+reaches that function through the router. A Turkish, Urdu or Hindi sender was
+therefore met with an error instead of an answer, **on every message**, not
+only in the menu. It was found by running `deno check` over the shared modules,
+which nothing in CI had ever done: `ci.yml` excludes `supabase/functions/` from
+linting and the Vitest suite reads the webhook as text. One line fixes it —
+English aliases when a language has none, exactly the fallback `localized`
+already makes one line above — and `.github/workflows/whatsapp-deno-check.yml`
+now type-checks every `_shared/whatsapp*.ts` on every change to one. All of them
+pass today, so a red result there is a regression rather than a backlog.
+
+**The translation.** Twenty-six refusals moved out of the five feature modules
+that owned them and into `whatsappStrings.ts`, where the rest of the interface's
+vocabulary lives, and gained the other eighteen languages in
+`whatsappStringsLocales.ts`. The Arabic and English wording is carried over
+unchanged, with one exception noted in the file: "pick up again shortly" became
+"carry on shortly", because moving the sentence into the interface's vocabulary
+put it under the guard that bans keypad words and that guard reads `\bpick\b`.
+
+Covered: handover, rate limit, provider failure, unsupported message type, every
+attachment refusal (unreadable, no reader, unsupported format, scanned PDF,
+empty, password-protected, video too long), all five media-download failures,
+all four voice-note failures, and the three Office ones. Plus the twenty-eight
+new strings Phase 23 needed, which were written in twenty from the start.
+
+**One deliberate wording change.** `mediaFailureNotice` interpolated the kind in
+English — "I can't read that image format" — and never did in Arabic. Twenty
+languages made that a decision rather than an accident, and the Arabic was
+right: dropping an English noun into another language's sentence reads badly,
+and a screen reader announces the switch mid-sentence. The kind stays in the
+signature, because it belongs in the log line.
+
+**What is still two languages, stated precisely.** Not the refusals — the
+*formatters*: the WMO condition words in `whatsappWeather.ts`, its day names,
+the compass points and category labels in `whatsappLocation.ts`, the bazaar
+listing block, the vision-mode names and the voice explainer. A Turkish sender
+asking about the weather gets a Turkish conversation and an English forecast
+card. That is a smaller and more visible gap than the one just closed, it is
+~600 more strings plus an `Intl` pass for the day names, and it is the next
+piece of this work rather than a caveat on it.
+
+---
+
+## Quality gate for Phases 23, 24 and 19-revisited
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` (`tsc -b`) | PASS |
+| `npm test` | 2762 passed, 0 failed, across 153 files |
+| `npm run build` | PASS |
+| `deno check` on every `_shared/whatsapp*.ts` | PASS — 40 modules, and it is now a workflow |
+| SQL executed, not reviewed | PGlite: migration applied, re-applied, 26 behavioural assertions |
+| Guard re-run against known-bad input | the alias guard was confirmed to fail against the line it replaced |
+
+The one failing file, `src/test/whatsapp-business-profile.test.ts`, fails to
+load on this Windows checkout with every change here stashed. It is a line
+endings problem in the repository, not a regression from this work.
+
+**Not verified.** No live handset, and no real email delivered: Resend was
+exercised through an injected fetcher, not against the account. The first real
+link on the production number is the thing left to watch, and the honest place
+to watch it is the first `account_link` log line with `outcome: "verified"`.

@@ -1,0 +1,66 @@
+name: WhatsApp — Deno type check
+
+# Why this exists, specifically.
+#
+# `ci.yml` excludes `supabase/functions/` from its lint job and the Vitest suite
+# reads the webhook as *text*, so nothing anywhere type-checked these modules.
+# What that cost: `aliasesOf` indexed `node.aliases[language]` on a table with
+# only `ar` and `en` in it, so every one of the other eighteen languages spread
+# `undefined` and threw `TypeError: node.aliases[language] is not iterable`.
+# Every typed message reaches that function. A Turkish or Urdu sender met an
+# error instead of an answer, on every message, and no test noticed because no
+# test executed the router in their language and no checker read the types.
+#
+# `deno check` catches exactly that class of thing, and it passed on every
+# `_shared/whatsapp*.ts` module the day this workflow was added — so a failure
+# here is a regression, not a pre-existing backlog to ignore.
+#
+# The webhook's own `index.ts` is deliberately **not** checked: it has 34
+# pre-existing errors, all the same shape (`Property 'x' does not exist on type
+# 'GenericStringError'`, from an untyped `.select()`), and a gate that is red
+# from the first day is a gate people learn to ignore. Typing that client is its
+# own piece of work; until then this covers the pure modules, which is where the
+# logic lives.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/_shared/whatsapp*.ts"
+      - ".github/workflows/whatsapp-deno-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/_shared/whatsapp*.ts"
+      - ".github/workflows/whatsapp-deno-check.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deno-check:
+    name: deno check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type check the shared WhatsApp modules
+        shell: bash
+        run: |
+          mapfile -t SHARED < <(find supabase/functions/_shared -maxdepth 1 -type f -name "whatsapp*.ts" | sort)
+          if [ "${#SHARED[@]}" -eq 0 ]; then
+            echo "No shared WhatsApp modules found — nothing to check."
+            exit 0
+          fi
+          failed=0
+          for f in "${SHARED[@]}"; do
+            echo "::group::$f"
+            if ! deno check --no-lock "$f"; then
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$failed"

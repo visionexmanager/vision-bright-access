@@ -263,7 +263,7 @@ describe("the seam itself", () => {
 
   it("answers a failed, timed-out or empty ask with the same friendly sentence", () => {
     const askBlock = webhook.slice(webhook.indexOf("const asked = await askAssistant("), webhook.indexOf("const parts = splitAnswer("));
-    expect(askBlock).toContain('await reply(failureNotice(language), "handover");');
+    expect(askBlock).toContain('await reply(failureNotice(answerLanguage), "handover");');
     expect(askBlock.match(/await reply\(failureNotice/g)?.length).toBe(1);
   });
 });

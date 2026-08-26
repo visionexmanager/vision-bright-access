@@ -17,6 +17,8 @@
 
 import { GRAPH_BASE } from "./meta.ts";
 import { trace } from "./whatsappTelemetry.ts";
+import type { Language } from "./whatsappCatalog.ts";
+import { say } from "./whatsappStrings.ts";
 
 /** Hosts Meta serves media from. Anything else is refused before a request. */
 const ALLOWED_MEDIA_HOSTS = [
@@ -193,25 +195,27 @@ export async function downloadMedia(params: {
   return { ok: true, bytes: buffer, mimeType: descriptor.mimeType.split(";")[0].trim() };
 }
 
-/** Told to the user when their attachment could not be used, and why. */
+/**
+ * Told to the user when their attachment could not be used, and why.
+ *
+ * The English used to name the kind — "I can't read that image format" — and
+ * the Arabic never did, because dropping an English noun into an Arabic
+ * sentence reads badly and a screen reader announces the switch mid-sentence.
+ * Twenty languages made that difference a decision rather than an accident, and
+ * the Arabic was right: `kind` is no longer part of the sentence. It stays in
+ * the signature because every caller passes it and it belongs in the log line.
+ */
 export function mediaFailureNotice(
-  language: "ar" | "en",
-  kind: MediaKind,
+  language: Language,
+  _kind: MediaKind,
   reason: MediaFailure,
 ): string {
-  const en: Record<MediaFailure, string> = {
-    not_found: "I couldn't open that attachment — it may have expired. Please send it again.",
-    blocked_host: "I couldn't open that attachment safely. Please describe it in text and I'll help.",
-    unsupported_type: `I can't read that ${kind} format. Try a common one, or describe it in text.`,
-    too_large: `That ${kind} is too large for me to process. Please send a smaller one.`,
-    download_failed: "I couldn't download that attachment. Please try sending it again.",
-  };
-  const ar: Record<MediaFailure, string> = {
-    not_found: "تعذّر فتح المرفق، ربما انتهت صلاحيته. أعد إرساله من فضلك.",
-    blocked_host: "تعذّر فتح المرفق بأمان. صف لي المحتوى نصاً وسأساعدك.",
-    unsupported_type: "لا أستطيع قراءة هذه الصيغة. جرّب صيغة شائعة أو صف المحتوى نصاً.",
-    too_large: "حجم الملف كبير جداً للمعالجة. أرسل ملفاً أصغر من فضلك.",
-    download_failed: "تعذّر تنزيل المرفق. حاول إرساله مرة أخرى.",
-  };
-  return language === "ar" ? ar[reason] : en[reason];
+  const key = {
+    not_found: "mediaNotFound",
+    blocked_host: "mediaBlockedHost",
+    unsupported_type: "mediaUnsupportedType",
+    too_large: "mediaTooLarge",
+    download_failed: "mediaDownloadFailed",
+  } as const;
+  return say(key[reason], language);
 }

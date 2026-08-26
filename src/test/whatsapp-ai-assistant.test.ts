@@ -241,7 +241,7 @@ describe("voice", () => {
     // Transcription runs before the engine, and its own failure notices are the
     // ones that answer. Since the voice phase both steps are composed by
     // `voiceToText`, which calls the same two functions and adds a clock.
-    expect(webhook).toContain("transcriptionFailureNotice(language, noticeReasonFor(turn.reason))");
+    expect(webhook).toContain("transcriptionFailureNotice(answerLanguage, noticeReasonFor(turn.reason))");
     expect(webhook).toContain("transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),");
     expect(webhook.indexOf("voiceToText(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
     // A failed transcription never reaches the provider.
@@ -262,7 +262,7 @@ describe("voice", () => {
       webhook.indexOf('if (asked.status !== "answered")'),
       webhook.indexOf('log("ai_answered"'),
     );
-    expect(failure).toContain("failureNotice(language)");
+    expect(failure).toContain("failureNotice(answerLanguage)");
     expect(failure).toContain("await saveSession();");
     expect(failure).toContain('await escalate("ai_unavailable");');
     // Nothing about the provider reaches the sender, or the log. Comments are

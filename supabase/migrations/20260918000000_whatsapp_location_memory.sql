@@ -110,9 +110,9 @@ REVOKE ALL ON FUNCTION public.whatsapp_forget_locations(integer) FROM authentica
 COMMENT ON FUNCTION public.whatsapp_forget_locations(integer) IS
   'Clears cached WhatsApp locations older than _hours (minimum 1). Service role only. Separate from whatsapp_prune_transcripts: a six-hour-useful coordinate should not wait on a ninety-day retention clock.';
 
--- Scheduled where pg_cron is enabled, as a comment for the same reason every
--- other recovery job in this repository is: the extension is enabled per
--- environment, and a migration that assumes it fails on the ones without it.
---
---   select cron.schedule('forget-whatsapp-locations', '15 * * * *',
---     $$select public.whatsapp_forget_locations(24)$$);
+-- SCHEDULED. Left as a comment on the same mistaken premise as the transcript
+-- prune (see 20260916020000): pg_cron is installed on this project by
+-- 20260808000000_library_enable_pg_cron.sql, and
+-- 20260927000000_whatsapp_retention_schedule.sql registers this job for real as
+--   whatsapp-forget-locations, hourly at :15, six hours — not the twenty-four
+--   suggested here, because six is the TTL the read path already enforces.

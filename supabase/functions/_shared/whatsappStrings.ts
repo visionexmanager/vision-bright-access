@@ -287,6 +287,249 @@ const BASE_STRINGS = {
     ar: "هذا أول سؤال.",
     en: "This is the first question.",
   },
+
+  // ── Linking a number to an account, and the orders it unlocks ─────────────
+  //
+  // Every sentence here is written to be true whether or not the address the
+  // sender typed has an account behind it. "A code is on its way" is said to
+  // both, and a wrong code fails with the same words as a code for an address
+  // nobody registered — otherwise this feature becomes a way to find out who
+  // has a Visionex account, one email address at a time.
+
+  /** Asked when somebody wants their orders and this number is not linked. */
+  linkAskEmail: {
+    ar: "لأجد طلباتك أحتاج أن أعرف أي حساب Visionex يخصّك. أرسل البريد الإلكتروني الذي تدخل به إلى الموقع، وسأرسل إليه رمزاً من ست خانات.",
+    en: "To find your orders I need to know which Visionex account is yours. Send the email address you sign in with and I'll email it a six-digit code.",
+  },
+  /** Said after a code request, whether or not there was anywhere to send it. */
+  linkCodeSent: {
+    ar: "إن كان لهذا البريد حساب في Visionex فالرمز في طريقه إليه الآن. أرسل لي الرمز — صالح لعشر دقائق.",
+    en: "If that address has a Visionex account, a six-digit code is on its way to it. Send me the code — it's good for ten minutes.",
+  },
+  /** One code a minute. */
+  linkCooldown: {
+    ar: "أرسلت رمزاً قبل قليل. أمهله دقيقة، ثم راجع بريدك ومجلد الرسائل غير المرغوبة.",
+    en: "I've just sent a code. Give it a minute, then check your inbox and your spam folder.",
+  },
+  linkThrottled: {
+    ar: "طلبات كثيرة للرمز في وقت قصير. سأتوقف عن هذا مدة ساعة — لا شيء ضاع، وطلباتك في مكانها.",
+    en: "That's a lot of code requests in a short time. I'll pause this for an hour — nothing is lost and your orders stay where they are.",
+  },
+  linkAlreadyLinked: {
+    ar: "هذا الرقم مربوط بحساب Visionex بالفعل. اكتب «فك الربط» أولاً إن أردت ربط حساب آخر.",
+    en: "This number is already linked to a Visionex account. Say \"unlink\" first if you want to connect a different one.",
+  },
+  linkVerified: {
+    ar: "تم — صار هذا الرقم مربوطاً بحسابك في Visionex. اسألني عن طلباتك متى شئت.",
+    en: "Done — this number is linked to your Visionex account. Ask me about your orders any time.",
+  },
+  /** Carries `{n}`, the number of tries left. A translation must keep it. */
+  linkCodeWrong: {
+    ar: "هذا الرمز غير صحيح. تأكد منه وأرسله مرة أخرى — بقيت لك {n} محاولات.",
+    en: "That code didn't work. Check it and send it again — {n} tries left.",
+  },
+  linkCodeExpired: {
+    ar: "انتهت صلاحية هذا الرمز. اكتب «اربط حسابي» وسأرسل رمزاً جديداً.",
+    en: "That code has expired. Say \"link my account\" and I'll send a fresh one.",
+  },
+  linkCodeLocked: {
+    ar: "محاولات خاطئة كثيرة، فألغيت ذلك الرمز. اكتب «اربط حسابي» لنبدأ من جديد.",
+    en: "Too many wrong codes, so I've cancelled that one. Say \"link my account\" to start again.",
+  },
+  linkNoCodePending: {
+    ar: "لا أنتظر رمزاً الآن. اكتب «اربط حسابي» إن أردت ربط حسابك في Visionex.",
+    en: "I'm not waiting for a code right now. Say \"link my account\" if you'd like to connect your Visionex account.",
+  },
+  linkUnlinked: {
+    ar: "تم فك الربط. نسيت أي حساب Visionex يخصّ هذا الرقم.",
+    en: "Unlinked. I've forgotten which Visionex account this number belongs to.",
+  },
+  linkNotLinked: {
+    ar: "هذا الرقم غير مربوط بأي حساب Visionex، فلا شيء لفكّه.",
+    en: "This number isn't linked to any Visionex account, so there's nothing to disconnect.",
+  },
+
+  /** The three lines of the email itself. Sent, not shown in the chat. */
+  linkEmailSubject: {
+    ar: "رمز ربط واتساب بحسابك في Visionex",
+    en: "Your Visionex WhatsApp code",
+  },
+  linkEmailIntro: {
+    ar: "طُلب ربط حساب Visionex هذا برقم واتساب. اكتب هذا الرمز في محادثة واتساب للتأكيد:",
+    en: "Someone asked to link this Visionex account to a WhatsApp number. Type this code into the WhatsApp chat to confirm:",
+  },
+  linkEmailWarning: {
+    ar: "إن لم تكن أنت، تجاهل هذه الرسالة — لا يحدث أي ربط قبل إدخال الرمز، وتنتهي صلاحيته خلال عشر دقائق.",
+    en: "If that wasn't you, ignore this email — nothing is linked until the code is entered, and it expires in ten minutes.",
+  },
+
+  ordersHeading: {
+    ar: "*آخر طلباتك*",
+    en: "*Your recent orders*",
+  },
+  ordersNone: {
+    ar: "لا توجد طلبات في حسابك على Visionex حتى الآن.",
+    en: "There are no orders on your Visionex account yet.",
+  },
+  ordersFooter: {
+    ar: "التفاصيل الكاملة والعناوين والفواتير في visionex.app ضمن «طلباتي».",
+    en: "Full details, addresses and invoices are on visionex.app under My orders.",
+  },
+  /** An order whose items are gone from the catalogue still has to be named. */
+  ordersItemsUnknown: {
+    ar: "طلب",
+    en: "Order",
+  },
+  orderReference: {
+    ar: "الرقم المرجعي:",
+    en: "Reference:",
+  },
+
+  // The eight states `bazaar_orders.status` allows, in words rather than in
+  // the database's vocabulary. "payment_failed" read aloud is not a sentence.
+  orderPending: { ar: "بانتظار الدفع", en: "Waiting for payment" },
+  orderPaid: { ar: "مدفوع", en: "Paid" },
+  orderProcessing: { ar: "قيد التجهيز", en: "Being prepared" },
+  orderShipped: { ar: "في الطريق إليك", en: "On its way" },
+  orderCompleted: { ar: "تم التسليم", en: "Delivered" },
+  orderCancelled: { ar: "ملغى", en: "Cancelled" },
+  orderRefunded: { ar: "أُعيد المبلغ", en: "Refunded" },
+  orderPaymentFailed: { ar: "لم تتم عملية الدفع", en: "Payment didn't go through" },
+
+  // ── The refusals, moved here from the features that owned them ───────────
+  //
+  // These sentences are older than this file and were written when the
+  // assistant answered in two languages. They stayed `"ar" | "en"` while the
+  // menu learned eighteen more, which meant a Turkish sender was welcomed in
+  // Turkish, answered in Turkish, and then told in English that their PDF was a
+  // scan — the one message in the conversation they could not read, at the one
+  // moment they needed to know what to do next.
+  //
+  // The Arabic and English wording below is carried over **unchanged**: nothing
+  // an existing sender reads today is different, and the eighteen additions in
+  // `whatsappStringsLocales.ts` are translations of exactly these.
+
+  /** Said when the conversation is handed to a person. */
+  noticeHandover: {
+    ar: "سأحوّل هذه المحادثة إلى فريق Visionex ليتابعها معك. تم تسجيل رسالتك، وسيتواصل معك أحد أفراد الفريق.",
+    en: "I'm passing this conversation to the Visionex team so they can follow up. Your message has been logged and someone from the team will get back to you.",
+  },
+  /** Said once per window to a sender who is being throttled. */
+  noticeRateLimit: {
+    ar: "وصلتني رسائل كثيرة بسرعة. سأتوقف قليلاً ثم أتابع معك — رسائلك محفوظة ولن تضيع. إذا كان الأمر عاجلاً راسلنا على https://visionex.app/contact",
+    // "pick up again" became "carry on": moving this sentence into the
+    // interface's vocabulary put it under the guard that bans keypad words, and
+    // that guard reads `\bpick\b` without knowing which sense was meant. One
+    // verb is a cheaper answer than a guard with an exception in it.
+    en: "That's a lot of messages very quickly, so I'll pause briefly and carry on shortly — nothing you sent is lost. If it's urgent, reach us at https://visionex.app/contact",
+  },
+  /** Said when no provider could answer, so the sender is never left silent. */
+  noticeAiFailure: {
+    ar: "تعذّر عليّ الرد الآن. تم تسجيل رسالتك وسيتابعها فريق Visionex. يمكنك أيضاً مراسلتنا عبر https://visionex.app/contact",
+    en: "I couldn't answer just now. Your message has been logged and the Visionex team will follow up. You can also reach us at https://visionex.app/contact",
+  },
+  /** Carries `{kind}`, the kind of message. A translation must keep it. */
+  noticeUnsupportedType: {
+    ar: "لا أستطيع قراءة هذا النوع من الرسائل ({kind}) بعد. لو سمحت اكتب طلبك كنص وسأساعدك مباشرة.",
+    en: "I can't read that kind of message ({kind}) yet. Please describe it in text and I'll help right away.",
+  },
+
+  noticeVideoTooLong: {
+    ar: "الفيديو أطول مما أستطيع مشاهدته. أرسل مقطعاً قصيراً أو لقطة شاشة، أو صف المشكلة نصاً.",
+    en: "That video is longer than I can watch. Send a short clip or a screenshot, or describe the problem in text.",
+  },
+  noticeUnreadableImage: {
+    ar: "لم أتمكن من قراءة الصورة بوضوح كافٍ للإجابة. جرّب صورة أوضح، أو اكتب لي ما تريد معرفته.",
+    en: "I couldn't read that image clearly enough to answer. Try a sharper photo, or tell me what you'd like to know.",
+  },
+  noticeUnreadableDocument: {
+    ar: "لم أتمكن من قراءة هذا الملف. جرّب PDF أو ملفاً نصياً، أو اكتب لي المحتوى.",
+    en: "I couldn't read that file. A PDF or a text file works best, or you can type the details.",
+  },
+  noticeUnreadableVideo: {
+    ar: "لم أتمكن من فهم الفيديو. جرّب لقطة شاشة أو صف المشكلة نصاً.",
+    en: "I couldn't make out what's in that video. A screenshot or a written description works better.",
+  },
+  noticeNoReaderDocument: {
+    ar: "لا أستطيع قراءة ملفات PDF حالياً. أرسل لقطة شاشة للصفحة المهمة، أو انسخ النص في رسالة وسأساعدك.",
+    en: "I can't read PDF files at the moment. Send a screenshot of the page that matters, or paste the text into a message, and I'll help.",
+  },
+  noticeNoReaderVideo: {
+    ar: "لا أستطيع مشاهدة مقاطع الفيديو حالياً. أرسل لقطة شاشة للحظة المهمة، أو صف ما يحدث نصاً وسأساعدك.",
+    en: "I can't watch videos at the moment. Send a screenshot of the moment that matters, or describe what happens, and I'll help.",
+  },
+  noticeUnsupportedDocument: {
+    ar: "لا أستطيع فتح هذه الصيغة. أستطيع قراءة PDF وWord وPowerPoint والملفات النصية — أرسله بإحداها، أو انسخ النص في رسالة.",
+    en: "I can't open that format. I can read PDF, Word, PowerPoint and text files — send it as one of those, or paste the text into a message.",
+  },
+  noticeScannedPdf: {
+    ar: "هذا الملف يبدو صوراً ممسوحة ضوئياً بدون نص يمكن استخراجه. صوّر الصفحة المهمة وأرسلها كصورة وسأقرأها لك.",
+    en: "That PDF looks like scanned images with no text layer. Photograph the page that matters and send it as a picture — I read those well.",
+  },
+  noticeEmptyDocument: {
+    ar: "الملف وصل لكنه فارغ — لا يوجد نص لأقرأه. تأكد من إرسال الملف الصحيح.",
+    en: "The file arrived but it's empty — there's no text in it to read. Check you sent the file you meant to.",
+  },
+  noticeEncryptedDocument: {
+    ar: "هذا الملف محمي بكلمة مرور فلا أستطيع فتحه. احفظ نسخة بدون حماية وأرسلها، أو انسخ النص المهم في رسالة.",
+    en: "That file is password-protected, so I can't open it. Save an unprotected copy and send that, or paste the part that matters into a message.",
+  },
+
+  // The five ways an attachment fails before anything reads it. The English
+  // originals named the kind — "I can't read that image format" — and the
+  // Arabic did not, because inserting an English word into an Arabic sentence
+  // reads badly and a screen reader announces the language switch. The
+  // eighteen new ones follow the Arabic.
+  mediaNotFound: {
+    ar: "تعذّر فتح المرفق، ربما انتهت صلاحيته. أعد إرساله من فضلك.",
+    en: "I couldn't open that attachment — it may have expired. Please send it again.",
+  },
+  mediaBlockedHost: {
+    ar: "تعذّر فتح المرفق بأمان. صف لي المحتوى نصاً وسأساعدك.",
+    en: "I couldn't open that attachment safely. Please describe it in text and I'll help.",
+  },
+  mediaUnsupportedType: {
+    ar: "لا أستطيع قراءة هذه الصيغة. جرّب صيغة شائعة أو صف المحتوى نصاً.",
+    en: "I can't read that format. Try a common one, or describe it in text.",
+  },
+  mediaTooLarge: {
+    ar: "حجم الملف كبير جداً للمعالجة. أرسل ملفاً أصغر من فضلك.",
+    en: "That file is too large for me to process. Please send a smaller one.",
+  },
+  mediaDownloadFailed: {
+    ar: "تعذّر تنزيل المرفق. حاول إرساله مرة أخرى.",
+    en: "I couldn't download that attachment. Please try sending it again.",
+  },
+
+  voiceTooLong: {
+    ar: "الرسالة الصوتية أطول مما أستطيع معالجته. أرسل واحدة أقصر أو اكتب سؤالك.",
+    en: "That voice note is longer than I can process. Please send a shorter one, or type your question.",
+  },
+  voiceEmpty: {
+    ar: "لم أسمع شيئاً في الرسالة الصوتية. جرّب في مكان أهدأ أو اكتب سؤالك.",
+    en: "I couldn't hear anything in that voice note. Please try again somewhere quieter, or type your question.",
+  },
+  voiceNoProvider: {
+    ar: "لا أستطيع الاستماع للرسائل الصوتية حالياً. اكتب سؤالك وسأساعدك.",
+    en: "I can't listen to voice notes right now. Please type your question and I'll help.",
+  },
+  voiceUnclear: {
+    ar: "لم أفهم الرسالة الصوتية. حاول مرة أخرى أو اكتب سؤالك.",
+    en: "I couldn't understand that voice note. Please try again, or type your question.",
+  },
+
+  officeEmptyDeck: {
+    ar: "فتحت العرض التقديمي لكن لا يوجد نص فيه — يبدو أنه صور فقط. أرسل صورة الشريحة المهمة وسأصفها لك.",
+    en: "I opened the deck but there's no text in it — it looks like images only. Send a photo of the slide you need and I'll describe it.",
+  },
+  officeEmptyDocument: {
+    ar: "فتحت الملف لكن لا يوجد نص فيه — قد يكون صوراً أو جدول أرقام. أرسل صورة الصفحة المهمة وسأقرأها.",
+    en: "I opened the file but there's no text in it — it may be images, or a table of figures. Send a photo of the page you need and I'll read it.",
+  },
+  officeCorrupt: {
+    ar: "لم أتمكن من فتح هذا الملف — يبدو أنه تالف أو غير مكتمل. جرّب إرساله بصيغة PDF.",
+    en: "I couldn't open that file — it looks damaged or incomplete. Try sending it as a PDF instead.",
+  },
 } as const;
 
 export type UiKey = keyof typeof BASE_STRINGS;

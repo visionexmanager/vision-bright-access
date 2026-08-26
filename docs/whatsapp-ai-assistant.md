@@ -286,6 +286,49 @@ Two guards matter more than the search does:
 Selling is explained, not performed: `bazaar_shops.owner_id` references
 `auth.users`, and a phone number is not an account.
 
+### My orders · `whatsappIdentity.ts` + `whatsapp_identities`
+
+`وين طلبي`, `where is my order`, and the *My orders* row under Services.
+
+A phone number is still not an account — which is exactly why this feature
+exists in the shape it does. The only phone number on an order is
+`bazaar_orders.shipping_phone`: unverified free text the buyer typed at
+checkout, not unique, and frequently somebody else's — a spouse, a colleague, a
+courier. Matching an inbound WhatsApp number against it would read one person's
+order history to whoever holds their courier's phone, so **nothing here ever
+looks at that column**.
+
+Instead the number is bound to an account by proof:
+
+1. The sender is asked for the email address they sign in with.
+2. A six-digit code is emailed to it — out of band, over a channel they must
+   already control. The same proof a password reset uses.
+3. They type the code back. Only then is a `whatsapp_identities` row written,
+   and only that row is ever used for a lookup.
+
+Five things that are properties of the design rather than details of it:
+
+- **The reply is the same whether or not that address has an account.** "If that
+  address has a Visionex account, a code is on its way to it" is said to every
+  address, and a wrong code fails with the same words as a code for an address
+  nobody registered. Otherwise this becomes a way to test who is a Visionex
+  customer, one email at a time.
+- **The code is never stored.** The edge function keeps an HMAC of it, keyed
+  with `WHATSAPP_APP_SECRET`, so a service-role read of the table yields nothing
+  replayable — and nothing precomputable either, which a bare SHA-256 of six
+  digits would be.
+- **Every limit is enforced in the database, in one transaction**: 60 seconds
+  between codes, five an hour per number, three an hour per mailbox (somebody
+  else's inbox is not a place to deliver codes from five different phones), five
+  wrong attempts before the code dies, ten minutes' life.
+- **The lookup returns what "where is my order" means** — status, date, shop,
+  totals, a reference — and no shipping address, email or phone. If it ever ran
+  for the wrong person there would be nothing there to disclose.
+- **Unlinking is a delete**, not a flag, and abandoned attempts are swept hourly.
+
+Placing an order still needs the website: a checkout is a payment, and payments
+do not belong in a chat window.
+
 ### PDFs, which now actually get read
 
 PDF reading was Gemini-only and therefore **switched off** — `DOCUMENT_TARGETS`
@@ -326,6 +369,15 @@ answer "the account has no credit".
 Never the sender's phone number, never their message, never anything tying a
 coordinate to a person. Every call has a deadline and fails to a sentence the
 sender can act on.
+
+One more service leaves the function, and unlike the four above it is not
+keyless and not anonymous: **Resend** receives an email address and a six-digit
+code when somebody asks to link their account, through the same
+`RESEND_API_KEY` `bazaar-notify-seller` already uses. It receives the address
+the sender typed and nothing else — no phone number, no conversation, no order.
+It is only ever called for an address that has a confirmed Visionex account, and
+the sender is told the same sentence either way, so the call itself discloses
+nothing back into the chat.
 
 > **Open follow-up.** `src/pages/legal/PrivacyPolicy.tsx` renders a
 > `THIRD_PARTIES` list from i18n keys. These four processors are not in it yet.
