@@ -55,10 +55,17 @@ jobs:
             echo "No shared WhatsApp modules found — nothing to check."
             exit 0
           fi
+          # `--node-modules-dir=none` matters and is not a tidy-up. The
+          # repository has a package.json and CI has no node_modules, so
+          # without it Deno insists on resolving `npm:pdf-parse@1.1.1` — which
+          # `whatsappPdfText.ts` imports — out of a directory that does not
+          # exist, and the whole run fails on an environment difference rather
+          # than on a type error. With it, npm specifiers come from Deno's own
+          # cache and nothing has to be installed first.
           failed=0
           for f in "${SHARED[@]}"; do
             echo "::group::$f"
-            if ! deno check --no-lock "$f"; then
+            if ! deno check --no-lock --node-modules-dir=none "$f"; then
               failed=1
             fi
             echo "::endgroup::"
