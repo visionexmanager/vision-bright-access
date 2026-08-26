@@ -531,3 +531,45 @@ describe("the WhatsApp reply path", () => {
     expect(block).not.toMatch(/console\.[a-z]+\([^)]*(resolved|voice_id|data)\b/);
   });
 });
+
+describe("the voice RPCs are reachable only by service_role", () => {
+  const fix = readFileSync(
+    "supabase/migrations/20260930000000_voice_rpc_isolation_fix.sql",
+    "utf8",
+  );
+
+  const PRIVILEGED = [
+    "whatsapp_voice_options",
+    "whatsapp_select_voice",
+    "whatsapp_resolve_voice",
+    "vs_expired_sample_batch",
+    "vs_mark_samples_deleted",
+    "vs_mark_samples_delete_failed",
+  ];
+
+  it("revokes from anon and authenticated, not only from PUBLIC", () => {
+    // `REVOKE ... FROM PUBLIC` reads like isolation and is not: Supabase grants
+    // EXECUTE on public-schema functions to `anon` and `authenticated`
+    // explicitly, and revoking from PUBLIC leaves a named grant standing. All
+    // six of these were callable with the publishable key in production until
+    // this migration — two of them mutating, one destroying another user's rows.
+    expect(fix).toContain("FROM PUBLIC, anon, authenticated");
+    expect(fix).toContain("GRANT EXECUTE ON FUNCTION %s TO service_role");
+  });
+
+  it("covers every privileged voice function by name", () => {
+    for (const name of PRIVILEGED) {
+      expect(fix, name).toContain(`'${name}'`);
+    }
+  });
+
+  it("fails loudly when a name matches nothing", () => {
+    // A renamed function that silently protects nothing is how the original
+    // defect survived a review.
+    expect(fix).toMatch(/RAISE EXCEPTION/);
+  });
+
+  it("reads signatures from the catalogue so overloads cannot be missed", () => {
+    expect(fix).toContain("p.oid::regprocedure");
+  });
+});
