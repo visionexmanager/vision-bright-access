@@ -136,6 +136,18 @@ import {
   parseNewsSelection,
   readArticles,
 } from "../_shared/whatsappNews.ts";
+import {
+  noVoicesNotice,
+  readResolvedVoice,
+  readVoiceOptions,
+  readVoiceRowId,
+  voiceChoiceRows,
+  voiceGoneNotice,
+  voiceNeedsAccountNotice,
+  voiceSelectedNotice,
+  type ResolvedVoice,
+} from "../_shared/whatsappVoiceChoice.ts";
+import { sendVoiceChoice } from "../_shared/whatsappInteractive.ts";
 import { deliverReply, replyMedium, speakReply } from "../_shared/whatsappVoiceReply.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
@@ -624,6 +636,34 @@ Deno.serve(async (req) => {
    * is a cache miss, which is the behaviour that existed before it.
    */
   const speechCache = speechCacheStore(db);
+
+  /**
+   * Which voice this sender is answered in.
+   *
+   * Null — the default — is both the common answer and the safe one. The RPC
+   * re-checks consent and lifecycle on every call rather than trusting the
+   * stored selection, so a voice revoked a moment ago stops speaking on the
+   * next message. A lookup that fails is also null: a reply going out in the
+   * ordinary voice is a far smaller problem than a reply not going out.
+   *
+   * Memoised per number for the life of one delivery, because a batch can carry
+   * several messages from the same sender and this is a round trip each time.
+   */
+  const voiceByPhone = new Map<string, ResolvedVoice | null>();
+  const resolveSenderVoice = async (waPhone: string): Promise<ResolvedVoice | null> => {
+    if (voiceByPhone.has(waPhone)) return voiceByPhone.get(waPhone) ?? null;
+    let resolved: ResolvedVoice | null = null;
+    try {
+      const { data, error } = await db.rpc("whatsapp_resolve_voice", { _wa_phone: waPhone });
+      // No provider id is logged here or anywhere else on this path.
+      if (error) console.error("[whatsapp] voice resolution failed:", describeError(error));
+      else resolved = readResolvedVoice(data);
+    } catch (e) {
+      console.error("[whatsapp] voice resolution threw:", describeError(e));
+    }
+    voiceByPhone.set(waPhone, resolved);
+    return resolved;
+  };
   const [configuredOwner, featureConfig] = await Promise.all([ownerPhone(db), readFeatureConfig(db)]);
   const disabled = featureConfig.disabled;
   /**
@@ -1032,7 +1072,7 @@ Deno.serve(async (req) => {
           {
             sendText: (text) => sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text }),
             speak: (text) =>
-              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache }),
+              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, voice: await resolveSenderVoice(incoming.from) }),
           },
         );
 
@@ -1146,7 +1186,7 @@ Deno.serve(async (req) => {
           {
             tap: (tappable) => sendTappable(delivery, tappable),
             speak: (text) =>
-              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache }),
+              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, voice: await resolveSenderVoice(incoming.from) }),
           },
         );
         // A menu that could not be spoken went out as a tappable message
@@ -1444,6 +1484,41 @@ Deno.serve(async (req) => {
        * original check downstream, which is why they need no reply of their own.
        */
       const humanOwnsThis = existing?.control === "human" || existing?.escalated === true;
+
+      // ── A tapped voice ────────────────────────────────────────────────
+      //
+      // The row id carries a slot, never an id of any kind: see
+      // `whatsappVoiceChoice.ts`. The RPC re-derives the same ordering and
+      // returns the name it actually selected, so a list that shifted between
+      // being sent and being tapped — because a voice was revoked in between —
+      // is refused rather than silently selecting its neighbour.
+      if (!humanOwnsThis && incoming.selection) {
+        const slot = readVoiceRowId(incoming.selection);
+        if (slot !== null) {
+          const { data: outcome, error: pickError } = await db
+            .rpc("whatsapp_select_voice", { _wa_phone: incoming.from, _slot: slot });
+          const picked = outcome as { ok?: boolean; name?: string | null; reason?: string } | null;
+
+          if (pickError || !picked?.ok) {
+            // 'not_linked' and 'unavailable' are told apart, because only one of
+            // them is something the sender can act on.
+            if (pickError) console.error("[whatsapp] voice selection failed:", describeError(pickError));
+            log("voice_choice", { outcome: picked?.reason ?? "error" });
+            await reply(
+              picked?.reason === "not_linked"
+                ? voiceNeedsAccountNotice(answerLanguage)
+                : voiceGoneNotice(answerLanguage),
+              "reply",
+            );
+            continue;
+          }
+
+          // Named, so the confirmation is about a voice and not about a row.
+          log("voice_choice", { outcome: picked.name ? "selected" : "default" });
+          await reply(voiceSelectedNotice(picked.name ?? null, answerLanguage), "reply");
+          continue;
+        }
+      }
 
       // ── A tapped headline ─────────────────────────────────────────────
       //
@@ -2086,7 +2161,34 @@ Deno.serve(async (req) => {
             await saveSession();
             continue;
           } else if (node.handler === "voice_settings") {
+            // The explainer first, unchanged: how replies are delivered is the
+            // question most people came here to ask, and it is answered without
+            // an account, a clone or a network round trip.
             await reply(voiceModeExplainer(answerLanguage), "reply");
+
+            // Then, for a linked sender, which of their own voices answers them.
+            // A number with no account is told how to get one rather than shown
+            // an empty list — and no lookup happens for it at all.
+            const identity = await db.rpc("whatsapp_identity_state", { _wa_phone: incoming.from });
+            const linked = (identity.data as { linked?: boolean } | null)?.linked === true;
+            if (!linked) {
+              await reply(voiceNeedsAccountNotice(answerLanguage), "reply");
+            } else {
+              const { data: rows, error: voiceError } = await db
+                .rpc("whatsapp_voice_options", { _wa_phone: incoming.from });
+              if (voiceError) {
+                console.error("[whatsapp] voice options lookup failed:", describeError(voiceError));
+                log("voice_choice", { outcome: "unavailable" });
+              } else {
+                const options = readVoiceOptions(rows);
+                if (options.length === 0) {
+                  await reply(noVoicesNotice(answerLanguage), "reply");
+                } else {
+                  await sendVoiceChoice(delivery, voiceChoiceRows(options, answerLanguage), answerLanguage);
+                  log("voice_choice", { outcome: "offered", count: options.length });
+                }
+              }
+            }
             await saveSession();
             continue;
           } else if (node.handler === "coming_soon") {

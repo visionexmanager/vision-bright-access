@@ -69,16 +69,72 @@ export function useVoiceProfiles() {
     onSuccess: () => qc.invalidateQueries({ queryKey: VS_PROFILES_KEY }),
   });
 
+/**
+   * Deleting means the provider's copy and the recordings, not just the row.
+   *
+   * The response is checked rather than assumed. It used to report success on
+   * any resolved promise, which meant "Voice profile deleted" appeared whether
+   * or not the clone still existed at ElevenLabs — and for a copy of somebody's
+   * voice, a false confirmation is worse than an error.
+   */
   const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      callVoiceStudio({ action: "delete_profile", profile_id: id }),
+    mutationFn: async (id: string) => {
+      const result = await callVoiceStudio({ action: "delete_profile", profile_id: id });
+      if (!result?.ok) throw new Error(result?.error || "The voice could not be fully removed");
+      return result;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: VS_PROFILES_KEY });
       // Also invalidate voices in case a cloned voice was added to ams_voices
       qc.invalidateQueries({ queryKey: ["ams", "voices"] });
-      toast.success("Voice profile deleted");
+      toast.success("Voice deleted, at the provider and here");
     },
-    onError: () => toast.error("Failed to delete profile"),
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Failed to delete profile"),
+  });
+
+  /**
+   * Recording consent.
+   *
+   * A voice cannot be cloned without this, and the edge function refuses
+   * regardless of what the interface allows — this is the interface being
+   * honest about the requirement, not the requirement itself.
+   */
+  const grantConsentMutation = useMutation({
+    mutationFn: ({ id, subject }: { id: string; subject: string }) =>
+      vs.grantVoiceConsent(id, subject),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: VS_PROFILES_KEY });
+      toast.success("Consent recorded");
+    },
+    onError: () => toast.error("Could not record consent"),
+  });
+
+  /**
+   * Withdrawing consent, which also destroys the voice.
+   *
+   * Somebody changing their mind should not then have to find a second button
+   * to make the copy go away, so this revokes and deletes in one act.
+   */
+  const revokeConsentMutation = useMutation({
+    mutationFn: (id: string) => vs.revokeVoiceConsent(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: VS_PROFILES_KEY });
+      qc.invalidateQueries({ queryKey: ["ams", "voices"] });
+      toast.success("Consent withdrawn, and the voice removed");
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Could not withdraw consent"),
+  });
+
+  const whatsappMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      vs.setVoiceWhatsAppEnabled(id, enabled),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: VS_PROFILES_KEY });
+      toast.success(variables.enabled ? "Available on WhatsApp" : "Removed from WhatsApp");
+    },
+    onError: () => toast.error("Could not change the WhatsApp setting"),
   });
 
   const updateFilters = useCallback((patch: Partial<VoiceProfileFilters>) => {
@@ -101,6 +157,10 @@ export function useVoiceProfiles() {
     duplicateProfile: duplicateMutation.mutate,
     toggleFavorite:  toggleFavoriteMutation.mutate,
     deleteProfile:   deleteMutation.mutate,
+    grantConsent:    grantConsentMutation.mutate,
+    revokeConsent:   revokeConsentMutation.mutate,
+    setWhatsAppEnabled: whatsappMutation.mutate,
+    isRevoking:      revokeConsentMutation.isPending,
     isCreating:      createMutation.isPending,
     isDeleting:      deleteMutation.isPending,
     invalidate:      () => qc.invalidateQueries({ queryKey: VS_PROFILES_KEY }),

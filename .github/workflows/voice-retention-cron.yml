@@ -1,0 +1,110 @@
+# Deleting the voice recordings people uploaded, once they have aged out.
+#
+# ── What this drains ────────────────────────────────────────────────────────
+#
+# A cloned voice is built from recordings of a real person. Ninety days after
+# the clone exists the recordings have served their purpose, and keeping them
+# any longer is holding somebody's voice for no reason we could give them.
+#
+# The queue is a predicate — expired, and not yet deleted — so there is nothing
+# to un-mark if a run dies half way, and running this twice is the same as
+# running it once. A profile leaves the queue only when Storage has confirmed
+# the objects are gone.
+#
+# ── Why a workflow and not pg_cron ──────────────────────────────────────────
+#
+# Storage objects can only be removed through the Storage API, which means
+# outbound HTTP with a credential. 20260913000000 already settled how this
+# repository does that: a GitHub Actions schedule calling the Edge Function,
+# rather than pg_net plus the service key and CRON_SECRET stored inside the
+# database — two credentials in a table to save one workflow file.
+#
+# ── Enabling it ─────────────────────────────────────────────────────────────
+#
+# Manual until the first run has been read. Nothing expires until ninety days
+# after the first clone is made, so there is no hurry and no backlog waiting.
+# Run it once from the Actions tab, read the counts, then restore the two lines
+# under this comment:
+#
+#   schedule:
+#     - cron: "40 3 * * *"
+#
+# Everything else is already written for scheduled operation.
+
+name: Voice retention — delete expired samples
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Maximum profiles to clear in this run"
+        required: false
+        default: "25"
+
+# Two runs deleting the same objects is harmless — Storage does not mind being
+# asked twice — but it is not useful either. Queued rather than cancelled:
+# cancelling mid-batch would leave rows the next run has to pick up anyway.
+concurrency:
+  group: voice-retention
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  drain:
+    name: Drain the retention queue
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ask the worker to clear what has expired
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          LIMIT: ${{ inputs.limit || '25' }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::Repository secrets SUPABASE_URL and CRON_SECRET must be configured."
+            exit 1
+          fi
+
+          payload=$(printf '{"action":"drain_retention","limit":%s}' "$LIMIT")
+
+          # The response carries three counts and nothing else — no profile id,
+          # no storage path, no filename, no user. This repository is public and
+          # its logs are world-readable, so that is not a detail.
+          body=$(mktemp)
+          code=$(curl -sS -X POST \
+            "$SUPABASE_URL/functions/v1/voice-studio" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            -o "$body" -w '%{http_code}')
+
+          response=$(cat "$body")
+          echo "$response"
+
+          case "$code" in
+            200)
+              failed=$(printf '%s' "$response" | grep -o '"failed":[0-9]*' | cut -d: -f2)
+              if [ -n "$failed" ] && [ "$failed" -gt 0 ]; then
+                # Not a job failure: those rows stayed in the queue on purpose
+                # and the next run retries them. A red cross every night for a
+                # condition that is already self-healing trains people to stop
+                # looking. A warning is the honest signal.
+                echo "::warning::$failed profile(s) could not have their recordings deleted and remain queued for the next run."
+              fi
+              ;;
+            401)
+              echo "::error::The worker rejected CRON_SECRET. The repository secret and the Supabase secret have diverged."
+              exit 1
+              ;;
+            503)
+              echo "::notice::The retention worker is not configured yet, so nothing was attempted."
+              exit 0
+              ;;
+            *)
+              echo "::error::The retention worker answered HTTP $code."
+              exit 1
+              ;;
+          esac

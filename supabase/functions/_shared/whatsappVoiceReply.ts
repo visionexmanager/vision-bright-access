@@ -24,6 +24,7 @@
 
 import { GRAPH_BASE } from "./meta.ts";
 import { synthesize } from "./voice/tts.ts";
+import type { ResolvedVoice } from "./whatsappVoiceChoice.ts";
 import { toBlob } from "./whatsappAttachments.ts";
 import { clampUnits } from "./whatsappSafety.ts";
 import { trace } from "./whatsappTelemetry.ts";
@@ -235,9 +236,37 @@ export type SpeechResult =
 export const SPEECH_MODEL = "tts-1";
 export const DEFAULT_VOICE = "alloy";
 
+/**
+ * The voice a segment is spoken in.
+ *
+ * Null is the default — `tts-1`/`alloy` at OpenAI — and is what every sender
+ * gets unless they have deliberately chosen one of their own cloned voices and
+ * that voice still passes its consent and lifecycle checks. Nothing about the
+ * default path changed when cloning arrived.
+ */
+export const defaultSpokenVoice = (): SpokenVoice => ({
+  provider: "openai",
+  voice: DEFAULT_VOICE,
+  model: SPEECH_MODEL,
+});
+
+export type SpokenVoice = { provider: "openai" | "elevenlabs"; voice: string; model: string };
+
+/** A resolved cloned voice, or the default when there is none. */
+export const spokenVoiceOf = (resolved: ResolvedVoice | null | undefined): SpokenVoice =>
+  resolved ? { provider: resolved.provider, voice: resolved.voice, model: resolved.model } : defaultSpokenVoice();
+
 export async function synthesiseSpeech(params: {
   text: string;
   voice?: string;
+  /**
+   * The whole voice, when it is not the default one.
+   *
+   * Takes precedence over `voice`, which named an OpenAI voice and stays for
+   * the callers and tests that pass one. A cloned voice needs three values —
+   * provider, id and model — and none of them can be inferred from the others.
+   */
+  spoken?: SpokenVoice;
   fetchImpl?: typeof fetch;
 }): Promise<SpeechResult> {
   // The call itself moved to `voice/tts.ts`, which every other synthesising
@@ -246,11 +275,14 @@ export async function synthesiseSpeech(params: {
   // a failure, which is silence plus a log line, because the text reply has
   // already been delivered and a missing voice note is an absent extra rather
   // than a lost answer.
+  // Still the one shared seam. A cloned voice is a different provider, id and
+  // model passed to the same function — not a second synthesis path.
+  const spoken = params.spoken ?? { ...defaultSpokenVoice(), voice: params.voice ?? DEFAULT_VOICE };
   const result = await synthesize({
     text: params.text,
-    provider: "openai",
-    model: SPEECH_MODEL,
-    voice: params.voice ?? DEFAULT_VOICE,
+    provider: spoken.provider,
+    model: spoken.model,
+    voice: spoken.voice,
     format: "opus",
     fetchImpl: params.fetchImpl,
     read: env,
@@ -351,13 +383,13 @@ export async function sendWhatsAppAudio(params: {
  * the cache.
  */
 export interface SpeechOperations {
-  synthesise(text: string): Promise<SpeechResult>;
+  synthesise(text: string, spoken: SpokenVoice): Promise<SpeechResult>;
   upload(bytes: Uint8Array, mimeType: string, phoneNumberId: string, token: string): Promise<string | null>;
   send(mediaId: string, phoneNumberId: string, token: string, to: string): Promise<boolean>;
 }
 
 const DEFAULT_SPEECH_OPS: SpeechOperations = {
-  synthesise: (text) => synthesiseSpeech({ text }),
+  synthesise: (text, spoken) => synthesiseSpeech({ text, spoken }),
   upload: (bytes, mimeType, phoneNumberId, token) =>
     uploadWhatsAppMedia({ phoneNumberId, token, bytes, mimeType }),
   send: (mediaId, phoneNumberId, token, to) =>
@@ -413,8 +445,18 @@ export async function speakReply(params: {
    * unreachable from a test that cannot make a send fail.
    */
   ops?: Partial<SpeechOperations>;
+  /**
+   * The sender's chosen cloned voice, when they have a usable one.
+   *
+   * Omitted or null is the default voice, which is what every existing caller
+   * and every existing test passes and what every unlinked sender gets. The
+   * caller resolves it, because only the caller can: it needs a database round
+   * trip that re-checks consent, and this function must stay free of one.
+   */
+  voice?: ResolvedVoice | null;
 }): Promise<boolean> {
   const ops: SpeechOperations = { ...DEFAULT_SPEECH_OPS, ...(params.ops ?? {}) };
+  const chosenVoice = spokenVoiceOf(params.voice);
   // Wrapped rather than trusted. The parameter's type is an interface, so the
   // store is whatever the caller passed, and a throw from it would come out of
   // a function whose whole contract is that it never costs somebody their
@@ -439,10 +481,15 @@ export async function speakReply(params: {
     // `isCacheableSpeech`. A long answer is almost certainly unique, and
     // hashing it would buy a row that is never hit again.
     const key = store && isCacheableSpeech(segment)
+      // Provider, voice and model are all in the key. Without them a sender
+      // who chose a cloned voice would be handed the audio the *default* voice
+      // produced for the same sentence — the exact failure Phase D's widened
+      // key exists to make impossible.
       ? await speechCacheKey({
           phoneNumberId: params.phoneNumberId,
-          voice: DEFAULT_VOICE,
-          model: SPEECH_MODEL,
+          provider: chosenVoice.provider,
+          voice: chosenVoice.voice,
+          model: chosenVoice.model,
           text: segment,
         })
       : null;
@@ -451,7 +498,7 @@ export async function speakReply(params: {
     const fromCache = mediaId !== null;
 
     if (!mediaId) {
-      const speech = await ops.synthesise(segment);
+      const speech = await ops.synthesise(segment, chosenVoice);
       if (!speech.ok) break;
 
       mediaId = await ops.upload(speech.bytes, speech.mimeType, params.phoneNumberId, params.token);
@@ -475,7 +522,7 @@ export async function speakReply(params: {
       console.log(`[whatsapp-tts] a cached voice note was refused; synthesising again${trace(params.trace)}`);
       await store!.drop(key);
 
-      const speech = await ops.synthesise(segment);
+      const speech = await ops.synthesise(segment, chosenVoice);
       if (!speech.ok) break;
       const fresh = await ops.upload(speech.bytes, speech.mimeType, params.phoneNumberId, params.token);
       if (!fresh) break;

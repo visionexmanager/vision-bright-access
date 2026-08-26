@@ -569,3 +569,38 @@ export async function sendQuestion(
   if (message) await sendTappable(to, message);
   return message;
 }
+
+// ── The sender's own cloned voices ───────────────────────────────────────────
+
+/**
+ * The list of voices this sender may answer in.
+ *
+ * Built here rather than in `whatsappVoiceChoice.ts` for the same reason every
+ * other menu is: `compose` decides between buttons and a list by measuring the
+ * labels, and a voice name is user-supplied text of unknown length. Two voices
+ * plus the default is three buttons if the names are short and a list if they
+ * are not — which is exactly the decision `compose` already makes correctly.
+ */
+export function voiceChoiceMessage(
+  rows: Array<{ id: string; title: string; description?: string }>,
+  language: Language,
+): Tappable | null {
+  if (rows.length === 0) return null;
+  const header = say("voiceMyVoicesHeading", language);
+  const body = say("voiceMyVoicesBody", language);
+  return {
+    interactive: compose(header, body, rows, language),
+    text: asText(header, body, rows, language),
+  };
+}
+
+/** Send it. Returns the message so the caller can remember what was offered. */
+export async function sendVoiceChoice(
+  to: Delivery,
+  rows: Array<{ id: string; title: string; description?: string }>,
+  language: Language,
+): Promise<Tappable | null> {
+  const message = voiceChoiceMessage(rows, language);
+  if (message) await sendTappable(to, message);
+  return message;
+}

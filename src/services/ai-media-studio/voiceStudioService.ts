@@ -98,6 +98,92 @@ export async function updateProfile(id: string, input: UpdateVoiceProfileInput):
   return jsonAs<VoiceProfile>(data);
 }
 
+// ── Consent ─────────────────────────────────────────────────────────────────
+//
+// The wording lives in the edge function's shared module so the studio, the
+// edge function and the tests all agree on what was actually agreed to. It is
+// re-stated here rather than imported because the browser bundle does not reach
+// into `supabase/functions`; the test suite pins the two strings together.
+export const CONSENT_STATEMENT_V1 =
+  "v1: I confirm the recordings are of my own voice, or that I have the " +
+  "documented permission of the person speaking, and I consent to a synthetic " +
+  "copy of that voice being created and used on my Visionex account. I " +
+  "understand I can withdraw this at any time, and that withdrawing deletes " +
+  "the synthetic voice and the recordings.";
+
+/**
+ * Record consent for a voice.
+ *
+ * `subject` is who the voice belongs to, as the person granting consent states
+ * it. Stored alongside the timestamp and the verbatim wording, because a
+ * consent record that cannot say who agreed, when, or to what is not a consent
+ * record.
+ */
+export async function grantVoiceConsent(id: string, subject: string): Promise<void> {
+  const { data: session } = await supabase.auth.getSession();
+  const { error } = await supabase
+    .from("vs_voice_profiles")
+    .update({
+      consent_status: "granted",
+      consent_subject: subject.trim(),
+      consent_granted_by: session.session?.user?.id ?? null,
+      consent_granted_at: new Date().toISOString(),
+      consent_revoked_at: null,
+      consent_statement: CONSENT_STATEMENT_V1,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Withdraw consent, and destroy what was made from it.
+ *
+ * Routed through the edge function rather than done here, because withdrawing
+ * has to delete the copy at ElevenLabs and the recordings in storage — neither
+ * of which the browser can do, and both of which have to be confirmed before
+ * anybody is told it worked. A thrown error here means something of the person
+ * still exists somewhere.
+ */
+export async function revokeVoiceConsent(id: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke("voice-studio", {
+    body: { action: "revoke_consent", profile_id: id },
+  });
+  if (error) throw error;
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (!result?.ok) throw new Error(result?.error || "The voice could not be fully removed");
+}
+
+/**
+ * Delete a voice: the provider's copy, the recordings, then the row.
+ *
+ * Same reason as above. The edge function reports failure rather than swallowing
+ * it, so this throws when either half did not happen.
+ */
+export async function deleteVoiceProfile(id: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke("voice-studio", {
+    body: { action: "delete_profile", profile_id: id },
+  });
+  if (error) throw error;
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (!result?.ok) throw new Error(result?.error || "The voice could not be fully removed");
+}
+
+/**
+ * Offer this voice on WhatsApp, or stop offering it.
+ *
+ * Only a voice whose consent stands can be switched on. The database re-checks
+ * that on every reply regardless, so this is the interface being honest rather
+ * than the interface being the guard.
+ */
+export async function setVoiceWhatsAppEnabled(id: string, enabled: boolean): Promise<void> {
+  const { error } = await supabase
+    .from("vs_voice_profiles")
+    .update({ whatsapp_enabled: enabled, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 export async function archiveProfile(id: string): Promise<void> {
   const { error } = await supabase
     .from("vs_voice_profiles")

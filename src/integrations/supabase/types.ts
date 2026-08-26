@@ -22891,6 +22891,12 @@ export type Database = {
       vs_voice_profiles: {
         Row: {
           accent: string | null
+          consent_granted_at: string | null
+          consent_granted_by: string | null
+          consent_revoked_at: string | null
+          consent_statement: string | null
+          consent_status: string
+          consent_subject: string | null
           created_at: string
           description: string | null
           gender: string | null
@@ -22898,14 +22904,20 @@ export type Database = {
           is_favorite: boolean
           is_shared: boolean
           language: string
+          lifecycle_state: string
           name: string
           preview_asset_id: string | null
           project_id: string | null
           provider: string
+          provider_delete_error: string | null
+          provider_deleted_at: string | null
           provider_model: string | null
           provider_voice_id: string | null
           quality_score: number | null
           sample_count: number
+          samples_delete_error: string | null
+          samples_deleted_at: string | null
+          samples_retain_until: string | null
           status: string
           tags: string[]
           thumbnail_url: string | null
@@ -22913,9 +22925,17 @@ export type Database = {
           training_status: string
           updated_at: string
           user_id: string
+          voice_state: string | null
+          whatsapp_enabled: boolean
         }
         Insert: {
           accent?: string | null
+          consent_granted_at?: string | null
+          consent_granted_by?: string | null
+          consent_revoked_at?: string | null
+          consent_statement?: string | null
+          consent_status?: string
+          consent_subject?: string | null
           created_at?: string
           description?: string | null
           gender?: string | null
@@ -22923,14 +22943,20 @@ export type Database = {
           is_favorite?: boolean
           is_shared?: boolean
           language?: string
+          lifecycle_state?: string
           name: string
           preview_asset_id?: string | null
           project_id?: string | null
           provider?: string
+          provider_delete_error?: string | null
+          provider_deleted_at?: string | null
           provider_model?: string | null
           provider_voice_id?: string | null
           quality_score?: number | null
           sample_count?: number
+          samples_delete_error?: string | null
+          samples_deleted_at?: string | null
+          samples_retain_until?: string | null
           status?: string
           tags?: string[]
           thumbnail_url?: string | null
@@ -22938,9 +22964,16 @@ export type Database = {
           training_status?: string
           updated_at?: string
           user_id?: string
+          whatsapp_enabled?: boolean
         }
         Update: {
           accent?: string | null
+          consent_granted_at?: string | null
+          consent_granted_by?: string | null
+          consent_revoked_at?: string | null
+          consent_statement?: string | null
+          consent_status?: string
+          consent_subject?: string | null
           created_at?: string
           description?: string | null
           gender?: string | null
@@ -22948,14 +22981,20 @@ export type Database = {
           is_favorite?: boolean
           is_shared?: boolean
           language?: string
+          lifecycle_state?: string
           name?: string
           preview_asset_id?: string | null
           project_id?: string | null
           provider?: string
+          provider_delete_error?: string | null
+          provider_deleted_at?: string | null
           provider_model?: string | null
           provider_voice_id?: string | null
           quality_score?: number | null
           sample_count?: number
+          samples_delete_error?: string | null
+          samples_deleted_at?: string | null
+          samples_retain_until?: string | null
           status?: string
           tags?: string[]
           thumbnail_url?: string | null
@@ -22963,6 +23002,7 @@ export type Database = {
           training_status?: string
           updated_at?: string
           user_id?: string
+          whatsapp_enabled?: boolean
         }
         Relationships: [
           {

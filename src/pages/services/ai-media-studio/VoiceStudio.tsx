@@ -19,6 +19,7 @@ import {
 import { StudioLayout } from "./StudioLayout";
 import { VoiceProfileCard } from "./components/voice/VoiceProfileCard";
 import { VoiceProfileDetail } from "./components/voice/VoiceProfileDetail";
+import { VoiceConsentPanel } from "@/components/ai-media-studio/VoiceConsentPanel";
 import { CreateVoiceProfileDialog } from "./components/voice/CreateVoiceProfileDialog";
 import { useVoiceProfiles } from "@/hooks/useVoiceProfiles";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ export default function VoiceStudio() {
     profiles, isLoading, filters, updateFilters, resetFilters,
     createProfile, updateProfile, archiveProfile, restoreProfile,
     duplicateProfile, toggleFavorite, deleteProfile, isCreating,
+    grantConsent, revokeConsent, setWhatsAppEnabled, isRevoking,
   } = useVoiceProfiles();
 
   const [viewMode, setViewMode]           = useState<ViewMode>("grid");
@@ -55,10 +57,24 @@ export default function VoiceStudio() {
     const liveProfile = profiles.find((p) => p.id === detailProfile.id) ?? detailProfile;
     return (
       <StudioLayout>
-        <VoiceProfileDetail
-          profile={liveProfile}
-          onBack={() => setDetailProfile(null)}
-        />
+        <div className="space-y-6">
+          <VoiceProfileDetail
+            profile={liveProfile}
+            onBack={() => setDetailProfile(null)}
+          />
+          {/* Consent belongs beside the voice it is about, not on a separate
+              screen: the person deciding whether to keep a copy of someone{String.fromCharCode(39)}s
+              voice should not have to go looking for the record of it. */}
+          <div className="px-6 pb-6">
+            <VoiceConsentPanel
+              profile={liveProfile}
+              onGrant={grantConsent}
+              onRevoke={revokeConsent}
+              onWhatsAppChange={setWhatsAppEnabled}
+              isRevoking={isRevoking}
+            />
+          </div>
+        </div>
       </StudioLayout>
     );
   }
@@ -272,8 +288,9 @@ export default function VoiceStudio() {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Voice Profile?</AlertDialogTitle>
               <AlertDialogDescription>
-                This permanently deletes "{deleteTarget.name}" and all its audio samples.
-                The cloned voice will also be removed from your provider account.
+                This permanently deletes "{deleteTarget.name}", the uploaded recordings,
+                and the copy of the voice held by the voice provider. If any part of that
+                fails you will be told, and nothing is reported as deleted until it is.
                 This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>

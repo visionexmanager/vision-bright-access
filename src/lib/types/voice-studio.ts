@@ -10,6 +10,24 @@ export type VoiceGenderOpt = "male" | "female" | "neutral";
 
 // ── Voice Profile ─────────────────────────────────────────────────────────────
 
+/**
+ * The one vocabulary for "can this voice be used".
+ *
+ * Derived by the database (`voice_state`, migration 20260929000000) from
+ * consent, deletion and training together, and never written directly. The
+ * studio reads it rather than recomputing it, so the interface and the
+ * WhatsApp resolver can never disagree about whether a voice is usable.
+ */
+export type VoiceLifecycleState =
+  | "pending_consent"
+  | "ready"
+  | "revoked"
+  | "deleting"
+  | "deleted"
+  | "error";
+
+export type VoiceConsentStatus = "pending" | "granted" | "revoked";
+
 export interface VoiceProfile {
   id:                   string;
   user_id:              string;
@@ -32,6 +50,28 @@ export interface VoiceProfile {
   thumbnail_url:        string | null;
   is_favorite:          boolean;
   is_shared:            boolean;
+
+  // ── Consent, retention and lifecycle ──────────────────────────────────────
+  //
+  // A cloned voice is a copy of a real person. These are the fields that make
+  // it possible to answer "did they agree, is that still true, and when the
+  // answer became no, was the copy destroyed".
+  consent_status:       VoiceConsentStatus;
+  consent_subject:      string | null;
+  consent_granted_at:   string | null;
+  consent_revoked_at:   string | null;
+  /** The exact wording agreed to, kept verbatim so it survives rewording. */
+  consent_statement:    string | null;
+  /** When the uploaded recordings stop being kept. */
+  samples_retain_until: string | null;
+  samples_deleted_at:   string | null;
+  provider_deleted_at:  string | null;
+  /** Why a provider deletion failed. Never contains a key — see consent.ts. */
+  provider_delete_error: string | null;
+  /** Whether this voice may be chosen for WhatsApp replies. Off by default. */
+  whatsapp_enabled:     boolean;
+  /** Derived. Read this, never the three columns it comes from. */
+  voice_state:          VoiceLifecycleState;
   created_at:           string;
   updated_at:           string;
 }
