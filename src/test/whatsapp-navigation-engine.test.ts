@@ -29,6 +29,7 @@ const geo = await import("../../supabase/functions/_shared/whatsappLocation.ts")
 const bazaar = await import("../../supabase/functions/_shared/whatsappBazaar.ts");
 const helpers = await import("../../supabase/functions/_shared/whatsapp.ts");
 const identity = await import("../../supabase/functions/_shared/whatsappIdentity.ts");
+const news = await import("../../supabase/functions/_shared/whatsappNews.ts");
 
 const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
 
@@ -414,6 +415,7 @@ describe("the catalog", () => {
       "services.nearby": (p) => geo.asksWhatIsNearby(p),
       "services.bazaar": (p) => bazaar.parseBazaarRequest(p)?.intent === "browse",
       "services.sell": (p) => bazaar.parseBazaarRequest(p)?.intent === "sell",
+      "news": (p) => news.parseNewsRequest(p),
       "services.orders": (p) => identity.parseAccountIntent(p) === "orders",
       "support.human": (p) => helpers.userAskedForHuman(p),
     };

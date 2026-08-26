@@ -57,6 +57,7 @@ import {
   LANGUAGE_PAGE_COUNT,
   nextLanguagePage,
 } from "./whatsappLanguages.ts";
+import { newsRowId } from "./whatsappNews.ts";
 import { BACK_ID, genderRowId } from "./whatsappOnboarding.ts";
 import { GENDERS } from "./whatsappProfile.ts";
 import { say } from "./whatsappStrings.ts";
@@ -473,6 +474,69 @@ export async function deliverMenu(
 
   console.error("[whatsapp-tts] a spoken menu could not be delivered; sent the tappable one");
   return { medium: "voice", sent: await transport.tap(params.message), spokenFailed: true };
+}
+
+/**
+ * The latest headlines, as a tappable list.
+ *
+ * Built here rather than in the webhook for the same reason every other
+ * interactive payload is: one place knows Meta's limits, and the suite asserts
+ * the webhook builds none of them itself.
+ *
+ * The rows carry article ids, so a tap says exactly which article without the
+ * conversation having to remember a list it showed earlier. The way back is a
+ * control row rather than a sentence, because News hangs off the main menu and
+ * a list with no way out is a trap for somebody who cannot see the screen.
+ */
+export function newsMessage(params: {
+  articles: Array<{ id: string; title: string; description: string }>;
+  language: Language;
+}): Tappable {
+  const { articles, language } = params;
+  const heading = say("newsHeading", language);
+  const rows: Row[] = articles.map((article) => ({
+    id: newsRowId(article.id),
+    title: article.title,
+    ...(article.description ? { description: article.description } : {}),
+  }));
+  rows.push(...controlRows("news", language));
+
+  return {
+    interactive: {
+      type: "list",
+      header: { type: "text", text: clip(heading.replace(/\*/g, ""), LIST_LIMITS.header) },
+      body: { text: clip(say("newsBackHint", language), LIST_LIMITS.body) },
+      action: {
+        button: clip(say("newsButton", language), LIST_LIMITS.button),
+        sections: [{
+          title: clip(say("newsButton", language), LIST_LIMITS.rowTitle),
+          rows: rows.map((row) => ({
+            ...row,
+            title: clip(row.title, LIST_LIMITS.rowTitle),
+            ...(row.description ? { description: clip(row.description, LIST_LIMITS.rowDescription) } : {}),
+          })),
+        }],
+      },
+    },
+    text: [
+      heading,
+      "",
+      ...articles.map((article) => `• ${article.title}`),
+      "",
+      say("newsBackHint", language),
+    ].join("\n"),
+  };
+}
+
+/** The headlines, delivered. */
+export async function sendNewsList(
+  to: Delivery,
+  articles: Array<{ id: string; title: string; description: string }>,
+  language: Language,
+): Promise<Tappable> {
+  const message = newsMessage({ articles, language });
+  await sendTappable(to, message);
+  return message;
 }
 
 /** The language list, at a page. Written in English: nothing yet knows better. */
