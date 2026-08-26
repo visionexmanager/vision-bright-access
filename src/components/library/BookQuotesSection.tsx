@@ -8,7 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSavedQuotes } from "@/hooks/library/useSavedQuotes";
-import { synthesizeSpeech } from "@/lib/library/textToSpeech";
+import { NOT_SIGNED_IN, synthesizeSpeech } from "@/lib/library/textToSpeech";
 import { cn } from "@/lib/utils";
 
 interface BookQuotesSectionProps {
@@ -66,7 +66,14 @@ export function BookQuotesSection({ bookId }: BookQuotesSectionProps) {
       await audioRef.current.play();
       setPlayingId(quoteId);
     } catch (err) {
-      toast({ title: t("library.quotes.listenFailed"), description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      // Read-aloud costs money, so it needs an account. Saying "NOT_SIGNED_IN"
+      // to somebody would be worse than saying nothing.
+      const needsAccount = err instanceof Error && err.message === NOT_SIGNED_IN;
+      toast({
+        title: needsAccount ? t("tool.loginRequired") : t("library.quotes.listenFailed"),
+        description: needsAccount ? undefined : err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
     } finally {
       setLoadingAudioId(null);
     }

@@ -27,11 +27,13 @@ on:
     branches: [main]
     paths:
       - "supabase/functions/_shared/whatsapp*.ts"
+      - "supabase/functions/_shared/voice/**/*.ts"
       - ".github/workflows/whatsapp-deno-check.yml"
   push:
     branches: [main]
     paths:
       - "supabase/functions/_shared/whatsapp*.ts"
+      - "supabase/functions/_shared/voice/**/*.ts"
       - ".github/workflows/whatsapp-deno-check.yml"
 
 concurrency:
@@ -50,7 +52,10 @@ jobs:
       - name: Type check the shared WhatsApp modules
         shell: bash
         run: |
-          mapfile -t SHARED < <(find supabase/functions/_shared -maxdepth 1 -type f -name "whatsapp*.ts" | sort)
+          # `-maxdepth 1` on the whatsapp glob, unbounded on voice: the voice
+          # directory has a `providers/` subdirectory, and a provider that is
+          # not type-checked is exactly the file a future local model lands in.
+          mapfile -t SHARED < <({ find supabase/functions/_shared -maxdepth 1 -type f -name "whatsapp*.ts"; find supabase/functions/_shared/voice -type f -name "*.ts"; } | sort)
           if [ "${#SHARED[@]}" -eq 0 ]; then
             echo "No shared WhatsApp modules found — nothing to check."
             exit 0

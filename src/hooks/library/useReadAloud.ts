@@ -26,7 +26,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchSpeechArrayBuffer } from "@/lib/library/textToSpeech";
+import { NOT_SIGNED_IN, fetchSpeechArrayBuffer } from "@/lib/library/textToSpeech";
 import { useAiReadingPreferences } from "@/hooks/library/useAiReadingPreferences";
 
 function splitIntoSentences(text: string): string[] {
@@ -56,6 +56,15 @@ export function useReadAloud(text: string) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(-1);
+  /**
+   * Why a failure has a name now.
+   *
+   * Synthesis needs a signed-in user, because it spends money at OpenAI. The
+   * catch below used to reset the spinner and return, so a signed-out reader
+   * pressed play and got silence with no reason given — the worst possible
+   * outcome for the audience this feature exists for. The panel announces this.
+   */
+  const [error, setError] = useState<"not-signed-in" | "failed" | null>(null);
 
   const getAudioContext = useCallback((): AudioContext => {
     if (!audioContextRef.current) audioContextRef.current = new AudioContext();
@@ -102,12 +111,14 @@ export function useReadAloud(text: string) {
       }
 
       setIsLoading(true);
+      setError(null);
       let buffer: AudioBuffer;
       try {
         buffer = await getAudioBuffer(index, voice);
-      } catch {
+      } catch (err) {
         setIsLoading(false);
         setIsPlaying(false);
+        setError(err instanceof Error && err.message === NOT_SIGNED_IN ? "not-signed-in" : "failed");
         return;
       }
       setIsLoading(false);
@@ -202,6 +213,7 @@ export function useReadAloud(text: string) {
   return {
     isPlaying,
     isLoading,
+    error,
     currentSentenceIndex,
     sentenceCount: sentencesRef.current.length,
     speed,

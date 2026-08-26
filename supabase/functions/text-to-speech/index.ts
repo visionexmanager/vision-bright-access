@@ -1,3 +1,5 @@
+import { synthesizeResponse } from "../_shared/voice/tts.ts";
+import { guardVoiceRequest, refusalResponse } from "../_shared/voice/guard.ts";
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
 function getCorsHeaders(req: Request): Record<string, string> {
@@ -35,6 +37,13 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Identity and quota before anything that costs money. This used to be
+  // absent entirely: the gateway accepts the public anon key as a JWT, so
+  // every request here reached a paid provider unauthenticated and
+  // unmetered. See `_shared/voice/guard.ts`.
+  const guard = await guardVoiceRequest(req, "text-to-speech");
+  if (guard.outcome === "refused") return refusalResponse(guard.refusal, corsHeaders);
+
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
   if (!OPENAI_API_KEY) {
     return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), {
@@ -66,30 +75,29 @@ Deno.serve(async (req) => {
 
   const trimmed = text.length > 4000 ? text.slice(0, 4000) + "…" : text;
 
-  const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini-tts",
-      input: trimmed,
-      voice,
-      instructions,
-      response_format: "mp3",
-    }),
+  // `synthesizeResponse`, not `synthesize`: this endpoint hands the provider's
+  // body straight to the browser, and buffering it here would delay the first
+  // word a listener hears. The seam builds the request and classifies a
+  // failure; the stream stays untouched.
+  const call = await synthesizeResponse({
+    text: trimmed,
+    provider: "openai",
+    model: "gpt-4o-mini-tts",
+    voice,
+    instructions,
+    format: "mp3",
   });
 
-  if (!ttsRes.ok) {
-    const err = await ttsRes.text().catch(() => "");
-    console.error("TTS error:", ttsRes.status, err);
-    return new Response(JSON.stringify({ error: `TTS failed: ${ttsRes.status}` }), {
+  if (call.outcome === "failed") {
+    const status = call.failure.reason === "rejected" ? call.failure.status : 0;
+    const detail = call.failure.reason === "rejected" ? call.failure.detail : "";
+    console.error("TTS error:", status, detail);
+    return new Response(JSON.stringify({ error: `TTS failed: ${status}` }), {
       status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  return new Response(ttsRes.body, {
+  return new Response(call.response.body, {
     headers: { ...corsHeaders, "Content-Type": "audio/mpeg", "Cache-Control": "no-store" },
   });
 });

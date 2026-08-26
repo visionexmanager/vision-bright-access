@@ -47,6 +47,8 @@
 // entire policy — miss, hit, stale id, broken store — is testable without a
 // network or a Postgres.
 
+import { voiceCacheKey } from "./voice/cache.ts";
+
 /**
  * How long a cached media id is trusted.
  *
@@ -76,20 +78,6 @@ export const MAX_CACHEABLE_CHARS = 320;
 export const isSpeechCacheKey = (value: string): boolean => /^[0-9a-f]{64}$/.test(value);
 
 /**
- * The separator between the fields of a cache key.
- *
- * A NUL, so that two different field splits cannot produce the same material.
- * A space would: voice "a" with text "b c" and voice "a b" with text "c" hash
- * identically, and one of the two would then be sent audio in the wrong voice.
- * A NUL cannot appear in any of these fields.
- *
- * Written as an escape and named, rather than typed into the argument list.
- * A raw NUL byte in a source file is invisible in every editor and turns the
- * file into something git reports as binary.
- */
-const SEPARATOR = "\u0000";
-
-/**
  * The key for one voice note.
  *
  * Every input that changes the audio is in it. The voice and the model are
@@ -107,12 +95,29 @@ export async function speechCacheKey(params: {
   voice: string;
   model: string;
   text: string;
+  /** Defaults to the only provider and format this path has ever used. */
+  provider?: string;
+  format?: string;
+  language?: string;
 }): Promise<string> {
-  const material = [params.phoneNumberId, params.voice, params.model, params.text].join(SEPARATOR);
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(material));
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  // Delegated to `voice/cache.ts`, which every voice caller now derives keys
+  // from. This function keeps its name and its shape because the WhatsApp path
+  // and its tests are built on them; what changed is that the provider, the
+  // format and the language are in the material as well.
+  //
+  // Existing rows will therefore miss once and expire on their own fourteen-day
+  // clock. That is a few days of re-synthesis, against a key that stays correct
+  // the first time this path is pointed at a second provider or a second
+  // format — which `tts.ts` now makes a one-line change.
+  return voiceCacheKey({
+    scope: params.phoneNumberId,
+    text: params.text,
+    provider: params.provider ?? "openai",
+    model: params.model,
+    voice: params.voice,
+    format: params.format ?? "opus",
+    language: params.language,
+  });
 }
 
 /**
