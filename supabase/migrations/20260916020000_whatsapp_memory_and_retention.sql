@@ -62,9 +62,9 @@ REVOKE ALL ON FUNCTION public.whatsapp_prune_transcripts(integer) FROM authentic
 COMMENT ON FUNCTION public.whatsapp_prune_transcripts(integer) IS
   'Deletes WhatsApp message rows older than _days (minimum 7). Conversation rows and their summaries are kept. Service role only.';
 
--- Schedule it where pg_cron is enabled. Kept as a comment for the same reason
--- the other recovery jobs in this repository are: the extension is enabled per
--- environment, and a migration that assumes it fails on the ones without it.
---
---   select cron.schedule('prune-whatsapp-transcripts', '30 3 * * *',
---     $$select public.whatsapp_prune_transcripts(90)$$);
+-- SCHEDULED. This was left as a comment because pg_cron was believed to be
+-- enabled per environment. It is not: 20260808000000_library_enable_pg_cron.sql
+-- installs the extension on this project, and
+-- 20260927000000_whatsapp_retention_schedule.sql registers this job for real as
+--   whatsapp-prune-transcripts, 03:30 daily, 90 days.
+-- Until that migration, nothing here had ever run.

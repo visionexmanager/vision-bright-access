@@ -21,6 +21,7 @@
 // under Node. This module is only the fetching.
 
 import { describeError } from "./whatsappSafety.ts";
+import type { Language } from "./whatsappCatalog.ts";
 import type { CurrentWeather, DailyWeather } from "./whatsappWeather.ts";
 import { distanceMetres } from "./whatsappLocation.ts";
 import type { NearbyPlace, PlaceDescription } from "./whatsappLocation.ts";
@@ -136,7 +137,7 @@ export async function geocodePlace(query: string): Promise<GeocodedPlace | null>
 export async function reverseGeocode(
   latitude: number,
   longitude: number,
-  language: "ar" | "en",
+  language: Language,
 ): Promise<PlaceDescription | null> {
   const data = await getJson<{
     locality?: string; city?: string; principalSubdivision?: string; countryName?: string;
@@ -242,7 +243,7 @@ const NEARBY_LIMIT = 8;
 export async function fetchNearby(
   latitude: number,
   longitude: number,
-  language: "ar" | "en",
+  language: Language,
 ): Promise<NearbyPlace[] | null> {
   const around = `${NEARBY_RADIUS_M},${latitude},${longitude}`;
   const query = `[out:json][timeout:8];(` +
@@ -281,9 +282,13 @@ export async function fetchNearby(
   const places: NearbyPlace[] = [];
   for (const element of data?.elements ?? []) {
     const tags = element.tags ?? {};
-    // A locally-tagged Arabic name is the one to read out to an Arabic sender;
-    // the plain `name` tag is whatever the surveyor typed, often in Latin.
-    const name = (language === "ar" ? tags["name:ar"] : tags["name:en"]) || tags.name;
+    // A locally-tagged name in the sender's own language is the one to read
+    // out; the plain `name` tag is whatever the surveyor typed, often in Latin.
+    // OpenStreetMap keys these as `name:ar`, `name:tr`, `name:ja` and so on, so
+    // widening this from two languages to twenty is the language code and
+    // nothing else — and English remains the step before the raw tag, because
+    // for most of the world it is the likelier of the two to be readable.
+    const name = tags[`name:${language}`] || tags["name:en"] || tags.name;
     if (!name || typeof element.lat !== "number" || typeof element.lon !== "number") continue;
 
     const category = tags.amenity ?? tags.shop ?? (tags.highway === "bus_stop" ? "bus_stop" : null);

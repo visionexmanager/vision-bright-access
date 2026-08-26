@@ -9,6 +9,8 @@
 // something known rather than to nothing.
 
 import { toBlob } from "./whatsappAttachments.ts";
+import type { Language } from "./whatsappCatalog.ts";
+import { say } from "./whatsappStrings.ts";
 import { trace } from "./whatsappTelemetry.ts";
 
 function env(name: string): string | undefined {
@@ -179,20 +181,14 @@ export async function transcribeVoice(params: {
 
 /** Told to the user when their voice note could not be turned into text. */
 export function transcriptionFailureNotice(
-  language: "ar" | "en",
+  language: Language,
   reason: TranscriptionFailure,
 ): string {
-  const en: Record<TranscriptionFailure, string> = {
-    too_long: "That voice note is longer than I can process. Please send a shorter one, or type your question.",
-    empty: "I couldn't hear anything in that voice note. Please try again somewhere quieter, or type your question.",
-    no_provider: "I can't listen to voice notes right now. Please type your question and I'll help.",
-    provider_error: "I couldn't understand that voice note. Please try again, or type your question.",
-  };
-  const ar: Record<TranscriptionFailure, string> = {
-    too_long: "الرسالة الصوتية أطول مما أستطيع معالجته. أرسل واحدة أقصر أو اكتب سؤالك.",
-    empty: "لم أسمع شيئاً في الرسالة الصوتية. جرّب في مكان أهدأ أو اكتب سؤالك.",
-    no_provider: "لا أستطيع الاستماع للرسائل الصوتية حالياً. اكتب سؤالك وسأساعدك.",
-    provider_error: "لم أفهم الرسالة الصوتية. حاول مرة أخرى أو اكتب سؤالك.",
-  };
-  return language === "ar" ? ar[reason] : en[reason];
+  const key = {
+    too_long: "voiceTooLong",
+    empty: "voiceEmpty",
+    no_provider: "voiceNoProvider",
+    provider_error: "voiceUnclear",
+  } as const;
+  return say(key[reason], language);
 }

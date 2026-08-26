@@ -51,6 +51,8 @@
 // There is no instruction expressible in thirteen digits.
 
 import { describeError, stripInvisible } from "./whatsappSafety.ts";
+import type { Language } from "./whatsappCatalog.ts";
+import { say } from "./whatsappStrings.ts";
 import {
   MAX_PROCESSOR_UPLOAD_BYTES,
   imageBody,
@@ -216,14 +218,12 @@ export function barcodeGroundTruth(codes: string[]): string | null {
  *
  * Returns null when there is nothing to add, which is the ordinary case.
  */
-export function qrCodeNotice(language: "ar" | "en", values: string[]): string | null {
+export function qrCodeNotice(language: Language, values: string[]): string | null {
   const shown = values.map((value) => value.trim()).filter(Boolean).slice(0, 3);
   if (shown.length === 0) return null;
 
   const quoted = shown.map((value) => `"${value}"`).join("\n");
-  return language === "ar"
-    ? `الرمز المقروء في الصورة يحتوي على:\n${quoted}`
-    : `The code in the image contains:\n${quoted}`;
+  return say("qrContains", language).replace("{values}", quoted);
 }
 
 /**

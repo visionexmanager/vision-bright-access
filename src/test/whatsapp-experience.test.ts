@@ -443,8 +443,16 @@ describe("what a screen reader hears", () => {
           /openai|mistral|gemini|groq|supabase|postgres|api[_ ]?key|token|stack|undefined|null|\b5\d\d\b/i,
         );
       }
-      // Both languages, always, and never the same sentence twice.
-      expect(strings.UI_STRINGS[key].ar, key).not.toBe(strings.UI_STRINGS[key].en);
+      // Both languages, always, and never the same sentence twice — unless
+      // there is no sentence. A few entries are pure layout: `nearbyLine` is
+      // `• {name} ({category}) — {distance} {direction}` and contains no word
+      // to translate, so identical Arabic and English is the correct answer
+      // rather than a missing translation. Anything with a letter in it once
+      // the placeholders are removed still has to differ.
+      const words = (value: string) => value.replace(/\{[a-z]+\}/gi, "").replace(/[^\p{L}]/gu, "");
+      if (words(strings.UI_STRINGS[key].en).length > 0) {
+        expect(strings.UI_STRINGS[key].ar, key).not.toBe(strings.UI_STRINGS[key].en);
+      }
     }
   });
 });

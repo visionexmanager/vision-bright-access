@@ -22,6 +22,9 @@
 // runs under Node and imports this directly, which is what lets every phrase
 // below be tested exhaustively rather than by eye.
 
+import type { Language } from "./whatsappCatalog.ts";
+import { say, type UiKey } from "./whatsappStrings.ts";
+
 export type VisionMode = "describe" | "read_text" | "find_object" | "product" | "translate";
 
 export interface VisionRequest {
@@ -268,41 +271,30 @@ export function translateTextPrompt(languageName: string, target?: string | null
 
 // ── What the sender is told ─────────────────────────────────────────────
 
-const MODE_NAME_AR: Record<VisionMode, string> = {
-  describe: "وصف الصورة",
-  read_text: "قراءة النص",
-  find_object: "البحث عن غرض",
-  product: "تعريف منتج",
-  translate: "الترجمة",
+// The names are in `whatsappStrings.ts` with the rest of the vocabulary; the
+// map from mode to key stays here, because the modes are this file's own idea.
+const MODE_NAME: Record<VisionMode, UiKey> = {
+  describe: "modeDescribe",
+  read_text: "modeReadText",
+  find_object: "modeFindObject",
+  product: "modeProduct",
+  translate: "modeTranslate",
 };
 
-const MODE_NAME_EN: Record<VisionMode, string> = {
-  describe: "Describe",
-  read_text: "Read text",
-  find_object: "Find object",
-  product: "Product",
-  translate: "Translate",
-};
-
-export const visionModeName = (language: "ar" | "en", mode: VisionMode): string =>
-  (language === "ar" ? MODE_NAME_AR : MODE_NAME_EN)[mode];
+export const visionModeName = (language: Language, mode: VisionMode): string =>
+  say(MODE_NAME[mode], language);
 
 /** Asks for a picture and shows the sender which mode is now armed. */
-export function awaitingImageNotice(language: "ar" | "en", mode: VisionMode, target?: string | null): string {
-  if (language === "ar") {
-    if (mode === "find_object" && target) return `أرسل الصورة وسأبحث عن ${target}.`;
-    if (mode === "find_object") return "عن أي غرض أبحث؟ قل لي ثم أرسل الصورة.";
-    if (mode === "read_text") return "أرسل الصورة وسأقرأ ما فيها.";
-    if (mode === "product") return "أرسل صورة المنتج أو الباركود.";
-    if (mode === "translate") return "أرسل الصورة أو النص الذي تريد ترجمته.";
-    return "أرسل الصورة وسأصفها لك.";
+export function awaitingImageNotice(language: Language, mode: VisionMode, target?: string | null): string {
+  if (mode === "find_object") {
+    return target
+      ? say("awaitFindTarget", language).replace("{target}", target)
+      : say("awaitFind", language);
   }
-  if (mode === "find_object" && target) return `Send the photo and I'll look for ${target}.`;
-  if (mode === "find_object") return "What should I look for? Tell me, then send the photo.";
-  if (mode === "read_text") return "Send the photo and I'll read it.";
-  if (mode === "product") return "Send a photo of the product or its barcode.";
-  if (mode === "translate") return "Send the photo, or the text you want translated.";
-  return "Send the photo and I'll describe it.";
+  if (mode === "read_text") return say("awaitRead", language);
+  if (mode === "product") return say("awaitProduct", language);
+  if (mode === "translate") return say("awaitTranslate", language);
+  return say("awaitDescribe", language);
 }
 
 /** Shown when someone asks for the menu by name. */

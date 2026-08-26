@@ -105,7 +105,9 @@ export interface CatalogNode {
    * these buy is a *name*: an id for the words, so a switched-off feature can
    * be refused rather than quietly answered by the assistant instead.
    */
-  aliases?: { readonly ar: readonly string[]; readonly en: readonly string[] };
+  aliases?:
+    & { readonly ar: readonly string[]; readonly en: readonly string[] }
+    & Partial<Record<SupportedLanguage, readonly string[]>>;
   /** Action only: a handler the webhook implements. */
   handler?: HandlerId;
   /** Which message kinds this feature acts on once it is current. */
@@ -433,6 +435,22 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     phrase: { ar: "أبيع", en: "I want to sell" },
     accepts: ["text"],
   },
+  {
+    // Appended at the end rather than placed next to the bazaar, because the
+    // order of these rows is something a screen-reader user learns by position.
+    // The right place for a new row is after the ones people have memorised.
+    id: "services.orders",
+    parent: "services",
+    order: 6,
+    kind: "action",
+    enabled: true,
+    title: { ar: "طلباتي", en: "My orders" },
+    description: { ar: "حالة طلبك من سوق Visionex", en: "Where your bazaar order is" },
+    aliases: { ar: ["طلبي", "طلباتي", "حاله الطلب"], en: ["my orders", "order status", "track my order"] },
+    phrase: { ar: "طلباتي", en: "my orders" },
+    requires: ["bazaar"],
+    accepts: ["text"],
+  },
 
   // ── Support ─────────────────────────────────────────────────────────────
   {
@@ -655,7 +673,16 @@ export function numberOf(node: CatalogNode): number {
  */
 export function aliasesOf(node: CatalogNode, language: Language): string[] {
   const phrase = node.phrase ? [localized(node.phrase, language)] : [];
-  const extra = node.aliases ? [...node.aliases[language]] : [];
+  // English when this language has no list of its own — the same fallback
+  // `localized` makes one line above, and for the same reason.
+  //
+  // It used to be `[...node.aliases[language]]`, which for any of the eighteen
+  // languages that are not Arabic or English spread `undefined` and threw
+  // `TypeError: node.aliases[language] is not iterable`. Every typed message
+  // reaches the router, so a Turkish or Urdu sender met that error instead of
+  // an answer — on every message, not only in the menu. The suite now resolves
+  // an alias in all twenty languages so this cannot come back.
+  const extra = node.aliases?.[language] ?? node.aliases?.en ?? [];
   return [...phrase, ...extra].filter((word) => word.trim().length > 0);
 }
 

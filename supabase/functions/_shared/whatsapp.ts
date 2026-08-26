@@ -7,6 +7,8 @@
 import { GRAPH_BASE } from "./meta.ts";
 import { clampUnits, safeCut } from "./whatsappSafety.ts";
 import { isSupportedLanguage, type SupportedLanguage } from "./whatsappLanguages.ts";
+import type { Language } from "./whatsappCatalog.ts";
+import { say } from "./whatsappStrings.ts";
 
 /** Greeting sent once per conversation, before the assistant takes over. */
 export const WELCOME_AR = `أهلاً وسهلاً في Visionex 👋
@@ -140,11 +142,13 @@ export function welcomeFor(language: "ar" | "en"): string {
  * Said to the user when the assistant hands the conversation over. Kept
  * separate from the model output so the promise is always the same sentence
  * and never an invented timeline.
+ *
+ * Twenty languages since the words moved into `whatsappStrings.ts`. It used to
+ * take `"ar" | "en"`, which meant somebody being handed to a human — the moment
+ * they most need to understand what just happened — was told so in English.
  */
-export function handoverNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "سأحوّل هذه المحادثة إلى فريق Visionex ليتابعها معك. تم تسجيل رسالتك، وسيتواصل معك أحد أفراد الفريق."
-    : "I'm passing this conversation to the Visionex team so they can follow up. Your message has been logged and someone from the team will get back to you.";
+export function handoverNotice(language: Language): string {
+  return say("noticeHandover", language);
 }
 
 // ── Conversation memory ──────────────────────────────────────────────────
@@ -289,17 +293,13 @@ export function rateLimitDecision(input: {
 }
 
 /** Told once per window to a sender who is being throttled. */
-export function rateLimitNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "وصلتني رسائل كثيرة بسرعة. سأتوقف قليلاً ثم أتابع معك — رسائلك محفوظة ولن تضيع. إذا كان الأمر عاجلاً راسلنا على https://visionex.app/contact"
-    : "That's a lot of messages very quickly, so I'll pause briefly and pick up again shortly — nothing you sent is lost. If it's urgent, reach us at https://visionex.app/contact";
+export function rateLimitNotice(language: Language): string {
+  return say("noticeRateLimit", language);
 }
 
 /** Shown when the AI provider is unreachable, so the user is never left silent. */
-export function failureNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "تعذّر عليّ الرد الآن. تم تسجيل رسالتك وسيتابعها فريق Visionex. يمكنك أيضاً مراسلتنا عبر https://visionex.app/contact"
-    : "I couldn't answer just now. Your message has been logged and the Visionex team will follow up. You can also reach us at https://visionex.app/contact";
+export function failureNotice(language: Language): string {
+  return say("noticeAiFailure", language);
 }
 
 /**
@@ -539,10 +539,8 @@ export function extractMessages(payload: unknown): IncomingMessage[] {
 }
 
 /** Told to the user when they send a photo or voice note the model cannot read. */
-export function unsupportedTypeNotice(language: "ar" | "en", kind: string): string {
-  return language === "ar"
-    ? `لا أستطيع قراءة هذا النوع من الرسائل (${kind}) بعد. لو سمحت اكتب طلبك كنص وسأساعدك مباشرة.`
-    : `I can't read that kind of message (${kind}) yet. Please describe it in text and I'll help right away.`;
+export function unsupportedTypeNotice(language: Language, kind: string): string {
+  return say("noticeUnsupportedType", language).replace("{kind}", kind);
 }
 
 /**

@@ -431,7 +431,7 @@ describe("GATE: answered in the medium you asked in", () => {
 
     // And asking for it out loud is explained rather than silently recorded.
     expect(webhook).toContain("const { voice_mode: spokenRequest, ...stored } = requested;");
-    expect(webhook).toContain("if (spokenRequest) await reply(voiceModeExplainer(noticeLanguage), \"reply\");");
+    expect(webhook).toContain("if (spokenRequest) await reply(voiceModeExplainer(answerLanguage), \"reply\");");
   });
 
   it("never sends the AI answer as text when synthesis fails", async () => {
@@ -694,7 +694,7 @@ describe("GATE: provider failure", () => {
     expect(outcome.status).toBe("failed");
     // And the webhook answers a failed ask with a notice, and escalates.
     expect(webhook).toContain('await escalate("ai_unavailable");');
-    expect(webhook).toContain('await reply(failureNotice(language), "handover");');
+    expect(webhook).toContain('await reply(failureNotice(answerLanguage), "handover");');
   });
 
   it("gives up on a hanging provider rather than being redelivered", async () => {

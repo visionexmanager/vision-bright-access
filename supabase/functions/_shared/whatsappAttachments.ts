@@ -6,6 +6,14 @@
 // them testable at all. `whatsappUnderstand.ts` holds the model calls and
 // imports these.
 
+// The wording itself now lives one file over, in `whatsappStrings.ts`, with the
+// rest of the interface's vocabulary — which is what took these refusals from
+// two languages to twenty. The *decisions* about which refusal applies are
+// still here, and are still what the suite tests.
+
+import type { Language } from "./whatsappCatalog.ts";
+import { say } from "./whatsappStrings.ts";
+
 /** Plain-text formats decoded locally rather than sent to a model as bytes. */
 export const PLAIN_TEXT_MIME = ["text/plain", "text/csv", "text/markdown"];
 
@@ -128,10 +136,8 @@ export const ATTACHMENT_ANSWER_SCHEMA = {
  */
 export const MAX_VIDEO_BYTES = 6 * 1024 * 1024;
 
-export function videoTooLongNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "الفيديو أطول مما أستطيع مشاهدته. أرسل مقطعاً قصيراً أو لقطة شاشة، أو صف المشكلة نصاً."
-    : "That video is longer than I can watch. Send a short clip or a screenshot, or describe the problem in text.";
+export function videoTooLongNotice(language: Language): string {
+  return say("noticeVideoTooLong", language);
 }
 
 export function attachmentSystemPrompt(languageName: string, kind: "image" | "document" | "video"): string {
@@ -145,17 +151,9 @@ export function attachmentSystemPrompt(languageName: string, kind: "image" | "do
 }
 
 /** Told to the user when an attachment could not be read. Never a guess. */
-export function unreadableNotice(language: "ar" | "en", kind: "image" | "document" | "video"): string {
-  if (language === "ar") {
-    if (kind === "video") return "لم أتمكن من فهم الفيديو. جرّب لقطة شاشة أو صف المشكلة نصاً.";
-    return kind === "image"
-      ? "لم أتمكن من قراءة الصورة بوضوح كافٍ للإجابة. جرّب صورة أوضح، أو اكتب لي ما تريد معرفته."
-      : "لم أتمكن من قراءة هذا الملف. جرّب PDF أو ملفاً نصياً، أو اكتب لي المحتوى.";
-  }
-  if (kind === "video") return "I couldn't make out what's in that video. A screenshot or a written description works better.";
-  return kind === "image"
-    ? "I couldn't read that image clearly enough to answer. Try a sharper photo, or tell me what you'd like to know."
-    : "I couldn't read that file. A PDF or a text file works best, or you can type the details.";
+export function unreadableNotice(language: Language, kind: "image" | "document" | "video"): string {
+  if (kind === "video") return say("noticeUnreadableVideo", language);
+  return say(kind === "image" ? "noticeUnreadableImage" : "noticeUnreadableDocument", language);
 }
 
 /**
@@ -167,15 +165,8 @@ export function unreadableNotice(language: "ar" | "en", kind: "image" | "documen
  * that leaves them retrying a thing that cannot succeed. This says the capacity
  * is missing and names the two routes that do work right now.
  */
-export function noReaderNotice(language: "ar" | "en", kind: "document" | "video"): string {
-  if (language === "ar") {
-    return kind === "video"
-      ? "لا أستطيع مشاهدة مقاطع الفيديو حالياً. أرسل لقطة شاشة للحظة المهمة، أو صف ما يحدث نصاً وسأساعدك."
-      : "لا أستطيع قراءة ملفات PDF حالياً. أرسل لقطة شاشة للصفحة المهمة، أو انسخ النص في رسالة وسأساعدك.";
-  }
-  return kind === "video"
-    ? "I can't watch videos at the moment. Send a screenshot of the moment that matters, or describe what happens, and I'll help."
-    : "I can't read PDF files at the moment. Send a screenshot of the page that matters, or paste the text into a message, and I'll help.";
+export function noReaderNotice(language: Language, kind: "document" | "video"): string {
+  return say(kind === "video" ? "noticeNoReaderVideo" : "noticeNoReaderDocument", language);
 }
 
 /**
@@ -188,10 +179,8 @@ export function noReaderNotice(language: "ar" | "en", kind: "document" | "video"
  * between them, so the sentence names the ones that do work instead of
  * listing the ones that do not.
  */
-export function unsupportedDocumentNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "لا أستطيع فتح هذه الصيغة. أستطيع قراءة PDF وWord وPowerPoint والملفات النصية — أرسله بإحداها، أو انسخ النص في رسالة."
-    : "I can't open that format. I can read PDF, Word, PowerPoint and text files — send it as one of those, or paste the text into a message.";
+export function unsupportedDocumentNotice(language: Language): string {
+  return say("noticeUnsupportedDocument", language);
 }
 
 // ── PDF ──────────────────────────────────────────────────────────────────
@@ -259,22 +248,16 @@ export function pdfTextIsUsable(text: string, pageCount?: number | null): boolea
  * names the route that does work, and it is a route this assistant is
  * genuinely good at: the image path reads a photographed page well.
  */
-export function scannedPdfNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "هذا الملف يبدو صوراً ممسوحة ضوئياً بدون نص يمكن استخراجه. صوّر الصفحة المهمة وأرسلها كصورة وسأقرأها لك."
-    : "That PDF looks like scanned images with no text layer. Photograph the page that matters and send it as a picture — I read those well.";
+export function scannedPdfNotice(language: Language): string {
+  return say("noticeScannedPdf", language);
 }
 
 /** Told to the user when a PDF has pages but no words at all on them. */
-export function emptyDocumentNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "الملف وصل لكنه فارغ — لا يوجد نص لأقرأه. تأكد من إرسال الملف الصحيح."
-    : "The file arrived but it's empty — there's no text in it to read. Check you sent the file you meant to.";
+export function emptyDocumentNotice(language: Language): string {
+  return say("noticeEmptyDocument", language);
 }
 
 /** Told to the user when a PDF is password-protected. */
-export function encryptedDocumentNotice(language: "ar" | "en"): string {
-  return language === "ar"
-    ? "هذا الملف محمي بكلمة مرور فلا أستطيع فتحه. احفظ نسخة بدون حماية وأرسلها، أو انسخ النص المهم في رسالة."
-    : "That file is password-protected, so I can't open it. Save an unprotected copy and send that, or paste the part that matters into a message.";
+export function encryptedDocumentNotice(language: Language): string {
+  return say("noticeEncryptedDocument", language);
 }
