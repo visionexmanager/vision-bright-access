@@ -125,6 +125,17 @@ import {
   readOrders,
   sendLinkCodeEmail,
 } from "../_shared/whatsappIdentity.ts";
+import {
+  articleText,
+  formatArticle,
+  NEWS_EXCLUDED_CATEGORY,
+  NEWS_ID_PREFIX,
+  NEWS_LIST_SIZE,
+  NEWS_URL,
+  parseNewsRequest,
+  parseNewsSelection,
+  readArticles,
+} from "../_shared/whatsappNews.ts";
 import { deliverReply, replyMedium, speakReply } from "../_shared/whatsappVoiceReply.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
@@ -146,6 +157,7 @@ import {
   sendLanguageMenu,
   sendProfileChoice,
   sendQuestion,
+  sendNewsList,
   sendTappable,
 } from "../_shared/whatsappInteractive.ts";
 import {
@@ -1148,6 +1160,49 @@ Deno.serve(async (req) => {
         log("menu", { node: target, medium: shown.medium, sent: shown.sent, spokenFailed: shown.spokenFailed });
       };
 
+      /**
+       * The latest headlines, fetched and delivered.
+       *
+       * The same query `/news` runs — published only, newest first — against
+       * the same table, which already carries a public read policy. Breaking
+       * news is excluded exactly as the website excludes it from its grid.
+       *
+       * Returns whether a list went out, so the caller can tell an empty feed
+       * from a broken one without reading the reply back.
+       */
+      const showNews = async (options: { note?: string } = {}): Promise<boolean> => {
+        const { data, error } = await db
+          .from("news_articles")
+          .select("id, title, description, category, published_at, translations")
+          .eq("published", true)
+          .neq("category", NEWS_EXCLUDED_CATEGORY)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(NEWS_LIST_SIZE);
+
+        if (error) {
+          console.error("[whatsapp] news lookup failed:", describeError(error));
+          log("news", { outcome: "unavailable" });
+          await reply(say("newsUnavailable", answerLanguage).replace("{url}", NEWS_URL), "unsupported");
+          return false;
+        }
+
+        const articles = readArticles(data);
+        if (articles.length === 0) {
+          log("news", { outcome: "empty" });
+          await reply(say("newsEmpty", answerLanguage).replace("{url}", NEWS_URL), "reply");
+          return false;
+        }
+
+        if (options.note) await reply(options.note, "reply");
+        await sendNewsList(
+          delivery,
+          articles.map((article) => ({ id: article.id, ...articleText(article, answerLanguage) })),
+          answerLanguage,
+        );
+        log("news", { outcome: "list", count: articles.length });
+        return true;
+      };
+
       // ── Abuse control ─────────────────────────────────────────────────
       //
       // Placed after the message is logged, so a throttled sender is still
@@ -1389,6 +1444,45 @@ Deno.serve(async (req) => {
        * original check downstream, which is why they need no reply of their own.
        */
       const humanOwnsThis = existing?.control === "human" || existing?.escalated === true;
+
+      // ── A tapped headline ─────────────────────────────────────────────
+      //
+      // Handled here for the same reason a language row is: the catalog has no
+      // node for an article, so the router would rightly call it a row this
+      // build no longer has. The id is checked against the table rather than
+      // against a list this conversation remembers — an article that has been
+      // unpublished since the list was sent has to fail as "not there any
+      // more", and only the table knows that.
+      if (!humanOwnsThis && incoming.selection?.startsWith(NEWS_ID_PREFIX)) {
+        const articleId = parseNewsSelection(incoming.selection);
+        const { data: row, error } = articleId
+          ? await db
+            .from("news_articles")
+            .select("id, title, description, category, published_at, translations")
+            .eq("id", articleId)
+            .eq("published", true)
+            .maybeSingle()
+          : { data: null, error: null };
+
+        if (error) {
+          console.error("[whatsapp] news article lookup failed:", describeError(error));
+          log("news", { outcome: "unavailable" });
+          await reply(say("newsUnavailable", answerLanguage).replace("{url}", NEWS_URL), "unsupported");
+          continue;
+        }
+
+        const [article] = readArticles(row ? [row] : []);
+        if (!article) {
+          // Stale or unknown: say so once, then show what is actually there.
+          log("news", { outcome: "stale" });
+          await showNews({ note: say("newsStale", answerLanguage) });
+          continue;
+        }
+
+        log("news", { outcome: "article" });
+        await reply(formatArticle({ article, language: answerLanguage }), "reply");
+        continue;
+      }
 
       // ── A shared pin ──────────────────────────────────────────────────
       //
@@ -2298,6 +2392,17 @@ Deno.serve(async (req) => {
           await saveSession();
           continue;
         }
+      }
+
+      // ── The news ──────────────────────────────────────────────────────
+      //
+      // Reached by the menu row, by typing «الأخبار» or "news", and by a voice
+      // note saying either — `questionText` is already a transcript by here.
+      // The words are matched whole against a short cap, so "I saw the news
+      // about my order" is a support message and stays one.
+      if (!humanOwnsThis && !aiFocused && parseNewsRequest(questionText) && featureOn("news")) {
+        await showNews();
+        continue;
       }
 
       // ── Where am I, what's around me, what's the weather ───────────────

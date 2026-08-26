@@ -4,7 +4,21 @@ import process from 'node:process';
 
 const root = process.cwd();
 const skillsRoot = path.join(root, '.claude', 'skills');
-const expected = [
+/**
+ * Two tiers, deliberately.
+ *
+ * The first six are *routing* skills: short, repository-specific, and the first
+ * thing loaded for a piece of work. They say what this codebase expects and
+ * where to look, then hand off. The rest are craft skills — deeper, slower to
+ * read, and worth loading only when the task has earned them.
+ *
+ * A skill directory that is in neither list, or a list entry with no directory,
+ * fails this check. That is the point: the set stays reviewable.
+ */
+const routing = [
+  'deployment', 'security', 'supabase', 'testing', 'token-efficiency', 'whatsapp',
+];
+const craft = [
   'accessible-game-qa', 'api-integration-expert', 'architecture-reviewer',
   'backend-api-master', 'code-review-gate', 'database-supabase-expert',
   'deep-reasoning-planner', 'frontend-ui-master', 'game-audio-director',
@@ -12,7 +26,8 @@ const expected = [
   'github-release-manager', 'localization-guardian', 'performance-optimizer',
   'production-code-engineer', 'production-verifier', 'root-cause-debugger',
   'security-auditor', 'test-engineer',
-].sort();
+];
+const expected = [...routing, ...craft].sort();
 
 const errors = [];
 const entries = (await readdir(skillsRoot, { withFileTypes: true }))

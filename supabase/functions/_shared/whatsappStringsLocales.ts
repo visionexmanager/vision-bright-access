@@ -243,6 +243,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*صوتی جوابات*",
     voiceBody: "میں آپ کے انداز میں جواب دیتا ہوں: وائس نوٹ کا جواب وائس نوٹ، اور لکھے پیغام کا جواب تحریر۔",
     voiceNote: "کچھ ترتیب دینے کی ضرورت نہیں — جیسے آپ بھیجیں گے ویسے ہی جواب دوں گا۔",
+    newsHeading: "*تازہ ترین خبریں*",
+    newsButton: "خبریں",
+    newsEmpty: "ابھی کوئی خبر شائع نہیں ہوئی۔ بعد میں دیکھیں، یا یہ صفحہ کھولیں: {url}",
+    newsUnavailable: "ابھی خبروں تک نہیں پہنچ سکا۔ تھوڑی دیر بعد کوشش کریں، یا براہِ راست پڑھیں: {url}",
+    newsStale: "یہ خبر اب فہرست میں نہیں رہی۔ یہ ہیں تازہ ترین خبریں دوبارہ:",
+    newsLink: "باقی یہاں پڑھیں: {url}",
+    newsBackHint: "فہرست دوبارہ دیکھنے کے لیے مینو سے «خبریں» کھولیں۔",
   },
 
   // ── Hindi ─────────────────────────────────────────────────────────────────
@@ -460,6 +467,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*आवाज़ में जवाब*",
     voiceBody: "मैं आपके तरीक़े से जवाब देता हूँ: वॉइस नोट का जवाब वॉइस नोट, और लिखे संदेश का जवाब लिखकर।",
     voiceNote: "सेट करने को कुछ नहीं है — जैसे आप भेजेंगे वैसे ही मैं जवाब दूँगा।",
+    newsHeading: "*ताज़ा ख़बरें*",
+    newsButton: "समाचार",
+    newsEmpty: "अभी कोई ख़बर प्रकाशित नहीं है। बाद में देखें, या यह पन्ना खोलें: {url}",
+    newsUnavailable: "अभी ख़बरों तक नहीं पहुँच सका। थोड़ी देर बाद कोशिश करें, या सीधे पढ़ें: {url}",
+    newsStale: "यह ख़बर अब सूची में नहीं है। ये रहीं ताज़ा ख़बरें फिर से:",
+    newsLink: "बाक़ी यहाँ पढ़ें: {url}",
+    newsBackHint: "सूची फिर देखने के लिए मेन्यू से «समाचार» खोलें।",
   },
 
   // ── Indonesian ────────────────────────────────────────────────────────────
@@ -677,6 +691,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*Balasan suara*",
     voiceBody: "Saya menjawab sesuai cara Anda bertanya: pesan suara dibalas pesan suara, pesan ketik dibalas teks.",
     voiceNote: "Tidak ada yang perlu diatur — cara Anda mengirim adalah cara saya menjawab.",
+    newsHeading: "*Berita terbaru*",
+    newsButton: "Berita",
+    newsEmpty: "Belum ada berita yang terbit sekarang. Coba lagi nanti, atau buka halamannya: {url}",
+    newsUnavailable: "Saya tidak bisa menghubungi berita sekarang. Coba sebentar lagi, atau baca langsung: {url}",
+    newsStale: "Berita itu sudah tidak ada di daftar. Ini yang terbaru lagi:",
+    newsLink: "Baca selengkapnya: {url}",
+    newsBackHint: "Buka «Berita» di menu untuk melihat daftarnya lagi.",
   },
 
   // ── Japanese ──────────────────────────────────────────────────────────────
@@ -894,6 +915,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*音声での返信*",
     voiceBody: "お尋ねいただいた形でお答えします。ボイスメッセージには音声で、入力された文章には文字でお返しします。",
     voiceNote: "設定するものはありません。送っていただいた形が、そのまま返信の形になります。",
+    newsHeading: "*最新のニュース*",
+    newsButton: "ニュース",
+    newsEmpty: "いま公開されているニュースはありません。しばらくしてからお試しになるか、こちらをご覧ください: {url}",
+    newsUnavailable: "いまニュースにつながりませんでした。少し経ってからお試しになるか、直接お読みください: {url}",
+    newsStale: "その記事は一覧から外れました。あらためて最新のものをお伝えします:",
+    newsLink: "続きはこちら: {url}",
+    newsBackHint: "一覧をもう一度見るには、メニューから「ニュース」を開いてください。",
   },
 
   // ── Italian ───────────────────────────────────────────────────────────────
@@ -1111,6 +1139,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*Risposte vocali*",
     voiceBody: "Rispondo come mi scrivi: a un vocale rispondo con un vocale, a un messaggio scritto con del testo.",
     voiceNote: "Non c'è niente da impostare — come mandi è come rispondo.",
+    newsHeading: "*Ultime notizie*",
+    newsButton: "Notizie",
+    newsEmpty: "Non c'è nessuna notizia pubblicata al momento. Riprova più tardi, o sfoglia la sezione: {url}",
+    newsUnavailable: "Non sono riuscito a raggiungere le notizie adesso. Riprova tra poco, oppure leggile direttamente: {url}",
+    newsStale: "Quella notizia non è più nell'elenco. Ecco di nuovo le ultime:",
+    newsLink: "Leggi il resto: {url}",
+    newsBackHint: "Apri «Notizie» dal menu per rivedere l'elenco.",
   },
 
   // ── Korean ────────────────────────────────────────────────────────────────
@@ -1328,6 +1363,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*음성 답변*",
     voiceBody: "물어보신 방식대로 답합니다. 음성 메시지에는 음성으로, 입력하신 글에는 글로 답해 드립니다.",
     voiceNote: "설정할 것은 없습니다. 보내시는 방식이 곧 제가 답하는 방식입니다.",
+    newsHeading: "*최신 뉴스*",
+    newsButton: "뉴스",
+    newsEmpty: "지금 공개된 뉴스가 없습니다. 나중에 다시 시도하시거나 이 페이지를 열어보세요: {url}",
+    newsUnavailable: "지금 뉴스에 연결하지 못했습니다. 잠시 후 다시 시도하시거나 바로 읽어보세요: {url}",
+    newsStale: "그 기사는 목록에서 내려갔습니다. 최신 뉴스를 다시 알려드리겠습니다:",
+    newsLink: "나머지 읽기: {url}",
+    newsBackHint: "목록을 다시 보시려면 메뉴에서 «뉴스»를 열어주세요.",
   },
 
   // ── Dutch ─────────────────────────────────────────────────────────────────
@@ -1545,6 +1587,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*Antwoorden per spraakbericht*",
     voiceBody: "Ik antwoord zoals je vraagt: een spraakbericht krijgt een spraakbericht terug, een getypt bericht krijgt tekst.",
     voiceNote: "Er valt niets in te stellen — hoe je stuurt, is hoe ik antwoord.",
+    newsHeading: "*Laatste nieuws*",
+    newsButton: "Nieuws",
+    newsEmpty: "Er is op dit moment geen nieuws gepubliceerd. Probeer het later, of bekijk de sectie: {url}",
+    newsUnavailable: "Ik kon het nieuws nu niet bereiken. Probeer het zo nog eens, of lees het rechtstreeks: {url}",
+    newsStale: "Dat bericht staat niet meer in de lijst. Hier is het laatste nieuws opnieuw:",
+    newsLink: "Lees verder: {url}",
+    newsBackHint: "Open «Nieuws» in het menu om de lijst opnieuw te zien.",
   },
 
   // ── Polish ────────────────────────────────────────────────────────────────
@@ -1762,6 +1811,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*Odpowiedzi głosowe*",
     voiceBody: "Odpowiadam tak, jak pytasz: na wiadomość głosową odpowiadam głosowo, na napisaną — tekstem.",
     voiceNote: "Nie ma czego ustawiać — jak wyślesz, tak odpowiem.",
+    newsHeading: "*Najnowsze wiadomości*",
+    newsButton: "Wiadomości",
+    newsEmpty: "W tej chwili nie ma opublikowanych wiadomości. Spróbuj później albo zajrzyj do działu: {url}",
+    newsUnavailable: "Nie udało mi się teraz dotrzeć do wiadomości. Spróbuj za chwilę albo przeczytaj je bezpośrednio: {url}",
+    newsStale: "Tej wiadomości już nie ma na liście. Oto najnowsze jeszcze raz:",
+    newsLink: "Przeczytaj resztę: {url}",
+    newsBackHint: "Otwórz «Wiadomości» w menu, żeby znów zobaczyć listę.",
   },
 
   // ── Vietnamese ────────────────────────────────────────────────────────────
@@ -1979,6 +2035,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*Trả lời bằng giọng nói*",
     voiceBody: "Tôi trả lời theo cách bạn hỏi: tin nhắn thoại thì tôi trả lời bằng thoại, tin nhắn chữ thì tôi trả lời bằng chữ.",
     voiceNote: "Không có gì phải cài đặt — bạn gửi thế nào, tôi trả lời thế ấy.",
+    newsHeading: "*Tin mới nhất*",
+    newsButton: "Tin tức",
+    newsEmpty: "Hiện chưa có tin nào được đăng. Thử lại sau, hoặc mở trang: {url}",
+    newsUnavailable: "Tôi chưa kết nối được tới tin tức lúc này. Thử lại sau ít phút, hoặc đọc trực tiếp: {url}",
+    newsStale: "Tin đó không còn trong danh sách. Đây là những tin mới nhất:",
+    newsLink: "Đọc tiếp: {url}",
+    newsBackHint: "Mở «Tin tức» trong menu để xem lại danh sách.",
   },
 
   // ── Bengali ───────────────────────────────────────────────────────────────
@@ -2196,6 +2259,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*ভয়েসে উত্তর*",
     voiceBody: "আপনি যেভাবে জিজ্ঞাসা করবেন সেভাবেই উত্তর দেব: ভয়েস বার্তার উত্তর ভয়েসে, লেখা বার্তার উত্তর লেখায়।",
     voiceNote: "কিছু ঠিক করার নেই — আপনি যেভাবে পাঠান, আমি সেভাবেই উত্তর দিই।",
+    newsHeading: "*সাম্প্রতিক খবর*",
+    newsButton: "খবর",
+    newsEmpty: "এখন প্রকাশিত কোনো খবর নেই। পরে দেখুন, অথবা এই পাতাটি খুলুন: {url}",
+    newsUnavailable: "এখন খবরে পৌঁছাতে পারিনি। একটু পরে চেষ্টা করুন, অথবা সরাসরি পড়ুন: {url}",
+    newsStale: "ওই খবরটি আর তালিকায় নেই। এই যে সাম্প্রতিক খবরগুলো আবার:",
+    newsLink: "বাকিটা পড়ুন: {url}",
+    newsBackHint: "তালিকা আবার দেখতে মেনু থেকে «খবর» খুলুন।",
   },
 
   // ── Persian ───────────────────────────────────────────────────────────────
@@ -2413,6 +2483,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*پاسخ‌های صوتی*",
     voiceBody: "به همان شکلی که می‌پرسید پاسخ می‌دهم: پیام صوتی پاسخ صوتی می‌گیرد و پیام نوشتاری پاسخ نوشتاری.",
     voiceNote: "چیزی برای تنظیم کردن نیست — هرطور بفرستید همان‌طور پاسخ می‌دهم.",
+    newsHeading: "*تازه‌ترین خبرها*",
+    newsButton: "خبرها",
+    newsEmpty: "الان خبری منتشر نشده است. بعداً سر بزنید، یا این صفحه را باز کنید: {url}",
+    newsUnavailable: "الان نتوانستم به خبرها برسم. کمی بعد امتحان کنید، یا مستقیم بخوانید: {url}",
+    newsStale: "آن خبر دیگر در فهرست نیست. این هم تازه‌ترین‌ها دوباره:",
+    newsLink: "بقیه را اینجا بخوانید: {url}",
+    newsBackHint: "برای دیدن دوبارهٔ فهرست، «خبرها» را از منو باز کنید.",
   },
 
   // ── Spanish ───────────────────────────────────────────────────────────────
@@ -2630,6 +2707,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*Respuestas de voz*",
     voiceBody: "Respondo como preguntas: a una nota de voz le respondo con voz, y a un mensaje escrito con texto.",
     voiceNote: "No hay nada que configurar — como envías es como respondo.",
+    newsHeading: "*Últimas noticias*",
+    newsButton: "Noticias",
+    newsEmpty: "Ahora mismo no hay noticias publicadas. Inténtalo más tarde, o mira la sección: {url}",
+    newsUnavailable: "No pude acceder a las noticias ahora mismo. Inténtalo en un momento, o léelas directamente: {url}",
+    newsStale: "Esa noticia ya no está en la lista. Aquí están las últimas otra vez:",
+    newsLink: "Lee el resto: {url}",
+    newsBackHint: "Abre «Noticias» en el menú para ver la lista otra vez.",
   },
 
   // ── German ────────────────────────────────────────────────────────────────
@@ -2847,6 +2931,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*Antworten als Sprachnachricht*",
     voiceBody: "Ich antworte so, wie du fragst: auf eine Sprachnachricht kommt eine Sprachnachricht, auf eine getippte Nachricht Text.",
     voiceNote: "Es gibt nichts einzustellen — wie du sendest, so antworte ich.",
+    newsHeading: "*Neueste Nachrichten*",
+    newsButton: "Nachrichten",
+    newsEmpty: "Zurzeit sind keine Nachrichten veröffentlicht. Versuch es später, oder sieh dir den Bereich an: {url}",
+    newsUnavailable: "Ich konnte die Nachrichten gerade nicht erreichen. Versuch es gleich noch einmal, oder lies sie direkt: {url}",
+    newsStale: "Diese Meldung steht nicht mehr auf der Liste. Hier sind die neuesten noch einmal:",
+    newsLink: "Den Rest lesen: {url}",
+    newsBackHint: "Öffne «Nachrichten» im Menü, um die Liste noch einmal zu sehen.",
   },
 
   // ── Portuguese ────────────────────────────────────────────────────────────
@@ -3064,6 +3155,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*Respostas de voz*",
     voiceBody: "Respondo como pergunta: a uma mensagem de voz respondo com voz, a uma mensagem escrita respondo com texto.",
     voiceNote: "Não há nada para configurar — como envia é como respondo.",
+    newsHeading: "*Últimas notícias*",
+    newsButton: "Notícias",
+    newsEmpty: "Neste momento não há notícias publicadas. Tente mais tarde, ou veja a secção: {url}",
+    newsUnavailable: "Não consegui chegar às notícias agora. Tente daqui a pouco, ou leia diretamente: {url}",
+    newsStale: "Essa notícia já não está na lista. Aqui estão as últimas outra vez:",
+    newsLink: "Leia o resto: {url}",
+    newsBackHint: "Abra «Notícias» no menu para ver a lista outra vez.",
   },
 
   // ── Chinese ───────────────────────────────────────────────────────────────
@@ -3281,6 +3379,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*语音回复*",
     voiceBody: "您怎么问我就怎么答：语音消息我用语音回，打字的消息我用文字回。",
     voiceNote: "没有什么要设置的——您怎么发，我就怎么回。",
+    newsHeading: "*最新新闻*",
+    newsButton: "新闻",
+    newsEmpty: "目前没有已发布的新闻。请稍后再看，或者打开这个页面：{url}",
+    newsUnavailable: "现在连不上新闻。请稍后再试，或者直接阅读：{url}",
+    newsStale: "那条新闻已经不在列表里了。这是最新的几条：",
+    newsLink: "阅读全文：{url}",
+    newsBackHint: "从菜单打开「新闻」可以再看一次列表。",
   },
 
   // ── Turkish ───────────────────────────────────────────────────────────────
@@ -3498,6 +3603,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*Sesli yanıtlar*",
     voiceBody: "Nasıl sorarsanız öyle yanıtlarım: sesli mesaja sesli, yazılı mesaja yazılı.",
     voiceNote: "Ayarlanacak bir şey yok — nasıl gönderirseniz öyle yanıtlarım.",
+    newsHeading: "*Son haberler*",
+    newsButton: "Haberler",
+    newsEmpty: "Şu anda yayımlanmış haber yok. Sonra tekrar bakın ya da bölümü açın: {url}",
+    newsUnavailable: "Şu anda haberlere ulaşamadım. Birazdan tekrar deneyin ya da doğrudan okuyun: {url}",
+    newsStale: "O haber artık listede değil. İşte en son haberler yeniden:",
+    newsLink: "Devamını okuyun: {url}",
+    newsBackHint: "Listeyi yeniden görmek için menüden «Haberler»'i açın.",
   },
 
   // ── French ────────────────────────────────────────────────────────────────
@@ -3715,6 +3827,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*Réponses vocales*",
     voiceBody: "Je réponds comme vous demandez : un message vocal reçoit une réponse vocale, un message écrit reçoit du texte.",
     voiceNote: "Il n'y a rien à régler — la façon dont vous envoyez est celle dont je réponds.",
+    newsHeading: "*Dernières actualités*",
+    newsButton: "Actualités",
+    newsEmpty: "Aucune actualité n'est publiée pour le moment. Réessayez plus tard, ou parcourez la rubrique : {url}",
+    newsUnavailable: "Je n'ai pas pu joindre les actualités à l'instant. Réessayez dans un moment, ou lisez-les directement : {url}",
+    newsStale: "Cette actualité n'est plus dans la liste. Voici de nouveau les dernières :",
+    newsLink: "Lire la suite : {url}",
+    newsBackHint: "Ouvrez «Actualités» dans le menu pour revoir la liste.",
   },
 
   // ── Russian ───────────────────────────────────────────────────────────────
@@ -3932,6 +4051,13 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     voiceHeading: "*Голосовые ответы*",
     voiceBody: "Отвечаю так, как вы спрашиваете: на голосовое сообщение — голосом, на набранное — текстом.",
     voiceNote: "Настраивать нечего — как отправите, так и отвечу.",
+    newsHeading: "*Последние новости*",
+    newsButton: "Новости",
+    newsEmpty: "Сейчас нет опубликованных новостей. Загляните позже или откройте раздел: {url}",
+    newsUnavailable: "Сейчас не удалось получить новости. Попробуйте чуть позже или откройте раздел: {url}",
+    newsStale: "Этой новости больше нет в списке. Вот последние ещё раз:",
+    newsLink: "Читать дальше: {url}",
+    newsBackHint: "Откройте «Новости» в меню, чтобы снова увидеть список.",
   },
 };
 

@@ -242,15 +242,20 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     handler: "coming_soon",
   },
   {
+    // Switched on when the WhatsApp side was built. It reads the same
+    // `news_articles` rows the website's own /news page reads, so there is one
+    // feed and one place it is published from — see `whatsappNews.ts`.
     id: "news",
     parent: ROOT_ID,
     order: 6,
     kind: "action",
-    enabled: false,
+    enabled: true,
     emoji: "📰",
     title: { ar: "الأخبار", en: "News" },
     description: { ar: "آخر الأخبار", en: "The latest headlines" },
-    handler: "coming_soon",
+    aliases: { ar: ["اخبار", "اخر الاخبار"], en: ["news", "headlines"] },
+    phrase: { ar: "الأخبار", en: "news" },
+    accepts: ["text"],
   },
   {
     id: "sports",

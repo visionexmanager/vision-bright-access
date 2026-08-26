@@ -803,6 +803,44 @@ const BASE_STRINGS = {
     ar: "لا يوجد إعداد تضبطه — الطريقة التي ترسل بها هي الطريقة التي أرد بها.",
     en: "There's nothing to set — how you send is how I answer.",
   },
+
+  // ── News ─────────────────────────────────────────────────────────────────
+  //
+  // The interface around the headlines. The headlines themselves come from
+  // `news_articles.translations`, which is content written by the news
+  // pipeline: an article exists in the languages it was translated into, and
+  // the base columns are what is left. These seven sentences exist in twenty.
+
+  newsHeading: { ar: "*آخر الأخبار*", en: "*Latest news*" },
+  /** The list's button label. Meta rejects a longer one outright: 20 characters. */
+  newsButton: { ar: "الأخبار", en: "News" },
+  newsEmpty: {
+    ar: "لا توجد أخبار منشورة الآن. جرّب لاحقاً، أو تصفّح القسم: {url}",
+    en: "There's no news published right now. Try again later, or browse the section: {url}",
+  },
+  newsUnavailable: {
+    ar: "تعذّر الوصول إلى الأخبار الآن. جرّب بعد قليل، أو اقرأها مباشرة: {url}",
+    en: "I couldn't reach the news just now. Try again shortly, or read it directly: {url}",
+  },
+  newsStale: {
+    ar: "هذا الخبر لم يعد في القائمة. هذه آخر الأخبار من جديد:",
+    en: "That item isn't in the list any more. Here's the latest again:",
+  },
+  /** Carries `{url}`, the canonical news page. There is no per-article URL. */
+  newsLink: { ar: "اقرأ البقية: {url}", en: "Read the rest: {url}" },
+  /**
+   * The way back, named as a thing to tap rather than a word to type.
+   *
+   * It said «اكتب الأخبار» / "say news" first, and that sentence was only true
+   * in two languages: the phrase parsers read Arabic and English, so a Turkish
+   * sender typing "haberler" would have reached nothing. The menu row is
+   * translated into all twenty and is a tap, so it is the instruction that is
+   * true for everybody who reads it.
+   */
+  newsBackHint: {
+    ar: "افتح «الأخبار» من القائمة لترى آخر الأخبار من جديد.",
+    en: "Open News from the menu to see the list again.",
+  },
 } as const;
 
 export type UiKey = keyof typeof BASE_STRINGS;
