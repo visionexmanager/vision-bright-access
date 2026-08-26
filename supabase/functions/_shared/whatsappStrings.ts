@@ -804,6 +804,36 @@ const BASE_STRINGS = {
     en: "There's nothing to set — how you send is how I answer.",
   },
 
+  // ── Choosing one of your own cloned voices ────────────────────────────
+  //
+  // The list is the sender's own voices and nothing else. No provider id and
+  // no profile id reaches these strings: `{name}` is the name the person gave
+  // their voice in the studio, which is the only identifier they ever see.
+  voiceMyVoicesHeading: { ar: "*أصواتي*", en: "*My voices*" },
+  voiceMyVoicesBody: { ar: "بأي صوت أرد عليك؟", en: "Which voice should I answer in?" },
+  voiceDefaultRow: { ar: "الصوت الافتراضي", en: "Default voice" },
+  voiceDefaultRowDesc: { ar: "صوت Visionex المعتاد", en: "The standard Visionex voice" },
+  voiceNoneNotice: {
+    ar: "لا يوجد لديك صوت جاهز بعد. أنشئ واحدًا من استوديو الصوت على الموقع، وامنح الموافقة، ثم فعّله للواتساب.",
+    en: "You don't have a voice ready yet. Create one in Voice Studio on the website, give your consent, then switch it on for WhatsApp.",
+  },
+  voiceSetTo: {
+    ar: "سأرد بهذا الصوت من الآن: {name}",
+    en: "I'll answer in this voice from now on: {name}",
+  },
+  voiceSetToDefault: {
+    ar: "سأرد بالصوت الافتراضي من الآن.",
+    en: "I'll answer in the default voice from now on.",
+  },
+  voiceGone: {
+    ar: "هذا الصوت لم يعد متاحًا. سأستخدم الصوت الافتراضي.",
+    en: "That voice isn't available any more. I'll use the default voice.",
+  },
+  voiceNeedsAccount: {
+    ar: "اربط حسابك في Visionex أولًا، وستظهر أصواتك هنا.",
+    en: "Link your Visionex account first, and your own voices will appear here.",
+  },
+
   // ── News ─────────────────────────────────────────────────────────────────
   //
   // The interface around the headlines. The headlines themselves come from

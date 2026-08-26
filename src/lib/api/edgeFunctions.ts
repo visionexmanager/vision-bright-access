@@ -531,7 +531,7 @@ export async function callVideoStudio(
 // ── Voice Studio ──────────────────────────────────────────────────────────────
 
 export interface VoiceStudioRequest {
-  action: "start_training" | "cancel_training" | "delete_profile";
+  action: "start_training" | "cancel_training" | "delete_profile" | "revoke_consent";
   profile_id?: string;
   job_id?: string;
 }
@@ -540,6 +540,16 @@ export interface VoiceStudioResponse {
   ok: boolean;
   job_id?: string;
   error?: string;
+  /**
+   * What happened at the provider on a deletion: "deleted", "absent", or
+   * absent from the response entirely when nothing was deleted.
+   *
+   * A deletion answers `ok: false` when either the provider copy or the stored
+   * recordings survived. Callers must read it — reporting a deletion that did
+   * not happen is the one failure this whole path exists to prevent.
+   */
+  provider?: "deleted" | "absent";
+  state?: "error";
 }
 
 export async function callVoiceStudio(
