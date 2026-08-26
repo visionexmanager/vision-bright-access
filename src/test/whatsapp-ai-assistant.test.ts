@@ -280,7 +280,9 @@ describe("voice", () => {
     // Asserted by its parts rather than as one literal line. The call gained
     // a `cache` argument and wrapped onto two lines, which broke this without
     // changing anything it was protecting.
-    expect(webhook).toContain("speak: (text) =>");
+    // `async` since the reply path resolves the sender's chosen voice before
+    // speaking. The assertion is about the wiring, not the keyword.
+    expect(webhook).toContain("speak: async (text) =>");
     expect(webhook).toContain("speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId");
     // One assistant call, whichever way the answer leaves.
     expect(webhook.match(/askAssistant\(/g)?.length).toBe(1);
