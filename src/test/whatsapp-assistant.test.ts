@@ -1364,7 +1364,9 @@ describe("voice replies", () => {
     // through the real decision with counters instead of a Meta account.
     expect(webhook).toContain("const delivered = await deliverReply(");
     expect(webhook).toContain("sendText: (text) => sendWhatsAppText({");
-    expect(webhook).toContain("speak: (text) =>");
+    // `async` since the reply path resolves the sender's chosen voice before
+    // speaking. The assertion is about the wiring, not the keyword.
+    expect(webhook).toContain("speak: async (text) =>");
     expect(webhook).toContain("speakReply({ phoneNumberId, token");
     expect(webhook.match(/const delivered = await deliverReply\(/g)?.length).toBe(1);
   });

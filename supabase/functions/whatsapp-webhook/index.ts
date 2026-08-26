@@ -1071,7 +1071,7 @@ Deno.serve(async (req) => {
           { body, kind, spokenInput, failureNotice: say("failed", answerLanguage), trace: correlationId },
           {
             sendText: (text) => sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text }),
-            speak: (text) =>
+            speak: async (text) =>
               speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, voice: await resolveSenderVoice(incoming.from) }),
           },
         );
@@ -1185,7 +1185,7 @@ Deno.serve(async (req) => {
           { message, spokenInput },
           {
             tap: (tappable) => sendTappable(delivery, tappable),
-            speak: (text) =>
+            speak: async (text) =>
               speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, voice: await resolveSenderVoice(incoming.from) }),
           },
         );
