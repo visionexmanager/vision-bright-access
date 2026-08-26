@@ -1,4 +1,18 @@
 // Voice Studio edge function
+//
+// ── This function is exempt from gateway JWT verification ────────────────────
+//
+// Listed in `supabase/config.toml` and in
+// `scripts/deploy-changed-supabase-functions.sh` — the second is the one the
+// deploy actually applies. The reason is the retention drain: a GitHub Actions
+// schedule calls it with `Bearer <CRON_SECRET>`, a shared secret is not a JWT,
+// and the gateway answered UNAUTHORIZED_INVALID_JWT_FORMAT before this file
+// ever ran. Probed in production on 2026-08-26, which is the only place it is
+// visible: no test can see a gateway that sits in front of the function.
+//
+// Nothing is weakened by it. Every branch below authenticates before it acts —
+// CRON_SECRET on the drain, `auth.getUser()` on everything a person does — so
+// an unauthenticated caller still gets a 401, one line later than it used to.
 // Handles: create profile, start training, cancel training, profile management
 // Provider abstraction: ElevenLabsVoiceProvider | MockVoiceProvider
 
