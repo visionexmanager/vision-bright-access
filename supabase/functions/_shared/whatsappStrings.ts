@@ -906,6 +906,50 @@ const BASE_STRINGS = {
     ar: "افتح «الأخبار» من القائمة لترى آخر الأخبار من جديد.",
     en: "Open News from the menu to see the list again.",
   },
+
+  // ── A song, asked for by name ─────────────────────────────────────────────
+  //
+  // Two of these say what Visionex may and may not send, and they are not
+  // small print: a thirty-second clip arriving where a whole song was expected
+  // is confusing, and for somebody listening rather than looking it is the
+  // difference between "it stopped" and "that is all there is". So the reason
+  // is said in the same message as the audio, in the sender's own language.
+  songHeading: { ar: "*الأغاني*", en: "*Songs*" },
+  /** A list button. Twenty characters, or Meta rejects the message. */
+  songButton: { ar: "الأغاني", en: "Songs" },
+  songWhich: {
+    ar: "أي أغنية تريد؟ اكتب: أغنية، ثم الاسم.",
+    en: "Which song? Send: song, then its name.",
+  },
+  songNone: {
+    ar: "ما وجدت أغنية بهذا الاسم. أضف اسم الفنان وجرّب مرة أخرى.",
+    en: "I couldn't find that song. Add the artist's name and try again.",
+  },
+  songUnavailable: {
+    ar: "تعذّر البحث عن الأغاني الآن. جرّب بعد قليل.",
+    en: "I couldn't search for songs just now. Try again shortly.",
+  },
+  /**
+   * The list's body text.
+   *
+   * "Tap", never "choose": the numeric interface's vocabulary was retired for a
+   * reason, and a sender who cannot see the rows is told what a thing does, not
+   * instructed to operate a keypad. The suite bans the older word in all twenty
+   * languages, which is how this sentence was caught before it shipped.
+   */
+  songChoose: { ar: "اضغط على أغنية وأرسلها لك.", en: "Tap a song and I'll send it." },
+  songPreviewNote: {
+    ar: "هذا المقطع الرسمي، ثلاثون ثانية. لا نملك حق إرسال التسجيل كاملاً.",
+    en: "This is the official thirty-second preview. We don't have the right to send the whole recording.",
+  },
+  /** Carries `{url}`, the shop where the whole track plays. */
+  songFullLink: { ar: "اسمعها كاملة: {url}", en: "Listen in full: {url}" },
+  songFreeNote: {
+    ar: "هذه نسخة كاملة بترخيص حر — أداء آخر، وليس التسجيل التجاري.",
+    en: "This is a complete, freely licensed recording — another performance, not the commercial one.",
+  },
+  /** Carries `{url}`, the page that names the licence and whoever recorded it. */
+  songFreeLicence: { ar: "المصدر والترخيص: {url}", en: "Source and licence: {url}" },
 } as const;
 
 export type UiKey = keyof typeof BASE_STRINGS;

@@ -503,6 +503,47 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     phrase: { ar: "موسيقى", en: "music" },
     accepts: ["text"],
   },
+  {
+    // The other half of listening, and deliberately a separate row: the radio
+    // answers "play me something", this answers "play me *this*". Keyless too —
+    // see `whatsappSongs.ts` for which two catalogues, and why a commercial
+    // recording is never the thing that gets sent.
+    //
+    // Its aliases are the singular word for one song in each language, never
+    // the plural: «أغاني» and "music" belong to the radio row above, and a
+    // sender who says either wants a station, not a search box.
+    id: "services.songs",
+    parent: "services",
+    order: 8,
+    kind: "action",
+    enabled: true,
+    title: { ar: "الأغاني", en: "Songs" },
+    description: { ar: "أغنية بالاسم، أرسلها لك", en: "Name a song and I'll send it" },
+    aliases: {
+      ar: ["اغنية", "أغنية", "بدي اغنية"],
+      en: ["song", "a song", "play a song"],
+      ur: ["گانا"],
+      hi: ["गाना", "गीत"],
+      id: ["lagu"],
+      ja: ["曲"],
+      it: ["canzone"],
+      ko: ["노래"],
+      nl: ["liedje", "nummer"],
+      pl: ["piosenka"],
+      vi: ["bài hát"],
+      bn: ["গান"],
+      fa: ["آهنگ", "ترانه"],
+      es: ["canción", "cancion"],
+      de: ["lied"],
+      pt: ["música", "musica"],
+      zh: ["歌曲", "歌"],
+      tr: ["şarkı", "sarki"],
+      fr: ["chanson"],
+      ru: ["песня"],
+    },
+    phrase: { ar: "أغنية", en: "song" },
+    accepts: ["text"],
+  },
 
   // ── Support ─────────────────────────────────────────────────────────────
   {

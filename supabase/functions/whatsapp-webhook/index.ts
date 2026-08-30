@@ -150,6 +150,19 @@ import {
   readArticles,
 } from "../_shared/whatsappNews.ts";
 import {
+  fetchAudio,
+  findFreeRecording,
+  formatFreeRecording,
+  formatLinkOnly,
+  formatPreview,
+  lookupSong,
+  parseSongRequest,
+  parseSongSelection,
+  searchSongs,
+  type Song,
+  SONG_ID_PREFIX,
+} from "../_shared/whatsappSongs.ts";
+import {
   noVoicesNotice,
   readResolvedVoice,
   readVoiceOptions,
@@ -161,7 +174,7 @@ import {
   type ResolvedVoice,
 } from "../_shared/whatsappVoiceChoice.ts";
 import { sendVoiceChoice } from "../_shared/whatsappInteractive.ts";
-import { deliverReply, replyMedium, speakReply } from "../_shared/whatsappVoiceReply.ts";
+import { deliverReply, replyMedium, sendWhatsAppAudio, speakReply, uploadWhatsAppMedia } from "../_shared/whatsappVoiceReply.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
   type Capability,
@@ -183,6 +196,7 @@ import {
   sendProfileChoice,
   sendQuestion,
   sendNewsList,
+  sendSongList,
   sendTappable,
 } from "../_shared/whatsappInteractive.ts";
 import {
@@ -1294,6 +1308,73 @@ Deno.serve(async (req) => {
         return true;
       };
 
+      /**
+       * One song, delivered as far as the rights actually allow.
+       *
+       * A complete recording only when it is freely licensed — Wikimedia
+       * Commons, where the licence is a condition of the file being there —
+       * and otherwise the publisher's own thirty-second preview beside the
+       * link that plays the whole track where it is sold. Which of the two
+       * arrived is said in the message, not implied by its length.
+       *
+       * The sentence is sent before the audio in both cases. A clip that
+       * arrives first is thirty seconds of somebody wondering what they are
+       * listening to and why it stopped — and for a sender who cannot see the
+       * screen, the caption underneath is not an explanation, it is a thing
+       * they reach after the confusion has already happened.
+       *
+       * Every failure lands on the link: a song nobody could download is still
+       * a song somebody can go and play.
+       */
+      const deliverSong = async (song: Song): Promise<void> => {
+        /** Fetch, upload and send one address. False if any of the three fails. */
+        const sendAudioFrom = async (url: string): Promise<boolean> => {
+          const audio = await fetchAudio(url).catch(() => null);
+          if (!audio) return false;
+          const mediaId = await uploadWhatsAppMedia({
+            phoneNumberId,
+            token,
+            bytes: audio.bytes,
+            mimeType: audio.mimeType,
+          });
+          if (!mediaId) return false;
+          return await sendWhatsAppAudio({ phoneNumberId, token, to: incoming.from, mediaId });
+        };
+
+        // The free recording is tried first and is allowed to fail all the way
+        // through. Commons stores its audio as Ogg and Meta documents Ogg
+        // support as Opus-only, so an upload here may be refused for a reason
+        // no check on this side can see. When it is, the sender still gets the
+        // preview — the alternative is a caption promising a recording that
+        // never arrives.
+        const free = await findFreeRecording(song).catch(() => null);
+        if (free) {
+          await reply(
+            formatFreeRecording({ song, recording: free, language: answerLanguage }),
+            "reply",
+          );
+          if (await sendAudioFrom(free.audioUrl)) {
+            log("songs", { outcome: "free", sent: true });
+            return;
+          }
+          log("songs", { outcome: "free", sent: false });
+        }
+
+        if (song.previewUrl) {
+          await reply(formatPreview({ song, language: answerLanguage }), "reply");
+          const sent = await sendAudioFrom(song.previewUrl);
+          // Nothing about the track is logged beyond which kind of audio it
+          // was: what somebody listens to is theirs.
+          log("songs", { outcome: "preview", sent });
+          if (sent) return;
+        }
+
+        // Nothing playable survived. The link still plays the whole thing, and
+        // saying so is more use than an apology.
+        log("songs", { outcome: "link" });
+        await reply(formatLinkOnly({ song, language: answerLanguage }), "reply");
+      };
+
       // ── Abuse control ─────────────────────────────────────────────────
       //
       // Placed after the message is logged, so a throttled sender is still
@@ -1608,6 +1689,32 @@ Deno.serve(async (req) => {
         log("news", { outcome: "article" });
         await reply(formatArticle({ article, language: answerLanguage }), "reply");
         continue;
+      }
+
+      // ── A song from the list ──────────────────────────────────────────
+      //
+      // The row carries Apple's track id and the track is fetched again rather
+      // than remembered. A list outlives the delivery that sent it — somebody
+      // opens WhatsApp an hour later and taps a row — and a stateless id
+      // survives that, and a restart, where anything held in the session does
+      // not.
+      if (!humanOwnsThis && incoming.selection?.startsWith(SONG_ID_PREFIX)) {
+        const trackId = parseSongSelection(incoming.selection);
+        try {
+          const song = trackId ? await lookupSong(trackId) : null;
+          if (!song) {
+            log("songs", { outcome: "stale" });
+            await reply(say("songNone", answerLanguage), "unsupported");
+            continue;
+          }
+          await deliverSong(song);
+          continue;
+        } catch (e) {
+          console.error("[whatsapp] song lookup failed:", describeError(e));
+          log("songs", { outcome: "unavailable" });
+          await reply(say("songUnavailable", answerLanguage), "unsupported");
+          continue;
+        }
       }
 
       // ── A shared pin ──────────────────────────────────────────────────
@@ -2758,6 +2865,59 @@ Deno.serve(async (req) => {
       // `stream_url` by construction, so no station's stream can leave here
       // however this code changes. Playing happens on the Visionex page,
       // where the token flow and the subscription check live.
+      // ── A song, by name ───────────────────────────────────────────────
+      //
+      // Ahead of the radio, and the two do not overlap by accident. The radio
+      // answers a genre — "play me some music" — and this answers a title. The
+      // parser is what separates them: the genre words are filler, so a request
+      // that names nothing comes back empty and is left to the station search
+      // below, exactly as before this existed.
+      //
+      // Somebody standing inside Songs is different again. They tapped the row
+      // and were asked which one, so the next thing they type is the answer to
+      // that question, trigger word or not: «أم كلثوم» is a search here and a
+      // sentence about a singer anywhere else.
+      const songsOpen = session.feature === "services.songs";
+      const songQuery: string | null = aiFocused || !featureOn("services.songs")
+        ? null
+        : (() => {
+          const parsed = parseSongRequest(questionText);
+          if (songsOpen) return parsed ? parsed.query : (questionText ?? "").trim();
+          return parsed && parsed.query ? parsed.query : null;
+        })();
+
+      if (songQuery !== null && !humanOwnsThis) {
+        if (!songQuery) {
+          // Named the feature without naming a song. The question is the
+          // answer — and it says how to phrase the next message.
+          log("songs", { outcome: "which" });
+          await reply(say("songWhich", answerLanguage), "reply");
+          await saveSession();
+          continue;
+        }
+        try {
+          const songs = await searchSongs(songQuery);
+          if (songs.length === 0) {
+            log("songs", { outcome: "empty" });
+            await reply(say("songNone", answerLanguage), "unsupported");
+            await saveSession();
+            continue;
+          }
+          // Always a list, even for a single result: five performances of one
+          // song is the ordinary case, and choosing is the sender's to do.
+          log("songs", { outcome: "list", count: songs.length });
+          await sendSongList(delivery, songs, answerLanguage);
+          await saveSession();
+          continue;
+        } catch (e) {
+          console.error("[whatsapp] song search failed:", describeError(e));
+          log("songs", { outcome: "unavailable" });
+          await reply(say("songUnavailable", answerLanguage), "unsupported");
+          await saveSession();
+          continue;
+        }
+      }
+
       const radioRequest = aiFocused || !featureOn("services.radio")
         ? null
         : parseRadioRequest(questionText);
