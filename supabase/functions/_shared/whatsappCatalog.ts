@@ -195,23 +195,58 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     requires: ["ai"],
     accepts: ["text"],
   },
+  // ── The three groups the site is organised by ───────────────────────────
+  //
+  // Added when the top level hit Meta's ten-row ceiling with ten rows and no
+  // room for an eleventh: the songs feature had to be buried inside Services,
+  // three menus away from the radio it belongs beside. Grouping is what buys
+  // the headroom back, and the groups are the site's own — Listen, VXBazaar,
+  // Explore — so somebody who knows visionex.app knows this menu.
+  //
+  // No id here was renamed to fit: a node id is persisted in sessions and named
+  // in the production feature flags, so only `parent` and `order` moved.
   {
-    id: "voice",
+    id: "listen",
     parent: ROOT_ID,
-    order: 2,
-    kind: "action",
+    order: 3,
+    kind: "menu",
     enabled: true,
-    emoji: "🎙️",
-    title: { ar: "المساعد الصوتي", en: "Voice Assistant" },
-    description: { ar: "تكلم بدل الكتابة", en: "Talk instead of typing" },
-    handler: "voice_settings",
-    requires: ["speech_to_text"],
-    accepts: ["text", "audio"],
+    emoji: "🎧",
+    title: { ar: "استمع", en: "Listen" },
+    description: { ar: "الراديو والأغاني", en: "Radio and songs" },
+  },
+  {
+    id: "bazaar",
+    parent: ROOT_ID,
+    order: 4,
+    kind: "menu",
+    enabled: true,
+    emoji: "🛍️",
+    // The site calls it VXBazaar everywhere, including in Arabic. Here it
+    // cannot: an Arabic menu carries no Latin beyond «Visionex» and «PDF»,
+    // because a screen reader set to Arabic spells the rest out letter by
+    // letter. The brand survives in the eighteen languages whose script is
+    // Latin already.
+    title: { ar: "سوق Visionex", en: "VXBazaar" },
+    description: { ar: "تسوّق، بِع، وتابع طلباتك", en: "Shop, sell, track your orders" },
+    // No aliases on any of the three groups. «السوق» and "shop" are the words
+    // `services.bazaar` already answers to, and a word that resolves to two
+    // nodes resolves to whichever the sort happened to put first.
+  },
+  {
+    id: "explore",
+    parent: ROOT_ID,
+    order: 6,
+    kind: "menu",
+    enabled: true,
+    emoji: "🧭",
+    title: { ar: "تعلّم واستكشف", en: "Learn & explore" },
+    description: { ar: "الأكاديمية والأطفال والأخبار", en: "Academy, kids and news" },
   },
   {
     id: "ocr",
     parent: ROOT_ID,
-    order: 3,
+    order: 2,
     kind: "menu",
     enabled: true,
     emoji: "📷",
@@ -221,8 +256,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
   {
     id: "academy",
-    parent: ROOT_ID,
-    order: 4,
+    parent: "explore",
+    order: 1,
     kind: "action",
     enabled: false,
     emoji: "🎓",
@@ -232,8 +267,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
   {
     id: "kids",
-    parent: ROOT_ID,
-    order: 5,
+    parent: "explore",
+    order: 2,
     kind: "action",
     enabled: false,
     emoji: "🧸",
@@ -246,8 +281,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // `news_articles` rows the website's own /news page reads, so there is one
     // feed and one place it is published from — see `whatsappNews.ts`.
     id: "news",
-    parent: ROOT_ID,
-    order: 6,
+    parent: "explore",
+    order: 3,
     kind: "action",
     enabled: true,
     emoji: "📰",
@@ -291,8 +326,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
   {
     id: "sports",
-    parent: ROOT_ID,
-    order: 7,
+    parent: "explore",
+    order: 4,
     kind: "action",
     enabled: false,
     emoji: "⚽",
@@ -303,17 +338,18 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: "services",
     parent: ROOT_ID,
-    order: 8,
+    order: 5,
     kind: "menu",
     enabled: true,
     emoji: "🧭",
     title: { ar: "خدمات Visionex", en: "Visionex Services" },
-    description: { ar: "الطقس، موقعك، ما حولك، والسوق", en: "Weather, location, nearby, the bazaar" },
+    // The bazaar moved to its own group, so this no longer promises it.
+    description: { ar: "الطقس، أين أنت، وما حولك", en: "Weather, where you are, what is nearby" },
   },
   {
     id: "support",
     parent: ROOT_ID,
-    order: 9,
+    order: 7,
     kind: "menu",
     enabled: true,
     emoji: "🆘",
@@ -323,7 +359,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: "more",
     parent: ROOT_ID,
-    order: 10,
+    order: 8,
     kind: "menu",
     enabled: true,
     emoji: "➕",
@@ -449,8 +485,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
   {
     id: "services.bazaar",
-    parent: "services",
-    order: 4,
+    parent: "bazaar",
+    order: 1,
     kind: "action",
     enabled: true,
     title: { ar: "طلب منتج", en: "Find a product" },
@@ -462,8 +498,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
   {
     id: "services.sell",
-    parent: "services",
-    order: 5,
+    parent: "bazaar",
+    order: 2,
     kind: "action",
     enabled: true,
     title: { ar: "أريد أن أبيع", en: "I want to sell" },
@@ -477,8 +513,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // order of these rows is something a screen-reader user learns by position.
     // The right place for a new row is after the ones people have memorised.
     id: "services.orders",
-    parent: "services",
-    order: 6,
+    parent: "bazaar",
+    order: 3,
     kind: "action",
     enabled: true,
     title: { ar: "طلباتي", en: "My orders" },
@@ -493,13 +529,13 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // incidental — a WhatsApp feature here has to work without one, and a test
     // enforces it.
     id: "services.radio",
-    parent: "services",
-    order: 7,
+    parent: "listen",
+    order: 1,
     kind: "action",
     enabled: true,
     title: { ar: "استمع للراديو", en: "Listen to radio" },
     description: { ar: "محطات من كل العالم", en: "Stations from around the world" },
-    aliases: { ar: ["راديو", "إذاعة", "أغاني", "اغاني"], en: ["radio", "music", "songs", "listen"] },
+    aliases: { ar: ["راديو", "إذاعة", "أغاني", "اغاني"], en: ["radio", "music", "songs"] },
     phrase: { ar: "موسيقى", en: "music" },
     accepts: ["text"],
   },
@@ -513,8 +549,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // the plural: «أغاني» and "music" belong to the radio row above, and a
     // sender who says either wants a station, not a search box.
     id: "services.songs",
-    parent: "services",
-    order: 8,
+    parent: "listen",
+    order: 2,
     kind: "action",
     enabled: true,
     title: { ar: "الأغاني", en: "Songs" },

@@ -110,15 +110,19 @@ describe("arriving", () => {
     expect(catalog.childrenOf("assistant").length).toBe(3);
   });
 
-  it("4. opens option 2 from the main menu", () => {
-    const outcome = send("2");
+  it("4. opens a leaf inside a group, two numbers deep", () => {
+    // Every top-level row is a group now, so a feature is two numbers away
+    // rather than one: 3 is Listen, and its second row is Songs.
+    const listen = send("3");
+    expect(listen.kind).toBe("reply");
+    const outcome = send("2", listen.session);
     expect(outcome.kind).toBe("delegate");
     if (outcome.kind !== "delegate") return;
-    expect(outcome.node.id).toBe("voice");
+    expect(outcome.node.id).toBe("services.songs");
   });
 
-  it("5. opens option 3 and lands inside its submenu", () => {
-    const outcome = send("3");
+  it("5. opens option 2 and lands inside its submenu", () => {
+    const outcome = send("2");
     expect(outcome.kind).toBe("reply");
     expect(shownMenu(outcome)).toBe("ocr");
     expect(outcome.session.path).toEqual(["main", "ocr"]);
@@ -306,11 +310,13 @@ describe("the awkward cases", () => {
   });
 
   it("15. announces a disabled feature instead of opening it", () => {
-    // Academy, Kids, News and Sports are declared and not built.
-    const outcome = send("4");
+    // Academy, Kids, News and Sports are declared and not built. They live
+    // under Explore, option 6, and Academy is its first row.
+    const explore = send("6");
+    const outcome = send("1", explore.session);
     expect(outcome.kind).toBe("reply");
     expect(outcome.reason).toBe("disabled_feature");
-    expect(shownMenu(outcome)).toBe(catalog.ROOT_ID);
+    expect(shownMenu(outcome)).toBe("explore");
     // Not entered: the session must not point at something that cannot run.
     expect(outcome.session.feature).toBeNull();
     if (outcome.kind !== "reply") return;
@@ -319,7 +325,7 @@ describe("the awkward cases", () => {
   });
 
   it("15b. refuses a feature whose capability is missing, without naming the reason", () => {
-    const outcome = send("3", live(), { available: ["ai"] });
+    const outcome = send("2", live(), { available: ["ai"] });
     expect(outcome.reason).toBe("missing_capability");
     if (outcome.kind !== "reply") return;
     const shown = outcome.replies.find((r) => r.type === "menu") as { note?: string };
@@ -344,7 +350,7 @@ describe("the awkward cases", () => {
 
 describe("language and other message kinds", () => {
   it("17. answers Arabic input in Arabic, menus included", () => {
-    const outcome = send("٣", live(), { language: "ar" });
+    const outcome = send("٢", live(), { language: "ar" });
     expect(outcome.kind).toBe("reply");
     expect(shownMenu(outcome)).toBe("ocr");
     const menu = engine.renderMenu("ocr", "ar");
@@ -374,7 +380,7 @@ describe("language and other message kinds", () => {
   it("20. lets a voice note choose a number and stay in the feature", () => {
     // The transcript is what the engine sees, so "three" spoken lands exactly
     // where "3" typed does — and the audio path in front of it is untouched.
-    const outcome = engine.runEngine({ text: "3", kind: "audio" }, live(), context());
+    const outcome = engine.runEngine({ text: "2", kind: "audio" }, live(), context());
     expect(shownMenu(outcome)).toBe("ocr");
 
     const inside = live({ path: ["main", "assistant"], feature: "assistant" });

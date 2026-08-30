@@ -390,9 +390,22 @@ describe("the menu a sender is shown", () => {
   });
 
   it("24. carries the ids the contract names", () => {
+    // The root carries the eight groups the site is organised by, and the
+    // features live one step inside them. Both halves are checked, because a
+    // group whose menu names nothing is a row nobody has a reason to open.
     const main = idsOf(interactive.menuMessage(catalog.ROOT_ID, "en")!);
-    for (const id of ["assistant", "voice", "ocr", "academy", "kids", "news", "sports", "services", "support", "more"]) {
+    for (const id of ["assistant", "ocr", "listen", "bazaar", "services", "explore", "support", "more"]) {
       expect(main, id).toContain(id);
+    }
+    const inside: Record<string, string[]> = {
+      listen: ["services.radio", "services.songs"],
+      bazaar: ["services.bazaar", "services.sell", "services.orders"],
+      services: ["services.weather", "services.where", "services.nearby"],
+      explore: ["academy", "kids", "news", "sports"],
+    };
+    for (const [group, features] of Object.entries(inside)) {
+      const rows = idsOf(interactive.menuMessage(group, "en")!);
+      for (const id of features) expect(rows, group + " → " + id).toContain(id);
     }
     const ai = idsOf(interactive.menuMessage("assistant", "en")!);
     expect(ai).toEqual(["assistant.ask", "assistant.voice", "assistant.new", "back"]);

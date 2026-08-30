@@ -277,7 +277,7 @@ describe("the menu row", () => {
   it("exists, needs the bazaar, and stands in for words a parser understands", () => {
     const node = catalog.nodeById("services.orders");
     expect(node).not.toBeNull();
-    expect(node?.parent).toBe("services");
+    expect(node?.parent).toBe("bazaar");
     expect(node?.requires).toContain("bazaar");
     for (const language of ["ar", "en"] as const) {
       const phrase = catalog.localized(node!.phrase!, language);
