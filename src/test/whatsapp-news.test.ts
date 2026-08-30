@@ -38,8 +38,9 @@ describe("the menu entry", () => {
     const node = catalog.nodeById("news");
     expect(node).not.toBeNull();
     expect(node?.enabled).toBe(true);
-    expect(node?.parent).toBe(catalog.ROOT_ID);
-    expect(node?.order).toBe(6);
+    // Under Explore since the menu was grouped the way the site is.
+    expect(node?.parent).toBe("explore");
+    expect(node?.order).toBe(3);
     // No handler: it is a phrase leaf, so tapping the row and typing the word
     // reach the same parser.
     expect(node?.handler).toBeUndefined();
@@ -57,9 +58,10 @@ describe("the menu entry", () => {
     }
   });
 
-  it("appears on the main menu a sender is actually shown", () => {
-    const rows = catalog.offeredChildrenOf(catalog.ROOT_ID).map((child) => child.id);
-    expect(rows).toContain("news");
+  it("appears on the menu a sender is actually shown, one step in", () => {
+    const top = catalog.offeredChildrenOf(catalog.ROOT_ID).map((child) => child.id);
+    expect(top).toContain("explore");
+    expect(catalog.offeredChildrenOf("explore").map((child) => child.id)).toContain("news");
   });
 });
 

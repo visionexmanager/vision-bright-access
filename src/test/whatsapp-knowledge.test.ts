@@ -229,8 +229,13 @@ describe("the catalog is authoritative about features", () => {
   });
 
   it("drops a whole subtree when its parent is switched off", () => {
+    // By parent, not by name. An id is a stable name and no longer a path —
+    // «services.radio» hangs under Listen — so a subtree is what `parent` says
+    // it is, and asserting the prefix instead is how this passed by accident.
     const off = knowledge.availableFeatures("en", ["services"], ALL).map((f) => f.id);
-    expect(off.some((id) => id.startsWith("services."))).toBe(false);
+    const children = catalog.childrenOf("services").map((child) => child.id);
+    expect(children.length).toBeGreaterThan(0);
+    for (const id of children) expect(off, id).not.toContain(id);
   });
 
   it("drops a feature whose capability this deployment does not have", () => {
