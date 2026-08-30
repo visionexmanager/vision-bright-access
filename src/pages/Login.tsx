@@ -21,8 +21,15 @@ export default function Login() {
   const { t } = useLanguage();
   const { user, loading: authLoading } = useAuth();
 
-  // Respect returnTo param set by AuthGuard
-  const returnTo = searchParams.get("returnTo") ?? "/dashboard";
+  // Respect returnTo param set by AuthGuard.
+  //
+  // Its presence also means this visit was not chosen: somebody opened a page
+  // that needs an account and was moved here without being told why. A login
+  // form appearing out of nowhere reads as "something went wrong", and for a
+  // screen-reader user the redirect is silent — the page simply becomes a
+  // different one. So the reason is said, and said first.
+  const requested = searchParams.get("returnTo");
+  const returnTo = requested ?? "/dashboard";
 
   if (!authLoading && user) return <Navigate to={decodeURIComponent(returnTo)} replace />;
 
@@ -48,6 +55,14 @@ export default function Login() {
             <CardDescription className="text-base">{t("auth.loginSubtitle")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
+            {requested && (
+              <p
+                role="status"
+                className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-base"
+              >
+                {t("auth.accountRequired")}
+              </p>
+            )}
             <SocialAuthButtons />
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
@@ -69,7 +84,15 @@ export default function Login() {
             </form>
             <p className="mt-2 text-center text-base text-muted-foreground">
               {t("auth.noAccount")}{" "}
-              <Link to="/signup" className="font-semibold text-primary underline underline-offset-4">{t("nav.signup")}</Link>
+              {/* The destination travels with them: somebody sent here from a
+                  page that needs an account should land back on that page after
+                  signing up, not on a dashboard they did not ask for. */}
+              <Link
+                to={requested ? `/signup?returnTo=${encodeURIComponent(requested)}` : "/signup"}
+                className="font-semibold text-primary underline underline-offset-4"
+              >
+                {t("nav.signup")}
+              </Link>
             </p>
           </CardContent>
         </Card>

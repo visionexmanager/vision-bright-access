@@ -118,6 +118,7 @@ export const translations: Record<string, string> = {
   "auth.createAccount": "계정 만들기",
   "auth.noAccount": "계정이 없으신가요?",
   "auth.hasAccount": "이미 계정이 있나요?",
+  "auth.accountRequired": "이 페이지는 계정이 필요합니다. 로그인하거나 계정을 만들면 바로 여기로 돌아옵니다.",
   "auth.welcomeBack": "환영합니다!",
   "auth.accountCreated": "계정이 생성되었습니다! 지금 로그인 중입니다.",
   "auth.orContinueWith": "또는 다음으로 계속",

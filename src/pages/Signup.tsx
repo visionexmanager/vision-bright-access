@@ -25,6 +25,11 @@ export default function Signup() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const referredBy = searchParams.get("ref");
+  // Set when they arrived from a page that needs an account — see Login.tsx.
+  // Carried through signup so the account they just made opens the thing they
+  // wanted, rather than a dashboard they never asked for.
+  const requested = searchParams.get("returnTo");
+  const returnTo = requested ? decodeURIComponent(requested) : "/dashboard";
   const { t, lang } = useLanguage();
   const deviceId = useDeviceId();
   const { user, loading: authLoading } = useAuth();
@@ -45,7 +50,7 @@ export default function Signup() {
     { label: t("auth.passStrong") || "Strong", color: "bg-green-500"  },
   ];
 
-  if (!authLoading && user) return <Navigate to="/dashboard" replace />;
+  if (!authLoading && user) return <Navigate to={returnTo} replace />;
 
   const getSignupErrorMessage = (error: { message?: string; code?: string | number; error_code?: string; msg?: string; name?: string; status?: number }) => {
     const raw = [
@@ -139,7 +144,7 @@ export default function Signup() {
       }
 
       toast.success(t("auth.accountCreated"));
-      navigate("/dashboard");
+      navigate(returnTo);
     } catch (error) {
       toast.error(getSignupErrorMessage(error instanceof Error ? error : { message: String(error) }));
     } finally {
@@ -190,6 +195,14 @@ export default function Signup() {
             <CardDescription className="text-base">{t("auth.signupSubtitle")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
+            {requested && (
+              <p
+                role="status"
+                className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-base"
+              >
+                {t("auth.accountRequired")}
+              </p>
+            )}
             <SocialAuthButtons />
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
@@ -250,7 +263,12 @@ export default function Signup() {
             </form>
             <p className="mt-2 text-center text-base text-muted-foreground">
               {t("auth.hasAccount")}{" "}
-              <Link to="/login" className="font-semibold text-primary underline underline-offset-4">{t("nav.login")}</Link>
+              <Link
+                to={requested ? `/login?returnTo=${encodeURIComponent(requested)}` : "/login"}
+                className="font-semibold text-primary underline underline-offset-4"
+              >
+                {t("nav.login")}
+              </Link>
             </p>
           </CardContent>
           </Card>
