@@ -253,7 +253,39 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     emoji: "📰",
     title: { ar: "الأخبار", en: "News" },
     description: { ar: "آخر الأخبار", en: "The latest headlines" },
-    aliases: { ar: ["اخبار", "اخر الاخبار"], en: ["news", "headlines"] },
+    // The only node whose words are written in all twenty languages, and the
+    // reason is `whatsappNews.ts`: asking for the news is one word, and one
+    // word is exactly what language detection cannot read. A lone "noticias"
+    // carries no Spanish function word and no ñ, so it is detected as English
+    // and, before this list existed, was answered by the assistant instead of
+    // by the feature the sender had just named. Every other node is reached by
+    // a sentence, which detection does read.
+    //
+    // Written pre-folded where a keyboard has a choice — Arabic without hamza,
+    // Persian with and without the ZWNJ — because `normaliseAlias` folds the
+    // message but cannot guess which spelling was meant.
+    aliases: {
+      ar: ["اخبار", "الاخبار", "اخر الاخبار", "اخبار اليوم", "الاخبار اليوم", "جديد الاخبار"],
+      en: ["news", "the news", "latest news", "headlines"],
+      ur: ["خبریں", "تازہ خبریں", "تازہ ترین خبریں", "خبرنامہ"],
+      hi: ["समाचार", "ताजा समाचार", "खबर", "न्यूज़"],
+      id: ["berita", "berita terbaru", "kabar terbaru"],
+      ja: ["ニュース", "最新ニュース", "最新のニュース"],
+      it: ["notizie", "le notizie", "ultime notizie"],
+      ko: ["뉴스", "최신 뉴스", "최신 소식"],
+      nl: ["nieuws", "het nieuws", "laatste nieuws"],
+      pl: ["wiadomości", "najnowsze wiadomości", "aktualności"],
+      vi: ["tin tức", "tin mới", "tin mới nhất"],
+      bn: ["খবর", "সংবাদ", "সর্বশেষ খবর"],
+      fa: ["اخبار", "خبرها", "آخرین اخبار", "تازه‌ترین خبرها", "تازه ترین خبرها"],
+      es: ["noticias", "las noticias", "últimas noticias"],
+      de: ["nachrichten", "aktuelle nachrichten", "neuigkeiten"],
+      pt: ["notícias", "as notícias", "últimas notícias"],
+      zh: ["新闻", "最新新闻", "最新消息", "新聞"],
+      tr: ["haberler", "son haberler"],
+      fr: ["actualités", "les actualités", "nouvelles", "dernières nouvelles"],
+      ru: ["новости", "последние новости", "свежие новости"],
+    },
     phrase: { ar: "الأخبار", en: "news" },
     accepts: ["text"],
   },

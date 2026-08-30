@@ -31,7 +31,8 @@
 // the Supabase client already is; the payload building lives in
 // `whatsappInteractive.ts`, where every other interactive message is built.
 
-import type { Language } from "./whatsappCatalog.ts";
+import { aliasesOf, type Language, nodeById } from "./whatsappCatalog.ts";
+import { SUPPORTED_LANGUAGES } from "./whatsappLanguages.ts";
 import { say } from "./whatsappStrings.ts";
 import { normaliseAlias } from "./whatsappRouter.ts";
 
@@ -116,8 +117,31 @@ export function articleText(
 /** Longest a message can be and still be read as a request for the news. */
 const NEWS_MAX_CHARS = 40;
 
-const NEWS_WORDS_AR = ["الاخبار", "اخبار", "الاخبار اليوم", "اخر الاخبار", "جديد الاخبار"];
-const NEWS_WORDS_EN = ["news", "the news", "latest news", "headlines"];
+/**
+ * Every word that asks for the news, in every language, folded once.
+ *
+ * Read from the catalog rather than kept here: the node already has to declare
+ * its words so a switched-off feature can be refused by name instead of being
+ * quietly answered by the assistant, and two hand-maintained lists of the same
+ * twenty languages is one list going stale.
+ *
+ * Matched regardless of which language the sender was detected as, which is the
+ * point rather than an oversight. "noticias" is one word with no Spanish
+ * function word and no ñ in it, so detection reads it as English; scoping the
+ * match to the detected language would leave exactly the senders this list is
+ * for — the ones who type the name of the feature and nothing else — unable to
+ * reach it. Whole-message matching against a short cap is what keeps that safe.
+ */
+const NEWS_WORDS: ReadonlySet<string> = (() => {
+  const node = nodeById("news");
+  const words = new Set<string>();
+  if (!node) return words;
+  for (const language of SUPPORTED_LANGUAGES) {
+    for (const alias of aliasesOf(node, language)) words.add(normaliseAlias(alias));
+  }
+  words.delete("");
+  return words;
+})();
 
 /**
  * Whether this message is asking for the news.
@@ -129,7 +153,7 @@ const NEWS_WORDS_EN = ["news", "the news", "latest news", "headlines"];
 export function parseNewsRequest(text: string | null | undefined): boolean {
   const value = normaliseAlias(text ?? "");
   if (!value || value.length > NEWS_MAX_CHARS) return false;
-  return NEWS_WORDS_AR.includes(value) || NEWS_WORDS_EN.includes(value);
+  return NEWS_WORDS.has(value);
 }
 
 /**

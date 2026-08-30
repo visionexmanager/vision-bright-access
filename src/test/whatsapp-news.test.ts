@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 const news = await import("../../supabase/functions/_shared/whatsappNews.ts");
 const interactive = await import("../../supabase/functions/_shared/whatsappInteractive.ts");
 const catalog = await import("../../supabase/functions/_shared/whatsappCatalog.ts");
+const router = await import("../../supabase/functions/_shared/whatsappRouter.ts");
 const languages = await import("../../supabase/functions/_shared/whatsappLanguages.ts");
 const strings = await import("../../supabase/functions/_shared/whatsappStrings.ts");
 
@@ -69,6 +70,40 @@ describe("asking for the news", () => {
     }
     for (const asked of ["الأخبار", "اخبار", "آخر الأخبار"]) {
       expect(news.parseNewsRequest(asked), asked).toBe(true);
+    }
+  });
+
+  it("hears the name of the section in all twenty languages", () => {
+    const node = catalog.nodeById("news")!;
+    for (const language of LANGS) {
+      // Its own list, never the English fallback. A lone "noticias" carries no
+      // Spanish function word and no ñ, so it is detected as English — which is
+      // exactly why the Spanish words have to be declared rather than inferred.
+      const own = node.aliases?.[language] ?? [];
+      expect(own.length, `aliases.${language}`).toBeGreaterThan(0);
+      for (const word of own) {
+        expect(news.parseNewsRequest(word), `${language}: ${word}`).toBe(true);
+      }
+      // The row's title is what somebody reads on the menu and then types back.
+      const title = catalog.localized(node.title, language);
+      expect(news.parseNewsRequest(title), `title.${language}: ${title}`).toBe(true);
+    }
+  });
+
+  it("does not answer in place of a feature that owns the word", () => {
+    const node = catalog.nodeById("news")!;
+    const mine = new Set(
+      LANGS.flatMap((language) => (node.aliases?.[language] ?? []).map(router.normaliseAlias)),
+    );
+    for (const other of catalog.CATALOG) {
+      if (other.id === "news") continue;
+      for (const language of LANGS) {
+        for (const word of catalog.aliasesOf(other, language)) {
+          expect(mine.has(router.normaliseAlias(word)), `${other.id}.${language}: ${word}`).toBe(false);
+        }
+        const title = catalog.localized(other.title, language);
+        expect(mine.has(router.normaliseAlias(title)), `${other.id} title.${language}: ${title}`).toBe(false);
+      }
     }
   });
 
