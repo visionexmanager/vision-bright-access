@@ -2252,17 +2252,29 @@ describe("PDFs, which are now actually read", () => {
 });
 describe("announcing what the assistant can do", () => {
   it("names every capability a sender could not otherwise discover", () => {
-    // The main menu is the interface: a capability missing from it is a
-    // capability this audience has no way to find.
-    const english = engine.renderMenu(catalog.ROOT_ID, "en");
-    for (const feature of ["AI Assistant", "Voice Assistant", "OCR", "Academy",
-      "VisionKids", "News", "Sports", "Services", "Support", "More"]) {
-      expect(english, feature).toContain(feature);
+    // The menu is the interface: a capability nothing names is a capability
+    // this audience has no way to find. The top level is eight groups now, so
+    // the rule is one step deeper — every enabled feature has to be named on
+    // the menu of the group it sits in, and every group has to be named at the
+    // root. Nothing may be reachable only by knowing the word for it.
+    const root = { en: engine.renderMenu(catalog.ROOT_ID, "en"), ar: engine.renderMenu(catalog.ROOT_ID, "ar") };
+    for (const group of catalog.offeredChildrenOf(catalog.ROOT_ID)) {
+      for (const language of ["en", "ar"] as const) {
+        expect(root[language], `${group.id}/${language}`).toContain(catalog.localized(group.title, language));
+      }
+      for (const feature of catalog.offeredChildrenOf(group.id)) {
+        for (const language of ["en", "ar"] as const) {
+          const menu = engine.renderMenu(group.id, language);
+          expect(menu, `${feature.id}/${language}`).toContain(catalog.localized(feature.title, language));
+        }
+      }
     }
-    const arabic = engine.renderMenu(catalog.ROOT_ID, "ar");
-    for (const feature of ["المساعد الذكي", "المساعد الصوتي", "قراءة الصور",
-      "أكاديمية", "الأطفال", "الأخبار", "الرياضة", "خدمات", "الدعم", "المزيد"]) {
-      expect(arabic, feature).toContain(feature);
+    // And the areas themselves are still named in the words a sender would use.
+    for (const feature of ["AI Assistant", "Listen", "VXBazaar", "Services", "Support", "More"]) {
+      expect(root.en, feature).toContain(feature);
+    }
+    for (const feature of ["المساعد الذكي", "استمع", "خدمات", "الدعم", "المزيد"]) {
+      expect(root.ar, feature).toContain(feature);
     }
   });
 

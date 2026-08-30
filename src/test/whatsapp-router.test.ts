@@ -170,8 +170,8 @@ describe("navigation across separate webhook requests", () => {
   };
 
   it("reconstructs where the sender is from columns alone", () => {
-    // Request one: "8" opens Services.
-    const first = delivery({ session_updated_at: new Date(NOW - 60_000).toISOString() }, "8");
+    // Request one: "5" opens Services.
+    const first = delivery({ session_updated_at: new Date(NOW - 60_000).toISOString() }, "5");
     expect(first.row.nav_path).toEqual(["main", "services"]);
 
     // Request two is a separate process with nothing but those columns, and "1"
@@ -196,7 +196,7 @@ describe("navigation across separate webhook requests", () => {
 
 describe("feature flags, applied after resolution", () => {
   it("refuses a disabled feature by number, and does not enter it", () => {
-    const routed = route({ text: "8", disabled: ["services"] });
+    const routed = route({ text: "5", disabled: ["services"] });
     expect(routed.kind).toBe("unavailable");
     if (routed.kind !== "unavailable") return;
     expect(routed.featureId).toBe("services");
@@ -223,7 +223,8 @@ describe("feature flags, applied after resolution", () => {
   });
 
   it("refuses a feature whose capability is missing, without naming the reason", () => {
-    const routed = route({ text: "3", available: ["ai"] });
+    // 2 is Image & text, the row that needs the vision capability.
+    const routed = route({ text: "2", available: ["ai"] });
     expect(routed.kind).toBe("unavailable");
     if (routed.kind !== "unavailable") return;
     expect(routed.reason).toBe("capability");
@@ -235,7 +236,8 @@ describe("feature flags, applied after resolution", () => {
     // Two different states that used to look the same. A feature Visionex has
     // announced and not built keeps its row and says so — taking VisionKids off
     // the menu would tell the people waiting for it that it was cancelled.
-    const menu = engine.renderMenu(catalog.ROOT_ID, "en");
+    // Academy is a row of Explore now, not of the root menu.
+    const menu = engine.renderMenu("explore", "en");
     expect(menu).toContain("Visionex Academy");
     expect(menu).toMatch(/Visionex Academy.*isn't open yet/);
 

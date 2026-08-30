@@ -40,6 +40,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Urdu ──────────────────────────────────────────────────────────────────
   ur: {
     "main": ["Visionex کا مینو", "Visionex یہاں کیا کر سکتا ہے"],
+    "listen": ["سنیں", "ریڈیو اور گانے"],
+    "bazaar": ["VXBazaar", "خریدیں، بیچیں، آرڈر دیکھیں"],
+    "explore": ["سیکھیں اور دریافت کریں", "اکیڈمی، بچے اور خبریں"],
     "assistant": ["اے آئی معاون", "کچھ بھی پوچھیں، لکھ کر یا بول کر"],
     "assistant.ask": ["اے آئی سے پوچھیں", "اپنا سوال لکھیں"],
     "assistant.voice": ["آواز میں سوال", "اپنا سوال وائس نوٹ میں بھیجیں"],
@@ -77,6 +80,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Hindi ─────────────────────────────────────────────────────────────────
   hi: {
     "main": ["Visionex मेन्यू", "Visionex यहाँ क्या कर सकता है"],
+    "listen": ["सुनें", "रेडियो और गाने"],
+    "bazaar": ["VXBazaar", "खरीदें, बेचें, ऑर्डर देखें"],
+    "explore": ["सीखें और खोजें", "अकादमी, बच्चे और समाचार"],
     "assistant": ["एआई सहायक", "कुछ भी पूछें, लिखकर या बोलकर"],
     "assistant.ask": ["एआई से पूछें", "अपना सवाल लिखें"],
     "assistant.voice": ["आवाज़ में सवाल", "अपना सवाल वॉइस नोट में भेजें"],
@@ -114,6 +120,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Indonesian ────────────────────────────────────────────────────────────
   id: {
     "main": ["Menu Visionex", "Semua yang bisa Visionex lakukan"],
+    "listen": ["Dengarkan", "Radio dan lagu"],
+    "bazaar": ["VXBazaar", "Belanja, jual, lacak pesanan"],
+    "explore": ["Belajar & jelajahi", "Akademi, anak-anak, berita"],
     "assistant": ["Asisten AI", "Tanya apa saja, diketik atau diucapkan"],
     "assistant.ask": ["Tanya AI", "Ketik pertanyaan Anda"],
     "assistant.voice": ["Pertanyaan suara", "Kirim pertanyaan sebagai pesan suara"],
@@ -151,6 +160,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Japanese ──────────────────────────────────────────────────────────────
   ja: {
     "main": ["Visionex メニュー", "Visionex でできること"],
+    "listen": ["聴く", "ラジオと曲"],
+    "bazaar": ["VXBazaar", "買う、売る、注文を追う"],
+    "explore": ["学ぶ・見つける", "アカデミー、キッズ、ニュース"],
     "assistant": ["AIアシスタント", "文字でも音声でも質問できます"],
     "assistant.ask": ["AIに質問する", "質問を入力してください"],
     "assistant.voice": ["音声で質問", "質問をボイスメッセージで送信"],
@@ -188,6 +200,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Italian ───────────────────────────────────────────────────────────────
   it: {
     "main": ["Menu Visionex", "Tutto quello che Visionex sa fare"],
+    "listen": ["Ascolta", "Radio e canzoni"],
+    "bazaar": ["VXBazaar", "Compra, vendi, segui gli ordini"],
+    "explore": ["Impara ed esplora", "Accademia, bambini e notizie"],
     "assistant": ["Assistente AI", "Chiedi qualsiasi cosa, scritta o parlata"],
     "assistant.ask": ["Chiedi all'AI", "Scrivi la tua domanda"],
     "assistant.voice": ["Domanda vocale", "Manda la domanda come messaggio vocale"],
@@ -225,6 +240,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Korean ────────────────────────────────────────────────────────────────
   ko: {
     "main": ["Visionex 메뉴", "Visionex가 할 수 있는 모든 것"],
+    "listen": ["듣기", "라디오와 노래"],
+    "bazaar": ["VXBazaar", "구매, 판매, 주문 확인"],
+    "explore": ["배우고 둘러보기", "아카데미, 키즈, 뉴스"],
     "assistant": ["AI 어시스턴트", "무엇이든 물어보세요, 글이나 음성으로"],
     "assistant.ask": ["AI에게 묻기", "질문을 입력해 주세요"],
     "assistant.voice": ["음성으로 질문", "질문을 음성 메시지로 보내세요"],
@@ -262,6 +280,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Dutch ─────────────────────────────────────────────────────────────────
   nl: {
     "main": ["Visionex-menu", "Alles wat Visionex hier kan"],
+    "listen": ["Luisteren", "Radio en nummers"],
+    "bazaar": ["VXBazaar", "Kopen, verkopen, orders volgen"],
+    "explore": ["Leren & ontdekken", "Academie, kinderen en nieuws"],
     "assistant": ["AI-assistent", "Vraag alles, getypt of ingesproken"],
     "assistant.ask": ["Vraag het de AI", "Typ je vraag"],
     "assistant.voice": ["Vraag inspreken", "Stuur je vraag als spraakbericht"],
@@ -299,6 +320,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Polish ────────────────────────────────────────────────────────────────
   pl: {
     "main": ["Menu Visionex", "Wszystko, co potrafi Visionex"],
+    "listen": ["Słuchaj", "Radio i piosenki"],
+    "bazaar": ["VXBazaar", "Kupuj, sprzedawaj, śledź zamówienia"],
+    "explore": ["Ucz się i odkrywaj", "Akademia, dzieci i wiadomości"],
     "assistant": ["Asystent AI", "Zapytaj o cokolwiek, pisząc lub mówiąc"],
     "assistant.ask": ["Zapytaj AI", "Napisz swoje pytanie"],
     "assistant.voice": ["Pytanie głosowe", "Wyślij pytanie jako wiadomość głosową"],
@@ -336,6 +360,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Vietnamese ────────────────────────────────────────────────────────────
   vi: {
     "main": ["Menu Visionex", "Mọi thứ Visionex có thể làm"],
+    "listen": ["Nghe", "Radio và bài hát"],
+    "bazaar": ["VXBazaar", "Mua, bán, theo dõi đơn hàng"],
+    "explore": ["Học & khám phá", "Học viện, trẻ em và tin tức"],
     "assistant": ["Trợ lý AI", "Hỏi bất cứ điều gì, gõ hoặc nói"],
     "assistant.ask": ["Hỏi AI", "Hãy gõ câu hỏi của bạn"],
     "assistant.voice": ["Hỏi bằng giọng nói", "Gửi câu hỏi bằng tin nhắn thoại"],
@@ -373,6 +400,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Bengali ───────────────────────────────────────────────────────────────
   bn: {
     "main": ["Visionex মেনু", "Visionex এখানে যা যা পারে"],
+    "listen": ["শুনুন", "রেডিও ও গান"],
+    "bazaar": ["VXBazaar", "কিনুন, বিক্রি করুন, অর্ডার দেখুন"],
+    "explore": ["শিখুন ও ঘুরে দেখুন", "একাডেমি, শিশু ও খবর"],
     "assistant": ["এআই সহকারী", "লিখে বা বলে যা খুশি জিজ্ঞেস করুন"],
     "assistant.ask": ["এআইকে জিজ্ঞেস করুন", "আপনার প্রশ্নটি লিখুন"],
     "assistant.voice": ["কণ্ঠে প্রশ্ন", "প্রশ্নটি ভয়েস বার্তায় পাঠান"],
@@ -410,6 +440,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Persian ───────────────────────────────────────────────────────────────
   fa: {
     "main": ["منوی Visionex", "هرچه Visionex اینجا می‌تواند انجام دهد"],
+    "listen": ["گوش کنید", "رادیو و آهنگ‌ها"],
+    "bazaar": ["VXBazaar", "خرید، فروش و پیگیری سفارش"],
+    "explore": ["یاد بگیرید و کشف کنید", "آکادمی، کودکان و اخبار"],
     "assistant": ["دستیار هوشمند", "هرچه می‌خواهید بپرسید، نوشتاری یا گفتاری"],
     "assistant.ask": ["از دستیار بپرسید", "پرسش خود را بنویسید"],
     "assistant.voice": ["پرسش صوتی", "پرسش خود را با پیام صوتی بفرستید"],
@@ -447,6 +480,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Spanish ───────────────────────────────────────────────────────────────
   es: {
     "main": ["Menú de Visionex", "Todo lo que Visionex puede hacer aquí"],
+    "listen": ["Escuchar", "Radio y canciones"],
+    "bazaar": ["VXBazaar", "Compra, vende y sigue tus pedidos"],
+    "explore": ["Aprende y explora", "Academia, niños y noticias"],
     "assistant": ["Asistente de IA", "Pregunta lo que quieras, escrito o hablado"],
     "assistant.ask": ["Preguntar a la IA", "Escribe tu pregunta"],
     "assistant.voice": ["Pregunta por voz", "Manda tu pregunta como nota de voz"],
@@ -484,6 +520,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── German ────────────────────────────────────────────────────────────────
   de: {
     "main": ["Visionex-Menü", "Alles, was Visionex hier kann"],
+    "listen": ["Hören", "Radio und Lieder"],
+    "bazaar": ["VXBazaar", "Kaufen, verkaufen, Bestellungen"],
+    "explore": ["Lernen & entdecken", "Akademie, Kinder und Nachrichten"],
     "assistant": ["KI-Assistent", "Frag alles, getippt oder gesprochen"],
     "assistant.ask": ["KI fragen", "Schreib deine Frage"],
     "assistant.voice": ["Frage per Sprache", "Schick deine Frage als Sprachnachricht"],
@@ -521,6 +560,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Portuguese ────────────────────────────────────────────────────────────
   pt: {
     "main": ["Menu Visionex", "Tudo o que o Visionex faz por aqui"],
+    "listen": ["Ouvir", "Rádio e músicas"],
+    "bazaar": ["VXBazaar", "Compre, venda e siga pedidos"],
+    "explore": ["Aprender e explorar", "Academia, crianças e notícias"],
     "assistant": ["Assistente de IA", "Pergunte o que quiser, escrito ou falado"],
     "assistant.ask": ["Perguntar à IA", "Escreva a sua pergunta"],
     "assistant.voice": ["Pergunta por voz", "Mande a pergunta como mensagem de voz"],
@@ -558,6 +600,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Chinese ───────────────────────────────────────────────────────────────
   zh: {
     "main": ["Visionex 菜单", "Visionex 在这里能做的一切"],
+    "listen": ["收听", "广播和歌曲"],
+    "bazaar": ["VXBazaar", "购买、出售、查看订单"],
+    "explore": ["学习与探索", "学院、儿童和新闻"],
     "assistant": ["AI 助手", "有什么都能问，打字或语音都行"],
     "assistant.ask": ["向 AI 提问", "请输入你的问题"],
     "assistant.voice": ["语音提问", "用语音消息发送你的问题"],
@@ -595,6 +640,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Turkish ───────────────────────────────────────────────────────────────
   tr: {
     "main": ["Visionex menüsü", "Visionex'in burada yapabildiği her şey"],
+    "listen": ["Dinle", "Radyo ve şarkılar"],
+    "bazaar": ["VXBazaar", "Alın, satın, siparişleri izleyin"],
+    "explore": ["Öğren ve keşfet", "Akademi, çocuklar ve haberler"],
     "assistant": ["Yapay zekâ asistanı", "Yazarak ya da konuşarak her şeyi sor"],
     "assistant.ask": ["Yapay zekâya sor", "Sorunu yaz"],
     "assistant.voice": ["Sesli soru", "Sorunu sesli mesaj olarak gönder"],
@@ -632,6 +680,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── French ────────────────────────────────────────────────────────────────
   fr: {
     "main": ["Menu Visionex", "Tout ce que Visionex peut faire ici"],
+    "listen": ["Écouter", "Radio et chansons"],
+    "bazaar": ["VXBazaar", "Achetez, vendez, suivez vos commandes"],
+    "explore": ["Apprendre et explorer", "Académie, enfants et actualités"],
     "assistant": ["Assistant IA", "Demandez ce que vous voulez, écrit ou dit"],
     "assistant.ask": ["Demander à l'IA", "Écrivez votre question"],
     "assistant.voice": ["Question vocale", "Envoyez votre question en message vocal"],
@@ -669,6 +720,9 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Russian ───────────────────────────────────────────────────────────────
   ru: {
     "main": ["Меню Visionex", "Всё, что Visionex умеет здесь"],
+    "listen": ["Слушать", "Радио и песни"],
+    "bazaar": ["VXBazaar", "Покупайте, продавайте, следите за заказами"],
+    "explore": ["Учиться и открывать", "Академия, дети и новости"],
     "assistant": ["ИИ-ассистент", "Спросите что угодно, текстом или голосом"],
     "assistant.ask": ["Спросить ИИ", "Напишите свой вопрос"],
     "assistant.voice": ["Вопрос голосом", "Отправьте вопрос голосовым сообщением"],

@@ -173,7 +173,7 @@ describe("navigation, everywhere the same", () => {
 
   it("9b. walks main → Services → Weather → back → Services → back → main", () => {
     let session = live();
-    session = send("8", session).session;
+    session = send("5", session).session;
     expect(session.path).toEqual(["main", "services"]);
     const weather = send("1", session);
     expect(weather.kind).toBe("delegate");
@@ -249,7 +249,7 @@ describe("a session nobody has touched for a while", () => {
 
 describe("a feature that is switched off", () => {
   it("12. cannot be entered by number", () => {
-    const outcome = send("8", live(), { disabled: ["services"] });
+    const outcome = send("5", live(), { disabled: ["services"] });
     expect(outcome.reason).toBe("disabled_feature");
     expect(outcome.session.feature).toBeNull();
     expect(noteOf(outcome)).toBe(strings.say("disabled", "en"));
@@ -418,8 +418,8 @@ describe("what a screen reader hears", () => {
   });
 
   it("23. accepts Arabic-Indic and Persian digits as the same numbers", () => {
-    expect(send("٣", live()).session.path).toEqual(["main", "ocr"]);
-    expect(send("۳", live()).session.path).toEqual(["main", "ocr"]);
+    expect(send("٢", live()).session.path).toEqual(["main", "ocr"]);
+    expect(send("۲", live()).session.path).toEqual(["main", "ocr"]);
     expect(send("٠٠", live({ path: ["main", "ocr"] })).session.path).toEqual(["main"]);
     expect(router.normaliseAlias("٣")).toBe("3");
   });

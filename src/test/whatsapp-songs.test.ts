@@ -180,7 +180,7 @@ describe("the menu row", () => {
   it("hangs beside the radio, and is not the radio", () => {
     const node = catalog.nodeById("services.songs");
     expect(node?.enabled).toBe(true);
-    expect(node?.parent).toBe("services");
+    expect(node?.parent).toBe("listen");
     expect(node?.phrase).toBeTruthy();
     // Tapping the row asks which song rather than searching for the word.
     expect(songs.parseSongRequest(catalog.localized(node!.phrase!, "ar"))?.query).toBe("");
