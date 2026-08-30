@@ -118,6 +118,7 @@ export const translations: Record<string, string> = {
   "auth.createAccount": "Criar conta",
   "auth.noAccount": "Não tem uma conta?",
   "auth.hasAccount": "Já tem uma conta?",
+  "auth.accountRequired": "Esta página precisa de uma conta. Entre ou crie uma, e traremos você direto de volta para cá.",
   "auth.welcomeBack": "Bem-vindo de volta!",
   "auth.accountCreated": "Conta criada! Entrando agora.",
   "auth.orContinueWith": "ou continue com",

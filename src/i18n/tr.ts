@@ -118,6 +118,7 @@ export const translations: Record<string, string> = {
   "auth.createAccount": "Hesap oluştur",
   "auth.noAccount": "Hesabın yok mu?",
   "auth.hasAccount": "Zaten bir hesabın var mı?",
+  "auth.accountRequired": "Bu sayfa için bir hesap gerekiyor. Giriş yapın ya da hesap oluşturun; sizi doğrudan buraya geri getireceğiz.",
   "auth.welcomeBack": "Tekrar hoş geldin!",
   "auth.accountCreated": "Hesap oluşturuldu! Şimdi giriş yapılıyor.",
   "auth.orContinueWith": "veya şununla devam et",

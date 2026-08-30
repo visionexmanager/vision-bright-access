@@ -118,6 +118,7 @@ export const translations: Record<string, string> = {
   "auth.createAccount": "创建账户",
   "auth.noAccount": "还没有账户？",
   "auth.hasAccount": "已有账户？",
+  "auth.accountRequired": "此页面需要账户。请登录或创建一个账户，我们会立即把您带回这里。",
   "auth.welcomeBack": "欢迎回来！",
   "auth.accountCreated": "账户已创建！正在为你登录。",
   "auth.orContinueWith": "或使用",

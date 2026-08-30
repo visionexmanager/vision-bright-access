@@ -118,6 +118,7 @@ export const translationsPart: Record<string, string> = {
   "auth.createAccount": "अकाउंट बनाएं",
   "auth.noAccount": "क्या आपके पास अकाउंट नहीं है?",
   "auth.hasAccount": "क्या आपके पास पहले से अकाउंट है?",
+  "auth.accountRequired": "इस पेज के लिए अकाउंट ज़रूरी है। लॉग इन करें या नया अकाउंट बनाएं — हम आपको सीधे यहीं वापस ले आएंगे।",
   "auth.welcomeBack": "वापसी पर स्वागत है!",
   "auth.accountCreated": "अकाउंट बन गया! अब आपको साइन इन किया जा रहा है।",
   "auth.orContinueWith": "या इसके साथ जारी रखें",
