@@ -58,6 +58,7 @@ import {
   nextLanguagePage,
 } from "./whatsappLanguages.ts";
 import { newsRowId } from "./whatsappNews.ts";
+import { songRowId, songSubtitle, type Song } from "./whatsappSongs.ts";
 import { BACK_ID, genderRowId } from "./whatsappOnboarding.ts";
 import { GENDERS } from "./whatsappProfile.ts";
 import { say } from "./whatsappStrings.ts";
@@ -526,6 +527,65 @@ export function newsMessage(params: {
       say("newsBackHint", language),
     ].join("\n"),
   };
+}
+
+/**
+ * What the catalogue found, as rows that can be tapped.
+ *
+ * The artist is the row's description rather than part of its title, because
+ * five results for one song are usually five performers, and that is the line
+ * somebody chooses on — heard second, immediately after the title, whether they
+ * are reading the list or having it read to them.
+ */
+export function songsMessage(params: { songs: Song[]; language: Language }): Tappable {
+  const { songs, language } = params;
+  const heading = say("songHeading", language);
+  const rows: Row[] = songs.map((song) => ({
+    id: songRowId(song.trackId),
+    title: song.title,
+    ...(songSubtitle(song) ? { description: songSubtitle(song) } : {}),
+  }));
+  rows.push(...controlRows("services.songs", language));
+
+  return {
+    interactive: {
+      type: "list",
+      header: { type: "text", text: clip(heading.replace(/\*/g, ""), LIST_LIMITS.header) },
+      body: { text: clip(say("songChoose", language), LIST_LIMITS.body) },
+      action: {
+        button: clip(say("songButton", language), LIST_LIMITS.button),
+        sections: [{
+          title: clip(say("songButton", language), LIST_LIMITS.rowTitle),
+          rows: rows.map((row) => ({
+            ...row,
+            title: clip(row.title, LIST_LIMITS.rowTitle),
+            ...(row.description ? { description: clip(row.description, LIST_LIMITS.rowDescription) } : {}),
+          })),
+        }],
+      },
+    },
+    text: [
+      heading,
+      "",
+      ...songs.map((song) => {
+        const subtitle = songSubtitle(song);
+        return subtitle ? `• ${song.title} — ${subtitle}` : `• ${song.title}`;
+      }),
+      "",
+      say("songChoose", language),
+    ].join("\n"),
+  };
+}
+
+/** The search results, delivered. */
+export async function sendSongList(
+  to: Delivery,
+  songs: Song[],
+  language: Language,
+): Promise<Tappable> {
+  const message = songsMessage({ songs, language });
+  await sendTappable(to, message);
+  return message;
 }
 
 /** The headlines, delivered. */

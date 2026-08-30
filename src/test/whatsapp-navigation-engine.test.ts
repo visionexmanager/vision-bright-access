@@ -31,6 +31,7 @@ const radio = await import("../../supabase/functions/_shared/whatsappRadio.ts");
 const helpers = await import("../../supabase/functions/_shared/whatsapp.ts");
 const identity = await import("../../supabase/functions/_shared/whatsappIdentity.ts");
 const news = await import("../../supabase/functions/_shared/whatsappNews.ts");
+const songs = await import("../../supabase/functions/_shared/whatsappSongs.ts");
 
 const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
 
@@ -418,6 +419,10 @@ describe("the catalog", () => {
       "services.radio": (p) => radio.parseRadioRequest(p)?.confident === true,
       "services.sell": (p) => bazaar.parseBazaarRequest(p)?.intent === "sell",
       "news": (p) => news.parseNewsRequest(p),
+      // A phrase with no title after it is a request with an empty query: the
+      // webhook answers that with "which song?", which is still this feature
+      // answering, not a message falling through to something else.
+      "services.songs": (p) => songs.parseSongRequest(p) !== null,
       "services.orders": (p) => identity.parseAccountIntent(p) === "orders",
       "support.human": (p) => helpers.userAskedForHuman(p),
     };
