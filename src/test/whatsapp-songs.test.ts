@@ -210,7 +210,12 @@ describe("the menu row", () => {
 
   it("builds a list whose rows carry the track id and a way back", () => {
     const message = interactive.songsMessage({ songs: [SONG], language: "en" });
-    const rows = message.interactive?.action?.sections?.[0]?.rows ?? [];
+    // A Tappable's action is a list *or* a pair of buttons, and only the list
+    // has sections. Asserted rather than cast, so a message that quietly became
+    // buttons fails here instead of skipping every check below.
+    const action = message.interactive?.action;
+    expect(action && "sections" in action).toBe(true);
+    const rows = action && "sections" in action ? action.sections[0].rows : [];
     expect(rows[0].id).toBe(`song.${SONG.trackId}`);
     expect(rows[0].description).toContain("Umm Kulthum");
     expect(rows.some((row: { id: string }) => row.id.startsWith("back"))).toBe(true);
