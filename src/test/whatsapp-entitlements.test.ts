@@ -214,6 +214,34 @@ describe("handing a conversation back actually hands it back", () => {
   });
 });
 
+describe("the page the refusal sends people to", () => {
+  const app = readFileSync("src/App.tsx", "utf8");
+  const page = readFileSync("src/pages/Pricing.tsx", "utf8");
+
+  it("exists as a route, because a refusal ending in a dead link is worse than none", () => {
+    // A single-page app answers 200 for any path, so "the URL loads" proves
+    // nothing. The route has to be registered.
+    const path = new URL(PLANS_URL).pathname;
+    expect(app).toContain(`<Route path="${path}"`);
+    expect(path).toBe("/pricing");
+  });
+
+  it("reads the plans from the table rather than restating them", () => {
+    expect(page).toContain('from("billing_plans")');
+    expect(page).toContain("is_active");
+    // No price, allowance or plan name written into the page: an admin
+    // changing a row changes what a reader sees.
+    expect(page).not.toMatch(/\$\s?(9\.99|29\.99|99\.99)/);
+    expect(page).not.toMatch(/"(Basic|Pro|Enterprise)"/);
+  });
+
+  it("shows the WhatsApp allowance, which is why most readers arrive", () => {
+    expect(page).toContain("whatsapp_daily_messages");
+    // And says plainly what never counts against it.
+    expect(page).toMatch(/never count against/i);
+  });
+});
+
 describe("messaging somebody outside the 24-hour window", () => {
   it("has a template sender, because nothing else may leave that window", () => {
     expect(transport).toContain("export async function sendWhatsAppTemplate");
