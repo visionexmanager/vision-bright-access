@@ -298,6 +298,8 @@ const VoiceRoom = lazyWithRetry(() => import("./pages/community/VoiceRoom"));
 const VoiceRooms = lazyWithRetry(() => import("./pages/community/VoiceRooms"));
 const CoinsStore = lazyWithRetry(() => import("./pages/CoinsStore"));
 const Pricing = lazyWithRetry(() => import("./pages/Pricing"));
+const IVX = lazyWithRetry(() => import("./pages/academy/IVX"));
+const IVXPractice = lazyWithRetry(() => import("./pages/academy/IVXPractice"));
 const News = lazyWithRetry(() => import("./pages/News"));
 const NewsletterPreferences = lazyWithRetry(() => import("./pages/NewsletterPreferences"));
 const Messages = lazyWithRetry(() => import("./pages/Messages"));
@@ -775,6 +777,8 @@ function AppRoutes() {
                     {/* The client file: every professional service request and its status. */}
                     <Route path="/services/my-requests" element={<MyServiceRequests />} />
                     <Route path="/academy" element={<AuthGuard><Academy /></AuthGuard>} />
+                    <Route path="/academy/ivx" element={<AuthGuard><IVX /></AuthGuard>} />
+                    <Route path="/academy/ivx/practice" element={<AuthGuard><IVXPractice /></AuthGuard>} />
                     <Route path="/academy/courses" element={<AuthGuard><AcademyCourseCatalog /></AuthGuard>} />
                     <Route path="/academy/courses/:courseId" element={<AuthGuard><AcademyCourseDetail /></AuthGuard>} />
                     <Route path="/academy/courses/:courseId/learn/:lessonId" element={<AuthGuard><AcademyLearningPlayer /></AuthGuard>} />

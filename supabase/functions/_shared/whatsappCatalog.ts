@@ -259,11 +259,19 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     parent: "explore",
     order: 1,
     kind: "action",
-    enabled: false,
+    // Switched on with IVX: the node used to say "coming soon" because there
+    // was nothing behind it. There is now — adaptive practice that shares one
+    // student's progress with the website.
+    enabled: true,
     emoji: "🎓",
-    title: { ar: "أكاديمية Visionex", en: "Visionex Academy" },
-    description: { ar: "الدورات والتعلّم", en: "Courses and learning" },
-    handler: "coming_soon",
+    title: { ar: "أكاديمية IVX", en: "IVX Academy" },
+    description: { ar: "تعلّم يتكيّف معك", en: "Learning that adapts to you" },
+    aliases: {
+      ar: ["أكاديمية", "اكاديمية", "تعلم", "تعلّم", "دراسة", "IVX"],
+      en: ["academy", "learn", "study", "practice", "ivx"],
+    },
+    phrase: { ar: "تعلّم", en: "learn" },
+    accepts: ["text"],
   },
   {
     id: "kids",
