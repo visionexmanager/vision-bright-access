@@ -18,6 +18,8 @@ export interface AIResultItem {
     | "requires_sourcing_confirmation"
     | "unavailable";
   priceUsd: number | null;
+  /** Shown instead of a price when only a researched range is known. */
+  priceRangeUsd?: { min: number; max: number };
   currency?: string;
   /** Present only when a source's terms require naming it. */
   sourceName?: string;
@@ -89,10 +91,16 @@ export function AIResultList({
     if (!loading && total > 0) firstHeadingRef.current?.focus();
   }, [loading, total]);
 
-  const priceLabel = (item: AIResultItem) =>
-    item.priceUsd === null
-      ? t("aiResults.priceOnRequest")
-      : `${item.currency ?? "USD"} ${item.priceUsd.toFixed(2)}`;
+  // A range answers "what does this cost" and beats "on request", so it is
+  // preferred whenever a source knew one but could not quote a single price.
+  const priceLabel = (item: AIResultItem) => {
+    if (item.priceUsd !== null) return `${item.currency ?? "USD"} ${item.priceUsd.toFixed(2)}`;
+    if (item.priceRangeUsd) {
+      const { min, max } = item.priceRangeUsd;
+      return `${item.currency ?? "USD"} ${min.toLocaleString()} – ${max.toLocaleString()}`;
+    }
+    return t("aiResults.priceOnRequest");
+  };
 
   const renderGroup = (
     key: "new" | "used" | "refurbished",

@@ -8,6 +8,7 @@
 import type { RawResult, SourceAdapter, SourceRecord, SourcingIntent } from "./types.ts";
 import { visionexCatalogAdapter } from "./adapters/visionexCatalog.ts";
 import { bazaarListingsAdapter } from "./adapters/bazaarListings.ts";
+import { assistiveGuideAdapter } from "./adapters/assistiveGuide.ts";
 import { ebayBrowseAdapter } from "./adapters/ebayBrowse.ts";
 import { alibabaAdapter, aliexpressAdapter } from "./adapters/aliOpenPlatform.ts";
 import { amazonPaapiAdapter } from "./adapters/amazonPaapi.ts";
@@ -18,6 +19,12 @@ const ADAPTERS: Record<string, SourceAdapter> = {
   // VXBazaar have listed. Both `internal`, both searched before anyone else.
   [visionexCatalogAdapter.slug]: visionexCatalogAdapter,
   [bazaarListingsAdapter.slug]: bazaarListingsAdapter,
+
+  // The one source that needs nothing at all — no key, no approval, no
+  // network. Researched assistive equipment with the range the market
+  // charges, so the agent has a real answer for its own audience on a day
+  // when every merchant is still switched off.
+  [assistiveGuideAdapter.slug]: assistiveGuideAdapter,
 
   // The five merchants, each through the only mechanism its owner permits:
   // eBay and Amazon have search APIs, the two Alibaba platforms share a

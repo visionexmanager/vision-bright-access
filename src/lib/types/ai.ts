@@ -236,6 +236,8 @@ export interface SourcedItem {
   condition: SourcingCondition;
   availability: SourcingAvailability;
   priceUsd: number | null;
+  /** Shown instead of a price when only a researched range is known. */
+  priceRangeUsd?: { min: number; max: number };
   currency?: string;
   sourceName?: string;
   sourceUrl?: string;

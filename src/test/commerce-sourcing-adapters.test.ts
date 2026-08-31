@@ -217,6 +217,7 @@ describe("eBay listings are reported honestly", () => {
       availability: "available_for_sourcing",
       currency: "USD",
       finalPriceUsd: 349,
+      priceRangeUsd: null,
       sourceSlug: "ebay",
       sourceName: "eBay",
       sourceUrl: "https://www.ebay.com/itm/123",

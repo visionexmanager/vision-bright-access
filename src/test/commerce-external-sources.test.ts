@@ -297,6 +297,7 @@ describe("the resale model", () => {
       availability: "available_for_sourcing",
       currency: "USD",
       finalPriceUsd: 431,
+      priceRangeUsd: null,
       sourceSlug: "ebay",
       sourceName: "eBay",
       sourceUrl: "https://www.ebay.com/itm/123",

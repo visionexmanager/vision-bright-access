@@ -37,7 +37,7 @@ function result(overrides: Partial<NormalizedResult> = {}): NormalizedResult {
   return {
     title: "OrCam Read", brand: "OrCam", model: "Read", category: "assistive",
     specifications: { ocr: "yes" }, condition: "new", availability: "in_visionex",
-    currency: "USD", finalPriceUsd: 890, sourceSlug: "visionex-catalog",
+    currency: "USD", finalPriceUsd: 890, priceRangeUsd: null, sourceSlug: "visionex-catalog",
     sourceName: "Visionex catalog", sourceUrl: "/product/1", sourceProductId: "1",
     sourcePriceUsd: 890, shippingUsd: 0, pricingRuleId: null, pricingBreakdown: {},
     attributionRequired: false, confidence: 0.9, retrievedAt: "2026-08-12T00:00:00Z",

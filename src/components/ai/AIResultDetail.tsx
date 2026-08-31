@@ -39,9 +39,11 @@ export function AIResultDetail({ item, onRequestSourcing, onBack, requesting = f
 
   useEffect(() => { headingRef.current?.focus(); }, [item.ref]);
 
-  const price = item.priceUsd === null
-    ? t("aiResults.priceOnRequest")
-    : `${item.currency ?? "USD"} ${item.priceUsd.toFixed(2)}`;
+  const price = item.priceUsd !== null
+    ? `${item.currency ?? "USD"} ${item.priceUsd.toFixed(2)}`
+    : item.priceRangeUsd
+      ? `${item.currency ?? "USD"} ${item.priceRangeUsd.min.toLocaleString()} – ${item.priceRangeUsd.max.toLocaleString()}`
+      : t("aiResults.priceOnRequest");
 
   const specs = Object.entries(item.specifications ?? {}).filter(
     ([, value]) => typeof value === "string" || typeof value === "number",

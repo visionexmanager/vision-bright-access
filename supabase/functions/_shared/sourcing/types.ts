@@ -54,6 +54,8 @@ export interface RawResult {
   specifications?: Record<string, unknown>;
   condition?: ProductCondition;
   sourcePriceUsd?: number | null;
+  /** When only a range is known — reference equipment, not a quoted listing. */
+  priceRangeUsd?: { min: number; max: number } | null;
   shippingUsd?: number | null;
   currency?: string;
   sourceUrl?: string | null;
@@ -75,6 +77,8 @@ export interface NormalizedResult {
   currency: string;
 
   finalPriceUsd: number | null;
+  /** A researched market range, where no single price has been quoted. */
+  priceRangeUsd: { min: number; max: number } | null;
 
   // Internal. Never reaches a customer unless attribution is required.
   sourceSlug: string;

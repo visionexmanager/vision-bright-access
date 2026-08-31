@@ -57,9 +57,30 @@ programmatic search.
 **Active, internal.** `visionex-catalog` reads `products`, the curated
 catalogue, through the semantic index. `visionex-bazaar` reads
 `bazaar_products` — what shops on VXBazaar have actually listed — and returns
-only listings from shops that are active, not on holiday, and in stock. Both
-are `internal`, so neither is marked up and both are searched before anything
-external is considered.
+only listings from shops that are active, not on holiday, and in stock.
+`visionex-assistive-guide` reads a committed snapshot of the assistive
+equipment reference. All three are `internal`, so none is marked up and all are
+searched before anything external is considered.
+
+The guide is the source that answers when nothing else can: no key, no
+approval, no network call. 21 researched equipment types with the range the
+market charges, snapshotted from `src/data/assistiveProducts.ts` by
+`scripts/generate-assistive-index.ts` — regenerate after editing the reference,
+or `src/test/assistive-index.test.ts` fails on the drift.
+
+It reports a **range and no price**, and every result is
+`requires_sourcing_confirmation`. These are equipment types, not listings:
+nobody is holding one and nobody has quoted one today. Quoting the bottom of a
+$500–$2,500 range as the price, and then adding a margin to it, would put a
+number on the screen that nobody can honour — so the pricing engine's "no
+source price" path is used deliberately, and the range is carried to the
+customer instead, on the web and over WhatsApp.
+
+Arabic asks in the plural. "شاشات بريل" is not a substring of "شاشة بريل" in
+either direction, so the guide folds the interchangeable letter forms and
+strips the definite article and the common plural endings before matching —
+never below three characters, which is the floor this codebase learned to keep.
+Zero width joiners are left alone: they carry meaning in Persian and Urdu.
 
 A VXBazaar listing may be priced in cash, in VX, or in both. Cash is taken
 literally; a VX-only listing is converted at the platform rate (1000 VX = 1

@@ -41,9 +41,11 @@ export function AIComparison({ items, onClose, onSelect }: Props) {
   }, []);
 
   const price = (item: SourcedItem) =>
-    item.priceUsd === null
-      ? t("aiResults.priceOnRequest")
-      : `${item.currency ?? "USD"} ${item.priceUsd.toFixed(2)}`;
+    item.priceUsd !== null
+      ? `${item.currency ?? "USD"} ${item.priceUsd.toFixed(2)}`
+      : item.priceRangeUsd
+        ? `${item.currency ?? "USD"} ${item.priceRangeUsd.min.toLocaleString()} – ${item.priceRangeUsd.max.toLocaleString()}`
+        : t("aiResults.priceOnRequest");
 
   const spec = (item: SourcedItem, key: string) => {
     const value = item.specifications?.[key];

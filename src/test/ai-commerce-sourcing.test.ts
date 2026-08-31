@@ -44,6 +44,7 @@ function result(overrides: Partial<NormalizedResult> = {}): NormalizedResult {
     availability: "available_for_sourcing",
     currency: "USD",
     finalPriceUsd: 399,
+    priceRangeUsd: null,
     sourceSlug: "some-supplier",
     sourceName: "Some Supplier",
     sourceUrl: "https://supplier.example/item/1",

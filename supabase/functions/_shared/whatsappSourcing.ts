@@ -45,6 +45,8 @@ export interface SourcedOffer {
   brand: string | null;
   condition: OfferCondition;
   priceUsd: number | null;
+  /** Present when only a researched range is known, never alongside a price. */
+  priceRangeUsd?: { min: number; max: number };
   currency: string;
   availability: string | null;
   /** Present only when the source's terms require naming it. */
@@ -64,6 +66,15 @@ const CONDITIONS: readonly OfferCondition[] = ["new", "used", "refurbished"];
 
 const isCondition = (value: unknown): value is OfferCondition =>
   typeof value === "string" && (CONDITIONS as readonly string[]).includes(value);
+
+/** A range is only a range when both ends are real numbers the right way round. */
+const isRange = (value: unknown): value is { min: number; max: number } => {
+  if (!value || typeof value !== "object") return false;
+  const { min, max } = value as { min?: unknown; max?: unknown };
+  return typeof min === "number" && typeof max === "number"
+    && Number.isFinite(min) && Number.isFinite(max)
+    && min >= 0 && max >= min;
+};
 
 /**
  * Read the agent's reply into something typed, dropping anything malformed.
@@ -109,6 +120,7 @@ function readOffer(row: unknown, fallback: OfferCondition): SourcedOffer | null 
     brand: typeof record.brand === "string" && record.brand ? record.brand : null,
     condition: isCondition(record.condition) ? record.condition : fallback,
     priceUsd: price,
+    ...(price === null && isRange(record.priceRangeUsd) ? { priceRangeUsd: record.priceRangeUsd } : {}),
     currency: typeof record.currency === "string" && record.currency ? record.currency : "USD",
     availability: typeof record.availability === "string" ? record.availability : null,
     // Passed through exactly as the projection set it: present when the
@@ -136,12 +148,20 @@ export function conditionLabel(condition: OfferCondition, language: Language): s
  * rendered as zero.
  */
 export function formatOfferPrice(offer: SourcedOffer, language: Language): string | null {
-  if (offer.priceUsd === null) return null;
-  const amount = new Intl.NumberFormat(`${language}-u-nu-latn`, {
+  const digits = new Intl.NumberFormat(`${language}-u-nu-latn`, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
-  }).format(offer.priceUsd);
-  return `${amount} ${offer.currency}`;
+  });
+
+  if (offer.priceUsd !== null) return `${digits.format(offer.priceUsd)} ${offer.currency}`;
+
+  // A range is what is known about reference equipment, and knowing that a
+  // braille display costs 500 to 2500 is worth far more to a listener than
+  // being told the price is unavailable.
+  if (offer.priceRangeUsd) {
+    return `${digits.format(offer.priceRangeUsd.min)}–${digits.format(offer.priceRangeUsd.max)} ${offer.currency}`;
+  }
+  return null;
 }
 
 /**
