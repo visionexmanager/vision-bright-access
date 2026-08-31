@@ -421,6 +421,9 @@ describe("the catalog", () => {
       "services.weather": (p) => !!weather.parseWeatherRequest(p),
       "services.where": (p) => geo.asksWhereAmI(p),
       "services.nearby": (p) => geo.asksWhatIsNearby(p),
+      // The menu phrase names a real place, so the parser must come back with
+      // that place and not with the words around it.
+      "services.place": (p) => (geo.parseFindPlaceRequest(p)?.length ?? 0) > 1,
       "services.bazaar": (p) => bazaar.parseBazaarRequest(p)?.intent === "browse",
       "services.radio": (p) => radio.parseRadioRequest(p)?.confident === true,
       "services.sell": (p) => bazaar.parseBazaarRequest(p)?.intent === "sell",

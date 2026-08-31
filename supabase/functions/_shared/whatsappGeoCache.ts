@@ -105,8 +105,13 @@ export function reverseKey(latitude: number, longitude: number, language: string
   return `reverse:${roundTo(latitude, PLACE_PRECISION)}:${roundTo(longitude, PLACE_PRECISION)}:${language}`;
 }
 
-export function geocodeKey(query: string): string {
-  return `geocode:${normaliseQuery(query)}`;
+/**
+ * The language is part of the key, not decoration: a geocoder asked in
+ * Arabic answers in Arabic, and a cache that ignored that would serve the
+ * first asker's language to everybody who wanted the same place afterwards.
+ */
+export function geocodeKey(query: string, language = "en"): string {
+  return `geocode:${normaliseQuery(query)}:${language}`;
 }
 
 export function nearbyKey(latitude: number, longitude: number, language: string): string {

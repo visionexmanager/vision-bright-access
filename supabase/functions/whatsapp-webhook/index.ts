@@ -45,6 +45,7 @@ import {
   replySignalsHandover,
   SUMMARY_INSTRUCTION,
   summaryPreamble,
+  sendWhatsAppLocation,
   sendWhatsAppText,
   unsupportedTypeNotice,
   userAskedForHuman,
@@ -84,7 +85,10 @@ import {
   LOCATION_TTL_MS,
   locationNeededNotice,
   nearbyHint,
+  parseFindPlaceRequest,
   placeLabel,
+  placeLookupFailedNotice,
+  formatPlaceFound,
   shortPlaceLabel,
 } from "../_shared/whatsappLocation.ts";
 import {
@@ -1748,7 +1752,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const label = placeLabel(place, incoming.location.name ?? incoming.location.address);
+        const label = placeLabel(place, incoming.location.name ?? incoming.location.address, answerLanguage);
         await db
           .from("whatsapp_conversations")
           .update({
@@ -2747,6 +2751,78 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // ── "Send me the location of X" ────────────────────────────────────
+      //
+      // Last of the three location questions, and the only one that needs no
+      // pin: it answers from a name. Placed after "where am I" and "what's
+      // nearby" because those are the more specific phrasings — "وين أقرب
+      // صيدلية" is a nearby search, not a search for a business called
+      // "أقرب صيدلية".
+      //
+      // The reply is a real pin rather than a maps link, which is the whole
+      // point: a link asks somebody to leave WhatsApp and find a button on a
+      // web page, and a pin opens in the navigation app they already know.
+      const placeRequest = !humanOwnsThis && !aiFocused && featureOn("services.place")
+        ? parseFindPlaceRequest(questionText)
+        : null;
+
+      if (placeRequest) {
+        const found = await viaCache(
+          geocodeKey(placeRequest, answerLanguage),
+          "geocode",
+          () => geocodePlace(placeRequest, answerLanguage),
+        );
+
+        if (!found) {
+          await reply(placeLookupFailedNotice(answerLanguage, placeRequest), "unsupported");
+          continue;
+        }
+
+        // The words first, then the pin. A location message carries a name and
+        // an address and nothing else, so "400 m north of you" — the line that
+        // decides whether somebody walks or calls a taxi — has to travel with
+        // it rather than inside it.
+        await reply(
+          formatPlaceFound({
+            language: answerLanguage,
+            name: found.name,
+            country: found.country,
+            from: rememberedLocation,
+            to: found,
+          }),
+          "reply",
+        );
+
+        if (token && phoneNumberId) {
+          const sent = await sendWhatsAppLocation({
+            phoneNumberId,
+            token,
+            to: incoming.from,
+            latitude: found.latitude,
+            longitude: found.longitude,
+            name: found.name,
+            address: found.country ?? undefined,
+          });
+          // The pin belongs in the transcript too, or the person who takes the
+          // conversation over cannot see what the sender was sent.
+          if (sent) {
+            // No `medium`. That column records whether a reply was written or
+            // spoken, and a pin is neither — it is a location message, and the
+            // policy that chooses between text and voice never ran for it.
+            // Null is the honest value, and it keeps `replyMedium` the only
+            // thing in this file that decides a medium.
+            await db.from("whatsapp_messages").insert({
+              conversation_id: conversationId,
+              direction: "outbound",
+              body: `[location] ${found.name}`,
+              kind: "reply",
+            });
+          }
+          log("place_pin", { outcome: sent ? "sent" : "rejected" });
+        }
+        continue;
+      }
+
       const weatherRequest = parseWeatherRequest(questionText);
       if (weatherRequest && !humanOwnsThis && !aiFocused && featureOn("services.weather")) {
         let latitude: number;
@@ -2755,9 +2831,9 @@ Deno.serve(async (req) => {
 
         if (weatherRequest.place) {
           const geocoded = await viaCache(
-            geocodeKey(weatherRequest.place),
+            geocodeKey(weatherRequest.place, answerLanguage),
             "geocode",
-            () => geocodePlace(weatherRequest.place as string),
+            () => geocodePlace(weatherRequest.place as string, answerLanguage),
           );
           if (!geocoded) {
             await reply(placeNotFoundNotice(answerLanguage, weatherRequest.place), "unsupported");

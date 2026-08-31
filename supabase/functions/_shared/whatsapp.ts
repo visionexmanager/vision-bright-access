@@ -655,6 +655,54 @@ export async function sendWhatsAppText(params: {
 }
 
 /**
+ * Send a location — a real pin, not a link.
+ *
+ * The difference matters more here than almost anywhere else in this
+ * assistant. A maps URL asks somebody to leave WhatsApp, wait for a page, and
+ * find the directions button on it. A pin arrives as a message their screen
+ * reader announces by name, and one tap opens it in whatever navigation app
+ * they already know how to drive. For a blind sender being told where a bank
+ * branch is, that is the entire difference between an answer and a chore.
+ *
+ * `name` and `address` are what the pin is announced as, so both are trimmed
+ * and capped rather than passed through: Meta rejects the whole message if
+ * either runs long, and a rejected pin is a silent failure.
+ */
+export async function sendWhatsAppLocation(params: {
+  phoneNumberId: string;
+  token: string;
+  to: string;
+  latitude: number;
+  longitude: number;
+  name?: string | null;
+  address?: string | null;
+  attempts?: number;
+  sleep?: (ms: number) => Promise<void>;
+}): Promise<boolean> {
+  const trim = (value: string | null | undefined, max: number) => {
+    const text = (value ?? "").replace(/\s+/g, " ").trim();
+    return text ? text.slice(0, max) : undefined;
+  };
+
+  return await sendMessage({
+    phoneNumberId: params.phoneNumberId,
+    token: params.token,
+    to: params.to,
+    payload: {
+      type: "location",
+      location: {
+        latitude: params.latitude,
+        longitude: params.longitude,
+        ...(trim(params.name, 100) ? { name: trim(params.name, 100) } : {}),
+        ...(trim(params.address, 200) ? { address: trim(params.address, 200) } : {}),
+      },
+    },
+    attempts: params.attempts,
+    sleep: params.sleep,
+  });
+}
+
+/**
  * Send an interactive message — the tappable menu.
  *
  * Never the only copy of what it says. Meta rejects an interactive message

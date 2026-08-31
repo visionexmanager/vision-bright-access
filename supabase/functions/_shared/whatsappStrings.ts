@@ -675,6 +675,18 @@ const BASE_STRINGS = {
     ar: "قل «حولي» لأخبرك بأقرب الأماكن، أو «الطقس» لطقس هذا المكان.",
     en: "Say \"near me\" for what's around you, or \"weather\" for the forecast here.",
   },
+  /** Carries `{name}`. The line that arrives just before the pin. */
+  placeFound: { ar: "📍 *{name}*", en: "📍 *{name}*" },
+  /** Carries `{distance}` and `{direction}`. Sent only when a pin is on file. */
+  placeAway: {
+    ar: "على بُعد {distance} تقريباً {direction} منك.",
+    en: "About {distance} {direction} of you.",
+  },
+  /** Carries `{query}` — what they asked for, quoted back so they can correct it. */
+  placeNotFound: {
+    ar: "لم أجد مكاناً باسم «{query}». جرّب الاسم مع المدينة، مثل «بنك الأردن عمّان».",
+    en: "I couldn't find a place called \"{query}\". Try the name with the city, like \"Arab Bank Amman\".",
+  },
 
   // ── The bazaar ───────────────────────────────────────────────────────────
   //
