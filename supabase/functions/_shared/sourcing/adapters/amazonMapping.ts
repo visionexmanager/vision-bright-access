@@ -17,33 +17,36 @@ export const PAAPI_MARKETPLACE = "www.amazon.com";
 
 const encoder = new TextEncoder();
 
-function hex(bytes: ArrayBuffer): string {
-  return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+function hex(bytes: Uint8Array): string {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 /**
- * Text as a standalone ArrayBuffer.
+ * Everything below is handed to `crypto.subtle` as a *view*, never as a bare
+ * ArrayBuffer, and the views are typed `Uint8Array<ArrayBuffer>`. Both halves
+ * of that sentence were paid for:
  *
- * Every key and message below is passed as an ArrayBuffer rather than a typed
- * array, because the two TypeScript DOM libs in this repository disagree about
- * whether a `Uint8Array` is a `BufferSource` — one accepts it, the other
- * refuses `Uint8Array<ArrayBufferLike>`, and only the pnpm CI job sees the
- * strict one. An ArrayBuffer is unambiguous in both. The bytes are copied
- * whole, never sliced with an offset: a partial view would sign the wrong
- * message and nothing downstream would question the result.
+ *  - Node 20 checks its argument with a realm-sensitive `instanceof
+ *    ArrayBuffer`. A buffer allocated in another realm — which is what a test
+ *    runner's module context produces — is rejected at runtime with "not
+ *    instance of ArrayBuffer", while the same bytes as a typed array pass.
+ *  - The two TypeScript libs here disagree about `Uint8Array`: 5.9 refuses
+ *    `Uint8Array<ArrayBufferLike>` as a `BufferSource`, and only the pnpm CI
+ *    job compiles with it. Naming the concrete buffer type satisfies both.
+ *
+ * `encoder.encode` already returns exactly that, so nothing is copied and
+ * nothing is sliced — a partial view would sign the wrong message and nothing
+ * downstream would question the result.
  */
-function buffer(text: string): ArrayBuffer {
-  const view = encoder.encode(text);
-  const copy = new ArrayBuffer(view.byteLength);
-  new Uint8Array(copy).set(view);
-  return copy;
+function bytes(text: string): Uint8Array<ArrayBuffer> {
+  return encoder.encode(text);
 }
 
 async function sha256Hex(text: string): Promise<string> {
-  return hex(await crypto.subtle.digest("SHA-256", buffer(text)));
+  return hex(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes(text))));
 }
 
-async function hmac(key: ArrayBuffer, message: string): Promise<ArrayBuffer> {
+async function hmac(key: Uint8Array<ArrayBuffer>, message: string): Promise<Uint8Array<ArrayBuffer>> {
   const imported = await crypto.subtle.importKey(
     "raw",
     key,
@@ -51,7 +54,7 @@ async function hmac(key: ArrayBuffer, message: string): Promise<ArrayBuffer> {
     false,
     ["sign"],
   );
-  return await crypto.subtle.sign("HMAC", imported, buffer(message));
+  return new Uint8Array(await crypto.subtle.sign("HMAC", imported, bytes(message)));
 }
 
 /** AWS4 key derivation: secret → date → region → service → request. */
@@ -60,8 +63,8 @@ export async function signingKey(
   dateStamp: string,
   region: string,
   service: string,
-): Promise<ArrayBuffer> {
-  const dateKey = await hmac(buffer(`AWS4${secret}`), dateStamp);
+): Promise<Uint8Array<ArrayBuffer>> {
+  const dateKey = await hmac(bytes(`AWS4${secret}`), dateStamp);
   const regionKey = await hmac(dateKey, region);
   const serviceKey = await hmac(regionKey, service);
   return await hmac(serviceKey, "aws4_request");
