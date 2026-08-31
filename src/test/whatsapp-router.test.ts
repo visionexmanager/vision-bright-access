@@ -236,10 +236,11 @@ describe("feature flags, applied after resolution", () => {
     // Two different states that used to look the same. A feature Visionex has
     // announced and not built keeps its row and says so — taking VisionKids off
     // the menu would tell the people waiting for it that it was cancelled.
-    // Academy is a row of Explore now, not of the root menu.
+    // Academy used to be that row; IVX opens behind it now, so VisionKids is
+    // the declared-not-built one.
     const menu = engine.renderMenu("explore", "en");
-    expect(menu).toContain("Visionex Academy");
-    expect(menu).toMatch(/Visionex Academy.*isn't open yet/);
+    expect(menu).toContain("VisionKids");
+    expect(menu).toMatch(/VisionKids.*isn't open yet/);
 
     // A live flag is the other thing entirely: turned at three in the morning
     // because a provider is down, and a row that answers a tap with "not

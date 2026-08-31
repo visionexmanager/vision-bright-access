@@ -27,6 +27,7 @@ const vision = await import("../../supabase/functions/_shared/whatsappVisionMode
 const weather = await import("../../supabase/functions/_shared/whatsappWeather.ts");
 const geo = await import("../../supabase/functions/_shared/whatsappLocation.ts");
 const entitlements = await import("../../supabase/functions/_shared/whatsappEntitlements.ts");
+const ivx = await import("../../supabase/functions/_shared/whatsappIvx.ts");
 const bazaar = await import("../../supabase/functions/_shared/whatsappBazaar.ts");
 const radio = await import("../../supabase/functions/_shared/whatsappRadio.ts");
 const helpers = await import("../../supabase/functions/_shared/whatsapp.ts");
@@ -311,10 +312,10 @@ describe("the awkward cases", () => {
   });
 
   it("15. announces a disabled feature instead of opening it", () => {
-    // Academy, Kids, News and Sports are declared and not built. They live
-    // under Explore, option 6, and Academy is its first row.
+    // Kids and Sports are declared and not built. They live under Explore,
+    // option 6, and Kids is its second row — Academy became IVX and opens.
     const explore = send("6");
-    const outcome = send("1", explore.session);
+    const outcome = send("2", explore.session);
     expect(outcome.kind).toBe("reply");
     expect(outcome.reason).toBe("disabled_feature");
     expect(shownMenu(outcome)).toBe("explore");
@@ -423,6 +424,7 @@ describe("the catalog", () => {
       "services.where": (p) => geo.asksWhereAmI(p),
       "services.nearby": (p) => geo.asksWhatIsNearby(p),
       "services.plan": (p) => entitlements.asksAboutPlan(p),
+      "academy": (p) => ivx.parseIvxIntent(p) === "start",
       // The menu phrase names a real place, so the parser must come back with
       // that place and not with the words around it.
       "services.place": (p) => (geo.parseFindPlaceRequest(p)?.length ?? 0) > 1,

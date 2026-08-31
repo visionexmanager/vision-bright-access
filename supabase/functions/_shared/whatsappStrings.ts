@@ -682,6 +682,34 @@ const BASE_STRINGS = {
     ar: "على بُعد {distance} تقريباً {direction} منك.",
     en: "About {distance} {direction} of you.",
   },
+  // ── IVX, the learning engine ─────────────────────────────────────────────
+  //
+  // Short sentences on purpose. Every one of these is read aloud to somebody
+  // who is in the middle of thinking about a question, and a paragraph between
+  // them and the next question is a paragraph they have to sit through.
+
+  ivxAnswerLetter: { ar: "أجب بالحرف: A أو B …", en: "Answer with the letter: A, B …" },
+  ivxAnswerType:   { ar: "اكتب إجابتك.", en: "Type your answer." },
+  /** Carries `{xp}`. */
+  ivxCorrect:   { ar: "✅ إجابة صحيحة! +{xp} نقطة", en: "✅ Correct! +{xp} XP" },
+  ivxIncorrect: { ar: "❌ ليست صحيحة.", en: "❌ Not quite." },
+  /** Carries `{answer}`. */
+  ivxTheAnswer: { ar: "الإجابة: {answer}", en: "The answer is: {answer}" },
+  ivxContinue:  { ar: "قل «التالي» للسؤال التالي، أو «اشرح» أو «تلميح».", en: "Say \"next\" for another, or \"explain\" or \"hint\"." },
+  /** Carries `{xp}`, `{mastered}` and `{learning}`. */
+  ivxProgressHeading: {
+    ar: "🎓 نقاطك: {xp} · أتقنت {mastered} مهارة · قيد التعلّم {learning}",
+    en: "🎓 Your XP: {xp} · {mastered} skills mastered · {learning} in progress",
+  },
+  /** Carries `{skill}`. */
+  ivxRecommended: { ar: "المقترح التالي: {skill}. قل «تعلم» لتبدأ.", en: "Recommended next: {skill}. Say \"learn\" to start." },
+  /** Carries `{url}`. */
+  ivxNotLinked: {
+    ar: "لمتابعة تقدّمك في كل مكان، اربط حسابك أولاً: اكتب «ربط» وسأرسل رمزاً إلى بريدك. تفاصيل: {url}",
+    en: "To keep your progress everywhere, link your account first: send \"link\" and I'll email you a code. More: {url}",
+  },
+  ivxNothing: { ar: "لا يوجد تمرين جاهز هنا بعد. جرّب مادة أخرى.", en: "Nothing to practise there yet. Try another subject." },
+
   // ── Plans and allowances ─────────────────────────────────────────────────
   //
   // Every one of these ends with somewhere to go. A person who has run out and

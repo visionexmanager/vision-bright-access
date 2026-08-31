@@ -92,6 +92,16 @@ import {
   shortPlaceLabel,
 } from "../_shared/whatsappLocation.ts";
 import {
+  formatIvxProgress,
+  formatIvxQuestion,
+  formatIvxResult,
+  ivxNotLinkedNotice,
+  ivxNothingNotice,
+  parseIvxIntent,
+  parseIvxSubject,
+  resolveIvxAnswer,
+} from "../_shared/whatsappIvx.ts";
+import {
   asksAboutPlan,
   type Entitlement,
   type MeteredKind,
@@ -2837,6 +2847,98 @@ Deno.serve(async (req) => {
           nearby.length > 0 ? "reply" : "unsupported",
         );
         continue;
+      }
+
+      // ── IVX — learning ─────────────────────────────────────────────────
+      //
+      // The engine is in the database, so this branch is four calls and the
+      // wording around them: a question answered here and a lesson finished on
+      // the website are one student's progress, because they are literally the
+      // same rows.
+      //
+      // Placed before the plan and location questions because a learner with a
+      // question open is answering it — "3/4" and "b" are answers, not
+      // requests for anything else. The open-question check inside
+      // `ivx_wa_submit_answer` is what makes that safe: with nothing open, an
+      // answer-shaped message falls through to everything below.
+      const ivxIntent = !humanOwnsThis && !aiFocused && featureOn("academy")
+        ? parseIvxIntent(questionText)
+        : null;
+
+      const ivxOpen = !humanOwnsThis && !aiFocused && featureOn("academy")
+        ? (await db.rpc("ivx_wa_open", { _wa_phone: incoming.from })).data as
+            { open?: boolean; options?: Array<{ id?: string; label?: string }> } | null
+        : null;
+
+      if (ivxIntent === "progress") {
+        const { data } = await db.rpc("ivx_wa_progress", {
+          _wa_phone: incoming.from, _language: answerLanguage,
+        });
+        const payload = data as { ok?: boolean } | null;
+        await reply(
+          payload?.ok
+            ? formatIvxProgress(payload as Parameters<typeof formatIvxProgress>[0], answerLanguage)
+            : ivxNotLinkedNotice(answerLanguage),
+          payload?.ok ? "reply" : "unsupported",
+        );
+        continue;
+      }
+
+      if (ivxIntent === "hint" && ivxOpen?.open) {
+        const { data } = await db.rpc("ivx_wa_hint", {
+          _wa_phone: incoming.from, _language: answerLanguage,
+        });
+        const payload = data as { ok?: boolean; hint?: string } | null;
+        if (payload?.ok && payload.hint) {
+          await reply(`💡 ${payload.hint}`, "reply");
+          continue;
+        }
+      }
+
+      if (ivxIntent === "start" || ivxIntent === "next"
+          || (ivxIntent === "explain" && !ivxOpen?.open)) {
+        const { data } = await db.rpc("ivx_wa_next_question", {
+          _wa_phone: incoming.from,
+          _subject: parseIvxSubject(questionText),
+          _skill: null,
+          _language: answerLanguage,
+        });
+        const payload = data as { ok?: boolean; reason?: string } | null;
+
+        if (payload?.ok) {
+          log("ivx", { outcome: "question" });
+          await reply(
+            formatIvxQuestion(payload as Parameters<typeof formatIvxQuestion>[0], answerLanguage),
+            "reply",
+          );
+        } else if (payload?.reason === "not_linked") {
+          // Progress has to belong to an account or it cannot follow somebody
+          // to the site, so this is the one thing IVX asks for up front.
+          await reply(ivxNotLinkedNotice(answerLanguage), "unsupported");
+        } else {
+          await reply(ivxNothingNotice(answerLanguage), "unsupported");
+        }
+        continue;
+      }
+
+      // A message that arrives while a question is open is an answer to it.
+      if (ivxOpen?.open && questionText.trim() && ivxIntent !== "stop") {
+        const { data } = await db.rpc("ivx_wa_submit_answer", {
+          _wa_phone: incoming.from,
+          _given: resolveIvxAnswer(questionText, ivxOpen.options ?? []),
+          _hints: 0,
+          _language: answerLanguage,
+        });
+        const payload = data as { ok?: boolean; correct?: boolean } | null;
+
+        if (payload?.ok) {
+          log("ivx", { outcome: payload.correct ? "correct" : "incorrect" });
+          await reply(
+            formatIvxResult(payload as Parameters<typeof formatIvxResult>[0], answerLanguage),
+            "reply",
+          );
+          continue;
+        }
       }
 
       // ── "What is my plan?" ─────────────────────────────────────────────

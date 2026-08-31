@@ -589,10 +589,10 @@ describe("feature flags", () => {
     expect(menu).not.toContain("AI Assistant");
     const arabic = engine.renderMenu(catalog.ROOT_ID, "ar", ["assistant"]);
     expect(arabic).not.toContain("المساعد الذكي");
-    // A feature merely declared and not built is the other case, and keeps its row.
-    // Academy sits inside Explore now, so the declared-not-built row is read
-    // from that menu rather than the root one.
-    expect(engine.renderMenu("explore", "en")).toMatch(/Visionex Academy.*isn't open yet/);
+    // A feature merely declared and not built is the other case, and keeps its
+    // row. Academy is no longer that case — IVX opens behind it — so VisionKids
+    // is the declared-not-built row now.
+    expect(engine.renderMenu("explore", "en")).toMatch(/VisionKids.*isn't open yet/);
   });
 
   it("closes the other door too: the words, not only the numbers", () => {
