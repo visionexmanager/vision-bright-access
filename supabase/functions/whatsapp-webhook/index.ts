@@ -45,6 +45,7 @@ import {
   replySignalsHandover,
   SUMMARY_INSTRUCTION,
   summaryPreamble,
+  sendWhatsAppLocation,
   sendWhatsAppText,
   unsupportedTypeNotice,
   userAskedForHuman,
@@ -84,9 +85,23 @@ import {
   LOCATION_TTL_MS,
   locationNeededNotice,
   nearbyHint,
+  parseFindPlaceRequest,
   placeLabel,
+  placeLookupFailedNotice,
+  formatPlaceFound,
   shortPlaceLabel,
 } from "../_shared/whatsappLocation.ts";
+import {
+  asksAboutPlan,
+  type Entitlement,
+  type MeteredKind,
+  planLimitNotice,
+  planStatusNotice,
+  planWarningNotice,
+  readEntitlement,
+  shouldWarn,
+  UNKNOWN_ENTITLEMENT,
+} from "../_shared/whatsappEntitlements.ts";
 import {
   formatWeather,
   parseWeatherRequest,
@@ -1617,6 +1632,72 @@ Deno.serve(async (req) => {
        */
       const humanOwnsThis = existing?.control === "human" || existing?.escalated === true;
 
+      // ── What this number may spend today ──────────────────────────────
+      //
+      // Looked up lazily, and once. A sender pressing menu numbers, asking
+      // where they are or reading the news never touches the billing tables at
+      // all — those paths cost nothing, so charging a database round trip for
+      // them would be the only cost they have.
+      //
+      // `whatsapp_entitlements` returns the allowance and deliberately not the
+      // identity: this handler needs to know what somebody may do, never who
+      // they are.
+      let entitlementCache: Entitlement | null = null;
+      const entitlement = async (): Promise<Entitlement> => {
+        if (entitlementCache) return entitlementCache;
+        try {
+          const { data, error } = await db.rpc("whatsapp_entitlements", { _wa_phone: incoming.from });
+          entitlementCache = error ? UNKNOWN_ENTITLEMENT : readEntitlement(data);
+          // `describeError`, never the raw text: a database error quotes the
+          // statement, and the statement carries the sender's phone number.
+          if (error) console.error("[whatsapp] entitlement lookup failed:", describeError(error));
+        } catch (e) {
+          console.error("[whatsapp] entitlement lookup threw:", describeError(e));
+          entitlementCache = UNKNOWN_ENTITLEMENT;
+        }
+        return entitlementCache;
+      };
+
+      /**
+       * May this delivery spend one paid operation?
+       *
+       * Answers the sender when it may not, so no caller has to remember to.
+       * A lookup that fails allows the work: an assistant that goes quiet
+       * because a billing table was briefly unreachable has turned a billing
+       * problem into an outage, and this audience cannot tell those apart.
+       */
+      const maySpend = async (): Promise<boolean> => {
+        const allowance = await entitlement();
+        if (allowance.allowed) return true;
+        log("plan_limit", { outcome: "refused" });
+        await reply(planLimitNotice(answerLanguage, allowance), "unsupported");
+        return false;
+      };
+
+      /**
+       * Record one, after it succeeded.
+       *
+       * Never before. A transcription that failed, a picture the model could
+       * not read, an answer that never arrived — none of them is something a
+       * person should have paid for. Awaited rather than fired and forgotten
+       * so the count is right when the next message arrives seconds later.
+       */
+      const spent = async (kind: MeteredKind): Promise<void> => {
+        try {
+          await db.rpc("whatsapp_meter", { _wa_phone: incoming.from, _kind: kind });
+          if (entitlementCache && entitlementCache.remaining > 0) {
+            entitlementCache = {
+              ...entitlementCache,
+              usedToday: entitlementCache.usedToday + 1,
+              remaining: entitlementCache.remaining - 1,
+            };
+          }
+        } catch (e) {
+          // Losing a tally is not worth losing the answer that was already sent.
+          console.error("[whatsapp] metering failed:", describeError(e));
+        }
+      };
+
       // ── A tapped voice ────────────────────────────────────────────────
       //
       // The row id carries a slot, never an id of any kind: see
@@ -1748,7 +1829,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const label = placeLabel(place, incoming.location.name ?? incoming.location.address);
+        const label = placeLabel(place, incoming.location.name ?? incoming.location.address, answerLanguage);
         await db
           .from("whatsapp_conversations")
           .update({
@@ -1805,6 +1886,12 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Every branch below calls a paid provider — transcription, vision or
+        // document reading. Checked once here rather than four times below,
+        // and before the download rather than after: a file that is about to
+        // be refused should not be fetched first.
+        if (!humanOwnsThis && !(await maySpend())) continue;
+
         if (incoming.media.kind === "audio") {
           /**
            * The whole chain, in one call, with its steps handed to it.
@@ -1857,6 +1944,8 @@ Deno.serve(async (req) => {
           }
 
           log("voice_heard", { provider: turn.provider, ms: turn.ms, chars: turn.text.length });
+          // A transcription happened and a provider was paid for it.
+          await spent("voice_in");
           questionText = [incoming.media.caption, turn.text].filter(Boolean).join("\n");
 
           // Store what was heard, so the transcript and the replayed history
@@ -2073,6 +2162,7 @@ Deno.serve(async (req) => {
             await reply(unreadableNotice(answerLanguage, "image"), "unsupported");
             continue;
           }
+          await spent("image");
           await reply(clampReply(barcodeText ? `${seen.answer}\n\n${barcodeText}` : seen.answer), "reply");
           continue;
         } else if (incoming.media.kind === "document") {
@@ -2127,6 +2217,7 @@ Deno.serve(async (req) => {
             await reply(unreadableNotice(answerLanguage, "document"), "unsupported");
             continue;
           }
+          await spent("document");
           await reply(clampReply(read.value.answer), "reply");
           continue;
         } else if (incoming.media.kind === "video") {
@@ -2161,6 +2252,7 @@ Deno.serve(async (req) => {
             await reply(unreadableNotice(answerLanguage, "video"), "unsupported");
             continue;
           }
+          await spent("video");
           await reply(clampReply(watched.answer), "reply");
           continue;
         } else {
@@ -2747,6 +2839,88 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // ── "What is my plan?" ─────────────────────────────────────────────
+      //
+      // Answered from the entitlement row rather than by the model. Asking a
+      // language model how much allowance somebody has left would charge them
+      // one of it to receive a guess.
+      if (!humanOwnsThis && !aiFocused && asksAboutPlan(questionText) && featureOn("services.plan")) {
+        await reply(planStatusNotice(answerLanguage, await entitlement()), "reply");
+        continue;
+      }
+
+      // ── "Send me the location of X" ────────────────────────────────────
+      //
+      // Last of the three location questions, and the only one that needs no
+      // pin: it answers from a name. Placed after "where am I" and "what's
+      // nearby" because those are the more specific phrasings — "وين أقرب
+      // صيدلية" is a nearby search, not a search for a business called
+      // "أقرب صيدلية".
+      //
+      // The reply is a real pin rather than a maps link, which is the whole
+      // point: a link asks somebody to leave WhatsApp and find a button on a
+      // web page, and a pin opens in the navigation app they already know.
+      const placeRequest = !humanOwnsThis && !aiFocused && featureOn("services.place")
+        ? parseFindPlaceRequest(questionText)
+        : null;
+
+      if (placeRequest) {
+        const found = await viaCache(
+          geocodeKey(placeRequest, answerLanguage),
+          "geocode",
+          () => geocodePlace(placeRequest, answerLanguage),
+        );
+
+        if (!found) {
+          await reply(placeLookupFailedNotice(answerLanguage, placeRequest), "unsupported");
+          continue;
+        }
+
+        // The words first, then the pin. A location message carries a name and
+        // an address and nothing else, so "400 m north of you" — the line that
+        // decides whether somebody walks or calls a taxi — has to travel with
+        // it rather than inside it.
+        await reply(
+          formatPlaceFound({
+            language: answerLanguage,
+            name: found.name,
+            country: found.country,
+            from: rememberedLocation,
+            to: found,
+          }),
+          "reply",
+        );
+
+        if (token && phoneNumberId) {
+          const sent = await sendWhatsAppLocation({
+            phoneNumberId,
+            token,
+            to: incoming.from,
+            latitude: found.latitude,
+            longitude: found.longitude,
+            name: found.name,
+            address: found.country ?? undefined,
+          });
+          // The pin belongs in the transcript too, or the person who takes the
+          // conversation over cannot see what the sender was sent.
+          if (sent) {
+            // No `medium`. That column records whether a reply was written or
+            // spoken, and a pin is neither — it is a location message, and the
+            // policy that chooses between text and voice never ran for it.
+            // Null is the honest value, and it keeps `replyMedium` the only
+            // thing in this file that decides a medium.
+            await db.from("whatsapp_messages").insert({
+              conversation_id: conversationId,
+              direction: "outbound",
+              body: `[location] ${found.name}`,
+              kind: "reply",
+            });
+          }
+          log("place_pin", { outcome: sent ? "sent" : "rejected" });
+        }
+        continue;
+      }
+
       const weatherRequest = parseWeatherRequest(questionText);
       if (weatherRequest && !humanOwnsThis && !aiFocused && featureOn("services.weather")) {
         let latitude: number;
@@ -2755,9 +2929,9 @@ Deno.serve(async (req) => {
 
         if (weatherRequest.place) {
           const geocoded = await viaCache(
-            geocodeKey(weatherRequest.place),
+            geocodeKey(weatherRequest.place, answerLanguage),
             "geocode",
-            () => geocodePlace(weatherRequest.place as string),
+            () => geocodePlace(weatherRequest.place as string, answerLanguage),
           );
           if (!geocoded) {
             await reply(placeNotFoundNotice(answerLanguage, weatherRequest.place), "unsupported");
@@ -3398,6 +3572,13 @@ Deno.serve(async (req) => {
         userContext(readProfile(incoming.from, existing as Record<string, unknown> | null), answerIn),
       );
 
+      // The last gate, and the one most senders meet: everything cheap has
+      // already answered and returned by here, so what is left is a model
+      // call. Checked immediately before it, not earlier — a question the
+      // menu, the weather or the bazaar could answer never costs anybody a
+      // request from their allowance.
+      if (!(await maySpend())) continue;
+
       // The ask itself is one call with the provider handed to it. Production
       // passes the registry's chain; the suite passes a function that returns
       // what the case needs. Nothing here knows which it has, and no
@@ -3462,6 +3643,11 @@ Deno.serve(async (req) => {
       });
       const answer = asked.text;
 
+      // Counted here, where an answer exists. A failed or empty call returned
+      // above and cost the sender nothing, which is the only fair way round:
+      // the provider bill is ours, not theirs.
+      await spent("ai");
+
       // Split rather than truncated. A cut-off answer is worse than a long one,
       // and the parts are sent in order, each ending somewhere a reader can
       // stop. The ceiling is configurable and bounded; nothing past the last
@@ -3475,6 +3661,15 @@ Deno.serve(async (req) => {
       for (const part of parts) await reply(part, "reply");
       if (parts.length > 1) log("ai_split", { parts: parts.length });
       await saveSession();
+
+      // One warning, after the answer and near the end of the allowance, so
+      // running out tomorrow is not a surprise today. `shouldWarn` fires on a
+      // single exact value, which is what keeps it from becoming a footer on
+      // every message.
+      const allowanceNow = await entitlement();
+      if (shouldWarn(allowanceNow)) {
+        await reply(planWarningNotice(answerLanguage, allowanceNow), "reply");
+      }
 
       // The model was told to say it is handing over when it cannot help.
       // Flag the conversation so the team sees it in the queue.

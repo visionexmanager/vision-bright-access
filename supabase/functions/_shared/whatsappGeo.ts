@@ -85,7 +85,10 @@ export interface GeocodedPlace {
  * than first because its usage policy asks for restraint, and most lookups
  * never reach it.
  */
-export async function geocodePlace(query: string): Promise<GeocodedPlace | null> {
+export async function geocodePlace(
+  query: string,
+  language: Language = "en",
+): Promise<GeocodedPlace | null> {
   const term = query.trim().slice(0, 80);
   if (!term) return null;
 
@@ -94,7 +97,10 @@ export async function geocodePlace(query: string): Promise<GeocodedPlace | null>
       latitude?: number; longitude?: number; name?: string; country?: string;
       admin1?: string;
     }>;
-  }>(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(term)}&count=1&format=json`);
+  }>(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(term)}` +
+    `&count=1&format=json&language=${encodeURIComponent(language)}`,
+  );
 
   const hit = openMeteo?.results?.[0];
   if (hit && typeof hit.latitude === "number" && typeof hit.longitude === "number") {
@@ -106,10 +112,15 @@ export async function geocodePlace(query: string): Promise<GeocodedPlace | null>
     };
   }
 
+  // `accept-language` is not politeness here. Without it Nominatim answers in
+  // the language of the place, so an English sender asking for a shop in Amman
+  // was told its country was «الأردن» — a line they cannot read, in the middle
+  // of an English conversation.
   const nominatim = await getJson<Array<{
     lat?: string; lon?: string; name?: string; display_name?: string;
   }>>(
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(term)}&format=json&limit=1&addressdetails=0`,
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(term)}` +
+    `&format=json&limit=1&addressdetails=0&accept-language=${encodeURIComponent(language)}`,
   );
 
   const fallback = nominatim?.[0];

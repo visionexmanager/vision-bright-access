@@ -1871,6 +1871,14 @@ describe("shared locations", () => {
     expect(placeLabel({
       locality: "الرياض", city: "الرياض", region: "منطقة الرياض", country: "السعودية",
     })).toBe("الرياض، منطقة الرياض، السعودية");
+    // And punctuates in the language being spoken. An English sender's own
+    // city used to come back as "Amman، Al Asimah، Jordan": an Arabic comma
+    // their screen reader announces, in the middle of an English sentence.
+    expect(placeLabel(
+      { locality: null, city: "Amman", region: "Al Asimah", country: "Jordan" },
+      null,
+      "en",
+    )).toBe("Amman, Al Asimah, Jordan");
     // Nothing known at all falls back to whatever the pin called itself.
     expect(placeLabel(
       { locality: null, city: null, region: null, country: null },
@@ -1953,6 +1961,89 @@ describe("shared locations", () => {
     expect(migration).toContain("REVOKE ALL ON FUNCTION public.whatsapp_forget_locations(integer) FROM anon;");
     expect(migration).toContain("REVOKE ALL ON FUNCTION public.whatsapp_forget_locations(integer) FROM authenticated;");
     expect(migration).toMatch(/retention floor is 1 hour/);
+  });
+
+  it("finds a place by name, and refuses to guess when a request is not one", async () => {
+    const { parseFindPlaceRequest } = await loadLocation();
+
+    expect(parseFindPlaceRequest("ابعتلي موقع بنك الأردن")).toBe("بنك الأردن");
+    expect(parseFindPlaceRequest("أرسل لي لوكيشن كارفور عمان")).toBe("كارفور عمان");
+    expect(parseFindPlaceRequest("وين يقع مستشفى الاستقلال")).toBe("مستشفى الاستقلال");
+    expect(parseFindPlaceRequest("عنوان مطعم الشرق")).toBe("مطعم الشرق");
+    expect(parseFindPlaceRequest("send me the location of Arab Bank")).toBe("Arab Bank");
+    expect(parseFindPlaceRequest("address of Carrefour Amman")).toBe("Carrefour Amman");
+    expect(parseFindPlaceRequest("where is the Ministry of Health located")).toBe("the Ministry of Health");
+
+    // The collision that decides the shape of the whole parser: this one is
+    // somebody about to photograph a room, and a map search would answer it
+    // with nothing while spending their question.
+    expect(parseFindPlaceRequest("وين مفاتيحي")).toBeNull();
+    expect(parseFindPlaceRequest("where are my keys")).toBeNull();
+
+    // The where-am-I question, which is answered from the pin on file and must
+    // never reach a geocoder as the literal search term.
+    expect(parseFindPlaceRequest("موقعي")).toBeNull();
+    expect(parseFindPlaceRequest("وين موقعي")).toBeNull();
+    expect(parseFindPlaceRequest("my location")).toBeNull();
+
+    // And an ordinary sentence stays ordinary.
+    expect(parseFindPlaceRequest("شكراً")).toBeNull();
+    expect(parseFindPlaceRequest("how much is a subscription?")).toBeNull();
+  });
+
+  it("sends the distance with the pin, because a pin cannot carry it", async () => {
+    const { formatPlaceFound } = await loadLocation();
+
+    const withPin = formatPlaceFound({
+      language: "ar",
+      name: "بنك الأردن",
+      country: "الأردن",
+      from: { latitude: 31.9500, longitude: 35.9200 },
+      to: { latitude: 31.9509, longitude: 35.9225 },
+    });
+    expect(withPin).toContain("بنك الأردن");
+    expect(withPin).toMatch(/\d/);
+    expect(withPin).not.toMatch(/\{[a-z]+\}/i);
+
+    // No pin on file is not an error: the place is still found and still sent,
+    // there is simply nothing to measure from.
+    const withoutPin = formatPlaceFound({
+      language: "en",
+      name: "Arab Bank",
+      from: null,
+      to: { latitude: 31.9506, longitude: 35.9206 },
+    });
+    expect(withoutPin).toContain("Arab Bank");
+    expect(withoutPin).toContain("31.95060, 35.92060");
+    expect(withoutPin).not.toMatch(/\{[a-z]+\}/i);
+  });
+
+  it("answers with a real pin rather than a maps link", async () => {
+    const transport = await import("../../supabase/functions/_shared/whatsapp.ts");
+    expect(transport.sendWhatsAppLocation).toBeTypeOf("function");
+    // The webhook uses it, and does not hand somebody a URL to a map instead.
+    expect(webhook).toContain("sendWhatsAppLocation({");
+    expect(webhook).toContain("parseFindPlaceRequest(questionText)");
+    expect(webhook).not.toMatch(/google\.com\/maps|maps\.app\.goo\.gl/);
+  });
+
+  it("tells somebody how to try again when nothing is found", async () => {
+    const { placeLookupFailedNotice } = await loadLocation();
+    // Quoting the query back is what lets them see the transcription error.
+    expect(placeLookupFailedNotice("en", "Arab Bnk")).toContain("Arab Bnk");
+    // The weather module's refusal says "try the nearest larger city", which is
+    // wrong advice for a branch. This one says to add the city to the name.
+    expect(placeLookupFailedNotice("en", "x")).toMatch(/city/i);
+    expect(placeLookupFailedNotice("ar", "x")).toMatch(/المدينة/);
+  });
+
+  it("puts finding a place in the menu, so somebody can discover it", () => {
+    const node = catalog.CATALOG.find((n: { id: string }) => n.id === "services.place");
+    expect(node).toBeDefined();
+    expect(node.phrase.ar).toBeTruthy();
+    expect(node.phrase.en).toBeTruthy();
+    // It answers from a name, so unlike its two neighbours it needs no pin.
+    expect(node.requires ?? []).not.toContain("location");
   });
 
   it("answers a pin before it ever reaches the attachment code", () => {

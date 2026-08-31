@@ -297,6 +297,7 @@ const Community = lazyWithRetry(() => import("./pages/Community"));
 const VoiceRoom = lazyWithRetry(() => import("./pages/community/VoiceRoom"));
 const VoiceRooms = lazyWithRetry(() => import("./pages/community/VoiceRooms"));
 const CoinsStore = lazyWithRetry(() => import("./pages/CoinsStore"));
+const Pricing = lazyWithRetry(() => import("./pages/Pricing"));
 const News = lazyWithRetry(() => import("./pages/News"));
 const NewsletterPreferences = lazyWithRetry(() => import("./pages/NewsletterPreferences"));
 const Messages = lazyWithRetry(() => import("./pages/Messages"));
@@ -1100,6 +1101,7 @@ function AppRoutes() {
                     <Route path="/community/room/:roomId" element={<VoiceRoom />} />
                     <Route path="/community/voice-room/:roomId" element={<VoiceRoom />} />
                     <Route path="/coins-store" element={<CoinsStore />} />
+                    <Route path="/pricing" element={<Pricing />} />
                     <Route path="/news" element={<News />} />
                     <Route path="/newsletter/preferences" element={<NewsletterPreferences />} />
                     <Route path="/messages" element={<Messages />} />

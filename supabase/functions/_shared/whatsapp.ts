@@ -655,6 +655,107 @@ export async function sendWhatsAppText(params: {
 }
 
 /**
+ * Send an approved template — the only message allowed outside the 24-hour
+ * service window.
+ *
+ * Everything else in this file answers somebody who just wrote to us. Meta
+ * refuses a free-form message more than 24 hours after the sender's last one,
+ * which means a renewal reminder, an expiry warning or "your order shipped"
+ * cannot be sent at all without one of these. A paid subscription that cannot
+ * tell anybody it is about to lapse is a support ticket waiting to happen.
+ *
+ * The template itself is not code. It is created in the WhatsApp Manager,
+ * reviewed by Meta, and only then can this send it — which is why this
+ * function names one rather than composing one, and why a caller passes
+ * variables in the order the approved body declares them.
+ *
+ * `language` is the template's own language tag (`ar`, `en_US`), not the
+ * sender's preference: Meta matches the approved translation by that code and
+ * rejects the send outright when no such translation exists.
+ */
+export async function sendWhatsAppTemplate(params: {
+  phoneNumberId: string;
+  token: string;
+  to: string;
+  template: string;
+  language: string;
+  /** Body variables, in the order {{1}}, {{2}}, … appear in the template. */
+  variables?: string[];
+  attempts?: number;
+  sleep?: (ms: number) => Promise<void>;
+}): Promise<boolean> {
+  const variables = (params.variables ?? []).map((value) =>
+    ({ type: "text", text: String(value ?? "").replace(/\s+/g, " ").trim().slice(0, 1024) })
+  );
+
+  return await sendMessage({
+    phoneNumberId: params.phoneNumberId,
+    token: params.token,
+    to: params.to,
+    payload: {
+      type: "template",
+      template: {
+        name: params.template,
+        language: { code: params.language },
+        ...(variables.length > 0
+          ? { components: [{ type: "body", parameters: variables }] }
+          : {}),
+      },
+    },
+    attempts: params.attempts,
+    sleep: params.sleep,
+  });
+}
+
+/**
+ * Send a location — a real pin, not a link.
+ *
+ * The difference matters more here than almost anywhere else in this
+ * assistant. A maps URL asks somebody to leave WhatsApp, wait for a page, and
+ * find the directions button on it. A pin arrives as a message their screen
+ * reader announces by name, and one tap opens it in whatever navigation app
+ * they already know how to drive. For a blind sender being told where a bank
+ * branch is, that is the entire difference between an answer and a chore.
+ *
+ * `name` and `address` are what the pin is announced as, so both are trimmed
+ * and capped rather than passed through: Meta rejects the whole message if
+ * either runs long, and a rejected pin is a silent failure.
+ */
+export async function sendWhatsAppLocation(params: {
+  phoneNumberId: string;
+  token: string;
+  to: string;
+  latitude: number;
+  longitude: number;
+  name?: string | null;
+  address?: string | null;
+  attempts?: number;
+  sleep?: (ms: number) => Promise<void>;
+}): Promise<boolean> {
+  const trim = (value: string | null | undefined, max: number) => {
+    const text = (value ?? "").replace(/\s+/g, " ").trim();
+    return text ? text.slice(0, max) : undefined;
+  };
+
+  return await sendMessage({
+    phoneNumberId: params.phoneNumberId,
+    token: params.token,
+    to: params.to,
+    payload: {
+      type: "location",
+      location: {
+        latitude: params.latitude,
+        longitude: params.longitude,
+        ...(trim(params.name, 100) ? { name: trim(params.name, 100) } : {}),
+        ...(trim(params.address, 200) ? { address: trim(params.address, 200) } : {}),
+      },
+    },
+    attempts: params.attempts,
+    sleep: params.sleep,
+  });
+}
+
+/**
  * Send an interactive message — the tappable menu.
  *
  * Never the only copy of what it says. Meta rejects an interactive message

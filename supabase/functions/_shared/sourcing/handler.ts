@@ -125,6 +125,7 @@ export async function handleSourceProducts(req: Request): Promise<Response> {
             item.availability ?? (isInternal ? "in_visionex" : "requires_sourcing_confirmation"),
           currency: item.currency ?? "USD",
           finalPriceUsd: priced.finalPriceUsd,
+          priceRangeUsd: item.priceRangeUsd ?? null,
           sourceSlug: raw.source.slug,
           sourceName: raw.source.name,
           sourceUrl: item.sourceUrl ?? null,

@@ -19,6 +19,12 @@ export interface CustomerFacingResult {
   condition: "new" | "used" | "refurbished";
   availability: NormalizedResult["availability"];
   priceUsd: number | null;
+  /**
+   * Shown instead of a price when only a range is known. Deliberately on the
+   * allow-list: it is information about what a thing costs, which is what the
+   * customer asked, and it says nothing about who would supply it.
+   */
+  priceRangeUsd?: { min: number; max: number };
   currency: string;
   /** Present only when the source's terms require naming it. */
   sourceName?: string;
@@ -48,6 +54,8 @@ export function projectForCustomer(
     priceUsd: result.finalPriceUsd,
     currency: result.currency,
   };
+
+  if (result.priceRangeUsd) projected.priceRangeUsd = result.priceRangeUsd;
 
   if (result.attributionRequired) {
     projected.sourceName = result.sourceName;

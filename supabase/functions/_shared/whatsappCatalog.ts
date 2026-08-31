@@ -471,9 +471,26 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     accepts: ["text", "location"],
   },
   {
-    id: "services.nearby",
+    id: "services.place",
     parent: "services",
     order: 3,
+    kind: "action",
+    enabled: true,
+    title: { ar: "موقع مكان", en: "Find a place" },
+    description: { ar: "أرسل لي موقع بنك أو شركة", en: "A bank, a shop, a company" },
+    aliases: {
+      ar: ["موقع", "لوكيشن", "عنوان", "ابعتلي موقع"],
+      en: ["location of", "address of", "find a place"],
+    },
+    phrase: { ar: "ابعتلي موقع بنك الأردن", en: "send me the location of Arab Bank" },
+    // No pin required: this one answers from a name, which is what makes it
+    // the location question somebody can ask before they have shared anything.
+    accepts: ["text"],
+  },
+  {
+    id: "services.nearby",
+    parent: "services",
+    order: 4,
     kind: "action",
     enabled: true,
     title: { ar: "ما حولي", en: "Near me" },
@@ -482,6 +499,21 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     phrase: { ar: "شو حولي", en: "what is near me" },
     requires: ["location"],
     accepts: ["text", "location"],
+  },
+  {
+    id: "services.plan",
+    parent: "services",
+    order: 5,
+    kind: "action",
+    enabled: true,
+    title: { ar: "باقتي", en: "My plan" },
+    description: { ar: "رصيد اليوم وما تبقّى", en: "Today's allowance and what's left" },
+    aliases: {
+      ar: ["باقتي", "اشتراكي", "رصيدي", "كم باقي"],
+      en: ["my plan", "my subscription", "usage", "allowance"],
+    },
+    phrase: { ar: "باقتي", en: "my plan" },
+    accepts: ["text"],
   },
   {
     id: "services.bazaar",
