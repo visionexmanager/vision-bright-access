@@ -28,12 +28,20 @@ on:
     paths:
       - "supabase/functions/_shared/whatsapp*.ts"
       - "supabase/functions/_shared/voice/**/*.ts"
+      # The Commerce Agent adapters are reached from whatsapp-webhook and
+      # ai-search, so a parse error in one of them stops those functions
+      # from booting, and nothing else parse-checks them.
+      - "supabase/functions/_shared/sourcing/**/*.ts"
       - ".github/workflows/whatsapp-deno-check.yml"
   push:
     branches: [main]
     paths:
       - "supabase/functions/_shared/whatsapp*.ts"
       - "supabase/functions/_shared/voice/**/*.ts"
+      # The Commerce Agent adapters are reached from whatsapp-webhook and
+      # ai-search, so a parse error in one of them stops those functions
+      # from booting, and nothing else parse-checks them.
+      - "supabase/functions/_shared/sourcing/**/*.ts"
       - ".github/workflows/whatsapp-deno-check.yml"
 
 concurrency:

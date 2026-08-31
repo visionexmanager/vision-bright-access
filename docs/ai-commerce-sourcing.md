@@ -52,12 +52,49 @@ Checklist per the spec, in order of preference:
 it. `permitted_search` exists only for sources whose terms explicitly allow
 programmatic search.
 
-## Seeded rows (all `unverified`, all disabled)
+## Sources
 
-`amazon`, `alibaba`, `shein`, `ebay`, `olx`, `assistive-800`. These are the
+**Active, internal.** `visionex-catalog` reads `products`, the curated
+catalogue, through the semantic index. `visionex-bazaar` reads
+`bazaar_products` — what shops on VXBazaar have actually listed — and returns
+only listings from shops that are active, not on holiday, and in stock. Both
+are `internal`, so neither is marked up and both are searched before anything
+external is considered.
+
+A VXBazaar listing may be priced in cash, in VX, or in both. Cash is taken
+literally; a VX-only listing is converted at the platform rate (1000 VX = 1
+USD), because that number is not an estimate — it is what the wallet is
+charged. A listing with neither is reported with no price rather than a guess.
+
+**Prepared, not switched on.** `ebay` has an adapter — Browse API, application
+token, the `EBAY_US` marketplace so prices arrive in USD — and is inert without
+its credentials. To switch it on:
+
+1. Create eBay production app keys. Doing so is the acceptance of the API
+   licence, which is what the terms review records.
+2. Set `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` as Edge Function secrets.
+3. Record the review and activate:
+
+```sql
+UPDATE public.sourcing_sources
+   SET terms_reviewed_at = now(),
+       terms_reviewed_by = '<admin user id>',
+       commercial_reuse_allowed = true,
+       status = 'active'
+ WHERE slug = 'ebay';
+```
+
+The database refuses that update without the review columns beside it, so an
+external source cannot go active on a migration's say-so.
+
+eBay results carry `attribution_required`, so the customer sees eBay's name and
+eBay's link, and a pricing rule scoped to the source passes the listing price
+through with no margin. These are recommendations, not resale.
+
+**Still unverified.** `amazon`, `alibaba`, `shein`, `olx`, `assistive-800`. The
 spec's examples captured as a to-do list with the known obstacle written into
-`terms_notes` — for instance Amazon's PA-API requires qualifying sales and
-mandates attribution, and SHEIN has no confirmed public product API.
+`terms_notes` — Amazon's PA-API requires qualifying sales and mandates
+attribution, and SHEIN has no confirmed public product API.
 
 ## Confidentiality and its limit
 
@@ -103,7 +140,8 @@ A marketplace listing is never described as Visionex stock.
 
 ## What is deliberately absent
 
-- No external adapter is implemented. Each needs its own terms review first.
+- No external source is active. `ebay` has an adapter and waits on its
+  credentials and its terms review; the rest have neither.
 - No scraping of any kind.
 - No customer-facing UI yet — `ai-source-products` returns JSON; the numbered
   result view (spec §10) is Phase 1 remaining work.

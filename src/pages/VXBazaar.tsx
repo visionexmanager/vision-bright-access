@@ -282,6 +282,30 @@ export default function VXBazaar() {
     setProductForm((form) => ({ ...form, description: clean.replace(/^description:\s*/i, "").slice(0, 300) }));
   };
 
+  /**
+   * The listing copilot writes product copy; this one writes the shop itself.
+   * A name and a description are different lengths, so the shape of what came
+   * back decides where it lands: one short line is a name, anything longer is
+   * the description. Advice — a tier recommendation, a checklist — is left in
+   * the panel to read rather than pushed into a field.
+   */
+  const applyShopCopilotResult = (value: string) => {
+    const clean = value
+      .replace(/^```(?:\w+)?/i, "")
+      .replace(/```$/i, "")
+      .trim();
+    if (!clean) return;
+
+    const labelled = /^(shop )?name:\s*/i.test(clean);
+    const stripped = clean.replace(/^(shop )?name:\s*/i, "").replace(/^["'«»]|["'«»]$/g, "").trim();
+
+    if (labelled || (!stripped.includes("\n") && stripped.length <= 60)) {
+      setCreateForm((form) => ({ ...form, name: stripped.slice(0, 60) }));
+      return;
+    }
+    setCreateForm((form) => ({ ...form, description: clean.slice(0, 200) }));
+  };
+
   // ── Data fetching ──────────────────────────────────────────────────────
   const { data: shops = [], isLoading: shopsLoading } = useQuery({
     queryKey: ["bazaar-shops"],
@@ -1404,6 +1428,23 @@ export default function VXBazaar() {
               </div>
 
               <div className="space-y-5 rounded-2xl border border-white/10 bg-white/5 p-6">
+                <div className="text-foreground">
+                  <AITaskPanel
+                    assistantId="bazaar-shop-copilot"
+                    title="VXBazaar AI shop copilot"
+                    description="Help naming the shop, describing what it sells, and choosing the right size to open at."
+                    actions={[
+                      { label: "Shop name", prompt: "Suggest ONE shop name, under 60 characters. Return only the name — no list, no quotes, no explanation. If you do not know what the shop sells, ask one short question instead." },
+                      { label: "Describe the shop", prompt: "Return only a shop description under 200 characters that says what this shop sells and who it is for. No markdown, no preface." },
+                      { label: "Which size fits", prompt: "Recommend one of the four shop sizes — kiosk, boutique, store, flagship — using the supplied plan. Explain the tradeoff in two sentences. Do not invent VX costs; the page already shows them." },
+                      { label: "Opening checklist", prompt: "Give a short checklist of what this seller should prepare before opening: what to list first, what photos and alt text are needed, delivery and returns. Keep it under 8 lines." },
+                    ]}
+                    context={{ shop: createForm.name, description: createForm.description, size: createForm.tier, country: createForm.country }}
+                    onUseResult={applyShopCopilotResult}
+                    compact
+                  />
+                </div>
+
                 <div>
                   <label className="mb-1.5 block text-sm font-semibold text-stone-300">{t("bazaar.shopName")}</label>
                   <Input

@@ -7,12 +7,25 @@
 
 import type { RawResult, SourceAdapter, SourceRecord, SourcingIntent } from "./types.ts";
 import { visionexCatalogAdapter } from "./adapters/visionexCatalog.ts";
+import { bazaarListingsAdapter } from "./adapters/bazaarListings.ts";
+import { ebayBrowseAdapter } from "./adapters/ebayBrowse.ts";
 
 const ADAPTERS: Record<string, SourceAdapter> = {
+  // Visionex's own two shelves: the curated catalogue, and what shops on
+  // VXBazaar have listed. Both `internal`, both searched before anyone else.
   [visionexCatalogAdapter.slug]: visionexCatalogAdapter,
-  // External adapters are added here as each source's terms are verified and
-  // its row is switched to `active`. Until then their rows stay 'unverified'
-  // and the router never reaches them. See docs/ai-commerce-sourcing.md.
+  [bazaarListingsAdapter.slug]: bazaarListingsAdapter,
+
+  // The first external source with an adapter. It is inert until
+  // EBAY_CLIENT_ID/EBAY_CLIENT_SECRET exist — obtaining those is itself the
+  // acceptance of eBay's API licence, which is why the row can be active
+  // before the keys are.
+  [ebayBrowseAdapter.slug]: ebayBrowseAdapter,
+
+  // Further external adapters are added here as each source's terms are
+  // verified and its row is switched to `active`. Until then their rows stay
+  // 'unverified' and the router never reaches them. See
+  // docs/ai-commerce-sourcing.md.
 };
 
 export function getAdapter(slug: string): SourceAdapter | null {
