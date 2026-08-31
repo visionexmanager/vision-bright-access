@@ -113,9 +113,9 @@ function money(value?: string | null, currency?: string | null): number | null {
  * One listing, normalized — or null when it cannot be reported honestly.
  *
  * A listing with no title, no USD price or no link is dropped rather than
- * shown with a blank where the number should be. `external_recommendation` is
- * the availability the vocabulary reserves for exactly this: we can point at
- * it, we are not selling it.
+ * shown with a blank where the number should be. `available_for_sourcing` is
+ * the honest label under the resale model: we can buy this and sell it on, so
+ * a supplier route exists — but it is not stock we are holding today.
  */
 export function ebayItemToRaw(item: EbayItemSummary, fallbackCategory: string | null): RawResult | null {
   const title = item.title?.trim();
@@ -142,7 +142,7 @@ export function ebayItemToRaw(item: EbayItemSummary, fallbackCategory: string | 
     currency: EBAY_CURRENCY,
     sourceUrl: url,
     sourceProductId: item.itemId ?? null,
-    availability: "external_recommendation",
+    availability: "available_for_sourcing",
     // A marketplace search is a keyword match, not a semantic one. Below the
     // catalogue's own confident hits by construction, so Visionex stock keeps
     // its place at the top of the list.

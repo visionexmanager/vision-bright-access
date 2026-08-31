@@ -160,7 +160,7 @@ describe("eBay listings are reported honestly", () => {
     expect(buildBrowseQuery(parseIntent("x"), 10)).toBeNull();
   });
 
-  it("turns a listing into a recommendation, never into Visionex stock", () => {
+  it("calls a listing a supplier route, never stock we are holding", () => {
     const item: EbayItemSummary = {
       itemId: "v1|123|0",
       title: "Dell Latitude 5420 i7 16GB",
@@ -174,7 +174,7 @@ describe("eBay listings are reported honestly", () => {
 
     const raw = ebayItemToRaw(item, "electronics");
     expect(raw).not.toBeNull();
-    expect(raw!.availability).toBe("external_recommendation");
+    expect(raw!.availability).toBe("available_for_sourcing");
     expect(raw!.condition).toBe("used");
     expect(raw!.sourcePriceUsd).toBe(349);
     expect(raw!.shippingUsd).toBe(12.5);
@@ -206,7 +206,7 @@ describe("eBay listings are reported honestly", () => {
     expect(raw!.shippingUsd).toBe(0);
   });
 
-  it("names eBay to the customer, because its licence requires it", () => {
+  it("names a merchant only when its row requires attribution", () => {
     const result = {
       title: "Dell Latitude",
       brand: null,
@@ -214,7 +214,7 @@ describe("eBay listings are reported honestly", () => {
       category: "electronics",
       specifications: {},
       condition: "used",
-      availability: "external_recommendation",
+      availability: "available_for_sourcing",
       currency: "USD",
       finalPriceUsd: 349,
       sourceSlug: "ebay",
@@ -257,7 +257,7 @@ describe("the sources are wired up", () => {
     expect(migration).not.toMatch(/SET[\s\S]*status\s*=\s*'active'[\s\S]*WHERE slug = 'ebay'/);
   });
 
-  it("adds no margin to a listing the buyer pays eBay for", () => {
+  it("shipped a pass-through rule for eBay, which the follow-up migration retires", () => {
     expect(migration).toMatch(/pricing_rules[\s\S]*'ebay', 0, 0, 0/);
   });
 });

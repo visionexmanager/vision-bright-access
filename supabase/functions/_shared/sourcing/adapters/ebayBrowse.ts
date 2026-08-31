@@ -5,19 +5,18 @@
 // under $400 is asking about a market Visionex does not stock, and the honest
 // answer is a real listing, not silence.
 //
-// Three things make it safe to ship dark:
+// No credentials, no calls. `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` are read
+// once; without them the adapter logs a line and returns nothing, so an active
+// row costs a customer neither an error nor a wait.
 //
-//  1. No credentials, no calls. `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` are
-//     read once; without them the adapter logs a line and returns nothing, so
-//     an active row costs a customer neither an error nor a wait.
-//  2. Attribution, not concealment. The `ebay` row sets
-//     `attribution_required`, so §8's supplier confidentiality steps aside and
-//     the customer is shown eBay's name and eBay's link — which is what the
-//     API's licence asks for, and what makes this a recommendation rather than
-//     a resale.
-//  3. No margin. A pricing rule scoped to this source passes the listing price
-//     through untouched: marking up an item the buyer will pay eBay for
-//     directly would put a number on the page that nobody ever charges.
+// Results are reported under the resale model the platform runs on: the
+// supplier is not named, the pricing engine adds the margin, and availability
+// is `available_for_sourcing` — we can obtain this, we are not holding it.
+// That model is a business decision, and it is a decision with a licence
+// question attached: eBay's API agreement expects listing data to be shown
+// with attribution and a link back. Whoever records the terms review before
+// this row is switched on is the person answering that question, which is
+// exactly why the database will not let a migration answer it.
 
 import type { RawResult, SourceAdapter, SourceRecord, SourcingIntent } from "../types.ts";
 import {

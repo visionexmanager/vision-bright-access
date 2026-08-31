@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   calculatePrice, type PricingRule,
@@ -214,10 +214,22 @@ describe("O — unverified external sources cannot appear as live results", () =
     expect(migration).toContain("sourcing_sources_active_requires_review");
   });
 
-  it("no external adapter is registered yet", () => {
-    const registry = readFileSync("supabase/functions/_shared/sourcing/registry.ts", "utf8");
-    for (const vendor of ["amazon", "alibaba", "shein", "ebay", "olx"]) {
-      expect(registry.toLowerCase()).not.toContain(`${vendor}adapter`);
+  // The five merchants have adapters now. An adapter existing is not
+  // permission to call one, so the invariant moved rather than went away: no
+  // migration may assert the terms review, and no adapter may act without the
+  // credentials that only exist once somebody obtained them deliberately.
+  it("no migration asserts the terms review that activation depends on", () => {
+    const dir = "supabase/migrations";
+    for (const file of readdirSync(dir).filter((name) => name.endsWith(".sql"))) {
+      const sql = readFileSync(`${dir}/${file}`, "utf8");
+      expect(`${file}: ${sql}`).not.toMatch(/terms_reviewed_at\s*=/);
+    }
+  });
+
+  it("every external adapter refuses to act without its own credentials", () => {
+    const dir = "supabase/functions/_shared/sourcing/adapters";
+    for (const file of ["ebayBrowse.ts", "amazonPaapi.ts", "aliOpenPlatform.ts", "productFeed.ts"]) {
+      expect(`${file}: ${readFileSync(`${dir}/${file}`, "utf8")}`).toContain("source skipped");
     }
   });
 });
