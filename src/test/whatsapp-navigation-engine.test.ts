@@ -26,6 +26,7 @@ const engine = await import("../../supabase/functions/_shared/whatsappEngine.ts"
 const vision = await import("../../supabase/functions/_shared/whatsappVisionModes.ts");
 const weather = await import("../../supabase/functions/_shared/whatsappWeather.ts");
 const geo = await import("../../supabase/functions/_shared/whatsappLocation.ts");
+const entitlements = await import("../../supabase/functions/_shared/whatsappEntitlements.ts");
 const bazaar = await import("../../supabase/functions/_shared/whatsappBazaar.ts");
 const radio = await import("../../supabase/functions/_shared/whatsappRadio.ts");
 const helpers = await import("../../supabase/functions/_shared/whatsapp.ts");
@@ -421,6 +422,7 @@ describe("the catalog", () => {
       "services.weather": (p) => !!weather.parseWeatherRequest(p),
       "services.where": (p) => geo.asksWhereAmI(p),
       "services.nearby": (p) => geo.asksWhatIsNearby(p),
+      "services.plan": (p) => entitlements.asksAboutPlan(p),
       // The menu phrase names a real place, so the parser must come back with
       // that place and not with the words around it.
       "services.place": (p) => (geo.parseFindPlaceRequest(p)?.length ?? 0) > 1,

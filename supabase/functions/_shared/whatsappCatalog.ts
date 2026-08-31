@@ -501,6 +501,21 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     accepts: ["text", "location"],
   },
   {
+    id: "services.plan",
+    parent: "services",
+    order: 5,
+    kind: "action",
+    enabled: true,
+    title: { ar: "باقتي", en: "My plan" },
+    description: { ar: "رصيد اليوم وما تبقّى", en: "Today's allowance and what's left" },
+    aliases: {
+      ar: ["باقتي", "اشتراكي", "رصيدي", "كم باقي"],
+      en: ["my plan", "my subscription", "usage", "allowance"],
+    },
+    phrase: { ar: "باقتي", en: "my plan" },
+    accepts: ["text"],
+  },
+  {
     id: "services.bazaar",
     parent: "bazaar",
     order: 1,

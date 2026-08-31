@@ -682,6 +682,33 @@ const BASE_STRINGS = {
     ar: "على بُعد {distance} تقريباً {direction} منك.",
     en: "About {distance} {direction} of you.",
   },
+  // ── Plans and allowances ─────────────────────────────────────────────────
+  //
+  // Every one of these ends with somewhere to go. A person who has run out and
+  // is told only that they have run out is stuck, and somebody who cannot skim
+  // a website to find the upgrade page is stuck for good.
+
+  /** Carries `{limit}` and `{url}`. */
+  planLimitReached: {
+    ar: "استهلكت رصيد اليوم ({limit} طلباً). يتجدد تلقائياً غداً، أو اشترك الآن لرصيد أكبر: {url}",
+    en: "You've used today's allowance ({limit} requests). It renews tomorrow, or subscribe now for more: {url}",
+  },
+  /** Carries `{remaining}` and `{url}`. Said once, not on every message. */
+  planAlmostSpent: {
+    ar: "تبقّى لك {remaining} من رصيد اليوم. للمزيد: {url}",
+    en: "You have {remaining} left of today's allowance. For more: {url}",
+  },
+  /** Carries `{plan}`, `{used}`, `{limit}` and `{url}`. */
+  planStatus: {
+    ar: "باقتك: {plan}. استخدمت {used} من {limit} اليوم. الباقات: {url}",
+    en: "Your plan: {plan}. You've used {used} of {limit} today. Plans: {url}",
+  },
+  /** Carries `{plan}`. */
+  planStatusUnlimited: {
+    ar: "باقتك: {plan} — بلا حدود يومية.",
+    en: "Your plan: {plan} — no daily limit.",
+  },
+
   /** Carries `{query}` — what they asked for, quoted back so they can correct it. */
   placeNotFound: {
     ar: "لم أجد مكاناً باسم «{query}». جرّب الاسم مع المدينة، مثل «بنك الأردن عمّان».",

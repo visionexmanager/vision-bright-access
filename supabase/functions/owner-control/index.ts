@@ -192,12 +192,25 @@ Deno.serve(async (req) => {
         const control = body.control === "human" ? "human" : "ai";
         if (!phone) return json({ error: "wa_phone is required" }, 400);
 
+        // ── Handing a conversation back has to actually hand it back ──────
+        //
+        // The webhook silences the assistant when `control = 'human'` OR
+        // `escalated = true`. This wrote only the first, so a conversation
+        // that had auto-escalated stayed silent forever: somebody clicked
+        // "give it back to the AI", the flag stayed set, and that number never
+        // heard from the assistant again. Nothing surfaced it, because from
+        // the dashboard the control had visibly changed.
+        //
+        // Returning to 'ai' therefore clears the automatic flag as well.
+        // Escalating again is one message away; being permanently ignored is
+        // not something a customer can undo.
         await service
           .from("whatsapp_conversations")
           .update({
             control,
             control_changed_at: new Date().toISOString(),
             control_changed_by: "admin_ui",
+            ...(control === "ai" ? { escalated: false, escalated_at: null } : {}),
           })
           .eq("wa_phone", phone);
 
