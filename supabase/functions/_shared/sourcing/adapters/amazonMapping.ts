@@ -21,13 +21,29 @@ function hex(bytes: ArrayBuffer): string {
   return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function sha256Hex(text: string): Promise<string> {
-  // The view is hashed, never a sliced buffer: a slice can carry the wrong
-  // byte range and produce a digest nothing downstream questions.
-  return hex(await crypto.subtle.digest("SHA-256", encoder.encode(text)));
+/**
+ * Text as a standalone ArrayBuffer.
+ *
+ * Every key and message below is passed as an ArrayBuffer rather than a typed
+ * array, because the two TypeScript DOM libs in this repository disagree about
+ * whether a `Uint8Array` is a `BufferSource` — one accepts it, the other
+ * refuses `Uint8Array<ArrayBufferLike>`, and only the pnpm CI job sees the
+ * strict one. An ArrayBuffer is unambiguous in both. The bytes are copied
+ * whole, never sliced with an offset: a partial view would sign the wrong
+ * message and nothing downstream would question the result.
+ */
+function buffer(text: string): ArrayBuffer {
+  const view = encoder.encode(text);
+  const copy = new ArrayBuffer(view.byteLength);
+  new Uint8Array(copy).set(view);
+  return copy;
 }
 
-async function hmac(key: Uint8Array, message: string): Promise<Uint8Array> {
+async function sha256Hex(text: string): Promise<string> {
+  return hex(await crypto.subtle.digest("SHA-256", buffer(text)));
+}
+
+async function hmac(key: ArrayBuffer, message: string): Promise<ArrayBuffer> {
   const imported = await crypto.subtle.importKey(
     "raw",
     key,
@@ -35,7 +51,7 @@ async function hmac(key: Uint8Array, message: string): Promise<Uint8Array> {
     false,
     ["sign"],
   );
-  return new Uint8Array(await crypto.subtle.sign("HMAC", imported, encoder.encode(message)));
+  return await crypto.subtle.sign("HMAC", imported, buffer(message));
 }
 
 /** AWS4 key derivation: secret → date → region → service → request. */
@@ -44,8 +60,8 @@ export async function signingKey(
   dateStamp: string,
   region: string,
   service: string,
-): Promise<Uint8Array> {
-  const dateKey = await hmac(encoder.encode(`AWS4${secret}`), dateStamp);
+): Promise<ArrayBuffer> {
+  const dateKey = await hmac(buffer(`AWS4${secret}`), dateStamp);
   const regionKey = await hmac(dateKey, region);
   const serviceKey = await hmac(regionKey, service);
   return await hmac(serviceKey, "aws4_request");
