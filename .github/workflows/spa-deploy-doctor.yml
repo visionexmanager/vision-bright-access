@@ -121,11 +121,30 @@ jobs:
             # The usual culprit is an `http.…extraheader` holding a token that
             # has since expired — the shape `actions/checkout` writes, which
             # survives if a .git directory is ever copied from a runner.
-            echo "  auth-related local config (values withheld):"
-            git config --local --list 2>/dev/null \
-              | grep -iE 'extraheader|credential|askpass|url\.|insteadof' \
+            # Every scope, not just --local: a system or global
+            # `http.…extraheader` reaches this repository just as well, and the
+            # previous run only looked in one of the three places.
+            echo "  auth-related config, all scopes (values withheld):"
+            git config --list --show-origin 2>/dev/null \
+              | grep -iE 'extraheader|credential|askpass|insteadof|proxy|sslverify' \
               | sed -E 's/=.*/=<withheld>/' | sed 's/^/    /' \
-              || echo "    none"
+              || true
+            echo "    (end)"
+            echo "  git version      : $(git --version 2>/dev/null)"
+            echo "  proxy env set    : $(env | grep -ciE '^(http|https|all)_proxy=' || true)"
+            echo
+
+            # The decisive question, asked without git in the way: what does
+            # GitHub actually answer this machine for a public repository?
+            #
+            #   200 → the network is fine and git's configuration is at fault
+            #   401/403 → the machine or its address is being refused, and no
+            #             amount of local configuration will change that
+            echo "  raw HTTPS to GitHub:"
+            curl -s -o /dev/null -w "    info/refs → HTTP %{http_code} in %{time_total}s\n" \
+              --max-time 20 \
+              'https://github.com/visionexmanager/vision-bright-access.git/info/refs?service=git-upload-pack' \
+              || echo "    curl could not reach github.com at all"
             echo
 
             echo "  fetch, live:"
@@ -255,14 +274,17 @@ jobs:
           # working anonymous fetch into a 401 — which is exactly what it has
           # been doing. Removing it is safe even if a token were still valid,
           # because the anonymous path fetches the same public commits.
-          for key in \
-            'http.https://github.com/.extraheader' \
-            'http.extraheader' \
-            'credential.helper'
-          do
-            if git config --local --get-all "$key" >/dev/null 2>&1; then
-              git config --local --unset-all "$key" 2>/dev/null && echo "removed          : $key"
-            fi
+          for scope in --local --global --system; do
+            for key in \
+              'http.https://github.com/.extraheader' \
+              'http.extraheader' \
+              'credential.helper'
+            do
+              if git config $scope --get-all "$key" >/dev/null 2>&1; then
+                git config $scope --unset-all "$key" 2>/dev/null \
+                  && echo "removed          : $scope $key"
+              fi
+            done
           done
 
           # Belt and braces: never let a fetch sit waiting for a username on a
