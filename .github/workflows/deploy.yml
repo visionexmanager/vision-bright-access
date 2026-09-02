@@ -28,9 +28,35 @@ jobs:
     needs: gate
     name: Deploy SPA → VPS
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # The build itself takes two to three minutes. This is the ceiling for
+    # noticing it never happened, not a target.
+    timeout-minutes: 20
 
     steps:
+      # ── What the site looks like *before* anything is asked of it ────────
+      #
+      # The whole point of the check at the end of this job is that it can tell
+      # a new build from the previous one. It cannot do that without knowing
+      # what the previous one was, so this is recorded first.
+      #
+      # `ETag` and `Last-Modified` both come from nginx for a static file, and
+      # the entry chunk's name changes whenever the bundle's contents do. Any
+      # one of the three moving means the site was rebuilt and reloaded.
+      - name: Note what is being served now
+        run: |
+          set -uo pipefail
+          BEFORE=$(curl -s -D - -o /dev/null -H 'Cache-Control: no-cache' \
+                     --max-time 20 "https://visionex.app/?deploy-check=$RANDOM" \
+                   | grep -iE '^(etag|last-modified):' | tr -d '\r' | sort | tr '\n' ' ')
+          ENTRY=$(curl -s -H 'Cache-Control: no-cache' --max-time 20 \
+                    "https://visionex.app/?deploy-check=$RANDOM" \
+                  | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1)
+          echo "before: $BEFORE entry=$ENTRY"
+          {
+            echo "SITE_BEFORE=$BEFORE"
+            echo "ENTRY_BEFORE=$ENTRY"
+          } >> "$GITHUB_ENV"
+
       - name: Trigger deploy webhook
         run: |
           echo "Sending deploy request to server..."
@@ -61,20 +87,59 @@ jobs:
             sleep 5
           done
 
-      - name: Wait for build
+      # ── Wait for the build to actually land ─────────────────────────────
+      #
+      # This step replaces `sleep 60` followed by "does the home page return
+      # 200". It had to: the *previous* bundle returns 200 perfectly well, so
+      # that check passed on every deploy between 31 August and 2 September
+      # while the site did not change once. The webhook answering `deploying`
+      # only means the request was accepted — on those days `deploy.sh` was
+      # aborting on its first real command, a `git fetch` that could not
+      # authenticate, and nothing downstream ever ran.
+      #
+      # So the condition is now the one thing that cannot be true unless a
+      # build finished and nginx served it: the bytes a visitor receives are
+      # different from the ones they received a minute ago.
+      #
+      # Polling rather than sleeping, because the build takes two to three
+      # minutes and a fixed sleep is either a false pass or wasted time.
+      - name: Wait for the new build to be served
         run: |
-          echo "Waiting 60 seconds for build + nginx reload..."
-          sleep 60
+          set -uo pipefail
+          echo "Waiting for visionex.app to serve something new."
+          echo "  was: $SITE_BEFORE entry=$ENTRY_BEFORE"
 
-      - name: Verify site is live
+          for i in $(seq 1 48); do
+            sleep 15
+            NOW=$(curl -s -D - -o /dev/null -H 'Cache-Control: no-cache' \
+                    --max-time 20 "https://visionex.app/?deploy-check=$RANDOM" \
+                  | grep -iE '^(etag|last-modified):' | tr -d '\r' | sort | tr '\n' ' ')
+            ENTRY=$(curl -s -H 'Cache-Control: no-cache' --max-time 20 \
+                      "https://visionex.app/?deploy-check=$RANDOM" \
+                    | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1)
+
+            if [ -n "$NOW" ] && { [ "$NOW" != "$SITE_BEFORE" ] || [ "$ENTRY" != "$ENTRY_BEFORE" ]; }; then
+              echo "✅ Rebuilt and served after ~$((i * 15))s"
+              echo "  now: $NOW entry=$ENTRY"
+              exit 0
+            fi
+            echo "  ${i}/48 — still the previous build"
+          done
+
+          echo "::error::The site never changed. The deploy webhook was accepted but no new build reached visitors."
+          echo "Run the 'SPA deploy doctor' workflow — it reads the server's checkout, runs a"
+          echo "live fetch and reports its exit code. The usual cause is the checkout losing its"
+          echo "SSH remote and falling back to anonymous HTTPS, which GitHub refuses."
+          exit 1
+
+      - name: Verify the site answers
         run: |
-          echo "Checking visionex.app..."
+          set -uo pipefail
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://visionex.app)
-
           if [ "$HTTP_CODE" = "200" ]; then
             echo "✅ Site is live! (HTTP $HTTP_CODE)"
           else
-            echo "❌ Health check failed — HTTP $HTTP_CODE"
+            echo "::error::Health check failed — HTTP $HTTP_CODE"
             exit 1
           fi
 
