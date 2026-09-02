@@ -104,19 +104,28 @@ jobs:
       # Polling rather than sleeping, because the build takes two to three
       # minutes and a fixed sleep is either a false pass or wasted time.
       - name: Wait for the new build to be served
+        # Not `-e`, and deliberately: a request that fails mid-poll is normal
+        # here. nginx is being reloaded by the very deploy this is watching, so
+        # one refused connection is a moment to wait through, not a reason to
+        # give up. With `-e` and `pipefail` a single curl hiccup ended the
+        # whole loop after thirty seconds — while the build was in fact on its
+        # way, and landed shortly after.
+        shell: bash --noprofile --norc {0}
         run: |
-          set -uo pipefail
+          set -u
           echo "Waiting for visionex.app to serve something new."
           echo "  was: $SITE_BEFORE entry=$ENTRY_BEFORE"
 
           for i in $(seq 1 48); do
             sleep 15
+            # `|| true` on both: an empty answer means "not yet", and the loop
+            # is the thing that decides when to stop, not curl.
             NOW=$(curl -s -D - -o /dev/null -H 'Cache-Control: no-cache' \
-                    --max-time 20 "https://visionex.app/?deploy-check=$RANDOM" \
-                  | grep -iE '^(etag|last-modified):' | tr -d '\r' | sort | tr '\n' ' ')
+                    --max-time 20 "https://visionex.app/?deploy-check=$RANDOM" 2>/dev/null \
+                  | grep -iE '^(etag|last-modified):' | tr -d '\r' | sort | tr '\n' ' ') || true
             ENTRY=$(curl -s -H 'Cache-Control: no-cache' --max-time 20 \
-                      "https://visionex.app/?deploy-check=$RANDOM" \
-                    | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1)
+                      "https://visionex.app/?deploy-check=$RANDOM" 2>/dev/null \
+                    | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1) || true
 
             if [ -n "$NOW" ] && { [ "$NOW" != "$SITE_BEFORE" ] || [ "$ENTRY" != "$ENTRY_BEFORE" ]; }; then
               echo "✅ Rebuilt and served after ~$((i * 15))s"
