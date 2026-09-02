@@ -140,6 +140,25 @@ jobs:
             #   200 → the network is fine and git's configuration is at fault
             #   401/403 → the machine or its address is being refused, and no
             #             amount of local configuration will change that
+            # curl used a URL typed here; git uses the one in .git/config. If
+            # those differ by so much as a stray carriage return, GitHub
+            # answers 404 — and git responds to a 404 by asking for a password,
+            # because a repository you cannot see and one that does not exist
+            # look identical from outside. That is this exact pair of errors.
+            #
+            # `cat -A` makes the difference visible: `$` ends the line and `^M`
+            # is a carriage return that would otherwise be invisible.
+            echo "  remote.origin.url, byte for byte:"
+            git config --get remote.origin.url 2>/dev/null | cat -A | sed 's/^/    /'
+            echo "  the same URL, asked directly:"
+            GIT_TERMINAL_PROMPT=0 git ls-remote "$(git config --get remote.origin.url)" main 2>&1 \
+              | head -2 | sed 's/^/    /'
+            echo "  a freshly typed URL, asked directly:"
+            GIT_TERMINAL_PROMPT=0 git ls-remote \
+              'https://github.com/visionexmanager/vision-bright-access.git' main 2>&1 \
+              | head -2 | sed 's/^/    /'
+            echo
+
             echo "  raw HTTPS to GitHub:"
             curl -s -o /dev/null -w "    info/refs → HTTP %{http_code} in %{time_total}s\n" \
               --max-time 20 \
@@ -287,10 +306,22 @@ jobs:
             done
           done
 
-          # Belt and braces: never let a fetch sit waiting for a username on a
-          # machine with no terminal. It should fail loudly and immediately.
-          git config --local core.askPass ""
+          # An earlier version of this step set `core.askPass` to an empty
+          # string, meaning to stop git waiting on a prompt. An empty askpass
+          # is worse than none: git executes it, gets nothing, and falls back
+          # to the terminal anyway. Removing it, rather than leaving a fix that
+          # made the situation slightly worse.
+          git config --local --unset core.askPass 2>/dev/null && echo "removed          : core.askPass"
+
+          # The right way to say the same thing — an environment variable, for
+          # this command only, leaving no configuration behind.
           export GIT_TERMINAL_PROMPT=0
+
+          # Rewrite the remote to the canonical URL. Idempotent, and it clears
+          # any stray whitespace or carriage return that would make GitHub
+          # answer 404 — which git reports as a request for a password.
+          git remote set-url origin 'https://github.com/visionexmanager/vision-bright-access.git'
+          echo "remote           : $(git config --get remote.origin.url)"
 
           echo "fetch            :"
           if git fetch origin main 2>&1 | sed 's/^/  /'; then
