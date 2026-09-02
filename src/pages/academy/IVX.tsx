@@ -156,6 +156,37 @@ export default function IVX() {
             </section>
           </>
         )}
+
+        {/* Projects sit beside practice rather than inside it. A question asks
+            whether you know something; a project asks what you can do with it,
+            and it earns XP without touching mastery — see the migration. */}
+        <section className="mt-10 border-t border-border pt-6" aria-labelledby="ivx-projects-heading">
+          <h2 id="ivx-projects-heading" className="text-base font-bold">
+            {translateText("Projects")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {translateText("Longer pieces of work, marked against a rubric you can read before you start.")}
+          </p>
+          <Button asChild variant="outline" size="sm" className="mt-3">
+            <Link to="/academy/ivx/projects">{translateText("See the projects")}</Link>
+          </Button>
+        </section>
+
+        {/* Last, and quiet. A learner opens this page to practise; sharing
+            their progress with a parent or a teacher is a decision they make
+            occasionally, and putting it at the top would suggest somebody is
+            already watching. */}
+        <section className="mt-10 border-t border-border pt-6" aria-labelledby="ivx-sharing-heading">
+          <h2 id="ivx-sharing-heading" className="text-base font-bold">
+            {translateText("Parents and teachers")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {translateText("Invite somebody to follow how you are doing, or follow a student who invited you.")}
+          </p>
+          <Button asChild variant="outline" size="sm" className="mt-3">
+            <Link to="/academy/ivx/guardians">{translateText("Manage who can see my progress")}</Link>
+          </Button>
+        </section>
       </main>
     </Layout>
   );

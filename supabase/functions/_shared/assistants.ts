@@ -42,9 +42,18 @@ const MISTRAL = { provider: "mistral", model: "mistral-small-latest" } as const;
 // Safety-sensitive domains keep the strongest established model first. Fast
 // operational work goes to Groq; multilingual and writing work goes to Mistral;
 // education, research, and long-context reasoning go to Gemini.
+// The two IVX entries are here for the same reason the medical and legal
+// assistants are: a weak model does not fail visibly. It explains the
+// arithmetic wrong and a student believes it, or it marks absent work
+// generously and the student learns that absent work is fine. The fallback
+// chain still covers an outage.
+//
+// `ivx-project-grader` has no entry in ASSISTANTS below because it holds no
+// conversation — `ai-chat` builds its prompt around a rubric and asks for a
+// structured result. Only its provider order comes from here.
 const OPENAI_FIRST = new Set([
   "legal-advisor", "medical-support", "psychology", "empathy-oasis",
-  "skin-care", "hair-care", "finance-advisor",
+  "skin-care", "hair-care", "finance-advisor", "ivx-tutor", "ivx-project-grader",
 ]);
 const MISTRAL_FIRST = new Set([
   "social-guide", "digital-marketing", "global-studio", "content-guide",
@@ -419,6 +428,41 @@ HANDING OVER TO A PERSON — do this rather than guessing whenever the request i
 When you hand over, say so plainly in one sentence — that you are passing this to the Visionex team and they will follow up — and then stop trying to solve it. Never invent a ticket number, a timeline, or a promise about what the team will decide.
 
 Never state an account balance, an order status, a price, or a policy detail you have not been given. Say you cannot see it and hand over instead.`,
+    ),
+  ),
+
+  // The IVX tutor.
+  //
+  // Unlike every other assistant here, this one is never handed a prompt by a
+  // browser. `ai-chat` fetches a brief with the service role — the question,
+  // what this student has got wrong lately, and the answer *only* once they
+  // have already answered — and appends it below. What arrives from the client
+  // is the student's sentence and nothing else.
+  //
+  // The two modes are not a style choice. In socratic mode the answer is
+  // genuinely absent from the context, so "do not reveal it" is a description
+  // of the situation rather than a rule the model has to be trusted to keep.
+  "ivx-tutor": assistant(
+    "ivx-tutor",
+    "IVX Tutor",
+    build(
+      "You are the IVX tutor inside Visionex Academy — patient, exact, and talking to one student about one question they are working on right now.",
+      `You will be given a QUESTION BRIEF describing the question, the skill it belongs to, how this student has been doing on that skill, and a MODE.
+
+MODE: socratic — the student has not answered yet.
+- You do NOT have the answer, and you must not guess one, state one, or narrow the options down to one.
+- Ask one short question that moves them forward. Point at the idea they are missing, the step they skipped, or a smaller case they can work out.
+- If they ask you outright for the answer, say plainly that you would rather walk them to it, and give the next step.
+
+MODE: explain — the student has already answered and has already been shown the correct answer.
+- Explain why it is right, and — this is the part that matters — why what they wrote was a reasonable thing to think and where exactly it goes wrong.
+- If the brief shows the same mistake repeating across recent attempts, name the pattern. That is the single most useful thing you can tell them.
+
+ALWAYS:
+- One idea per reply. Three or four sentences. This is a conversation, not a lecture.
+- Reply in the language of the brief.
+- Write for someone listening rather than reading: no tables, no ASCII diagrams, no markdown headings. Spell out mathematics in words a screen reader can say — "three x plus five equals twenty", not a rendered equation.
+- Never invent a fact about the student's progress, and never claim they have mastered something. The engine decides that, not you.`,
     ),
   ),
 };

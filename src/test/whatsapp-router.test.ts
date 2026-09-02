@@ -384,9 +384,11 @@ describe("the features the router must not have absorbed", () => {
   });
 
   it("keeps the voice path where it was", () => {
-    // One transcription call, one ask, both in the webhook — not in the router.
+    // One transcription call, and every ask in the webhook — not in the
+    // router. What matters here is the router's ignorance of both, not how
+    // many places the webhook itself asks a model.
     expect(webhook.match(/voiceToText\(/g)?.length).toBe(1);
-    expect(webhook.match(/askAssistant\(/g)?.length).toBe(1);
+    expect(routerCode).not.toContain("askAssistant");
     for (const word of ["transcribe", "speakReply", "audio", "Whisper"]) {
       expect(routerCode, word).not.toContain(word);
     }

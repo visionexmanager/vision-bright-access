@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { speakText } from "@/lib/audio/speech";
 import { ivx, MASTERY_LABEL, type IvxAnswerResult, type IvxQuestion } from "@/features/ivx/api";
+import { IVXTutor } from "@/features/ivx/IVXTutor";
+import { IVXCodeAnswer } from "@/features/ivx/IVXCodeAnswer";
 
 /**
  * One question at a time.
@@ -103,6 +105,28 @@ export default function IVXPractice() {
     }
   };
 
+  const submitCode = async (outputs: unknown[], source: string) => {
+    if (!question || busy) return;
+    setBusy(true);
+    const outcome = await ivx.submitCode({
+      questionId: question.question_id,
+      source,
+      outputs,
+      hints: hintsUsed,
+      elapsedMs: Date.now() - startedAt.current,
+      language,
+    });
+    setBusy(false);
+    if (outcome.ok) {
+      const answer = outcome as IvxAnswerResult;
+      setResult(answer);
+      setAnswered((n) => n + 1);
+      if (answer.correct) setCorrectCount((n) => n + 1);
+    } else {
+      setRefusal((outcome as { reason: string }).reason);
+    }
+  };
+
   const askForHint = async () => {
     if (!question) return;
     const got = await ivx.hint(question.question_id, language);
@@ -170,7 +194,17 @@ export default function IVXPractice() {
               {translateText("Read aloud")}
             </Button>
 
-            {question.options.length > 0 ? (
+            {question.kind === "code" ? (
+              /* A code question is answered by running code, not by typing an
+                 answer. The run happens in the student's own browser; whether
+                 it was right is decided in the database against outputs this
+                 page was never sent. */
+              <IVXCodeAnswer
+                questionId={question.question_id}
+                disabled={busy || !!result}
+                onSubmitted={(outputs, source) => void submitCode(outputs, source)}
+              />
+            ) : question.options.length > 0 ? (
               <ul className="mt-6 space-y-3" role="list">
                 {question.options.map((option) => (
                   <li key={option.id}>
@@ -250,6 +284,12 @@ export default function IVXPractice() {
                 </div>
               )}
             </div>
+
+            {/* Outside the assertive region, and present in both phases. Which
+                conversation this has — walk me to it, or explain what I got
+                wrong — is decided by the database from the student's own
+                session, not by anything this page passes down. */}
+            <IVXTutor questionId={question.question_id} />
           </section>
         )}
       </main>

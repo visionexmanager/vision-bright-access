@@ -284,8 +284,15 @@ describe("voice", () => {
     // speaking. The assertion is about the wiring, not the keyword.
     expect(webhook).toContain("speak: async (text) =>");
     expect(webhook).toContain("speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId");
-    // One assistant call, whichever way the answer leaves.
-    expect(webhook.match(/askAssistant\(/g)?.length).toBe(1);
+    // One assistant call for a question, whichever way the answer leaves —
+    // the medium is chosen after the answer exists, not by a second ask.
+    // (The IVX tutor is the other `askAssistant` in this file, and it is
+    // reached by "why?" during a lesson rather than by a spoken question.)
+    const askBlock = webhook.slice(
+      webhook.indexOf("const asked = await askAssistant("),
+      webhook.indexOf("const parts = splitAnswer("),
+    );
+    expect(askBlock.match(/askAssistant\(/g)?.length).toBe(1);
   });
 });
 

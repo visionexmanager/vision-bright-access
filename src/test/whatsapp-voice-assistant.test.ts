@@ -206,8 +206,16 @@ describe("a voice question, end to end", () => {
   });
 
   it("does not call the provider directly from the voice path", () => {
-    // Voice converges on the same ask as text: one call site, one seam.
-    expect(webhook.match(/askAssistant\(/g)?.length).toBe(1);
+    // Voice converges on the same ask as text: one call site for a question,
+    // one seam. The IVX tutor is the webhook's other `askAssistant`, and it
+    // answers "why?" during a lesson — a voice message never reaches it, so
+    // this is checked on the assistant's block rather than on the file.
+    const askBlock = webhook.slice(
+      webhook.indexOf("const asked = await askAssistant("),
+      webhook.indexOf("const parts = splitAnswer("),
+    );
+    expect(askBlock.length).toBeGreaterThan(100);
+    expect(askBlock.match(/askAssistant\(/g)?.length).toBe(1);
     expect(webhook).not.toMatch(/streamChatCompletionWithFallback\([\s\S]{0,200}transcribe/);
   });
 });

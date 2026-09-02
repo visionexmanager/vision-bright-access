@@ -97,6 +97,8 @@ import {
   formatIvxResult,
   ivxNotLinkedNotice,
   ivxNothingNotice,
+  ivxTutorDirective,
+  type IvxTutorBrief,
   parseIvxIntent,
   parseIvxSubject,
   resolveIvxAnswer,
@@ -2893,6 +2895,85 @@ Deno.serve(async (req) => {
           await reply(`💡 ${payload.hint}`, "reply");
           continue;
         }
+      }
+
+      // ── "Why?" ─────────────────────────────────────────────────────────
+      //
+      // The one IVX branch that reaches a model. Everything else here is a
+      // database answer, but "I don't understand" has no stored answer — the
+      // stored explanation answers the question the author imagined, not the
+      // one this student is actually stuck on.
+      //
+      // What the model is told comes entirely from `ivx_wa_tutor_brief`, which
+      // decides in SQL whether this is a question still being worked on (no
+      // answer in the brief at all) or one already answered (explain freely).
+      // The webhook does not make that call and cannot override it.
+      if (ivxIntent === "explain") {
+        const { data } = await db.rpc("ivx_wa_tutor_brief", {
+          _wa_phone: incoming.from, _language: answerLanguage,
+        });
+        const brief = data as IvxTutorBrief | null;
+
+        if (brief?.ok && brief.question_id) {
+          // Tutoring reaches a provider, so it costs an allowance unit like
+          // any other answer. Checked before the ask and recorded after it,
+          // so a provider failure never charges anybody.
+          if (!(await maySpend())) continue;
+
+          const priorTurns = (
+            (await db.rpc("ivx_wa_tutor_history", {
+              _wa_phone: incoming.from, _question_id: brief.question_id, _limit: 8,
+            })).data as { turns?: Array<{ role?: string; body?: string }> } | null
+          )?.turns ?? [];
+
+          const tutored = await askAssistant(
+            {
+              systemParts: [ivxTutorDirective(brief, answerLanguage)],
+              turns: priorTurns.map((turn) => ({
+                role: turn.role === "tutor" ? "assistant" as const : "user" as const,
+                content: turn.body ?? "",
+              })).filter((turn) => turn.content),
+              question: questionText,
+              maxTokens: 400,
+            },
+            chainProvider(),
+          );
+
+          if (tutored.status === "answered") {
+            log("ivx", { outcome: "tutored", provider: tutored.provider, ms: tutored.ms });
+            // Both turns, so the next "why?" continues the conversation
+            // instead of restarting it — and so the same thread is there on
+            // the website.
+            await db.rpc("ivx_wa_tutor_log", {
+              _wa_phone: incoming.from, _question_id: brief.question_id,
+              _role: "student", _body: questionText,
+            });
+            await db.rpc("ivx_wa_tutor_log", {
+              _wa_phone: incoming.from, _question_id: brief.question_id,
+              _role: "tutor", _body: tutored.text,
+            });
+            await spent("ai");
+            await reply(tutored.text, "reply");
+            continue;
+          }
+
+          // A provider failure here is not a dead end: the stored explanation
+          // for a question they have already answered is still worth having.
+          log("ivx", { outcome: "tutor_failed" });
+          if (brief.mode === "explain" && brief.explanation) {
+            await reply(brief.explanation, "reply");
+            continue;
+          }
+          await reply(failureNotice(answerLanguage), "reply");
+          continue;
+        }
+
+        if (brief?.reason === "not_linked") {
+          await reply(ivxNotLinkedNotice(answerLanguage), "unsupported");
+          continue;
+        }
+        // `nothing_open` falls through: with nothing to explain, "explain"
+        // reads as "teach me something", which is what the branch below does.
       }
 
       if (ivxIntent === "start" || ivxIntent === "next"
