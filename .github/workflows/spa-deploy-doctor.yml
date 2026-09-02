@@ -378,10 +378,12 @@ jobs:
           # this command only, leaving no configuration behind.
           export GIT_TERMINAL_PROMPT=0
 
-          # Rewrite the remote to the canonical URL. Idempotent, and it clears
-          # any stray whitespace or carriage return that would make GitHub
-          # answer 404 — which git reports as a request for a password.
-          git remote set-url origin 'https://github.com/visionexmanager/vision-bright-access.git'
+          # The remote is left exactly as it is. An earlier version of this
+          # step forced it back to HTTPS — written when the URL was still the
+          # suspect — and that quietly undid the SSH switch the `sshkey` step
+          # had just made, putting the server back on the anonymous path that
+          # was failing. A repair that reverses another repair is worse than no
+          # repair at all.
           echo "remote           : $(git config --get remote.origin.url)"
 
           echo "fetch            :"
