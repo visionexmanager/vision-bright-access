@@ -1,0 +1,149 @@
+name: SPA deploy doctor
+
+# Why the website did not change, asked on the machine that builds it.
+#
+# ── The gap this closes ─────────────────────────────────────────────────────
+#
+# `Deploy SPA → VPS` POSTs a webhook, sleeps 60 seconds, and then asserts that
+# the home page returns 200. That is green whether or not the build finished —
+# the old bundle answers 200 perfectly well — and the VPS build takes longer
+# than 60 seconds. On 2026-09-02 two deploys reported success while
+# `Last-Modified` on index.html stayed at the *previous* release, which is the
+# only signal that actually distinguishes the two.
+#
+# So this asks the server directly: when did it last write the site, what does
+# its checkout say, and what did the last build actually do.
+#
+# ── Read-only, and structurally so ──────────────────────────────────────────
+#
+# Every command reads. No package manager, no service restart, no write, no
+# build. The remote block is short enough to check by eye and it is the whole
+# of what runs.
+#
+# ── This repository is PUBLIC ───────────────────────────────────────────────
+#
+# The job summary is world-readable. Nothing below prints an environment
+# variable, a hostname, an IP, a key, or a path that came from a secret: the
+# deploy path is replaced with `<site>` on the way out, and only counts, sizes,
+# timestamps and version strings survive.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spa-deploy-doctor
+  cancel-in-progress: false
+
+jobs:
+  doctor:
+    name: Ask the server why
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          if [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$KEY" ]; then
+            echo "::error::SERVER_HOST, SERVER_USER and SSH_PRIVATE_KEY must all be set."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_doctor
+          chmod 600 ~/.ssh/id_doctor
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_doctor
+            ConnectTimeout 15
+            BatchMode yes
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'echo ok' >/dev/null 2>&1 || { echo "::error::Could not connect."; exit 1; }
+          echo "Connected."
+
+      - name: Read why the build did not land
+        env:
+          SITE: ${{ secrets.SERVER_PATH }}
+        run: |
+          set -uo pipefail
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          # The path is a secret, so it goes in over stdin and every mention of
+          # it is scrubbed out of the output before anything is printed.
+          ssh target "SITE='$SITE' bash -s" <<'REMOTE' 2>&1 | sed "s#${SITE}#<site>#g" | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+
+          echo "── The served site ───────────────────────────────"
+          if [ -d "$SITE" ]; then
+            cd "$SITE" || exit 0
+            echo "checkout HEAD    : $(git rev-parse --short HEAD 2>/dev/null || echo 'not a git checkout')"
+            echo "checkout branch  : $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '-')"
+            echo "last fetch       : $(stat -c %y .git/FETCH_HEAD 2>/dev/null | cut -d. -f1 || echo 'never')"
+            echo "working tree     : $(git status --porcelain 2>/dev/null | wc -l) modified file(s)"
+            echo
+            echo "dist/index.html  : $(stat -c %y dist/index.html 2>/dev/null | cut -d. -f1 || echo 'MISSING')"
+            echo "dist entry chunk : $(grep -o 'assets/index-[A-Za-z0-9_-]*\.js' dist/index.html 2>/dev/null | head -1 || echo '-')"
+            echo "dist size        : $(du -sh dist 2>/dev/null | cut -f1 || echo '-')"
+            echo "node_modules     : $([ -d node_modules ] && echo present || echo MISSING)"
+          else
+            echo "the deploy directory does not exist at the configured path"
+          fi
+          echo
+
+          echo "── Where nginx actually points ───────────────────"
+          # The root may be a different directory from the checkout — that is
+          # one way a successful build never reaches a visitor.
+          grep -rhoP '^\s*root\s+\K[^;]+' /etc/nginx/sites-enabled/ 2>/dev/null | sort -u | sed 's/^/  root: /' || echo "  (could not read nginx config)"
+          echo
+
+          echo "── The deploy hook ───────────────────────────────"
+          echo "listening on 9000: $(ss -tlnp 2>/dev/null | grep -c ':9000' || echo 0)"
+          UNIT=$(systemctl list-units --type=service --no-legend --plain 2>/dev/null | awk '{print $1}' | grep -iE 'deploy|webhook|hook' | head -1)
+          if [ -n "$UNIT" ]; then
+            echo "unit             : $UNIT"
+            echo "active           : $(systemctl is-active "$UNIT" 2>/dev/null)"
+            echo
+            echo "── Last 60 lines of its journal ──────────────────"
+            journalctl -u "$UNIT" -n 60 --no-pager 2>/dev/null || echo "  (journal not readable)"
+          else
+            echo "no deploy/webhook service unit found by name"
+          fi
+          echo
+
+          echo "── Any build log left behind ─────────────────────"
+          for f in /var/log/deploy.log /var/log/build.log "$SITE/deploy.log" "$SITE/build.log" /tmp/deploy.log; do
+            if [ -f "$f" ]; then
+              echo "--- tail of $(basename "$f") ($(stat -c %y "$f" | cut -d. -f1)) ---"
+              tail -n 40 "$f"
+            fi
+          done
+          echo
+
+          echo "── Did the kernel kill a build ───────────────────"
+          # `vite build` on a memory-tight box is the usual reason a deploy
+          # reports success and produces nothing.
+          echo "recent OOM kills : $(dmesg 2>/dev/null | grep -ci 'killed process' || echo 'dmesg not readable')"
+          dmesg 2>/dev/null | grep -i 'killed process' | tail -3 | sed 's/^/  /'
+          echo
+          echo "── Headroom ──────────────────────────────────────"
+          free -h | sed 's/^/  /'
+          df -h / | sed 's/^/  /'
+          echo "swap total       : $(free -h | awk '/Swap/{print $2}')"
+          REMOTE
+
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Forget the key
+        if: always()
+        run: rm -f ~/.ssh/id_doctor ~/.ssh/config
