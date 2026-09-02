@@ -107,6 +107,23 @@ jobs:
             git diff --stat 2>/dev/null | tail -5 | sed 's/^/    /'
             echo
             echo "  behind origin/main by: $(git rev-list --count HEAD..origin/main 2>/dev/null || echo '?') commit(s)"
+            echo "  local origin/main    : $(git rev-parse --short origin/main 2>/dev/null || echo '-')"
+            # A remote URL can carry a token in it, so credentials are replaced
+            # before the line is printed.
+            echo "  remotes:"
+            git remote -v 2>/dev/null | sed -E 's#://[^@/]*@#://<credentials>@#' | sed 's/^/    /'
+            echo
+            # Does a fetch actually reach GitHub? This is the question the
+            # counts above cannot answer: a fetch that fails leaves the local
+            # origin/main exactly where it was, and the hook carries on.
+            echo "  fetch, live:"
+            if git fetch origin main 2>&1 | sed -E 's#://[^@/]*@#://<credentials>@#' | sed 's/^/    /'; then
+              echo "    exit 0"
+            else
+              echo "    FETCH FAILED (exit $?)"
+            fi
+            echo "  origin/main after fetch: $(git rev-parse --short origin/main 2>/dev/null || echo '-')"
+            echo "  now behind by          : $(git rev-list --count HEAD..origin/main 2>/dev/null || echo '?') commit(s)"
             echo
             echo "dist/index.html  : $(stat -c %y dist/index.html 2>/dev/null | cut -d. -f1 || echo 'MISSING')"
             echo "dist entry chunk : $(grep -o 'assets/index-[A-Za-z0-9_-]*\.js' dist/index.html 2>/dev/null | head -1 || echo '-')"
@@ -132,7 +149,7 @@ jobs:
           if [ -n "${HOOKPID:-}" ]; then
             echo "hook process     : $(ps -p "$HOOKPID" -o comm= 2>/dev/null)"
             echo "hook script      : $(tr '\0' ' ' < /proc/$HOOKPID/cmdline 2>/dev/null | awk '{print $NF}')"
-            SCRIPT=$(tr '\0' '\n' < /proc/$HOOKPID/cmdline 2>/dev/null | grep -E '\.(sh|js|py)$' | head -1)
+            SCRIPT=$(tr '\0' '\n' < /proc/$HOOKPID/cmdline 2>/dev/null | grep -E '\.(sh|js|cjs|mjs|py)$' | head -1)
             if [ -n "${SCRIPT:-}" ] && [ -f "$SCRIPT" ]; then
               echo
               echo "── What the hook runs ────────────────────────────"
@@ -153,6 +170,20 @@ jobs:
           else
             echo "no deploy/webhook service unit found by name"
           fi
+          echo
+
+          # The hook usually shells out to a script beside the checkout. That
+          # script is what decides whether anything is pulled or built, so it
+          # is the last place the answer can be hiding.
+          for s in "$SITE/deploy.sh" "$SITE/webhook.js" /root/deploy.sh /opt/deploy.sh; do
+            if [ -f "$s" ]; then
+              echo
+              echo "── $(basename "$s") ──────────────────────────────"
+              grep -vE '^\s*(#|//|$)' "$s" \
+                | sed -E 's/(TOKEN|SECRET|KEY|PASSWORD)[^ ]*\s*[:=].*/\1=<withheld>/I' \
+                | head -60 | sed 's/^/    /'
+            fi
+          done
           echo
 
           echo "── Any build log left behind ─────────────────────"
