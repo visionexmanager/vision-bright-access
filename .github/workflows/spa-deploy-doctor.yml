@@ -116,6 +116,18 @@ jobs:
             # Does a fetch actually reach GitHub? This is the question the
             # counts above cannot answer: a fetch that fails leaves the local
             # origin/main exactly where it was, and the hook carries on.
+            # The repository is public and anonymous HTTPS fetch works from
+            # anywhere, so a 401 here means this checkout is *forcing* auth.
+            # The usual culprit is an `http.…extraheader` holding a token that
+            # has since expired — the shape `actions/checkout` writes, which
+            # survives if a .git directory is ever copied from a runner.
+            echo "  auth-related local config (values withheld):"
+            git config --local --list 2>/dev/null \
+              | grep -iE 'extraheader|credential|askpass|url\.|insteadof' \
+              | sed -E 's/=.*/=<withheld>/' | sed 's/^/    /' \
+              || echo "    none"
+            echo
+
             echo "  fetch, live:"
             if git fetch origin main 2>&1 | sed -E 's#://[^@/]*@#://<credentials>@#' | sed 's/^/    /'; then
               echo "    exit 0"
@@ -211,19 +223,21 @@ jobs:
 
       # ── The repair ──────────────────────────────────────────────────────
       #
-      # Only when the operator typed `reset`, and only ever this: fetch, then
-      # `git reset --hard origin/main`.
+      # Only when the operator typed `reset`, and it is deliberately the
+      # smallest possible fix: remove whatever is forcing this checkout to
+      # authenticate, and prove a fetch then works.
       #
-      # `reset --hard` and deliberately **not** `git clean`. Reset restores
-      # tracked files and leaves untracked ones exactly where they are, which
-      # matters because the server's own `.env` — the one the SPA is built
-      # from, and the reason `VITE_*` repository secrets do nothing — is
-      # untracked. `git clean` would delete it and the site would build with no
-      # configuration at all.
+      # It does **not** pull, reset or build. `deploy.sh` on the server already
+      # does exactly that — fetch, reset to origin/main, `npm ci`, build,
+      # reload nginx — and it has been aborting on its first line because of
+      # `set -e` and a fetch that returned 401. Fix the fetch and the pipeline
+      # that already exists does the rest. Reimplementing it here would be a
+      # second deploy path to keep in step with the first.
       #
-      # The step above has already printed which files are about to be
-      # discarded, so this is never the first anyone hears of them.
-      - name: Reset the checkout to origin/main
+      # Nothing here touches the working tree, so the server's untracked `.env`
+      # — the one the SPA is actually built from, and the reason `VITE_*`
+      # repository secrets do nothing — is not at risk.
+      - name: Let the checkout reach GitHub again
         if: inputs.apply == 'reset'
         env:
           SITE: ${{ secrets.SERVER_PATH }}
@@ -234,11 +248,37 @@ jobs:
           ssh target "SITE='$SITE' bash -s" <<'REMOTE' 2>&1 | sed "s#${SITE}#<site>#g" | tee -a "$GITHUB_STEP_SUMMARY"
           set -uo pipefail
           cd "$SITE" || { echo "the deploy directory is not there"; exit 1; }
-          echo "before           : $(git rev-parse --short HEAD)  (+$(git status --porcelain | wc -l) modified)"
-          git fetch origin main --quiet
-          git reset --hard origin/main
-          echo "after            : $(git rev-parse --short HEAD)  (+$(git status --porcelain | wc -l) modified)"
-          echo "untracked kept   : $(git status --porcelain --untracked-files=normal | grep -c '^??' || true) file(s)"
+          echo "before           : $(git rev-parse --short HEAD)"
+
+          # The repository is public, so this checkout needs no credentials at
+          # all. Anything here that forces authentication can only turn a
+          # working anonymous fetch into a 401 — which is exactly what it has
+          # been doing. Removing it is safe even if a token were still valid,
+          # because the anonymous path fetches the same public commits.
+          for key in \
+            'http.https://github.com/.extraheader' \
+            'http.extraheader' \
+            'credential.helper'
+          do
+            if git config --local --get-all "$key" >/dev/null 2>&1; then
+              git config --local --unset-all "$key" 2>/dev/null && echo "removed          : $key"
+            fi
+          done
+
+          # Belt and braces: never let a fetch sit waiting for a username on a
+          # machine with no terminal. It should fail loudly and immediately.
+          git config --local core.askPass ""
+          export GIT_TERMINAL_PROMPT=0
+
+          echo "fetch            :"
+          if git fetch origin main 2>&1 | sed 's/^/  /'; then
+            echo "                   ok"
+          else
+            echo "                   STILL FAILING"
+            exit 1
+          fi
+          echo "origin/main      : $(git rev-parse --short origin/main)"
+          echo "behind by        : $(git rev-list --count HEAD..origin/main) commit(s)"
           echo "  .env present   : $([ -f .env ] && echo yes || echo no)"
           REMOTE
           echo '```' >> "$GITHUB_STEP_SUMMARY"
