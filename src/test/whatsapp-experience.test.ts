@@ -497,8 +497,21 @@ describe("nothing regressed and nothing was duplicated", () => {
 
   it("29. leaves the voice pipeline alone", () => {
     expect(webhook.match(/voiceToText\(/g)?.length).toBe(1);
-    expect(webhook.match(/askAssistant\(/g)?.length).toBe(1);
     expect(webhook).toContain("transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),");
+    // The assistant's own ask is still one ask. The IVX tutor is the second
+    // `askAssistant` in this file and it never touches transcription or
+    // speech — a voice message is transcribed once and answered once,
+    // whichever branch answers it.
+    const askBlock = webhook.slice(
+      webhook.indexOf("const asked = await askAssistant("),
+      webhook.indexOf("const parts = splitAnswer("),
+    );
+    expect(askBlock.match(/askAssistant\(/g)?.length).toBe(1);
+    const tutorBlock = webhook.slice(
+      webhook.indexOf('if (ivxIntent === "explain") {'),
+      webhook.indexOf('if (ivxIntent === "start"'),
+    );
+    expect(tutorBlock).not.toMatch(/voiceToText|speakReply|transcribeVoice/);
   });
 
   it("30. leaves every existing feature reachable", () => {

@@ -151,9 +151,17 @@ describe("the gate is where the money is", () => {
   it("guards the model call and the media branch, and nothing cheap", () => {
     expect(webhook).toContain("if (!(await maySpend())) continue;");
     expect(webhook).toContain("if (!humanOwnsThis && !(await maySpend())) continue;");
-    // Exactly two call sites: one before the provider call, one before a media
-    // download. A third would mean something cheap had started charging.
-    expect(webhook.match(/await maySpend\(\)/g)?.length).toBe(2);
+
+    // Three call sites: the assistant's provider call, a media download, and
+    // the IVX tutor — which also reaches a provider and so also costs the
+    // sender an allowance unit. The rule is not "no more than two"; it is
+    // that every gate stands in front of something that is actually paid for,
+    // and that everything paid for stands behind a gate. So the count is
+    // checked against the number of paid operations rather than a constant.
+    const gates = webhook.match(/await maySpend\(\)/g)?.length ?? 0;
+    const asks = webhook.match(/await askAssistant\(/g)?.length ?? 0;
+    expect(asks).toBe(2);
+    expect(gates).toBe(asks + 1); // + the media download
   });
 
   it("charges only for work that succeeded", () => {
@@ -161,8 +169,21 @@ describe("the gate is where the money is", () => {
     for (const kind of ['spent("ai")', 'spent("image")', 'spent("document")', 'spent("video")', 'spent("voice_in")']) {
       expect(webhook, kind).toContain(kind);
     }
-    expect(webhook.indexOf('await spent("ai")'))
-      .toBeGreaterThan(webhook.indexOf("const asked = await askAssistant("));
+    // Every `spent("ai")` follows the ask it is paying for, and every ask is
+    // preceded by a gate. Checked per block rather than by position in the
+    // file, because there is more than one place that asks a model now.
+    for (const [from, to] of [
+      ['if (ivxIntent === "explain") {', 'if (ivxIntent === "start"'],
+      ["const asked = await askAssistant(", "const parts = splitAnswer("],
+    ] as const) {
+      const block = webhook.slice(webhook.indexOf(from), webhook.indexOf(to));
+      expect(block.length, from).toBeGreaterThan(100);
+      expect(block, from).toContain('spent("ai")');
+      expect(block.indexOf('spent("ai")'), from).toBeGreaterThan(block.indexOf("askAssistant("));
+    }
+    // The gate for the main ask sits above the block, so it is checked here.
+    const beforeMainAsk = webhook.slice(0, webhook.indexOf("const asked = await askAssistant("));
+    expect(beforeMainAsk).toContain("await maySpend()");
   });
 
   it("asks the database for an allowance, never for an identity", () => {

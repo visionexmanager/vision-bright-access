@@ -493,11 +493,21 @@ describe("the webhook is wired to exactly this policy", () => {
     expect(policy).toMatch(/export function replyMedium\(params: \{\s*[\s\S]{0,400}?spokenInput: boolean;/);
   });
 
-  it("28. keeps one transcription, one assistant and one provider chain", () => {
+  it("28. keeps one transcription, and one provider chain behind every ask", () => {
     expect(webhook.match(/voiceToText\(/g)?.length).toBe(1);
-    expect(webhook.match(/askAssistant\(/g)?.length).toBe(1);
-    expect(webhook.match(/chainProvider\(\)/g)?.length).toBe(1);
     expect(webhook).toContain("question: questionText,");
+
+    // Two places reach a model: the assistant, and the IVX tutor answering
+    // "why?" about the question in front of a learner. What this test is
+    // actually protecting is that neither of them grew its own pathway —
+    // every ask goes through `askAssistant`, and every one is handed
+    // `chainProvider()`, so provider order stays a single decision made in
+    // `assistants.ts`. A third ask is fine as long as it is wired the same
+    // way; an ask that named its own provider would not be.
+    const asks = webhook.match(/askAssistant\(/g)?.length ?? 0;
+    expect(asks).toBe(2);
+    expect(webhook.match(/chainProvider\(\)/g)?.length).toBe(asks);
+    expect(webhook).not.toMatch(/askAssistant\([\s\S]{0,2000}?\}\s*,\s*\{\s*provider:/);
   });
 
   it("29. records how each message travelled", () => {

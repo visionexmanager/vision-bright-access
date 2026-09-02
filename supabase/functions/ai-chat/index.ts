@@ -3,9 +3,11 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import {
   streamChatCompletionWithFallback,
+  structuredCompletionWithFallback,
   ProviderError,
   type ProviderTarget,
 } from "../_shared/aiProvider.ts";
+import { assistantTargets } from "../_shared/assistants.ts";
 
 type UserMemory = {
   memory_enabled?: boolean;
@@ -263,10 +265,141 @@ Deno.serve(async (req) => {
 
     const { messages, context = {}, assistantId } = await req.json();
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    // Grading carries no conversation, so it is checked before the rule that
+    // there must be one. Requiring a placeholder message would be a shape the
+    // client has to know about for no reason.
+    if (assistantId !== "ivx-project-grader"
+        && (!messages || !Array.isArray(messages) || messages.length === 0)) {
       return new Response(
         JSON.stringify({ error: "Messages array is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── Grading an IVX project ─────────────────────────────────────────
+    //
+    // The one path through this function that does not stream. A grade is not
+    // a conversation: it is a number and a note per rubric criterion, it has
+    // to be written to the database before the student sees it, and half of
+    // one arriving token by token would be worse than useless.
+    //
+    // Everything that matters happens with the service role. The brief, the
+    // rubric and the submitted work come from `ivx_project_for_grading`, and
+    // the result goes back through `ivx_project_grade` — neither of which a
+    // browser can call. What the client sends is a project slug; what it gets
+    // back is what was stored, not what it asked for.
+    if (assistantId === "ivx-project-grader" && user && serviceClient) {
+      const slug = typeof context?.ivxProjectSlug === "string" ? context.ivxProjectSlug : null;
+      if (!slug) {
+        return new Response(
+          JSON.stringify({ error: "ivxProjectSlug is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: packet } = await serviceClient.rpc("ivx_project_for_grading", {
+        _user_id: user.id,
+        _slug: slug,
+        _language: typeof context?.language === "string" ? context.language : "en",
+      });
+      const brief = (packet ?? null) as {
+        ok?: boolean; reason?: string; title?: string; brief?: string; language?: string;
+        rubric?: Array<{ id: string; weight: number; criterion: string }>; work?: string;
+      } | null;
+
+      if (!brief?.ok) {
+        return new Response(
+          JSON.stringify({ error: "There is nothing submitted to grade.", reason: brief?.reason ?? "unavailable" }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const criteria = brief.rubric ?? [];
+      const graded = await structuredCompletionWithFallback({
+        targets: assistantTargets("ivx-project-grader"),
+        system: [
+          "You are marking one student's project against a fixed rubric, and you will never meet them.",
+          "Award each criterion a score out of its own weight — never out of 100 — and give one sentence saying what earned it and what would earn more.",
+          "Mark what is in front of you. Do not reward length, confidence, or effort you cannot see in the work, and do not penalise unusual formatting: this may have been typed on a phone or with a screen reader.",
+          "If the work does not address a criterion at all, score it zero and say so plainly. A generous mark for absent work teaches the student nothing.",
+          `Write every note in ${brief.language ?? "en"}, addressed to the student as "you".`,
+        ].join("\n"),
+        userText: [
+          `PROJECT: ${brief.title ?? ""}`,
+          `BRIEF: ${brief.brief ?? ""}`,
+          "RUBRIC:",
+          ...criteria.map((c) => `- ${c.id} (out of ${c.weight}): ${c.criterion}`),
+          "",
+          "THE STUDENT'S WORK:",
+          brief.work ?? "",
+        ].join("\n"),
+        schema: {
+          type: "object",
+          properties: {
+            summary: { type: "string", description: "Two or three sentences to the student about the work as a whole." },
+            criteria: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  score: { type: "number" },
+                  note: { type: "string" },
+                },
+                required: ["id", "score", "note"],
+              },
+            },
+          },
+          required: ["summary", "criteria"],
+        },
+        toolName: "record_grade",
+        maxTokens: 1200,
+      }).catch((error: unknown) => {
+        console.error("[ai-chat] project grading failed:", error instanceof ProviderError ? error.status : "unknown");
+        return null;
+      });
+
+      if (!graded) {
+        return new Response(
+          JSON.stringify({ error: "Grading is unavailable right now. Your work is saved — try again shortly." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const result = graded.result as {
+        summary?: string;
+        criteria?: Array<{ id?: string; score?: number; note?: string }>;
+      };
+
+      // The total is added up here, from the per-criterion scores, and each one
+      // is capped at its own weight first. Asking the model for an overall
+      // score as well would produce two numbers that disagree, and the wrong
+      // one would be the one shown.
+      const weights = new Map(criteria.map((c) => [c.id, Number(c.weight) || 0]));
+      const marks = (result.criteria ?? [])
+        .filter((c) => typeof c.id === "string" && weights.has(c.id))
+        .map((c) => ({
+          id: c.id as string,
+          score: Math.max(0, Math.min(weights.get(c.id as string) ?? 0, Number(c.score) || 0)),
+          note: typeof c.note === "string" ? c.note : "",
+        }));
+      const total = marks.reduce((sum, mark) => sum + mark.score, 0);
+
+      const { data: stored } = await serviceClient.rpc("ivx_project_grade", {
+        _user_id: user.id,
+        _slug: slug,
+        _score: total,
+        _feedback: { summary: result.summary ?? "", criteria: marks },
+      });
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          score: (stored as { score?: number } | null)?.score ?? total,
+          xp: (stored as { xp?: number } | null)?.xp ?? 0,
+          feedback: { summary: result.summary ?? "", criteria: marks },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -296,6 +429,64 @@ Deno.serve(async (req) => {
       systemPrompt = assistant.systemPrompt;
       if (context?.language) {
         systemPrompt += `\n\nUser's preferred language: ${context.language}. Respond in this language.`;
+      }
+
+      // ── The IVX tutor's brief ──────────────────────────────────────────
+      //
+      // Fetched here, with the service role, rather than sent by the browser.
+      // The browser could not send it anyway: half of what the tutor needs —
+      // the correct answer — is deliberately unreadable by any client, and the
+      // other half (whether the question is still open) is exactly the sort of
+      // claim a caller should not be trusted to make about itself.
+      //
+      // `ivx_tutor_brief` decides the mode from the student's own session and
+      // attempt rows and withholds the answer while the question is open, so
+      // an unanswered question cannot be talked out of the tutor.
+      if (assistantId === "ivx-tutor" && user && serviceClient) {
+        const questionId = typeof context?.ivxQuestionId === "string" ? context.ivxQuestionId : null;
+        if (!questionId) {
+          return new Response(
+            JSON.stringify({ error: "ivxQuestionId is required for the IVX tutor" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { data: brief, error: briefError } = await serviceClient.rpc("ivx_tutor_brief", {
+          _user_id: user.id,
+          _question_id: questionId,
+          _language: typeof context?.language === "string" ? context.language : "en",
+        });
+
+        const briefObject = (brief ?? null) as Record<string, unknown> | null;
+        if (briefError || !briefObject?.ok) {
+          // "not_your_question" is the common one, and it is not an error the
+          // student caused — it is the tutor refusing to discuss a question
+          // this account was never dealt.
+          console.warn("[ai-chat] ivx tutor brief refused:", briefError?.message ?? briefObject?.reason);
+          return new Response(
+            JSON.stringify({ error: "This question is not open for tutoring.", reason: briefObject?.reason ?? "unavailable" }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        systemPrompt += `\n\nQUESTION BRIEF (authoritative — everything you know about this question comes from here):\n${JSON.stringify(briefObject)}`;
+
+        // The thread is recorded so WhatsApp and the site show the same
+        // conversation, and so a student can read Tuesday's explanation again
+        // on Friday. Only the student's turn is known at this point; the
+        // reply is streamed, so the client records it when the stream ends.
+        const lastStudentTurn = [...messages].reverse().find(
+          (m: { role: string; content: string }) => m.role === "user",
+        )?.content;
+        if (lastStudentTurn) {
+          await serviceClient.rpc("ivx_tutor_log", {
+            _user_id: user.id,
+            _question_id: questionId,
+            _role: "student",
+            _body: lastStudentTurn,
+            _channel: "web",
+          });
+        }
       }
     } else if (context?.voiceMode) {
       // Voice mode: short, conversational, no markdown

@@ -198,3 +198,94 @@ export function ivxNotLinkedNotice(language: Language): string {
 export function ivxNothingNotice(language: Language): string {
   return say("ivxNothing", language);
 }
+
+// ── The tutor ───────────────────────────────────────────────────────────────
+//
+// "اشرح" during a question and "اشرح" after answering are two different
+// requests, and the difference is not one this file gets to decide.
+// `ivx_wa_tutor_brief` decides it, in SQL, from the student's own session and
+// attempt rows, and withholds the correct answer entirely while the question
+// is still open. What arrives here is already safe to hand a model.
+//
+// This is deliberately a pure function over that brief: it builds the system
+// text and nothing else, so the whole tutoring path can be driven by a test
+// with no provider, no database and no Deno.
+
+/** The brief, exactly as `ivx_wa_tutor_brief` returns it. */
+export interface IvxTutorBrief {
+  ok?: boolean;
+  reason?: string;
+  mode?: "socratic" | "explain";
+  question_id?: string;
+  skill_title?: string;
+  objective?: string;
+  prompt?: string;
+  accessible?: string;
+  hint?: string;
+  options?: Array<{ id?: string; label?: string }>;
+  expected?: string;
+  explanation?: string;
+  student_answer?: string;
+  was_correct?: boolean;
+  struggle?: { recent_wrong?: number; recent_total?: number; recent_wrong_answers?: string[] };
+}
+
+/**
+ * What the tutor is told, on WhatsApp.
+ *
+ * Shorter than the website's brief on purpose. This answer is read aloud or
+ * skimmed on a phone, often by somebody using a screen reader, so the model is
+ * asked for a few sentences rather than a lesson — and told not to reach for
+ * layout it cannot have here.
+ */
+export function ivxTutorDirective(brief: IvxTutorBrief, language: Language): string {
+  const socratic = brief.mode !== "explain";
+  const lines: string[] = [
+    "You are the IVX tutor, helping one student with the question below on WhatsApp.",
+    `Reply in ${language}. Three or four short sentences, no headings, no tables, no markdown.`,
+    "Write it to be read aloud: spell mathematics out in words, describe anything that would otherwise need to be seen.",
+    "",
+    `SKILL: ${brief.skill_title ?? ""}`,
+    brief.objective ? `OBJECTIVE: ${brief.objective}` : "",
+    `QUESTION: ${brief.accessible || brief.prompt || ""}`,
+  ];
+
+  if (brief.options?.length) {
+    lines.push(
+      `OPTIONS: ${brief.options
+        .map((option, index) => `${String.fromCharCode(65 + index)}) ${option.label ?? ""}`)
+        .join(" · ")}`,
+    );
+  }
+
+  if (socratic) {
+    // The answer is absent from the brief, not merely forbidden. Saying so
+    // plainly stops the model inventing one to be helpful with.
+    lines.push(
+      "",
+      "MODE: the student has NOT answered yet, and you have not been given the correct answer.",
+      "Do not state an answer, do not guess one, and do not narrow the options down to one.",
+      "Ask one short question, or point at the step they have missed, so they can work it out.",
+      brief.hint ? `A hint exists if they ask for one: ${brief.hint}` : "",
+    );
+  } else {
+    lines.push(
+      "",
+      "MODE: the student has already answered and has already been shown the correct answer, so explain freely.",
+      `CORRECT ANSWER: ${brief.expected ?? ""}`,
+      brief.explanation ? `STORED EXPLANATION: ${brief.explanation}` : "",
+      brief.student_answer ? `THEY ANSWERED: ${brief.student_answer} (${brief.was_correct ? "correct" : "wrong"})` : "",
+      "Explain why the answer is right and where their thinking goes wrong. Do not just repeat the stored explanation.",
+    );
+
+    const wrong = brief.struggle?.recent_wrong ?? 0;
+    if (wrong >= 2) {
+      lines.push(
+        `They have got this skill wrong ${wrong} times recently, answering: ${(brief.struggle?.recent_wrong_answers ?? []).slice(0, 4).join(", ")}.`,
+        "If those mistakes share a pattern, name it — that is the most useful thing you can tell them.",
+      );
+    }
+  }
+
+  return lines.filter(Boolean).join("\n");
+}
