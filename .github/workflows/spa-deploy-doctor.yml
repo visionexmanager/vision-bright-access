@@ -29,6 +29,13 @@ name: SPA deploy doctor
 
 on:
   workflow_dispatch:
+    inputs:
+      apply:
+        description: >-
+          Discard local modifications in the server's checkout and reset it to
+          origin/main. Type "reset" exactly. Anything else only reads.
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -92,6 +99,15 @@ jobs:
             echo "last fetch       : $(stat -c %y .git/FETCH_HEAD 2>/dev/null | cut -d. -f1 || echo 'never')"
             echo "working tree     : $(git status --porcelain 2>/dev/null | wc -l) modified file(s)"
             echo
+            # The reason a pull stops. Names and line counts only — never the
+            # contents, because a modified file on a server is exactly where a
+            # key ends up.
+            echo "  what is modified:"
+            git status --porcelain 2>/dev/null | sed 's/^/    /'
+            git diff --stat 2>/dev/null | tail -5 | sed 's/^/    /'
+            echo
+            echo "  behind origin/main by: $(git rev-list --count HEAD..origin/main 2>/dev/null || echo '?') commit(s)"
+            echo
             echo "dist/index.html  : $(stat -c %y dist/index.html 2>/dev/null | cut -d. -f1 || echo 'MISSING')"
             echo "dist entry chunk : $(grep -o 'assets/index-[A-Za-z0-9_-]*\.js' dist/index.html 2>/dev/null | head -1 || echo '-')"
             echo "dist size        : $(du -sh dist 2>/dev/null | cut -f1 || echo '-')"
@@ -109,6 +125,24 @@ jobs:
 
           echo "── The deploy hook ───────────────────────────────"
           echo "listening on 9000: $(ss -tlnp 2>/dev/null | grep -c ':9000' || echo 0)"
+          # What actually answers the webhook, and what it runs. A hook that
+          # `git pull`s into a dirty tree fails and carries on, which is how a
+          # deploy reports success and changes nothing.
+          HOOKPID=$(ss -tlnp 2>/dev/null | grep ':9000' | grep -oP 'pid=\K[0-9]+' | head -1)
+          if [ -n "${HOOKPID:-}" ]; then
+            echo "hook process     : $(ps -p "$HOOKPID" -o comm= 2>/dev/null)"
+            echo "hook script      : $(tr '\0' ' ' < /proc/$HOOKPID/cmdline 2>/dev/null | awk '{print $NF}')"
+            SCRIPT=$(tr '\0' '\n' < /proc/$HOOKPID/cmdline 2>/dev/null | grep -E '\.(sh|js|py)$' | head -1)
+            if [ -n "${SCRIPT:-}" ] && [ -f "$SCRIPT" ]; then
+              echo
+              echo "── What the hook runs ────────────────────────────"
+              # Comments and blank lines dropped; any line that looks like it
+              # carries a credential is withheld rather than printed.
+              grep -vE '^\s*(#|$)' "$SCRIPT" \
+                | sed -E 's/(TOKEN|SECRET|KEY|PASSWORD)[^ ]*=.*/\1=<withheld>/I' \
+                | head -50 | sed 's/^/    /'
+            fi
+          fi
           UNIT=$(systemctl list-units --type=service --no-legend --plain 2>/dev/null | awk '{print $1}' | grep -iE 'deploy|webhook|hook' | head -1)
           if [ -n "$UNIT" ]; then
             echo "unit             : $UNIT"
@@ -143,6 +177,75 @@ jobs:
           REMOTE
 
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # ── The repair ──────────────────────────────────────────────────────
+      #
+      # Only when the operator typed `reset`, and only ever this: fetch, then
+      # `git reset --hard origin/main`.
+      #
+      # `reset --hard` and deliberately **not** `git clean`. Reset restores
+      # tracked files and leaves untracked ones exactly where they are, which
+      # matters because the server's own `.env` — the one the SPA is built
+      # from, and the reason `VITE_*` repository secrets do nothing — is
+      # untracked. `git clean` would delete it and the site would build with no
+      # configuration at all.
+      #
+      # The step above has already printed which files are about to be
+      # discarded, so this is never the first anyone hears of them.
+      - name: Reset the checkout to origin/main
+        if: inputs.apply == 'reset'
+        env:
+          SITE: ${{ secrets.SERVER_PATH }}
+        run: |
+          set -uo pipefail
+          echo "### Repair" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ssh target "SITE='$SITE' bash -s" <<'REMOTE' 2>&1 | sed "s#${SITE}#<site>#g" | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          cd "$SITE" || { echo "the deploy directory is not there"; exit 1; }
+          echo "before           : $(git rev-parse --short HEAD)  (+$(git status --porcelain | wc -l) modified)"
+          git fetch origin main --quiet
+          git reset --hard origin/main
+          echo "after            : $(git rev-parse --short HEAD)  (+$(git status --porcelain | wc -l) modified)"
+          echo "untracked kept   : $(git status --porcelain --untracked-files=normal | grep -c '^??' || true) file(s)"
+          echo "  .env present   : $([ -f .env ] && echo yes || echo no)"
+          REMOTE
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Ask the server to build again
+        if: inputs.apply == 'reset'
+        env:
+          TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          HOST:  ${{ secrets.SERVER_HOST }}
+        run: |
+          set -uo pipefail
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            -H "x-deploy-token: $TOKEN" --max-time 20 "http://${HOST}:9000")
+          echo "deploy webhook returned HTTP $CODE"
+          [ "$CODE" = "200" ] || { echo "::error::The deploy webhook refused the request."; exit 1; }
+
+      # A build takes longer than the deploy workflow's 60-second sleep, which
+      # is the whole reason this situation went unnoticed. So this waits for
+      # the thing that actually proves it: index.html being rewritten.
+      - name: Wait for index.html to be rewritten
+        if: inputs.apply == 'reset'
+        env:
+          SITE: ${{ secrets.SERVER_PATH }}
+        run: |
+          set -uo pipefail
+          BEFORE=$(ssh target "stat -c %Y '$SITE/dist/index.html' 2>/dev/null || echo 0")
+          echo "waiting for a newer dist/index.html than $BEFORE"
+          for i in $(seq 1 40); do
+            sleep 30
+            NOW=$(ssh target "stat -c %Y '$SITE/dist/index.html' 2>/dev/null || echo 0")
+            if [ "$NOW" -gt "$BEFORE" ]; then
+              echo "rebuilt after ~$((i * 30))s"
+              ssh target "grep -o 'assets/index-[A-Za-z0-9_-]*\.js' '$SITE/dist/index.html' | head -1"
+              exit 0
+            fi
+          done
+          echo "::error::index.html was not rewritten within 20 minutes."
+          exit 1
 
       - name: Forget the key
         if: always()
