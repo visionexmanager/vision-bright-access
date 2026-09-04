@@ -78,7 +78,7 @@ function ArcadeGameRuntime({ children, gameId }: { children: ReactNode; gameId:s
     window.addEventListener("visionex:arcade-settings", refresh);
     return () => window.removeEventListener("visionex:arcade-settings", refresh);
   }, []);
-  const copy = localizeGame(game, lang);
+  const copy = localizeGame(game, lang, t);
   const release = gameReleaseInfo(game.slug);
   useDocumentHead({ title:`${copy.title} — Visionex Arcade`, description:copy.description, image:`${location.origin}${game.image}`, canonicalPath:game.to, structuredData:{ "@context":"https://schema.org", "@type":"VideoGame", name:copy.title, description:copy.description, url:`https://visionex.app${game.to}`, gamePlatform:"Web browser", playMode:game.players === "1" ? "SinglePlayer" : "MultiPlayer", accessibilityFeature:game.accessible ? ["keyboardControl","alternativeText","audioDescription"] : ["keyboardControl"] } });
   const similar = ARCADE_GAMES.filter((item) => item.slug !== game.slug && item.categories.some((category) => game.categories.includes(category))).slice(0, 3);

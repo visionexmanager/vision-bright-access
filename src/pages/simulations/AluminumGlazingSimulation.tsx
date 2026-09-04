@@ -307,8 +307,11 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
             </div>
 
             <div className="p-3 rounded-lg bg-muted/50 text-xs space-y-1">
-              <div className="flex justify-between"><span>{t("sim.glazing.costBreakdown.unitCost")}:</span><span>${unitCost}</span></div>
-              <div className="flex justify-between"><span>{t("sim.glazing.costBreakdown.totalCost")} ({currentOrder.quantity}x):</span><span>${unitCost * currentOrder.quantity}</span></div>
+              {/* Both labels already carry their own colon, and the total
+                  carries its own quantity: appending either here produced
+                  "Unit cost::" and "Total cost ({qty}x): (3x):". */}
+              <div className="flex justify-between"><span>{t("sim.glazing.costBreakdown.unitCost")}</span><span>${unitCost}</span></div>
+              <div className="flex justify-between"><span>{t("sim.glazing.costBreakdown.totalCost").replace("{qty}", String(currentOrder.quantity))}</span><span>${unitCost * currentOrder.quantity}</span></div>
               <div className="flex justify-between font-bold border-t border-border pt-1">
                 <span>{t("sim.glazing.costBreakdown.yourQuote")}:</span>
                 <span className={quotePrice > currentOrder.budget * 1.5 ? "text-red-500" : "text-green-500"}>${quotePrice}</span>

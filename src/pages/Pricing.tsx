@@ -66,11 +66,9 @@ export default function Pricing() {
   return (
     <Layout>
       <main className="mx-auto max-w-6xl px-4 py-12" dir={dir}>
-        <h1 className="text-3xl font-black md:text-4xl">{translateText("Plans and pricing")}</h1>
+        <h1 className="text-3xl font-black md:text-4xl">{t("plans.title")}</h1>
         <p className="mt-3 max-w-2xl text-muted-foreground">
-          {translateText(
-            "Every plan includes the Visionex assistant on WhatsApp and on the site. The difference is how much you can ask for in a day.",
-          )}
+          {t("plans.intro")}
         </p>
 
         {isLoading ? (
@@ -89,11 +87,11 @@ export default function Pricing() {
                   <p className="mt-2 text-3xl font-black">
                     {plan.price_monthly_usd > 0
                       ? `$${plan.price_monthly_usd}`
-                      : translateText("Free")}
+                      : t("plans.free")}
                     {plan.price_monthly_usd > 0 && (
                       <span className="text-base font-normal text-muted-foreground">
                         {" "}
-                        / {translateText("month")}
+                        / {t("plans.perMonth")}
                       </span>
                     )}
                   </p>
@@ -106,8 +104,8 @@ export default function Pricing() {
                   {daily !== null && (
                     <p className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm font-semibold">
                       {daily === 0
-                        ? translateText("WhatsApp: no daily limit")
-                        : `${translateText("WhatsApp")}: ${daily.toLocaleString()} ${translateText("requests a day")}`}
+                        ? t("plans.whatsappUnlimited")
+                        : `WhatsApp: ${daily.toLocaleString()} ${t("plans.requestsADay")}`}
                     </p>
                   )}
 
@@ -124,8 +122,8 @@ export default function Pricing() {
                     <Button asChild className="w-full">
                       <Link to={user ? "/services/ai-media-studio/billing" : "/signup"}>
                         {plan.price_monthly_usd > 0
-                          ? translateText("Choose this plan")
-                          : translateText("Start free")}
+                          ? t("plans.choose")
+                          : t("plans.startFree")}
                       </Link>
                     </Button>
                   </div>
@@ -137,17 +135,13 @@ export default function Pricing() {
 
         <section className="mt-12 rounded-2xl border border-border p-6" aria-labelledby="whatsapp-plans">
           <h2 id="whatsapp-plans" className="text-lg font-bold">
-            {translateText("Using your plan on WhatsApp")}
+            {t("plans.onWhatsappTitle")}
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {translateText(
-              "Link your number once from WhatsApp — send \"link\" and type the code we email you — and your plan applies there too. Ask \"my plan\" any time to hear what is left today.",
-            )}
+            {t("plans.onWhatsappBody")}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {translateText(
-              "Menus, the weather, where you are, what is nearby and finding a place never count against your allowance.",
-            )}
+            {t("plans.alwaysFree")}
           </p>
         </section>
       </main>

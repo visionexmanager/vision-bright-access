@@ -1,11 +1,22 @@
-import { readFileSync } from "node:fs";
+import { readFileSync as readRaw } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const guardians = readFileSync("supabase/migrations/20261006010000_ivx_guardians.sql", "utf8");
-const page = readFileSync("src/pages/academy/IVXGuardians.tsx", "utf8");
-const dashboard = readFileSync("src/pages/academy/IVX.tsx", "utf8");
-const app = readFileSync("src/App.tsx", "utf8");
-const clientApi = readFileSync("src/features/ivx/api.ts", "utf8");
+/**
+ * Source, with line endings normalised.
+ *
+ * Every structural marker below is a multi-line literal written with `\n` —
+ * `")\nRETURNS"` and friends. Git checks these files out with CRLF on Windows,
+ * so `indexOf` returned -1 and three checks failed on a repository nobody had
+ * touched, in a way that reads exactly like a broken migration. The assertions
+ * are about SQL and JSX structure; line endings are not part of the contract.
+ */
+const source = (path: string) => readRaw(path, "utf8").replace(/\r\n/g, "\n");
+
+const guardians = source("supabase/migrations/20261006010000_ivx_guardians.sql");
+const page = source("src/pages/academy/IVXGuardians.tsx");
+const dashboard = source("src/pages/academy/IVX.tsx");
+const app = source("src/App.tsx");
+const clientApi = source("src/features/ivx/api.ts");
 
 function region(source: string, from: string, to?: string): string {
   const start = source.indexOf(from);

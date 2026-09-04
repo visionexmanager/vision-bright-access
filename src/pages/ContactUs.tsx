@@ -92,7 +92,16 @@ export default function ContactUs() {
       return;
     }
     if (file.size > ATTACHMENT_MAX_SIZE) {
-      toast({ title: t("contact.fileTooLarge"), variant: "destructive" });
+      toast({
+        // The limit is the only actionable part of this message, and it lives
+        // in the string as {size}: unsubstituted, every locale read
+        // "Maximum size is {size}." back to the person who just picked a file.
+        title: t("contact.fileTooLarge").replace(
+          "{size}",
+          `${ATTACHMENT_MAX_SIZE / (1024 * 1024)} MB`
+        ),
+        variant: "destructive",
+      });
       e.target.value = "";
       return;
     }

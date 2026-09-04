@@ -37,7 +37,7 @@ export function useFavorites() {
 
   const toggle = useCallback(async (channelId: string) => {
     if (!user) {
-      toast.error(t("auth.loginRequired") || "Please log in to save favorites");
+      toast.error(t("auth.loginRequired"));
       return;
     }
 

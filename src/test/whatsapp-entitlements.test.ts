@@ -258,8 +258,14 @@ describe("the page the refusal sends people to", () => {
 
   it("shows the WhatsApp allowance, which is why most readers arrive", () => {
     expect(page).toContain("whatsapp_daily_messages");
-    // And says plainly what never counts against it.
-    expect(page).toMatch(/never count against/i);
+    // And says plainly what never counts against it. The sentence moved into
+    // the locale catalogue — the page used to hand English literals to
+    // translateText(), which returns its input when nothing matches, so this
+    // paragraph was English in all twenty languages including Arabic. The
+    // promise is still checked, now where it actually lives.
+    expect(page).toContain('t("plans.alwaysFree")');
+    const english = readFileSync("src/i18n/en.ts", "utf8");
+    expect(english).toMatch(/"plans\.alwaysFree": "[^"]*never count against[^"]*"/i);
   });
 });
 

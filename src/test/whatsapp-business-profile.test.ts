@@ -53,7 +53,11 @@ function idatOf(png: Buffer): Buffer {
 }
 
 describe("WhatsApp business profile", () => {
-  it("passes the validator the publish workflow runs before it writes", () => {
+  // Spawns a second Node process, so it costs a couple of seconds even when it
+  // passes. That fits the five-second default when this file runs alone and not
+  // when the whole suite runs in parallel — the same intermittent failure the
+  // Sudoku endings test had.
+  it("passes the validator the publish workflow runs before it writes", { timeout: 30000 }, () => {
     // Delegating to the script rather than restating its limits is the point:
     // the workflow refuses to publish on exactly this exit code, so a green
     // test here means the publish step will clear its own gate.

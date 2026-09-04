@@ -42,14 +42,14 @@ export default function Games() {
   const recentlyUpdated = useMemo(() => [...ARCADE_GAMES].sort((a,b)=>gameReleaseInfo(b.slug).updatedAt.localeCompare(gameReleaseInfo(a.slug).updatedAt)).slice(0,4),[]);
 
   const filtered = useMemo(() => ARCADE_GAMES.filter((game) => {
-    const copy = localizeGame(game, lang);
+    const copy = localizeGame(game, lang, t);
     const query = search.trim().toLocaleLowerCase(lang);
     return (!query || `${copy.title} ${copy.description}`.toLocaleLowerCase(lang).includes(query))
       && (category === "all" || game.categories.includes(category))
       && (age === "all" || game.age === age)
       && (difficulty === "all" || game.difficulty === difficulty)
       && (accessibility === "all" || game.accessible);
-  }), [accessibility, age, category, difficulty, lang, search]);
+  }), [accessibility, age, category, difficulty, lang, search, t]);
 
   const filtersActive = search || category !== "all" || age !== "all" || difficulty !== "all" || accessibility !== "all";
 
@@ -110,7 +110,7 @@ export default function Games() {
               <GameSection id="featured" title={t("games.arcade.section.featured")} eyebrow={t("games.arcade.section.featuredEyebrow")} games={ARCADE_GAMES.filter((game) => game.featured)} lang={lang} />
               {recentlyPlayed.length>0&&<GameSection id="continue-playing" title={t("games.arcade.section.continue")} eyebrow={t("games.arcade.section.continueEyebrow")} games={recentlyPlayed} lang={lang}/>}
               {favorites.length>0&&<GameSection id="favorites" title={t("games.arcade.section.favorites")} eyebrow={t("games.arcade.section.favoritesEyebrow")} games={favorites} lang={lang}/>}
-              <section aria-labelledby="arcade-ai-title" className="rounded-3xl border border-cyan-300/15 bg-cyan-300/[.04] p-6"><p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">Visionex Arcade AI</p><h2 id="arcade-ai-title" className="mt-1 text-3xl font-black">{t("games.arcade.ai.title")}</h2><p className="mt-2 text-sm text-slate-400">{t("games.arcade.ai.note")}</p><div className="mt-5 grid gap-4 md:grid-cols-3">{aiRecommendations.map(item=><article key={item.game.slug} className="rounded-2xl bg-black/20 p-4"><h3 className="font-black">{localizeGame(item.game,lang).title}</h3><p className="mt-2 text-sm text-slate-300">{t(item.reasonKey)}</p><div className="mt-4 flex items-center justify-between"><span className="text-xs text-cyan-300">{t("games.arcade.ai.match").replace("{percent}", String(item.confidence))}</span><Button asChild size="sm"><Link to={item.game.to}>{t("games.arcade.ai.play")}</Link></Button></div></article>)}</div></section>
+              <section aria-labelledby="arcade-ai-title" className="rounded-3xl border border-cyan-300/15 bg-cyan-300/[.04] p-6"><p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">Visionex Arcade AI</p><h2 id="arcade-ai-title" className="mt-1 text-3xl font-black">{t("games.arcade.ai.title")}</h2><p className="mt-2 text-sm text-slate-400">{t("games.arcade.ai.note")}</p><div className="mt-5 grid gap-4 md:grid-cols-3">{aiRecommendations.map(item=><article key={item.game.slug} className="rounded-2xl bg-black/20 p-4"><h3 className="font-black">{localizeGame(item.game,lang,t).title}</h3><p className="mt-2 text-sm text-slate-300">{t(item.reasonKey)}</p><div className="mt-4 flex items-center justify-between"><span className="text-xs text-cyan-300">{t("games.arcade.ai.match").replace("{percent}", String(item.confidence))}</span><Button asChild size="sm"><Link to={item.game.to}>{t("games.arcade.ai.play")}</Link></Button></div></article>)}</div></section>
               <GameSection id="trending" title={t("games.arcade.section.trending")} eyebrow={t("games.arcade.section.trendingEyebrow")} games={ARCADE_GAMES.filter((game) => game.trending)} lang={lang} />
               <CategoryGrid onSelect={(item) => { setCategory(item); document.getElementById("discover-title")?.scrollIntoView({ behavior:"smooth", block:"start" }); }} />
               <GameSection id="recently-added" title={t("games.arcade.section.recentlyAdded")} eyebrow={t("games.arcade.section.recentlyAddedEyebrow")} games={ARCADE_GAMES.filter((game) => game.recentlyAdded)} lang={lang} />

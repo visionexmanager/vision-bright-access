@@ -15,14 +15,13 @@ export const ContinueLearningSection = memo(function ContinueLearningSection({
   messageCount,
   onOpenAILearning,
 }: ContinueLearningSectionProps) {
-  const { lang } = useLanguage();
-  const text = (english: string, arabic: string) => lang === "ar" ? arabic : english;
+  const { lang, t } = useLanguage();
   return (
     <section aria-labelledby="continue-learning-heading" className="bg-card p-8 rounded-3xl border border-border shadow-lg">
       <AcademySectionHeader
         icon={PlayCircle}
-        title={text("Continue Learning", "متابعة التعلم")}
-        description={hasChatActivity ? text("Resume where you left off", "استكمل من حيث توقفت") : text("You haven't started your journey yet", "لم تبدأ رحلتك بعد")}
+        title={t("academy.ui.continueTitle")}
+        description={hasChatActivity ? t("academy.ui.continueDesc") : t("academy.ui.continueEmpty")}
         headingId="continue-learning-heading"
       />
 
@@ -33,23 +32,23 @@ export const ContinueLearningSection = memo(function ContinueLearningSection({
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-bold text-foreground">{text("Your conversation with Munir", "محادثتك مع منير")}</p>
-              <p className="text-sm text-muted-foreground">{text(`${messageCount} messages so far`, `${messageCount} رسالة حتى الآن`)}</p>
+              <p className="font-bold text-foreground">{t("academy.ui.conversationTitle")}</p>
+              <p className="text-sm text-muted-foreground">{t("academy.ui.messagesSoFar").replace("{count}", String(messageCount))}</p>
             </div>
           </div>
           <Button onClick={onOpenAILearning} className="rounded-xl gap-2 shrink-0">
             <PlayCircle className="w-4 h-4" aria-hidden="true" />
-            {text("Continue Conversation", "متابعة المحادثة")}
+            {t("academy.ui.continueConversation")}
           </Button>
         </div>
       ) : (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border-2 border-dashed border-border">
           <p className="text-muted-foreground text-sm">
-            {text("You haven't started yet! Ask Munir about your studies or career to begin your learning journey.", "لسه ما بدأت! اسأل منير عن دروسك أو مستقبلك المهني لتبدأ رحلتك التعليمية.")}
+            {t("academy.ui.startPrompt")}
           </p>
           <Button onClick={onOpenAILearning} variant="outline" className="rounded-xl gap-2 shrink-0">
             <PlayCircle className="w-4 h-4" aria-hidden="true" />
-            {text("Get Started", "ابدأ الآن")}
+            {t("academy.ui.getStarted")}
           </Button>
         </div>
       )}

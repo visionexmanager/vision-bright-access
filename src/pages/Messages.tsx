@@ -209,7 +209,7 @@ function ChatView({
           size="icon"
           className="md:hidden"
           onClick={onBack}
-          aria-label={t("common.back") === "common.back" ? "Back" : t("common.back")}
+          aria-label={t("common.back")}
         >
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Button>

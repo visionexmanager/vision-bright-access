@@ -46,6 +46,23 @@ describe("naming a song", () => {
     expect(songs.parseSongRequest("canción Bésame Mucho")?.query).toBe("Bésame Mucho");
   });
 
+  it("keeps a title that is made of asking words", () => {
+    // «بدي» is "I want" and it is also the first word of the song. The filler
+    // list used to be applied to every word in the message, so this exact
+    // request — the one that was reported — reached the catalogue as
+    // "وائل كفوري ياك", and «اغنية بدي ياك» reached it as "ياك".
+    expect(songs.parseSongRequest("أغنية وائل كفوري بدي ياك")?.query)
+      .toBe("وائل كفوري بدي ياك");
+    expect(songs.parseSongRequest("اغنية بدي ياك")?.query).toBe("بدي ياك");
+    expect(songs.parseSongRequest("شغلي اغنية بدي ياك لوائل كفوري")?.query)
+      .toBe("بدي ياك لوائل كفوري");
+    // Before the trigger it is still the asking word it looks like.
+    expect(songs.parseSongRequest("بدي أغنية وائل كفوري")?.query).toBe("وائل كفوري");
+    // And the Latin connector is still dropped, because "by Fairuz" asked of
+    // the catalogue comes back with Chris Stapleton.
+    expect(songs.parseSongRequest("canción de Shakira")?.query).toBe("Shakira");
+  });
+
   it("leaves the genre to the radio, which already answers it", () => {
     // Empty rather than null: the words were about music, but no song was
     // named, and the webhook reads that as "not mine" unless Songs is open.
@@ -101,6 +118,23 @@ describe("what may be fetched", () => {
     // recording it has. Rejecting that shipped a feature that could never
     // send one, and the type is corrected to what Meta expects on the way out.
     expect(songs.readFreeRecording(page("application/ogg", 2_317_258))?.mimeType).toBe("audio/ogg");
+
+    // ── The type Apple actually serves ──────────────────────────────────────
+    //
+    // Every iTunes preview comes back declared `audio/x-m4p`, whatever the URL
+    // says — checked across Arabic, classical and pop results. It was not in
+    // the playable set, so `fetchAudio` returned null for every song in the
+    // catalogue and the sender got the "here is a link" fallback every time.
+    // The feature had never once delivered audio. The bytes are AAC in an MP4
+    // container, which Meta accepts as audio/mp4.
+    expect(songs.isPlayableAudio("audio/x-m4p")).toBe(true);
+    expect(songs.isPlayableAudio("audio/x-m4a")).toBe(true);
+    expect(songs.audioMimeType("audio/x-m4p")).toBe("audio/mp4");
+    expect(songs.audioMimeType("audio/x-m4a")).toBe("audio/mp4");
+    expect(songs.audioMimeType("audio/x-m4p; charset=binary")).toBe("audio/mp4");
+    // And the ones WhatsApp genuinely cannot play stay out.
+    expect(songs.isPlayableAudio("audio/wav")).toBe(false);
+    expect(songs.isPlayableAudio("audio/midi")).toBe(false);
     // MIDI is audio and is not something a phone plays as a voice note.
     expect(songs.readFreeRecording(page("audio/midi", 10_000))).toBeNull();
     expect(songs.readFreeRecording(page("audio/mpeg", songs.SONG_MAX_BYTES + 1))).toBeNull();

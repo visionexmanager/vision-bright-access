@@ -33,7 +33,11 @@ const LOCALE_NAMES = {
 
 function readDictionary(filePath) {
   const entries = [];
-  const source = fs.readFileSync(filePath, "utf8");
+  // Normalised, because the line pattern below is anchored with `$` and a
+  // Windows checkout leaves a `\r` in the way of it: every line failed to
+  // match and the script died with "Parsed only 0 source translations",
+  // which reads like a corrupt dictionary rather than a line ending.
+  const source = fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
   for (const line of source.split("\n")) {
     const match = line.match(/^\s{2}("(?:[^"\\]|\\.)+"):\s*("(?:[^"\\]|\\.)*"),?$/);
     if (!match) continue;
@@ -111,7 +115,32 @@ function requestConfig() {
     if (!LOCALE_NAMES[locale]) throw new Error(`Unsupported requested locale: ${locale}`);
   }
   if (locales.length === 0) throw new Error("No locales requested.");
-  return { locales, model: request.model || "gpt-5.4-nano" };
+  const keys = [...new Set(request.keys ?? [])];
+  return { locales, model: request.model || "gpt-5.4-nano", keys };
+}
+
+/**
+ * The entries this run is responsible for.
+ *
+ * A request may name `keys`. Without it every run translated the whole English
+ * dictionary — twelve thousand values across eighteen locales — which is why
+ * adding a handful of keys was never worth a batch, and why the handful stayed
+ * English indefinitely. It is also why a run was dangerous: `writeLocale` below
+ * rewrote each locale file from the batch output, so anything translated by
+ * hand since the last run was silently replaced.
+ *
+ * With `keys`, the batch covers only those, and the locale files are patched in
+ * place rather than rewritten.
+ */
+function selectEntries(entries, keys) {
+  if (keys.length === 0) return entries;
+  const wanted = new Set(keys);
+  const selected = entries.filter(([key]) => wanted.has(key));
+  const missing = keys.filter((key) => !selected.some(([entryKey]) => entryKey === key));
+  if (missing.length) {
+    throw new Error(`Requested ${missing.length} key(s) that are not in en.ts: ${missing.slice(0, 5).join(", ")}`);
+  }
+  return selected;
 }
 
 function sourceHash() {
@@ -195,8 +224,8 @@ async function submitRequestGroup(requests) {
 
 async function submit() {
   fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
-  const entries = readDictionary(SOURCE_PATH);
   const config = requestConfig();
+  const entries = selectEntries(readDictionary(SOURCE_PATH), config.keys);
   const hash = sourceHash();
 
   if (fs.existsSync(STATE_PATH)) {
@@ -324,10 +353,66 @@ function writeLocale(locale, entries, translations) {
   return { locale, keys: entries.length, identical_to_english: identical };
 }
 
+/**
+ * Patch a subset of keys into a locale file, leaving everything else alone.
+ *
+ * Deliberately a line edit rather than a rewrite. Three of the locale files
+ * (`bn`, `hi`, `ru`) spread a `chunks/` module before listing their own keys,
+ * and regenerating the file from a dictionary would drop that import and every
+ * key it carries. Patching in place also means a subset run cannot touch the
+ * twelve thousand values it was not asked about — including anything a person
+ * translated by hand.
+ *
+ * A key already present has its value replaced; a new key is appended, which
+ * for the chunked locales is also what makes it win over the chunk.
+ */
+function mergeLocale(locale, entries, translations) {
+  const missing = uniqueSourceValues(entries).filter((value) => !translations.has(value));
+  if (missing.length) throw new Error(`${locale} is missing ${missing.length} unique translations.`);
+
+  const filePath = path.join(ROOT, `src/i18n/${locale}.ts`);
+  let source = fs.readFileSync(filePath, "utf8");
+  const eol = source.includes("\r\n") ? "\r\n" : "\n";
+  let identical = 0;
+  let replaced = 0;
+  const appended = [];
+
+  for (const [key, english] of entries) {
+    const value = translations.get(english);
+    if (value === english) identical += 1;
+    const line = `  ${JSON.stringify(key)}: ${JSON.stringify(value)},`;
+    const existing = new RegExp(
+      `^[ \\t]*${JSON.stringify(key).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:[ \\t]*"(?:[^"\\\\]|\\\\.)*",?[ \\t]*$`,
+      "m",
+    );
+    if (existing.test(source)) {
+      source = source.replace(existing, line);
+      replaced += 1;
+    } else {
+      appended.push(line);
+    }
+  }
+
+  // Brand names stay brand names, so a small subset may legitimately repeat
+  // more English than a whole dictionary would. Still guarded: a run that
+  // translated almost nothing is a failed run, not a finished one.
+  if (identical / entries.length > 0.6) {
+    throw new Error(`${locale} left ${identical}/${entries.length} subset values identical to English.`);
+  }
+
+  if (appended.length) {
+    const close = source.lastIndexOf(`${eol}};`);
+    if (close === -1) throw new Error(`No closing brace found in ${filePath}`);
+    source = source.slice(0, close) + eol + appended.join(eol) + source.slice(close);
+  }
+  fs.writeFileSync(filePath, source, "utf8");
+  return { locale, keys: entries.length, replaced, appended: appended.length, identical_to_english: identical };
+}
+
 async function collect() {
   const state = JSON.parse(fs.readFileSync(STATE_PATH, "utf8"));
   if (state.source_hash !== sourceHash()) throw new Error("English translations changed after batch submission.");
-  const entries = readDictionary(SOURCE_PATH);
+  const entries = selectEntries(readDictionary(SOURCE_PATH), state.keys ?? []);
   const { requests, values } = buildRequests(entries, state.locales, state.model);
   const savedBatches = state.batches ?? [{ batch_id: state.batch_id, input_file_id: state.input_file_id, request_count: state.request_count }];
   let nextRequestIndex = state.next_request_index ?? requests.length;
@@ -354,7 +439,11 @@ async function collect() {
   const output = outputParts.join("\n");
   const translated = parseBatchOutput(output, values, state.locales);
   await repairMissingTranslations(translated, values, state.locales, state.model);
-  const locales = state.locales.map((locale) => writeLocale(locale, entries, translated[locale]));
+  const subset = (state.keys ?? []).length > 0;
+  const locales = state.locales.map((locale) =>
+    subset
+      ? mergeLocale(locale, entries, translated[locale])
+      : writeLocale(locale, entries, translated[locale]));
   fs.writeFileSync(REPORT_PATH, JSON.stringify({
     ...state,
     status: "completed",
@@ -365,8 +454,8 @@ async function collect() {
 }
 
 function inspect() {
-  const entries = readDictionary(SOURCE_PATH);
   const config = requestConfig();
+  const entries = selectEntries(readDictionary(SOURCE_PATH), config.keys);
   const { requests, values } = buildRequests(entries, config.locales, config.model);
   console.log(JSON.stringify({
     source_entries: entries.length,
@@ -396,7 +485,58 @@ function selfTest() {
   if (translationIndex(0, "188", 200, "self-test:wrong-group") !== null) {
     throw new Error("An id from another group must be ignored.");
   }
-  console.log("Placeholder repair self-test passed.");
+
+  // ── The subset path ───────────────────────────────────────────────────────
+  const all = [["a.one", "One"], ["b.two", "Two"], ["c.three", "Three"]];
+  if (selectEntries(all, []).length !== 3) throw new Error("An empty key list must mean the whole dictionary.");
+  const picked = selectEntries(all, ["c.three", "a.one"]);
+  if (picked.length !== 2 || picked[0][0] !== "a.one" || picked[1][0] !== "c.three") {
+    throw new Error("A subset must keep dictionary order and nothing else.");
+  }
+  let rejected = false;
+  try {
+    selectEntries(all, ["a.one", "z.nope"]);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) throw new Error("A key that is not in en.ts must stop the run, not be skipped.");
+
+  // ── The merge path, on a throwaway locale file ────────────────────────────
+  //
+  // Written against a file shaped like the chunked locales, because the whole
+  // point of merging rather than rewriting is that `...translationsPart` and
+  // every key it carries survive.
+  const probeLocale = "__selftest";
+  const probePath = path.join(ROOT, `src/i18n/${probeLocale}.ts`);
+  fs.writeFileSync(probePath, [
+    'import { translationsPart } from "./chunks/probe";',
+    "",
+    "export const translations: Record<string, string> = {",
+    "  ...translationsPart,",
+    '  "a.one": "One",',
+    '  "b.two": "Two",',
+    "};",
+    "",
+    "export default translations;",
+    "",
+  ].join("\n"), "utf8");
+  try {
+    const result = mergeLocale(
+      probeLocale,
+      [["a.one", "One"], ["c.three", "Three"]],
+      new Map([["One", "Uno"], ["Three", "Tre"]]),
+    );
+    const merged = fs.readFileSync(probePath, "utf8");
+    if (!merged.includes("...translationsPart")) throw new Error("The chunk import was dropped by the merge.");
+    if (!merged.includes('"a.one": "Uno"')) throw new Error("An existing key was not replaced.");
+    if (!merged.includes('"b.two": "Two"')) throw new Error("A key outside the subset was touched.");
+    if (!merged.includes('"c.three": "Tre"')) throw new Error("A new key was not appended.");
+    if (result.replaced !== 1 || result.appended !== 1) throw new Error("The merge report is wrong.");
+  } finally {
+    fs.rmSync(probePath, { force: true });
+  }
+
+  console.log("Placeholder repair, subset selection and locale merge self-tests passed.");
 }
 
 const command = process.argv[2] ?? "inspect";

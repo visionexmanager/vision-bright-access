@@ -177,16 +177,56 @@ export function parseSongRequest(text: string | null | undefined): SongRequest |
   // buries it in the middle, and answering that with five tracks would be the
   // assistant talking over a complaint. Matched against the opening words
   // joined rather than word by word, because «bài hát» and "a song" are two
-  // words and a per-word test would never see either.
-  const opening = words.slice(0, TRIGGER_WITHIN_WORDS).join(" ");
-  if (!SONG_WORDS.some((pattern) => pattern.test(opening))) return null;
+  // words and a per-word test would never see either — and growing the prefix
+  // one word at a time is also how the end of a two-word trigger is found.
+  let triggerEnd = -1;
+  for (let end = 0; end < Math.min(TRIGGER_WITHIN_WORDS, words.length); end++) {
+    const opening = words.slice(0, end + 1).join(" ");
+    if (SONG_WORDS.some((pattern) => pattern.test(opening))) {
+      triggerEnd = end;
+      break;
+    }
+  }
+  if (triggerEnd === -1) return null;
 
-  const query = words
-    .filter((word) => !FILLER.has(word.toLowerCase()))
-    .join(" ")
-    .trim();
-  return { query };
+  // ── After the trigger, almost everything is the title ─────────────────────
+  //
+  // The filler list used to be applied to every word in the message, which
+  // quietly deleted words out of the middle of titles: «أغنية وائل كفوري بدي
+  // ياك» was searched for as "وائل كفوري ياك", and «اغنية بدي ياك» as "ياك",
+  // because «بدي» is both "I want" and the first word of the song. Levantine
+  // titles are full of them — بدي ياك, بدي عيش, بدي شوفك.
+  //
+  // What is still stripped, and only from the front, is the connecting word an
+  // English-shaped request leaves behind: "songs by Fairuz" must not be sent to
+  // the catalogue as "by Fairuz", which returns Chris Stapleton. The set is
+  // Latin-script on purpose. Those words are never the first word of a title,
+  // whereas «بدي» and «لي» are — and they cannot survive to this point as
+  // asking words anyway, because an asking word sits *before* the trigger and
+  // everything before the trigger has already been dropped.
+  const rest = words.slice(triggerEnd + 1);
+  let start = 0;
+  while (start < rest.length && CONNECTING.has(rest[start].toLowerCase())) start++;
+  const title = rest.slice(start);
+
+  // Filler decides one last thing: whether anything was named at all. A
+  // remainder that is nothing but filler is "play me some music", which
+  // belongs to the radio and must come back with an empty query.
+  const named = title.some((word) => !FILLER.has(word.toLowerCase()));
+  return { query: named ? title.join(" ").trim() : "" };
 }
+
+/**
+ * Words that may be dropped from the front of a title, and never appear in one.
+ *
+ * Latin script only. See the reasoning in `parseSongRequest`: in Arabic,
+ * Persian and Urdu the equivalent words open real titles, and dropping them
+ * loses the song.
+ */
+const CONNECTING = new Set([
+  "a", "an", "the", "by", "of", "for", "from", "de", "del", "di", "du", "da",
+  "von", "van", "por", "par", "me", "my", "to", "some", "please", "i", "want",
+]);
 
 /** Longest a request can be before it is a sentence about music, not a request. */
 const MAX_WORDS = 7;
@@ -260,15 +300,33 @@ export function isAllowedAudioUrl(url: string | null | undefined): boolean {
  * preview rather than treating a free recording as the end of the road: the
  * question is answered by production, and either answer leaves the sender with
  * something to listen to.
+ *
+ * ── audio/x-m4p, which is why nobody ever received a song ───────────────────
+ *
+ * Apple does not serve its previews as `audio/mp4`. Every one of them — checked
+ * across Arabic, classical and pop results on 2026-09-04 — comes back declared
+ * `audio/x-m4p`, whatever the URL says. So `fetchAudio` rejected the preview of
+ * every song in the catalogue, `sendAudioFrom` returned false, and the sender
+ * got the "here is a link" fallback every single time. The feature looked
+ * finished and had never once delivered audio.
+ *
+ * The bytes are ordinary AAC in an MP4 container — the URL ends `.aac.p.m4a` —
+ * and `x-m4p` is Apple's old label for the protected variant, applied here to
+ * an unprotected thirty-second preview. It is normalised to `audio/mp4` below,
+ * because that is the type the file actually is and the one Meta accepts.
  */
 const PLAYABLE_AUDIO = new Set([
   "audio/mpeg", "audio/mp4", "audio/aac", "audio/amr", "audio/ogg", "audio/opus", "application/ogg",
+  "audio/x-m4a", "audio/x-m4p",
 ]);
 
-/** The type as Meta names it, which is not always the type Commons wrote down. */
+/** The type as Meta names it, which is not always the type the host wrote down. */
 export function audioMimeType(mimeType: string | null | undefined): string {
   const value = (mimeType ?? "").split(";")[0].trim().toLowerCase();
-  return value === "application/ogg" ? "audio/ogg" : value;
+  if (value === "application/ogg") return "audio/ogg";
+  // Apple's two labels for AAC-in-MP4. Meta knows neither; it knows audio/mp4.
+  if (value === "audio/x-m4a" || value === "audio/x-m4p") return "audio/mp4";
+  return value;
 }
 
 export const isPlayableAudio = (mimeType: string | null | undefined): boolean =>

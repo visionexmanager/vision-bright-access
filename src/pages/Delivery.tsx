@@ -557,7 +557,7 @@ export default function Delivery() {
           <button
             type="button"
             className="p-5 bg-card text-primary rounded-full shadow-2xl border border-border pointer-events-auto hover:scale-110 active:rotate-12 transition-all"
-            aria-label={t("delivery.safety") === "delivery.safety" ? "Safety" : t("delivery.safety")}
+            aria-label={t("delivery.safety")}
           >
             <ShieldCheck size={32} aria-hidden="true" />
           </button>

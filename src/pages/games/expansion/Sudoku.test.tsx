@@ -195,7 +195,13 @@ describe("Sudoku — endings", () => {
     expect(gameManager.getSnapshot().score).toBeGreaterThan(0);
   });
 
-  it("ends the round after five mistakes", () => {
+  // Five keystrokes, but each one re-renders eighty-one cells and recomputes
+  // every conflict, which costs about three seconds under jsdom. That fits
+  // inside the five-second default when this file runs alone and does not when
+  // the whole suite runs in parallel, so the test failed intermittently and
+  // only ever on a full run. Its neighbour above already carries an explicit
+  // timeout for the same reason.
+  it("ends the round after five mistakes", { timeout: 30000 }, () => {
     mount();
     const { puzzle, solution } = reference();
     const empties: { row: number; column: number }[] = [];
