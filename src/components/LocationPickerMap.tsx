@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useId, useRef, useCallback, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -24,6 +24,7 @@ export default function LocationPickerMap({
   onDestinationSet,
 }: LocationPickerMapProps) {
   const { t } = useLanguage();
+  const instructionId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const pickupMarkerRef = useRef<L.Marker | null>(null);
@@ -139,9 +140,21 @@ export default function LocationPickerMap({
 
   return (
     <div className="relative w-full h-64 md:h-80 rounded-3xl overflow-hidden border-2 border-border shadow-lg">
-      <div ref={containerRef} className="w-full h-full z-0" />
+      {/* The map carries focusable controls, so it cannot be hidden from a
+          screen reader — but unnamed it was announced as a bare group. The
+          badge below already says what this map is for and changes with the
+          step, so it is the name rather than a twenty-first locale key. */}
+      <div
+        ref={containerRef}
+        className="w-full h-full z-0"
+        role="group"
+        aria-labelledby={instructionId}
+      />
       {/* Instruction badge */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-card/90 backdrop-blur-md px-4 py-2 rounded-full font-bold text-xs shadow-lg flex items-center gap-2 text-foreground border border-border">
+      <div
+        id={instructionId}
+        className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-card/90 backdrop-blur-md px-4 py-2 rounded-full font-bold text-xs shadow-lg flex items-center gap-2 text-foreground border border-border"
+      >
         <div
           className={`w-3 h-3 rounded-full ${
             selectionStep === "pickup" ? "bg-primary" : "bg-destructive"
@@ -155,6 +168,7 @@ export default function LocationPickerMap({
       <button
         onClick={handleLocateMe}
         disabled={locating}
+        aria-label={t("delivery.locateMe")}
         className="absolute bottom-3 right-3 z-[1000] bg-card/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-border text-primary hover:bg-primary hover:text-primary-foreground transition-all disabled:opacity-50"
         title={t("delivery.locateMe")}
       >

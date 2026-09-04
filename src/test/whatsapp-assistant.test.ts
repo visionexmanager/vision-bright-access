@@ -1930,6 +1930,77 @@ describe("shared locations", () => {
     expect(asksWhatIsNearby("وين مفاتيحي")).toBe(false);
   });
 
+  it("understands all three location questions in every language it offers them in", async () => {
+    const { asksWhereAmI, asksWhatIsNearby, parseFindPlaceRequest } = await loadLocation();
+    const { SUPPORTED_LANGUAGES } = await import(
+      "../../supabase/functions/_shared/whatsappLanguages.ts"
+    );
+
+    // The menu shows these three rows in twenty languages. Until this test
+    // existed the parsers understood two, so typing back the words the menu
+    // had just shown reached nothing at all — the feature was tap-only for
+    // eighteen languages, which is no feature for somebody dictating.
+    const asked: Record<string, { where: string; nearby: string; place: [string, string] }> = {
+      en: { where: "where am I?", nearby: "what's near me", place: ["send me the location of Arab Bank", "Arab Bank"] },
+      ar: { where: "وين أنا", nearby: "شو حولي", place: ["ابعتلي موقع بنك الأردن", "بنك الأردن"] },
+      ur: { where: "میں کہاں ہوں", nearby: "میرے قریب", place: ["لوکیشن حبیب بینک", "حبیب بینک"] },
+      hi: { where: "मैं कहाँ हूँ", nearby: "मेरे आसपास क्या है", place: ["लोकेशन स्टेट बैंक", "स्टेट बैंक"] },
+      id: { where: "saya di mana", nearby: "apotek terdekat", place: ["lokasi Bank Mandiri", "Bank Mandiri"] },
+      ja: { where: "ここはどこ", nearby: "この近く", place: ["東京駅の場所", "東京駅"] },
+      it: { where: "dove mi trovo", nearby: "vicino a me", place: ["posizione di Piazza Duomo", "Piazza Duomo"] },
+      ko: { where: "여기가 어디", nearby: "내 근처", place: ["서울역 위치", "서울역"] },
+      nl: { where: "waar ben ik", nearby: "in de buurt", place: ["locatie van Centraal Station", "Centraal Station"] },
+      pl: { where: "gdzie jestem", nearby: "w pobliżu", place: ["gdzie jest Dworzec Centralny", "Dworzec Centralny"] },
+      vi: { where: "tôi đang ở đâu", nearby: "gần tôi có gì", place: ["địa chỉ Chợ Bến Thành", "Chợ Bến Thành"] },
+      bn: { where: "আমি কোথায়", nearby: "আশেপাশে কী আছে", place: ["ঠিকানা সোনালী ব্যাংক", "সোনালী ব্যাংক"] },
+      fa: { where: "من کجا هستم", nearby: "نزدیک من", place: ["آدرس بانک ملی", "بانک ملی"] },
+      es: { where: "dónde estoy", nearby: "cerca de mí", place: ["ubicación de Banco Santander", "Banco Santander"] },
+      de: { where: "wo bin ich", nearby: "was ist in der Nähe", place: ["Standort von Deutsche Bank", "Deutsche Bank"] },
+      pt: { where: "onde estou", nearby: "perto de mim", place: ["onde fica o Mercado Municipal", "o Mercado Municipal"] },
+      zh: { where: "我在哪", nearby: "附近有什么", place: ["中国银行在哪", "中国银行"] },
+      tr: { where: "neredeyim", nearby: "en yakın eczane", place: ["Kapalı Çarşı nerede", "Kapalı Çarşı"] },
+      fr: { where: "où suis-je", nearby: "près de moi", place: ["adresse de la Gare du Nord", "Gare du Nord"] },
+      ru: { where: "где я", nearby: "что рядом", place: ["где находится Красная площадь", "Красная площадь"] },
+    };
+
+    // Adding a language to the menu without adding it here fails on this line,
+    // rather than shipping a row nobody can reach by typing.
+    expect(Object.keys(asked).sort()).toEqual([...SUPPORTED_LANGUAGES].sort());
+
+    for (const [language, sample] of Object.entries(asked)) {
+      expect(`${language}: ${sample.where}`).toBe(
+        asksWhereAmI(sample.where) ? `${language}: ${sample.where}` : `${language}: NOT UNDERSTOOD`,
+      );
+      expect(`${language}: ${sample.nearby}`).toBe(
+        asksWhatIsNearby(sample.nearby) ? `${language}: ${sample.nearby}` : `${language}: NOT UNDERSTOOD`,
+      );
+      const [request, place] = sample.place;
+      expect(`${language}: ${parseFindPlaceRequest(request)}`).toBe(`${language}: ${place}`);
+    }
+  });
+
+  it("keeps the twenty-language patterns off ordinary conversation", async () => {
+    const { asksWhereAmI, asksWhatIsNearby, parseFindPlaceRequest } = await loadLocation();
+
+    // "I have", not "near me". Both were in the nearby list once, and both are
+    // the ordinary way to say you own something.
+    expect(asksWhatIsNearby("मेरे पास पैसे नहीं हैं")).toBe(false);
+    expect(asksWhatIsNearby("আমার কাছে টাকা নেই")).toBe(false);
+    // 最近的 is "most recent" at least as often as "nearest".
+    expect(asksWhatIsNearby("最近的天气很好")).toBe(false);
+
+    // Every language's "my location" is the where-am-I question, answered from
+    // the pin on file. None of them may reach a geocoder as a search term.
+    for (const mine of [
+      "lokasi saya", "vị trí của tôi", "موقعیت من", "내 위치", "mi ubicación",
+      "mein Standort", "moja lokalizacja", "benim konumum", "minha localização",
+      "мое местоположение", "我的位置", "میری لوکیشن", "আমার অবস্থান", "मेरी लोकेशन",
+    ]) {
+      expect(`${mine} -> ${parseFindPlaceRequest(mine)}`).toBe(`${mine} -> null`);
+      expect(asksWhereAmI(mine)).toBe(true);
+    }
+  });
+
   it("names the taps rather than the feature when it has to ask for a pin", async () => {
     const { locationNeededNotice } = await loadLocation();
     // Somebody who cannot see the interface needs the path, not an invitation.

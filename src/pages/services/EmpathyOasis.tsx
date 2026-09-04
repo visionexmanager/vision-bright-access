@@ -232,7 +232,7 @@ export default function EmpathyOasis() {
 
                 {breathActive && (
                   <p className="text-sm text-muted-foreground">
-                    {t("oasis.breathing.cycle").replace("{n}", String(cycles + 1))}
+                    {t("oasis.breathing.cycle").replace("{count}", String(cycles + 1))}
                   </p>
                 )}
 

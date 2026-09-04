@@ -1,0 +1,18 @@
+# Line endings.
+#
+# `core.autocrlf=true` is the default on a Windows install, and it rewrites
+# every checked-out text file to CRLF. For most of this repository that is
+# harmless. For `.mjs` it is not: Vitest loads those files as real ES modules
+# rather than transforming them, and a CRLF module fails to parse with
+#
+#     SyntaxError: Invalid or unexpected token
+#
+# pointing at the *import* line in the test that pulls it in — which reads like
+# a broken test file and not like a line ending. `whatsapp-business-profile`
+# failed that way on every Windows checkout while passing in CI, for long
+# enough that it was written off as "expected here".
+#
+# Checking these out with LF everywhere costs nothing and removes a whole class
+# of failure that only ever appears on one operating system.
+*.mjs text eol=lf
+*.cjs text eol=lf

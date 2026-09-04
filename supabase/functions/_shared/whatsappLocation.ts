@@ -61,11 +61,72 @@ export function isUsableCoordinate(lat: unknown, lon: unknown): boolean {
   return Math.abs(lat) > 0.0001 || Math.abs(lon) > 0.0001;
 }
 
+// ── Asking in the language you were offered the feature in ──────────────────
+//
+// The menu shows these three questions in all twenty languages — a Turkish
+// sender reads "Neredeyim", an Urdu sender reads "میں کہاں ہوں". Until the
+// patterns below existed, typing back the words the menu had just shown them
+// matched nothing: only English and Arabic were understood, so eighteen
+// languages could reach the location service by tapping a row and by no other
+// route. A feature you can only reach with a tap is not one somebody can ask
+// for, and asking is what a screen-reader user does.
+//
+// Precision over recall, deliberately. These patterns run against every typed
+// message, so a phrase that appears mid-conversation would hijack it — the
+// same reason "وين X" alone was never enough for a place search. Where a
+// language's short form is ambiguous the longer, unmistakably interrogative
+// form is the one listed, and the menu row still answers for the rest.
+
+/**
+ * A word boundary that holds for every alphabet, which `\b` does not.
+ *
+ * `\b` is defined against `[A-Za-z0-9_]`, so it sits *inside* a word the moment
+ * the letter beside it is not ASCII: `/\bđịa chỉ\b/u` never matched "địa chỉ"
+ * at the start of a message, and `/\bcerca de mí\b/iu` never matched a message
+ * ending in "mí". Sixteen of the twenty languages here are written with at
+ * least one letter outside that range, so anchoring on Unicode letters and
+ * digits instead is not a refinement — it is the difference between a pattern
+ * that fires and one that silently never does.
+ */
+const NOT_A_LETTER_BEFORE = "(?<![\\p{L}\\p{N}])";
+const NOT_A_LETTER_AFTER = "(?![\\p{L}\\p{N}])";
+
+/** Whole-phrase alternation, boundary-safe in any script. */
+function phrases(...list: readonly string[]): RegExp {
+  return new RegExp(
+    `${NOT_A_LETTER_BEFORE}(?:${list.join("|")})${NOT_A_LETTER_AFTER}`,
+    "iu",
+  );
+}
+
 const WHERE_AM_I = [
   /\b(where am i|where i am|what'?s my location|my location|locate me)\b/i,
   /\b(what address|which (city|street|area)) am i\b/i,
   /(وين أنا|وين انا|أين أنا|اين انا|فين أنا|فين انا|موقعي|وين موقعي|أين موقعي)/,
   /(في أي مدينة أنا|في اي مدينه انا|وين صرت)/,
+  phrases("wo bin ich", "wo befinde ich mich", "mein standort"),
+  phrases("d[oó]nde estoy", "mi ubicaci[oó]n"),
+  phrases("o[uù] suis[- ]je", "je suis o[uù]", "ma position", "ma localisation"),
+  phrases("dove sono", "dove mi trovo", "la mia posizione"),
+  phrases("waar ben ik", "mijn locatie"),
+  phrases("gdzie jestem", "moja lokalizacja"),
+  phrases("onde estou", "minha localiza[cç][aã]o"),
+  phrases("neredeyim", "konumum nedir", "benim konumum"),
+  phrases("saya di mana", "di mana saya", "lokasi saya"),
+  phrases("t[oô]i đang ở đ[aâ]u", "vị tr[ií] của t[oô]i"),
+  phrases("где я", "где я нахожусь", "мо[её] местоположение"),
+  // No boundary guard past this point. Chinese and Japanese are written without
+  // spaces, and Korean, Hindi, Bengali, Urdu and Persian attach particles and
+  // postpositions directly, so a "must not be followed by a letter" rule would
+  // reject the very sentences these are here to catch — the mirror image of the
+  // `\b` failure described above, and just as silent.
+  /(我在哪|我的位置|我现在在哪)/u,
+  /(ここはどこ|現在地|私はどこ)/u,
+  /(여기가 어디|내 위치|현재 위치)/u,
+  /(मैं कहाँ हूँ|मैं कहां हूं|मेरी लोकेशन|मेरा स्थान)/u,
+  /(আমি কোথায়|আমার অবস্থান|আমার লোকেশন)/u,
+  /(میں کہاں ہوں|میری لوکیشن|میرا مقام)/u,
+  /(من کجا هستم|کجا هستم|موقعیت من|الان کجام)/u,
 ];
 
 const WHATS_NEARBY = [
@@ -73,6 +134,31 @@ const WHATS_NEARBY = [
   /\b(closest|nearest)\s+(shop|store|pharmacy|restaurant|cafe|bank|atm|bus|hospital|supermarket|mosque)\b/i,
   /(شو حولي|ايش حولي|وش حولي|ما حولي|حواليي|شو في حولي|القريب مني|أقرب|اقرب)/,
   /(وين أقرب|وين اقرب|فين أقرب|أقرب صيدلية|اقرب صيدليه|أقرب محل|أقرب مطعم|أقرب مسجد)/,
+  phrases("in meiner n[aä]he", "was ist in der n[aä]he", "n[aä]chste[rs]? (?:apotheke|restaurant|bank)"),
+  phrases("cerca de m[ií]", "qu[eé] hay cerca", "m[aá]s cercan[ao]"),
+  phrases("pr[eè]s de moi", "[aà] proximit[eé]", "le plus proche", "la plus proche"),
+  phrases("vicino a me", "nelle vicinanze", "pi[uù] vicin[ao]"),
+  phrases("bij mij in de buurt", "in de buurt", "dichtstbijzijnde"),
+  phrases("w pobliżu", "blisko mnie", "najbliższ[aey]"),
+  phrases("perto de mim", "aqui perto", "mais pr[oó]xim[ao]"),
+  phrases("yak[iı]n[iı]mda", "en yak[iı]n"),
+  phrases("di dekat saya", "terdekat"),
+  phrases("gần t[oô]i", "quanh đ[aâ]y", "gần đ[aâ]y nhất"),
+  phrases("рядом со мной", "что рядом", "поблизости", "ближайш(?:ая|ий|ее)"),
+  // Bare, for the same reason as the block above: these scripts write no space
+  // between the phrase and what follows it.
+  //
+  // Not "最近的": it reads as "most recent" at least as often as "nearest", so
+  // "最近的天气很好" would have been answered with a list of pharmacies.
+  /(我附近|附近有什么|附近的|离我最近)/u,
+  /(近くに何|この近く|最寄り)/u,
+  /(내 근처|근처에 뭐|가까운 곳|가장 가까운)/u,
+  // "मेरे पास" and "আমার কাছে" are left out on purpose: both are the ordinary
+  // way to say "I have", and "मेरे पास पैसे नहीं हैं" is not a map question.
+  /(मेरे आसपास|आसपास क्या|पास में क्या|नज़दीकी|नजदीकी)/u,
+  /(আশেপাশে|কাছাকাছি|নিকটতম|কাছে কী আছে)/u,
+  /(میرے قریب|آس پاس|قریبی|قریب ترین)/u,
+  /(نزدیک من|اطراف من|نزدیک‌ترین|نزدیکترین)/u,
 ];
 
 /** Longest a message can be and still be read as a location command. */
@@ -102,10 +188,58 @@ const FIND_PLACE = [
   /\b(?:the\s+)?(?:location|address|coordinates)\s+(?:of|for)\s+(.{2,60})$/i,
   /\bwhere\s+is\s+(.{2,60}?)\s+located\b/i,
   /\bfind\s+(?:me\s+)?(?:the\s+)?(.{2,60})\s+(?:location|branch)\b/i,
+  // The same rule in the other eighteen languages: a location word, then the
+  // place. Each is anchored at the end of the message so the capture is the
+  // name and not the rest of a sentence, which is what keeps "wo ist mein
+  // Schlüssel" from being handed to a geocoder as a search term.
+  /\b(?:standort|adresse)\s+(?:von|f[uü]r)\s+(.{2,60})$/iu,
+  /\bwo\s+(?:ist|liegt|befindet\s+sich)\s+(.{2,60})$/iu,
+  /\b(?:ubicaci[oó]n|direcci[oó]n)\s+de\s+(.{2,60})$/iu,
+  /\bd[oó]nde\s+(?:est[aá]|queda)\s+(.{2,60})$/iu,
+  /\b(?:localisation|adresse|position)\s+(?:de\s+la|du|de|d')\s*(.{2,60})$/iu,
+  /\bo[uù]\s+(?:est|se\s+trouve)\s+(.{2,60})$/iu,
+  /\b(?:posizione|indirizzo)\s+(?:della|del|di)\s+(.{2,60})$/iu,
+  /\bdov'?[eè]\s+(.{2,60})$/iu,
+  /\b(?:locatie|adres)\s+van\s+(.{2,60})$/iu,
+  /\bwaar\s+(?:is|ligt)\s+(.{2,60})$/iu,
+  /\b(?:lokalizacja|adres)\s+(.{2,60})$/iu,
+  /\bgdzie\s+(?:jest|znajduje\s+się)\s+(.{2,60})$/iu,
+  /\b(?:localiza[cç][aã]o|endere[cç]o)\s+d[oa]s?\s+(.{2,60})$/iu,
+  /\bonde\s+(?:fica|est[aá])\s+(.{2,60})$/iu,
+  /\b(?:lokasi|alamat)\s+(.{2,60})$/iu,
+  // Not `\b`: "địa" opens with a letter ASCII does not know, so `\b` sat inside
+  // the word and the pattern never fired. See NOT_A_LETTER_BEFORE above.
+  /(?<![\p{L}\p{N}])(?:vị tr[ií]|địa chỉ)\s+(?:của\s+)?(.{2,60})$/iu,
+  // Turkish and the head-final languages put the place first, so the location
+  // word is the suffix and the capture is everything before it.
+  /^(.{2,60}?)\s+(?:nerede|konumu|adresi)\s*(?:nedir)?[?？]?$/iu,
+  /(?:местоположение|адрес)\s+(.{2,60})$/iu,
+  /где\s+(?:находится|расположен[аоы]?)\s+(.{2,60})$/iu,
+  /^(.{2,60}?)(?:在哪里|在哪儿|在哪|的位置|的地址)[?？]?$/u,
+  /^(.{2,60}?)(?:の場所|の住所|はどこ)[?？]?$/u,
+  /^(.{2,60}?)\s*(?:위치|주소|어디)[?？]?$/u,
+  /(?:लोकेशन|स्थान|पता)\s+(.{2,60})$/u,
+  /^(.{2,60}?)\s+कहाँ है[?？]?$/u,
+  /(?:অবস্থান|ঠিকানা|লোকেশন)\s+(.{2,60})$/u,
+  /^(.{2,60}?)\s+কোথায়[?？]?$/u,
+  /(?:لوکیشن|مقام|پتہ)\s+(.{2,60})$/u,
+  /^(.{2,60}?)\s+کہاں ہے[?？]?$/u,
+  /(?:موقعیت|آدرس|لوکیشن)\s+(.{2,60})$/u,
+  /^(.{2,60}?)\s+کجاست[?？]?$/u,
 ];
 
-/** Words that mean the sender, not a place, and must never be searched for. */
-const POSSESSIVE = /^(?:my|our|your|his|her|their|me|us|i)\b|^(?:ي|نا|ك|كم|هم)$|^(?:موقعي|موقعنا|موقعك)$/i;
+/**
+ * Words that mean the sender, not a place, and must never be searched for.
+ *
+ * Every language's "my location" reduces, under the patterns above, to a
+ * capture that is only a pronoun — "lokasi saya" leaves "saya", "vị trí của
+ * tôi" leaves "tôi", "موقعیت من" leaves "من". The where-am-I question is
+ * checked first and answers all of these properly; this is the guard for
+ * anything that reaches the parser on its own, so a pronoun is never posted to
+ * a geocoder as the name of a shop.
+ */
+const POSSESSIVE =
+  /^(?:my|our|your|his|her|their|me|us|i)\b|^(?:ي|نا|ك|كم|هم)$|^(?:موقعي|موقعنا|موقعك)$|^(?:mein|meine|mi|mis|ma|mon|mes|mia|mio|mijn|moja|m[oó]j|minha|meu|benim|saya|aku|t[oô]i|м[оo][йёе]|моя|мо[её])$|^(?:من|ما|خودم|내|나의|현재|我|我的|私|私の|मेरा|मेरी|मेरे|আমার|میرا|میری)$/iu;
 
 /** A request may be longer than a command — a place name carries words. */
 export const PLACE_QUERY_MAX_CHARS = 160;
@@ -115,8 +249,11 @@ export function parseFindPlaceRequest(text: string): string | null {
   if (!trimmed || trimmed.length > PLACE_QUERY_MAX_CHARS) return null;
 
   // "موقعي" is one word: the pattern below would otherwise read "موقع" plus a
-  // remainder of "ي" and search a map for a single letter.
-  if (/^(?:موقعي|موقعنا|وين موقعي|أين موقعي|my location|our location)\b/i.test(trimmed)) return null;
+  // remainder of "ي" and search a map for a single letter. Every language has
+  // a version of that collision, so the where-am-I question is asked once here
+  // rather than restated as twenty more literals — one list to keep in step
+  // instead of two, and the webhook answers this message from the pin anyway.
+  if (asksWhereAmI(trimmed)) return null;
 
   for (const pattern of FIND_PLACE) {
     const match = pattern.exec(trimmed);

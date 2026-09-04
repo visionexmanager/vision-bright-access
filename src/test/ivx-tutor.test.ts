@@ -1,13 +1,24 @@
-import { readFileSync } from "node:fs";
+import { readFileSync as readRaw } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { ivxTutorDirective, type IvxTutorBrief } from "../../supabase/functions/_shared/whatsappIvx.ts";
 
-const tutor = readFileSync("supabase/migrations/20261006000000_ivx_tutor.sql", "utf8");
-const aiChat = readFileSync("supabase/functions/ai-chat/index.ts", "utf8");
-const assistants = readFileSync("supabase/functions/_shared/assistants.ts", "utf8");
-const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
-const clientApi = readFileSync("src/features/ivx/api.ts", "utf8");
-const panel = readFileSync("src/features/ivx/IVXTutor.tsx", "utf8");
+/**
+ * Source, with line endings normalised.
+ *
+ * The region markers below are multi-line literals written with `\n` —
+ * `")\nRETURNS"` most of all. Git checks these files out with CRLF on Windows,
+ * so `indexOf` returned -1 and two checks failed on a repository nobody had
+ * touched, in a way that reads exactly like a renamed function. The assertions
+ * are about SQL and TSX structure; line endings are not part of the contract.
+ */
+const source = (path: string) => readRaw(path, "utf8").replace(/\r\n/g, "\n");
+
+const tutor = source("supabase/migrations/20261006000000_ivx_tutor.sql");
+const aiChat = source("supabase/functions/ai-chat/index.ts");
+const assistants = source("supabase/functions/_shared/assistants.ts");
+const webhook = source("supabase/functions/whatsapp-webhook/index.ts");
+const clientApi = source("src/features/ivx/api.ts");
+const panel = source("src/features/ivx/IVXTutor.tsx");
 
 /**
  * Cut a named region out of a file, and fail if it is not there.
@@ -169,7 +180,7 @@ describe("the tutor panel is usable without sight", () => {
   });
 
   it("sits outside the practice page's assertive region", () => {
-    const practice = readFileSync("src/pages/academy/IVXPractice.tsx", "utf8");
+    const practice = source("src/pages/academy/IVXPractice.tsx");
     const live = practice.indexOf('aria-live="assertive"');
     const closeOfLive = practice.indexOf("</div>", practice.indexOf("</section>", live) - 200);
     expect(practice.indexOf("<IVXTutor")).toBeGreaterThan(closeOfLive);

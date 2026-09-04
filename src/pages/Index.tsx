@@ -38,7 +38,7 @@ import { AnimatedSection, StaggerGrid, StaggerItem } from "@/components/Animated
 import { scaleFade } from "@/components/animationVariants";
 import { VisionKidsHomeSection } from "@/components/VisionKidsHomeSection";
 import arcadeHero from "@/features/arcade/assets/visionex-arcade-hero.webp";
-import { ARCADE_GAMES } from "@/features/arcade/catalog";
+import { ARCADE_GAMES, localizeGame } from "@/features/arcade/catalog";
 import { categoryLabel, difficultyLabel } from "@/features/arcade/labels";
 
 /**
@@ -326,7 +326,7 @@ export default function Index() {
                         className="h-14 w-20 shrink-0 rounded-xl object-cover"
                       />
                       <span className="min-w-0">
-                        <strong className="block truncate">{lang === "ar" ? game.titleAr : game.title}</strong>
+                        <strong className="block truncate">{localizeGame(game, lang, t).title}</strong>
                         <small className="text-slate-400">{categoryLabel(t, game.categories[0])} · {difficultyLabel(t, game.difficulty)}</small>
                       </span>
                     </Link>

@@ -203,7 +203,28 @@ export function getArcadeGame(pathname: string) {
   return ARCADE_GAMES.find((item) => item.to === pathname);
 }
 
-export function localizeGame(item: ArcadeGame, lang: string) {
+/**
+ * One game's title and description, in the reader's language.
+ *
+ * The catalogue carries English and Arabic inline, which is all somebody adding
+ * a game has to write. The other eighteen live in the locale dictionaries under
+ * `arcade.<slug>.title` and `arcade.<slug>.desc`, so passing the translator is
+ * what makes this twenty languages instead of two — and it is not only about
+ * reading: `Games.tsx` filters the search box through this function, so without
+ * `t` a Persian reader could see a Persian card and still not find it by typing
+ * its name.
+ *
+ * `t` returns the key itself when a string is missing, which is the signal to
+ * fall back rather than render "arcade.sudoku.title" at somebody.
+ */
+export function localizeGame(item: ArcadeGame, lang: string, t?: (key: string) => string) {
+  if (t) {
+    const title = t(`arcade.${item.slug}.title`);
+    const description = t(`arcade.${item.slug}.desc`);
+    if (!title.startsWith("arcade.") && !description.startsWith("arcade.")) {
+      return { title, description };
+    }
+  }
   return lang === "ar"
     ? { title: item.titleAr, description: item.descriptionAr }
     : { title: item.title, description: item.description };

@@ -141,7 +141,6 @@ interface AcademyDashboardProps {
 export function AcademyDashboard({ profile }: AcademyDashboardProps) {
   const navigate = useNavigate();
   const { lang, t } = useLanguage();
-  const text = useCallback((english: string, arabic: string) => lang === "ar" ? arabic : english, [lang]);
 
   const speak = useCallback((text: string) => speakText(text, lang, { rate: 0.9 }), [lang]);
   const formatTime = useCallback((ts?: number) => {
@@ -305,27 +304,27 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
 
         <CourseListSection
           icon={SparklesIcon}
-          title={text("Courses Recommended for You", "الدورات المقترحة لك")}
-          description={text("Based on your level and interests", "بناءً على مستواك واهتماماتك")}
-          viewAllLabel={text("View all", "عرض الكل")}
+          title={t("academy.ui.recommendedTitle")}
+          description={t("academy.ui.recommendedDesc")}
+          viewAllLabel={t("academy.ui.viewAll")}
           headingId="recommended-courses-heading"
           courses={recommendedCourses}
         />
 
         <CourseListSection
           icon={Flame}
-          title={text("Most Popular Courses", "الدورات الأكثر شعبية")}
-          description={text("The courses with the most student enrollments", "الأكثر تسجيلاً بين الطلاب")}
-          viewAllLabel={text("View all", "عرض الكل")}
+          title={t("academy.ui.popularTitle")}
+          description={t("academy.ui.popularDesc")}
+          viewAllLabel={t("academy.ui.viewAll")}
           headingId="popular-courses-heading"
           courses={popularCourses}
         />
 
         <CourseListSection
           icon={BookOpen}
-          title={text("New Courses", "دورات جديدة")}
-          description={text("The latest additions to the Academy", "أحدث ما أضيف إلى الأكاديمية")}
-          viewAllLabel={text("View all", "عرض الكل")}
+          title={t("academy.ui.newCoursesTitle")}
+          description={t("academy.ui.newCoursesDesc")}
+          viewAllLabel={t("academy.ui.viewAll")}
           headingId="new-courses-heading"
           courses={newCourses}
         />
@@ -333,12 +332,12 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
         <section aria-labelledby="learning-categories-heading" className="bg-card p-8 rounded-3xl border border-border shadow-lg">
           <AcademySectionHeader
             icon={LayoutGrid}
-            title={text("Learning Categories", "فئات التعلّم")}
-            description={text("Browse by subject or field", "تصفح حسب المادة أو المجال")}
+            title={t("academy.ui.categoriesTitle")}
+            description={t("academy.ui.categoriesDesc")}
             headingId="learning-categories-heading"
             action={
               <Button variant="outline" size="sm" asChild className="rounded-xl">
-                <Link to="/academy/paths">{text("Learning Paths", "مسارات التعلّم")}</Link>
+                <Link to="/academy/paths">{t("academy.ui.pathsTitle")}</Link>
               </Button>
             }
           />
@@ -358,19 +357,13 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
         <StudentServicesSection
           voiceMode={voiceMode}
           isStreaming={isStreaming}
-          onSpeakGreeting={() => speak(text(
-            `Welcome, ${displayProfile.name}. I am here to guide you through your studies and career choices.`,
-            `أهلاً بك يا ${displayProfile.name}. أنا هنا لأرشدك في دروسك وفي اختيار مهنة المستقبل.`,
-          ))}
+          onSpeakGreeting={() => speak(t("academy.ui.munirWelcome").replace("{name}", displayProfile.name))}
           onToggleVoiceMode={() => setVoiceMode((v) => !v)}
           onGoToStudyRoom={() => navigate("/content")}
           onGoToOCRScan={() => navigate("/services/ocr-scan")}
           onStudyPlan={() => handleSend(academyText("academy.prompt.studyPlanText", displayProfile))}
           onAcademicGuidance={() => {
-            setChatInput(text(
-              "Help me choose my academic and career path based on my level and interests",
-              "ساعدني في تحديد مساري الدراسي والمهني بناءً على مستواي واهتماماتي",
-            ));
+            setChatInput(t("academy.ui.munirPrompt"));
             scrollToId("ai-learning-center", true);
           }}
           onTutoring={() => navigate("/academy/courses")}
@@ -409,14 +402,14 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
       <div {...inertBackground} className="space-y-10">
         <LiveModuleSection
           icon={Library}
-          title={text("Digital Library", "المكتبة الرقمية")}
+          title={t("academy.ui.libraryTitle")}
           description={getModuleText("library", lang).description}
           headingId="digital-library-heading"
           href="/academy/library"
-          ctaLabel={text("Browse Library", "تصفح المكتبة")}
+          ctaLabel={t("academy.ui.libraryCta")}
           itemCount={libraryResourceCount}
-          emptyHint={text("The library is ready for resources — browse it for the latest additions.", "المكتبة جاهزة لاستقبال الموارد — تصفّح القسم لرؤية آخر الإضافات.")}
-          availableLabel={text("available now", "متاح الآن")}
+          emptyHint={t("academy.ui.libraryEmpty")}
+          availableLabel={t("academy.ui.availableNow")}
         />
         <LiveModuleSection
           icon={GraduationCap}
@@ -424,10 +417,10 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
           description={getModuleText("scholarships", lang).description}
           headingId="scholarships-heading"
           href="/academy/scholarships"
-          ctaLabel={text("Browse Scholarships", "تصفح المنح")}
+          ctaLabel={t("academy.ui.scholarshipsCta")}
           itemCount={scholarshipCount}
-          emptyHint={text("No scholarships have been added yet — browse for the latest additions.", "لا توجد منح مضافة بعد — تصفّح القسم لرؤية آخر الإضافات.")}
-          availableLabel={text("available now", "متاح الآن")}
+          emptyHint={t("academy.ui.scholarshipsEmpty")}
+          availableLabel={t("academy.ui.availableNow")}
         />
         <LiveModuleSection
           icon={Landmark}
@@ -435,20 +428,20 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
           description={getModuleText("universities", lang).description}
           headingId="universities-heading"
           href="/academy/universities"
-          ctaLabel={text("Browse Universities", "تصفح الجامعات")}
+          ctaLabel={t("academy.ui.universitiesCta")}
           itemCount={universityCount}
-          emptyHint={text("No universities have been added yet — browse for the latest additions.", "لا توجد جامعات مضافة بعد — تصفّح القسم لرؤية آخر الإضافات.")}
-          availableLabel={text("available now", "متاح الآن")}
+          emptyHint={t("academy.ui.universitiesEmpty")}
+          availableLabel={t("academy.ui.availableNow")}
         />
         <section aria-labelledby="featured-instructors-heading" className="bg-card p-8 rounded-3xl border border-border shadow-lg">
           <AcademySectionHeader
             icon={Users}
-            title={text("Featured Instructors", "مدرّسون مميزون")}
+            title={t("academy.ui.instructorsTitle")}
             description={getModuleText("instructors", lang).description}
             headingId="featured-instructors-heading"
             action={
               <Button variant="outline" size="sm" asChild className="rounded-xl">
-                <Link to="/academy/instructor/apply">{text("Become an Instructor", "كن مدرّساً")}</Link>
+                <Link to="/academy/instructor/apply">{t("academy.ui.instructorsCta")}</Link>
               </Button>
             }
           />
@@ -461,12 +454,12 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
           </div>
         </section>
         <AcademyPlaceholderSection
-          title={text("Learning Community", "مجتمع التعلّم")}
+          title={t("academy.ui.communityTitle")}
           description={getModuleText("community", lang).description}
           icon={MessagesSquare}
           headingId="learning-community-heading"
           linkHref="/community"
-          linkLabel={text("Browse Visionex Community", "تصفح مجتمع Visionex")}
+          linkLabel={t("academy.ui.communityCta")}
         />
         <LiveModuleSection
           icon={BadgeCheck}
@@ -474,10 +467,10 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
           description={getModuleText("certificates", lang).description}
           headingId="certificates-heading"
           href="/academy/certificates"
-          ctaLabel={text("View My Certificates", "عرض شهاداتي")}
+          ctaLabel={t("academy.ui.certificatesCta")}
           itemCount={certificateCount}
-          emptyHint={text("Complete a course and pass its tests and assignments to earn your first certificate.", "أكمل دورة واجتز اختباراتها وواجباتها للحصول على شهادتك الأولى.")}
-          availableLabel={text("available now", "متاح الآن")}
+          emptyHint={t("academy.ui.certificatesEmpty")}
+          availableLabel={t("academy.ui.availableNow")}
         />
 
         <PersonalProgressSection
@@ -494,14 +487,14 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
 
         <LiveModuleSection
           icon={CalendarClock}
-          title={text("Upcoming Learning Schedule", "جدول التعلّم القادم")}
-          description={text("Organize your daily and weekly goals and track your progress", "نظّم أهدافك اليومية والأسبوعية وتابع التزامك")}
+          title={t("academy.ui.scheduleTitle")}
+          description={t("academy.ui.scheduleDesc")}
           headingId="upcoming-schedule-heading"
           href="/academy/planner"
-          ctaLabel={text("Open Study Planner", "فتح مخطط الدراسة")}
+          ctaLabel={t("academy.ui.plannerCta")}
           itemCount={0}
-          emptyHint={text("Add your first study goal and build a schedule that fits your time.", "أضف هدفك الدراسي الأول وابنِ جدولاً يناسب وقتك.")}
-          availableLabel={text("available now", "متاح الآن")}
+          emptyHint={t("academy.ui.scheduleEmpty")}
+          availableLabel={t("academy.ui.availableNow")}
         />
 
         <RecentActivitySection
@@ -511,14 +504,14 @@ export function AcademyDashboard({ profile }: AcademyDashboardProps) {
 
         <LiveModuleSection
           icon={Newspaper}
-          title={text("Academy News and Updates", "أخبار وتحديثات الأكاديمية")}
-          description={text("Course announcements, deadlines, and new achievements", "إعلانات الدورات والمواعيد والإنجازات الجديدة")}
+          title={t("academy.ui.newsTitle")}
+          description={t("academy.ui.newsDesc")}
           headingId="academy-news-heading"
           href="/academy/notifications"
-          ctaLabel={text("View All Notifications", "عرض كل الإشعارات")}
+          ctaLabel={t("academy.ui.notificationsCta")}
           itemCount={0}
-          emptyHint={text("Course and deadline notifications will appear here as soon as they arrive.", "ستظهر هنا تنبيهات الدورات والمواعيد فور وصولها.")}
-          availableLabel={text("available now", "متاح الآن")}
+          emptyHint={t("academy.ui.newsEmpty")}
+          availableLabel={t("academy.ui.availableNow")}
         />
       </div>
     </div>
