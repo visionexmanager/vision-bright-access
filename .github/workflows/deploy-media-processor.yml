@@ -917,6 +917,110 @@ jobs:
             exit 1
           fi
           say 'Both paragraphs came back, in both scripts. Office extraction works end to end.'
+      - name: Prove it can convert and probe
+        if: inputs.action == 'selftest'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [ -z "${TOKEN:-}" ]; then
+            echo '::error::PROCESSOR_TOKEN is not set. Nothing to authenticate with.'
+            exit 1
+          fi
+
+          # ffmpeg has been in this image since it was built and, until these
+          # routes, nothing called it. So the thing being proved is not that
+          # ffmpeg works — it is that this deployment reaches it, and that what
+          # comes back is a playable file rather than a zero-byte success.
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq >/dev/null 2>&1
+            sudo apt-get install -y -qq ffmpeg >/dev/null 2>&1
+          fi
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            echo '::error::No ffmpeg on the runner, so no test media can be made.'
+            exit 1
+          fi
+
+          # Three seconds of a 440 Hz tone, as WAV. Generated rather than
+          # committed: a binary fixture in the repository is a thing to keep in
+          # sync, and a sine wave is the same three seconds every time.
+          ffmpeg -nostdin -hide_banner -loglevel error -y \
+            -f lavfi -i 'sine=frequency=440:duration=3' -ar 44100 -ac 1 /tmp/vx-tone.wav
+          IN_SIZE=$(stat -c%s /tmp/vx-tone.wav 2>/dev/null || echo 0)
+          if [ "$IN_SIZE" -lt 1000 ]; then
+            echo "::error::The test tone did not build ($IN_SIZE bytes) - this is the generator, not the service."
+            exit 1
+          fi
+          echo "test wav     : $IN_SIZE bytes"
+
+          say '## Local conversion self-test'
+          say '```'
+          FAILED=0
+
+          # ── 1. Probe: does it say what the file is? ─────────────────────────
+          PROBE=$(curl -s --max-time 40 \
+            -H "authorization: Bearer $TOKEN" \
+            --data-binary @/tmp/vx-tone.wav \
+            'https://visionex.app/internal/media/probe')
+          say "probe    : $(printf '%s' "$PROBE" | head -c 300)"
+          case "$PROBE" in
+            *'"kind":"audio"'*) ;;
+            *) echo '::error::Probe did not recognise a WAV as audio.'; FAILED=1 ;;
+          esac
+
+          # ── 2. Convert: WAV → MP3 ──────────────────────────────────────────
+          HTTP=$(curl -s --max-time 90 -o /tmp/vx-out.mp3 -w '%{http_code}' \
+            -H "authorization: Bearer $TOKEN" \
+            --data-binary @/tmp/vx-tone.wav \
+            'https://visionex.app/internal/media/convert?to=mp3&bitrate=128k')
+          OUT_SIZE=$(stat -c%s /tmp/vx-out.mp3 2>/dev/null || echo 0)
+          say "wav->mp3 : HTTP $HTTP, $OUT_SIZE bytes"
+
+          if [ "$HTTP" != "200" ]; then
+            echo "::error::Conversion answered $HTTP."
+            say "body     : $(head -c 300 /tmp/vx-out.mp3)"
+            FAILED=1
+          elif [ "$OUT_SIZE" -lt 1000 ]; then
+            # An ffmpeg that exits 0 having written a header is the failure this
+            # endpoint is most likely to have, and it looks exactly like success.
+            echo "::error::The MP3 came back empty or truncated ($OUT_SIZE bytes)."
+            FAILED=1
+          else
+            # Not just bytes: something ffprobe agrees is an MP3 with sound in
+            # it. A file of the right size that will not play is still a failure
+            # for whoever was sent it.
+            CODEC=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 /tmp/vx-out.mp3 2>/dev/null || echo none)
+            DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 /tmp/vx-out.mp3 2>/dev/null || echo 0)
+            say "decoded  : codec=$CODEC duration=${DUR}s"
+            case "$CODEC" in
+              mp3) ;;
+              *) echo "::error::The returned file is not a playable MP3 (codec: $CODEC)."; FAILED=1 ;;
+            esac
+          fi
+
+          # ── 3. Refusals: the options are an allowlist, not a suggestion ─────
+          for BAD in 'to=exe' 'to=mp3&bitrate=999k' 'to=mp3&start=-5'; do
+            CODE=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
+              -H "authorization: Bearer $TOKEN" \
+              --data-binary @/tmp/vx-tone.wav \
+              "https://visionex.app/internal/media/convert?$BAD")
+            say "refuse   : $BAD -> HTTP $CODE"
+            case "$CODE" in
+              400) ;;
+              *) echo "::error::'$BAD' was not refused with a 400 (got $CODE)."; FAILED=1 ;;
+            esac
+          done
+
+          say '```'
+          rm -f /tmp/vx-tone.wav /tmp/vx-out.mp3
+
+          if [ "$FAILED" -ne 0 ]; then
+            say 'Conversion must not be announced. A sender would be handed a file that does not play.'
+            exit 1
+          fi
+          say 'Probe recognised the file, the MP3 plays, and every bad option was refused. Conversion works end to end.'
       - name: Forget the key
         if: always()
         run: rm -f ~/.ssh/id_deploy ~/.ssh/config

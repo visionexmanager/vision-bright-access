@@ -430,8 +430,36 @@ describe("the format policy, in one place", () => {
     expect(product).toBe(MAX_OFFICE_UPLOAD_BYTES);
 
     const nginx = readFileSync("services/media-processor/nginx/visionex-media.location.conf", "utf8");
-    const bodyLimit = Number(/client_max_body_size\s+(\d+)m/.exec(nginx)?.[1]);
-    // nginx sits in front of both endpoints, so it must admit the larger.
-    expect(bodyLimit * 1024 * 1024).toBe(MAX_OFFICE_UPLOAD_BYTES);
+    const bodyLimit = Number(/client_max_body_size\s+(\d+)m/.exec(nginx)?.[1]) * 1024 * 1024;
+
+    // nginx sits in front of every endpoint on this prefix, so it must admit
+    // the largest of their ceilings — and no more, because anything past the
+    // largest is a refusal that costs Node a request instead of costing nginx
+    // nothing. There are three kinds now: an image at eight, a document at
+    // twelve, and media for conversion at sixteen.
+    const convert = readFileSync("services/media-processor/src/convert.mjs", "utf8");
+    const declaredBytes = (source: string, name: string) => {
+      const declared = new RegExp(`${name}\\s*=\\s*([\\d\\s*_]+)`).exec(source)?.[1] ?? "";
+      return declared.split("*")
+        .map((part) => Number(part.trim().replace(/_/g, "")))
+        .reduce((a, b) => a * b, 1);
+    };
+    const convertLimit = declaredBytes(convert, "MAX_CONVERT_BYTES");
+    expect(convertLimit).toBe(MEDIA_LIMITS.video);
+    expect(bodyLimit).toBe(Math.max(MAX_OFFICE_UPLOAD_BYTES, convertLimit));
+  });
+
+  it("gives nginx longer than the slowest thing behind it", () => {
+    // A 504 from the proxy on a job the service was going to finish is the
+    // worst shape of failure here: the caller retries work the box is still
+    // doing, and the box does it twice.
+    const nginx = readFileSync("services/media-processor/nginx/visionex-media.location.conf", "utf8");
+    const readTimeout = Number(/proxy_read_timeout\s+(\d+)s/.exec(nginx)?.[1]) * 1000;
+    const convert = readFileSync("services/media-processor/src/convert.mjs", "utf8");
+    const videoTimeout = Number(
+      /VIDEO_TIMEOUT_MS\s*=\s*([\d_]+)/.exec(convert)?.[1]?.replace(/_/g, "") ?? "0",
+    );
+    expect(videoTimeout).toBeGreaterThan(0);
+    expect(readTimeout).toBeGreaterThanOrEqual(videoTimeout);
   });
 });

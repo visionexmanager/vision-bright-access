@@ -57,6 +57,21 @@ import {
   textIsUsable,
 } from "./limits.mjs";
 import {
+  AUDIO_TARGETS,
+  AUDIO_TIMEOUT_MS,
+  audioArgs,
+  gifArgs,
+  MAX_CONVERT_BYTES,
+  MAX_OUTPUT_BYTES,
+  PROBE_TIMEOUT_MS,
+  probeArgs,
+  readOptions,
+  readProbe,
+  VIDEO_TARGETS,
+  VIDEO_TIMEOUT_MS,
+  videoArgs,
+} from "./convert.mjs";
+import {
   MAX_OFFICE_TEXT_CHARS,
   SUPPORTED_OFFICE_KINDS,
   extractOfficeText,
@@ -330,6 +345,164 @@ async function acquireSlot() {
 
 const releaseSlot = () => { inFlight -= 1; };
 
+// ── Converting, and reading what a file actually is ──────────────────────────
+//
+// The one capability here whose tool was already installed. ffmpeg has been in
+// this image since it was built and nothing called it, so this is a route
+// rather than a dependency: no new package, no model, nothing to benchmark.
+//
+// Both endpoints queue behind the same two workers as OCR. A transcode is the
+// most expensive thing this service does, and letting it start outside the
+// admission gate would be the one way to put four ffmpeg runs on four dedicated
+// cores while the website is trying to answer.
+
+/** The body as bytes for conversion, or null with the refusal already sent. */
+async function receiveMedia(req, res, correlation) {
+  try {
+    const bytes = await readBody(req, MAX_CONVERT_BYTES);
+    if (bytes.length === 0) {
+      log("rejected", { correlation, reason: "empty" });
+      send(res, 400, { ok: false, reason: "empty" });
+      return null;
+    }
+    return bytes;
+  } catch (error) {
+    log("rejected", { correlation, reason: error.code ?? "unreadable" });
+    send(res, 413, { ok: false, reason: error.code ?? "unreadable" });
+    return null;
+  }
+}
+
+/**
+ * What this file is, according to the demuxer rather than its name.
+ *
+ * An extension is a claim and a MIME type is a claim; a container ffmpeg can
+ * open is a fact. It is also the fact that decides whether a conversion can
+ * work, which is why detection lives next to conversion and not in a caller.
+ */
+async function handleProbe(req, res, correlation) {
+  if (tooBusy(res, correlation)) return;
+  const bytes = await receiveMedia(req, res, correlation);
+  if (!bytes) return;
+
+  await acquireSlot();
+  try {
+    const info = await runTool({
+      bytes,
+      prefix: "probe-",
+      command: "ffprobe",
+      timeoutMs: PROBE_TIMEOUT_MS,
+      build: (input) => probeArgs(input),
+      ok: (code) => code === 0,
+      read: ({ stdout }) => readProbe(stdout),
+      failure: "unreadable_media",
+    });
+
+    if (!info) {
+      log("probe", { correlation, outcome: "unreadable" });
+      send(res, 422, { ok: false, reason: "unreadable_media" });
+      return;
+    }
+    // A kind and a duration. Never a container tag: a phone's recording carries
+    // the device model and sometimes its coordinates in those, and this service
+    // strips EXIF from images for that exact reason.
+    log("probe", { correlation, kind: info.kind, seconds: info.durationSeconds });
+    send(res, 200, { ok: true, ...info });
+  } catch (error) {
+    log("probe", { correlation, outcome: error.code ?? "failed" });
+    send(res, error.code === "timeout" ? 504 : 422, {
+      ok: false,
+      reason: error.code === "timeout" ? "timeout" : "unreadable_media",
+    });
+  } finally {
+    releaseSlot();
+  }
+}
+
+/**
+ * One conversion.
+ *
+ * The output goes back as bytes with the target's own content type, rather than
+ * as JSON with base64 in it: a caller that wants a file wants a file, and
+ * base64 would add a third of the size to something already measured in
+ * megabytes on a box that is also serving a website.
+ */
+async function handleConvert(req, res, correlation) {
+  if (tooBusy(res, correlation)) return;
+
+  const url = new URL(req.url, "http://internal");
+  const parsed = readOptions(url.searchParams);
+  if (!parsed.ok) {
+    log("rejected", { correlation, reason: parsed.reason });
+    send(res, 400, { ok: false, reason: parsed.reason });
+    return;
+  }
+  const options = parsed.options;
+
+  const bytes = await receiveMedia(req, res, correlation);
+  if (!bytes) return;
+
+  const target = options.to === "gif"
+    ? { mime: "image/gif", ext: "gif" }
+    : options.kind === "audio"
+    ? AUDIO_TARGETS[options.to]
+    : VIDEO_TARGETS[options.to];
+
+  await acquireSlot();
+  const started = Date.now();
+  try {
+    const output = await runTool({
+      bytes,
+      prefix: "conv-",
+      command: "ffmpeg",
+      timeoutMs: options.kind === "audio" ? AUDIO_TIMEOUT_MS : VIDEO_TIMEOUT_MS,
+      build: (input, dir) => {
+        const out = join(dir, `out.${target.ext}`);
+        if (options.to === "gif") return gifArgs(input, out, options);
+        return options.kind === "audio"
+          ? audioArgs(input, out, options)
+          : videoArgs(input, out, options);
+      },
+      ok: (code) => code === 0,
+      read: async ({ dir }) => {
+        const produced = await readFile(join(dir, `out.${target.ext}`));
+        // ffmpeg can exit 0 having written nothing — a trim past the end of the
+        // file is the ordinary way to get there. An empty file is a failure
+        // dressed as a success, and the caller has no way to tell.
+        if (produced.length === 0) throw new Error("empty_output");
+        if (produced.length > MAX_OUTPUT_BYTES) throw new Error("output_too_large");
+        return produced;
+      },
+      failure: "conversion_failed",
+    });
+
+    log("convert", {
+      correlation,
+      to: options.to,
+      kind: options.kind,
+      ms: Date.now() - started,
+      out: output.length,
+    });
+    res.writeHead(200, {
+      "content-type": target.mime,
+      "content-length": output.length,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    });
+    res.end(output);
+  } catch (error) {
+    // A code and a duration, never the sender's file or ffmpeg's own message —
+    // ffmpeg quotes the path and sometimes the container's metadata in its
+    // errors, and these logs are read by people who should not see either.
+    const reason = error.code ?? (error.message === "empty_output" ? "empty_output" : "conversion_failed");
+    log("convert", { correlation, to: options.to, outcome: reason, ms: Date.now() - started });
+    const status = reason === "timeout" ? 504 : reason === "output_too_large" ? 413 : 422;
+    send(res, status, { ok: false, reason });
+  } finally {
+    releaseSlot();
+  }
+}
+
 // ── Routes ───────────────────────────────────────────────────────────────────
 
 async function handleOcr(req, res, correlation) {
@@ -602,6 +775,16 @@ const server = createServer(async (req, res) => {
         languages: ["ara", "eng", "ara+eng"],
         max_bytes: MAX_UPLOAD_BYTES,
         max_document_bytes: MAX_DOCUMENT_BYTES,
+        // What ffmpeg in this image will produce. Named so a caller can tell a
+        // deployment that has these routes from one rolled back to the image
+        // that only had three.
+        convert: {
+          audio: Object.keys(AUDIO_TARGETS),
+          video: [...Object.keys(VIDEO_TARGETS), "gif"],
+          max_bytes: MAX_CONVERT_BYTES,
+          max_output_bytes: MAX_OUTPUT_BYTES,
+        },
+        probe: true,
         concurrency: MAX_CONCURRENT,
       });
     }
@@ -616,6 +799,14 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/office") {
       return await handleOffice(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/probe") {
+      return await handleProbe(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/convert") {
+      return await handleConvert(req, res, correlation);
     }
 
     return send(res, 404, { ok: false, reason: "not_found" });
