@@ -562,3 +562,129 @@ export function geocodeUnavailableNotice(language: Language): string {
 export function nearbyHint(language: Language): string {
   return say("nearbyHint", language);
 }
+
+// ── Naming a category on its own ─────────────────────────────────────────────
+
+/**
+ * "صيدلية", on its own, is a request.
+ *
+ * A sender who has shared a pin and then types one word — *pharmacy*, *bank*,
+ * *مطعم* — is asking for the nearest one. Nothing recognised that: the word
+ * matched no location pattern, fell through to the assistant, and the assistant
+ * offered to give directions it has no way to give. A model apologising for a
+ * capability the system actually has is the worst version of this, because the
+ * sender has no reason to think the words they used were the problem.
+ *
+ * The vocabulary costs nothing to add: `NEARBY_CATEGORIES` already names every
+ * category in all twenty languages, because those are the words the results are
+ * printed with. Matching against them is the same list read backwards.
+ *
+ * Deliberately strict. Only a message that is *essentially just* the category
+ * counts — optionally preceded by a "nearest" word — so "أقرب صيدلية" and
+ * "pharmacy" match, while "صيدلية الدواء مفتوحة لحد امتى" is left to the
+ * assistant, which is the right owner of a question about opening hours.
+ */
+const NEAREST_WORDS = [
+  "أقرب", "اقرب", "أين", "اين", "وين", "فين",
+  "nearest", "closest", "near", "nearby", "find", "a", "an", "the",
+];
+
+/** Punctuation and the question marks of every script this channel speaks. */
+const TRAILING_PUNCTUATION = /[\s.,!?؟،。！？…]+$/u;
+
+/**
+ * The category a message names outright, or null.
+ *
+ * Checked against the sender's own language first and then Arabic and English,
+ * which are the two everybody's phone offers a keyboard for and the two this
+ * assistant's own vocabulary is written in.
+ */
+export function parseNearbyCategory(text: string, language: Language): string | null {
+  const trimmed = (text ?? "").trim().replace(TRAILING_PUNCTUATION, "");
+  if (!trimmed || trimmed.length > LOCATION_MAX_CHARS) return null;
+
+  // At most one leading word, and only a word that means "nearest". Anything
+  // longer is a sentence, and a sentence about a pharmacy is not a request for
+  // the nearest one.
+  const words = trimmed.split(/\s+/u);
+  const candidates = [trimmed];
+  if (words.length > 1 && NEAREST_WORDS.includes(words[0].toLowerCase())) {
+    candidates.push(words.slice(1).join(" "));
+  }
+
+  const languages: Language[] = language === "ar" || language === "en"
+    ? [language]
+    : [language, "ar", "en"];
+
+  for (const candidate of candidates) {
+    const folded = candidate.toLowerCase();
+    for (const [category, key] of Object.entries(NEARBY_CATEGORIES)) {
+      for (const inLanguage of languages) {
+        if (say(key, inLanguage).trim().toLowerCase() === folded) return category;
+      }
+    }
+  }
+  return null;
+}
+
+// ── A place you can tap ──────────────────────────────────────────────────────
+
+/**
+ * The id a nearby result carries into its row, and back out of a tap.
+ *
+ * A list of pharmacies read aloud used to end there: the sender knew one was
+ * 300 m north-east and had no way to be taken to it. Asked for directions, the
+ * assistant offered them and then could not deliver — a model promising a
+ * capability the system genuinely has, which is the worst kind of gap, because
+ * the sender has no reason to suspect the words they used were the problem.
+ *
+ * What WhatsApp can actually do is send a location message, which the sender's
+ * own maps application navigates from. So the row carries the destination and a
+ * tap sends the pin.
+ *
+ * The coordinates travel in the id rather than in a table, and that is a
+ * deliberate privacy choice as much as a simplicity one: this is a public
+ * pharmacy's doorway, not the sender's, and remembering a list of places
+ * against a phone number would be storing somewhere they were interested in
+ * going. Six decimals is about 10 cm — the precision OpenStreetMap holds.
+ */
+export const PLACE_ID_PREFIX = "place:";
+
+export function placeRowId(place: { latitude: number; longitude: number }): string {
+  return `${PLACE_ID_PREFIX}${place.latitude.toFixed(6)},${place.longitude.toFixed(6)}`;
+}
+
+/** The destination inside a tapped row, or null for any other selection. */
+export function parsePlaceSelection(
+  id: string | null | undefined,
+): { latitude: number; longitude: number } | null {
+  if (!id || !id.startsWith(PLACE_ID_PREFIX)) return null;
+  const [lat, lon] = id.slice(PLACE_ID_PREFIX.length).split(",");
+  const latitude = Number(lat);
+  const longitude = Number(lon);
+  // The same validation a shared pin gets. An id is round-tripped through the
+  // sender's client, so it is input like any other.
+  if (!isUsableCoordinate(latitude, longitude)) return null;
+  return { latitude, longitude };
+}
+
+/**
+ * One nearby place, as the line under its own row.
+ *
+ * The same three facts `nearbyLine` puts in the bullets — what it is, how far,
+ * which way — minus the name, which is the row's title. The distance has to be
+ * here rather than only in the bullets above: it is what decides whether
+ * somebody walks or calls a taxi, and on a list you scroll it is the last thing
+ * heard before the tap.
+ */
+export function nearbyRowSubtitle(params: {
+  language: Language;
+  origin: { latitude: number; longitude: number };
+  place: NearbyPlace;
+}): string {
+  const { language, origin, place } = params;
+  return [
+    categoryLabel(place.category, language),
+    `${formatDistance(distanceMetres(origin, place), language)} ${bearingLabel(origin, place, language)}`,
+  ].join(" — ");
+}

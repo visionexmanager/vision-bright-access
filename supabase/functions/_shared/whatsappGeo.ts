@@ -418,13 +418,29 @@ async function nearbyViaOverpass(
   latitude: number,
   longitude: number,
   language: Language,
+  category: string | null,
 ): Promise<NearbyPlace[] | null> {
   const around = `${NEARBY_RADIUS_M},${latitude},${longitude}`;
-  const query = `[out:json][timeout:8];(` +
-    `nwr(around:${around})["amenity"~"^(${AMENITIES.join("|")})$"]["name"];` +
-    `nwr(around:${around})["shop"~"^(${SHOPS.join("|")})$"]["name"];` +
-    `node(around:${around})["highway"="bus_stop"]["name"];` +
-    `);out center ${NEARBY_LIMIT * 6};`;
+  // Asked of the map rather than filtered afterwards. Somebody who typed
+  // "صيدلية" wants the nearest pharmacy even at 900 m, and filtering a list
+  // that was capped at the eight nearest of everything would hand them the
+  // restaurants across the road and nothing else.
+  const amenity = (values: readonly string[]) =>
+    `nwr(around:${around})["amenity"~"^(${values.join("|")})$"]["name"];`;
+  const shop = (values: readonly string[]) =>
+    `nwr(around:${around})["shop"~"^(${values.join("|")})$"]["name"];`;
+  const busStop = () => `node(around:${around})["highway"="bus_stop"]["name"];`;
+
+  // A category this query cannot express narrows nothing rather than returning
+  // an empty set: asking for everything and letting the sender read past it is
+  // a worse answer, never a wrong one.
+  let parts: string[];
+  if (category && AMENITIES.includes(category)) parts = [amenity([category])];
+  else if (category && SHOPS.includes(category)) parts = [shop([category])];
+  else if (category === "bus_stop") parts = [busStop()];
+  else parts = [amenity(AMENITIES), shop(SHOPS), busStop()];
+
+  const query = `[out:json][timeout:8];(${parts.join("")});out center ${NEARBY_LIMIT * 6};`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS);
@@ -493,8 +509,20 @@ async function nearbyViaPhoton(
   latitude: number,
   longitude: number,
   language: Language,
+  category: string | null,
 ): Promise<NearbyPlace[] | null> {
   const lang = PHOTON_LANGUAGES.has(language) ? language : "en";
+  // Photon filters on the tag key, not its value, so a category narrows this
+  // request only as far as "an amenity" or "a shop"; `fetchNearby` does the
+  // rest. Narrowing it this far is still worth doing — the result limit gets
+  // spent on the right kind of place rather than on whatever is closest.
+  const tags = category && SHOPS.includes(category)
+    ? "&osm_tag=shop"
+    : category === "bus_stop"
+    ? "&osm_tag=highway:bus_stop"
+    : category
+    ? "&osm_tag=amenity"
+    : "&osm_tag=amenity&osm_tag=shop&osm_tag=highway:bus_stop";
   const data = await getJson<{
     features?: Array<{
       properties?: Record<string, string>;
@@ -502,8 +530,7 @@ async function nearbyViaPhoton(
     }>;
   }>(
     `https://photon.komoot.io/reverse?lat=${latitude}&lon=${longitude}` +
-    `&radius=${NEARBY_RADIUS_M / 1000}&limit=${NEARBY_LIMIT * 6}&lang=${lang}` +
-    "&osm_tag=amenity&osm_tag=shop&osm_tag=highway:bus_stop",
+    `&radius=${NEARBY_RADIUS_M / 1000}&limit=${NEARBY_LIMIT * 6}&lang=${lang}` + tags,
     PHOTON_NEARBY_TIMEOUT_MS,
   );
   if (!data?.features) return null;
@@ -575,16 +602,23 @@ export async function fetchNearby(
   latitude: number,
   longitude: number,
   language: Language,
+  category: string | null = null,
 ): Promise<NearbyPlace[] | null> {
   const origin = { latitude, longitude };
   const [overpass, photon] = await Promise.all([
-    nearbyViaOverpass(latitude, longitude, language),
-    nearbyViaPhoton(latitude, longitude, language),
+    nearbyViaOverpass(latitude, longitude, language, category),
+    nearbyViaPhoton(latitude, longitude, language, category),
   ]);
+
+  // Neither provider can be asked precisely enough to be trusted on its own —
+  // Overpass can, Photon filters on the tag key only — so the promise that a
+  // request for a pharmacy returns pharmacies is kept here, once, for both.
+  const only = (places: NearbyPlace[]) =>
+    category ? places.filter((place) => place.category === category) : places;
 
   for (const found of [overpass, photon]) {
     if (found === null) continue;
-    const ordered = orderNearby(origin, found);
+    const ordered = orderNearby(origin, only(found));
     if (ordered.length > 0) return ordered;
   }
 

@@ -671,6 +671,11 @@ const BASE_STRINGS = {
     ar: "وصلني موقعك لكن خدمة الخرائط لا تستجيب الآن. جرّب بعد قليل.",
     en: "Your location arrived, but the map service isn't responding right now. Try again shortly.",
   },
+  /** Sent above the tappable list of nearby places. */
+  nearbyTapHint: {
+    ar: "اضغط على أي مكان لأرسل لك موقعه.",
+    en: "Tap a place and I will send you its location.",
+  },
   nearbyHint: {
     ar: "قل «حولي» لأخبرك بأقرب الأماكن، أو «الطقس» لطقس هذا المكان.",
     en: "Say \"near me\" for what's around you, or \"weather\" for the forecast here.",
