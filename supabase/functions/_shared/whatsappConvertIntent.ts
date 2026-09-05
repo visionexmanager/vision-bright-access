@@ -22,21 +22,27 @@
 // passes the attachment and this returns null without one — the guard is the
 // file, not the wording.
 
-import { AUDIO_TARGETS_BY_NAME, VIDEO_TARGETS_BY_NAME } from "./whatsappConvertFormats.ts";
+import {
+  AUDIO_TARGETS_BY_NAME,
+  IMAGE_TARGETS_BY_NAME,
+  VIDEO_TARGETS_BY_NAME,
+} from "./whatsappConvertFormats.ts";
 
 /** Every target the processing service will produce, as one set. */
 export const CONVERT_TARGETS: readonly string[] = [
   ...Object.keys(AUDIO_TARGETS_BY_NAME),
   ...Object.keys(VIDEO_TARGETS_BY_NAME),
+  ...Object.keys(IMAGE_TARGETS_BY_NAME),
 ];
 
 /** The kind of file each target is, which decides what may be asked of what. */
-export type MediaKindForConvert = "audio" | "video";
+export type MediaKindForConvert = "audio" | "video" | "image";
 
 export const targetKind = (target: string): MediaKindForConvert | null => {
   // `in` rather than `Object.hasOwn`: the app target is ES2021 and hasOwn is ES2022.
   if (target in AUDIO_TARGETS_BY_NAME) return "audio";
   if (target in VIDEO_TARGETS_BY_NAME) return "video";
+  if (target in IMAGE_TARGETS_BY_NAME) return "image";
   return null;
 };
 
@@ -91,6 +97,12 @@ export function parseConvertTarget(text: string): string | null {
 export function targetAllowedFrom(sourceKind: MediaKindForConvert, target: string): boolean {
   const wanted = targetKind(target);
   if (!wanted) return false;
+  // A picture can only become another picture. There is nothing to take the
+  // sound out of, and a video made from one still is not a conversion.
+  if (sourceKind === "image") return wanted === "image";
+  // And the other way: a video cannot become a photograph, so a still target
+  // is refused from a recording as well.
+  if (wanted === "image") return false;
   if (sourceKind === "video") return true;
   return wanted === "audio";
 }
@@ -123,6 +135,7 @@ export function parseConvertRequest(params: {
  */
 export function offeredTargets(sourceKind: MediaKindForConvert): readonly string[] {
   if (sourceKind === "audio") return ["mp3", "wav", "m4a", "ogg", "flac"];
+  if (sourceKind === "image") return ["jpg", "png", "webp", "tiff", "bmp"];
   return ["mp4", "mp3", "webm", "gif", "mkv"];
 }
 

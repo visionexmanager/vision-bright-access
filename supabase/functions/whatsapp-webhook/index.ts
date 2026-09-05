@@ -2165,6 +2165,11 @@ Deno.serve(async (req) => {
           ? "audio" as const
           : incoming.media.kind === "video"
           ? "video" as const
+          // A picture too, now that the same ffmpeg converts one. Still only
+          // when a format was named: an image with no caption goes on being
+          // described, which is what this channel is mostly asked for.
+          : incoming.media.kind === "image"
+          ? "image" as const
           : null;
         const convertAsk = convertKind && !humanOwnsThis && !aiFocused && featureOn("services.convert")
           ? parseConvertRequest({ text: incoming.text ?? "", sourceKind: convertKind })
