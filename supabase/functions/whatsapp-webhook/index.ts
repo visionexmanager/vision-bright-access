@@ -220,6 +220,9 @@ import {
   BACK_ID,
   deliverMenu,
   type Delivery,
+  locationMessage,
+  MENU_NOT_DELIVERED,
+  type MenuDelivery,
   menuMessage,
   sendLanguageMenu,
   sendProfileChoice,
@@ -227,6 +230,7 @@ import {
   sendNewsList,
   sendSongList,
   sendTappable,
+  type Tappable,
 } from "../_shared/whatsappInteractive.ts";
 import {
   isOnboarding,
@@ -1228,6 +1232,52 @@ Deno.serve(async (req) => {
        * typed back against the menu in view, which is what makes the text copy
        * something a person can act on rather than something they can only read.
        */
+      /**
+       * One tappable message, delivered and recorded.
+       *
+       * The part of `sendMenu` that is not about the catalog: record the words
+       * before sending, send in the medium the sender used, and correct the row
+       * if a spoken delivery failed and the tappable one went instead. Anything
+       * that offers choices needs all three, and a second copy of them would be
+       * a second delivery-medium policy — which is exactly the mistake the
+       * comment inside `sendMenu` was written about.
+       */
+      const sendChoices = async (
+        message: Tappable,
+        kind: string,
+      ): Promise<MenuDelivery> => {
+        const { data: menuRow } = await db.from("whatsapp_messages").insert({
+          conversation_id: conversationId,
+          direction: "outbound",
+          body: message.text,
+          kind,
+          medium: replyMedium({ spokenInput, body: message.text }),
+        }).select("id").maybeSingle();
+
+        // Recorded, but with nothing to send it through. Reported as undelivered
+        // rather than as an absent answer, which is what a null would have made
+        // every caller re-derive.
+        if (!token || !phoneNumberId) return MENU_NOT_DELIVERED;
+
+        const shown = await deliverMenu(
+          { message, spokenInput },
+          {
+            tap: (tappable) => sendTappable(delivery, tappable),
+            speak: async (text) =>
+              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, voice: await resolveSenderVoice(incoming.from) }),
+          },
+        );
+        // A message that could not be spoken went out as a tappable one
+        // instead, so the row is corrected rather than left claiming a voice
+        // note nobody heard — the same correction `reply` makes, for the same
+        // reason: that column is what "is the voice reply broken?" is answered
+        // from.
+        if (shown.spokenFailed && menuRow?.id) {
+          await db.from("whatsapp_messages").update({ medium: "text" }).eq("id", menuRow.id);
+        }
+        return shown;
+      };
+
       const sendMenu = async (
         nodeId: string,
         lang: Language,
@@ -1250,47 +1300,25 @@ Deno.serve(async (req) => {
         if (!message) return;
 
         // Recorded before it is sent, and recorded as words either way, so the
-        // thread reads as a conversation for whoever triages it later.
-        //
-        // The medium comes from `replyMedium` and from nothing here. It used to
-        // be decided inline — `spokenInput ? "voice" : "text"` — which was a
-        // second delivery-medium policy that happened to agree with the real
-        // one. Two policies that agree today are two policies that will
+        // thread reads as a conversation for whoever triages it later — and
+        // delivered in the medium the sender used. Both live in `sendChoices`,
+        // because the medium comes from `replyMedium` and from nothing else. It
+        // used to be decided inline — `spokenInput ? "voice" : "text"` — which
+        // was a second delivery-medium policy that happened to agree with the
+        // real one. Two policies that agree today are two policies that will
         // disagree the first time one of them learns something, and this one
         // would not have learned that a menu with nothing speakable in it goes
         // out as text.
-        const { data: menuRow } = await db.from("whatsapp_messages").insert({
-          conversation_id: conversationId,
-          direction: "outbound",
-          body: message.text,
-          kind: "welcome",
-          medium: replyMedium({ spokenInput, body: message.text }),
-        }).select("id").maybeSingle();
+        //
+        // A voice sender hears the menu and is shown nothing. That works
+        // because a name is a way to choose: the router resolves a row's title
+        // against the menu in view, and the old numbers still resolve too.
         await db
           .from("whatsapp_conversations")
           .update({ menu_sent_at: new Date().toISOString() })
           .eq("id", conversationId);
-        if (!token || !phoneNumberId) return;
 
-        // A voice sender hears the menu and is shown nothing. That works
-        // because a name is a way to choose: the router resolves a row's title
-        // against the menu in view, and the old numbers still resolve too.
-        const shown = await deliverMenu(
-          { message, spokenInput },
-          {
-            tap: (tappable) => sendTappable(delivery, tappable),
-            speak: async (text) =>
-              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, voice: await resolveSenderVoice(incoming.from) }),
-          },
-        );
-        // A menu that could not be spoken went out as a tappable message
-        // instead, so the row is corrected rather than left claiming a voice
-        // note nobody heard — the same correction `reply` makes, for the same
-        // reason: that column is what "is the voice reply broken?" is answered
-        // from.
-        if (shown.spokenFailed && menuRow?.id) {
-          await db.from("whatsapp_messages").update({ medium: "text" }).eq("id", menuRow.id);
-        }
+        const shown = await sendChoices(message, "welcome");
         log("menu", { node: target, medium: shown.medium, sent: shown.sent, spokenFailed: shown.spokenFailed });
       };
 
@@ -1864,42 +1892,51 @@ Deno.serve(async (req) => {
           })
           .eq("id", conversationId);
 
-        await reply(
-          [
-            formatWhereYouAre({
-              language: answerLanguage,
-              place: named,
-              pinName: incoming.location.name,
-              pinAddress: incoming.location.address,
-              latitude,
-              longitude,
-            }),
-            "",
-            nearbyHint(answerLanguage),
-          ].join("\n"),
-          "reply",
-        );
+        // One message, with the next questions attached to it.
+        //
+        // This used to be two: where you are, and then the weather, sent
+        // whether or not anybody wanted the weather. Two messages is two
+        // notifications and two things to swipe past, and for somebody
+        // listening it is a forecast read out before the sentence they were
+        // actually waiting for. Anything else they might want — what's around
+        // them, a different question entirely — they had to know the words for
+        // and type.
+        //
+        // Now the answer arrives once and the choices travel with it. The rows
+        // carry catalog ids, and a tap arrives as that id *and* as the row's
+        // own title, so `services.weather` lands in exactly the branch a typed
+        // "الطقس" lands in. Nothing below had to learn a new route.
+        const answer = [
+          formatWhereYouAre({
+            language: answerLanguage,
+            place: named,
+            pinName: incoming.location.name,
+            pinAddress: incoming.location.address,
+            latitude,
+            longitude,
+          }),
+          "",
+          // Still the hint, and not decoration: a voice sender is read this
+          // message rather than shown it, and saying one of these is how they
+          // choose. The router resolves a row's title exactly as it resolves a
+          // tap on it.
+          nearbyHint(answerLanguage),
+        ].join("\n");
 
-        // The weather follows as its own message rather than being appended.
-        // It is a second topic, and a screen reader reads one message at a
-        // time. A failure here costs the forecast, never the location answer
-        // that has already been sent.
-        const reading = await viaCache(
-          weatherKey(latitude, longitude, Date.now()),
-          "weather",
-          () => fetchWeather(latitude, longitude),
-        );
-        if (reading) {
-          await reply(
-            formatWeather({
-              language: answerLanguage,
-              placeName: shortPlaceLabel(named, incoming.location.name) || label,
-              current: reading.current,
-              daily: reading.daily,
-              includeForecast: false,
-            }),
-            "reply",
-          );
+        const choices = locationMessage({
+          language: answerLanguage,
+          place: answer,
+          title: shortPlaceLabel(named, incoming.location.name) || label,
+          disabled,
+        });
+
+        // Every follow-up switched off leaves nothing to choose between, and a
+        // message with an empty list under it is worse than the plain answer.
+        if (choices) {
+          const shown = await sendChoices(choices, "reply");
+          log("location_pin", { medium: shown.medium, sent: shown.sent });
+        } else {
+          await reply(answer, "reply");
         }
         continue;
       }

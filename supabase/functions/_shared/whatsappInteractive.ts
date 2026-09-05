@@ -217,6 +217,66 @@ export function menuMessage(
   };
 }
 
+/**
+ * The follow-up questions a shared pin makes answerable, in the order they are
+ * asked in practice. "Where am I" is not among them: the message these rows sit
+ * under has already answered it.
+ */
+const LOCATION_FOLLOW_UPS = ["services.weather", "services.nearby"] as const;
+
+/**
+ * A pin, answered in one message with the next questions attached.
+ *
+ * Sharing a location used to produce two messages in a row — where you are,
+ * then the weather, whether or not anybody wanted the weather — and no way to
+ * ask for anything else except by knowing the words and typing them. Two
+ * messages is two notifications, two things to swipe past, and a forecast
+ * nobody asked for read aloud before the sentence they were waiting for.
+ *
+ * So: one message, and the choices travel with it. The rows carry catalog ids,
+ * which is what makes this cheap — a tap on `services.weather` arrives as that
+ * id *and* as the row's own title, so it lands in the same branch a typed
+ * "الطقس" lands in and no route had to be invented for it.
+ *
+ * Null when a flag has switched off every follow-up, which is not an error: the
+ * caller then sends the place as ordinary text, and a message with an empty
+ * list under it is not an improvement on that.
+ */
+export function locationMessage(params: {
+  language: Language;
+  /** The "you are here" answer, formatted and localised by the caller. */
+  place: string;
+  /** A short name for the list header — the city, when one could be found. */
+  title: string;
+  disabled?: readonly string[];
+}): Tappable | null {
+  const { language, place, title, disabled = [] } = params;
+
+  const rows: Row[] = [];
+  for (const id of LOCATION_FOLLOW_UPS) {
+    const node = nodeById(id);
+    if (!node || !isAvailable(node, disabled)) continue;
+    rows.push({
+      id: node.id,
+      title: localized(node.title, language),
+      description: localized(node.description, language),
+    });
+  }
+  if (rows.length === 0) return null;
+
+  // The way out, for the same reason every list here has one: somebody who
+  // cannot see the screen needs the exit to be a row, not a guess.
+  rows.push({ id: MAIN_MENU_ID, title: say("mainMenu", language) });
+
+  // A list header cannot render markdown, so the place name is used plainly
+  // and the generic word stands in when the geocoders could not name anywhere.
+  const header = title.trim() || say("menuButton", language);
+  return {
+    interactive: compose(header, place, rows, language),
+    text: asText(header, place, rows, language),
+  };
+}
+
 /** One feature as a row: its own name, its own words, its own id. */
 function featureRow(node: CatalogNode, language: Language, disabled: readonly string[]): Row {
   const soon = !isAvailable(node, disabled) && !isFlaggedOff(node, disabled);
@@ -441,6 +501,21 @@ export interface MenuDelivery {
   /** Set when audio was chosen, failed, and the tappable message went instead. */
   spokenFailed: boolean;
 }
+
+/**
+ * Recorded, but with no way to send it.
+ *
+ * The answer when this delivery has no Meta token or phone number id: the
+ * transcript row exists and nothing went out. It lives here rather than being
+ * written out at each call site because a `medium:` decided anywhere but
+ * `replyMedium` is the mistake the webhook's own suite watches for, and a
+ * caller returning `null` instead only moves that decision one line later.
+ */
+export const MENU_NOT_DELIVERED: MenuDelivery = {
+  medium: "interactive",
+  sent: false,
+  spokenFailed: false,
+};
 
 /**
  * Deliver one menu in the medium the sender used.
