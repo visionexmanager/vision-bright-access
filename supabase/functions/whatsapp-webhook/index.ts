@@ -224,6 +224,7 @@ import {
   MENU_NOT_DELIVERED,
   type MenuDelivery,
   menuMessage,
+  nearbyMessage,
   sendLanguageMenu,
   sendProfileChoice,
   sendQuestion,
@@ -2874,15 +2875,38 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (asksWhatIsNearby(questionText) && !humanOwnsThis && !aiFocused && featureOn("services.nearby")) {
+      // One word is a request.
+      //
+      // A sender who has shared a pin and types "صيدلية" is asking for the
+      // nearest one. Nothing recognised that: it matched no location pattern,
+      // reached the assistant, and the assistant offered directions it has no
+      // way to give. Answering it here is what stops a model apologising for a
+      // capability this system actually has.
+      const nearbyCategory = humanOwnsThis || aiFocused
+        ? null
+        : parseNearbyCategory(questionText, answerLanguage);
+
+      const asksNearby = nearbyCategory !== null || asksWhatIsNearby(questionText);
+      if (asksNearby && !humanOwnsThis && !aiFocused && featureOn("services.nearby")) {
         if (!rememberedLocation) {
           await reply(locationNeededNotice(answerLanguage), "reply");
           continue;
         }
         const nearby = await viaCache(
-          nearbyKey(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage, NEARBY_RADIUS_M),
+          nearbyKey(
+            rememberedLocation.latitude,
+            rememberedLocation.longitude,
+            answerLanguage,
+            NEARBY_RADIUS_M,
+            nearbyCategory,
+          ),
           "nearby",
-          () => fetchNearby(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
+          () => fetchNearby(
+            rememberedLocation.latitude,
+            rememberedLocation.longitude,
+            answerLanguage,
+            nearbyCategory,
+          ),
         );
         // `null` is a failed lookup; `[]` is a genuinely unmapped area. Telling
         // somebody standing outside a pharmacy that nothing is near them is
@@ -2891,10 +2915,71 @@ Deno.serve(async (req) => {
           await reply(geocodeUnavailableNotice(answerLanguage), "unsupported");
           continue;
         }
-        await reply(
-          formatNearby({ language: answerLanguage, origin: rememberedLocation, places: nearby }),
-          nearby.length > 0 ? "reply" : "unsupported",
-        );
+
+        const written = formatNearby({
+          language: answerLanguage,
+          origin: rememberedLocation,
+          places: nearby,
+        });
+
+        // Each place is a row now, and tapping one sends its pin. The bullets
+        // stay as the text twin, so a voice sender hears the same list and a
+        // client that refuses interactive messages still gets the answer.
+        const list = nearbyMessage({
+          language: answerLanguage,
+          heading: say("nearbyHeading", answerLanguage),
+          places: nearby.map((found) => ({
+            id: placeRowId(found),
+            title: found.name,
+            description: nearbyRowSubtitle({
+              language: answerLanguage,
+              origin: rememberedLocation,
+              place: found,
+            }),
+          })),
+        });
+
+        if (list) {
+          await reply(written, "reply");
+          await sendChoices(list, "reply");
+        } else {
+          // Nothing mapped out here. `formatNearby` already says so truthfully,
+          // and an empty list under it would say it a second time with nothing
+          // to tap.
+          await reply(written, "unsupported");
+        }
+        continue;
+      }
+
+      // A tapped place: send where it is, which is the part a list of names
+      // could not do. The sender's own maps application navigates from a
+      // location message — this channel has no route of its own to offer.
+      const tappedPlace = humanOwnsThis ? null : parsePlaceSelection(incoming.selection);
+      if (tappedPlace && featureOn("services.nearby")) {
+        if (token && phoneNumberId) {
+          const sent = await sendWhatsAppLocation({
+            phoneNumberId,
+            token,
+            to: incoming.from,
+            latitude: tappedPlace.latitude,
+            longitude: tappedPlace.longitude,
+            // The row's own title, which is the name the sender just read.
+            name: questionText.trim() || undefined,
+          });
+          // No `medium`: that column records whether a reply was written or
+          // spoken, and a pin is neither.
+          if (sent) {
+            await db.from("whatsapp_messages").insert({
+              conversation_id: conversationId,
+              direction: "outbound",
+              body: `[location] ${questionText.trim()}`.trim(),
+              kind: "reply",
+            });
+          } else {
+            await reply(geocodeUnavailableNotice(answerLanguage), "unsupported");
+          }
+          log("place_pin", { outcome: sent ? "sent" : "rejected" });
+        }
         continue;
       }
 

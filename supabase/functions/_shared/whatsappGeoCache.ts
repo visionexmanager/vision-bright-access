@@ -127,9 +127,13 @@ export function nearbyKey(
   longitude: number,
   language: string,
   radiusM: number,
+  category: string | null = null,
 ): string {
   return `nearby:${roundTo(latitude, PLACE_PRECISION)}:${roundTo(longitude, PLACE_PRECISION)}` +
-    `:${language}:${Math.round(radiusM)}`;
+    // "everything" is its own answer and not the same one as "pharmacies": a
+    // shared key would serve a list of restaurants to somebody who asked for a
+    // chemist, which is the failure this cache exists downstream of.
+    `:${language}:${Math.round(radiusM)}:${category ?? "all"}`;
 }
 
 export function weatherKey(latitude: number, longitude: number, nowMs: number): string {

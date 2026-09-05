@@ -408,7 +408,7 @@ describe("the menu a sender is shown", () => {
       for (const id of features) expect(rows, group + " → " + id).toContain(id);
     }
     const ai = idsOf(interactive.menuMessage("assistant", "en")!);
-    expect(ai).toEqual(["assistant.ask", "assistant.voice", "assistant.new", "back"]);
+    expect(ai).toEqual(["assistant.ask", "assistant.voice", "assistant.new", "back", "main_menu"]);
   });
 
   it("25. never says choose, select, or اختر anywhere a sender can read it", () => {
@@ -540,10 +540,14 @@ describe("getting around without numbers", () => {
     expect(outcome.session.path).toEqual(["main"]);
     expect(outcome.session.feature).toBeNull();
 
-    // Offered only where it is not the same place as Back.
+    // Offered everywhere there is anywhere to go, including one level down
+    // where it leads to the same place as Back: a sender who cannot see the
+    // screen should not have to work out that here the two coincide.
     expect(interactive.controlRows("main", "en").map((r) => r.id)).toEqual([]);
-    expect(interactive.controlRows("assistant", "en").map((r) => r.id)).toEqual(["back"]);
-    expect(interactive.controlRows("assistant.ask", "en").map((r) => r.id)).toEqual(["back", "main_menu"]);
+    for (const nodeId of ["assistant", "services", "assistant.ask"]) {
+      expect(interactive.controlRows(nodeId, "en").map((r) => r.id), nodeId)
+        .toEqual(["back", "main_menu"]);
+    }
   });
 
   it("30. hides a flagged-off feature and refuses it by every other door", () => {

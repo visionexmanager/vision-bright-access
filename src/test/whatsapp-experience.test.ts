@@ -70,14 +70,18 @@ describe("the way out of a menu", () => {
       expect(main, language).not.toContain(`• ${back}`);
       expect(main, language).not.toContain(`• ${home}`);
 
-      // One level down, Back and Main menu are the same place: offering both
-      // would be two rows that do the same thing, read aloud, every time.
-      expect(submenu, language).toContain(`• ${back}`);
-      expect(submenu, language).not.toContain(`• ${home}`);
-
-      // Deeper than that they differ, and both are named, Back first.
-      const deep = engine.renderMenu("assistant", language);
-      expect(deep, language).toContain(`• ${back}`);
+      // Everywhere else, both. One level down the two lead to the same place,
+      // and this used to offer only Back there for exactly that reason —
+      // but "Main menu" is a promise about where you end up and "Back" is a
+      // promise about undoing the last thing you did, and somebody who cannot
+      // see the screen should not have to work out that here they coincide.
+      for (const nodeId of ["services", "assistant"]) {
+        const menu = engine.renderMenu(nodeId, language);
+        expect(menu, `${nodeId} / ${language}`).toContain(`• ${back}`);
+        expect(menu, `${nodeId} / ${language}`).toContain(`• ${home}`);
+      }
+      // Back is named first: it is the one people reach for.
+      expect(submenu.indexOf(`• ${back}`), language).toBeLessThan(submenu.indexOf(`• ${home}`));
     }
   });
 

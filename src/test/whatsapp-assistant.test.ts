@@ -2504,7 +2504,7 @@ describe("the new capabilities respect the rules that were already here", () => 
     );
     for (const guarded of [
       "asksWhereAmI(questionText) && !humanOwnsThis",
-      "asksWhatIsNearby(questionText) && !humanOwnsThis",
+      "asksNearby && !humanOwnsThis",
       "weatherRequest && !humanOwnsThis",
       "if (bazaarRequest && !humanOwnsThis) {",
     ]) {

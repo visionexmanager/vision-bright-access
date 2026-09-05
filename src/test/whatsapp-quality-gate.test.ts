@@ -184,14 +184,15 @@ describe("GATE: accessibility", () => {
     }
   });
 
-  it("offers an explicit Back, and Main menu where they differ", () => {
+  it("offers an explicit Back and Main menu everywhere there is anywhere to go", () => {
     for (const language of LANGS) {
       // At the top there is nowhere to go.
       expect(interactive.controlRows(catalog.ROOT_ID, language)).toEqual([]);
-      // One level down, Back and Main menu are the same place.
+      // Everywhere else both, Back first — including one level down, where the
+      // two lead to the same place. Somebody who cannot see the screen should
+      // not have to work out that on this particular menu they coincide.
       const oneDown = interactive.controlRows("services", language);
-      expect(oneDown.map((r) => r.id)).toEqual([interactive.BACK_ID]);
-      // Deeper, both, Back first.
+      expect(oneDown.map((r) => r.id)).toEqual([interactive.BACK_ID, interactive.MAIN_MENU_ID]);
       const deep = interactive.controlRows("services.weather", language);
       expect(deep.map((r) => r.id)).toEqual([interactive.BACK_ID, interactive.MAIN_MENU_ID]);
       for (const row of [...oneDown, ...deep]) {
@@ -207,6 +208,7 @@ describe("GATE: accessibility", () => {
         ? message.interactive.action.sections[0].rows.map((r) => r.id)
         : message?.interactive.action.buttons.map((b) => b.reply.id) ?? [];
       expect(rows, nodeId).toContain(interactive.BACK_ID);
+      expect(rows, nodeId).toContain(interactive.MAIN_MENU_ID);
     }
   });
 

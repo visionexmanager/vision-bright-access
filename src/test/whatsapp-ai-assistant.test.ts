@@ -148,7 +148,7 @@ describe("asking", () => {
     for (const gate of [
       "if (!aiFocused && asksForMenu(questionText))",
       "asksWhereAmI(questionText) && !humanOwnsThis && !aiFocused",
-      "asksWhatIsNearby(questionText) && !humanOwnsThis && !aiFocused",
+      "asksNearby && !humanOwnsThis && !aiFocused",
       "weatherRequest && !humanOwnsThis && !aiFocused",
       "const visionRequest = aiFocused || !featureOn(\"ocr\") ? null : parseVisionMode(questionText);",
       "const bazaarRequest = aiFocused || !featureOn(\"services.bazaar\") ? null : parseBazaarRequest(questionText);",

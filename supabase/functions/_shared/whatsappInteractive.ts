@@ -164,18 +164,24 @@ function asText(header: string, body: string, rows: Row[], language: Language): 
 /**
  * The control rows under a menu or a question.
  *
- * At the top there is nowhere to go, so nothing is offered. One level down,
- * Back and Main menu are the same place, and offering both would be two rows
- * that do the same thing — read aloud, one after the other, on every submenu.
- * Deeper than that they differ and both are offered, Back first, because Back
- * is the one people reach for.
+ * At the top there is nowhere to go, so nothing is offered. Everywhere else
+ * both are, Back first, because Back is the one people reach for.
+ *
+ * One level down the two lead to the same place, and this used to offer only
+ * Back there for exactly that reason. The instruction now is that both are
+ * always present, and the argument for it is better than the argument against:
+ * "Main menu" is a promise about where you will end up, "Back" is a promise
+ * about undoing the last thing you did, and somebody who cannot see the screen
+ * should not have to work out that on this particular menu they coincide. The
+ * cost is one row, and on the two smallest menus it is the difference between
+ * three buttons and a four-row list.
  */
 export function controlRows(nodeId: string, language: Language): Row[] {
-  const depth = pathTo(nodeId).length;
-  if (depth <= 1) return [];
-  const back: Row = { id: BACK_ID, title: say("back", language) };
-  if (depth === 2) return [back];
-  return [back, { id: MAIN_MENU_ID, title: say("mainMenu", language) }];
+  if (pathTo(nodeId).length <= 1) return [];
+  return [
+    { id: BACK_ID, title: say("back", language) },
+    { id: MAIN_MENU_ID, title: say("mainMenu", language) },
+  ];
 }
 
 // ── Menus ────────────────────────────────────────────────────────────────────
@@ -274,6 +280,51 @@ export function locationMessage(params: {
   return {
     interactive: compose(header, place, rows, language),
     text: asText(header, place, rows, language),
+  };
+}
+
+/**
+ * What is around you, as places you can tap rather than places you were told.
+ *
+ * This was a paragraph of bullets. Somebody was told a pharmacy was 300 m
+ * north-east of them and that was the end of it — the one thing they wanted
+ * next, to be taken there, was the one thing the message could not do. Asked
+ * for directions outright, the assistant offered them and then could not
+ * deliver, which is worse than never offering: the sender has no reason to
+ * suspect the words they used were the problem.
+ *
+ * Now each place is a row, and a tap sends that place's location message, which
+ * the sender's own maps application navigates from. The distance and bearing
+ * stay in the description, because "300 m north-east" is what decides whether
+ * somebody walks or calls a taxi, and it has to be heard before the choice
+ * rather than after it.
+ *
+ * Eight places and two controls is Meta's ten exactly, which is why the caller's
+ * `NEARBY_LIMIT` is eight and not nine.
+ */
+export function nearbyMessage(params: {
+  language: Language;
+  /** The heading and the bullets, already formatted — the text twin's body. */
+  heading: string;
+  places: Array<{ id: string; title: string; description: string }>;
+}): Tappable | null {
+  const { language, heading, places } = params;
+  if (places.length === 0) return null;
+
+  const rows: Row[] = [
+    ...places.slice(0, LIST_LIMITS.rows - 2).map((place) => ({
+      id: place.id,
+      title: place.title,
+      description: place.description,
+    })),
+    { id: BACK_ID, title: say("back", language) },
+    { id: MAIN_MENU_ID, title: say("mainMenu", language) },
+  ];
+
+  const body = say("nearbyTapHint", language);
+  return {
+    interactive: compose(heading, body, rows, language),
+    text: asText(heading, body, rows, language),
   };
 }
 

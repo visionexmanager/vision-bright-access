@@ -748,15 +748,19 @@ export function visibleChildrenOf(id: string, disabled: readonly string[] = []):
 /**
  * How many of a menu's ten rows are spent on the way out.
  *
- * At the top there is nowhere to go. One level down, Back and Main menu are the
- * same place and only Back is offered. Deeper, both are. The rule lives here,
- * next to the ten, because two things need it: `whatsappInteractive.ts` builds
- * the rows, and `offeredChildrenOf` below decides what a tap may execute — and
- * those two answers must be the same answer.
+ * At the top there is nowhere to go. Everywhere else both Back and Main menu
+ * are offered — including one level down, where they lead to the same place:
+ * somebody who cannot see the screen should not have to work out that on this
+ * particular menu the two coincide.
+ *
+ * The rule lives here, next to the ten, because two things need it:
+ * `whatsappInteractive.ts` builds the rows, and `offeredChildrenOf` below
+ * decides what a tap may execute — and those two answers must be the same
+ * answer. The main menu itself is at exactly ten children and takes no controls,
+ * which is why this stays 0 at the top rather than reserving room there.
  */
 export function controlRowCount(nodeId: string): number {
-  const depth = pathTo(nodeId).length;
-  return depth <= 1 ? 0 : depth === 2 ? 1 : 2;
+  return pathTo(nodeId).length <= 1 ? 0 : 2;
 }
 
 /**
