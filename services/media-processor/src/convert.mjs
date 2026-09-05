@@ -93,6 +93,87 @@ export const VIDEO_TARGETS = {
   webm: { args: ["-c:v", "libvpx-vp9", "-c:a", "libopus", "-row-mt", "1"], mime: "video/webm", ext: "webm" },
 };
 
+/**
+ * Still images, with the same ffmpeg.
+ *
+ * The third capability that needed a route rather than an installation. ffmpeg
+ * has decoders and encoders for all of these and has been in this image since
+ * it was built; libvips would be faster per megapixel and would also be a new
+ * package to install, patch and audit for a job that happens a few times a
+ * minute at most.
+ *
+ * `-frames:v 1` on every image conversion, because an animated GIF or a
+ * multi-page TIFF handed to an image encoder otherwise produces one file per
+ * frame and ffmpeg exits 0 having written `out.png` as the *last* one — a
+ * silent wrong answer of exactly the kind this service is careful about.
+ */
+export const IMAGE_TARGETS = {
+  jpg:  { args: ["-c:v", "mjpeg"], mime: "image/jpeg", ext: "jpg" },
+  png:  { args: ["-c:v", "png"], mime: "image/png", ext: "png" },
+  webp: { args: ["-c:v", "libwebp"], mime: "image/webp", ext: "webp" },
+  bmp:  { args: ["-c:v", "bmp"], mime: "image/bmp", ext: "bmp" },
+  tiff: { args: ["-c:v", "tiff"], mime: "image/tiff", ext: "tiff" },
+};
+
+export const isImageTarget = (value) =>
+  typeof value === "string" && Object.hasOwn(IMAGE_TARGETS, value);
+
+/** A still image is one frame. Nothing here should take a video's budget. */
+export const IMAGE_TIMEOUT_MS = 20_000;
+
+/** The widths a caller may ask for. Whole strings, like every other option. */
+export const WIDTHS = ["320", "640", "800", "1024", "1280", "1920", "2560"];
+export const isWidth = (value) => typeof value === "string" && WIDTHS.includes(value);
+
+/** Quarter turns. A free angle would mean padding, and padding means a colour. */
+export const ROTATIONS = ["90", "180", "270"];
+export const isRotation = (value) => typeof value === "string" && ROTATIONS.includes(value);
+
+/**
+ * How quality maps for the two lossy image encoders.
+ *
+ * mjpeg wants `-q:v` on a 2-31 scale where *lower is better*, and libwebp wants
+ * `-quality` on 0-100 where higher is better. Two encoders, two opposite
+ * scales, which is exactly why a caller names an intent rather than a number.
+ */
+const JPEG_Q = { small: "12", balanced: "6", high: "3" };
+const WEBP_Q = { small: "50", balanced: "78", high: "92" };
+
+/**
+ * An image conversion, as an argument array.
+ *
+ * `-map_metadata -1` is not tidiness. A photograph from a phone carries the
+ * device model, the software version and frequently GPS coordinates, and this
+ * service strips EXIF before OCR for exactly that reason — a conversion that
+ * copied it through would be a way to get the same data out through a different
+ * door. The rotation is applied to the pixels first, so dropping the metadata
+ * cannot leave a picture on its side.
+ */
+export function imageArgs(input, output, options) {
+  const target = IMAGE_TARGETS[options.to];
+  const args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", input];
+
+  const filters = [];
+  // Rotation before scaling: a width means the width of the picture as the
+  // viewer will see it, not of the file as it happened to be stored.
+  if (options.rotate === "90") filters.push("transpose=1");
+  else if (options.rotate === "180") filters.push("transpose=1,transpose=1");
+  else if (options.rotate === "270") filters.push("transpose=2");
+  // `-2` keeps the aspect ratio and an even height, which some encoders insist
+  // on and none object to.
+  if (options.width) filters.push(`scale=${options.width}:-2`);
+  if (filters.length > 0) args.push("-vf", filters.join(","));
+
+  args.push("-frames:v", "1", ...target.args);
+
+  const quality = options.quality ?? "balanced";
+  if (options.to === "jpg") args.push("-q:v", JPEG_Q[quality]);
+  else if (options.to === "webp") args.push("-quality", WEBP_Q[quality]);
+
+  args.push("-map_metadata", "-1", output);
+  return args;
+}
+
 /** Extracting the sound from a video is an audio target with no video stream. */
 export const isAudioTarget = (value) =>
   typeof value === "string" && Object.hasOwn(AUDIO_TARGETS, value);
@@ -385,7 +466,15 @@ export function readProbe(stdout) {
  */
 export function readOptions(params) {
   const to = params.get("to");
-  const kind = isVideoTarget(to) || to === "gif" ? "video" : isAudioTarget(to) ? "audio" : null;
+  // `gif` is a video source producing an image, and is counted as video here
+  // because that is the budget it needs and the argument builder it uses.
+  const kind = isVideoTarget(to) || to === "gif"
+    ? "video"
+    : isAudioTarget(to)
+    ? "audio"
+    : isImageTarget(to)
+    ? "image"
+    : null;
   if (!kind) return { ok: false, reason: "unsupported_target" };
 
   const trim = parseTrim(params.get("start"), params.get("duration"));
@@ -403,6 +492,8 @@ export function readOptions(params) {
     fps: null,
     quality: null,
     volume: null,
+    width: null,
+    rotate: null,
     normalize: params.get("normalize") === "1",
     mute: params.get("mute") === "1",
   };
@@ -413,6 +504,7 @@ export function readOptions(params) {
   const checks = [
     ["bitrate", isBitrate], ["rate", isSampleRate], ["channels", isChannels],
     ["height", isHeight], ["fps", isFrameRate], ["quality", isQuality], ["volume", isVolume],
+    ["width", isWidth], ["rotate", isRotation],
   ];
   for (const [name, valid] of checks) {
     const value = params.get(name);

@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   AUDIO_TARGETS_BY_NAME,
+  IMAGE_TARGETS_BY_NAME,
   targetLabel,
   targetMime,
   VIDEO_TARGETS_BY_NAME,
@@ -33,6 +34,7 @@ import {
 } from "../../supabase/functions/_shared/whatsappMediaWorker.ts";
 
 const convertSource = readFileSync("services/media-processor/src/convert.mjs", "utf8");
+const convert = await import("../../services/media-processor/src/convert.mjs");
 
 /** The targets the service will actually produce, read out of the service. */
 function serviceTargets(): { audio: string[]; video: string[] } {
@@ -362,5 +364,111 @@ describe("the webhook's own wiring", () => {
 
   it("is gated by a catalog node, so it can be found and switched off", () => {
     expect(webhook).toContain('featureOn("services.convert")');
+  });
+});
+
+// ── 7. Still images, with the same ffmpeg ────────────────────────────────────
+
+describe("converting a picture", () => {
+  const imageService = () => {
+    const start = convertSource.indexOf("export const IMAGE_TARGETS = {");
+    const end = convertSource.indexOf("\n};", start);
+    return [...convertSource.slice(start, end).matchAll(/^\s{2}([a-z0-9]+):\s*\{/gm)].map((m) => m[1]);
+  };
+
+  it("offers nothing the service would refuse", () => {
+    const produced = imageService();
+    expect(produced.length).toBeGreaterThan(3);
+    for (const target of Object.keys(IMAGE_TARGETS_BY_NAME)) {
+      expect(produced, `image target ${target}`).toContain(target);
+    }
+  });
+
+  it("does not offer HEIC", () => {
+    // A Debian ffmpeg is not built with libheif, so offering it would be
+    // offering the one conversion iPhone owners most want and having it fail.
+    // Better to say nothing than to say it and fail.
+    expect(Object.keys(IMAGE_TARGETS_BY_NAME)).not.toContain("heic");
+    expect(CONVERT_TARGETS).not.toContain("heic");
+  });
+
+  it("lets a picture become another picture, and nothing else", () => {
+    expect(targetAllowedFrom("image", "png")).toBe(true);
+    expect(targetAllowedFrom("image", "webp")).toBe(true);
+    // There is nothing to take the sound out of, and a video made from one
+    // still is not a conversion.
+    expect(targetAllowedFrom("image", "mp3")).toBe(false);
+    expect(targetAllowedFrom("image", "mp4")).toBe(false);
+    // And the other way: a video cannot become a photograph either.
+    expect(targetAllowedFrom("video", "jpg")).toBe(false);
+    expect(targetAllowedFrom("audio", "png")).toBe(false);
+  });
+
+  it("classifies every image target it offers", () => {
+    for (const target of offeredTargets("image")) {
+      expect(targetKind(target), target).toBe("image");
+      expect(CONVERT_TARGETS, target).toContain(target);
+    }
+  });
+
+  it("reads a bare image format as a request", () => {
+    expect(parseConvertRequest({ text: "png", sourceKind: "image" })).toEqual({ target: "png" });
+    expect(parseConvertRequest({ text: "حوّلها إلى webp", sourceKind: "image" })).toEqual({ target: "webp" });
+    expect(parseConvertRequest({ text: "mp4", sourceKind: "image" })).toBeNull();
+  });
+});
+
+describe("the arguments a picture conversion is built from", () => {
+  const options = {
+    to: "png", kind: "image", start: null, duration: null, bitrate: null, rate: null,
+    channels: null, height: null, fps: null, quality: null, volume: null,
+    width: null, rotate: null, normalize: false, mute: false,
+  };
+
+  it("takes exactly one frame", () => {
+    // An animated GIF or a multi-page TIFF otherwise produces one file per
+    // frame, and ffmpeg exits 0 having written the output as the *last* one —
+    // a silent wrong answer of exactly the kind this service is careful about.
+    expect(convert.imageArgs("in", "out.png", options).join(" ")).toContain("-frames:v 1");
+  });
+
+  it("throws the metadata away", () => {
+    // A photograph from a phone carries the device model, the software version
+    // and frequently GPS coordinates. This service strips EXIF before OCR for
+    // that exact reason, and a conversion that copied it through would be the
+    // same data leaving by a different door.
+    expect(convert.imageArgs("in", "out.jpg", { ...options, to: "jpg" })).toContain("-map_metadata");
+    expect(convert.imageArgs("in", "out.jpg", { ...options, to: "jpg" })).toContain("-1");
+  });
+
+  it("rotates before it scales", () => {
+    // A width means the width of the picture as the viewer will see it, not of
+    // the file as it happened to be stored.
+    const args = convert.imageArgs("in", "o.png", { ...options, rotate: "90", width: "640" });
+    const filter = args[args.indexOf("-vf") + 1];
+    expect(filter.indexOf("transpose")).toBeLessThan(filter.indexOf("scale"));
+  });
+
+  it("uses each encoder's own quality scale, which run opposite ways", () => {
+    // mjpeg wants 2-31 where lower is better; libwebp wants 0-100 where higher
+    // is. Two encoders, two opposite scales — which is why a caller names an
+    // intent rather than a number.
+    const jpeg = convert.imageArgs("in", "o.jpg", { ...options, to: "jpg", quality: "high" });
+    const webp = convert.imageArgs("in", "o.webp", { ...options, to: "webp", quality: "high" });
+    expect(Number(jpeg[jpeg.indexOf("-q:v") + 1])).toBeLessThan(10);
+    expect(Number(webp[webp.indexOf("-quality") + 1])).toBeGreaterThan(80);
+  });
+
+  it("refuses a width or a rotation that is not on the list", () => {
+    for (const query of ["to=png&width=9999", "to=png&rotate=45", "to=png&rotate=-90"]) {
+      const parsed = convert.readOptions(new URLSearchParams(query));
+      expect(parsed.ok, query).toBe(false);
+    }
+    expect(convert.readOptions(new URLSearchParams("to=png&width=640&rotate=90")).ok).toBe(true);
+  });
+
+  it("gives a still image a smaller budget than a video", () => {
+    expect(convert.IMAGE_TIMEOUT_MS).toBeLessThan(convert.VIDEO_TIMEOUT_MS);
+    expect(convert.IMAGE_TIMEOUT_MS).toBeLessThan(convert.AUDIO_TIMEOUT_MS);
   });
 });

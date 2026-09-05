@@ -53,6 +53,7 @@ export const VIDEO_TARGETS_BY_NAME: Record<string, { label: string; mime: string
 export function targetLabel(target: string): string {
   return AUDIO_TARGETS_BY_NAME[target]?.label
     ?? VIDEO_TARGETS_BY_NAME[target]?.label
+    ?? IMAGE_TARGETS_BY_NAME[target]?.label
     ?? target.toUpperCase();
 }
 
@@ -60,5 +61,23 @@ export function targetLabel(target: string): string {
 export function targetMime(target: string): string {
   return AUDIO_TARGETS_BY_NAME[target]?.mime
     ?? VIDEO_TARGETS_BY_NAME[target]?.mime
+    ?? IMAGE_TARGETS_BY_NAME[target]?.mime
     ?? "application/octet-stream";
 }
+
+/**
+ * Still images.
+ *
+ * Converted by the same ffmpeg as everything else — a third capability that
+ * needed a route rather than an installation. HEIC is deliberately absent: a
+ * Debian ffmpeg is not built with libheif, so offering it would be offering a
+ * conversion that fails on the one format iPhone owners most want converted.
+ * Better to say nothing than to say it and fail.
+ */
+export const IMAGE_TARGETS_BY_NAME: Record<string, { label: string; mime: string }> = {
+  jpg:  { label: "JPG", mime: "image/jpeg" },
+  png:  { label: "PNG", mime: "image/png" },
+  webp: { label: "WebP", mime: "image/webp" },
+  bmp:  { label: "BMP", mime: "image/bmp" },
+  tiff: { label: "TIFF", mime: "image/tiff" },
+};

@@ -59,6 +59,9 @@ import {
 import {
   AUDIO_TARGETS,
   AUDIO_TIMEOUT_MS,
+  IMAGE_TARGETS,
+  IMAGE_TIMEOUT_MS,
+  imageArgs,
   audioArgs,
   gifArgs,
   MAX_CONVERT_BYTES,
@@ -446,6 +449,8 @@ async function handleConvert(req, res, correlation) {
     ? { mime: "image/gif", ext: "gif" }
     : options.kind === "audio"
     ? AUDIO_TARGETS[options.to]
+    : options.kind === "image"
+    ? IMAGE_TARGETS[options.to]
     : VIDEO_TARGETS[options.to];
 
   await acquireSlot();
@@ -455,10 +460,17 @@ async function handleConvert(req, res, correlation) {
       bytes,
       prefix: "conv-",
       command: "ffmpeg",
-      timeoutMs: options.kind === "audio" ? AUDIO_TIMEOUT_MS : VIDEO_TIMEOUT_MS,
+      // A still image is one frame and should never hold a worker for a
+      // video-sized budget.
+      timeoutMs: options.kind === "image"
+        ? IMAGE_TIMEOUT_MS
+        : options.kind === "audio"
+        ? AUDIO_TIMEOUT_MS
+        : VIDEO_TIMEOUT_MS,
       build: (input, dir) => {
         const out = join(dir, `out.${target.ext}`);
         if (options.to === "gif") return gifArgs(input, out, options);
+        if (options.kind === "image") return imageArgs(input, out, options);
         return options.kind === "audio"
           ? audioArgs(input, out, options)
           : videoArgs(input, out, options);
@@ -781,6 +793,7 @@ const server = createServer(async (req, res) => {
         convert: {
           audio: Object.keys(AUDIO_TARGETS),
           video: [...Object.keys(VIDEO_TARGETS), "gif"],
+          image: Object.keys(IMAGE_TARGETS),
           max_bytes: MAX_CONVERT_BYTES,
           max_output_bytes: MAX_OUTPUT_BYTES,
         },

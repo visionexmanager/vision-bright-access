@@ -1001,6 +1001,47 @@ jobs:
             esac
           done
 
+
+          # ── 4. A picture, and the metadata that must not survive it ────────
+          #
+          # The one image assertion that is not about pixels: a photograph from
+          # a phone carries the device model and frequently GPS coordinates, and
+          # a conversion that copied them through would be the same data leaving
+          # by a different door from the one EXIF stripping already closed.
+          ffmpeg -nostdin -hide_banner -loglevel error -y \
+            -f lavfi -i 'testsrc=size=640x480:duration=1' -frames:v 1 \
+            -metadata comment='VISIONEX-SECRET-LOCATION' /tmp/vx-test.png
+          if [ ! -s /tmp/vx-test.png ]; then
+            echo '::error::The test image did not build - this is the generator, not the service.'
+            FAILED=1
+          else
+            HTTP=$(curl -s --max-time 60 -o /tmp/vx-out.webp -w '%{http_code}' \
+              -H "authorization: Bearer $TOKEN" \
+              --data-binary @/tmp/vx-test.png \
+              'https://visionex.app/internal/media/convert?to=webp&width=320&quality=small')
+            OUT=$(stat -c%s /tmp/vx-out.webp 2>/dev/null || echo 0)
+            say "png->webp: HTTP $HTTP, $OUT bytes"
+
+            if [ "$HTTP" != "200" ] || [ "$OUT" -lt 100 ]; then
+              echo "::error::Image conversion answered $HTTP with $OUT bytes."
+              FAILED=1
+            else
+              CODEC=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width -of csv=p=0 /tmp/vx-out.webp 2>/dev/null || echo none)
+              say "decoded  : $CODEC"
+              case "$CODEC" in
+                webp,320*) ;;
+                *) echo "::error::The returned file is not a 320px WebP ($CODEC)."; FAILED=1 ;;
+              esac
+              if ffprobe -v error -show_entries format_tags -of default=noprint_wrappers=1 /tmp/vx-out.webp 2>/dev/null | grep -qi 'VISIONEX-SECRET-LOCATION'; then
+                echo '::error::The metadata survived the conversion. It must not.'
+                FAILED=1
+              else
+                say 'metadata : stripped'
+              fi
+            fi
+          fi
+          rm -f /tmp/vx-test.png /tmp/vx-out.webp
+
           say '```'
           rm -f /tmp/vx-tone.wav /tmp/vx-out.mp3
 
