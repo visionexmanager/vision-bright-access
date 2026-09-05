@@ -293,7 +293,10 @@ import {
   MAX_ATTEMPTS,
   queuedNotice,
 } from "../_shared/whatsappMediaJobs.ts";
-import { messageKindFor, runMediaJob } from "../_shared/whatsappMediaWorker.ts";
+import { messageKindFor, runMediaJob, runTranslateJob } from "../_shared/whatsappMediaWorker.ts";
+import { extractDocumentText } from "../_shared/whatsappDocumentText.ts";
+import { extractPdfText } from "../_shared/whatsappPdfText.ts";
+import { readOfficeLocally } from "../_shared/whatsappOffice.ts";
 import { convertMediaLocally } from "../_shared/whatsappProcessor.ts";
 import { uploadWhatsAppMedia } from "../_shared/whatsappVoiceReply.ts";
 
@@ -1373,6 +1376,88 @@ Deno.serve(async (req) => {
           if (!job) return;
 
           const jobLanguage = (job.language ?? "en") as Language;
+
+          // Two kinds of work, one queue. The claim does not care which, and
+          // neither does the lease or the sweep — only the middle differs.
+          if (job.operation === "translate") {
+            const translated = await runTranslateJob(
+              {
+                id: job.id,
+                target: job.target,
+                source_media_id: job.source_media_id,
+                source_mime: job.source_mime,
+                source_filename: job.source_filename,
+                attempts: job.attempts,
+              },
+              {
+                download: async (mediaId) => {
+                  if (!token) return null;
+                  const media = await downloadMedia({
+                    mediaId, kind: "document", token, trace: correlationId,
+                  });
+                  return media.ok ? media.bytes : null;
+                },
+                extract: (bytes, mimeType, filename) => extractDocumentText({
+                  bytes,
+                  mimeType,
+                  filename,
+                  // Both readers are handed in because the module that owns
+                  // them imports `npm:pdf-parse`, and a module that imports
+                  // that cannot be loaded by the suite.
+                  readPdf: (input) => extractPdfText(input),
+                  readOffice: (input, mime) => readOfficeLocally({ bytes: input, mimeType: mime }),
+                }),
+                translate: async (text, target) => {
+                  const answer = await askAssistant({
+                    question: `${translateTextPrompt(LANGUAGE_ENDONYM[jobLanguage], target)}\n\n${text}`,
+                    languageName: LANGUAGE_ENDONYM[jobLanguage],
+                    provider: chainProvider(),
+                  });
+                  return answer.ok ? answer.text : null;
+                },
+                sendText: async (text) => {
+                  await reply(text, "reply");
+                  return true;
+                },
+                sendFile: async (content, filename, mime) => {
+                  if (!token || !phoneNumberId) return false;
+                  const mediaId = await uploadWhatsAppMedia({
+                    phoneNumberId,
+                    token,
+                    bytes: new TextEncoder().encode(content),
+                    mimeType: mime,
+                    filename,
+                  });
+                  if (!mediaId) return false;
+                  return await sendWhatsAppMediaById({
+                    phoneNumberId, token, to: incoming.from,
+                    mediaId, kind: "document", filename,
+                  });
+                },
+                finish: async (status, errorCode) => {
+                  await db.rpc("whatsapp_finish_media_job", {
+                    _id: job.id, _status: status, _error_code: errorCode,
+                  });
+                },
+                // Each reason needs a different thing from the sender, which is
+                // why they are not one sentence. A scan needs a photograph of
+                // the page; an empty file needs a different file; a protected
+                // one needs an unprotected copy.
+                notify: async (reason) => {
+                  await reply(
+                    reason === "scanned_pdf" ? scannedPdfNotice(jobLanguage)
+                      : reason === "encrypted_pdf" ? encryptedDocumentNotice(jobLanguage)
+                      : reason === "unsupported_format" ? unsupportedDocumentNotice(jobLanguage)
+                      : failedNotice(jobLanguage),
+                    "unsupported",
+                  );
+                },
+              },
+            );
+            log("media_job", { outcome: translated, target: "translate", attempt: job.attempts });
+            return;
+          }
+
           const outcome = await runMediaJob(
             {
               id: job.id,
@@ -2399,6 +2484,51 @@ Deno.serve(async (req) => {
           await reply(clampReply(barcodeText ? `${seen.answer}\n\n${barcodeText}` : seen.answer), "reply");
           continue;
         } else if (incoming.media.kind === "document") {
+          // ── "Translate this" ──────────────────────────────────────────────
+          //
+          // Checked before the download, because the worker downloads it again
+          // and fetching a twelve-megabyte report twice to answer one request
+          // is bandwidth spent for nothing.
+          //
+          // Queued rather than answered here for a sharper reason than a
+          // transcode: a conversion is one call to ffmpeg, and a translation is
+          // one provider call per chunk. A PDF is many chunks, so this is
+          // slower than the thing the queue was built for, not faster.
+          const translateAsk = !humanOwnsThis && !aiFocused && featureOn("ocr.translate")
+            ? parseVisionMode(incoming.media.caption ?? "")
+            : null;
+
+          if (translateAsk?.mode === "translate") {
+            const { error: queueError } = await db.from("whatsapp_media_jobs").insert({
+              conversation_id: conversationId,
+              wa_message_id: incoming.messageId,
+              operation: "translate",
+              // The endonym, because that is what the prompt is written with.
+              // Absent, the sender's own language is the obvious target: they
+              // asked in it.
+              target: translateAsk.target ?? LANGUAGE_ENDONYM[answerLanguage],
+              source_media_id: incoming.media.id,
+              source_mime: incoming.media.mimeType ?? null,
+              // Only for telling a subtitle file from a text file: WhatsApp
+              // hands over an `.srt` as `application/octet-stream`, and
+              // translating one as prose destroys its timings.
+              source_filename: incoming.media.filename ?? null,
+              language: answerLanguage,
+              spoken_input: spokenInput,
+            });
+
+            if (queueError && queueError.code !== "23505") {
+              console.error("[whatsapp] could not queue a translation:", describeError(queueError));
+              await reply(featureErrorNotice(answerLanguage), "unsupported");
+              continue;
+            }
+
+            await reply(queuedNotice(answerLanguage), "reply");
+            log("media_job", { outcome: "queued", target: "translate", kind: "document" });
+            EdgeRuntime.waitUntil(drainOneMediaJob());
+            continue;
+          }
+
           const media = await downloadMedia({
             mediaId: incoming.media.id,
             kind: "document",

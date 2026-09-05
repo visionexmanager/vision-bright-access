@@ -497,15 +497,16 @@ describe("the webhook is wired to exactly this policy", () => {
     expect(webhook.match(/voiceToText\(/g)?.length).toBe(1);
     expect(webhook).toContain("question: questionText,");
 
-    // Two places reach a model: the assistant, and the IVX tutor answering
-    // "why?" about the question in front of a learner. What this test is
-    // actually protecting is that neither of them grew its own pathway —
-    // every ask goes through `askAssistant`, and every one is handed
-    // `chainProvider()`, so provider order stays a single decision made in
-    // `assistants.ts`. A third ask is fine as long as it is wired the same
-    // way; an ask that named its own provider would not be.
+    // Three places reach a model: the assistant, the IVX tutor answering "why?"
+    // about the question in front of a learner, and the document translator
+    // working through one chunk at a time. What this test is actually
+    // protecting is that none of them grew its own pathway — every ask goes
+    // through `askAssistant`, and every one is handed `chainProvider()`, so
+    // provider order stays a single decision made in `assistants.ts`. A fourth
+    // ask is fine as long as it is wired the same way; an ask that named its
+    // own provider would not be.
     const asks = webhook.match(/askAssistant\(/g)?.length ?? 0;
-    expect(asks).toBe(2);
+    expect(asks).toBe(3);
     expect(webhook.match(/chainProvider\(\)/g)?.length).toBe(asks);
     expect(webhook).not.toMatch(/askAssistant\([\s\S]{0,2000}?\}\s*,\s*\{\s*provider:/);
   });

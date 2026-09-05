@@ -23,6 +23,7 @@
 // cron at all: the webhook is called often enough to be its own drain.
 
 import { nextStatus, shouldTellSender, jobQuery, type JobStatus } from "./whatsappMediaJobs.ts";
+import { translateDocument } from "./whatsappTranslateDoc.ts";
 
 /** A job as the claim hands it back. Only the fields the work needs. */
 export interface MediaJob {
@@ -156,6 +157,147 @@ export async function runMediaJob(job: MediaJob, ports: WorkerPorts): Promise<Jo
   // news: the sender was already told the work is happening, and "still working
   // on it" three times is three notifications that say nothing.
   if (status === "failed" && shouldTellSender(status)) await ports.notify("failed");
+
+  return status;
+}
+
+// ── Translating a document ───────────────────────────────────────────────────
+//
+// The second thing that cannot happen inside a webhook, and for a sharper
+// reason than a transcode: a conversion is one call to ffmpeg, and a
+// translation is one provider call per chunk. A PDF is many chunks, so it is
+// slower than the thing the queue was built for, not faster.
+//
+// It shares the queue, the claim, the lease and the sweep. What is different is
+// only what happens between the download and the send, so that is all this is.
+
+/** A translation job as the claim hands it back. */
+export interface TranslateJob {
+  id: string;
+  /** The language to translate into, as this channel's own code. */
+  target: string;
+  source_media_id: string;
+  source_mime?: string | null;
+  source_filename?: string | null;
+  attempts: number;
+}
+
+export interface TranslatePorts {
+  download(mediaId: string): Promise<Uint8Array | null>;
+  /** The words out of the file, or a reason there are none. */
+  extract(bytes: Uint8Array, mimeType: string, filename?: string): Promise<
+    { ok: boolean; text?: string; reason?: string }
+  >;
+  /** One chunk. Null means this one did not work. */
+  translate(text: string, target: string): Promise<string | null>;
+  /** The result as a message, when it is prose. */
+  sendText(text: string): Promise<boolean>;
+  /** The result as a file, when it is subtitles and must stay one. */
+  sendFile(content: string, filename: string, mime: string): Promise<boolean>;
+  finish(status: JobStatus, errorCode: string | null): Promise<void>;
+  /** One sentence, naming what went wrong in terms the sender can act on. */
+  notify(reason: string): Promise<void>;
+}
+
+/**
+ * What a failed extraction should tell the sender.
+ *
+ * Each of these needs a different thing from them, which is why they are not
+ * one message: a scan needs a photograph of the page — which this assistant
+ * reads well — an empty file needs a different file, a protected one needs an
+ * unprotected copy, and a format nothing can open needs a different format.
+ * Collapsing them into "that didn't work" would leave somebody retrying the
+ * one thing that cannot succeed.
+ */
+export const EXTRACT_FAILURE_REASONS = [
+  "scanned_pdf",
+  "encrypted_pdf",
+  "unsupported_format",
+  "empty",
+] as const;
+
+/**
+ * A translated subtitle file keeps its extension; prose has no file at all.
+ *
+ * The target is an endonym — "العربية", "中文" — because that is what a model is
+ * told to translate into. A filename is not the place for it: WhatsApp shows
+ * the name and some clients mangle non-ASCII in one, so anything outside a
+ * narrow set is dropped and the name falls back to a word rather than to an
+ * empty stem.
+ */
+export const translatedFilename = (target: string, format: string): string => {
+  const stem = (target ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  return `visionex-${stem || "translated"}.${format}`;
+};
+
+/**
+ * Run one claimed translation to its end.
+ *
+ * Never throws, for the reason `runMediaJob` does not: a job that throws is a
+ * row stuck at `running` until its lease expires, with the sender hearing
+ * nothing at all in the meantime.
+ */
+export async function runTranslateJob(
+  job: TranslateJob,
+  ports: TranslatePorts,
+): Promise<JobStatus> {
+  let code: string | null = null;
+  let told = false;
+
+  try {
+    const source = await ports.download(job.source_media_id);
+    if (!source || source.length === 0) {
+      code = "upstream";
+    } else {
+      const extracted = await ports.extract(
+        source,
+        job.source_mime ?? "",
+        job.source_filename ?? undefined,
+      );
+
+      if (!extracted.ok || !extracted.text) {
+        // Not retryable and not a mystery: the file is what it is. The sender
+        // is told which of the four it was, because each needs a different
+        // thing from them.
+        const reason = extracted.reason ?? "extract_failed";
+        await ports.notify(reason);
+        told = true;
+        code = reason === "extract_failed" ? "extract_failed" : reason;
+      } else {
+        const outcome = await translateDocument({
+          source: extracted.text,
+          translate: (text) => ports.translate(text, job.target),
+        });
+
+        if (!outcome.ok || !outcome.output) {
+          code = outcome.reason === "too_long" ? "too_long" : "translation_failed";
+        } else if (outcome.format) {
+          // Subtitles go back as a file, because that is what they are for. A
+          // wall of dialogue in a message is not a subtitle track.
+          const sent = await ports.sendFile(
+            outcome.output,
+            translatedFilename(job.target, outcome.format),
+            outcome.format === "vtt" ? "text/vtt" : "application/x-subrip",
+          );
+          if (!sent) code = "upstream";
+        } else if (!await ports.sendText(outcome.output)) {
+          code = "upstream";
+        }
+      }
+    }
+  } catch {
+    code = "network";
+  }
+
+  const status = nextStatus({ errorCode: code, attempts: job.attempts });
+  await ports.finish(status, code);
+
+  // Told once, and only if they have not been told something more useful
+  // already. "I couldn't translate this" after "there is no text layer in that
+  // PDF" is a second notification that removes information.
+  if (status === "failed" && !told && shouldTellSender(status)) {
+    await ports.notify(code ?? "translation_failed");
+  }
 
   return status;
 }

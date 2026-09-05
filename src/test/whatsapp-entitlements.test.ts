@@ -152,16 +152,29 @@ describe("the gate is where the money is", () => {
     expect(webhook).toContain("if (!(await maySpend())) continue;");
     expect(webhook).toContain("if (!humanOwnsThis && !(await maySpend())) continue;");
 
-    // Three call sites: the assistant's provider call, a media download, and
-    // the IVX tutor — which also reaches a provider and so also costs the
-    // sender an allowance unit. The rule is not "no more than two"; it is
-    // that every gate stands in front of something that is actually paid for,
-    // and that everything paid for stands behind a gate. So the count is
-    // checked against the number of paid operations rather than a constant.
+    // The rule is not a count. It is that every gate stands in front of
+    // something that is actually paid for, and that everything paid for stands
+    // behind a gate.
+    //
+    // The arithmetic used to be `gates === asks + 1`, which held while every
+    // ask had a gate of its own. Document translation broke that arithmetic
+    // without breaking the rule: it reaches a provider, and it sits inside the
+    // document branch — which is already behind the media gate — so it shares
+    // one rather than adding one. Asserting positions says what the rule
+    // actually is; asserting a sum said what it happened to look like.
     const gates = webhook.match(/await maySpend\(\)/g)?.length ?? 0;
     const asks = webhook.match(/await askAssistant\(/g)?.length ?? 0;
-    expect(asks).toBe(2);
-    expect(gates).toBe(asks + 1); // + the media download
+    expect(asks).toBe(3);
+    expect(gates).toBe(3);
+
+    const mediaGate = webhook.indexOf("if (!humanOwnsThis && !(await maySpend())) continue;");
+    expect(mediaGate).toBeGreaterThan(-1);
+    // Translation is paid for, so it is behind the gate.
+    expect(webhook.indexOf('operation: "translate"')).toBeGreaterThan(mediaGate);
+    // Conversion is not — it is ffmpeg on a machine Visionex already rents —
+    // so it is deliberately in front of it. Charging an allowance for a service
+    // with no bill is the thing this position prevents.
+    expect(webhook.indexOf("if (convertAsk && convertKind) {")).toBeLessThan(mediaGate);
   });
 
   it("charges only for work that succeeded", () => {
