@@ -94,7 +94,7 @@ describe("a cache key carries no person", () => {
     const keys = [
       cache.reverseKey(31.951, 35.923, "ar"),
       cache.geocodeKey("Amman"),
-      cache.nearbyKey(31.951, 35.923, "en"),
+      cache.nearbyKey(31.951, 35.923, "en", 1200),
       cache.weatherKey(31.951, 35.923, NOW),
     ];
     for (const key of keys) {
@@ -192,6 +192,40 @@ describe("a cache that cannot break the lookup", () => {
     expect(cache.GEO_TTL_MS.nearby).toBeLessThan(cache.GEO_TTL_MS.reverse);
     // Weather never outlives its own hour bucket.
     expect(cache.GEO_TTL_MS.weather).toBeLessThanOrEqual(3_600_000);
+  });
+
+  it("does not remember an empty list either", async () => {
+    // The rule above was written for `null` and the reasoning applies just as
+    // well to `[]`: "nothing is around you" from a provider having a bad minute
+    // was kept for the full seven days of the `nearby` TTL and repeated to
+    // everybody standing in that neighbourhood. A blind sender told twice that
+    // the pharmacy they are outside does not exist cannot tell it is the cache
+    // talking, and a genuinely empty area costs only one extra lookup.
+    const { store, rows, calls } = memory();
+
+    const first = await cache.cached("nearby:31.951:35.923:ar:1200", "nearby", store, async () => []);
+    expect(first.value).toEqual([]);
+    expect(first.outcome).toBe("miss");
+    expect(rows.size).toBe(0);
+    expect(calls.write).toBe(0);
+
+    // And the neighbourhood is asked again the next time somebody stands there.
+    const second = await cache.cached(
+      "nearby:31.951:35.923:ar:1200",
+      "nearby",
+      store,
+      async () => [{ name: "صيدلية", category: "pharmacy", latitude: 31.951, longitude: 35.923 }],
+    );
+    expect(second.outcome).toBe("stored");
+    expect(rows.size).toBe(1);
+  });
+
+  it("keys a nearby answer by the radius it was asked for", () => {
+    // A list of what is within 500 m is not an answer to what is within 1200 m,
+    // and for a week after the radius widened the shorter answer would have
+    // been served to everybody standing there.
+    expect(cache.nearbyKey(31.951, 35.923, "ar", 500))
+      .not.toBe(cache.nearbyKey(31.951, 35.923, "ar", 1200));
   });
 });
 
