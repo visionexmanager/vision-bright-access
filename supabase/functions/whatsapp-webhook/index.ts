@@ -87,9 +87,13 @@ import {
   LOCATION_TTL_MS,
   locationNeededNotice,
   nearbyHint,
+  nearbyRowSubtitle,
   parseFindPlaceRequest,
+  parseNearbyCategory,
+  parsePlaceSelection,
   type PlaceDescription,
   placeLabel,
+  placeRowId,
   placeLookupFailedNotice,
   formatPlaceFound,
   shortPlaceLabel,
@@ -298,7 +302,6 @@ import { extractDocumentText } from "../_shared/whatsappDocumentText.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { readOfficeLocally } from "../_shared/whatsappOffice.ts";
 import { convertMediaLocally } from "../_shared/whatsappProcessor.ts";
-import { uploadWhatsAppMedia } from "../_shared/whatsappVoiceReply.ts";
 
 // The Supabase edge runtime keeps a promise alive past the response. Declared
 // rather than imported because it is a global the runtime provides and the

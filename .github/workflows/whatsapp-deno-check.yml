@@ -103,13 +103,38 @@ jobs:
       # production. Type errors stay excluded, loudly, until the generated
       # types are regenerated.
       - name: entry points must at least parse
+        # `NO_COLOR` is the whole reason this step now works.
+        #
+        # Deno prints `\e[0m\e[1mTS2300 \e[0m[ERROR]: …`, so the escape sequence
+        # sits before the code and `grep ^TS1…` matched *nothing*, ever. This
+        # gate was added after a TS1308 shipped a BOOT_ERROR to production, and
+        # it has never once fired since: on 2026-09-05 a duplicate import
+        # shipped the same BOOT_ERROR straight past it, and the assistant was
+        # down until somebody curled the function by hand.
+        env:
+          NO_COLOR: "1"
         run: |
           failed=0
+          # The codes that are *runtime* failures rather than type complaints:
+          #
+          #   TS1xxx  the parse family — the module never becomes a module
+          #   TS2300  duplicate identifier — a SyntaxError at load, BOOT_ERROR
+          #   TS2304  cannot find name — a ReferenceError the moment it is hit
+          #   TS2552  the same thing, with a spelling suggestion attached
+          #
+          # Everything else stays excluded, loudly, because the entry points
+          # carry long-standing type errors from the generated Supabase types
+          # and a blanket check is red before anybody touches anything.
+          #
+          # The trailing space in the pattern is load-bearing: without it
+          # `TS1804` matches `TS18046` ("'err' is of type 'unknown'"), which is
+          # a type complaint and would fail two functions that are fine.
+          FATAL='^TS(1[0-9]{3}|2300|2304|2552) '
           for f in supabase/functions/*/index.ts; do
             out=$(deno check --no-lock --node-modules-dir=none "$f" 2>&1 || true)
-            if echo "$out" | grep -qE ^TS1[0-9]{3}; then
-              echo "::error file=$f::$f does not parse"
-              echo "$out" | grep -E ^TS1[0-9]{3} | head -5
+            if echo "$out" | grep -qE "$FATAL"; then
+              echo "::error file=$f::$f cannot run — this is a boot error, not a type complaint"
+              echo "$out" | grep -E "$FATAL" | head -5
               failed=1
             fi
           done
