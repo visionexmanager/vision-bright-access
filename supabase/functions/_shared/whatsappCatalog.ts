@@ -496,6 +496,25 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     accepts: ["text"],
   },
   {
+    id: "services.convert",
+    parent: "services",
+    order: 5,
+    kind: "action",
+    enabled: true,
+    title: { ar: "تحويل ملف", en: "Convert a file" },
+    description: { ar: "صوت أو فيديو إلى صيغة أخرى", en: "Audio or video, to another format" },
+    aliases: {
+      ar: ["حوّل", "حول ملف", "تحويل"],
+      en: ["convert", "convert file", "change format"],
+    },
+    phrase: { ar: "حوّل ملف", en: "convert a file" },
+    // The file is the input and it arrives as its own message, so tapping this
+    // row asks for one. Sending a file with a format named skips the row
+    // entirely, which is the path most people will actually take — this exists
+    // so the capability can be found by somebody who does not know it is there.
+    accepts: ["text"],
+  },
+  {
     id: "services.nearby",
     parent: "services",
     order: 4,

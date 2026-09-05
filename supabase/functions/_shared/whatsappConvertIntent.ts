@@ -125,3 +125,31 @@ export function offeredTargets(sourceKind: MediaKindForConvert): readonly string
   if (sourceKind === "audio") return ["mp3", "wav", "m4a", "ogg", "flac"];
   return ["mp4", "mp3", "webm", "gif", "mkv"];
 }
+
+/**
+ * Somebody asking for this feature with nothing attached.
+ *
+ * Arabic and English only, and that is not an oversight: the engine substitutes
+ * a tapped menu leaf's `phrase` for the message text before any of these
+ * parsers see it, and `parserLanguage` is only ever `ar` or `en`. A Turkish
+ * sender taps *Dosya dönüştür*, this receives "convert a file", and the sentence
+ * that comes back is written in Turkish. The same mechanism the weather and
+ * nearby rows have used since they shipped.
+ *
+ * Narrow on purpose. "Convert" appears in plenty of sentences that are not
+ * about files — currency, units, a religious conversion — so the phrase has to
+ * be close to the whole message rather than a word inside one.
+ */
+const CONVERT_ASKS = [
+  /^\s*(convert|convert a file|convert file|change format|file conversion)\s*[.!?]?\s*$/i,
+  /^\s*(حوّل|حول|حوّل ملف|حول ملف|تحويل|تحويل ملف)\s*[.،؟!]?\s*$/,
+];
+
+export function asksToConvert(text: string): boolean {
+  const trimmed = (text ?? "").trim();
+  if (!trimmed || trimmed.length > CONVERT_MAX_CHARS) return false;
+  // A message that already names a format is a request, not a question about
+  // the feature, and belongs to the branch that can act on it.
+  if (parseConvertTarget(trimmed)) return false;
+  return CONVERT_ASKS.some((pattern) => pattern.test(trimmed));
+}

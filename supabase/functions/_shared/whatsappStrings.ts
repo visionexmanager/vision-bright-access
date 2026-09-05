@@ -673,6 +673,16 @@ const BASE_STRINGS = {
   },
   /** Sent above the tappable list of nearby places. */
   /** Sent inside the delivery, so Meta is answered before the work starts. */
+  /** Tapping the row with no file in hand: say what is needed. */
+  convertSendFile: {
+    ar: "أرسل لي ملف الصوت أو الفيديو، ومعه الصيغة التي تريدها — مثلاً «mp3».",
+    en: "Send me the audio or video file, with the format you want — \"mp3\", for example.",
+  },
+  /** The heading over the list of formats, when a file arrived without one. */
+  convertChoose: {
+    ar: "إلى أي صيغة أحوّله؟",
+    en: "What should I convert it to?",
+  },
   mediaJobQueued: {
     ar: "جارٍ التحويل. سأرسل لك الملف حالما يجهز.",
     en: "Working on it. I will send you the file as soon as it is ready.",

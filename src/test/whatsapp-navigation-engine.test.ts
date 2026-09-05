@@ -26,6 +26,7 @@ const engine = await import("../../supabase/functions/_shared/whatsappEngine.ts"
 const vision = await import("../../supabase/functions/_shared/whatsappVisionModes.ts");
 const weather = await import("../../supabase/functions/_shared/whatsappWeather.ts");
 const geo = await import("../../supabase/functions/_shared/whatsappLocation.ts");
+const convertIntent = await import("../../supabase/functions/_shared/whatsappConvertIntent.ts");
 const entitlements = await import("../../supabase/functions/_shared/whatsappEntitlements.ts");
 const ivx = await import("../../supabase/functions/_shared/whatsappIvx.ts");
 const bazaar = await import("../../supabase/functions/_shared/whatsappBazaar.ts");
@@ -423,6 +424,9 @@ describe("the catalog", () => {
       "services.weather": (p) => !!weather.parseWeatherRequest(p),
       "services.where": (p) => geo.asksWhereAmI(p),
       "services.nearby": (p) => geo.asksWhatIsNearby(p),
+      // The file is the input and arrives separately, so the phrase asks for
+      // one rather than converting anything by itself.
+      "services.convert": (p) => convertIntent.asksToConvert(p),
       "services.plan": (p) => entitlements.asksAboutPlan(p),
       "academy": (p) => ivx.parseIvxIntent(p) === "start",
       // The menu phrase names a real place, so the parser must come back with

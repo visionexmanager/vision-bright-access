@@ -17,6 +17,7 @@ import {
   VIDEO_TARGETS_BY_NAME,
 } from "../../supabase/functions/_shared/whatsappConvertFormats.ts";
 import {
+  asksToConvert,
   CONVERT_TARGETS,
   offeredTargets,
   parseConvertRequest,
@@ -266,5 +267,100 @@ describe("the file the sender receives", () => {
     expect(messageKindFor("audio/mpeg")).toBe("audio");
     expect(messageKindFor("video/mp4")).toBe("video");
     expect(messageKindFor("image/gif")).toBe("document");
+  });
+});
+
+// ── 5. Asking for the feature with nothing attached ──────────────────────────
+
+describe("the menu row, typed or tapped", () => {
+  it("recognises the phrase the engine substitutes", () => {
+    // Arabic and English only, and not an oversight: the engine substitutes a
+    // tapped leaf's `phrase` before any parser sees it, and `parserLanguage` is
+    // only ever `ar` or `en`.
+    for (const text of ["convert a file", "Convert a file.", "convert", "حوّل ملف", "تحويل"]) {
+      expect(asksToConvert(text), text).toBe(true);
+    }
+  });
+
+  it("stands down when a format was actually named", () => {
+    // That is a request, not a question about the feature, and it belongs to
+    // the branch that can act on it.
+    expect(asksToConvert("convert to mp3")).toBe(false);
+    expect(asksToConvert("mp3")).toBe(false);
+  });
+
+  it("does not fire on a sentence that merely contains the word", () => {
+    // "Convert" appears in plenty of sentences that are not about files.
+    for (const text of [
+      "can you convert dollars to euros",
+      "how do I convert my account",
+      "convert 30 celsius to fahrenheit",
+      "حوّل لي مبلغ من الدولار",
+    ]) {
+      expect(asksToConvert(text), text).toBe(false);
+    }
+  });
+});
+
+// ── 6. Where the webhook puts it ─────────────────────────────────────────────
+
+describe("the webhook's own wiring", () => {
+  const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
+  const mediaBranch = webhook.slice(
+    webhook.indexOf("if (incoming.media) {"),
+    webhook.indexOf('} else if (incoming.media.kind === "video") {'),
+  );
+
+  it("decides a conversion above the spend gate, because it costs nothing", () => {
+    // Everything below that gate calls a paid provider. This calls ffmpeg on a
+    // box Visionex already rents, so refusing it because an allowance ran out
+    // would be charging somebody for a service that has no bill.
+    const decision = mediaBranch.indexOf("parseConvertRequest({");
+    const gate = mediaBranch.indexOf("await maySpend()");
+    expect(decision).toBeGreaterThan(-1);
+    expect(gate).toBeGreaterThan(-1);
+    expect(decision).toBeLessThan(gate);
+  });
+
+  it("only diverts a file that named a format", () => {
+    // A voice note with no caption is still transcribed exactly as before.
+    // Diverting every audio file to a conversion would take away the thing this
+    // channel is mostly used for in order to advertise what it just gained.
+    expect(mediaBranch).toContain("if (convertAsk && convertKind) {");
+    expect(mediaBranch).toContain('text: incoming.text ?? ""');
+  });
+
+  it("writes the row, then answers, then works — in that order", () => {
+    // The row is what makes the work survive this delivery, and the answer is
+    // what stops Meta redelivering while the transcode runs.
+    const row = mediaBranch.indexOf('.from("whatsapp_media_jobs").insert(');
+    const answer = mediaBranch.indexOf("queuedNotice(answerLanguage)");
+    const work = mediaBranch.indexOf("EdgeRuntime.waitUntil(drainOneMediaJob())");
+    expect(row).toBeGreaterThan(-1);
+    expect(row).toBeLessThan(answer);
+    expect(answer).toBeLessThan(work);
+  });
+
+  it("treats a redelivery's duplicate row as nothing to report", () => {
+    // The unique index on `wa_message_id` is the guarantee; 23505 here means it
+    // did its job, not that anything went wrong.
+    expect(mediaBranch).toContain('queueError.code !== "23505"');
+  });
+
+  it("drains the oldest job rather than its own", () => {
+    // That is what makes every inbound message a drain, and why this needs no
+    // scheduler — which matters, because this repository does not use pg_net.
+    expect(webhook).toContain('rpc("whatsapp_claim_media_job"');
+    expect(webhook).toContain("_lease_seconds: LEASE_SECONDS");
+    expect(webhook).toContain("_max_attempts: MAX_ATTEMPTS");
+  });
+
+  it("answers a failure in the job's language, not the drain's", () => {
+    // This delivery may belong to somebody else entirely.
+    expect(webhook).toContain("failedNotice(jobLanguage)");
+  });
+
+  it("is gated by a catalog node, so it can be found and switched off", () => {
+    expect(webhook).toContain('featureOn("services.convert")');
   });
 });

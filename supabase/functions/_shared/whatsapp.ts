@@ -823,3 +823,53 @@ export async function collectStream(stream: ReadableStream<Uint8Array>): Promise
   }
   return out;
 }
+
+/**
+ * Send an already-uploaded file by its media id.
+ *
+ * The generic form of `sendWhatsAppAudio`, which predates it and stays as it is:
+ * that one is on the voice path and says `type: "audio"` because a voice reply
+ * is always audio. This one is told which of the three kinds to use, because a
+ * conversion can produce any of them.
+ *
+ * Audio and video play in place, which for somebody using a screen reader is
+ * one gesture rather than a download and an app switch. A document does not,
+ * and carries a filename instead — Meta requires one, and it is the first thing
+ * read out about the attachment.
+ */
+export async function sendWhatsAppMediaById(params: {
+  phoneNumberId: string;
+  token: string;
+  to: string;
+  mediaId: string;
+  kind: "audio" | "video" | "document";
+  filename?: string;
+  fetchImpl?: typeof fetch;
+}): Promise<boolean> {
+  const doFetch = params.fetchImpl ?? fetch;
+  const payload: Record<string, unknown> = { id: params.mediaId };
+  if (params.kind === "document" && params.filename) payload.filename = params.filename;
+
+  try {
+    const res = await doFetch(`${GRAPH_BASE}/${params.phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${params.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: params.to,
+        type: params.kind,
+        [params.kind]: payload,
+      }),
+    });
+    // A status, never the body. Meta echoes the recipient's number in an error.
+    if (!res.ok) console.error(`[whatsapp] ${params.kind} send rejected:`, res.status);
+    return res.ok;
+  } catch {
+    console.error(`[whatsapp] ${params.kind} send transport error`);
+    return false;
+  }
+}

@@ -118,6 +118,10 @@ export const TELEMETRY_FIELDS: readonly string[] = [
   "replyKind",
   "problem",
   "category",
+  // A format name — "mp3", "webm". A label out of a fixed list, which is
+  // exactly what this allowlist is for: it says what was asked of a file and
+  // nothing whatever about whose file it was.
+  "target",
   "language",
   "verified",
   "ok",

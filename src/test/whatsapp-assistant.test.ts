@@ -850,7 +850,13 @@ describe("attachment understanding", () => {
     expect(source).toContain("if (targets.length === 0) return null;");
 
     // And the video refusal happens before the clip is downloaded.
-    const videoBranch = webhook.slice(webhook.indexOf('incoming.media.kind === "video"'));
+    //
+    // Anchored on the branch itself rather than on the first mention of a
+    // video: converting one is decided earlier in the same block, is free, and
+    // is deliberately not gated on a provider being funded — so the first
+    // `incoming.media.kind === "video"` in this file is no longer this branch.
+    const videoBranch = webhook.slice(webhook.indexOf('} else if (incoming.media.kind === "video") {'));
+    expect(videoBranch.length).toBeGreaterThan(0);
     expect(videoBranch.indexOf("VIDEO_READING_AVAILABLE"))
       .toBeLessThan(videoBranch.indexOf("downloadMedia"));
   });

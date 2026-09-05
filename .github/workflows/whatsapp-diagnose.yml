@@ -207,7 +207,7 @@ jobs:
           #
           # Trace a delivery with `correlation`, and a thread with
           # `conversation`. Both already do what the message id was used for.
-          FIELDS='["at","event","correlation","conversation","kind","outcome","reason","node","feature","via","selection","state","step","menu","chars","parts","passages","candidates","turns","attempt","count","ms","status","code","provider","model","medium","sent","spokenFailed","replyKind","problem","category","language","verified","ok"]'
+          FIELDS='["at","event","correlation","conversation","kind","outcome","reason","node","feature","via","selection","state","step","menu","chars","parts","passages","candidates","turns","attempt","count","ms","status","code","provider","model","medium","sent","spokenFailed","replyKind","problem","category","target","language","verified","ok"]'
 
           say '```json'
           jq -c --argjson fields "$FIELDS" '
