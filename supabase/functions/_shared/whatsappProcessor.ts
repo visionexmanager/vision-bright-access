@@ -109,3 +109,100 @@ export function imageBody(bytes: Uint8Array): ArrayBuffer {
   new Uint8Array(body).set(bytes);
   return body;
 }
+
+// ── Conversion ───────────────────────────────────────────────────────────────
+
+/**
+ * The upload ceiling for a conversion, which is larger than for a photograph.
+ *
+ * Matches `MAX_CONVERT_BYTES` in the service and `client_max_body_size` in
+ * nginx, and matches what WhatsApp will hand over for audio and video in the
+ * first place. Checked here as well so an oversized recording is refused before
+ * it is put on the wire.
+ */
+export const MAX_CONVERT_UPLOAD_BYTES = 16 * 1024 * 1024;
+
+/**
+ * A whole conversion, including the queue behind the service's two workers.
+ *
+ * Longer than the service's own video ceiling of 90 s, because this deadline
+ * has to cover waiting for a worker as well as using one — and shorter than the
+ * job's lease, so a run that is going to be abandoned is abandoned by the caller
+ * that can record it rather than by the lease expiring silently.
+ */
+export const CONVERT_TIMEOUT_MS = 110_000;
+
+/** What the service answered, in the shape `runMediaJob` expects. */
+export interface LocalConvertResult {
+  ok: boolean;
+  bytes?: Uint8Array;
+  mime?: string;
+  code?: string;
+}
+
+/**
+ * Convert one file on the VPS.
+ *
+ * The refusal codes are the service's own, passed through rather than
+ * translated: `whatsappMediaJobs.ts` decides which are worth retrying, and it
+ * can only do that if it sees what the service actually said. A status this
+ * does not recognise becomes `upstream`, which is retryable — the safe reading
+ * of "something between here and there answered strangely".
+ */
+export async function convertMediaLocally(params: {
+  bytes: Uint8Array;
+  query: string;
+  config?: ProcessorConfig | null;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+}): Promise<LocalConvertResult> {
+  const config = params.config === undefined ? processorConfig() : params.config;
+  if (!config) return { ok: false, code: "not_configured" };
+  if (params.bytes.byteLength > MAX_CONVERT_UPLOAD_BYTES) return { ok: false, code: "too_large" };
+
+  const doFetch = params.fetchImpl ?? fetch;
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), params.timeoutMs ?? CONVERT_TIMEOUT_MS);
+
+  try {
+    const response = await doFetch(`${config.url}/convert?${params.query}`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        authorization: `Bearer ${config.token}`,
+        "content-type": "application/octet-stream",
+      },
+      body: imageBody(params.bytes),
+    });
+
+    if (!response.ok) {
+      // The service answers a refusal as JSON with a `reason`; anything else on
+      // a non-2xx is a proxy or a runtime, and `upstream` is the honest name
+      // for "not the file's fault, try again".
+      let reason = "upstream";
+      try {
+        const body = await response.json() as { reason?: unknown };
+        if (typeof body?.reason === "string" && /^[a-z_]{1,40}$/.test(body.reason)) reason = body.reason;
+      } catch {
+        // A body that is not JSON tells us nothing beyond the status.
+      }
+      if (response.status === 503) reason = "busy";
+      if (response.status === 504) reason = "timeout";
+      return { ok: false, code: reason };
+    }
+
+    const mime = (response.headers.get("content-type") ?? "").split(";")[0].trim();
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    // A 200 with nothing in it is the failure this endpoint is most likely to
+    // have and the one that looks most like success.
+    if (bytes.byteLength === 0) return { ok: false, code: "empty_output" };
+    return { ok: true, bytes, mime: mime || "application/octet-stream" };
+  } catch (e) {
+    // A code, never the message: a fetch failure quotes the URL it was given,
+    // and that URL carries the service's hostname and the job's options.
+    const aborted = e instanceof Error && e.name === "AbortError";
+    return { ok: false, code: aborted ? "timeout" : "network" };
+  } finally {
+    clearTimeout(deadline);
+  }
+}

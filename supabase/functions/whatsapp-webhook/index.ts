@@ -46,6 +46,7 @@ import {
   SUMMARY_INSTRUCTION,
   summaryPreamble,
   sendWhatsAppLocation,
+  sendWhatsAppMediaById,
   sendWhatsAppText,
   unsupportedTypeNotice,
   userAskedForHuman,
@@ -281,6 +282,26 @@ import {
   runEngine,
 } from "../_shared/whatsappEngine.ts";
 import { askAssistant } from "../_shared/whatsappAsk.ts";
+import {
+  asksToConvert,
+  offeredTargets,
+  parseConvertRequest,
+} from "../_shared/whatsappConvertIntent.ts";
+import {
+  failedNotice,
+  LEASE_SECONDS,
+  MAX_ATTEMPTS,
+  queuedNotice,
+} from "../_shared/whatsappMediaJobs.ts";
+import { messageKindFor, runMediaJob } from "../_shared/whatsappMediaWorker.ts";
+import { convertMediaLocally } from "../_shared/whatsappProcessor.ts";
+import { uploadWhatsAppMedia } from "../_shared/whatsappVoiceReply.ts";
+
+// The Supabase edge runtime keeps a promise alive past the response. Declared
+// rather than imported because it is a global the runtime provides and the
+// type checker has never heard of — `voice-studio` declares the same one, for
+// the same reason.
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 import { noticeReasonFor, voiceToText } from "../_shared/whatsappVoiceTurn.ts";
 import { chainProvider } from "../_shared/whatsappAskProvider.ts";
 import {
@@ -1324,6 +1345,102 @@ Deno.serve(async (req) => {
       };
 
       /**
+       * Claim one queued conversion and run it to the end.
+       *
+       * Called from `EdgeRuntime.waitUntil` after the delivery has answered, so
+       * the ninety seconds happen where no redelivery is waiting on them.
+       *
+       * It claims *the oldest* job rather than the one this delivery created,
+       * and that is deliberate: it makes every inbound message a drain. A job
+       * whose worker was torn down mid-run has its lease expire and is picked
+       * up by whoever writes next, which is why this needs no scheduler at all
+       * — and this repository does not use pg_net, so it could not have had one
+       * without putting two credentials in the database.
+       *
+       * Everything it needs is bound here, once, because the ports are what
+       * `runMediaJob` is tested against and a second set built inline would be
+       * a second thing that can drift.
+       */
+      const drainOneMediaJob = async (): Promise<void> => {
+        try {
+          const { data: claimed, error } = await db
+            .rpc("whatsapp_claim_media_job", { _lease_seconds: LEASE_SECONDS, _max_attempts: MAX_ATTEMPTS });
+          if (error) {
+            console.error("[whatsapp] could not claim a media job:", describeError(error));
+            return;
+          }
+          const job = Array.isArray(claimed) ? claimed[0] : claimed;
+          if (!job) return;
+
+          const jobLanguage = (job.language ?? "en") as Language;
+          const outcome = await runMediaJob(
+            {
+              id: job.id,
+              target: job.target,
+              options: job.options ?? {},
+              source_media_id: job.source_media_id,
+              attempts: job.attempts,
+            },
+            {
+              download: async (mediaId) => {
+                if (!token) return null;
+                const media = await downloadMedia({
+                  mediaId,
+                  // The ceiling that matters here is the conversion service's,
+                  // and `video` carries the largest of the media limits.
+                  kind: "video",
+                  token,
+                  trace: correlationId,
+                });
+                return media.ok ? media.bytes : null;
+              },
+              convert: (bytes, query) => convertMediaLocally({ bytes, query }),
+              upload: async (bytes, mimeType, filename) => {
+                if (!token || !phoneNumberId) return null;
+                return await uploadWhatsAppMedia({ phoneNumberId, token, bytes, mimeType, filename });
+              },
+              send: async (mediaId, mimeType, filename) => {
+                if (!token || !phoneNumberId) return false;
+                return await sendWhatsAppMediaById({
+                  phoneNumberId,
+                  token,
+                  to: incoming.from,
+                  mediaId,
+                  kind: messageKindFor(mimeType),
+                  filename,
+                });
+              },
+              finish: async (status, errorCode) => {
+                await db.rpc("whatsapp_finish_media_job", {
+                  _id: job.id,
+                  _status: status,
+                  _error_code: errorCode,
+                });
+              },
+              // The sender is told in the language the job was created in, not
+              // the language of whatever message happened to drain it — this
+              // delivery may belong to somebody else entirely.
+              notify: async () => {
+                if (!token || !phoneNumberId) return;
+                await sendWhatsAppText({
+                  phoneNumberId,
+                  token,
+                  to: incoming.from,
+                  body: failedNotice(jobLanguage),
+                });
+              },
+            },
+          );
+          log("media_job", { outcome, target: job.target, attempt: job.attempts });
+        } catch (e) {
+          // A drain that throws must not take the delivery with it — this runs
+          // after the response has already gone back, so there is nothing left
+          // to tell anybody.
+          console.error("[whatsapp] media drain failed:", describeError(e));
+        }
+      };
+
+      /**
        * The latest headlines, fetched and delivered.
        *
        * The same query `/news` runs — published only, newest first — against
@@ -1945,6 +2062,60 @@ Deno.serve(async (req) => {
       if (incoming.media) {
         if (!token) {
           await reply(unsupportedTypeNotice(answerLanguage, incoming.media.kind), "unsupported");
+          continue;
+        }
+
+        // ── Converting it, which costs nothing ────────────────────────────
+        //
+        // Above the spend gate on purpose. Everything below this calls a paid
+        // provider; this calls ffmpeg on a box Visionex already rents, so
+        // refusing it because an allowance ran out would be charging somebody
+        // for a service that has no bill.
+        //
+        // Only when a format was actually named. A voice note with no caption
+        // is still transcribed exactly as before — diverting every audio file
+        // to a conversion menu would take away the thing this channel is
+        // mostly used for in order to advertise the thing it has just gained.
+        const convertKind = incoming.media.kind === "audio"
+          ? "audio" as const
+          : incoming.media.kind === "video"
+          ? "video" as const
+          : null;
+        const convertAsk = convertKind && !humanOwnsThis && !aiFocused && featureOn("services.convert")
+          ? parseConvertRequest({ text: incoming.text ?? "", sourceKind: convertKind })
+          : null;
+
+        if (convertAsk && convertKind) {
+          // The row first, then the answer, then the work. In that order
+          // because the row is what makes the work survive this delivery: if
+          // the runtime is torn down between the reply and the transcode, the
+          // lease expires and the next delivery to arrive picks the job up.
+          const { error: queueError } = await db.from("whatsapp_media_jobs").insert({
+            conversation_id: conversationId,
+            wa_message_id: incoming.messageId,
+            target: convertAsk.target,
+            source_media_id: incoming.media.id,
+            source_mime: incoming.media.mimeType ?? null,
+            language: answerLanguage,
+            spoken_input: spokenInput,
+          });
+
+          if (queueError && queueError.code !== "23505") {
+            console.error("[whatsapp] could not queue a conversion:", describeError(queueError));
+            await reply(featureErrorNotice(answerLanguage), "unsupported");
+            continue;
+          }
+
+          // This is the message that answers Meta promptly, which is the whole
+          // reason the queue exists: a transcode inside the delivery would run
+          // past Meta's patience and earn a redelivery, and the redelivery
+          // would start the same transcode again.
+          await reply(queuedNotice(answerLanguage), "reply");
+          log("media_job", { outcome: "queued", target: convertAsk.target, kind: convertKind });
+
+          // And the work happens after the 200 has gone back. `voice-studio`
+          // uses the same mechanism for the same reason.
+          EdgeRuntime.waitUntil(drainOneMediaJob());
           continue;
         }
 
@@ -2872,6 +3043,14 @@ Deno.serve(async (req) => {
           }),
           "reply",
         );
+        continue;
+      }
+
+      // Asking for the feature with nothing attached — the menu row, typed or
+      // tapped. The file is the input and it arrives as its own message, so the
+      // only useful answer is to say what to send and how to say it.
+      if (asksToConvert(questionText) && !humanOwnsThis && !aiFocused && featureOn("services.convert")) {
+        await reply(say("convertSendFile", answerLanguage), "reply");
         continue;
       }
 
