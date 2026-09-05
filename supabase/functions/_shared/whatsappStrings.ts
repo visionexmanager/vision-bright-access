@@ -672,6 +672,16 @@ const BASE_STRINGS = {
     en: "Your location arrived, but the map service isn't responding right now. Try again shortly.",
   },
   /** Sent above the tappable list of nearby places. */
+  /** Sent inside the delivery, so Meta is answered before the work starts. */
+  mediaJobQueued: {
+    ar: "جارٍ التحويل. سأرسل لك الملف حالما يجهز.",
+    en: "Working on it. I will send you the file as soon as it is ready.",
+  },
+  /** No exit code, no ffmpeg, nothing the sender cannot act on. */
+  mediaJobFailed: {
+    ar: "لم أستطع تحويل هذا الملف. قد تكون الصيغة غير مدعومة أو الملف تالفاً.",
+    en: "I couldn't convert this file. The format may be unsupported, or the file may be damaged.",
+  },
   nearbyTapHint: {
     ar: "اضغط على أي مكان لأرسل لك موقعه.",
     en: "Tap a place and I will send you its location.",
