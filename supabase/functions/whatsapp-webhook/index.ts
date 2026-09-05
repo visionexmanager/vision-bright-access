@@ -73,6 +73,7 @@ import {
   fetchNearby,
   fetchWeather,
   geocodePlace,
+  NEARBY_RADIUS_M,
   reverseGeocode,
 } from "../_shared/whatsappGeo.ts";
 import {
@@ -2842,7 +2843,7 @@ Deno.serve(async (req) => {
           continue;
         }
         const nearby = await viaCache(
-          nearbyKey(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
+          nearbyKey(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage, NEARBY_RADIUS_M),
           "nearby",
           () => fetchNearby(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
         );

@@ -114,8 +114,22 @@ export function geocodeKey(query: string, language = "en"): string {
   return `geocode:${normaliseQuery(query)}:${language}`;
 }
 
-export function nearbyKey(latitude: number, longitude: number, language: string): string {
-  return `nearby:${roundTo(latitude, PLACE_PRECISION)}:${roundTo(longitude, PLACE_PRECISION)}:${language}`;
+/**
+ * The radius belongs in the key for the same reason the language does.
+ *
+ * A list of what is within 500 m is not an answer to what is within 1200 m, and
+ * for a week after the radius widened the old, shorter answer would have been
+ * served to everyone standing in that neighbourhood. Naming the radius makes a
+ * change to it invalidate exactly the entries it made wrong, and nothing else.
+ */
+export function nearbyKey(
+  latitude: number,
+  longitude: number,
+  language: string,
+  radiusM: number,
+): string {
+  return `nearby:${roundTo(latitude, PLACE_PRECISION)}:${roundTo(longitude, PLACE_PRECISION)}` +
+    `:${language}:${Math.round(radiusM)}`;
 }
 
 export function weatherKey(latitude: number, longitude: number, nowMs: number): string {
@@ -195,6 +209,15 @@ export async function cached<T>(
   // Nothing to remember, and nothing worth remembering: see above.
   if (value === null || value === undefined) {
     return { value: null, outcome: unavailable ? "unavailable" : "miss" };
+  }
+  // An empty list is the same transient state wearing a different shape, and
+  // `nearby` keeps its entries for a week. "There is nothing around you" from a
+  // provider having a bad minute would then be repeated to that neighbourhood
+  // for seven days — and a blind sender told twice that the pharmacy they are
+  // standing outside does not exist has no way to tell that it is the cache
+  // talking. A genuinely empty area is rare and costs one extra lookup.
+  if (Array.isArray(value) && value.length === 0) {
+    return { value, outcome: unavailable ? "unavailable" : "miss" };
   }
   if (unavailable) return { value, outcome: "unavailable" };
 

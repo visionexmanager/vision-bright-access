@@ -87,38 +87,48 @@ const MAP_PROBE = { lat: 31.9539, lon: 35.9106 };
 /** OSM's usage policy asks for an identifiable caller with a contact URL. */
 const MAP_USER_AGENT = "VisionexHealthCheck/1.0 (+https://visionex.app; support@visionex.app)";
 
+/**
+ * The question a service answers, and therefore who covers for it.
+ *
+ * Services in the same group are alternatives, so one of them refusing is a
+ * warning rather than an outage — reporting it as an error would make every
+ * routine wobble at a free provider turn this page red, and a page that is red
+ * for something nobody needs to act on stops being read. What matters is
+ * reported per group below: whether the question can still be answered at all.
+ */
+type MapGroup = "reverse" | "nearby" | "weather";
+
+/** What each group means to somebody who has just shared their location. */
+const MAP_GROUP_MEANING: Record<MapGroup, string> = {
+  reverse: "A shared WhatsApp pin can be turned into a place name",
+  nearby:  "\"What's near me\" can list the places around a pin",
+  weather: "The weather can be answered for a pin or a named place",
+};
+
 interface MapService {
   key: string;
+  group: MapGroup;
   label: string;
   url: string;
   /** The place name inside the answer, or null if the answer named nowhere. */
   read: (body: unknown) => string | null;
   /** What the WhatsApp assistant loses when this one is down. */
   role: string;
-  /**
-   * Whether another service covers this one.
-   *
-   * The three reverse geocoders are alternatives to each other, so one of them
-   * refusing is a warning rather than an outage. Reporting it as an error would
-   * make every routine wobble at a free provider turn this page red, and a page
-   * that is red for something nobody needs to act on stops being read. What all
-   * three failing costs is reported on its own, below.
-   */
-  redundant?: boolean;
 }
 
 const MAP_SERVICES: MapService[] = [
   {
     key:   "bigdatacloud",
+    group: "reverse",
     label: "BigDataCloud",
     url:   `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${MAP_PROBE.lat}&longitude=${MAP_PROBE.lon}&localityLanguage=en`,
     read:  (b) => (b as { city?: string; countryName?: string })?.city
       ?? (b as { countryName?: string })?.countryName ?? null,
     role:  "first choice for naming a shared pin, localised in all twenty languages",
-    redundant: true,
   },
   {
     key:   "nominatim",
+    group: "reverse",
     label: "Nominatim (OpenStreetMap)",
     url:   `https://nominatim.openstreetmap.org/reverse?lat=${MAP_PROBE.lat}&lon=${MAP_PROBE.lon}&format=jsonv2&zoom=14&addressdetails=1&accept-language=en`,
     read:  (b) => {
@@ -126,10 +136,10 @@ const MAP_SERVICES: MapService[] = [
       return address?.city ?? address?.town ?? address?.country ?? null;
     },
     role:  "second opinion for naming a pin, and the fallback for place search",
-    redundant: true,
   },
   {
     key:   "photon",
+    group: "reverse",
     label: "Photon (Komoot)",
     url:   `https://photon.komoot.io/reverse?lat=${MAP_PROBE.lat}&lon=${MAP_PROBE.lon}&lang=en`,
     read:  (b) => {
@@ -138,10 +148,32 @@ const MAP_SERVICES: MapService[] = [
       return props?.city ?? props?.country ?? null;
     },
     role:  "last resort for naming a pin, on a different operator's infrastructure",
-    redundant: true,
+  },
+  {
+    key:   "overpass",
+    group: "nearby",
+    label: "Overpass (OpenStreetMap)",
+    url:   "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(
+      `[out:json][timeout:10];nwr(around:1200,${MAP_PROBE.lat},${MAP_PROBE.lon})["amenity"]["name"];out center 3;`,
+    ),
+    read:  (b) => {
+      const first = (b as { elements?: Array<{ tags?: Record<string, string> }> })?.elements?.[0];
+      return first?.tags?.name ?? null;
+    },
+    role:  "\"what's near me\" — a volunteer cluster, and the one most likely to be busy",
+  },
+  {
+    key:   "photon_nearby",
+    group: "nearby",
+    label: "Photon nearby (Komoot)",
+    url:   `https://photon.komoot.io/reverse?lat=${MAP_PROBE.lat}&lon=${MAP_PROBE.lon}&radius=1.2&limit=5&lang=en&osm_tag=amenity`,
+    read:  (b) => (b as { features?: Array<{ properties?: Record<string, string> }> })
+      ?.features?.[0]?.properties?.name ?? null,
+    role:  "\"what's near me\" when Overpass is busy, from a prebuilt index",
   },
   {
     key:   "open_meteo",
+    group: "weather",
     label: "Open-Meteo",
     url:   `https://api.open-meteo.com/v1/forecast?latitude=${MAP_PROBE.lat}&longitude=${MAP_PROBE.lon}&current=temperature_2m`,
     read:  (b) => {
@@ -152,6 +184,59 @@ const MAP_SERVICES: MapService[] = [
   },
 ];
 
+/** The catalog nodes a sender reaches the map with, and what each one is. */
+const LOCATION_FEATURES: Record<string, string> = {
+  "services.where":   "where am I",
+  "services.nearby":  "what's near me",
+  "services.weather": "the weather",
+  "services.place":   "send me the location of X",
+};
+
+/**
+ * Whether the map features are switched on.
+ *
+ * `whatsapp_features` holds `{ disabled: [...] }`, and a node named there makes
+ * the webhook skip its branch without a word. A missing row means nothing is
+ * disabled, which is the healthy default and not an error.
+ */
+async function checkLocationFeatures(
+  db: ReturnType<typeof createClient>,
+): Promise<ComponentStatus> {
+  try {
+    const { data, error } = await (db as any)
+      .from("site_settings").select("value").eq("key", "whatsapp_features").maybeSingle();
+    if (error) {
+      return {
+        ok:     false,
+        status: "error",
+        detail: `Could not read whatsapp_features (${error.code}). The webhook refuses every ` +
+          "feature it cannot vouch for, so this also means the map features are off.",
+      };
+    }
+
+    const listed = (data?.value as { disabled?: unknown })?.disabled;
+    const disabled = Array.isArray(listed) ? listed.filter((id) => typeof id === "string") : [];
+    const off = Object.keys(LOCATION_FEATURES).filter((id) => disabled.includes(id));
+    if (off.length === 0) {
+      return { ok: true, status: "ok", detail: "All four WhatsApp map features are enabled." };
+    }
+    return {
+      ok:     false,
+      status: "warning",
+      detail: `Disabled in site_settings.whatsapp_features: ${
+        off.map((id) => `${id} (${LOCATION_FEATURES[id]})`).join(", ")
+      }. The webhook skips these branches, so the sender gets no answer at all.`,
+    };
+  } catch (e) {
+    return { ok: false, status: "error", detail: `Exception reading whatsapp_features: ${e}` };
+  }
+}
+
+/** Whether anything else answers this service's question. */
+function hasBackup(service: MapService): boolean {
+  return MAP_SERVICES.filter((other) => other.group === service.group).length > 1;
+}
+
 async function probeMapService(service: MapService): Promise<ComponentStatus> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 6_000);
@@ -160,7 +245,7 @@ async function probeMapService(service: MapService): Promise<ComponentStatus> {
       signal:  controller.signal,
       headers: { "User-Agent": MAP_USER_AGENT, Accept: "application/json" },
     });
-    const severity = service.redundant ? "warning" as const : "error" as const;
+    const severity = hasBackup(service) ? "warning" as const : "error" as const;
     if (!response.ok) {
       return {
         ok:     false,
@@ -182,7 +267,7 @@ async function probeMapService(service: MapService): Promise<ComponentStatus> {
     const reason = e instanceof Error && e.name === "AbortError" ? "timed out" : "was unreachable";
     return {
       ok:     false,
-      status: service.redundant ? "warning" : "error",
+      status: hasBackup(service) ? "warning" : "error",
       detail: `${service.label} ${reason} — ${service.role} is unavailable.`,
     };
   } finally {
@@ -621,6 +706,19 @@ Deno.serve(async (req: Request) => {
       results[`db_${table}`] = await checkTable(db, table);
     }
 
+    // ── Are the location features actually switched on? ─────────────────────────
+    //
+    // The other way "near me" can go quiet, and the one no provider probe would
+    // ever show: `site_settings.whatsapp_features` can disable a catalog node,
+    // and a disabled node makes the webhook skip the branch entirely. From the
+    // sender's side that is indistinguishable from a lookup that failed.
+    //
+    // Only the four map features are named, and only as on or off. Their ids
+    // are published in the catalog in this repository, so this reveals nothing
+    // that reading the source would not — it just answers the question without
+    // a database password.
+    results.whatsapp_location_features = await checkLocationFeatures(db);
+
     // ── Storage buckets ─────────────────────────────────────────────────────────
     results.storage_speech  = await checkStorage(db, "speech-outputs");
     results.storage_video   = await checkStorage(db, "video-outputs");
@@ -654,27 +752,29 @@ Deno.serve(async (req: Request) => {
     results[`map_${service.key}`] = mapProbes[i];
   });
 
-  // What the sender actually experiences: a pin is named if any one of the
-  // three answered, and unnameable only if none did. This is the line to read
-  // when somebody reports that sharing their location stopped working.
-  const reverseUp = MAP_SERVICES
-    .map((service, i) => ({ service, probe: mapProbes[i] }))
-    .filter(({ service }) => service.redundant)
-    .filter(({ probe }) => probe.ok)
-    .map(({ service }) => service.label);
+  // What the sender actually experiences, one line per question they can ask.
+  // A question is answerable if any one service in its group answered, and
+  // broken only if none did. These are the lines to read when somebody reports
+  // that sharing their location, or asking what is near them, stopped working.
+  for (const group of ["reverse", "nearby", "weather"] as MapGroup[]) {
+    const inGroup = MAP_SERVICES
+      .map((service, i) => ({ service, probe: mapProbes[i] }))
+      .filter(({ service }) => service.group === group);
+    const up = inGroup.filter(({ probe }) => probe.ok).map(({ service }) => service.label);
 
-  results.map_reverse_geocoding = reverseUp.length > 0
-    ? {
-      ok:     true,
-      status: reverseUp.length === 3 ? "ok" : "warning",
-      detail: `A shared WhatsApp pin can be named. Answering: ${reverseUp.join(", ")}.`,
-    }
-    : {
-      ok:     false,
-      status: "error",
-      detail: "No reverse geocoder is answering from this runtime, so a shared WhatsApp pin " +
-        "cannot be turned into a place name. The coordinates and the weather still reach the sender.",
-    };
+    results[`map_${group}_lookup`] = up.length > 0
+      ? {
+        ok:     true,
+        status: up.length === inGroup.length ? "ok" : "warning",
+        detail: `${MAP_GROUP_MEANING[group]}. Answering: ${up.join(", ")}.`,
+      }
+      : {
+        ok:     false,
+        status: "error",
+        detail: `${MAP_GROUP_MEANING[group]} — not right now. Nothing in this group is ` +
+          `answering from this runtime: ${inGroup.map(({ service }) => service.label).join(", ")}.`,
+      };
+  }
 
   // ── Secret inventory (admins only) ────────────────────────────────────────────
   //
