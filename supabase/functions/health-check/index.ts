@@ -73,6 +73,123 @@ async function checkTable(db: ReturnType<typeof createClient>, tableName: string
   }
 }
 
+// ── Keyless map services ─────────────────────────────────────────────────────
+//
+// One coordinate in a city everybody's index knows, and one question of each
+// service: can this runtime reach you, and did you answer with a place in it?
+// A `200` is not enough on its own — a free client-side endpoint called from a
+// datacenter answers `200` with a body politely explaining that it will not be
+// doing this, and no place name anywhere inside it.
+
+/** A public square in Amman. Nobody's coordinate, and mapped by all three. */
+const MAP_PROBE = { lat: 31.9539, lon: 35.9106 };
+
+/** OSM's usage policy asks for an identifiable caller with a contact URL. */
+const MAP_USER_AGENT = "VisionexHealthCheck/1.0 (+https://visionex.app; support@visionex.app)";
+
+interface MapService {
+  key: string;
+  label: string;
+  url: string;
+  /** The place name inside the answer, or null if the answer named nowhere. */
+  read: (body: unknown) => string | null;
+  /** What the WhatsApp assistant loses when this one is down. */
+  role: string;
+  /**
+   * Whether another service covers this one.
+   *
+   * The three reverse geocoders are alternatives to each other, so one of them
+   * refusing is a warning rather than an outage. Reporting it as an error would
+   * make every routine wobble at a free provider turn this page red, and a page
+   * that is red for something nobody needs to act on stops being read. What all
+   * three failing costs is reported on its own, below.
+   */
+  redundant?: boolean;
+}
+
+const MAP_SERVICES: MapService[] = [
+  {
+    key:   "bigdatacloud",
+    label: "BigDataCloud",
+    url:   `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${MAP_PROBE.lat}&longitude=${MAP_PROBE.lon}&localityLanguage=en`,
+    read:  (b) => (b as { city?: string; countryName?: string })?.city
+      ?? (b as { countryName?: string })?.countryName ?? null,
+    role:  "first choice for naming a shared pin, localised in all twenty languages",
+    redundant: true,
+  },
+  {
+    key:   "nominatim",
+    label: "Nominatim (OpenStreetMap)",
+    url:   `https://nominatim.openstreetmap.org/reverse?lat=${MAP_PROBE.lat}&lon=${MAP_PROBE.lon}&format=jsonv2&zoom=14&addressdetails=1&accept-language=en`,
+    read:  (b) => {
+      const address = (b as { address?: Record<string, string> })?.address;
+      return address?.city ?? address?.town ?? address?.country ?? null;
+    },
+    role:  "second opinion for naming a pin, and the fallback for place search",
+    redundant: true,
+  },
+  {
+    key:   "photon",
+    label: "Photon (Komoot)",
+    url:   `https://photon.komoot.io/reverse?lat=${MAP_PROBE.lat}&lon=${MAP_PROBE.lon}&lang=en`,
+    read:  (b) => {
+      const props = (b as { features?: Array<{ properties?: Record<string, string> }> })
+        ?.features?.[0]?.properties;
+      return props?.city ?? props?.country ?? null;
+    },
+    role:  "last resort for naming a pin, on a different operator's infrastructure",
+    redundant: true,
+  },
+  {
+    key:   "open_meteo",
+    label: "Open-Meteo",
+    url:   `https://api.open-meteo.com/v1/forecast?latitude=${MAP_PROBE.lat}&longitude=${MAP_PROBE.lon}&current=temperature_2m`,
+    read:  (b) => {
+      const t = (b as { current?: { temperature_2m?: number } })?.current?.temperature_2m;
+      return typeof t === "number" ? `${t}°C` : null;
+    },
+    role:  "the weather answer for a shared pin and for any place the sender names",
+  },
+];
+
+async function probeMapService(service: MapService): Promise<ComponentStatus> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6_000);
+  try {
+    const response = await fetch(service.url, {
+      signal:  controller.signal,
+      headers: { "User-Agent": MAP_USER_AGENT, Accept: "application/json" },
+    });
+    const severity = service.redundant ? "warning" as const : "error" as const;
+    if (!response.ok) {
+      return {
+        ok:     false,
+        status: severity,
+        detail: `${service.label} responded ${response.status} — ${service.role} is unavailable.`,
+      };
+    }
+    const named = service.read(await response.json());
+    if (!named) {
+      return {
+        ok:     false,
+        status: severity,
+        detail: `${service.label} answered 200 but named nothing — ${service.role} is unavailable. ` +
+          "A free client-side endpoint refusing datacenter traffic looks exactly like this.",
+      };
+    }
+    return { ok: true, status: "ok", detail: `${service.label} reachable and answering ("${named}").` };
+  } catch (e) {
+    const reason = e instanceof Error && e.name === "AbortError" ? "timed out" : "was unreachable";
+    return {
+      ok:     false,
+      status: service.redundant ? "warning" : "error",
+      detail: `${service.label} ${reason} — ${service.role} is unavailable.`,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ── Live provider probes ─────────────────────────────────────────────────────
 //
 // checkOpenAI() below lists models. That proves the key exists and is not
@@ -516,6 +633,48 @@ Deno.serve(async (req: Request) => {
       detail: "Cannot check database: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing.",
     };
   }
+
+  // ── Keyless map services ──────────────────────────────────────────────────────
+  //
+  // The WhatsApp assistant answers a shared pin with the name of the place, and
+  // for a blind sender that pin is the cheapest input this product has: two
+  // taps, no typing, no aiming a camera. It reached production naming places
+  // through exactly one provider, and when that provider stopped answering from
+  // this runtime the only evidence anywhere was the sentence the sender read.
+  //
+  // These probes exist so the next time it happens the answer is a URL rather
+  // than a guess. They are anonymous because nothing here involves a key or a
+  // secret — that is the whole point of the services chosen — and they run
+  // together, so the block costs one round trip's worth of time.
+
+  const mapProbes = await Promise.all(
+    MAP_SERVICES.map((service) => probeMapService(service)),
+  );
+  MAP_SERVICES.forEach((service, i) => {
+    results[`map_${service.key}`] = mapProbes[i];
+  });
+
+  // What the sender actually experiences: a pin is named if any one of the
+  // three answered, and unnameable only if none did. This is the line to read
+  // when somebody reports that sharing their location stopped working.
+  const reverseUp = MAP_SERVICES
+    .map((service, i) => ({ service, probe: mapProbes[i] }))
+    .filter(({ service }) => service.redundant)
+    .filter(({ probe }) => probe.ok)
+    .map(({ service }) => service.label);
+
+  results.map_reverse_geocoding = reverseUp.length > 0
+    ? {
+      ok:     true,
+      status: reverseUp.length === 3 ? "ok" : "warning",
+      detail: `A shared WhatsApp pin can be named. Answering: ${reverseUp.join(", ")}.`,
+    }
+    : {
+      ok:     false,
+      status: "error",
+      detail: "No reverse geocoder is answering from this runtime, so a shared WhatsApp pin " +
+        "cannot be turned into a place name. The coordinates and the weather still reach the sender.",
+    };
 
   // ── Secret inventory (admins only) ────────────────────────────────────────────
   //

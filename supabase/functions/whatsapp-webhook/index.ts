@@ -86,6 +86,7 @@ import {
   locationNeededNotice,
   nearbyHint,
   parseFindPlaceRequest,
+  type PlaceDescription,
   placeLabel,
   placeLookupFailedNotice,
   formatPlaceFound,
@@ -1836,12 +1837,22 @@ Deno.serve(async (req) => {
           "reverse",
           () => reverseGeocode(latitude, longitude, answerLanguage),
         );
-        if (!place) {
-          await reply(geocodeUnavailableNotice(answerLanguage), "unsupported");
-          continue;
-        }
 
-        const label = placeLabel(place, incoming.location.name ?? incoming.location.address, answerLanguage);
+        // No name is not no answer.
+        //
+        // Every map service refusing at once used to end the conversation here
+        // — and end it having thrown the pin away, so "what's the weather"
+        // afterwards was told to share a location it had already been given.
+        // The coordinates are exact whether or not anybody can put a word to
+        // them, and they are what the next six hours of questions run on, so
+        // they are kept regardless and the reply is built from whatever is
+        // known: the name the sender's own phone attached, else the numbers.
+        // `formatWhereYouAre` already says "somewhere I can't name" for the
+        // case where that is all there is, in all twenty languages.
+        const named: PlaceDescription = place
+          ?? { locality: null, city: null, region: null, country: null };
+
+        const label = placeLabel(named, incoming.location.name ?? incoming.location.address, answerLanguage);
         await db
           .from("whatsapp_conversations")
           .update({
@@ -1856,7 +1867,7 @@ Deno.serve(async (req) => {
           [
             formatWhereYouAre({
               language: answerLanguage,
-              place,
+              place: named,
               pinName: incoming.location.name,
               pinAddress: incoming.location.address,
               latitude,
@@ -1881,7 +1892,7 @@ Deno.serve(async (req) => {
           await reply(
             formatWeather({
               language: answerLanguage,
-              placeName: shortPlaceLabel(place, incoming.location.name) || label,
+              placeName: shortPlaceLabel(named, incoming.location.name) || label,
               current: reading.current,
               daily: reading.daily,
               includeForecast: false,
@@ -2811,14 +2822,12 @@ Deno.serve(async (req) => {
             "reverse",
             () => reverseGeocode(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
           );
-        if (!place) {
-          await reply(geocodeUnavailableNotice(answerLanguage), "unsupported");
-          continue;
-        }
+        // As with a fresh pin: the coordinates are on file and exact, so an
+        // unnameable place is still an answerable question.
         await reply(
           formatWhereYouAre({
             language: answerLanguage,
-            place,
+            place: place ?? { locality: null, city: null, region: null, country: null },
             latitude: rememberedLocation.latitude,
             longitude: rememberedLocation.longitude,
           }),

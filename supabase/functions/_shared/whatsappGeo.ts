@@ -138,14 +138,36 @@ export async function geocodePlace(
 }
 
 /**
- * Turn coordinates into a place name, in the sender's language.
+ * A deadline for one reverse-geocode attempt.
  *
- * BigDataCloud's client endpoint takes a `localityLanguage` and returns Arabic
- * properly — `الرياض، منطقة الرياض، السعودية` — which matters more here than
- * anywhere else in this feature: the whole point of answering a pin is to say
- * where someone is in words they can hear in their own language.
+ * Shorter than `TIMEOUT_MS` because three of these run in sequence, and a
+ * sender who has just shared a pin is holding their phone waiting for it. Every
+ * one of the three answers in well under a second when it is healthy; this
+ * number only decides how long a dead one is allowed to cost.
  */
-export async function reverseGeocode(
+const REVERSE_TIMEOUT_MS = 4_500;
+
+/** Trimmed, or null. An empty string is not a place name. */
+function clean(value?: string | null): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * Whether a lookup actually named somewhere.
+ *
+ * A provider that is refusing traffic does not always say so with a status
+ * code — BigDataCloud's free endpoint answers `200` with an explanatory body
+ * and no place fields at all. Reading that as success would hand the sender a
+ * heading with nothing under it, so an answer that names nowhere counts as no
+ * answer and the next provider gets its turn.
+ */
+function namesSomewhere(place: PlaceDescription): boolean {
+  return Boolean(place.locality || place.city || place.region || place.country);
+}
+
+/** Localised, sub-second, and the first choice while it is answering. */
+async function reverseViaBigDataCloud(
   latitude: number,
   longitude: number,
   language: Language,
@@ -153,20 +175,116 @@ export async function reverseGeocode(
   const data = await getJson<{
     locality?: string; city?: string; principalSubdivision?: string; countryName?: string;
   }>(
-    `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=${language}`,
+    `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}` +
+    `&longitude=${longitude}&localityLanguage=${encodeURIComponent(language)}`,
+    REVERSE_TIMEOUT_MS,
   );
   if (!data) return null;
-
-  const clean = (value?: string) => {
-    const trimmed = value?.trim();
-    return trimmed ? trimmed : null;
-  };
   return {
     locality: clean(data.locality),
     city: clean(data.city),
     region: clean(data.principalSubdivision),
     country: clean(data.countryName),
   };
+}
+
+/**
+ * The same OpenStreetMap index this module already uses for forward lookups.
+ *
+ * `zoom=14` asks for the district rather than the doorway: "منطقة زهران، عمان"
+ * is what somebody wants read back to them, and a house number is both less
+ * useful out loud and more than this feature should be repeating.
+ */
+async function reverseViaNominatim(
+  latitude: number,
+  longitude: number,
+  language: Language,
+): Promise<PlaceDescription | null> {
+  const data = await getJson<{
+    address?: Record<string, string>;
+  }>(
+    `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}` +
+    `&format=jsonv2&zoom=14&addressdetails=1&accept-language=${encodeURIComponent(language)}`,
+    REVERSE_TIMEOUT_MS,
+  );
+  const address = data?.address;
+  if (!address) return null;
+
+  return {
+    locality: clean(address.suburb ?? address.neighbourhood ?? address.quarter ?? address.hamlet),
+    city: clean(address.city ?? address.town ?? address.village ?? address.municipality),
+    region: clean(address.state ?? address.region ?? address.state_district ?? address.county),
+    country: clean(address.country),
+  };
+}
+
+/** The four languages Photon localises. Everything else reads better in English. */
+const PHOTON_LANGUAGES = new Set(["de", "en", "fr", "it"]);
+
+/**
+ * A third opinion, from a different operator on a different host.
+ *
+ * It localises only four of the twenty languages, so for most senders this
+ * names their city in English — which is the point: a name they can act on
+ * beats the sentence that says nobody could find one. It is last precisely
+ * because it is the least localised, and it exists because two providers that
+ * both answer from the same place fail at the same time.
+ */
+async function reverseViaPhoton(
+  latitude: number,
+  longitude: number,
+  language: Language,
+): Promise<PlaceDescription | null> {
+  const lang = PHOTON_LANGUAGES.has(language) ? language : "en";
+  const data = await getJson<{
+    features?: Array<{ properties?: Record<string, string> }>;
+  }>(
+    `https://photon.komoot.io/reverse?lat=${latitude}&lon=${longitude}&lang=${lang}`,
+    REVERSE_TIMEOUT_MS,
+  );
+  const properties = data?.features?.[0]?.properties;
+  if (!properties) return null;
+
+  return {
+    locality: clean(properties.district ?? properties.suburb),
+    city: clean(properties.city ?? properties.town ?? properties.village),
+    region: clean(properties.state ?? properties.county),
+    country: clean(properties.country),
+  };
+}
+
+/**
+ * Turn coordinates into a place name, in the sender's language.
+ *
+ * Three services, in this order, because a pin is the one input on this channel
+ * that costs a blind sender no typing and no aiming — and until now a single
+ * provider having a bad afternoon answered it with "the map service isn't
+ * responding right now" and nothing else. That sentence was the whole feature
+ * failing: the pin was discarded with it, so the weather question that followed
+ * had no coordinates to work from either.
+ *
+ *   BigDataCloud   localised in all twenty languages, sub-second, first
+ *   Nominatim/OSM  `accept-language` on the same twenty, ODbL, second
+ *   Photon/OSM     four languages, but a different operator and a different
+ *                  host — the point of a third is that it fails independently
+ *
+ * All three are keyless, which is the rule this module was built on: a
+ * capability that needs no account cannot be switched off by a billing failure.
+ */
+export async function reverseGeocode(
+  latitude: number,
+  longitude: number,
+  language: Language,
+): Promise<PlaceDescription | null> {
+  const lookups = [reverseViaBigDataCloud, reverseViaNominatim, reverseViaPhoton];
+  for (const lookup of lookups) {
+    const place = await lookup(latitude, longitude, language);
+    if (place && namesSomewhere(place)) return place;
+  }
+  // A name, never a coordinate: what is worth knowing here is that all three
+  // were asked, and the pin itself is the sender's whereabouts.
+  console.error("[whatsapp-geo] every reverse geocoder declined");
+  return null;
 }
 
 export interface WeatherReading {
