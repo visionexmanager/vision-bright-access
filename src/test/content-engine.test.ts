@@ -757,12 +757,31 @@ describe("no new Edge Function", () => {
     // What actually matters is the ceiling: Supabase rejects the 101st function
     // with a 402 that reads like a bundling error, so keep real headroom.
     //
-    // 96 as of `social-publish`, which is the deliberate addition this phase
-    // makes. `meta-messaging-webhook` took the previous slot while this branch
-    // was open. Four left. This number is meant to be argued with rather than
-    // bumped: the next addition should ask whether something can be retired
-    // through `supabase/retirement-manifest.json` instead.
-    expect(functions.length).toBeLessThanOrEqual(96);
+    // 96 as of `social-publish`, which was the deliberate addition of that
+    // phase. `meta-messaging-webhook` took the previous slot while that branch
+    // was open. This number is meant to be argued with rather than bumped: the
+    // next addition should ask whether something can be retired through
+    // `supabase/retirement-manifest.json` instead.
+    //
+    // 97 as of `file-convert`, and here is the argument, because the rule above
+    // deserves one rather than a silent increment.
+    //
+    // It could not be folded into an existing function. It answers with
+    // **binary** — the converted file itself — where every other endpoint here
+    // answers JSON. It is the only public door to the processing service on the
+    // VPS, and the entire value of that door is that it holds a bearer token
+    // nothing else is allowed to hold; putting it inside `ai-generate` would
+    // hand an AI-generation endpoint the processor's credential for no reason
+    // beyond a function count. And its authorisation is a different shape
+    // again: a signed-in user, no provider, no billing, no model.
+    //
+    // Retiring something instead was considered and is not free: a production
+    // deletion needs its own reviewed manifest entry and a two-step workflow,
+    // which is a change to make on its own terms rather than as freight on this
+    // one.
+    //
+    // Three left. The next addition owes a better argument than this one.
+    expect(functions.length).toBeLessThanOrEqual(97);
   });
 
   it("routes everything through ai-generate and owner-control", () => {

@@ -1,9 +1,18 @@
 // ─── Audio Converter Module ───────────────────────────────────────────────────
 // Browser-native path: AudioContext decode/render, then either a manual PCM→WAV
 // encode (always available, no codec dependency) or MediaRecorder for webm.
-// MP3/OGG need a real encoder (lamejs / libvorbis.wasm) we don't ship yet, so
-// they're flagged server-side like the other heavy formats (FLAC, AAC, M4A,
-// OPUS, WMA); dispatched to a Supabase Edge Function in Phase 12.
+// MP3/OGG need a real encoder (lamejs / libvorbis.wasm) we don't ship, so they
+// go to the server like the other heavy formats (FLAC, AAC, M4A, Opus) — to the
+// same ffmpeg the WhatsApp assistant converts with, on Visionex's own machine,
+// behind an Edge Function that holds the token a browser cannot.
+//
+// That path used to be a stub that waited six hundred milliseconds and said the
+// conversion was "available in Phase 12 API integration". Phase 12 was never
+// built, and this page is linked from the navbar.
+//
+// WMA is gone from the outputs and stays an input: ffmpeg reads one and will
+// not write one, and offering a format nothing can produce is a menu entry that
+// can only fail.
 //
 // Note: MediaRecorder cannot produce "audio/mpeg" or "audio/wav" containers in
 // any mainstream browser — only webm (opus, Chromium/Firefox) — so those two
@@ -18,13 +27,18 @@ import type {
   ConversionOptions,
 } from "@/lib/types/fileStudio";
 import { AUDIO_FORMATS } from "@/lib/types/fileStudio";
+import { convertOnServer, SERVER_AUDIO_OUTPUTS } from "../serverConvert";
 
 const BROWSER_OUTPUT_FORMATS = ["wav", "webm"];
 
 export const AudioModule: ConverterModule = {
   moduleType: "audio",
   supportedInputFormats: [...AUDIO_FORMATS],
-  supportedOutputFormats: [...AUDIO_FORMATS],
+  // What can be *read* is every audio format ffmpeg opens; what can be
+  // produced is what the service will actually emit. Offering a format nobody
+  // can produce is a menu entry that can only ever fail, and that was most of
+  // why this page looked broken.
+  supportedOutputFormats: [...SERVER_AUDIO_OUTPUTS],
   canHandleInBrowser: true,
 
   async convert(
@@ -197,17 +211,47 @@ async function recordAsWebm(buf: AudioBuffer): Promise<Blob> {
 
 // Stub for server-side-only formats (FLAC, AAC, M4A…)
 async function serverSideStub(
-  _file: File,
+  file: File,
   opts: AudioOptions,
   onProgress: (pct: number) => void,
   start: number
 ): Promise<ConversionResult> {
-  onProgress(15);
-  await new Promise((r) => setTimeout(r, 600));
-  onProgress(100);
-  return {
-    success: false,
-    processingMs: Date.now() - start,
-    error: `${opts.targetFormat.toUpperCase()} conversion requires server processing. Available in Phase 12 API integration.`,
-  };
+  // Not a stub any more. This used to wait six hundred milliseconds and then
+  // say the conversion was "available in Phase 12"; Phase 12 was never built,
+  // and the page saying so is linked from the navbar.
+  void start;
+  return await convertOnServer({
+    file,
+    target: opts.targetFormat,
+    options: {
+      // A 0-100 slider onto the bitrates the service will accept. Mapped here
+      // rather than sent raw: the service takes a whole string from a list and
+      // would refuse `quality=73`, and the honest place to translate a control
+      // this page invented is next to the control.
+      ...(typeof opts.quality === "number" ? { bitrate: bitrateFor(opts.quality) } : {}),
+      ...(opts.normalize ? { normalize: true } : {}),
+      ...(typeof opts.trimStart === "number" ? { start: String(opts.trimStart) } : {}),
+      ...(typeof opts.trimEnd === "number"
+        ? { duration: String(Math.max(opts.trimEnd - (opts.trimStart ?? 0), 0)) }
+        : {}),
+    },
+    onProgress,
+  });
+}
+
+/**
+ * The nearest bitrate the service actually offers.
+ *
+ * Its allowlist is whole strings, so anything between them is refused rather
+ * than rounded — which is the right behaviour there and would be a strange one
+ * to show somebody who moved a slider.
+ */
+function bitrateFor(quality: number): string {
+  if (quality >= 90) return "320k";
+  if (quality >= 75) return "256k";
+  if (quality >= 60) return "192k";
+  if (quality >= 45) return "160k";
+  if (quality >= 30) return "128k";
+  if (quality >= 15) return "96k";
+  return "64k";
 }
