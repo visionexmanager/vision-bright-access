@@ -16,3 +16,15 @@
 # of failure that only ever appears on one operating system.
 *.mjs text eol=lf
 *.cjs text eol=lf
+
+# The same rule, for the files that are copied to the server and run there.
+#
+# `site-block.awk` is executed by awk on the VPS and its output is written back
+# as the nginx configuration of the live site; the `.conf` files under
+# `services/media-processor/nginx/` are read by nginx itself. Neither is loaded
+# by this repository's tooling, so a CRLF checkout would travel all the way to
+# production before anything noticed — and the fixtures beside them are compared
+# byte-for-byte by `nginx-site-block.test.ts`, which is where it would show up
+# as a test that passes on Linux and fails on Windows.
+*.awk  text eol=lf
+*.conf text eol=lf
