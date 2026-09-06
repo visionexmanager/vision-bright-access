@@ -229,5 +229,41 @@ jobs:
           say "The remainder — unstructured lines, and lines from other functions — are withheld: this repository is public and only the allowlisted fields above have been vouched for."
           say "A provider failure appears as a normalised \`code\` and \`status\`, never as a provider message. Follow one delivery end to end with its \`correlation\`."
 
+          # ── 6b. The failures that answer nobody ─────────────────────────────
+          #
+          # Section 6 shows structured events and counts everything else as
+          # withheld. That was right, and it also hid the one line that explains
+          # a delivery which produced no reply at all: the outer catch's
+          #
+          #   console.error("[whatsapp] failed to handle a message:", describeError(e))
+          #
+          # `describeError` is the sanitiser. It returns a normalised code and
+          # nothing else — "database_error", "upstream_error/502" — with no
+          # provider message, no request and no text anybody sent. So the code is
+          # safe to publish and the rest of the line still is not.
+          #
+          # This extracts exactly that: a line has to be `[whatsapp] `, then a
+          # phrase of plain words, then a code from the sanitiser's own
+          # vocabulary and nothing after it. Anything else — a future
+          # `console.error` that interpolates a value, a line from another
+          # function — matches nothing and is not shown.
+          CODES='^(aborted|timeout|rate_limited|unauthorized|forbidden|not_found|bad_request|upstream_error|database_error|transport_error|unknown)(/[0-9]{3})?$'
+
+          say ""
+          say "## 6b. Deliveries that failed without answering"
+          say "The normalised code only — never the provider's message, which can quote what somebody sent."
+          say '```json'
+          jq -c --arg codes "$CODES" '
+            [ .result[]?
+              | { at: .timestamp, line: .event_message }
+              | select(.line | type == "string")
+              | (.line | capture("^\\[whatsapp\\] (?<where>[a-z A-Z-]+): (?<code>[^ ]+)$") // empty) as $m
+              | select($m.code | test($codes))
+              | { at: .at, where: $m.where, code: $m.code }
+            ]' /tmp/wa-logs.json | tee -a "$GITHUB_STEP_SUMMARY"
+          echo
+          say '```'
+          say "Empty is the good answer. A row here is a message somebody sent that got no reply of any kind."
+
           say ""
           say "Nothing above modified anything: every statement is a SELECT."
