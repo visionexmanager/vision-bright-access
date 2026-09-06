@@ -73,30 +73,41 @@ function concat(chunks: Uint8Array[]): Uint8Array {
  * Run bytes through one of the platform's codecs.
  *
  * `new Blob([bytes]).stream()` would be shorter and does not exist in jsdom, so
- * the source is a ReadableStream built by hand.
+ * the bytes are written into the transform's own writable end instead.
+ *
+ * The parameter is `GenericTransformStream` — the interface both compression
+ * streams extend — and not `TransformStream<Uint8Array, Uint8Array>`, because
+ * the two lockfiles in this repository resolve different DOM typings: under the
+ * newer ones a `CompressionStream` writes `BufferSource`, not `Uint8Array`, and
+ * only the pnpm CI job sees it. The shared base is the same in both.
  */
-async function pipe(
-  bytes: Uint8Array,
-  transform: TransformStream<Uint8Array, Uint8Array>,
-): Promise<Uint8Array> {
-  const source = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  });
-  const reader = source.pipeThrough(transform).getReader();
+async function pipe(bytes: Uint8Array, transform: GenericTransformStream): Promise<Uint8Array> {
+  const writer = transform.writable.getWriter();
+  // Deliberately not awaited: a 16 MB chunk can sit past the stream's
+  // high-water mark, and nothing drains it until the loop below reads. The
+  // rejection is swallowed here because the read side reports the real failure.
+  const written = writer.write(bytes).then(
+    () => writer.close(),
+    () => {},
+  );
+  const reader = transform.readable.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.length;
-    if (total > MAX_TOTAL_BYTES) {
-      await reader.cancel();
-      throw new ArchiveError("This archive expands to more than this page can hold.");
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = value as Uint8Array;
+      total += chunk.length;
+      if (total > MAX_TOTAL_BYTES) {
+        await reader.cancel();
+        throw new ArchiveError("This archive expands to more than this page can hold.");
+      }
+      chunks.push(chunk);
     }
-    chunks.push(value);
+  } finally {
+    await written;
   }
   return concat(chunks);
 }
