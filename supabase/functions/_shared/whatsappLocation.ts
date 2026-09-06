@@ -415,6 +415,7 @@ export const NEARBY_CATEGORIES: Record<string, UiKey> = {
   pharmacy: "catPharmacy",
   hospital: "catHospital",
   clinic: "catClinic",
+  doctors: "catDoctors",
   supermarket: "catSupermarket",
   bakery: "catBakery",
   restaurant: "catRestaurant",
@@ -475,11 +476,19 @@ export function formatNearby(params: {
   language: Language;
   origin: { latitude: number; longitude: number };
   places: NearbyPlace[];
+  /**
+   * The first line, when it is not a browse.
+   *
+   * The emergency path passes its own: somebody asking for a hospital is not
+   * looking around them, and "here is what is nearby" read aloud in that moment
+   * is the wrong sentence in the wrong voice.
+   */
+  heading?: string;
 }): string {
   const { language, origin, places } = params;
   if (places.length === 0) return say("nearbyNone", language);
 
-  const lines = [`🧭 ${say("nearbyHeading", language)}`];
+  const lines = [params.heading ?? `🧭 ${say("nearbyHeading", language)}`];
   for (const place of places) {
     lines.push(
       say("nearbyLine", language)

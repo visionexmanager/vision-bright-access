@@ -629,6 +629,10 @@ const BASE_STRINGS = {
   catPharmacy: { ar: "صيدلية", en: "pharmacy" },
   catHospital: { ar: "مستشفى", en: "hospital" },
   catClinic: { ar: "عيادة", en: "clinic" },
+  // OpenStreetMap's `amenity=doctors`: a practice with somebody's name on the
+  // door, which is not a hospital and not a clinic and is what "who is the
+  // nearest doctor" actually means.
+  catDoctors: { ar: "أطباء", en: "doctors" },
   catSupermarket: { ar: "سوبرماركت", en: "supermarket" },
   catBakery: { ar: "مخبز", en: "bakery" },
   catRestaurant: { ar: "مطعم", en: "restaurant" },
@@ -1027,6 +1031,33 @@ const BASE_STRINGS = {
   kidsBackHint: {
     ar: "افتح «عالم الأطفال» من القائمة لترى القائمة من جديد.",
     en: "Open VisionKids from the menu to see the list again.",
+  },
+
+  // ── Emergency care ────────────────────────────────────────────────────────
+  //
+  // Three sentences, and the one that is not here matters as much as the three
+  // that are: no emergency telephone number is printed. This assistant serves
+  // 199 countries, a wrong number given in the minute somebody needs the right
+  // one is the worst failure it could produce, and there is no source for 199
+  // of them this repository can vouch for. So it names the thing to do without
+  // inventing the digits, and the hospital — with its location — is the part
+  // that comes from data.
+
+  emergencyHeading: { ar: "*أقرب المستشفيات إليك*", en: "*The nearest hospitals to you*" },
+  /**
+   * Said first, above the list, every time.
+   *
+   * Above it because somebody reading this aloud to a person in trouble should
+   * reach it before the names, and somebody listening should not have to wait
+   * through five hospitals to be told to make a call instead.
+   */
+  emergencyCallFirst: {
+    ar: "إن كانت الحالة خطرة على الحياة فاتصل برقم الطوارئ في بلدك الآن، ولا تنتظر هذه القائمة.",
+    en: "If this is life-threatening, call your country's emergency number now — do not wait for this list.",
+  },
+  emergencyNeedsLocation: {
+    ar: "أرسل موقعك الآن وسأعطيك أقرب مستشفى فوراً. وإن كانت الحالة خطرة على الحياة فاتصل برقم الطوارئ في بلدك.",
+    en: "Send your location now and I'll give you the nearest hospital straight away. If this is life-threatening, call your country's emergency number.",
   },
 
   // ── A song, asked for by name ─────────────────────────────────────────────

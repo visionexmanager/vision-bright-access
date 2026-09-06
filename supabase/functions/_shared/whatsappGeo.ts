@@ -380,8 +380,13 @@ const PHOTON_NEARBY_TIMEOUT_MS = 5_000;
  * in the middle of an Arabic sentence is the failure this prevents.
  */
 const AMENITIES = [
-  "pharmacy", "hospital", "clinic", "bank", "atm", "restaurant", "cafe",
-  "fuel", "police", "post_office", "school", "place_of_worship",
+  // `doctors` is OpenStreetMap's tag for a practice rather than a hospital —
+  // the surgery on the corner with somebody's name on the door. A probe in
+  // Amman returned six inside three kilometres, most of them named in Arabic,
+  // which is the answer to "who is the nearest doctor" that no directory this
+  // project could maintain would have.
+  "pharmacy", "hospital", "clinic", "doctors", "bank", "atm", "restaurant",
+  "cafe", "fuel", "police", "post_office", "school", "place_of_worship",
 ];
 const SHOPS = ["supermarket", "bakery", "convenience"];
 

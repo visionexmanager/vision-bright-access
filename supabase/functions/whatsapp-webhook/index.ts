@@ -78,6 +78,10 @@ import {
   reverseGeocode,
 } from "../_shared/whatsappGeo.ts";
 import {
+  asksForEmergencyCare,
+  EMERGENCY_CATEGORY,
+} from "../_shared/whatsappHealth.ts";
+import {
   asksWhatIsNearby,
   asksWhereAmI,
   formatNearby,
@@ -3447,16 +3451,41 @@ Deno.serve(async (req) => {
       // reached the assistant, and the assistant offered directions it has no
       // way to give. Answering it here is what stops a model apologising for a
       // capability this system actually has.
-      const nearbyCategory = humanOwnsThis || aiFocused
+      // ── Emergency ──────────────────────────────────────────────────────
+      //
+      // The same map, asked a narrower question, said in a different voice.
+      // Somebody typing «طوارئ» is not browsing: they are not choosing between
+      // a pharmacy and a café, they may be dictating into a phone they cannot
+      // see, and they may be doing it for somebody else. So the category is
+      // fixed to hospitals, the sentence about calling comes *before* the list
+      // rather than after it, and a missing pin is answered with urgency rather
+      // than with the ordinary request to share one.
+      const emergency = !humanOwnsThis && !aiFocused &&
+        featureOn("health.emergency") && asksForEmergencyCare(questionText);
+
+      const nearbyCategory = emergency
+        ? EMERGENCY_CATEGORY
+        : humanOwnsThis || aiFocused
         ? null
         : parseNearbyCategory(questionText, answerLanguage);
 
       const asksNearby = nearbyCategory !== null || asksWhatIsNearby(questionText);
-      if (asksNearby && !humanOwnsThis && !aiFocused && featureOn("services.nearby")) {
+      if (
+        asksNearby && !humanOwnsThis && !aiFocused &&
+        featureOn(emergency ? "health.emergency" : "services.nearby")
+      ) {
         if (!rememberedLocation) {
-          await reply(locationNeededNotice(answerLanguage), "reply");
+          await reply(
+            emergency ? say("emergencyNeedsLocation", answerLanguage) : locationNeededNotice(answerLanguage),
+            "reply",
+          );
           continue;
         }
+
+        // Before the lookup, not after it. The map can be slow or unreachable,
+        // and the one sentence that might matter more than the list must not be
+        // the thing that fails to arrive.
+        if (emergency) await reply(say("emergencyCallFirst", answerLanguage), "reply");
         const nearby = await viaCache(
           nearbyKey(
             rememberedLocation.latitude,
@@ -3485,6 +3514,7 @@ Deno.serve(async (req) => {
           language: answerLanguage,
           origin: rememberedLocation,
           places: nearby,
+          ...(emergency ? { heading: `🚨 ${say("emergencyHeading", answerLanguage)}` } : {}),
         });
 
         // Each place is a row now, and tapping one sends its pin. The bullets
@@ -3492,7 +3522,7 @@ Deno.serve(async (req) => {
         // client that refuses interactive messages still gets the answer.
         const list = nearbyMessage({
           language: answerLanguage,
-          heading: say("nearbyHeading", answerLanguage),
+          heading: say(emergency ? "emergencyHeading" : "nearbyHeading", answerLanguage),
           places: nearby.map((found) => ({
             id: placeRowId(found),
             title: found.name,
@@ -3507,6 +3537,7 @@ Deno.serve(async (req) => {
         if (list) {
           await reply(written, "reply");
           await sendChoices(list, "reply");
+          if (emergency) log("emergency", { outcome: "listed", count: nearby.length });
         } else {
           // Nothing mapped out here. `formatNearby` already says so truthfully,
           // and an empty list under it would say it a second time with nothing
