@@ -1060,6 +1060,40 @@ const BASE_STRINGS = {
     en: "Send your location now and I'll give you the nearest hospital straight away. If this is life-threatening, call your country's emergency number.",
   },
 
+  // ── A medicine, asked for by name ─────────────────────────────────────────
+  //
+  // Four sentences, and the fourth is the one that must never be optional. The
+  // leaflet itself is rendered into the reader's language by the model; this
+  // disclaimer is appended by code afterwards, so no rendering — however it
+  // goes wrong — can drop it, shorten it, or put it where somebody stops
+  // reading before they reach it.
+  //
+  // It names the country of the label on purpose. These are US labels, and a
+  // brand means different things in different places: "Panadol" is paracetamol
+  // across the Middle East, and the first US match for that name is a product
+  // containing an antihistamine as well. Naming the source is the difference
+  // between information and a wrong answer delivered confidently.
+
+  medicineWhich: {
+    ar: "أي دواء؟ اكتب: دواء، ثم اسمه — مثل «دواء بنادول».",
+    en: "Which medicine? Write: medicine, then its name — like \"medicine Panadol\".",
+  },
+  medicineNone: {
+    ar: "لم أجد دواءً بهذا الاسم. تحقّق من طريقة كتابته، أو اسأل الصيدلي — أسماء الأدوية تختلف بين الدول.",
+    en: "I couldn't find a medicine by that name. Check the spelling, or ask your pharmacist — drug names differ between countries.",
+  },
+  medicineUnavailable: {
+    ar: "تعذّر الوصول إلى معلومات الأدوية الآن. جرّب بعد قليل.",
+    en: "I couldn't reach the medicine information just now. Try again shortly.",
+  },
+  /** Appended by code, never produced by the model. */
+  medicineDisclaimer: {
+    ar:
+      "هذه المعلومات من نشرة الدواء المعتمدة لدى إدارة الغذاء والدواء الأمريكية (FDA)، وليست وصفة ولا بديلاً عن الطبيب أو الصيدلي. التركيبة وراء الاسم التجاري تختلف بين الدول — تأكّد من العلبة التي بيدك ومن الصيدلي قبل أن تأخذ أي شيء.",
+    en:
+      "This comes from the medicine's approved US label (FDA). It is not a prescription and not a substitute for a doctor or a pharmacist. What is inside a brand name differs between countries — check the box in your hand, and check with your pharmacist, before taking anything.",
+  },
+
   // ── A song, asked for by name ─────────────────────────────────────────────
   //
   // Two of these say what Visionex may and may not send, and they are not

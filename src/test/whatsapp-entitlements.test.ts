@@ -164,8 +164,24 @@ describe("the gate is where the money is", () => {
     // actually is; asserting a sum said what it happened to look like.
     const gates = webhook.match(/await maySpend\(\)/g)?.length ?? 0;
     const asks = webhook.match(/await askAssistant\(/g)?.length ?? 0;
-    expect(asks).toBe(3);
-    expect(gates).toBe(3);
+    // Four now. The medicine leaflet is the fourth of each: openFDA and RxNav
+    // are free and keyless, but rendering the label into the reader's language
+    // is a provider call, so it stands behind a gate of its own like the rest.
+    expect(asks).toBe(4);
+    expect(gates).toBe(4);
+
+    // And that gate is in front of that ask, which is the rule the numbers are
+    // only a proxy for.
+    // Searched as a pattern, not as a literal: this file is checked out with
+    // CRLF endings on Windows and a hard-coded "\n" between the two lines finds
+    // nothing there — an assertion that passes for the wrong reason.
+    const medicineGate = webhook.search(
+      /if \(!\(await maySpend\(\)\)\) continue;\s+const label = await lookupMedicine/,
+    );
+    expect(medicineGate, "the medicine gate").toBeGreaterThan(-1);
+    expect(webhook.indexOf("systemParts: [renderPrompt(")).toBeGreaterThan(medicineGate);
+    // The two free lookups sit behind it too, which costs nothing and keeps the
+    // branch readable — but the thing being guarded is the provider call.
 
     const mediaGate = webhook.indexOf("if (!humanOwnsThis && !(await maySpend())) continue;");
     expect(mediaGate).toBeGreaterThan(-1);

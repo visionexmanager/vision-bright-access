@@ -506,7 +506,10 @@ describe("the webhook is wired to exactly this policy", () => {
     // ask is fine as long as it is wired the same way; an ask that named its
     // own provider would not be.
     const asks = webhook.match(/askAssistant\(/g)?.length ?? 0;
-    expect(asks).toBe(3);
+    // The fourth is the medicine leaflet, rendered into the reader's language.
+    // Wired exactly like the other three: through `askAssistant`, handed
+    // `chainProvider()`, naming no provider of its own.
+    expect(asks).toBe(4);
     expect(webhook.match(/chainProvider\(\)/g)?.length).toBe(asks);
     expect(webhook).not.toMatch(/askAssistant\([\s\S]{0,2000}?\}\s*,\s*\{\s*provider:/);
   });
