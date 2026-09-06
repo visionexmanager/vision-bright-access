@@ -237,7 +237,9 @@ describe("handing a conversation back actually hands it back", () => {
     // The webhook silences the assistant on either, so setting control back to
     // 'ai' while `escalated` stayed true left a number permanently ignored.
     expect(ownerControl).toContain('...(control === "ai" ? { escalated: false, escalated_at: null } : {})');
-    expect(webhook).toContain('existing?.control === "human" || existing?.escalated === true');
+    // The webhook reads both through one function now; that it silences on
+    // either is asserted where the function's rules are.
+    expect(webhook).toContain("const humanOwnsThis = assistantIsSilenced(");
   });
 
   it("does not clear it when a person is taking over", () => {

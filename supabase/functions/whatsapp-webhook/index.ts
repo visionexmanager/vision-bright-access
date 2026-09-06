@@ -365,6 +365,7 @@ import { corruptOfficeNotice, emptyOfficeNotice, officeKind } from "../_shared/w
 import {
   CLASSIFY_INSTRUCTION,
   CLASSIFY_SCHEMA,
+  assistantIsSilenced,
   fallbackBriefing,
   HANDOFF_INSTRUCTION,
   isCategory,
@@ -840,6 +841,28 @@ Deno.serve(async (req) => {
     /** Set by the catch, so a failed delivery is never marked finished. */
     let handlingFailed = false;
 
+    /**
+     * The three things a failure needs, captured as they come into existence.
+     *
+     * `log` and `reply` are both made further down — after the correlation id,
+     * after the sender's language — so the catch at the bottom of this block
+     * could reach neither, and a delivery that threw produced one unstructured
+     * console line and, for the sender, nothing at all. On 2026-09-06 two voice
+     * notes hit that path: the transcript shows them arriving and shows no
+     * answer, and the only trace was a line the diagnose workflow withholds
+     * because it cannot vouch for what a `console.error` carries.
+     *
+     * `stage` is the other half. A normalised code says *what* kind of failure
+     * it was and never *where*, and "unknown" is what a plain `Error` becomes —
+     * so the same three words could be the claim, the rate limiter, the
+     * transcription or the answer. It is set as the delivery walks, it is a
+     * literal at every point, and it is the field that turns the next one of
+     * these into a single line of a diagnose run.
+     */
+    let report: ReturnType<typeof createTelemetry> | null = null;
+    let answerFailure: (() => Promise<void>) | null = null;
+    let stage = "start";
+
     try {
       // Detection reruns on a transcript below, once there is one to read.
       let detected = detectLanguageCode(incoming.text);
@@ -885,7 +908,7 @@ Deno.serve(async (req) => {
         "id, language, voice_mode, menu_sent_at, ai_thread_id, ai_thread_started_at, nav_path, current_feature, current_step, pending_operation, session_context, session_updated_at, " +
         PROFILE_COLUMNS + ", ";
       const ESTABLISHED_COLUMNS =
-        "escalated, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at";
+        "escalated, escalated_at, escalation_reason, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at";
 
       const firstRead = await db
         .from("whatsapp_conversations")
@@ -982,6 +1005,8 @@ Deno.serve(async (req) => {
         },
         { startedAt },
       );
+      report = log;
+      stage = "received";
       log("received", { chars: questionTextLength(incoming), selection: !!incoming.selection });
 
       /**
@@ -1096,6 +1121,7 @@ Deno.serve(async (req) => {
       // is what marks it finished. Set after the claim rather than before, so a
       // message this delivery decided to skip is never marked done by it.
       claimedMessageId = incoming.messageId;
+      stage = "claimed";
 
       /**
        * Whether the message being answered was itself spoken.
@@ -1231,6 +1257,26 @@ Deno.serve(async (req) => {
           sent: delivered.sent,
           spokenFailed: delivered.spokenFailed,
         });
+      };
+
+      /**
+       * The sentence a delivery that threw still manages to send.
+       *
+       * Handed to the catch at the bottom of this block, which cannot reach
+       * `reply` or `answerLanguage` itself — they are made here, and a failure
+       * before this line has neither. It is set as soon as both exist, which is
+       * as early as anything can be said at all.
+       *
+       * Silent when something already went out. An error *after* an answer was
+       * delivered — a metering write, a background drain — is not a question
+       * left hanging, and following a real answer with "something went wrong"
+       * would take a delivery that worked and make it read as one that did not.
+       * `lastSentBody` is the record of that, and it is the same guard `reply`
+       * uses to refuse saying one thing twice.
+       */
+      answerFailure = async () => {
+        if (lastSentBody !== null) return;
+        await reply(featureErrorNotice(answerLanguage), "unsupported");
       };
 
       /**
@@ -1711,6 +1757,7 @@ Deno.serve(async (req) => {
       // the model call and the reply are withheld. The owner is exempt: their
       // commands have their own separate limit above.
       if (!isNew && !isOwner(incoming.from, configuredOwner)) {
+        stage = "rate_limit";
         const nowMs = Date.now();
         const [{ count: hourCount }, { count: minuteCount }, { data: recent }] = await Promise.all([
           db.from("whatsapp_messages").select("id", { count: "exact", head: true })
@@ -1814,6 +1861,7 @@ Deno.serve(async (req) => {
       };
 
       if (isOnboarding(onboardingState)) {
+        stage = "onboarding";
         const outcome = runOnboarding(
           { text: incoming.text, kind: engineMessageKind(incoming), selection: incoming.selection },
           {
@@ -1944,7 +1992,10 @@ Deno.serve(async (req) => {
        * their own entry points. Anything that falls through still meets the
        * original check downstream, which is why they need no reply of their own.
        */
-      const humanOwnsThis = existing?.control === "human" || existing?.escalated === true;
+      // Cast the way `readSession` above is: the generated types for this
+      // client are stale, so every read of a column on this row goes through
+      // the same shape rather than growing a second story about it.
+      const humanOwnsThis = assistantIsSilenced(existing as Record<string, unknown> | null, Date.now());
 
       // ── What this number may spend today ──────────────────────────────
       //
@@ -2277,6 +2328,7 @@ Deno.serve(async (req) => {
       }
 
       if (incoming.media) {
+        stage = "media";
         if (!token) {
           await reply(unsupportedTypeNotice(answerLanguage, incoming.media.kind), "unsupported");
           continue;
@@ -2375,6 +2427,7 @@ Deno.serve(async (req) => {
             await saveSession();
           };
 
+          stage = "transcribe";
           const turn = await voiceToText(incoming.media.id, {
             download: (mediaId) => downloadMedia({ mediaId, kind: "audio", token, trace: correlationId }),
             transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),
@@ -2790,6 +2843,7 @@ Deno.serve(async (req) => {
       // The third case is why adding this layer changed nothing that already
       // worked: a customer who has never seen a menu and simply asks a question
       // matches no command and no number, and reaches the same code as always.
+      stage = "route";
       const outcome = runEngine(
         {
           text: questionText,
@@ -4187,7 +4241,27 @@ Deno.serve(async (req) => {
       // user is not talking to both at once. `control` is the explicit
       // owner-set state; `escalated` is the automatic one. Either silences
       // the assistant, and only the owner can hand control back.
-      if (existing?.control === "human" || existing?.escalated) continue;
+      //
+      // With one exception, which `assistantIsSilenced` owns: an escalation
+      // that says the *provider* was unreachable is an outage, not a handover,
+      // and half an hour later there is nothing for a person to own and a
+      // sender who has been ignored ever since.
+      if (assistantIsSilenced(existing as Record<string, unknown> | null, Date.now())) continue;
+
+      // The outage is over, so the flag that recorded it goes. Left standing it
+      // would keep this thread in the escalated queue for ever and re-silence
+      // nothing — but a row that says a conversation needs a person, when it
+      // does not, is the queue lying to whoever reads it. The handover message
+      // the sender already received stays in the transcript.
+      if (existing?.escalated === true) {
+        await db
+          .from("whatsapp_conversations")
+          .update({ escalated: false, escalation_reason: null })
+          .eq("id", conversationId);
+        log("escalation_cleared", {
+          reason: String((existing as Record<string, unknown> | null)?.escalation_reason ?? "unknown"),
+        });
+      }
 
       // ── The assistant's own input rules ───────────────────────────────
       //
@@ -4508,7 +4582,39 @@ Deno.serve(async (req) => {
       // that failed is deliberately left claimed but unfinished, so Meta's
       // redelivery rescues it instead of discarding it as a duplicate.
       handlingFailed = true;
-      console.error("[whatsapp] failed to handle a message:", describeError(e));
+      const problem = describeError(e);
+      console.error("[whatsapp] failed to handle a message:", problem);
+
+      // Structured, so the next one is a row in `whatsapp-diagnose` instead of
+      // a console line that workflow is right to withhold. Three allowlisted
+      // fields: where the delivery had got to, the normalised code, and whether
+      // it was an attachment — which is the difference between "the assistant
+      // is down" and "voice notes are".
+      report?.("handling_failed", {
+        state: stage,
+        problem,
+        kind: incoming.media?.kind ?? (incoming.location ? "location" : "text"),
+      });
+
+      // And the sender is told something.
+      //
+      // This is the point of the whole block. A person who asks a question and
+      // receives nothing has no way to tell a broken assistant from one that is
+      // thinking, and for somebody who cannot see the screen there is not even
+      // a spinner to misread — they wait, and then they wait longer. One
+      // sentence, in their own language, is the difference between a failure
+      // and an outage.
+      //
+      // Best effort, and it can fail in turn: if the send itself is what threw,
+      // this throws too, and a failure to apologise must not become a failure
+      // of the batch. `answerFailure` refuses to speak when something has
+      // already gone out, so an error *after* a successful answer stays silent
+      // rather than contradicting it.
+      try {
+        await answerFailure?.();
+      } catch (sendFailed) {
+        console.error("[whatsapp] could not send the failure notice:", describeError(sendFailed));
+      }
     } finally {
       // Reached by every ordinary way out of the block above, `continue`
       // included — which is what makes this the one place the claim is closed,

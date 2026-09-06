@@ -12,6 +12,7 @@ import {
 const migration = readFileSync("supabase/migrations/20260902000000_owner_control_and_escalations.sql", "utf8");
 const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
 const ownerControl = readFileSync("supabase/functions/_shared/ownerControl.ts", "utf8");
+const triage = readFileSync("supabase/functions/_shared/whatsappTriage.ts", "utf8");
 
 describe("owner authorization", () => {
   it("matches the configured number however it is written", () => {
@@ -205,7 +206,11 @@ describe("decision safety", () => {
 
 describe("human takeover", () => {
   it("silences the assistant while a person owns the conversation", () => {
-    expect(webhook).toContain('existing?.control === "human"');
+    // One function answers this now — `assistantIsSilenced` — because the
+    // condition was written out in two places and only one of them was ever
+    // corrected. An owner takeover is the half of it that never expires.
+    expect(webhook).toContain("assistantIsSilenced(");
+    expect(triage).toContain('if (row.control === "human") return true;');
   });
 
   it("has explicit ai / human control states", () => {
