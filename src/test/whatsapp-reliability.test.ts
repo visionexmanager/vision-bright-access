@@ -602,6 +602,65 @@ describe("when the assistant must stay quiet", () => {
   });
 });
 
+// ── The gate that lets a boot-class fault through ───────────────────────────
+//
+// `whatsapp-deno-check.yml` runs `deno check` on every entry point and fails on
+// the diagnostics that are *runtime* failures rather than type complaints. The
+// entry points carry long-standing type errors from stale generated types, so a
+// blanket check is red before anybody touches anything — which is why the fatal
+// set is a list, and why the list is the thing worth pinning.
+//
+// It has been wrong twice. First it matched nothing at all, because Deno colours
+// its output and the escape sequence sat in front of the code. Then it matched
+// the wrong codes: `aiFocused` and `featureOn` were read five hundred lines
+// above their own declarations, `deno check` reported TS2448 and TS2454 for a
+// day, and every message carrying a voice note, a photograph or a document was
+// answered with silence while the gate stayed green.
+
+describe("the boot gate's fatal set", () => {
+  const workflow = readFileSync(".github/workflows/whatsapp-deno-check.yml", "utf8");
+  const fatal = /FATAL='(\^TS\([^']+\) )'/.exec(workflow)?.[1];
+
+  it("is a real pattern, read out of the workflow", () => {
+    // Two undefineds compare equal, and a test that cannot find the line would
+    // pass for ever while the line said anything at all.
+    expect(fatal, "FATAL=... in the workflow").toBeTruthy();
+  });
+
+  it("covers every diagnostic that means the code cannot run", () => {
+    const cover = (code: string) => new RegExp(fatal!).test(`${code} [ERROR]: something`);
+    // The parse family: the module never becomes a module.
+    for (const code of ["TS1005", "TS1308", "TS1109"]) expect(cover(code), code).toBe(true);
+    // A duplicate import — a SyntaxError at load. Took the webhook down for
+    // four hours on 2026-09-05.
+    expect(cover("TS2300")).toBe(true);
+    // A name that does not exist, and a name that exists later — both are a
+    // ReferenceError the moment the line runs. The second is the worse of the
+    // two: it type-checks as a real binding and fails only on the paths that
+    // reach it before its declaration, so the function starts, the health check
+    // is green, and one kind of message quietly stops working.
+    for (const code of ["TS2304", "TS2552", "TS2448", "TS2454"]) {
+      expect(cover(code), code).toBe(true);
+    }
+  });
+
+  it("still lets an ordinary type complaint through", () => {
+    const cover = (code: string) => new RegExp(fatal!).test(`${code} [ERROR]: something`);
+    // These are the stale generated types, and failing on them would make the
+    // gate red on every branch until they are regenerated — which is how a gate
+    // ends up being switched off.
+    for (const code of ["TS2339", "TS2345", "TS18046", "TS2551"]) {
+      expect(cover(code), code).toBe(false);
+    }
+  });
+
+  it("keeps the space that stops TS1804 matching TS18046", () => {
+    // Load-bearing: without it the pattern matches any code that merely starts
+    // with one of these, and two healthy functions fail.
+    expect(fatal!.endsWith(") ")).toBe(true);
+  });
+});
+
 describe("the migration is additive and safe", () => {
   it("only adds nullable columns and one index", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS processing_state");

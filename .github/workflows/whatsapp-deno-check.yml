@@ -121,6 +121,24 @@ jobs:
           #   TS2300  duplicate identifier — a SyntaxError at load, BOOT_ERROR
           #   TS2304  cannot find name — a ReferenceError the moment it is hit
           #   TS2552  the same thing, with a spelling suggestion attached
+          #   TS2448  used before its declaration — a ReferenceError from the
+          #           temporal dead zone, and the reason this line exists
+          #   TS2454  used before being assigned — the same fault, reported
+          #           from the other side
+          #
+          # 2448 and 2454 were added on 2026-09-06, after a fault they had been
+          # reporting for a day shipped past this gate. `aiFocused` and
+          # `featureOn` were read in the attachment branches five hundred lines
+          # above their own `const` declarations, so every message carrying a
+          # voice note, a photograph or a document threw a ReferenceError before
+          # it could be read — and was answered with silence.
+          #
+          # It is worse than a name that does not exist, which is what 2304
+          # already covered: this one type-checks as a real binding, runs
+          # correctly on every path that reaches the declaration first, and
+          # fails only for the messages that take the earlier branch. The
+          # function starts, the health check is green, and one kind of message
+          # stops working.
           #
           # Everything else stays excluded, loudly, because the entry points
           # carry long-standing type errors from the generated Supabase types
@@ -129,7 +147,7 @@ jobs:
           # The trailing space in the pattern is load-bearing: without it
           # `TS1804` matches `TS18046` ("'err' is of type 'unknown'"), which is
           # a type complaint and would fail two functions that are fine.
-          FATAL='^TS(1[0-9]{3}|2300|2304|2552) '
+          FATAL='^TS(1[0-9]{3}|2300|2304|2448|2454|2552) '
           for f in supabase/functions/*/index.ts; do
             out=$(deno check --no-lock --node-modules-dir=none "$f" 2>&1 || true)
             if echo "$out" | grep -qE "$FATAL"; then
