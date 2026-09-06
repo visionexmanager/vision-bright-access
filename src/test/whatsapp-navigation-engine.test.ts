@@ -21,6 +21,7 @@ import type { SessionState } from "../../supabase/functions/_shared/whatsappSess
 
 const catalog = await import("../../supabase/functions/_shared/whatsappCatalog.ts");
 const interactive = await import("../../supabase/functions/_shared/whatsappInteractive.ts");
+const languages = await import("../../supabase/functions/_shared/whatsappLanguages.ts");
 const session = await import("../../supabase/functions/_shared/whatsappSession.ts");
 const engine = await import("../../supabase/functions/_shared/whatsappEngine.ts");
 const vision = await import("../../supabase/functions/_shared/whatsappVisionModes.ts");
@@ -528,6 +529,32 @@ describe("the catalog", () => {
           expect(row.title, row.title).not.toContain("…");
         }
         expect(new Set(rows.map((row) => row.id)).size).toBe(rows.length);
+      }
+    }
+  });
+
+  // The limit test above renders real messages, which it can only do in the two
+  // languages the engine composes body text for. The row labels exist in twenty,
+  // and Meta measures the row — so this walks all of them.
+  //
+  // Nothing is truncated when a label is too long: `whatsappInteractive.ts` clips
+  // it with an ellipsis, which means an over-long title does not fail anywhere,
+  // it just quietly stops being a sentence in that one language. "Learn &
+  // explore" had been clipped in Urdu, and three of the labels written for this
+  // reorganisation were one character over before this test was added.
+  it("fits every row in every language, not only the two it renders", () => {
+    const withEmoji = (title: string, emoji?: string) => `${title}${emoji ? ` ${emoji}` : ""}`;
+    for (const node of catalog.CATALOG) {
+      if (node.hidden) continue;
+      for (const language of languages.SUPPORTED_LANGUAGES) {
+        const title = withEmoji(catalog.localized(node.title, language), node.emoji);
+        const description = catalog.localized(node.description, language);
+        expect(title.length, `${node.id}/${language}: "${title}"`)
+          .toBeLessThanOrEqual(catalog.LIST_LIMITS.rowTitle);
+        expect(description.length, `${node.id}/${language}: "${description}"`)
+          .toBeLessThanOrEqual(catalog.LIST_LIMITS.rowDescription);
+        expect(title.trim(), `${node.id}/${language}`).not.toBe("");
+        expect(description.trim(), `${node.id}/${language}`).not.toBe("");
       }
     }
   });
