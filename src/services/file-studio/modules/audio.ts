@@ -29,7 +29,14 @@ import type {
 import { AUDIO_FORMATS } from "@/lib/types/fileStudio";
 import { convertOnServer, SERVER_AUDIO_OUTPUTS } from "../serverConvert";
 
-const BROWSER_OUTPUT_FORMATS = ["wav", "webm"];
+/**
+ * What this module produces without leaving the tab.
+ *
+ * Exported because `engine.ts` builds the page's menu from it: the list a
+ * visitor is shown and the branch that decides where a conversion runs have to
+ * be the same list, or the menu offers something neither path answers.
+ */
+export const BROWSER_OUTPUT_FORMATS = ["wav", "webm"];
 
 export const AudioModule: ConverterModule = {
   moduleType: "audio",

@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_SERVER_FILE_BYTES,
   SERVER_AUDIO_OUTPUTS,
+  SERVER_IMAGE_OUTPUTS,
   SERVER_VIDEO_OUTPUTS,
   serverCanProduce,
 } from "../services/file-studio/serverConvert";
@@ -56,6 +57,9 @@ describe("what File Studio says it can produce", () => {
       .toEqual(serviceTargets("VIDEO_TARGETS").sort());
     expect(SERVER_VIDEO_OUTPUTS).toContain("gif");
     expect(service).toContain("gifArgs");
+    // The stills, which the page only started offering once it stopped
+    // assuming a canvas was the only thing that could write one.
+    expect([...SERVER_IMAGE_OUTPUTS].sort()).toEqual(serviceTargets("IMAGE_TARGETS").sort());
   });
 
   it("stopped offering the formats nothing can make", () => {
@@ -75,7 +79,7 @@ describe("what File Studio says it can produce", () => {
   });
 
   it("agrees with itself about what is producible", () => {
-    for (const format of [...SERVER_AUDIO_OUTPUTS, ...SERVER_VIDEO_OUTPUTS]) {
+    for (const format of [...SERVER_AUDIO_OUTPUTS, ...SERVER_VIDEO_OUTPUTS, ...SERVER_IMAGE_OUTPUTS]) {
       expect(serverCanProduce(format), format).toBe(true);
     }
     for (const format of ["wma", "avi", "flv", "3gp", "exe", ""]) {

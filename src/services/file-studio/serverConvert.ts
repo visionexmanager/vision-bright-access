@@ -32,10 +32,20 @@ import type { ConversionResult } from "@/lib/types/fileStudio";
  */
 export const SERVER_AUDIO_OUTPUTS = ["mp3", "wav", "flac", "aac", "ogg", "opus", "m4a"] as const;
 export const SERVER_VIDEO_OUTPUTS = ["mp4", "mkv", "webm", "mov", "gif"] as const;
+/**
+ * The stills that same ffmpeg writes.
+ *
+ * JPG, PNG and WebP come out of a canvas in the browser and should keep doing
+ * so — that path costs nobody a request and works signed out. BMP and TIFF are
+ * the two no canvas can encode, so they were missing from the page entirely
+ * while the server had been writing them since image conversion shipped.
+ */
+export const SERVER_IMAGE_OUTPUTS = ["jpg", "png", "webp", "bmp", "tiff"] as const;
 
 export const serverCanProduce = (format: string): boolean =>
   (SERVER_AUDIO_OUTPUTS as readonly string[]).includes(format) ||
-  (SERVER_VIDEO_OUTPUTS as readonly string[]).includes(format);
+  (SERVER_VIDEO_OUTPUTS as readonly string[]).includes(format) ||
+  (SERVER_IMAGE_OUTPUTS as readonly string[]).includes(format);
 
 /** The largest file the service accepts, matching its own ceiling and nginx's. */
 export const MAX_SERVER_FILE_BYTES = 16 * 1024 * 1024;

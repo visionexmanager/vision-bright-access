@@ -11,7 +11,6 @@ export const MODULE_BASE_COST: Record<ModuleType, number> = {
   document:  80,    // $0.08
   archive:   30,    // $0.03
   developer: 10,    // $0.01
-  "ai-tools": 500,  // $0.50
 };
 
 // Premium format surcharges (added on top of base)

@@ -1,5 +1,12 @@
 // ─── Document Converter Module ────────────────────────────────────────────────
-// Browser-native: TXT↔HTML, basic CSV parsing. PDF/DOCX require server (Phase 12).
+//
+// Browser-native: TXT↔HTML↔Markdown and CSV. PDF and Word are not here and are
+// not "coming": writing them needs a document engine (LibreOffice, ~1 GB) that
+// Visionex deliberately does not run, and the ffmpeg the other modules use has
+// nothing to do with documents. The branch below therefore refuses by saying
+// that, rather than by naming a phase — the page's menu never offers these
+// pairs in the first place, so it is a safety net and not a message a visitor
+// is expected to read.
 
 import type {
   ConverterModule,
@@ -50,12 +57,11 @@ export const DocumentModule: ConverterModule = {
         resultBlob = new Blob([text], { type: "text/plain" });
       }
       else {
-        // Server-side required
         onProgress(100);
         return {
           success: false,
           processingMs: Date.now() - start,
-          error: `${inFmt.toUpperCase()} → ${opts.targetFormat.toUpperCase()} conversion requires server processing. Available in Phase 12.`,
+          error: `${inFmt.toUpperCase()} → ${opts.targetFormat.toUpperCase()} isn't a conversion Visionex performs. Text, HTML and Markdown convert here.`,
         };
       }
 

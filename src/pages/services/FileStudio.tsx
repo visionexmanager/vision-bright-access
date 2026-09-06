@@ -21,8 +21,9 @@ import {
   AUDIO_FORMATS, VIDEO_FORMATS, IMAGE_FORMATS,
   DOCUMENT_FORMATS, ARCHIVE_FORMATS, DEVELOPER_FORMATS,
 } from "@/lib/types/fileStudio";
-import { calculateVxCost, formatVxCost } from "@/services/file-studio/pricing";
-import { detectModuleType, getWorkingOutputFormats, fileSizeMb } from "@/services/file-studio/engine";
+import { calculateVxCost, formatVxCost, MODULE_BASE_COST } from "@/services/file-studio/pricing";
+import { detectModuleType, getWorkingOutputFormats, fileSizeMb, requiresServer } from "@/services/file-studio/engine";
+import { MAX_SERVER_FILE_BYTES } from "@/services/file-studio/serverConvert";
 import { Link } from "react-router-dom";
 
 // ── Module metadata ────────────────────────────────────────────────────────────
@@ -36,13 +37,12 @@ const MODULES: {
   description: string;
   available: boolean;
 }[] = [
-  { id: "audio",     label: "Audio",     icon: Music,    color: "text-purple-500", formats: AUDIO_FORMATS,    description: "Decode supported audio to WAV or WebM", available: true },
-  { id: "video",     label: "Video",     icon: Video,    color: "text-blue-500",   formats: VIDEO_FORMATS,    description: "Server transcoding coming soon", available: false },
-  { id: "image",     label: "Image",     icon: Image,    color: "text-green-500",  formats: IMAGE_FORMATS,    description: "JPG, PNG and WebP", available: true },
+  { id: "audio",     label: "Audio",     icon: Music,    color: "text-purple-500", formats: AUDIO_FORMATS,    description: "WAV and WebM in your browser; MP3, FLAC, AAC, OGG, Opus and M4A on our server", available: true },
+  { id: "video",     label: "Video",     icon: Video,    color: "text-blue-500",   formats: VIDEO_FORMATS,    description: "MP4, MKV, WebM, MOV and GIF on our server", available: true },
+  { id: "image",     label: "Image",     icon: Image,    color: "text-green-500",  formats: IMAGE_FORMATS,    description: "JPG, PNG and WebP in your browser; BMP and TIFF on our server", available: true },
   { id: "document",  label: "Document",  icon: FileText, color: "text-amber-500",  formats: DOCUMENT_FORMATS, description: "TXT, HTML and Markdown", available: true },
-  { id: "archive",   label: "Archive",   icon: Archive,  color: "text-red-500",    formats: ARCHIVE_FORMATS,  description: "Server conversion coming soon", available: false },
+  { id: "archive",   label: "Archive",   icon: Archive,  color: "text-red-500",    formats: ARCHIVE_FORMATS,  description: "ZIP, TAR and GZIP, repackaged in your browser", available: true },
   { id: "developer", label: "Developer", icon: Code2,    color: "text-cyan-500",   formats: DEVELOPER_FORMATS,description: "JSON, CSV, Base64 and Hex", available: true },
-  { id: "ai-tools",  label: "AI Tools",  icon: Sparkles, color: "text-pink-500",   formats: ["jpg","png","pdf","mp3"],description: "OCR and AI processing coming soon", available: false },
 ];
 
 const FILE_STUDIO_COPY = {
@@ -50,7 +50,7 @@ const FILE_STUDIO_COPY = {
     balance: "VX Balance", availableModules: "Available conversion modules", soon: "Soon",
     convert: "Convert", queueTab: "Queue", historyTab: "History", pricing: "Pricing",
     drop: "Drop file here or", browse: "browse to upload",
-    maxHint: "Audio, images, documents and developer files", chooseFormat: "Choose format…",
+    maxHint: "Audio, video, images, documents, archives and developer files", chooseFormat: "Choose format…",
     cost: "Cost:", signInRequired: "(sign in required)", convertNow: "Convert Now",
     starting: "Starting…", signIn: "Sign in",
     signInHint: "to convert files and keep your history.", active: "Active Conversions",
@@ -58,15 +58,19 @@ const FILE_STUDIO_COPY = {
     noJobs: "No jobs yet. Upload a file to get started.", history: "Conversion History",
     signInHistory: "to view your conversion history.", noCompleted: "No completed jobs yet.",
     perFile: "per file",
-    comingSoonServer: "This conversion needs secure server processing and is not available yet. No VX will be charged.",
+    archiveUnreadable: "7z and RAR need a decoder no browser has. ZIP, TAR and GZIP all convert here. No VX will be charged.",
     noOutput: "No reliable output format is available for this file type. No VX will be charged.",
+    serverNote: "This format is converted on Visionex's own server: sign in first, and keep the file under 16 MB.",
+    serverTooLarge: "This file is over the 16 MB the server accepts. A shorter file works, and so does a format your browser can write itself.",
+    ocrElsewhere: "Reading the text out of a picture or a scan is its own service:",
+    ocrScan: "OCR Scan",
     accessibility: "File Studio is keyboard navigable and screen-reader compatible. Status changes are announced automatically, and upload works without drag-and-drop.",
   },
   ar: {
     balance: "رصيد VX", availableModules: "وحدات التحويل المتاحة", soon: "قريباً",
     convert: "تحويل", queueTab: "قائمة الانتظار", historyTab: "السجل", pricing: "الأسعار",
     drop: "أفلت الملف هنا أو", browse: "اختر ملفاً للرفع",
-    maxHint: "ملفات الصوت والصور والمستندات والمطوّرين", chooseFormat: "اختر الصيغة…",
+    maxHint: "ملفات الصوت والفيديو والصور والمستندات والأرشيفات والمطوّرين", chooseFormat: "اختر الصيغة…",
     cost: "التكلفة:", signInRequired: "(تسجيل الدخول مطلوب)", convertNow: "حوّل الآن",
     starting: "جارِ البدء…", signIn: "سجّل الدخول",
     signInHint: "لتحويل الملفات والاحتفاظ بسجلك.", active: "التحويلات النشطة",
@@ -74,8 +78,12 @@ const FILE_STUDIO_COPY = {
     noJobs: "لا توجد عمليات بعد. ارفع ملفاً للبدء.", history: "سجل التحويلات",
     signInHistory: "لعرض سجل التحويلات الخاص بك.", noCompleted: "لا توجد عمليات مكتملة بعد.",
     perFile: "لكل ملف",
-    comingSoonServer: "يحتاج هذا التحويل إلى معالجة آمنة على الخادم وهو غير متاح بعد. لن يتم خصم أي VX.",
+    archiveUnreadable: "صيغتا 7z وRAR تحتاجان فاكّاً لا يملكه أي متصفح. أما ZIP وTAR وGZIP فتُحوَّل هنا. لن يتم خصم أي VX.",
     noOutput: "لا تتوفر صيغة إخراج موثوقة لهذا النوع من الملفات. لن يتم خصم أي VX.",
+    serverNote: "تتم هذه الصيغة على خادم Visionex نفسه: سجّل الدخول أولاً، وليكن الملف أصغر من 16 ميغابايت.",
+    serverTooLarge: "هذا الملف يتجاوز 16 ميغابايت التي يقبلها الخادم. ملف أقصر ينجح، وكذلك صيغة يكتبها متصفحك بنفسه.",
+    ocrElsewhere: "استخراج النص من صورة أو مستند ممسوح خدمة قائمة بذاتها:",
+    ocrScan: "المسح الضوئي OCR",
     accessibility: "يمكن استخدام استوديو الملفات بالكامل عبر لوحة المفاتيح وقارئات الشاشة. يتم إعلان تغييرات الحالة تلقائياً، ويمكن الرفع دون السحب والإفلات.",
   },
 } as const;
@@ -220,6 +228,17 @@ export default function FileStudio() {
     ? getWorkingOutputFormats(detectedModule, selectedFile.name)
     : [];
 
+  // ── What the visitor has to know before waiting ─────────────────────────────
+  //
+  // A conversion that runs in this tab has no account and no ceiling. One that
+  // runs on Visionex's server has both, and finding that out from a failed job
+  // is finding it out too late.
+
+  const onServer = Boolean(
+    selectedFile && detectedModule && targetFormat && requiresServer(detectedModule, targetFormat),
+  );
+  const tooLargeForServer = onServer && Boolean(selectedFile && selectedFile.size > MAX_SERVER_FILE_BYTES);
+
   // ── Active / history jobs ───────────────────────────────────────────────────
 
   const activeJobs = jobs.filter((j) => j.status === "queued" || j.status === "processing");
@@ -297,6 +316,18 @@ export default function FileStudio() {
                 );
               })}
             </div>
+
+            {/* An "AI Tools" chip used to sit in that row, marked "soon". It was
+                never a module — no file extension reached it — and the thing it
+                promised has been a service of its own all along. A link is the
+                honest version of that chip. */}
+            <p className="mt-3 text-sm text-muted-foreground">
+              <Sparkles className="inline h-3.5 w-3.5 me-1 text-pink-500" aria-hidden="true" />
+              {fsText("ocrElsewhere")}{" "}
+              <Link to="/services/ocr-scan" className="text-primary underline underline-offset-2">
+                {fsText("ocrScan")}
+              </Link>
+            </p>
           </section>
         </AnimatedSection>
 
@@ -431,10 +462,25 @@ export default function FileStudio() {
                         <div role="alert" className="flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
                           <Info className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
                           <span>
-                            {detectedModule === "video" || detectedModule === "archive" || detectedModule === "ai-tools"
-                              ? fsText("comingSoonServer")
+                            {detectedModule === "archive"
+                              ? fsText("archiveUnreadable")
                               : fsText("noOutput")}
                           </span>
+                        </div>
+                      )}
+
+                      {/* Where this one runs, and what that costs the visitor */}
+                      {onServer && (
+                        <div
+                          role={tooLargeForServer ? "alert" : undefined}
+                          className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ${
+                            tooLargeForServer
+                              ? "bg-amber-500/10 text-amber-800 dark:text-amber-300"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          <Info className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+                          <span>{fsText(tooLargeForServer ? "serverTooLarge" : "serverNote")}</span>
                         </div>
                       )}
 
@@ -454,7 +500,7 @@ export default function FileStudio() {
                       {/* Convert button */}
                       <Button
                         className="w-full"
-                        disabled={!targetFormat || converting}
+                        disabled={!targetFormat || converting || tooLargeForServer}
                         onClick={handleConvert}
                         aria-busy={converting}
                         aria-label={
@@ -580,14 +626,9 @@ export default function FileStudio() {
                         <Coins className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
                         <span>
                           From{" "}
-                          {formatVxCost(
-                            m.id === "ai-tools" ? 500 :
-                            m.id === "video"    ? 200 :
-                            m.id === "document" ? 80  :
-                            m.id === "audio"    ? 50  :
-                            m.id === "archive"  ? 30  :
-                            m.id === "image"    ? 20  : 10
-                          )}
+                          {/* The prices are kept in one place; this used to be a
+                              second copy of them that nothing kept in step. */}
+                          {formatVxCost(MODULE_BASE_COST[m.id])}
                         </span>
                         <span className="text-muted-foreground font-normal">{fsText("perFile")}</span>
                       </div>

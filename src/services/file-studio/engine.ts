@@ -10,9 +10,15 @@ import { AudioModule } from "./modules/audio";
 import { VideoModule } from "./modules/video";
 import { ImageModule } from "./modules/images";
 import { DocumentModule } from "./modules/documents";
-import { ArchiveModule } from "./modules/archives";
+import { ArchiveModule, ARCHIVE_WORKING_TARGETS } from "./modules/archives";
 import { DeveloperModule } from "./modules/developer";
-import { AIToolsModule } from "./modules/aiTools";
+import { BROWSER_OUTPUT_FORMATS as AUDIO_BROWSER_TARGETS } from "./modules/audio";
+import { BROWSER_OUTPUT_FORMATS as IMAGE_BROWSER_TARGETS } from "./modules/images";
+import {
+  SERVER_AUDIO_OUTPUTS,
+  SERVER_IMAGE_OUTPUTS,
+  SERVER_VIDEO_OUTPUTS,
+} from "./serverConvert";
 
 // ── Module registry ───────────────────────────────────────────────────────────
 
@@ -23,7 +29,6 @@ const MODULE_REGISTRY = {
   document:   DocumentModule,
   archive:    ArchiveModule,
   developer:  DeveloperModule,
-  "ai-tools": AIToolsModule,
 } as const;
 
 // ── Detect module from file extension ────────────────────────────────────────
@@ -47,12 +52,20 @@ export function getSupportedOutputFormats(moduleType: ModuleType): readonly stri
 
 // ── Realistic (actually working) output formats ────────────────────────────────
 //
-// getSupportedOutputFormats() reflects each module's nominal target list, but
-// several formats there are placeholders awaiting server-side processing
-// (see modules/video.ts, archives.ts, aiTools.ts, and the server-only branches
-// in audio.ts / documents.ts) — queuing those today always ends in failure.
-// This narrows the list to pairs that genuinely convert in-browser, so the UI
-// can be honest about it upfront instead of showing a fake progress bar.
+// getSupportedOutputFormats() reflects each module's nominal target list. This
+// narrows it to what a visitor can actually be handed — which is no longer the
+// same as "what runs in the browser", because two things run now: the browser
+// modules, and `convertOnServer`, which is the same ffmpeg the WhatsApp
+// assistant converts with.
+//
+// This list stayed at the browser's answer after that path shipped, so a
+// visitor who dropped in a video was offered *no output format at all* for a
+// file the site could already convert, and an audio file could only become WAV
+// or WebM. That is the same fault this list was written to prevent — the menu
+// disagreeing with the machine — pointing the other way, and it is why every
+// entry below is now derived from a module's own constants rather than typed
+// out again here.
+//
 
 const DOCUMENT_WORKING_TARGETS: Record<string, readonly string[]> = {
   txt:  ["html", "md"],
@@ -70,17 +83,45 @@ const DEVELOPER_WORKING_TARGETS: Record<string, readonly string[]> = {
   hex: ["txt"],
 };
 
-// Only wav (manual PCM encode) and webm (MediaRecorder+opus) actually work
-// in-browser — mp3/ogg need a dedicated encoder we don't ship yet, see
-// modules/audio.ts's header comment for why they used to fail mid-conversion.
-const AUDIO_WORKING_TARGETS = ["wav", "webm"] as const;
+/** Browser targets first, then the ones only the server writes. */
+const union = (browser: readonly string[], server: readonly string[]): readonly string[] => [
+  ...browser,
+  ...server.filter((format) => !browser.includes(format)),
+];
+
+// WAV (a manual PCM encode) and WebM (MediaRecorder+opus) are all a browser can
+// write; MP3, FLAC, AAC, OGG, Opus and M4A need an encoder we do not ship, so
+// they go to the server — which has had them all along.
+const AUDIO_WORKING_TARGETS = union(AUDIO_BROWSER_TARGETS, SERVER_AUDIO_OUTPUTS);
+
+// A canvas encodes three formats; BMP and TIFF come back from the server.
+const IMAGE_WORKING_TARGETS = union(IMAGE_BROWSER_TARGETS, SERVER_IMAGE_OUTPUTS);
+
+// Nothing decodes a video in the browser here, so every video target is the
+// server's. AVI, FLV, M4V and 3GP are readable and not writable, which is why
+// they are inputs and not on this list.
+const VIDEO_WORKING_TARGETS: readonly string[] = [...SERVER_VIDEO_OUTPUTS];
+
+/**
+ * Whether choosing this target sends the file to Visionex's server.
+ *
+ * The page needs it for two things it must say before a visitor waits: the
+ * server path requires a signed-in account, and it refuses a file over 16 MB —
+ * neither of which is true of a conversion that happens in the tab.
+ */
+export function requiresServer(moduleType: ModuleType, targetFormat: string): boolean {
+  if (moduleType === "video") return VIDEO_WORKING_TARGETS.includes(targetFormat);
+  if (moduleType === "audio") return !AUDIO_BROWSER_TARGETS.includes(targetFormat);
+  if (moduleType === "image") return !(IMAGE_BROWSER_TARGETS as readonly string[]).includes(targetFormat);
+  return false;
+}
 
 export function getWorkingOutputFormats(moduleType: ModuleType, inputFileName: string): readonly string[] {
   const inFmt = inputFileName.split(".").pop()?.toLowerCase() ?? "";
 
   switch (moduleType) {
     case "image":
-      return ["jpg", "jpeg", "png", "webp"];
+      return IMAGE_WORKING_TARGETS;
     case "developer":
       return DEVELOPER_WORKING_TARGETS[inFmt] ?? [];
     case "audio":
@@ -88,10 +129,11 @@ export function getWorkingOutputFormats(moduleType: ModuleType, inputFileName: s
     case "document":
       return DOCUMENT_WORKING_TARGETS[inFmt] ?? [];
     case "video":
+      return VIDEO_WORKING_TARGETS;
     case "archive":
-    case "ai-tools":
-      // No in-browser implementation yet — server processing required.
-      return [];
+      // Empty for a 7z or a RAR, which nothing here reads. That is what makes
+      // the page say so upfront instead of running a progress bar to a refusal.
+      return ARCHIVE_WORKING_TARGETS[inFmt] ?? [];
     default:
       return [];
   }
