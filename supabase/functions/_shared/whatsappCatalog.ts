@@ -428,9 +428,40 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     description: { ar: "الطقس، أين أنت، وما حولك", en: "Weather, where you are, what is nearby" },
   },
   {
-    id: "support",
+    id: "health",
     parent: ROOT_ID,
     order: 8,
+    kind: "menu",
+    enabled: true,
+    emoji: "🩺",
+    title: { ar: "الصحة", en: "Health" },
+    description: { ar: "طوارئ ورعاية قريبة منك", en: "Emergency and care near you" },
+    // The tenth top-level row, which is Meta's ceiling exactly. Anything after
+    // this one has to go inside a group — see `offeredChildrenOf`, which is
+    // what stops an eleventh row being sent and silently dropped.
+  },
+  {
+    id: "health.emergency",
+    parent: "health",
+    order: 1,
+    kind: "action",
+    enabled: true,
+    emoji: "🚨",
+    title: { ar: "طوارئ", en: "Emergency" },
+    description: { ar: "أقرب مستشفى إليك، الآن", en: "The nearest hospital to you, now" },
+    aliases: {
+      ar: ["طوارئ", "الطوارئ", "إسعاف", "اسعاف"],
+      en: ["emergency", "ambulance", "urgent care"],
+    },
+    phrase: { ar: "طوارئ", en: "emergency" },
+    requires: ["location"],
+    accepts: ["text", "location"],
+  },
+
+  {
+    id: "support",
+    parent: ROOT_ID,
+    order: 9,
     kind: "menu",
     enabled: true,
     emoji: "🆘",
@@ -440,7 +471,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: "more",
     parent: ROOT_ID,
-    order: 9,
+    order: 10,
     kind: "menu",
     enabled: true,
     emoji: "⚙️",

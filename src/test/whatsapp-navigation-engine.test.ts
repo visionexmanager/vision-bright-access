@@ -23,6 +23,7 @@ const catalog = await import("../../supabase/functions/_shared/whatsappCatalog.t
 const interactive = await import("../../supabase/functions/_shared/whatsappInteractive.ts");
 const languages = await import("../../supabase/functions/_shared/whatsappLanguages.ts");
 const kids = await import("../../supabase/functions/_shared/whatsappKids.ts");
+const health = await import("../../supabase/functions/_shared/whatsappHealth.ts");
 const session = await import("../../supabase/functions/_shared/whatsappSession.ts");
 const engine = await import("../../supabase/functions/_shared/whatsappEngine.ts");
 const vision = await import("../../supabase/functions/_shared/whatsappVisionModes.ts");
@@ -452,6 +453,8 @@ describe("the catalog", () => {
       "support.human": (p) => helpers.userAskedForHuman(p),
       // The stories, which the row now actually opens.
       "kids": (p) => kids.parseKidsRequest(p),
+      // Wider than the others by design: somebody in trouble types a sentence.
+      "health.emergency": (p) => health.asksForEmergencyCare(p),
     };
 
     for (const node of catalog.CATALOG) {
