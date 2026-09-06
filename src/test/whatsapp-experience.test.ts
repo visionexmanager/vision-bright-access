@@ -591,9 +591,10 @@ describe("invariants the next feature must not break", () => {
     }
   });
 
-  // `prompt` says "this is built, send me the thing it works on". Without the
-  // sentence that says which thing, it is a row that answers a tap with a
-  // description and no way forward.
+  // `prompt` says "this is built, send me the thing it works on", and `info`
+  // says "this is built elsewhere, here is what it is". Both answer a tap with
+  // their `intro`; without one, the tap produces a description and no way
+  // forward.
   it("gives every prompting row the sentence that asks for its file", () => {
     for (const node of catalog.CATALOG) {
       if (node.handler !== "prompt") continue;
@@ -601,6 +602,21 @@ describe("invariants the next feature must not break", () => {
       expect(node.accepts?.length, node.id).toBeGreaterThan(0);
       for (const language of ["ar", "en"] as const) {
         expect(catalog.localized(node.intro!, language).trim(), `${node.id}.${language}`).not.toBe("");
+      }
+    }
+  });
+
+  // An `info` row is a sentence and a link, and the sentence is the feature.
+  // It also has to name where the rest of it lives, or the row is an answer
+  // that stops at the edge of this channel.
+  it("gives every info row a sentence that names the page it belongs to", () => {
+    for (const node of catalog.CATALOG) {
+      if (node.handler !== "info") continue;
+      expect(node.intro, node.id).toBeTruthy();
+      for (const language of ["ar", "en"] as const) {
+        const intro = catalog.localized(node.intro!, language);
+        expect(intro.trim(), `${node.id}.${language}`).not.toBe("");
+        expect(intro, `${node.id}.${language}`).toContain("https://visionex.app/");
       }
     }
   });

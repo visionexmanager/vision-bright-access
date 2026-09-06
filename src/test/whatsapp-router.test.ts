@@ -242,13 +242,19 @@ describe("feature flags, applied after resolution", () => {
 
   it("marks a declared feature as not open, and hides one a flag switched off", () => {
     // Two different states that used to look the same. A feature Visionex has
-    // announced and not built keeps its row and says so — taking VisionKids off
-    // the menu would tell the people waiting for it that it was cancelled.
-    // Academy used to be that row; IVX opens behind it now, so VisionKids is
-    // the declared-not-built one.
+    // announced and not built keeps its row and says so — taking it off the
+    // menu would tell the people waiting for it that it was cancelled. A flag
+    // is the other thing entirely and drops the row.
+    //
+    // Nothing is in the first state today: Academy was that row until IVX
+    // opened behind it, then VisionKids, and the stories open now too. So the
+    // distinction is asserted where it is implemented — `childrenOf` keeps
+    // every row, `visibleChildrenOf` drops the flagged ones — rather than on a
+    // row that would have to stay broken to go on being the example.
+    expect(catalog.childrenOf("explore").map((node) => node.id)).toContain("kids");
+    expect(catalog.visibleChildrenOf("explore", ["kids"]).map((node) => node.id)).not.toContain("kids");
     const menu = engine.renderMenu("explore", "en");
     expect(menu).toContain("VisionKids");
-    expect(menu).toMatch(/VisionKids.*isn't open yet/);
 
     // A live flag is the other thing entirely: turned at three in the morning
     // because a provider is down, and a row that answers a tap with "not

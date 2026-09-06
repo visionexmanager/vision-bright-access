@@ -173,6 +173,19 @@ import {
   sendLinkCodeEmail,
 } from "../_shared/whatsappIdentity.ts";
 import {
+  formatStory,
+  KIDS_ID_PREFIX,
+  KIDS_LIST_SIZE,
+  KIDS_URL,
+  kidsRowId,
+  orderForLanguage,
+  parseKidsRequest,
+  parseKidsSelection,
+  readPages,
+  readStories,
+  storyRowSubtitle,
+} from "../_shared/whatsappKids.ts";
+import {
   articleText,
   formatArticle,
   NEWS_EXCLUDED_CATEGORY,
@@ -233,6 +246,7 @@ import {
   sendLanguageMenu,
   sendProfileChoice,
   sendQuestion,
+  kidsMessage,
   sendNewsList,
   sendSongList,
   sendTappable,
@@ -1572,6 +1586,58 @@ Deno.serve(async (req) => {
       };
 
       /**
+       * The VisionKids stories, as a list somebody can tap.
+       *
+       * `kids_stories` is the table /kids reads on the site, and the filter is
+       * the site's filter: published, and with pages to send. A story whose
+       * text lives in branching nodes rather than pages is a story this channel
+       * cannot tell — it is left out of the list rather than offered as a row
+       * that answers a tap with nothing.
+       *
+       * Ordered newest first, then the sender's own language to the top. Every
+       * story published today is English, so that ordering changes nothing
+       * today; it is here so the first Arabic story does not arrive fourth.
+       */
+      const showStories = async (options: { note?: string } = {}): Promise<boolean> => {
+        const { data, error } = await db
+          .from("kids_stories")
+          .select("slug, title, subtitle, age_group, language")
+          .eq("status", "published")
+          .gt("page_count", 0)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(KIDS_LIST_SIZE);
+
+        if (error) {
+          console.error("[whatsapp] kids stories lookup failed:", describeError(error));
+          log("kids", { outcome: "unavailable" });
+          await reply(say("kidsUnavailable", answerLanguage).replace("{url}", KIDS_URL), "unsupported");
+          return false;
+        }
+
+        const stories = orderForLanguage(readStories(data), answerLanguage);
+        if (stories.length === 0) {
+          log("kids", { outcome: "empty" });
+          await reply(say("kidsEmpty", answerLanguage).replace("{url}", KIDS_URL), "reply");
+          return false;
+        }
+
+        if (options.note) await reply(options.note, "reply");
+        await sendChoices(
+          kidsMessage({
+            stories: stories.map((story) => ({
+              id: kidsRowId(story.slug),
+              title: story.title,
+              description: storyRowSubtitle(story),
+            })),
+            language: answerLanguage,
+          }),
+          "reply",
+        );
+        log("kids", { outcome: "list", count: stories.length });
+        return true;
+      };
+
+      /**
        * One song, delivered as far as the rights actually allow.
        *
        * A complete recording only when it is freely licensed — Wikimedia
@@ -2017,6 +2083,69 @@ Deno.serve(async (req) => {
 
         log("news", { outcome: "article" });
         await reply(formatArticle({ article, language: answerLanguage }), "reply");
+        continue;
+      }
+
+      // ── A story from the list ─────────────────────────────────────────
+      //
+      // The row carries the slug and the story is read again rather than
+      // remembered: a list outlives the delivery that sent it, and a story
+      // unpublished since it was sent has to fail as "not there any more"
+      // rather than be told from a copy this conversation kept. Only the table
+      // knows which of those it is.
+      if (!humanOwnsThis && incoming.selection?.startsWith(KIDS_ID_PREFIX)) {
+        // Written out rather than through `featureOn`, which is declared
+        // further down for the parsers: a row that was sent before the flag
+        // was turned is exactly the case a flag has to survive, so the check
+        // belongs here and not three hundred lines later.
+        if (!configVerified || !isAvailable(nodeById("kids"), disabled)) {
+          await reply(say("disabled", answerLanguage), "unsupported");
+          continue;
+        }
+        const slug = parseKidsSelection(incoming.selection);
+        const { data: storyRow, error: storyError } = slug
+          ? await db
+            .from("kids_stories")
+            .select("id, slug, title, subtitle, age_group, language")
+            .eq("slug", slug)
+            .eq("status", "published")
+            .maybeSingle()
+          : { data: null, error: null };
+
+        if (storyError) {
+          console.error("[whatsapp] kids story lookup failed:", describeError(storyError));
+          log("kids", { outcome: "unavailable" });
+          await reply(say("kidsUnavailable", answerLanguage).replace("{url}", KIDS_URL), "unsupported");
+          continue;
+        }
+
+        const [story] = readStories(storyRow ? [storyRow] : []);
+        const { data: pageRows, error: pagesError } = story
+          ? await db
+            .from("kids_story_pages")
+            .select("page_number, text_content")
+            .eq("story_id", (storyRow as { id: string }).id)
+            .order("page_number", { ascending: true })
+          : { data: null, error: null };
+
+        if (pagesError) {
+          console.error("[whatsapp] kids story pages lookup failed:", describeError(pagesError));
+          log("kids", { outcome: "unavailable" });
+          await reply(say("kidsUnavailable", answerLanguage).replace("{url}", KIDS_URL), "unsupported");
+          continue;
+        }
+
+        const pages = readPages(pageRows);
+        if (!story || pages.length === 0) {
+          // Unpublished since the list went out, or a story whose text is not
+          // in pages at all. Said once, then the list that is actually there.
+          log("kids", { outcome: "stale" });
+          await showStories({ note: say("kidsStale", answerLanguage) });
+          continue;
+        }
+
+        log("kids", { outcome: "story", parts: pages.length });
+        await reply(formatStory({ story, pages, language: answerLanguage }), "reply");
         continue;
       }
 
@@ -2831,6 +2960,18 @@ Deno.serve(async (req) => {
             );
             await saveSession();
             continue;
+          } else if (node.handler === "info") {
+            // Built elsewhere. The row exists so that the part of Visionex it
+            // names can be found from here, and the intro is the answer: what
+            // the thing is, where the rest of it lives on the site, and how to
+            // reach a person about it. Nothing is armed and nothing is waited
+            // for — a sentence is the whole feature.
+            await reply(
+              localized(node.intro ?? node.description, answerLanguage),
+              "reply",
+            );
+            await saveSession();
+            continue;
           } else if (node.handler === "coming_soon") {
             await reply(
               node.intro
@@ -3144,6 +3285,16 @@ Deno.serve(async (req) => {
       // about my order" is a support message and stays one.
       if (!humanOwnsThis && !aiFocused && parseNewsRequest(questionText) && featureOn("news")) {
         await showNews();
+        continue;
+      }
+
+      // ── The children's stories ─────────────────────────────────────────
+      //
+      // Reached with `questionText`, so «قصص» spoken into a voice note works
+      // the same as «قصص» typed — which for a parent holding a phone and a
+      // child is the difference between a feature and a demo.
+      if (!humanOwnsThis && !aiFocused && parseKidsRequest(questionText) && featureOn("kids")) {
+        await showStories();
         continue;
       }
 

@@ -656,6 +656,54 @@ export function newsMessage(params: {
 }
 
 /**
+ * The stories, as rows that can be tapped.
+ *
+ * The same shape as the news list, and for the same reason: a title somebody
+ * scans, a line under it they choose on, and a text twin carrying the full
+ * titles — because a row title is clipped at 24 characters and a story called
+ * "The Robot Who Learned to Smile" is longer than that.
+ */
+export function kidsMessage(params: {
+  stories: Array<{ id: string; title: string; description: string }>;
+  language: Language;
+}): Tappable {
+  const { stories, language } = params;
+  const heading = say("kidsHeading", language);
+  const rows: Row[] = stories.map((story) => ({
+    id: story.id,
+    title: story.title,
+    ...(story.description ? { description: story.description } : {}),
+  }));
+  rows.push(...controlRows("kids", language));
+
+  return {
+    interactive: {
+      type: "list",
+      header: { type: "text", text: clip(heading.replace(/\*/g, ""), LIST_LIMITS.header) },
+      body: { text: clip(say("kidsBackHint", language), LIST_LIMITS.body) },
+      action: {
+        button: clip(say("kidsButton", language), LIST_LIMITS.button),
+        sections: [{
+          title: clip(say("kidsButton", language), LIST_LIMITS.rowTitle),
+          rows: rows.map((row) => ({
+            ...row,
+            title: clip(row.title, LIST_LIMITS.rowTitle),
+            ...(row.description ? { description: clip(row.description, LIST_LIMITS.rowDescription) } : {}),
+          })),
+        }],
+      },
+    },
+    text: [
+      heading,
+      "",
+      ...stories.map((story) => `• ${story.title}`),
+      "",
+      say("kidsBackHint", language),
+    ].join("\n"),
+  };
+}
+
+/**
  * What the catalogue found, as rows that can be tapped.
  *
  * The artist is the row's description rather than part of its title, because
