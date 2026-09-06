@@ -71,6 +71,12 @@ const DOCUMENT_WORKING_TARGETS: Record<string, readonly string[]> = {
   txt:  ["html", "md"],
   html: ["txt"],
   csv:  ["txt"],
+  // Reading a Word document or a deck, not rewriting one: a .docx is a ZIP of
+  // XML, so the archive reader opens it and the text comes out. Writing one is
+  // a different problem that needs a document engine this project does not run,
+  // which is why PDF is absent and these two are one-way.
+  docx: ["txt", "html"],
+  pptx: ["txt", "html"],
 };
 
 const DEVELOPER_WORKING_TARGETS: Record<string, readonly string[]> = {

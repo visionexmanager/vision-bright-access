@@ -40,7 +40,7 @@ const MODULES: {
   { id: "audio",     label: "Audio",     icon: Music,    color: "text-purple-500", formats: AUDIO_FORMATS,    description: "WAV and WebM in your browser; MP3, FLAC, AAC, OGG, Opus and M4A on our server", available: true },
   { id: "video",     label: "Video",     icon: Video,    color: "text-blue-500",   formats: VIDEO_FORMATS,    description: "MP4, MKV, WebM, MOV and GIF on our server", available: true },
   { id: "image",     label: "Image",     icon: Image,    color: "text-green-500",  formats: IMAGE_FORMATS,    description: "JPG, PNG and WebP in your browser; BMP and TIFF on our server", available: true },
-  { id: "document",  label: "Document",  icon: FileText, color: "text-amber-500",  formats: DOCUMENT_FORMATS, description: "TXT, HTML and Markdown", available: true },
+  { id: "document",  label: "Document",  icon: FileText, color: "text-amber-500",  formats: DOCUMENT_FORMATS, description: "TXT, HTML and Markdown, and the text out of a Word document or a deck", available: true },
   { id: "archive",   label: "Archive",   icon: Archive,  color: "text-red-500",    formats: ARCHIVE_FORMATS,  description: "ZIP, TAR and GZIP, repackaged in your browser", available: true },
   { id: "developer", label: "Developer", icon: Code2,    color: "text-cyan-500",   formats: DEVELOPER_FORMATS,description: "JSON, CSV, Base64 and Hex", available: true },
 ];
