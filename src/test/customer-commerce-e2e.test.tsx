@@ -164,7 +164,13 @@ describe("I/J/K/L — owner receives it, takes over, AI stays silent, resumes", 
   });
 
   it("the assistant is silent while a human holds the conversation", () => {
-    expect(webhook).toContain('existing?.control === "human"');
+    // One function decides this now: `assistantIsSilenced`, whose rules live in
+    // whatsappTriage.ts and are driven in whatsapp-reliability.test.ts. An
+    // owner takeover is the half of it that never expires.
+    expect(webhook).toContain("assistantIsSilenced(");
+    expect(
+      readFileSync("supabase/functions/_shared/whatsappTriage.ts", "utf8"),
+    ).toContain('if (row.control === "human") return true;');
   });
 
   it("control transitions run through the state machine", () => {
