@@ -24,6 +24,7 @@ const interactive = await import("../../supabase/functions/_shared/whatsappInter
 const languages = await import("../../supabase/functions/_shared/whatsappLanguages.ts");
 const kids = await import("../../supabase/functions/_shared/whatsappKids.ts");
 const health = await import("../../supabase/functions/_shared/whatsappHealth.ts");
+const medicines = await import("../../supabase/functions/_shared/whatsappMedicines.ts");
 const session = await import("../../supabase/functions/_shared/whatsappSession.ts");
 const engine = await import("../../supabase/functions/_shared/whatsappEngine.ts");
 const vision = await import("../../supabase/functions/_shared/whatsappVisionModes.ts");
@@ -455,6 +456,10 @@ describe("the catalog", () => {
       "kids": (p) => kids.parseKidsRequest(p),
       // Wider than the others by design: somebody in trouble types a sentence.
       "health.emergency": (p) => health.asksForEmergencyCare(p),
+      // A phrase with no name after it is a request with an empty query: the
+      // webhook answers that with "which medicine?", which is still this
+      // feature answering.
+      "health.medicine": (p) => medicines.parseMedicineRequest(p) !== null,
     };
 
     for (const node of catalog.CATALOG) {

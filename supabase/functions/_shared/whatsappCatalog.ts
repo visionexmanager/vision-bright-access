@@ -459,6 +459,29 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
 
   {
+    id: "health.medicine",
+    parent: "health",
+    order: 2,
+    kind: "action",
+    enabled: true,
+    emoji: "💊",
+    title: { ar: "معلومات دواء", en: "Medicine information" },
+    description: { ar: "الاستعمالات والجرعة والتحذيرات", en: "Uses, dose and warnings" },
+    aliases: {
+      ar: ["دواء", "الدواء", "معلومات دواء"],
+      en: ["medicine", "medication", "drug", "medicine information"],
+    },
+    phrase: { ar: "دواء", en: "medicine" },
+    accepts: ["text"],
+    intro: {
+      ar:
+        "اكتب: دواء، ثم اسم الدواء — مثل «دواء بنادول».\n\nسأعطيك ما تقوله النشرة المعتمدة: الاستعمالات والجرعة والتحذيرات ومتى تتوقف وتسأل طبيباً. وهي معلومات، لا وصفة.",
+      en:
+        "Write: medicine, then its name — like \"medicine Panadol\".\n\nI'll give you what the approved label says: what it is for, the directions, the warnings and when to stop and ask a doctor. Information, not a prescription.",
+    },
+  },
+
+  {
     id: "support",
     parent: ROOT_ID,
     order: 9,

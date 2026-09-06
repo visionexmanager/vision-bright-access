@@ -82,6 +82,17 @@ import {
   EMERGENCY_CATEGORY,
 } from "../_shared/whatsappHealth.ts";
 import {
+  MEDICINE_TIMEOUT_MS,
+  medicineHeading,
+  parseMedicineRequest,
+  readApproximate,
+  readLabel,
+  readRxName,
+  renderPrompt,
+  sourceBlock,
+  withDisclaimer,
+} from "../_shared/whatsappMedicines.ts";
+import {
   asksWhatIsNearby,
   asksWhereAmI,
   formatNearby,
@@ -1648,6 +1659,69 @@ Deno.serve(async (req) => {
        * story published today is English, so that ordering changes nothing
        * today; it is here so the first Arabic story does not arrive fourth.
        */
+      /**
+       * A medicine, by whatever name somebody typed.
+       *
+       * openFDA first, on brand *or* generic — the two names for the same box.
+       * If that finds nothing, RxNav is asked what the word was probably meant
+       * to be ("panadool" → "Panadol") and openFDA is asked once more. Two
+       * lookups at most, both keyless, both with their own deadline.
+       *
+       * Returns "unavailable" for a source that could not be reached and
+       * `null` for one that answered and had nothing: the sender is told
+       * different things, because "try again" and "check the spelling" are
+       * different instructions.
+       */
+      const lookupMedicine = async (
+        query: string,
+      ): Promise<ReturnType<typeof readLabel> | "unavailable"> => {
+        const fetchJson = async (url: string): Promise<unknown | "unavailable"> => {
+          try {
+            const response = await fetch(url, {
+              signal: AbortSignal.timeout(MEDICINE_TIMEOUT_MS),
+              headers: { accept: "application/json" },
+            });
+            // openFDA answers 404 for "no such drug", which is an answer.
+            if (response.status === 404) return null;
+            if (!response.ok) return "unavailable";
+            return await response.json();
+          } catch (e) {
+            console.error("[whatsapp] medicine lookup failed:", describeError(e));
+            return "unavailable";
+          }
+        };
+
+        const term = query.replace(/["\\]/g, " ").trim().slice(0, 60);
+        if (!term) return null;
+        const encoded = encodeURIComponent(term);
+
+        const first = await fetchJson(
+          `https://api.fda.gov/drug/label.json?search=(openfda.brand_name:"${encoded}"+OR+openfda.generic_name:"${encoded}")&limit=1`,
+        );
+        if (first === "unavailable") return "unavailable";
+        const found = readLabel(first);
+        if (found) return found;
+
+        // Nothing under that spelling. Ask the vocabulary what was meant.
+        const approximate = await fetchJson(
+          `https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=${encoded}&maxEntries=1`,
+        );
+        if (approximate === "unavailable") return null;
+        const rxcui = readApproximate(approximate);
+        if (!rxcui) return null;
+
+        const properties = await fetchJson(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/properties.json`);
+        if (properties === "unavailable") return null;
+        const corrected = readRxName(properties);
+        if (!corrected || corrected.toLowerCase() === term.toLowerCase()) return null;
+
+        const second = await fetchJson(
+          `https://api.fda.gov/drug/label.json?search=(openfda.brand_name:"${encodeURIComponent(corrected)}"+OR+openfda.generic_name:"${encodeURIComponent(corrected)}")&limit=1`,
+        );
+        if (second === "unavailable") return "unavailable";
+        return readLabel(second);
+      };
+
       const showStories = async (options: { note?: string } = {}): Promise<boolean> => {
         const { data, error } = await db
           .from("kids_stories")
@@ -3365,6 +3439,75 @@ Deno.serve(async (req) => {
       // note saying either — `questionText` is already a transcript by here.
       // The words are matched whole against a short cap, so "I saw the news
       // about my order" is a support message and stays one.
+      // ── What is in this medicine ───────────────────────────────────────
+      //
+      // Two public sources, neither of which takes a key: openFDA for the text
+      // of the approved label, and RxNav to rescue a misspelling before giving
+      // up. Reached with `questionText`, so it works spoken — which for
+      // somebody holding a box they cannot read is the whole point.
+      const medicineAsk = !humanOwnsThis && !aiFocused && featureOn("health.medicine")
+        ? parseMedicineRequest(questionText)
+        : null;
+
+      if (medicineAsk) {
+        if (!medicineAsk.name) {
+          // Found the feature, has not said what they want yet.
+          await reply(say("medicineWhich", answerLanguage), "reply");
+          continue;
+        }
+        // A provider renders the leaflet into the sender's language below, so
+        // this is a paid operation and is gated like the others.
+        if (!(await maySpend())) continue;
+
+        const label = await lookupMedicine(medicineAsk.name);
+        if (label === "unavailable") {
+          log("medicine", { outcome: "unavailable" });
+          await reply(say("medicineUnavailable", answerLanguage), "unsupported");
+          continue;
+        }
+        if (!label) {
+          log("medicine", { outcome: "not_found" });
+          await reply(say("medicineNone", answerLanguage), "reply");
+          continue;
+        }
+
+        // The leaflet is English. Rendering it into the reader's language is
+        // the difference between a service and a curiosity for this audience,
+        // and the prompt is a list of things the model may not do — the dose
+        // it must not invent, the advice it must not add, the warning it must
+        // not soften.
+        const rendered = await askAssistant(
+          {
+            // The whole instruction, and no conversation: this is a rendering
+            // job, not a turn of the thread. Replaying history here would let
+            // an earlier message change what a leaflet says.
+            systemParts: [renderPrompt(LANGUAGE_ENDONYM[answerLanguage])],
+            question: sourceBlock(label),
+            maxTokens: 700,
+          },
+          chainProvider(),
+        );
+
+        // The disclaimer is added here, by code. Not asked of the model, so no
+        // rendering can drop it, shorten it or bury it.
+        //
+        // A provider that failed falls back to the label's own English rather
+        // than to nothing: somebody holding a box wants the warnings even in a
+        // language they read slowly, and the disclaimer below still applies.
+        const answered = rendered.status === "answered" && rendered.text.trim().length > 0;
+        const body = answered
+          ? `${medicineHeading(label)}\n\n${rendered.text.trim()}`
+          : `${medicineHeading(label)}\n\n${sourceBlock(label)}`;
+
+        if (answered) await spent("ai");
+        log("medicine", {
+          outcome: answered ? "answered" : "untranslated",
+          chars: body.length,
+        });
+        await reply(withDisclaimer(body, answerLanguage), "reply");
+        continue;
+      }
+
       if (!humanOwnsThis && !aiFocused && parseNewsRequest(questionText) && featureOn("news")) {
         await showNews();
         continue;
