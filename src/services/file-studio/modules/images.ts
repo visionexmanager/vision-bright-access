@@ -1,4 +1,10 @@
-// ─── Image Converter Module (browser-native via Canvas API) ──────────────────
+// ─── Image Converter Module (browser-native via Canvas API, server for the rest)
+//
+// A canvas encodes three formats and no browser encodes more: JPEG, PNG and
+// WebP. Those stay here, where they cost nobody a request and work signed out.
+// BMP and TIFF are the two the same ffmpeg has been writing since image
+// conversion shipped, and they were absent from this page rather than failing
+// on it — a capability nobody could reach.
 
 import type {
   ConverterModule,
@@ -7,11 +13,25 @@ import type {
   ConversionOptions,
 } from "@/lib/types/fileStudio";
 import { IMAGE_FORMATS } from "@/lib/types/fileStudio";
+import { convertOnServer, SERVER_IMAGE_OUTPUTS } from "../serverConvert";
+
+/**
+ * What this module produces without leaving the tab.
+ *
+ * `engine.ts` reads this rather than repeating it, so the page's menu and the
+ * branch below cannot drift apart and offer a conversion neither path runs.
+ */
+export const BROWSER_OUTPUT_FORMATS = ["jpg", "jpeg", "png", "webp"] as const;
 
 export const ImageModule: ConverterModule = {
   moduleType: "image",
   supportedInputFormats: [...IMAGE_FORMATS],
-  supportedOutputFormats: ["jpg", "jpeg", "png", "webp"],
+  supportedOutputFormats: [
+    ...BROWSER_OUTPUT_FORMATS,
+    ...SERVER_IMAGE_OUTPUTS.filter(
+      (format) => !(BROWSER_OUTPUT_FORMATS as readonly string[]).includes(format),
+    ),
+  ],
   canHandleInBrowser: true,
 
   async convert(
@@ -21,6 +41,17 @@ export const ImageModule: ConverterModule = {
   ): Promise<ConversionResult> {
     const opts = options as ImageOptions;
     const start = Date.now();
+
+    // Nothing to decode here first: the service reads the picture itself, and
+    // handing it the original file rather than a canvas re-encode is one lossy
+    // step fewer.
+    if (!(BROWSER_OUTPUT_FORMATS as readonly string[]).includes(opts.targetFormat)) {
+      return await convertOnServer({
+        file,
+        target: opts.targetFormat,
+        onProgress,
+      });
+    }
 
     try {
       onProgress(10);

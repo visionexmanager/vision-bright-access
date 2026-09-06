@@ -1,6 +1,12 @@
 // ─── File Studio — In-Memory Job Queue ───────────────────────────────────────
 // Manages async conversion jobs with status, progress, retry logic, and expiry.
-// Persisted to Supabase in Phase 12 (table: file_conversion_jobs).
+//
+// Jobs live in this tab and nowhere else — closing it loses the queue and the
+// history with it. That is a real limit and not a placeholder: the converted
+// bytes are object URLs in this page's memory, so a row in a table would
+// outlive the file it points at. Persisting these means storing the results
+// too, which is a bucket, an expiry and a cleanup job — a decision, not a
+// missing line.
 
 import type {
   ConversionJob,

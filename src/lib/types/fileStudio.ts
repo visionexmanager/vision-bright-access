@@ -1,13 +1,17 @@
 // ─── Universal File Studio — Type Definitions ────────────────────────────────
 
+// "ai-tools" was a seventh module here. Nothing routed to it: no extension
+// mapped to it, so its convert() could not be reached, and the capability it
+// advertised — reading the text out of a picture — is a service of its own at
+// /services/ocr-scan. A module a visitor cannot select is not a module, and a
+// second copy of OCR is not a feature.
 export type ModuleType =
   | "audio"
   | "video"
   | "image"
   | "document"
   | "archive"
-  | "developer"
-  | "ai-tools";
+  | "developer";
 
 export type JobStatus = "queued" | "processing" | "completed" | "failed" | "cancelled";
 
