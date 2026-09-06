@@ -1997,6 +1997,31 @@ Deno.serve(async (req) => {
       // the same shape rather than growing a second story about it.
       const humanOwnsThis = assistantIsSilenced(existing as Record<string, unknown> | null, Date.now());
 
+      /**
+       * Whether a feature may answer at all, by catalog id.
+       *
+       * The menu path already asks this — the engine refuses a number whose
+       * node is off. This is the other door: the words. Somebody who knows to
+       * type «الطقس» would otherwise reach the weather while the weather is
+       * switched off, and a flag with a way around it is not a flag. Both
+       * doors now ask the same function about the same id.
+       *
+       * ── Why it is declared here and not where it is mostly used ──────────
+       *
+       * It was declared beside the capability parsers, five hundred lines below
+       * the attachment branches that also call it — and a `const` read before
+       * its declaration is a `ReferenceError`, not an undefined. So every
+       * message carrying a file threw before it could be transcribed, read or
+       * converted, was caught by the block at the bottom, and was answered with
+       * nothing at all. Voice notes on 2026-09-06 were how it was noticed;
+       * images and documents had the same fault at the same time.
+       *
+       * It closes over `configVerified` and `disabled`, which are settled
+       * before this message was even claimed, so moving it up changes nothing
+       * about what it answers.
+       */
+      const featureOn = (id: string) => configVerified && isAvailable(nodeById(id), disabled);
+
       // ── What this number may spend today ──────────────────────────────
       //
       // Looked up lazily, and once. A sender pressing menu numbers, asking
@@ -2355,7 +2380,13 @@ Deno.serve(async (req) => {
           : incoming.media.kind === "image"
           ? "image" as const
           : null;
-        const convertAsk = convertKind && !humanOwnsThis && !aiFocused && featureOn("services.convert")
+        // `assistantOwnsInput(session.feature)` rather than `aiFocused`: that
+        // const is declared with the capability parsers below, and reading it
+        // here threw a `ReferenceError` before any file could be converted.
+        // The expression is the one it is assigned, asked at the moment this
+        // branch runs — which is what this line meant all along.
+        const convertAsk = convertKind && !humanOwnsThis &&
+            !assistantOwnsInput(session.feature) && featureOn("services.convert")
           ? parseConvertRequest({ text: incoming.text ?? "", sourceKind: convertKind })
           : null;
 
@@ -2689,7 +2720,8 @@ Deno.serve(async (req) => {
           // the photo feature and was only ever the nearest id when documents
           // had no row of their own. `isFlaggedOff` walks the parents, so
           // switching off Files switches this off with it.
-          const translateAsk = !humanOwnsThis && !aiFocused && featureOn("ocr.document")
+          const translateAsk = !humanOwnsThis && !assistantOwnsInput(session.feature) &&
+              featureOn("ocr.document")
             ? parseVisionMode(incoming.media.caption ?? "")
             : null;
 
@@ -3073,16 +3105,8 @@ Deno.serve(async (req) => {
        */
       const aiFocused = assistantOwnsInput(session.feature);
 
-      /**
-       * Whether a feature may answer at all, by catalog id.
-       *
-       * The menu path already asks this — the engine refuses a number whose
-       * node is off. This is the other door: the words. Somebody who knows to
-       * type «الطقس» would otherwise reach the weather while the weather is
-       * switched off, and a flag with a way around it is not a flag. Both
-       * doors now ask the same function about the same id.
-       */
-      const featureOn = (id: string) => configVerified && isAvailable(nodeById(id), disabled);
+      // `featureOn` used to be declared here, five hundred lines below the two
+      // media branches that call it. See its declaration further up.
 
 
       if (!aiFocused && asksForMenu(questionText)) {
