@@ -75,6 +75,7 @@ export type HandlerId =
   | "human"           // hand over to a person
   | "help"            // the navigation commands
   | "language_menu"   // offer the language list again
+  | "prompt"          // built, and waiting for the file or photo it acts on
   | "coming_soon";    // declared, announced, not built yet
 
 export interface CatalogNode {
@@ -195,20 +196,34 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     requires: ["ai"],
     accepts: ["text"],
   },
-  // ── The three groups the site is organised by ───────────────────────────
+  // ── The groups ──────────────────────────────────────────────────────────
   //
-  // Added when the top level hit Meta's ten-row ceiling with ten rows and no
-  // room for an eleventh: the songs feature had to be buried inside Services,
-  // three menus away from the radio it belongs beside. Grouping is what buys
-  // the headroom back, and the groups are the site's own — Listen, VXBazaar,
-  // Explore — so somebody who knows visionex.app knows this menu.
+  // Added when the top level hit Meta's ten-row ceiling with no room for an
+  // eleventh: the songs feature had to be buried inside Services, three menus
+  // away from the radio it belongs beside. Grouping is what buys the headroom
+  // back, and the groups are the site's own — Listen, VXBazaar, Explore — so
+  // somebody who knows visionex.app knows this menu.
+  //
+  // ── How the nine are ordered ────────────────────────────────────────────
+  //
+  // By what a sender arrives wanting, not by what the code grew in. The
+  // assistant first because most people open this to ask something; then the
+  // two groups that answer "here is a thing, tell me about it" — a photo, then
+  // a file; then where you are and what the weather is doing, which is the most
+  // asked-for single fact; then the market, then listening, then learning.
+  // Support and Settings sit at the bottom, where every interface on a phone
+  // puts them, so the rows above are the ones that move.
   //
   // No id here was renamed to fit: a node id is persisted in sessions and named
-  // in the production feature flags, so only `parent` and `order` moved.
+  // in the production feature flags, so only `parent` and `order` moved. That is
+  // why `ocr.document` lives under Files and `services.convert` beside it —
+  // reading the id tells you where a feature was born, not where it belongs, and
+  // a stored path that no longer matches the tree is discarded by
+  // `readSession`, which drops the sender back to a real menu.
   {
     id: "listen",
     parent: ROOT_ID,
-    order: 3,
+    order: 6,
     kind: "menu",
     enabled: true,
     emoji: "🎧",
@@ -218,7 +233,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: "bazaar",
     parent: ROOT_ID,
-    order: 4,
+    order: 5,
     kind: "menu",
     enabled: true,
     emoji: "🛍️",
@@ -236,10 +251,13 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: "explore",
     parent: ROOT_ID,
-    order: 6,
+    order: 7,
     kind: "menu",
     enabled: true,
-    emoji: "🧭",
+    // Not the compass 🧭 this and Services both used to carry. Two rows with
+    // one icon is two rows that look like each other in a list somebody is
+    // scanning, and the icon is the fastest thing on the row to read.
+    emoji: "📚",
     title: { ar: "تعلّم واستكشف", en: "Learn & explore" },
     description: { ar: "الأكاديمية والأطفال والأخبار", en: "Academy, kids and news" },
   },
@@ -250,9 +268,28 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     kind: "menu",
     enabled: true,
     emoji: "📷",
-    title: { ar: "قراءة الصور والنصوص", en: "OCR and photos" },
+    // "OCR" is gone from the English title. This file's own rule is that a title
+    // is never an abbreviation, because a screen reader says it as three
+    // letters rather than as a feature — and the other eighteen languages had
+    // never used it. Everything here now acts on a picture; the documents that
+    // used to sit at the bottom of this menu have their own group.
+    title: { ar: "الصور", en: "Photos" },
     description: { ar: "أقرأ وأصف وأترجم ما في الصورة", en: "Read, describe or translate a photo" },
     requires: ["vision"],
+  },
+  {
+    id: "files",
+    parent: ROOT_ID,
+    order: 3,
+    kind: "menu",
+    enabled: true,
+    emoji: "📄",
+    title: { ar: "الملفات والمستندات", en: "Files & documents" },
+    description: { ar: "اقرأ أو ترجم أو حوّل ملفاً", en: "Read, translate or convert a file" },
+    // The two rows here were three menus apart: reading a PDF was the last
+    // entry under Photos, and converting one was the fifth entry under
+    // Services. They are the same gesture — hand over a file, get something
+    // back — and this is where the assistant's file work has been landing.
   },
   {
     id: "academy",
@@ -346,18 +383,21 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: "services",
     parent: ROOT_ID,
-    order: 5,
+    order: 4,
     kind: "menu",
     enabled: true,
-    emoji: "🧭",
-    title: { ar: "خدمات Visionex", en: "Visionex Services" },
-    // The bazaar moved to its own group, so this no longer promises it.
+    emoji: "🌤️",
+    // Named for what is in it. "Visionex Services" was the name of whatever had
+    // not been grouped yet, and one by one the bazaar, the radio, the songs,
+    // the converter and the plan all left it. What stayed is four ways of
+    // asking about a place, so it says that.
+    title: { ar: "الطقس والأماكن", en: "Weather & places" },
     description: { ar: "الطقس، أين أنت، وما حولك", en: "Weather, where you are, what is nearby" },
   },
   {
     id: "support",
     parent: ROOT_ID,
-    order: 7,
+    order: 8,
     kind: "menu",
     enabled: true,
     emoji: "🆘",
@@ -367,15 +407,18 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: "more",
     parent: ROOT_ID,
-    order: 8,
+    order: 9,
     kind: "menu",
     enabled: true,
-    emoji: "➕",
-    title: { ar: "المزيد", en: "More" },
-    description: { ar: "اللغة والإعدادات", en: "Language and settings" },
+    emoji: "⚙️",
+    // "More" is where a menu puts what it has not decided about. Everything in
+    // it turned out to be one thing — how this assistant is set up for you —
+    // and "My plan" was the odd row out under Services for the same reason.
+    title: { ar: "الإعدادات", en: "Settings" },
+    description: { ar: "الصوت واللغة وباقتك", en: "Voice, language and your plan" },
   },
 
-  // ── Reading a photo ─────────────────────────────────────────────────────
+  // ── Photos, and the files that are not photos ───────────────────────────
   {
     id: "ocr.read",
     parent: "ocr",
@@ -438,17 +481,21 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
   {
     id: "ocr.document",
-    parent: "ocr",
-    order: 6,
+    parent: "files",
+    order: 1,
     kind: "action",
     enabled: true,
-    title: { ar: "ملف PDF", en: "A PDF or file" },
-    description: { ar: "أرسل الملف وألخّصه لك", en: "Send it and I'll summarise it" },
-    handler: "coming_soon",
+    title: { ar: "اقرأ مستنداً", en: "Read a document" },
+    description: { ar: "PDF أو Word: ألخّصه أو أترجمه", en: "PDF or Word: summarise or translate" },
+    // Was `coming_soon`, and had been since before the webhook could read a
+    // document. It has read PDFs, Word files and slide decks for some time —
+    // and translates one when the caption asks — so the row that announces
+    // that is the last place still saying otherwise.
+    handler: "prompt",
     accepts: ["document", "text"],
     intro: {
-      ar: "أرسل ملف PDF أو ملفاً نصياً وسألخّصه لك أو أجيبك عمّا فيه.",
-      en: "Send a PDF or a text file and I'll summarise it or answer questions about it.",
+      ar: "أرسل ملف PDF أو Word أو عرضاً تقديمياً وسألخّصه لك أو أجيبك عمّا فيه. واكتب مع الملف «ترجمه إلى الفرنسية» وسأترجمه كاملاً.",
+      en: "Send a PDF, a Word file or a slide deck and I'll summarise it or answer questions about it. Write \"translate it to French\" with the file and I'll translate the whole thing.",
     },
   },
 
@@ -497,12 +544,14 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
   {
     id: "services.convert",
-    parent: "services",
-    order: 5,
+    parent: "files",
+    order: 2,
     kind: "action",
     enabled: true,
     title: { ar: "تحويل ملف", en: "Convert a file" },
-    description: { ar: "صوت أو فيديو إلى صيغة أخرى", en: "Audio or video, to another format" },
+    // Pictures convert too, and have since the image route shipped. The row
+    // said audio or video because that is what existed when it was written.
+    description: { ar: "صوت أو فيديو أو صورة، لصيغة أخرى", en: "Audio, video or a picture, to another format" },
     aliases: {
       ar: ["حوّل", "حول ملف", "تحويل"],
       en: ["convert", "convert file", "change format"],
@@ -529,8 +578,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
   {
     id: "services.plan",
-    parent: "services",
-    order: 5,
+    parent: "more",
+    order: 3,
     kind: "action",
     enabled: true,
     title: { ar: "باقتي", en: "My plan" },
@@ -665,7 +714,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     accepts: ["text"],
   },
 
-  // ── More ────────────────────────────────────────────────────────────────
+  // ── Settings ────────────────────────────────────────────────────────────
   {
     id: "more.voice",
     parent: "more",
@@ -689,17 +738,12 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     handler: "language_menu",
     accepts: ["text"],
   },
-  {
-    id: "more.help",
-    parent: "more",
-    order: 3,
-    kind: "action",
-    enabled: true,
-    title: { ar: "كيف أتنقل", en: "How to get around" },
-    description: { ar: "كيف يعمل هذا المساعد", en: "How this assistant works" },
-    handler: "help",
-    accepts: ["text"],
-  },
+  // `more.help` used to sit here: the same title, the same description and the
+  // same `help` handler as `support.help`, two rows apart at the bottom of the
+  // menu. One feature listed twice is a menu that has stopped being a map of
+  // what the assistant does — and for somebody listening to the rows rather
+  // than reading them, it is the same sentence twice with no way to tell why.
+  // It lives under Support, which is where somebody looking for help goes.
 ];
 
 // ── The tree, in every language ───────────────────────────────────────────
@@ -775,8 +819,9 @@ export function visibleChildrenOf(id: string, disabled: readonly string[] = []):
  * The rule lives here, next to the ten, because two things need it:
  * `whatsappInteractive.ts` builds the rows, and `offeredChildrenOf` below
  * decides what a tap may execute — and those two answers must be the same
- * answer. The main menu itself is at exactly ten children and takes no controls,
- * which is why this stays 0 at the top rather than reserving room there.
+ * answer. The main menu takes no controls at all, which is why this stays 0 at
+ * the top rather than reserving room there — it has been at the ten-row ceiling
+ * before, and reserving two would have cost it two features.
  */
 export function controlRowCount(nodeId: string): number {
   return pathTo(nodeId).length <= 1 ? 0 : 2;
@@ -796,7 +841,7 @@ export function controlRowCount(nodeId: string): number {
  * it here, at the same function the menu is built from, which is the only way
  * the two can be guaranteed to agree.
  *
- * Today no menu is over its ceiling — the main menu is at exactly ten and every
+ * Today no menu is over its ceiling — the main menu is at nine of ten and every
  * submenu is well under. This is the guard for the eleventh row somebody adds.
  */
 export function offeredChildrenOf(id: string, disabled: readonly string[] = []): CatalogNode[] {

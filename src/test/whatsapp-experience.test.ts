@@ -175,9 +175,15 @@ describe("navigation, everywhere the same", () => {
     expect(session.path).toEqual(["main"]);
   });
 
-  it("9b. walks main → Services → Weather → back → Services → back → main", () => {
+  // The number is read out of the catalog rather than written here. A typed
+  // number is position, so a menu that is reordered renumbers every row below
+  // the change — and a test that hard-codes one is testing the order rather
+  // than the walk it is named for.
+  const rowNumber = (id: string) => String(catalog.numberOf(catalog.nodeById(id)!));
+
+  it("9b. walks main → Weather & places → Weather → back → up → main", () => {
     let session = live();
-    session = send("5", session).session;
+    session = send(rowNumber("services"), session).session;
     expect(session.path).toEqual(["main", "services"]);
     const weather = send("1", session);
     expect(weather.kind).toBe("delegate");
@@ -253,7 +259,7 @@ describe("a session nobody has touched for a while", () => {
 
 describe("a feature that is switched off", () => {
   it("12. cannot be entered by number", () => {
-    const outcome = send("5", live(), { disabled: ["services"] });
+    const outcome = send(String(catalog.numberOf(catalog.nodeById("services")!)), live(), { disabled: ["services"] });
     expect(outcome.reason).toBe("disabled_feature");
     expect(outcome.session.feature).toBeNull();
     expect(noteOf(outcome)).toBe(strings.say("disabled", "en"));
@@ -545,6 +551,57 @@ describe("invariants the next feature must not break", () => {
       const numbers = catalog.childrenOf(node.id).map((c) => catalog.numberOf(c));
       expect(new Set(numbers).size, node.id).toBe(numbers.length);
       expect(numbers, node.id).toEqual(numbers.map((_, i) => i + 1));
+    }
+  });
+
+  // `numberOf` counts positions, so two siblings sharing an `order` still
+  // number 1, 2, 3 — and the test above passes while which of them is 4 and
+  // which is 5 is decided by nothing but where they happen to sit in the array.
+  // "Convert a file" and "My plan" were both order 5 under Services for months.
+  it("gives each sibling an order of its own", () => {
+    for (const node of catalog.CATALOG) {
+      if (node.kind !== "menu") continue;
+      const orders = catalog.childrenOf(node.id).map((child) => child.order);
+      expect(new Set(orders).size, `${node.id}: ${orders.join(",")}`).toBe(orders.length);
+    }
+  });
+
+  // The icon is the fastest thing on a row to read and the only part of it a
+  // list can be scanned by. Two siblings with one icon is two rows that look
+  // like each other; Services and Explore were both 🧭.
+  it("gives each sibling an icon of its own", () => {
+    for (const node of catalog.CATALOG) {
+      if (node.kind !== "menu") continue;
+      const emojis = catalog.childrenOf(node.id).map((child) => child.emoji).filter(Boolean);
+      expect(new Set(emojis).size, node.id).toBe(emojis.length);
+    }
+  });
+
+  // One feature, one row. `more.help` and `support.help` were the same title,
+  // the same description and the same handler, two rows apart — and read aloud,
+  // the same sentence twice with nothing to tell them apart.
+  it("lists each feature once", () => {
+    const seen = new Map<string, string>();
+    for (const node of catalog.CATALOG) {
+      for (const language of ["ar", "en"] as const) {
+        const key = `${language}:${catalog.localized(node.title, language)}`;
+        expect(seen.get(key) ?? node.id, key).toBe(node.id);
+        seen.set(key, node.id);
+      }
+    }
+  });
+
+  // `prompt` says "this is built, send me the thing it works on". Without the
+  // sentence that says which thing, it is a row that answers a tap with a
+  // description and no way forward.
+  it("gives every prompting row the sentence that asks for its file", () => {
+    for (const node of catalog.CATALOG) {
+      if (node.handler !== "prompt") continue;
+      expect(node.intro, node.id).toBeTruthy();
+      expect(node.accepts?.length, node.id).toBeGreaterThan(0);
+      for (const language of ["ar", "en"] as const) {
+        expect(catalog.localized(node.intro!, language).trim(), `${node.id}.${language}`).not.toBe("");
+      }
     }
   });
 

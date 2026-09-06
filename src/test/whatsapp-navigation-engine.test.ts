@@ -70,6 +70,15 @@ const send = (
 ) => engine.runEngine({ text, kind: "text", ...extra }, state, context(ctx));
 
 /** The menu node a "reply" outcome is showing, for readability below. */
+/**
+ * A row's number, read out of the catalog rather than written here.
+ *
+ * A typed number is a position, so reordering a menu renumbers every row below
+ * the change. A test that hard-codes one stops testing the walk it is named for
+ * and starts testing the order — and then fails on a change that broke nothing.
+ */
+const rowNumber = (id: string) => String(catalog.numberOf(catalog.nodeById(id)!));
+
 const shownMenu = (outcome: EngineOutcome): string | null =>
   outcome.kind === "reply"
     ? (outcome.replies.find((r) => r.type === "menu") as { nodeId: string } | undefined)?.nodeId ?? null
@@ -115,8 +124,8 @@ describe("arriving", () => {
 
   it("4. opens a leaf inside a group, two numbers deep", () => {
     // Every top-level row is a group now, so a feature is two numbers away
-    // rather than one: 3 is Listen, and its second row is Songs.
-    const listen = send("3");
+    // rather than one: Listen's second row is Songs.
+    const listen = send(rowNumber("listen"));
     expect(listen.kind).toBe("reply");
     const outcome = send("2", listen.session);
     expect(outcome.kind).toBe("delegate");
@@ -313,9 +322,9 @@ describe("the awkward cases", () => {
   });
 
   it("15. announces a disabled feature instead of opening it", () => {
-    // Kids and Sports are declared and not built. They live under Explore,
-    // option 6, and Kids is its second row — Academy became IVX and opens.
-    const explore = send("6");
+    // Kids and Sports are declared and not built. They live under Explore, and
+    // Kids is its second row — Academy became IVX and opens.
+    const explore = send(rowNumber("explore"));
     const outcome = send("2", explore.session);
     expect(outcome.kind).toBe("reply");
     expect(outcome.reason).toBe("disabled_feature");
