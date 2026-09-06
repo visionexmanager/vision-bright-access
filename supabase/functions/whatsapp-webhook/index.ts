@@ -79,7 +79,9 @@ import {
 } from "../_shared/whatsappGeo.ts";
 import {
   asksForEmergencyCare,
+  asksToExplainReport,
   EMERGENCY_CATEGORY,
+  reportPrompt,
 } from "../_shared/whatsappHealth.ts";
 import {
   MEDICINE_TIMEOUT_MS,
@@ -2756,12 +2758,22 @@ Deno.serve(async (req) => {
             ? visionSystemPrompt(mode, LANGUAGE_ENDONYM[answerLanguage], modeTarget)
             : undefined;
 
+          // A photographed page is how most people send a report: they do
+          // not have the PDF, they have the paper. Same instruction as the
+          // document path — including the sentence that tells the model to
+          // refuse when what it is looking at is the scan itself rather than a
+          // written report, which is the one judgement only the model can make.
+          const explainReportImage = !humanOwnsThis && !assistantOwnsInput(session.feature) &&
+            featureOn("health.report") && asksToExplainReport(incoming.media.caption ?? "");
+
           const seen = await understandImage({
             // The stripped copy. This is the line that makes the whole check
             // load-bearing rather than decorative.
             bytes: inspected.bytes,
             mimeType: media.mimeType,
-            question: incoming.media.caption ?? "",
+            question: explainReportImage
+              ? reportPrompt(LANGUAGE_ENDONYM[answerLanguage])
+              : incoming.media.caption ?? "",
             languageName: LANGUAGE_ENDONYM[answerLanguage],
             systemPrompt: barcodeTruth ? `${basePrompt ?? ""} ${barcodeTruth}`.trim() : basePrompt,
           });
@@ -2780,7 +2792,18 @@ Deno.serve(async (req) => {
             continue;
           }
           await spent("image");
-          await reply(clampReply(barcodeText ? `${seen.answer}\n\n${barcodeText}` : seen.answer), "reply");
+          const imageAnswer = clampReply(
+            barcodeText ? `${seen.answer}\n\n${barcodeText}` : seen.answer,
+          );
+          // Appended by code on this path too. A photographed page and a PDF
+          // are the same report; they must not carry different caveats.
+          if (explainReportImage) log("report", { kind: "image", outcome: "explained" });
+          await reply(
+            explainReportImage
+              ? `${imageAnswer}\n\n${say("reportDisclaimer", answerLanguage)}`
+              : imageAnswer,
+            "reply",
+          );
           continue;
         } else if (incoming.media.kind === "document") {
           // ── "Translate this" ──────────────────────────────────────────────
@@ -2845,11 +2868,27 @@ Deno.serve(async (req) => {
             continue;
           }
 
+          // ── A medical report ────────────────────────────────────────
+          //
+          // The same reader, given a different instruction. A lab result or a
+          // radiologist's report is a page of terminology written for another
+          // clinician, and somebody holding one — especially somebody having it
+          // read aloud to them — is entitled to know what the words mean.
+          //
+          // What they are not given is what the findings mean *for them*. That
+          // is a diagnosis, it belongs to a doctor who has examined them, and
+          // the instruction says so at length because this is the direction in
+          // which being wrong costs the most.
+          const explainReport = !humanOwnsThis && !assistantOwnsInput(session.feature) &&
+            featureOn("health.report") && asksToExplainReport(incoming.media.caption ?? "");
+
           const read = await understandDocument({
             bytes: media.bytes,
             mimeType: media.mimeType,
             filename: incoming.media.filename,
-            question: incoming.media.caption ?? "",
+            question: explainReport
+              ? reportPrompt(LANGUAGE_ENDONYM[answerLanguage])
+              : incoming.media.caption ?? "",
             languageName: LANGUAGE_ENDONYM[answerLanguage],
           });
           if (!read.ok) {
@@ -2886,7 +2925,16 @@ Deno.serve(async (req) => {
             continue;
           }
           await spent("document");
-          await reply(clampReply(read.value.answer), "reply");
+          // The caveat is appended here, by code, exactly as the medicine
+          // disclaimer is: an explanation that was *asked* to carry one is an
+          // explanation that can decide not to.
+          if (explainReport) log("report", { kind: "document", outcome: "explained" });
+          await reply(
+            explainReport
+              ? `${clampReply(read.value.answer)}\n\n${say("reportDisclaimer", answerLanguage)}`
+              : clampReply(read.value.answer),
+            "reply",
+          );
           continue;
         } else if (incoming.media.kind === "video") {
           // Checked before the download: with no provider funded to watch it,

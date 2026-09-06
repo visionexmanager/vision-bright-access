@@ -1094,6 +1094,19 @@ const BASE_STRINGS = {
       "This comes from the medicine's approved US label (FDA). It is not a prescription and not a substitute for a doctor or a pharmacist. What is inside a brand name differs between countries — check the box in your hand, and check with your pharmacist, before taking anything.",
   },
 
+  // ── A medical report, explained ───────────────────────────────────────────
+  //
+  // Appended by code, like the medicine disclaimer and for the same reason: an
+  // explanation that was *asked* to carry a caveat is an explanation that can
+  // decide not to.
+
+  reportDisclaimer: {
+    ar:
+      "هذا شرح لكلمات تقريرك، وليس تشخيصاً. ما تعنيه هذه النتائج لك أنت — وهل هي خطيرة، وما الخطوة التالية — يقرره طبيب فحصك ومعه تاريخك الطبي. خذ التقرير إليه.",
+    en:
+      "This explains the words in your report. It is not a diagnosis. What these findings mean for you — whether they are serious, and what comes next — is for a doctor who has examined you and has your history. Take the report to them.",
+  },
+
   // ── A song, asked for by name ─────────────────────────────────────────────
   //
   // Two of these say what Visionex may and may not send, and they are not

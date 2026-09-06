@@ -482,6 +482,29 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
 
   {
+    id: "health.report",
+    parent: "health",
+    order: 3,
+    kind: "action",
+    enabled: true,
+    emoji: "🧾",
+    title: { ar: "اشرح تقريراً طبياً", en: "Explain a report" },
+    description: { ar: "ماذا تعني كلمات تقريرك", en: "What the words in your report mean" },
+    // `prompt`: built, and waiting for the thing it works on. The intro is the
+    // whole interface, and the sentence about the scan is in it rather than
+    // only in the model's instruction — somebody who is about to photograph an
+    // X-ray should read it before they take the picture, not after.
+    handler: "prompt",
+    accepts: ["document", "image", "text"],
+    intro: {
+      ar:
+        "أرسل التقرير — ملف PDF أو Word، أو صورة واضحة للورقة — واكتب معه «اشرح التقرير».\n\nسأشرح ما تعنيه الكلمات والاختصارات والقياسات فيه، وأقترح أسئلة تسألها لطبيبك.\n\nولن أشخّص: ماذا تعني النتائج لك أنت، وهل هي خطيرة، وما الخطوة التالية — هذا لطبيب فحصك. وصورة الأشعة نفسها لا أفسّرها؛ أرسل التقرير المكتوب الذي كتبه أخصائي الأشعة.",
+      en:
+        "Send the report — a PDF or Word file, or a clear photo of the page — and write \"explain this report\" with it.\n\nI'll explain what the words, abbreviations and measurements mean, and suggest questions to ask your doctor.\n\nI will not diagnose: what the findings mean for you, whether they are serious and what comes next are for a doctor who has examined you. And I do not interpret the scan image itself — send the radiologist's written report instead.",
+    },
+  },
+
+  {
     id: "support",
     parent: ROOT_ID,
     order: 9,
