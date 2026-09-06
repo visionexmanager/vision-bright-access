@@ -22,6 +22,7 @@ import type { SessionState } from "../../supabase/functions/_shared/whatsappSess
 const catalog = await import("../../supabase/functions/_shared/whatsappCatalog.ts");
 const interactive = await import("../../supabase/functions/_shared/whatsappInteractive.ts");
 const languages = await import("../../supabase/functions/_shared/whatsappLanguages.ts");
+const kids = await import("../../supabase/functions/_shared/whatsappKids.ts");
 const session = await import("../../supabase/functions/_shared/whatsappSession.ts");
 const engine = await import("../../supabase/functions/_shared/whatsappEngine.ts");
 const vision = await import("../../supabase/functions/_shared/whatsappVisionModes.ts");
@@ -322,19 +323,16 @@ describe("the awkward cases", () => {
     expect(webhook).toContain("unsupportedTypeNotice(answerLanguage, incoming.unsupportedType)");
   });
 
-  it("15. announces a disabled feature instead of opening it", () => {
-    // Kids and Sports are declared and not built. They live under Explore, and
-    // Kids is its second row — Academy became IVX and opens.
-    const explore = send(rowNumber("explore"));
-    const outcome = send("2", explore.session);
-    expect(outcome.kind).toBe("reply");
-    expect(outcome.reason).toBe("disabled_feature");
-    expect(shownMenu(outcome)).toBe("explore");
-    // Not entered: the session must not point at something that cannot run.
-    expect(outcome.session.feature).toBeNull();
-    if (outcome.kind !== "reply") return;
-    const shown = outcome.replies.find((r) => r.type === "menu") as { note?: string };
-    expect(shown.note).toBe(engine.ENGINE_STRINGS.disabled.en);
+  it("15. refuses a feature the catalog says is not built", () => {
+    // This used to open Kids, which was declared and not built. Both it and
+    // Sports are built now and nothing is announced-and-unbuilt any more — so
+    // the rule is driven directly rather than through a row that would have to
+    // stay broken to keep the test honest. The engine's refusal for the same
+    // case is exercised through the live flag by 12, 13 and 14.
+    const built = catalog.nodeById("news")!;
+    expect(catalog.isAvailable(built, [])).toBe(true);
+    expect(catalog.isAvailable({ ...built, enabled: false }, [])).toBe(false);
+    expect(catalog.CATALOG.filter((node) => !node.enabled).map((node) => node.id)).toEqual([]);
   });
 
   it("15b. refuses a feature whose capability is missing, without naming the reason", () => {
@@ -452,6 +450,8 @@ describe("the catalog", () => {
       "services.songs": (p) => songs.parseSongRequest(p) !== null,
       "services.orders": (p) => identity.parseAccountIntent(p) === "orders",
       "support.human": (p) => helpers.userAskedForHuman(p),
+      // The stories, which the row now actually opens.
+      "kids": (p) => kids.parseKidsRequest(p),
     };
 
     for (const node of catalog.CATALOG) {

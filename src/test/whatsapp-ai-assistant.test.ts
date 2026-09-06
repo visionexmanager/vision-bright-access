@@ -596,10 +596,13 @@ describe("feature flags", () => {
     expect(menu).not.toContain("AI Assistant");
     const arabic = engine.renderMenu(catalog.ROOT_ID, "ar", ["assistant"]);
     expect(arabic).not.toContain("المساعد الذكي");
-    // A feature merely declared and not built is the other case, and keeps its
-    // row. Academy is no longer that case — IVX opens behind it — so VisionKids
-    // is the declared-not-built row now.
-    expect(engine.renderMenu("explore", "en")).toMatch(/VisionKids.*isn't open yet/);
+    // A feature merely declared and not built is the other case and keeps its
+    // row — but nothing is in that state any more: Academy stopped being it
+    // when IVX opened, and VisionKids stopped when its stories did. What is
+    // left to assert is the contrast: a flag removes the row, and an ordinary
+    // row stays.
+    expect(engine.renderMenu("explore", "en")).toContain("VisionKids");
+    expect(engine.renderMenu("explore", "en", ["kids"])).not.toContain("VisionKids");
   });
 
   it("closes the other door too: the words, not only the numbers", () => {

@@ -999,6 +999,36 @@ const BASE_STRINGS = {
     en: "Open News from the menu to see the list again.",
   },
 
+  // ── VisionKids, the stories ───────────────────────────────────────────────
+  //
+  // The interface around the stories. The stories themselves are the rows in
+  // `kids_stories` that /kids reads — same table, same `published` filter, so a
+  // story appears here the day it appears on the site and disappears the day it
+  // is unpublished. Seven sentences, in twenty languages; the titles and the
+  // text are content and are sent in the language they were written in.
+
+  kidsHeading: { ar: "*قصص فيجن كيدز*", en: "*VisionKids stories*" },
+  /** The list's button label. Meta rejects a longer one outright: 20 characters. */
+  kidsButton: { ar: "القصص", en: "Stories" },
+  kidsEmpty: {
+    ar: "لا توجد قصص منشورة بعد. ستظهر هنا فور نشرها، والقسم هنا: {url}",
+    en: "There are no stories published yet. They'll appear here as soon as there are — the section is at {url}",
+  },
+  kidsUnavailable: {
+    ar: "تعذّر الوصول إلى القصص الآن. جرّب بعد قليل، أو اقرأها هنا: {url}",
+    en: "I couldn't reach the stories just now. Try again shortly, or read them here: {url}",
+  },
+  kidsStale: {
+    ar: "هذه القصة لم تعد في القائمة. هذه القصص من جديد:",
+    en: "That story isn't in the list any more. Here are the stories again:",
+  },
+  /** Carries `{url}`, the section page. A story has no page of its own here. */
+  kidsLink: { ar: "المزيد من القصص: {url}", en: "More stories: {url}" },
+  kidsBackHint: {
+    ar: "افتح «عالم الأطفال» من القائمة لترى القائمة من جديد.",
+    en: "Open VisionKids from the menu to see the list again.",
+  },
+
   // ── A song, asked for by name ─────────────────────────────────────────────
   //
   // Two of these say what Visionex may and may not send, and they are not

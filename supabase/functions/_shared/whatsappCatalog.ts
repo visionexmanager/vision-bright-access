@@ -76,6 +76,7 @@ export type HandlerId =
   | "help"            // the navigation commands
   | "language_menu"   // offer the language list again
   | "prompt"          // built, and waiting for the file or photo it acts on
+  | "info"            // answers with what this is and where the rest of it lives
   | "coming_soon";    // declared, announced, not built yet
 
 export interface CatalogNode {
@@ -315,11 +316,23 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     parent: "explore",
     order: 2,
     kind: "action",
-    enabled: false,
+    // Was declared and not built, and answered a tap with an apology. The
+    // stories were there the whole time: this reads `kids_stories`, the table
+    // /kids reads on the site, with the same `published` filter.
+    enabled: true,
     emoji: "🧸",
     title: { ar: "عالم الأطفال", en: "VisionKids" },
-    description: { ar: "قصص وألعاب تعليمية", en: "Stories and learning games" },
-    handler: "coming_soon",
+    // The games are not promised any more. They are things you look at and
+    // point at, and a chat window cannot carry one — the stories can be read
+    // here, or heard, which is the half of VisionKids this channel can deliver
+    // properly rather than the half it can only advertise.
+    description: { ar: "قصص للأطفال، تُقرأ أو تُسمع", en: "Children's stories, read or heard" },
+    aliases: {
+      ar: ["قصص", "قصة", "قصص أطفال", "قصص الأطفال", "عالم الأطفال"],
+      en: ["kids", "visionkids", "stories", "story", "kids stories"],
+    },
+    phrase: { ar: "قصص أطفال", en: "kids stories" },
+    accepts: ["text"],
   },
   {
     // Switched on when the WhatsApp side was built. It reads the same
@@ -373,12 +386,32 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     id: "sports",
     parent: "explore",
     order: 4,
+    // Was "Scores and fixtures", declared and not built — and it was never
+    // going to be built as written. Live results need a paid feed, and this
+    // channel's rule is that a service it depends on takes no key.
+    //
+    // What Visionex actually has under the word "sports" is a coach:
+    // `svc-sports-coach` in the Service Center, at /services/sports-coach.
+    // So the row is that, and it says what the coaching is, what it costs to
+    // find out more, and how to reach a person to arrange it — which is how
+    // that service is booked on the site too.
     kind: "action",
-    enabled: false,
+    enabled: true,
     emoji: "⚽",
-    title: { ar: "الرياضة", en: "Sports" },
-    description: { ar: "النتائج والمباريات", en: "Scores and fixtures" },
-    handler: "coming_soon",
+    title: { ar: "الرياضة واللياقة", en: "Sports & fitness" },
+    description: { ar: "تدريب رياضي مع مدرب من Visionex", en: "Coaching with a Visionex trainer" },
+    aliases: {
+      ar: ["الرياضة", "رياضة", "اللياقة", "لياقة", "مدرب رياضي"],
+      en: ["sports", "sport", "fitness", "gym", "workout", "coach"],
+    },
+    handler: "info",
+    accepts: ["text"],
+    intro: {
+      ar:
+        "مدرب الرياضة واللياقة من Visionex: تقييم لياقتك مع مدرّب معتمد، وبرنامج شهري بجلسات أسبوعية، وخطة تغذية ومتابعة للتقدّم.\n\nالباقات والأسعار: https://visionex.app/services/sports-coach\n\nوإذا أردت الحجز أو سؤالاً عن التفاصيل، اطلب مني «موظف» وأحوّلك لشخص من الفريق.",
+      en:
+        "Visionex has a Sports & Fitness Coach: a fitness assessment with a certified coach, a monthly programme with weekly sessions, and a nutrition plan with progress tracking.\n\nPackages and prices: https://visionex.app/services/sports-coach\n\nTo book one, or to ask about the details, say \"a person\" and I'll hand you to the team.",
+    },
   },
   {
     id: "services",
