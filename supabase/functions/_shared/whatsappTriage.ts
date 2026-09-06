@@ -95,6 +95,66 @@ export function shouldEscalate(input: {
   return null;
 }
 
+// ── An outage is not a handover ─────────────────────────────────────────────
+//
+// `escalated` silences the assistant completely, and nothing in the product
+// clears it. That is right for five of the six reasons above: somebody asked
+// for a person, or complained, or said something about a payment — a person now
+// owns the conversation and two voices in it would be worse than one.
+//
+// `ai_unavailable` is not like the other five. It is not a judgement about the
+// conversation at all: the provider was unreachable for one message. The thread
+// was then silenced for ever, so every question that sender asked afterwards
+// was dropped without a word — one production conversation sat like that from
+// 12:51 on 2026-09-06, and the only way back was a workflow somebody had to
+// know to run.
+//
+// So a technical escalation stops silencing the assistant once the outage it
+// describes is over. The person is still told — the handover message went out
+// and the row is still flagged for whoever reads the queue — and the sender
+// stops being ignored. Half an hour is long enough that a provider having a bad
+// minute does not flap, and short enough that nobody is left waiting for a day.
+//
+// `control === "human"` is untouched. That is the owner deliberately taking a
+// conversation, and only the owner hands it back.
+
+/** Escalations that describe the infrastructure rather than the conversation. */
+export const TECHNICAL_ESCALATIONS: readonly EscalationReason[] = ["ai_unavailable"];
+
+export const TECHNICAL_ESCALATION_COOLDOWN_MS = 30 * 60 * 1000;
+
+export const isTechnicalEscalation = (reason: unknown): boolean =>
+  typeof reason === "string" && (TECHNICAL_ESCALATIONS as readonly string[]).includes(reason);
+
+/**
+ * Whether the assistant must stay quiet in this conversation.
+ *
+ * The one completely silent path in the webhook, so it is a pure function with
+ * its own tests rather than a condition written twice in a long file.
+ *
+ * An escalation with no timestamp stays permanent. A row that cannot say when
+ * it was escalated cannot say the outage is over either, and the safe direction
+ * for an unreadable date is the one that keeps a person involved.
+ */
+export function assistantIsSilenced(
+  row: {
+    control?: unknown;
+    escalated?: unknown;
+    escalation_reason?: unknown;
+    escalated_at?: unknown;
+  } | null | undefined,
+  nowMs: number,
+): boolean {
+  if (!row) return false;
+  if (row.control === "human") return true;
+  if (row.escalated !== true) return false;
+  if (!isTechnicalEscalation(row.escalation_reason)) return true;
+
+  const at = typeof row.escalated_at === "string" ? Date.parse(row.escalated_at) : NaN;
+  if (!Number.isFinite(at)) return true;
+  return nowMs - at < TECHNICAL_ESCALATION_COOLDOWN_MS;
+}
+
 /** The instruction used to brief a human taking over. */
 export const HANDOFF_INSTRUCTION = [
   "Write a briefing for a support agent who is about to take over this conversation, in at most 120 words of English.",

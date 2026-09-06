@@ -21,6 +21,7 @@ const sessions = await import("../../supabase/functions/_shared/whatsappSession.
 const engine = await import("../../supabase/functions/_shared/whatsappEngine.ts");
 const ask = await import("../../supabase/functions/_shared/whatsappAsk.ts");
 const voice = await import("../../supabase/functions/_shared/whatsappVoiceReply.ts");
+const triage = await import("../../supabase/functions/_shared/whatsappTriage.ts");
 
 const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
 const migration = readFileSync(
@@ -423,6 +424,183 @@ describe("transport and synthesis failures", () => {
 });
 
 // ── 8. The migration ─────────────────────────────────────────────────────────
+
+// ── A delivery that threw used to say nothing at all ────────────────────────
+//
+// Two voice notes arrived on 2026-09-06 and were answered with silence. The
+// transcript showed them arriving; the structured log showed `received` and
+// then nothing; the only other trace was the outer catch's `console.error`,
+// which the diagnose workflow withholds because it cannot vouch for what a
+// console line carries. So the sender got nothing and the operator learned
+// nothing, which is the pair this block exists to break.
+
+describe("a delivery that fails still answers", () => {
+  const catchBlock = (() => {
+    // From the top of the catch, not from the message inside it: half of what
+    // this block asserts sits above that line.
+    const start = webhook.indexOf("One bad message must not drop the rest of the batch");
+    const end = webhook.indexOf("} finally {", start);
+    expect(start, "the outer catch").toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    return webhook.slice(start, end);
+  })();
+
+  it("says something to the sender rather than nothing", () => {
+    // The whole point. Everything else in this block is about the next failure
+    // being diagnosable; this is about the person waiting for an answer.
+    expect(catchBlock).toContain("await answerFailure?.()");
+    expect(webhook).toContain('await reply(featureErrorNotice(answerLanguage), "unsupported")');
+  });
+
+  it("stays quiet when an answer already went out", () => {
+    // A metering write or a background drain failing *after* the reply is not a
+    // question left hanging, and "something went wrong" underneath a real
+    // answer would turn a delivery that worked into one that reads as broken.
+    const notice = webhook.slice(webhook.indexOf("answerFailure = async () => {"));
+    expect(notice.slice(0, 200)).toContain("if (lastSentBody !== null) return;");
+  });
+
+  it("is allowed to fail at apologising, without failing the batch", () => {
+    // If the send is what threw, this throws too — and a failure to apologise
+    // must not drop every message after it in the same delivery.
+    expect(catchBlock).toMatch(/try \{\s*await answerFailure\?\.\(\);\s*\} catch/);
+  });
+
+  it("leaves one structured line, with the code and where it got to", () => {
+    expect(catchBlock).toContain('report?.("handling_failed"');
+    for (const field of ["state: stage", "problem", "kind:"]) {
+      expect(catchBlock, field).toContain(field);
+    }
+  });
+
+  it("logs only fields both allowlists already carry", () => {
+    // A new field name is dropped by `whatsappTelemetry.ts` and then dropped
+    // again by the workflow, so a line that needed one would be invisible in
+    // exactly the situation it was added for.
+    const telemetry = readFileSync("supabase/functions/_shared/whatsappTelemetry.ts", "utf8");
+    const workflow = readFileSync(".github/workflows/whatsapp-diagnose.yml", "utf8");
+    for (const field of ["state", "problem", "kind"]) {
+      expect(telemetry, `${field} in TELEMETRY_FIELDS`).toContain(`"${field}"`);
+      expect(workflow, `${field} in the workflow's FIELDS`).toContain(`"${field}"`);
+    }
+  });
+
+  it("marks every stage a delivery can die in", () => {
+    // The code says *what* went wrong and never *where*, and "unknown" is what
+    // a plain Error becomes — so without this the same three words could be the
+    // claim, the rate limiter, the transcription or the answer.
+    const stages = [...webhook.matchAll(/stage = "([a-z_]+)"/g)].map((m) => m[1]);
+    expect(new Set(stages)).toEqual(
+      new Set(["start", "received", "claimed", "rate_limit", "onboarding", "media", "transcribe", "route"]),
+    );
+    // Assigned before the work each one names, never after it.
+    expect(webhook.indexOf('stage = "media"')).toBeLessThan(webhook.indexOf('stage = "transcribe"'));
+    expect(webhook.indexOf('stage = "transcribe"')).toBeLessThan(webhook.indexOf('stage = "route"'));
+  });
+
+  it("keeps the claim open so Meta's redelivery can still rescue the message", () => {
+    // Answering the failure must not also mark it finished: the apology is a
+    // courtesy, and the redelivery is the actual second chance.
+    expect(catchBlock).toContain("handlingFailed = true;");
+    expect(webhook).toContain("if (claimedMessageId && !handlingFailed)");
+  });
+});
+
+// ── An outage is not a handover ─────────────────────────────────────────────
+//
+// `escalated` is the webhook's one completely silent path, and nothing in the
+// product clears it. That is right when a person now owns the conversation. It
+// was also being applied to `ai_unavailable`, which says only that a provider
+// was unreachable for one message — and a production thread sat silent from
+// 12:51 on 2026-09-06 because of it, dropping every question that sender asked
+// afterwards without a word.
+
+describe("when the assistant must stay quiet", () => {
+  const NOW = Date.parse("2026-09-06T18:00:00Z");
+  const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000).toISOString();
+
+  it("says nothing while a person owns the conversation, however long it has been", () => {
+    for (const minutes of [0, 60, 60 * 24 * 30]) {
+      expect(
+        triage.assistantIsSilenced({ control: "human", escalated: false, escalated_at: at(minutes) }, NOW),
+        `${minutes} minutes`,
+      ).toBe(true);
+    }
+  });
+
+  it("stays silent for every escalation that is about the conversation", () => {
+    // Somebody asked for a person, or complained, or said something about a
+    // payment. A second voice in any of those is worse than one.
+    for (const reason of ["user_request", "assistant_handover", "complaint", "repeated_failure", "sensitive"]) {
+      expect(
+        triage.assistantIsSilenced(
+          { escalated: true, escalation_reason: reason, escalated_at: at(60 * 24 * 7) },
+          NOW,
+        ),
+        reason,
+      ).toBe(true);
+    }
+  });
+
+  it("answers again once a provider outage is over", () => {
+    const row = (minutesAgo: number) => ({
+      escalated: true,
+      escalation_reason: "ai_unavailable",
+      escalated_at: at(minutesAgo),
+    });
+    // Inside the window a person may still be picking it up.
+    expect(triage.assistantIsSilenced(row(1), NOW)).toBe(true);
+    expect(triage.assistantIsSilenced(row(29), NOW)).toBe(true);
+    // Past it there is nothing left for a person to own, and a sender who is
+    // still being ignored.
+    expect(triage.assistantIsSilenced(row(31), NOW)).toBe(false);
+    expect(triage.assistantIsSilenced(row(60 * 24), NOW)).toBe(false);
+    expect(triage.TECHNICAL_ESCALATION_COOLDOWN_MS).toBe(30 * 60 * 1000);
+  });
+
+  it("keeps an escalation nobody can date, rather than guessing it is over", () => {
+    for (const escalated_at of [null, undefined, "", "not a date"]) {
+      expect(
+        triage.assistantIsSilenced(
+          { escalated: true, escalation_reason: "ai_unavailable", escalated_at },
+          NOW,
+        ),
+        String(escalated_at),
+      ).toBe(true);
+    }
+  });
+
+  it("does not silence an ordinary conversation", () => {
+    expect(triage.assistantIsSilenced({ escalated: false, control: "ai" }, NOW)).toBe(false);
+    expect(triage.assistantIsSilenced({}, NOW)).toBe(false);
+    expect(triage.assistantIsSilenced(null, NOW)).toBe(false);
+    expect(triage.assistantIsSilenced(undefined, NOW)).toBe(false);
+  });
+
+  it("is the only thing the webhook asks, in both of the places it used to ask twice", () => {
+    // Two conditions written out separately is two chances to fix one of them.
+    expect(webhook).toContain("const humanOwnsThis = assistantIsSilenced(");
+    expect(webhook).toContain("if (assistantIsSilenced(existing as Record<string, unknown> | null, Date.now())) continue;");
+    expect(webhook).not.toContain('existing?.control === "human" || existing?.escalated');
+  });
+
+  it("reads the columns the rule needs off the conversation", () => {
+    // The rule reads `escalated_at` and `escalation_reason`. A row that does not
+    // carry them makes every technical escalation permanent again, silently.
+    const select = webhook.slice(webhook.indexOf('"escalated,'), webhook.indexOf("last_location_at") + 20);
+    for (const column of ["escalated", "escalated_at", "escalation_reason", "control"]) {
+      expect(select, column).toContain(column);
+    }
+  });
+
+  it("clears the flag once it stops meaning anything", () => {
+    // Left standing it would keep the thread in the escalated queue for ever,
+    // telling whoever reads that queue a conversation needs a person when it
+    // does not.
+    expect(webhook).toContain('.update({ escalated: false, escalation_reason: null })');
+    expect(webhook).toContain('log("escalation_cleared"');
+  });
+});
 
 describe("the migration is additive and safe", () => {
   it("only adds nullable columns and one index", () => {

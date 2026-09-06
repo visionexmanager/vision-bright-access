@@ -162,9 +162,12 @@ describe("webhook safety contract", () => {
 
   it("stops answering once a human owns the conversation", () => {
     // Phase 4 added an explicit owner-set `control` state alongside the
-    // automatic `escalated` flag. Either one must silence the assistant, so
-    // this asserts the guard rather than one particular spelling of it.
-    expect(webhook).toMatch(/if \(existing\?\.control === "human" \|\| existing\?\.escalated\) continue;/);
+    // automatic `escalated` flag. The condition is one function now —
+    // `assistantIsSilenced`, whose own rules are driven in
+    // whatsapp-reliability.test.ts — because it was written out twice and one
+    // of the two spellings was the only thing keeping a thread quiet for ever
+    // after a provider outage.
+    expect(webhook).toMatch(/if \(assistantIsSilenced\(.*\)\) continue;/);
   });
 
   it("reuses the existing assistant registry and provider layer", () => {
@@ -2555,7 +2558,7 @@ describe("the new capabilities respect the rules that were already here", () => 
     // itself. A forecast landing in the middle of a human conversation is
     // exactly the two-voices confusion the rule exists to stop.
     expect(webhook).toContain(
-      'const humanOwnsThis = existing?.control === "human" || existing?.escalated === true;',
+      "const humanOwnsThis = assistantIsSilenced(",
     );
     for (const guarded of [
       "asksWhereAmI(questionText) && !humanOwnsThis",

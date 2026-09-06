@@ -80,7 +80,7 @@ jobs:
 
           # The one silent path, first.
           block "1. Conversations that are silenced right now" \
-            "select id, language, escalated, escalation_reason, control,
+            "select id, language, escalated, escalation_reason, escalated_at, control,
                     control_changed_at, control_changed_by,
                     blocked_until, rate_limit_hits,
                     pending_vision_mode,
