@@ -577,8 +577,8 @@ export const MENU_NOT_DELIVERED: MenuDelivery = {
  * screen, so a voice sender gets the words and only the words. That works
  * because a name is now a way to choose: the router resolves a row's title
  * against the menu in view, and the legacy numbers still resolve too. Somebody
- * who hears "AI Assistant, Voice Assistant, OCR and photos" can answer with any
- * of those and land exactly where a tap would have put them.
+ * who hears "AI Assistant, Photos, Files and documents" can answer with any of
+ * those and land exactly where a tap would have put them.
  *
  * ── The documented fallback ─────────────────────────────────────────────────
  *

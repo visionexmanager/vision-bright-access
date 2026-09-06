@@ -2502,7 +2502,12 @@ Deno.serve(async (req) => {
           // transcode: a conversion is one call to ffmpeg, and a translation is
           // one provider call per chunk. A PDF is many chunks, so this is
           // slower than the thing the queue was built for, not faster.
-          const translateAsk = !humanOwnsThis && !aiFocused && featureOn("ocr.translate")
+          // Gated on the row that advertises this, which is now "Read a
+          // document" under Files — not on "Translate" under Photos, which is
+          // the photo feature and was only ever the nearest id when documents
+          // had no row of their own. `isFlaggedOff` walks the parents, so
+          // switching off Files switches this off with it.
+          const translateAsk = !humanOwnsThis && !aiFocused && featureOn("ocr.document")
             ? parseVisionMode(incoming.media.caption ?? "")
             : null;
 
@@ -2810,6 +2815,20 @@ Deno.serve(async (req) => {
                 }
               }
             }
+            await saveSession();
+            continue;
+          } else if (node.handler === "prompt") {
+            // Built, and waiting for the thing it acts on. The row exists so the
+            // capability can be found by somebody who does not know it is
+            // there; the intro says what to send, and the arrival path further
+            // down answers it. No step is armed on purpose — a document is read
+            // wherever the sender is, so requiring them to be "inside" this row
+            // would invent a state the feature does not have and could then
+            // lose them in.
+            await reply(
+              localized(node.intro ?? node.description, answerLanguage),
+              "reply",
+            );
             await saveSession();
             continue;
           } else if (node.handler === "coming_soon") {

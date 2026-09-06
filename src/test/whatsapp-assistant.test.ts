@@ -2407,6 +2407,28 @@ describe("PDFs, which are now actually read", () => {
     expect(notices.size).toBe(4);
   });
 
+  // "Read a document" answered a tap with the coming-soon apology for as long
+  // as the row existed, while the code under it had been reading PDFs, Word
+  // files and decks the whole time. `prompt` is the handler for a feature that
+  // is built and waiting for the thing it acts on.
+  it("asks for the file instead of apologising for a feature that exists", () => {
+    const node = catalog.nodeById("ocr.document");
+    expect(node?.handler).toBe("prompt");
+    expect(webhook).toContain('node.handler === "prompt"');
+    // The intro is what a tap produces, so it has to name what to send.
+    for (const language of ["ar", "en"] as const) {
+      expect(catalog.localized(node!.intro!, language)).toMatch(/PDF/);
+    }
+  });
+
+  // The flag on a feature has to be the flag on the row that advertises it.
+  // Document translation was gated on "Translate" under Photos, which is the
+  // photo feature — switching that off would have taken documents with it.
+  it("gates a document translation on the document row", () => {
+    expect(webhook).toContain('featureOn("ocr.document")');
+    expect(catalog.nodeById("ocr.document")?.parent).toBe("files");
+  });
+
   it("routes every document failure to its own reply", () => {
     for (const reason of ["scanned_pdf", "encrypted_pdf", "unreadable_format", "no_reader"]) {
       expect(webhook, reason).toContain(`read.reason === "${reason}"`);
@@ -2421,7 +2443,7 @@ describe("PDFs, which are now actually read", () => {
 describe("announcing what the assistant can do", () => {
   it("names every capability a sender could not otherwise discover", () => {
     // The menu is the interface: a capability nothing names is a capability
-    // this audience has no way to find. The top level is eight groups now, so
+    // this audience has no way to find. The top level is nine groups now, so
     // the rule is one step deeper — every enabled feature has to be named on
     // the menu of the group it sits in, and every group has to be named at the
     // root. Nothing may be reachable only by knowing the word for it.
@@ -2437,12 +2459,39 @@ describe("announcing what the assistant can do", () => {
         }
       }
     }
-    // And the areas themselves are still named in the words a sender would use.
-    for (const feature of ["AI Assistant", "Listen", "VXBazaar", "Services", "Support", "More"]) {
-      expect(root.en, feature).toContain(feature);
+    // And the areas themselves are still named in the words a sender would
+    // use. Written out rather than read from the catalog on purpose: the loop
+    // above proves the menu agrees with itself, and this is the second pair of
+    // eyes on what those words actually are. "OCR and photos", "Visionex
+    // Services" and "More" were all names for where the code had got to.
+    for (
+      const area of [
+        "AI Assistant",
+        "Photos",
+        "Files & documents",
+        "Weather & places",
+        "VXBazaar",
+        "Listen",
+        "Learn & explore",
+        "Support",
+        "Settings",
+      ]
+    ) {
+      expect(root.en, area).toContain(area);
     }
-    for (const feature of ["المساعد الذكي", "استمع", "خدمات", "الدعم", "المزيد"]) {
-      expect(root.ar, feature).toContain(feature);
+    for (
+      const area of [
+        "المساعد الذكي",
+        "الصور",
+        "الملفات والمستندات",
+        "الطقس والأماكن",
+        "استمع",
+        "تعلّم واستكشف",
+        "الدعم",
+        "الإعدادات",
+      ]
+    ) {
+      expect(root.ar, area).toContain(area);
     }
   });
 

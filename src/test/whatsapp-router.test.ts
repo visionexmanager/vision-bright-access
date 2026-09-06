@@ -35,6 +35,9 @@ const routerCode = routerSource
 const ALL: Capability[] = ["ai", "vision", "speech_to_text", "text_to_speech", "location", "bazaar"];
 const NOW = Date.parse("2026-08-24T09:00:00Z");
 
+/** A row's number, read out of the catalog: reordering a menu renumbers rows. */
+const rowNumber = (id: string) => String(catalog.numberOf(catalog.nodeById(id)!));
+
 const route = (over: Partial<Parameters<typeof router.resolveSelection>[0]> = {}) =>
   router.resolveSelection({
     menuId: catalog.ROOT_ID,
@@ -170,8 +173,13 @@ describe("navigation across separate webhook requests", () => {
   };
 
   it("reconstructs where the sender is from columns alone", () => {
-    // Request one: "5" opens Services.
-    const first = delivery({ session_updated_at: new Date(NOW - 60_000).toISOString() }, "5");
+    // Request one opens Weather & places. Its number comes from the catalog:
+    // a reordered menu must not fail a test about carrying state between two
+    // webhook requests.
+    const first = delivery(
+      { session_updated_at: new Date(NOW - 60_000).toISOString() },
+      rowNumber("services"),
+    );
     expect(first.row.nav_path).toEqual(["main", "services"]);
 
     // Request two is a separate process with nothing but those columns, and "1"
@@ -196,7 +204,7 @@ describe("navigation across separate webhook requests", () => {
 
 describe("feature flags, applied after resolution", () => {
   it("refuses a disabled feature by number, and does not enter it", () => {
-    const routed = route({ text: "5", disabled: ["services"] });
+    const routed = route({ text: rowNumber("services"), disabled: ["services"] });
     expect(routed.kind).toBe("unavailable");
     if (routed.kind !== "unavailable") return;
     expect(routed.featureId).toBe("services");
@@ -245,8 +253,12 @@ describe("feature flags, applied after resolution", () => {
     // A live flag is the other thing entirely: turned at three in the morning
     // because a provider is down, and a row that answers a tap with "not
     // available" is a row that wasted somebody's time.
-    const flagged = engine.renderMenu(catalog.ROOT_ID, "en", ["services"]);
-    expect(flagged).not.toContain("Visionex Services");
+    // The title is read out of the catalog, not typed here. Typed, it was
+    // "Visionex Services" — a name that has since changed, which made this
+    // assertion pass against a string the menu could no longer print either way.
+    const title = catalog.localized(catalog.nodeById("services")!.title, "en");
+    expect(engine.renderMenu(catalog.ROOT_ID, "en")).toContain(title);
+    expect(engine.renderMenu(catalog.ROOT_ID, "en", ["services"])).not.toContain(title);
   });
 });
 
