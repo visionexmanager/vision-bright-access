@@ -214,6 +214,17 @@ import {
   readArticles,
 } from "../_shared/whatsappNews.ts";
 import {
+  formatService,
+  HUB_ID_PREFIX,
+  parseHubSelection,
+  parseServiceSelection,
+  parseServicesRequest,
+  SERVICE_ID_PREFIX,
+  searchServices,
+  serviceById,
+  SERVICES_URL,
+} from "../_shared/whatsappServices.ts";
+import {
   fetchAudio,
   findFreeRecording,
   formatFreeRecording,
@@ -265,6 +276,9 @@ import {
   sendQuestion,
   kidsMessage,
   sendNewsList,
+  sendServiceHubs,
+  sendServiceMatches,
+  sendServicesInHub,
   sendSongList,
   sendTappable,
   type Tappable,
@@ -357,6 +371,7 @@ import {
 } from "../_shared/whatsappAssistant.ts";
 import {
   currentNodeId,
+  enter,
   readSession,
   sessionColumns,
   sessionTimeoutMs,
@@ -2203,6 +2218,46 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── A tapped area, or a tapped service ────────────────────────────
+      //
+      // Handled here for the reason a headline and a language row are: the
+      // catalog has no node for a service, so the router would rightly call
+      // one of these a row this build no longer has.
+      //
+      // Nothing is looked up in a database. The catalogue is a build artefact
+      // compiled into the function, so a row that named a service the current
+      // deployment does not have is a row from an older deployment — answered
+      // by showing the areas again rather than by an apology that explains a
+      // release process to somebody who asked about a lawyer.
+      if (!humanOwnsThis && incoming.selection?.startsWith(HUB_ID_PREFIX)) {
+        const picked = parseHubSelection(incoming.selection);
+        if (!picked) {
+          log("services", { outcome: "bad_hub_row" });
+          await sendServiceHubs(delivery, answerLanguage);
+          continue;
+        }
+        // The page number is not logged. It would be harmless, but the field
+        // allowlist is a privacy boundary and widening one to record which
+        // page of a menu somebody was on is not a trade worth making.
+        log("services", { outcome: "hub" });
+        await sendServicesInHub(delivery, picked.hub, picked.page, answerLanguage);
+        continue;
+      }
+
+      if (!humanOwnsThis && incoming.selection?.startsWith(SERVICE_ID_PREFIX)) {
+        const slug = parseServiceSelection(incoming.selection);
+        const service = slug ? serviceById(slug) : null;
+        if (!service) {
+          log("services", { outcome: "stale" });
+          await reply(say("servicesNone", answerLanguage).replace("{url}", SERVICES_URL), "reply");
+          await sendServiceHubs(delivery, answerLanguage);
+          continue;
+        }
+        log("services", { outcome: "service" });
+        await reply(formatService({ service, language: answerLanguage }), "reply");
+        continue;
+      }
+
       // ── A tapped headline ─────────────────────────────────────────────
       //
       // Handled here for the same reason a language row is: the catalog has no
@@ -3184,6 +3239,37 @@ Deno.serve(async (req) => {
             );
             await saveSession();
             continue;
+          } else if (node.handler === "services") {
+            // The Service Center, which is a directory rather than a feature:
+            // everything it names is built, on the site, and has been for
+            // longer than this channel has existed. What this does is find the
+            // right one and hand over its page.
+            //
+            // Opening it shows the areas. Typing while inside it is a search —
+            // "بدي محامي", "nutrition" — matched against the catalogue's own
+            // retrieval strings, so the words that find a service here are the
+            // words that find it in the site's own search.
+            if (opening) {
+              await sendServiceHubs(delivery, answerLanguage);
+              log("services", { outcome: "hubs" });
+            } else {
+              // `questionText`, not `incoming.text`: a voice note has already
+              // been transcribed into it by here, so somebody who says what
+              // they need searches on the same words somebody who types it does.
+              const matches = searchServices(questionText);
+              if (matches.length === 0) {
+                log("services", { outcome: "no_match" });
+                await reply(
+                  say("servicesNone", answerLanguage).replace("{url}", SERVICES_URL),
+                  "reply",
+                );
+              } else {
+                log("services", { outcome: "matched", count: matches.length });
+                await sendServiceMatches(delivery, matches, answerLanguage);
+              }
+            }
+            await saveSession();
+            continue;
           } else if (node.handler === "coming_soon") {
             await reply(
               node.intro
@@ -3558,6 +3644,30 @@ Deno.serve(async (req) => {
 
       if (!humanOwnsThis && !aiFocused && parseNewsRequest(questionText) && featureOn("news")) {
         await showNews();
+        continue;
+      }
+
+      // ── The Service Center ─────────────────────────────────────────────
+      //
+      // The name of the directory, typed or spoken, opens it — the same door
+      // the menu row is. Only the name: `parseServicesRequest` matches the
+      // whole message against a short cap, so "your delivery service lost my
+      // parcel" stays a support message and is not answered with a catalogue.
+      //
+      // What somebody *needs* is not matched here. That is a search, and it
+      // belongs inside the feature where a miss can say so, rather than out
+      // here where every unmatched sentence in the conversation would have to
+      // be tested against fifty-five services first.
+      if (
+        !humanOwnsThis && !aiFocused && parseServicesRequest(questionText) &&
+        featureOn("explore.services")
+      ) {
+        log("services", { outcome: "hubs" });
+        await sendServiceHubs(delivery, answerLanguage);
+        // Left standing in the directory, so the next thing they type is read
+        // as "find me one of these" rather than as a question for the model.
+        session = enter(session, "explore.services");
+        await saveSession();
         continue;
       }
 

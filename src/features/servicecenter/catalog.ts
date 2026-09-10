@@ -2224,8 +2224,12 @@ const MARKETPLACE: ServiceEntry[] = [
     vx: 400,
     intents: ["grow-my-work", "start-a-business"],
     keywords: {
-      en: ["legal", "contract", "rights", "law", "agreement", "compliance"],
-      ar: ["قانوني", "عقد", "حقوق", "قانون", "اتفاقية", "امتثال"],
+      // "lawyer" and «محامي» are the words somebody actually uses. Every other
+      // advisor already carries the name of the person — doctor, coach — and
+      // this one only carried the name of the subject, so "I need a lawyer"
+      // matched nothing, here or in the site's own search.
+      en: ["legal", "lawyer", "attorney", "contract", "rights", "law", "agreement", "compliance"],
+      ar: ["قانوني", "محامي", "محاماة", "عقد", "حقوق", "قانون", "اتفاقية", "امتثال"],
     },
     outcomes: {
       en: [

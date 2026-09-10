@@ -58,6 +58,15 @@ import {
   nextLanguagePage,
 } from "./whatsappLanguages.ts";
 import { newsRowId } from "./whatsappNews.ts";
+import {
+  hubPage,
+  hubRowId,
+  hubs,
+  hubTitle,
+  serviceRowId,
+  serviceText,
+  type ServiceRecord,
+} from "./whatsappServices.ts";
 import { songRowId, songSubtitle, type Song } from "./whatsappSongs.ts";
 import { BACK_ID, genderRowId } from "./whatsappOnboarding.ts";
 import { GENDERS } from "./whatsappProfile.ts";
@@ -758,6 +767,146 @@ export async function sendSongList(
   language: Language,
 ): Promise<Tappable> {
   const message = songsMessage({ songs, language });
+  await sendTappable(to, message);
+  return message;
+}
+
+// ── The Service Center ───────────────────────────────────────────────────────
+//
+// Three lists, one shape. Everything they render comes from the site's own
+// service catalogue via `whatsappServices.ts`; this file only knows Meta's
+// limits, which is the division every other interactive payload here follows.
+
+/** The list id a service row carries, so one helper clips them all the same. */
+const serviceRows = (services: readonly ServiceRecord[], language: Language): Row[] =>
+  services.map((service) => {
+    const { title, tagline } = serviceText(service, language);
+    return { id: serviceRowId(service.id), title, ...(tagline ? { description: tagline } : {}) };
+  });
+
+/** Every row in a list, clipped to what Meta accepts. Rejected, not truncated. */
+const clipRows = (rows: readonly Row[]): Row[] =>
+  rows.map((row) => ({
+    ...row,
+    title: clip(row.title, LIST_LIMITS.rowTitle),
+    ...(row.description ? { description: clip(row.description, LIST_LIMITS.rowDescription) } : {}),
+  }));
+
+/** One list of service rows, with its text twin. Shared by all three below. */
+function serviceListMessage(params: {
+  heading: string;
+  body: string;
+  rows: Row[];
+  language: Language;
+}): Tappable {
+  const { heading, body, rows, language } = params;
+  const button = say("servicesButton", language);
+  const withControls = [...rows, ...controlRows("explore.services", language)];
+
+  return {
+    interactive: {
+      type: "list",
+      header: { type: "text", text: clip(heading.replace(/\*/g, ""), LIST_LIMITS.header) },
+      body: { text: clip(body, LIST_LIMITS.body) },
+      action: {
+        button: clip(button, LIST_LIMITS.button),
+        sections: [{ title: clip(button, LIST_LIMITS.rowTitle), rows: clipRows(withControls) }],
+      },
+    },
+    // The twin carries the full, unclipped titles. A row title is cut at 24
+    // characters and "Psychology & Mental Wellness" is longer than that, so
+    // outside the 24-hour window — where Meta refuses interactive messages
+    // outright — this is the only version a sender sees.
+    text: [
+      heading,
+      "",
+      ...rows.map((row) => `• ${row.title}`),
+      "",
+      body,
+    ].join("\n"),
+  };
+}
+
+/**
+ * The six areas the Service Center is organised into.
+ *
+ * The hubs rather than the services, because there are fifty-five services and
+ * a list holds ten rows. This is the site's own first screen too — the Service
+ * Center is hub-first by an explicit product decision, and mirroring it means
+ * somebody who has used the site already knows where to press.
+ */
+export function servicesHubsMessage(params: { language: Language }): Tappable {
+  const { language } = params;
+  return serviceListMessage({
+    heading: say("servicesHeading", language),
+    body: say("servicesHint", language),
+    rows: hubs().map((hub) => ({ id: hubRowId(hub, 0), title: hubTitle(hub, language) })),
+    language,
+  });
+}
+
+/**
+ * One page of one hub, with the way to the next page when there is one.
+ *
+ * The "more" row carries the next page number rather than a cursor this
+ * conversation would have to remember: a list outlives the delivery that sent
+ * it, and a page number still means something a week later.
+ */
+export function servicesHubMessage(params: { hub: string; page: number; language: Language }): Tappable {
+  const { hub, page, language } = params;
+  const current = hubPage(hub, page);
+  const rows = serviceRows(current.services, language);
+  if (current.hasMore) {
+    rows.push({ id: hubRowId(hub, current.page + 1), title: say("servicesMore", language) });
+  }
+  return serviceListMessage({
+    heading: hubTitle(hub, language),
+    body: say("servicesHint", language),
+    rows,
+    language,
+  });
+}
+
+/** What somebody asked for, as rows they can open. */
+export function servicesMatchesMessage(params: {
+  services: readonly ServiceRecord[];
+  language: Language;
+}): Tappable {
+  const { services, language } = params;
+  return serviceListMessage({
+    heading: say("servicesMatches", language),
+    body: say("servicesHint", language),
+    rows: serviceRows(services, language),
+    language,
+  });
+}
+
+/** The areas, delivered. */
+export async function sendServiceHubs(to: Delivery, language: Language): Promise<Tappable> {
+  const message = servicesHubsMessage({ language });
+  await sendTappable(to, message);
+  return message;
+}
+
+/** One area's services, delivered. */
+export async function sendServicesInHub(
+  to: Delivery,
+  hub: string,
+  page: number,
+  language: Language,
+): Promise<Tappable> {
+  const message = servicesHubMessage({ hub, page, language });
+  await sendTappable(to, message);
+  return message;
+}
+
+/** The matches for what somebody typed, delivered. */
+export async function sendServiceMatches(
+  to: Delivery,
+  services: readonly ServiceRecord[],
+  language: Language,
+): Promise<Tappable> {
+  const message = servicesMatchesMessage({ services, language });
   await sendTappable(to, message);
   return message;
 }

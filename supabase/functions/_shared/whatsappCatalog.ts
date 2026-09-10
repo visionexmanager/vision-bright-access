@@ -77,6 +77,7 @@ export type HandlerId =
   | "language_menu"   // offer the language list again
   | "prompt"          // built, and waiting for the file or photo it acts on
   | "info"            // answers with what this is and where the rest of it lives
+  | "services"        // the Service Center: browse the hubs, or say what you need
   | "coming_soon";    // declared, announced, not built yet
 
 export interface CatalogNode {
@@ -260,7 +261,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // scanning, and the icon is the fastest thing on the row to read.
     emoji: "📚",
     title: { ar: "تعلّم واستكشف", en: "Learn & explore" },
-    description: { ar: "الأكاديمية والأطفال والأخبار", en: "Academy, kids and news" },
+    description: { ar: "الأكاديمية والأطفال والأخبار والخدمات", en: "Academy, kids, news and services" },
   },
   {
     id: "ocr",
@@ -412,6 +413,58 @@ const BASE_CATALOG: readonly CatalogNode[] = [
       en:
         "Visionex has a Sports & Fitness Coach: a fitness assessment with a certified coach, a monthly programme with weekly sessions, and a nutrition plan with progress tracking.\n\nPackages and prices: https://visionex.app/services/sports-coach\n\nTo book one, or to ask about the details, say \"a person\" and I'll hand you to the team.",
     },
+  },
+  {
+    // The Service Center, which this channel has never had a door to.
+    //
+    // Thirty services and twenty-five hands-on experiences are sold on
+    // visionex.app, and until now a sender could reach five of them here — the
+    // Academy, the two file tools, the radio and, because somebody wrote it out
+    // by hand, the sports coach. The rest existed and were unreachable.
+    //
+    // It is one node rather than thirty because thirty is not a menu: Meta
+    // allows ten rows in a list, so the tree could never hold them, and a
+    // catalog entry per service would be a second copy of a catalogue that
+    // already has a single source of truth. `whatsappServices.ts` reads that
+    // source instead — the same snapshot the site's own semantic search reads —
+    // so a service added on the site is offered here without this file
+    // changing at all.
+    //
+    // Under Learn & explore rather than at the top because the main menu is
+    // full: ten of ten rows, and an eleventh is not truncated, it rejects the
+    // whole message.
+    id: "explore.services",
+    parent: "explore",
+    order: 5,
+    kind: "action",
+    enabled: true,
+    emoji: "✨",
+    title: { ar: "خدمات Visionex", en: "Visionex services" },
+    description: { ar: "استشارات وخدمات من الموقع", en: "Advisors and services from the site" },
+    aliases: {
+      ar: ["خدمات", "الخدمات", "خدمات visionex", "مركز الخدمات", "استشارة", "استشارات"],
+      en: ["services", "service centre", "service center", "advisors", "consulting"],
+      ur: ["خدمات", "سروسز"],
+      hi: ["सेवाएँ", "सेवाएं", "सर्विस"],
+      id: ["layanan", "jasa"],
+      ja: ["サービス", "サービス一覧"],
+      it: ["servizi"],
+      ko: ["서비스"],
+      nl: ["diensten"],
+      pl: ["usługi"],
+      vi: ["dịch vụ"],
+      bn: ["সেবা", "সেবাসমূহ"],
+      fa: ["خدمات", "سرویس‌ها", "سرویس ها"],
+      es: ["servicios"],
+      de: ["dienste", "dienstleistungen"],
+      pt: ["serviços"],
+      zh: ["服务", "服務"],
+      tr: ["hizmetler"],
+      fr: ["services"],
+      ru: ["услуги"],
+    },
+    handler: "services",
+    accepts: ["text"],
   },
   {
     id: "services",

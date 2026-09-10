@@ -1003,6 +1003,62 @@ const BASE_STRINGS = {
     en: "Open News from the menu to see the list again.",
   },
 
+  // ── The Service Center ────────────────────────────────────────────────────
+  //
+  // The scaffolding around thirty services the site already sells. The services
+  // themselves — their names and their one-line pitches — are content the site
+  // wrote in Arabic and English, and `whatsappServices.ts` explains why this
+  // channel does not machine-translate a product name into the other eighteen.
+  // These fifteen sentences are this channel's own words, so they exist in all
+  // twenty.
+
+  /** The hub names. Row titles: twenty-four characters, icon included. */
+  hubPersonalGrowth: { ar: "التطور الشخصي", en: "Personal growth" },
+  hubMarketplace: { ar: "خدمات الأعمال", en: "Business services" },
+  hubCreativeStudio: { ar: "الإبداع والإنتاج", en: "Creative studio" },
+  hubBusinessLab: { ar: "مختبر الأعمال", en: "Business lab" },
+  hubTechRepair: { ar: "التقنية والصيانة", en: "Tech & repair" },
+  hubEngineering: { ar: "الهندسة", en: "Engineering" },
+
+  servicesHeading: { ar: "*خدمات Visionex*", en: "*Visionex services*" },
+  /** The list's button label. Meta rejects a longer one outright: 20 characters. */
+  servicesButton: { ar: "الخدمات", en: "Services" },
+  /**
+   * The body under every one of the three service lists.
+   *
+   * It said "Pick an area, or tell me what you need" first, and the gate was
+   * right to refuse it: «اختر» and "Choose" are the old numeric interface's
+   * vocabulary, and somebody who cannot see the rows is not picking from
+   * anything. What is true for all three lists, and for a screen reader, is
+   * the offer itself.
+   */
+  servicesHint: {
+    ar: "اكتب لي ما تحتاجه وسأجده لك.",
+    en: "Tell me what you need, and I'll find it.",
+  },
+  /** A row title, so twenty-four characters is the ceiling. */
+  servicesMore: { ar: "المزيد", en: "More" },
+  servicesNone: {
+    ar: "لم أجد خدمة من Visionex لهذا الطلب. تصفّح الخدمات كلها: {url}",
+    en: "I found no Visionex service for that. Browse them all: {url}",
+  },
+  servicesMatches: {
+    ar: "*ما يناسب طلبك من Visionex*",
+    en: "*What Visionex has for that*",
+  },
+  servicesBackHint: {
+    ar: "افتح «الخدمات» من القائمة لترى القائمة من جديد.",
+    en: "Open Services from the menu to see the list again.",
+  },
+  /** Carries `{vx}`, what one session costs. Omitted entirely when it is free. */
+  serviceCost: { ar: "الجلسة: {vx} VX", en: "Session: {vx} VX" },
+  /** Carries `{url}`, the service's own page on the site. */
+  serviceLink: { ar: "التفاصيل والحجز: {url}", en: "Details and booking: {url}" },
+  serviceBookHint: {
+    ar: "قل «موظف» وأحوّلك إلى شخص من الفريق.",
+    en: "Say \"a person\" and I'll hand you to the team.",
+  },
+
   // ── VisionKids, the stories ───────────────────────────────────────────────
   //
   // The interface around the stories. The stories themselves are the rows in

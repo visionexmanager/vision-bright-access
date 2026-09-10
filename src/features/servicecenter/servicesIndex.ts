@@ -12,6 +12,16 @@ export interface IndexedService {
   id: string;
   title_en: string;
   title_ar: string;
+  /**
+   * The one-line pitch, kept as its own field rather than only inside `text`.
+   *
+   * `text` is a retrieval string — every field concatenated so either language
+   * finds the service — and it is unreadable as a sentence. The WhatsApp
+   * service directory shows a sender the tagline under the title, so it needs
+   * the line itself, not the haystack it was folded into.
+   */
+  tagline_en: string;
+  tagline_ar: string;
   hub: string;
   kind: string;
   path: string;
@@ -26,6 +36,8 @@ export function buildServicesIndex(): IndexedService[] {
     id: entry.slug,
     title_en: entry.title.en,
     title_ar: entry.title.ar,
+    tagline_en: entry.tagline?.en ?? "",
+    tagline_ar: entry.tagline?.ar ?? "",
     hub: entry.hub,
     kind: entry.kind,
     path: entry.to,
