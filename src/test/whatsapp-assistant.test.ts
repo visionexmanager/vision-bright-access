@@ -167,7 +167,12 @@ describe("webhook safety contract", () => {
     // whatsapp-reliability.test.ts — because it was written out twice and one
     // of the two spellings was the only thing keeping a thread quiet for ever
     // after a provider outage.
-    expect(webhook).toMatch(/if \(assistantIsSilenced\(.*\)\) continue;/);
+    expect(webhook).toContain("if (assistantIsSilenced(");
+    // A person is answered with silence, because they are already being
+    // answered by a person. An outage is answered with the notice.
+    expect(webhook).toMatch(
+      /if \(!personOwnsConversation\([^)]*\)\) \{\s*log\("ai_cooldown"/,
+    );
   });
 
   it("reuses the existing assistant registry and provider layer", () => {
@@ -2599,7 +2604,7 @@ describe("the new capabilities respect the rules that were already here", () => 
     // itself. A forecast landing in the middle of a human conversation is
     // exactly the two-voices confusion the rule exists to stop.
     expect(webhook).toContain(
-      "const humanOwnsThis = assistantIsSilenced(",
+      "const humanOwnsThis = personOwnsConversation(",
     );
     for (const guarded of [
       "asksWhereAmI(questionText) && !humanOwnsThis",

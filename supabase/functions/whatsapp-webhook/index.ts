@@ -406,6 +406,7 @@ import {
   CLASSIFY_INSTRUCTION,
   CLASSIFY_SCHEMA,
   assistantIsSilenced,
+  personOwnsConversation,
   fallbackBriefing,
   HANDOFF_INSTRUCTION,
   isCategory,
@@ -2119,7 +2120,13 @@ Deno.serve(async (req) => {
       // Cast the way `readSession` above is: the generated types for this
       // client are stale, so every read of a column on this row goes through
       // the same shape rather than growing a second story about it.
-      const humanOwnsThis = assistantIsSilenced(existing as Record<string, unknown> | null, Date.now());
+      //
+      // `personOwnsConversation`, not `assistantIsSilenced`: the thirty-odd
+      // gates below are features, and a feature that reads a view has no reason
+      // to go dark because a model provider was unreachable. Somebody tapping
+      // *Watch TV* during an outage was getting nothing at all — not the
+      // channel list, not an apology, not even the menu they tapped it from.
+      const humanOwnsThis = personOwnsConversation(existing as Record<string, unknown> | null);
 
       /**
        * Whether a feature may answer at all, by catalog id.
@@ -4709,7 +4716,19 @@ Deno.serve(async (req) => {
       // that says the *provider* was unreachable is an outage, not a handover,
       // and half an hour later there is nothing for a person to own and a
       // sender who has been ignored ever since.
-      if (assistantIsSilenced(existing as Record<string, unknown> | null, Date.now())) continue;
+      //
+      // Inside that half hour the cooldown still holds — there is no sense
+      // calling a provider that just failed — but it is spent saying so. Going
+      // silent here is what made an outage indistinguishable from being
+      // ignored, which is the one thing a sender cannot tell apart and the one
+      // thing they should never have to.
+      if (assistantIsSilenced(existing as Record<string, unknown> | null, Date.now())) {
+        if (!personOwnsConversation(existing as Record<string, unknown> | null)) {
+          log("ai_cooldown", { reason: String(existing?.escalation_reason ?? "unknown") });
+          await reply(failureNotice(answerLanguage), "handover");
+        }
+        continue;
+      }
 
       // The outage is over, so the flag that recorded it goes. Left standing it
       // would keep this thread in the escalated queue for ever and re-silence
