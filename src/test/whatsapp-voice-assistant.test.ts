@@ -413,7 +413,9 @@ describe("the language a voice question is answered in", () => {
     expect(voiceBlock).toContain("const heardLanguage = detectLanguageCode(questionText);");
     expect(voiceBlock).toContain("const spokenBefore = existing?.language as string | null | undefined;");
     expect(voiceBlock).toContain("isSupportedLanguage(spokenBefore) ? spokenBefore : heardLanguage");
-    expect(voiceBlock).toContain("replyLanguage(settled, existing?.preferred_language as string | null)");
+    expect(voiceBlock).toContain(
+      "replyLanguage(settled, existing?.preferred_language as string | null, questionText)",
+    );
   });
 
   it("still lets a preference win, including one set out loud", () => {
