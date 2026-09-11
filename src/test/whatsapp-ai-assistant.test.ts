@@ -327,8 +327,14 @@ describe("reliability", () => {
     expect(webhook).toContain('log("ai_failed", { reason: asked.reason, status: asked.httpStatus, ms: asked.ms });');
     // Four providers deep, and the WhatsApp assistant is registered in one of
     // the ordered sets rather than falling through to the default.
-    expect(assistantsSource).toMatch(/MISTRAL_FIRST = new Set\(\[[^\]]*"whatsapp-support"/s);
-    expect(assistantsSource).toContain("if (MISTRAL_FIRST.has(id)) return [MISTRAL, GEMINI, GROQ, OPENAI];");
+    //
+    // It leads with OpenAI: it used to sit in MISTRAL_FIRST, which put OpenAI
+    // fourth, so the one provider whose key had been verified was the last the
+    // chain reached. The other three stay behind it — the point is the order,
+    // not dropping anything.
+    expect(assistantsSource).toMatch(/OPENAI_FIRST = new Set\(\[[^\]]*"whatsapp-support"/s);
+    expect(assistantsSource).not.toMatch(/MISTRAL_FIRST = new Set\(\[[^\]]*"whatsapp-support"/s);
+    expect(assistantsSource).toContain("if (OPENAI_FIRST.has(id)) return [OPENAI, GEMINI, MISTRAL, GROQ];");
   });
 
   it("21. keeps the existing rate limit in front of the assistant", () => {

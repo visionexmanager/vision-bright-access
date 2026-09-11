@@ -54,10 +54,18 @@ const MISTRAL = { provider: "mistral", model: "mistral-small-latest" } as const;
 const OPENAI_FIRST = new Set([
   "legal-advisor", "medical-support", "psychology", "empathy-oasis",
   "skin-care", "hair-care", "finance-advisor", "ivx-tutor", "ivx-project-grader",
+  // `whatsapp-support` is here for a different reason than the rest, and a
+  // reason that is meant to expire. It sat in MISTRAL_FIRST, which put OpenAI
+  // fourth — so when senders were getting "I couldn't answer just now", the one
+  // provider whose key had actually been verified was the one the chain reached
+  // last, if it reached it at all. Until the other three are verified, the
+  // channel leads with the provider known to answer. The other three stay in
+  // the chain behind it and cost nothing when it works.
+  "whatsapp-support",
 ]);
 const MISTRAL_FIRST = new Set([
   "social-guide", "digital-marketing", "global-studio", "content-guide",
-  "message-assistant", "media-companion", "voice-room-assistant", "whatsapp-support",
+  "message-assistant", "media-companion", "voice-room-assistant",
 ]);
 const GEMINI_FIRST = new Set([
   "travel-agency", "educational-empire", "music-conservatory", "tech-consulting",
