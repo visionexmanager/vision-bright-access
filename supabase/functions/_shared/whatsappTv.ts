@@ -236,6 +236,142 @@ export function formatChannels(params: {
   ].join("\n");
 }
 
+// ── Browsing ────────────────────────────────────────────────────────────────
+//
+// Somebody who taps *Watch TV* has no channel in mind. Asking them to name one
+// is asking the wrong question, and the old answer — the five most featured
+// channels in the whole world — was a shelf, not a menu. A category first,
+// then the channels in it, then the one link.
+//
+// Categories are rows rather than words because the sender has not thought of
+// a word yet. Search still works and is untouched: "tv bbc" skips all of this.
+
+/** One category, as `tv_categories` returns it. Two languages; the rest fall back. */
+export interface TvCategory {
+  id: string;
+  slug: string;
+  name: string;
+  nameAr: string | null;
+}
+
+/** Read the category rows into something typed, dropping anything nameless. */
+export function readCategories(rows: unknown): TvCategory[] {
+  if (!Array.isArray(rows)) return [];
+  const categories: TvCategory[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const record = row as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id : "";
+    const slug = typeof record.slug === "string" ? record.slug.trim() : "";
+    const name = typeof record.name === "string" ? record.name.trim() : "";
+    const nameAr = typeof record.name_ar === "string" ? record.name_ar.trim() : "";
+    if (!id || !slug || (!name && !nameAr)) continue;
+    categories.push({ id, slug, name: name || nameAr, nameAr: nameAr || null });
+  }
+  return categories;
+}
+
+/**
+ * A category's name in the reader's language.
+ *
+ * `tv_categories` holds two columns, `name` and `name_ar`, so this channel's
+ * other eighteen languages read the English one. That is the same bargain
+ * `channelName` makes about channel names, and for the same reason: the names
+ * are content the site owns, and inventing translations here would be a second
+ * source of truth for them.
+ */
+export const categoryLabel = (category: TvCategory, language: Language): string =>
+  language === "ar" ? (category.nameAr ?? category.name) : category.name;
+
+// ── Row ids ──────────────────────────────────────────────────────────────────
+//
+// Prefixed so the router can tell one of these from a catalog node id. The
+// shape `svc.hub.` and `svc.item.` use, for the same two-level reason.
+
+export const TV_CATEGORY_ID_PREFIX = "tv.cat.";
+export const TV_CHANNEL_ID_PREFIX = "tv.ch.";
+
+/** The row that opens a category at a page. */
+export const tvCategoryRowId = (slug: string, page = 0): string =>
+  `${TV_CATEGORY_ID_PREFIX}${slug}.${page}`;
+
+/** The row that opens one channel. */
+export const tvChannelRowId = (id: string): string => `${TV_CHANNEL_ID_PREFIX}${id}`;
+
+/** The category and page inside a tapped row, or null for any other selection. */
+export function parseTvCategorySelection(
+  id: string | null | undefined,
+): { category: string; page: number } | null {
+  if (!id || !id.startsWith(TV_CATEGORY_ID_PREFIX)) return null;
+  const rest = id.slice(TV_CATEGORY_ID_PREFIX.length);
+  const cut = rest.lastIndexOf(".");
+  if (cut <= 0) return null;
+  const category = rest.slice(0, cut).trim();
+  const page = Number.parseInt(rest.slice(cut + 1), 10);
+  if (!category || !Number.isFinite(page) || page < 0) return null;
+  return { category, page };
+}
+
+/** The channel id inside a tapped row, or null for any other selection. */
+export function parseTvChannelSelection(id: string | null | undefined): string | null {
+  if (!id || !id.startsWith(TV_CHANNEL_ID_PREFIX)) return null;
+  const channel = id.slice(TV_CHANNEL_ID_PREFIX.length).trim();
+  return channel ? channel : null;
+}
+
+/**
+ * How many channels fit on one page.
+ *
+ * Seven, because Meta allows ten rows in a list and three are spoken for: a
+ * "more" row, and the two control rows every list carries. The Service Center
+ * landed on the same number for the same arithmetic.
+ */
+export const TV_PAGE_SIZE = 7;
+
+export interface TvChannelPage {
+  page: number;
+  channels: TvChannel[];
+  /** Whether a further page exists, which is what puts a "more" row on this one. */
+  hasMore: boolean;
+}
+
+/** One page of channels, with the page number clamped into range. */
+export function channelPage(channels: readonly TvChannel[], page: number): TvChannelPage {
+  const pages = Math.max(1, Math.ceil(channels.length / TV_PAGE_SIZE));
+  const index = Number.isFinite(page) ? Math.min(Math.max(Math.trunc(page), 0), pages - 1) : 0;
+  const start = index * TV_PAGE_SIZE;
+  return {
+    page: index,
+    channels: [...channels].slice(start, start + TV_PAGE_SIZE),
+    hasMore: start + TV_PAGE_SIZE < channels.length,
+  };
+}
+
+/**
+ * One channel, chosen from a list: what it is, and where it plays.
+ *
+ * The watch page, never a stream. `tv_channels_public` does not carry a stream
+ * URL and `carriesStream` refuses a row that somehow does — this is the third
+ * place that rule holds, and the reason it holds here is that a link a sender
+ * can forward is a link that leaves the token behind.
+ */
+export function formatChannel(params: { channel: TvChannel; language: Language }): string {
+  const { channel, language } = params;
+  const description = language === "ar"
+    ? (channel.descriptionAr ?? channel.description)
+    : channel.description;
+  const details = [channel.country, channel.quality]
+    .filter((part): part is string => Boolean(part));
+
+  return [
+    `*${channelName(channel, language)}*`,
+    ...(details.length > 0 ? [details.join(" · ")] : []),
+    ...(description ? ["", description] : []),
+    "",
+    tvWatchUrl(channel.id),
+  ].join("\n");
+}
+
 /** Nothing matched. Says so, and says where everything is. */
 export const noChannelsNotice = (language: Language): string =>
   say("tvNone", language).replace("{url}", TV_URL);
