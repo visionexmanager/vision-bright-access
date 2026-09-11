@@ -127,6 +127,35 @@ export const isTechnicalEscalation = (reason: unknown): boolean =>
   typeof reason === "string" && (TECHNICAL_ESCALATIONS as readonly string[]).includes(reason);
 
 /**
+ * Whether a *person* owns this conversation.
+ *
+ * The question every feature actually has. TV reads a view. The radio reads a
+ * view. A menu is a list this code builds. None of them call a provider, and
+ * none of them have any business going quiet because one was unreachable — but
+ * they all used to, because they asked `assistantIsSilenced`, which answers a
+ * different question: may the *assistant* speak.
+ *
+ * The difference is who is on the other side. A takeover means somebody is
+ * typing and a second answer would talk over them. An outage means nobody is,
+ * and a sender who taps "Watch TV" and gets silence has been ignored by a
+ * system that was working.
+ */
+export function personOwnsConversation(
+  row: {
+    control?: unknown;
+    escalated?: unknown;
+    escalation_reason?: unknown;
+    /** Read by `assistantIsSilenced`, never here: a takeover does not expire. */
+    escalated_at?: unknown;
+  } | null | undefined,
+): boolean {
+  if (!row) return false;
+  if (row.control === "human") return true;
+  if (row.escalated !== true) return false;
+  return !isTechnicalEscalation(row.escalation_reason);
+}
+
+/**
  * Whether the assistant must stay quiet in this conversation.
  *
  * The one completely silent path in the webhook, so it is a pure function with

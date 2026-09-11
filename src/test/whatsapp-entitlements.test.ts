@@ -255,7 +255,7 @@ describe("handing a conversation back actually hands it back", () => {
     expect(ownerControl).toContain('...(control === "ai" ? { escalated: false, escalated_at: null } : {})');
     // The webhook reads both through one function now; that it silences on
     // either is asserted where the function's rules are.
-    expect(webhook).toContain("const humanOwnsThis = assistantIsSilenced(");
+    expect(webhook).toContain("const humanOwnsThis = personOwnsConversation(");
   });
 
   it("does not clear it when a person is taking over", () => {
