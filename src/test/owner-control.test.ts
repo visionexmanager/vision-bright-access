@@ -2,10 +2,12 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   formatAmbiguityPrompt,
+  formatOwnerHelp,
   formatOwnerNotification,
   formatPendingList,
   isOwner,
   normalizePhone,
+  ownerCommandBody,
   parseOwnerCommand,
 } from "../../supabase/functions/_shared/ownerControl.ts";
 
@@ -47,43 +49,50 @@ describe("owner authorization", () => {
 
 describe("owner command parsing", () => {
   it("reads approve and reject in both languages", () => {
-    expect(parseOwnerCommand("approve").kind).toBe("approve");
-    expect(parseOwnerCommand("وافق").kind).toBe("approve");
-    expect(parseOwnerCommand("reject").kind).toBe("reject");
-    expect(parseOwnerCommand("ارفض").kind).toBe("reject");
+    expect(parseOwnerCommand("/approve").kind).toBe("approve");
+    expect(parseOwnerCommand("/وافق").kind).toBe("approve");
+    expect(parseOwnerCommand("/reject").kind).toBe("reject");
+    expect(parseOwnerCommand("/ارفض").kind).toBe("reject");
   });
 
   it("extracts a reference when one is given", () => {
-    const command = parseOwnerCommand("approve A7K2M");
+    const command = parseOwnerCommand("/approve A7K2M");
     expect(command.kind).toBe("approve");
     expect(command.reference).toBe("A7K2M");
   });
 
   it("uppercases a lowercase reference", () => {
-    expect(parseOwnerCommand("reject a7k2m").reference).toBe("A7K2M");
+    expect(parseOwnerCommand("/reject a7k2m").reference).toBe("A7K2M");
   });
 
   it("treats a bare digit as a choice carrying no reference", () => {
     // The caller must resolve this against exactly one pending action; the
     // parser must not invent which one it meant.
-    const command = parseOwnerCommand("2");
+    const command = parseOwnerCommand("/2");
     expect(command.choice).toBe(2);
     expect(command.kind).toBe("approve");
     expect(command.reference).toBeNull();
   });
 
   it("maps the documented numbering", () => {
-    expect(parseOwnerCommand("1").kind).toBe("take_over");
-    expect(parseOwnerCommand("2").kind).toBe("approve");
-    expect(parseOwnerCommand("3").kind).toBe("reject");
-    expect(parseOwnerCommand("4").kind).toBe("more_info");
+    expect(parseOwnerCommand("/1").kind).toBe("take_over");
+    expect(parseOwnerCommand("/2").kind).toBe("approve");
+    expect(parseOwnerCommand("/3").kind).toBe("reject");
+    expect(parseOwnerCommand("/4").kind).toBe("more_info");
   });
 
   it("recognises takeover and return in both languages", () => {
-    expect(parseOwnerCommand("take over").kind).toBe("take_over");
-    expect(parseOwnerCommand("أتولى").kind).toBe("take_over");
-    expect(parseOwnerCommand("return to ai").kind).toBe("return_to_ai");
-    expect(parseOwnerCommand("ارجع للذكاء").kind).toBe("return_to_ai");
+    expect(parseOwnerCommand("/take over").kind).toBe("take_over");
+    expect(parseOwnerCommand("/أتولى").kind).toBe("take_over");
+    expect(parseOwnerCommand("/return to ai").kind).toBe("return_to_ai");
+    expect(parseOwnerCommand("/ارجع للذكاء").kind).toBe("return_to_ai");
+  });
+
+  it("accepts the short forms the help list documents", () => {
+    expect(parseOwnerCommand("/takeover").kind).toBe("take_over");
+    expect(parseOwnerCommand("/return").kind).toBe("return_to_ai");
+    expect(parseOwnerCommand("/info").kind).toBe("more_info");
+    expect(parseOwnerCommand("/pending").kind).toBe("list_pending");
   });
 
   it("does not read a command out of ordinary conversation", () => {
@@ -91,7 +100,67 @@ describe("owner command parsing", () => {
   });
 
   it("keeps a note alongside the decision", () => {
-    expect(parseOwnerCommand("reject A7K2M too expensive").note).toContain("too expensive");
+    expect(parseOwnerCommand("/reject A7K2M too expensive").note).toContain("too expensive");
+  });
+
+  it("still reads a longer sentence by its keywords", () => {
+    // The short forms are anchored, so a note that happens to say "returning"
+    // must not turn a rejection into a hand-back to the AI.
+    const command = parseOwnerCommand("/reject A7K2M the customer is returning it");
+    expect(command.kind).toBe("reject");
+  });
+});
+
+describe("the owner is a customer unless they type a slash", () => {
+  // Every one of these used to be swallowed by the control centre, which is
+  // why the owner could not check what a customer actually sees.
+  const ordinary = ["ok", "yes", "no", "لا", "نعم", "cancel", "الغاء", "list",
+                    "القائمة", "details", "help", "2", "explain", "stop"];
+
+  it("reads an ordinary message as an ordinary message", () => {
+    for (const text of ordinary) {
+      const command = parseOwnerCommand(text);
+      expect(command.kind, `"${text}" must not be a command`).toBe("unknown");
+      expect(command.choice, `"${text}" must carry no choice`).toBeNull();
+    }
+  });
+
+  it("carries no reference either, so the webhook falls through", () => {
+    // `handleOwnerCommand` returns null on unknown-and-unreferenced, and a
+    // reference smuggled out of a sentence would stop that happening.
+    expect(parseOwnerCommand("is A7K2M the tracking code").reference).toBeNull();
+    expect(ownerCommandBody("is A7K2M the tracking code")).toBeNull();
+  });
+
+  it("the same words with a slash are commands again", () => {
+    expect(parseOwnerCommand("/pending").kind).toBe("list_pending");
+    expect(parseOwnerCommand("/2").kind).toBe("approve");
+  });
+
+  it("the webhook hands an unprefixed owner message to the assistant", () => {
+    expect(webhook).toContain("if (ownerCommandBody(text) === null) return null;");
+  });
+});
+
+describe("the command list", () => {
+  it("answers a bare slash and every spelling of help", () => {
+    for (const text of ["/", "/help", "/commands", "/?", "/مساعدة", "/الأوامر"]) {
+      expect(parseOwnerCommand(text).kind, text).toBe("help");
+    }
+  });
+
+  it("names each command and explains the prefix", () => {
+    const help = formatOwnerHelp();
+    for (const command of ["/approve", "/reject", "/takeover", "/return", "/info",
+                           "/pending", "/help"]) {
+      expect(help, command).toContain(command);
+    }
+    expect(help).toMatch(/without\* a slash is answered exactly as a customer/);
+  });
+
+  it("is what a mistyped command gets, rather than the assistant", () => {
+    expect(parseOwnerCommand("/aprove").kind).toBe("unknown");
+    expect(webhook).toContain("return formatOwnerHelp();");
   });
 });
 
@@ -129,14 +198,14 @@ describe("notification format", () => {
 
   it("carries the reference so a reply is never ambiguous", () => {
     expect(message).toContain("[A7K2M]");
-    expect(message).toContain('"approve A7K2M"');
+    expect(message).toContain('"/approve A7K2M"');
   });
 
   it("offers the four documented options", () => {
-    expect(message).toContain("1. Take over");
-    expect(message).toContain("2. Approve");
-    expect(message).toContain("3. Reject");
-    expect(message).toContain("4. Ask AI for more information");
+    expect(message).toContain("/1  Take over");
+    expect(message).toContain("/2  Approve");
+    expect(message).toContain("/3  Reject");
+    expect(message).toContain("/4  Ask AI for more information");
   });
 
   it("includes the case detail so nobody has to repeat it", () => {
