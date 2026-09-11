@@ -78,21 +78,38 @@ the assistant.
 
 ## Owner commands
 
-Reply with a number, or a word plus a reference.
+**Every command starts with `/`.** A message without one is an ordinary message
+and gets the ordinary customer answer, which is what lets the owner's own
+handset be used to check exactly what a customer sees — `no`, `ok`, `2` and
+`القائمة` are things people say, and each of them used to be swallowed here.
 
 | Reply | Effect |
 | --- | --- |
-| `1` | Take over |
-| `2` | Approve |
-| `3` | Reject |
-| `4` | Ask AI for more information |
-| `approve A7K2M` / `وافق A7K2M` | Approve that specific action |
-| `reject A7K2M too expensive` | Reject, with the note recorded |
-| `take over` / `أتولى` | Human owns the conversation |
-| `return to ai` / `ارجع للذكاء` | Assistant resumes |
-| `pending` / `المعلق` | List what is waiting |
+| `/1` | Take over |
+| `/2` | Approve |
+| `/3` | Reject |
+| `/4` | Ask AI for more information |
+| `/approve A7K2M` / `/وافق A7K2M` | Approve that specific action |
+| `/reject A7K2M too expensive` | Reject, with the note recorded |
+| `/takeover` / `/take over` / `/أتولى` | Human owns the conversation |
+| `/return` / `/return to ai` / `/ارجع للذكاء` | Assistant resumes |
+| `/pending` / `/المعلق` | List what is waiting |
+| `/info` | More detail on the pending decision |
+| `/help`, or a bare `/` | The list above |
 
 Arabic and English both work.
+
+A prefixed message is always answered by the control centre: a mistyped `/aprove`
+gets the command list rather than being handed to the assistant as a question.
+
+## Testing as a customer
+
+Send anything without a slash. The assistant answers the owner's number exactly
+as it answers any other number — same menu, same entitlements, same language
+detection — because the only owner-specific paths are the command gate above and
+the abuse-control exemption, and neither changes a reply. To test the customer
+side of an escalation, use a second number: a conversation the owner is talking
+to is still the owner's own conversation.
 
 ## What Meta still requires
 

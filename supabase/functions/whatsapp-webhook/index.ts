@@ -424,8 +424,10 @@ import {
 } from "../_shared/whatsappKnowledge.ts";
 import {
   formatAmbiguityPrompt,
+  formatOwnerHelp,
   formatPendingList,
   isOwner,
+  ownerCommandBody,
   parseOwnerCommand,
   type PendingApproval,
 } from "../_shared/ownerControl.ts";
@@ -522,6 +524,10 @@ async function readFeatureConfig(db: ReturnType<typeof service>): Promise<Featur
  * Reached only after the sender has been positively identified as the owner.
  * Returns the reply to send back, or null when the message was not a command
  * and should fall through to ordinary handling.
+ *
+ * A command is a message that starts with `/`. Everything else the owner sends
+ * is an ordinary message and gets the ordinary answer, so the number that runs
+ * the service is also the number that can test it.
  */
 async function handleOwnerCommand(
   db: ReturnType<typeof service>,
@@ -529,7 +535,14 @@ async function handleOwnerCommand(
   text: string,
 ): Promise<string | null> {
   const command = parseOwnerCommand(text);
-  if (command.kind === "unknown" && !command.reference) return null;
+  // No prefix, no command. The owner is a customer here, which is the only way
+  // they can see what a customer sees.
+  if (ownerCommandBody(text) === null) return null;
+  // A slash is always a command attempt, so a mistyped one is answered with the
+  // list rather than handed to the assistant, which would treat it as a question.
+  if (command.kind === "help" || (command.kind === "unknown" && !command.reference)) {
+    return formatOwnerHelp();
+  }
 
   // Rate limit: an owner handset that has been taken over should not be able
   // to churn through every pending decision unchecked.
@@ -656,7 +669,9 @@ async function handleOwnerCommand(
     ].join("\n\n");
   }
 
-  return null;
+  // A reference with no verb: the owner named a decision but not what to do
+  // with it. The list is the answer, not silence.
+  return formatOwnerHelp();
 }
 
 /**
@@ -923,7 +938,8 @@ Deno.serve(async (req) => {
           }
           continue;
         }
-        // Not a command — fall through and treat it as an ordinary message.
+        // Not a slash command — fall through and treat it as an ordinary
+        // message, answered exactly as a customer would be answered.
       }
 
       // ── Conversation record ───────────────────────────────────────────
@@ -1857,8 +1873,10 @@ Deno.serve(async (req) => {
       //
       // Placed after the message is logged, so a throttled sender is still
       // recorded in the transcript and the team can see what was sent. Only
-      // the model call and the reply are withheld. The owner is exempt: their
-      // commands have their own separate limit above.
+      // the model call and the reply are withheld. The owner is exempt on
+      // purpose: commands carry their own separate limit above, and testing
+      // the assistant as a customer means sending far more than sixty messages
+      // an hour from one handset.
       if (!isNew && !isOwner(incoming.from, configuredOwner)) {
         stage = "rate_limit";
         const nowMs = Date.now();
