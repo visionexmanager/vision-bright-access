@@ -139,6 +139,64 @@ export class DeadlineExceeded extends Error {
   }
 }
 
+// ── Names, as a supplier will accept them ───────────────────────────────────
+
+/**
+ * A name with its accents folded onto Latin letters.
+ *
+ * «José» becomes "Jose" and not "Jos". Folding rather than stripping matters
+ * because the alternative loses a letter, and a name with a letter missing
+ * fails at ticketing or at a front desk — after the money has been taken.
+ *
+ * Only the fold is shared. What each domain then *allows* is its own rule: an
+ * airline will not print an apostrophe on a boarding pass and a hotel folio is
+ * perfectly happy with O'Brien, so `ticketName` and `guestName` differ after
+ * this point and are both right.
+ */
+export function foldLatin(value: string | null | undefined): string {
+  return (value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// ── Local time in somebody else's zone ──────────────────────────────────────
+
+/**
+ * A local wall-clock string in a zone, as a UTC instant in milliseconds.
+ *
+ * Returns NaN for anything unparseable, which every caller checks. The zone is
+ * applied by asking what the offset was *at that moment* rather than now: a
+ * flight on the far side of a daylight-saving change has a different offset
+ * from today's, and using today's is how a two-hour flight becomes a
+ * three-hour one twice a year. A hotel's free-cancellation deadline has the
+ * same problem and the same answer.
+ *
+ * Shared because both domains need it and two copies would drift.
+ */
+export function localToInstant(local: string, timezone: string): number {
+  const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec((local ?? "").trim());
+  if (!match) return Number.NaN;
+
+  const [, y, mo, d, h, mi] = match;
+  // First read the wall clock as if it were UTC, then correct by the zone's
+  // offset at approximately that instant. One correction is enough: an offset
+  // is never large enough to move the instant into a different offset period,
+  // outside of changes no airline schedules across.
+  const asUtc = Date.parse(`${y}-${mo}-${d}T${h}:${mi}:00Z`);
+  if (!Number.isFinite(asUtc)) return Number.NaN;
+
+  try {
+    const shown = new Date(asUtc).toLocaleString("en-US", { timeZone: timezone });
+    const back = new Date(shown).getTime();
+    const utcShown = new Date(new Date(asUtc).toLocaleString("en-US", { timeZone: "UTC" })).getTime();
+    if (!Number.isFinite(back) || !Number.isFinite(utcShown)) return Number.NaN;
+    return asUtc - (back - utcShown);
+  } catch {
+    // An unknown zone must not take a search down. UTC is wrong but readable,
+    // and the supplier's own times still render.
+    return asUtc;
+  }
+}
+
+
 // ── Prices that expire ──────────────────────────────────────────────────────
 
 /**
