@@ -915,6 +915,44 @@ const BASE_STRINGS = {
     ar: "لم أستطع قراءة قائمة المحطات الآن. حاول بعد قليل، أو شاهدها كلها: {url}",
     en: "I couldn't reach the station list just now. Try again shortly, or see them all: {url}",
   },
+  // ── Visionex Arcade ───────────────────────────────────────────────────
+  //
+  // The scaffolding around a hundred and sixteen games. The games' own titles
+  // and descriptions are content the site wrote, and the thirty-one category
+  // names come out of `src/i18n` where the site had already translated every
+  // one of them into twenty. These seven sentences are this channel's own.
+  //
+  // `servicesMore` is reused for "show me the rest" rather than copied: it is
+  // the same word doing the same job, and two of them is two to translate.
+
+  gamesHeading: { ar: "*ألعاب Visionex*", en: "*Visionex Arcade*" },
+  /** The list's button label. Meta rejects a longer one outright: 20 characters. */
+  gamesButton: { ar: "الألعاب", en: "Games" },
+  gamesHint: {
+    ar: "اكتب اسم لعبة أو نوعها وسأجدها لك.",
+    en: "Tell me a game or a kind of game, and I'll find it.",
+  },
+  gamesNone: {
+    ar: "لم أجد لعبة بهذا الوصف. الألعاب كلها هنا: {url}",
+    en: "I found no game like that. All of them are here: {url}",
+  },
+  gamesMatches: { ar: "*ألعاب تناسب طلبك*", en: "*Games that match*" },
+  /** Carries `{level}`, in the site's own words for it. */
+  gameDifficulty: { ar: "المستوى: {level}", en: "Level: {level}" },
+  /**
+   * Only ever shown on the three games that are not playable without sight.
+   *
+   * On the other hundred and thirteen it would be a sentence read aloud for no
+   * reason. Here it is the line that saves somebody opening a game they cannot
+   * play.
+   */
+  gameNotAccessible: {
+    ar: "ملاحظة: هذه اللعبة تحتاج النظر، وليست مهيأة لقارئ الشاشة بعد.",
+    en: "Note: this one needs sight — it isn't built for a screen reader yet.",
+  },
+  /** Carries `{url}`, the game's own route. Not the Arcade index. */
+  gamePlay: { ar: "العب الآن: {url}", en: "Play it now: {url}" },
+
   // ── VisionTV ──────────────────────────────────────────────────────────
   //
   // Channels, never a stream, for the same reason and out of the same kind of
