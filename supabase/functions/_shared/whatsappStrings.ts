@@ -110,10 +110,6 @@ const BASE_STRINGS = {
     ar: "أنت في القائمة الرئيسية:",
     en: "You're at the main menu:",
   },
-  timedOut: {
-    ar: "مرّ وقت طويل، فبدأت من جديد. لغتك وإعداداتك كما هي.",
-    en: "It had been a while, so I started fresh. Your language and settings are unchanged.",
-  },
   staleSelection: {
     ar: "هذا الخيار لم يعد موجوداً. هذه القائمة الحالية:",
     en: "That option has moved. Here's the current menu:",
@@ -919,6 +915,23 @@ const BASE_STRINGS = {
     ar: "لم أستطع قراءة قائمة المحطات الآن. حاول بعد قليل، أو شاهدها كلها: {url}",
     en: "I couldn't reach the station list just now. Try again shortly, or see them all: {url}",
   },
+  // ── VisionTV ──────────────────────────────────────────────────────────
+  //
+  // Channels, never a stream, for the same reason and out of the same kind of
+  // view. The link is per channel here rather than per section, because
+  // `tv_channels_public` carries an id and the site registers a route for it.
+
+  tvHeading: { ar: "*قنوات يمكنك مشاهدتها*", en: "*Channels you can watch*" },
+  tvHint: { ar: "وهذه القنوات كلها: {url}", en: "And all the channels are here: {url}" },
+  tvNone: {
+    ar: "لم أجد قناة بهذا الوصف. جرّب اسم القناة أو بلدًا، أو شاهدها كلها: {url}",
+    en: "I couldn't find a channel like that. Try its name or a country, or see them all: {url}",
+  },
+  tvUnavailable: {
+    ar: "لم أستطع قراءة قائمة القنوات الآن. حاول بعد قليل، أو شاهدها كلها: {url}",
+    en: "I couldn't reach the channel list just now. Try again shortly, or see them all: {url}",
+  },
+
   // ── When the bazaar has nothing, the catalogue might ──────────────────
   //
   // A code (VX-…) is the only identifier a customer sees: it names nothing

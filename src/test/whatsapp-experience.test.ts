@@ -238,20 +238,45 @@ describe("a session nobody has touched for a while", () => {
       { path: ["main", "assistant", "assistant.ask"], feature: "assistant.ask", step: ai.AI_PROCESSING },
     ]) {
       const outcome = send("hello?", stale(where));
-      expect(outcome.reason, JSON.stringify(where)).toBe("timeout_reset");
-      expect(outcome.session.path).toEqual(["main"]);
-      expect(outcome.session.feature).toBeNull();
-      expect(noteOf(outcome)).toBe(strings.say("timedOut", "en"));
+      expect(outcome.session.path, JSON.stringify(where)).toEqual(["main"]);
+      expect(outcome.session.feature, JSON.stringify(where)).toBeNull();
+      // And it is not announced. There used to be a note here — "It had been a
+      // while, so I started fresh" — and it was the reply: the sender's own
+      // message was dropped to make room for it. The reset is bookkeeping about
+      // state they stopped thinking about an hour ago, and bookkeeping is not
+      // news. What they said gets answered instead.
+      expect(noteOf(outcome)).toBeUndefined();
     }
     // Language lives outside the session entirely, so it cannot be lost here.
     expect(Object.keys(sessions.sessionColumns(live(), "now"))).not.toContain("preferred_language");
   });
 
   it("11b. does not execute the old action a stale session was pointing at", () => {
+    // The one message a reset changes the meaning of. "1" names a *position* on
+    // whichever menu was in view, so after a reset it would open whatever now
+    // sits first somewhere else — a wrong action, not merely a confusing one.
+    // It gets the menu, so the number means something again.
     const outcome = send("1", stale({ path: ["main", "services"] }));
     expect(outcome.kind).toBe("reply");
     expect(outcome.reason).toBe("timeout_reset");
     expect(outcome.session.feature).toBeNull();
+  });
+
+  it("11c. answers what somebody actually said instead of resetting at them", () => {
+    // The regression this whole change exists for: a question after an hour
+    // away used to be traded for a menu. Words, a tap and a voice transcript
+    // all carry their own meaning, so all three are honoured.
+    const asked = send("what is the weather in Amman", stale({ path: ["main", "services"] }));
+    expect(asked.kind).toBe("passthrough");
+    expect(asked.session.path).toEqual(["main"]);
+
+    const tapped = engine.runEngine(
+      { text: "", kind: "interactive", selection: "services.weather" },
+      stale({ path: ["main", "assistant"], feature: "assistant.ask" }),
+      context(),
+    );
+    expect(tapped.kind).toBe("delegate");
+    if (tapped.kind === "delegate") expect(tapped.node.id).toBe("services.weather");
   });
 });
 
@@ -283,7 +308,8 @@ describe("a feature that is switched off", () => {
     expect(outcome.reason).toBe("disabled_feature");
     expect(catalog.isAvailable(catalog.nodeById("services.weather"), ["services"])).toBe(false);
   });
-  it("15. can be switched off on its own without touching its siblings", () => {
+
+  it("15. can be switched off on its own without touching its siblings", () => {
     const off = ["services.weather"];
     expect(catalog.isAvailable(catalog.nodeById("services.weather"), off)).toBe(false);
     expect(catalog.isAvailable(catalog.nodeById("services.nearby"), off)).toBe(true);

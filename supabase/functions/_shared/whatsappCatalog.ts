@@ -228,9 +228,12 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     order: 6,
     kind: "menu",
     enabled: true,
-    emoji: "🎧",
-    title: { ar: "استمع", en: "Listen" },
-    description: { ar: "الراديو والأغاني", en: "Radio and songs" },
+    emoji: "🎬",
+    // Renamed when television arrived under it. "Listen" was accurate while it
+    // held a radio and a song; a screen reader now reads the row that contains
+    // VisionTV, and it has to say so.
+    title: { ar: "شاهد واستمع", en: "Watch & listen" },
+    description: { ar: "التلفزيون والراديو والأغاني", en: "TV, radio and songs" },
   },
   {
     id: "bazaar",
@@ -808,6 +811,52 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     description: { ar: "محطات من كل العالم", en: "Stations from around the world" },
     aliases: { ar: ["راديو", "إذاعة", "أغاني", "اغاني"], en: ["radio", "music", "songs"] },
     phrase: { ar: "موسيقى", en: "music" },
+    accepts: ["text"],
+  },
+  {
+    // VisionTV, which the site has had since the TV service migration and this
+    // channel has never offered — the sibling row to the radio, reading the
+    // sibling view.
+    //
+    // Under Listen rather than anywhere else because that menu is already
+    // "media Visionex plays for you", and splitting television off into its own
+    // root row would cost a main-menu slot the tree does not have. The menu is
+    // renamed for it: what it holds is now watching as well as listening, and a
+    // row called "Listen" containing television is a row that lies to a screen
+    // reader.
+    //
+    // Keyless by construction, like the radio: a view read, no provider, no
+    // key. A test enforces that.
+    id: "listen.tv",
+    parent: "listen",
+    order: 3,
+    kind: "action",
+    enabled: true,
+    title: { ar: "شاهد التلفزيون", en: "Watch TV" },
+    description: { ar: "قنوات مباشرة من كل العالم", en: "Live channels from around the world" },
+    aliases: {
+      ar: ["تلفزيون", "التلفزيون", "تلفاز", "قنوات", "القنوات", "بث مباشر"],
+      en: ["tv", "television", "channels", "live tv", "watch tv"],
+      ur: ["ٹی وی", "چینلز"],
+      hi: ["टीवी", "चैनल"],
+      id: ["tv", "televisi", "saluran"],
+      ja: ["テレビ", "チャンネル"],
+      it: ["tv", "televisione", "canali"],
+      ko: ["티비", "텔레비전", "채널"],
+      nl: ["tv", "televisie", "zenders"],
+      pl: ["telewizja", "kanały"],
+      vi: ["tivi", "truyền hình", "kênh"],
+      bn: ["টিভি", "চ্যানেল"],
+      fa: ["تلویزیون", "کانال‌ها", "کانال ها"],
+      es: ["tv", "televisión", "canales"],
+      de: ["tv", "fernsehen", "sender"],
+      pt: ["tv", "televisão", "canais"],
+      zh: ["电视", "電視", "频道"],
+      tr: ["televizyon", "kanallar"],
+      fr: ["tv", "télévision", "chaînes"],
+      ru: ["телевидение", "телеканалы", "каналы"],
+    },
+    phrase: { ar: "تلفزيون", en: "tv" },
     accepts: ["text"],
   },
   {

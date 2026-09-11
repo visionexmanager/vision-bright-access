@@ -533,3 +533,70 @@ describe("the combined system", () => {
     expect(reliability.RECOVERY_AFTER_MS).toBeGreaterThan(reliability.SUMMARY_TIMEOUT_MS);
   });
 });
+
+// ── Nothing holds the floor it is not using ─────────────────────────────────
+//
+// Opening an action sets `session.feature`, and while that is set every later
+// message is delegated straight back to it. For a feature that is *waiting* for
+// something — the assistant, a photo — that is the point. For one that answers
+// with a single sentence and waits for nothing, it meant the sender could not
+// say anything else: standing in Sports and asking about the weather returned
+// the sports blurb, again, and again, until they found their way back out.
+//
+// Asserted against the source because the alternative is running a webhook.
+
+describe("a feature that has finished speaking lets go", () => {
+  const handlers = ["prompt", "info", "coming_soon"] as const;
+
+  it("releases the floor in every branch that answers and waits for nothing", () => {
+    for (const handler of handlers) {
+      const at = webhook.indexOf(`node.handler === "${handler}"`);
+      expect(at, handler).toBeGreaterThan(0);
+      // The branch runs until the `continue` that ends it.
+      const branch = webhook.slice(at, webhook.indexOf("continue;", at));
+      expect(branch, handler).toContain("releaseFloor(session)");
+    }
+  });
+
+  it("releases it for a leaf that was declared and never built", () => {
+    // The `else` at the end of the chain: a node with neither a handler nor a
+    // phrase. It answers "not yet" and must not then own the conversation.
+    const at = webhook.indexOf('await reply(comingSoonNotice(answerLanguage, localized(node.title, answerLanguage)), "reply");');
+    expect(at).toBeGreaterThan(0);
+    expect(webhook.slice(at, webhook.indexOf("continue;", at))).toContain("releaseFloor(session)");
+  });
+
+  it("does not release it for a feature that is waiting for the next message", () => {
+    // The assistant is the counter-example and has to stay one: somebody who
+    // opened Ask AI and typed «الطقس» asked the assistant about the weather.
+    const at = webhook.indexOf('node.handler === "ai_ask"');
+    expect(at).toBeGreaterThan(0);
+    expect(webhook.slice(at, at + 2000)).not.toContain("releaseFloor(session)");
+  });
+
+  it("hands an unmatched service search to the pipeline instead of refusing it", () => {
+    // "I found no Visionex service for that" is a poor answer to "what is the
+    // weather in Amman", and standing in a directory is not a promise that
+    // every later sentence is a search.
+    const at = webhook.indexOf('log("services", { outcome: "no_match" })');
+    expect(at).toBeGreaterThan(0);
+    const after = webhook.slice(at, at + 400);
+    expect(after).toContain("releaseFloor(session)");
+    // And it falls through rather than ending the turn.
+    expect(after.slice(0, after.indexOf("} else if"))).not.toContain("continue;");
+  });
+});
+
+describe("a session that timed out answers what was said", () => {
+  it("no longer has a sentence to announce the reset with", () => {
+    // It used to reply "It had been a while, so I started fresh. Your language
+    // and settings are unchanged." — and that reply *was* the answer: the
+    // sender's own question was dropped to make room for it.
+    const strings = readFileSync("supabase/functions/_shared/whatsappStrings.ts", "utf8");
+    const locales = readFileSync("supabase/functions/_shared/whatsappStringsLocales.ts", "utf8");
+    const engine = readFileSync("supabase/functions/_shared/whatsappEngine.ts", "utf8");
+    expect(strings).not.toMatch(/^\s*timedOut:/m);
+    expect(locales).not.toMatch(/^\s*timedOut:/m);
+    expect(engine).not.toContain('say("timedOut"');
+  });
+});

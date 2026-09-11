@@ -344,9 +344,14 @@ describe("reliability", () => {
       updatedAt: new Date(NOW - 90 * 60_000).toISOString(),
     });
     const outcome = send("still there?", abandoned);
-    expect(outcome.reason).toBe("timeout_reset");
+    // The state is dropped. The *message* is not: "still there?" is a thing
+    // somebody said, and it now reaches the pipeline that can answer it rather
+    // than being traded for a menu and an apology.
     expect(outcome.session.feature).toBeNull();
     expect(outcome.session.step).toBeNull();
+    expect(outcome.session.pending).toBeNull();
+    expect(outcome.session.path).toEqual(["main"]);
+    expect(outcome.kind).not.toBe("delegate");
   });
 
   it("23. recovers from a state naming something this build no longer has", () => {
@@ -532,7 +537,7 @@ describe("the flow a person actually walks", () => {
       session_updated_at: new Date(NOW - 120 * 60_000).toISOString(),
     };
     const { outcome, row } = delivery(stale, "are you there?");
-    expect(outcome.reason).toBe("timeout_reset");
+    expect(outcome.session.feature).toBeNull();
     expect(row.nav_path).toEqual(["main"]);
     // Nothing permanent is in these columns at all, which is what protects the
     // language, the voice mode and the conversation history from a timeout.

@@ -225,6 +225,13 @@ import {
   SERVICES_URL,
 } from "../_shared/whatsappServices.ts";
 import {
+  carriesStream,
+  formatChannels,
+  parseTvRequest,
+  readChannels,
+  tvUnavailableNotice,
+} from "../_shared/whatsappTv.ts";
+import {
   fetchAudio,
   findFreeRecording,
   formatFreeRecording,
@@ -373,6 +380,7 @@ import {
   currentNodeId,
   enter,
   readSession,
+  releaseFloor,
   sessionColumns,
   sessionTimeoutMs,
 } from "../_shared/whatsappSession.ts";
@@ -3225,6 +3233,7 @@ Deno.serve(async (req) => {
               localized(node.intro ?? node.description, answerLanguage),
               "reply",
             );
+            session = releaseFloor(session);
             await saveSession();
             continue;
           } else if (node.handler === "info") {
@@ -3237,6 +3246,7 @@ Deno.serve(async (req) => {
               localized(node.intro ?? node.description, answerLanguage),
               "reply",
             );
+            session = releaseFloor(session);
             await saveSession();
             continue;
           } else if (node.handler === "services") {
@@ -3252,24 +3262,33 @@ Deno.serve(async (req) => {
             if (opening) {
               await sendServiceHubs(delivery, answerLanguage);
               log("services", { outcome: "hubs" });
-            } else {
-              // `questionText`, not `incoming.text`: a voice note has already
-              // been transcribed into it by here, so somebody who says what
-              // they need searches on the same words somebody who types it does.
-              const matches = searchServices(questionText);
-              if (matches.length === 0) {
-                log("services", { outcome: "no_match" });
-                await reply(
-                  say("servicesNone", answerLanguage).replace("{url}", SERVICES_URL),
-                  "reply",
-                );
-              } else {
-                log("services", { outcome: "matched", count: matches.length });
-                await sendServiceMatches(delivery, matches, answerLanguage);
-              }
+              await saveSession();
+              continue;
             }
+
+            // `questionText`, not `incoming.text`: a voice note has already
+            // been transcribed into it by here, so somebody who says what they
+            // need searches on the same words somebody who types it does.
+            const matches = searchServices(questionText);
+            if (matches.length > 0) {
+              log("services", { outcome: "matched", count: matches.length });
+              await sendServiceMatches(delivery, matches, answerLanguage);
+              await saveSession();
+              continue;
+            }
+
+            // Nothing in the catalogue answers this, so it was probably never a
+            // question about the catalogue. Standing in a directory is not a
+            // promise that every later sentence is a search, and "I found no
+            // Visionex service for that" is a poor answer to "what is the
+            // weather in Amman". The floor is released and the message carries
+            // on to the pipeline that can answer it — the sender is still in
+            // the directory as far as Back is concerned, and their next words
+            // reach the assistant.
+            log("services", { outcome: "no_match" });
+            session = releaseFloor(session);
             await saveSession();
-            continue;
+            // falls through, still carrying what they asked
           } else if (node.handler === "coming_soon") {
             await reply(
               node.intro
@@ -3277,6 +3296,7 @@ Deno.serve(async (req) => {
                 : comingSoonNotice(answerLanguage, localized(node.title, answerLanguage)),
               "reply",
             );
+            session = releaseFloor(session);
             await saveSession();
             continue;
           } else if (node.phrase) {
@@ -3288,6 +3308,7 @@ Deno.serve(async (req) => {
             // falls through, now carrying the phrase
           } else {
             await reply(comingSoonNotice(answerLanguage, localized(node.title, answerLanguage)), "reply");
+            session = releaseFloor(session);
             await saveSession();
             continue;
           }
@@ -4300,6 +4321,67 @@ Deno.serve(async (req) => {
           log("songs", { outcome: "unavailable" });
           await reply(say("songUnavailable", answerLanguage), "unsupported");
           await saveSession();
+          continue;
+        }
+      }
+
+      // ── VisionTV ───────────────────────────────────────────────────────
+      //
+      // Ahead of the radio, and the order matters: «بث مباشر» and "live" belong
+      // to television, and the radio's own intent list does not claim them, so
+      // the two do not overlap. A message naming neither reaches neither.
+      //
+      // `tv_channels_public` is the anon-safe view — it excludes `stream_url`
+      // by construction, so no channel's stream can leave here however this
+      // code changes. Watching happens on the Visionex page, where the
+      // subscription check and the stream token live.
+      const tvRequest = aiFocused || !featureOn("listen.tv") ? null : parseTvRequest(questionText);
+      if (tvRequest?.confident && !humanOwnsThis) {
+        try {
+          // Terms are stripped of everything that is not a letter, a digit or a
+          // space by `channelTerms`, which is what makes interpolating them
+          // into a PostgREST filter safe.
+          let query = db
+            .from("tv_channels_public")
+            .select("id, name, name_ar, description, description_ar, language, country, quality, is_featured");
+          if (tvRequest.terms.length > 0) {
+            query = query.or(
+              tvRequest.terms
+                .flatMap((term) => [
+                  `name.ilike.%${term}%`,
+                  `name_ar.ilike.%${term}%`,
+                  `description.ilike.%${term}%`,
+                  `description_ar.ilike.%${term}%`,
+                  `country.ilike.%${term}%`,
+                  `language.ilike.%${term}%`,
+                ])
+                .join(","),
+            );
+          }
+
+          const { data: rows, error } = await query
+            // Featured first: somebody who said only "television" gets the
+            // channels Visionex would put in front of them, not an accident.
+            .order("is_featured", { ascending: false })
+            .order("sort_order", { ascending: true })
+            .limit(25);
+          if (error) throw error;
+
+          // Belt and braces over the view. A row carrying a stream column means
+          // the query has been pointed at the table, and the honest answer then
+          // is no channels rather than a leak.
+          const safe = Array.isArray(rows) ? rows.filter((row) => !carriesStream(row)) : rows;
+          const channels = readChannels(safe);
+          log("tv", { outcome: channels.length > 0 ? "listed" : "empty", count: channels.length });
+          await reply(
+            formatChannels({ language: answerLanguage, channels }),
+            channels.length > 0 ? "reply" : "unsupported",
+          );
+          continue;
+        } catch (e) {
+          console.error("[whatsapp] tv lookup failed:", describeError(e));
+          log("tv", { outcome: "unavailable" });
+          await reply(tvUnavailableNotice(answerLanguage), "unsupported");
           continue;
         }
       }
