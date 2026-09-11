@@ -33,12 +33,13 @@
 //
 // Pure. No `Deno`, no fetch, no database client, no supplier name.
 
-import { isFresh, money, type Money } from "./booking.ts";
+import { foldLatin, isFresh, localToInstant, money, type Money } from "./booking.ts";
 
 export {
   formatMoney,
   isExplicitConfirmation,
   isFresh,
+  localToInstant,
   money,
   sameCurrency,
   secondsUntilExpiry,
@@ -134,40 +135,6 @@ export interface FlightOffer {
 }
 
 // ── Time, which is the whole difficulty ─────────────────────────────────────
-
-/**
- * A local wall-clock string in a zone, as a UTC instant in milliseconds.
- *
- * Returns NaN for anything unparseable, which every caller here checks. The
- * zone is applied by asking what the offset was *at that moment* rather than
- * now: a flight on the far side of a daylight-saving change has a different
- * offset from today's, and using today's is how a two-hour flight becomes a
- * three-hour one twice a year.
- */
-export function localToInstant(local: string, timezone: string): number {
-  const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec((local ?? "").trim());
-  if (!match) return Number.NaN;
-
-  const [, y, mo, d, h, mi] = match;
-  // First read the wall clock as if it were UTC, then correct by the zone's
-  // offset at approximately that instant. One correction is enough: an offset
-  // is never large enough to move the instant into a different offset period,
-  // outside of changes no airline schedules across.
-  const asUtc = Date.parse(`${y}-${mo}-${d}T${h}:${mi}:00Z`);
-  if (!Number.isFinite(asUtc)) return Number.NaN;
-
-  try {
-    const shown = new Date(asUtc).toLocaleString("en-US", { timeZone: timezone });
-    const back = new Date(shown).getTime();
-    const utcShown = new Date(new Date(asUtc).toLocaleString("en-US", { timeZone: "UTC" })).getTime();
-    if (!Number.isFinite(back) || !Number.isFinite(utcShown)) return Number.NaN;
-    return asUtc - (back - utcShown);
-  } catch {
-    // An unknown zone must not take a search down. UTC is wrong but readable,
-    // and the supplier's own times still render.
-    return asUtc;
-  }
-}
 
 /** When a segment leaves, as an instant. NaN when it cannot be read. */
 export const departureInstant = (segment: FlightSegment): number =>
@@ -461,9 +428,7 @@ export function missingPassengerFields(passenger: Partial<FlightPassenger>): str
  * folded rather than stripped, so «José» becomes JOSE and not JOS.
  */
 export function ticketName(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+  return foldLatin(value)
     .toUpperCase()
     .replace(/[^A-Z\s-]/g, "")
     .replace(/\s+/g, " ")
