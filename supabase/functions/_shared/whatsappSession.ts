@@ -178,6 +178,27 @@ export function enter(session: SessionState, nodeId: string): SessionState {
   };
 }
 
+/**
+ * Let go of the floor without moving anybody.
+ *
+ * A feature that has said its piece and is waiting for nothing should not still
+ * own the next message. Four of them used to: `info`, `coming_soon`, `prompt`
+ * and the unbuilt-leaf fallback each answer with one sentence and arm nothing,
+ * and because opening an action sets `feature`, every message after that was
+ * delegated straight back to them. Standing in Sports and asking about the
+ * weather returned the sports blurb. Again. And again, until the sender found
+ * their way back out — which, for somebody who cannot see the screen, is a
+ * conversation that has stopped responding to them.
+ *
+ * The path is deliberately kept. They are still *in* Sports as far as Back is
+ * concerned; the feature has simply stopped claiming everything they say. The
+ * next message reaches the assistant, which is what they wanted from it.
+ */
+export const releaseFloor = (session: SessionState): SessionState =>
+  session.feature === null && session.step === null && session.pending === null
+    ? session
+    : { ...session, feature: null, step: null, pending: null };
+
 /** One level up. At the root this is a no-op, by design rather than by accident. */
 export function goBack(session: SessionState): SessionState {
   if (session.path.length <= 1) return { ...session, feature: null, step: null, pending: null };

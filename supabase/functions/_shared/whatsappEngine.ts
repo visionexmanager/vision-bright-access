@@ -221,15 +221,33 @@ export function runEngine(message: EngineMessage, session: SessionState, context
   const command = tapped
     ?? (message.selection ? null : parseCommand(message.text) ?? localisedCommand(message.text, context.language));
 
-  // 3. A session that timed out is announced before anything is read out of
-  //    it. The sender is about to be somewhere other than where they left off,
-  //    and a menu appearing with no explanation reads as the assistant having
-  //    lost the thread. Placed above the greeting rule because "hello?" after
-  //    an hour away is exactly this case.
-  if (timedOut) {
-    const replies: EngineReply[] = [{ type: "menu", nodeId: ROOT_ID, note: say("timedOut", context.language) }];
-    if (command === "help") replies.push({ type: "text", text: say("help", context.language) });
-    return { kind: "reply", replies, session: state, reason: "timeout_reset" };
+  // 3. A session that timed out is reset, and then the message is answered.
+  //
+  //    It used to be *announced*: the reply was the main menu plus "It had been
+  //    a while, so I started fresh." That sentence cost the sender their
+  //    question. Somebody who comes back after an hour and asks what the
+  //    weather is has asked a question, and the old behaviour threw it away and
+  //    handed them a menu instead — for the crime of having gone to lunch.
+  //    Nothing about resetting forgotten state requires discarding the message
+  //    that arrived with it, and the reset itself is invisible: the path and
+  //    the half-finished step are things the sender stopped thinking about long
+  //    before this fired. Their language, their voice setting and their profile
+  //    are columns of their own and were never in here to lose.
+  //
+  //    One exception, and it is the only message a reset actually changes the
+  //    meaning of: a bare number. "1" names a *position* on whichever menu was
+  //    in view, so honouring it against the menu they have just been moved to
+  //    would open something they did not ask for — a wrong action, not merely a
+  //    confusing one. That one gets the menu, so the number means something
+  //    again. A tap carries a node id and is unambiguous, so it is honoured; so
+  //    is anything somebody said in words.
+  if (timedOut && !message.selection && !command && parseChoice(message.text) !== null) {
+    return {
+      kind: "reply",
+      replies: [{ type: "menu", nodeId: ROOT_ID }],
+      session: state,
+      reason: "timeout_reset",
+    };
   }
 
   // 4. A greeting, or a first message with nothing in it but hello: the menu
@@ -268,7 +286,8 @@ export function runEngine(message: EngineMessage, session: SessionState, context
   if (isStuck(lifecycleOf(state.step), state.pending?.startedAt, context.nowMs)) {
     state = { ...state, step: null, pending: null };
   }
-  // 3b. A feature switched off while somebody was standing in it.
+
+  // 3b. A feature switched off while somebody was standing in it.
   //
   //     Flags are read fresh on every delivery, so this is a real state: the
   //     session says `services.weather` and the configuration now says that
@@ -286,7 +305,8 @@ export function runEngine(message: EngineMessage, session: SessionState, context
       reason: "feature_withdrawn",
     };
   }
-  // 4. The universal commands.
+
+  // 4. The universal commands.
   if (command === "help") {
     return {
       kind: "reply",

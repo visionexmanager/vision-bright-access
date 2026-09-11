@@ -21,6 +21,7 @@ const vision = await import("../../supabase/functions/_shared/whatsappVisionMode
 const preferences = await import("../../supabase/functions/_shared/whatsappPreferences.ts");
 const barcode = await import("../../supabase/functions/_shared/whatsappBarcode.ts");
 const identity = await import("../../supabase/functions/_shared/whatsappIdentity.ts");
+const services = await import("../../supabase/functions/_shared/whatsappServices.ts");
 
 const LANGS = languages.SUPPORTED_LANGUAGES;
 type Lang = (typeof LANGS)[number];
@@ -100,7 +101,19 @@ function everySentence(language: Lang): Array<[string, string]> {
     ["ordersNone", identity.formatOrders({ language, orders: [] })],
     ["linkAskEmail", strings.say("linkAskEmail", language)],
     ["linkCodeWrong", strings.say("linkCodeWrong", language).replace("{n}", "3")],
+    // The Service Center. A service's own title and tagline are content the
+    // site wrote in two languages, so they are not asserted here — what is,
+    // is the scaffolding this channel puts around them.
+    ["servicesNone", strings.say("servicesNone", language).replace("{url}", services.SERVICES_URL)],
+    ["servicesHint", strings.say("servicesHint", language)],
+    ["servicesMatches", strings.say("servicesMatches", language)],
+    ["servicesBackHint", strings.say("servicesBackHint", language)],
+    ["serviceBookHint", strings.say("serviceBookHint", language)],
+    ["serviceCost", strings.say("serviceCost", language).replace("{vx}", "200")],
+    ["serviceLink", strings.say("serviceLink", language).replace("{url}", services.SERVICES_URL)],
   ];
+
+  for (const hub of services.hubs()) sentences.push([`hub:${hub}`, services.hubTitle(hub, language)]);
 
   for (const mode of ["describe", "read_text", "find_object", "product", "translate"] as const) {
     sentences.push([`mode:${mode}`, vision.visionModeName(language, mode)]);

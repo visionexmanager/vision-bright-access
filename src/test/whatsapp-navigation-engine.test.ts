@@ -20,6 +20,7 @@ import type {
 import type { SessionState } from "../../supabase/functions/_shared/whatsappSession.ts";
 
 const catalog = await import("../../supabase/functions/_shared/whatsappCatalog.ts");
+const tv = await import("../../supabase/functions/_shared/whatsappTv.ts");
 const interactive = await import("../../supabase/functions/_shared/whatsappInteractive.ts");
 const languages = await import("../../supabase/functions/_shared/whatsappLanguages.ts");
 const kids = await import("../../supabase/functions/_shared/whatsappKids.ts");
@@ -282,8 +283,8 @@ describe("the awkward cases", () => {
       updatedAt: new Date(NOW - 90 * 60_000).toISOString(),
     });
     const outcome = send("hello?", abandoned);
-    expect(outcome.reason).toBe("timeout_reset");
     expect(outcome.session.path).toEqual(["main"]);
+    expect(outcome.session.feature).toBeNull();
     expect(outcome.session.pending).toBeNull();
     expect(outcome.session.context).toEqual({});
     // Language and voice preference are columns of their own and are not part
@@ -444,6 +445,7 @@ describe("the catalog", () => {
       "services.place": (p) => (geo.parseFindPlaceRequest(p)?.length ?? 0) > 1,
       "services.bazaar": (p) => bazaar.parseBazaarRequest(p)?.intent === "browse",
       "services.radio": (p) => radio.parseRadioRequest(p)?.confident === true,
+      "listen.tv": (p) => tv.parseTvRequest(p)?.confident === true,
       "services.sell": (p) => bazaar.parseBazaarRequest(p)?.intent === "sell",
       "news": (p) => news.parseNewsRequest(p),
       // A phrase with no title after it is a request with an empty query: the
@@ -754,5 +756,50 @@ describe("the webhook stays thin", () => {
     expect(webhook).toContain("available: availableCapabilities()");
     // Keyless services are always available; the others are gated on a key.
     expect(webhook).toMatch(/const available: Capability\[\] = \["location", "bazaar"\]/);
+  });
+});
+
+// ── Letting go of the floor ─────────────────────────────────────────────────
+
+describe("releaseFloor", () => {
+  const NOW_ISO = new Date().toISOString();
+  const standing = () => ({
+    ...session.freshSession(),
+    path: ["main", "explore", "sports"],
+    feature: "sports",
+    updatedAt: NOW_ISO,
+  });
+
+  it("stops a feature owning the next message", () => {
+    const after = session.releaseFloor(standing());
+    expect(after.feature).toBeNull();
+    expect(after.step).toBeNull();
+    expect(after.pending).toBeNull();
+  });
+
+  it("keeps the sender where they are, so Back still means something", () => {
+    const after = session.releaseFloor(standing());
+    expect(after.path).toEqual(["main", "explore", "sports"]);
+  });
+
+  it("returns the same object when there was nothing to let go of", () => {
+    const idle = { ...session.freshSession(), updatedAt: NOW_ISO };
+    expect(session.releaseFloor(idle)).toBe(idle);
+  });
+
+  it("sends the next message to the pipeline rather than back to the feature", () => {
+    // The regression, end to end through the engine: standing in Sports and
+    // asking about the weather used to be delegated to Sports, which answered
+    // with the sports blurb. Every time.
+    const before = engine.runEngine({ text: "what is the weather", kind: "text" }, standing(), context());
+    expect(before.kind).toBe("delegate");
+
+    const after = engine.runEngine(
+      { text: "what is the weather", kind: "text" },
+      session.releaseFloor(standing()),
+      context(),
+    );
+    expect(after.kind).toBe("passthrough");
+    expect(after.reason).toBe("not_navigation");
   });
 });

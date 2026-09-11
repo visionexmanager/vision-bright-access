@@ -747,8 +747,9 @@ describe("GATE: navigation and session persistence", () => {
       updatedAt: new Date(NOW - 2 * 60 * 60_000).toISOString(),
     });
     const outcome = engine.runEngine({ text: "hello?", kind: "text" }, stale, context());
-    expect(outcome.reason).toBe("timeout_reset");
     expect(outcome.session.feature).toBeNull();
+    expect(outcome.session.step).toBeNull();
+    expect(outcome.session.path).toEqual(["main"]);
     // The language and the profile are columns of their own and are untouched.
     const columns = sessions.sessionColumns(outcome.session, new Date(NOW).toISOString());
     for (const permanent of ["preferred_language", "full_name", "email", "voice_replies", "verbosity"]) {

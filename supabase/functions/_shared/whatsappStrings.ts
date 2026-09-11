@@ -110,10 +110,6 @@ const BASE_STRINGS = {
     ar: "أنت في القائمة الرئيسية:",
     en: "You're at the main menu:",
   },
-  timedOut: {
-    ar: "مرّ وقت طويل، فبدأت من جديد. لغتك وإعداداتك كما هي.",
-    en: "It had been a while, so I started fresh. Your language and settings are unchanged.",
-  },
   staleSelection: {
     ar: "هذا الخيار لم يعد موجوداً. هذه القائمة الحالية:",
     en: "That option has moved. Here's the current menu:",
@@ -919,6 +915,23 @@ const BASE_STRINGS = {
     ar: "لم أستطع قراءة قائمة المحطات الآن. حاول بعد قليل، أو شاهدها كلها: {url}",
     en: "I couldn't reach the station list just now. Try again shortly, or see them all: {url}",
   },
+  // ── VisionTV ──────────────────────────────────────────────────────────
+  //
+  // Channels, never a stream, for the same reason and out of the same kind of
+  // view. The link is per channel here rather than per section, because
+  // `tv_channels_public` carries an id and the site registers a route for it.
+
+  tvHeading: { ar: "*قنوات يمكنك مشاهدتها*", en: "*Channels you can watch*" },
+  tvHint: { ar: "وهذه القنوات كلها: {url}", en: "And all the channels are here: {url}" },
+  tvNone: {
+    ar: "لم أجد قناة بهذا الوصف. جرّب اسم القناة أو بلدًا، أو شاهدها كلها: {url}",
+    en: "I couldn't find a channel like that. Try its name or a country, or see them all: {url}",
+  },
+  tvUnavailable: {
+    ar: "لم أستطع قراءة قائمة القنوات الآن. حاول بعد قليل، أو شاهدها كلها: {url}",
+    en: "I couldn't reach the channel list just now. Try again shortly, or see them all: {url}",
+  },
+
   // ── When the bazaar has nothing, the catalogue might ──────────────────
   //
   // A code (VX-…) is the only identifier a customer sees: it names nothing
@@ -1001,6 +1014,62 @@ const BASE_STRINGS = {
   newsBackHint: {
     ar: "افتح «الأخبار» من القائمة لترى آخر الأخبار من جديد.",
     en: "Open News from the menu to see the list again.",
+  },
+
+  // ── The Service Center ────────────────────────────────────────────────────
+  //
+  // The scaffolding around thirty services the site already sells. The services
+  // themselves — their names and their one-line pitches — are content the site
+  // wrote in Arabic and English, and `whatsappServices.ts` explains why this
+  // channel does not machine-translate a product name into the other eighteen.
+  // These fifteen sentences are this channel's own words, so they exist in all
+  // twenty.
+
+  /** The hub names. Row titles: twenty-four characters, icon included. */
+  hubPersonalGrowth: { ar: "التطور الشخصي", en: "Personal growth" },
+  hubMarketplace: { ar: "خدمات الأعمال", en: "Business services" },
+  hubCreativeStudio: { ar: "الإبداع والإنتاج", en: "Creative studio" },
+  hubBusinessLab: { ar: "مختبر الأعمال", en: "Business lab" },
+  hubTechRepair: { ar: "التقنية والصيانة", en: "Tech & repair" },
+  hubEngineering: { ar: "الهندسة", en: "Engineering" },
+
+  servicesHeading: { ar: "*خدمات Visionex*", en: "*Visionex services*" },
+  /** The list's button label. Meta rejects a longer one outright: 20 characters. */
+  servicesButton: { ar: "الخدمات", en: "Services" },
+  /**
+   * The body under every one of the three service lists.
+   *
+   * It said "Pick an area, or tell me what you need" first, and the gate was
+   * right to refuse it: «اختر» and "Choose" are the old numeric interface's
+   * vocabulary, and somebody who cannot see the rows is not picking from
+   * anything. What is true for all three lists, and for a screen reader, is
+   * the offer itself.
+   */
+  servicesHint: {
+    ar: "اكتب لي ما تحتاجه وسأجده لك.",
+    en: "Tell me what you need, and I'll find it.",
+  },
+  /** A row title, so twenty-four characters is the ceiling. */
+  servicesMore: { ar: "المزيد", en: "More" },
+  servicesNone: {
+    ar: "لم أجد خدمة من Visionex لهذا الطلب. تصفّح الخدمات كلها: {url}",
+    en: "I found no Visionex service for that. Browse them all: {url}",
+  },
+  servicesMatches: {
+    ar: "*ما يناسب طلبك من Visionex*",
+    en: "*What Visionex has for that*",
+  },
+  servicesBackHint: {
+    ar: "افتح «الخدمات» من القائمة لترى القائمة من جديد.",
+    en: "Open Services from the menu to see the list again.",
+  },
+  /** Carries `{vx}`, what one session costs. Omitted entirely when it is free. */
+  serviceCost: { ar: "الجلسة: {vx} VX", en: "Session: {vx} VX" },
+  /** Carries `{url}`, the service's own page on the site. */
+  serviceLink: { ar: "التفاصيل والحجز: {url}", en: "Details and booking: {url}" },
+  serviceBookHint: {
+    ar: "قل «موظف» وأحوّلك إلى شخص من الفريق.",
+    en: "Say \"a person\" and I'll hand you to the team.",
   },
 
   // ── VisionKids, the stories ───────────────────────────────────────────────

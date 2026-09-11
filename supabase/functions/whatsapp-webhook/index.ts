@@ -214,6 +214,24 @@ import {
   readArticles,
 } from "../_shared/whatsappNews.ts";
 import {
+  formatService,
+  HUB_ID_PREFIX,
+  parseHubSelection,
+  parseServiceSelection,
+  parseServicesRequest,
+  SERVICE_ID_PREFIX,
+  searchServices,
+  serviceById,
+  SERVICES_URL,
+} from "../_shared/whatsappServices.ts";
+import {
+  carriesStream,
+  formatChannels,
+  parseTvRequest,
+  readChannels,
+  tvUnavailableNotice,
+} from "../_shared/whatsappTv.ts";
+import {
   fetchAudio,
   findFreeRecording,
   formatFreeRecording,
@@ -265,6 +283,9 @@ import {
   sendQuestion,
   kidsMessage,
   sendNewsList,
+  sendServiceHubs,
+  sendServiceMatches,
+  sendServicesInHub,
   sendSongList,
   sendTappable,
   type Tappable,
@@ -357,7 +378,9 @@ import {
 } from "../_shared/whatsappAssistant.ts";
 import {
   currentNodeId,
+  enter,
   readSession,
+  releaseFloor,
   sessionColumns,
   sessionTimeoutMs,
 } from "../_shared/whatsappSession.ts";
@@ -2203,6 +2226,46 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── A tapped area, or a tapped service ────────────────────────────
+      //
+      // Handled here for the reason a headline and a language row are: the
+      // catalog has no node for a service, so the router would rightly call
+      // one of these a row this build no longer has.
+      //
+      // Nothing is looked up in a database. The catalogue is a build artefact
+      // compiled into the function, so a row that named a service the current
+      // deployment does not have is a row from an older deployment — answered
+      // by showing the areas again rather than by an apology that explains a
+      // release process to somebody who asked about a lawyer.
+      if (!humanOwnsThis && incoming.selection?.startsWith(HUB_ID_PREFIX)) {
+        const picked = parseHubSelection(incoming.selection);
+        if (!picked) {
+          log("services", { outcome: "bad_hub_row" });
+          await sendServiceHubs(delivery, answerLanguage);
+          continue;
+        }
+        // The page number is not logged. It would be harmless, but the field
+        // allowlist is a privacy boundary and widening one to record which
+        // page of a menu somebody was on is not a trade worth making.
+        log("services", { outcome: "hub" });
+        await sendServicesInHub(delivery, picked.hub, picked.page, answerLanguage);
+        continue;
+      }
+
+      if (!humanOwnsThis && incoming.selection?.startsWith(SERVICE_ID_PREFIX)) {
+        const slug = parseServiceSelection(incoming.selection);
+        const service = slug ? serviceById(slug) : null;
+        if (!service) {
+          log("services", { outcome: "stale" });
+          await reply(say("servicesNone", answerLanguage).replace("{url}", SERVICES_URL), "reply");
+          await sendServiceHubs(delivery, answerLanguage);
+          continue;
+        }
+        log("services", { outcome: "service" });
+        await reply(formatService({ service, language: answerLanguage }), "reply");
+        continue;
+      }
+
       // ── A tapped headline ─────────────────────────────────────────────
       //
       // Handled here for the same reason a language row is: the catalog has no
@@ -3170,6 +3233,7 @@ Deno.serve(async (req) => {
               localized(node.intro ?? node.description, answerLanguage),
               "reply",
             );
+            session = releaseFloor(session);
             await saveSession();
             continue;
           } else if (node.handler === "info") {
@@ -3182,8 +3246,49 @@ Deno.serve(async (req) => {
               localized(node.intro ?? node.description, answerLanguage),
               "reply",
             );
+            session = releaseFloor(session);
             await saveSession();
             continue;
+          } else if (node.handler === "services") {
+            // The Service Center, which is a directory rather than a feature:
+            // everything it names is built, on the site, and has been for
+            // longer than this channel has existed. What this does is find the
+            // right one and hand over its page.
+            //
+            // Opening it shows the areas. Typing while inside it is a search —
+            // "بدي محامي", "nutrition" — matched against the catalogue's own
+            // retrieval strings, so the words that find a service here are the
+            // words that find it in the site's own search.
+            if (opening) {
+              await sendServiceHubs(delivery, answerLanguage);
+              log("services", { outcome: "hubs" });
+              await saveSession();
+              continue;
+            }
+
+            // `questionText`, not `incoming.text`: a voice note has already
+            // been transcribed into it by here, so somebody who says what they
+            // need searches on the same words somebody who types it does.
+            const matches = searchServices(questionText);
+            if (matches.length > 0) {
+              log("services", { outcome: "matched", count: matches.length });
+              await sendServiceMatches(delivery, matches, answerLanguage);
+              await saveSession();
+              continue;
+            }
+
+            // Nothing in the catalogue answers this, so it was probably never a
+            // question about the catalogue. Standing in a directory is not a
+            // promise that every later sentence is a search, and "I found no
+            // Visionex service for that" is a poor answer to "what is the
+            // weather in Amman". The floor is released and the message carries
+            // on to the pipeline that can answer it — the sender is still in
+            // the directory as far as Back is concerned, and their next words
+            // reach the assistant.
+            log("services", { outcome: "no_match" });
+            session = releaseFloor(session);
+            await saveSession();
+            // falls through, still carrying what they asked
           } else if (node.handler === "coming_soon") {
             await reply(
               node.intro
@@ -3191,6 +3296,7 @@ Deno.serve(async (req) => {
                 : comingSoonNotice(answerLanguage, localized(node.title, answerLanguage)),
               "reply",
             );
+            session = releaseFloor(session);
             await saveSession();
             continue;
           } else if (node.phrase) {
@@ -3202,6 +3308,7 @@ Deno.serve(async (req) => {
             // falls through, now carrying the phrase
           } else {
             await reply(comingSoonNotice(answerLanguage, localized(node.title, answerLanguage)), "reply");
+            session = releaseFloor(session);
             await saveSession();
             continue;
           }
@@ -3558,6 +3665,30 @@ Deno.serve(async (req) => {
 
       if (!humanOwnsThis && !aiFocused && parseNewsRequest(questionText) && featureOn("news")) {
         await showNews();
+        continue;
+      }
+
+      // ── The Service Center ─────────────────────────────────────────────
+      //
+      // The name of the directory, typed or spoken, opens it — the same door
+      // the menu row is. Only the name: `parseServicesRequest` matches the
+      // whole message against a short cap, so "your delivery service lost my
+      // parcel" stays a support message and is not answered with a catalogue.
+      //
+      // What somebody *needs* is not matched here. That is a search, and it
+      // belongs inside the feature where a miss can say so, rather than out
+      // here where every unmatched sentence in the conversation would have to
+      // be tested against fifty-five services first.
+      if (
+        !humanOwnsThis && !aiFocused && parseServicesRequest(questionText) &&
+        featureOn("explore.services")
+      ) {
+        log("services", { outcome: "hubs" });
+        await sendServiceHubs(delivery, answerLanguage);
+        // Left standing in the directory, so the next thing they type is read
+        // as "find me one of these" rather than as a question for the model.
+        session = enter(session, "explore.services");
+        await saveSession();
         continue;
       }
 
@@ -4190,6 +4321,67 @@ Deno.serve(async (req) => {
           log("songs", { outcome: "unavailable" });
           await reply(say("songUnavailable", answerLanguage), "unsupported");
           await saveSession();
+          continue;
+        }
+      }
+
+      // ── VisionTV ───────────────────────────────────────────────────────
+      //
+      // Ahead of the radio, and the order matters: «بث مباشر» and "live" belong
+      // to television, and the radio's own intent list does not claim them, so
+      // the two do not overlap. A message naming neither reaches neither.
+      //
+      // `tv_channels_public` is the anon-safe view — it excludes `stream_url`
+      // by construction, so no channel's stream can leave here however this
+      // code changes. Watching happens on the Visionex page, where the
+      // subscription check and the stream token live.
+      const tvRequest = aiFocused || !featureOn("listen.tv") ? null : parseTvRequest(questionText);
+      if (tvRequest?.confident && !humanOwnsThis) {
+        try {
+          // Terms are stripped of everything that is not a letter, a digit or a
+          // space by `channelTerms`, which is what makes interpolating them
+          // into a PostgREST filter safe.
+          let query = db
+            .from("tv_channels_public")
+            .select("id, name, name_ar, description, description_ar, language, country, quality, is_featured");
+          if (tvRequest.terms.length > 0) {
+            query = query.or(
+              tvRequest.terms
+                .flatMap((term) => [
+                  `name.ilike.%${term}%`,
+                  `name_ar.ilike.%${term}%`,
+                  `description.ilike.%${term}%`,
+                  `description_ar.ilike.%${term}%`,
+                  `country.ilike.%${term}%`,
+                  `language.ilike.%${term}%`,
+                ])
+                .join(","),
+            );
+          }
+
+          const { data: rows, error } = await query
+            // Featured first: somebody who said only "television" gets the
+            // channels Visionex would put in front of them, not an accident.
+            .order("is_featured", { ascending: false })
+            .order("sort_order", { ascending: true })
+            .limit(25);
+          if (error) throw error;
+
+          // Belt and braces over the view. A row carrying a stream column means
+          // the query has been pointed at the table, and the honest answer then
+          // is no channels rather than a leak.
+          const safe = Array.isArray(rows) ? rows.filter((row) => !carriesStream(row)) : rows;
+          const channels = readChannels(safe);
+          log("tv", { outcome: channels.length > 0 ? "listed" : "empty", count: channels.length });
+          await reply(
+            formatChannels({ language: answerLanguage, channels }),
+            channels.length > 0 ? "reply" : "unsupported",
+          );
+          continue;
+        } catch (e) {
+          console.error("[whatsapp] tv lookup failed:", describeError(e));
+          log("tv", { outcome: "unavailable" });
+          await reply(tvUnavailableNotice(answerLanguage), "unsupported");
           continue;
         }
       }

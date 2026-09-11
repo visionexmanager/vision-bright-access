@@ -40,9 +40,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Urdu ──────────────────────────────────────────────────────────────────
   ur: {
     "main": ["Visionex کا مینو", "Visionex یہاں کیا کر سکتا ہے"],
-    "listen": ["سنیں", "ریڈیو اور گانے"],
+    "listen": ["دیکھیں اور سنیں", "ٹی وی، ریڈیو اور گانے"],
+    "listen.tv": ["ٹی وی دیکھیں", "دنیا بھر کے لائیو چینلز"],
     "bazaar": ["VXBazaar", "خریدیں، بیچیں، آرڈر دیکھیں"],
-    "explore": ["سیکھیں اور دریافت", "اکیڈمی، بچے اور خبریں"],
+    "explore": ["سیکھیں اور دریافت", "اکیڈمی، بچے، خبریں اور خدمات"],
+    "explore.services": ["Visionex کی خدمات", "سائٹ کی مشاورت اور خدمات"],
     "files": ["فائلیں اور دستاویزات", "پڑھیں، ترجمہ کریں یا تبدیل کریں"],
     "health": ["صحت", "ایمرجنسی اور قریبی طبی مدد"],
     "health.emergency": ["ایمرجنسی", "آپ کے قریب ترین اسپتال، ابھی"],
@@ -87,9 +89,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Hindi ─────────────────────────────────────────────────────────────────
   hi: {
     "main": ["Visionex मेन्यू", "Visionex यहाँ क्या कर सकता है"],
-    "listen": ["सुनें", "रेडियो और गाने"],
+    "listen": ["देखें और सुनें", "टीवी, रेडियो और गाने"],
+    "listen.tv": ["टीवी देखें", "दुनिया भर के लाइव चैनल"],
     "bazaar": ["VXBazaar", "खरीदें, बेचें, ऑर्डर देखें"],
-    "explore": ["सीखें और खोजें", "अकादमी, बच्चे और समाचार"],
+    "explore": ["सीखें और खोजें", "अकादमी, बच्चे, समाचार, सेवाएँ"],
+    "explore.services": ["Visionex की सेवाएँ", "साइट के सलाहकार और सेवाएँ"],
     "files": ["फ़ाइलें और दस्तावेज़", "पढ़ें, अनुवाद करें या बदलें"],
     "health": ["स्वास्थ्य", "आपातकाल और आस-पास की देखभाल"],
     "health.emergency": ["आपातकाल", "आपका सबसे नज़दीकी अस्पताल, अभी"],
@@ -134,9 +138,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Indonesian ────────────────────────────────────────────────────────────
   id: {
     "main": ["Menu Visionex", "Semua yang bisa Visionex lakukan"],
-    "listen": ["Dengarkan", "Radio dan lagu"],
+    "listen": ["Tonton & dengarkan", "TV, radio dan lagu"],
+    "listen.tv": ["Tonton TV", "Saluran langsung dari seluruh dunia"],
     "bazaar": ["VXBazaar", "Belanja, jual, lacak pesanan"],
-    "explore": ["Belajar & jelajahi", "Akademi, anak-anak, berita"],
+    "explore": ["Belajar & jelajahi", "Akademi, anak, berita, layanan"],
+    "explore.services": ["Layanan Visionex", "Penasihat dan layanan dari situs"],
     "files": ["Berkas & dokumen", "Baca, terjemahkan atau ubah formatnya"],
     "health": ["Kesehatan", "Darurat dan layanan terdekat"],
     "health.emergency": ["Darurat", "Rumah sakit terdekat, sekarang"],
@@ -181,9 +187,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Japanese ──────────────────────────────────────────────────────────────
   ja: {
     "main": ["Visionex メニュー", "Visionex でできること"],
-    "listen": ["聴く", "ラジオと曲"],
+    "listen": ["見る・聴く", "テレビ、ラジオ、音楽"],
+    "listen.tv": ["テレビを見る", "世界中のライブチャンネル"],
     "bazaar": ["VXBazaar", "買う、売る、注文を追う"],
-    "explore": ["学ぶ・見つける", "アカデミー、キッズ、ニュース"],
+    "explore": ["学ぶ・見つける", "アカデミー、キッズ、ニュース、サービス"],
+    "explore.services": ["Visionex のサービス", "サイトの相談窓口とサービス"],
     "files": ["ファイルと書類", "読む、翻訳する、形式を変換する"],
     "health": ["健康", "緊急と近くの医療"],
     "health.emergency": ["緊急", "最寄りの病院を今すぐ"],
@@ -228,9 +236,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Italian ───────────────────────────────────────────────────────────────
   it: {
     "main": ["Menu Visionex", "Tutto quello che Visionex sa fare"],
-    "listen": ["Ascolta", "Radio e canzoni"],
+    "listen": ["Guarda e ascolta", "TV, radio e musica"],
+    "listen.tv": ["Guarda la TV", "Canali in diretta da tutto il mondo"],
     "bazaar": ["VXBazaar", "Compra, vendi, segui gli ordini"],
-    "explore": ["Impara ed esplora", "Accademia, bambini e notizie"],
+    "explore": ["Impara ed esplora", "Accademia, bambini, notizie, servizi"],
+    "explore.services": ["Servizi Visionex", "Consulenti e servizi dal sito"],
     "files": ["File e documenti", "Leggi, traduci o converti un file"],
     "health": ["Salute", "Emergenza e cure vicino a te"],
     "health.emergency": ["Emergenza", "L'ospedale più vicino, subito"],
@@ -275,9 +285,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Korean ────────────────────────────────────────────────────────────────
   ko: {
     "main": ["Visionex 메뉴", "Visionex가 할 수 있는 모든 것"],
-    "listen": ["듣기", "라디오와 노래"],
+    "listen": ["보기와 듣기", "TV, 라디오, 음악"],
+    "listen.tv": ["TV 보기", "전 세계 라이브 채널"],
     "bazaar": ["VXBazaar", "구매, 판매, 주문 확인"],
-    "explore": ["배우고 둘러보기", "아카데미, 키즈, 뉴스"],
+    "explore": ["배우고 둘러보기", "아카데미, 키즈, 뉴스, 서비스"],
+    "explore.services": ["Visionex 서비스", "사이트의 상담과 서비스"],
     "files": ["파일과 문서", "읽기, 번역, 형식 변환"],
     "health": ["건강", "응급 상황과 가까운 진료"],
     "health.emergency": ["응급", "가장 가까운 병원, 지금"],
@@ -322,9 +334,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Dutch ─────────────────────────────────────────────────────────────────
   nl: {
     "main": ["Visionex-menu", "Alles wat Visionex hier kan"],
-    "listen": ["Luisteren", "Radio en nummers"],
+    "listen": ["Kijken & luisteren", "TV, radio en muziek"],
+    "listen.tv": ["TV kijken", "Live zenders van over de hele wereld"],
     "bazaar": ["VXBazaar", "Kopen, verkopen, orders volgen"],
-    "explore": ["Leren & ontdekken", "Academie, kinderen en nieuws"],
+    "explore": ["Leren & ontdekken", "Academie, kinderen, nieuws, diensten"],
+    "explore.services": ["Visionex-diensten", "Adviseurs en diensten van de site"],
     "files": ["Bestanden", "Lezen, vertalen of omzetten"],
     "health": ["Gezondheid", "Spoed en zorg in de buurt"],
     "health.emergency": ["Spoed", "Het dichtstbijzijnde ziekenhuis, nu"],
@@ -369,9 +383,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Polish ────────────────────────────────────────────────────────────────
   pl: {
     "main": ["Menu Visionex", "Wszystko, co potrafi Visionex"],
-    "listen": ["Słuchaj", "Radio i piosenki"],
+    "listen": ["Oglądaj i słuchaj", "TV, radio i muzyka"],
+    "listen.tv": ["Oglądaj telewizję", "Kanały na żywo z całego świata"],
     "bazaar": ["VXBazaar", "Kupuj, sprzedawaj, śledź zamówienia"],
-    "explore": ["Ucz się i odkrywaj", "Akademia, dzieci i wiadomości"],
+    "explore": ["Ucz się i odkrywaj", "Akademia, dzieci, wiadomości, usługi"],
+    "explore.services": ["Usługi Visionex", "Doradcy i usługi z witryny"],
     "files": ["Pliki i dokumenty", "Czytaj, tłumacz lub konwertuj"],
     "health": ["Zdrowie", "Nagły wypadek i opieka w pobliżu"],
     "health.emergency": ["Nagły wypadek", "Najbliższy szpital, teraz"],
@@ -416,9 +432,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Vietnamese ────────────────────────────────────────────────────────────
   vi: {
     "main": ["Menu Visionex", "Mọi thứ Visionex có thể làm"],
-    "listen": ["Nghe", "Radio và bài hát"],
+    "listen": ["Xem & nghe", "TV, radio và nhạc"],
+    "listen.tv": ["Xem tivi", "Kênh trực tiếp từ khắp thế giới"],
     "bazaar": ["VXBazaar", "Mua, bán, theo dõi đơn hàng"],
-    "explore": ["Học & khám phá", "Học viện, trẻ em và tin tức"],
+    "explore": ["Học & khám phá", "Học viện, trẻ em, tin tức, dịch vụ"],
+    "explore.services": ["Dịch vụ Visionex", "Cố vấn và dịch vụ từ trang web"],
     "files": ["Tệp và tài liệu", "Đọc, dịch hoặc chuyển đổi định dạng"],
     "health": ["Sức khỏe", "Cấp cứu và cơ sở y tế gần bạn"],
     "health.emergency": ["Cấp cứu", "Bệnh viện gần nhất, ngay bây giờ"],
@@ -463,9 +481,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Bengali ───────────────────────────────────────────────────────────────
   bn: {
     "main": ["Visionex মেনু", "Visionex এখানে যা যা পারে"],
-    "listen": ["শুনুন", "রেডিও ও গান"],
+    "listen": ["দেখুন ও শুনুন", "টিভি, রেডিও ও গান"],
+    "listen.tv": ["টিভি দেখুন", "সারা বিশ্বের লাইভ চ্যানেল"],
     "bazaar": ["VXBazaar", "কিনুন, বিক্রি করুন, অর্ডার দেখুন"],
-    "explore": ["শিখুন ও ঘুরে দেখুন", "একাডেমি, শিশু ও খবর"],
+    "explore": ["শিখুন ও ঘুরে দেখুন", "একাডেমি, শিশু, খবর ও সেবা"],
+    "explore.services": ["Visionex-এর সেবা", "সাইটের পরামর্শ ও সেবা"],
     "files": ["ফাইল ও নথি", "পড়ুন, অনুবাদ করুন বা রূপান্তর করুন"],
     "health": ["স্বাস্থ্য", "জরুরি ও কাছের চিকিৎসা"],
     "health.emergency": ["জরুরি", "নিকটতম হাসপাতাল, এখনই"],
@@ -510,9 +530,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Persian ───────────────────────────────────────────────────────────────
   fa: {
     "main": ["منوی Visionex", "هرچه Visionex اینجا می‌تواند انجام دهد"],
-    "listen": ["گوش کنید", "رادیو و آهنگ‌ها"],
+    "listen": ["تماشا و شنیدن", "تلویزیون، رادیو و آهنگ"],
+    "listen.tv": ["تماشای تلویزیون", "کانال‌های زندهٔ سراسر جهان"],
     "bazaar": ["VXBazaar", "خرید، فروش و پیگیری سفارش"],
-    "explore": ["یاد بگیرید و کشف کنید", "آکادمی، کودکان و اخبار"],
+    "explore": ["یاد بگیرید و کشف کنید", "آکادمی، کودکان، اخبار و خدمات"],
+    "explore.services": ["خدمات Visionex", "مشاوره‌ها و خدمات سایت"],
     "files": ["فایل‌ها و اسناد", "بخوان، ترجمه کن یا تبدیل کن"],
     "health": ["سلامت", "اورژانس و درمان نزدیک شما"],
     "health.emergency": ["اورژانس", "نزدیک‌ترین بیمارستان، همین حالا"],
@@ -557,9 +579,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Spanish ───────────────────────────────────────────────────────────────
   es: {
     "main": ["Menú de Visionex", "Todo lo que Visionex puede hacer aquí"],
-    "listen": ["Escuchar", "Radio y canciones"],
+    "listen": ["Ver y escuchar", "TV, radio y música"],
+    "listen.tv": ["Ver la tele", "Canales en directo de todo el mundo"],
     "bazaar": ["VXBazaar", "Compra, vende y sigue tus pedidos"],
-    "explore": ["Aprende y explora", "Academia, niños y noticias"],
+    "explore": ["Aprende y explora", "Academia, niños, noticias, servicios"],
+    "explore.services": ["Servicios de Visionex", "Asesores y servicios del sitio"],
     "files": ["Archivos y documentos", "Leer, traducir o convertir un archivo"],
     "health": ["Salud", "Urgencias y atención cerca de ti"],
     "health.emergency": ["Urgencias", "El hospital más cercano, ahora"],
@@ -604,9 +628,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── German ────────────────────────────────────────────────────────────────
   de: {
     "main": ["Visionex-Menü", "Alles, was Visionex hier kann"],
-    "listen": ["Hören", "Radio und Lieder"],
+    "listen": ["Sehen & hören", "TV, Radio und Musik"],
+    "listen.tv": ["Fernsehen", "Live-Sender aus aller Welt"],
     "bazaar": ["VXBazaar", "Kaufen, verkaufen, Bestellungen"],
-    "explore": ["Lernen & entdecken", "Akademie, Kinder und Nachrichten"],
+    "explore": ["Lernen & entdecken", "Akademie, Kinder, Nachrichten, Dienste"],
+    "explore.services": ["Visionex-Dienste", "Berater und Dienste von der Website"],
     "files": ["Dateien & Dokumente", "Lesen, übersetzen oder umwandeln"],
     "health": ["Gesundheit", "Notfall und Versorgung in der Nähe"],
     "health.emergency": ["Notfall", "Das nächste Krankenhaus, jetzt"],
@@ -651,9 +677,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Portuguese ────────────────────────────────────────────────────────────
   pt: {
     "main": ["Menu Visionex", "Tudo o que o Visionex faz por aqui"],
-    "listen": ["Ouvir", "Rádio e músicas"],
+    "listen": ["Ver e ouvir", "TV, rádio e música"],
+    "listen.tv": ["Ver televisão", "Canais em direto de todo o mundo"],
     "bazaar": ["VXBazaar", "Compre, venda e siga pedidos"],
-    "explore": ["Aprender e explorar", "Academia, crianças e notícias"],
+    "explore": ["Aprender e explorar", "Academia, crianças, notícias, serviços"],
+    "explore.services": ["Serviços da Visionex", "Consultores e serviços do site"],
     "files": ["Ficheiros", "Ler, traduzir ou converter um ficheiro"],
     "health": ["Saúde", "Urgência e cuidados perto de si"],
     "health.emergency": ["Urgência", "O hospital mais próximo, agora"],
@@ -698,9 +726,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Chinese ───────────────────────────────────────────────────────────────
   zh: {
     "main": ["Visionex 菜单", "Visionex 在这里能做的一切"],
-    "listen": ["收听", "广播和歌曲"],
+    "listen": ["观看与收听", "电视、广播和音乐"],
+    "listen.tv": ["看电视", "来自世界各地的直播频道"],
     "bazaar": ["VXBazaar", "购买、出售、查看订单"],
-    "explore": ["学习与探索", "学院、儿童和新闻"],
+    "explore": ["学习与探索", "学院、儿童、新闻和服务"],
+    "explore.services": ["Visionex 服务", "网站上的顾问与服务"],
     "files": ["文件与文档", "阅读、翻译或转换格式"],
     "health": ["健康", "急救与附近的医疗"],
     "health.emergency": ["急救", "最近的医院，立刻"],
@@ -745,9 +775,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Turkish ───────────────────────────────────────────────────────────────
   tr: {
     "main": ["Visionex menüsü", "Visionex'in burada yapabildiği her şey"],
-    "listen": ["Dinle", "Radyo ve şarkılar"],
+    "listen": ["İzle ve dinle", "TV, radyo ve müzik"],
+    "listen.tv": ["Televizyon izle", "Dünyanın her yerinden canlı kanallar"],
     "bazaar": ["VXBazaar", "Alın, satın, siparişleri izleyin"],
-    "explore": ["Öğren ve keşfet", "Akademi, çocuklar ve haberler"],
+    "explore": ["Öğren ve keşfet", "Akademi, çocuklar, haberler, hizmetler"],
+    "explore.services": ["Visionex hizmetleri", "Siteden danışmanlar ve hizmetler"],
     "files": ["Dosyalar ve belgeler", "Oku, çevir ya da başka biçime dönüştür"],
     "health": ["Sağlık", "Acil durum ve yakındaki bakım"],
     "health.emergency": ["Acil", "En yakın hastane, hemen"],
@@ -792,9 +824,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── French ────────────────────────────────────────────────────────────────
   fr: {
     "main": ["Menu Visionex", "Tout ce que Visionex peut faire ici"],
-    "listen": ["Écouter", "Radio et chansons"],
+    "listen": ["Regarder et écouter", "TV, radio et musique"],
+    "listen.tv": ["Regarder la TV", "Chaînes en direct du monde entier"],
     "bazaar": ["VXBazaar", "Achetez, vendez, suivez vos commandes"],
-    "explore": ["Apprendre et explorer", "Académie, enfants et actualités"],
+    "explore": ["Apprendre et explorer", "Académie, enfants, actualités, services"],
+    "explore.services": ["Services Visionex", "Conseillers et services du site"],
     "files": ["Fichiers et documents", "Lire, traduire ou convertir un fichier"],
     "health": ["Santé", "Urgence et soins près de vous"],
     "health.emergency": ["Urgence", "L'hôpital le plus proche, tout de suite"],
@@ -839,9 +873,11 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Readonly<Record<string, Ent
   // ── Russian ───────────────────────────────────────────────────────────────
   ru: {
     "main": ["Меню Visionex", "Всё, что Visionex умеет здесь"],
-    "listen": ["Слушать", "Радио и песни"],
+    "listen": ["Смотреть и слушать", "ТВ, радио и музыка"],
+    "listen.tv": ["Смотреть телевизор", "Прямые каналы со всего мира"],
     "bazaar": ["VXBazaar", "Покупайте, продавайте, следите за заказами"],
-    "explore": ["Учиться и открывать", "Академия, дети и новости"],
+    "explore": ["Учиться и открывать", "Академия, дети, новости и услуги"],
+    "explore.services": ["Услуги Visionex", "Консультанты и услуги с сайта"],
     "files": ["Файлы и документы", "Прочитать, перевести или конвертировать"],
     "health": ["Здоровье", "Экстренная помощь и уход рядом"],
     "health.emergency": ["Экстренно", "Ближайшая больница, сейчас"],

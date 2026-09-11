@@ -77,6 +77,7 @@ export type HandlerId =
   | "language_menu"   // offer the language list again
   | "prompt"          // built, and waiting for the file or photo it acts on
   | "info"            // answers with what this is and where the rest of it lives
+  | "services"        // the Service Center: browse the hubs, or say what you need
   | "coming_soon";    // declared, announced, not built yet
 
 export interface CatalogNode {
@@ -227,9 +228,12 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     order: 6,
     kind: "menu",
     enabled: true,
-    emoji: "🎧",
-    title: { ar: "استمع", en: "Listen" },
-    description: { ar: "الراديو والأغاني", en: "Radio and songs" },
+    emoji: "🎬",
+    // Renamed when television arrived under it. "Listen" was accurate while it
+    // held a radio and a song; a screen reader now reads the row that contains
+    // VisionTV, and it has to say so.
+    title: { ar: "شاهد واستمع", en: "Watch & listen" },
+    description: { ar: "التلفزيون والراديو والأغاني", en: "TV, radio and songs" },
   },
   {
     id: "bazaar",
@@ -260,7 +264,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // scanning, and the icon is the fastest thing on the row to read.
     emoji: "📚",
     title: { ar: "تعلّم واستكشف", en: "Learn & explore" },
-    description: { ar: "الأكاديمية والأطفال والأخبار", en: "Academy, kids and news" },
+    description: { ar: "الأكاديمية والأطفال والأخبار والخدمات", en: "Academy, kids, news and services" },
   },
   {
     id: "ocr",
@@ -412,6 +416,58 @@ const BASE_CATALOG: readonly CatalogNode[] = [
       en:
         "Visionex has a Sports & Fitness Coach: a fitness assessment with a certified coach, a monthly programme with weekly sessions, and a nutrition plan with progress tracking.\n\nPackages and prices: https://visionex.app/services/sports-coach\n\nTo book one, or to ask about the details, say \"a person\" and I'll hand you to the team.",
     },
+  },
+  {
+    // The Service Center, which this channel has never had a door to.
+    //
+    // Thirty services and twenty-five hands-on experiences are sold on
+    // visionex.app, and until now a sender could reach five of them here — the
+    // Academy, the two file tools, the radio and, because somebody wrote it out
+    // by hand, the sports coach. The rest existed and were unreachable.
+    //
+    // It is one node rather than thirty because thirty is not a menu: Meta
+    // allows ten rows in a list, so the tree could never hold them, and a
+    // catalog entry per service would be a second copy of a catalogue that
+    // already has a single source of truth. `whatsappServices.ts` reads that
+    // source instead — the same snapshot the site's own semantic search reads —
+    // so a service added on the site is offered here without this file
+    // changing at all.
+    //
+    // Under Learn & explore rather than at the top because the main menu is
+    // full: ten of ten rows, and an eleventh is not truncated, it rejects the
+    // whole message.
+    id: "explore.services",
+    parent: "explore",
+    order: 5,
+    kind: "action",
+    enabled: true,
+    emoji: "✨",
+    title: { ar: "خدمات Visionex", en: "Visionex services" },
+    description: { ar: "استشارات وخدمات من الموقع", en: "Advisors and services from the site" },
+    aliases: {
+      ar: ["خدمات", "الخدمات", "خدمات visionex", "مركز الخدمات", "استشارة", "استشارات"],
+      en: ["services", "service centre", "service center", "advisors", "consulting"],
+      ur: ["خدمات", "سروسز"],
+      hi: ["सेवाएँ", "सेवाएं", "सर्विस"],
+      id: ["layanan", "jasa"],
+      ja: ["サービス", "サービス一覧"],
+      it: ["servizi"],
+      ko: ["서비스"],
+      nl: ["diensten"],
+      pl: ["usługi"],
+      vi: ["dịch vụ"],
+      bn: ["সেবা", "সেবাসমূহ"],
+      fa: ["خدمات", "سرویس‌ها", "سرویس ها"],
+      es: ["servicios"],
+      de: ["dienste", "dienstleistungen"],
+      pt: ["serviços"],
+      zh: ["服务", "服務"],
+      tr: ["hizmetler"],
+      fr: ["services"],
+      ru: ["услуги"],
+    },
+    handler: "services",
+    accepts: ["text"],
   },
   {
     id: "services",
@@ -755,6 +811,52 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     description: { ar: "محطات من كل العالم", en: "Stations from around the world" },
     aliases: { ar: ["راديو", "إذاعة", "أغاني", "اغاني"], en: ["radio", "music", "songs"] },
     phrase: { ar: "موسيقى", en: "music" },
+    accepts: ["text"],
+  },
+  {
+    // VisionTV, which the site has had since the TV service migration and this
+    // channel has never offered — the sibling row to the radio, reading the
+    // sibling view.
+    //
+    // Under Listen rather than anywhere else because that menu is already
+    // "media Visionex plays for you", and splitting television off into its own
+    // root row would cost a main-menu slot the tree does not have. The menu is
+    // renamed for it: what it holds is now watching as well as listening, and a
+    // row called "Listen" containing television is a row that lies to a screen
+    // reader.
+    //
+    // Keyless by construction, like the radio: a view read, no provider, no
+    // key. A test enforces that.
+    id: "listen.tv",
+    parent: "listen",
+    order: 3,
+    kind: "action",
+    enabled: true,
+    title: { ar: "شاهد التلفزيون", en: "Watch TV" },
+    description: { ar: "قنوات مباشرة من كل العالم", en: "Live channels from around the world" },
+    aliases: {
+      ar: ["تلفزيون", "التلفزيون", "تلفاز", "قنوات", "القنوات", "بث مباشر"],
+      en: ["tv", "television", "channels", "live tv", "watch tv"],
+      ur: ["ٹی وی", "چینلز"],
+      hi: ["टीवी", "चैनल"],
+      id: ["tv", "televisi", "saluran"],
+      ja: ["テレビ", "チャンネル"],
+      it: ["tv", "televisione", "canali"],
+      ko: ["티비", "텔레비전", "채널"],
+      nl: ["tv", "televisie", "zenders"],
+      pl: ["telewizja", "kanały"],
+      vi: ["tivi", "truyền hình", "kênh"],
+      bn: ["টিভি", "চ্যানেল"],
+      fa: ["تلویزیون", "کانال‌ها", "کانال ها"],
+      es: ["tv", "televisión", "canales"],
+      de: ["tv", "fernsehen", "sender"],
+      pt: ["tv", "televisão", "canais"],
+      zh: ["电视", "電視", "频道"],
+      tr: ["televizyon", "kanallar"],
+      fr: ["tv", "télévision", "chaînes"],
+      ru: ["телевидение", "телеканалы", "каналы"],
+    },
+    phrase: { ar: "تلفزيون", en: "tv" },
     accepts: ["text"],
   },
   {
