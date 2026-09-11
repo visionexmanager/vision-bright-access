@@ -383,19 +383,58 @@ describe("language detection", () => {
 describe("reply language preference", () => {
   it("follows the message when nothing is stored", async () => {
     const { replyLanguage } = await loadHelpers();
-    expect(replyLanguage("fr", null)).toBe("fr");
-    expect(replyLanguage("fr", undefined)).toBe("fr");
+    expect(replyLanguage("fr", null, null)).toBe("fr");
+    expect(replyLanguage("fr", undefined, undefined)).toBe("fr");
   });
 
-  it("lets a stored preference outrank detection", async () => {
-    // Quoting an Arabic product name must not switch an English speaker back.
+  it("answers a whole question in the language it was asked in", async () => {
+    // Reported: an Arabic question came back in English because the
+    // conversation had "en" stored. A preference is a setting; the sentence in
+    // front of you is a fact about the person sending it.
     const { replyLanguage } = await loadHelpers();
-    expect(replyLanguage("ar", "en")).toBe("en");
+    expect(replyLanguage("ar", "en", "ما هي اخر الاخبار من فضلك")).toBe("ar");
+    expect(replyLanguage("en", "ar", "Could you tell me the latest news")).toBe("en");
+    expect(replyLanguage("en", "en", "Bonjour, je voudrais de l'aide pour une commande")).toBe("fr");
+  });
+
+  it("lets a stored preference outrank a quoted word", async () => {
+    // Quoting an Arabic product name must not switch an English speaker back:
+    // the script has to carry half the message before it decides.
+    const { replyLanguage } = await loadHelpers();
+    expect(replyLanguage("ar", "en", "Where is my order for كتاب")).toBe("en");
+  });
+
+  it("keeps the preference for a message that says nothing", async () => {
+    // A bare number, an emoji, a photo with no caption: these are the messages
+    // a stored preference exists for, and it still owns every one of them.
+    const { replyLanguage } = await loadHelpers();
+    for (const quiet of ["2", "👍", "", null, "   "]) {
+      expect(replyLanguage("en", "ar", quiet), JSON.stringify(quiet)).toBe("ar");
+    }
   });
 
   it("ignores a stored value that is not a supported locale", async () => {
     const { replyLanguage } = await loadHelpers();
-    expect(replyLanguage("de", "klingon")).toBe("de");
+    expect(replyLanguage("de", "klingon", null)).toBe("de");
+  });
+
+  it("reads the script a message is mostly written in", async () => {
+    const { languageOfMessage } = await import(
+      "../../supabase/functions/_shared/whatsappLanguageDetect.ts"
+    );
+    // Decisive scripts, each carrying its own message.
+    expect(languageOfMessage("ما هي اخر الاخبار من فضلك")).toBe("ar");
+    expect(languageOfMessage("Здравствуйте, мне нужна помощь")).toBe("ru");
+    expect(languageOfMessage("안녕하세요 도움이 필요합니다")).toBe("ko");
+    expect(languageOfMessage("Bonjour, je voudrais de l'aide pour une commande")).toBe("fr");
+
+    // A quoted title is not the language of the sentence around it.
+    expect(languageOfMessage("Where is my order for كتاب")).toBeNull();
+
+    // Nothing to go on: the caller keeps whatever it already knew.
+    for (const quiet of ["2", "👍", "", "   ", null, undefined]) {
+      expect(languageOfMessage(quiet), JSON.stringify(quiet)).toBeNull();
+    }
   });
 
   it("instructs the model in the chosen language and warns against mixing", async () => {
@@ -1329,7 +1368,9 @@ describe("voice replies", () => {
     const refreshAt = webhook.indexOf("const heardLanguage = detectLanguageCode(questionText);");
     expect(refreshAt).toBeGreaterThan(-1);
     expect(webhook).toContain("isSupportedLanguage(spokenBefore) ? spokenBefore : heardLanguage");
-    expect(webhook).toContain("answerLanguage = replyLanguage(settled, existing?.preferred_language as string | null);");
+    expect(webhook).toContain(
+      "answerLanguage = replyLanguage(settled, existing?.preferred_language as string | null, questionText);",
+    );
     expect(webhook).toContain("parserLanguage = language;");
     expect(refreshAt).toBeLessThan(webhook.indexOf("const answerIn = answerLanguage;"));
     expect(refreshAt).toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));

@@ -7,6 +7,7 @@
 import { GRAPH_BASE } from "./meta.ts";
 import { clampUnits, safeCut } from "./whatsappSafety.ts";
 import { isSupportedLanguage, type SupportedLanguage } from "./whatsappLanguages.ts";
+import { languageOfMessage } from "./whatsappLanguageDetect.ts";
 import type { Language } from "./whatsappCatalog.ts";
 import { say } from "./whatsappStrings.ts";
 
@@ -123,14 +124,31 @@ export function detectLanguageCode(text: string): SupportedLanguage {
 }
 
 /**
- * The language to answer in: a stored preference always wins over detection,
- * because a user who asked for English does not want to be switched back every
- * time they quote an Arabic product name.
+ * The language to answer in.
+ *
+ * **The message decides when it says what language it is.** Somebody who writes
+ * in Arabic is answered in Arabic whatever they once set, because answering a
+ * question in a language its asker did not ask it in is the failure that
+ * matters here — a preference is a setting, and the sentence in front of you is
+ * a fact about the person sending it.
+ *
+ * The stored preference settles everything the message does not: a bare number,
+ * an emoji, a photo with no caption, a greeting too short to judge. Those are
+ * the messages a preference exists for, and they are most of them.
+ *
+ * `languageOfMessage` is deliberately stricter than plain detection — it wants
+ * a script that carries half the message — so quoting an Arabic product name in
+ * an English sentence still leaves the sentence English. That was the case the
+ * old rule protected, and it is still protected; what changed is that writing
+ * a whole question in Arabic now outranks a preference set weeks ago.
  */
 export function replyLanguage(
   detected: SupportedLanguage,
   preference: string | null | undefined,
+  text: string | null | undefined,
 ): SupportedLanguage {
+  const written = languageOfMessage(text);
+  if (written && isSupportedLanguage(written)) return written;
   return isSupportedLanguage(preference) ? preference : detected;
 }
 

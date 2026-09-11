@@ -182,3 +182,81 @@ export function detectLanguage(text: string): DetectedLanguage | null {
  */
 export const isConfident = (detected: DetectedLanguage | null): boolean =>
   detected !== null && detected.confidence >= 0.5;
+
+// ── What language the message itself is in ──────────────────────────────────
+
+/**
+ * The script each language is written in.
+ *
+ * Latin is the default rather than eleven entries: it is what every language
+ * not named here uses, and a list of them would be a second list to keep in
+ * step with `STOPWORDS`. Japanese is kana *or* han, because a Japanese
+ * sentence is mostly han and counting only its kana would call it a minority
+ * of itself.
+ */
+const SCRIPT_OF: Partial<Record<Language, RegExp>> = {
+  ar: HAS.arabic,
+  fa: HAS.arabic,
+  ur: HAS.arabic,
+  hi: HAS.devanagari,
+  bn: HAS.bengali,
+  ru: HAS.cyrillic,
+  ko: HAS.hangul,
+  ja: /[぀-ゟ゠-ヿ一-鿿]/,
+  zh: HAS.han,
+};
+
+/** Latin letters, accented ones included — the script of the other eleven. */
+const LATIN = /[A-Za-z\u00C0-\u024F]/;
+
+/**
+ * Is this the script the message is mostly written in?
+ *
+ * Half the letters or more. The point is to separate a message written in a
+ * language from a message that merely quotes one: "Where is my order for
+ * كتاب الأمير" is an English sentence with an Arabic title in it, and reading
+ * it as Arabic would answer an English speaker in a script they may not read.
+ */
+function carriesTheMessage(text: string, script: RegExp): boolean {
+  const letters = text.match(/\p{L}/gu);
+  if (!letters || letters.length === 0) return false;
+  let own = 0;
+  for (const letter of letters) if (script.test(letter)) own += 1;
+  return own * 2 >= letters.length;
+}
+
+/**
+ * The language a message is *written in*, or null when it does not say.
+ *
+ * Null is the common answer and the useful one: a bare number, an emoji, a
+ * photo with no caption, a greeting too short to judge, and a Latin-script
+ * sentence whose vote was close all return it. A caller holding null still has
+ * whatever it knew before — a stored preference, or the language this
+ * conversation has been speaking — and that is the right thing to fall back to,
+ * because those messages carry no opinion to override it with.
+ *
+ * Acts on any detection `detectLanguage` was willing to return, and adds one
+ * test of its own: the script has to carry the message. Those are different
+ * questions and each needs its own guard. `MIN_CONFIDENCE` already refuses the
+ * close Latin vote — the case where calling Portuguese Spanish is a real risk —
+ * and nothing above it is improved by a second, stricter bar here. A plain
+ * French sentence scores 0.38, because "de" is French and Spanish and
+ * Portuguese and Dutch all at once and the vote splits four ways; refusing to
+ * answer it in French would be refusing the ordinary case, not the risky one.
+ *
+ * What `detectLanguage` does not ask is how much of the message its answer
+ * covers, and that is the whole of the mixed-script problem: one Arabic title
+ * inside an English sentence is Arabic script, confidently, and is not an
+ * Arabic message. `carriesTheMessage` is that guard and it belongs here rather
+ * than in the detector, which is answering honestly about the text it was given.
+ */
+export function languageOfMessage(text: string | null | undefined): Language | null {
+  const sample = (text ?? "").trim();
+  if (!sample) return null;
+
+  const detected = detectLanguage(sample);
+  if (!detected) return null;
+
+  const script = SCRIPT_OF[detected.language] ?? LATIN;
+  return carriesTheMessage(sample, script) ? detected.language : null;
+}

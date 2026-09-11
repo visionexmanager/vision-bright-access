@@ -1211,12 +1211,15 @@ Deno.serve(async (req) => {
        *
        * Declared here rather than half way down because the menus, the
        * onboarding questions and the model all have to agree about it, and
-       * three places resolving it separately is three places to disagree. A
-       * stored preference always wins over detection: somebody who tapped
-       * Français does not want to be switched back because they quoted an
-       * English product name.
+       * three places resolving it separately is three places to disagree.
+       *
+       * The message wins when it says what language it is; the stored
+       * preference settles everything it does not — a bare number, an emoji, a
+       * photo with no caption. Somebody who tapped Français and then quoted an
+       * English product name is still writing French, because `replyLanguage`
+       * wants a script that carries half the message before it switches.
        */
-      let answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);
+      let answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null, incoming.text);
 
       /**
        * The language the *parsers* read, which is not the language anything is
@@ -2659,19 +2662,23 @@ Deno.serve(async (req) => {
           /**
            * The language a voice note is answered in.
            *
-           * A stored preference wins, then whatever this conversation has been
-           * speaking, and only then the transcript. Whisper mishears a language
-           * far more often than a person changes theirs mid-conversation, and
-           * answering an Arabic customer in English because one sentence came
-           * back as English is the worse failure by a distance. Saying «احكي
-           * معي بالإنجليزي» still switches it — that is a preference, and
-           * preferences are read from this same transcript a few lines below.
+           * A transcript that plainly says what language it is wins, the same
+           * way a typed question does: somebody who speaks Arabic is answered
+           * in Arabic, whatever they once set. Whisper does mishear a language,
+           * which is why `replyLanguage` will not switch on a stray word — it
+           * wants a script carrying half the transcript before it decides.
+           *
+           * Everything that leaves undecided falls back the way it always did:
+           * whatever this conversation has been speaking, then the preference,
+           * and only then the raw transcript. A transcript too short or too
+           * mixed to judge is exactly the one Whisper is worst at, and exactly
+           * the one worth answering in the language already in use.
            */
           if (questionText.trim()) {
             const heardLanguage = detectLanguageCode(questionText);
             const spokenBefore = existing?.language as string | null | undefined;
             const settled = isSupportedLanguage(spokenBefore) ? spokenBefore : heardLanguage;
-            answerLanguage = replyLanguage(settled, existing?.preferred_language as string | null);
+            answerLanguage = replyLanguage(settled, existing?.preferred_language as string | null, questionText);
             language = answerLanguage === "ar" ? "ar" : "en";
             parserLanguage = language;
           }

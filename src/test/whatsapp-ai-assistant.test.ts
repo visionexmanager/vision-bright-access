@@ -207,7 +207,9 @@ describe("asking", () => {
     // characters in this one message.
     expect(webhook).toContain("languageDirective(answerIn)");
     expect(webhook).toContain("const answerIn = answerLanguage;");
-    expect(webhook).toContain("replyLanguage(detected, existing?.preferred_language as string | null)");
+    expect(webhook).toContain(
+      "replyLanguage(detected, existing?.preferred_language as string | null, incoming.text)",
+    );
     for (const key of ["askForQuestion", "askForVoice", "newThread", "working", "emptyQuestion", "tooLong"] as const) {
       expect(ai.assistantSays(key, "ar"), key).not.toBe(ai.assistantSays(key, "en"));
       expect(ai.assistantSays(key, "ar").trim(), key).not.toBe("");
