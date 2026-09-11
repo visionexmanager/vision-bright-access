@@ -442,6 +442,7 @@ import {
 import {
   formatAmbiguityPrompt,
   formatPendingList,
+  formatOwnerHelp,
   isOwner,
   parseOwnerCommand,
   type PendingApproval,
@@ -548,6 +549,45 @@ async function handleOwnerCommand(
   const command = parseOwnerCommand(text);
   if (command.kind === "unknown" && !command.reference) return null;
 
+  // `/help` needs nothing: not a lookup, not a rate-limit slot, not an audit
+  // row. It is a list of words, and answering it is never a decision.
+  if (command.kind === "help") return formatOwnerHelp();
+
+  // Content proposals are decided in the Owner Control Centre, where the
+  // proposal and its approval move together. Excluding them here is what keeps
+  // that true over this channel: a reference the listing never surfaced cannot
+  // be found below, so the existing "no pending decision" reply answers it and
+  // the engine is never reached. No branch, and nothing else changes.
+  //
+  // Read *before* the rate limit and the audit row rather than after, which is
+  // what the gate below needs — see it for why.
+  const { data: pendingRows } = await db
+    .from("owner_approvals")
+    .select("reference, action_type, title, summary, escalation_id")
+    .eq("state", "WAITING_FOR_APPROVAL")
+    .neq("action_type", "content_publish")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const pending = (pendingRows ?? []) as Array<PendingApproval & { escalation_id: string | null }>;
+
+  // ── The owner is allowed to talk ────────────────────────────────────────
+  //
+  // "ok", "no", «تم», «لا», "details" are among the most common things anybody
+  // says, and the owner is a person who also has ordinary conversations with
+  // their own assistant. Every one of those used to be parsed as a command:
+  // audit row written, rate-limit slot spent, and the reply "Nothing is waiting
+  // for a decision right now." in the middle of a conversation about something
+  // else entirely.
+  //
+  // A slash is always a command. Without one, the words act only while a
+  // decision is actually waiting — which is the only moment they are
+  // unambiguous, and the moment the notification asked for them. Otherwise this
+  // returns null and the message carries on to the assistant, untouched.
+  //
+  // A named reference is a command either way: nobody types "ABCDE" by accident.
+  if (!command.explicit && !command.reference && pending.length === 0) return null;
+
   // Rate limit: an owner handset that has been taken over should not be able
   // to churn through every pending decision unchecked.
   const { count } = await db
@@ -566,21 +606,6 @@ async function handleOwnerCommand(
     entity_id: null,
     metadata: { kind: command.kind, reference: command.reference, choice: command.choice },
   });
-
-  // Content proposals are decided in the Owner Control Centre, where the
-  // proposal and its approval move together. Excluding them here is what keeps
-  // that true over this channel: a reference the listing never surfaced cannot
-  // be found below, so the existing "no pending decision" reply answers it and
-  // the engine is never reached. No branch, and nothing else changes.
-  const { data: pendingRows } = await db
-    .from("owner_approvals")
-    .select("reference, action_type, title, summary, escalation_id")
-    .eq("state", "WAITING_FOR_APPROVAL")
-    .neq("action_type", "content_publish")
-    .gt("expires_at", new Date().toISOString())
-    .order("created_at", { ascending: false })
-    .limit(20);
-  const pending = (pendingRows ?? []) as Array<PendingApproval & { escalation_id: string | null }>;
 
   if (command.kind === "list_pending") return formatPendingList(pending);
 

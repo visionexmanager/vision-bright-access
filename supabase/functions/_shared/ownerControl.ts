@@ -13,6 +13,7 @@ export type OwnerCommandKind =
   | "return_to_ai"
   | "more_info"
   | "list_pending"
+  | "help"
   | "unknown";
 
 export interface OwnerCommand {
@@ -23,6 +24,22 @@ export interface OwnerCommand {
   choice: number | null;
   /** Free text after the command, e.g. a note or a question for the customer. */
   note: string | null;
+  /**
+   * Whether the owner wrote a slash in front of it.
+   *
+   * This is the difference between "I am giving an instruction" and "I am
+   * talking". The words this file matches — "ok", "no", «تم», «لا» — are among
+   * the most common things anybody says, and the owner is a person who also has
+   * ordinary conversations with their own assistant. Before the slash existed,
+   * every «تم» in one of those conversations was parsed as an approval, wrote an
+   * audit row, spent a slot of the hourly rate limit, and came back as "Nothing
+   * is waiting for a decision right now."
+   *
+   * So: a slash is always a command. Without one, the words still work — but
+   * only while a decision is actually waiting, which is the only time they are
+   * unambiguous. The caller enforces that half; this flag is what lets it.
+   */
+  explicit: boolean;
 }
 
 /**
@@ -77,6 +94,36 @@ const CHOICE_TO_KIND: Record<number, OwnerCommandKind> = {
   4: "more_info",
 };
 
+/**
+ * The command names, for a message that began with a slash.
+ *
+ * Deliberately separate from the natural-language lists below rather than
+ * folded into them. `/ai` has to mean "hand the conversation back", and adding
+ * a bare "ai" to `RETURN_WORDS` would make "do you have AI?" mean it too. An
+ * explicit vocabulary can be short and exact because the slash already said
+ * that an instruction was intended.
+ */
+const SLASH_COMMANDS: Readonly<Record<string, OwnerCommandKind>> = {
+  approve: "approve",
+  ok: "approve",
+  yes: "approve",
+  reject: "reject",
+  no: "reject",
+  takeover: "take_over",
+  take: "take_over",
+  ai: "return_to_ai",
+  resume: "return_to_ai",
+  info: "more_info",
+  details: "more_info",
+  pending: "list_pending",
+  list: "list_pending",
+  help: "help",
+  commands: "help",
+};
+
+/** A leading slash, with any spaces around it. */
+const SLASH = /^\s*\/\s*/;
+
 function matches(text: string, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(text));
 }
@@ -89,14 +136,31 @@ function matches(text: string, patterns: RegExp[]): boolean {
  * ambiguous — this function never guesses which action a "2" refers to.
  */
 export function parseOwnerCommand(input: string): OwnerCommand {
-  const text = input.trim();
+  const raw = input ?? "";
+  const explicit = SLASH.test(raw);
+  // Everything below reads the message with the slash removed, so `/approve`
+  // and "approve" parse through exactly the same code. The slash decides how
+  // the *caller* treats the result, not how it is read.
+  const text = raw.replace(SLASH, "").trim();
+
   const referenceMatch = text.match(REFERENCE_PATTERN);
   const reference = referenceMatch ? referenceMatch[1].toUpperCase() : null;
 
   const bareDigit = /^\s*([1-9])\s*$/.exec(text);
   if (bareDigit) {
     const choice = Number(bareDigit[1]);
-    return { kind: CHOICE_TO_KIND[choice] ?? "unknown", reference: null, choice, note: null };
+    return { kind: CHOICE_TO_KIND[choice] ?? "unknown", reference: null, choice, note: null, explicit };
+  }
+
+  // An explicit command name wins outright, before any natural-language
+  // matching: `/no` is a rejection and never the "no" inside a sentence.
+  if (explicit) {
+    const [first, ...rest] = text.split(/\s+/);
+    const named = SLASH_COMMANDS[first?.toLowerCase() ?? ""];
+    if (named) {
+      const remainder = rest.join(" ").replace(REFERENCE_PATTERN, " ").replace(/\s+/g, " ").trim();
+      return { kind: named, reference, choice: null, note: remainder || null, explicit };
+    }
   }
 
   const stripped = reference ? text.replace(REFERENCE_PATTERN, " ") : text;
@@ -118,7 +182,33 @@ export function parseOwnerCommand(input: string): OwnerCommand {
     .replace(/\s+/g, " ")
     .trim();
 
-  return { kind, reference, choice: null, note: note || null };
+  return { kind, reference, choice: null, note: note || null, explicit };
+}
+
+/**
+ * The commands, as the owner sees them.
+ *
+ * Written out because the slash made this a vocabulary somebody has to know
+ * rather than words they happened to use. `/help` is the one command whose job
+ * is to make the other seven discoverable.
+ */
+export function formatOwnerHelp(): string {
+  return [
+    "*Owner commands*",
+    "",
+    "A message starting with / is always a command. Anything else is an",
+    "ordinary conversation — the words below only act on their own while a",
+    "decision is actually waiting.",
+    "",
+    "/pending — what is waiting for you",
+    "/approve [ref] [note] — approve it",
+    "/reject [ref] [note] — reject it",
+    "/takeover — answer this customer yourself",
+    "/ai — hand the conversation back to the assistant",
+    "/info — ask the assistant to explain the case",
+    "/1 /2 /3 /4 — the numbered choices on a notification",
+    "/help — this list",
+  ].join("\n");
 }
 
 export interface PendingApproval {

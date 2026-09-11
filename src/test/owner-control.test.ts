@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   formatAmbiguityPrompt,
+  formatOwnerHelp,
   formatOwnerNotification,
   formatPendingList,
   isOwner,
@@ -243,5 +244,158 @@ describe("owner contact stays configurable and private", () => {
     const handleAt = webhook.indexOf("handleOwnerCommand(db, incoming.from");
     expect(authAt).toBeGreaterThan(-1);
     expect(handleAt).toBeGreaterThan(authAt);
+  });
+});
+
+/** The body of `handleOwnerCommand`, so order can be asserted inside it. */
+function handleOwnerCommandBody(): string {
+  const start = webhook.indexOf("async function handleOwnerCommand(");
+  expect(start).toBeGreaterThan(0);
+  const end = webhook.indexOf("\nasync function ", start + 1);
+  return webhook.slice(start, end > 0 ? end : undefined);
+}
+
+// ── The slash, and the owner's right to hold a conversation ─────────────────
+//
+// The words this parser matches — "ok", "no", «تم», «لا», "details" — are among
+// the most common things anybody says, and the owner is a person who also talks
+// to their own assistant. Every one of those used to be read as a command: an
+// audit row written, a rate-limit slot spent, and "Nothing is waiting for a
+// decision right now." arriving in the middle of a conversation about something
+// else entirely.
+//
+// A slash is always a command. Without one, the words act only while a decision
+// is actually waiting.
+
+describe("a slash is always a command", () => {
+  it("reads every command name after a slash", () => {
+    const cases: Array<[string, string]> = [
+      ["/approve", "approve"],
+      ["/ok", "approve"],
+      ["/yes", "approve"],
+      ["/reject", "reject"],
+      ["/no", "reject"],
+      ["/takeover", "take_over"],
+      ["/ai", "return_to_ai"],
+      ["/resume", "return_to_ai"],
+      ["/info", "more_info"],
+      ["/details", "more_info"],
+      ["/pending", "list_pending"],
+      ["/list", "list_pending"],
+      ["/help", "help"],
+      ["/commands", "help"],
+    ];
+    for (const [input, kind] of cases) {
+      const command = parseOwnerCommand(input);
+      expect(command.kind, input).toBe(kind);
+      expect(command.explicit, input).toBe(true);
+    }
+  });
+
+  it("tolerates the spacing and casing a phone keyboard produces", () => {
+    for (const input of ["/APPROVE", " / approve ", "/Approve"]) {
+      expect(parseOwnerCommand(input).kind, input).toBe("approve");
+      expect(parseOwnerCommand(input).explicit, input).toBe(true);
+    }
+  });
+
+  it("keeps the reference and the note that follow it", () => {
+    const command = parseOwnerCommand("/approve ABCDE ship it today");
+    expect(command.kind).toBe("approve");
+    expect(command.reference).toBe("ABCDE");
+    expect(command.note).toBe("ship it today");
+    expect(command.explicit).toBe(true);
+  });
+
+  it("reads a numbered choice after a slash", () => {
+    expect(parseOwnerCommand("/2")).toMatchObject({ kind: "approve", choice: 2, explicit: true });
+    expect(parseOwnerCommand("/1")).toMatchObject({ kind: "take_over", choice: 1, explicit: true });
+  });
+
+  it("still reads the words it always read, after a slash", () => {
+    // `/وافق` and `/take over` are not in the explicit vocabulary and fall
+    // through to the natural-language matching, which is the point of removing
+    // the slash before parsing rather than branching on it.
+    expect(parseOwnerCommand("/وافق").kind).toBe("approve");
+    expect(parseOwnerCommand("/take over").kind).toBe("take_over");
+  });
+
+  it("lets an explicit name beat the same word inside a sentence", () => {
+    // "/no" is a rejection. Bare "no" in a longer sentence is matched by the
+    // same list, which is exactly why the explicit form is checked first.
+    expect(parseOwnerCommand("/no not that one").kind).toBe("reject");
+  });
+});
+
+describe("without a slash, the owner is talking", () => {
+  it("marks an ordinary message as not explicit", () => {
+    for (const input of ["ok", "تم", "no", "لا", "details", "approve"]) {
+      expect(parseOwnerCommand(input).explicit, input).toBe(false);
+    }
+  });
+
+  it("still parses the words, because they still work while something waits", () => {
+    // The notification says "reply with a number", and it stays true: the
+    // parser is unchanged, only the caller's gate is new.
+    expect(parseOwnerCommand("ok").kind).toBe("approve");
+    expect(parseOwnerCommand("2").kind).toBe("approve");
+    expect(parseOwnerCommand("تم").kind).toBe("approve");
+  });
+
+  it("the webhook drops it when nothing is actually waiting", () => {
+    // The gate, asserted against the source because the alternative is running
+    // a webhook. Returning null is what sends the message on to the assistant.
+    expect(webhook).toContain(
+      "if (!command.explicit && !command.reference && pending.length === 0) return null;",
+    );
+  });
+
+  it("the webhook reads what is pending before it spends anything", () => {
+    // The gate needs the pending list, so the read has to come first — which
+    // also means an ordinary «تم» no longer writes an audit row or burns a
+    // slot of the hourly limit.
+    //
+    // Measured inside the function rather than across the file: the rate
+    // limit's constant is declared hundreds of lines above its use, and an
+    // index into the whole source would compare the wrong two things.
+    const body = handleOwnerCommandBody();
+    const pendingRead = body.indexOf('.from("owner_approvals")');
+    const rateLimitCheck = body.indexOf(">= OWNER_COMMAND_LIMIT_PER_HOUR");
+    const auditWrite = body.indexOf("owner_command_${command.kind}");
+    for (const [name, at] of [["pending read", pendingRead], ["rate limit", rateLimitCheck], ["audit", auditWrite]] as const) {
+      expect(at, name).toBeGreaterThan(0);
+    }
+    expect(pendingRead).toBeLessThan(rateLimitCheck);
+    expect(pendingRead).toBeLessThan(auditWrite);
+  });
+
+  it("keeps a named reference working either way", () => {
+    // Nobody types "ABCDE" by accident, so a reference is an instruction even
+    // without a slash — and the webhook's gate says so.
+    const command = parseOwnerCommand("approve ABCDE");
+    expect(command.reference).toBe("ABCDE");
+    expect(command.explicit).toBe(false);
+    expect(webhook).toContain("!command.reference");
+  });
+});
+
+describe("/help", () => {
+  it("names every command the parser accepts", () => {
+    const help = formatOwnerHelp();
+    for (const command of ["/pending", "/approve", "/reject", "/takeover", "/ai", "/info", "/help"]) {
+      expect(help, command).toContain(command);
+    }
+  });
+
+  it("says the rule the owner actually needs to know", () => {
+    expect(formatOwnerHelp()).toContain("/ is always a command");
+  });
+
+  it("costs nothing: no lookup, no rate-limit slot, no audit row", () => {
+    // Answered before any of those, which is what makes it safe to type twice.
+    const body = handleOwnerCommandBody();
+    const help = body.indexOf('if (command.kind === "help") return formatOwnerHelp();');
+    expect(help).toBeGreaterThan(0);
+    expect(help).toBeLessThan(body.indexOf('.from("owner_approvals")'));
   });
 });
