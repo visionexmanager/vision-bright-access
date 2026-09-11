@@ -932,6 +932,19 @@ const BASE_STRINGS = {
     en: "I couldn't reach the channel list just now. Try again shortly, or see them all: {url}",
   },
 
+  // Browsing, which is what somebody who taps *Watch TV* is doing: they have
+  // no channel in mind, so asking them to name one is asking the wrong
+  // question. A category first, then the channels in it, then the one link.
+  tvCategories: { ar: "*ماذا تريد أن تشاهد؟*", en: "*What would you like to watch?*" },
+  tvBrowseButton: { ar: "الفئات", en: "Categories" },
+  /** Carries `{name}`, the category whose channels are listed. */
+  tvInCategory: { ar: "*{name}*", en: "*{name}*" },
+  tvMore: { ar: "قنوات أخرى", en: "More channels" },
+  tvStale: {
+    ar: "هذه القائمة من رسالة سابقة. وهذه الفئات من جديد.",
+    en: "That list came from an earlier message. Here are the categories again.",
+  },
+
   // ── When the bazaar has nothing, the catalogue might ──────────────────
   //
   // A code (VX-…) is the only identifier a customer sees: it names nothing

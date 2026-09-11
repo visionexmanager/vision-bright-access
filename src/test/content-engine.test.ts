@@ -781,7 +781,34 @@ describe("no new Edge Function", () => {
     // one.
     //
     // Three left. The next addition owes a better argument than this one.
-    expect(functions.length).toBeLessThanOrEqual(97);
+    //
+    // 98 as of `mobility`, and here is that argument.
+    //
+    // The specification it comes from asked for nine: `mobility-search`,
+    // `mobility-quotes`, `mobility-book`, `mobility-status`, `mobility-cancel`,
+    // `mobility-webhook`, `mobility-provider-health`, `mobility-oauth-start`
+    // and `mobility-oauth-callback`. Nine would have taken this project to 106
+    // and broken the deploy with a billing error that reads like a bundling
+    // error. It is one function with an action router instead, which is this
+    // rule being obeyed rather than waived.
+    //
+    // It could not be folded into an existing one. `whatsapp-webhook` is a
+    // public endpoint with `verify_jwt = false` that authenticates Meta by HMAC
+    // and has no rider; mobility needs a signed-in rider on every action so the
+    // row-level policies on `mobility_trips` mean something. `ai-generate` is
+    // model calls, and putting a booking route inside it would eventually hand
+    // an AI endpoint a provider's booking credential. `owner-control` decides
+    // approvals for staff. Three different authorisation shapes, none of them
+    // this one.
+    //
+    // And it is the whole of §44: the website and WhatsApp must call one
+    // backend. A second implementation of "book a ride" would be two sets of
+    // providers, two sets of quotes, two histories and two places for a booking
+    // bug to live — which is worth more than a function slot.
+    //
+    // Two left. Retiring something through `supabase/retirement-manifest.json`
+    // is now the cheaper move than the next addition.
+    expect(functions.length).toBeLessThanOrEqual(98);
   });
 
   it("routes everything through ai-generate and owner-control", () => {

@@ -226,10 +226,18 @@ import {
 } from "../_shared/whatsappServices.ts";
 import {
   carriesStream,
+  channelPage,
+  formatChannel,
   formatChannels,
+  noChannelsNotice,
+  parseTvCategorySelection,
+  parseTvChannelSelection,
   parseTvRequest,
+  readCategories,
   readChannels,
   tvUnavailableNotice,
+  TV_CATEGORY_ID_PREFIX,
+  TV_CHANNEL_ID_PREFIX,
 } from "../_shared/whatsappTv.ts";
 import {
   fetchAudio,
@@ -288,6 +296,8 @@ import {
   sendServicesInHub,
   sendSongList,
   sendTappable,
+  sendTvCategories,
+  sendTvChannels,
   type Tappable,
 } from "../_shared/whatsappInteractive.ts";
 import {
@@ -2292,6 +2302,131 @@ Deno.serve(async (req) => {
         log("services", { outcome: "service" });
         await reply(formatService({ service, language: answerLanguage }), "reply");
         continue;
+      }
+
+      // ── VisionTV: a tapped category, and a tapped channel ─────────────
+      //
+      // Two rows, two steps of one act. Handled here with the other row ids
+      // rather than in the TV block below, for the reason the services rows
+      // give: the catalog has no node for a category, so the router would
+      // rightly call one a row this build no longer has.
+      //
+      // Nothing is remembered between them. A list outlives the delivery that
+      // sent it — somebody opens WhatsApp an hour later and taps — so the row
+      // carries the slug and the page, and both are looked up again. That
+      // survives a restart, where a session does not.
+
+      /** The categories, read and sent. Also the answer to a row gone stale. */
+      const showTvCategories = async (): Promise<boolean> => {
+        const { data, error } = await db
+          .from("tv_categories")
+          .select("id, slug, name, name_ar")
+          .order("sort_order", { ascending: true });
+        if (error) {
+          console.error("[whatsapp] tv categories failed:", describeError(error));
+          log("tv", { outcome: "unavailable" });
+          await reply(tvUnavailableNotice(answerLanguage), "unsupported");
+          return false;
+        }
+        const categories = readCategories(data);
+        if (categories.length === 0) {
+          log("tv", { outcome: "empty", count: 0 });
+          await reply(noChannelsNotice(answerLanguage), "unsupported");
+          return false;
+        }
+        log("tv", { outcome: "categories", count: categories.length });
+        await sendTvCategories(delivery, categories, answerLanguage);
+        return true;
+      };
+
+      if (!humanOwnsThis && incoming.selection?.startsWith(TV_CATEGORY_ID_PREFIX)) {
+        const picked = parseTvCategorySelection(incoming.selection);
+        try {
+          const { data: categoryRows } = picked
+            ? await db
+              .from("tv_categories")
+              .select("id, slug, name, name_ar")
+              .eq("slug", picked.category)
+              .limit(1)
+            : { data: null };
+          const category = readCategories(categoryRows)[0] ?? null;
+          if (!picked || !category) {
+            log("tv", { outcome: "stale" });
+            await reply(say("tvStale", answerLanguage), "reply");
+            await showTvCategories();
+            continue;
+          }
+
+          const { data: rows, error } = await db
+            .from("tv_channels_public")
+            .select("id, name, name_ar, description, description_ar, language, country, quality, is_featured")
+            .eq("category_id", category.id)
+            .order("is_featured", { ascending: false })
+            .order("sort_order", { ascending: true })
+            .limit(200);
+          if (error) throw error;
+
+          // The same guard the search below carries. A row with a stream
+          // column means the query has been pointed at the table, and the
+          // honest answer then is no channels rather than a leak.
+          const safe = Array.isArray(rows) ? rows.filter((row) => !carriesStream(row)) : rows;
+          const channels = readChannels(safe);
+          if (channels.length === 0) {
+            log("tv", { outcome: "empty", count: 0 });
+            await reply(noChannelsNotice(answerLanguage), "unsupported");
+            continue;
+          }
+
+          // The page number is not logged. It would be harmless, but the field
+          // allowlist is a privacy boundary and widening one to record which
+          // page of a menu somebody was on is not a trade worth making.
+          const current = channelPage(channels, picked.page);
+          log("tv", { outcome: "listed", count: current.channels.length });
+          await sendTvChannels(delivery, {
+            category,
+            channels: current.channels,
+            page: current.page,
+            hasMore: current.hasMore,
+            language: answerLanguage,
+          });
+          continue;
+        } catch (e) {
+          console.error("[whatsapp] tv category failed:", describeError(e));
+          log("tv", { outcome: "unavailable" });
+          await reply(tvUnavailableNotice(answerLanguage), "unsupported");
+          continue;
+        }
+      }
+
+      if (!humanOwnsThis && incoming.selection?.startsWith(TV_CHANNEL_ID_PREFIX)) {
+        const channelId = parseTvChannelSelection(incoming.selection);
+        try {
+          const { data: rows, error } = channelId
+            ? await db
+              .from("tv_channels_public")
+              .select("id, name, name_ar, description, description_ar, language, country, quality, is_featured")
+              .eq("id", channelId)
+              .limit(1)
+            : { data: null, error: null };
+          if (error) throw error;
+
+          const safe = Array.isArray(rows) ? rows.filter((row) => !carriesStream(row)) : rows;
+          const channel = readChannels(safe)[0] ?? null;
+          if (!channel) {
+            log("tv", { outcome: "stale" });
+            await reply(say("tvStale", answerLanguage), "reply");
+            await showTvCategories();
+            continue;
+          }
+          log("tv", { outcome: "channel" });
+          await reply(formatChannel({ channel, language: answerLanguage }), "reply");
+          continue;
+        } catch (e) {
+          console.error("[whatsapp] tv channel failed:", describeError(e));
+          log("tv", { outcome: "unavailable" });
+          await reply(tvUnavailableNotice(answerLanguage), "unsupported");
+          continue;
+        }
       }
 
       // ── A tapped headline ─────────────────────────────────────────────
@@ -4369,6 +4504,21 @@ Deno.serve(async (req) => {
       // subscription check and the stream token live.
       const tvRequest = aiFocused || !featureOn("listen.tv") ? null : parseTvRequest(questionText);
       if (tvRequest?.confident && !humanOwnsThis) {
+        // Nothing to search for means nobody named a channel — they tapped
+        // *Watch TV*, or said the word and nothing else. The old answer was the
+        // five most featured channels on earth, which is a shelf, not a menu.
+        // Categories are the question they can actually answer.
+        if (tvRequest.terms.length === 0) {
+          try {
+            await showTvCategories();
+            continue;
+          } catch (e) {
+            console.error("[whatsapp] tv categories failed:", describeError(e));
+            log("tv", { outcome: "unavailable" });
+            await reply(tvUnavailableNotice(answerLanguage), "unsupported");
+            continue;
+          }
+        }
         try {
           // Terms are stripped of everything that is not a letter, a digit or a
           // space by `channelTerms`, which is what makes interpolating them
