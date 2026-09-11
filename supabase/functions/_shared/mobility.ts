@@ -16,40 +16,31 @@
 // The provider-shaped half lives in `mobilityProviders.ts`, which imports this
 // and never the other way round.
 
-// ── Money ───────────────────────────────────────────────────────────────────
+// ── What every booking shares ───────────────────────────────────────────────
 //
-// Minor units and a currency, never a float. A fare is compared, summed and
-// stored; `18.50` in binary floating point is none of those things reliably,
-// and a currency that is not carried beside its amount is a number that will
-// eventually be added to a different one.
+// Money, the confirmation rule and the concurrent gather are not mobility
+// concepts — they are booking concepts, and flights need the same three. They
+// moved to `booking.ts` when the second domain arrived, and are re-exported
+// here so nothing that already imported them from this module had to change.
+//
+// A second `Money` or a second confirmation rule would be one rule and one bug
+// waiting for somebody to fix only the other.
 
-export interface Money {
-  /** Minor units — cents, fils, pence. Never a decimal fraction. */
-  amount: number;
-  /** ISO 4217, uppercase. */
-  currency: string;
-}
+export {
+  formatMoney,
+  isExplicitConfirmation,
+  money,
+  sameCurrency,
+  type Money,
+} from "./booking.ts";
+
+import { isFresh, money, type Money } from "./booking.ts";
 
 /** A fare a provider expressed as a range rather than a figure. */
 export interface MoneyRange {
   min: Money;
   max: Money;
 }
-
-export const money = (amount: number, currency: string): Money => ({
-  amount: Math.round(amount),
-  currency: currency.toUpperCase(),
-});
-
-/**
- * Two prices are comparable only inside one currency.
- *
- * Ranking across currencies would need a rate, a rate has an age, and a stale
- * rate silently reorders a list somebody is about to spend money from. So a
- * mixed-currency list is grouped rather than converted, and the caller decides
- * what to show — see `rankQuotes`, which never compares across them.
- */
-export const sameCurrency = (a: Money, b: Money): boolean => a.currency === b.currency;
 
 // ── Where ───────────────────────────────────────────────────────────────────
 
@@ -279,10 +270,8 @@ export function comparablePrice(quote: MobilityQuote): Money | null {
 }
 
 /** Whether a quote is still worth showing — and, before booking, still valid. */
-export function quoteIsFresh(quote: MobilityQuote, nowMs: number): boolean {
-  const expiry = Date.parse(quote.expiresAt);
-  return Number.isFinite(expiry) && expiry > nowMs;
-}
+export const quoteIsFresh = (quote: MobilityQuote, nowMs: number): boolean =>
+  isFresh(quote.expiresAt, nowMs);
 
 export type QuoteRanking = "cheapest" | "fastest" | "best_value" | "most_accessible";
 
@@ -397,28 +386,6 @@ export function missingFromIntent(intent: MobilityIntent): Array<"pickup" | "des
   return missing;
 }
 
-// ── Confirmation ────────────────────────────────────────────────────────────
-//
-// A booking spends a rider's money. It happens on an unambiguous yes and on
-// nothing else — not on a hedge, not on a question, and not on silence.
-
-const YES = /^(yes|yeah|yep|ok|okay|sure|confirm|confirmed|book it|book|do it|go ahead|please do)$/i;
-const YES_AR = /^(نعم|أجل|اجل|اوك|أوكي|تمام|أكد|اكد|أكيد|اكيد|احجز|احجزها|موافق|موافقة|يلا|ماشي)$/;
-
-/**
- * Whether this message is a yes.
- *
- * Whole message only, and a deliberately short list. "Maybe", "I think so" and
- * "how much again?" are all not-a-yes, and the cost of reading one of them as
- * consent is a car arriving and a fare charged. When this returns false the
- * caller asks again — which is cheap — rather than booking, which is not.
- */
-export function isExplicitConfirmation(text: string | null | undefined): boolean {
-  const value = (text ?? "").trim().replace(/^[\s.!،,]+|[\s.!،,]+$/g, "");
-  if (!value || [...value].length > 24) return false;
-  return YES.test(value) || YES_AR.test(value);
-}
-
 // ── Time ────────────────────────────────────────────────────────────────────
 
 /**
@@ -448,17 +415,5 @@ export function formatPickupTime(
       timeStyle: "short",
       timeZone: "UTC",
     }).format(when);
-  }
-}
-
-/** A fare, in the currency the provider quoted and never converted silently. */
-export function formatMoney(value: Money, locale: string): string {
-  try {
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency: value.currency,
-    }).format(value.amount / 100);
-  } catch {
-    return `${(value.amount / 100).toFixed(2)} ${value.currency}`;
   }
 }
