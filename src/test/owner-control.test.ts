@@ -125,6 +125,20 @@ describe("the owner is a customer unless they type a slash", () => {
     }
   });
 
+  it("does not find a command hiding inside an Arabic word", () => {
+    // Reported: "ما هي اخر الاخبار" came back as "Nothing is waiting for a
+    // decision right now." The Arabic patterns carry no word boundaries — \b
+    // does not work between Arabic letters — so the "لا" inside "الاخبار"
+    // matched the reject word, and a question about the news was read as a
+    // refusal. The prefix is what makes the sentence unreachable; these
+    // patterns are still substrings by design, because they have to match
+    // inside "/ارفض هذا الطلب" too.
+    for (const sentence of ["ما هي اخر الاخبار", "شو صار بالاخبار اليوم",
+                            "بدي اعرف اخر الاخبار"]) {
+      expect(parseOwnerCommand(sentence).kind, sentence).toBe("unknown");
+    }
+  });
+
   it("carries no reference either, so the webhook falls through", () => {
     // `handleOwnerCommand` returns null on unknown-and-unreferenced, and a
     // reference smuggled out of a sentence would stop that happening.
