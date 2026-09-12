@@ -199,3 +199,46 @@ describe("Supabase Edge Function deployment scope", () => {
     expect(edgeDeploy).not.toMatch(/\[\[ -z "\$before_sha" \]\][\s\S]{0,100}list_all_functions/);
   });
 });
+
+describe("Deploy releases only commits CI passed", () => {
+  // Normalised first: this checkout is CRLF, and a pattern written with `\n`
+  // passes on CI's LF checkout while matching nothing here — or the reverse.
+  const text = deploy.replace(/\r\n/g, "\n");
+  const triggers = text.slice(text.indexOf("\non:\n"), text.indexOf("\nconcurrency:"));
+  const workflowRun = triggers.slice(triggers.indexOf("workflow_run:"), triggers.indexOf("workflow_dispatch:"));
+  const gate = text.slice(text.indexOf("\n  gate:\n"), text.indexOf("\n  deploy-vps:"));
+
+  it("is triggered by main's CI only, so other branches leave no skipped run on main", () => {
+    // reconcile-release.yml reads a commit whose only Deploy runs are skipped
+    // as failed and refuses to recover it. Those skipped runs came from CI
+    // finishing on other branches.
+    expect(workflowRun).toMatch(/^\s+branches: \[main\]$/m);
+  });
+
+  it("keeps the job-level branch check as well", () => {
+    expect(gate).toContain("github.event.workflow_run.head_branch == 'main'");
+  });
+
+  it("checks CI for the exact commit before a manual dispatch deploys", () => {
+    expect(gate).toContain("if: github.event_name == 'workflow_dispatch'");
+    expect(gate).toContain("--workflow ci.yml");
+    expect(gate).toContain('--commit "$GITHUB_SHA"');
+    expect(gate).toContain('"refs/heads/main"');
+    expect(gate).toContain("actions: read");
+  });
+
+  it("stops on a failed CI but waits on an unfinished one rather than failing the run", () => {
+    // generate-locales.yml dispatches Deploy straight after its own push, and a
+    // Deploy run that fails is one the reconciler will never retry.
+    expect(gate).toMatch(/failed\)\s*echo "::error::CI failed/);
+    expect(gate).not.toMatch(/running\)\s*echo "::error::/);
+    expect(gate).toContain("sleep 30");
+  });
+
+  it("gives the wait a job timeout longer than its own deadline", () => {
+    const deadline = Number(gate.match(/\+ (\d+) \* 60/)?.[1]);
+    const timeout = Number(gate.match(/timeout-minutes: (\d+)/)?.[1]);
+    expect(deadline).toBeGreaterThan(0);
+    expect(timeout).toBeGreaterThan(deadline);
+  });
+});
