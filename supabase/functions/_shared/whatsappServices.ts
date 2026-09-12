@@ -266,7 +266,7 @@ export function parseServicesRequest(text: string | null | undefined): boolean {
 export const SERVICE_MATCH_LIMIT = 3;
 
 /** Words too common to carry a match on their own, in the two search languages. */
-const STOP_WORDS: ReadonlySet<string> = new Set([
+const STOP_WORD_SOURCE: readonly string[] = [
   "a",
   "an",
   "the",
@@ -294,7 +294,19 @@ const STOP_WORDS: ReadonlySet<string> = new Set([
   "على",
   "خدمة",
   "خدمات",
-]);
+];
+
+/**
+ * The stop words, folded the same way a message is.
+ *
+ * `normaliseAlias` rewrites Arabic before comparing — «ة» becomes «ه», the
+ * hamza forms collapse onto «ا», diacritics go — so a stop word written the way
+ * a keyboard types it never matches the folded token. «خدمة» folds to «خدمه»
+ * and the set was being asked about «خدمة»: the word was in the list and the
+ * list did nothing. Folding both sides is the fix that cannot drift, rather
+ * than hand-writing every entry pre-folded and hoping the next one is too.
+ */
+const STOP_WORDS: ReadonlySet<string> = new Set(STOP_WORD_SOURCE.map(normaliseAlias));
 
 /**
  * The services that match what somebody typed, best first.

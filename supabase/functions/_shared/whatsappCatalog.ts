@@ -78,6 +78,7 @@ export type HandlerId =
   | "prompt"          // built, and waiting for the file or photo it acts on
   | "info"            // answers with what this is and where the rest of it lives
   | "services"        // the Service Center: browse the hubs, or say what you need
+  | "games"           // the Arcade: browse the categories, or name a game
   | "coming_soon";    // declared, announced, not built yet
 
 export interface CatalogNode {
@@ -264,7 +265,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // scanning, and the icon is the fastest thing on the row to read.
     emoji: "📚",
     title: { ar: "تعلّم واستكشف", en: "Learn & explore" },
-    description: { ar: "الأكاديمية والأطفال والأخبار والخدمات", en: "Academy, kids, news and services" },
+    description: { ar: "الأكاديمية والألعاب والأخبار والخدمات", en: "Academy, games, news and services" },
   },
   {
     id: "ocr",
@@ -467,6 +468,51 @@ const BASE_CATALOG: readonly CatalogNode[] = [
       ru: ["услуги"],
     },
     handler: "services",
+    accepts: ["text"],
+  },
+  {
+    // Visionex Arcade, which this channel has never had a door to either.
+    //
+    // A hundred and sixteen games, a hundred and thirteen of them built to be
+    // played without sight. That is most of what the Arcade *is*, and until now
+    // a blind sender had no way to learn any of it existed.
+    //
+    // One node rather than thirty-one, for the reason the Service Center is one
+    // node rather than fifty-five: Meta allows ten rows in a list, so the tree
+    // could never hold the categories, and a catalog entry per game would be a
+    // second copy of a catalogue that already has a single source of truth.
+    // `whatsappGames.ts` reads the snapshot derived from it instead.
+    id: "explore.games",
+    parent: "explore",
+    order: 6,
+    kind: "action",
+    enabled: true,
+    emoji: "🎮",
+    title: { ar: "الألعاب", en: "Games" },
+    description: { ar: "ألعاب Visionex، أكثرها بلا نظر", en: "Arcade games, most playable unsighted" },
+    aliases: {
+      ar: ["العاب", "ألعاب", "الالعاب", "الألعاب", "لعبة", "العب", "ارکيد"],
+      en: ["games", "game", "arcade", "play", "play a game"],
+      ur: ["کھیل", "گیمز"],
+      hi: ["खेल", "गेम", "गेम्स"],
+      id: ["permainan", "game", "gim"],
+      ja: ["ゲーム", "ゲーム一覧"],
+      it: ["giochi", "gioco"],
+      ko: ["게임", "게임 목록"],
+      nl: ["spellen", "spel"],
+      pl: ["gry", "gra"],
+      vi: ["trò chơi", "game"],
+      bn: ["খেলা", "গেম"],
+      fa: ["بازی", "بازی‌ها", "بازی ها"],
+      es: ["juegos", "juego"],
+      de: ["spiele", "spiel"],
+      pt: ["jogos", "jogo"],
+      zh: ["游戏", "遊戲"],
+      tr: ["oyunlar", "oyun"],
+      fr: ["jeux", "jeu"],
+      ru: ["игры", "игра"],
+    },
+    handler: "games",
     accepts: ["text"],
   },
   {
