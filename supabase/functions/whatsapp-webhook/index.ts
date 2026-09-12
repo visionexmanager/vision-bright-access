@@ -226,6 +226,20 @@ import {
   SERVICES_URL,
 } from "../_shared/whatsappServices.ts";
 import {
+  ARCADE_URL,
+  CATEGORY_ID_PREFIX,
+  CATEGORY_LIST_PREFIX,
+  categoryById,
+  formatGame,
+  GAME_ID_PREFIX,
+  gameBySlug,
+  parseCategoryListSelection,
+  parseCategorySelection,
+  parseGameSelection,
+  parseGamesRequest,
+  searchGames,
+} from "../_shared/whatsappGames.ts";
+import {
   carriesStream,
   channelPage,
   formatChannel,
@@ -298,6 +312,9 @@ import {
   sendProfileChoice,
   sendQuestion,
   kidsMessage,
+  sendGameCategories,
+  sendGameMatches,
+  sendGamesInCategory,
   sendNewsList,
   sendServiceHubs,
   sendServiceMatches,
@@ -563,6 +580,45 @@ async function handleOwnerCommand(
     return formatOwnerHelp();
   }
 
+  // `/help` needs nothing: not a lookup, not a rate-limit slot, not an audit
+  // row. It is a list of words, and answering it is never a decision.
+  if (command.kind === "help") return formatOwnerHelp();
+
+  // Content proposals are decided in the Owner Control Centre, where the
+  // proposal and its approval move together. Excluding them here is what keeps
+  // that true over this channel: a reference the listing never surfaced cannot
+  // be found below, so the existing "no pending decision" reply answers it and
+  // the engine is never reached. No branch, and nothing else changes.
+  //
+  // Read *before* the rate limit and the audit row rather than after, which is
+  // what the gate below needs — see it for why.
+  const { data: pendingRows } = await db
+    .from("owner_approvals")
+    .select("reference, action_type, title, summary, escalation_id")
+    .eq("state", "WAITING_FOR_APPROVAL")
+    .neq("action_type", "content_publish")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const pending = (pendingRows ?? []) as Array<PendingApproval & { escalation_id: string | null }>;
+
+  // ── The owner is allowed to talk ────────────────────────────────────────
+  //
+  // "ok", "no", «تم», «لا», "details" are among the most common things anybody
+  // says, and the owner is a person who also has ordinary conversations with
+  // their own assistant. Every one of those used to be parsed as a command:
+  // audit row written, rate-limit slot spent, and the reply "Nothing is waiting
+  // for a decision right now." in the middle of a conversation about something
+  // else entirely.
+  //
+  // A slash is always a command. Without one, the words act only while a
+  // decision is actually waiting — which is the only moment they are
+  // unambiguous, and the moment the notification asked for them. Otherwise this
+  // returns null and the message carries on to the assistant, untouched.
+  //
+  // A named reference is a command either way: nobody types "ABCDE" by accident.
+  if (!command.explicit && !command.reference && pending.length === 0) return null;
+
   // Rate limit: an owner handset that has been taken over should not be able
   // to churn through every pending decision unchecked.
   const { count } = await db
@@ -581,21 +637,6 @@ async function handleOwnerCommand(
     entity_id: null,
     metadata: { kind: command.kind, reference: command.reference, choice: command.choice },
   });
-
-  // Content proposals are decided in the Owner Control Centre, where the
-  // proposal and its approval move together. Excluding them here is what keeps
-  // that true over this channel: a reference the listing never surfaced cannot
-  // be found below, so the existing "no pending decision" reply answers it and
-  // the engine is never reached. No branch, and nothing else changes.
-  const { data: pendingRows } = await db
-    .from("owner_approvals")
-    .select("reference, action_type, title, summary, escalation_id")
-    .eq("state", "WAITING_FOR_APPROVAL")
-    .neq("action_type", "content_publish")
-    .gt("expires_at", new Date().toISOString())
-    .order("created_at", { ascending: false })
-    .limit(20);
-  const pending = (pendingRows ?? []) as Array<PendingApproval & { escalation_id: string | null }>;
 
   if (command.kind === "list_pending") return formatPendingList(pending);
 
@@ -2341,6 +2382,53 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── A tapped kind of game, or a tapped game ───────────────────────
+      //
+      // Handled here for the reason a headline and a service row are: the
+      // catalog has no node for a game, so the router would rightly call one of
+      // these a row this build no longer has.
+      //
+      // Nothing is looked up in a database. The Arcade catalogue is a build
+      // artefact compiled into the function, so a row naming a game this
+      // deployment does not have is a row from an older deployment — answered
+      // by showing the kinds of game again rather than by an apology that
+      // explains a release process to somebody who wanted to play chess.
+      if (!humanOwnsThis && incoming.selection?.startsWith(CATEGORY_LIST_PREFIX)) {
+        const page = parseCategoryListSelection(incoming.selection) ?? 0;
+        log("games", { outcome: "categories" });
+        await sendGameCategories(delivery, page, answerLanguage);
+        continue;
+      }
+
+      if (!humanOwnsThis && incoming.selection?.startsWith(CATEGORY_ID_PREFIX)) {
+        const picked = parseCategorySelection(incoming.selection);
+        const category = picked ? categoryById(picked.category) : null;
+        if (!category) {
+          log("games", { outcome: "stale" });
+          await sendGameCategories(delivery, 0, answerLanguage);
+          continue;
+        }
+        log("games", { outcome: "category" });
+        await sendGamesInCategory(delivery, category, picked!.page, answerLanguage);
+        continue;
+      }
+
+      if (!humanOwnsThis && incoming.selection?.startsWith(GAME_ID_PREFIX)) {
+        const slug = parseGameSelection(incoming.selection);
+        const game = slug ? gameBySlug(slug) : null;
+        if (!game) {
+          log("games", { outcome: "stale" });
+          await reply(say("gamesNone", answerLanguage).replace("{url}", ARCADE_URL), "reply");
+          await sendGameCategories(delivery, 0, answerLanguage);
+          continue;
+        }
+        // The link that starts the game, not the Arcade index: somebody who has
+        // just chosen from a list should not be handed another list.
+        log("games", { outcome: "game" });
+        await reply(formatGame({ game, language: answerLanguage }), "reply");
+        continue;
+      }
+
       // ── A tapped area, or a tapped service ────────────────────────────
       //
       // Handled here for the reason a headline and a language row are: the
@@ -3533,6 +3621,37 @@ Deno.serve(async (req) => {
             session = releaseFloor(session);
             await saveSession();
             // falls through, still carrying what they asked
+          } else if (node.handler === "games") {
+            // The Arcade. Opening it shows the kinds of game there are; typing
+            // while inside it names one — "chess", «شطرنج», "puzzle" — matched
+            // against the catalogue's own retrieval strings, so the words that
+            // find a game here are the words that find it on the site.
+            if (opening) {
+              await sendGameCategories(delivery, 0, answerLanguage);
+              log("games", { outcome: "categories" });
+              await saveSession();
+              continue;
+            }
+
+            // `questionText`, not `incoming.text`: a voice note has already been
+            // transcribed into it by here, so saying the name of a game works
+            // the same as typing it.
+            const found = searchGames(questionText);
+            if (found.length > 0) {
+              log("games", { outcome: "matched", count: found.length });
+              await sendGameMatches(delivery, found, answerLanguage);
+              await saveSession();
+              continue;
+            }
+
+            // Nothing in the Arcade answers this, so it was probably never
+            // about the Arcade. Standing in a games menu is not a promise that
+            // every later sentence names a game — the floor is released and the
+            // message carries on to the pipeline that can answer it.
+            log("games", { outcome: "no_match" });
+            session = releaseFloor(session);
+            await saveSession();
+            // falls through, still carrying what they asked
           } else if (node.handler === "coming_soon") {
             await reply(
               node.intro
@@ -3945,6 +4064,25 @@ Deno.serve(async (req) => {
       // belongs inside the feature where a miss can say so, rather than out
       // here where every unmatched sentence in the conversation would have to
       // be tested against fifty-five services first.
+      // ── The Arcade ─────────────────────────────────────────────────────
+      //
+      // The name of the section, typed or spoken, opens it — the same door the
+      // menu row is. Only the name: `parseGamesRequest` matches the whole
+      // message against a short cap, so "the delivery game you are playing with
+      // my order" stays a complaint and is not answered with a games menu.
+      if (
+        !humanOwnsThis && !aiFocused && parseGamesRequest(questionText) &&
+        featureOn("explore.games")
+      ) {
+        log("games", { outcome: "categories" });
+        await sendGameCategories(delivery, 0, answerLanguage);
+        // Left standing in the Arcade, so the next thing they type is read as
+        // the name of a game rather than as a question for the model.
+        session = enter(session, "explore.games");
+        await saveSession();
+        continue;
+      }
+
       if (
         !humanOwnsThis && !aiFocused && parseServicesRequest(questionText) &&
         featureOn("explore.services")

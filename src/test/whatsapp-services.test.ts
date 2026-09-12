@@ -213,7 +213,10 @@ describe("finding a service by saying what you need", () => {
   });
 
   it("answers nothing rather than everything when there is nothing to go on", () => {
-    for (const query of ["", "   ", "بدي", "I need", "the", "a"]) {
+    // «خدمة» and «خدمات» are the regression: `normaliseAlias` rewrites «ة» to
+    // «ه» before comparing, so a stop word written the way a keyboard types it
+    // was in the list and doing nothing. Both sides are folded now.
+    for (const query of ["", "   ", "بدي", "I need", "the", "a", "خدمة", "خدمات", "service"]) {
       expect(services.searchServices(query), query).toEqual([]);
     }
   });

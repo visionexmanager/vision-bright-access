@@ -82,6 +82,17 @@ import { GENDERS } from "./whatsappProfile.ts";
 import { say } from "./whatsappStrings.ts";
 import { sendWhatsAppInteractive, sendWhatsAppText } from "./whatsapp.ts";
 import { trace } from "./whatsappTelemetry.ts";
+import {
+  categoryLabel as gameCategoryLabel,
+  categoryListRowId,
+  categoryPage,
+  categoryRowId,
+  gamePage,
+  gameRowId,
+  gameText,
+  type GameCategory,
+  type GameRecord,
+} from "./whatsappGames.ts";
 
 /** The id the "start again from the top" control carries, everywhere. */
 export const MAIN_MENU_ID = "main_menu";
@@ -919,6 +930,134 @@ export async function sendServiceMatches(
   await sendTappable(to, message);
   return message;
 }
+
+// ── Visionex Arcade ──────────────────────────────────────────────────────────
+//
+// Three lists, the same shape as the Service Center's, because they are the
+// same gesture: browse a taxonomy the site already has, or say what you want.
+// Everything rendered comes from `whatsappGames.ts`; this file only knows
+// Meta's limits.
+
+/** One list of Arcade rows, with its text twin. */
+function arcadeListMessage(params: {
+  heading: string;
+  rows: Row[];
+  language: Language;
+}): Tappable {
+  const { heading, rows, language } = params;
+  const body = say("gamesHint", language);
+  const button = say("gamesButton", language);
+  const withControls = [...rows, ...controlRows("explore.games", language)];
+
+  return {
+    interactive: {
+      type: "list",
+      header: { type: "text", text: clip(heading.replace(/\*/g, ""), LIST_LIMITS.header) },
+      body: { text: clip(body, LIST_LIMITS.body) },
+      action: {
+        button: clip(button, LIST_LIMITS.button),
+        sections: [{ title: clip(button, LIST_LIMITS.rowTitle), rows: clipRows(withControls) }],
+      },
+    },
+    // The twin carries the full, unclipped titles. A row title is cut at 24
+    // characters and "Royal Game of Ur" fits but "Basketball Challenge" is
+    // close, so outside the 24-hour window this is the readable version.
+    text: [heading, "", ...rows.map((row) => `• ${row.title}`), "", body].join("\n"),
+  };
+}
+
+/** How many games a category holds, as the line under its row. */
+const categoryRow = (category: GameCategory, language: Language): Row => ({
+  id: categoryRowId(category.id, 0),
+  title: gameCategoryLabel(category, language),
+});
+
+/** One game's row: its name, and what it is underneath. */
+const gameRows = (games: readonly GameRecord[], language: Language): Row[] =>
+  games.map((game) => {
+    const { title, description } = gameText(game, language);
+    return { id: gameRowId(game.slug), title, ...(description ? { description } : {}) };
+  });
+
+/**
+ * The kinds of game there are, a page at a time.
+ *
+ * The categories rather than the games, because there are a hundred and sixteen
+ * games and a list holds ten rows. Largest category first — the index decides
+ * that ordering, so a list read aloud puts the ones most people want first.
+ */
+export function gameCategoriesMessage(params: { page: number; language: Language }): Tappable {
+  const { page, language } = params;
+  const current = categoryPage(page);
+  const rows = current.items.map((category) => categoryRow(category, language));
+  if (current.hasMore) {
+    rows.push({ id: categoryListRowId(current.page + 1), title: say("servicesMore", language) });
+  }
+  return arcadeListMessage({ heading: say("gamesHeading", language), rows, language });
+}
+
+/** The games in one category, a page at a time. */
+export function gameCategoryMessage(params: {
+  category: GameCategory;
+  page: number;
+  language: Language;
+}): Tappable {
+  const { category, page, language } = params;
+  const current = gamePage(category.id, page);
+  const rows = gameRows(current.items, language);
+  if (current.hasMore) {
+    rows.push({ id: categoryRowId(category.id, current.page + 1), title: say("servicesMore", language) });
+  }
+  return arcadeListMessage({ heading: gameCategoryLabel(category, language), rows, language });
+}
+
+/** What somebody asked for, as rows they can open. */
+export function gameMatchesMessage(params: {
+  games: readonly GameRecord[];
+  language: Language;
+}): Tappable {
+  const { games, language } = params;
+  return arcadeListMessage({
+    heading: say("gamesMatches", language),
+    rows: gameRows(games, language),
+    language,
+  });
+}
+
+/** The kinds of game, delivered. */
+export async function sendGameCategories(
+  to: Delivery,
+  page: number,
+  language: Language,
+): Promise<Tappable> {
+  const message = gameCategoriesMessage({ page, language });
+  await sendTappable(to, message);
+  return message;
+}
+
+/** One category's games, delivered. */
+export async function sendGamesInCategory(
+  to: Delivery,
+  category: GameCategory,
+  page: number,
+  language: Language,
+): Promise<Tappable> {
+  const message = gameCategoryMessage({ category, page, language });
+  await sendTappable(to, message);
+  return message;
+}
+
+/** The matches for what somebody typed, delivered. */
+export async function sendGameMatches(
+  to: Delivery,
+  games: readonly GameRecord[],
+  language: Language,
+): Promise<Tappable> {
+  const message = gameMatchesMessage({ games, language });
+  await sendTappable(to, message);
+  return message;
+}
+
 
 // ── VisionTV ────────────────────────────────────────────────────────────────
 //
