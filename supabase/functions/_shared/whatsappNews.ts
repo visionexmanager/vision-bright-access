@@ -114,8 +114,16 @@ export function articleText(
   };
 }
 
-/** Longest a message can be and still be read as a request for the news. */
-const NEWS_MAX_CHARS = 40;
+/**
+ * Longest a message can be and still be read as a request for the news.
+ *
+ * Wider than it was. It bounded a rule that matched the whole message against
+ * one word, so forty characters was generous; it now bounds a rule that reads a
+ * short *sentence* — "send me a voice bulletin of the top technology news" is
+ * fifty-one — and the safety no longer rests on the cap alone. See
+ * `parseNewsAsk`: every word of the message has to be accounted for.
+ */
+const NEWS_MAX_CHARS = 90;
 
 /**
  * Every word that asks for the news, in every language, folded once.
@@ -143,17 +151,248 @@ const NEWS_WORDS: ReadonlySet<string> = (() => {
   return words;
 })();
 
+// ── Which news, and in whose words ──────────────────────────────────────────
+//
+// «الأخبار» on its own reached the list. Nothing else did — not «أهم الأخبار
+// التقنية», not "send me the latest tech news", not a sender who said please.
+// Somebody who asked for technology news and received the same five mixed
+// headlines was not answered *badly*; the half of the message that said which
+// news was simply never read.
+//
+// What stops that from becoming a substring hunt — which would answer "أخبار
+// طلبي وين وصلت", a question about somebody's order, with a news bulletin — is
+// that **every word has to be accounted for**. A message is a request for the
+// news when it contains one of the words the catalog declares, and everything
+// else in it is either a word for asking (please, send me, the latest, a voice
+// bulletin) or the name of a section. One unrecognised word and it is not a
+// request for the news at all; it is a sentence that mentions news, and it goes
+// to the assistant like any other sentence.
+
+/**
+ * The sections, by the words somebody types for them.
+ *
+ * The keys are `news_articles.category` values, written by `news-generate`.
+ * Folded through `normaliseAlias` at load, so these can be written the way they
+ * are spelled rather than the way the normaliser leaves them.
+ *
+ * Not every category is here, and that is deliberate: a category nobody has a
+ * natural word for adds a way to mistake an ordinary word for a filter, and
+ * costs nothing when it is absent — the unfiltered list already contains it.
+ */
+const TOPIC_WORDS: ReadonlyArray<readonly [category: string, words: readonly string[]]> = [
+  ["technology", ["تقنية", "التقنية", "تقنيه", "تكنولوجيا", "التكنولوجيا", "technology", "tech"]],
+  ["ai", ["الذكاء الاصطناعي", "ذكاء اصطناعي", "الذكاء الصناعي", "ai", "artificial intelligence"]],
+  ["health", ["صحة", "الصحة", "طبية", "الطب", "health", "medical"]],
+  ["nutrition", ["تغذية", "التغذية", "nutrition"]],
+  ["psychology", ["نفسية", "الصحة النفسية", "علم النفس", "psychology", "mental health"]],
+  ["sports", ["رياضة", "الرياضة", "sports", "sport"]],
+  ["business", ["اعمال", "الاعمال", "business"]],
+  ["world_economy", ["اقتصاد", "الاقتصاد", "الاقتصاد العالمي", "economy", "world economy"]],
+  ["world_politics", ["سياسة", "السياسة", "السياسة العالمية", "politics", "world politics"]],
+  ["games", ["العاب", "الالعاب", "games", "gaming"]],
+  ["academy", ["تعليم", "التعليم", "education", "learning"]],
+  ["accessibility", ["امكانية الوصول", "اتاحة", "الاتاحة", "accessibility"]],
+  ["marketplace", ["التجارة الالكترونية", "تجارة", "التجارة", "ecommerce", "e commerce", "marketplace"]],
+  ["travel", ["سفر", "السفر", "سياحة", "السياحة", "travel", "tourism"]],
+  ["music", ["موسيقى", "الموسيقى", "فنون", "الفنون", "music", "arts"]],
+  ["beauty", ["جمال", "الجمال", "beauty", "lifestyle"]],
+  ["community", ["مجتمع", "المجتمع", "community"]],
+  ["legal", ["قانون", "القانون", "حقوق", "الحقوق", "legal", "law"]],
+  ["platform", ["المنصة", "تحديثات المنصة", "platform"]],
+];
+
+const TOPIC_BY_WORD: ReadonlyMap<string, string> = (() => {
+  const map = new Map<string, string>();
+  for (const [category, words] of TOPIC_WORDS) {
+    for (const word of words) {
+      const folded = normaliseAlias(word);
+      if (folded) map.set(folded, category);
+    }
+  }
+  return map;
+})();
+
+/**
+ * The words that carry no request of their own.
+ *
+ * Asking words, politeness, and the words for the *shape* somebody wants the
+ * answer in — a bulletin, a summary, out loud. The medium those last ones ask
+ * for is decided by `wantsSpokenReply`, not here; this list only has to know
+ * that their presence does not make the message something other than a request
+ * for the news.
+ */
+const FILLER_WORDS: ReadonlySet<string> = new Set(
+  [
+    // Arabic: asking, politeness, "the most important", "the latest".
+    "اهم", "الاهم", "اخر", "احدث", "جديد", "الجديد", "اليوم", "اليومية", "هذا",
+    "نشرة", "النشرة", "موجز", "ملخص", "قائمة", "عناوين", "قسم",
+    "ارسل", "ابعث", "ابعتلي", "ارسللي", "اعطني", "عطني", "هات", "جبلي", "اريد",
+    "بدي", "ودي", "لو", "سمحت", "رجاء", "الرجاء", "من", "فضلك", "شو", "ايش",
+    "ما", "هي", "هو", "لي", "عن", "في", "على", "ال", "و", "مع", "اقرا", "اقرالي",
+    "صوتية", "صوتي", "صوت", "بالصوت", "مسموعة", "مسموع",
+    // English.
+    "please", "give", "send", "show", "tell", "read", "me", "my", "i", "want",
+    "need", "the", "a", "an", "of", "on", "about", "for", "with", "in", "to",
+    "today", "todays", "latest", "recent", "newest", "top", "main", "important",
+    "biggest", "list", "bulletin", "summary", "roundup", "digest", "briefing",
+    "section", "voice", "audio", "note", "message", "spoken", "aloud", "loud",
+    "out", "some", "any", "whats", "what", "is", "are", "new",
+  ].map(normaliseAlias),
+);
+
+/**
+ * The one-letter words Arabic writes attached to the next one.
+ *
+ * «لأهم الأخبار» is three words to a reader and two to a splitter, because the
+ * ل of "for" is glued to the front of «أهم». Every one of those would be an
+ * unrecognised word, and an unrecognised word is what makes this parser say no
+ * — so a sender writing perfectly ordinary Arabic would have been refused for
+ * writing it correctly.
+ *
+ * Tried only after the whole word has failed, and only when what is left is
+ * something this file knows. So «لبنان» is not quietly read as «بنان» with an ل
+ * in front of it: «بنان» is not a word here either, and the message is refused
+ * exactly as it was before.
+ */
+const PROCLITICS: readonly string[] = ["ل", "ب", "و", "ف", "ك"];
+
+/** Whether this file recognises a word at all, in any of its three roles. */
+const isKnownWord = (word: string): boolean =>
+  NEWS_WORDS.has(word) || TOPIC_BY_WORD.has(word) || FILLER_WORDS.has(word);
+
+/** The word, or what is left of it once a prefix this file can read comes off. */
+function withoutProclitic(word: string): string {
+  if (isKnownWord(word)) return word;
+  for (const letter of PROCLITICS) {
+    if (!word.startsWith(letter) || word.length < 3) continue;
+    const rest = word.slice(letter.length);
+    if (isKnownWord(rest)) return rest;
+  }
+  return word;
+}
+
+/** A request for the news, and which section of it was asked for. */
+export interface NewsAsk {
+  /** A `news_articles.category`, or null for "whatever is newest". */
+  category: string | null;
+}
+
+/**
+ * Whether this message is asking for the news, and for which section.
+ *
+ * Word by word, against a short cap. A message qualifies only when it names the
+ * news *and* every other word in it is one this file recognises — which is what
+ * keeps "أخبار طلبي وين وصلت" and "any news on my refund?" out: «طلبي» and
+ * "refund" are not words for asking and not the name of a section, so the
+ * message is not a request for the news and is never answered as one.
+ *
+ * The longest phrase wins at each position, so «الذكاء الاصطناعي» is one topic
+ * rather than two unrecognised words, and "latest news" is the feature's own
+ * alias rather than a filler followed by it.
+ */
+export function parseNewsAsk(text: string | null | undefined): NewsAsk | null {
+  const value = normaliseAlias(text ?? "");
+  if (!value || value.length > NEWS_MAX_CHARS) return null;
+
+  // The whole message is the feature's own name, in any of the twenty. Settled
+  // before the walk so a name of four words or more — which the walk's
+  // three-word window could not see as one phrase — resolves exactly as it did
+  // when this was a single equality check.
+  if (NEWS_WORDS.has(value)) return { category: null };
+
+  const words = value.split(" ").filter(Boolean).map(withoutProclitic);
+  if (words.length === 0) return null;
+
+  let named = false;
+  let category: string | null = null;
+
+  for (let index = 0; index < words.length;) {
+    let matched = 0;
+    for (let span = Math.min(3, words.length - index); span >= 1; span--) {
+      const phrase = words.slice(index, index + span).join(" ");
+      if (NEWS_WORDS.has(phrase)) {
+        named = true;
+        matched = span;
+        break;
+      }
+      const topic = TOPIC_BY_WORD.get(phrase);
+      if (topic) {
+        // The first section named wins. A message naming two is answered with
+        // the first rather than with neither: somebody who said "technology and
+        // AI news" wants headlines, not a clarifying question.
+        category ??= topic;
+        matched = span;
+        break;
+      }
+      if (span === 1 && FILLER_WORDS.has(phrase)) {
+        matched = 1;
+        break;
+      }
+    }
+    // A word this file does not recognise. The message is a sentence that
+    // mentions the news, not a request for it.
+    if (matched === 0) return null;
+    index += matched;
+  }
+
+  return named ? { category } : null;
+}
+
 /**
  * Whether this message is asking for the news.
  *
- * Whole-message matching against a short cap, not a substring hunt: "I saw the
- * news about my order" is a support message, and answering it with five
- * headlines would be the assistant talking over somebody.
+ * Kept as the boolean the router and the navigation engine already ask for.
+ * `parseNewsAsk` is the same decision with the section it found attached.
  */
 export function parseNewsRequest(text: string | null | undefined): boolean {
-  const value = normaliseAlias(text ?? "");
-  if (!value || value.length > NEWS_MAX_CHARS) return false;
-  return NEWS_WORDS.has(value);
+  return parseNewsAsk(text) !== null;
+}
+
+/**
+ * Longest an article's own summary may be inside a bulletin.
+ *
+ * A bulletin is read aloud end to end — there is no skimming a voice note, and
+ * no tapping a row to hear more — so each item is a headline and a sentence,
+ * not a paragraph. Five of those is about a minute of speech, which is a
+ * bulletin; five paragraphs is a broadcast nobody asked for.
+ */
+export const BULLETIN_SUMMARY_CHARS = 220;
+
+/**
+ * The headlines as one message, to be read rather than tapped.
+ *
+ * ── Why this exists next to the list ────────────────────────────────────────
+ *
+ * The interactive list is the better answer to a typed request: five rows, one
+ * tap, the article. It is close to useless as an answer to a *spoken* one. A
+ * voice note cannot contain a list message, so somebody who asked out loud —
+ * or who asked, in writing, for a spoken bulletin — was handed rows they would
+ * have to see to use, which for this channel's audience is the whole failure.
+ *
+ * So the same five articles are also a paragraph somebody can hear: numbered,
+ * headline then a sentence, and no URL — a link read aloud character by
+ * character is noise, and `speakableText` strips it anyway. The way back to the
+ * full article is the menu row the written list already names.
+ */
+export function newsBulletin(params: {
+  articles: NewsArticle[];
+  language: Language;
+  heading: string;
+}): string {
+  const lines = [params.heading];
+  params.articles.forEach((article, index) => {
+    const { title, description } = articleText(article, params.language);
+    const summary = description.replace(/\s+/g, " ").trim().slice(0, BULLETIN_SUMMARY_CHARS).trim();
+    lines.push("");
+    lines.push(`${index + 1}. ${title}${summary ? `. ${summary}` : ""}`);
+  });
+  return lines.join("\n");
+}
+
+/** The articles in one section, newest first, exactly as they arrived. */
+export function articlesInCategory(articles: NewsArticle[], category: string | null): NewsArticle[] {
+  if (!category) return articles;
+  return articles.filter((article) => article.category === category);
 }
 
 /**

@@ -476,11 +476,91 @@ describe("Meta redelivering the same message", () => {
   });
 });
 
+describe("asking for the answer out loud, in writing", () => {
+  it("hears a request for audio in Arabic and in English", () => {
+    for (
+      const asked of [
+        "ابعتلي نشرة صوتية لأهم الاخبار التقنية",
+        "جاوبني بالصوت",
+        "ابعتلي رسالة صوتية",
+        "سمعني الاخبار",
+        "send me a voice note with the answer",
+        "can you read it to me",
+        "give me the news as audio",
+        "say it out loud please",
+      ]
+    ) {
+      expect(voice.wantsSpokenReply(asked), asked).toBe(true);
+    }
+  });
+
+  it("leaves a fault report about sound alone", () => {
+    // "The app has no sound" is somebody reporting a broken feature. Answering
+    // it with a voice note would be the assistant reading a fault report as a
+    // preference — which is why the bare topic word is not in the list.
+    for (
+      const asked of [
+        "التطبيق ما فيه صوت",
+        "there is no sound in the videos",
+        "the audio is broken on my phone",
+        "شو اخبارك",
+        "",
+        null,
+      ]
+    ) {
+      expect(voice.wantsSpokenReply(asked), String(asked)).toBe(false);
+    }
+  });
+
+  it("ignores a request buried in a long message", () => {
+    const long = `${"a".repeat(voice.SPOKEN_REQUEST_MAX_CHARS)} read it to me`;
+    expect(voice.wantsSpokenReply(long)).toBe(false);
+  });
+
+  it("speaks a typed question that asked to be spoken, and nothing else", () => {
+    expect(voice.replyMedium({ spokenInput: false, voiceRequested: true, body: "Hello" })).toBe("voice");
+    expect(voice.replyMedium({ spokenInput: false, voiceRequested: false, body: "Hello" })).toBe("text");
+    // A voice note is still answered out loud whatever its words said.
+    expect(voice.replyMedium({ spokenInput: true, body: "Hello" })).toBe("voice");
+    // Nothing speakable in it is still text, however it was asked for.
+    expect(voice.replyMedium({ spokenInput: false, voiceRequested: true, body: "https://visionex.app" }))
+      .toBe("text");
+  });
+
+  it("sends one voice note and no text when the request was honoured", async () => {
+    const sent: Array<{ medium: string }> = [];
+    const delivered = await voice.deliverReply(
+      {
+        body: "Here are the headlines.",
+        kind: "reply",
+        spokenInput: false,
+        voiceRequested: true,
+        failureNotice: "Sorry.",
+      },
+      {
+        sendText: async () => {
+          sent.push({ medium: "text" });
+          return true;
+        },
+        speak: async () => {
+          sent.push({ medium: "voice" });
+          return true;
+        },
+      },
+    );
+    expect(delivered.medium).toBe("voice");
+    expect(sent).toEqual([{ medium: "voice" }]);
+  });
+});
+
 // ── 27–30: the wiring, and what nothing may bring back ──────────────────────
 
 describe("the webhook is wired to exactly this policy", () => {
   it("27. decides the medium in one place, from the inbound message only", () => {
-    expect(webhook).toContain("const medium = replyMedium({ spokenInput, body });");
+    // Two facts about the inbound message, in one expression: how it arrived,
+    // and whether it said how it wanted to come back.
+    expect(webhook).toContain("const medium = replyMedium({ spokenInput, voiceRequested, body });");
+    expect(webhook).toContain("const voiceRequested = !spokenInput && wantsSpokenReply(incoming.text);");
     expect(webhook).toContain("const delivered = await deliverReply(");
     expect(webhook).toContain("const shown = await deliverMenu(");
     expect(webhook).toContain("promptsForMedium(outcome.prompts, spokenInput, isNew)");

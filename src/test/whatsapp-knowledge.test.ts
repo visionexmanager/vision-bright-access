@@ -300,6 +300,28 @@ describe("safe no-source and degraded behaviour", () => {
     expect(directive).toMatch(/do not state visionex prices/i);
   });
 
+  it("holds that limit to Visionex, and answers everything else", () => {
+    // The regression this pins: with nothing retrieved, the directive used to
+    // say "say plainly that you need to check, and offer to pass the question
+    // to the team" without naming Visionex anywhere in the sentence. Most
+    // questions retrieve nothing — what is in this box of pills, what happened
+    // in technology this week — so most questions got that non-answer.
+    const directive = knowledge.knowledgeDirective([]).toLowerCase();
+    expect(directive).toMatch(/general question/);
+    expect(directive).toMatch(/answer it now/);
+    expect(directive).toMatch(/never deflect a general question/);
+  });
+
+  it("does not let the feature list read as a list of permitted subjects", () => {
+    // The catalog bounds what the channel can *do*. A model handed "what this
+    // assistant can do is exactly this list and nothing else" reads it as what
+    // it may talk about, and declines a question about a medicine because
+    // there is no medicine button.
+    const directive = knowledge.catalogDirective(knowledge.availableFeatures("en", [], ALL));
+    expect(directive).toMatch(/actions this whatsapp channel can perform/i);
+    expect(directive).toMatch(/bounds what you can \*do\*, never what you can \*talk about\*/i);
+  });
+
   it("degrades to exactly the no-source directive when the embedder fails", async () => {
     const outcome = await knowledge.retrieveKnowledge(
       "what is the refund policy",

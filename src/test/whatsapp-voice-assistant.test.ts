@@ -496,7 +496,7 @@ describe("answering out loud", () => {
   it("records how a reply travelled, which nothing else could tell you", () => {
     // Written with the row rather than patched onto it afterwards: the medium
     // is decided before anything is sent, so the transcript can simply carry it.
-    expect(webhook).toContain("const medium = replyMedium({ spokenInput, body });");
+    expect(webhook).toContain("const medium = replyMedium({ spokenInput, voiceRequested, body });");
     expect(webhook).toMatch(/direction: "outbound",[\s\S]{0,80}medium,/);
     // And a synthesis that failed is corrected back to text, so the column
     // never claims a voice note the sender never received.

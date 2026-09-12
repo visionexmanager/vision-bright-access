@@ -109,6 +109,68 @@ describe("asking for the news", () => {
     }
   });
 
+  it("hears a whole sentence asking for it, not only the bare word", () => {
+    // These are what people actually send. Every one of them used to reach
+    // nothing, because the rule was an equality check against one word.
+    for (
+      const asked of [
+        "أهم الأخبار",
+        "ابعتلي نشرة صوتية لأهم الاخبار التقنية",
+        "اعطني آخر الاخبار من فضلك",
+        "send me the latest tech news",
+        "please give me a voice bulletin of the top technology news",
+        "what is the latest news today",
+      ]
+    ) {
+      expect(news.parseNewsRequest(asked), asked).toBe(true);
+    }
+  });
+
+  it("reads which section was asked for, and says so", () => {
+    for (
+      const [asked, category] of [
+        ["أهم الأخبار التقنية", "technology"],
+        ["ابعتلي نشرة صوتية لأهم الاخبار التقنية", "technology"],
+        ["أخبار الذكاء الاصطناعي", "ai"],
+        ["اخبار الرياضة", "sports"],
+        ["latest technology news", "technology"],
+        ["health news please", "health"],
+        // No section named: whatever is newest.
+        ["الأخبار", null],
+        ["latest news", null],
+      ] as const
+    ) {
+      expect(news.parseNewsAsk(asked)?.category ?? null, asked).toBe(category);
+    }
+  });
+
+  it("keeps every category it names to one the pipeline actually writes", () => {
+    // A category nobody writes is a filter that always returns nothing, which
+    // reads to the sender as "there is no technology news" for ever.
+    const written = readFileSync("supabase/functions/news-generate/index.ts", "utf8");
+    for (const asked of ["technology news", "ai news", "sports news", "legal news"]) {
+      const category = news.parseNewsAsk(asked)?.category;
+      expect(category, asked).toBeTruthy();
+      expect(written, `${asked} → ${category}`).toContain(`key: "${category}"`);
+    }
+  });
+
+  it("still refuses a sentence with one word in it that it does not know", () => {
+    // The whole safety of reading a sentence rather than a word: every word
+    // has to be accounted for, so an unknown one means this is not a request
+    // for the news at all.
+    for (
+      const asked of [
+        "أخبار طلبي وين وصلت",
+        "any news on my refund?",
+        "the news about my broken order",
+        "أخبار عن الفاتورة التي دفعتها أمس",
+      ]
+    ) {
+      expect(news.parseNewsAsk(asked), asked).toBeNull();
+    }
+  });
+
   it("does not hijack a message that merely mentions news", () => {
     for (const asked of [
       "I saw the news about my order and I want to complain",
@@ -119,6 +181,56 @@ describe("asking for the news", () => {
     ]) {
       expect(news.parseNewsRequest(asked), String(asked)).toBe(false);
     }
+  });
+});
+
+describe("the bulletin, for somebody who cannot use a list", () => {
+  const ARTICLES = [
+    { ...ARTICLE, id: "a", title: "First headline", description: "First summary.", category: "technology" },
+    { ...ARTICLE, id: "b", title: "Second headline", description: "Second summary.", category: "ai" },
+  ];
+
+  const built = () =>
+    news.newsBulletin({
+      articles: news.readArticles(ARTICLES),
+      language: "en",
+      heading: strings.say("newsHeading", "en"),
+    });
+
+  it("reads as one message: a heading, then numbered headlines", () => {
+    const bulletin = built();
+    expect(bulletin.startsWith(strings.say("newsHeading", "en"))).toBe(true);
+    expect(bulletin).toContain("1. First headline. First summary.");
+    expect(bulletin).toContain("2. Second headline. Second summary.");
+  });
+
+  it("carries no URL, because a link read aloud is noise", () => {
+    expect(built()).not.toMatch(/https?:\/\//);
+  });
+
+  it("uses the article's own translation when the sender has one", () => {
+    const arabic = news.newsBulletin({
+      articles: news.readArticles([ARTICLE]),
+      language: "ar",
+      heading: strings.say("newsHeading", "ar"),
+    });
+    expect(arabic).toContain(ARTICLE.translations.ar.title);
+  });
+
+  it("keeps each item short enough to hear", () => {
+    const long = { ...ARTICLE, description: "x".repeat(900) };
+    const bulletin = news.newsBulletin({
+      articles: news.readArticles([long]),
+      language: "en",
+      heading: "h",
+    });
+    expect(bulletin.length).toBeLessThan(news.BULLETIN_SUMMARY_CHARS + 400);
+  });
+
+  it("filters to one section, and passes everything through when none was named", () => {
+    const all = news.readArticles(ARTICLES);
+    expect(news.articlesInCategory(all, "ai").map((a) => a.id)).toEqual(["b"]);
+    expect(news.articlesInCategory(all, null)).toHaveLength(2);
   });
 });
 
@@ -286,7 +398,23 @@ describe("the webhook's part", () => {
 
   it("respects the human handover and the feature flag", () => {
     expect(webhook).toContain("!humanOwnsThis && incoming.selection?.startsWith(NEWS_ID_PREFIX)");
-    expect(webhook).toContain('parseNewsRequest(questionText) && featureOn("news")');
+    expect(webhook).toContain("parseNewsAsk(questionText) : null;");
+    expect(webhook).toContain('if (newsAsk && featureOn("news"))');
+  });
+
+  it("speaks the headlines to a sender who cannot use a list", () => {
+    // A list message cannot be a voice note. Somebody who asked out loud, or
+    // who asked in writing for a spoken bulletin, gets the same five articles
+    // as one paragraph that `reply` then speaks.
+    expect(block).toContain("if (spokenInput || voiceRequested) {");
+    expect(block).toContain("newsBulletin({");
+    expect(block).toContain('log("news", { outcome: "bulletin", count: articles.length });');
+  });
+
+  it("filters to the section that was asked for, and says when it was empty", () => {
+    expect(block).toContain('query.eq("category", category)');
+    expect(block).toContain('say("newsTopicEmpty"');
+    expect(webhook).toContain("showNews({ category: newsAsk.category })");
   });
 
   it("logs an outcome and never an article, a title or a link", () => {

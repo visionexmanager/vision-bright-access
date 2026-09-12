@@ -1005,6 +1005,19 @@ const BASE_STRINGS = {
     ar: "لا توجد أخبار منشورة الآن. جرّب لاحقاً، أو تصفّح القسم: {url}",
     en: "There's no news published right now. Try again later, or browse the section: {url}",
   },
+  /**
+   * A section with nothing published in it today, followed by the latest.
+   *
+   * `news-generate` writes a category only when it had something real to say
+   * under it, so an empty section is ordinary rather than a fault. The sentence
+   * says which of the two happened — this is not the section you asked for —
+   * because showing the mixed list silently would be answering a question
+   * nobody asked.
+   */
+  newsTopicEmpty: {
+    ar: "لا توجد أخبار في هذا القسم اليوم. هذه آخر الأخبار:",
+    en: "Nothing published in that section today. Here's the latest:",
+  },
   newsUnavailable: {
     ar: "تعذّر الوصول إلى الأخبار الآن. جرّب بعد قليل، أو اقرأها مباشرة: {url}",
     en: "I couldn't reach the news just now. Try again shortly, or read it directly: {url}",
