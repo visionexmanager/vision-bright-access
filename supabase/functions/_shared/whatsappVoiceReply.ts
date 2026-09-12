@@ -98,13 +98,84 @@ export type ReplyMedium = "text" | "voice";
 const ANSWER_KINDS: ReadonlySet<string> = new Set(["reply"]);
 
 /**
+ * Asking for the answer out loud, in writing.
+ *
+ * ── The gap this closes ─────────────────────────────────────────────────────
+ *
+ * The medium used to be decided by one fact: was the question itself a voice
+ * note. That is right as a *default* and wrong as the only rule, because it
+ * leaves no way at all to ask for audio — somebody typed "send me a voice
+ * bulletin of the top technology news" and received a written list, which is
+ * not a partial answer to that request, it is a refusal of the only part of it
+ * that mattered. For a sender who cannot read the screen they typed on with
+ * one hand while cooking with the other, it is the whole request.
+ *
+ * So the inbound message still decides, and it decides on two facts now: how it
+ * arrived, and whether it *says* how it wants to come back. A message that says
+ * so wins, because it is the more specific of the two.
+ *
+ * ── Why these phrases and not a model call ──────────────────────────────────
+ *
+ * Same reason the rest of this channel's parsing is regex: a wrong guess here
+ * costs a medium, not an answer, and paying a provider to read every message
+ * twice to learn something a phrase list gets right is a bill with no upside.
+ *
+ * Arabic and English, which is what this channel receives and what every other
+ * parser here reads. A sender writing Turkish who wants audio can send a voice
+ * note and be answered in one — the default still covers them.
+ *
+ * ── What is deliberately not in the list ────────────────────────────────────
+ *
+ * Bare «صوت» and bare "sound". "The app has no sound" is a support message
+ * about a broken feature, and answering it with a voice note would be the
+ * assistant misreading a fault report as a preference. Every entry below is a
+ * request shape — a verb, a preposition or a compound noun — not the topic word
+ * on its own.
+ */
+const SPOKEN_REQUEST: readonly RegExp[] = [
+  // Arabic. «بالصوت» (by voice), «صوتية/صوتي» in the compound nouns people
+  // actually type — a bulletin, a message, a clip, a recording, a reply.
+  /بالصوت/u,
+  /صوتي(?:ة|اً|ا)?\b/u,
+  /نشرة\s*صوتي/u,
+  /(?:رسالة|مقطع|تسجيل|ملف|رد|ردّ|جواب|إجابة)\s*صوتي/u,
+  /بصوتك/u,
+  /(?:سمعني|اسمعني|خليني\s*اسمع|ابعتلي\s*صوت|ارسل\s*لي\s*صوت)/u,
+  /(?:اقرأ|اقرا|إقرأ)\s*(?:لي|ها\s*لي|لي\s*بصوت)/u,
+  // English.
+  /\b(?:voice|audio)\s*(?:note|message|reply|clip|bulletin|summary|briefing|version|format)\b/i,
+  /\b(?:as|in|by|via|with)\s+(?:a\s+)?(?:voice|audio)\b/i,
+  /\bout\s*loud\b/i,
+  /\b(?:read|say|speak)\s+(?:it|this|that|them|these)?\s*(?:to\s+me|aloud|out\s*loud)\b/i,
+  /\bspeak\s+(?:it|this|that)\b/i,
+  /\bsend\s+(?:me\s+)?(?:a\s+)?(?:voice|audio)\b/i,
+];
+
+/**
+ * Longest a message can be and still be read as asking for audio.
+ *
+ * The same shape of cap every parser here uses. A three-paragraph message that
+ * happens to contain "out loud" is somebody telling a story, not somebody
+ * choosing a medium.
+ */
+export const SPOKEN_REQUEST_MAX_CHARS = 300;
+
+/** Whether this message asks, in words, to be answered out loud. */
+export function wantsSpokenReply(text: string | null | undefined): boolean {
+  const value = (text ?? "").trim();
+  if (!value || value.length > SPOKEN_REQUEST_MAX_CHARS) return false;
+  return SPOKEN_REQUEST.some((pattern) => pattern.test(value));
+}
+
+/**
  * The medium one reply goes out in.
  *
- * The inbound message decides, and nothing else does. A voice note is answered
- * out loud and *only* out loud; a typed message is answered in writing and only
- * in writing. Nobody receives the same thing twice in two forms, which is what
- * used to happen and what made a spoken reply feel like an echo rather than an
- * answer.
+ * The inbound message decides, and nothing else does — on two facts, not one.
+ * A voice note is answered out loud and *only* out loud; a typed message is
+ * answered in writing, unless it asked in writing to be answered out loud, and
+ * then it is spoken and only spoken. Nobody receives the same thing twice in
+ * two forms, which is what used to happen and what made a spoken reply feel
+ * like an echo rather than an answer.
  *
  * Every user-facing response, not only the answer. A refusal, an apology, a
  * "that service isn't open yet" — somebody who asked out loud hears all of it,
@@ -128,10 +199,19 @@ const ANSWER_KINDS: ReadonlySet<string> = new Set(["reply"]);
 export function replyMedium(params: {
   /** Whether the message being answered was itself a voice note. */
   spokenInput: boolean;
+  /**
+   * Whether the message asked, in words, to be answered out loud.
+   *
+   * Decided by `wantsSpokenReply` over the sender's own text, once per message,
+   * and then carried through every reply of that turn — so somebody who asked
+   * for a spoken bulletin hears the bulletin *and* the sentence that says there
+   * is nothing published today, rather than half the exchange in each medium.
+   */
+  voiceRequested?: boolean;
   /** Text with nothing speakable in it — a bare URL — cannot be a voice note. */
   body?: string;
 }): ReplyMedium {
-  if (!params.spokenInput) return "text";
+  if (!params.spokenInput && !params.voiceRequested) return "text";
   if (params.body !== undefined && speakableText(params.body).length === 0) return "text";
   return "voice";
 }
@@ -614,6 +694,8 @@ export async function deliverReply(
     body: string;
     kind: string;
     spokenInput: boolean;
+    /** Set when the sender asked for audio in writing. See `wantsSpokenReply`. */
+    voiceRequested?: boolean;
     /** Short, translated, and safe to show. Used only if an *answer* cannot be spoken. */
     failureNotice: string;
     /** The delivery's correlation id, for the one line this prints. */
@@ -621,7 +703,11 @@ export async function deliverReply(
   },
   transport: ReplyTransport,
 ): Promise<ReplyDelivery> {
-  const medium = replyMedium({ spokenInput: params.spokenInput, body: params.body });
+  const medium = replyMedium({
+    spokenInput: params.spokenInput,
+    voiceRequested: params.voiceRequested,
+    body: params.body,
+  });
 
   if (medium === "text") {
     return { medium, sent: await transport.sendText(params.body), spokenFailed: false };

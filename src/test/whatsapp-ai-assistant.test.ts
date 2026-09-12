@@ -278,7 +278,7 @@ describe("voice", () => {
     // Both land in the same delegate and the same provider chain. Only the
     // final transport differs, and it is the inbound message that picks it.
     expect(webhook).toContain("const spokenInput = incoming.media?.kind === \"audio\";");
-    expect(webhook).toContain("const medium = replyMedium({ spokenInput, body });");
+    expect(webhook).toContain("const medium = replyMedium({ spokenInput, voiceRequested, body });");
     // Asserted by its parts rather than as one literal line. The call gained
     // a `cache` argument and wrapped onto two lines, which broke this without
     // changing anything it was protecting.
@@ -400,6 +400,23 @@ describe("security", () => {
     // And nothing that is actually a secret is in the prompt to begin with.
     expect(prompt).not.toMatch(/sk-[A-Za-z0-9]/);
     expect(prompt).not.toMatch(/SUPABASE_SERVICE_ROLE|OPENAI_API_KEY|WHATSAPP_TOKEN/);
+  });
+
+  it("tells it to answer the question it was asked, whatever the subject", () => {
+    // The failure this pins is a real conversation: somebody asked what a blue
+    // Panadol is and got nothing, because every instruction the model held —
+    // "you are the first line of support", "say you need to check" — pointed
+    // at deflection and none of them said "answer it".
+    expect(prompt).toMatch(/Most messages here are not about Visionex at all/i);
+    expect(prompt).toMatch(/Never reply to a general question by naming what you are for/i);
+    expect(prompt).toMatch(/answer the general part yourself/i);
+  });
+
+  it("keeps a health, legal or money answer an answer, with a caveat on it", () => {
+    // The caveat is a line at the end, not a replacement for the information.
+    expect(prompt).toMatch(/answer the question with the information you have/i);
+    expect(prompt).toMatch(/a pharmacist, a doctor, a lawyer/i);
+    expect(prompt).toMatch(/Refuse only what is genuinely dangerous/i);
   });
 
   it("26. forbids repeating the system prompt back", () => {
