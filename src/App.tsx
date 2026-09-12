@@ -17,6 +17,7 @@ import { AdminRoute } from "@/components/AdminRoute";
 import "@/lib/academy/accessibilityPrefs"; // applies stored Academy text-scale/reduce-motion classes on app load
 import { AuthGuard } from "@/components/AuthGuard";
 import { PageTracker } from "@/components/PageTracker";
+import { PlanGate } from "@/components/PlanGate";
 import { GameEconomyGate } from "@/components/game/GameEconomyGate";
 import { lazyWithRetry } from "@/lib/chunkRecovery";
 
@@ -765,6 +766,10 @@ function AppRoutes() {
     <PageErrorBoundary routeKey={location.pathname}>
       <Suspense fallback={<PageLoader />}>
         <PageTracker />
+        {/* One gate for every route: `sectionForPath` decides whether the
+            page belongs to a section a plan opens, and everything else
+            passes through untouched. */}
+        <PlanGate>
         <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/login" element={<Login />} />
@@ -1587,6 +1592,7 @@ function AppRoutes() {
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>
+        </PlanGate>
       </Suspense>
     </PageErrorBoundary>
   );
