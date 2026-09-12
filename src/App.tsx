@@ -337,6 +337,10 @@ const SkinCareExpert = lazyWithRetry(() => import("./pages/services/SkinCareExpe
 const SocialGuide = lazyWithRetry(() => import("./pages/services/SocialGuide"));
 const SportsCoach = lazyWithRetry(() => import("./pages/services/SportsCoach"));
 const TravelAgency = lazyWithRetry(() => import("./pages/services/TravelAgency"));
+const TravelHome = lazyWithRetry(() => import("./pages/travel/TravelHome"));
+const TravelFlights = lazyWithRetry(() => import("./pages/travel/TravelFlights"));
+const TravelStays = lazyWithRetry(() => import("./pages/travel/TravelStays"));
+const TravelRides = lazyWithRetry(() => import("./pages/travel/TravelRides"));
 const RadarAI = lazyWithRetry(() => import("./pages/services/RadarAI"));
 const EducationalEmpire = lazyWithRetry(() => import("./pages/services/EducationalEmpire"));
 const EmpathyOasis = lazyWithRetry(() => import("./pages/services/EmpathyOasis"));
@@ -1062,6 +1066,17 @@ function AppRoutes() {
                     <Route path="/services/social-guide" element={<SocialGuide />} />
                     <Route path="/services/sports-coach" element={<SportsCoach />} />
                     <Route path="/services/travel-agency" element={<TravelAgency />} />
+                    {/* Visionex Travel. Deliberately absent from SECTIONS in
+                        src/lib/billing/plans.ts, which leaves it open on every
+                        plan and to signed-out visitors: asking what a trip would
+                        cost is how somebody arrives at the concierge packages,
+                        and a plan gate in front of the question would close the
+                        door before the sale. Sending a request still needs an
+                        account, because a request needs somebody to reply to. */}
+                    <Route path="/travel" element={<TravelHome />} />
+                    <Route path="/travel/flights" element={<TravelFlights />} />
+                    <Route path="/travel/stays" element={<TravelStays />} />
+                    <Route path="/travel/rides" element={<TravelRides />} />
                     <Route path="/services/radar-ai" element={<RadarAI />} />
                     <Route path="/services/ocr-scan" element={<OCRScan />} />
                     <Route path="/services/file-studio" element={<FileStudio />} />

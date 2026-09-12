@@ -2244,6 +2244,82 @@ const MARKETPLACE: ServiceEntry[] = [
     skills: { en: ["Contract literacy"], ar: ["فهم العقود"] },
     persona: { id: "business-consultant", role: { en: "AI Legal Advisor", ar: "مستشار قانوني ذكي" } },
   }),
+  // Visionex Travel. Three entries rather than one, because somebody looking
+  // for a hotel searches "hotel" — a single "Travel" row would be found by
+  // nobody who did not already know the section existed. Each is free (vx: 0):
+  // the request costs nothing, the concierge packages below it are what is sold.
+  entry({
+    slug: "travel-flights",
+    hub: "marketplace",
+    kind: "service",
+    to: "/travel/flights",
+    title: { en: "Flight Request", ar: "طلب رحلة طيران" },
+    tagline: {
+      en: "Tell us where and when. Our travel desk comes back with routes and fares.",
+      ar: "أخبرنا إلى أين ومتى، ويعود إليك مكتب السفر بالمسارات والأسعار.",
+    },
+    difficulty: "starter",
+    durationMinutes: 5,
+    vx: 0,
+    intents: ["care-for-myself", "grow-my-work"],
+    keywords: {
+      en: ["flight", "flights", "plane", "ticket", "airline", "airport", "travel", "fare"],
+      ar: ["طيران", "رحلة", "طائرة", "تذكرة", "خطوط جوية", "مطار", "سفر", "حجز طيران"],
+    },
+    outcomes: {
+      en: ["A checked itinerary in the hands of a person who can price it"],
+      ar: ["طلب مكتمل ومفحوص بين يدي موظف يستطيع تسعيره"],
+    },
+    skills: { en: [], ar: [] },
+  }),
+  entry({
+    slug: "travel-stays",
+    hub: "marketplace",
+    kind: "service",
+    to: "/travel/stays",
+    title: { en: "Hotel Request", ar: "طلب حجز فندق" },
+    tagline: {
+      en: "City, dates and who is staying — we come back with the full price.",
+      ar: "المدينة والتواريخ ومن سيقيم، ونعود إليك بالسعر الكامل.",
+    },
+    difficulty: "starter",
+    durationMinutes: 5,
+    vx: 0,
+    intents: ["care-for-myself", "grow-my-work"],
+    keywords: {
+      en: ["hotel", "hotels", "stay", "room", "accommodation", "booking", "nights"],
+      ar: ["فندق", "فنادق", "إقامة", "غرفة", "سكن", "حجز", "ليالي"],
+    },
+    outcomes: {
+      en: ["Properties and an all-in price, with the desk fees named"],
+      ar: ["فنادق وسعر شامل مع بيان رسوم الاستقبال"],
+    },
+    skills: { en: [], ar: [] },
+  }),
+  entry({
+    slug: "travel-rides",
+    hub: "marketplace",
+    kind: "service",
+    to: "/travel/rides",
+    title: { en: "Ride Request", ar: "طلب توصيلة" },
+    tagline: {
+      en: "A car now or later, including wheelchair accessible vehicles.",
+      ar: "سيارة الآن أو لاحقاً، بما فيها مركبات تناسب الكرسي المتحرك.",
+    },
+    difficulty: "starter",
+    durationMinutes: 3,
+    vx: 0,
+    intents: ["care-for-myself"],
+    keywords: {
+      en: ["ride", "taxi", "car", "driver", "transfer", "airport", "wheelchair"],
+      ar: ["توصيلة", "تاكسي", "سيارة", "سائق", "نقل", "مطار", "كرسي متحرك"],
+    },
+    outcomes: {
+      en: ["A pick-up arranged, with any access requirement stated up front"],
+      ar: ["توصيلة مرتبة مع ذكر أي احتياج للوصول منذ البداية"],
+    },
+    skills: { en: [], ar: [] },
+  }),
   entry({
     slug: "svc-travel-agency",
     hub: "marketplace",
