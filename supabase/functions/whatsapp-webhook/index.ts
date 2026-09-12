@@ -209,7 +209,8 @@ import {
   NEWS_ID_PREFIX,
   NEWS_LIST_SIZE,
   NEWS_URL,
-  parseNewsRequest,
+  newsBulletin,
+  parseNewsAsk,
   parseNewsSelection,
   readArticles,
 } from "../_shared/whatsappNews.ts";
@@ -264,7 +265,14 @@ import {
   type ResolvedVoice,
 } from "../_shared/whatsappVoiceChoice.ts";
 import { sendVoiceChoice } from "../_shared/whatsappInteractive.ts";
-import { deliverReply, replyMedium, sendWhatsAppAudio, speakReply, uploadWhatsAppMedia } from "../_shared/whatsappVoiceReply.ts";
+import {
+  deliverReply,
+  replyMedium,
+  sendWhatsAppAudio,
+  speakReply,
+  uploadWhatsAppMedia,
+  wantsSpokenReply,
+} from "../_shared/whatsappVoiceReply.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
   type Capability,
@@ -1200,6 +1208,20 @@ Deno.serve(async (req) => {
       const spokenInput = incoming.media?.kind === "audio";
 
       /**
+       * Whether the sender asked, in writing, to be answered out loud.
+       *
+       * The other half of the same question. Somebody typing «ابعتلي نشرة
+       * صوتية» has said how they want to be answered just as plainly as
+       * somebody who recorded a voice note, and until this existed there was no
+       * way to say it at all — the request was read, the answer was written
+       * out, and the one part of it the sender actually asked for was dropped.
+       *
+       * Read from the sender's own words, so a transcript cannot trigger it by
+       * accident: a voice note is already spoken back by `spokenInput`.
+       */
+      const voiceRequested = !spokenInput && wantsSpokenReply(incoming.text);
+
+      /**
        * Where this sender is, loaded from the row they already have.
        *
        * `readSession` is tolerant: a path naming a node this build no longer
@@ -1289,7 +1311,7 @@ Deno.serve(async (req) => {
         }
         lastSentBody = body;
 
-        const medium = replyMedium({ spokenInput, body });
+        const medium = replyMedium({ spokenInput, voiceRequested, body });
         const { data: written } = await db.from("whatsapp_messages").insert({
           conversation_id: conversationId,
           direction: "outbound",
@@ -1304,7 +1326,14 @@ Deno.serve(async (req) => {
         // what lets it assert the transport of a whole conversation without a
         // Meta account or a synthesis bill.
         const delivered = await deliverReply(
-          { body, kind, spokenInput, failureNotice: say("failed", answerLanguage), trace: correlationId },
+          {
+            body,
+            kind,
+            spokenInput,
+            voiceRequested,
+            failureNotice: say("failed", answerLanguage),
+            trace: correlationId,
+          },
           {
             sendText: (text) => sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text }),
             speak: async (text) =>
@@ -1668,14 +1697,44 @@ Deno.serve(async (req) => {
        * Returns whether a list went out, so the caller can tell an empty feed
        * from a broken one without reading the reply back.
        */
-      const showNews = async (options: { note?: string } = {}): Promise<boolean> => {
-        const { data, error } = await db
-          .from("news_articles")
-          .select("id, title, description, category, published_at, translations")
-          .eq("published", true)
-          .neq("category", NEWS_EXCLUDED_CATEGORY)
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(NEWS_LIST_SIZE);
+      /**
+       * The headlines: filtered to a section when one was named, and read out
+       * when the sender cannot use a list.
+       *
+       * ── Why a section can come back empty and that is not an error ─────────
+       *
+       * `news-generate` writes one article per category per run, but only for
+       * the categories it had something real to say about — so "technology"
+       * having nothing today is ordinary. Answering that with "there is no
+       * news" would be false, and answering it with the mixed list as though
+       * nothing had been asked would be quietly ignoring half the message. It
+       * says which of the two happened, then shows the latest.
+       */
+      const showNews = async (
+        options: { note?: string; category?: string | null } = {},
+      ): Promise<boolean> => {
+        const load = async (category: string | null) => {
+          const query = db
+            .from("news_articles")
+            .select("id, title, description, category, published_at, translations")
+            .eq("published", true)
+            .neq("category", NEWS_EXCLUDED_CATEGORY);
+          return await (category ? query.eq("category", category) : query)
+            .order("published_at", { ascending: false, nullsFirst: false })
+            .limit(NEWS_LIST_SIZE);
+        };
+
+        const asked = options.category ?? null;
+        let { data, error } = await load(asked);
+        let note = options.note;
+
+        // A section with nothing in it today. Say so, and show the latest
+        // rather than leaving somebody who asked for technology news holding
+        // one sentence about there being none.
+        if (!error && asked && readArticles(data).length === 0) {
+          note = say("newsTopicEmpty", answerLanguage);
+          ({ data, error } = await load(null));
+        }
 
         if (error) {
           console.error("[whatsapp] news lookup failed:", describeError(error));
@@ -1691,7 +1750,25 @@ Deno.serve(async (req) => {
           return false;
         }
 
-        if (options.note) await reply(options.note, "reply");
+        if (note) await reply(note, "reply");
+
+        // A list message cannot be a voice note, and a sender who asked out
+        // loud — or who asked, in writing, for a spoken bulletin — cannot use
+        // rows. The same five articles go out as one paragraph instead, which
+        // `reply` then speaks because the same two facts decide its medium.
+        if (spokenInput || voiceRequested) {
+          await reply(
+            newsBulletin({
+              articles,
+              language: answerLanguage,
+              heading: say("newsHeading", answerLanguage),
+            }),
+            "reply",
+          );
+          log("news", { outcome: "bulletin", count: articles.length });
+          return true;
+        }
+
         await sendNewsList(
           delivery,
           articles.map((article) => ({ id: article.id, ...articleText(article, answerLanguage) })),
@@ -3771,6 +3848,23 @@ Deno.serve(async (req) => {
         ? parseMedicineRequest(questionText)
         : null;
 
+      /**
+       * The leaflet, when there is one.
+       *
+       * ── Why a miss is no longer the end of the message ────────────────────
+       *
+       * openFDA holds *US* labels. Half of what somebody in the region is
+       * holding is not in it under the name on the box, and the answer to that
+       * used to be «تحقق من الاسم» — check the spelling — which told a sender
+       * whose spelling was perfectly correct that they had got it wrong, and
+       * ended the conversation there.
+       *
+       * So a miss now falls through instead of replying. The message carries on
+       * to the assistant, which knows what paracetamol is, and the sender gets
+       * an answer about their medicine rather than a correction about their
+       * typing. Nothing is spent on the miss: `maySpend` is a check, and
+       * `spent` is only ever called after an answer.
+       */
       if (medicineAsk) {
         if (!medicineAsk.name) {
           // Found the feature, has not said what they want yet.
@@ -3788,50 +3882,55 @@ Deno.serve(async (req) => {
           continue;
         }
         if (!label) {
+          // Silent on purpose: the assistant answers this message below, and a
+          // "check the spelling" in front of a good answer reads as the
+          // assistant contradicting itself.
           log("medicine", { outcome: "not_found" });
-          await reply(say("medicineNone", answerLanguage), "reply");
+        } else {
+          // The leaflet is English. Rendering it into the reader's language is
+          // the difference between a service and a curiosity for this audience,
+          // and the prompt is a list of things the model may not do — the dose
+          // it must not invent, the advice it must not add, the warning it must
+          // not soften.
+          const rendered = await askAssistant(
+            {
+              // The whole instruction, and no conversation: this is a rendering
+              // job, not a turn of the thread. Replaying history here would let
+              // an earlier message change what a leaflet says.
+              systemParts: [renderPrompt(LANGUAGE_ENDONYM[answerLanguage])],
+              question: sourceBlock(label),
+              maxTokens: 700,
+            },
+            chainProvider(),
+          );
+
+          // The disclaimer is added here, by code. Not asked of the model, so no
+          // rendering can drop it, shorten it or bury it.
+          //
+          // A provider that failed falls back to the label's own English rather
+          // than to nothing: somebody holding a box wants the warnings even in a
+          // language they read slowly, and the disclaimer below still applies.
+          const answered = rendered.status === "answered" && rendered.text.trim().length > 0;
+          const body = answered
+            ? `${medicineHeading(label)}\n\n${rendered.text.trim()}`
+            : `${medicineHeading(label)}\n\n${sourceBlock(label)}`;
+
+          if (answered) await spent("ai");
+          log("medicine", {
+            outcome: answered ? "answered" : "untranslated",
+            chars: body.length,
+          });
+          await reply(withDisclaimer(body, answerLanguage), "reply");
           continue;
         }
-
-        // The leaflet is English. Rendering it into the reader's language is
-        // the difference between a service and a curiosity for this audience,
-        // and the prompt is a list of things the model may not do — the dose
-        // it must not invent, the advice it must not add, the warning it must
-        // not soften.
-        const rendered = await askAssistant(
-          {
-            // The whole instruction, and no conversation: this is a rendering
-            // job, not a turn of the thread. Replaying history here would let
-            // an earlier message change what a leaflet says.
-            systemParts: [renderPrompt(LANGUAGE_ENDONYM[answerLanguage])],
-            question: sourceBlock(label),
-            maxTokens: 700,
-          },
-          chainProvider(),
-        );
-
-        // The disclaimer is added here, by code. Not asked of the model, so no
-        // rendering can drop it, shorten it or bury it.
-        //
-        // A provider that failed falls back to the label's own English rather
-        // than to nothing: somebody holding a box wants the warnings even in a
-        // language they read slowly, and the disclaimer below still applies.
-        const answered = rendered.status === "answered" && rendered.text.trim().length > 0;
-        const body = answered
-          ? `${medicineHeading(label)}\n\n${rendered.text.trim()}`
-          : `${medicineHeading(label)}\n\n${sourceBlock(label)}`;
-
-        if (answered) await spent("ai");
-        log("medicine", {
-          outcome: answered ? "answered" : "untranslated",
-          chars: body.length,
-        });
-        await reply(withDisclaimer(body, answerLanguage), "reply");
-        continue;
       }
 
-      if (!humanOwnsThis && !aiFocused && parseNewsRequest(questionText) && featureOn("news")) {
-        await showNews();
+      // `parseNewsAsk` reads the same request `parseNewsRequest` did and also
+      // reads which section it named, so «أهم الأخبار التقنية» is answered with
+      // technology headlines rather than with whatever was newest.
+      const newsAsk = !humanOwnsThis && !aiFocused ? parseNewsAsk(questionText) : null;
+      if (newsAsk && featureOn("news")) {
+        await showNews({ category: newsAsk.category });
         continue;
       }
 
