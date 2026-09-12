@@ -23,7 +23,7 @@ export function FinanceLayout({ children }: FinanceLayoutProps) {
           Skip to main content
         </a>
 
-        {/* Free access banner (admin / new user 30-day period) */}
+        {/* Free access banner (admin, or an account still in its free week) */}
         <FreeAccessBanner serviceName="Visionex Finance" />
 
         {/* Top bar */}

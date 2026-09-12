@@ -3,8 +3,12 @@ import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { AuthContext } from "./AuthContext";
+import { TRIAL_DAYS } from "@/lib/billing/plans";
 
-const TRIAL_DAYS = 30;
+// The week itself lives in `src/lib/billing/plans.ts` and in
+// `public.trial_period_days()`; the column default does this server-side for
+// rows `handle_new_user` creates, and this is the client-side backfill for a
+// profile that predates it.
 
 const trialExpiresFrom = (registeredAt: string | Date) =>
   new Date(new Date(registeredAt).getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();

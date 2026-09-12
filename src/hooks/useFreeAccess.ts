@@ -1,37 +1,39 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useTrial } from "@/hooks/useTrial";
 
-const FREE_DAYS = 30;
-
+/**
+ * Admins, and accounts still inside their free week.
+ *
+ * This used to count thirty days from `profiles.created_at` itself, which made
+ * it a second opinion on how long the trial is — and once the trial became a
+ * week, the wrong one. It now asks `useTrial`, which reads
+ * `profiles.trial_expires_at`: one column, one answer, and an admin extending
+ * somebody's trial changes both.
+ */
 export function useFreeAccess() {
   const { user } = useAuth();
+  const { isOnTrial, trialDaysLeft } = useTrial();
 
   const { data: profile } = useQuery({
     queryKey: ["profile-role", user?.id],
     queryFn: async () => {
-      const [{ data: roleRow }, { data: profileRow }] = await Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", user!.id).eq("role", "admin").maybeSingle(),
-        supabase.from("profiles").select("created_at").eq("id", user!.id).single(),
-      ]);
-      return { isAdmin: !!roleRow, created_at: profileRow?.created_at };
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user!.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      return { isAdmin: !!roleRow };
     },
     enabled: !!user,
     staleTime: 300_000,
   });
 
   const isAdmin = !!profile?.isAdmin;
+  const isNewUser = !isAdmin && !!user && isOnTrial;
+  const daysRemaining = isNewUser ? trialDaysLeft : 0;
 
-  // Prefer profile.created_at, fallback to auth user.created_at
-  const rawCreatedAt = profile?.created_at ?? user?.created_at;
-  const createdAt = rawCreatedAt ? new Date(rawCreatedAt) : null;
-  const msElapsed = createdAt ? Date.now() - createdAt.getTime() : Infinity;
-  const daysElapsed = msElapsed / (1000 * 60 * 60 * 24);
-
-  const isNewUser = !isAdmin && daysElapsed < FREE_DAYS;
-  const daysRemaining = isNewUser ? Math.ceil(FREE_DAYS - daysElapsed) : 0;
-
-  const hasFreeAccess = isAdmin || isNewUser;
-
-  return { isAdmin, isNewUser, hasFreeAccess, daysRemaining };
+  return { isAdmin, isNewUser, hasFreeAccess: isAdmin || isNewUser, daysRemaining };
 }

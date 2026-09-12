@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { TRIAL_DAYS } from "@/lib/billing/plans";
 
 export function useTrial() {
   const { user } = useAuth();
@@ -23,13 +24,13 @@ export function useTrial() {
   const expiresAt = trialExpiresRaw?.trial_expires_at
     ? new Date(trialExpiresRaw.trial_expires_at)
     : trialExpiresRaw?.created_at
-      // fallback: 30 days from registration time
-      ? new Date(new Date(trialExpiresRaw.created_at).getTime() + 30 * 24 * 60 * 60 * 1000)
+      // fallback: the free week, counted from registration time
+      ? new Date(new Date(trialExpiresRaw.created_at).getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000)
       : null;
   const isOnTrial = expiresAt === null ? true : expiresAt > now;
   const trialDaysLeft = expiresAt
     ? Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-    : 30;
+    : TRIAL_DAYS;
 
   return { isOnTrial, trialDaysLeft, trialExpiresAt: expiresAt };
 }
