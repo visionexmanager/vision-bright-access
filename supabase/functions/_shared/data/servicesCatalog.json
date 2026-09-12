@@ -689,6 +689,45 @@
     "text": "Legal Advisory. الاستشارات القانونية. marketplace. advisor. Contracts, rights and business law explained plainly.. العقود والحقوق وقانون الأعمال بشرح واضح.. legal. lawyer. attorney. contract. rights. law. agreement. compliance. قانوني. محامي. محاماة. عقد. حقوق. قانون. اتفاقية. امتثال. grow-my-work. start-a-business"
   },
   {
+    "id": "travel-flights",
+    "title_en": "Flight Request",
+    "title_ar": "طلب رحلة طيران",
+    "tagline_en": "Tell us where and when. Our travel desk comes back with routes and fares.",
+    "tagline_ar": "أخبرنا إلى أين ومتى، ويعود إليك مكتب السفر بالمسارات والأسعار.",
+    "hub": "marketplace",
+    "kind": "service",
+    "path": "/travel/flights",
+    "difficulty": "starter",
+    "vx": 0,
+    "text": "Flight Request. طلب رحلة طيران. marketplace. service. Tell us where and when. Our travel desk comes back with routes and fares.. أخبرنا إلى أين ومتى، ويعود إليك مكتب السفر بالمسارات والأسعار.. flight. flights. plane. ticket. airline. airport. travel. fare. طيران. رحلة. طائرة. تذكرة. خطوط جوية. مطار. سفر. حجز طيران. care-for-myself. grow-my-work"
+  },
+  {
+    "id": "travel-stays",
+    "title_en": "Hotel Request",
+    "title_ar": "طلب حجز فندق",
+    "tagline_en": "City, dates and who is staying — we come back with the full price.",
+    "tagline_ar": "المدينة والتواريخ ومن سيقيم، ونعود إليك بالسعر الكامل.",
+    "hub": "marketplace",
+    "kind": "service",
+    "path": "/travel/stays",
+    "difficulty": "starter",
+    "vx": 0,
+    "text": "Hotel Request. طلب حجز فندق. marketplace. service. City, dates and who is staying — we come back with the full price.. المدينة والتواريخ ومن سيقيم، ونعود إليك بالسعر الكامل.. hotel. hotels. stay. room. accommodation. booking. nights. فندق. فنادق. إقامة. غرفة. سكن. حجز. ليالي. care-for-myself. grow-my-work"
+  },
+  {
+    "id": "travel-rides",
+    "title_en": "Ride Request",
+    "title_ar": "طلب توصيلة",
+    "tagline_en": "A car now or later, including wheelchair accessible vehicles.",
+    "tagline_ar": "سيارة الآن أو لاحقاً، بما فيها مركبات تناسب الكرسي المتحرك.",
+    "hub": "marketplace",
+    "kind": "service",
+    "path": "/travel/rides",
+    "difficulty": "starter",
+    "vx": 0,
+    "text": "Ride Request. طلب توصيلة. marketplace. service. A car now or later, including wheelchair accessible vehicles.. سيارة الآن أو لاحقاً، بما فيها مركبات تناسب الكرسي المتحرك.. ride. taxi. car. driver. transfer. airport. wheelchair. توصيلة. تاكسي. سيارة. سائق. نقل. مطار. كرسي متحرك. care-for-myself"
+  },
+  {
     "id": "svc-travel-agency",
     "title_en": "Travel Planning",
     "title_ar": "تخطيط السفر",
