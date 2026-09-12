@@ -25204,6 +25204,8 @@ export type Database = {
         Args: { _approve: boolean; _notes?: string; _product_id: string }
         Returns: undefined
       }
+      my_plan_access: { Args: Record<PropertyKey, never>; Returns: Json }
+      my_section_access: { Args: { _section: string }; Returns: boolean }
       notify_self: {
         Args: { _body: string; _title: string; _type?: string }
         Returns: undefined

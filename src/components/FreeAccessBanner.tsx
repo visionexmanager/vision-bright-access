@@ -30,7 +30,7 @@ export function FreeAccessBanner({ serviceName = "this service", className }: Fr
         <>
           <Sparkles className="size-3.5 shrink-0" />
           <span>
-            <span className="font-semibold">Free for {daysRemaining} more {daysRemaining === 1 ? "day" : "days"}</span> — enjoy full access during your 30-day welcome period.
+            <span className="font-semibold">Free for {daysRemaining} more {daysRemaining === 1 ? "day" : "days"}</span> — enjoy full access during your free week.
           </span>
         </>
       )}

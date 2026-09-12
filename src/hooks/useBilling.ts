@@ -57,7 +57,7 @@ export function useCanGenerate() {
   const { data: balance } = useLiveBalance();
   const { isAdmin, isNewUser } = useFreeAccess();
 
-  // Admin users and users within 30-day free period always have full access
+  // Admins, and accounts still inside their free week, always have full access
   if (isAdmin) return { canGenerate: true, reason: "admin" };
   if (isNewUser) return { canGenerate: true, reason: "free_period" };
 

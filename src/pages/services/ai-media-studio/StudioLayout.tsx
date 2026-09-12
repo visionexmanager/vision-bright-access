@@ -70,7 +70,7 @@ export function StudioLayout({ children }: StudioLayoutProps) {
   return (
     <Layout>
       <div className="flex flex-col min-h-[calc(100vh-4rem)]">
-        {/* Free access banner (admin always free; new users free for 30 days) */}
+        {/* Free access banner (admin always free; new accounts free for their first week) */}
         <FreeAccessBanner serviceName="AI Media Studio" />
         {/* Trial countdown banner (only shows when trial < 24h and not admin/new-user) */}
         <TrialBanner onUpgrade={() => navigate("/services/ai-media-studio/billing")} />
