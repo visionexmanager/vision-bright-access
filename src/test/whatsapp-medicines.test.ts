@@ -47,6 +47,41 @@ describe("asking about a medicine", () => {
     expect(medicines.parseMedicineRequest("medicine")?.name).toBe("");
   });
 
+  it("hears the ways people actually ask, not only the word «دواء»", () => {
+    for (
+      const [text, name] of [
+        ["حبوب بنادول", "بنادول"],
+        ["اقراص اسبرين", "اسبرين"],
+        ["ما هو دواء بنادول", "بنادول"],
+        ["شو الدواء بنادول", "بنادول"],
+        ["ما فائدة دواء اسبرين", "اسبرين"],
+        ["what is the drug ibuprofen", "ibuprofen"],
+        ["tablets ibuprofen", "ibuprofen"],
+        ["tell me about the drug aspirin", "aspirin"],
+        ["what are the side effects of ibuprofen", "ibuprofen"],
+      ] as const
+    ) {
+      expect(medicines.parseMedicineRequest(text)?.name, text).toBe(name);
+    }
+  });
+
+  it("keeps a question word out of the drug database unless a medicine is named", () => {
+    // «ما هو» opens a question about anything. On its own it must never route
+    // a general question into a leaflet lookup — that one now gets a general
+    // answer from the assistant, which is a better answer than "check the
+    // spelling" ever was.
+    for (
+      const text of [
+        "ما هو الذكاء الاصطناعي",
+        "ما هي عاصمة اليابان",
+        "what is the capital of Japan",
+        "tell me about the weather tomorrow",
+      ]
+    ) {
+      expect(medicines.parseMedicineRequest(text), text).toBeNull();
+    }
+  });
+
   it("does not answer a sentence that merely mentions medicine", () => {
     // "I took some medicine and now I feel worse" is a complaint, and a
     // leaflet would be the assistant talking over somebody who needs a person.
@@ -119,8 +154,11 @@ describe("the sentence that must survive everything", () => {
     // disclaimer is a rendering that can decide not to.
     expect(medicines.renderPrompt("Arabic")).not.toMatch(/disclaimer|FDA|pharmacist/i);
     // And the code appends it on both paths — rendered and untranslated alike.
-    const branch = webhook.slice(webhook.indexOf("const medicineAsk"));
-    expect(branch.slice(0, 3000)).toContain("withDisclaimer(body, answerLanguage)");
+    const branch = webhook.slice(
+      webhook.indexOf("const medicineAsk"),
+      webhook.indexOf("const newsAsk ="),
+    );
+    expect(branch).toContain("withDisclaimer(body, answerLanguage)");
   });
 });
 
@@ -136,13 +174,13 @@ describe("what the renderer is forbidden to do", () => {
   it("is given the leaflet and no conversation", () => {
     // Replaying the thread here would let an earlier message change what a
     // leaflet says.
-    const branch = webhook.slice(webhook.indexOf("const medicineAsk"), webhook.indexOf("await showNews()"));
+    const branch = webhook.slice(webhook.indexOf("const medicineAsk"), webhook.indexOf("const newsAsk ="));
     expect(branch).toContain("systemParts: [renderPrompt(");
     expect(branch).not.toContain("turns:");
   });
 
   it("falls back to the label's own words rather than to nothing", () => {
-    const branch = webhook.slice(webhook.indexOf("const medicineAsk"), webhook.indexOf("await showNews()"));
+    const branch = webhook.slice(webhook.indexOf("const medicineAsk"), webhook.indexOf("const newsAsk ="));
     expect(branch).toContain("sourceBlock(label)");
     expect(branch).toContain('rendered.status === "answered"');
   });
@@ -166,12 +204,24 @@ describe("the lookup", () => {
   });
 
   it("tells a source that was unreachable apart from one that had nothing", () => {
-    // "Try again" and "check the spelling" are different instructions.
+    // A source that could not be reached is still worth a sentence: "try
+    // again" is something the sender can act on.
     expect(lookup).toContain('return "unavailable"');
     expect(lookup).toContain("if (response.status === 404) return null;");
-    const branch = webhook.slice(webhook.indexOf("const medicineAsk"));
-    expect(branch.slice(0, 3000)).toContain('say("medicineUnavailable"');
-    expect(branch.slice(0, 3000)).toContain('say("medicineNone"');
+    const branch = webhook.slice(
+      webhook.indexOf("const medicineAsk"),
+      webhook.indexOf("const newsAsk ="),
+    );
+    expect(branch).toContain('say("medicineUnavailable"');
+
+    // A source that answered and had nothing is *not* a refusal any more.
+    // openFDA holds US labels, so a name that is not in it is usually a box
+    // sold under another name rather than a spelling somebody got wrong — and
+    // "check the spelling" ended the conversation on a correct question. The
+    // miss is logged and the message carries on to the assistant, which
+    // answers it.
+    expect(branch).toContain('log("medicine", { outcome: "not_found" });');
+    expect(branch).not.toContain('say("medicineNone"');
   });
 
   it("gives each lookup a deadline, because Meta redelivers a slow answer", () => {

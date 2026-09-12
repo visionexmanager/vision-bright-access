@@ -558,6 +558,61 @@ describe("when the assistant must stay quiet", () => {
     expect(triage.TECHNICAL_ESCALATION_COOLDOWN_MS).toBe(30 * 60 * 1000);
   });
 
+  // Reported: the menu was open, "Watch TV" was tapped, and nothing came back
+  // at all. The channel list reads a view — no provider, no key — but every
+  // feature gate in the webhook asked `assistantIsSilenced`, so a model
+  // provider being unreachable took the menus, the taps, the radio and the TV
+  // down with it, and the sender was left with silence from a system that was
+  // working.
+
+  describe("who is actually on the other side", () => {
+    const outage = (minutesAgo: number) => ({
+      control: "ai",
+      escalated: true,
+      escalation_reason: "ai_unavailable",
+      escalated_at: at(minutesAgo),
+    });
+
+    it("does not call a provider outage a person", () => {
+      // Inside the cooldown and outside it: nobody is typing either way.
+      expect(triage.personOwnsConversation(outage(1))).toBe(false);
+      expect(triage.personOwnsConversation(outage(29))).toBe(false);
+      expect(triage.personOwnsConversation(outage(31))).toBe(false);
+    });
+
+    it("still calls a takeover a person, however long it has been", () => {
+      for (const minutes of [0, 60, 60 * 24 * 30]) {
+        expect(
+          triage.personOwnsConversation({ control: "human", escalated: false, escalated_at: at(minutes) }),
+          `${minutes} minutes`,
+        ).toBe(true);
+      }
+    });
+
+    it("calls every escalation about the conversation a person", () => {
+      for (const reason of ["user_request", "assistant_handover", "complaint", "repeated_failure", "sensitive"]) {
+        expect(
+          triage.personOwnsConversation({ escalated: true, escalation_reason: reason }),
+          reason,
+        ).toBe(true);
+      }
+    });
+
+    it("leaves an ordinary conversation alone", () => {
+      expect(triage.personOwnsConversation({ control: "ai", escalated: false })).toBe(false);
+      expect(triage.personOwnsConversation(null)).toBe(false);
+      expect(triage.personOwnsConversation(undefined)).toBe(false);
+    });
+
+    it("keeps the assistant quiet during the cooldown even so", () => {
+      // The two answer different questions, and this is the gap between them:
+      // the features may speak, the model may not, and the sender is told why
+      // rather than left with nothing.
+      expect(triage.assistantIsSilenced(outage(1), NOW)).toBe(true);
+      expect(triage.personOwnsConversation(outage(1))).toBe(false);
+    });
+  });
+
   it("keeps an escalation nobody can date, rather than guessing it is over", () => {
     for (const escalated_at of [null, undefined, "", "not a date"]) {
       expect(
@@ -577,11 +632,18 @@ describe("when the assistant must stay quiet", () => {
     expect(triage.assistantIsSilenced(undefined, NOW)).toBe(false);
   });
 
-  it("is the only thing the webhook asks, in both of the places it used to ask twice", () => {
-    // Two conditions written out separately is two chances to fix one of them.
-    expect(webhook).toContain("const humanOwnsThis = assistantIsSilenced(");
-    expect(webhook).toContain("if (assistantIsSilenced(existing as Record<string, unknown> | null, Date.now())) continue;");
+  it("is asked through these functions, never written out by hand", () => {
+    // Two conditions written out separately is two chances to fix one of them,
+    // and that is what this has always guarded. There are two *questions* now,
+    // which is not the same thing: the features ask who is on the other side,
+    // and the model asks whether it may speak. Each still has exactly one
+    // spelling, and neither is the raw column comparison.
+    expect(webhook).toContain("const humanOwnsThis = personOwnsConversation(");
+    expect(webhook).toContain("if (assistantIsSilenced(existing as Record<string, unknown> | null, Date.now())) {");
     expect(webhook).not.toContain('existing?.control === "human" || existing?.escalated');
+    // The feature gates read the one variable, so there is still a single
+    // place to change what "a person owns this" means.
+    expect(webhook.match(/personOwnsConversation\(/g)?.length).toBe(2);
   });
 
   it("reads the columns the rule needs off the conversation", () => {

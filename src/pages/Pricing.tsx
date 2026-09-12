@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
+import { SECTIONS, type SectionKey } from "@/lib/billing/plans";
 
 /**
  * The plans, from the table that decides them.
@@ -35,9 +37,18 @@ function asFeatures(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+/** The section keys a plan opens, in catalogue order rather than row order. */
+function asSections(limits: Record<string, unknown>): SectionKey[] {
+  const raw = limits?.sections;
+  if (!Array.isArray(raw)) return [];
+  const named = new Set(raw.filter((item): item is string => typeof item === "string"));
+  return SECTIONS.filter((section) => named.has(section.key)).map((section) => section.key);
+}
+
 export default function Pricing() {
   const { t, translateText, dir } = useLanguage();
   const { user } = useAuth();
+  const { access } = usePlanAccess();
 
   const { data: plans = [], isLoading } = useQuery({
     queryKey: ["billing-plans"],
@@ -71,18 +82,32 @@ export default function Pricing() {
           {t("plans.intro")}
         </p>
 
+        <section className="mt-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6" aria-labelledby="free-week">
+          <h2 id="free-week" className="text-lg font-bold">{t("plans.freeWeekTitle")}</h2>
+          <p className="mt-2 text-sm">{t("plans.freeWeekBody")}</p>
+        </section>
+
         {isLoading ? (
           <p className="mt-10" role="status">{t("common.loading")}</p>
         ) : (
           <ul className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4" role="list">
             {plans.map((plan) => {
               const daily = whatsappDaily(plan);
+              const sections = asSections(plan.limits);
+              const isCurrent = access?.planId === plan.id;
               return (
                 <li
                   key={plan.id}
-                  className="flex flex-col rounded-2xl border border-border bg-card p-6 shadow-sm"
+                  className={`flex flex-col rounded-2xl border bg-card p-6 shadow-sm ${
+                    isCurrent ? "border-primary ring-2 ring-primary/30" : "border-border"
+                  }`}
                 >
                   <h2 className="text-xl font-bold">{translateText(plan.name)}</h2>
+                  {isCurrent && (
+                    <p className="mt-1 text-xs font-bold uppercase tracking-wide text-primary">
+                      {t("plans.currentPlan")}
+                    </p>
+                  )}
 
                   <p className="mt-2 text-3xl font-black">
                     {plan.price_monthly_usd > 0
@@ -107,6 +132,25 @@ export default function Pricing() {
                         ? t("plans.whatsappUnlimited")
                         : `WhatsApp: ${daily.toLocaleString()} ${t("plans.requestsADay")}`}
                     </p>
+                  )}
+
+                  {/* What the plan opens, named the same way the navigation
+                      names it — a list of features is marketing, a list of
+                      sections is an answer. */}
+                  {sections.length > 0 && (
+                    <div className="mt-4">
+                      <h3 className="text-sm font-bold">{t("plans.opens")}</h3>
+                      <ul className="mt-2 flex flex-wrap gap-1.5" role="list">
+                        {sections.map((key) => (
+                          <li
+                            key={key}
+                            className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
+                          >
+                            {t(`section.${key}`)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
 
                   <ul className="mt-4 space-y-2 text-sm" role="list">

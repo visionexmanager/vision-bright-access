@@ -6,10 +6,11 @@
 //
 // What this file deliberately does **not** do is decide anything. It does not
 // choose providers, order them, retry them or know their names — all of that is
-// `assistantTargets("whatsapp-support")` in `assistants.ts`, which has ordered
-// this assistant Mistral → Gemini → Groq → OpenAI since long before any of this
-// engine work, and is passed straight through. A second place that knows the
-// order would be a second thing to keep in step.
+// `assistantTargets("whatsapp-support")` in `assistants.ts`, and is passed
+// straight through. A second place that knows the order would be a second thing
+// to keep in step — which is why the order is not written here, not even as a
+// comment: it has already changed once, and a stale copy of it in prose is the
+// same bug as a stale copy of it in code.
 //
 // It lives apart from `whatsappAsk.ts` for one concrete reason: `aiProvider.ts`
 // reads `Deno.env`, and a test that imported it would drag Deno's globals into

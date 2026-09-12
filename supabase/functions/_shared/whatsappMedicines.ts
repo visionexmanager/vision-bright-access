@@ -46,8 +46,21 @@ export const MEDICINE_MAX_CHARS = 60;
  */
 export const MEDICINE_TIMEOUT_MS = 6_000;
 
-/** A trigger has to open the message, within this many words. */
-const TRIGGER_WITHIN_WORDS = 3;
+/**
+ * A trigger has to open the message, within this many words.
+ *
+ * Six, not three — and the three was a bug as much as a bound. `^what is the
+ * drug$` had been in the list below since it was written and could never match:
+ * the longest opening ever tested was three words, so the pattern was
+ * unreachable and an English sender typing the most natural form of the
+ * question reached nothing at all.
+ *
+ * Widening the window widens nothing on its own: every pattern is anchored at
+ * both ends against the exact opening, so what the extra words allow is
+ * precisely the longer patterns written below — "what are the side effects of",
+ * "tell me about the drug" — and no sentence that does not open with one.
+ */
+const TRIGGER_WITHIN_WORDS = 6;
 
 /** How much of one label section is worth sending. */
 export const SECTION_CHARS = 700;
@@ -61,17 +74,45 @@ export const SOURCE_CHARS = 2_600;
  * Anchored to the start for the reason the song parser is: "I took some
  * medicine and now I feel worse" is a complaint, and answering it with a
  * leaflet would be the assistant talking over somebody who needs a person.
+ *
+ * ── Why the list grew ───────────────────────────────────────────────────────
+ *
+ * It held nine ways of asking, and people ask in more than nine. «حبوب بنادول»
+ * is the commonest phrasing of all for somebody holding a strip, and it reached
+ * nothing; so did «ما فائدة أسبرين», "what is ibuprofen used for", and every
+ * question that opened with a question word rather than with the word "drug".
+ *
+ * Every addition is still an opening, still anchored, and still followed by the
+ * name — and the openings that are *questions* («ما هو», "what is") are only
+ * accepted when a word for a medicine comes with them. That is what keeps «ما
+ * هو الذكاء الاصطناعي» out of a drug database: it is a general question, it now
+ * gets a general answer, and it never reaches here.
  */
 const MEDICINE_WORDS: readonly RegExp[] = [
-  /^(?:ال)?(?:دواء|دوا|علاج)$/u,
+  // The word for a medicine, alone, in the forms an Arabic keyboard produces.
+  /^(?:ال)?(?:دواء|دوا|علاج|عقار)$/u,
   /^معلومات عن$/u,
-  /^معلومات عن دواء$/u,
-  /^ما هو دواء$/u,
-  /^شو دواء$/u,
+  /^معلومات عن (?:ال)?(?:دواء|دوا|علاج|عقار)$/u,
+  /^نشرة (?:ال)?(?:دواء|دوا)$/u,
+  // A question word — but only ever alongside a word for a medicine, so «ما هو
+  // الذكاء الاصطناعي» is a general question and is answered as one.
+  /^(?:ما|شو|ايش|إيش|وش)(?: هو| هي)? (?:ال)?(?:دواء|دوا|علاج|عقار|حبوب|اقراص|أقراص)$/u,
+  /^(?:ما|شو|ايش|إيش) (?:فائدة|فوائد|استخدام|استخدامات|جرعة|جرعه) (?:ال)?(?:دواء|دوا|حبوب)$/u,
+  /^(?:اعراض|أعراض) (?:جانبية|جانبيه)(?: ل| لدواء)?$/u,
+  // The form of the box itself, which is what somebody holding one says.
+  /^(?:حبوب|حبه|حبة|اقراص|أقراص|قرص|كبسول|كبسولة|كبسولات|مرهم|برشام|بخاخ|حقنة)$/u,
+  /^(?:ال)?(?:دواء|دوا|علاج) (?:اسمه|اسمها)$/u,
+  // English.
   /^medicine$/i,
   /^medication$/i,
   /^drug$/i,
   /^what is the drug$/i,
+  /^(?:the )?(?:medicine|medication|drug|tablet|tablets|pill|pills|capsule|capsules|ointment) (?:called|named)$/i,
+  /^what (?:is|are) (?:the )?(?:medicine|medication|drug|tablet|tablets|pill|pills|capsule|capsules)$/i,
+  /^what (?:is|are) (?:the )?(?:uses|use|dose|dosage|side effects) of$/i,
+  /^tell me about (?:the )?(?:medicine|medication|drug|tablet|pill)$/i,
+  /^(?:tablets?|pills?|capsules?|ointment|inhaler)$/i,
+  /^leaflet (?:for|of)$/i,
 ];
 
 export interface MedicineRequest {

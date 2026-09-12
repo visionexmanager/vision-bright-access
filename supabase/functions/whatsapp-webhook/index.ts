@@ -209,7 +209,8 @@ import {
   NEWS_ID_PREFIX,
   NEWS_LIST_SIZE,
   NEWS_URL,
-  parseNewsRequest,
+  newsBulletin,
+  parseNewsAsk,
   parseNewsSelection,
   readArticles,
 } from "../_shared/whatsappNews.ts";
@@ -240,10 +241,18 @@ import {
 } from "../_shared/whatsappGames.ts";
 import {
   carriesStream,
+  channelPage,
+  formatChannel,
   formatChannels,
+  noChannelsNotice,
+  parseTvCategorySelection,
+  parseTvChannelSelection,
   parseTvRequest,
+  readCategories,
   readChannels,
   tvUnavailableNotice,
+  TV_CATEGORY_ID_PREFIX,
+  TV_CHANNEL_ID_PREFIX,
 } from "../_shared/whatsappTv.ts";
 import {
   fetchAudio,
@@ -270,7 +279,14 @@ import {
   type ResolvedVoice,
 } from "../_shared/whatsappVoiceChoice.ts";
 import { sendVoiceChoice } from "../_shared/whatsappInteractive.ts";
-import { deliverReply, replyMedium, sendWhatsAppAudio, speakReply, uploadWhatsAppMedia } from "../_shared/whatsappVoiceReply.ts";
+import {
+  deliverReply,
+  replyMedium,
+  sendWhatsAppAudio,
+  speakReply,
+  uploadWhatsAppMedia,
+  wantsSpokenReply,
+} from "../_shared/whatsappVoiceReply.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
   type Capability,
@@ -305,6 +321,8 @@ import {
   sendServicesInHub,
   sendSongList,
   sendTappable,
+  sendTvCategories,
+  sendTvChannels,
   type Tappable,
 } from "../_shared/whatsappInteractive.ts";
 import {
@@ -423,6 +441,7 @@ import {
   CLASSIFY_INSTRUCTION,
   CLASSIFY_SCHEMA,
   assistantIsSilenced,
+  personOwnsConversation,
   fallbackBriefing,
   HANDOFF_INSTRUCTION,
   isCategory,
@@ -441,9 +460,10 @@ import {
 } from "../_shared/whatsappKnowledge.ts";
 import {
   formatAmbiguityPrompt,
-  formatPendingList,
   formatOwnerHelp,
+  formatPendingList,
   isOwner,
+  ownerCommandBody,
   parseOwnerCommand,
   type PendingApproval,
 } from "../_shared/ownerControl.ts";
@@ -540,6 +560,10 @@ async function readFeatureConfig(db: ReturnType<typeof service>): Promise<Featur
  * Reached only after the sender has been positively identified as the owner.
  * Returns the reply to send back, or null when the message was not a command
  * and should fall through to ordinary handling.
+ *
+ * A command is a message that starts with `/`. Everything else the owner sends
+ * is an ordinary message and gets the ordinary answer, so the number that runs
+ * the service is also the number that can test it.
  */
 async function handleOwnerCommand(
   db: ReturnType<typeof service>,
@@ -547,7 +571,14 @@ async function handleOwnerCommand(
   text: string,
 ): Promise<string | null> {
   const command = parseOwnerCommand(text);
-  if (command.kind === "unknown" && !command.reference) return null;
+  // No prefix, no command. The owner is a customer here, which is the only way
+  // they can see what a customer sees.
+  if (ownerCommandBody(text) === null) return null;
+  // A slash is always a command attempt, so a mistyped one is answered with the
+  // list rather than handed to the assistant, which would treat it as a question.
+  if (command.kind === "help" || (command.kind === "unknown" && !command.reference)) {
+    return formatOwnerHelp();
+  }
 
   // `/help` needs nothing: not a lookup, not a rate-limit slot, not an audit
   // row. It is a list of words, and answering it is never a decision.
@@ -698,7 +729,9 @@ async function handleOwnerCommand(
     ].join("\n\n");
   }
 
-  return null;
+  // A reference with no verb: the owner named a decision but not what to do
+  // with it. The list is the answer, not silence.
+  return formatOwnerHelp();
 }
 
 /**
@@ -965,7 +998,8 @@ Deno.serve(async (req) => {
           }
           continue;
         }
-        // Not a command — fall through and treat it as an ordinary message.
+        // Not a slash command — fall through and treat it as an ordinary
+        // message, answered exactly as a customer would be answered.
       }
 
       // ── Conversation record ───────────────────────────────────────────
@@ -1215,6 +1249,20 @@ Deno.serve(async (req) => {
       const spokenInput = incoming.media?.kind === "audio";
 
       /**
+       * Whether the sender asked, in writing, to be answered out loud.
+       *
+       * The other half of the same question. Somebody typing «ابعتلي نشرة
+       * صوتية» has said how they want to be answered just as plainly as
+       * somebody who recorded a voice note, and until this existed there was no
+       * way to say it at all — the request was read, the answer was written
+       * out, and the one part of it the sender actually asked for was dropped.
+       *
+       * Read from the sender's own words, so a transcript cannot trigger it by
+       * accident: a voice note is already spoken back by `spokenInput`.
+       */
+      const voiceRequested = !spokenInput && wantsSpokenReply(incoming.text);
+
+      /**
        * Where this sender is, loaded from the row they already have.
        *
        * `readSession` is tolerant: a path naming a node this build no longer
@@ -1237,12 +1285,15 @@ Deno.serve(async (req) => {
        *
        * Declared here rather than half way down because the menus, the
        * onboarding questions and the model all have to agree about it, and
-       * three places resolving it separately is three places to disagree. A
-       * stored preference always wins over detection: somebody who tapped
-       * Français does not want to be switched back because they quoted an
-       * English product name.
+       * three places resolving it separately is three places to disagree.
+       *
+       * The message wins when it says what language it is; the stored
+       * preference settles everything it does not — a bare number, an emoji, a
+       * photo with no caption. Somebody who tapped Français and then quoted an
+       * English product name is still writing French, because `replyLanguage`
+       * wants a script that carries half the message before it switches.
        */
-      let answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null);
+      let answerLanguage = replyLanguage(detected, existing?.preferred_language as string | null, incoming.text);
 
       /**
        * The language the *parsers* read, which is not the language anything is
@@ -1301,7 +1352,7 @@ Deno.serve(async (req) => {
         }
         lastSentBody = body;
 
-        const medium = replyMedium({ spokenInput, body });
+        const medium = replyMedium({ spokenInput, voiceRequested, body });
         const { data: written } = await db.from("whatsapp_messages").insert({
           conversation_id: conversationId,
           direction: "outbound",
@@ -1316,7 +1367,14 @@ Deno.serve(async (req) => {
         // what lets it assert the transport of a whole conversation without a
         // Meta account or a synthesis bill.
         const delivered = await deliverReply(
-          { body, kind, spokenInput, failureNotice: say("failed", answerLanguage), trace: correlationId },
+          {
+            body,
+            kind,
+            spokenInput,
+            voiceRequested,
+            failureNotice: say("failed", answerLanguage),
+            trace: correlationId,
+          },
           {
             sendText: (text) => sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text }),
             speak: async (text) =>
@@ -1680,14 +1738,44 @@ Deno.serve(async (req) => {
        * Returns whether a list went out, so the caller can tell an empty feed
        * from a broken one without reading the reply back.
        */
-      const showNews = async (options: { note?: string } = {}): Promise<boolean> => {
-        const { data, error } = await db
-          .from("news_articles")
-          .select("id, title, description, category, published_at, translations")
-          .eq("published", true)
-          .neq("category", NEWS_EXCLUDED_CATEGORY)
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(NEWS_LIST_SIZE);
+      /**
+       * The headlines: filtered to a section when one was named, and read out
+       * when the sender cannot use a list.
+       *
+       * ── Why a section can come back empty and that is not an error ─────────
+       *
+       * `news-generate` writes one article per category per run, but only for
+       * the categories it had something real to say about — so "technology"
+       * having nothing today is ordinary. Answering that with "there is no
+       * news" would be false, and answering it with the mixed list as though
+       * nothing had been asked would be quietly ignoring half the message. It
+       * says which of the two happened, then shows the latest.
+       */
+      const showNews = async (
+        options: { note?: string; category?: string | null } = {},
+      ): Promise<boolean> => {
+        const load = async (category: string | null) => {
+          const query = db
+            .from("news_articles")
+            .select("id, title, description, category, published_at, translations")
+            .eq("published", true)
+            .neq("category", NEWS_EXCLUDED_CATEGORY);
+          return await (category ? query.eq("category", category) : query)
+            .order("published_at", { ascending: false, nullsFirst: false })
+            .limit(NEWS_LIST_SIZE);
+        };
+
+        const asked = options.category ?? null;
+        let { data, error } = await load(asked);
+        let note = options.note;
+
+        // A section with nothing in it today. Say so, and show the latest
+        // rather than leaving somebody who asked for technology news holding
+        // one sentence about there being none.
+        if (!error && asked && readArticles(data).length === 0) {
+          note = say("newsTopicEmpty", answerLanguage);
+          ({ data, error } = await load(null));
+        }
 
         if (error) {
           console.error("[whatsapp] news lookup failed:", describeError(error));
@@ -1703,7 +1791,25 @@ Deno.serve(async (req) => {
           return false;
         }
 
-        if (options.note) await reply(options.note, "reply");
+        if (note) await reply(note, "reply");
+
+        // A list message cannot be a voice note, and a sender who asked out
+        // loud — or who asked, in writing, for a spoken bulletin — cannot use
+        // rows. The same five articles go out as one paragraph instead, which
+        // `reply` then speaks because the same two facts decide its medium.
+        if (spokenInput || voiceRequested) {
+          await reply(
+            newsBulletin({
+              articles,
+              language: answerLanguage,
+              heading: say("newsHeading", answerLanguage),
+            }),
+            "reply",
+          );
+          log("news", { outcome: "bulletin", count: articles.length });
+          return true;
+        }
+
         await sendNewsList(
           delivery,
           articles.map((article) => ({ id: article.id, ...articleText(article, answerLanguage) })),
@@ -1899,8 +2005,10 @@ Deno.serve(async (req) => {
       //
       // Placed after the message is logged, so a throttled sender is still
       // recorded in the transcript and the team can see what was sent. Only
-      // the model call and the reply are withheld. The owner is exempt: their
-      // commands have their own separate limit above.
+      // the model call and the reply are withheld. The owner is exempt on
+      // purpose: commands carry their own separate limit above, and testing
+      // the assistant as a customer means sending far more than sixty messages
+      // an hour from one handset.
       if (!isNew && !isOwner(incoming.from, configuredOwner)) {
         stage = "rate_limit";
         const nowMs = Date.now();
@@ -2140,7 +2248,13 @@ Deno.serve(async (req) => {
       // Cast the way `readSession` above is: the generated types for this
       // client are stale, so every read of a column on this row goes through
       // the same shape rather than growing a second story about it.
-      const humanOwnsThis = assistantIsSilenced(existing as Record<string, unknown> | null, Date.now());
+      //
+      // `personOwnsConversation`, not `assistantIsSilenced`: the thirty-odd
+      // gates below are features, and a feature that reads a view has no reason
+      // to go dark because a model provider was unreachable. Somebody tapping
+      // *Watch TV* during an outage was getting nothing at all — not the
+      // channel list, not an apology, not even the menu they tapped it from.
+      const humanOwnsThis = personOwnsConversation(existing as Record<string, unknown> | null);
 
       /**
        * Whether a feature may answer at all, by catalog id.
@@ -2353,6 +2467,131 @@ Deno.serve(async (req) => {
         log("services", { outcome: "service" });
         await reply(formatService({ service, language: answerLanguage }), "reply");
         continue;
+      }
+
+      // ── VisionTV: a tapped category, and a tapped channel ─────────────
+      //
+      // Two rows, two steps of one act. Handled here with the other row ids
+      // rather than in the TV block below, for the reason the services rows
+      // give: the catalog has no node for a category, so the router would
+      // rightly call one a row this build no longer has.
+      //
+      // Nothing is remembered between them. A list outlives the delivery that
+      // sent it — somebody opens WhatsApp an hour later and taps — so the row
+      // carries the slug and the page, and both are looked up again. That
+      // survives a restart, where a session does not.
+
+      /** The categories, read and sent. Also the answer to a row gone stale. */
+      const showTvCategories = async (): Promise<boolean> => {
+        const { data, error } = await db
+          .from("tv_categories")
+          .select("id, slug, name, name_ar")
+          .order("sort_order", { ascending: true });
+        if (error) {
+          console.error("[whatsapp] tv categories failed:", describeError(error));
+          log("tv", { outcome: "unavailable" });
+          await reply(tvUnavailableNotice(answerLanguage), "unsupported");
+          return false;
+        }
+        const categories = readCategories(data);
+        if (categories.length === 0) {
+          log("tv", { outcome: "empty", count: 0 });
+          await reply(noChannelsNotice(answerLanguage), "unsupported");
+          return false;
+        }
+        log("tv", { outcome: "categories", count: categories.length });
+        await sendTvCategories(delivery, categories, answerLanguage);
+        return true;
+      };
+
+      if (!humanOwnsThis && incoming.selection?.startsWith(TV_CATEGORY_ID_PREFIX)) {
+        const picked = parseTvCategorySelection(incoming.selection);
+        try {
+          const { data: categoryRows } = picked
+            ? await db
+              .from("tv_categories")
+              .select("id, slug, name, name_ar")
+              .eq("slug", picked.category)
+              .limit(1)
+            : { data: null };
+          const category = readCategories(categoryRows)[0] ?? null;
+          if (!picked || !category) {
+            log("tv", { outcome: "stale" });
+            await reply(say("tvStale", answerLanguage), "reply");
+            await showTvCategories();
+            continue;
+          }
+
+          const { data: rows, error } = await db
+            .from("tv_channels_public")
+            .select("id, name, name_ar, description, description_ar, language, country, quality, is_featured")
+            .eq("category_id", category.id)
+            .order("is_featured", { ascending: false })
+            .order("sort_order", { ascending: true })
+            .limit(200);
+          if (error) throw error;
+
+          // The same guard the search below carries. A row with a stream
+          // column means the query has been pointed at the table, and the
+          // honest answer then is no channels rather than a leak.
+          const safe = Array.isArray(rows) ? rows.filter((row) => !carriesStream(row)) : rows;
+          const channels = readChannels(safe);
+          if (channels.length === 0) {
+            log("tv", { outcome: "empty", count: 0 });
+            await reply(noChannelsNotice(answerLanguage), "unsupported");
+            continue;
+          }
+
+          // The page number is not logged. It would be harmless, but the field
+          // allowlist is a privacy boundary and widening one to record which
+          // page of a menu somebody was on is not a trade worth making.
+          const current = channelPage(channels, picked.page);
+          log("tv", { outcome: "listed", count: current.channels.length });
+          await sendTvChannels(delivery, {
+            category,
+            channels: current.channels,
+            page: current.page,
+            hasMore: current.hasMore,
+            language: answerLanguage,
+          });
+          continue;
+        } catch (e) {
+          console.error("[whatsapp] tv category failed:", describeError(e));
+          log("tv", { outcome: "unavailable" });
+          await reply(tvUnavailableNotice(answerLanguage), "unsupported");
+          continue;
+        }
+      }
+
+      if (!humanOwnsThis && incoming.selection?.startsWith(TV_CHANNEL_ID_PREFIX)) {
+        const channelId = parseTvChannelSelection(incoming.selection);
+        try {
+          const { data: rows, error } = channelId
+            ? await db
+              .from("tv_channels_public")
+              .select("id, name, name_ar, description, description_ar, language, country, quality, is_featured")
+              .eq("id", channelId)
+              .limit(1)
+            : { data: null, error: null };
+          if (error) throw error;
+
+          const safe = Array.isArray(rows) ? rows.filter((row) => !carriesStream(row)) : rows;
+          const channel = readChannels(safe)[0] ?? null;
+          if (!channel) {
+            log("tv", { outcome: "stale" });
+            await reply(say("tvStale", answerLanguage), "reply");
+            await showTvCategories();
+            continue;
+          }
+          log("tv", { outcome: "channel" });
+          await reply(formatChannel({ channel, language: answerLanguage }), "reply");
+          continue;
+        } catch (e) {
+          console.error("[whatsapp] tv channel failed:", describeError(e));
+          log("tv", { outcome: "unavailable" });
+          await reply(tvUnavailableNotice(answerLanguage), "unsupported");
+          continue;
+        }
       }
 
       // ── A tapped headline ─────────────────────────────────────────────
@@ -2730,19 +2969,23 @@ Deno.serve(async (req) => {
           /**
            * The language a voice note is answered in.
            *
-           * A stored preference wins, then whatever this conversation has been
-           * speaking, and only then the transcript. Whisper mishears a language
-           * far more often than a person changes theirs mid-conversation, and
-           * answering an Arabic customer in English because one sentence came
-           * back as English is the worse failure by a distance. Saying «احكي
-           * معي بالإنجليزي» still switches it — that is a preference, and
-           * preferences are read from this same transcript a few lines below.
+           * A transcript that plainly says what language it is wins, the same
+           * way a typed question does: somebody who speaks Arabic is answered
+           * in Arabic, whatever they once set. Whisper does mishear a language,
+           * which is why `replyLanguage` will not switch on a stray word — it
+           * wants a script carrying half the transcript before it decides.
+           *
+           * Everything that leaves undecided falls back the way it always did:
+           * whatever this conversation has been speaking, then the preference,
+           * and only then the raw transcript. A transcript too short or too
+           * mixed to judge is exactly the one Whisper is worst at, and exactly
+           * the one worth answering in the language already in use.
            */
           if (questionText.trim()) {
             const heardLanguage = detectLanguageCode(questionText);
             const spokenBefore = existing?.language as string | null | undefined;
             const settled = isSupportedLanguage(spokenBefore) ? spokenBefore : heardLanguage;
-            answerLanguage = replyLanguage(settled, existing?.preferred_language as string | null);
+            answerLanguage = replyLanguage(settled, existing?.preferred_language as string | null, questionText);
             language = answerLanguage === "ar" ? "ar" : "en";
             parserLanguage = language;
           }
@@ -3724,6 +3967,23 @@ Deno.serve(async (req) => {
         ? parseMedicineRequest(questionText)
         : null;
 
+      /**
+       * The leaflet, when there is one.
+       *
+       * ── Why a miss is no longer the end of the message ────────────────────
+       *
+       * openFDA holds *US* labels. Half of what somebody in the region is
+       * holding is not in it under the name on the box, and the answer to that
+       * used to be «تحقق من الاسم» — check the spelling — which told a sender
+       * whose spelling was perfectly correct that they had got it wrong, and
+       * ended the conversation there.
+       *
+       * So a miss now falls through instead of replying. The message carries on
+       * to the assistant, which knows what paracetamol is, and the sender gets
+       * an answer about their medicine rather than a correction about their
+       * typing. Nothing is spent on the miss: `maySpend` is a check, and
+       * `spent` is only ever called after an answer.
+       */
       if (medicineAsk) {
         if (!medicineAsk.name) {
           // Found the feature, has not said what they want yet.
@@ -3741,50 +4001,55 @@ Deno.serve(async (req) => {
           continue;
         }
         if (!label) {
+          // Silent on purpose: the assistant answers this message below, and a
+          // "check the spelling" in front of a good answer reads as the
+          // assistant contradicting itself.
           log("medicine", { outcome: "not_found" });
-          await reply(say("medicineNone", answerLanguage), "reply");
+        } else {
+          // The leaflet is English. Rendering it into the reader's language is
+          // the difference between a service and a curiosity for this audience,
+          // and the prompt is a list of things the model may not do — the dose
+          // it must not invent, the advice it must not add, the warning it must
+          // not soften.
+          const rendered = await askAssistant(
+            {
+              // The whole instruction, and no conversation: this is a rendering
+              // job, not a turn of the thread. Replaying history here would let
+              // an earlier message change what a leaflet says.
+              systemParts: [renderPrompt(LANGUAGE_ENDONYM[answerLanguage])],
+              question: sourceBlock(label),
+              maxTokens: 700,
+            },
+            chainProvider(),
+          );
+
+          // The disclaimer is added here, by code. Not asked of the model, so no
+          // rendering can drop it, shorten it or bury it.
+          //
+          // A provider that failed falls back to the label's own English rather
+          // than to nothing: somebody holding a box wants the warnings even in a
+          // language they read slowly, and the disclaimer below still applies.
+          const answered = rendered.status === "answered" && rendered.text.trim().length > 0;
+          const body = answered
+            ? `${medicineHeading(label)}\n\n${rendered.text.trim()}`
+            : `${medicineHeading(label)}\n\n${sourceBlock(label)}`;
+
+          if (answered) await spent("ai");
+          log("medicine", {
+            outcome: answered ? "answered" : "untranslated",
+            chars: body.length,
+          });
+          await reply(withDisclaimer(body, answerLanguage), "reply");
           continue;
         }
-
-        // The leaflet is English. Rendering it into the reader's language is
-        // the difference between a service and a curiosity for this audience,
-        // and the prompt is a list of things the model may not do — the dose
-        // it must not invent, the advice it must not add, the warning it must
-        // not soften.
-        const rendered = await askAssistant(
-          {
-            // The whole instruction, and no conversation: this is a rendering
-            // job, not a turn of the thread. Replaying history here would let
-            // an earlier message change what a leaflet says.
-            systemParts: [renderPrompt(LANGUAGE_ENDONYM[answerLanguage])],
-            question: sourceBlock(label),
-            maxTokens: 700,
-          },
-          chainProvider(),
-        );
-
-        // The disclaimer is added here, by code. Not asked of the model, so no
-        // rendering can drop it, shorten it or bury it.
-        //
-        // A provider that failed falls back to the label's own English rather
-        // than to nothing: somebody holding a box wants the warnings even in a
-        // language they read slowly, and the disclaimer below still applies.
-        const answered = rendered.status === "answered" && rendered.text.trim().length > 0;
-        const body = answered
-          ? `${medicineHeading(label)}\n\n${rendered.text.trim()}`
-          : `${medicineHeading(label)}\n\n${sourceBlock(label)}`;
-
-        if (answered) await spent("ai");
-        log("medicine", {
-          outcome: answered ? "answered" : "untranslated",
-          chars: body.length,
-        });
-        await reply(withDisclaimer(body, answerLanguage), "reply");
-        continue;
       }
 
-      if (!humanOwnsThis && !aiFocused && parseNewsRequest(questionText) && featureOn("news")) {
-        await showNews();
+      // `parseNewsAsk` reads the same request `parseNewsRequest` did and also
+      // reads which section it named, so «أهم الأخبار التقنية» is answered with
+      // technology headlines rather than with whatever was newest.
+      const newsAsk = !humanOwnsThis && !aiFocused ? parseNewsAsk(questionText) : null;
+      if (newsAsk && featureOn("news")) {
+        await showNews({ category: newsAsk.category });
         continue;
       }
 
@@ -4476,6 +4741,21 @@ Deno.serve(async (req) => {
       // subscription check and the stream token live.
       const tvRequest = aiFocused || !featureOn("listen.tv") ? null : parseTvRequest(questionText);
       if (tvRequest?.confident && !humanOwnsThis) {
+        // Nothing to search for means nobody named a channel — they tapped
+        // *Watch TV*, or said the word and nothing else. The old answer was the
+        // five most featured channels on earth, which is a shelf, not a menu.
+        // Categories are the question they can actually answer.
+        if (tvRequest.terms.length === 0) {
+          try {
+            await showTvCategories();
+            continue;
+          } catch (e) {
+            console.error("[whatsapp] tv categories failed:", describeError(e));
+            log("tv", { outcome: "unavailable" });
+            await reply(tvUnavailableNotice(answerLanguage), "unsupported");
+            continue;
+          }
+        }
         try {
           // Terms are stripped of everything that is not a letter, a digit or a
           // space by `channelTerms`, which is what makes interpolating them
@@ -4823,7 +5103,19 @@ Deno.serve(async (req) => {
       // that says the *provider* was unreachable is an outage, not a handover,
       // and half an hour later there is nothing for a person to own and a
       // sender who has been ignored ever since.
-      if (assistantIsSilenced(existing as Record<string, unknown> | null, Date.now())) continue;
+      //
+      // Inside that half hour the cooldown still holds — there is no sense
+      // calling a provider that just failed — but it is spent saying so. Going
+      // silent here is what made an outage indistinguishable from being
+      // ignored, which is the one thing a sender cannot tell apart and the one
+      // thing they should never have to.
+      if (assistantIsSilenced(existing as Record<string, unknown> | null, Date.now())) {
+        if (!personOwnsConversation(existing as Record<string, unknown> | null)) {
+          log("ai_cooldown", { reason: String(existing?.escalation_reason ?? "unknown") });
+          await reply(failureNotice(answerLanguage), "handover");
+        }
+        continue;
+      }
 
       // The outage is over, so the flag that recorded it goes. Left standing it
       // would keep this thread in the escalated queue for ever and re-silence

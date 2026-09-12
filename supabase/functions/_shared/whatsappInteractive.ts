@@ -67,8 +67,23 @@ import {
   serviceText,
   type ServiceRecord,
 } from "./whatsappServices.ts";
+import { songRowId, songSubtitle, type Song } from "./whatsappSongs.ts";
 import {
   categoryLabel,
+  channelName,
+  tvCategoryRowId,
+  tvChannelRowId,
+  TV_URL,
+  type TvCategory,
+  type TvChannel,
+} from "./whatsappTv.ts";
+import { BACK_ID, genderRowId } from "./whatsappOnboarding.ts";
+import { GENDERS } from "./whatsappProfile.ts";
+import { say } from "./whatsappStrings.ts";
+import { sendWhatsAppInteractive, sendWhatsAppText } from "./whatsapp.ts";
+import { trace } from "./whatsappTelemetry.ts";
+import {
+  categoryLabel as gameCategoryLabel,
   categoryListRowId,
   categoryPage,
   categoryRowId,
@@ -78,12 +93,6 @@ import {
   type GameCategory,
   type GameRecord,
 } from "./whatsappGames.ts";
-import { songRowId, songSubtitle, type Song } from "./whatsappSongs.ts";
-import { BACK_ID, genderRowId } from "./whatsappOnboarding.ts";
-import { GENDERS } from "./whatsappProfile.ts";
-import { say } from "./whatsappStrings.ts";
-import { sendWhatsAppInteractive, sendWhatsAppText } from "./whatsapp.ts";
-import { trace } from "./whatsappTelemetry.ts";
 
 /** The id the "start again from the top" control carries, everywhere. */
 export const MAIN_MENU_ID = "main_menu";
@@ -960,7 +969,7 @@ function arcadeListMessage(params: {
 /** How many games a category holds, as the line under its row. */
 const categoryRow = (category: GameCategory, language: Language): Row => ({
   id: categoryRowId(category.id, 0),
-  title: categoryLabel(category, language),
+  title: gameCategoryLabel(category, language),
 });
 
 /** One game's row: its name, and what it is underneath. */
@@ -999,7 +1008,7 @@ export function gameCategoryMessage(params: {
   if (current.hasMore) {
     rows.push({ id: categoryRowId(category.id, current.page + 1), title: say("servicesMore", language) });
   }
-  return arcadeListMessage({ heading: categoryLabel(category, language), rows, language });
+  return arcadeListMessage({ heading: gameCategoryLabel(category, language), rows, language });
 }
 
 /** What somebody asked for, as rows they can open. */
@@ -1045,6 +1054,115 @@ export async function sendGameMatches(
   language: Language,
 ): Promise<Tappable> {
   const message = gameMatchesMessage({ games, language });
+  await sendTappable(to, message);
+  return message;
+}
+
+
+// ── VisionTV ────────────────────────────────────────────────────────────────
+//
+// Two lists with one shape, because they are two steps of one act: pick a
+// category, pick a channel. The shape is the Service Center's, down to the
+// seven-row page and the "more" row, because a sender who has browsed the
+// services has already learned it.
+
+/** One list of TV rows, with its text twin. Shared by both steps. */
+function tvListMessage(params: {
+  heading: string;
+  rows: Row[];
+  language: Language;
+}): Tappable {
+  const { heading, rows, language } = params;
+  const button = say("tvBrowseButton", language);
+  const body = say("tvHint", language).replace("{url}", TV_URL);
+  const withControls = [...rows, ...controlRows("listen.tv", language)];
+
+  return {
+    interactive: {
+      type: "list",
+      header: { type: "text", text: clip(heading.replace(/\*/g, ""), LIST_LIMITS.header) },
+      body: { text: clip(body, LIST_LIMITS.body) },
+      action: {
+        button: clip(button, LIST_LIMITS.button),
+        sections: [{ title: clip(button, LIST_LIMITS.rowTitle), rows: clipRows(withControls) }],
+      },
+    },
+    // The twin carries the full titles. A row title is cut at 24 characters,
+    // and outside the 24-hour window — where Meta refuses interactive messages
+    // outright — this is the only version a sender sees.
+    text: [heading, "", ...rows.map((row) => `• ${row.title}`), "", body].join("\n"),
+  };
+}
+
+/** What there is to watch, as categories that can be tapped. */
+export function tvCategoriesMessage(params: {
+  categories: readonly TvCategory[];
+  language: Language;
+}): Tappable {
+  const { categories, language } = params;
+  return tvListMessage({
+    heading: say("tvCategories", language),
+    rows: categories.map((category) => ({
+      id: tvCategoryRowId(category.slug),
+      title: categoryLabel(category, language),
+    })),
+    language,
+  });
+}
+
+/** One category's channels, at a page, as rows that open the watch page. */
+export function tvChannelsMessage(params: {
+  category: TvCategory;
+  channels: readonly TvChannel[];
+  page: number;
+  hasMore: boolean;
+  language: Language;
+}): Tappable {
+  const { category, channels, page, hasMore, language } = params;
+  const rows: Row[] = channels.map((channel) => {
+    const details = [channel.country, channel.quality]
+      .filter((part): part is string => Boolean(part))
+      .join(" · ");
+    return {
+      id: tvChannelRowId(channel.id),
+      title: channelName(channel, language),
+      ...(details ? { description: details } : {}),
+    };
+  });
+  if (hasMore) {
+    rows.push({ id: tvCategoryRowId(category.slug, page + 1), title: say("tvMore", language) });
+  }
+
+  return tvListMessage({
+    heading: say("tvInCategory", language).replace("{name}", categoryLabel(category, language)),
+    rows,
+    language,
+  });
+}
+
+/** What there is to watch, delivered. */
+export async function sendTvCategories(
+  to: Delivery,
+  categories: readonly TvCategory[],
+  language: Language,
+): Promise<Tappable> {
+  const message = tvCategoriesMessage({ categories, language });
+  await sendTappable(to, message);
+  return message;
+}
+
+/** One category's channels, delivered. */
+export async function sendTvChannels(
+  to: Delivery,
+  params: {
+    category: TvCategory;
+    channels: readonly TvChannel[];
+    page: number;
+    hasMore: boolean;
+    language: Language;
+  },
+): Promise<Tappable> {
+  const message = tvChannelsMessage(params);
   await sendTappable(to, message);
   return message;
 }

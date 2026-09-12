@@ -413,7 +413,9 @@ describe("the language a voice question is answered in", () => {
     expect(voiceBlock).toContain("const heardLanguage = detectLanguageCode(questionText);");
     expect(voiceBlock).toContain("const spokenBefore = existing?.language as string | null | undefined;");
     expect(voiceBlock).toContain("isSupportedLanguage(spokenBefore) ? spokenBefore : heardLanguage");
-    expect(voiceBlock).toContain("replyLanguage(settled, existing?.preferred_language as string | null)");
+    expect(voiceBlock).toContain(
+      "replyLanguage(settled, existing?.preferred_language as string | null, questionText)",
+    );
   });
 
   it("still lets a preference win, including one set out loud", () => {
@@ -494,7 +496,7 @@ describe("answering out loud", () => {
   it("records how a reply travelled, which nothing else could tell you", () => {
     // Written with the row rather than patched onto it afterwards: the medium
     // is decided before anything is sent, so the transcript can simply carry it.
-    expect(webhook).toContain("const medium = replyMedium({ spokenInput, body });");
+    expect(webhook).toContain("const medium = replyMedium({ spokenInput, voiceRequested, body });");
     expect(webhook).toMatch(/direction: "outbound",[\s\S]{0,80}medium,/);
     // And a synthesis that failed is corrected back to text, so the column
     // never claims a voice note the sender never received.

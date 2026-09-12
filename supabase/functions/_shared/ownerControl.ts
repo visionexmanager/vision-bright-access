@@ -24,22 +24,6 @@ export interface OwnerCommand {
   choice: number | null;
   /** Free text after the command, e.g. a note or a question for the customer. */
   note: string | null;
-  /**
-   * Whether the owner wrote a slash in front of it.
-   *
-   * This is the difference between "I am giving an instruction" and "I am
-   * talking". The words this file matches — "ok", "no", «تم», «لا» — are among
-   * the most common things anybody says, and the owner is a person who also has
-   * ordinary conversations with their own assistant. Before the slash existed,
-   * every «تم» in one of those conversations was parsed as an approval, wrote an
-   * audit row, spent a slot of the hourly rate limit, and came back as "Nothing
-   * is waiting for a decision right now."
-   *
-   * So: a slash is always a command. Without one, the words still work — but
-   * only while a decision is actually waiting, which is the only time they are
-   * unambiguous. The caller enforces that half; this flag is what lets it.
-   */
-  explicit: boolean;
 }
 
 /**
@@ -79,8 +63,9 @@ const REFERENCE_PATTERN = /\b([23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5})\b/i;
 const APPROVE_WORDS = [/\b(approve|approved|accept|yes|ok|confirm)\b/i, /(وافق|موافق|موافقة|نعم|أوافق|اوافق|تم)/];
 const REJECT_WORDS = [/\b(reject|rejected|decline|deny|no|cancel)\b/i, /(ارفض|رفض|مرفوض|لا|إلغاء|الغاء)/];
 const TAKEOVER_WORDS = [/\b(take ?over|i(?:'| a)?ll handle|handle it)\b/i, /(أتولى|اتولى|بتولى|سأرد|سارد|أنا أرد|انا ارد)/];
-const RETURN_WORDS = [/\b(return to ai|back to ai|resume ai|ai resume)\b/i, /(أرجع للذكاء|ارجع للذكاء|رجّع للمساعد|رجع للمساعد|كمّل الذكاء)/];
-const MORE_INFO_WORDS = [/\b(more info|details|show me more|explain)\b/i, /(تفاصيل|معلومات أكثر|معلومات اكثر|وضّح|وضح)/];
+const RETURN_WORDS = [/\b(return to ai|back to ai|resume ai|ai resume)\b/i, /^(return|resume)$/i, /(أرجع للذكاء|ارجع للذكاء|رجّع للمساعد|رجع للمساعد|كمّل الذكاء)/];
+const MORE_INFO_WORDS = [/\b(more info|details|show me more|explain)\b/i, /^info$/i, /(تفاصيل|معلومات أكثر|معلومات اكثر|وضّح|وضح)/];
+const HELP_WORDS = [/^(help|commands|\?|h)$/i, /^(مساعدة|المساعدة|الأوامر|اوامر)$/];
 const LIST_WORDS = [/\b(pending|list|what.?s waiting|show pending)\b/i, /(المعلّق|المعلق|القائمة|شو في|ما ينتظر)/];
 
 /**
@@ -94,73 +79,64 @@ const CHOICE_TO_KIND: Record<number, OwnerCommandKind> = {
   4: "more_info",
 };
 
-/**
- * The command names, for a message that began with a slash.
- *
- * Deliberately separate from the natural-language lists below rather than
- * folded into them. `/ai` has to mean "hand the conversation back", and adding
- * a bare "ai" to `RETURN_WORDS` would make "do you have AI?" mean it too. An
- * explicit vocabulary can be short and exact because the slash already said
- * that an instruction was intended.
- */
-const SLASH_COMMANDS: Readonly<Record<string, OwnerCommandKind>> = {
-  approve: "approve",
-  ok: "approve",
-  yes: "approve",
-  reject: "reject",
-  no: "reject",
-  takeover: "take_over",
-  take: "take_over",
-  ai: "return_to_ai",
-  resume: "return_to_ai",
-  info: "more_info",
-  details: "more_info",
-  pending: "list_pending",
-  list: "list_pending",
-  help: "help",
-  commands: "help",
-};
-
-/** A leading slash, with any spaces around it. */
-const SLASH = /^\s*\/\s*/;
-
 function matches(text: string, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(text));
 }
 
 /**
+ * The prefix that separates a command from a sentence.
+ *
+ * Without it the owner cannot use their own assistant. "ok", "no", "لا",
+ * "القائمة" and a bare "2" are ordinary things to send, and every one of
+ * them used to be swallowed by the control centre, so the one number that most
+ * needs to check what customers see was the one number that could not. A slash
+ * makes the two modes explicit: `/approve` decides, `approve` is just a word.
+ */
+export const OWNER_COMMAND_PREFIX = "/";
+
+/** Never a command: returned for every message that carries no prefix. */
+const NOT_A_COMMAND: OwnerCommand = { kind: "unknown", reference: null, choice: null, note: null };
+
+/**
+ * The command text inside a message, or null when it is an ordinary message.
+ *
+ * Null and empty are different answers: a bare "/" is a command attempt with
+ * nothing after it, which is a request for the list, while null is a sentence
+ * that belongs to the customer assistant.
+ */
+export function ownerCommandBody(input: string | null | undefined): string | null {
+  const text = (input ?? "").trim();
+  if (!text.startsWith(OWNER_COMMAND_PREFIX)) return null;
+  return text.slice(OWNER_COMMAND_PREFIX.length).trim();
+}
+
+/**
  * Parse an owner reply.
+ *
+ * Only a prefixed message is read at all; anything else is a sentence and is
+ * reported as unknown with no reference, which is what lets the caller hand it
+ * to the ordinary assistant untouched.
  *
  * A bare digit is only a *choice*; it carries no reference. The caller must
  * resolve it against exactly one pending approval and refuse when that is
  * ambiguous — this function never guesses which action a "2" refers to.
  */
 export function parseOwnerCommand(input: string): OwnerCommand {
-  const raw = input ?? "";
-  const explicit = SLASH.test(raw);
-  // Everything below reads the message with the slash removed, so `/approve`
-  // and "approve" parse through exactly the same code. The slash decides how
-  // the *caller* treats the result, not how it is read.
-  const text = raw.replace(SLASH, "").trim();
+  const body = ownerCommandBody(input);
+  if (body === null) return { ...NOT_A_COMMAND };
+  // "/" on its own, and every spelling of help, answer with the list.
+  if (!body || matches(body, HELP_WORDS)) {
+    return { kind: "help", reference: null, choice: null, note: null };
+  }
 
+  const text = body;
   const referenceMatch = text.match(REFERENCE_PATTERN);
   const reference = referenceMatch ? referenceMatch[1].toUpperCase() : null;
 
   const bareDigit = /^\s*([1-9])\s*$/.exec(text);
   if (bareDigit) {
     const choice = Number(bareDigit[1]);
-    return { kind: CHOICE_TO_KIND[choice] ?? "unknown", reference: null, choice, note: null, explicit };
-  }
-
-  // An explicit command name wins outright, before any natural-language
-  // matching: `/no` is a rejection and never the "no" inside a sentence.
-  if (explicit) {
-    const [first, ...rest] = text.split(/\s+/);
-    const named = SLASH_COMMANDS[first?.toLowerCase() ?? ""];
-    if (named) {
-      const remainder = rest.join(" ").replace(REFERENCE_PATTERN, " ").replace(/\s+/g, " ").trim();
-      return { kind: named, reference, choice: null, note: remainder || null, explicit };
-    }
+    return { kind: CHOICE_TO_KIND[choice] ?? "unknown", reference: null, choice, note: null };
   }
 
   const stripped = reference ? text.replace(REFERENCE_PATTERN, " ") : text;
@@ -182,33 +158,7 @@ export function parseOwnerCommand(input: string): OwnerCommand {
     .replace(/\s+/g, " ")
     .trim();
 
-  return { kind, reference, choice: null, note: note || null, explicit };
-}
-
-/**
- * The commands, as the owner sees them.
- *
- * Written out because the slash made this a vocabulary somebody has to know
- * rather than words they happened to use. `/help` is the one command whose job
- * is to make the other seven discoverable.
- */
-export function formatOwnerHelp(): string {
-  return [
-    "*Owner commands*",
-    "",
-    "A message starting with / is always a command. Anything else is an",
-    "ordinary conversation — the words below only act on their own while a",
-    "decision is actually waiting.",
-    "",
-    "/pending — what is waiting for you",
-    "/approve [ref] [note] — approve it",
-    "/reject [ref] [note] — reject it",
-    "/takeover — answer this customer yourself",
-    "/ai — hand the conversation back to the assistant",
-    "/info — ask the assistant to explain the case",
-    "/1 /2 /3 /4 — the numbered choices on a notification",
-    "/help — this list",
-  ].join("\n");
+  return { kind, reference, choice: null, note: note || null };
 }
 
 export interface PendingApproval {
@@ -247,15 +197,41 @@ export function formatOwnerNotification(params: {
 
   lines.push(
     "",
-    "1. Take over",
-    "2. Approve",
-    "3. Reject",
-    "4. Ask AI for more information",
+    "/1  Take over",
+    "/2  Approve",
+    "/3  Reject",
+    "/4  Ask AI for more information",
     "",
-    `Reply with a number, or "approve ${params.reference}" / "reject ${params.reference}".`,
+    `Reply with /1 to /4, or "/approve ${params.reference}" / "/reject ${params.reference}".`,
+    "Commands start with a slash; anything else you send is answered as a customer.",
   );
 
   return lines.join("\n");
+}
+
+/**
+ * The list of commands, and the one sentence that explains the prefix.
+ *
+ * Answered for "/help" and for any prefixed message that parses to nothing:
+ * a slash is always a command attempt, so a mistyped one belongs here rather
+ * than in the customer assistant, where it would be answered as a question.
+ */
+export function formatOwnerHelp(): string {
+  return [
+    "*Owner commands*",
+    "",
+    "Anything you send *without* a slash is answered exactly as a customer would",
+    "see it, so this number can be used to test the assistant.",
+    "",
+    "/1 … /4 — answer a numbered prompt",
+    "/approve AB2CD — approve a decision",
+    "/reject AB2CD — reject a decision, optionally with a note",
+    "/takeover — reply to the customer yourself",
+    "/return — hand the conversation back to the AI",
+    "/info — ask the AI for more detail",
+    "/pending — list what is waiting for you",
+    "/help — this list",
+  ].join("\n");
 }
 
 /** Sent when a bare number cannot be attributed to a single pending action. */
@@ -265,7 +241,7 @@ export function formatAmbiguityPrompt(pending: PendingApproval[]): string {
     "",
     ...pending.slice(0, 10).map((item) => `• [${item.reference}] ${item.title}`),
     "",
-    'Reply with the reference, for example "approve ' + (pending[0]?.reference ?? "AB2CD") + '".',
+    'Reply with the reference, for example "/approve ' + (pending[0]?.reference ?? "AB2CD") + '".',
   ];
   return lines.join("\n");
 }

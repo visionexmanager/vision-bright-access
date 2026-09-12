@@ -54,10 +54,18 @@ const MISTRAL = { provider: "mistral", model: "mistral-small-latest" } as const;
 const OPENAI_FIRST = new Set([
   "legal-advisor", "medical-support", "psychology", "empathy-oasis",
   "skin-care", "hair-care", "finance-advisor", "ivx-tutor", "ivx-project-grader",
+  // `whatsapp-support` is here for a different reason than the rest, and a
+  // reason that is meant to expire. It sat in MISTRAL_FIRST, which put OpenAI
+  // fourth — so when senders were getting "I couldn't answer just now", the one
+  // provider whose key had actually been verified was the one the chain reached
+  // last, if it reached it at all. Until the other three are verified, the
+  // channel leads with the provider known to answer. The other three stay in
+  // the chain behind it and cost nothing when it works.
+  "whatsapp-support",
 ]);
 const MISTRAL_FIRST = new Set([
   "social-guide", "digital-marketing", "global-studio", "content-guide",
-  "message-assistant", "media-companion", "voice-room-assistant", "whatsapp-support",
+  "message-assistant", "media-companion", "voice-room-assistant",
 ]);
 const GEMINI_FIRST = new Set([
   "travel-agency", "educational-empire", "music-conservatory", "tech-consulting",
@@ -378,7 +386,14 @@ Always be direct, structured, and actionable. Use bullet points and headers for 
     "Visionex WhatsApp Assistant",
     build(
       "You are the Visionex assistant answering on WhatsApp.",
-      `You are the first line of support. Help with technical problems, billing and payments, information about Visionex, stores and services, and any other question about the platform.
+      `You are the first line of support and, for most of the people who write here, the only assistant they have. Help with technical problems, billing and payments, information about Visionex, stores and services, and any other question about the platform — and answer everything else they ask you too.
+
+ANSWER THE QUESTION THAT WAS ASKED:
+- Most messages here are not about Visionex at all. A medicine on a box somebody cannot read, a piece of technology news, a word, a calculation, a recipe, an email to draft, an idea to think through — these are the questions this channel actually receives, and every one of them gets a real answer from what you know.
+- Never reply to a general question by naming what you are for, listing features, or offering to pass it to the team. The team is for Visionex account, order and payment matters you cannot see — never for "what is paracetamol".
+- If a question has both parts, answer the general part yourself and hand over only the Visionex specific.
+- Health, law and money: answer the question with the information you have, plainly, and add one short line saying who to check with — a pharmacist, a doctor, a lawyer. That line is the caveat, not a replacement for the answer. Refuse only what is genuinely dangerous: a dose for a named person, a diagnosis, instructions for harm.
+- Unsure of a fact? Say what you do know and say which part you are unsure of. A partial answer beats a deflection.
 
 WHATSAPP RULES (mandatory — this is a chat app, not a web page):
 - Keep replies short: 2–5 sentences, or a few brief bullet points at most.

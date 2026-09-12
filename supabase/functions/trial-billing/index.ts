@@ -2,9 +2,11 @@
  * trial-billing — Supabase Edge Function
  *
  * Runs daily (via cron or external scheduler).
- * 1. Sends 3-day warning email + in-app notification to users whose trial
- *    expires in 3 days and haven't been warned yet.
- * 2. After trial expires, deducts monthly bazaar shop rent from VX balance.
+ * 1. Sends a one-day warning email + in-app notification to users whose free
+ *    week ends within 24 hours and who haven't been warned yet. A day is the
+ *    notice somebody can act on: long enough to choose a plan, close enough
+ *    that it still reads as news rather than as marketing.
+ * 2. After the week expires, deducts monthly bazaar shop rent from VX balance.
  *    If insufficient VX → suspends the shop.
  *    Sends expiry email + in-app notification.
  *
@@ -19,6 +21,11 @@ const TIER_RENT: Record<string, number> = {
   store:    8_000,
   flagship: 20_000,
 };
+
+const PRICING_URL  = "https://visionex.app/pricing";
+
+/** The three tiers, in one line, for a notification that has no room for more. */
+const TIER_SUMMARY = "Bronze $5, Silver $7 or Gold $10 a month";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const BILLING_FROM   = "Visionex Billing <billing@visionex.app>";
@@ -52,16 +59,14 @@ Deno.serve(async (req) => {
 
   const results = { warned: 0, billed: 0, suspended: 0, errors: [] as string[] };
 
-  // ── 1. 3-day warning ──────────────────────────────────────────────────
-  const warnWindowStart = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000 - 12 * 60 * 60 * 1000);
-  const warnWindowEnd   = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000 + 12 * 60 * 60 * 1000);
-
+  // ── 1. One-day warning ───────────────────────────────────────────────
+  //
+  // Who to warn is a question about a column, so the database answers it:
+  // `trial_ending_soon` applies the window and the "not already warned" rule
+  // in one place, instead of this function assembling a range query that has
+  // to agree with the column's meaning.
   const { data: warnUsers, error: warnErr } = await supabase
-    .from("profiles")
-    .select("user_id, display_name, trial_expires_at")
-    .gte("trial_expires_at", warnWindowStart.toISOString())
-    .lte("trial_expires_at", warnWindowEnd.toISOString())
-    .is("trial_billing_warned_at", null);
+    .rpc("trial_ending_soon", { _hours: 24 });
 
   if (warnErr) results.errors.push(`warn-query: ${warnErr.message}`);
 
@@ -74,8 +79,8 @@ Deno.serve(async (req) => {
       // In-app notification
       await supabase.rpc("system_insert_notification", {
         _user_id: profile.user_id,
-        _title:   "⏳ Your free trial ends in 3 days",
-        _body:    `Your 30-day free trial expires on ${expiresDate}. Collect VX Coins now to continue enjoying all platform features. Bazaar shop rent will be deducted from your balance.`,
+        _title:   "⏳ Your free week ends tomorrow",
+        _body:    `Your free week of Visionex ends on ${expiresDate}. To keep every section open, choose a plan: ${TIER_SUMMARY}. Without one you keep the news, the community and the assistive-product catalogue.`,
         _type:    "warning",
       });
 
@@ -84,17 +89,19 @@ Deno.serve(async (req) => {
       if (authUser?.user?.email) {
         await sendEmail(
           authUser.user.email,
-          "Your Visionex free trial ends in 3 days",
+          "Your Visionex free week ends tomorrow",
           `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-<h2 style="color:#f59e0b;">⏳ Free Trial Ending Soon</h2>
+<h2 style="color:#f59e0b;">⏳ Your free week ends tomorrow</h2>
 <p>Hi ${profile.display_name ?? "there"},</p>
-<p>Your 30-day Visionex free trial expires on <strong>${expiresDate}</strong>.</p>
+<p>Your free week of Visionex ends on <strong>${expiresDate}</strong>. Until then every section is open, on the site and on WhatsApp.</p>
+<h3>Choose a plan to keep them open</h3>
 <ul>
-  <li>All premium features will remain accessible after your trial — they require VX Coins.</li>
-  <li>Your <strong>Bazaar shop monthly rent</strong> will be deducted from your VX balance on expiry.</li>
-  <li>You can still earn VX Coins through games, quizzes, and daily logins.</li>
+  <li><strong>Bronze — $5/month:</strong> the Visionex assistant, Academy, Library, Arcade and VXBazaar.</li>
+  <li><strong>Silver — $7/month:</strong> everything in Bronze, plus VisionKids, Career Hub, TV, Radio, messages and simulations.</li>
+  <li><strong>Gold — $10/month:</strong> everything in Silver, plus the AI Media Studio, Library Studio, professional tools and the Finance Hub — with no daily limit on the assistant.</li>
 </ul>
-<p>Visit <a href="https://visionex.app/dashboard">your dashboard</a> to check your balance.</p>
+<p>Without a plan your account stays open: the news, the community and the assistive-product catalogue never need one, and the assistant keeps a small free daily allowance on WhatsApp.</p>
+<p><a href="${PRICING_URL}" style="display:inline-block;padding:10px 18px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;">See the plans</a></p>
 <p style="color:#6b7280;font-size:0.85em;">Visionex · <a href="https://visionex.app">visionex.app</a></p>
 </body></html>`
         );
@@ -164,7 +171,7 @@ Deno.serve(async (req) => {
           await supabase.rpc("system_insert_notification", {
             _user_id: profile.user_id,
             _title:   `🔴 ${shop.name} shop suspended`,
-            _body:    `Your free trial ended and your VX balance was insufficient to cover the ${shop.tier} monthly rent of ${rent.toLocaleString()} VX. Top up your VX to reactivate the shop.`,
+            _body:    `Your free week ended and your VX balance was insufficient to cover the ${shop.tier} monthly rent of ${rent.toLocaleString()} VX. Top up your VX to reactivate the shop.`,
             _type:    "error",
           });
         }
@@ -174,10 +181,10 @@ Deno.serve(async (req) => {
       const hasShops = (shops ?? []).length > 0;
       await supabase.rpc("system_insert_notification", {
         _user_id: profile.user_id,
-        _title:   "🎉 Free trial ended — welcome to Visionex!",
+        _title:   "Your free week has ended",
         _body:    hasShops
-          ? `Your 30-day free trial has ended. Bazaar shop billing has been processed. Keep earning VX Coins through games and activities to enjoy all features.`
-          : `Your 30-day free trial has ended. Keep earning VX Coins to access premium features!`,
+          ? `Your free week has ended and Bazaar shop billing has been processed. Choose a plan — ${TIER_SUMMARY} — to reopen every section. The news, the community and assistive products stay open either way.`
+          : `Your free week has ended. Choose a plan — ${TIER_SUMMARY} — to reopen every section. The news, the community and assistive products stay open either way.`,
         _type:    "info",
       });
 
@@ -189,11 +196,12 @@ Deno.serve(async (req) => {
           : "";
         await sendEmail(
           authUser.user.email,
-          "Your Visionex free trial has ended",
+          "Your Visionex free week has ended",
           `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-<h2 style="color:#10b981;">🎉 Trial Complete — You're a Full Member!</h2>
+<h2 style="color:#10b981;">Your free week has ended</h2>
 <p>Hi ${profile.display_name ?? "there"},</p>
-<p>Your 30-day free trial on Visionex has ended. You can continue earning VX Coins through games, quizzes, and daily logins.</p>
+<p>Your free week on Visionex has ended. The news, the community and the assistive-product catalogue stay open, and the assistant keeps a small free daily allowance on WhatsApp.</p>
+<p>To reopen every section, choose <strong>Bronze $5</strong>, <strong>Silver $7</strong> or <strong>Gold $10</strong> a month — <a href="${PRICING_URL}">see what each one opens</a>.</p>
 ${shopRows}
 <p>Visit <a href="https://visionex.app/dashboard">your dashboard</a> to manage your account.</p>
 <p style="color:#6b7280;font-size:0.85em;">Questions? Contact us at <a href="mailto:hello@visionex.app">hello@visionex.app</a></p>
