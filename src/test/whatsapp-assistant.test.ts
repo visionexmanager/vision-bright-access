@@ -71,6 +71,26 @@ describe("handing over to a person", () => {
     expect(userAskedForHuman("بدي احكي مع حدا من الفريق")).toBe(true);
     expect(userAskedForHuman("بدي موظف")).toBe(true);
     expect(userAskedForHuman("how much does a course cost?")).toBe(false);
+    expect(userAskedForHuman("بدي أحكي مع موظف")).toBe(true);
+    expect(userAskedForHuman("حولني لموظف")).toBe(true);
+    expect(userAskedForHuman("اريد التحدث مع خدمة العملاء")).toBe(true);
+    expect(userAskedForHuman("please connect me to a real person")).toBe(true);
+    expect(userAskedForHuman("agent")).toBe(true);
+    expect(userAskedForHuman("موظف")).toBe(true);
+    // The first things anybody asks a bot, and each used to silence it.
+    for (const question of [
+      "are you human?",
+      "what are human rights?",
+      "how do I find a travel agent?",
+      "is your customer service good?",
+      "هل انت انسان؟",
+      "شو هي حقوق الانسان",
+      "كيف اكتب رسالة لموظف البنك",
+      "هل انت شخص حقيقي؟",
+      "بدي حدا يشرحلي درس الرياضيات",
+    ]) {
+      expect(userAskedForHuman(question), question).toBe(false);
+    }
   });
 
   it("detects the assistant's own handover sentence", async () => {

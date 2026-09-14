@@ -126,6 +126,33 @@ export const TECHNICAL_ESCALATION_COOLDOWN_MS = 30 * 60 * 1000;
 export const isTechnicalEscalation = (reason: unknown): boolean =>
   typeof reason === "string" && (TECHNICAL_ESCALATIONS as readonly string[]).includes(reason);
 
+// ── A handover nobody picks up is not a takeover ────────────────────────────
+//
+// The other five reasons silenced the assistant for ever, on the theory that a
+// person now owned the thread. Nobody did. The only production conversation
+// was silenced on 2026-09-12 by a user_request and every question after it —
+// three in two days — went unanswered, exactly as it had on 2026-08-21 and
+// 2026-08-29. The way back was a workflow the owner had to know to run.
+//
+// A person taking a conversation is `control = "human"`, set deliberately from
+// the Owner Control Centre, and that still silences the assistant until the
+// owner hands it back. An escalation is a flag on the queue: it holds the
+// assistant back long enough for a person to pick it up, and then the sender is
+// answered again. The flag, the briefing and the handover message all stay —
+// the team still sees the thread — and a sender who asks for a person again
+// starts a fresh hold.
+
+/** How long a conversation escalation holds the assistant back. */
+export const HANDOVER_HOLD_MS = 30 * 60 * 1000;
+
+/** Whether an escalation is still inside its window. Unreadable dates hold. */
+function escalationHolds(row: { escalation_reason?: unknown; escalated_at?: unknown }, nowMs: number): boolean {
+  const at = typeof row.escalated_at === "string" ? Date.parse(row.escalated_at) : NaN;
+  if (!Number.isFinite(at)) return true;
+  const window = isTechnicalEscalation(row.escalation_reason) ? TECHNICAL_ESCALATION_COOLDOWN_MS : HANDOVER_HOLD_MS;
+  return nowMs - at < window;
+}
+
 /**
  * Whether a *person* owns this conversation.
  *
@@ -145,14 +172,16 @@ export function personOwnsConversation(
     control?: unknown;
     escalated?: unknown;
     escalation_reason?: unknown;
-    /** Read by `assistantIsSilenced`, never here: a takeover does not expire. */
+    /** A takeover (`control`) never expires; an escalation's hold does. */
     escalated_at?: unknown;
   } | null | undefined,
+  nowMs: number,
 ): boolean {
   if (!row) return false;
   if (row.control === "human") return true;
   if (row.escalated !== true) return false;
-  return !isTechnicalEscalation(row.escalation_reason);
+  if (isTechnicalEscalation(row.escalation_reason)) return false;
+  return escalationHolds(row, nowMs);
 }
 
 /**
@@ -162,7 +191,7 @@ export function personOwnsConversation(
  * its own tests rather than a condition written twice in a long file.
  *
  * An escalation with no timestamp stays permanent. A row that cannot say when
- * it was escalated cannot say the outage is over either, and the safe direction
+ * it was escalated cannot say its window is over either, and the safe direction
  * for an unreadable date is the one that keeps a person involved.
  */
 export function assistantIsSilenced(
@@ -177,11 +206,7 @@ export function assistantIsSilenced(
   if (!row) return false;
   if (row.control === "human") return true;
   if (row.escalated !== true) return false;
-  if (!isTechnicalEscalation(row.escalation_reason)) return true;
-
-  const at = typeof row.escalated_at === "string" ? Date.parse(row.escalated_at) : NaN;
-  if (!Number.isFinite(at)) return true;
-  return nowMs - at < TECHNICAL_ESCALATION_COOLDOWN_MS;
+  return escalationHolds(row, nowMs);
 }
 
 /** The instruction used to brief a human taking over. */
