@@ -23,6 +23,11 @@ on:
         options:
           - check
           - create
+      waba_id:
+        description: "WhatsApp Business Account ID, if the token cannot find it on its own (digits; not a secret)."
+        type: string
+        required: false
+        default: ""
 
 concurrency:
   group: whatsapp-templates
@@ -48,4 +53,5 @@ jobs:
           WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
           WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
           MODE: ${{ inputs.mode }}
+          WHATSAPP_BUSINESS_ACCOUNT_ID: ${{ inputs.waba_id }}
         run: node --experimental-strip-types scripts/whatsapp-templates.mjs "--$MODE"

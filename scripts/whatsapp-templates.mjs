@@ -44,31 +44,86 @@ async function call(path, init = {}) {
   return body;
 }
 
-/** The WhatsApp Business Account that owns the sending number. */
-async function businessAccountId() {
-  if (process.env.WHATSAPP_BUSINESS_ACCOUNT_ID) return process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
-
-  // A token can describe itself: its granular scopes name the accounts it may
-  // manage, and the one that lists our phone number is ours.
-  const debug = await call(`debug_token?input_token=${encodeURIComponent(token)}`);
-  const scopes = debug?.data?.granular_scopes ?? [];
-  const candidates = [...new Set(
-    scopes
-      .filter((scope) => scope.scope === "whatsapp_business_management" || scope.scope === "whatsapp_business_messaging")
-      .flatMap((scope) => scope.target_ids ?? []),
-  )];
-
-  for (const id of candidates) {
-    try {
-      const numbers = await call(`${id}/phone_numbers?fields=id&limit=100`);
-      if ((numbers.data ?? []).some((number) => number.id === phoneNumberId)) return id;
-    } catch {
-      // Not an account this token can list; try the next.
-    }
+/** Whether this account lists our sending number. */
+async function ownsNumber(id) {
+  try {
+    const numbers = await call(`${id}/phone_numbers?fields=id&limit=100`);
+    return (numbers.data ?? []).some((number) => number.id === phoneNumberId);
+  } catch {
+    return false;
   }
+}
+
+/**
+ * The WhatsApp Business Account that owns the sending number.
+ *
+ * Three ways, cheapest first, and each one says why it did not work — names
+ * and counts only, never an id or the token:
+ *  1. an id given explicitly (the workflow input, or a secret);
+ *  2. the token's own granular scopes, which name the accounts it may manage
+ *     when access was granted per account;
+ *  3. the businesses the token can see, and the accounts each one owns or
+ *     manages for a client — the shape a System User token granted access to a
+ *     whole business has, where (2) comes back without target ids.
+ */
+async function businessAccountId() {
+  const given = (process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? "").trim();
+  if (given) {
+    if (!/^\d+$/.test(given)) throw new Error("The WhatsApp Business Account ID must be digits only.");
+    if (inActions) console.log(`::add-mask::${given}`);
+    if (await ownsNumber(given)) return given;
+    throw new Error("The WhatsApp Business Account ID given does not own WHATSAPP_PHONE_NUMBER_ID, or this token cannot read it.");
+  }
+
+  const tried = [];
+
+  try {
+    const debug = await call(`debug_token?input_token=${encodeURIComponent(token)}`);
+    const data = debug?.data ?? {};
+    const scopes = data.granular_scopes ?? [];
+    console.log(
+      `token: type=${data.type ?? "?"} valid=${data.is_valid ?? "?"} ` +
+      `scopes=[${(data.scopes ?? []).join(", ")}] ` +
+      `granular=[${scopes.map((scope) => `${scope.scope}:${(scope.target_ids ?? []).length}`).join(", ")}]`,
+    );
+    const candidates = [...new Set(
+      scopes
+        .filter((scope) => scope.scope === "whatsapp_business_management" || scope.scope === "whatsapp_business_messaging")
+        .flatMap((scope) => scope.target_ids ?? []),
+    )];
+    for (const id of candidates) if (await ownsNumber(id)) return id;
+    tried.push(`granular scopes: ${candidates.length} account(s), none owns the number`);
+  } catch (error) {
+    tried.push(`debug_token: ${error.message}`);
+  }
+
+  try {
+    const businesses = await call("me/businesses?fields=id&limit=50");
+    const ids = (businesses.data ?? []).map((business) => business.id);
+    let accounts = 0;
+    for (const business of ids) {
+      for (const edge of ["owned_whatsapp_business_accounts", "client_whatsapp_business_accounts"]) {
+        try {
+          const listed = await call(`${business}/${edge}?fields=id&limit=100`);
+          for (const account of listed.data ?? []) {
+            accounts++;
+            if (await ownsNumber(account.id)) return account.id;
+          }
+        } catch (error) {
+          tried.push(`${edge}: ${error.message}`);
+        }
+      }
+    }
+    tried.push(`businesses: ${ids.length} business(es), ${accounts} account(s), none owns the number`);
+  } catch (error) {
+    tried.push(`me/businesses: ${error.message}`);
+  }
+
+  for (const line of tried) console.log(`  tried — ${line}`);
   throw new Error(
-    "No WhatsApp Business Account this token manages owns the phone number. " +
-    "Give the System User the whatsapp_business_management permission, or set WHATSAPP_BUSINESS_ACCOUNT_ID.",
+    "Could not find the WhatsApp Business Account that owns the phone number. " +
+    "Run the workflow again with its WhatsApp Business Account ID (WhatsApp Manager → Account tools → " +
+    "or Business settings → Accounts → WhatsApp accounts).",
   );
 }
 
