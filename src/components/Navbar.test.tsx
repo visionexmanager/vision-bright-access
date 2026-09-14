@@ -75,7 +75,7 @@ describe("Navbar destinations survive the trim", () => {
     fireEvent.keyDown(moreTrigger, { key: "Enter" });
 
     const menu = screen.getByRole("menu");
-    expect(hrefsIn(menu)).toEqual(["/finance", "/kids", "/library", "/content", "/news"]);
+    expect(hrefsIn(menu)).toEqual(["/finance", "/kids", "/library", "/content", "/news", "/pricing"]);
     expect(moreTrigger).toHaveAttribute("aria-expanded", "true");
   });
 });

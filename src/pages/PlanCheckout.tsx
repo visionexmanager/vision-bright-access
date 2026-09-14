@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { PRICING_PATH } from "@/lib/billing/plans";
@@ -11,6 +13,7 @@ import {
   displayWhatsAppNumber,
   fillTemplate,
   isTransferMethod,
+  normalizeWhatsAppNumber,
   PAYMENT_METHODS,
   paymentWhatsAppLink,
   PLAN_MONTHS,
@@ -20,7 +23,7 @@ import {
 } from "@/lib/billing/whatsappCheckout";
 import {
   createSubscriptionOrder,
-  fetchPaymentWhatsAppNumber,
+  fetchPaymentContact,
   type SubscriptionOrderRow,
 } from "@/services/subscriptionOrders";
 
@@ -43,7 +46,10 @@ export default function PlanCheckout() {
   const [link, setLink] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [phoneInvalid, setPhoneInvalid] = useState(false);
   const resultHeading = useRef<HTMLHeadingElement>(null);
+  const phoneInput = useRef<HTMLInputElement>(null);
 
   const { data: plan, isLoading } = useQuery({
     queryKey: ["billing-plan", planId],
@@ -59,10 +65,11 @@ export default function PlanCheckout() {
     },
   });
 
-  const { data: number, isLoading: numberLoading } = useQuery({
-    queryKey: ["subscription-payment-whatsapp"],
-    queryFn: fetchPaymentWhatsAppNumber,
+  const { data: contact, isLoading: numberLoading } = useQuery({
+    queryKey: ["subscription-payment-contact"],
+    queryFn: fetchPaymentContact,
   });
+  const number = contact?.number ?? null;
 
   // The page changes under a screen reader's feet once the order exists, so
   // focus goes to the heading that says what to do next.
@@ -76,10 +83,19 @@ export default function PlanCheckout() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!plan || !number || submitting) return;
+    // The number the reminder goes to before the plan ends. Checked here so the
+    // sender hears what is wrong at the field, not as a failed order.
+    const whatsappPhone = normalizeWhatsAppNumber(phone);
+    if (!whatsappPhone) {
+      setPhoneInvalid(true);
+      phoneInput.current?.focus();
+      return;
+    }
+    setPhoneInvalid(false);
     setSubmitting(true);
     setFailed(false);
     try {
-      const created = await createSubscriptionOrder(plan.id, method, months);
+      const created = await createSubscriptionOrder(plan.id, method, months, whatsappPhone);
       const values = {
         reference: created.reference_code,
         plan: translateText(plan.name),
@@ -151,6 +167,12 @@ export default function PlanCheckout() {
                       <dt className="text-xs font-semibold text-muted-foreground">{t("planCheckout.transferNumber")}</dt>
                       <dd className="mt-1 font-mono text-2xl font-black" dir="ltr">{displayWhatsAppNumber(number)}</dd>
                     </div>
+                    {order.payment_method === "omt" && contact?.omtName && (
+                      <div className="rounded-xl bg-background p-4">
+                        <dt className="text-xs font-semibold text-muted-foreground">{t("planCheckout.transferName")}</dt>
+                        <dd className="mt-1 text-2xl font-black" dir="ltr">{contact.omtName}</dd>
+                      </div>
+                    )}
                     <div className="rounded-xl bg-background p-4">
                       <dt className="text-xs font-semibold text-muted-foreground">{t("planCheckout.total")}</dt>
                       <dd className="mt-1 text-2xl font-black" dir="ltr">${order.price_usd}</dd>
@@ -237,6 +259,30 @@ export default function PlanCheckout() {
                     ))}
                   </div>
                 </fieldset>
+
+                <div className="space-y-2">
+                  <Label htmlFor="checkout-whatsapp" className="text-lg font-bold">{t("planCheckout.phoneLabel")}</Label>
+                  <Input
+                    id="checkout-whatsapp"
+                    ref={phoneInput}
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    dir="ltr"
+                    required
+                    placeholder="+961 70 123 456"
+                    value={phone}
+                    onChange={(event) => { setPhone(event.target.value); setPhoneInvalid(false); }}
+                    aria-invalid={phoneInvalid}
+                    aria-describedby={phoneInvalid ? "checkout-whatsapp-hint checkout-whatsapp-error" : "checkout-whatsapp-hint"}
+                  />
+                  <p id="checkout-whatsapp-hint" className="text-sm text-muted-foreground">{t("planCheckout.phoneHint")}</p>
+                  {phoneInvalid && (
+                    <p id="checkout-whatsapp-error" role="alert" className="text-sm font-medium text-destructive">
+                      {t("planCheckout.phoneInvalid")}
+                    </p>
+                  )}
+                </div>
 
                 <p className="text-lg font-bold" aria-live="polite">
                   {t("planCheckout.total")}: <span dir="ltr">${planTotal(plan.price_monthly_usd, months)}</span>

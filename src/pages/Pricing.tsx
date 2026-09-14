@@ -91,7 +91,7 @@ export default function Pricing() {
         {isLoading ? (
           <p className="mt-10" role="status">{t("common.loading")}</p>
         ) : (
-          <ul className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4" role="list">
+          <ul className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" role="list">
             {plans.map((plan) => {
               const daily = whatsappDaily(plan);
               const sections = asSections(plan.limits);

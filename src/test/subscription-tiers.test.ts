@@ -123,9 +123,11 @@ describe("the three tiers", () => {
     expect(TIERS.silver.whatsappDaily).toBeGreaterThan(TIERS.bronze.whatsappDaily);
   });
 
-  it("names the cheapest tier that opens a section", () => {
+  it("names the cheapest plan that opens a section", () => {
     expect(cheapestTierFor("academy")).toBe("bronze");
-    expect(cheapestTierFor("kids")).toBe("silver");
+    // VisionKids alone costs three dollars now, so that is what a closed
+    // children's section offers — not Silver.
+    expect(cheapestTierFor("kids")).toBe("kids");
     expect(cheapestTierFor("mediaStudio")).toBe("gold");
   });
 });

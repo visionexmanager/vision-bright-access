@@ -25,6 +25,9 @@ export type PlanMonths = (typeof PLAN_MONTHS)[number];
 /** The public `site_settings` key holding the owner's number. */
 export const PAYMENT_WHATSAPP_SETTING = "subscription_payment_whatsapp";
 
+/** The public `site_settings` key holding the name an OMT transfer is sent to. */
+export const PAYMENT_OMT_NAME_SETTING = "subscription_payment_omt_name";
+
 /** OMT and Whish are sent to a number; a card is paid through a link. */
 export function isTransferMethod(method: string): boolean {
   return method === "omt" || method === "whish";

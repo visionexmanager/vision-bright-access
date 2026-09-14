@@ -1,0 +1,51 @@
+name: WhatsApp Message Templates
+
+# Submits the message templates the server needs to Meta, and reports their
+# review status.
+#
+# A business may only start a WhatsApp conversation with an approved template —
+# which is exactly what a reminder the day before a plan ends is. The wording
+# lives in supabase/functions/_shared/whatsappPlanReminder.ts, beside the code
+# that fills its variables.
+#
+# Manual only. `check` reads the status; `create` submits whatever translation
+# is missing and changes nothing that already exists. It runs here rather than
+# on a laptop for the reason whatsapp-profile.yml gives: WHATSAPP_TOKEN stays in
+# the secret store.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check reports each template's review status; create submits the missing ones."
+        type: choice
+        default: check
+        options:
+          - check
+          - create
+
+concurrency:
+  group: whatsapp-templates
+  cancel-in-progress: false
+
+jobs:
+  templates:
+    name: ${{ inputs.mode == 'create' && 'Submit the templates' || 'Check the templates' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      # No `npm ci`: the script uses fetch and node:fs, and reads the template
+      # wording from a TypeScript module with Node's own type stripping.
+      - name: ${{ inputs.mode == 'create' && 'Submit and report' || 'Report' }}
+        env:
+          WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          MODE: ${{ inputs.mode }}
+        run: node --experimental-strip-types scripts/whatsapp-templates.mjs "--$MODE"

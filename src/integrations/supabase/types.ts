@@ -22468,6 +22468,7 @@ export type Database = {
           status: string
           subscription_id: string | null
           user_id: string
+          whatsapp_phone: string | null
         }
         Insert: {
           admin_notes?: string | null
@@ -22483,6 +22484,7 @@ export type Database = {
           status?: string
           subscription_id?: string | null
           user_id: string
+          whatsapp_phone?: string | null
         }
         Update: {
           admin_notes?: string | null
@@ -22498,6 +22500,7 @@ export type Database = {
           status?: string
           subscription_id?: string | null
           user_id?: string
+          whatsapp_phone?: string | null
         }
         Relationships: []
       }
@@ -25268,6 +25271,7 @@ export type Database = {
           status: string
           subscription_id: string | null
           user_id: string
+          whatsapp_phone: string | null
         }
         SetofOptions: {
           from: "*"
@@ -25277,7 +25281,7 @@ export type Database = {
         }
       }
       create_subscription_order: {
-        Args: { _months?: number; _payment_method: string; _plan_id: string }
+        Args: { _months?: number; _payment_method: string; _plan_id: string; _whatsapp_phone?: string }
         Returns: {
           admin_notes: string | null
           created_at: string
@@ -25292,6 +25296,7 @@ export type Database = {
           status: string
           subscription_id: string | null
           user_id: string
+          whatsapp_phone: string | null
         }
         SetofOptions: {
           from: "*"
@@ -25316,6 +25321,7 @@ export type Database = {
           status: string
           subscription_id: string | null
           user_id: string
+          whatsapp_phone: string | null
         }
         SetofOptions: {
           from: "*"

@@ -56,8 +56,11 @@ export type SectionKey =
 
 export type TierId = "bronze" | "silver" | "gold";
 
+/** Every plan somebody pays for: the three nested tiers, and Kids beside them. */
+export type PaidPlanId = TierId | "kids";
+
 /** Plan identifiers that can reach the access helpers, including "no plan". */
-export type PlanId = TierId | "free_trial" | "none";
+export type PlanId = PaidPlanId | "free_trial" | "none";
 
 export interface SectionDef {
   key: SectionKey;
@@ -112,7 +115,7 @@ export const SECTIONS: readonly SectionDef[] = [
 export const FREE_SECTIONS: readonly SectionKey[] = ["news", "community", "assistive"] as const;
 
 export interface TierDef {
-  id: TierId;
+  id: PaidPlanId;
   /** US dollars per month. */
   price: number;
   /** VX credits granted each month, for the operations that cost money. */
@@ -166,14 +169,36 @@ export const TIERS: Readonly<Record<TierId, TierDef>> = {
   gold:   { id: "gold",   price: 10, vxMonthly: 30_000, whatsappDaily: 0,   sections: GOLD_SECTIONS },
 };
 
-/** Cheapest first — the order the pricing page and the upgrade notice use. */
+/** Cheapest first — the nested tiers. */
 export const TIER_ORDER: readonly TierId[] = ["bronze", "silver", "gold"] as const;
+
+/**
+ * Kids: VisionKids and nothing else, for three dollars.
+ *
+ * Beside the tiers, not inside them. A parent who wants the children's world
+ * should not have to buy the assistant, the academy and the bazaar to get it —
+ * and Kids does not open those, so it cannot undercut Bronze. Silver and Gold
+ * still include VisionKids, so nobody upgrading from Kids loses it.
+ */
+export const KIDS_PLAN: TierDef = {
+  id: "kids",
+  price: 3,
+  vxMonthly: 0,
+  whatsappDaily: 50,
+  sections: [...FREE_SECTIONS, "kids"],
+};
+
+/** Every paid plan by id. */
+export const PAID_PLANS: Readonly<Record<PaidPlanId, TierDef>> = { kids: KIDS_PLAN, ...TIERS };
+
+/** Every paid plan, cheapest first — the order the upgrade notice picks from. */
+export const PAID_PLAN_ORDER: readonly PaidPlanId[] = ["kids", ...TIER_ORDER] as const;
 
 /** Paid WhatsApp operations a day during the free week. */
 export const TRIAL_WHATSAPP_DAILY = 200;
 
-function isTier(planId: string): planId is TierId {
-  return planId === "bronze" || planId === "silver" || planId === "gold";
+function isPaidPlan(planId: string): planId is PaidPlanId {
+  return planId === "kids" || planId === "bronze" || planId === "silver" || planId === "gold";
 }
 
 /**
@@ -186,7 +211,7 @@ function isTier(planId: string): planId is TierId {
  */
 export function planSections(planId: string | null | undefined): readonly SectionKey[] {
   if (planId === "free_trial") return SECTIONS.map((section) => section.key);
-  if (planId && isTier(planId)) return TIERS[planId].sections;
+  if (planId && isPaidPlan(planId)) return PAID_PLANS[planId].sections;
   return FREE_SECTIONS;
 }
 
@@ -195,9 +220,9 @@ export function planAllows(planId: string | null | undefined, section: SectionKe
   return planSections(planId).includes(section);
 }
 
-/** The cheapest tier that opens a section, for "upgrade to…" copy. */
-export function cheapestTierFor(section: SectionKey): TierId | null {
-  return TIER_ORDER.find((tier) => TIERS[tier].sections.includes(section)) ?? null;
+/** The cheapest paid plan that opens a section, for "upgrade to…" copy. */
+export function cheapestTierFor(section: SectionKey): PaidPlanId | null {
+  return PAID_PLAN_ORDER.find((plan) => PAID_PLANS[plan].sections.includes(section)) ?? null;
 }
 
 /** The section a route belongs to, or null when the route needs no plan. */
