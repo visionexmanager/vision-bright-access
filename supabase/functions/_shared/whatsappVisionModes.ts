@@ -297,10 +297,20 @@ export function awaitingImageNotice(language: Language, mode: VisionMode, target
   return say("awaitDescribe", language);
 }
 
-/** Shown when someone asks for the menu by name. */
+/**
+ * Shown when someone asks for the menu by name — and only then.
+ *
+ * The whole message has to be the request. The patterns used to match the word
+ * anywhere in sixty characters, so "I need help with my homework", «ممكن مساعدة
+ * بالرياضيات» and "what can you do about back pain" were each answered with the
+ * list of features instead of an answer. A question that happens to contain
+ * "help" is a question.
+ */
 const MENU_REQUEST = [
-  /\b(menu|help|options|what can you do|commands)\b/i,
-  /(القائمة|قائمة|المساعدة|مساعدة|شو بتقدر|شو بتعمل|الأوامر|اوامر)/,
+  /^\s*(?:(?:show|send|open|give)\s+(?:me\s+)?(?:the\s+)?)?(?:main\s+)?(?:menu|options|commands)(?:\s+please)?\s*[.!?]*\s*$/i,
+  /^\s*(?:help|what can you do|what do you do)\s*[.!?]*\s*$/i,
+  /^\s*(?:(?:بدي|بدّي|ابعتلي|ابعتلى|أرسل|ارسل|افتح|اعطيني|عطيني|وريني)\s+)?(?:القائمة|قائمة|القائمة الرئيسية|الأوامر|اوامر|المساعدة|مساعدة)\s*[.!؟?]*\s*$/,
+  /^\s*شو\s+(?:بتقدر\s+)?(?:تعمل|بتعمل|تساعد|بتساعد)\s*[.!؟?]*\s*$/,
 ];
 
 export const asksForMenu = (text: string | null | undefined): boolean =>
