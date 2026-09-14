@@ -79,9 +79,13 @@ jobs:
             git diff --stat -- src/integrations/supabase/types.ts
           fi
 
-      # DEPLOY_TOKEN, not the default GITHUB_TOKEN: this repository has "Allow
-      # GitHub Actions to create and approve pull requests" disabled, so the
-      # built-in token pushes the branch and then fails at the PR itself.
+      # The built-in token, not DEPLOY_TOKEN: DEPLOY_TOKEN is the VPS deploy
+      # webhook secret (deploy.yml), not a GitHub credential, so every push with
+      # it was refused ("could not read Username") and no scheduled run ever
+      # opened a pull request. "Allow GitHub Actions to create and approve pull
+      # requests" is now enabled, as generate-locales.yml already relies on.
+      # A pull request opened by this token does not trigger CI on its own:
+      # close and reopen it, or push to the branch, before merging.
       # A manual run defaults to inspection only: download the artifact above and
       # read the drift. Opening the pull request is opt-in, so a review run can
       # never leave a branch or a pull request behind. The scheduled run keeps
@@ -92,7 +96,7 @@ jobs:
           (github.event_name == 'schedule' || inputs.open_pr)
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.DEPLOY_TOKEN }}
+          token: ${{ github.token }}
           branch: chore/regenerate-supabase-types
           base: main
           commit-message: "chore(db): regenerate Supabase types from the production schema"
