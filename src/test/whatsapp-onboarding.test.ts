@@ -344,7 +344,10 @@ describe("state, across separate deliveries", () => {
 // ── 20–22: voice, before and after ──────────────────────────────────────────
 
 describe("voice and onboarding", () => {
-  it("20. does not let a voice note bypass the questions", () => {
+  // The gate itself still refuses to read a profile field out of a recording.
+  // What the webhook then does with the voice note — answer it, rather than
+  // re-ask — is `onboardingYieldsTo`, pinned in whatsapp-converse-first.test.ts.
+  it("20. never takes a profile answer from a voice note", () => {
     const outcome = step("profile_name", { text: "", kind: "audio" });
     expect(outcome.state).toBe("profile_name");
     expect(outcome.columns).toEqual({});

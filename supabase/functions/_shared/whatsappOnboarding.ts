@@ -237,6 +237,42 @@ export function runOnboarding(
   };
 }
 
+/**
+ * Whether a message sent during setup is a question for the assistant rather
+ * than an answer to the setup.
+ *
+ * ── Why the gate yields ─────────────────────────────────────────────────────
+ *
+ * The gate used to hold everybody until six questions were answered. A new
+ * sender who wrote "what is paracetamol", or "hi", or spoke, or sent a photo of
+ * a letter, was shown the language list again — and again for every message
+ * after — so the first thing the channel did with a real question was ignore
+ * it. People write to an assistant to ask it things, and the owner's rule is
+ * that every message gets an answer.
+ *
+ * So the setup stays for anybody who uses it — a tapped row or Back always
+ * drives it — and yields to anything that is not an answer: typed words that
+ * satisfied no step, and every kind of message the setup has no use for. The
+ * webhook then marks the setup complete and lets the message through to be
+ * answered, in the language it was written in. Nothing the sender sent is
+ * stored as a profile field on this path: an invalid answer produced no columns.
+ *
+ * Pure, like the rest of this file.
+ */
+export function onboardingYieldsTo(message: OnboardingMessage, outcome: OnboardingOutcome): boolean {
+  // Somebody using the controls is doing the setup.
+  if (message.selection) return false;
+  if (outcome.reason === "went_back" || outcome.reason === "already_at_start") return false;
+  // A voice note, a photo, a document, a pin: the pipeline behind the gate
+  // answers every one of them, and the setup never could.
+  if (outcome.reason === "needs_text") return true;
+  // Typed words that answered nothing — not a language tap, not a valid field.
+  if (outcome.reason === "started" || outcome.reason === "field_invalid") {
+    return message.text.trim().length > 0;
+  }
+  return false;
+}
+
 /** The id every Back control carries, on a row and on a button alike. */
 export const BACK_ID = "back";
 

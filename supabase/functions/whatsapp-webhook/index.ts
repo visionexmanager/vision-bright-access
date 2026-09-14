@@ -329,6 +329,7 @@ import {
   isOnboarding,
   type OnboardingPrompt,
   promptsForMedium,
+  onboardingYieldsTo,
   readOnboardingState,
   runOnboarding,
 } from "../_shared/whatsappOnboarding.ts";
@@ -2111,8 +2112,9 @@ Deno.serve(async (req) => {
 
       if (isOnboarding(onboardingState)) {
         stage = "onboarding";
+        const onboardingMessage = { text: incoming.text, kind: engineMessageKind(incoming), selection: incoming.selection };
         const outcome = runOnboarding(
-          { text: incoming.text, kind: engineMessageKind(incoming), selection: incoming.selection },
+          onboardingMessage,
           {
             state: onboardingState,
             language: onboardingLanguage,
@@ -2126,19 +2128,34 @@ Deno.serve(async (req) => {
         // carrying somebody's date of birth carries it forever.
         log("onboarding", { state: outcome.state, reason: outcome.reason });
 
-        if (Object.keys(outcome.columns).length > 0) {
+        // A question is not an answer. Somebody who writes "what is paracetamol"
+        // — or "hi", or speaks, or sends a photo — instead of tapping a language
+        // is here for the assistant, and re-asking the setup question at every
+        // message they sent was the channel ignoring the thing they came for.
+        // The setup yields: it is marked complete, nothing they sent is stored
+        // as a profile field, and the message carries on below to be answered in
+        // the language it was written in. Taps still drive the setup.
+        if (onboardingYieldsTo(onboardingMessage, outcome)) {
           await db
             .from("whatsapp_conversations")
-            .update({ ...outcome.columns, profile_updated_at: new Date().toISOString() })
+            .update({ onboarding_status: "complete" })
             .eq("id", conversationId);
-        }
+          log("onboarding", { state: "complete", reason: "yielded_to_question" });
+        } else {
+          if (Object.keys(outcome.columns).length > 0) {
+            await db
+              .from("whatsapp_conversations")
+              .update({ ...outcome.columns, profile_updated_at: new Date().toISOString() })
+              .eq("id", conversationId);
+          }
 
-        // What a voice note gets while onboarding is still running, and the one
-        // documented exception to "somebody who spoke is shown nothing". The
-        // rule itself is `promptsForMedium`, which the suite drives directly.
-        const prompts = promptsForMedium(outcome.prompts, spokenInput, isNew);
-        for (const prompt of prompts) await offerPrompt(prompt, outcome.language);
-        continue;
+          // What a voice note gets while onboarding is still running, and the one
+          // documented exception to "somebody who spoke is shown nothing". The
+          // rule itself is `promptsForMedium`, which the suite drives directly.
+          const prompts = promptsForMedium(outcome.prompts, spokenInput, isNew);
+          for (const prompt of prompts) await offerPrompt(prompt, outcome.language);
+          continue;
+        }
       }
 
       // ── Changing the language afterwards ──────────────────────────────
