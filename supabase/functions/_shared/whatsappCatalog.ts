@@ -297,7 +297,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     title: { ar: "الصور والملفات", en: "Photos & files" },
     description: { ar: "اقرأ أو صِف أو ترجم صورة أو ملفاً", en: "Read, describe or translate a photo or file" },
     requires: ["vision"],
-  },
+  },
   {
     id: "academy",
     parent: "explore",
