@@ -165,68 +165,6 @@ async function handleGetPlans() {
   return json({ ok: true, data });
 }
 
-async function handleUpgrade(userId: string, body: Record<string, unknown>) {
-  const { plan_id } = body;
-  if (!plan_id) return err("plan_id required");
-
-  const db = serviceDb();
-
-  // Get plan details
-  const { data: plan, error: planErr } = await db
-    .from("billing_plans")
-    .select("*")
-    .eq("id", plan_id)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (planErr || !plan) return err("Invalid plan");
-
-  // Cancel any existing active subscription
-  await db.from("user_subscriptions")
-    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
-    .eq("user_id", userId)
-    .eq("status", "active");
-
-  // Create new subscription
-  const nextRenewal = new Date();
-  nextRenewal.setDate(nextRenewal.getDate() + 30);
-
-  const { data: sub, error: subErr } = await db
-    .from("user_subscriptions")
-    .insert({
-      user_id:               userId,
-      plan_id:               plan_id,
-      status:                "active",
-      vx_credits_remaining:  plan.vx_credits_monthly,
-      vx_reset_at:           nextRenewal.toISOString(),
-      next_renewal_at:       nextRenewal.toISOString(),
-    })
-    .select()
-    .single();
-
-  if (subErr) return json({ ok: false, error: subErr.message });
-
-  // Grant subscription credits to wallet as well
-  if (plan.vx_credits_monthly > 0) {
-    await db.rpc("billing_grant_credits", {
-      p_user_id:    userId,
-      p_amount_vx:  plan.vx_credits_monthly,
-      p_type:       "subscription_grant",
-      p_description: `${plan.name} plan: monthly credits`,
-    });
-  }
-
-  // Update users_billing
-  await db.from("users_billing").upsert({
-    user_id:        userId,
-    active_plan_id: plan_id,
-    is_in_trial:    false,
-    updated_at:     new Date().toISOString(),
-  }, { onConflict: "user_id" });
-
-  return json({ ok: true, data: sub });
-}
-
 async function handleCancel(userId: string) {
   const db = serviceDb();
   const { error } = await db.from("user_subscriptions")
@@ -291,7 +229,12 @@ serve(async (req) => {
     case "get_history":     return handleGetHistory(user.id, body);
     case "get_usage_logs":  return handleGetUsageLogs(user.id, body);
     case "get_plans":       return handleGetPlans();
-    case "upgrade":         return handleUpgrade(user.id, body);
+    // "upgrade" is not reachable from a user JWT either, for the same reason:
+    // it inserted an active subscription to any plan the caller named, and
+    // Gold opens every section, so any signed-in account could take it for
+    // nothing. A plan becomes active after a confirmed payment, written
+    // server-side — never because the account holder asked for one.
+    case "upgrade":         return err("A plan is activated after payment is confirmed.", 403);
     case "cancel":          return handleCancel(user.id);
     // "grant_credits" is intentionally not reachable here: it granted an
     // arbitrary, caller-supplied VX amount to any authenticated user with no

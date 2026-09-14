@@ -324,10 +324,24 @@ export function failureNotice(language: Language): string {
  * Explicit requests for a person, in both languages. Matched on the user's
  * message rather than on the model's reply, so a user can always escape the
  * bot even when the model is confident it can help.
+ *
+ * A request, never a noun. The old patterns matched the bare words — "human",
+ * "agent", «موظف», «انسان» — so "are you human?", "human rights", "a travel
+ * agent", «حقوق الانسان» and «كيف اكتب رسالة لموظف» each handed the
+ * conversation to the team and silenced the assistant. Those are among the
+ * first things anybody asks a bot. Every pattern here now needs the asking:
+ * a verb of talking or wanting, a transfer, or the word on its own.
  */
+const PERSON_EN = "(?:a |an |the )?(?:real |live |actual )?(?:human(?: being)?|person|agent|representative|someone|somebody|staff|operator|customer service|support team|the team)";
+const PERSON_AR = "(?:موظف|موظفة|حدا|أحد|احد|شخص|انسان|إنسان|بشر|بني ?آدم|ممثل|الدعم|الفريق|خدمة العملاء)";
 const HUMAN_REQUEST = [
-  /\b(human|agent|real person|speak to (someone|a person)|customer service|representative)\b/i,
-  /(موظف|شخص حقيقي|بدي احكي مع حدا|بدي أحكي مع حدا|خدمة العملاء|ممثل خدمة|حدا من الفريق|انسان)/,
+  new RegExp(`\\b(?:speak|talk|chat)\\s+(?:to|with)\\s+${PERSON_EN}\\b`, "i"),
+  new RegExp(`\\b(?:connect|transfer|put)\\s+me\\s+(?:to|with|through to)\\s+${PERSON_EN}\\b`, "i"),
+  /\b(?:i\s+(?:want|need)|get\s+me|give\s+me)\s+(?:a\s+|an\s+)?(?:real\s+|live\s+)?(?:human|agent|representative|person)\b/i,
+  /^\s*(?:human|agent|representative|customer service|real person)\s*[.!?]*\s*$/i,
+  new RegExp(`(?:احكي|أحكي|احچي|اتكلم|أتكلم|اتحدث|أتحدث|اتواصل|أتواصل|اكلم|أكلم|كلم|تكلم|التحدث|التكلم|التواصل|الحديث)\\s+(?:مع\\s+)?${PERSON_AR}`),
+  /(?:بدي|بدّي|اريد|أريد|ابغى|أبغى|ابي|أبي|عايز|عاوز|بغيت|حولني|حوّلني|حولوني|وصلني|وصّلني)\s+(?:على\s+|الى\s+|إلى\s+|ل)?(?:موظف|موظفة|ممثل خدمة|خدمة العملاء|شخص حقيقي|انسان حقيقي|إنسان حقيقي|(?:حدا|أحد|احد) من الفريق)/,
+  /^\s*(?:موظف|موظف بشري|خدمة العملاء)\s*[.!؟?]*\s*$/,
 ];
 
 /**
