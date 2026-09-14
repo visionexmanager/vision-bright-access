@@ -89,11 +89,6 @@ export async function getPlans(): Promise<BillingPlan[]> {
 
 // ── Subscription ──────────────────────────────────────────────────────────────
 
-export async function upgradePlan(planId: string): Promise<void> {
-  const res = await callBillingEngine({ action: "upgrade", plan_id: planId });
-  if (!res.ok) throw new Error(res.error);
-}
-
 export async function cancelSubscription(): Promise<void> {
   const res = await callBillingEngine({ action: "cancel" });
   if (!res.ok) throw new Error(res.error);

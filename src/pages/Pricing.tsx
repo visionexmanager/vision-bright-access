@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { SECTIONS, type SectionKey } from "@/lib/billing/plans";
+import { checkoutPath } from "@/lib/billing/whatsappCheckout";
 
 /**
  * The plans, from the table that decides them.
@@ -164,7 +165,13 @@ export default function Pricing() {
 
                   <div className="mt-6 pt-2">
                     <Button asChild className="w-full">
-                      <Link to={user ? "/services/ai-media-studio/billing" : "/signup"}>
+                      {/* A paid plan goes to checkout, which is paid through
+                          the owner on WhatsApp; signing in happens on the way. */}
+                      <Link
+                        to={plan.price_monthly_usd > 0
+                          ? checkoutPath(plan.id)
+                          : user ? "/services/ai-media-studio/billing" : "/signup"}
+                      >
                         {plan.price_monthly_usd > 0
                           ? t("plans.choose")
                           : t("plans.startFree")}

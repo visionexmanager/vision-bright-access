@@ -6,7 +6,6 @@ import {
   getBillingStatus,
   getBalance,
   initializeBilling,
-  upgradePlan,
   cancelSubscription,
 } from "@/services/ai-media-studio/billingService";
 
@@ -97,19 +96,6 @@ export function useSubscriptionMutations() {
     qc.invalidateQueries({ queryKey: BALANCE_KEY });
   };
 
-  const upgrade = useMutation({
-    mutationFn: (planId: string) => upgradePlan(planId),
-    onSuccess: () => {
-      invalidate();
-      toast({ title: "Plan upgraded!", description: "Your new plan is now active." });
-    },
-    onError: (e: Error) => toast({
-      title:       "Upgrade failed",
-      description: e.message,
-      variant:     "destructive",
-    }),
-  });
-
   const cancel = useMutation({
     mutationFn: cancelSubscription,
     onSuccess: () => {
@@ -123,5 +109,5 @@ export function useSubscriptionMutations() {
     }),
   });
 
-  return { upgrade, cancel };
+  return { cancel };
 }

@@ -6,11 +6,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Coins, Package, ExternalLink } from "lucide-react";
-import { PlanCard } from "./PlanCard";
-import { usePlans } from "@/hooks/usePlans";
-import { useSubscriptionMutations } from "@/hooks/useBilling";
-import { useBillingStatus } from "@/hooks/useBilling";
-import type { PlanId } from "@/lib/types/billing";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { PRICING_PATH } from "@/lib/billing/plans";
 
 interface UpgradeDialogProps {
   open:      boolean;
@@ -19,17 +16,8 @@ interface UpgradeDialogProps {
 }
 
 export function UpgradeDialog({ open, onClose, tab = "plans" }: UpgradeDialogProps) {
-  const { data: plans = [], isLoading: plansLoading } = usePlans();
-  const { data: billingStatus }                        = useBillingStatus();
-  const { upgrade }                                    = useSubscriptionMutations();
-  const [activeTab, setActiveTab]                      = useState(tab);
-
-  const currentPlanId = billingStatus?.subscription?.plan_id ?? "free_trial";
-  const pendingUpgrade = upgrade.isPending;
-
-  function handleUpgrade(planId: PlanId) {
-    upgrade.mutate(planId, { onSuccess: onClose });
-  }
+  const { t }                     = useLanguage();
+  const [activeTab, setActiveTab] = useState(tab);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -51,30 +39,19 @@ export function UpgradeDialog({ open, onClose, tab = "plans" }: UpgradeDialogPro
             </TabsTrigger>
           </TabsList>
 
-          {/* Plans tab */}
+          {/* Plans tab — a plan is chosen on the plans page and paid through
+              the owner on WhatsApp. Nothing in this dialog activates one: the
+              button that used to granted any plan without a payment. */}
           <TabsContent value="plans">
-            {plansLoading ? (
-              <div className="grid grid-cols-3 gap-4">
-                {[1,2,3].map((i) => (
-                  <div key={i} className="rounded-2xl border border-border h-64 animate-pulse bg-muted" />
-                ))}
+            <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border py-10 text-center">
+              <div className="rounded-full bg-primary/15 p-3">
+                <Package className="size-6 text-primary" aria-hidden="true" />
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {plans
-                  .filter((p) => p.id !== "free_trial")
-                  .map((plan) => (
-                    <PlanCard
-                      key={plan.id}
-                      plan={plan}
-                      isCurrent={currentPlanId === plan.id}
-                      highlighted={plan.id === "pro"}
-                      onSelect={handleUpgrade}
-                      isPending={pendingUpgrade}
-                    />
-                  ))}
-              </div>
-            )}
+              <p className="max-w-sm text-sm text-muted-foreground">{t("planCheckout.howItWorks")}</p>
+              <Button asChild onClick={onClose}>
+                <Link to={PRICING_PATH}>{t("plans.title")}</Link>
+              </Button>
+            </div>
           </TabsContent>
 
           {/* Credits tab — buying VX happens on the real checkout page (WishMoney/
