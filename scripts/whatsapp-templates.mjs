@@ -44,6 +44,24 @@ async function call(path, init = {}) {
   return body;
 }
 
+/** The id the webhook stored from a signed delivery, or null. */
+async function storedBusinessAccount() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  try {
+    const res = await fetch(`${url}/rest/v1/site_settings?select=value&key=eq.whatsapp_business_account_id`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    const value = Array.isArray(rows) ? rows[0]?.value : null;
+    return typeof value === "string" && /^\d+$/.test(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Whether this account lists our sending number. */
 async function ownsNumber(id) {
   try {
@@ -76,6 +94,16 @@ async function businessAccountId() {
   }
 
   const tried = [];
+
+  // Remembered by the webhook from the envelope of a signed delivery.
+  const stored = await storedBusinessAccount();
+  if (stored) {
+    if (inActions) console.log(`::add-mask::${stored}`);
+    if (await ownsNumber(stored)) return stored;
+    tried.push("the account the webhook remembered does not own the number");
+  } else {
+    tried.push("the webhook has not remembered an account yet — it does on the next message Meta delivers");
+  }
 
   try {
     const debug = await call(`debug_token?input_token=${encodeURIComponent(token)}`);
@@ -168,5 +196,12 @@ try {
   }
   process.exit(problems > 0 ? 1 : 0);
 } catch (error) {
-  fail(error instanceof Error ? error.message : String(error));
+  const message = error instanceof Error ? error.message : String(error);
+  // The scheduled run keeps trying until the account is known. Until then it
+  // is waiting, not failing, and a red run every six hours would be noise.
+  if (process.argv.includes("--pending-ok") && message.startsWith("Could not find")) {
+    console.log(inActions ? `::notice::${message}` : message);
+    process.exit(0);
+  }
+  fail(message);
 }

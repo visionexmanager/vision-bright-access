@@ -152,6 +152,23 @@ export function replyLanguage(
   return isSupportedLanguage(preference) ? preference : detected;
 }
 
+/** The `site_settings` key the Business Account id is remembered under. */
+export const BUSINESS_ACCOUNT_SETTING = "whatsapp_business_account_id";
+
+/**
+ * The WhatsApp Business Account a signed delivery belongs to.
+ *
+ * Meta puts it on every webhook envelope as `entry[].id`. It names Visionex's
+ * own account, never a sender, and it is the one thing the template workflow
+ * needs that the send token has no permission to look up for itself.
+ */
+export function businessAccountIdOf(payload: unknown): string | null {
+  const body = payload as { object?: unknown; entry?: Array<{ id?: unknown }> } | null;
+  if (!body || body.object !== "whatsapp_business_account" || !Array.isArray(body.entry)) return null;
+  const id = body.entry[0]?.id;
+  return typeof id === "string" && /^\d{5,25}$/.test(id) ? id : null;
+}
+
 export function welcomeFor(language: "ar" | "en"): string {
   return language === "ar" ? WELCOME_AR : WELCOME_EN;
 }

@@ -38,9 +38,10 @@ describe("the menu entry", () => {
     const node = catalog.nodeById("news");
     expect(node).not.toBeNull();
     expect(node?.enabled).toBe(true);
-    // Under Explore since the menu was grouped the way the site is.
-    expect(node?.parent).toBe("explore");
-    expect(node?.order).toBe(3);
+    // Under News & sports since the menu was regrouped: the news had shared a
+    // group with the Academy, which is exactly what the owner asked to end.
+    expect(node?.parent).toBe("headlines");
+    expect(node?.order).toBe(1);
     // No handler: it is a phrase leaf, so tapping the row and typing the word
     // reach the same parser.
     expect(node?.handler).toBeUndefined();
@@ -60,8 +61,8 @@ describe("the menu entry", () => {
 
   it("appears on the menu a sender is actually shown, one step in", () => {
     const top = catalog.offeredChildrenOf(catalog.ROOT_ID).map((child) => child.id);
-    expect(top).toContain("explore");
-    expect(catalog.offeredChildrenOf("explore").map((child) => child.id)).toContain("news");
+    expect(top).toContain("headlines");
+    expect(catalog.offeredChildrenOf("headlines").map((child) => child.id)).toContain("news");
   });
 });
 

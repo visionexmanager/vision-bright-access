@@ -327,11 +327,11 @@ describe("no message this builds is one Meta will refuse", () => {
 });
 
 describe("the row on the menu", () => {
-  it("is offered, under Learn & explore", () => {
+  it("is offered, under Entertainment", () => {
     const node = catalog.nodeById("explore.games");
     expect(node).toBeTruthy();
     expect(node!.enabled).toBe(true);
-    expect(catalog.offeredChildrenOf("explore").map((child) => child.id)).toContain("explore.games");
+    expect(catalog.offeredChildrenOf("listen").map((child) => child.id)).toContain("explore.games");
   });
 
   it("names itself in every language, inside a row's limits", () => {
