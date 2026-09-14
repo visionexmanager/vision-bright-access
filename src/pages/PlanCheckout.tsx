@@ -8,10 +8,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { PRICING_PATH } from "@/lib/billing/plans";
 import {
+  displayWhatsAppNumber,
   fillTemplate,
+  isTransferMethod,
   PAYMENT_METHODS,
   paymentWhatsAppLink,
+  PLAN_MONTHS,
+  planTotal,
   type PaymentMethod,
+  type PlanMonths,
 } from "@/lib/billing/whatsappCheckout";
 import {
   createSubscriptionOrder,
@@ -22,19 +27,23 @@ import {
 /**
  * The last step before paying for a plan.
  *
- * Choosing how to pay files an order and opens WhatsApp at the owner's number
- * with the order already written. The owner arranges the payment and approves
- * the order; nothing here activates anything.
+ * The subscriber chooses how to pay and for how long, and an order is filed.
+ * A card payment opens WhatsApp at the owner's number with the order written,
+ * and the owner sends a payment link. An OMT or Whish transfer shows the
+ * owner's number and the order number to write with the transfer, and the
+ * receipt goes to the same number on WhatsApp. The owner approves the order
+ * once the money arrived; nothing here activates anything.
  */
 export default function PlanCheckout() {
   const { planId = "" } = useParams();
   const { t, translateText, dir } = useLanguage();
   const [method, setMethod] = useState<PaymentMethod>("omt");
+  const [months, setMonths] = useState<PlanMonths>(1);
   const [order, setOrder] = useState<SubscriptionOrderRow | null>(null);
   const [link, setLink] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [failed, setFailed] = useState(false);
-  const readyHeading = useRef<HTMLHeadingElement>(null);
+  const resultHeading = useRef<HTMLHeadingElement>(null);
 
   const { data: plan, isLoading } = useQuery({
     queryKey: ["billing-plan", planId],
@@ -56,12 +65,13 @@ export default function PlanCheckout() {
   });
 
   // The page changes under a screen reader's feet once the order exists, so
-  // focus goes to the heading that says what happened.
+  // focus goes to the heading that says what to do next.
   useEffect(() => {
-    if (order) readyHeading.current?.focus();
+    if (order) resultHeading.current?.focus();
   }, [order]);
 
   const payable = !!plan && plan.price_monthly_usd > 0;
+  const transfer = isTransferMethod(method);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -69,17 +79,23 @@ export default function PlanCheckout() {
     setSubmitting(true);
     setFailed(false);
     try {
-      const created = await createSubscriptionOrder(plan.id, method);
-      const message = fillTemplate(t("planCheckout.whatsappMessage"), {
+      const created = await createSubscriptionOrder(plan.id, method, months);
+      const values = {
         reference: created.reference_code,
         plan: translateText(plan.name),
+        months: t(`planCheckout.months.${created.months}`),
         price: String(created.price_usd),
-        method: t(`planCheckout.method.${method}`),
-      });
-      const url = paymentWhatsAppLink(number, message);
+        method: t(`planCheckout.method.${created.payment_method}`),
+      };
       setOrder(created);
-      setLink(url);
-      window.open(url, "_blank", "noopener,noreferrer");
+      if (isTransferMethod(created.payment_method)) {
+        // The receipt goes to WhatsApp after the transfer, so nothing opens yet.
+        setLink(paymentWhatsAppLink(number, fillTemplate(t("planCheckout.transferMessage"), values)));
+      } else {
+        const url = paymentWhatsAppLink(number, fillTemplate(t("planCheckout.whatsappMessage"), values));
+        setLink(url);
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
     } catch {
       setFailed(true);
     } finally {
@@ -117,21 +133,54 @@ export default function PlanCheckout() {
               )}
             </section>
 
-            {order && link ? (
-              <section className="mt-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6" aria-labelledby="checkout-ready">
-                <h2 id="checkout-ready" ref={readyHeading} tabIndex={-1} className="text-lg font-bold focus:outline-none">
-                  {t("planCheckout.readyTitle")}
-                </h2>
-                <p className="mt-2 text-sm">
-                  {fillTemplate(t("planCheckout.readyBody"), { reference: order.reference_code })}
-                </p>
-                <Button asChild className="mt-4 w-full">
-                  <a href={link} target="_blank" rel="noopener noreferrer">
-                    <MessageCircle className="me-2 h-4 w-4" aria-hidden="true" />
-                    {t("planCheckout.openWhatsapp")}
-                  </a>
-                </Button>
-              </section>
+            {order && link && number ? (
+              isTransferMethod(order.payment_method) ? (
+                <section className="mt-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6" aria-labelledby="checkout-result">
+                  <h2 id="checkout-result" ref={resultHeading} tabIndex={-1} className="text-lg font-bold focus:outline-none">
+                    {t("planCheckout.transferTitle")}
+                  </h2>
+                  <p className="mt-2 text-sm">
+                    {fillTemplate(t("planCheckout.transferBody"), {
+                      amount: `$${order.price_usd}`,
+                      method: t(`planCheckout.method.${order.payment_method}`),
+                      reference: order.reference_code,
+                    })}
+                  </p>
+                  <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl bg-background p-4">
+                      <dt className="text-xs font-semibold text-muted-foreground">{t("planCheckout.transferNumber")}</dt>
+                      <dd className="mt-1 font-mono text-2xl font-black" dir="ltr">{displayWhatsAppNumber(number)}</dd>
+                    </div>
+                    <div className="rounded-xl bg-background p-4">
+                      <dt className="text-xs font-semibold text-muted-foreground">{t("planCheckout.total")}</dt>
+                      <dd className="mt-1 text-2xl font-black" dir="ltr">${order.price_usd}</dd>
+                      <dd className="text-xs text-muted-foreground">{t(`planCheckout.months.${order.months}`)} · <span dir="ltr">{order.reference_code}</span></dd>
+                    </div>
+                  </dl>
+                  <p className="mt-4 text-sm">{t("planCheckout.transferAfter")}</p>
+                  <Button asChild className="mt-4 w-full">
+                    <a href={link} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="me-2 h-4 w-4" aria-hidden="true" />
+                      {t("planCheckout.sentTransfer")}
+                    </a>
+                  </Button>
+                </section>
+              ) : (
+                <section className="mt-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6" aria-labelledby="checkout-result">
+                  <h2 id="checkout-result" ref={resultHeading} tabIndex={-1} className="text-lg font-bold focus:outline-none">
+                    {t("planCheckout.readyTitle")}
+                  </h2>
+                  <p className="mt-2 text-sm">
+                    {fillTemplate(t("planCheckout.readyBody"), { reference: order.reference_code })}
+                  </p>
+                  <Button asChild className="mt-4 w-full">
+                    <a href={link} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="me-2 h-4 w-4" aria-hidden="true" />
+                      {t("planCheckout.openWhatsapp")}
+                    </a>
+                  </Button>
+                </section>
+              )
             ) : (
               <form className="mt-8 space-y-6" onSubmit={submit}>
                 <fieldset className="space-y-3">
@@ -162,6 +211,37 @@ export default function PlanCheckout() {
                   ))}
                 </fieldset>
 
+                <fieldset className="space-y-3">
+                  <legend className="text-lg font-bold">{t("planCheckout.durationTitle")}</legend>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {PLAN_MONTHS.map((value) => (
+                      <label
+                        key={value}
+                        className={`flex cursor-pointer flex-col gap-1 rounded-xl border p-3 ${
+                          months === value ? "border-primary ring-2 ring-primary/30" : "border-border"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="plan-months"
+                            value={value}
+                            checked={months === value}
+                            onChange={() => setMonths(value)}
+                            className="h-4 w-4 accent-primary"
+                          />
+                          <span className="font-semibold">{t(`planCheckout.months.${value}`)}</span>
+                        </span>
+                        <span className="text-sm text-muted-foreground" dir="ltr">${planTotal(plan.price_monthly_usd, value)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <p className="text-lg font-bold" aria-live="polite">
+                  {t("planCheckout.total")}: <span dir="ltr">${planTotal(plan.price_monthly_usd, months)}</span>
+                </p>
+
                 <p className="text-sm text-muted-foreground">{t("planCheckout.howItWorks")}</p>
 
                 {!numberLoading && !number && (
@@ -173,7 +253,9 @@ export default function PlanCheckout() {
 
                 <Button type="submit" className="w-full" disabled={submitting || !number}>
                   <MessageCircle className="me-2 h-4 w-4" aria-hidden="true" />
-                  {submitting ? t("planCheckout.creating") : t("planCheckout.continue")}
+                  {submitting
+                    ? t("planCheckout.creating")
+                    : transfer ? t("planCheckout.showDetails") : t("planCheckout.continue")}
                 </Button>
               </form>
             )}

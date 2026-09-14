@@ -120,7 +120,7 @@ export default function AdminSubscriptionOrders() {
                       <TableCell className="max-w-[160px] truncate">{order.buyer_display_name || order.user_id.slice(0, 8)}</TableCell>
                       <TableCell>
                         <div className="font-medium">{translateText(order.plan_id)}</div>
-                        <div className="text-xs text-muted-foreground">${order.price_usd}</div>
+                        <div className="text-xs text-muted-foreground">{t(`planCheckout.months.${order.months}`)} · ${order.price_usd}</div>
                       </TableCell>
                       <TableCell>{t(`planCheckout.method.${order.payment_method}`)}</TableCell>
                       <TableCell className="font-mono text-sm">{order.reference_code}</TableCell>

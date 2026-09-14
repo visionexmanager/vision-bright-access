@@ -8,6 +8,7 @@ import {
   normalizeWhatsAppNumber,
   PAYMENT_WHATSAPP_SETTING,
   type PaymentMethod,
+  type PlanMonths,
 } from "@/lib/billing/whatsappCheckout";
 
 export type SubscriptionOrderRow = Database["public"]["Tables"]["subscription_orders"]["Row"];
@@ -28,10 +29,15 @@ export async function fetchPaymentWhatsAppNumber(): Promise<string | null> {
   return normalizeWhatsAppNumber(data?.value);
 }
 
-export async function createSubscriptionOrder(planId: string, method: PaymentMethod): Promise<SubscriptionOrderRow> {
+export async function createSubscriptionOrder(
+  planId: string,
+  method: PaymentMethod,
+  months: PlanMonths,
+): Promise<SubscriptionOrderRow> {
   const { data, error } = await supabase.rpc("create_subscription_order", {
     _plan_id: planId,
     _payment_method: method,
+    _months: months,
   });
   if (error) throw new Error(error.message);
   return data;

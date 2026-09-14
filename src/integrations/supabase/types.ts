@@ -22458,6 +22458,7 @@ export type Database = {
           admin_notes: string | null
           created_at: string
           id: string
+          months: number
           payment_method: string
           plan_id: string
           price_usd: number
@@ -22472,6 +22473,7 @@ export type Database = {
           admin_notes?: string | null
           created_at?: string
           id?: string
+          months?: number
           payment_method: string
           plan_id: string
           price_usd: number
@@ -22486,6 +22488,7 @@ export type Database = {
           admin_notes?: string | null
           created_at?: string
           id?: string
+          months?: number
           payment_method?: string
           plan_id?: string
           price_usd?: number
@@ -25255,6 +25258,7 @@ export type Database = {
           admin_notes: string | null
           created_at: string
           id: string
+          months: number
           payment_method: string
           plan_id: string
           price_usd: number
@@ -25273,11 +25277,12 @@ export type Database = {
         }
       }
       create_subscription_order: {
-        Args: { _payment_method: string; _plan_id: string }
+        Args: { _months?: number; _payment_method: string; _plan_id: string }
         Returns: {
           admin_notes: string | null
           created_at: string
           id: string
+          months: number
           payment_method: string
           plan_id: string
           price_usd: number
@@ -25301,6 +25306,7 @@ export type Database = {
           admin_notes: string | null
           created_at: string
           id: string
+          months: number
           payment_method: string
           plan_id: string
           price_usd: number

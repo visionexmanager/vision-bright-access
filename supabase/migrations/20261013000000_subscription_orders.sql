@@ -2,10 +2,11 @@
 -- Subscription orders — paid through the owner on WhatsApp
 --
 -- There is no card processor for plans. A subscriber picks a plan and a way to
--- pay — OMT, Whish to Whish, or a card link the owner sends — an order is filed
--- here, and WhatsApp opens with the order number already written. The owner
--- takes the payment and approves the order, and approval is the only thing
--- that activates a plan.
+-- pay, and for how many months. An order is filed here. A card payment opens
+-- WhatsApp with the order already written, and the owner sends a payment link;
+-- an OMT or Whish transfer is sent to the owner's number, shown on the page.
+-- The owner confirms the money arrived and approves the order, and approval is
+-- the only thing that activates a plan — for the months that were paid.
 --
 -- The price is read from billing_plans, never from the client. There is no
 -- client INSERT or UPDATE policy: every write goes through the functions below.
@@ -15,6 +16,7 @@ CREATE TABLE IF NOT EXISTS public.subscription_orders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   plan_id text NOT NULL REFERENCES public.billing_plans(id),
+  months integer NOT NULL DEFAULT 1 CHECK (months IN (1, 3, 6, 12)),
   price_usd numeric(10,2) NOT NULL,
   payment_method text NOT NULL CHECK (payment_method IN ('omt', 'whish', 'card')),
   reference_code text NOT NULL UNIQUE,
@@ -41,17 +43,19 @@ CREATE POLICY "subscription_orders_admin_read"
 CREATE INDEX IF NOT EXISTS idx_subscription_orders_status ON public.subscription_orders(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_subscription_orders_user ON public.subscription_orders(user_id);
 
--- The number WhatsApp opens. Public on purpose — it is printed into a link on
--- the checkout page — and kept apart from `owner_contact`, which is private.
--- Set in Admin → Settings.
+-- The owner's number: where WhatsApp opens for a card payment, and where an
+-- OMT or Whish transfer is sent. Public on purpose — the checkout page prints
+-- it — and kept apart from `owner_contact`, which is private. Seeded with the
+-- number the owner gave; changed in Admin → Settings, never here.
 INSERT INTO public.site_settings (key, value)
-SELECT 'subscription_payment_whatsapp', '""'::jsonb
+SELECT 'subscription_payment_whatsapp', '"+96170750609"'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM public.site_settings WHERE key = 'subscription_payment_whatsapp');
 
 -- ── create_subscription_order — subscriber-invoked ──────────────────────
 CREATE OR REPLACE FUNCTION public.create_subscription_order(
   _plan_id text,
-  _payment_method text
+  _payment_method text,
+  _months integer DEFAULT 1
 )
 RETURNS public.subscription_orders
 LANGUAGE plpgsql
@@ -72,15 +76,19 @@ BEGIN
     RAISE EXCEPTION 'Invalid payment method';
   END IF;
 
-  SELECT b.price_monthly_usd INTO _price
+  IF _months IS NULL OR _months NOT IN (1, 3, 6, 12) THEN
+    RAISE EXCEPTION 'Invalid duration';
+  END IF;
+
+  SELECT b.price_monthly_usd * _months INTO _price
     FROM public.billing_plans b
    WHERE b.id = _plan_id AND b.is_active AND b.price_monthly_usd > 0;
   IF _price IS NULL THEN
     RAISE EXCEPTION 'Invalid plan';
   END IF;
 
-  -- Pressing the button twice, or coming back to change the way to pay, is the
-  -- same order: one reference for the owner to match, not three.
+  -- Pressing the button twice, or coming back to change the way to pay or the
+  -- duration, is the same order: one reference for the owner to match.
   SELECT * INTO _order
     FROM public.subscription_orders o
    WHERE o.user_id = _uid AND o.plan_id = _plan_id AND o.status = 'pending'
@@ -90,7 +98,7 @@ BEGIN
    FOR UPDATE;
   IF FOUND THEN
     UPDATE public.subscription_orders
-       SET payment_method = _payment_method, price_usd = _price
+       SET payment_method = _payment_method, months = _months, price_usd = _price
      WHERE id = _order.id
     RETURNING * INTO _order;
     RETURN _order;
@@ -104,8 +112,8 @@ BEGIN
 
   LOOP
     BEGIN
-      INSERT INTO public.subscription_orders (user_id, plan_id, price_usd, payment_method, reference_code)
-      VALUES (_uid, _plan_id, _price, _payment_method,
+      INSERT INTO public.subscription_orders (user_id, plan_id, months, price_usd, payment_method, reference_code)
+      VALUES (_uid, _plan_id, _months, _price, _payment_method,
               'VX-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6)))
       RETURNING * INTO _order;
       RETURN _order;
@@ -119,9 +127,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.create_subscription_order(text, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.create_subscription_order(text, text) FROM anon;
-GRANT EXECUTE ON FUNCTION public.create_subscription_order(text, text) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.create_subscription_order(text, text, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.create_subscription_order(text, text, integer) FROM anon;
+GRANT EXECUTE ON FUNCTION public.create_subscription_order(text, text, integer) TO authenticated, service_role;
 
 -- ── approve_subscription_order — admin-invoked, after the money arrived ──
 CREATE OR REPLACE FUNCTION public.approve_subscription_order(
@@ -157,14 +165,15 @@ BEGIN
     RAISE EXCEPTION 'Plan not found';
   END IF;
 
-  -- A renewal paid before the month is out adds a month to the days that are
-  -- left rather than throwing them away. A change of plan starts today.
+  -- A renewal paid before the period is out adds the months paid for to the
+  -- days that are left rather than throwing them away. A change of plan starts
+  -- today.
   SELECT max(s.ends_at) INTO _starts
     FROM public.user_subscriptions s
    WHERE s.user_id = _order.user_id AND s.plan_id = _order.plan_id
      AND s.status = 'active' AND s.ends_at > now();
   _starts := GREATEST(COALESCE(_starts, now()), now());
-  _ends := _starts + interval '1 month';
+  _ends := _starts + make_interval(months => _order.months);
 
   UPDATE public.user_subscriptions
      SET status = 'cancelled', cancelled_at = now(), updated_at = now()
@@ -181,8 +190,8 @@ BEGIN
 
   IF COALESCE(_plan.vx_credits_monthly, 0) > 0 THEN
     PERFORM public.billing_grant_credits(
-      _order.user_id, _plan.vx_credits_monthly, 'subscription_grant',
-      _plan.name || ' plan: monthly credits'
+      _order.user_id, _plan.vx_credits_monthly * _order.months, 'subscription_grant',
+      _plan.name || ' plan: credits for ' || _order.months || ' month(s)'
     );
   END IF;
 
