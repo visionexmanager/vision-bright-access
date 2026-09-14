@@ -8,12 +8,16 @@ name: WhatsApp Message Templates
 # lives in supabase/functions/_shared/whatsappPlanReminder.ts, beside the code
 # that fills its variables.
 #
-# Manual only. `check` reads the status; `create` submits whatever translation
-# is missing and changes nothing that already exists. It runs here rather than
-# on a laptop for the reason whatsapp-profile.yml gives: WHATSAPP_TOKEN stays in
-# the secret store.
+# Every six hours in create mode, and by hand. `create` submits only what is
+# missing and changes nothing that exists, so running it again is safe. The
+# Business Account id comes from the webhook, which remembers it from the first
+# signed delivery; until then the scheduled run reports that it is waiting and
+# stays green. It runs here rather than on a laptop for the reason
+# whatsapp-profile.yml gives: WHATSAPP_TOKEN stays in the secret store.
 
 on:
+  schedule:
+    - cron: "41 */6 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -35,7 +39,7 @@ concurrency:
 
 jobs:
   templates:
-    name: ${{ inputs.mode == 'create' && 'Submit the templates' || 'Check the templates' }}
+    name: ${{ (inputs.mode || 'create') == 'create' && 'Submit the templates' || 'Check the templates' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -48,10 +52,13 @@ jobs:
 
       # No `npm ci`: the script uses fetch and node:fs, and reads the template
       # wording from a TypeScript module with Node's own type stripping.
-      - name: ${{ inputs.mode == 'create' && 'Submit and report' || 'Report' }}
+      - name: Submit or report
         env:
           WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
           WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
-          MODE: ${{ inputs.mode }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MODE: ${{ inputs.mode || 'create' }}
+          PENDING_OK: ${{ github.event_name == 'schedule' && '--pending-ok' || '' }}
           WHATSAPP_BUSINESS_ACCOUNT_ID: ${{ inputs.waba_id }}
-        run: node --experimental-strip-types scripts/whatsapp-templates.mjs "--$MODE"
+        run: node --experimental-strip-types scripts/whatsapp-templates.mjs "--$MODE" $PENDING_OK

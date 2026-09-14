@@ -226,20 +226,20 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: "listen",
     parent: ROOT_ID,
-    order: 6,
+    order: 5,
     kind: "menu",
     enabled: true,
     emoji: "🎬",
     // Renamed when television arrived under it. "Listen" was accurate while it
     // held a radio and a song; a screen reader now reads the row that contains
     // VisionTV, and it has to say so.
-    title: { ar: "شاهد واستمع", en: "Watch & listen" },
-    description: { ar: "التلفزيون والراديو والأغاني", en: "TV, radio and songs" },
+    title: { ar: "الترفيه", en: "Entertainment" },
+    description: { ar: "التلفزيون والراديو والأغاني والألعاب", en: "TV, radio, songs and games" },
   },
   {
     id: "bazaar",
     parent: ROOT_ID,
-    order: 5,
+    order: 8,
     kind: "menu",
     enabled: true,
     emoji: "🛍️",
@@ -248,8 +248,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // because a screen reader set to Arabic spells the rest out letter by
     // letter. The brand survives in the eighteen languages whose script is
     // Latin already.
-    title: { ar: "سوق Visionex", en: "VXBazaar" },
-    description: { ar: "تسوّق، بِع، وتابع طلباتك", en: "Shop, sell, track your orders" },
+    title: { ar: "السوق والخدمات", en: "Shop & services" },
+    description: { ar: "تسوّق وبِع واطلب خدمات Visionex", en: "Shop, sell and request Visionex services" },
     // No aliases on any of the three groups. «السوق» and "shop" are the words
     // `services.bazaar` already answers to, and a word that resolves to two
     // nodes resolves to whichever the sort happened to put first.
@@ -257,15 +257,30 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: "explore",
     parent: ROOT_ID,
-    order: 7,
+    order: 3,
     kind: "menu",
     enabled: true,
     // Not the compass 🧭 this and Services both used to carry. Two rows with
     // one icon is two rows that look like each other in a list somebody is
     // scanning, and the icon is the fastest thing on the row to read.
     emoji: "📚",
-    title: { ar: "تعلّم واستكشف", en: "Learn & explore" },
-    description: { ar: "الأكاديمية والألعاب والأخبار والخدمات", en: "Academy, games, news and services" },
+    title: { ar: "التعلّم", en: "Learning" },
+    // Describes the kind of thing inside, never names a row: a description that
+    // names VisionKids would still say so while the VisionKids flag is off.
+    description: { ar: "الدورات وقصص الأطفال", en: "Courses and children's stories" },
+  },
+  {
+    id: "headlines",
+    parent: ROOT_ID,
+    order: 4,
+    kind: "menu",
+    enabled: true,
+    emoji: "📰",
+    // The news used to share "Learn & explore" with the Academy, the games and
+    // the service centre. What is happening today, and training with a coach,
+    // are the two things here that are about today rather than about learning.
+    title: { ar: "الأخبار والرياضة", en: "News & sports" },
+    description: { ar: "آخر الأخبار، والتدريب مع مدرب", en: "The latest news, and training with a coach" },
   },
   {
     id: "ocr",
@@ -279,23 +294,9 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // letters rather than as a feature — and the other eighteen languages had
     // never used it. Everything here now acts on a picture; the documents that
     // used to sit at the bottom of this menu have their own group.
-    title: { ar: "الصور", en: "Photos" },
-    description: { ar: "أقرأ وأصف وأترجم ما في الصورة", en: "Read, describe or translate a photo" },
+    title: { ar: "الصور والملفات", en: "Photos & files" },
+    description: { ar: "اقرأ أو صِف أو ترجم صورة أو ملفاً", en: "Read, describe or translate a photo or file" },
     requires: ["vision"],
-  },
-  {
-    id: "files",
-    parent: ROOT_ID,
-    order: 3,
-    kind: "menu",
-    enabled: true,
-    emoji: "📄",
-    title: { ar: "الملفات والمستندات", en: "Files & documents" },
-    description: { ar: "اقرأ أو ترجم أو حوّل ملفاً", en: "Read, translate or convert a file" },
-    // The two rows here were three menus apart: reading a PDF was the last
-    // entry under Photos, and converting one was the fifth entry under
-    // Services. They are the same gesture — hand over a file, get something
-    // back — and this is where the assistant's file work has been landing.
   },
   {
     id: "academy",
@@ -344,8 +345,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // `news_articles` rows the website's own /news page reads, so there is one
     // feed and one place it is published from — see `whatsappNews.ts`.
     id: "news",
-    parent: "explore",
-    order: 3,
+    parent: "headlines",
+    order: 1,
     kind: "action",
     enabled: true,
     emoji: "📰",
@@ -389,8 +390,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
   {
     id: "sports",
-    parent: "explore",
-    order: 4,
+    parent: "headlines",
+    order: 2,
     // Was "Scores and fixtures", declared and not built — and it was never
     // going to be built as written. Live results need a paid feed, and this
     // channel's rule is that a service it depends on takes no key.
@@ -438,8 +439,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // full: ten of ten rows, and an eleventh is not truncated, it rejects the
     // whole message.
     id: "explore.services",
-    parent: "explore",
-    order: 5,
+    parent: "bazaar",
+    order: 4,
     kind: "action",
     enabled: true,
     emoji: "✨",
@@ -483,8 +484,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // second copy of a catalogue that already has a single source of truth.
     // `whatsappGames.ts` reads the snapshot derived from it instead.
     id: "explore.games",
-    parent: "explore",
-    order: 6,
+    parent: "listen",
+    order: 4,
     kind: "action",
     enabled: true,
     emoji: "🎮",
@@ -518,7 +519,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: "services",
     parent: ROOT_ID,
-    order: 4,
+    order: 7,
     kind: "menu",
     enabled: true,
     emoji: "🌤️",
@@ -532,7 +533,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   {
     id: "health",
     parent: ROOT_ID,
-    order: 8,
+    order: 6,
     kind: "menu",
     enabled: true,
     emoji: "🩺",
@@ -693,12 +694,12 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
   {
     id: "ocr.document",
-    parent: "files",
-    order: 1,
+    parent: "ocr",
+    order: 6,
     kind: "action",
     enabled: true,
     title: { ar: "اقرأ مستنداً", en: "Read a document" },
-    description: { ar: "PDF أو Word: ألخّصه أو أترجمه", en: "PDF or Word: summarise or translate" },
+    description: { ar: "PDF أو وورد: ألخّصه أو أترجمه", en: "PDF or Word: summarise or translate" },
     // Was `coming_soon`, and had been since before the webhook could read a
     // document. It has read PDFs, Word files and slide decks for some time —
     // and translates one when the caption asks — so the row that announces
@@ -756,8 +757,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
   },
   {
     id: "services.convert",
-    parent: "files",
-    order: 2,
+    parent: "ocr",
+    order: 7,
     kind: "action",
     enabled: true,
     title: { ar: "تحويل ملف", en: "Convert a file" },

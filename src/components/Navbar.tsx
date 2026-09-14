@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -101,18 +103,50 @@ export function Navbar() {
   ];
 
   // Still one click away, and still every one of them in the mobile menu below.
-  const moreNavLinks = [
-    { to: "/finance", label: t("nav.finance") },
-    { to: "/kids", label: t("nav.kids") },
-    { to: "/library", label: t("nav.library") },
-    { to: "/content", label: t("nav.content") },
-    { to: "/news", label: t("nav.news") },
-    { to: "/pricing", label: t("plans.title") },
+  // Grouped by what each destination is for, so the library is never read out
+  // beside the news: a screen reader announces the group before its links.
+  const moreNavGroups = [
+    {
+      label: t("nav.group.learning"),
+      links: [
+        { to: "/library", label: t("nav.library") },
+        { to: "/kids", label: t("nav.kids") },
+      ],
+    },
+    {
+      label: t("nav.group.media"),
+      links: [
+        { to: "/news", label: t("nav.news") },
+        { to: "/content", label: t("nav.content") },
+      ],
+    },
+    {
+      label: t("nav.group.work"),
+      links: [
+        { to: "/finance", label: t("nav.finance") },
+        { to: "/professional-tools", label: t("nav.professionalTools") },
+      ],
+    },
+    {
+      label: t("nav.group.community"),
+      links: [
+        { to: "/community", label: t("nav.community") },
+        { to: "/contact-us", label: t("nav.contact") },
+      ],
+    },
+    {
+      label: t("nav.group.account"),
+      links: [{ to: "/pricing", label: t("plans.title") }],
+    },
   ];
+  const moreNavLinks = moreNavGroups.flatMap((group) => group.links);
 
   const moreMenuIsActive = moreNavLinks.some((link) => link.to === location.pathname);
 
   // Grouped structure for mobile menu with visual separators
+  // Every destination, each under the group it belongs to — the same groups
+  // the desktop "More" menu and the footer use, so a place is always found
+  // under the same name.
   const mobileNavGroups = [
     {
       label: null,
@@ -124,30 +158,45 @@ export function Navbar() {
         // submenu — File Converter used to be stranded in the "More" group.
         { to: "/services/ai-media-studio", label: t("nav.aiStudio") },
         { to: "/services/file-studio", label: t("nav.fileConverter") },
-        { to: "/finance", label: t("nav.finance") },
-        { to: "/library", label: t("nav.library") },
         { to: "/assistive-products", label: t("nav.assistiveProducts") },
       ],
     },
     {
-      label: t("nav.explore"),
+      label: t("nav.group.learning"),
       links: [
-        { to: "/content", label: t("nav.content") },
-        { to: "/games", label: t("nav.games") },
-        { to: "/careers", label: t("career.title") },
         { to: "/academy", label: t("home.feature.academy") },
+        { to: "/library", label: t("nav.library") },
         { to: "/kids", label: t("nav.kids") },
-        { to: "/community", label: t("nav.community") },
       ],
     },
     {
-      label: t("nav.more"),
+      label: t("nav.group.work"),
       links: [
+        { to: "/careers", label: t("career.title") },
+        { to: "/finance", label: t("nav.finance") },
         { to: "/professional-tools", label: t("nav.professionalTools") },
+      ],
+    },
+    {
+      label: t("nav.group.media"),
+      links: [
         { to: "/news", label: t("nav.news") },
-        { to: "/pricing", label: t("plans.title") },
+        { to: "/content", label: t("nav.content") },
+        { to: "/games", label: t("nav.games") },
+      ],
+    },
+    {
+      label: t("nav.group.community"),
+      links: [
+        { to: "/community", label: t("nav.community") },
         { to: "/contact-us", label: t("nav.contact") },
+      ],
+    },
+    {
+      label: t("nav.group.account"),
+      links: [
         { to: "/profile", label: t("nav.profile") },
+        { to: "/pricing", label: t("plans.title") },
       ],
     },
   ];
@@ -237,17 +286,30 @@ export function Navbar() {
                 <ChevronDown className="h-4 w-4" aria-hidden="true" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {moreNavLinks.map((link) => (
-                <DropdownMenuItem key={link.to} asChild>
-                  <Link
-                    to={link.to}
-                    aria-current={location.pathname === link.to ? "page" : undefined}
-                    onClick={() => playSound("navigate")}
-                  >
-                    {link.label}
-                  </Link>
-                </DropdownMenuItem>
+            <DropdownMenuContent align="end" className="w-60">
+              {moreNavGroups.map((group, index) => (
+                <Fragment key={group.label}>
+                  {index > 0 && <DropdownMenuSeparator />}
+                  {/* The group carries the name for a screen reader; the visible
+                      label repeats it for sight and is hidden from the tree so
+                      it is not read twice. */}
+                  <DropdownMenuGroup aria-label={group.label}>
+                    <DropdownMenuLabel aria-hidden="true" className="text-xs font-semibold text-muted-foreground">
+                      {group.label}
+                    </DropdownMenuLabel>
+                    {group.links.map((link) => (
+                      <DropdownMenuItem key={link.to} asChild>
+                        <Link
+                          to={link.to}
+                          aria-current={location.pathname === link.to ? "page" : undefined}
+                          onClick={() => playSound("navigate")}
+                        >
+                          {link.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </Fragment>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>

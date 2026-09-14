@@ -16,32 +16,12 @@ import logo from "@/assets/logo.png";
 import { AcademyNav } from "@/components/academy/AcademyNav";
 import { AdSenseSlot, openConsentPreferences } from "@/features/ads";
 
+import { FOOTER_GROUPS } from "@/components/footerGroups";
+
 // Lazy-load the AI chat widget — it's a floating button that users open on demand.
 // This keeps the Layout chunk lean and defers the react-markdown + voice-chat weight.
 const AIChat = lazy(() => import("./AIChat").then((m) => ({ default: m.AIChat })));
 
-const FOOTER_LINKS = {
-  pages: [
-    { to: "/", labelKey: "footer.link.home" },
-    { to: "/bazaar", labelKey: "footer.link.bazaar" },
-    { to: "/services", labelKey: "footer.link.services" },
-    { to: "/finance", labelKey: "footer.link.finance" },
-    { to: "/services/ai-media-studio", labelKey: "footer.link.aiStudio" },
-    { to: "/content", labelKey: "footer.link.content" },
-    { to: "/games", labelKey: "footer.link.games" },
-    { to: "/news", labelKey: "footer.link.news" },
-    { to: "/contact-us", labelKey: "footer.link.contact" },
-  ],
-  more: [
-    { to: "/professional-tools",      labelKey: "footer.link.professionalTools" },
-    { to: "/services/file-studio",    labelKey: "footer.link.fileConverter" },
-    { to: "/community",               labelKey: "footer.link.community" },
-    { to: "/leaderboard",             labelKey: "footer.link.leaderboard" },
-    { to: "/assistive-products",      labelKey: "footer.link.assistiveProducts" },
-    { to: "/academy",                 labelKey: "footer.link.academy" },
-    { to: "/library",                 labelKey: "footer.link.library" },
-  ],
-};
 
 export function Layout({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
@@ -89,9 +69,9 @@ export function Layout({ children }: { children: ReactNode }) {
           {!pathname.startsWith("/newsletter/preferences") && <NewsletterSubscribe />}
 
           {/* Sitemap columns */}
-          <div className="mt-10 grid gap-10 sm:grid-cols-3">
+          <div className="mt-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {/* Brand */}
-            <div className="sm:col-span-1">
+            <div className="sm:col-span-2 lg:col-span-3 xl:col-span-1">
               <Link to="/" className="inline-block mb-3" aria-label="VisionEx home">
                 <img
                   src={logo}
@@ -106,33 +86,20 @@ export function Layout({ children }: { children: ReactNode }) {
               </p>
             </div>
 
-            {/* Main pages */}
-            <nav aria-labelledby="footer-pages-heading">
-              <h2 id="footer-pages-heading" className="mb-4 text-xs font-bold uppercase tracking-widest text-foreground/50">{t("footer.pages")}</h2>
-              <ul className="space-y-2.5">
-                {FOOTER_LINKS.pages.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground hover:translate-x-0.5 transition-all inline-block">
-                      {t(l.labelKey)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-
-            {/* More */}
-            <nav aria-labelledby="footer-more-heading">
-              <h2 id="footer-more-heading" className="mb-4 text-xs font-bold uppercase tracking-widest text-foreground/50">{t("footer.more")}</h2>
-              <ul className="space-y-2.5">
-                {FOOTER_LINKS.more.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground hover:translate-x-0.5 transition-all inline-block">
-                      {t(l.labelKey)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
+            {FOOTER_GROUPS.map((group) => (
+              <nav key={group.id} aria-labelledby={`footer-${group.id}-heading`}>
+                <h2 id={`footer-${group.id}-heading`} className="mb-4 text-xs font-bold uppercase tracking-widest text-foreground/50">{t(group.headingKey)}</h2>
+                <ul className="space-y-2.5">
+                  {group.links.map((l) => (
+                    <li key={l.to}>
+                      <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground hover:translate-x-0.5 transition-all inline-block">
+                        {t(l.labelKey)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ))}
           </div>
 
           {/* Bottom bar */}

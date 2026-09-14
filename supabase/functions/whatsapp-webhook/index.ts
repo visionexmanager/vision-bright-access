@@ -51,6 +51,8 @@ import {
   unsupportedTypeNotice,
   userAskedForHuman,
   verifySignature,
+  BUSINESS_ACCOUNT_SETTING,
+  businessAccountIdOf,
 } from "../_shared/whatsapp.ts";
 import { downloadMedia, mediaFailureNotice } from "../_shared/whatsappMedia.ts";
 import { transcribeVoice, transcriptionFailureNotice } from "../_shared/whatsappTranscribe.ts";
@@ -788,6 +790,12 @@ function service() {
   );
 }
 
+/**
+ * The Business Account id this instance has already remembered, so it is
+ * written once rather than on every delivery.
+ */
+let rememberedBusinessAccount: string | null = null;
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
 
@@ -847,6 +855,20 @@ Deno.serve(async (req) => {
   }
 
   const db = service();
+
+  // Meta's id for the Visionex WhatsApp Business Account rides on every signed
+  // delivery, and the send token has no permission to look it up. The template
+  // workflow needs it to submit the plan-reminder template, so it is remembered
+  // the first time an instance sees it. Visionex's id, never a sender's; failing
+  // to store it costs this delivery nothing.
+  const businessAccount = businessAccountIdOf(payload);
+  if (businessAccount && businessAccount !== rememberedBusinessAccount) {
+    const { error: accountError } = await db
+      .from("site_settings")
+      .upsert({ key: BUSINESS_ACCOUNT_SETTING, value: businessAccount }, { onConflict: "key" });
+    if (accountError) console.error("[whatsapp] business account not remembered:", describeError(accountError));
+    else rememberedBusinessAccount = businessAccount;
+  }
   /**
    * Where a voice note that has already been synthesised is remembered.
    *

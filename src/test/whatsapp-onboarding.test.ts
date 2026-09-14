@@ -397,14 +397,17 @@ describe("the menu a sender is shown", () => {
     // features live one step inside them. Both halves are checked, because a
     // group whose menu names nothing is a row nobody has a reason to open.
     const main = idsOf(interactive.menuMessage(catalog.ROOT_ID, "en")!);
-    for (const id of ["assistant", "ocr", "listen", "bazaar", "services", "explore", "support", "more"]) {
+    for (const id of ["assistant", "ocr", "explore", "headlines", "listen", "health", "services", "bazaar", "support", "more"]) {
       expect(main, id).toContain(id);
     }
+    // Each thing under the group it belongs to: learning is not with the news.
     const inside: Record<string, string[]> = {
-      listen: ["services.radio", "services.songs"],
-      bazaar: ["services.bazaar", "services.sell", "services.orders"],
+      ocr: ["ocr.read", "ocr.document", "services.convert"],
+      explore: ["academy", "kids"],
+      headlines: ["news", "sports"],
+      listen: ["listen.tv", "services.radio", "services.songs", "explore.games"],
+      bazaar: ["services.bazaar", "services.sell", "services.orders", "explore.services"],
       services: ["services.weather", "services.where", "services.nearby"],
-      explore: ["academy", "kids", "news", "sports"],
     };
     for (const [group, features] of Object.entries(inside)) {
       const rows = idsOf(interactive.menuMessage(group, "en")!);

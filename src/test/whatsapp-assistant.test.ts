@@ -2495,7 +2495,7 @@ describe("PDFs, which are now actually read", () => {
   // photo feature — switching that off would have taken documents with it.
   it("gates a document translation on the document row", () => {
     expect(webhook).toContain('featureOn("ocr.document")');
-    expect(catalog.nodeById("ocr.document")?.parent).toBe("files");
+    expect(catalog.nodeById("ocr.document")?.parent).toBe("ocr");
   });
 
   it("routes every document failure to its own reply", () => {
@@ -2533,15 +2533,18 @@ describe("announcing what the assistant can do", () => {
     // above proves the menu agrees with itself, and this is the second pair of
     // eyes on what those words actually are. "OCR and photos", "Visionex
     // Services" and "More" were all names for where the code had got to.
+    // Regrouped so that nothing sits beside something it has nothing to do
+    // with: the Academy no longer shares a row with the news.
     for (
       const area of [
         "AI Assistant",
-        "Photos",
-        "Files & documents",
+        "Photos & files",
+        "Learning",
+        "News & sports",
+        "Entertainment",
+        "Health",
         "Weather & places",
-        "VXBazaar",
-        "Watch & listen",
-        "Learn & explore",
+        "Shop & services",
         "Support",
         "Settings",
       ]
@@ -2551,11 +2554,13 @@ describe("announcing what the assistant can do", () => {
     for (
       const area of [
         "المساعد الذكي",
-        "الصور",
-        "الملفات والمستندات",
+        "الصور والملفات",
+        "التعلّم",
+        "الأخبار والرياضة",
+        "الترفيه",
+        "الصحة",
         "الطقس والأماكن",
-        "شاهد واستمع",
-        "تعلّم واستكشف",
+        "السوق والخدمات",
         "الدعم",
         "الإعدادات",
       ]
