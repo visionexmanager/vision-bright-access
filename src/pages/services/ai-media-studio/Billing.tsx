@@ -20,7 +20,7 @@ export default function Billing() {
   const [upgradeTab,  setUpgradeTab]  = useState<"plans" | "credits">("plans");
   const { data: billingStatus, isLoading } = useBillingStatus();
   const { data: plans = [] }               = usePlans();
-  const { upgrade, cancel }                = useSubscriptionMutations();
+  const { cancel }                         = useSubscriptionMutations();
 
   const currentPlanId  = billingStatus?.subscription?.plan_id ?? "free_trial";
   const isInTrial      = billingStatus?.trial?.is_active && (billingStatus?.trial?.hours_left ?? 0) > 0;

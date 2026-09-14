@@ -299,6 +299,7 @@ const VoiceRoom = lazyWithRetry(() => import("./pages/community/VoiceRoom"));
 const VoiceRooms = lazyWithRetry(() => import("./pages/community/VoiceRooms"));
 const CoinsStore = lazyWithRetry(() => import("./pages/CoinsStore"));
 const Pricing = lazyWithRetry(() => import("./pages/Pricing"));
+const PlanCheckout = lazyWithRetry(() => import("./pages/PlanCheckout"));
 const IVX = lazyWithRetry(() => import("./pages/academy/IVX"));
 const IVXPractice = lazyWithRetry(() => import("./pages/academy/IVXPractice"));
 const IVXGuardians = lazyWithRetry(() => import("./pages/academy/IVXGuardians"));
@@ -438,6 +439,7 @@ const AdminDatabase = lazyWithRetry(() => import("./pages/admin/AdminDatabase"))
 const AdminLogs = lazyWithRetry(() => import("./pages/admin/AdminLogs"));
 const AdminVX   = lazyWithRetry(() => import("./pages/admin/AdminVX"));
 const AdminVXCoinOrders = lazyWithRetry(() => import("./pages/admin/AdminVXCoinOrders"));
+const AdminSubscriptionOrders = lazyWithRetry(() => import("./pages/admin/AdminSubscriptionOrders"));
 const AdminSimulations = lazyWithRetry(() => import("./pages/admin/AdminSimulations"));
 const AdminBazaar = lazyWithRetry(() => import("./pages/admin/AdminBazaar"));
 const AdminTV = lazyWithRetry(() => import("./pages/admin/AdminTV"));
@@ -1132,6 +1134,7 @@ function AppRoutes() {
                     <Route path="/community/voice-room/:roomId" element={<VoiceRoom />} />
                     <Route path="/coins-store" element={<CoinsStore />} />
                     <Route path="/pricing" element={<Pricing />} />
+                    <Route path="/pricing/checkout/:planId" element={<AuthGuard><PlanCheckout /></AuthGuard>} />
                     <Route path="/news" element={<News />} />
                     <Route path="/newsletter/preferences" element={<NewsletterPreferences />} />
                     <Route path="/messages" element={<Messages />} />
@@ -1185,6 +1188,7 @@ function AppRoutes() {
                     <Route path="/admin/database" element={<AdminRoute><AdminDatabase /></AdminRoute>} />
                     <Route path="/admin/vx" element={<AdminRoute><AdminVX /></AdminRoute>} />
                     <Route path="/admin/vx-coin-orders" element={<AdminRoute><AdminVXCoinOrders /></AdminRoute>} />
+                    <Route path="/admin/subscription-orders" element={<AdminRoute><AdminSubscriptionOrders /></AdminRoute>} />
                     <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
                     <Route path="/admin/simulations" element={<AdminRoute><AdminSimulations /></AdminRoute>} />
                     <Route path="/admin/news" element={<AdminRoute><AdminNews /></AdminRoute>} />

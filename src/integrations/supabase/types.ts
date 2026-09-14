@@ -22453,6 +22453,54 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_orders: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          months: number
+          payment_method: string
+          plan_id: string
+          price_usd: number
+          reference_code: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          subscription_id: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          months?: number
+          payment_method: string
+          plan_id: string
+          price_usd: number
+          reference_code: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          months?: number
+          payment_method?: string
+          plan_id?: string
+          price_usd?: number
+          reference_code?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_subscriptions: {
         Row: {
           cancelled_at: string | null
@@ -25203,6 +25251,78 @@ export type Database = {
       moderate_kids_product: {
         Args: { _approve: boolean; _notes?: string; _product_id: string }
         Returns: undefined
+      }
+      approve_subscription_order: {
+        Args: { _admin_notes?: string; _order_id: string }
+        Returns: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          months: number
+          payment_method: string
+          plan_id: string
+          price_usd: number
+          reference_code: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          subscription_id: string | null
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "subscription_orders"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_subscription_order: {
+        Args: { _months?: number; _payment_method: string; _plan_id: string }
+        Returns: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          months: number
+          payment_method: string
+          plan_id: string
+          price_usd: number
+          reference_code: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          subscription_id: string | null
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "subscription_orders"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reject_subscription_order: {
+        Args: { _admin_notes?: string; _order_id: string }
+        Returns: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          months: number
+          payment_method: string
+          plan_id: string
+          price_usd: number
+          reference_code: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          subscription_id: string | null
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "subscription_orders"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       my_plan_access: { Args: Record<PropertyKey, never>; Returns: Json }
       my_section_access: { Args: { _section: string }; Returns: boolean }
