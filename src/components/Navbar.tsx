@@ -107,6 +107,7 @@ export function Navbar() {
     { to: "/library", label: t("nav.library") },
     { to: "/content", label: t("nav.content") },
     { to: "/news", label: t("nav.news") },
+    { to: "/pricing", label: t("plans.title") },
   ];
 
   const moreMenuIsActive = moreNavLinks.some((link) => link.to === location.pathname);
@@ -144,6 +145,7 @@ export function Navbar() {
       links: [
         { to: "/professional-tools", label: t("nav.professionalTools") },
         { to: "/news", label: t("nav.news") },
+        { to: "/pricing", label: t("plans.title") },
         { to: "/contact-us", label: t("nav.contact") },
         { to: "/profile", label: t("nav.profile") },
       ],

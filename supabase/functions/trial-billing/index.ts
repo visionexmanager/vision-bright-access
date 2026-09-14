@@ -10,10 +10,29 @@
  *    If insufficient VX → suspends the shop.
  *    Sends expiry email + in-app notification.
  *
+ * 0. Every hour as well (subscription-reminders-cron.yml sends
+ *    `{"task":"reminders"}`, which runs only this step): tells anybody whose
+ *    paid plan — or free week — ends within 24 hours, on WhatsApp at the number
+ *    they linked or gave at checkout, and by email and in-app notice.
+ *
  * Security: protected by CRON_SECRET env variable checked in Authorization header.
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { sendWhatsAppTemplate, sendWhatsAppText } from "../_shared/whatsapp.ts";
+import {
+  formatEndsAt,
+  planLabel,
+  PLAN_REMINDER_TEMPLATE,
+  REMINDER_NOTICE_TITLE,
+  REMINDER_WINDOW_HOURS,
+  reminderLanguage,
+  reminderNotice,
+  reminderText,
+  reminderVariables,
+  withinServiceWindow,
+  type PlanReminderRow,
+} from "../_shared/whatsappPlanReminder.ts";
 
 const TIER_RENT: Record<string, number> = {
   kiosk:    1_000,
@@ -25,7 +44,7 @@ const TIER_RENT: Record<string, number> = {
 const PRICING_URL  = "https://visionex.app/pricing";
 
 /** The three tiers, in one line, for a notification that has no room for more. */
-const TIER_SUMMARY = "Bronze $5, Silver $7 or Gold $10 a month";
+const TIER_SUMMARY = "Kids $3, Bronze $5, Silver $7 or Gold $10 a month";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const BILLING_FROM   = "Visionex Billing <billing@visionex.app>";
@@ -57,7 +76,109 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
-  const results = { warned: 0, billed: 0, suspended: 0, errors: [] as string[] };
+  // The hourly run asks for the reminders only; the daily run sends no body.
+  let task = "";
+  try {
+    const body = await req.json();
+    task = typeof body?.task === "string" ? body.task : "";
+  } catch { /* no body */ }
+
+  const results = {
+    warned: 0, billed: 0, suspended: 0,
+    reminded: 0, whatsapp: 0, whatsappFailed: 0,
+    errors: [] as string[],
+  };
+
+  // ── 0. The day before a plan ends ────────────────────────────────────
+  //
+  // The database decides who is inside the last 24 hours and who has not been
+  // told yet, per channel: the email and the in-app notice go once, and a
+  // WhatsApp message that could not be delivered — the template still in
+  // Meta's review, or a number that bounced — is tried again on the next run.
+  const waToken = Deno.env.get("WHATSAPP_TOKEN") ?? "";
+  const waPhoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") ?? "";
+  const { data: ending, error: endingErr } = await supabase
+    .rpc("plan_expiry_reminders", { _hours: REMINDER_WINDOW_HOURS });
+  if (endingErr) results.errors.push("reminder-query");
+
+  for (const row of (ending ?? []) as PlanReminderRow[]) {
+    try {
+      if (row.kind === "subscription" && row.needs_notice && row.subscription_id) {
+        await supabase.rpc("system_insert_notification", {
+          _user_id: row.user_id,
+          _title:   REMINDER_NOTICE_TITLE,
+          _body:    reminderNotice(row),
+          _type:    "warning",
+        });
+
+        const { data: authUser } = await supabase.auth.admin.getUserById(row.user_id);
+        if (authUser?.user?.email) {
+          await sendEmail(
+            authUser.user.email,
+            "Your Visionex plan ends within 24 hours",
+            `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+<h2 style="color:#f59e0b;">⏳ Your ${planLabel(row.plan_id, row.plan_name, "en")} ends soon</h2>
+<p>Your ${planLabel(row.plan_id, row.plan_name, "en")} ends on <strong>${formatEndsAt(row.ends_at, "en")}</strong> (Beirut time).</p>
+<p>To keep it, renew it — or choose another plan: ${TIER_SUMMARY}. Pay by OMT, Whish to Whish or card, and it continues from the day it would have ended.</p>
+<p><a href="${PRICING_URL}" style="display:inline-block;padding:10px 18px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;">Renew or change your plan</a></p>
+<p style="color:#6b7280;font-size:0.85em;">Visionex · <a href="https://visionex.app">visionex.app</a></p>
+</body></html>`,
+          );
+        }
+
+        await supabase
+          .from("user_subscriptions")
+          .update({ expiry_notified_at: new Date().toISOString() })
+          .eq("id", row.subscription_id);
+        results.reminded++;
+      }
+
+      if (row.needs_whatsapp && row.wa_phone && waToken && waPhoneNumberId) {
+        const language = reminderLanguage(row.wa_language);
+        let sent = await sendWhatsAppTemplate({
+          phoneNumberId: waPhoneNumberId,
+          token: waToken,
+          to: row.wa_phone,
+          template: PLAN_REMINDER_TEMPLATE.name,
+          language,
+          variables: reminderVariables(row, language),
+          attempts: 2,
+        });
+        // Inside the service window free text is accepted too, so a template
+        // still in review does not cost somebody who wrote recently the warning.
+        if (!sent && withinServiceWindow(row.wa_last_message_at, Date.now())) {
+          sent = await sendWhatsAppText({
+            phoneNumberId: waPhoneNumberId,
+            token: waToken,
+            to: row.wa_phone,
+            body: reminderText(row, language),
+            attempts: 2,
+          });
+        }
+
+        if (sent) {
+          const now = new Date().toISOString();
+          if (row.kind === "subscription" && row.subscription_id) {
+            await supabase.from("user_subscriptions").update({ expiry_whatsapp_at: now }).eq("id", row.subscription_id);
+          } else {
+            await supabase.from("profiles").update({ trial_whatsapp_warned_at: now }).eq("user_id", row.user_id);
+          }
+          results.whatsapp++;
+        } else {
+          results.whatsappFailed++;
+        }
+      }
+    } catch {
+      // A code, never the row: the hourly workflow's log is public.
+      results.errors.push("reminder-send");
+    }
+  }
+
+  if (task === "reminders") {
+    return new Response(JSON.stringify(results), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   // ── 1. One-day warning ───────────────────────────────────────────────
   //
@@ -96,6 +217,7 @@ Deno.serve(async (req) => {
 <p>Your free week of Visionex ends on <strong>${expiresDate}</strong>. Until then every section is open, on the site and on WhatsApp.</p>
 <h3>Choose a plan to keep them open</h3>
 <ul>
+  <li><strong>Kids — $3/month:</strong> VisionKids only — its lessons, stories and learning games, made for children.</li>
   <li><strong>Bronze — $5/month:</strong> the Visionex assistant, Academy, Library, Arcade and VXBazaar.</li>
   <li><strong>Silver — $7/month:</strong> everything in Bronze, plus VisionKids, Career Hub, TV, Radio, messages and simulations.</li>
   <li><strong>Gold — $10/month:</strong> everything in Silver, plus the AI Media Studio, Library Studio, professional tools and the Finance Hub — with no daily limit on the assistant.</li>
@@ -201,7 +323,7 @@ Deno.serve(async (req) => {
 <h2 style="color:#10b981;">Your free week has ended</h2>
 <p>Hi ${profile.display_name ?? "there"},</p>
 <p>Your free week on Visionex has ended. The news, the community and the assistive-product catalogue stay open, and the assistant keeps a small free daily allowance on WhatsApp.</p>
-<p>To reopen every section, choose <strong>Bronze $5</strong>, <strong>Silver $7</strong> or <strong>Gold $10</strong> a month — <a href="${PRICING_URL}">see what each one opens</a>.</p>
+<p>To reopen every section, choose <strong>Kids $3</strong> (VisionKids only), <strong>Bronze $5</strong>, <strong>Silver $7</strong> or <strong>Gold $10</strong> a month — <a href="${PRICING_URL}">see what each one opens</a>.</p>
 ${shopRows}
 <p>Visit <a href="https://visionex.app/dashboard">your dashboard</a> to manage your account.</p>
 <p style="color:#6b7280;font-size:0.85em;">Questions? Contact us at <a href="mailto:hello@visionex.app">hello@visionex.app</a></p>

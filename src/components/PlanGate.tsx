@@ -17,8 +17,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import {
+  PAID_PLANS,
   PRICING_PATH,
-  TIERS,
   cheapestTierFor,
   sectionDef,
   sectionForPath,
@@ -30,7 +30,7 @@ function UpgradeNotice({ section }: { section: SectionKey }) {
   const tier = cheapestTierFor(section);
   const sectionName = t(sectionDef(section).labelKey);
   const tierName = tier ? t(`plans.tier.${tier}`) : "";
-  const price = tier ? TIERS[tier].price : 0;
+  const price = tier ? PAID_PLANS[tier].price : 0;
 
   const body = t("planGate.body")
     .replace("{section}", sectionName)

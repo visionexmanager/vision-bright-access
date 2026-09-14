@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import {
   normalizeWhatsAppNumber,
+  PAYMENT_OMT_NAME_SETTING,
   PAYMENT_WHATSAPP_SETTING,
   type PaymentMethod,
   type PlanMonths,
@@ -18,26 +19,39 @@ export interface SubscriptionOrderWithBuyer extends SubscriptionOrderRow {
   buyer_display_name: string | null;
 }
 
-/** The number checkout opens, or null when an admin has not set one. */
-export async function fetchPaymentWhatsAppNumber(): Promise<string | null> {
+export interface PaymentContact {
+  /** Digits, or null when an admin has not set a usable number. */
+  number: string | null;
+  /** The name an OMT transfer is sent to, or null when unset. */
+  omtName: string | null;
+}
+
+/** Where a subscriber pays: the owner's number, and the name for OMT. */
+export async function fetchPaymentContact(): Promise<PaymentContact> {
   const { data, error } = await supabase
     .from("site_settings")
-    .select("value")
-    .eq("key", PAYMENT_WHATSAPP_SETTING)
-    .maybeSingle();
+    .select("key, value")
+    .in("key", [PAYMENT_WHATSAPP_SETTING, PAYMENT_OMT_NAME_SETTING]);
   if (error) throw new Error(error.message);
-  return normalizeWhatsAppNumber(data?.value);
+  const value = (key: string) => (data ?? []).find((row) => row.key === key)?.value;
+  const name = value(PAYMENT_OMT_NAME_SETTING);
+  return {
+    number: normalizeWhatsAppNumber(value(PAYMENT_WHATSAPP_SETTING)),
+    omtName: typeof name === "string" && name.trim() ? name.trim() : null,
+  };
 }
 
 export async function createSubscriptionOrder(
   planId: string,
   method: PaymentMethod,
   months: PlanMonths,
+  whatsappPhone: string,
 ): Promise<SubscriptionOrderRow> {
   const { data, error } = await supabase.rpc("create_subscription_order", {
     _plan_id: planId,
     _payment_method: method,
     _months: months,
+    _whatsapp_phone: whatsappPhone,
   });
   if (error) throw new Error(error.message);
   return data;

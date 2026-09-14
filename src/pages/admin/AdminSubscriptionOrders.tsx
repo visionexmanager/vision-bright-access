@@ -123,7 +123,14 @@ export default function AdminSubscriptionOrders() {
                         <div className="text-xs text-muted-foreground">{t(`planCheckout.months.${order.months}`)} · ${order.price_usd}</div>
                       </TableCell>
                       <TableCell>{t(`planCheckout.method.${order.payment_method}`)}</TableCell>
-                      <TableCell className="font-mono text-sm">{order.reference_code}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        <div>{order.reference_code}</div>
+                        {order.whatsapp_phone && (
+                          <a href={`https://wa.me/${order.whatsapp_phone}`} target="_blank" rel="noopener noreferrer" dir="ltr" className="text-xs text-primary hover:underline">
+                            +{order.whatsapp_phone}
+                          </a>
+                        )}
+                      </TableCell>
                       <TableCell><Badge className={STATUS_COLOR[status]}>{t(STATUS_LABEL_KEY[status])}</Badge></TableCell>
                       <TableCell>
                         {status === "pending" ? (

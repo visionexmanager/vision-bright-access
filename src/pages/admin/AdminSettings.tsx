@@ -40,6 +40,8 @@ const MANAGED_KEYS = [
   "vx_payment_paypal",
   // The number the plan checkout opens on WhatsApp. A plain string.
   "subscription_payment_whatsapp",
+  // The name an OMT transfer is sent to. A plain string.
+  "subscription_payment_omt_name",
 ] as const;
 
 export default function AdminSettings() {
@@ -124,6 +126,10 @@ export default function AdminSettings() {
               <Label htmlFor="subscription-payment-whatsapp">{t("admin.settings.paymentWhatsapp")}</Label>
               <Input id="subscription-payment-whatsapp" type="tel" inputMode="tel" dir="ltr" autoComplete="off" value={settings.subscription_payment_whatsapp?.replace(/"/g, "") ?? ""} onChange={(e) => update("subscription_payment_whatsapp", e.target.value)} aria-describedby="subscription-payment-whatsapp-hint" placeholder="+961 70 123 456" />
               <p id="subscription-payment-whatsapp-hint" className="mt-1 text-xs text-muted-foreground">{t("admin.settings.paymentWhatsappHint")}</p>
+            </div>
+            <div>
+              <Label htmlFor="subscription-payment-omt-name">{t("admin.settings.paymentOmtName")}</Label>
+              <Input id="subscription-payment-omt-name" dir="ltr" autoComplete="off" value={settings.subscription_payment_omt_name?.replace(/"/g, "") ?? ""} onChange={(e) => update("subscription_payment_omt_name", e.target.value)} placeholder="Mohammad Abboud" />
             </div>
             <Button onClick={handleSave} disabled={loading} className="w-full"><Save className="me-2 h-4 w-4" />{loading ? t("admin.settings.saving") : t("admin.settings.save")}</Button>
           </CardContent>
