@@ -441,6 +441,7 @@ import {
   CLASSIFY_INSTRUCTION,
   CLASSIFY_SCHEMA,
   assistantIsSilenced,
+  isTechnicalEscalation,
   personOwnsConversation,
   fallbackBriefing,
   HANDOFF_INSTRUCTION,
@@ -1439,14 +1440,9 @@ Deno.serve(async (req) => {
         token,
         to: incoming.from,
         trace: correlationId,
-        record: async (text: string) => {
-          await db.from("whatsapp_messages").insert({
-            conversation_id: conversationId,
-            direction: "outbound",
-            body: text,
-            kind: "welcome",
-          });
-        },
+        // No `record`: `sendChoices` is the only sender through this delivery
+        // and writes its own row first, with the medium. A second writer here
+        // filed every menu in the transcript twice.
       };
 
       /**
@@ -2254,7 +2250,7 @@ Deno.serve(async (req) => {
       // to go dark because a model provider was unreachable. Somebody tapping
       // *Watch TV* during an outage was getting nothing at all — not the
       // channel list, not an apology, not even the menu they tapped it from.
-      const humanOwnsThis = personOwnsConversation(existing as Record<string, unknown> | null);
+      const humanOwnsThis = personOwnsConversation(existing as Record<string, unknown> | null, Date.now());
 
       /**
        * Whether a feature may answer at all, by catalog id.
@@ -5109,8 +5105,9 @@ Deno.serve(async (req) => {
       // silent here is what made an outage indistinguishable from being
       // ignored, which is the one thing a sender cannot tell apart and the one
       // thing they should never have to.
+      const askedAt = Date.now();
       if (assistantIsSilenced(existing as Record<string, unknown> | null, Date.now())) {
-        if (!personOwnsConversation(existing as Record<string, unknown> | null)) {
+        if (!personOwnsConversation(existing as Record<string, unknown> | null, askedAt)) {
           log("ai_cooldown", { reason: String(existing?.escalation_reason ?? "unknown") });
           await reply(failureNotice(answerLanguage), "handover");
         }
@@ -5122,7 +5119,11 @@ Deno.serve(async (req) => {
       // nothing — but a row that says a conversation needs a person, when it
       // does not, is the queue lying to whoever reads it. The handover message
       // the sender already received stays in the transcript.
-      if (existing?.escalated === true) {
+      //
+      // Only an outage's flag. A handover whose hold is over still needs a
+      // person to read it; the assistant answering again does not change that,
+      // so the thread stays in the queue with its briefing.
+      if (existing?.escalated === true && isTechnicalEscalation(existing?.escalation_reason)) {
         await db
           .from("whatsapp_conversations")
           .update({ escalated: false, escalation_reason: null })
