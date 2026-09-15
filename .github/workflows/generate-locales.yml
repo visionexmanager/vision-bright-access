@@ -14,31 +14,77 @@ on:
   workflow_dispatch:
     inputs:
       target_branch:
-        description: Branch containing the translation request and batch state
+        description: Branch containing the translation request and batch state (leave empty to detect it)
         required: false
-        default: agent/add-nl-pl-vi-bn-fa-locales
+        default: ""
 
 permissions:
   contents: write
   actions: write
   pull-requests: write
 
-env:
-  TARGET_BRANCH: ${{ github.event_name == 'push' && github.ref_name || inputs.target_branch || 'agent/add-nl-pl-vi-bn-fa-locales' }}
-
 concurrency:
   group: generate-locales-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.pick.outputs.branch }}
+    steps:
+      - name: Find the batch branch
+        id: pick
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BRANCH: ${{ github.ref_name }}
+          REQUESTED_BRANCH: ${{ inputs.target_branch }}
+        run: |
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            echo "branch=$PUSH_BRANCH" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -n "$REQUESTED_BRANCH" ]]; then
+            if ! gh api "repos/$GITHUB_REPOSITORY/branches/$REQUESTED_BRANCH" --silent 2>/dev/null; then
+              echo "::error::Branch '$REQUESTED_BRANCH' does not exist."
+              exit 1
+            fi
+            echo "branch=$REQUESTED_BRANCH" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # The poller has no branch of its own. A finished batch is merged and
+          # its branch deleted, so a hard-coded default name turns every later
+          # run into a failed checkout — a red run and an e-mail every fifteen
+          # minutes for work that is already published. Ask the repository
+          # which batch branch still exists instead; none existing means no
+          # batch is in flight, which is success, not failure. Only one batch
+          # runs at a time, so the first match is the batch.
+          branch="$(gh api --paginate "repos/$GITHUB_REPOSITORY/branches" \
+            --jq '.[] | select(.name | test("^agent/add-.*-locales$")) | .name' \
+            | head -n 1)"
+          if [[ -z "$branch" ]]; then
+            echo "No agent/add-*-locales branch exists; there is nothing to translate."
+            exit 0
+          fi
+          echo "Detected batch branch $branch."
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
   translate:
+    needs: resolve
+    if: needs.resolve.outputs.branch != ''
     runs-on: ubuntu-latest
     timeout-minutes: 350
+    env:
+      TARGET_BRANCH: ${{ needs.resolve.outputs.branch }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ env.TARGET_BRANCH }}
+          ref: ${{ needs.resolve.outputs.branch }}
 
       - uses: actions/setup-node@v7
         with:
