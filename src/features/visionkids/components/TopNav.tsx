@@ -47,9 +47,10 @@ export function TopNav({ onOpenSidebar }: TopNavProps) {
         <Menu className="h-5 w-5" />
       </Button>
 
-      <Link to="/kids" className="flex items-center gap-2 font-heading text-lg font-extrabold" aria-label={t("kids.brand.home")}>
+      <Link to="/kids" className="flex shrink-0 items-center gap-2 font-heading text-lg font-extrabold" aria-label={t("kids.brand.home")}>
         <span aria-hidden="true" className="text-2xl">🌈</span>
-        <span className="bg-gradient-to-r from-kids-primary via-kids-pink to-kids-accent bg-clip-text text-transparent">
+        {/* Below 400px the six header controls leave no room for the word; the link keeps its name. */}
+        <span className="hidden bg-gradient-to-r from-kids-primary via-kids-pink to-kids-accent bg-clip-text text-transparent min-[400px]:inline">
           VisionKids
         </span>
       </Link>

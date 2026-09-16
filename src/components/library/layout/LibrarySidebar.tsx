@@ -68,7 +68,11 @@ export function LibrarySidebar() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
-  const [collapsed, setCollapsed] = useState(false);
+  // Expanded, the sidebar is 240px; on a 390px phone that left the page 150px
+  // and pushed it off the screen. Phones start collapsed and can still expand.
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== "undefined" && window.matchMedia?.("(max-width: 767px)").matches === true,
+  );
   const listRef = useRef<HTMLUListElement>(null);
   const allItems = useNavItems(user?.id);
   const items = allItems.filter((item) => (item.adminOnly ? isAdmin : item.requiresAuth ? !!user : true));
@@ -120,6 +124,8 @@ export function LibrarySidebar() {
               <Link
                 to={item.to}
                 aria-current={active ? "page" : undefined}
+                // Collapsed, the link is only an icon; the tooltip is not a name.
+                aria-label={collapsed ? item.label : undefined}
                 onKeyDown={(e) => handleKeyDown(e, index)}
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
