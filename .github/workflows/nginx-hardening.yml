@@ -1,0 +1,242 @@
+name: nginx hardening
+
+# Compression, caching, security headers and the HTTP -> HTTPS redirect on the
+# VPS that serves visionex.app.
+#
+# What production was sending on 2026-09-16:
+#   - the 573 KB entry script uncompressed (gzip_types was never set)
+#   - no Cache-Control on hashed assets
+#   - no HSTS, nosniff, X-Frame-Options or Referrer-Policy; nginx's version
+#   - http://visionex.app/ answered 200 with the site, not a redirect
+#
+# The last one has a structural cause. Two enabled sites both claim
+# visionex.app on port 80. nginx keeps the first it loads and ignores the
+# other, and the first alphabetically is the one without TLS, so the TLS
+# site's own port-80 redirect block never runs.
+#
+#   status   = report only; changes nothing. Run it first.
+#   apply    = install server/nginx/visionex-hardening.conf into conf.d
+#   redirect = disable the duplicate non-TLS site (its file is kept)
+#
+# Every write is: back up -> change -> nginx -t -> reload, or restore and stop.
+# The deploy webhook listens on port 9000 and is untouched by either change.
+# The repository is public: nothing printed here may contain a secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "status = report only. apply = headers/compression. redirect = HTTP to HTTPS."
+        required: true
+        default: status
+        type: choice
+        options: [status, apply, redirect]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-nginx
+  cancel-in-progress: false
+
+jobs:
+  nginx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          if [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$KEY" ]; then
+            echo "::error::SERVER_HOST, SERVER_USER and SSH_PRIVATE_KEY are all required."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_deploy
+            ConnectTimeout 15
+            BatchMode yes
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'echo connected' >/dev/null
+
+      - name: Report what is there now
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```'
+          echo "nginx        : $(nginx -v 2>&1 | cut -d/ -f2)"
+          echo "config ok    : $(sudo nginx -t >/dev/null 2>&1 && echo yes || echo NO)"
+          echo "conf.d       : $(ls /etc/nginx/conf.d/ 2>/dev/null | xargs)"
+          echo "http-scope directives already set in nginx.conf:"
+          sudo grep -nE '^\s*(gzip[a-z_]*|server_tokens|add_header)\b' /etc/nginx/nginx.conf | sed 's/^/  /'
+          for f in /etc/nginx/sites-enabled/*; do
+            [ -f "$f" ] || continue
+            echo "site         : $(basename "$f") -> $(readlink -f "$f")"
+            echo "  tls        : $(sudo grep -q ssl_certificate "$f" && echo yes || echo no)"
+            # Structure only. Paths, ports and names; no values that could be secret.
+            sudo grep -nE '^\s*(listen|server_name|location|return|root|add_header|gzip[a-z_]*)\b' "$f" \
+              | grep -viE 'token|secret|password|authorization' | sed 's/^/    /'
+          done
+          echo "--- live responses (on the box) ---"
+          probe() {
+            echo "$1"
+            curl -skI --max-time 10 $2 "$1" \
+              | grep -iE '^(HTTP|location|content-type|content-encoding|cache-control|strict-transport|x-content-type|x-frame|referrer-policy|server):' \
+              | sed 's/^/    /'
+          }
+          ASSET=$(curl -sk --max-time 10 --resolve visionex.app:443:127.0.0.1 https://visionex.app/ | grep -oE '/assets/[^"]+\.js' | head -1)
+          probe "http://visionex.app/" "--resolve visionex.app:80:127.0.0.1"
+          probe "https://visionex.app/" "--resolve visionex.app:443:127.0.0.1"
+          probe "https://visionex.app${ASSET}" "--resolve visionex.app:443:127.0.0.1 -H Accept-Encoding:gzip"
+          probe "https://visionex.app/assets/does-not-exist.js" "--resolve visionex.app:443:127.0.0.1"
+          echo '```'
+          REMOTE
+
+      - name: Apply compression, caching and security headers
+        if: inputs.action == 'apply'
+        run: |
+          set -uo pipefail
+          scp -q server/nginx/visionex-hardening.conf target:/tmp/vx-hardening.conf
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          echo '```'
+          DEST=/etc/nginx/conf.d/visionex-hardening.conf
+          # A directive already set at http scope elsewhere would be a duplicate
+          # and fail nginx -t. Drop ours in that case; theirs already applies.
+          OTHERS="/etc/nginx/nginx.conf $(ls /etc/nginx/conf.d/*.conf 2>/dev/null | grep -v visionex-hardening | xargs)"
+          DROP=""
+          for d in server_tokens gzip_vary gzip_proxied gzip_comp_level gzip_min_length gzip_types; do
+            if sudo grep -qE "^\s*$d\b" $OTHERS 2>/dev/null; then DROP="$DROP $d"; fi
+          done
+          echo "already set elsewhere, not repeated:${DROP:- none}"
+          awk -v drop="$DROP" '
+            BEGIN { n = split(drop, a, " "); for (i = 1; i <= n; i++) skip[a[i]] = 1 }
+            skipping { if ($0 ~ /;/) skipping = 0; next }
+            { w = $1; if (w in skip) { if ($0 !~ /;/) skipping = 1; next } print }
+          ' /tmp/vx-hardening.conf > /tmp/vx-hardening.filtered
+
+          BACKUP=""
+          if [ -f "$DEST" ]; then
+            BACKUP="/etc/nginx/visionex-hardening.$(date +%Y%m%d-%H%M%S).bak"
+            sudo cp "$DEST" "$BACKUP"
+          fi
+          sudo install -m 0644 /tmp/vx-hardening.filtered "$DEST"
+          if ! sudo nginx -t >/dev/null 2>&1; then
+            echo "nginx -t     : FAILED - restoring"
+            sudo nginx -t 2>&1 | head -5 | sed 's/^/  /'
+            if [ -n "$BACKUP" ]; then sudo cp "$BACKUP" "$DEST"; else sudo rm -f "$DEST"; fi
+            sudo nginx -t >/dev/null 2>&1 && echo "restored     : config valid again"
+            echo '```'
+            exit 1
+          fi
+          sudo systemctl reload nginx
+          echo "nginx -t     : passed; reloaded"
+          echo '```'
+          REMOTE
+
+      - name: Redirect plain HTTP to HTTPS
+        if: inputs.action == 'redirect'
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          echo '```'
+          TLS=""; PLAIN=""
+          for f in /etc/nginx/sites-enabled/*; do
+            [ -f "$f" ] || continue
+            sudo grep -qE 'server_name[^;]*\bvisionex\.app\b' "$f" || continue
+            if sudo grep -q ssl_certificate "$f"; then TLS="$f"; else PLAIN="$PLAIN $f"; fi
+          done
+          PLAIN=$(echo $PLAIN)
+          echo "tls site     : ${TLS:-none}"
+          echo "plain sites  : ${PLAIN:-none}"
+          if [ -z "$PLAIN" ]; then echo "nothing to do: no duplicate plain-HTTP site"; echo '```'; exit 0; fi
+          if [ -z "$TLS" ]; then echo "REFUSED: no TLS site found"; echo '```'; exit 1; fi
+          # The TLS file must already carry the redirect that will take over.
+          if ! sudo grep -qE 'return\s+30[18]\s+https://' "$TLS"; then
+            echo "REFUSED: the TLS site has no https redirect to take over port 80"; echo '```'; exit 1
+          fi
+          # Anything the plain site routes that the TLS site does not would be lost.
+          for p in $PLAIN; do
+            for loc in $(sudo grep -oE '^\s*location\s+[^{]+' "$p" | sed -E 's/^\s*location\s+//; s/\s+$//; s/ /_/g'); do
+              if ! sudo grep -oE '^\s*location\s+[^{]+' "$TLS" | sed -E 's/^\s*location\s+//; s/\s+$//; s/ /_/g' | grep -qxF "$loc"; then
+                echo "REFUSED: $(basename "$p") routes '$loc', which the TLS site does not"; echo '```'; exit 1
+              fi
+            done
+          done
+          STAMP=$(date +%Y%m%d-%H%M%S)
+          : > /tmp/vx-disabled-links
+          for p in $PLAIN; do
+            target=$(readlink -f "$p")
+            echo "$p $target" >> /tmp/vx-disabled-links
+            sudo rm -f "$p"
+            echo "disabled     : $(basename "$p") (file kept at $target)"
+          done
+          sudo cp /tmp/vx-disabled-links "/etc/nginx/visionex-disabled-sites.$STAMP"
+          restore() {
+            while read -r link target; do sudo ln -sf "$target" "$link"; done < /tmp/vx-disabled-links
+            sudo nginx -t >/dev/null 2>&1 && sudo systemctl reload nginx && echo "restored     : previous sites re-enabled"
+          }
+          if ! sudo nginx -t >/dev/null 2>&1; then
+            echo "nginx -t     : FAILED - restoring"; restore; echo '```'; exit 1
+          fi
+          sudo systemctl reload nginx
+          sleep 1
+          HTTP=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 --resolve visionex.app:80:127.0.0.1 http://visionex.app/)
+          HTTPS=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 --resolve visionex.app:443:127.0.0.1 https://visionex.app/)
+          echo "http  now    : $HTTP"
+          echo "https now    : $HTTPS"
+          case "$HTTP" in 301\ https://*|308\ https://*) ;; *)
+            echo "http did not become a redirect - restoring"; restore; echo '```'; exit 1 ;;
+          esac
+          if [ "$HTTPS" != "200" ]; then
+            echo "https stopped answering 200 - restoring"; restore; echo '```'; exit 1
+          fi
+          echo '```'
+          REMOTE
+
+      - name: Verify from outside
+        if: inputs.action != 'status'
+        run: |
+          set -uo pipefail
+          sleep 3
+          H=$(curl -sI --max-time 15 https://visionex.app/)
+          ASSET=$(curl -s --max-time 15 https://visionex.app/ | grep -oE '/assets/[^"]+\.js' | head -1)
+          A=$(curl -sI --max-time 15 -H 'Accept-Encoding: gzip' "https://visionex.app$ASSET")
+          M=$(curl -sI --max-time 15 https://visionex.app/assets/does-not-exist.js)
+          P=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 15 http://visionex.app/)
+          check() { if echo "$2" | grep -qiE "$3"; then echo "ok    $1"; else echo "FAIL  $1"; fi; }
+          {
+          echo '```'
+          echo "$H" | grep -qE '^HTTP/[0-9.]+ 200' && echo "ok    https:// answers 200" || { echo "FAIL  https:// does not answer 200"; }
+          if [ "${{ inputs.action }}" = apply ]; then
+            check "HSTS on HTML"                 "$H" '^strict-transport-security: max-age='
+            check "nosniff"                      "$H" '^x-content-type-options: nosniff'
+            check "X-Frame-Options"              "$H" '^x-frame-options: sameorigin'
+            check "HTML revalidates"             "$H" '^cache-control: no-cache'
+            check "asset is gzip"                "$A" '^content-encoding: gzip'
+            check "asset is immutable"           "$A" '^cache-control: public, max-age=31536000, immutable'
+            if echo "$M" | grep -qi 'immutable'; then echo "FAIL  a missing asset is cached as immutable"; else echo "ok    a missing asset is not cached as immutable"; fi
+            if echo "$H" | grep -qiE '^server: nginx/[0-9]'; then echo "FAIL  nginx still advertises its version"; else echo "ok    no nginx version"; fi
+          fi
+          if [ "${{ inputs.action }}" = redirect ]; then
+            case "$P" in 301\ https://*|308\ https://*) echo "ok    http:// redirects: $P" ;; *) echo "FAIL  http:// answered: $P" ;; esac
+          fi
+          echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          # tee runs in a subshell; re-derive the verdict from the summary we wrote.
+          if tail -n 20 "$GITHUB_STEP_SUMMARY" | grep -q '^FAIL'; then exit 1; fi
