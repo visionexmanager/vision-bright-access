@@ -95,7 +95,7 @@ jobs:
           probe() {
             echo "$1"
             curl -skI --max-time 10 $2 "$1" \
-              | grep -iE '^(HTTP|location|content-type|content-encoding|cache-control|strict-transport|x-content-type|x-frame|referrer-policy|server):' \
+              | grep -iE '^(HTTP/|(location|content-type|content-encoding|cache-control|strict-transport-security|x-content-type-options|x-frame-options|referrer-policy|server):)' \
               | sed 's/^/    /'
           }
           ASSET=$(curl -sk --max-time 10 --resolve visionex.app:443:127.0.0.1 https://visionex.app/ | grep -oE '/assets/[^"]+\.js' | head -1)
