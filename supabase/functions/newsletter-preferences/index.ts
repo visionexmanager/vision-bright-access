@@ -1,7 +1,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
-const ALLOWED_LANGS = new Set(["en", "ar", "es", "de", "pt", "zh", "tr", "fr", "ru", "ur", "hi"]);
+// Every locale the preferences page offers. news-generate falls back to English
+// for any it has no email strings for, so accepting one here is always safe;
+// rejecting it left subscribers in those languages unable to save anything.
+const ALLOWED_LANGS = new Set([
+  "en", "ar", "es", "de", "pt", "zh", "tr", "fr", "ru", "ur", "hi",
+  "id", "ja", "it", "ko", "nl", "pl", "vi", "bn", "fa",
+]);
 const ALLOWED_TOPICS = new Set([
   "products", "services", "courses", "games", "tech-news", "global-news",
   "news-technology", "news-ai", "news-marketplace", "news-games", "news-academy",

@@ -149,20 +149,20 @@ export default function NewsletterPreferences() {
                 ) : null}
 
                 <div>
-                  <Label className="mb-2 block">{ar ? "لغة الرسائل" : "Email language"}</Label>
+                  <Label id="newsletter-email-language" className="mb-2 block">{ar ? "لغة الرسائل" : "Email language"}</Label>
                   <Select value={language} onValueChange={setLanguage}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-labelledby="newsletter-email-language"><SelectValue /></SelectTrigger>
                     <SelectContent>{Object.entries(LANGUAGES).map(([code, name]) => <SelectItem key={code} value={code}>{name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
 
                 <div>
-                  <Label className="mb-3 block">{ar ? "أقسام الأخبار" : "News interests"}</Label>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <Label id="newsletter-news-interests" className="mb-3 block">{ar ? "أقسام الأخبار" : "News interests"}</Label>
+                  <div role="group" aria-labelledby="newsletter-news-interests" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {TOPICS.map(([key, labelKey, emoji]) => (
                       <Label key={key} className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 ${topics.includes(key) ? "border-primary bg-primary/10" : "border-border"}`}>
-                        <Checkbox checked={topics.includes(key)} onCheckedChange={() => toggle(key)} />
-                        <span>{emoji}</span><span className="text-sm">{t(labelKey)}</span>
+                        <Checkbox checked={topics.includes(key)} onCheckedChange={() => toggle(key)} aria-label={t(labelKey)} />
+                        <span aria-hidden="true">{emoji}</span><span className="text-sm">{t(labelKey)}</span>
                       </Label>
                     ))}
                   </div>
