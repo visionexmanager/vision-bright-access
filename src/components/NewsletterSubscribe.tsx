@@ -199,14 +199,14 @@ export function NewsletterSubscribe() {
           />
 
           <div>
-            <p className="mb-3 text-sm font-medium text-foreground">
+            <p id="newsletter-interests" className="mb-3 text-sm font-medium text-foreground">
               {t("newsletter.selectInterests")}
             </p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div role="group" aria-labelledby="newsletter-interests" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {INTERESTS.map((item) => (
                 <Label
                   key={item.key}
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
                     topics.includes(item.key)
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border hover:border-primary/40"
@@ -215,9 +215,10 @@ export function NewsletterSubscribe() {
                   <Checkbox
                     checked={topics.includes(item.key)}
                     onCheckedChange={() => toggleTopic(item.key)}
+                    aria-label={t(item.labelKey)}
                     className="sr-only"
                   />
-                  <span>{item.emoji}</span>
+                  <span aria-hidden="true">{item.emoji}</span>
                   <span>{t(item.labelKey)}</span>
                 </Label>
               ))}
@@ -227,7 +228,7 @@ export function NewsletterSubscribe() {
           {/* Separator */}
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-border" aria-hidden="true" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <span id="newsletter-news" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {t("newsletter.selectNews") || "Platform News"}
             </span>
             <div className="h-px flex-1 bg-border" aria-hidden="true" />
@@ -235,11 +236,11 @@ export function NewsletterSubscribe() {
 
           {/* News categories section */}
           <div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div role="group" aria-labelledby="newsletter-news" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {NEWS_INTERESTS.map((item) => (
                 <Label
                   key={item.key}
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
                     topics.includes(item.key)
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border hover:border-primary/40"
@@ -248,9 +249,10 @@ export function NewsletterSubscribe() {
                   <Checkbox
                     checked={topics.includes(item.key)}
                     onCheckedChange={() => toggleTopic(item.key)}
+                    aria-label={t(item.catKey)}
                     className="sr-only"
                   />
-                  <span>{item.emoji}</span>
+                  <span aria-hidden="true">{item.emoji}</span>
                   <span>{t(item.catKey)}</span>
                 </Label>
               ))}
