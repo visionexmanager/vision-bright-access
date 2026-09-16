@@ -37,7 +37,7 @@ describe("ai-chat message bounds", () => {
   it("keeps a long conversation working by dropping its oldest turns", () => {
     const long = Array.from({ length: 100 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: `turn ${i}` }));
     const result = boundMessages(long);
-    if (!result.ok) throw new Error(result.error);
+    if (!result.ok) throw new Error("the conversation was refused");
     expect(result.messages.length).toBeLessThanOrEqual(MAX_MESSAGES);
     expect(result.messages.at(-1)?.content).toBe("turn 99");
     expect(result.messages[0].role).toBe("user");
@@ -46,7 +46,7 @@ describe("ai-chat message bounds", () => {
   it("keeps the total size under the ceiling while keeping the latest turn", () => {
     const big = Array.from({ length: 10 }, (_, i) => ({ role: "user", content: `${i}`.repeat(7_000) }));
     const result = boundMessages(big);
-    if (!result.ok) throw new Error(result.error);
+    if (!result.ok) throw new Error("the conversation was refused");
     const total = result.messages.reduce((sum, m) => sum + m.content.length, 0);
     expect(total).toBeLessThanOrEqual(MAX_TOTAL_CHARS);
     expect(result.messages.at(-1)?.content.startsWith("9")).toBe(true);
