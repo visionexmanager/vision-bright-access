@@ -13,6 +13,11 @@ on:
     # a failure and never recovered on its own.
     branches: [main]
   workflow_dispatch:
+    inputs:
+      functions:
+        description: "Edge Functions to deploy, separated by spaces. Leave empty to deploy every function."
+        required: false
+        default: ""
 
 concurrency:
   group:             deploy-${{ github.ref }}
@@ -238,6 +243,9 @@ jobs:
     needs: gate
     name: Deploy → Supabase Edge Functions
     runs-on: ubuntu-latest
+    permissions:
+      actions: read     # to find the last successful deploy
+      contents: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -372,14 +380,36 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
 
+      # A workflow_run event has no `before` field, and the commit's first
+      # parent is only the right base when one commit was pushed. A rebase
+      # merge pushes several, and every function changed before the last of
+      # them was skipped. The base is the commit production last deployed.
+      - name: Find the last deployed commit
+        id: base
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO:     ${{ github.repository }}
+          RUN_ID:   ${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          base=$(gh api "repos/$REPO/actions/workflows/deploy.yml/runs?branch=main&status=success&per_page=20" \n            --jq "[.workflow_runs[] | select(.id != $RUN_ID) | .head_sha][0] // empty" 2>/dev/null || true)
+          if [[ "$base" =~ ^[0-9a-f]{40}$ ]] && git fetch --no-tags --depth=1 origin "$base" >/dev/null 2>&1; then
+            echo "Comparing with the last successful deploy: $base"
+            echo "sha=$base" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No earlier successful deploy could be fetched; comparing with the previous commit only."
+          fi
+
       - name: Deploy changed Edge Functions
         run: bash scripts/deploy-changed-supabase-functions.sh
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
-          # workflow_run has no `before` field. The script safely falls back
-          # to this CI-tested commit's first parent for automatic deploys.
           DEPLOY_SHA:            ${{ github.event.workflow_run.head_sha || github.sha }}
+          DEPLOY_BASE_SHA:       ${{ steps.base.outputs.sha }}
+          # Names typed into a manual run; the script checks each one exists.
+          DEPLOY_FUNCTIONS:      ${{ inputs.functions }}
 
   # ── 3. Run pending DB migrations ──────────────────────────────────────────────
   # Always runs `db push` — every migration file uses `if not exists` / `if exists`
