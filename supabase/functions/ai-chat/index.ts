@@ -8,6 +8,7 @@ import {
   type ProviderTarget,
 } from "../_shared/aiProvider.ts";
 import { assistantTargets } from "../_shared/assistants.ts";
+import { boundMessages, callerAddress, callerHash, type ChatTurn } from "./limits.ts";
 
 type UserMemory = {
   memory_enabled?: boolean;
@@ -229,17 +230,15 @@ Deno.serve(async (req) => {
     }
 
     // ── Rate limiting: 60 requests / user / day ────────────────────────
-    const serviceClient = user
-      ? createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-        )
-      : null;
+    // Created for signed-out callers too: they are metered, just differently.
+    // Everything that reads or writes a user's data below also checks `user`.
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const serviceClient = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
 
     // Platform-wide daily ceiling, checked before the per-user limit. Fails
     // open by design (see check_ai_budget) so a metering fault cannot take the
-    // assistant offline for everyone.
-    if (serviceClient) {
+    // assistant offline for everyone. Signed-out calls used to skip it.
+    {
       const { data: withinBudget } = await serviceClient.rpc("check_ai_budget");
       if (withinBudget === false) {
         console.error("[ai-chat] daily AI budget reached — refusing new requests.");
@@ -263,17 +262,39 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { messages, context = {}, assistantId } = await req.json();
+    // Signed-out callers have no user id for check_ai_rate_limit. They are
+    // counted per keyed address hash and all together (see
+    // 20261015000000_ai_chat_anonymous_limit.sql). Fails open like the budget:
+    // a metering fault must not take the public assistant offline.
+    if (!user) {
+      const { data: allowed, error: limitError } = await serviceClient.rpc("check_ai_anon_rate_limit", {
+        _caller_hash: await callerHash(callerAddress(req.headers), serviceRoleKey),
+        _function_name: "ai-chat",
+      });
+      if (limitError) console.error("[ai-chat] anonymous limit check failed, allowing:", limitError.message);
+      if (allowed === false) {
+        return new Response(
+          JSON.stringify({ error: "You have reached today's limit for guests. Sign in to keep chatting." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const { messages: rawMessages, context = {}, assistantId } = await req.json();
 
     // Grading carries no conversation, so it is checked before the rule that
     // there must be one. Requiring a placeholder message would be a shape the
     // client has to know about for no reason.
-    if (assistantId !== "ivx-project-grader"
-        && (!messages || !Array.isArray(messages) || messages.length === 0)) {
-      return new Response(
-        JSON.stringify({ error: "Messages array is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let messages: ChatTurn[] = [];
+    if (assistantId !== "ivx-project-grader") {
+      const bounded = boundMessages(rawMessages);
+      if (!bounded.ok) {
+        return new Response(
+          JSON.stringify({ error: bounded.error }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      messages = bounded.messages;
     }
 
     // ── Grading an IVX project ─────────────────────────────────────────
@@ -572,10 +593,7 @@ Simulation: ${simName}${stepInfo}
     // ── Stream via the unified provider layer ──────────────────────────
     systemPrompt += buildMemoryPrompt(userMemory);
 
-    const cleanMessages = messages.map((m: { role: string; content: string }) => ({
-      role: m.role === "assistant" ? "assistant" as const : "user" as const,
-      content: m.content,
-    }));
+    const cleanMessages = messages;
 
     if (user && serviceClient && memoryAllowed && userMemory?.memory_enabled !== false) {
       const evolved = evolveMemory(userMemory, {
