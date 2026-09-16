@@ -55,15 +55,27 @@ list_all_functions() {
 }
 
 list_changed_functions() {
-  local before_sha="${GITHUB_EVENT_BEFORE:-}"
+  # A push event names its base. A workflow_run event does not, so deploy.yml
+  # passes the commit production last deployed successfully. The first parent
+  # is only the last resort: it is right for a single-commit push and wrong for
+  # a rebase merge, where it silently skipped every function changed in all but
+  # the last commit (ai-chat and newsletter-preferences on 2026-09-16).
+  local before_sha="${GITHUB_EVENT_BEFORE:-${DEPLOY_BASE_SHA:-}}"
   local target_sha="${DEPLOY_SHA:-${GITHUB_SHA:-HEAD}}"
 
-  # A manual recovery deploy intentionally refreshes every function. A
-  # workflow_run event, however, has no `before` field. Treating that missing
-  # value as "deploy everything" exhausted the project's function quota and
-  # made unrelated frontend releases fail. For automatic deploys, compare the
-  # CI-tested commit with its first parent instead.
+  # A manual recovery deploy refreshes the functions it names, or every
+  # function when it names none. A workflow_run event, however, has no
+  # `before` field. Treating that missing value as "deploy everything"
+  # exhausted the project's function quota and made unrelated frontend
+  # releases fail.
   if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
+    local requested="${DEPLOY_FUNCTIONS:-}"
+    if [[ -n "${requested// /}" ]]; then
+      local -a names
+      read -ra names <<<"$requested"
+      printf '%s\n' "${names[@]}" | sort -u
+      return
+    fi
     list_all_functions
     return
   fi
@@ -120,6 +132,16 @@ deploy_function() {
 }
 
 mapfile -t functions < <(list_changed_functions)
+
+# A name typed into a manual deploy is checked before anything is deployed.
+# Validated here, not in list_changed_functions: a failure inside the process
+# substitution above would be read as "nothing changed".
+for function_name in "${functions[@]}"; do
+  if [[ ! "$function_name" =~ ^[a-z0-9][a-z0-9-]*$ ]] || [[ ! -d "$FUNCTIONS_DIR/$function_name" ]]; then
+    echo "::error::'${function_name}' is not an Edge Function in ${FUNCTIONS_DIR}; nothing was deployed." >&2
+    exit 1
+  fi
+done
 
 if (( ${#functions[@]} == 0 )); then
   echo "No Supabase Edge Function changes detected; nothing to deploy."
