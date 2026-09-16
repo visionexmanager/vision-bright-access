@@ -122,9 +122,65 @@ describe("deploy.yml supplies the base", () => {
   const job = workflow.slice(workflow.indexOf("deploy-edge-functions:"), workflow.indexOf("run-migrations:"));
 
   it("looks up the last successful deploy and hands it to the script", () => {
-    expect(job).toMatch(/actions\/workflows\/deploy\.yml\/runs\?branch=main&status=success/);
+    expect(job).toMatch(/gh run list --repo "\$REPO" --workflow deploy\.yml --branch main --status success/);
     expect(job).toMatch(/DEPLOY_BASE_SHA: +\$\{\{ steps\.base\.outputs\.sha \}\}/);
     expect(job).toMatch(/permissions:\n {6}actions: read[^\n]*\n {6}contents: read\n/);
+  });
+
+  // The first version of this step read correctly as YAML and failed on every
+  // run: a line continuation had become a literal "\n", `gh` received two
+  // arguments, stderr was discarded, and the step fell back in 0.2 seconds.
+  // So the step is executed here, with stand-ins for gh and git.
+  it.skipIf(!BASH)("actually finds the last deployed commit when run", () => {
+    // The step's literal block, dedented: every line after "run: |" that is
+    // indented further than "run:" itself.
+    const lines = job.slice(job.indexOf("id: base")).split("\n");
+    const start = lines.findIndex((line) => /^\s*run: \|$/.test(line));
+    const indent = lines[start].indexOf("run:");
+    const body: string[] = [];
+    for (const line of lines.slice(start + 1)) {
+      if (line.trim() && line.search(/\S/) <= indent) break;
+      body.push(line.slice(indent + 2));
+    }
+    const step = { run: body.join("\n") };
+    expect(step.run).toContain("gh run list");
+
+    const dir = mkdtempSync(join(tmpdir(), "vx-base-"));
+    const stubs = join(dir, "bin");
+    mkdirSync(stubs);
+    const last = "a".repeat(40);
+    // Like the real `gh run list`: every flag takes a value, and a stray
+    // positional argument is an error — which is exactly what broke the step.
+    writeFileSync(
+      join(stubs, "gh"),
+      [
+        "#!/usr/bin/env bash",
+        '[ "$1 $2" = "run list" ] || exit 1',
+        "shift 2",
+        "while [ $# -gt 0 ]; do",
+        '  case "$1" in',
+        "    --repo|--workflow|--branch|--status|--limit|--json|--jq) shift 2 ;;",
+        '    *) echo "accepts 0 arg(s), received: $1" >&2; exit 1 ;;',
+        "  esac",
+        "done",
+        `echo "${last}"`,
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(join(stubs, "git"), "#!/usr/bin/env bash\nexit 0\n");
+    chmodSync(join(stubs, "gh"), 0o755);
+    chmodSync(join(stubs, "git"), 0o755);
+    const script = join(dir, "step.sh");
+    writeFileSync(script, step.run);
+    const output = join(dir, "output");
+    writeFileSync(output, "");
+
+    const result = spawnSync(BASH!, [script.replace(/\\/g, "/")], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${stubs}${delimiter}${process.env.PATH}`, GH_TOKEN: "x", REPO: "o/r", RUN_ID: "1", GITHUB_OUTPUT: output },
+    });
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(output, "utf8").trim()).toBe(`sha=${last}`);
   });
 
   it("passes manual function names through the environment, never into the shell", () => {

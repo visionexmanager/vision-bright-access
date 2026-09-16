@@ -393,8 +393,8 @@ jobs:
           RUN_ID:   ${{ github.run_id }}
         run: |
           set -uo pipefail
-          base=$(gh api "repos/$REPO/actions/workflows/deploy.yml/runs?branch=main&status=success&per_page=20" \n            --jq "[.workflow_runs[] | select(.id != $RUN_ID) | .head_sha][0] // empty" 2>/dev/null || true)
-          if [[ "$base" =~ ^[0-9a-f]{40}$ ]] && git fetch --no-tags --depth=1 origin "$base" >/dev/null 2>&1; then
+          base=$(gh run list --repo "$REPO" --workflow deploy.yml --branch main --status success --limit 20 --json databaseId,headSha --jq "map(select(.databaseId != $RUN_ID))[0].headSha // empty" || true)
+          if [[ "$base" =~ ^[0-9a-f]{40}$ ]] && git fetch --no-tags --depth=1 origin "$base" >/dev/null; then
             echo "Comparing with the last successful deploy: $base"
             echo "sha=$base" >> "$GITHUB_OUTPUT"
           else
