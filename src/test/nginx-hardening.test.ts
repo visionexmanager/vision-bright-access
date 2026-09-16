@@ -59,8 +59,8 @@ describe("nginx hardening snippet", () => {
 
 describe("nginx hardening workflow", () => {
   it("can only be run by hand, with read-only repository access", () => {
-    expect(workflow).toMatch(/^on:\n  workflow_dispatch:/m);
-    expect(workflow).toMatch(/^permissions:\n  contents: read$/m);
+    expect(workflow).toMatch(/^on:\n {2}workflow_dispatch:/m);
+    expect(workflow).toMatch(/^permissions:\n {2}contents: read$/m);
   });
 
   it("tests the configuration before every reload and restores on failure", () => {
