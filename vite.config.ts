@@ -85,6 +85,10 @@ export default defineConfig(() => ({
           "markdown": ["react-markdown"],
           // Recharts — only used in chart pages
           "charts": ["recharts"],
+          // clsx is behind cn() on every page, and recharts depends on it too.
+          // Left unassigned, Rollup placed it inside "charts", so every page
+          // preloaded 430 kB of Recharts to get a 1 kB helper.
+          "class-utils": ["clsx", "tailwind-merge"],
           // Rich-text editor runtime — loaded only by authoring surfaces. Keeping
           // it separate prevents the Library Studio route chunk from crossing
           // the production size budget and lets browsers cache the editor core.
