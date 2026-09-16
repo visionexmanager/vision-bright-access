@@ -106,7 +106,7 @@ export default function ResetPassword() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
               <KeyRound className="h-7 w-7 text-primary" aria-hidden="true" />
             </div>
-            <CardTitle className="text-3xl">{t("auth.resetPassword") || "Reset Password"}</CardTitle>
+            <CardTitle as="h1" className="text-3xl">{t("auth.resetPassword") || "Reset Password"}</CardTitle>
             <CardDescription className="text-base">
               {t("auth.enterNewPassword") || "Enter your new password below"}
             </CardDescription>
