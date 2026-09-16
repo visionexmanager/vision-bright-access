@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ArcadeAccessibilityProvider } from "@/features/arcade/core/ArcadeAccessibilityProvider";
 import { gameManager } from "@/features/arcade/core/gameManager";
@@ -19,7 +19,14 @@ import Sudoku from "./Sudoku";
 
 const SEED = 2026;
 const board = () => screen.getByRole("grid", { name: /Sudoku board/ });
-const cells = () => within(board()).getAllByRole("gridcell");
+// The cells declare role="gridcell" themselves. getAllByRole recomputes roles
+// for all 81 on every lookup, which pushed these tests past the 5s timeout when
+// the full suite ran in parallel.
+const cells = () => {
+  const found = Array.from(board().querySelectorAll<HTMLElement>('[role="gridcell"]'));
+  expect(found).toHaveLength(81);
+  return found;
+};
 const cellAt = (row: number, column: number) => cells()[row * 9 + column];
 const status = () => screen.getByRole("status").textContent ?? "";
 const key = (element: HTMLElement, value: string) => act(() => { fireEvent.keyDown(element, { key: value }); });
