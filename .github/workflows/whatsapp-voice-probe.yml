@@ -1,0 +1,64 @@
+# The WhatsApp voice reply, proved against the real providers.
+#
+# Runs scripts/voice/whatsapp-voice-probe.ts: the production synthesis code
+# speaks a fixed English and a fixed Arabic sentence, the audio is checked for
+# what WhatsApp needs (Ogg, Opus, mono), transcribed back with the webhook's own
+# speech-to-text, uploaded to the WhatsApp media store and deleted again.
+#
+# No message is sent to anybody. The keys are the same GitHub secrets the
+# Deploy workflow copies into Supabase, so this is the production key, and none
+# of them is printed. A run costs a few tenths of a cent.
+#
+# On a pull request it runs only when the voice reply's code changes, so a
+# voice or model the provider refuses is caught before it reaches senders.
+# The audio is kept for three days so a person can listen to it.
+
+name: WhatsApp voice probe
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - supabase/functions/_shared/whatsappVoiceReply.ts
+      - supabase/functions/_shared/voice/tts.ts
+      - scripts/voice/whatsapp-voice-probe.ts
+      - .github/workflows/whatsapp-voice-probe.yml
+
+concurrency:
+  group: whatsapp-voice-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Speak, check, transcribe, upload
+    # Secrets are not given to pull requests from forks; skip rather than fail.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Run the probe
+        env:
+          NO_COLOR: "1"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+        run: |
+          set -o pipefail
+          deno run --no-lock --node-modules-dir=none --allow-net --allow-env --allow-write \
+            scripts/voice/whatsapp-voice-probe.ts voice-probe | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Keep the audio for listening
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: whatsapp-voice-samples
+          path: voice-probe/*.ogg
+          retention-days: 3
+          if-no-files-found: ignore

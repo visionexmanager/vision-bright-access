@@ -31,7 +31,7 @@ function recorder(bytes = new Uint8Array([1, 2, 3]), status = 200) {
 }
 
 describe("what each caller asks for", () => {
-  it("sends the WhatsApp voice reply's request unchanged", async () => {
+  it("sends a request with no options exactly as asked", async () => {
     const rec = recorder();
     await tts.synthesize({
       text: "hello", provider: "openai", model: "tts-1", voice: "alloy",
@@ -41,7 +41,7 @@ describe("what each caller asks for", () => {
     expect(rec.calls[0].body).toEqual({
       model: "tts-1", input: "hello", voice: "alloy", response_format: "opus",
     });
-    // The WhatsApp path has never sent these, and must not start.
+    // Options a caller did not ask for are never added.
     expect(rec.calls[0].body).not.toHaveProperty("speed");
     expect(rec.calls[0].body).not.toHaveProperty("instructions");
   });
@@ -273,7 +273,70 @@ describe("the callers still behave as they did", () => {
 
   it("keeps the model and voice the cache key is built from", async () => {
     const voice = await import("../../supabase/functions/_shared/whatsappVoiceReply.ts");
-    expect(voice.SPEECH_MODEL).toBe("tts-1");
-    expect(voice.DEFAULT_VOICE).toBe("alloy");
+    expect(voice.SPEECH_MODEL).toBe("gpt-4o-mini-tts");
+    expect(voice.DEFAULT_VOICE).toBe("marin");
+  });
+});
+
+describe("the WhatsApp default voice", () => {
+  const withKey = async <T>(run: () => Promise<T>): Promise<T> => {
+    const original = (globalThis as { Deno?: unknown }).Deno;
+    (globalThis as { Deno?: unknown }).Deno = { env: { get: (name: string) => (name === "OPENAI_API_KEY" ? "openai-key" : undefined) } };
+    try { return await run(); } finally { (globalThis as { Deno?: unknown }).Deno = original; }
+  };
+
+  it("asks OpenAI for marin, calm style direction, and opus for WhatsApp", async () => {
+    const voice = await import("../../supabase/functions/_shared/whatsappVoiceReply.ts");
+    const rec = recorder();
+    const result = await withKey(() => voice.synthesiseSpeech({ text: "مرحبا، كيف أستطيع مساعدتك؟", fetchImpl: rec.fetchImpl }));
+    expect(result).toMatchObject({ ok: true, mimeType: "audio/ogg" });
+    expect(rec.calls[0].url).toBe("https://api.openai.com/v1/audio/speech");
+    expect(rec.calls[0].body).toEqual({
+      model: "gpt-4o-mini-tts",
+      input: "مرحبا، كيف أستطيع مساعدتك؟",
+      voice: "marin",
+      response_format: "opus",
+      instructions: voice.SPEECH_STYLE,
+    });
+    expect(rec.calls[0].body).not.toHaveProperty("speed");
+    // The key travels only in the header, never in the body.
+    expect(JSON.stringify(rec.calls[0].body)).not.toContain("openai-key");
+  });
+
+  it("describes a calm, warm, professional female voice that keeps each language's own pronunciation", async () => {
+    const { SPEECH_STYLE } = await import("../../supabase/functions/_shared/whatsappVoiceReply.ts");
+    for (const word of ["calm", "warm", "professional", "female", "native pronunciation", "Do not apply English pronunciation", "do not translate"]) {
+      expect(SPEECH_STYLE).toContain(word);
+    }
+    expect(SPEECH_STYLE.length).toBeLessThan(1000);
+  });
+
+  it("sends no style direction with a cloned ElevenLabs voice", async () => {
+    const voice = await import("../../supabase/functions/_shared/whatsappVoiceReply.ts");
+    const rec = recorder();
+    const original = (globalThis as { Deno?: unknown }).Deno;
+    (globalThis as { Deno?: unknown }).Deno = { env: { get: (n: string) => (n === "ELEVENLABS_API_KEY" ? "eleven-key" : undefined) } };
+    try {
+      await voice.synthesiseSpeech({
+        text: "hello",
+        spoken: voice.spokenVoiceOf({ provider: "elevenlabs", voice: "clone-1", model: "eleven_multilingual_v2" } as never),
+        fetchImpl: rec.fetchImpl,
+      });
+    } finally {
+      (globalThis as { Deno?: unknown }).Deno = original;
+    }
+    expect(rec.calls[0].url).toContain("api.elevenlabs.io");
+    expect(JSON.stringify(rec.calls[0].body)).not.toContain("instructions");
+  });
+
+  it("gives audio made under different style direction a different cache key", async () => {
+    const { speechCacheKey } = await import("../../supabase/functions/_shared/whatsappSpeechCache.ts");
+    const base = { phoneNumberId: "1", voice: "marin", model: "gpt-4o-mini-tts", text: "the main menu" };
+    const a = await speechCacheKey({ ...base, instructions: "calm" });
+    const b = await speechCacheKey({ ...base, instructions: "energetic" });
+    const alloy = await speechCacheKey({ ...base, voice: "alloy", model: "tts-1" });
+    expect(a).not.toBe(b);
+    expect(a).not.toBe(alloy);
+    expect(await speechCacheKey(base)).toBe(await speechCacheKey({ ...base, instructions: undefined }));
   });
 });
