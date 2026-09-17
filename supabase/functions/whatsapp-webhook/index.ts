@@ -490,6 +490,8 @@ import {
   parseOwnerCommand,
   type PendingApproval,
 } from "../_shared/ownerControl.ts";
+import { isBareContentReply, parseContentCommand } from "../_shared/ownerContent.ts";
+import { decideProposal, findProposal, runContentCommand } from "../_shared/ownerContentActions.ts";
 
 /** How much prior conversation the model sees. Enough for context, bounded. */
 const HISTORY_LIMIT = 12;
@@ -591,15 +593,29 @@ async function readFeatureConfig(db: ReturnType<typeof service>): Promise<Featur
 async function handleOwnerCommand(
   db: ReturnType<typeof service>,
   from: string,
-  text: string,
+  rawText: string,
 ): Promise<string | null> {
+  // The content template asks the owner to reply «محتوى»; that word alone is
+  // the list, so the owner never has to know about the slash to answer it.
+  const text = isBareContentReply(rawText) ? "/content" : rawText;
   const command = parseOwnerCommand(text);
   // No prefix, no command. The owner is a customer here, which is the only way
   // they can see what a customer sees.
   if (ownerCommandBody(text) === null) return null;
+
+  // Social media content: listed, shown, edited, redone, scheduled and
+  // proposed from here. Read before the help fallback below, which would
+  // otherwise answer "/content" with the list of commands. Decisions still go
+  // through decide_content_proposal, which moves a proposal and its approval
+  // together.
+  const contentCommand = parseContentCommand(ownerCommandBody(text) ?? "");
+  const contentProposal = !contentCommand && command.reference &&
+      (command.kind === "approve" || command.kind === "reject")
+    ? await findProposal(db, command.reference)
+    : null;
   // A slash is always a command attempt, so a mistyped one is answered with the
   // list rather than handed to the assistant, which would treat it as a question.
-  if (command.kind === "help" || (command.kind === "unknown" && !command.reference)) {
+  if (command.kind === "help" || (command.kind === "unknown" && !command.reference && !contentCommand)) {
     return formatOwnerHelp();
   }
 
@@ -607,11 +623,10 @@ async function handleOwnerCommand(
   // row. It is a list of words, and answering it is never a decision.
   if (command.kind === "help") return formatOwnerHelp();
 
-  // Content proposals are decided in the Owner Control Centre, where the
-  // proposal and its approval move together. Excluding them here is what keeps
-  // that true over this channel: a reference the listing never surfaced cannot
-  // be found below, so the existing "no pending decision" reply answers it and
-  // the engine is never reached. No branch, and nothing else changes.
+  // Content approvals are left out of this generic list on purpose: deciding
+  // one through decide_owner_approval would move the approval without its
+  // proposal. They are decided above, by proposal reference, through
+  // decide_content_proposal, which moves both.
   //
   // Read *before* the rate limit and the audit row rather than after, which is
   // what the gate below needs — see it for why.
@@ -640,7 +655,7 @@ async function handleOwnerCommand(
   // returns null and the message carries on to the assistant, untouched.
   //
   // A named reference is a command either way: nobody types "ABCDE" by accident.
-  if (!command.explicit && !command.reference && pending.length === 0) return null;
+  if (!contentCommand && !command.explicit && !command.reference && pending.length === 0) return null;
 
   // Rate limit: an owner handset that has been taken over should not be able
   // to churn through every pending decision unchecked.
@@ -655,11 +670,20 @@ async function handleOwnerCommand(
   }
 
   await db.from("audit_logs").insert({
-    action: `owner_command_${command.kind}`,
+    action: `owner_command_${contentCommand ? `content_${contentCommand.kind}` : command.kind}`,
     entity_type: "owner_command",
     entity_id: null,
-    metadata: { kind: command.kind, reference: command.reference, choice: command.choice },
+    metadata: { kind: contentCommand?.kind ?? command.kind, reference: command.reference, choice: command.choice },
   });
+
+  // The owner's own messages keep the 24-hour window measurable, so the daily
+  // proposals know whether they may be sent whole.
+  await db.from("whatsapp_conversations").update({ last_message_at: new Date().toISOString() }).eq("wa_phone", from);
+
+  if (contentCommand) return await runContentCommand(db, contentCommand);
+  if (contentProposal) {
+    return await decideProposal(db, contentProposal.proposal_ref, command.kind === "approve", command.note);
+  }
 
   if (command.kind === "list_pending") return formatPendingList(pending);
 
