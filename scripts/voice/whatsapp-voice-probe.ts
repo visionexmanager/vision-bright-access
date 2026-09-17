@@ -84,9 +84,11 @@ for (const sample of SAMPLES) {
     const letters = text.replace(/[\s\p{P}\d]/gu, "").length || 1;
     const inScript = (text.match(sample.script) ?? []).length / letters;
     check("heard in the same language", inScript > 0.8, `${Math.round(inScript * 100)}% in the expected script`);
-    const found = sample.words.filter((w) => text.includes(w));
+    // Spaces are ignored: a brand name is heard correctly and written as "Vision X".
+    const joined = text.replace(/s+/g, "");
+    const found = sample.words.filter((w) => joined.includes(w));
     // The words are this file's own fixed sentence, so naming a missing one is safe.
-    const missing = sample.words.filter((w) => !text.includes(w));
+    const missing = sample.words.filter((w) => !joined.includes(w));
     check("key words intelligible", missing.length === 0, missing.length ? `missing: ${missing.join(", ")}` : `${found.length}/${sample.words.length}`);
   }
 
