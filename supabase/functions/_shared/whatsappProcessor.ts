@@ -206,3 +206,54 @@ export async function convertMediaLocally(params: {
     clearTimeout(deadline);
   }
 }
+
+// ── Overpass, from the VPS ───────────────────────────────────────────────────
+
+/** The elements Overpass returned, as the service passes them through. */
+export type OverpassElements = Array<{
+  lat?: number;
+  lon?: number;
+  center?: { lat?: number; lon?: number };
+  tags?: Record<string, string>;
+}>;
+
+const OVERPASS_RELAY_TIMEOUT_MS = 14_000;
+
+/**
+ * Ask Overpass through the processing service.
+ *
+ * overpass-api.de answers 406 to Supabase's network and about a second to an
+ * ordinary server, so "what is near me" asks from the VPS. `null` means the
+ * relay is not configured or did not answer; the caller then asks Overpass
+ * directly and Photon in parallel, exactly as before.
+ */
+export async function overpassViaProcessor(
+  query: string,
+  options: { read?: EnvReader; fetchImpl?: typeof fetch } = {},
+): Promise<OverpassElements | null> {
+  const config = processorConfig(options.read ?? denoEnv);
+  if (!config) return null;
+  const doFetch = options.fetchImpl ?? fetch;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), OVERPASS_RELAY_TIMEOUT_MS);
+  try {
+    const response = await doFetch(`${config.url}/overpass`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${config.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    if (!response.ok) {
+      console.error(`[whatsapp-geo] overpass relay responded ${response.status}`);
+      return null;
+    }
+    const body = await response.json() as { ok?: boolean; elements?: OverpassElements };
+    return body?.ok && Array.isArray(body.elements) ? body.elements : null;
+  } catch {
+    // Never the message: it would quote the URL.
+    console.error("[whatsapp-geo] overpass relay failed");
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
