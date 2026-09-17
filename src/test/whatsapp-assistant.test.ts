@@ -1454,7 +1454,7 @@ describe("voice replies", () => {
 
   it("picks the cheaper synthesiser, since this is an optional extra", () => {
     const source = readFileSync("supabase/functions/_shared/whatsappVoiceReply.ts", "utf8");
-    expect(source).toContain("tts-1");
+    expect(source).toContain("gpt-4o-mini-tts");
     expect(source).toMatch(/cost/i);
   });
 });
