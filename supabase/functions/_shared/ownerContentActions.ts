@@ -7,10 +7,13 @@
 // publisher picks up, and only for an account that has been connected.
 
 import { proposeContent } from "./contentEngine.ts";
+import { indexSources } from "./contentIndex.ts";
 import { isOwner, normalizePhone } from "./ownerControl.ts";
 import {
   type Brief,
   type ContentCommand,
+  type ContentSection,
+  DAILY_SECTIONS,
   dailyBriefs,
   explainProposeFailure,
   formatBeirut,
@@ -170,7 +173,10 @@ export async function runContentCommand(db: Db, command: ContentCommand, now: Da
     }
 
     case "propose": {
-      const [fallback] = dailyBriefs(now, 1);
+      // A named section is drafted as asked; otherwise one with indexed material.
+      const ready = command.section ? undefined : (await readySections(db)).ready;
+      const [fallback] = dailyBriefs(now, 1, ready);
+      if (!fallback) return explainProposeFailure("no_indexed_content");
       const brief: Brief = {
         section: command.section ?? fallback.section,
         platform: command.platform ?? fallback.platform,
@@ -199,9 +205,47 @@ async function connectedPlatform(db: Db, ref: string): Promise<boolean> {
 
 // ── The daily run ────────────────────────────────────────────────────────────
 
+/** How many never-indexed sections one run may fill, so a run stays short. */
+const MAX_SECTIONS_INDEXED_PER_RUN = 3;
+const INDEX_ROWS_PER_SECTION = 300;
+
+/**
+ * The sections the engine can draft from: those with rows in ai_embeddings.
+ *
+ * A section that has never been indexed is filled here, with the same rules
+ * as the admin "rebuild index" action — published, active rows only. The
+ * index had never been built in production, which is why the first run
+ * drafted nothing.
+ */
+export async function readySections(db: Db): Promise<{ ready: ContentSection[]; indexed: Record<string, number> }> {
+  const ready: ContentSection[] = [];
+  const empty: ContentSection[] = [];
+  for (const section of DAILY_SECTIONS) {
+    const { count } = await db
+      .from("ai_embeddings")
+      .select("source_id", { count: "exact", head: true })
+      .eq("source_table", section);
+    if ((count ?? 0) > 0) ready.push(section);
+    else empty.push(section);
+  }
+  const indexed: Record<string, number> = {};
+  for (const section of empty.slice(0, MAX_SECTIONS_INDEXED_PER_RUN)) {
+    try {
+      const summary = await indexSources(db, [section], { limit: INDEX_ROWS_PER_SECTION });
+      indexed[section] = summary[section] ?? 0;
+      if ((summary[section] ?? 0) > 0) ready.push(section);
+    } catch {
+      indexed[section] = -1;
+    }
+  }
+  return { ready, indexed };
+}
+
 export interface DailyRunReport {
   proposed: string[];
   failed: string[];
+  /** Rows added to the index this run, by section; -1 when a section could not be read. */
+  indexed?: Record<string, number>;
   notified: "text" | "template" | "none";
   reason?: string;
 }
@@ -221,19 +265,21 @@ export async function runDailyProposals(
 ): Promise<DailyRunReport> {
   const proposed: string[] = [];
   const failed: string[] = [];
-  for (const brief of dailyBriefs(now, count)) {
+  const { ready, indexed } = await readySections(db);
+  if (ready.length === 0) return { proposed, failed, indexed, notified: "none", reason: "index_empty" };
+  for (const brief of dailyBriefs(now, count, ready)) {
     const outcome = await propose(db, brief);
     if (outcome.ok && outcome.ref) proposed.push(outcome.ref);
-    else failed.push(outcome.reason ?? "unknown");
+    else failed.push(`${brief.section}:${outcome.reason ?? "unknown"}`);
   }
-  if (proposed.length === 0) return { proposed, failed, notified: "none", reason: "nothing_proposed" };
+  if (proposed.length === 0) return { proposed, failed, indexed, notified: "none", reason: "nothing_proposed" };
 
   const { data: setting } = await db.from("site_settings").select("value").eq("key", "owner_contact").maybeSingle();
   const value = (setting?.value ?? {}) as { whatsapp_number?: string | null; notify_content_proposals?: boolean };
   const owner = normalizePhone(value.whatsapp_number);
-  if (!owner || owner.length < 8) return { proposed, failed, notified: "none", reason: "no_owner_number" };
-  if (value.notify_content_proposals === false) return { proposed, failed, notified: "none", reason: "notifications_off" };
-  if (!whatsapp.token || !whatsapp.phoneNumberId) return { proposed, failed, notified: "none", reason: "whatsapp_not_configured" };
+  if (!owner || owner.length < 8) return { proposed, failed, indexed, notified: "none", reason: "no_owner_number" };
+  if (value.notify_content_proposals === false) return { proposed, failed, indexed, notified: "none", reason: "notifications_off" };
+  if (!whatsapp.token || !whatsapp.phoneNumberId) return { proposed, failed, indexed, notified: "none", reason: "whatsapp_not_configured" };
 
   // The configured number may be written without its country code; the
   // conversation row holds the number WhatsApp itself reported, which is the
@@ -260,7 +306,7 @@ export async function runDailyProposals(
       });
       if (ok) sent++;
     }
-    if (sent > 0) return { proposed, failed, notified: "text" };
+    if (sent > 0) return { proposed, failed, indexed, notified: "text" };
   }
 
   const ok = await sendWhatsAppTemplate({
@@ -272,6 +318,6 @@ export async function runDailyProposals(
     variables: [String(proposed.length)],
   });
   return ok
-    ? { proposed, failed, notified: "template" }
-    : { proposed, failed, notified: "none", reason: "template_send_failed" };
+    ? { proposed, failed, indexed, notified: "template" }
+    : { proposed, failed, indexed, notified: "none", reason: "template_send_failed" };
 }

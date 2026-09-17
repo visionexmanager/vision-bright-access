@@ -138,6 +138,15 @@ describe("the daily plan", () => {
     expect(seen.size).toBeGreaterThanOrEqual(6);
   });
 
+  it("drafts only from sections that have indexed material", () => {
+    const day = new Date(Date.UTC(2026, 8, 17));
+    const briefs = dailyBriefs(day, 2, ["tv_channels", "services"]);
+    expect(briefs.map((b) => b.section).sort()).toEqual(["services", "tv_channels"]);
+    expect(dailyBriefs(day, 3, ["services"])).toHaveLength(1);
+    // Nothing known is the same as no filter, never an empty plan.
+    expect(dailyBriefs(day, 2, [])).toHaveLength(2);
+  });
+
   it("knows when free text may reach the owner", () => {
     const now = new Date("2026-09-17T12:00:00Z");
     expect(ownerWindowOpen("2026-09-17T08:00:00Z", now)).toBe(true);
@@ -181,7 +190,7 @@ describe("wiring", () => {
     expect(daily).toBeGreaterThan(secret);
     const workflow = readFileSync(".github/workflows/content-proposals-cron.yml", "utf8");
     expect(workflow).toMatch(/cron: "0 6 \* \* \*"/);
-    expect(workflow).toContain("jq '{ok, proposed, failed, notified, reason}'");
+    expect(workflow).toContain("jq '{ok, proposed, failed, indexed, notified, reason}'");
   });
 });
 
@@ -192,6 +201,7 @@ describe("the daily run against a fake database", () => {
   });
 
   it("refuses to notify when no owner number is set, and says why", async () => {
+    vi.doMock("../../supabase/functions/_shared/contentIndex.ts", () => ({ indexSources: vi.fn(async () => ({})) }));
     vi.doMock("../../supabase/functions/_shared/contentEngine.ts", () => ({
       proposeContent: vi.fn(async () => ({ ok: true, proposal_ref: "AB2CD" })),
     }));
@@ -205,7 +215,7 @@ describe("the daily run against a fake database", () => {
       const q: Record<string, unknown> = {};
       for (const m of ["select", "eq", "in", "order", "limit", "like"]) q[m] = () => q;
       q.maybeSingle = async () => ({ data });
-      q.then = (resolve: (v: unknown) => void) => resolve({ data: [] });
+      q.then = (resolve: (v: unknown) => void) => resolve({ data: [], count: 5 });
       return q;
     };
     const db = {
@@ -214,6 +224,6 @@ describe("the daily run against a fake database", () => {
       ),
     };
     const report = await runDailyProposals(db, { token: "t", phoneNumberId: "p" }, new Date("2026-09-17T06:00:00Z"), 2);
-    expect(report).toEqual({ proposed: ["AB2CD", "AB2CD"], failed: [], notified: "none", reason: "no_owner_number" });
+    expect(report).toEqual({ proposed: ["AB2CD", "AB2CD"], failed: [], indexed: {}, notified: "none", reason: "no_owner_number" });
   });
 });

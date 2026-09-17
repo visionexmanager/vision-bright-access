@@ -8,7 +8,7 @@ import { buildServicesIndex, SERVICES_INDEX_PATH } from "@/features/servicecente
 // cannot drift from the catalogue.
 
 const snapshot = JSON.parse(readFileSync(SERVICES_INDEX_PATH, "utf8"));
-const embedContent = readFileSync("supabase/functions/embed-content/index.ts", "utf8");
+const embedContent = readFileSync("supabase/functions/embed-content/index.ts", "utf8") + readFileSync("supabase/functions/_shared/contentIndex.ts", "utf8");
 
 describe("services index snapshot", () => {
   it("matches the catalogue exactly", () => {

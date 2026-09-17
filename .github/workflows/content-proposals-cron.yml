@@ -64,7 +64,7 @@ jobs:
           echo "HTTP $code"
           # Only these fields are printed: references, reason codes, and how the
           # owner was told.
-          jq '{ok, proposed, failed, notified, reason}' "$body" | tee -a "$GITHUB_STEP_SUMMARY"
+          jq '{ok, proposed, failed, indexed, notified, reason}' "$body" | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "$code" != "200" ]; then exit 1; fi
           if [ "$(jq -r '.proposed | length' "$body")" = "0" ]; then
             echo "::warning::No proposal was drafted today — see the reason codes above."

@@ -37,7 +37,7 @@ const migration = readFileSync("supabase/migrations/20260904000000_ai_content_en
 const engine = readFileSync("supabase/functions/_shared/contentEngine.ts", "utf8");
 const ownerControl = readFileSync("supabase/functions/owner-control/index.ts", "utf8");
 const aiGenerate = readFileSync("supabase/functions/ai-generate/index.ts", "utf8");
-const embedContent = readFileSync("supabase/functions/embed-content/index.ts", "utf8");
+const embedContent = readFileSync("supabase/functions/embed-content/index.ts", "utf8") + readFileSync("supabase/functions/_shared/contentIndex.ts", "utf8");
 const dashboard = readFileSync("src/pages/admin/OwnerControlCenter.tsx", "utf8");
 
 /** The nine generators that existed before per-generator schemas were possible. */
