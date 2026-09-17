@@ -32,7 +32,9 @@ const SAMPLES = [
     id: "en",
     text: "Hello, I'm your Visionex assistant. Your order is on its way, and I'm here if you need anything else.",
     script: /[A-Za-z]/g,
-    words: ["visionex", "order", "way"],
+    // Not the brand: an invented word is heard right and spelled differently
+    // on every run ("Vision X", "VisionX"), which tests transcription, not voice.
+    words: ["assistant", "order", "way"],
   },
   {
     id: "ar",
