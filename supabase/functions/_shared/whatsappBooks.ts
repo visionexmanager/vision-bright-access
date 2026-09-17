@@ -87,7 +87,7 @@ export interface FoundBook {
   title: string;
   author: string | null;
   year: number | null;
-  source: "visionex" | "openlibrary";
+  source: "visionex" | "openlibrary" | "archive";
   url: string;
   /** Free to read or download, with the address to do it. */
   freeReadUrl: string | null;
@@ -163,6 +163,62 @@ export async function searchOpenLibrary(
   }
 }
 
+/**
+ * Free books on the Internet Archive — public domain and openly licensed
+ * texts, many of them Arabic, readable and downloadable in full.
+ *
+ * Lending-only scans (the "inlibrary" and "printdisabled" collections) are
+ * excluded: those need an account and a loan, which is not "free to read".
+ */
+export async function searchArchiveTexts(
+  query: string,
+  options: { fetchImpl?: typeof fetch } = {},
+): Promise<FoundBook[] | null> {
+  const doFetch = options.fetchImpl ?? fetch;
+  // Letters, digits and spaces only: nothing of the Archive's query syntax gets in.
+  const terms = query.replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim().slice(0, BOOK_QUERY_MAX_CHARS);
+  if (!terms) return [];
+  const q = `title:(${terms}) AND mediatype:(texts) AND NOT collection:(inlibrary) AND NOT collection:(printdisabled)`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), OPEN_LIBRARY_TIMEOUT_MS);
+  try {
+    const response = await doFetch(
+      `https://archive.org/advancedsearch.php?q=${encodeURIComponent(q)}` +
+      "&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=year&rows=5&sort%5B%5D=downloads+desc&output=json",
+      {
+        signal: controller.signal,
+        headers: { "User-Agent": "VisionexAssistant/1.0 (+https://visionex.app; support@visionex.app)", Accept: "application/json" },
+      },
+    );
+    if (!response.ok) {
+      console.error(`[whatsapp-books] archive responded ${response.status}`);
+      return null;
+    }
+    const body = await response.json() as {
+      response?: { docs?: Array<{ identifier?: string; title?: string; creator?: string | string[]; year?: string | number }> };
+    };
+    return (body.response?.docs ?? [])
+      .filter((doc) => doc.title && doc.identifier && /^[A-Za-z0-9._-]{1,100}$/.test(doc.identifier))
+      .map((doc) => {
+        const year = Number(String(doc.year ?? "").slice(0, 4));
+        return {
+          title: String(doc.title),
+          author: Array.isArray(doc.creator) ? doc.creator[0] ?? null : doc.creator ?? null,
+          year: Number.isFinite(year) && year > 0 ? year : null,
+          source: "archive" as const,
+          url: `https://archive.org/details/${doc.identifier}`,
+          freeReadUrl: `https://archive.org/details/${doc.identifier}`,
+          borrowable: false,
+        };
+      });
+  } catch {
+    console.error("[whatsapp-books] archive request failed");
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** A Visionex library row, as a book. */
 export function libraryBook(row: {
   id: string;
@@ -202,10 +258,13 @@ export function formatBooks(params: {
   query: string;
   library: FoundBook[];
   outside: FoundBook[];
+  /** Free full texts from the Internet Archive. */
+  archive?: FoundBook[];
 }): string {
   const { language, query } = params;
   const library = params.library.slice(0, MAX_BOOKS);
   const outside = params.outside.slice(0, Math.max(MAX_BOOKS - library.length, 2));
+  const archive = (params.archive ?? []).slice(0, 3);
   const lines = [`📚 ${say("booksHeading", language).replace("{query}", query)}`];
   if (library.length > 0) {
     lines.push("", `*${say("booksInVisionex", language)}*`);
@@ -214,6 +273,10 @@ export function formatBooks(params: {
   if (outside.length > 0) {
     lines.push("", `*${say("booksFromOutside", language)}*`);
     for (const book of outside) lines.push(...bookLine(book, language));
+  }
+  if (archive.length > 0) {
+    lines.push("", `*${say("booksFromArchive", language)}*`);
+    for (const book of archive) lines.push(...bookLine(book, language));
   }
   return lines.join("\n");
 }
