@@ -28,6 +28,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { defaultAdapters } from "../_shared/publishing/adapters.ts";
 import { metaAdapters, type PublishFetch } from "../_shared/publishing/metaAdapters.ts";
 import { runPublishBatch } from "../_shared/publishing/runner.ts";
+import { runDailyProposals } from "../_shared/ownerContentActions.ts";
 import type {
   ClaimResult,
   Platform,
@@ -202,6 +203,31 @@ Deno.serve(async (req) => {
     return json({ error: "Unauthorized" }, 401);
   }
 
+  // Read once: the body decides which of the two jobs this call is.
+  const body = await req.json().catch(() => ({}));
+
+  // ── Daily content proposals ────────────────────────────────────────────
+  //
+  // The other half of the pipeline: draft today's proposals and tell the
+  // owner on WhatsApp, where they approve, edit or reject them. Nothing is
+  // published here — publishing is the job below, and only for approved,
+  // scheduled proposals on a connected account. Behind the same secret.
+  if (body.action === "propose_daily") {
+    try {
+      const count = Math.min(Math.max(Number(body.count) || 2, 1), 4);
+      const report = await runDailyProposals(
+        serviceClient(),
+        { token: env("WHATSAPP_TOKEN"), phoneNumberId: env("WHATSAPP_PHONE_NUMBER_ID") },
+        new Date(),
+        count,
+      );
+      // References and reason codes only — never a draft's text.
+      return json({ ok: true, ...report });
+    } catch {
+      return json({ ok: false, error: "internal_error" }, 500);
+    }
+  }
+
   const encryptionKey = env("SOCIAL_TOKEN_ENCRYPTION_KEY");
   if (!encryptionKey) {
     // Without it no grant can be decrypted, so every attempt would refuse at
@@ -212,7 +238,6 @@ Deno.serve(async (req) => {
   try {
     const service = serviceClient();
 
-    const body = await req.json().catch(() => ({}));
     const platform = typeof body.platform === "string" ? body.platform as Platform : null;
     const limit = Number.isFinite(body.limit) ? Number(body.limit) : DEFAULT_LIMIT;
 

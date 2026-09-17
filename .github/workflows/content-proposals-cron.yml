@@ -1,0 +1,71 @@
+# Today's social media proposals, drafted and sent to the owner on WhatsApp.
+#
+# Calls social-publish with action=propose_daily. The content engine drafts
+# from what Visionex has published (the ai_embeddings index), screens for
+# duplicates and confidential details, and pairs each draft with an owner
+# approval. The owner then answers on WhatsApp:
+#
+#   /approve REF · /edit REF new text · /again REF · /reject REF why
+#   /schedule REF 20/9 18:00
+#
+# Nothing is published by this run. Publishing is social-publish's other job,
+# and only for approved, scheduled proposals on a connected account.
+#
+# The response carries references and reason codes only — never a draft's
+# text — because this repository's logs are public.
+
+name: Content proposals — daily
+
+on:
+  schedule:
+    # 06:00 UTC is 09:00 in Beirut for most of the year.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      count:
+        description: "How many proposals to draft (1–4)"
+        required: false
+        default: "2"
+
+concurrency:
+  group: content-proposals
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  propose:
+    name: Draft and notify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ask the content engine for today's proposals
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          COUNT: ${{ inputs.count || '2' }}
+        run: |
+          set -uo pipefail
+          if [ -z "$SUPABASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::SUPABASE_URL and CRON_SECRET must be configured."
+            exit 1
+          fi
+          if ! [[ "$COUNT" =~ ^[1-4]$ ]]; then
+            echo "::error::count must be 1 to 4."
+            exit 1
+          fi
+          body=$(mktemp)
+          code=$(curl -sS -o "$body" -w '%{http_code}' --max-time 300 \
+            -X POST "$SUPABASE_URL/functions/v1/social-publish" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"action\":\"propose_daily\",\"count\":$COUNT}")
+          echo "HTTP $code"
+          # Only these fields are printed: references, reason codes, and how the
+          # owner was told.
+          jq '{ok, proposed, failed, notified, reason}' "$body" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$code" != "200" ]; then exit 1; fi
+          if [ "$(jq -r '.proposed | length' "$body")" = "0" ]; then
+            echo "::warning::No proposal was drafted today — see the reason codes above."
+          fi

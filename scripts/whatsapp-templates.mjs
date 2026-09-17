@@ -11,6 +11,7 @@
 
 import { readFileSync } from "node:fs";
 import { PLAN_REMINDER_TEMPLATE } from "../supabase/functions/_shared/whatsappPlanReminder.ts";
+import { OWNER_CONTENT_TEMPLATE } from "../supabase/functions/_shared/ownerContent.ts";
 
 const create = process.argv.includes("--create");
 const token = process.env.WHATSAPP_TOKEN;
@@ -160,7 +161,7 @@ try {
   if (inActions) console.log(`::add-mask::${waba}`);
 
   let problems = 0;
-  for (const template of [PLAN_REMINDER_TEMPLATE]) {
+  for (const template of [PLAN_REMINDER_TEMPLATE, OWNER_CONTENT_TEMPLATE]) {
     const listed = await call(
       `${waba}/message_templates?name=${encodeURIComponent(template.name)}&fields=name,language,status,category,rejected_reason&limit=50`,
     );

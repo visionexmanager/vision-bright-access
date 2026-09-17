@@ -6,6 +6,8 @@
 // stop — it is never interpreted as a command, and no command is ever executed
 // on the strength of message text alone.
 
+import { CONTENT_HELP_LINES } from "./ownerContent.ts";
+
 export type OwnerCommandKind =
   | "approve"
   | "reject"
@@ -231,6 +233,7 @@ export function formatOwnerHelp(): string {
     "/info — ask the AI for more detail",
     "/pending — list what is waiting for you",
     "/help — this list",
+    ...CONTENT_HELP_LINES,
   ].join("\n");
 }
 
