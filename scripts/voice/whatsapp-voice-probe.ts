@@ -79,6 +79,8 @@ for (const sample of SAMPLES) {
     check("transcribed back", false, heard.reason);
   } else {
     const text = heard.text.toLowerCase();
+    // Safe to print: it is the transcript of this file's own fixed sentence.
+    say(`heard (${heard.provider}): ${heard.text.trim()}`);
     const letters = text.replace(/[\s\p{P}\d]/gu, "").length || 1;
     const inScript = (text.match(sample.script) ?? []).length / letters;
     check("heard in the same language", inScript > 0.8, `${Math.round(inScript * 100)}% in the expected script`);
