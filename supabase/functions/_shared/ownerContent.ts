@@ -302,9 +302,9 @@ export interface Brief {
 }
 
 /** Sections with published material to draw on, in rotation order. */
-const DAILY_SECTIONS: ContentSection[] = [
+export const DAILY_SECTIONS: ContentSection[] = [
   "academy_courses", "products", "services", "kids_games", "content_items",
-  "simulations", "tv_channels", "radio_stations", "communities",
+  "simulations", "tv_channels", "radio_stations", "communities", "events", "jobs",
 ];
 const DAILY_SLOTS: Array<Pick<Brief, "platform" | "contentType">> = [
   { platform: "instagram", contentType: "reel" },
@@ -317,12 +317,19 @@ const DAILY_SLOTS: Array<Pick<Brief, "platform" | "contentType">> = [
  * What to propose on a given day: `count` briefs, rotating through the
  * sections and the two platforms Visionex has accounts on, so no two days
  * look the same and no section is drafted twice in a row.
+ *
+ * `available` narrows the rotation to sections that actually have indexed
+ * material; drafting from an empty section can only be refused.
  */
-export function dailyBriefs(date: Date, count = 2): Brief[] {
+export function dailyBriefs(date: Date, count = 2, available?: readonly ContentSection[]): Brief[] {
+  const sections = available && available.length > 0
+    ? DAILY_SECTIONS.filter((section) => available.includes(section))
+    : DAILY_SECTIONS;
+  const pool = sections.length > 0 ? sections : DAILY_SECTIONS;
   const day = Math.floor(date.getTime() / 86_400_000);
   const briefs: Brief[] = [];
-  for (let i = 0; i < count; i++) {
-    const section = DAILY_SECTIONS[(day * 2 + i) % DAILY_SECTIONS.length];
+  for (let i = 0; i < Math.min(count, pool.length); i++) {
+    const section = pool[(day * 2 + i) % pool.length];
     const slot = DAILY_SLOTS[(day + i) % DAILY_SLOTS.length];
     briefs.push({ section, platform: slot.platform, contentType: slot.contentType });
   }
