@@ -153,7 +153,7 @@ describe("nothing found is never the whole answer", () => {
     expect(directive).toContain("braille display");
     expect(directive).toMatch(/estimate/);
     expect(directive).toMatch(/never claim Visionex has it in stock/i);
-    expect(directive).toMatch(/never name a store or supplier/i);
+    expect(directive).toMatch(/never write links yourself/i);
     expect(directive).toContain("I want to speak to a person");
   });
 

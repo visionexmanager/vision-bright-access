@@ -162,6 +162,7 @@ import {
   formatSourcedOffers,
   readSourcedOffers,
   productNotFoundDirective,
+  storeSearchLinks,
 } from "../_shared/whatsappSourcing.ts";
 import { handleSourceProducts } from "../_shared/sourcing/handler.ts";
 import {
@@ -5170,6 +5171,9 @@ Deno.serve(async (req) => {
               // that the Visionex team can source it.
               log("sourcing", { outcome: offers === null ? "unreachable" : "empty" });
               productNotFound = bazaarRequest.terms.join(" ");
+              // The big stores first — a real place to look right now — then
+              // the assistant's explanation of the item.
+              await reply(storeSearchLinks(productNotFound, answerLanguage), "reply");
               bazaarFellThrough = true;
             }
           } else {
