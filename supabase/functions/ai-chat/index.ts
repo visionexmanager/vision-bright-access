@@ -9,6 +9,7 @@ import {
 } from "../_shared/aiProvider.ts";
 import { assistantTargets } from "../_shared/assistants.ts";
 import { boundMessages, callerAddress, callerHash, type ChatTurn } from "./limits.ts";
+import { sanitizeContext, UNTRUSTED_CONTEXT_RULES, untrustedContextBlock } from "./context.ts";
 
 type UserMemory = {
   memory_enabled?: boolean;
@@ -280,7 +281,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { messages: rawMessages, context = {}, assistantId } = await req.json();
+    const body = await req.json();
+    const rawMessages = body?.messages;
+    const assistantId: string | undefined = typeof body?.assistantId === "string" ? body.assistantId : undefined;
+    // Validated and capped once; see context.ts for why none of it is trusted.
+    const context = sanitizeContext(body?.context);
 
     // Grading carries no conversation, so it is checked before the rule that
     // there must be one. Requiring a placeholder message would be a shape the
@@ -520,15 +525,14 @@ VOICE RULES (mandatory — you are speaking, not writing):
 - Zero bullet points, headers, or markdown.
 - Be warm and conversational, like a helpful human friend.
 - Respond in the same language the user speaks.`;
-      if (context?.language) {
+      if (context.language) {
         systemPrompt += `\nUser's language: ${context.language}. Reply in that language.`;
       }
-      if (context?.pageContext) {
-        systemPrompt += `\nCurrent page context: ${JSON.stringify(context.pageContext)}`;
-      }
-      if (Array.isArray(context?.companionMemory) && context.companionMemory.length > 0) {
-        systemPrompt += `\nRelevant saved user preferences: ${context.companionMemory.join("; ")}`;
-      }
+      systemPrompt += untrustedContextBlock({
+        currentPage: context.currentPage,
+        pageContext: context.pageContext,
+        savedPreferences: context.companionMemory,
+      });
     } else {
       // Default Visionex assistant + Business Simulation mentor mode
       const isSimulation = context?.productName?.startsWith("Business Simulation:");
@@ -538,15 +542,13 @@ VOICE RULES (mandatory — you are speaking, not writing):
           { provider: "mistral", model: "mistral-small-latest" },
           { provider: "openai", model: "gpt-4.1" },
         ];
-        const simName = context.productName.replace("Business Simulation:", "").trim();
-        const stepInfo = context.currentStep ? `\nCurrent step / stage: ${context.currentStep}` : "";
+        const simName = (context.productName ?? "").replace("Business Simulation:", "").trim();
         systemPrompt = `You are a Business Mentor AI on the Visionex platform, specializing in guiding users through interactive business simulations.
 
 ## Your Role
-Help the user learn real-world business skills through the "${simName}" simulation. You are their personal mentor — knowledgeable, encouraging, and practical.
+Help the user learn real-world business skills through the simulation named in the context below. You are their personal mentor — knowledgeable, encouraging, and practical.
 
-## Simulation Context
-Simulation: ${simName}${stepInfo}
+## Simulation Context${untrustedContextBlock({ simulation: simName, currentStep: context.currentStep })}
 
 ## What You Do
 - Explain business concepts in simple, clear terms relevant to this simulation
@@ -563,35 +565,33 @@ Simulation: ${simName}${stepInfo}
 - Respond in the same language the user writes in
 - Keep responses concise (2–4 sentences for hints, longer for concept explanations)`;
       } else {
-        if (context?.currentPage) {
-          systemPrompt += `\n\n## Current Context\nThe user is currently on: ${context.currentPage}`;
-        }
-        if (context?.pageContext) {
-          systemPrompt += `\n\n## Live Page Context\n${JSON.stringify(context.pageContext, null, 2)}`;
-        }
-        if (Array.isArray(context?.companionMemory) && context.companionMemory.length > 0) {
-          systemPrompt += `\n\n## User-Approved Memory\nUse these saved preferences only when relevant:\n- ${context.companionMemory.join("\n- ")}`;
-        }
-        if (Array.isArray(context?.companionCapabilities) && context.companionCapabilities.length > 0) {
+        // Capabilities and intent are validated against fixed lists, so they
+        // may be stated plainly. Everything else is data, in one block.
+        if (context.companionCapabilities?.length) {
           systemPrompt += `\n\n## Companion Capabilities\nThe client can support: ${context.companionCapabilities.join(", ")}. If the user asks for navigation or saved preferences, acknowledge the action naturally.`;
         }
-        if (context?.toolIntent) {
+        if (context.toolIntent) {
           systemPrompt += `\n\n## Tool Intent\nThe client detected this intent: ${context.toolIntent}`;
         }
-        if (Array.isArray(context?.productMatches) && context.productMatches.length > 0) {
-          systemPrompt += `\n\n## Known Product Matches\nUse these known Visionex products before giving general recommendations:\n${JSON.stringify(context.productMatches, null, 2)}`;
-        }
-        if (context?.productName) {
-          systemPrompt += `\nThey are viewing the product: ${context.productName}`;
+        if (context.currentPage || context.pageContext || context.companionMemory || context.productMatches || context.productName) {
+          systemPrompt += `\n\n## Current Context\nWhere the user is, what they saved as preferences (use only when relevant), and known Visionex products to prefer over general recommendations:`;
+          systemPrompt += untrustedContextBlock({
+            currentPage: context.currentPage,
+            pageContext: context.pageContext,
+            savedPreferences: context.companionMemory,
+            knownProductMatches: context.productMatches,
+            viewingProduct: context.productName,
+          });
         }
       }
-      if (context?.language) {
+      if (context.language) {
         systemPrompt += `\nUser's preferred language: ${context.language}. Respond in this language.`;
       }
     }
 
     // ── Stream via the unified provider layer ──────────────────────────
     systemPrompt += buildMemoryPrompt(userMemory);
+    systemPrompt += UNTRUSTED_CONTEXT_RULES;
 
     const cleanMessages = messages;
 
@@ -632,9 +632,10 @@ Simulation: ${simName}${stepInfo}
       throw e;
     }
   } catch (e) {
-    console.error("ai-chat error:", e);
+    // The detail goes to the log; the caller gets a sentence, not internals.
+    console.error("ai-chat error:", e instanceof Error ? e.message : String(e));
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      JSON.stringify({ error: "Something went wrong. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

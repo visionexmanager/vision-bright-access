@@ -15,6 +15,7 @@
 //   WHATSAPP_PHONE_NUMBER_ID- the Cloud API phone number id
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import {
   createEmbedding,
@@ -810,6 +811,7 @@ Deno.serve(async (req) => {
     if (verifyToken && mode === "subscribe" && token === verifyToken && challenge) {
       return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain" } });
     }
+    await recordSecurityEvent(service(), req, "webhook.verify_failed", "whatsapp-webhook");
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -830,6 +832,7 @@ Deno.serve(async (req) => {
   const signed = await verifySignature(rawBody, req.headers.get("x-hub-signature-256"), appSecret);
   if (!signed) {
     console.error("[whatsapp] signature verification failed.");
+    await recordSecurityEvent(service(), req, "webhook.signature_failed", "whatsapp-webhook");
     return new Response("Forbidden", { status: 403 });
   }
 

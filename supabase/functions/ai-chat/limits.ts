@@ -47,28 +47,5 @@ export function boundMessages(input: unknown): BoundResult {
   return { ok: true, messages: kept };
 }
 
-/**
- * The client address as the platform reports it. Cloudflare's header is set by
- * the edge and cannot be supplied by the caller; x-forwarded-for can be
- * prefixed by one, which is why the platform-wide ceiling exists as well.
- */
-export function callerAddress(headers: Headers): string {
-  const direct = headers.get("cf-connecting-ip") ?? headers.get("x-real-ip");
-  if (direct?.trim()) return direct.trim();
-  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || "unknown";
-}
-
-/** A keyed hash of the address. The address itself is never stored. */
-export async function callerHash(address: string, key: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(key),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(`ai-anon:${address}`));
-  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
+// One implementation for every function that meters callers.
+export { callerAddress, callerHash } from "../_shared/securityGuard.ts";

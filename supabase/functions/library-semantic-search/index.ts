@@ -19,6 +19,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createEmbedding } from "../_shared/aiProvider.ts";
+import { allowCaller } from "../_shared/securityGuard.ts";
 
 function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), {
@@ -44,13 +45,19 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Invalid JSON body" }, 400, cors);
   }
 
-  const query = (body.query ?? "").trim();
+  const query = typeof body.query === "string" ? body.query.trim() : "";
   if (!query) return json({ error: "query is required" }, 400, cors);
-  const limit = Math.min(Math.max(body.limit ?? 20, 1), 50);
+  const limit = Math.min(Math.max(Math.trunc(Number(body.limit ?? 20)) || 20, 1), 50);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const client = createClient(supabaseUrl, anonKey);
+
+  // Every search is a paid embedding call, and this endpoint needs no account.
+  const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  if (!(await allowCaller(service, req, "library-semantic-search"))) {
+    return json({ error: "Too many searches from this connection today. Please try again later." }, 429, cors);
+  }
 
   try {
     const [embedding] = await createEmbedding([query.slice(0, 2000)]);
@@ -65,6 +72,6 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("library-semantic-search error:", msg);
-    return json({ error: msg }, 500, cors);
+    return json({ error: "Search is unavailable right now." }, 500, cors);
   }
 });
