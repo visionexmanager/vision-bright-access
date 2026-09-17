@@ -685,6 +685,8 @@ const BASE_STRINGS = {
   mediaMoreOnYoutube: { ar: "المزيد على YouTube", en: "More on YouTube" },
   mediaAsk: { ar: "شو بدك تشوف أو تسمع؟ اكتب مثلاً: فيديو طبخ، أو بودكاست تاريخ، أو كتاب صوتي الأمير الصغير", en: "What would you like to watch or hear? For example: video cooking, podcast history, audiobook The Little Prince" },
   booksFromArchive: { ar: "مجاني كاملاً من أرشيف الإنترنت", en: "Free in full from the Internet Archive" },
+  storesHeading: { ar: "🛒 «{query}» في المتاجر الكبرى:", en: "🛒 “{query}” in the big stores:" },
+  storesHint: { ar: "إذا بدك Visionex يأمّنه لك ويوصله، اكتب «بدي أحكي مع موظف».", en: "If you'd like Visionex to get it for you, write “I want to speak to a person”." },
 
   whereHeading: { ar: "*أنت هنا*", en: "*You are here*" },
   whereUnknown: {
