@@ -4,8 +4,13 @@
  * Periodically validates the availability of every active stream source.
  * Updates the `tv_stream_sources.reliability` score and `last_checked_at`.
  *
- * Trigger: call on a schedule (e.g. every 5 minutes via cron or Supabase pg_cron).
- * Also accepts POST with { channelId } to validate a specific channel on demand.
+ * Trigger: tv-stream-health-cron.yml and the Deploy workflow, with
+ * `Authorization: Bearer <CRON_SECRET>`. Also accepts POST with { channelId }
+ * to validate one channel on demand.
+ *
+ * Only those callers: each call makes up to 50 outbound requests and can
+ * disable sources, so a stranger calling it in a loop could spend the
+ * function's quota and knock channels offline on transient errors.
  *
  * Validation logic:
  *  1. Fetch top N active stream sources ordered by priority
@@ -19,6 +24,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { bearerMatches, recordSecurityEvent } from "../_shared/securityGuard.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin":  "*",
@@ -83,12 +89,24 @@ Deno.serve(async (req: Request) => {
     { auth: { persistSession: false } }
   );
 
+  // Fails closed: with no secret configured, nobody may run the sweep.
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  if (!cronSecret) {
+    return Response.json({ error: "not_configured" }, { status: 503, headers: CORS });
+  }
+  if (!bearerMatches(req.headers.get("Authorization"), cronSecret)) {
+    await recordSecurityEvent(supabase, req, "auth.cron_secret_failed", "tv-validate-stream");
+    return Response.json({ error: "unauthorized" }, { status: 401, headers: CORS });
+  }
+
   // Optional: validate a specific channel on demand
   let channelFilter: string | null = null;
   if (req.method === "POST") {
     try {
       const body = await req.json() as { channelId?: string };
-      channelFilter = body.channelId ?? null;
+      channelFilter = typeof body.channelId === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(body.channelId)
+        ? body.channelId
+        : null;
     } catch { /* ignore */ }
   }
 
