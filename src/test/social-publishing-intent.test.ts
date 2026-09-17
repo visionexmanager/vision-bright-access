@@ -1252,7 +1252,17 @@ describe("the publishing surface is exactly one worker", () => {
     // renaming it out of the pattern would have passed this test while leaving
     // the real invariant unguarded.
     expect(workflows.filter((f) => /publish|social|reap/i.test(f)).sort())
-      .toEqual(["social-publish-cron.yml", "social-publish-inspect.yml"]);
+      .toEqual(["social-accounts-check.yml", "social-publish-cron.yml", "social-publish-inspect.yml"]);
+
+    const check = readFileSync(".github/workflows/social-accounts-check.yml", "utf8");
+    // The token check only reads: every request is a GET, none reaches a
+    // publishing endpoint or the worker, and it never runs on its own.
+    const curls = check.match(/curl [^\n]*/g) ?? [];
+    expect(curls.length).toBeGreaterThan(0);
+    for (const call of curls) expect(call, "the token check must only GET").toMatch(/curl -s -G /);
+    expect(check).not.toMatch(/-X\s*(POST|DELETE)|--data(?!-urlencode)|\/feed\b|\/photos\b|media_publish|\/media\b|threads_publish/);
+    expect(check).not.toMatch(/functions\/v1\/social-publish/);
+    expect(check).not.toMatch(/^\s*schedule:/m);
 
     const inspect = readFileSync(".github/workflows/social-publish-inspect.yml", "utf8");
     // It cannot reach the worker, so it cannot cause a publish indirectly.
