@@ -23769,6 +23769,7 @@ export type Database = {
         Args: { _points: number; _reason: string; _user_id: string }
         Returns: undefined
       }
+      ai_learning_dashboard: { Args: { _days?: number }; Returns: Json }
       ams_log_activity: {
         Args: {
           p_action: string
@@ -25374,6 +25375,19 @@ export type Database = {
       }
       recompute_kids_story_count: {
         Args: { _column: string; _story_id: string }
+        Returns: undefined
+      }
+      record_ai_signal: {
+        Args: {
+          _assistant_id?: string
+          _channel?: string
+          _latency_ms?: number
+          _model?: string
+          _note?: string
+          _provider?: string
+          _question?: string
+          _signal: string
+        }
         Returns: undefined
       }
       record_career_login_attempt: {

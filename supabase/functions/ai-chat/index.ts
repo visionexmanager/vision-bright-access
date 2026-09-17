@@ -607,16 +607,35 @@ Help the user learn real-world business skills through the simulation named in t
       if (memoryError) console.error("ai memory upsert error:", memoryError.message);
     }
 
+    // A quality signal, never the conversation: record_ai_signal keeps a
+    // salted fingerprint of the question and a redacted excerpt at most.
+    const lastQuestion = [...cleanMessages].reverse().find((m) => m.role === "user")?.content;
+    const signal = (kind: "fallback" | "failed_request", provider?: string, model?: string) =>
+      serviceClient.rpc("record_ai_signal", {
+        _signal: kind,
+        _channel: context.voiceMode ? "voice" : "website",
+        _assistant_id: assistantId ?? "visionex",
+        _question: typeof lastQuestion === "string" ? lastQuestion.slice(0, 500) : null,
+        _provider: provider ?? null,
+        _model: model ?? null,
+      }).then(({ error }) => {
+        if (error) console.error("[ai-chat] signal not recorded:", error.message);
+      });
+
     try {
-      const { result: stream } = await streamChatCompletionWithFallback({
+      const { result: stream, provider, model } = await streamChatCompletionWithFallback({
         targets,
         system: systemPrompt,
         messages: cleanMessages,
       });
+      if (provider !== targets[0].provider || model !== targets[0].model) {
+        void signal("fallback", targets[0].provider, targets[0].model);
+      }
       return new Response(stream, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
     } catch (e) {
+      await signal("failed_request", targets[0]?.provider, targets[0]?.model);
       if (e instanceof ProviderError) {
         if (e.status === 429) {
           return new Response(
