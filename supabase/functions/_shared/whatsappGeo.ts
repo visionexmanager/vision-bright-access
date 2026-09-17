@@ -439,12 +439,29 @@ function toNearbyPlace(
  * `out center` gives a way its centroid, so the arithmetic downstream — bearing
  * and distance — never has to know the difference.
  */
+/**
+ * Somewhere else to send an Overpass query from.
+ *
+ * overpass-api.de answers 406 to Supabase's network, so the webhook hands in a
+ * relay through Visionex's own server. It lives outside this module so this
+ * module stays keyless: without a relay, or when it fails, Overpass is asked
+ * directly, as it always was.
+ */
+export type OverpassRelay = (query: string) => Promise<OverpassElement[] | null>;
+
+type OverpassElement = {
+  lat?: number; lon?: number;
+  center?: { lat?: number; lon?: number };
+  tags?: Record<string, string>;
+};
+
 async function nearbyViaOverpass(
   latitude: number,
   longitude: number,
   language: Language,
   category: string | null,
   radiusM: number = NEARBY_RADIUS_M,
+  relay?: OverpassRelay,
 ): Promise<NearbyPlace[] | null> {
   const around = `${radiusM},${latitude},${longitude}`;
   // Asked of the map rather than filtered afterwards. Somebody who typed
@@ -477,36 +494,35 @@ async function nearbyViaOverpass(
   const fetchLimit = category ? NEARBY_LIMIT * 6 : NEARBY_LIMIT * 25;
   const query = `[out:json][timeout:8];(${parts.join("")});out center ${fetchLimit};`;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS);
-  let data: {
-    elements?: Array<{
-      lat?: number; lon?: number;
-      center?: { lat?: number; lon?: number };
-      tags?: Record<string, string>;
-    }>;
-  } | null = null;
-  try {
-    const response = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "User-Agent": USER_AGENT, "Content-Type": "application/x-www-form-urlencoded" },
-      body: `data=${encodeURIComponent(query)}`,
-    });
-    if (!response.ok) {
-      // 429 and 504 are what a volunteer cluster says when it is busy, and this
-      // channel reaches it from a shared datacenter address. That is the
-      // ordinary case rather than an incident, which is why there is a second
-      // route below instead of a sentence apologising to the sender.
-      console.error(`[whatsapp-geo] overpass responded ${response.status}`);
+  let data: { elements?: OverpassElement[] } | null = null;
+  const relayed = relay ? await relay(query).catch(() => null) : null;
+  if (relayed) data = { elements: relayed };
+
+  if (!data) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS);
+    try {
+      const response = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "User-Agent": USER_AGENT, "Content-Type": "application/x-www-form-urlencoded" },
+        body: `data=${encodeURIComponent(query)}`,
+      });
+      if (!response.ok) {
+        // 429 and 504 are what a volunteer cluster says when it is busy, and this
+        // channel reaches it from a shared datacenter address. That is the
+        // ordinary case rather than an incident, which is why there is a second
+        // route below instead of a sentence apologising to the sender.
+        console.error(`[whatsapp-geo] overpass responded ${response.status}`);
+        return null;
+      }
+      data = await response.json();
+    } catch (e) {
+      console.error(`[whatsapp-geo] overpass failed: ${describeError(e)}`);
       return null;
+    } finally {
+      clearTimeout(timer);
     }
-    data = await response.json();
-  } catch (e) {
-    console.error(`[whatsapp-geo] overpass failed: ${describeError(e)}`);
-    return null;
-  } finally {
-    clearTimeout(timer);
   }
 
   const places: NearbyPlace[] = [];
@@ -657,10 +673,11 @@ export async function fetchNearby(
   longitude: number,
   language: Language,
   category: string | null = null,
+  options: { relay?: OverpassRelay } = {},
 ): Promise<NearbyPlace[] | null> {
   const origin = { latitude, longitude };
   const [overpass, photon] = await Promise.all([
-    nearbyViaOverpass(latitude, longitude, language, category),
+    nearbyViaOverpass(latitude, longitude, language, category, NEARBY_RADIUS_M, options.relay),
     nearbyViaPhoton(latitude, longitude, language, category),
   ]);
   let answered = overpass !== null || photon !== null;
@@ -682,7 +699,7 @@ export async function fetchNearby(
   // not: "what is around me" means around me.
   if (category) {
     const [widerOverpass, widerPhoton] = await Promise.all([
-      nearbyViaOverpass(latitude, longitude, language, category, SEARCH_RADIUS_M),
+      nearbyViaOverpass(latitude, longitude, language, category, SEARCH_RADIUS_M, options.relay),
       nearbyViaPhoton(latitude, longitude, language, category, SEARCH_RADIUS_M),
     ]);
     answered = answered || widerOverpass !== null || widerPhoton !== null;

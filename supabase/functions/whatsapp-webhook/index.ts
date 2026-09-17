@@ -401,7 +401,7 @@ import { messageKindFor, runMediaJob, runTranslateJob } from "../_shared/whatsap
 import { extractDocumentText } from "../_shared/whatsappDocumentText.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { readOfficeLocally } from "../_shared/whatsappOffice.ts";
-import { convertMediaLocally } from "../_shared/whatsappProcessor.ts";
+import { convertMediaLocally, overpassViaProcessor } from "../_shared/whatsappProcessor.ts";
 
 // The Supabase edge runtime keeps a promise alive past the response. Declared
 // rather than imported because it is a global the runtime provides and the
@@ -4298,6 +4298,8 @@ Deno.serve(async (req) => {
               rememberedLocation.longitude,
               answerLanguage,
               nearbyCategory,
+              // Overpass refuses Supabase's network; Visionex's server asks for us.
+              { relay: (query) => overpassViaProcessor(query) },
             ),
           );
         // `null` is a failed lookup; `[]` is a genuinely unmapped area. Telling
