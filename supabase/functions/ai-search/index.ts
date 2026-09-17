@@ -3,6 +3,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { createEmbedding, ProviderError } from "../_shared/aiProvider.ts";
 import { handleSourceProducts } from "../_shared/sourcing/handler.ts";
 import { allowCaller } from "../_shared/securityGuard.ts";
+import { catalogServicesByStoredId } from "../_shared/contentIndex.ts";
 import servicesCatalog from "../_shared/data/servicesCatalog.json" with { type: "json" };
 
 // Columns returned for each source table.
@@ -114,8 +115,11 @@ Deno.serve(async (req) => {
     for (const [table, ids] of Object.entries(byTable)) {
       // Services come from the catalogue snapshot; everything else is a table.
       if (table === SERVICES_SOURCE) {
+        // Stored under a uuid derived from the slug; see serviceSourceId.
+        const byStoredId = await catalogServicesByStoredId();
         for (const id of ids) {
-          const entry = SERVICES_BY_ID.get(id);
+          const stored = byStoredId.get(id);
+          const entry = SERVICES_BY_ID.get(stored?.id ?? id);
           if (entry) rowsById[`${SERVICES_SOURCE}:${id}`] = entry as unknown as Record<string, unknown>;
         }
         continue;

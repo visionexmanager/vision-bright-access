@@ -113,6 +113,32 @@ export const SOURCES: Record<string, SourceConfig> = {
 
 const BATCH = 50;
 
+/**
+ * The id a catalogue service is stored under.
+ *
+ * `ai_embeddings.source_id` is a uuid and catalogue ids are slugs
+ * ("egg-incubator"), so every services upsert used to fail and the catalogue
+ * was never searchable. A slug is turned into a stable name-based uuid
+ * (SHA-256, version 5 layout) instead; the slug itself travels in `content`.
+ */
+export async function serviceSourceId(slug: string): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`visionex:services:${slug}`)));
+  const bytes = digest.slice(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** Catalogue services by their stored id, for turning a match back into a service. */
+let servicesByStoredId: Promise<Map<string, IndexedService>> | null = null;
+export function catalogServicesByStoredId(): Promise<Map<string, IndexedService>> {
+  servicesByStoredId ??= Promise.all(
+    (servicesCatalog as IndexedService[]).map(async (s) => [await serviceSourceId(s.id), s] as const),
+  ).then((pairs) => new Map(pairs));
+  return servicesByStoredId;
+}
+
 /** Every source name the index knows. */
 export const INDEX_SOURCES: string[] = [...Object.keys(SOURCES), SERVICES_SOURCE];
 
@@ -178,10 +204,11 @@ export async function indexSources(
     for (let i = 0; i < services.length; i += BATCH) {
       const chunk = services.slice(i, i + BATCH);
       const vectors = await createEmbedding(chunk.map((s) => s.text.slice(0, 6000)));
+      const ids = await Promise.all(chunk.map((s) => serviceSourceId(s.id)));
       const { error: upErr } = await service.from("ai_embeddings").upsert(
         chunk.map((s, j) => ({
           source_table: SERVICES_SOURCE,
-          source_id: s.id,
+          source_id: ids[j],
           content: s.text,
           embedding: vectors[j],
           updated_at: new Date().toISOString(),
