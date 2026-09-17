@@ -553,7 +553,7 @@ describe("nothing regressed and nothing was duplicated", () => {
   it("30. leaves every existing feature reachable", () => {
     for (const surface of [
       "hub.verify_token", "x-hub-signature-256", "dupe.code", "rateLimitDecision(",
-      "parseWeatherRequest(", "parseVisionMode(", "asksWhereAmI(", "asksWhatIsNearby(",
+      "parseWeatherRequest(", "parseVisionMode(", "asksWhereAmI(", "parseNearbyRequest(", "parseBookRequest(",
       "parseBazaarRequest(", "quickCategory(", "shouldEscalate(", "understandImage(",
       "understandDocument(", "understandVideo(", "handleOwnerCommand(",
     ]) {

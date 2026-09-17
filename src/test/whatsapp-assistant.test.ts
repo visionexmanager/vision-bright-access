@@ -2589,14 +2589,14 @@ describe("announcing what the assistant can do", () => {
     // -1 for a call that is not in the file, and -1 is less than everything, so
     // an ordering check on a deleted call would pass while proving nothing.
     for (const call of [
-      "asksWhatIsNearby(questionText)",
+      "parseNearbyRequest(questionText, answerLanguage)",
       "parseWeatherRequest(questionText)",
       "parseVisionMode(questionText)",
       "parseBazaarRequest(questionText)",
     ]) {
       expect(webhook, call).toContain(call);
     }
-    expect(webhook.indexOf("asksWhatIsNearby(questionText)"))
+    expect(webhook.indexOf("parseNearbyRequest(questionText, answerLanguage)"))
       .toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));
     expect(webhook.indexOf("parseWeatherRequest(questionText)"))
       .toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));
@@ -2612,7 +2612,7 @@ describe("announcing what the assistant can do", () => {
     const afterTranscription = webhook.slice(webhook.indexOf("transcribeVoice"));
     for (const call of [
       "asksWhereAmI(questionText)",
-      "asksWhatIsNearby(questionText)",
+      "parseNearbyRequest(questionText, answerLanguage)",
       "parseWeatherRequest(questionText)",
       "parseBazaarRequest(questionText)",
     ]) {

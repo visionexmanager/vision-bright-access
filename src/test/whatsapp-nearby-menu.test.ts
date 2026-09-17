@@ -21,6 +21,7 @@ import {
   NEARBY_CATEGORIES,
   nearbyRowSubtitle,
   parseNearbyCategory,
+  parseNearbyRequest,
   parsePlaceSelection,
   placeRowId,
 } from "../../supabase/functions/_shared/whatsappLocation.ts";
@@ -243,8 +244,11 @@ describe("the webhook finishes what it started", () => {
   );
 
   it("answers a bare category as a nearby request", () => {
-    expect(nearbyBranch).toContain("parseNearbyCategory(questionText, answerLanguage)");
-    expect(nearbyBranch).toContain("const asksNearby = nearbyCategory !== null");
+    // A bare category is read inside `parseNearbyRequest`, which calls
+    // `parseNearbyCategory` first; the branch asks only whether there is a request.
+    expect(nearbyBranch).toContain("parseNearbyRequest(questionText, answerLanguage)");
+    expect(nearbyBranch).toContain("const asksNearby = nearbyRequest !== null");
+    expect(parseNearbyRequest("صيدلية", "ar")).toEqual({ category: "pharmacy", query: null });
   });
 
   it("sends the places as rows and not only as bullets", () => {

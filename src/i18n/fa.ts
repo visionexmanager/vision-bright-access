@@ -599,6 +599,8 @@ export const translations: Record<string, string> = {
   "aiResults.loading": "در حال جستجو…",
   "aiResults.announce": "{total} نتیجه: {new} مورد جدید، {used} مورد کارکرده.",
   "aiResults.empty": "نتیجه‌ای مطابق یافت نشد.",
+  "aiResults.emptySourcing": "این مورد هنوز در Visionex موجود نیست. تیم ما می‌تواند برای تهیه‌اش تلاش کند — تا تأیید شما چیزی سفارش داده نمی‌شود.",
+  "aiResults.requestThis": "از تیم بخواهید پیدایش کند",
   "ai.clearChat": "پاک کردن گفتگو",
   "ai.placeholder": "هر چیزی از من بپرس…",
   "ai.send": "ارسال پیام",
