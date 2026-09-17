@@ -818,6 +818,19 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     accepts: ["text"],
   },
   {
+    id: "services.media",
+    parent: "listen",
+    order: 5,
+    kind: "action",
+    enabled: true,
+    title: { ar: "فيديو وبودكاست", en: "Videos & podcasts" },
+    description: { ar: "فيديوهات وبودكاست وكتب صوتية من مصادر مفتوحة", en: "Videos, podcasts and audiobooks from open sources" },
+    aliases: { ar: ["فيديو", "بودكاست", "كتاب صوتي"], en: ["video", "podcast", "audiobook"] },
+    // Tapped, the phrase is the word alone, which is answered by asking what to find.
+    phrase: { ar: "فيديو", en: "video" },
+    accepts: ["text"],
+  },
+  {
     id: "services.books",
     parent: "bazaar",
     order: 5,

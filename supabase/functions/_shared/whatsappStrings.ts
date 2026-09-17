@@ -678,6 +678,13 @@ const BASE_STRINGS = {
   booksBorrow: { ar: "مجاني للاستعارة أونلاين", en: "Free to borrow online" },
   booksAsk: { ar: "أي كتاب تبحث عنه؟ اكتب «كتاب» ثم العنوان أو اسم المؤلف، مثلاً: كتاب الأمير الصغير", en: "Which book are you looking for? Write “book” and then the title or author, for example: book The Little Prince" },
   booksUnavailable: { ar: "لم أتمكن من الوصول إلى فهارس الكتب الآن. جرّب بعد دقيقة.", en: "I couldn't reach the book catalogues just now. Please try again in a minute." },
+  mediaVideoHeading: { ar: "فيديوهات عن «{query}»:", en: "Videos about “{query}”:" },
+  mediaPodcastHeading: { ar: "بودكاست عن «{query}»:", en: "Podcasts about “{query}”:" },
+  mediaAudiobookHeading: { ar: "كتب صوتية لـ «{query}»:", en: "Audiobooks for “{query}”:" },
+  mediaFree: { ar: "مجاني", en: "free" },
+  mediaMoreOnYoutube: { ar: "المزيد على YouTube", en: "More on YouTube" },
+  mediaAsk: { ar: "شو بدك تشوف أو تسمع؟ اكتب مثلاً: فيديو طبخ، أو بودكاست تاريخ، أو كتاب صوتي الأمير الصغير", en: "What would you like to watch or hear? For example: video cooking, podcast history, audiobook The Little Prince" },
+  booksFromArchive: { ar: "مجاني كاملاً من أرشيف الإنترنت", en: "Free in full from the Internet Archive" },
 
   whereHeading: { ar: "*أنت هنا*", en: "*You are here*" },
   whereUnknown: {

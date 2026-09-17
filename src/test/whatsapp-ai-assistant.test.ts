@@ -151,8 +151,9 @@ describe("asking", () => {
       "asksNearby && !humanOwnsThis && !aiFocused",
       "weatherRequest && !humanOwnsThis && !aiFocused",
       "const visionRequest = aiFocused || !featureOn(\"ocr\") ? null : parseVisionMode(questionText);",
-      "const bazaarRequest = aiFocused || bookNotFound || !featureOn(\"services.bazaar\")",
-      "const bookRequest = aiFocused || humanOwnsThis || !featureOn(\"services.books\")",
+      "const bazaarRequest = aiFocused || bookNotFound || mediaNotFound || !featureOn(\"services.bazaar\")",
+      "const mediaRequest = aiFocused || humanOwnsThis || !featureOn(\"services.media\")",
+      "const bookRequest = aiFocused || humanOwnsThis || mediaNotFound || !featureOn(\"services.books\")",
     ]) {
       expect(webhook, gate).toContain(gate);
     }

@@ -298,8 +298,17 @@ import {
   type FoundBook,
   libraryBook,
   parseBookRequest,
+  searchArchiveTexts,
   searchOpenLibrary,
 } from "../_shared/whatsappBooks.ts";
+import {
+  formatMedia,
+  mediaAskNotice,
+  mediaNotFoundDirective,
+  type MediaKind,
+  parseMediaRequest,
+  searchMedia,
+} from "../_shared/whatsappFreeMedia.ts";
 import {
   type Capability,
   type CatalogNode,
@@ -4957,6 +4966,34 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── Videos, podcasts and audiobooks ──────────────────────────────────
+      //
+      // Open, keyless catalogues: Dailymotion and the Internet Archive for
+      // video, iTunes for podcasts, LibriVox and iTunes for audiobooks. A video
+      // answer always ends with a YouTube search, so it is never empty; a
+      // podcast or audiobook nobody lists goes to the assistant instead.
+      // Checked before books, because «كتاب صوتي» starts with «كتاب».
+      /** A podcast or audiobook no catalogue had; the assistant is told so. */
+      let mediaNotFound: { kind: MediaKind; query: string } | null = null;
+      const mediaRequest = aiFocused || humanOwnsThis || !featureOn("services.media")
+        ? null
+        : parseMediaRequest(questionText);
+      if (mediaRequest && !mediaRequest.query) {
+        await reply(mediaAskNotice(answerLanguage), "reply");
+        continue;
+      }
+      if (mediaRequest?.query) {
+        const request = { kind: mediaRequest.kind, query: mediaRequest.query };
+        const found = await searchMedia(request);
+        if (found.items.length > 0 || request.kind === "video") {
+          log("media", { kind: request.kind, outcome: found.unreachable ? "unreachable" : "listed", count: found.items.length });
+          await reply(formatMedia({ language: answerLanguage, request, items: found.items }), "reply");
+          continue;
+        }
+        log("media", { kind: request.kind, outcome: found.unreachable ? "unreachable" : "empty" });
+        mediaNotFound = request;
+      }
+
       // ── Books ────────────────────────────────────────────────────────────
       //
       // The Visionex library first, then Open Library — an open catalogue of
@@ -4967,7 +5004,7 @@ Deno.serve(async (req) => {
       let bookNotFound: string | null = null;
       /** A product neither the bazaar nor the catalogue had; likewise. */
       let productNotFound: string | null = null;
-      const bookRequest = aiFocused || humanOwnsThis || !featureOn("services.books")
+      const bookRequest = aiFocused || humanOwnsThis || mediaNotFound || !featureOn("services.books")
         ? null
         : parseBookRequest(questionText);
       if (bookRequest && !bookRequest.query) {
@@ -5013,20 +5050,21 @@ Deno.serve(async (req) => {
           console.error("[whatsapp] library lookup failed:", describeError(e));
         }
 
-        const outside = await searchOpenLibrary(query);
-        if (library.length > 0 || (outside?.length ?? 0) > 0) {
-          log("books", { outcome: library.length > 0 ? "library" : "outside", count: library.length + (outside?.length ?? 0) });
+        // Open Library for the catalogue, the Internet Archive for free full texts.
+        const [outside, archive] = await Promise.all([searchOpenLibrary(query), searchArchiveTexts(query)]);
+        if (library.length > 0 || (outside?.length ?? 0) > 0 || (archive?.length ?? 0) > 0) {
+          log("books", { outcome: library.length > 0 ? "library" : "outside", count: library.length + (outside?.length ?? 0) + (archive?.length ?? 0) });
           await reply(
-            formatBooks({ language: answerLanguage, query, library, outside: outside ?? [] }),
+            formatBooks({ language: answerLanguage, query, library, outside: outside ?? [], archive: archive ?? [] }),
             "reply",
           );
           continue;
         }
-        log("books", { outcome: outside === null ? "unreachable" : "empty" });
+        log("books", { outcome: outside === null && archive === null ? "unreachable" : "empty" });
         bookNotFound = query;
       }
 
-      const bazaarRequest = aiFocused || bookNotFound || !featureOn("services.bazaar")
+      const bazaarRequest = aiFocused || bookNotFound || mediaNotFound || !featureOn("services.bazaar")
         ? null
         : parseBazaarRequest(questionText);
       /**
@@ -5534,6 +5572,7 @@ Deno.serve(async (req) => {
             // What a search just failed to find, so the answer is about the
             // thing asked for rather than an apology for an empty list.
             bookNotFound ? bookNotFoundDirective(bookNotFound) : null,
+            mediaNotFound ? mediaNotFoundDirective(mediaNotFound) : null,
             productNotFound ? productNotFoundDirective(productNotFound) : null,
           ],
           summary,
