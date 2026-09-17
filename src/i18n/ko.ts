@@ -599,6 +599,8 @@ export const translations: Record<string, string> = {
   "aiResults.loading": "검색 중…",
   "aiResults.announce": "총 {total}개 결과: 신규 {new}, 중고 {used}.",
   "aiResults.empty": "일치하는 결과가 없습니다.",
+  "aiResults.emptySourcing": "아직 Visionex에 없는 상품이에요. 저희 팀이 구해 드릴 수 있어요. 확인하시기 전에는 주문되지 않습니다.",
+  "aiResults.requestThis": "팀에 찾아 달라고 요청",
   "ai.clearChat": "대화 내용 지우기",
   "ai.placeholder": "무엇이든 물어보세요…",
   "ai.send": "메시지 보내기",

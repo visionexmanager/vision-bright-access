@@ -206,3 +206,24 @@ export const sourcingNoneNotice = (language: Language): string =>
 /** The agent could not be reached. Distinct from "there is nothing". */
 export const sourcingUnavailableNotice = (language: Language): string =>
   say("sourcingUnavailable", language).replace("{url}", CATALOGUE_URL);
+
+/**
+ * For the assistant, when neither the bazaar nor the catalogue has the item.
+ *
+ * A bare "not found" left somebody who asked for a product with nothing to do.
+ * The assistant answers about the item instead — and because no Visionex
+ * listing exists, it may give a typical market price, as an estimate, which
+ * the general rule against quoting bazaar prices from memory would otherwise
+ * forbid. It never claims stock and never names a supplier: the owner sources
+ * items through the team, so the way forward it offers is that request.
+ */
+export function productNotFoundDirective(item: string): string {
+  const named = item.replace(/["\n]/g, " ").trim().slice(0, 120);
+  return [
+    `The sender is looking for this product: "${named}".`,
+    "Visionex has no listing for it in the bazaar or the catalogue right now; this was just checked.",
+    "Do not answer only that it was not found. Briefly say what the item is and what to look for when buying it, and give a typical market price range if you reliably know one, clearly marked as an approximate estimate, not a Visionex price.",
+    "Never claim Visionex has it in stock, never invent a link, and never name a store or supplier.",
+    "End by saying the Visionex team can try to source it for them: they only need to write «بدي أحكي مع موظف» (in Arabic) or \"I want to speak to a person\" and describe what they need.",
+  ].join(" ");
+}

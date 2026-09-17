@@ -403,6 +403,12 @@ export interface NearbyPlace {
   category: string;
   latitude: number;
   longitude: number;
+  /**
+   * What to call it, when the category is not one this module translates —
+   * the sender's own words from a free search ("toy shop"), which are always
+   * in their language.
+   */
+  label?: string;
 }
 
 /**
@@ -430,7 +436,39 @@ export const NEARBY_CATEGORIES: Record<string, UiKey> = {
   post_office: "catPostOffice",
   school: "catSchool",
   convenience: "catConvenience",
+  kindergarten: "catKindergarten",
+  university: "catUniversity",
+  college: "catCollege",
+  library: "catLibrary",
+  dentist: "catDentist",
+  veterinary: "catVeterinary",
+  parking: "catParking",
+  fast_food: "catFastFood",
+  marketplace: "catMarketplace",
+  bureau_de_change: "catExchange",
+  taxi: "catTaxi",
+  cinema: "catCinema",
+  fire_station: "catFireStation",
+  car_wash: "catCarWash",
+  mall: "catMall",
+  clothes: "catClothes",
+  mobile_phone: "catMobilePhone",
+  hairdresser: "catHairdresser",
+  car_repair: "catCarRepair",
+  books: "catBookshop",
+  optician: "catOptician",
+  laundry: "catLaundry",
+  hotel: "catHotel",
+  museum: "catMuseum",
+  park: "catPark",
+  fitness_centre: "catGym",
+  playground: "catPlayground",
 };
+
+/** A place's kind, in words: its own label when it has one, else its category. */
+export function placeKindLabel(place: NearbyPlace, language: Language): string {
+  return place.label?.trim() || categoryLabel(place.category, language);
+}
 
 export function categoryLabel(category: string, language: Language): string {
   const key = NEARBY_CATEGORIES[category];
@@ -493,7 +531,7 @@ export function formatNearby(params: {
     lines.push(
       say("nearbyLine", language)
         .replace("{name}", place.name)
-        .replace("{category}", categoryLabel(place.category, language))
+        .replace("{category}", placeKindLabel(place, language))
         .replace("{distance}", formatDistance(distanceMetres(origin, place), language))
         .replace("{direction}", bearingLabel(origin, place, language)),
     );
@@ -636,6 +674,99 @@ export function parseNearbyCategory(text: string, language: Language): string | 
   return null;
 }
 
+// ── Anything nearby, by name ─────────────────────────────────────────────────
+
+/**
+ * What a "near me" question is asking for.
+ *
+ * `category` is one this module can ask the map for precisely. `query` is the
+ * sender's own words for anything else — a university, a toy shop, a tailor —
+ * searched as written. Both null is a browse: "what is around me".
+ */
+export interface NearbyRequest {
+  category: string | null;
+  query: string | null;
+}
+
+// Arabic: the words around the thing. "وين أقرب جامعة", "في مدرسة قريبة مني؟",
+// "بدي فندق قريب", "دلني على أقرب مسجد".
+const AR_LEAD = /^(?:(?:وين|فين|أين|اين|شو|ايش|وش|هل|في|فيه|بدي|بدّي|ابغى|أبغى|ابي|أبي|أريد|اريد|عايز|عاوز|محتاج|دلني على|دلّني على|دورلي على|دوّرلي على|ابحث عن|ابحثلي عن|فتشلي عن|هات|اعطيني|أعطني)\s+)*/u;
+const AR_NEAREST = /^(?:أقرب|اقرب)\s+/u;
+const AR_TAIL = /(?:\s+(?:قريب|قريبة|قريبه|قريبين|بالقرب|جنبي|حدي|حدّي|حولي|حواليي|حوالي|هون|هنا|مني|منّي|من هون|من هنا|لعندي))+$/u;
+const AR_MARKER = /(?:أقرب|اقرب|قريب|قريبة|قريبه|قريبين|بالقرب|حولي|حواليي|جنبي)/u;
+
+// English: "nearest university", "is there a hotel near me", "gyms nearby".
+const EN_LEAD = /^(?:(?:where(?:'s| is| are)?|is there|are there|find(?: me)?|show me|any|i need|i want|looking for|take me to|get me)\s+)*(?:(?:a|an|the|some)\s+)?/i;
+const EN_NEAREST = /^(?:nearest|closest)\s+/i;
+const EN_TAIL = /(?:\s+(?:near me|nearby|near here|around me|around here|close to me|close by|in (?:my|the) area|near))+$/i;
+const EN_MARKER = /\b(?:nearest|closest|near me|nearby|near here|around me|around here|close to me|close by)\b/i;
+
+/**
+ * Words that follow "nearest" without naming a place: "أقرب طريقة", "the
+ * closest time". Those are questions for the assistant, not the map.
+ */
+const NOT_PLACES = new Set([
+  "طريقة", "طريقه", "وقت", "موعد", "حل", "شي", "شيء", "اشي", "إشي", "فرصة", "سعر", "رقم", "تاريخ",
+  "way", "time", "date", "thing", "solution", "answer", "price", "number", "option", "match",
+]);
+
+const MAX_SUBJECT_WORDS = 4;
+
+/** The thing asked for, with the proximity words around it removed. */
+function nearbySubject(text: string, language: Language): { marked: boolean; subject: string } {
+  let subject = text;
+  let marked = false;
+
+  if (AR_MARKER.test(subject)) {
+    marked = true;
+    subject = subject.replace(AR_TAIL, "").replace(AR_LEAD, "").replace(AR_NEAREST, "");
+    subject = subject.replace(AR_LEAD, "").replace(AR_NEAREST, "");
+  } else if (EN_MARKER.test(subject)) {
+    marked = true;
+    subject = subject.replace(EN_NEAREST, "").replace(EN_LEAD, "").replace(EN_NEAREST, "").replace(EN_TAIL, "");
+  } else if (language !== "ar" && language !== "en") {
+    for (const pattern of WHATS_NEARBY) {
+      if (pattern.test(subject)) {
+        marked = true;
+        subject = subject.replace(pattern, " ");
+      }
+    }
+  }
+  return { marked, subject: subject.replace(/\s+/gu, " ").trim() };
+}
+
+/**
+ * A "near me" question, read for what it asks for.
+ *
+ * Null when the message is not about somewhere nearby at all. A bare category
+ * word ("صيدلية") is still a request, as `parseNearbyCategory` has always
+ * treated it; anything else needs a proximity word, so "مدرسة ابني بعيدة" is
+ * left to the assistant.
+ */
+export function parseNearbyRequest(text: string, language: Language): NearbyRequest | null {
+  const trimmed = (text ?? "").trim().replace(TRAILING_PUNCTUATION, "");
+  if (!trimmed || trimmed.length > LOCATION_MAX_CHARS) return null;
+
+  const bare = parseNearbyCategory(trimmed, language);
+  if (bare) return { category: bare, query: null };
+
+  const { marked, subject } = nearbySubject(trimmed, language);
+  if (!marked) return null;
+  if (!subject) return { category: null, query: null };
+
+  const category = parseNearbyCategory(subject, language);
+  if (category) return { category, query: null };
+
+  const words = subject.split(" ");
+  const generic = /^(?:شو|ايش|وش|ماذا|ما|في|فيه|شو في|القريب|القريبة|الأماكن القريبة|حولي|حواليي|what'?s?|what is|what'?s there|anything|something|places?|أماكن|اماكن|مكان)$/iu;
+  if (generic.test(subject)) return { category: null, query: null };
+  // A long remainder is a sentence that happens to contain "nearest", and a
+  // "nearest way to …" is a question for the assistant, not for the map.
+  if (words.length > MAX_SUBJECT_WORDS || subject.length < 2) return null;
+  if (NOT_PLACES.has(words[0].toLowerCase())) return null;
+  return { category: null, query: subject };
+}
+
 // ── A place you can tap ──────────────────────────────────────────────────────
 
 /**
@@ -693,7 +824,7 @@ export function nearbyRowSubtitle(params: {
 }): string {
   const { language, origin, place } = params;
   return [
-    categoryLabel(place.category, language),
+    placeKindLabel(place, language),
     `${formatDistance(distanceMetres(origin, place), language)} ${bearingLabel(origin, place, language)}`,
   ].join(" — ");
 }

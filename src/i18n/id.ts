@@ -599,6 +599,8 @@ export const translations: Record<string, string> = {
   "aiResults.loading": "Mencari…",
   "aiResults.announce": "{total} hasil: {new} baru, {used} bekas.",
   "aiResults.empty": "Tidak ada hasil yang cocok.",
+  "aiResults.emptySourcing": "Visionex belum memiliki ini. Tim kami bisa mencoba mencarikannya — tidak ada yang dipesan sebelum Anda konfirmasi.",
+  "aiResults.requestThis": "Minta tim mencarikannya",
   "ai.clearChat": "Hapus percakapan",
   "ai.placeholder": "Tanyakan apa saja…",
   "ai.send": "Kirim pesan",

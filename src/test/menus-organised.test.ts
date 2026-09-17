@@ -47,7 +47,7 @@ describe("the WhatsApp menu", () => {
   });
 
   it("puts Visionex's services with the shop", () => {
-    expect(ids("bazaar")).toEqual(["services.bazaar", "services.sell", "services.orders", "explore.services"]);
+    expect(ids("bazaar")).toEqual(["services.bazaar", "services.sell", "services.orders", "explore.services", "services.books"]);
   });
 
   it("fits every group inside a WhatsApp list", () => {

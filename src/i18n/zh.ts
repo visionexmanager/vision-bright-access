@@ -599,6 +599,8 @@ export const translations: Record<string, string> = {
   "aiResults.loading": "正在搜索…",
   "aiResults.announce": "共 {total} 项结果：{new} 个新品，{used} 个二手。",
   "aiResults.empty": "没有匹配结果。",
+  "aiResults.emptySourcing": "Visionex 暂时没有这件商品。我们的团队可以尝试为您采购——在您确认之前不会下单。",
+  "aiResults.requestThis": "请团队帮我找",
   "ai.clearChat": "清空对话",
   "ai.placeholder": "你可以问我任何问题…",
   "ai.send": "发送消息",

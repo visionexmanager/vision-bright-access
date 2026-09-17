@@ -40,6 +40,12 @@ interface Props {
   onFilterCondition: (condition: "new" | "used") => void;
   onBack: () => void;
   loading?: boolean;
+  /**
+   * Offered when nothing matched, so an empty search is not a dead end: the
+   * team is asked to source what was searched for.
+   */
+  onRequestSourcing?: () => void;
+  requesting?: boolean;
 }
 
 const AVAILABILITY_KEYS: Record<AIResultItem["availability"], string> = {
@@ -81,6 +87,8 @@ export function AIResultList({
   onFilterCondition,
   onBack,
   loading = false,
+  onRequestSourcing,
+  requesting = false,
 }: Props) {
   const { t } = useLanguage();
   const firstHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -194,7 +202,16 @@ export function AIResultList({
       </p>
 
       {!loading && total === 0 ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">{t("aiResults.empty")}</p>
+        onRequestSourcing ? (
+          <div className="py-3 text-center text-sm">
+            <p className="mb-2 text-muted-foreground">{t("aiResults.emptySourcing")}</p>
+            <Button type="button" size="sm" onClick={onRequestSourcing} disabled={requesting} aria-busy={requesting}>
+              {requesting ? t("aiResults.requesting") : t("aiResults.requestThis")}
+            </Button>
+          </div>
+        ) : (
+          <p className="py-4 text-center text-sm text-muted-foreground">{t("aiResults.empty")}</p>
+        )
       ) : (
         <>
           {renderGroup("new", groups.new, true)}

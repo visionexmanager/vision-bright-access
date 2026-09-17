@@ -151,7 +151,8 @@ describe("asking", () => {
       "asksNearby && !humanOwnsThis && !aiFocused",
       "weatherRequest && !humanOwnsThis && !aiFocused",
       "const visionRequest = aiFocused || !featureOn(\"ocr\") ? null : parseVisionMode(questionText);",
-      "const bazaarRequest = aiFocused || !featureOn(\"services.bazaar\") ? null : parseBazaarRequest(questionText);",
+      "const bazaarRequest = aiFocused || bookNotFound || !featureOn(\"services.bazaar\")",
+      "const bookRequest = aiFocused || humanOwnsThis || !featureOn(\"services.books\")",
     ]) {
       expect(webhook, gate).toContain(gate);
     }

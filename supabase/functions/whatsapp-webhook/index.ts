@@ -75,6 +75,8 @@ import {
 } from "../_shared/whatsappAttachments.ts";
 import {
   fetchNearby,
+  searchNearby,
+  SEARCH_RADIUS_M,
   fetchWeather,
   geocodePlace,
   NEARBY_RADIUS_M,
@@ -98,7 +100,6 @@ import {
   withDisclaimer,
 } from "../_shared/whatsappMedicines.ts";
 import {
-  asksWhatIsNearby,
   asksWhereAmI,
   formatNearby,
   formatWhereYouAre,
@@ -109,7 +110,7 @@ import {
   nearbyHint,
   nearbyRowSubtitle,
   parseFindPlaceRequest,
-  parseNearbyCategory,
+  parseNearbyRequest,
   parsePlaceSelection,
   type PlaceDescription,
   placeLabel,
@@ -160,8 +161,7 @@ import {
 import {
   formatSourcedOffers,
   readSourcedOffers,
-  sourcingNoneNotice,
-  sourcingUnavailableNotice,
+  productNotFoundDirective,
 } from "../_shared/whatsappSourcing.ts";
 import { handleSourceProducts } from "../_shared/sourcing/handler.ts";
 import {
@@ -291,6 +291,15 @@ import {
   wantsSpokenReply,
 } from "../_shared/whatsappVoiceReply.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
+import {
+  bookAskNotice,
+  bookNotFoundDirective,
+  formatBooks,
+  type FoundBook,
+  libraryBook,
+  parseBookRequest,
+  searchOpenLibrary,
+} from "../_shared/whatsappBooks.ts";
 import {
   type Capability,
   type CatalogNode,
@@ -4227,13 +4236,19 @@ Deno.serve(async (req) => {
       const emergency = !humanOwnsThis && !aiFocused &&
         featureOn("health.emergency") && asksForEmergencyCare(questionText);
 
-      const nearbyCategory = emergency
-        ? EMERGENCY_CATEGORY
+      // What the question names: a category the map can be asked for
+      // precisely, the sender's own words for anything else ("محل ألعاب",
+      // "toy shop"), or neither — a browse. Null when it is not a nearby
+      // question at all, which leaves "أقرب طريقة لـ…" to the assistant.
+      const nearbyRequest = emergency
+        ? { category: EMERGENCY_CATEGORY, query: null }
         : humanOwnsThis || aiFocused
         ? null
-        : parseNearbyCategory(questionText, answerLanguage);
+        : parseNearbyRequest(questionText, answerLanguage);
+      const nearbyCategory = nearbyRequest?.category ?? null;
+      const nearbyQuery = nearbyRequest?.query ?? null;
 
-      const asksNearby = nearbyCategory !== null || asksWhatIsNearby(questionText);
+      const asksNearby = nearbyRequest !== null;
       if (
         asksNearby && !humanOwnsThis && !aiFocused &&
         featureOn(emergency ? "health.emergency" : "services.nearby")
@@ -4250,22 +4265,41 @@ Deno.serve(async (req) => {
         // and the one sentence that might matter more than the list must not be
         // the thing that fails to arrive.
         if (emergency) await reply(say("emergencyCallFirst", answerLanguage), "reply");
-        const nearby = await viaCache(
-          nearbyKey(
-            rememberedLocation.latitude,
-            rememberedLocation.longitude,
-            answerLanguage,
-            NEARBY_RADIUS_M,
-            nearbyCategory,
-          ),
-          "nearby",
-          () => fetchNearby(
-            rememberedLocation.latitude,
-            rememberedLocation.longitude,
-            answerLanguage,
-            nearbyCategory,
-          ),
-        );
+        const nearby = nearbyQuery
+          ? await viaCache(
+            nearbyKey(
+              rememberedLocation.latitude,
+              rememberedLocation.longitude,
+              answerLanguage,
+              SEARCH_RADIUS_M,
+              // The words themselves are part of the answer, so part of the key —
+              // folded, so "Hotel" and "hotel " are one entry.
+              `q:${nearbyQuery.toLowerCase().replace(/s+/g, " ").trim().slice(0, 60)}`,
+            ),
+            "nearby",
+            () => searchNearby(
+              rememberedLocation.latitude,
+              rememberedLocation.longitude,
+              answerLanguage,
+              nearbyQuery,
+            ),
+          )
+          : await viaCache(
+            nearbyKey(
+              rememberedLocation.latitude,
+              rememberedLocation.longitude,
+              answerLanguage,
+              NEARBY_RADIUS_M,
+              nearbyCategory,
+            ),
+            "nearby",
+            () => fetchNearby(
+              rememberedLocation.latitude,
+              rememberedLocation.longitude,
+              answerLanguage,
+              nearbyCategory,
+            ),
+          );
         // `null` is a failed lookup; `[]` is a genuinely unmapped area. Telling
         // somebody standing outside a pharmacy that nothing is near them is
         // false in a way they cannot check for themselves.
@@ -4274,41 +4308,49 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const written = formatNearby({
-          language: answerLanguage,
-          origin: rememberedLocation,
-          places: nearby,
-          ...(emergency ? { heading: `🚨 ${say("emergencyHeading", answerLanguage)}` } : {}),
-        });
-
-        // Each place is a row now, and tapping one sends its pin. The bullets
-        // stay as the text twin, so a voice sender hears the same list and a
-        // client that refuses interactive messages still gets the answer.
-        const list = nearbyMessage({
-          language: answerLanguage,
-          heading: say(emergency ? "emergencyHeading" : "nearbyHeading", answerLanguage),
-          places: nearby.map((found) => ({
-            id: placeRowId(found),
-            title: found.name,
-            description: nearbyRowSubtitle({
-              language: answerLanguage,
-              origin: rememberedLocation,
-              place: found,
-            }),
-          })),
-        });
-
-        if (list) {
-          await reply(written, "reply");
-          await sendChoices(list, "reply");
-          if (emergency) log("emergency", { outcome: "listed", count: nearby.length });
+        // Nothing mapped by those words. "Nothing near you" would be a guess
+        // about a word the map may simply not know, so the question goes on to
+        // the assistant, which can still say something useful about it.
+        const fallThrough = nearbyQuery !== null && nearby.length === 0;
+        if (fallThrough) {
+          log("nearby", { outcome: "search_empty" });
         } else {
-          // Nothing mapped out here. `formatNearby` already says so truthfully,
-          // and an empty list under it would say it a second time with nothing
-          // to tap.
-          await reply(written, "unsupported");
+          const written = formatNearby({
+            language: answerLanguage,
+            origin: rememberedLocation,
+            places: nearby,
+            ...(emergency ? { heading: `🚨 ${say("emergencyHeading", answerLanguage)}` } : {}),
+          });
+
+          // Each place is a row now, and tapping one sends its pin. The bullets
+          // stay as the text twin, so a voice sender hears the same list and a
+          // client that refuses interactive messages still gets the answer.
+          const list = nearbyMessage({
+            language: answerLanguage,
+            heading: say(emergency ? "emergencyHeading" : "nearbyHeading", answerLanguage),
+            places: nearby.map((found) => ({
+              id: placeRowId(found),
+              title: found.name,
+              description: nearbyRowSubtitle({
+                language: answerLanguage,
+                origin: rememberedLocation,
+                place: found,
+              }),
+            })),
+          });
+
+          if (list) {
+            await reply(written, "reply");
+            await sendChoices(list, "reply");
+            if (emergency) log("emergency", { outcome: "listed", count: nearby.length });
+          } else {
+            // Nothing mapped out here. `formatNearby` already says so truthfully,
+            // and an empty list under it would say it a second time with nothing
+            // to tap.
+            await reply(written, "unsupported");
+          }
+          continue;
         }
-        continue;
       }
 
       // A tapped place: send where it is, which is the part a list of names
@@ -4889,7 +4931,78 @@ Deno.serve(async (req) => {
         }
       }
 
-      const bazaarRequest = aiFocused || !featureOn("services.bazaar") ? null : parseBazaarRequest(questionText);
+      // ── Books ────────────────────────────────────────────────────────────
+      //
+      // The Visionex library first, then Open Library — an open catalogue of
+      // tens of millions of books that also says which are free to read. A
+      // book neither holds still gets an answer: the assistant is told so and
+      // says what it knows, rather than the sender being told "not found".
+      /** A book no catalogue had; the assistant is told so. */
+      let bookNotFound: string | null = null;
+      /** A product neither the bazaar nor the catalogue had; likewise. */
+      let productNotFound: string | null = null;
+      const bookRequest = aiFocused || humanOwnsThis || !featureOn("services.books")
+        ? null
+        : parseBookRequest(questionText);
+      if (bookRequest && !bookRequest.query) {
+        await reply(bookAskNotice(answerLanguage), "reply");
+        continue;
+      }
+      if (bookRequest?.query) {
+        const query = bookRequest.query;
+        let library: FoundBook[] = [];
+        try {
+          // Letters, digits and spaces only, which is what makes interpolating
+          // the words into a PostgREST filter safe — the same rule the bazaar
+          // search keeps.
+          const terms = query
+            .replace(/[^\p{L}\p{N}\s]/gu, " ")
+            .split(/\s+/u)
+            .filter((term) => term.length >= 2)
+            .slice(0, 4);
+          if (terms.length > 0) {
+            const { data: rows, error } = await db
+              .from("library_books")
+              .select("id, title, published_date, library_authors(name)")
+              .eq("publish_status", "published")
+              .or(terms.map((term) => `title.ilike.%${term}%`).join(","))
+              .limit(25);
+            if (error) throw error;
+            type BookRow = {
+              id: string; title: string; published_date: string | null;
+              library_authors: { name: string | null } | { name: string | null }[] | null;
+            };
+            library = ((rows ?? []) as BookRow[])
+              .map((row) => {
+                const hits = terms.filter((term) => row.title.toLowerCase().includes(term.toLowerCase())).length;
+                const author = Array.isArray(row.library_authors) ? row.library_authors[0] : row.library_authors;
+                return { hits, book: libraryBook({ ...row, author: author?.name ?? null }) };
+              })
+              // Every word of a two-word title, or it is somebody else's book.
+              .filter((entry) => entry.hits >= Math.min(terms.length, 2))
+              .sort((a, b) => b.hits - a.hits)
+              .map((entry) => entry.book);
+          }
+        } catch (e) {
+          console.error("[whatsapp] library lookup failed:", describeError(e));
+        }
+
+        const outside = await searchOpenLibrary(query);
+        if (library.length > 0 || (outside?.length ?? 0) > 0) {
+          log("books", { outcome: library.length > 0 ? "library" : "outside", count: library.length + (outside?.length ?? 0) });
+          await reply(
+            formatBooks({ language: answerLanguage, query, library, outside: outside ?? [] }),
+            "reply",
+          );
+          continue;
+        }
+        log("books", { outcome: outside === null ? "unreachable" : "empty" });
+        bookNotFound = query;
+      }
+
+      const bazaarRequest = aiFocused || bookNotFound || !featureOn("services.bazaar")
+        ? null
+        : parseBazaarRequest(questionText);
       /**
        * Set when a weak shopping guess found nothing, so the message falls
        * through to the ordinary assistant instead of being answered.
@@ -4983,14 +5096,17 @@ Deno.serve(async (req) => {
             // said "do you have a minute" is worse than not searching.
             const offers = await sourceFromCatalogue(bazaarRequest.terms.join(" "));
 
-            if (offers === null) {
-              await reply(sourcingUnavailableNotice(answerLanguage), "unsupported");
-            } else if (offers.length > 0) {
+            if (offers !== null && offers.length > 0) {
               log("sourcing", { outcome: "offered", count: offers.length });
               await reply(formatSourcedOffers({ language: answerLanguage, offers }), "reply");
             } else {
-              log("sourcing", { outcome: "empty" });
-              await reply(sourcingNoneNotice(answerLanguage), "unsupported");
+              // Not stocked, or the agent could not be reached. Either way a bare
+              // "not found" is a dead end, so the assistant answers instead: what
+              // the item is and what it usually costs, marked as an estimate, and
+              // that the Visionex team can source it.
+              log("sourcing", { outcome: offers === null ? "unreachable" : "empty" });
+              productNotFound = bazaarRequest.terms.join(" ");
+              bazaarFellThrough = true;
             }
           } else {
             console.log("[whatsapp] weak bazaar guess found nothing — handing back to the assistant");
@@ -5389,6 +5505,10 @@ Deno.serve(async (req) => {
             HANDLER_AUTHORITY_DIRECTIVE,
             knowledgeDirective(passages),
             verbosityDirective(existing?.verbosity as string | null),
+            // What a search just failed to find, so the answer is about the
+            // thing asked for rather than an apology for an empty list.
+            bookNotFound ? bookNotFoundDirective(bookNotFound) : null,
+            productNotFound ? productNotFoundDirective(productNotFound) : null,
           ],
           summary,
           turns,

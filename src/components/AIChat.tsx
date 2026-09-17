@@ -204,6 +204,39 @@ export function AIChat() {
         { label: "Compare", prompt: "Compare the best assistive products for me." },
       ];
 
+
+  /**
+   * Asks the team to source something: a result the customer picked, or —
+   * when nothing matched — what they searched for. Either way the answer is a
+   * reference to quote, never a claim that anything was ordered.
+   */
+  const requestSourcingFor = async (item: SourcedItem | null) => {
+    const request = sourcingQuery || item?.title;
+    if (!request) return;
+    setRequesting(true);
+    try {
+      const response = await aiService.requestSourcing({
+        request,
+        result_ref: item?.ref ?? null,
+        ai_summary: item ? `${item.title} — ${item.condition} — ${item.availability}` : `Not found in Visionex: ${request}`,
+        transcript: messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
+        reason: item ? "sourcing_confirmation" : "complex_sourcing",
+        channel: "website",
+      });
+      toast({
+        title: t("aiResults.sourcingRequested"),
+        description: response.reference
+          ? t("aiResults.yourReference").replace("{ref}", response.reference)
+          : undefined,
+      });
+      setDetail(null);
+    } catch {
+      toast({ title: t("aiResults.requestFailed"), variant: "destructive" });
+    } finally {
+      setRequesting(false);
+    }
+  };
+
   return (
     <>
       {/* Floating button */}
@@ -351,32 +384,7 @@ export function AIChat() {
                     item={detail}
                     requesting={requesting}
                     onBack={() => setDetail(null)}
-                    onRequestSourcing={async (item) => {
-                      setRequesting(true);
-                      try {
-                        const response = await aiService.requestSourcing({
-                          request: sourcingQuery || item.title,
-                          result_ref: item.ref,
-                          ai_summary: `${item.title} — ${item.condition} — ${item.availability}`,
-                          transcript: messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
-                          reason: "sourcing_confirmation",
-                          channel: "website",
-                        });
-                        // An honest confirmation: a reference to quote, and no
-                        // claim that anything was ordered or shipped.
-                        toast({
-                          title: t("aiResults.sourcingRequested"),
-                          description: response.reference
-                            ? t("aiResults.yourReference").replace("{ref}", response.reference)
-                            : undefined,
-                        });
-                        setDetail(null);
-                      } catch {
-                        toast({ title: t("aiResults.requestFailed"), variant: "destructive" });
-                      } finally {
-                        setRequesting(false);
-                      }
-                    }}
+                    onRequestSourcing={(item) => void requestSourcingFor(item)}
                   />
                 ) : comparing.length >= 2 ? (
                   <AIComparison
@@ -402,6 +410,10 @@ export function AIChat() {
                       void runSourcing(`${sourcingQuery} ${condition}`);
                     }}
                     onBack={() => { clearSourcing(); setComparing([]); setDetail(null); }}
+                    // Nothing matched: the team is asked to source it, rather
+                    // than the search ending on "no results".
+                    onRequestSourcing={sourcingQuery ? () => void requestSourcingFor(null) : undefined}
+                    requesting={requesting}
                   />
                 )}
               </div>

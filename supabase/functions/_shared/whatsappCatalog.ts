@@ -818,6 +818,20 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     accepts: ["text"],
   },
   {
+    id: "services.books",
+    parent: "bazaar",
+    order: 5,
+    kind: "action",
+    enabled: true,
+    title: { ar: "طلب كتاب", en: "Find a book" },
+    description: { ar: "من مكتبة Visionex أو من مصادر خارجية", en: "From the Visionex library or outside sources" },
+    aliases: { ar: ["كتاب", "كتب", "رواية"], en: ["book", "books", "novel"] },
+    // Tapped, the phrase is the book word alone, which is answered by asking
+    // for the title.
+    phrase: { ar: "كتاب", en: "book" },
+    accepts: ["text"],
+  },
+  {
     id: "services.sell",
     parent: "bazaar",
     order: 2,

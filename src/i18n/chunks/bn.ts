@@ -599,6 +599,8 @@ export const translationsPart: Record<string, string> = {
   "aiResults.loading": "অনুসন্ধান চলছে…",
   "aiResults.announce": "মোট ফলাফল: {total} — নতুন {new}, ব্যবহৃত {used}।",
   "aiResults.empty": "কোনো মিল পাওয়া যায়নি।",
+  "aiResults.emptySourcing": "এটি এখনও Visionex-এ নেই। আমাদের দল আপনার জন্য এটি জোগাড়ের চেষ্টা করতে পারে — আপনি নিশ্চিত না করা পর্যন্ত কিছু অর্ডার হবে না।",
+  "aiResults.requestThis": "দলকে খুঁজে দিতে বলুন",
   "ai.clearChat": "কথোপকথন পরিষ্কার করুন",
   "ai.placeholder": "যেকোনো কিছু জিজ্ঞেস করুন…",
   "ai.send": "বার্তা পাঠান",

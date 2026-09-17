@@ -599,6 +599,8 @@ export const translations: Record<string, string> = {
   "aiResults.loading": "Aranıyor…",
   "aiResults.announce": "Toplam {total} sonuç: {new} yeni, {used} kullanılmış.",
   "aiResults.empty": "Eşleşen sonuç yok.",
+  "aiResults.emptySourcing": "Bu ürün henüz Visionex'te yok. Ekibimiz sizin için bulmayı deneyebilir; siz onaylamadan sipariş verilmez.",
+  "aiResults.requestThis": "Ekipten bulmasını iste",
   "ai.clearChat": "Konuşmayı temizle",
   "ai.placeholder": "İstediğin her şeyi sor…",
   "ai.send": "Mesaj gönder",
