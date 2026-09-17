@@ -12,6 +12,7 @@ import type { SourcedItem } from "@/lib/types";
 import { useAIChat } from "@/hooks/useAIChat";
 import { Bot, X, Send, Trash2, Square, Mic, MicOff, Timer, Phone, Brain, MapPinned, Sparkles } from "lucide-react";
 import { VoiceChat } from "@/components/VoiceChat";
+import { AnswerFeedback } from "@/components/ai/AnswerFeedback";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
 import type { AIChatOpenEvent } from "./aiChatBus";
@@ -406,7 +407,7 @@ export function AIChat() {
               </div>
             )}
 
-            {messages.map((msg) => (
+            {messages.map((msg, index) => (
               <div
                 key={msg.id}
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
@@ -419,9 +420,16 @@ export function AIChat() {
                   }`}
                 >
                   {msg.role === "assistant" ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
+                    <>
+                      <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                      {/* Only a finished, real answer to a question can be rated. */}
+                      {index > 0 && messages[index - 1].role === "user" && !msg.content.startsWith("⚠️")
+                        && !(isLoading && index === messages.length - 1) && (
+                        <AnswerFeedback question={messages[index - 1].content} />
+                      )}
+                    </>
                   ) : (
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                   )}
