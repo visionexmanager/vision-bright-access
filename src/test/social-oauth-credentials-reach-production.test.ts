@@ -15,7 +15,7 @@ const deploy = readFileSync(".github/workflows/deploy.yml", "utf8");
 /** Every provider block, with its env var names and whether it is blocked. */
 function providers(): Array<{ platform: string; envs: string[]; blocked: boolean }> {
   const out: Array<{ platform: string; envs: string[]; blocked: boolean }> = [];
-  for (const match of oauth.matchAll(/^  ([a-z]+): \{$/gm)) {
+  for (const match of oauth.matchAll(/^ {2}([a-z]+): \{$/gm)) {
     const start = match.index ?? 0;
     const end = oauth.indexOf("\n  },", start);
     const block = oauth.slice(start, end < 0 ? undefined : end);
