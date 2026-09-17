@@ -52,6 +52,7 @@
 // requiring the caller to declare which one it used would let the caller choose.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import { streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import {
@@ -256,6 +257,7 @@ Deno.serve(async (req) => {
   }
   if (!signed) {
     console.error("[meta-messaging] signature verification failed.");
+    await recordSecurityEvent(service(), req, "webhook.signature_failed", "meta-messaging-webhook");
     return new Response("Forbidden", { status: 403 });
   }
 

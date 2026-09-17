@@ -21,13 +21,22 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { capturePayPalOrder, decodeCustomId, verifyPayPalWebhookSignature } from "../_shared/paypal.ts";
 
 Deno.serve(async (req: Request) => {
   try {
     const rawBody = await req.text();
     const verified = await verifyPayPalWebhookSignature(req.headers, rawBody);
-    if (!verified) return new Response("Invalid signature", { status: 400 });
+    if (!verified) {
+      await recordSecurityEvent(
+        createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!),
+        req,
+        "webhook.signature_failed",
+        "library-paypal-webhook",
+      );
+      return new Response("Invalid signature", { status: 400 });
+    }
 
     const event = JSON.parse(rawBody);
     const service = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

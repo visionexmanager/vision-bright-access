@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createEmbedding, ProviderError } from "../_shared/aiProvider.ts";
 import { handleSourceProducts } from "../_shared/sourcing/handler.ts";
+import { allowCaller } from "../_shared/securityGuard.ts";
 import servicesCatalog from "../_shared/data/servicesCatalog.json" with { type: "json" };
 
 // Columns returned for each source table.
@@ -71,6 +72,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    const service = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // Every search is a paid embedding call, and this endpoint needs no account.
+    if (!(await allowCaller(service, req, "ai-search"))) {
+      return new Response(JSON.stringify({ error: "Too many searches from this connection today. Please try again later." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     let embedding: number[];
     try {
       const [vec] = await createEmbedding([query.slice(0, 2000)]);
@@ -83,11 +96,6 @@ Deno.serve(async (req) => {
       }
       throw e;
     }
-
-    const service = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
 
     const { data: matches, error } = await service.rpc("match_embeddings", {
       query_embedding: embedding,
@@ -133,7 +141,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error("ai-search error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      JSON.stringify({ error: "Search is unavailable right now." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }

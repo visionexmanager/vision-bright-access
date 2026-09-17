@@ -50,10 +50,19 @@ describe("nginx hardening snippet", () => {
   });
 
   it("sets the headers production was missing, and hides the version", () => {
-    for (const header of ["X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy", "Cache-Control"]) {
+    for (const header of ["X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy", "Cache-Control", "Content-Security-Policy", "Permissions-Policy"]) {
       expect(directives).toMatch(new RegExp(`add_header ${header} `));
     }
     expect(directives).toMatch(/^server_tokens off;/m);
+  });
+
+  it("keeps the CSP to directives that cannot break a page, and keeps the site's own camera and microphone", () => {
+    const csp = /add_header Content-Security-Policy\s+"([^"]+)"/.exec(directives)?.[1] ?? "";
+    expect(csp).toContain("frame-ancestors 'self'");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).not.toMatch(/script-src|style-src|connect-src|default-src|upgrade-insecure-requests/);
+    const permissions = /add_header Permissions-Policy\s+"([^"]+)"/.exec(directives)?.[1] ?? "";
+    for (const own of ["camera=(self)", "microphone=(self)", "geolocation=(self)"]) expect(permissions).toContain(own);
   });
 });
 

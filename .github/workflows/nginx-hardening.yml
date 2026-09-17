@@ -227,6 +227,8 @@ jobs:
             check "HSTS on HTML"                 "$H" '^strict-transport-security: max-age='
             check "nosniff"                      "$H" '^x-content-type-options: nosniff'
             check "X-Frame-Options"              "$H" '^x-frame-options: sameorigin'
+            check "CSP frame-ancestors"          "$H" '^content-security-policy: .*frame-ancestors'
+            check "Permissions-Policy"           "$H" '^permissions-policy: .*microphone=[(]self[)]'
             check "HTML revalidates"             "$H" '^cache-control: no-cache'
             check "asset is gzip"                "$A" '^content-encoding: gzip'
             check "asset is immutable"           "$A" '^cache-control: public, max-age=31536000, immutable'
