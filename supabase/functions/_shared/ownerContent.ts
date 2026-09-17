@@ -277,6 +277,8 @@ export function explainProposeFailure(reason: string | undefined): string {
       return "الموضوع قريب جداً من اقتراح سابق. جرّب قسماً أو منصة أخرى.";
     case "all_sources_on_cooldown":
       return "هذا القسم استُخدم مؤخراً. جرّب قسماً آخر، مثلاً: /propose facebook services";
+    case "stale_date":
+      return "المسودة ذكرت سنة قديمة مرتين فرُفضت. جرّب /propose مرة أخرى.";
     case "rate_limited":
       return "وصلت لحد الاقتراحات اليومي. جرّب لاحقاً.";
     case "confidentiality_violation":

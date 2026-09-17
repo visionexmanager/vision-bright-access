@@ -14,6 +14,7 @@
 
 import { createEmbedding, structuredCompletionWithFallback } from "./aiProvider.ts";
 import { getGenerator, CONTENT_SECTIONS, CONTENT_TYPES, CONTENT_PLATFORMS } from "./generators.ts";
+import { timelinessContext } from "./content/writerPrompt.ts";
 import {
   CONTENT_APPROVAL_TYPE,
   SECTION_SEEDS,
@@ -22,6 +23,7 @@ import {
   detectConfidentialLeak,
   generateAfterInputScreen,
   normalizeProposedTime,
+  staleYears,
   normalizeTopicKey,
   renderSourcesForPrompt,
   validateSourceRefs,
@@ -148,6 +150,13 @@ export async function proposeContent(
   const generator = getGenerator("content-writer");
   if (!generator?.schema) return { ok: false, error: "generator_missing" };
 
+  const now = new Date();
+  const currentYear = Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Beirut", year: "numeric" }).format(now));
+  const timing = timelinessContext(
+    now,
+    opts.language,
+    Math.floor(now.getTime() / 86_400_000) + opts.section.length + opts.platform.length,
+  );
   const params: Record<string, string> = {
     section: opts.section,
     contentType: opts.contentType,
@@ -155,30 +164,42 @@ export async function proposeContent(
     sources: renderSourcesForPrompt(usable),
     memory,
     avoid,
+    today: timing.today,
+    angle: timing.angle,
   };
 
   // Input screening happens here, before the model is reached — not after it
   // answers. The gate owns the call, so a confidential term in the retrieved
   // records or in stored memory means structuredCompletion is never invoked and
   // there is nothing to save.
-  let gated: { ok: boolean; error?: string; detail?: string; draft?: Record<string, unknown> };
-  try {
-    gated = await generateAfterInputScreen(
-      { sources: params.sources, memory: params.memory, avoid: params.avoid },
-      async () => {
-        const { result } = await structuredCompletionWithFallback({
-          targets: generator.targets ?? [{ provider: generator.provider, model: generator.model }],
-          system: generator.buildSystem(params, opts.language),
-          userText: generator.buildUser(params, opts.language),
-          schema: generator.schema!,
-          toolName: generator.toolName ?? "content_proposal",
-          maxTokens: 1500,
-        });
-        return result as Record<string, unknown>;
-      },
-    );
-  } catch {
-    return { ok: false, error: "generation_failed" };
+  let gated: { ok: boolean; error?: string; detail?: string; draft?: Record<string, unknown> } = { ok: false };
+  // One retry, only for a draft that dates itself: told what it got wrong,
+  // the model nearly always corrects it, and a second failure is refused.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      gated = await generateAfterInputScreen(
+        { sources: params.sources, memory: params.memory, avoid: params.avoid },
+        async () => {
+          const { result } = await structuredCompletionWithFallback({
+            targets: generator.targets ?? [{ provider: generator.provider, model: generator.model }],
+            system: generator.buildSystem(params, opts.language),
+            userText: generator.buildUser(params, opts.language),
+            schema: generator.schema!,
+            toolName: generator.toolName ?? "content_proposal",
+            maxTokens: 1500,
+          });
+          return result as Record<string, unknown>;
+        },
+      );
+    } catch {
+      return { ok: false, error: "generation_failed" };
+    }
+    if (!gated.ok || !gated.draft) break;
+    const text = ["topic", "hook", "body", "rationale"].map((k) => String(gated.draft?.[k] ?? "")).join("\n");
+    const stale = staleYears(text, params.sources, currentYear);
+    if (stale.length === 0) break;
+    if (attempt === 1) return { ok: false, error: "stale_date", detail: stale.join(",") };
+    params.correction = `Your previous draft mentioned ${stale.join(", ")}, which is in the past. It is ${currentYear} now. Rewrite without those years.`;
   }
 
   if (!gated.ok) {
