@@ -83,7 +83,9 @@ for (const sample of SAMPLES) {
     const inScript = (text.match(sample.script) ?? []).length / letters;
     check("heard in the same language", inScript > 0.8, `${Math.round(inScript * 100)}% in the expected script`);
     const found = sample.words.filter((w) => text.includes(w));
-    check("key words intelligible", found.length === sample.words.length, `${found.length}/${sample.words.length}`);
+    // The words are this file's own fixed sentence, so naming a missing one is safe.
+    const missing = sample.words.filter((w) => !text.includes(w));
+    check("key words intelligible", missing.length === 0, missing.length ? `missing: ${missing.join(", ")}` : `${found.length}/${sample.words.length}`);
   }
 
   if (!phoneNumberId || !token) {
