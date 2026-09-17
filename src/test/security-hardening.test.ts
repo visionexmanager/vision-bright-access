@@ -44,10 +44,10 @@ describe("ai-chat context is data, never instructions", () => {
 
   it("caps free text and strips bidi overrides but keeps ZWNJ", () => {
     const context = sanitizeContext({
-      productName: `‮abc‌def${"x".repeat(500)}`,
+      productName: `\u202Eabc\u200Cdef${"x".repeat(500)}`,
       companionMemory: Array.from({ length: 30 }, (_, i) => `note ${i}`),
     });
-    expect(context.productName?.startsWith("abc‌def")).toBe(true);
+    expect(context.productName?.startsWith("abc\u200Cdef")).toBe(true);
     expect(context.productName?.length).toBe(200);
     expect(context.companionMemory).toHaveLength(10);
   });
@@ -188,5 +188,29 @@ describe("security migrations", () => {
     expect(least).toMatch(/_user_id IS DISTINCT FROM auth\.uid\(\)/);
     expect(least).toMatch(/user_id = auth\.uid\(\) OR auth\.role\(\) = 'service_role'/);
     expect(least).toMatch(/greatest\(coalesce\(p_stale_after, interval '2 minutes'\), interval '2 minutes'\)/);
+  });
+});
+
+describe("scheduled sweep secret", () => {
+  it("matches only the exact bearer secret", async () => {
+    const { bearerMatches } = await import("../../supabase/functions/_shared/securityGuard");
+    expect(bearerMatches("Bearer s3cret", "s3cret")).toBe(true);
+    expect(bearerMatches("Bearer s3cre", "s3cret")).toBe(false);
+    expect(bearerMatches("Bearer s3cret2", "s3cret")).toBe(false);
+    expect(bearerMatches("s3cret", "s3cret")).toBe(false);
+    expect(bearerMatches(null, "s3cret")).toBe(false);
+    expect(bearerMatches("Bearer ", "")).toBe(false);
+    expect(bearerMatches("Bearer undefined", undefined)).toBe(false);
+  });
+
+  it("guards tv-validate-stream before any work, failing closed", () => {
+    const source = read("supabase/functions/tv-validate-stream/index.ts");
+    const guard = source.indexOf("bearerMatches(req.headers.get(\"Authorization\"), cronSecret)");
+    expect(guard).toBeGreaterThan(0);
+    expect(source.indexOf('if (!cronSecret)')).toBeLessThan(guard);
+    expect(guard).toBeLessThan(source.indexOf(".from(\"tv_stream_sources\")"));
+    for (const caller of [".github/workflows/tv-stream-health-cron.yml", ".github/workflows/deploy.yml"]) {
+      expect(read(caller), caller).toMatch(/tv-validate-stream" \\s*\r?\n\s*-H "Authorization: Bearer \$CRON_SECRET"/);
+    }
   });
 });

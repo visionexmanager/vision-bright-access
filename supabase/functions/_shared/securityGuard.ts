@@ -98,3 +98,17 @@ export async function recordSecurityEvent(
     console.error(`[security] could not record ${kind}:`, e instanceof Error ? e.message : String(e));
   }
 }
+
+/**
+ * Whether an Authorization header carries exactly `Bearer <secret>`, compared
+ * in constant time. An unset secret matches nothing.
+ */
+export function bearerMatches(header: string | null, secret: string | undefined): boolean {
+  if (!secret || !header) return false;
+  const encoder = new TextEncoder();
+  const given = encoder.encode(header);
+  const wanted = encoder.encode(`Bearer ${secret}`);
+  let diff = given.length ^ wanted.length;
+  for (let i = 0; i < wanted.length; i++) diff |= wanted[i] ^ (given[i] ?? 0);
+  return diff === 0;
+}
