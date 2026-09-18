@@ -66,6 +66,74 @@ jobs:
           say ""
           say "Publishing needs: pages_manage_posts + pages_read_engagement (Facebook), instagram_content_publish (Instagram)."
 
+      # ── Can the operator connect at all? ──────────────────────────────────
+      #
+      # Everything above asks what the tokens Visionex *already holds* can do.
+      # Those tokens were pasted in by hand and cannot publish. The way to a
+      # token that can is the Connect button on /admin/social-connections, and
+      # that button fails for three reasons that are invisible from the screen:
+      # the Meta app does not have the callback allowlisted, the Edge Function
+      # has no app credentials, or it has no key to encrypt the token with.
+      #
+      # All three are checked here, before anybody clicks. Names only: the
+      # secrets API returns values, and this log is world-readable.
+      - name: Can the Connect button work?
+        shell: bash
+        env:
+          APP_ID: ${{ secrets.META_APP_ID }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          say ""
+          say "## The Connect button"
+
+          if [ -z "$SUPABASE_PROJECT_REF" ]; then
+            say "SUPABASE_PROJECT_REF is not configured — cannot derive the callback URL."
+            exit 0
+          fi
+          REDIRECT="https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1/social-oauth"
+          say "Callback the Meta app must allowlist: \`$REDIRECT\`"
+
+          # 1. Does the Edge Function have what it needs? Names only, never values.
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
+            NAMES=$(curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/secrets" \
+                      -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" | jq -r '.[].name' 2>/dev/null)
+            for secret in META_APP_ID META_APP_SECRET SOCIAL_TOKEN_ENCRYPTION_KEY; do
+              if grep -qx "$secret" <<<"$NAMES"; then
+                say "- \`$secret\` — present in Supabase"
+              else
+                say "- \`$secret\` — **missing in Supabase**, so Connect answers not_configured"
+              fi
+            done
+          else
+            say "- SUPABASE_ACCESS_TOKEN not set; cannot list the function's secrets."
+          fi
+
+          # 2. Is the callback allowlisted? Meta renders "URL Blocked" on the
+          #    consent page itself, before any login, when it is not — so this
+          #    is answerable without an account and without granting anything.
+          if [ -z "$APP_ID" ]; then
+            say "- META_APP_ID not set here; cannot test the consent page."
+            exit 0
+          fi
+          DIALOG=$(curl -s -G -L -A "Mozilla/5.0" "https://www.facebook.com/v26.0/dialog/oauth" \
+                     --data-urlencode "client_id=$APP_ID" \
+                     --data-urlencode "redirect_uri=$REDIRECT" \
+                     --data-urlencode "response_type=code" \
+                     --data-urlencode "scope=pages_manage_posts,pages_read_engagement" \
+                     --data-urlencode "state=probe")
+          if grep -qi "URL Blocked\|redirect_uri.*not allowed\|isn.t allowed" <<<"$DIALOG"; then
+            say "- ❌ **The callback is not allowlisted.** Add it under the Meta app →"
+            say "  Facebook Login → Settings → Valid OAuth Redirect URIs, then run this again."
+          elif grep -qi "Log in to Facebook\|login\.php\|Continue as\|app_id" <<<"$DIALOG"; then
+            say "- ✅ The consent page loads: the callback is accepted by the app."
+          else
+            say "- ⚠️ Inconclusive — Facebook answered with something unrecognised."
+            say "  Open the Connect button and read the screen instead of trusting this line."
+          fi
+
       - name: Threads and YouTube
         shell: bash
         env:

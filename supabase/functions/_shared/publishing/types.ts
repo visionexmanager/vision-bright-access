@@ -208,6 +208,8 @@ export interface AttemptReport {
   readonly dispatched: boolean;
   readonly publicationId?: string;
   readonly calendarId?: string;
+  /** The short proposal code, so a report can name a post a human can look up. */
+  readonly proposalRef?: string;
   readonly platform?: Platform;
   readonly attempt?: number;
   readonly externalPostId?: string;

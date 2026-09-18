@@ -19,6 +19,8 @@ import {
   formatBeirut,
   formatContentList,
   formatProposalMessage,
+  formatPublishReport,
+  type PublishOutcome,
   OWNER_CONTENT_TEMPLATE,
   ownerWindowOpen,
   PLATFORM_AR,
@@ -269,6 +271,83 @@ async function connectedPlatform(db: Db, ref: string): Promise<boolean> {
   return (data ?? []).length > 0;
 }
 
+// ── Reaching the owner ───────────────────────────────────────────────────────
+
+type OwnerTarget =
+  | { ok: true; to: string; lastInboundAt: string | null }
+  | { ok: false; reason: "no_owner_number" | "notifications_off" };
+
+/**
+ * The number to message, and when they last spoke.
+ *
+ * The configured number may be written without its country code; the
+ * conversation row holds the number WhatsApp itself reported, which is the one
+ * a message can actually be sent to. `last_message_at` is what decides whether
+ * free text may leave the 24-hour window.
+ *
+ * Shared by the two jobs that message the owner — the daily proposals and the
+ * publish report — because the alternative is two copies of a lookup that has
+ * to agree with `isOwner()` and with itself.
+ */
+export async function ownerTarget(db: Db): Promise<OwnerTarget> {
+  const { data: setting } = await db.from("site_settings").select("value").eq("key", "owner_contact").maybeSingle();
+  const value = (setting?.value ?? {}) as { whatsapp_number?: string | null; notify_content_proposals?: boolean };
+  const owner = normalizePhone(value.whatsapp_number);
+  if (!owner || owner.length < 8) return { ok: false, reason: "no_owner_number" };
+  if (value.notify_content_proposals === false) return { ok: false, reason: "notifications_off" };
+
+  const { data: candidates } = await db
+    .from("whatsapp_conversations")
+    .select("wa_phone, last_message_at")
+    .like("wa_phone", `%${owner.slice(-8)}`)
+    .limit(5);
+  const conversation = ((candidates ?? []) as Array<{ wa_phone: string; last_message_at: string | null }>)
+    .find((row) => isOwner(row.wa_phone, owner)) ?? null;
+
+  return { ok: true, to: conversation?.wa_phone ?? owner, lastInboundAt: conversation?.last_message_at ?? null };
+}
+
+/**
+ * Tell the owner what the publisher just did.
+ *
+ * Only inside the 24-hour window, and deliberately without a template fallback
+ * outside it: a run that published nothing and failed nothing says nothing at
+ * all, and a run that did something is worth a message but not worth opening a
+ * paid conversation the owner did not ask for. The next thing they send opens
+ * the window anyway, and the outcome is on the proposal either way.
+ *
+ * Reported, never thrown: a publish that succeeded must not be recorded as a
+ * failure because a notification did not go out.
+ */
+export async function reportPublishRun(
+  db: Db,
+  whatsapp: { token: string | undefined; phoneNumberId: string | undefined },
+  outcomes: readonly PublishOutcome[],
+  withheldForConnection = 0,
+  awaitingConnection: readonly string[] = [],
+  now: Date = new Date(),
+): Promise<"text" | "none"> {
+  try {
+    const message = formatPublishReport(outcomes, withheldForConnection, awaitingConnection);
+    if (!message) return "none";
+    if (!whatsapp.token || !whatsapp.phoneNumberId) return "none";
+
+    const target = await ownerTarget(db);
+    if (!target.ok || !ownerWindowOpen(target.lastInboundAt, now)) return "none";
+
+    const sent = await sendWhatsAppText({
+      phoneNumberId: whatsapp.phoneNumberId,
+      token: whatsapp.token,
+      to: target.to,
+      body: message,
+    });
+    return sent ? "text" : "none";
+  } catch (e) {
+    console.error("[owner-content] publish report failed:", (e as Error)?.message ?? "unknown");
+    return "none";
+  }
+}
+
 // ── The daily run ────────────────────────────────────────────────────────────
 
 /** How many never-indexed sections one run may fill, so a run stays short. */
@@ -340,26 +419,12 @@ export async function runDailyProposals(
   }
   if (proposed.length === 0) return { proposed, failed, indexed, notified: "none", reason: "nothing_proposed" };
 
-  const { data: setting } = await db.from("site_settings").select("value").eq("key", "owner_contact").maybeSingle();
-  const value = (setting?.value ?? {}) as { whatsapp_number?: string | null; notify_content_proposals?: boolean };
-  const owner = normalizePhone(value.whatsapp_number);
-  if (!owner || owner.length < 8) return { proposed, failed, indexed, notified: "none", reason: "no_owner_number" };
-  if (value.notify_content_proposals === false) return { proposed, failed, indexed, notified: "none", reason: "notifications_off" };
+  const target = await ownerTarget(db);
+  if (!target.ok) return { proposed, failed, indexed, notified: "none", reason: target.reason };
   if (!whatsapp.token || !whatsapp.phoneNumberId) return { proposed, failed, indexed, notified: "none", reason: "whatsapp_not_configured" };
+  const to = target.to;
 
-  // The configured number may be written without its country code; the
-  // conversation row holds the number WhatsApp itself reported, which is the
-  // one a message can be sent to.
-  const { data: candidates } = await db
-    .from("whatsapp_conversations")
-    .select("wa_phone, last_message_at")
-    .like("wa_phone", `%${owner.slice(-8)}`)
-    .limit(5);
-  const conversation = ((candidates ?? []) as Array<{ wa_phone: string; last_message_at: string | null }>)
-    .find((row) => isOwner(row.wa_phone, owner)) ?? null;
-  const to = conversation?.wa_phone ?? owner;
-
-  if (ownerWindowOpen(conversation?.last_message_at, now)) {
+  if (ownerWindowOpen(target.lastInboundAt, now)) {
     let sent = 0;
     for (const ref of proposed) {
       const proposal = await findProposal(db, ref);

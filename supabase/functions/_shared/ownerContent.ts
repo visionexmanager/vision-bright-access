@@ -433,6 +433,83 @@ export function parseBareDecision(text: string): BareDecision | null {
   return null;
 }
 
+// ── After the publisher has run ──────────────────────────────────────────────
+//
+// Approving a post and then hearing nothing again is the same complaint as
+// approving one and having nothing happen: from the outside they are one
+// event. The queue drains on a schedule nobody watches, and the only record of
+// a run was a workflow log, so a post that went out and a post that failed
+// four times looked identical from a phone.
+//
+// This is what the owner reads afterwards. Reference codes, platforms and
+// counts — never the post's text, which they wrote, and never a provider's
+// error string, which quotes the request back and the request carries a token.
+
+export interface PublishOutcome {
+  published: boolean;
+  platform?: string;
+  proposalRef?: string;
+  /** A short machine code — `token_invalid`, `media_required`, and so on. */
+  errorCode?: string;
+  needsManualReview?: boolean;
+}
+
+/** Why a post did not go out, in words that name the next move. */
+const PUBLISH_ERROR_AR: Record<string, string> = {
+  token_invalid: "انتهت صلاحية ربط الحساب — أعد ربطه من لوحة التحكم.",
+  permission_denied: "الحساب مربوط بدون صلاحية النشر — أعد الربط واقبل صلاحية النشر.",
+  no_access_token: "لا يوجد رمز وصول محفوظ لهذا الحساب — أعد ربطه.",
+  no_external_account_id: "الحساب مربوط لكن بدون صفحة محددة — أعد الربط واختر الصفحة.",
+  media_required: "إنستغرام لا ينشر نصاً بلا صورة، وهذا الاقتراح بلا صورة.",
+  content_too_long: "النص أطول مما تسمح به المنصة — اختصره بـ /edit.",
+  empty_content: "الاقتراح بلا نص.",
+  platform_rate_limited: "المنصة تطلب التمهّل — سيُعاد المحاولة تلقائياً.",
+  platform_unreachable: "تعذّر الوصول إلى المنصة — سيُعاد المحاولة تلقائياً.",
+};
+
+/**
+ * One message for one run, or null when there is nothing worth saying.
+ *
+ * A run that publishes nothing and fails nothing is the ordinary case — the
+ * queue is checked far more often than it has anything in it — and a message
+ * every time would train the owner to ignore the ones that matter.
+ */
+export function formatPublishReport(
+  outcomes: readonly PublishOutcome[],
+  withheldForConnection = 0,
+  awaitingConnection: readonly string[] = [],
+): string | null {
+  const done = outcomes.filter((o) => o.published);
+  const failed = outcomes.filter((o) => !o.published);
+  if (done.length === 0 && failed.length === 0 && withheldForConnection === 0) return null;
+
+  const lines: string[] = [];
+  if (done.length > 0) {
+    lines.push(done.length === 1 ? "✅ تم النشر:" : `✅ تم نشر ${done.length} منشورات:`);
+    for (const o of done) {
+      lines.push(`• [${o.proposalRef ?? "—"}] ${PLATFORM_AR[o.platform ?? ""] ?? o.platform ?? ""}`);
+    }
+  }
+  if (failed.length > 0) {
+    if (lines.length > 0) lines.push("");
+    lines.push("⚠️ لم يُنشر:");
+    for (const o of failed) {
+      const why = PUBLISH_ERROR_AR[o.errorCode ?? ""] ?? "سبب غير متوقع من المنصة.";
+      const manual = o.needsManualReview ? " (يحتاج تدخلك قبل أي محاولة أخرى)" : "";
+      lines.push(`• [${o.proposalRef ?? "—"}] ${PLATFORM_AR[o.platform ?? ""] ?? o.platform ?? ""} — ${why}${manual}`);
+    }
+  }
+  if (withheldForConnection > 0) {
+    if (lines.length > 0) lines.push("");
+    const where = awaitingConnection.map((p) => PLATFORM_AR[p] ?? p).join("، ");
+    lines.push(
+      `⏸️ ${withheldForConnection} منشور جاهز ومجدول، لكنه ينتظر ربط حساب ${where || "المنصة"}.`,
+      "اربط الحساب من: https://visionex.app/admin/social-connections",
+    );
+  }
+  return lines.join("\n");
+}
+
 /** Two or more are waiting: name them rather than decide the wrong one. */
 export function formatWhichProposal(
   rows: Array<Pick<ProposalView, "proposal_ref" | "platform" | "hook">>,
