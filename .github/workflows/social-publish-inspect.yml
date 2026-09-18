@@ -155,12 +155,18 @@ jobs:
                     (a.api_key_ref is not null)        as api_key_ref_set,
                     public.social_account_has_live_grant(a.id) as live_grant,
                     (a.external_account_id is not null) as addressable,
+                    -- In the order an operator has to do them, which is not the
+                    -- order set_social_account_status() checks them in. That
+                    -- function reports whichever condition it meets first, and
+                    -- its first is `record_review` — a step that cannot be the
+                    -- real next move on an account nobody has connected yet.
+                    -- record_review also fills api_key_ref, so the two are one
+                    -- step here rather than two.
                     case
                       when a.status = 'active' then 'ready'
-                      when a.review_completed_at is null then 'record_review'
-                      when not a.publishing_permission_granted then 'reconnect_with_publish_scope'
-                      when a.api_key_ref is null then 'record_review'
                       when not public.social_account_has_live_grant(a.id) then 'connect'
+                      when not a.publishing_permission_granted then 'reconnect_and_accept_the_publish_scope'
+                      when a.review_completed_at is null or a.api_key_ref is null then 'record_review'
                       else 'set_status_active'
                     end as next_step
                from public.social_accounts a
