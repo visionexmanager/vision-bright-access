@@ -77,8 +77,10 @@ function toRequest(row: Record<string, unknown>): PublishRequest {
     hook: String(row.hook ?? ""),
     body: String(row.body ?? ""),
     hashtags: Array.isArray(row.hashtags) ? row.hashtags.map(String) : [],
-    // Absent from every proposal today; see PublishRequest.mediaUrl.
+    // Generated when the proposal was drafted, or by the owner's /image and
+    // /video commands. Absent is still ordinary for Facebook, which takes text.
     mediaUrl: typeof row.media_url === "string" ? row.media_url : undefined,
+    mediaKind: row.media_kind === "video" || row.media_kind === "image" ? row.media_kind : undefined,
     attempt: Number(row.attempt ?? 1),
     maxAttempts: Number(row.max_attempts ?? 1),
     account: {
@@ -220,6 +222,9 @@ Deno.serve(async (req) => {
         { token: env("WHATSAPP_TOKEN"), phoneNumberId: env("WHATSAPP_PHONE_NUMBER_ID") },
         new Date(),
         count,
+        // Artwork for the platforms that refuse a text-only post. Without it
+        // the run still drafts, and says so per reference in `media`.
+        env("OPENAI_API_KEY"),
       );
       // References and reason codes only — never a draft's text.
       return json({ ok: true, ...report });

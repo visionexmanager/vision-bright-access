@@ -1399,15 +1399,19 @@ describe("the publishing surface is exactly one worker", () => {
     expect(at("20260907000000_social_publishing_recovery.sql"))
       .toBeGreaterThan(at("20260905000000_social_publishing_core.sql"));
 
-    // Phase 9, step 3 adds the OAuth connection to the claimability rule and
-    // therefore has to restate claim_due_content_slot in full — CREATE OR
-    // REPLACE has no partial form. That is the single exception, and naming the
-    // file here is what keeps it one: any other later migration touching any of
-    // these five, or that file touching a second one, fails this test.
-    // The replacement's own suite asserts it kept the signature, the grants and
-    // a byte-identical success payload.
-    const SUPERSEDED: Record<string, string> = {
-      claim_due_content_slot: "20260911000000_social_claim_requires_connection.sql",
+    // Two migrations restate claim_due_content_slot in full, because CREATE OR
+    // REPLACE has no partial form: step 3 adds the OAuth connection to the
+    // claimability rule, and the media migration adds the proposal's artwork to
+    // the payload the worker is handed. Naming them here is what keeps the list
+    // short — any other later migration touching any of these five, or one of
+    // these touching a second one, fails this test. Each replacement's own
+    // suite asserts it kept the signature, the grants and every field the
+    // previous payload carried.
+    const SUPERSEDED: Record<string, string[]> = {
+      claim_due_content_slot: [
+        "20260911000000_social_claim_requires_connection.sql",
+        "20261021000000_content_media.sql",
+      ],
     };
 
     for (const file of migrations.filter((f) => f > "20260908000000_social_publishing_intent_and_parking.sql")) {
@@ -1419,7 +1423,7 @@ describe("the publishing surface is exactly one worker", () => {
         // later migration that only documents one of these five — as step 8
         // does when it schedules the reaper — read as replacing it.
         if (!new RegExp(`CREATE OR REPLACE FUNCTION public\\.${fn}\\(`).test(sql)) continue;
-        expect(SUPERSEDED[fn], `${file} redefines a Phase 8 publishing function`).toBe(file);
+        expect(SUPERSEDED[fn] ?? [], `${file} redefines a Phase 8 publishing function`).toContain(file);
       }
     }
   });

@@ -33,15 +33,18 @@ export type ContentCommand =
   | { kind: "again"; ref: string }
   | { kind: "schedule"; ref: string; at: string | null }
   | { kind: "propose"; section: ContentSection | null; platform: ContentPlatform | null }
-  | { kind: "needs_reference"; verb: "show" | "edit" | "again" | "schedule" };
+  | { kind: "media"; ref: string; media: "image" | "video" }
+  | { kind: "needs_reference"; verb: "show" | "edit" | "again" | "schedule" | "image" | "video" };
 
-const VERBS: Array<[ContentCommand["kind"], RegExp]> = [
+const VERBS: Array<[ContentCommand["kind"] | "image" | "video", RegExp]> = [
   ["list", /^(?:content|posts|proposals|المحتوى|محتوى|منشورات|المنشورات|اقتراحات|الاقتراحات)$/iu],
   ["show", /^(?:show|view|عرض|اعرض|شوف)$/iu],
   ["edit", /^(?:edit|عدل|عدّل|تعديل)$/iu],
   ["again", /^(?:again|redo|regenerate|غيره|غيّره|بدله|بدّله|جديد)$/iu],
   ["schedule", /^(?:schedule|جدول|جدولة|موعد)$/iu],
   ["propose", /^(?:propose|suggest|اقترح|اقتراح)$/iu],
+  ["image", /^(?:image|picture|photo|art|صورة|صوره|رسمة|تصميم)$/iu],
+  ["video", /^(?:video|clip|reel|فيديو|مقطع|ريل)$/iu],
 ];
 
 const PLATFORM_WORDS: Record<ContentPlatform, RegExp> = {
@@ -96,11 +99,15 @@ export function parseContentCommand(body: string): ContentCommand | null {
 
   const match = REFERENCE.exec(rest);
   if (!match || rest.indexOf(match[1]) !== 0) {
-    return { kind: "needs_reference", verb: verb as "show" | "edit" | "again" | "schedule" };
+    return { kind: "needs_reference", verb: verb as "show" | "edit" | "again" | "schedule" | "image" | "video" };
   }
   const ref = match[1].toUpperCase();
   const after = rest.slice(match[1].length).trim();
 
+  // Artwork is asked for by the kind wanted, not by a flag on one verb: the
+  // owner types «صورة AB2CD», and a reel and a square picture are different
+  // enough requests that one word each is clearer than `/media AB2CD video`.
+  if (verb === "image" || verb === "video") return { kind: "media", ref, media: verb };
   if (verb === "show") return { kind: "show", ref };
   if (verb === "again") return { kind: "again", ref };
   if (verb === "schedule") return { kind: "schedule", ref, at: parseBeirutTime(after) };
@@ -197,6 +204,9 @@ export interface ProposalView {
   rationale: string;
   state: string;
   proposed_publish_at: string | null;
+  /** 'image' | 'video', once artwork has been generated for it. */
+  media_kind?: string | null;
+  media_url?: string | null;
 }
 
 export const PLATFORM_AR: Record<string, string> = {
@@ -251,12 +261,16 @@ export function formatProposalMessage(p: ProposalView): string {
     );
     // Said at the moment of the decision, not discovered later by a run that
     // reports `media_required`. Instagram publishes no text-only post — see
-    // createInstagramAdapter — and nothing in the content engine produces an
-    // image, so approving one of these is worth doing for the text and not for
-    // the publishing. Better said here than found out by silence.
-    if (NEEDS_MEDIA_TO_PUBLISH.has(p.platform)) {
+    // createInstagramAdapter — so whether this proposal has artwork decides
+    // whether approving it publishes anything.
+    if (p.media_url) {
+      lines.push("", `${p.media_kind === "video" ? "🎬 فيديو" : "🖼️ صورة"} جاهزة مرفقة بالمنشور.`);
+      lines.push(`🔄 /${p.media_kind === "video" ? "video" : "image"} ${p.proposal_ref} — ولّدها من جديد`);
+    } else if (NEEDS_MEDIA_TO_PUBLISH.has(p.platform)) {
       lines.push(
-        `ℹ️ ${PLATFORM_AR[p.platform] ?? p.platform} لا ينشر نصاً بلا صورة، فلن يُنشر هذا تلقائياً بعد.`,
+        "",
+        `ℹ️ ${PLATFORM_AR[p.platform] ?? p.platform} لا ينشر نصاً بلا صورة.`,
+        `🖼️ /image ${p.proposal_ref} — ولّد صورة · 🎬 /video ${p.proposal_ref} — ولّد فيديو`,
       );
     }
   } else if (p.state === "APPROVED") {
@@ -288,6 +302,7 @@ export const CONTENT_HELP_LINES = [
   "/approve AB2CD — موافقة · /reject AB2CD السبب — رفض",
   "/edit AB2CD النص — تعديل · /again AB2CD — نسخة أخرى",
   "/schedule AB2CD 20/9 18:00 — موعد النشر",
+  "/image AB2CD — صورة للمنشور · /video AB2CD — فيديو قصير",
   "/propose instagram academy — اقتراح جديد الآن",
   "وإن كان اقتراح واحد فقط بانتظارك، «موافق» أو «لا» وحدها تكفي.",
 ];
@@ -330,10 +345,22 @@ export const DAILY_SECTIONS: ContentSection[] = [
   "academy_courses", "products", "services", "kids_games", "content_items",
   "simulations", "tv_channels", "radio_stations", "communities", "events", "jobs",
 ];
+/**
+ * What the daily run proposes, and why it is only two things.
+ *
+ * It used to alternate reels and carousels. Neither could ever be published: a
+ * carousel needs several images the adapter has no way to send, and a reel
+ * needs a video that takes a couple of minutes to render — longer than one
+ * invocation of the daily job should hold open for two of them. Proposing a
+ * shape the pipeline cannot publish is how an approval turns into silence, so
+ * the rotation is now the two the pipeline can finish: a picture for
+ * Instagram, text for Facebook.
+ *
+ * A reel is still one command away — `/propose instagram` then `/video AB2CD`,
+ * which renders in the background and attaches it.
+ */
 const DAILY_SLOTS: Array<Pick<Brief, "platform" | "contentType">> = [
-  { platform: "instagram", contentType: "reel" },
-  { platform: "facebook", contentType: "post" },
-  { platform: "instagram", contentType: "carousel" },
+  { platform: "instagram", contentType: "post" },
   { platform: "facebook", contentType: "post" },
 ];
 
