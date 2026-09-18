@@ -118,20 +118,36 @@ jobs:
             say "- META_APP_ID not set here; cannot test the consent page."
             exit 0
           fi
-          DIALOG=$(curl -s -G -L -A "Mozilla/5.0" "https://www.facebook.com/v26.0/dialog/oauth" \
-                     --data-urlencode "client_id=$APP_ID" \
-                     --data-urlencode "redirect_uri=$REDIRECT" \
-                     --data-urlencode "response_type=code" \
-                     --data-urlencode "scope=pages_manage_posts,pages_read_engagement" \
-                     --data-urlencode "state=probe")
-          if grep -qi "URL Blocked\|redirect_uri.*not allowed\|isn.t allowed" <<<"$DIALOG"; then
+          dialog() {
+            curl -s -G -L -A "Mozilla/5.0" "https://www.facebook.com/v26.0/dialog/oauth" \
+              --data-urlencode "client_id=$APP_ID" \
+              --data-urlencode "redirect_uri=$1" \
+              --data-urlencode "response_type=code" \
+              --data-urlencode "scope=pages_manage_posts,pages_read_engagement" \
+              --data-urlencode "state=probe"
+          }
+          blocked() { grep -qi "URL Blocked\|redirect_uri.*not allowed\|isn.t allowed" <<<"$1"; }
+
+          # A green light here is worth nothing unless a red one is reachable.
+          # Facebook could answer every unauthenticated request with a login
+          # page, in which case "the consent page loads" would be true of a
+          # callback that is not allowlisted at all — a check that cannot fail.
+          # So the probe is first pointed at a URL that certainly is not on the
+          # list, and its own verdict decides whether the real one is reported.
+          CONTROL=$(dialog "https://example.com/definitely-not-allowlisted")
+          if ! blocked "$CONTROL"; then
+            say "- ⚠️ This probe cannot tell an allowlisted callback from a blocked one"
+            say "  today — a deliberately invalid URL was not refused either. Open the"
+            say "  Connect button and read the screen instead of trusting this line."
+            exit 0
+          fi
+
+          if blocked "$(dialog "$REDIRECT")"; then
             say "- ❌ **The callback is not allowlisted.** Add it under the Meta app →"
             say "  Facebook Login → Settings → Valid OAuth Redirect URIs, then run this again."
-          elif grep -qi "Log in to Facebook\|login\.php\|Continue as\|app_id" <<<"$DIALOG"; then
-            say "- ✅ The consent page loads: the callback is accepted by the app."
           else
-            say "- ⚠️ Inconclusive — Facebook answered with something unrecognised."
-            say "  Open the Connect button and read the screen instead of trusting this line."
+            say "- ✅ The callback is allowlisted: the consent page loads for it, and the"
+            say "  same probe refused a deliberately invalid URL a moment earlier."
           fi
 
       - name: Threads and YouTube
