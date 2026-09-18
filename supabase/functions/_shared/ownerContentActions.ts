@@ -21,6 +21,7 @@ import {
   formatProposalMessage,
   OWNER_CONTENT_TEMPLATE,
   ownerWindowOpen,
+  PLATFORM_AR,
   type ProposalView,
 } from "./ownerContent.ts";
 import { sendWhatsAppTemplate, sendWhatsAppText } from "./whatsapp.ts";
@@ -58,7 +59,33 @@ async function waitingProposals(db: Db): Promise<ProposalView[]> {
   return (data ?? []) as ProposalView[];
 }
 
-/** Approve or reject a content proposal. Returns the owner's reply. */
+/**
+ * The proposals a bare "موافق" could be about: undecided ones, newest first.
+ *
+ * Deliberately not the same list as `/content`, which also shows what has been
+ * approved and scheduled. A decision may only land on something undecided, so
+ * resolving one against a scheduled post would answer the wrong question.
+ */
+export async function decidableProposals(db: Db): Promise<ProposalView[]> {
+  const { data } = await db
+    .from("content_proposals")
+    .select(PROPOSAL_COLUMNS)
+    .in("state", ["PROPOSED", "EDITED"])
+    .order("created_at", { ascending: false })
+    .limit(10);
+  return (data ?? []) as ProposalView[];
+}
+
+/**
+ * Approve or reject a content proposal. Returns the owner's reply.
+ *
+ * An approval used to end at "approved — now schedule it", which left the
+ * owner one command short of anything happening and said nothing about the
+ * account it would be published from. Both are answered here: a proposal that
+ * already carries a publishing time is scheduled on the spot, and a platform
+ * with no connected account is named as the reason nothing will go out, at the
+ * moment the decision is made rather than one command later.
+ */
 export async function decideProposal(db: Db, ref: string, approve: boolean, note: string | null): Promise<string> {
   const actor = await ownerActorId(db);
   if (!actor) return "لا يوجد حساب مدير لتسجيل القرار باسمه.";
@@ -74,9 +101,48 @@ export async function decideProposal(db: Db, ref: string, approve: boolean, note
   }
   const result = data as { ok?: boolean; error?: string; state?: string };
   if (!result?.ok) return `الاقتراح ${ref} لم يعد بانتظار قرار (${result?.state ?? result?.error ?? "?"}).`;
-  return approve
-    ? `✅ تمت الموافقة على ${ref}.\nحدّد موعد النشر: /schedule ${ref} 20/9 18:00`
-    : `❌ رُفض ${ref}. سأتجنب هذا النوع في الاقتراحات القادمة.`;
+  if (!approve) return `❌ رُفض ${ref}. سأتجنب هذا النوع في الاقتراحات القادمة.`;
+
+  return (await carryApprovalForward(db, ref, actor)).join("\n");
+}
+
+/**
+ * What happens after "approved", said in one message.
+ *
+ * Three facts, in the order they matter: it is approved, when it goes out, and
+ * whether anything can actually send it. The third one was previously only
+ * discoverable by running `/schedule` and reading the warning at the end of
+ * its reply.
+ */
+async function carryApprovalForward(db: Db, ref: string, actor: string, now: Date = new Date()): Promise<string[]> {
+  const lines = [`✅ تمت الموافقة على ${ref}.`];
+  const proposal = await findProposal(db, ref);
+  const at = proposal?.proposed_publish_at ?? null;
+  const future = at && Date.parse(at) > now.getTime() ? at : null;
+
+  if (future) {
+    const { data, error } = await db.rpc("schedule_content_proposal", {
+      _proposal_ref: ref,
+      _scheduled_for: future,
+      _actor_id: actor,
+      _note: "auto-scheduled on approval via WhatsApp",
+    });
+    const scheduled = !error && (data as { ok?: boolean } | null)?.ok === true;
+    if (error) console.error("[owner-content] auto-schedule failed:", error.message);
+    lines.push(scheduled
+      ? `🗓️ وجُدول للنشر ${formatBeirut(future)} (بتوقيت بيروت).`
+      : `حدّد موعد النشر: /schedule ${ref} 20/9 18:00`);
+  } else {
+    lines.push(`حدّد موعد النشر: /schedule ${ref} 20/9 18:00`);
+  }
+
+  if (proposal && !(await connectedPlatform(db, ref))) {
+    lines.push(
+      `⚠️ حساب ${PLATFORM_AR[proposal.platform] ?? proposal.platform} غير مربوط بعد، فلن يُنشر شيء حتى تربطه من لوحة التحكم:`,
+      "https://visionex.app/admin/social-connections",
+    );
+  }
+  return lines;
 }
 
 async function propose(db: Db, brief: Brief, supersedesRef?: string): Promise<{ ok: boolean; ref?: string; reason?: string }> {

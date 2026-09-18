@@ -5,12 +5,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   beirutWallClockToIso,
+  CONTENT_HELP_LINES,
   dailyBriefs,
   formatContentList,
   formatProposalMessage,
+  formatWhichProposal,
   isBareContentReply,
   OWNER_CONTENT_TEMPLATE,
   ownerWindowOpen,
+  parseBareDecision,
   parseBeirutTime,
   parseContentCommand,
 } from "../../supabase/functions/_shared/ownerContent.ts";
@@ -225,5 +228,152 @@ describe("the daily run against a fake database", () => {
     };
     const report = await runDailyProposals(db, { token: "t", phoneNumberId: "p" }, new Date("2026-09-17T06:00:00Z"), 2);
     expect(report).toEqual({ proposed: ["AB2CD", "AB2CD"], failed: [], indexed: {}, notified: "none", reason: "no_owner_number" });
+  });
+});
+
+// ── Answering a proposal the way anybody answers a message ──────────────────
+//
+// The proposal message ends with `/approve AB2CD`, and the owner replied
+// «وافقت عليه». Without the slash that was not a command at all, so it reached
+// the customer assistant, which discussed the idea and moved nothing. These
+// pin the two halves of the fix: what counts as a decision, and that one
+// decision is never guessed from two candidates.
+
+describe("a decision with no slash", () => {
+  it("reads a whole message that says only yes or no, in both languages", () => {
+    for (const yes of ["موافق", "وافقت عليه", "أوافق", "انشره", "نفذ", "تمام", "نعم",
+                       "ok", "yes", "approve", "publish it", "go ahead"]) {
+      expect(parseBareDecision(yes), yes).toEqual({ approve: true, note: null });
+    }
+    for (const no of ["لا", "ارفض", "مرفوض", "احذفه", "no", "reject", "cancel"]) {
+      expect(parseBareDecision(no), no).toEqual({ approve: false, note: null });
+    }
+  });
+
+  it("is not a sentence that merely contains one of those words", () => {
+    // Known-bad input for the guard itself: each of these would decide a post
+    // if the patterns were matched anywhere in the message rather than whole.
+    for (const sentence of [
+      "نعم بس غيّر الصورة", "موافق على الفكرة بس مش هلق", "لا تنسى تبعتلي التقرير",
+      "yes but change the hook", "ok what is the weather today", "no news today?",
+      "وافقت على طلب العميل امبارح",
+    ]) {
+      expect(parseBareDecision(sentence), sentence).toBeNull();
+    }
+    expect(parseBareDecision("")).toBeNull();
+    // A slash is still a command, read by the command parser, not by this.
+    expect(parseBareDecision("/approve")).toBeNull();
+  });
+
+  it("asks which one rather than deciding the newer of two", () => {
+    const asked = formatWhichProposal([
+      { proposal_ref: "AB2CD", platform: "instagram", hook: "درس جديد" },
+      { proposal_ref: "XY9MN", platform: "facebook", hook: "لعبة جديدة" },
+    ], true);
+    expect(asked).toContain("AB2CD");
+    expect(asked).toContain("XY9MN");
+    expect(asked).toContain("/approve AB2CD");
+  });
+
+  it("the webhook resolves it before deciding the message is not a command", () => {
+    const handler = webhook.slice(webhook.indexOf("async function handleOwnerCommand("));
+    const bare = handler.indexOf("parseBareDecision(rawText)");
+    const fallThrough = handler.indexOf("if (ownerCommandBody(text) === null) return null;");
+    expect(bare).toBeGreaterThan(0);
+    expect(bare).toBeLessThan(fallThrough);
+    // Only content proposals: a customer escalation still needs its reference,
+    // because there the wrong guess reaches a stranger.
+    const resolver = webhook.slice(webhook.indexOf("async function decideWaitingProposal("));
+    expect(resolver).toContain("decidableProposals(db)");
+    expect(resolver).toContain("if (waiting.length === 0) return null;");
+    expect(resolver).toContain("if (waiting.length > 1) return formatWhichProposal");
+    // And `/approve` with no reference resolves the same way.
+    expect(handler).toContain("decideWaitingProposal(db, from, command.kind === \"approve\", command.note)");
+  });
+
+  it("the proposal and the help both say the short answer works", () => {
+    expect(formatProposalMessage({
+      proposal_ref: "AB2CD", platform: "instagram", section: "academy_courses", content_type: "reel",
+      topic: "t", hook: "h", body: "b", hashtags: [], rationale: "", state: "PROPOSED", proposed_publish_at: null,
+    })).toContain("«موافق»");
+    expect(CONTENT_HELP_LINES.join("\n")).toContain("«موافق»");
+  });
+});
+
+describe("what an approval actually does", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  const loadActions = async () => {
+    vi.doMock("../../supabase/functions/_shared/contentIndex.ts", () => ({ indexSources: vi.fn(async () => ({})) }));
+    vi.doMock("../../supabase/functions/_shared/contentEngine.ts", () => ({ proposeContent: vi.fn(async () => ({ ok: false })) }));
+    const actionsPath = "../../supabase/functions/_shared/ownerContentActions.ts";
+    return await import(/* @vite-ignore */ actionsPath) as {
+      decideProposal: (db: unknown, ref: string, approve: boolean, note: string | null) => Promise<string>;
+    };
+  };
+
+  /** A database that answers the four reads an approval makes. */
+  const fakeDb = (opts: { publishAt: string | null; connected: boolean; calls: string[] }) => {
+    const proposal = {
+      proposal_ref: "AB2CD", platform: "instagram", section: "academy_courses", content_type: "reel",
+      topic: "t", hook: "h", body: "b", hashtags: [], rationale: "", state: "PROPOSED",
+      proposed_publish_at: opts.publishAt,
+    };
+    const chain = (single: unknown, rows: unknown[]) => {
+      const q: Record<string, unknown> = {};
+      for (const m of ["select", "eq", "in", "order", "limit"]) q[m] = () => q;
+      q.maybeSingle = async () => ({ data: single });
+      q.then = (resolve: (v: unknown) => void) => resolve({ data: rows });
+      return q;
+    };
+    return {
+      from: (table: string) =>
+        table === "user_roles"
+          ? chain({ user_id: "admin-1" }, [])
+          : table === "content_proposals"
+            ? chain(proposal, [proposal])
+            : chain(null, opts.connected ? [{ status: "active" }] : []),
+      rpc: async (name: string) => {
+        opts.calls.push(name);
+        return { data: { ok: true }, error: null };
+      },
+    };
+  };
+
+  it("schedules the proposal's own time instead of asking for one command more", async () => {
+    const calls: string[] = [];
+    const { decideProposal } = await loadActions();
+    const reply = await decideProposal(
+      fakeDb({ publishAt: "2099-01-01T15:00:00Z", connected: true, calls }), "AB2CD", true, null,
+    );
+    expect(calls).toEqual(["decide_content_proposal", "schedule_content_proposal"]);
+    expect(reply).toContain("تمت الموافقة");
+    expect(reply).toContain("جُدول للنشر");
+    expect(reply).not.toContain("غير مربوط");
+  });
+
+  it("names the disconnected account as the reason nothing will go out", async () => {
+    const calls: string[] = [];
+    const { decideProposal } = await loadActions();
+    const reply = await decideProposal(
+      fakeDb({ publishAt: null, connected: false, calls }), "AB2CD", true, null,
+    );
+    expect(calls).toEqual(["decide_content_proposal"]);
+    expect(reply).toContain("/schedule AB2CD");
+    expect(reply).toContain("إنستغرام");
+    expect(reply).toContain("/admin/social-connections");
+  });
+
+  it("says nothing about scheduling when the answer was no", async () => {
+    const calls: string[] = [];
+    const { decideProposal } = await loadActions();
+    const reply = await decideProposal(
+      fakeDb({ publishAt: "2099-01-01T15:00:00Z", connected: true, calls }), "AB2CD", false, null,
+    );
+    expect(calls).toEqual(["decide_content_proposal"]);
+    expect(reply).toContain("رُفض AB2CD");
   });
 });

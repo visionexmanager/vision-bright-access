@@ -199,7 +199,7 @@ export interface ProposalView {
   proposed_publish_at: string | null;
 }
 
-const PLATFORM_AR: Record<string, string> = {
+export const PLATFORM_AR: Record<string, string> = {
   facebook: "فيسبوك", instagram: "إنستغرام", tiktok: "تيك توك", youtube: "يوتيوب", website: "الموقع", newsletter: "النشرة البريدية",
 };
 const TYPE_AR: Record<string, string> = {
@@ -237,6 +237,7 @@ export function formatProposalMessage(p: ProposalView): string {
       `✏️ /edit ${p.proposal_ref} النص الجديد — تعديل (سطر أول «عنوان: …» يغيّر العنوان)`,
       `🔄 /again ${p.proposal_ref} — نسخة أخرى`,
       `❌ /reject ${p.proposal_ref} السبب — رفض`,
+      "أو ردّ «موافق» أو «لا» وحدها إن كان هذا الاقتراح الوحيد بانتظارك.",
     );
   } else if (p.state === "APPROVED") {
     lines.push("", `🗓️ /schedule ${p.proposal_ref} 20/9 18:00 — حدّد موعد النشر (بتوقيت بيروت)`);
@@ -268,6 +269,7 @@ export const CONTENT_HELP_LINES = [
   "/edit AB2CD النص — تعديل · /again AB2CD — نسخة أخرى",
   "/schedule AB2CD 20/9 18:00 — موعد النشر",
   "/propose instagram academy — اقتراح جديد الآن",
+  "وإن كان اقتراح واحد فقط بانتظارك، «موافق» أو «لا» وحدها تكفي.",
 ];
 
 /** Why the engine refused, in words the owner can act on. */
@@ -376,4 +378,71 @@ export function ownerWindowOpen(lastInboundAt: string | null | undefined, now: D
  */
 export function isBareContentReply(text: string): boolean {
   return /^(?:content|المحتوى|محتوى|منشورات|اقتراحات)[\s.!؟?]*$/iu.test((text ?? "").trim());
+}
+
+// ── Answering a proposal the way anybody answers a message ───────────────────
+//
+// The proposal message ends with `/approve AB2CD`, and the owner answered
+// «وافقت عليه» — which is what a person does when a message asks them to
+// decide something. Nothing happened: without the slash it was not a command
+// at all, so it went to the customer assistant, which had a pleasant
+// conversation about it and moved nothing.
+//
+// A slash still separates a command from a sentence everywhere else; this is
+// the one place it does not have to, because the decision is unambiguous: a
+// short message that says only "yes" or "no" while exactly one proposal is
+// waiting is an answer to that proposal. The caller resolves the "exactly
+// one", and refuses to guess when two are waiting — which is the same rule
+// the customer escalations already follow.
+
+/** A whole message that decides, with nothing else in it. */
+export interface BareDecision {
+  approve: boolean;
+  /** Anything the owner added, e.g. a reason for a rejection. */
+  note: string | null;
+}
+
+/** Longest a message can be and still be read as nothing but a decision. */
+const BARE_DECISION_MAX_CHARS = 40;
+
+// Whole-message patterns only. "نعم" decides; "نعم بس غيّر العنوان" does not,
+// and falls through to the assistant, where it belongs.
+const BARE_APPROVE = [
+  /^(?:yes|yeah|yep|ok|okay|sure|approve[d]?|accept(?:ed)?|publish(?:\s+it)?|post\s+it|go\s+ahead|do\s+it|send\s+it)$/iu,
+  /^(?:نعم|أجل|اجل|اي|أي|ايه|أيوه|ايوه|اوك|أوك|تمام|ماشي|أكيد|اكيد|طيب|حلو|زين)$/u,
+  /^(?:موافق|موافقة|أوافق|اوافق|وافق|وافقت(?:\s+عليه)?|تمت\s+الموافقة|قبلت|اقبل|أقبل)$/u,
+  /^(?:انشر(?:ه|ها|هم)?|أنشر(?:ه|ها)?|انشره\s+الآن|نشر|نفذ(?:ه|ها)?|نفّذ(?:ه|ها)?|يلا|يالله)$/u,
+];
+const BARE_REJECT = [
+  /^(?:no|nope|reject(?:ed)?|decline[d]?|cancel|skip|drop\s+it|not\s+this\s+one)$/iu,
+  /^(?:لا|لأ|كلا|مرفوض|ارفض|أرفض|رفضت|رفض|احذفه|إحذفه|ألغه|الغه|ألغي|الغي|إلغاء|الغاء|مش\s+عاجبني|ما\s+بدي)$/u,
+];
+
+/**
+ * "موافق" / "yes" / "انشره" / "لا" — a decision and nothing else.
+ *
+ * Returns null for every longer message, including one that starts with an
+ * approving word: "نعم، بس خلّينا نغيّر الصورة" is a conversation, not a
+ * decision, and the assistant is the right place for it.
+ */
+export function parseBareDecision(text: string): BareDecision | null {
+  const trimmed = (text ?? "").trim().replace(/[\s.!؟?،,]+$/u, "");
+  if (!trimmed || trimmed.length > BARE_DECISION_MAX_CHARS) return null;
+  if (BARE_APPROVE.some((pattern) => pattern.test(trimmed))) return { approve: true, note: null };
+  if (BARE_REJECT.some((pattern) => pattern.test(trimmed))) return { approve: false, note: null };
+  return null;
+}
+
+/** Two or more are waiting: name them rather than decide the wrong one. */
+export function formatWhichProposal(
+  rows: Array<Pick<ProposalView, "proposal_ref" | "platform" | "hook">>,
+  approve: boolean,
+): string {
+  const verb = approve ? "/approve" : "/reject";
+  return [
+    `أي اقتراح تقصد؟ ${rows.length} بانتظار قرارك:`,
+    ...rows.slice(0, 10).map((row) => `• [${row.proposal_ref}] ${PLATFORM_AR[row.platform] ?? row.platform} — ${row.hook}`),
+    "",
+    `اكتب ${verb} مع الرمز، مثلاً: ${verb} ${rows[0]?.proposal_ref ?? "AB2CD"}`,
+  ].join("\n");
 }

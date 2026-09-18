@@ -491,8 +491,18 @@ import {
   parseOwnerCommand,
   type PendingApproval,
 } from "../_shared/ownerControl.ts";
-import { isBareContentReply, parseContentCommand } from "../_shared/ownerContent.ts";
-import { decideProposal, findProposal, runContentCommand } from "../_shared/ownerContentActions.ts";
+import {
+  formatWhichProposal,
+  isBareContentReply,
+  parseBareDecision,
+  parseContentCommand,
+} from "../_shared/ownerContent.ts";
+import {
+  decidableProposals,
+  decideProposal,
+  findProposal,
+  runContentCommand,
+} from "../_shared/ownerContentActions.ts";
 
 /** How much prior conversation the model sees. Enough for context, bounded. */
 const HISTORY_LIMIT = 12;
@@ -591,6 +601,29 @@ async function readFeatureConfig(db: ReturnType<typeof service>): Promise<Featur
  * is an ordinary message and gets the ordinary answer, so the number that runs
  * the service is also the number that can test it.
  */
+/**
+ * Decide the content proposal the owner means, when they named no reference.
+ *
+ * Null means "I could not tell", and the caller carries on as though this had
+ * never been asked — which is what keeps an ordinary «نعم» in an ordinary
+ * conversation an ordinary «نعم». Two proposals waiting is also "I could not
+ * tell": it asks which, rather than deciding the newer one and telling the
+ * owner afterwards.
+ */
+async function decideWaitingProposal(
+  db: ReturnType<typeof service>,
+  from: string,
+  approve: boolean,
+  note: string | null,
+): Promise<string | null> {
+  const waiting = await decidableProposals(db);
+  if (waiting.length === 0) return null;
+  // The owner has spoken, so the daily run may send whole proposals again.
+  await db.from("whatsapp_conversations").update({ last_message_at: new Date().toISOString() }).eq("wa_phone", from);
+  if (waiting.length > 1) return formatWhichProposal(waiting, approve);
+  return await decideProposal(db, waiting[0].proposal_ref, approve, note);
+}
+
 async function handleOwnerCommand(
   db: ReturnType<typeof service>,
   from: string,
@@ -600,6 +633,23 @@ async function handleOwnerCommand(
   // the list, so the owner never has to know about the slash to answer it.
   const text = isBareContentReply(rawText) ? "/content" : rawText;
   const command = parseOwnerCommand(text);
+
+  // ── Answering a proposal the way anybody answers a message ──────────────
+  //
+  // The proposal ends with `/approve AB2CD`, and the owner replied «وافقت
+  // عليه» — which is what a person does. Without the slash that was not a
+  // command at all, so it went to the customer assistant, which discussed the
+  // idea pleasantly and moved nothing. A short message that says only yes or
+  // no, while exactly one proposal is undecided, is an answer to that
+  // proposal. Everything else still needs the slash, and this resolves against
+  // content proposals only — a customer escalation is still decided by its
+  // reference, because there the wrong guess reaches a stranger.
+  const bare = parseBareDecision(rawText);
+  if (bare) {
+    const decided = await decideWaitingProposal(db, from, bare.approve, bare.note);
+    if (decided) return decided;
+  }
+
   // No prefix, no command. The owner is a customer here, which is the only way
   // they can see what a customer sees.
   if (ownerCommandBody(text) === null) return null;
@@ -650,13 +700,11 @@ async function handleOwnerCommand(
   // for a decision right now." in the middle of a conversation about something
   // else entirely.
   //
-  // A slash is always a command. Without one, the words act only while a
-  // decision is actually waiting — which is the only moment they are
-  // unambiguous, and the moment the notification asked for them. Otherwise this
-  // returns null and the message carries on to the assistant, untouched.
-  //
-  // A named reference is a command either way: nobody types "ABCDE" by accident.
-  if (!contentCommand && !command.explicit && !command.reference && pending.length === 0) return null;
+  // The slash is what settles it, and it is settled above: an unprefixed
+  // message has already returned null or decided the one proposal waiting for
+  // an answer. Everything from here down started with a slash and gets a real
+  // reply — including `/approve` on a day when nothing is pending, which used
+  // to be handed to the assistant as though the owner had asked it a question.
 
   // Rate limit: an owner handset that has been taken over should not be able
   // to churn through every pending decision unchecked.
@@ -687,6 +735,17 @@ async function handleOwnerCommand(
   }
 
   if (command.kind === "list_pending") return formatPendingList(pending);
+
+  // `/approve` with no reference, while no customer decision is outstanding:
+  // the proposal waiting is the one they mean. Same rule as the bare «موافق»
+  // above — one waiting proposal decides, two ask which.
+  if (
+    (command.kind === "approve" || command.kind === "reject") &&
+    !command.reference && pending.length === 0
+  ) {
+    const decided = await decideWaitingProposal(db, from, command.kind === "approve", command.note);
+    if (decided) return decided;
+  }
 
   // A bare number carries no reference. It is only safe when exactly one
   // decision is outstanding; otherwise we ask rather than guess, because
