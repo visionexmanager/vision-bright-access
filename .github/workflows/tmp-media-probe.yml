@@ -1,0 +1,40 @@
+name: tmp media probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Which media models does this key actually have?
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LUMA_API_KEY: ${{ secrets.LUMA_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          say "## models matching image / video / audio / tts"
+          curl -s https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY" \
+            | jq -r '[.data[].id] | map(select(test("image|dall|video|sora|tts|audio|speech"))) | sort | join(", ")' \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          say ""
+          say "## a real 1024x1024 generation (gpt-image-1)"
+          curl -s https://api.openai.com/v1/images/generations \
+            -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" \
+            -d '{"model":"gpt-image-1","prompt":"a simple flat illustration of an open book, teal and amber","size":"1024x1024","n":1}' \
+            | jq -c '{ok: ((.data[0].b64_json // .data[0].url) != null), bytes: (.data[0].b64_json | length), url_returned: (.data[0].url != null), error: .error.message, type: .error.type}' \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          say ""
+          say "## the same with dall-e-3"
+          curl -s https://api.openai.com/v1/images/generations \
+            -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" \
+            -d '{"model":"dall-e-3","prompt":"a simple flat illustration of an open book, teal and amber","size":"1024x1024","n":1}' \
+            | jq -c '{ok: ((.data[0].b64_json // .data[0].url) != null), url_returned: (.data[0].url != null), error: .error.message, type: .error.type}' \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          say ""
+          say "## other keys"
+          [ -n "${LUMA_API_KEY:-}" ] && say "LUMA_API_KEY set" || say "LUMA_API_KEY not set"
+          [ -n "${ELEVENLABS_API_KEY:-}" ] && say "ELEVENLABS_API_KEY set" || say "ELEVENLABS_API_KEY not set"
