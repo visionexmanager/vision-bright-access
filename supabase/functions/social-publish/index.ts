@@ -28,7 +28,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { defaultAdapters } from "../_shared/publishing/adapters.ts";
 import { metaAdapters, type PublishFetch } from "../_shared/publishing/metaAdapters.ts";
 import { runPublishBatch } from "../_shared/publishing/runner.ts";
-import { runDailyProposals } from "../_shared/ownerContentActions.ts";
+import { reportPublishRun, runDailyProposals } from "../_shared/ownerContentActions.ts";
 import type {
   ClaimResult,
   Platform,
@@ -264,11 +264,36 @@ Deno.serve(async (req) => {
     const needsReview = reports.filter((report) => report.needsManualReview).length;
     const idle = reports.find((report) => report.status === "idle");
 
+    // ── The owner hears what happened ──────────────────────────────────
+    //
+    // The queue drains on a schedule nobody watches, and until now the only
+    // record of a run was this response in a workflow log. From a phone, a
+    // post that went out and a post that failed four times looked identical:
+    // silence. Codes and reference codes only — no post text, no provider
+    // string — and never fatal, because a notification that did not send is
+    // not a reason to record a successful publish as a failure.
+    const notified = await reportPublishRun(
+      service,
+      { token: env("WHATSAPP_TOKEN"), phoneNumberId: env("WHATSAPP_PHONE_NUMBER_ID") },
+      reports
+        .filter((report) => report.status !== "idle" && report.publicationId)
+        .map((report) => ({
+          published: report.ok,
+          platform: report.platform,
+          proposalRef: report.proposalRef,
+          errorCode: report.errorCode,
+          needsManualReview: report.needsManualReview,
+        })),
+      idle?.withheldForConnection ?? 0,
+      idle?.awaitingConnection ?? [],
+    );
+
     return json({
       ok: true,
       attempted: reports.length,
       published,
       needs_manual_review: needsReview,
+      owner_notified: notified,
       // Surfaced at the top level because it is the one operational fact that
       // looks identical to an empty queue and is not one.
       withheld_for_connection: idle?.withheldForConnection ?? 0,

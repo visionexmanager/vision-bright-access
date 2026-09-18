@@ -9,8 +9,10 @@ import {
   dailyBriefs,
   formatContentList,
   formatProposalMessage,
+  formatPublishReport,
   formatWhichProposal,
   isBareContentReply,
+  NEEDS_MEDIA_TO_PUBLISH,
   OWNER_CONTENT_TEMPLATE,
   ownerWindowOpen,
   parseBareDecision,
@@ -375,5 +377,111 @@ describe("what an approval actually does", () => {
     );
     expect(calls).toEqual(["decide_content_proposal"]);
     expect(reply).toContain("رُفض AB2CD");
+  });
+});
+
+// ── After the publisher has run ─────────────────────────────────────────────
+//
+// Approving a post and then hearing nothing is, from a phone, the same event
+// as approving one and having nothing happen. The queue drains on a schedule
+// nobody watches and the only record of a run was a workflow log.
+
+describe("what the owner hears after a publish run", () => {
+  it("says nothing at all when the queue was empty", () => {
+    expect(formatPublishReport([], 0, [])).toBeNull();
+  });
+
+  it("names what went out, by reference and platform", () => {
+    const report = formatPublishReport([
+      { published: true, platform: "facebook", proposalRef: "AB2CD" },
+    ], 0, [])!;
+    expect(report).toContain("AB2CD");
+    expect(report).toContain("فيسبوك");
+    expect(report).not.toContain("⚠️");
+  });
+
+  it("turns each failure code into the next move, not a provider string", () => {
+    const report = formatPublishReport([
+      { published: false, platform: "facebook", proposalRef: "AB2CD", errorCode: "permission_denied" },
+      { published: false, platform: "instagram", proposalRef: "XY9MN", errorCode: "media_required" },
+      { published: false, platform: "facebook", proposalRef: "QQ8RT", errorCode: "token_invalid", needsManualReview: true },
+    ], 0, [])!;
+    expect(report).toContain("صلاحية النشر");
+    expect(report).toContain("بلا صورة");
+    expect(report).toContain("أعد ربطه");
+    expect(report).toContain("يحتاج تدخلك");
+  });
+
+  it("says when posts are ready but the account is not connected", () => {
+    const report = formatPublishReport([], 2, ["facebook"])!;
+    expect(report).toContain("2 منشور");
+    expect(report).toContain("فيسبوك");
+    expect(report).toContain("/admin/social-connections");
+  });
+
+  it("carries no post text and no provider error string", () => {
+    // Known-bad input: an adapter that leaked a provider message would put it
+    // on errorCode, and this must not print it back.
+    const report = formatPublishReport([
+      { published: false, platform: "facebook", proposalRef: "AB2CD", errorCode: "(#200) The user hasn't authorized" },
+    ], 0, [])!;
+    expect(report).not.toContain("authorized");
+    expect(report).toContain("سبب غير متوقع");
+  });
+
+  it("the publisher reports the run, and a report never fails the run", () => {
+    const publish = readFileSync("supabase/functions/social-publish/index.ts", "utf8");
+    expect(publish).toContain("reportPublishRun(");
+    expect(publish).toContain("owner_notified: notified");
+    // Idle rows carry no publication and must not be reported as attempts.
+    expect(publish).toContain('report.status !== "idle" && report.publicationId');
+    const actions = readFileSync("supabase/functions/_shared/ownerContentActions.ts", "utf8");
+    const from = actions.indexOf("export async function reportPublishRun(");
+    const fn = actions.slice(from, actions.indexOf("\n// ──", from));
+    expect(fn).toContain("try {");
+    expect(fn).toContain("catch");
+    // Inside the 24-hour window only: a run is not worth opening a paid
+    // conversation the owner did not ask for.
+    expect(fn).toContain("ownerWindowOpen(target.lastInboundAt, now)");
+    expect(fn).not.toContain("sendWhatsAppTemplate");
+  });
+
+  it("the report can name the post, because the runner carries its reference", () => {
+    const runner = readFileSync("supabase/functions/_shared/publishing/runner.ts", "utf8");
+    expect(runner).toContain("proposalRef: request.proposalRef");
+  });
+
+  it("both jobs reach the owner through one lookup, not two copies", () => {
+    const actions = readFileSync("supabase/functions/_shared/ownerContentActions.ts", "utf8");
+    expect(actions).toContain("export async function ownerTarget(");
+    // The daily run no longer has its own copy of the phone resolution.
+    expect(actions.match(/\.like\("wa_phone"/g) ?? []).toHaveLength(1);
+    expect(actions).toContain("const target = await ownerTarget(db);");
+  });
+});
+
+describe("a proposal says what will happen to it", () => {
+  const base = {
+    proposal_ref: "AB2CD", section: "academy_courses", content_type: "post",
+    topic: "t", hook: "h", body: "b", hashtags: [], rationale: "",
+    state: "PROPOSED", proposed_publish_at: null,
+  };
+
+  it("warns on a platform that refuses a text-only post", () => {
+    // Discovered today only by approving, scheduling, and reading a run that
+    // reports media_required — which is three steps and a day later.
+    expect(formatProposalMessage({ ...base, platform: "instagram" })).toContain("لا ينشر نصاً بلا صورة");
+    expect(formatProposalMessage({ ...base, platform: "facebook" })).not.toContain("بلا صورة");
+  });
+
+  it("names the platform the adapter actually refuses, not a guessed list", () => {
+    const adapters = readFileSync("supabase/functions/_shared/publishing/metaAdapters.ts", "utf8");
+    for (const platform of NEEDS_MEDIA_TO_PUBLISH) {
+      const from = adapters.indexOf(`platform: "${platform}"`);
+      expect(from, platform).toBeGreaterThan(0);
+      expect(adapters.slice(from, from + 900), platform).toContain("media_required");
+    }
+    // And the one that does publish text is not on the list.
+    expect(NEEDS_MEDIA_TO_PUBLISH.has("facebook")).toBe(false);
   });
 });
