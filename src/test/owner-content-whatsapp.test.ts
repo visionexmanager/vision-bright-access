@@ -185,7 +185,7 @@ describe("wiring", () => {
     // The generic approval list still leaves content approvals out.
     expect(handler).toContain('.neq("action_type", "content_publish")');
     // Rate limit and audit apply to content commands too.
-    expect(handler.indexOf("OWNER_COMMAND_LIMIT_PER_HOUR")).toBeLessThan(handler.indexOf("runContentCommand(db, contentCommand)"));
+    expect(handler.indexOf("OWNER_COMMAND_LIMIT_PER_HOUR")).toBeLessThan(handler.indexOf("runContentCommand(db, contentCommand,"));
   });
 
   it("only runs the daily job behind the cron secret", () => {
@@ -229,7 +229,13 @@ describe("the daily run against a fake database", () => {
       ),
     };
     const report = await runDailyProposals(db, { token: "t", phoneNumberId: "p" }, new Date("2026-09-17T06:00:00Z"), 2);
-    expect(report).toEqual({ proposed: ["AB2CD", "AB2CD"], failed: [], indexed: {}, notified: "none", reason: "no_owner_number" });
+    expect(report).toEqual({
+      proposed: ["AB2CD", "AB2CD"], failed: [], indexed: {},
+      // No proposal row in this fake, so artwork is reported per reference
+      // rather than silently skipped — and the run still reaches the owner check.
+      media: { AB2CD: "not_found" },
+      notified: "none", reason: "no_owner_number",
+    });
   });
 });
 

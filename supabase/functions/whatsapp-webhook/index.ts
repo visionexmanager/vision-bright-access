@@ -498,6 +498,7 @@ import {
   parseContentCommand,
 } from "../_shared/ownerContent.ts";
 import {
+  type ContentCommandContext,
   decidableProposals,
   decideProposal,
   findProposal,
@@ -628,6 +629,7 @@ async function handleOwnerCommand(
   db: ReturnType<typeof service>,
   from: string,
   rawText: string,
+  context: ContentCommandContext = {},
 ): Promise<string | null> {
   // The content template asks the owner to reply «محتوى»; that word alone is
   // the list, so the owner never has to know about the slash to answer it.
@@ -729,7 +731,7 @@ async function handleOwnerCommand(
   // proposals know whether they may be sent whole.
   await db.from("whatsapp_conversations").update({ last_message_at: new Date().toISOString() }).eq("wa_phone", from);
 
-  if (contentCommand) return await runContentCommand(db, contentCommand);
+  if (contentCommand) return await runContentCommand(db, contentCommand, new Date(), context);
   if (contentProposal) {
     return await decideProposal(db, contentProposal.proposal_ref, command.kind === "approve", command.note);
   }
@@ -1120,7 +1122,15 @@ Deno.serve(async (req) => {
       // A message from any other number is a customer message and is never
       // interpreted as a command, whatever it says.
       if (incoming.text && isOwner(incoming.from, configuredOwner)) {
-        const reply = await handleOwnerCommand(db, incoming.from, incoming.text);
+        // Artwork takes fifteen seconds for a picture and a couple of minutes
+        // for a clip. `background` is how `/image` and `/video` answer first
+        // and render afterwards — the same seam the media jobs already use,
+        // and without it the owner would watch a delivered message go
+        // unanswered while Meta retried it.
+        const reply = await handleOwnerCommand(db, incoming.from, incoming.text, {
+          whatsapp: { token, phoneNumberId, to: incoming.from },
+          background: (work) => EdgeRuntime.waitUntil(work),
+        });
         if (reply) {
           if (token && phoneNumberId) {
             await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: reply });

@@ -8,6 +8,14 @@
 
 import { proposeContent } from "./contentEngine.ts";
 import { indexSources } from "./contentIndex.ts";
+import {
+  explainMediaFailure,
+  generateProposalMedia,
+  mediaApiKey,
+  type MediaFetch,
+  type MediaKind,
+  type MediaResult,
+} from "./contentMedia.ts";
 import { isOwner, normalizePhone } from "./ownerControl.ts";
 import {
   type Brief,
@@ -26,13 +34,75 @@ import {
   PLATFORM_AR,
   type ProposalView,
 } from "./ownerContent.ts";
-import { sendWhatsAppTemplate, sendWhatsAppText } from "./whatsapp.ts";
+import { sendWhatsAppMediaByLink, sendWhatsAppTemplate, sendWhatsAppText } from "./whatsapp.ts";
 
 // deno-lint-ignore no-explicit-any
 type Db = any;
 
 const PROPOSAL_COLUMNS =
-  "proposal_ref, platform, section, content_type, topic, hook, body, hashtags, rationale, state, proposed_publish_at";
+  "proposal_ref, platform, section, content_type, topic, hook, body, hashtags, rationale, state, " +
+  "proposed_publish_at, media_kind, media_url";
+
+/** The bucket Meta fetches a post's artwork from. Public by design; see the migration. */
+export const MEDIA_BUCKET = "social-media";
+
+// ── Artwork ──────────────────────────────────────────────────────────────────
+
+/**
+ * Generate a picture or a clip for one proposal and attach it.
+ *
+ * Reported, never thrown, and never fatal to the caller: a proposal without
+ * artwork is still a proposal the owner can read, edit and approve, and losing
+ * the draft because an image model was busy would be the worse failure.
+ *
+ * The upload goes through the service client rather than a signed URL — the
+ * bucket is public because Meta fetches the file itself, from its own network,
+ * with no credential of ours.
+ */
+export async function attachProposalMedia(
+  db: Db,
+  ref: string,
+  apiKey: string | undefined,
+  kind?: MediaKind,
+  fetchImpl: typeof fetch = fetch,
+): Promise<MediaResult> {
+  const proposal = await findProposal(db, ref);
+  if (!proposal) return { ok: false, error: "not_found" };
+  if (!apiKey) return { ok: false, error: "no_api_key" };
+
+  const result = await generateProposalMedia({
+    apiKey,
+    fetchImpl: fetchImpl as unknown as MediaFetch,
+    async upload(path, bytes, contentType) {
+      const { error } = await db.storage.from(MEDIA_BUCKET).upload(path, bytes, {
+        contentType,
+        upsert: true,
+      });
+      if (error) {
+        console.error("[owner-content] media upload failed:", error.message);
+        return null;
+      }
+      const { data } = db.storage.from(MEDIA_BUCKET).getPublicUrl(path);
+      return (data as { publicUrl?: string } | null)?.publicUrl ?? null;
+    },
+  }, proposal, kind);
+
+  if (!result.ok || !result.url) return result;
+
+  const { data, error } = await db.rpc("record_content_proposal_media", {
+    _proposal_ref: proposal.proposal_ref,
+    _kind: result.kind,
+    _url: result.url,
+    _prompt: result.prompt ?? null,
+  });
+  if (error || (data as { ok?: boolean } | null)?.ok !== true) {
+    // The file exists but nothing points at it. Saying so is better than
+    // reporting success for a post that will still be refused at readiness.
+    console.error("[owner-content] media record failed:", error?.message ?? "rpc refused");
+    return { ok: false, error: "record_failed" };
+  }
+  return result;
+}
 
 /**
  * The admin account decisions are recorded against.
@@ -161,11 +231,50 @@ async function propose(db: Db, brief: Brief, supersedesRef?: string): Promise<{ 
   return result.ok ? { ok: true, ref: result.proposal_ref } : { ok: false, reason: result.error };
 }
 
+/**
+ * What a content command may hand off, and how it reaches the owner afterwards.
+ *
+ * Artwork takes fifteen seconds for a picture and a couple of minutes for a
+ * clip. Awaiting that inside the webhook would leave the owner looking at a
+ * delivered message with no reply while Meta retried the same delivery, so
+ * `background` takes the work and the answer goes out first — the same shape
+ * the media jobs already use. Omitted, the generation simply does not start,
+ * and the command says so rather than pretending.
+ */
+export interface ContentCommandContext {
+  openAiKey?: string;
+  whatsapp?: { token?: string; phoneNumberId?: string; to: string };
+  background?: (work: Promise<unknown>) => void;
+  fetchImpl?: typeof fetch;
+}
+
 /** Everything a content command does. Returns the reply to send. */
-export async function runContentCommand(db: Db, command: ContentCommand, now: Date = new Date()): Promise<string> {
+export async function runContentCommand(
+  db: Db,
+  command: ContentCommand,
+  now: Date = new Date(),
+  context: ContentCommandContext = {},
+): Promise<string> {
   switch (command.kind) {
     case "needs_reference":
       return `اكتب الرمز بعد الأمر، مثلاً: /${command.verb} AB2CD\nاكتب /content لرؤية الرموز.`;
+
+    case "media": {
+      const proposal = await findProposal(db, command.ref);
+      if (!proposal) return `لا يوجد اقتراح بالرمز ${command.ref}.`;
+      if (proposal.state === "PUBLISHED") return `الاقتراح ${command.ref} منشور بالفعل.`;
+      const key = context.openAiKey ?? mediaApiKey();
+      if (!key) return explainMediaFailure("no_api_key");
+      if (!context.background) return "تعذّر بدء التوليد الآن. جرّب بعد قليل.";
+
+      const noun = command.media === "video" ? "فيديو" : "صورة";
+      context.background(
+        finishMedia(db, command.ref, command.media, noun, context),
+      );
+      return command.media === "video"
+        ? `🎬 جاري توليد فيديو لـ ${command.ref}. يستغرق دقيقة أو دقيقتين، وسأرسله هنا حين يجهز.`
+        : `🖼️ جاري توليد صورة لـ ${command.ref}. سأرسلها هنا بعد قليل.`;
+    }
 
     case "list":
       return formatContentList(await waitingProposals(db));
@@ -255,6 +364,52 @@ export async function runContentCommand(db: Db, command: ContentCommand, now: Da
       const fresh = await findProposal(db, outcome.ref);
       return fresh ? formatProposalMessage(fresh) : `📝 أُنشئ ${outcome.ref}.`;
     }
+  }
+}
+
+/**
+ * The half of `/image` and `/video` that runs after the answer has gone out.
+ *
+ * Sends the finished artwork as the media message it is, so the owner sees the
+ * picture rather than a link — and falls back to the link when Meta refuses
+ * the media send, because a URL they can open is better than silence.
+ */
+async function finishMedia(
+  db: Db,
+  ref: string,
+  kind: MediaKind,
+  noun: string,
+  context: ContentCommandContext,
+): Promise<void> {
+  const tell = async (body: string) => {
+    const wa = context.whatsapp;
+    if (!wa?.token || !wa.phoneNumberId) return;
+    await sendWhatsAppText({ phoneNumberId: wa.phoneNumberId, token: wa.token, to: wa.to, body });
+  };
+
+  try {
+    const result = await attachProposalMedia(db, ref, context.openAiKey ?? mediaApiKey(), kind, context.fetchImpl);
+    if (!result.ok || !result.url) {
+      await tell(`⚠️ تعذّر توليد ${noun} لـ ${ref}: ${explainMediaFailure(result.error)}`);
+      return;
+    }
+
+    const wa = context.whatsapp;
+    const sent = wa?.token && wa.phoneNumberId
+      ? await sendWhatsAppMediaByLink({
+        phoneNumberId: wa.phoneNumberId,
+        token: wa.token,
+        to: wa.to,
+        link: result.url,
+        kind: kind === "video" ? "video" : "image",
+        caption: `${noun} ${ref} — جاهزة ومرفقة بالمنشور.`,
+      })
+      : false;
+
+    if (!sent) await tell(`✅ جهزت ${noun} لـ ${ref} وأُرفقت بالمنشور:\n${result.url}`);
+  } catch (e) {
+    console.error("[owner-content] media job failed:", (e as Error)?.message ?? "unknown");
+    await tell(`⚠️ تعذّر توليد ${noun} لـ ${ref}.`);
   }
 }
 
@@ -393,6 +548,8 @@ export interface DailyRunReport {
   indexed?: Record<string, number>;
   notified: "text" | "template" | "none";
   reason?: string;
+  /** Per reference: the media kind generated, or the reason code it failed with. */
+  media?: Record<string, string>;
 }
 
 /**
@@ -407,6 +564,7 @@ export async function runDailyProposals(
   whatsapp: { token: string | undefined; phoneNumberId: string | undefined },
   now: Date = new Date(),
   count = 2,
+  openAiKey?: string,
 ): Promise<DailyRunReport> {
   const proposed: string[] = [];
   const failed: string[] = [];
@@ -419,9 +577,22 @@ export async function runDailyProposals(
   }
   if (proposed.length === 0) return { proposed, failed, indexed, notified: "none", reason: "nothing_proposed" };
 
+  // ── The artwork, before the owner ever sees the draft ─────────────────
+  //
+  // Instagram publishes nothing without it, so a proposal that arrives
+  // without a picture is one the owner can approve and then watch fail. Each
+  // one is reported and none is fatal: a draft with no artwork is still a
+  // draft worth reading, and `/image AB2CD` makes one on demand.
+  const media: Record<string, string> = {};
+  for (const ref of proposed) {
+    const result = await attachProposalMedia(db, ref, openAiKey);
+    if (result.error === "no_media_needed") continue;
+    media[ref] = result.ok ? (result.kind ?? "ok") : (result.error ?? "failed");
+  }
+
   const target = await ownerTarget(db);
-  if (!target.ok) return { proposed, failed, indexed, notified: "none", reason: target.reason };
-  if (!whatsapp.token || !whatsapp.phoneNumberId) return { proposed, failed, indexed, notified: "none", reason: "whatsapp_not_configured" };
+  if (!target.ok) return { proposed, failed, indexed, media, notified: "none", reason: target.reason };
+  if (!whatsapp.token || !whatsapp.phoneNumberId) return { proposed, failed, indexed, media, notified: "none", reason: "whatsapp_not_configured" };
   const to = target.to;
 
   if (ownerWindowOpen(target.lastInboundAt, now)) {
@@ -437,7 +608,7 @@ export async function runDailyProposals(
       });
       if (ok) sent++;
     }
-    if (sent > 0) return { proposed, failed, indexed, notified: "text" };
+    if (sent > 0) return { proposed, failed, indexed, media, notified: "text" };
   }
 
   const ok = await sendWhatsAppTemplate({
@@ -449,6 +620,6 @@ export async function runDailyProposals(
     variables: [String(proposed.length)],
   });
   return ok
-    ? { proposed, failed, indexed, notified: "template" }
-    : { proposed, failed, indexed, notified: "none", reason: "template_send_failed" };
+    ? { proposed, failed, indexed, media, notified: "template" }
+    : { proposed, failed, indexed, media, notified: "none", reason: "template_send_failed" };
 }

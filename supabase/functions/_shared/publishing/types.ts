@@ -70,6 +70,14 @@ export interface PublishRequest {
    * it arrives, and no adapter changes.
    */
   mediaUrl?: string;
+  /**
+   * What `mediaUrl` points at: a picture or a clip.
+   *
+   * Instagram addresses the two differently — an image container versus a
+   * REELS container with a `video_url` — and guessing from the file extension
+   * would make a URL without one publish as the wrong kind.
+   */
+  mediaKind?: "image" | "video";
   attempt: number;
   maxAttempts: number;
   account: PublishAccount;

@@ -886,6 +886,51 @@ export async function collectStream(stream: ReadableStream<Uint8Array>): Promise
  * and carries a filename instead — Meta requires one, and it is the first thing
  * read out about the attachment.
  */
+/**
+ * Send a picture or a clip that already lives at a public URL.
+ *
+ * The sibling below uploads bytes to Meta first and sends the id it gets back.
+ * This one hands Meta the address and lets it fetch — which is right when the
+ * file is already public because another platform has to fetch it too, and
+ * wrong for anything private, since the link is what makes it work.
+ *
+ * The caption is the accessible part: a picture with no caption is nothing at
+ * all to a screen reader, so it is a required argument rather than an option.
+ */
+export async function sendWhatsAppMediaByLink(params: {
+  phoneNumberId: string;
+  token: string;
+  to: string;
+  link: string;
+  kind: "image" | "video";
+  caption: string;
+  fetchImpl?: typeof fetch;
+}): Promise<boolean> {
+  const doFetch = params.fetchImpl ?? fetch;
+  try {
+    const res = await doFetch(`${GRAPH_BASE}/${params.phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${params.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: params.to,
+        type: params.kind,
+        [params.kind]: { link: params.link, caption: params.caption },
+      }),
+    });
+    // A status, never the body. Meta echoes the recipient's number in an error.
+    if (!res.ok) console.error(`[whatsapp] ${params.kind} link send rejected:`, res.status);
+    return res.ok;
+  } catch {
+    console.error(`[whatsapp] ${params.kind} link send transport error`);
+    return false;
+  }
+}
+
 export async function sendWhatsAppMediaById(params: {
   phoneNumberId: string;
   token: string;
