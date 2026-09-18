@@ -210,6 +210,16 @@ const SECTION_AR: Record<string, string> = {
   simulations: "المحاكاة", tv_channels: "التلفزيون", radio_stations: "الراديو", communities: "المجتمعات",
   events: "الفعاليات", jobs: "الوظائف", services: "الخدمات",
 };
+/**
+ * Platforms that refuse a text-only post.
+ *
+ * `createInstagramAdapter` refuses at readiness when a request carries no
+ * `mediaUrl`, and `content_proposals` has no media column at all — the engine
+ * produces a hook, a body and hashtags. Until it produces an image too, an
+ * approved Instagram post is a draft, not something that will go out.
+ */
+export const NEEDS_MEDIA_TO_PUBLISH = new Set(["instagram"]);
+
 const STATE_AR: Record<string, string> = {
   PROPOSED: "بانتظار قرارك", EDITED: "معدّل وبانتظار قرارك", APPROVED: "موافَق عليه", SCHEDULED: "مجدول",
   REJECTED: "مرفوض", SUPERSEDED: "استُبدل بنسخة أحدث", PUBLISHED: "منشور",
@@ -239,6 +249,16 @@ export function formatProposalMessage(p: ProposalView): string {
       `❌ /reject ${p.proposal_ref} السبب — رفض`,
       "أو ردّ «موافق» أو «لا» وحدها إن كان هذا الاقتراح الوحيد بانتظارك.",
     );
+    // Said at the moment of the decision, not discovered later by a run that
+    // reports `media_required`. Instagram publishes no text-only post — see
+    // createInstagramAdapter — and nothing in the content engine produces an
+    // image, so approving one of these is worth doing for the text and not for
+    // the publishing. Better said here than found out by silence.
+    if (NEEDS_MEDIA_TO_PUBLISH.has(p.platform)) {
+      lines.push(
+        `ℹ️ ${PLATFORM_AR[p.platform] ?? p.platform} لا ينشر نصاً بلا صورة، فلن يُنشر هذا تلقائياً بعد.`,
+      );
+    }
   } else if (p.state === "APPROVED") {
     lines.push("", `🗓️ /schedule ${p.proposal_ref} 20/9 18:00 — حدّد موعد النشر (بتوقيت بيروت)`);
   }

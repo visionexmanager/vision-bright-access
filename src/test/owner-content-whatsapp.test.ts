@@ -12,6 +12,7 @@ import {
   formatPublishReport,
   formatWhichProposal,
   isBareContentReply,
+  NEEDS_MEDIA_TO_PUBLISH,
   OWNER_CONTENT_TEMPLATE,
   ownerWindowOpen,
   parseBareDecision,
@@ -456,5 +457,31 @@ describe("what the owner hears after a publish run", () => {
     // The daily run no longer has its own copy of the phone resolution.
     expect(actions.match(/\.like\("wa_phone"/g) ?? []).toHaveLength(1);
     expect(actions).toContain("const target = await ownerTarget(db);");
+  });
+});
+
+describe("a proposal says what will happen to it", () => {
+  const base = {
+    proposal_ref: "AB2CD", section: "academy_courses", content_type: "post",
+    topic: "t", hook: "h", body: "b", hashtags: [], rationale: "",
+    state: "PROPOSED", proposed_publish_at: null,
+  };
+
+  it("warns on a platform that refuses a text-only post", () => {
+    // Discovered today only by approving, scheduling, and reading a run that
+    // reports media_required — which is three steps and a day later.
+    expect(formatProposalMessage({ ...base, platform: "instagram" })).toContain("لا ينشر نصاً بلا صورة");
+    expect(formatProposalMessage({ ...base, platform: "facebook" })).not.toContain("بلا صورة");
+  });
+
+  it("names the platform the adapter actually refuses, not a guessed list", () => {
+    const adapters = readFileSync("supabase/functions/_shared/publishing/metaAdapters.ts", "utf8");
+    for (const platform of NEEDS_MEDIA_TO_PUBLISH) {
+      const from = adapters.indexOf(`platform: "${platform}"`);
+      expect(from, platform).toBeGreaterThan(0);
+      expect(adapters.slice(from, from + 900), platform).toContain("media_required");
+    }
+    // And the one that does publish text is not on the list.
+    expect(NEEDS_MEDIA_TO_PUBLISH.has("facebook")).toBe(false);
   });
 });
