@@ -1,0 +1,211 @@
+name: VX deploy — verify
+
+# The read-only reading of production that the VX deploy is judged against.
+#
+# It is written to run **both before and after** the deploy, and it says which
+# it is looking at. That is the point: "user_points was not touched" is not a
+# statement you can make from the after-reading alone, and "every service ships
+# disabled" means little unless you also know the rows did not exist before.
+#
+# Every statement below is a SELECT. Nothing is created, updated or deleted, no
+# balance moves, and no service is enabled.
+#
+# ── This repository is PUBLIC ───────────────────────────────────────────────
+#
+# So this prints counts, sums, booleans and object names — never a user id,
+# never an email, never a display name, never a secret value. `api_key_ref`
+# holds secret *names* and is not read here at all.
+#
+# ── Why it triggers on its own push ─────────────────────────────────────────
+#
+# A workflow is only dispatchable by name once it exists on the default branch.
+# This one lives on feat/vx-unification, so pushing it is how it runs — the
+# same arrangement vx-parity-inspect.yml uses, and for the same reason.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/vx-unification]
+    paths: [.github/workflows/vx-deploy-verify.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Read production
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read the VX state
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [[ -z "$SUPABASE_ACCESS_TOKEN" || -z "$SUPABASE_PROJECT_REF" ]]; then
+            say "::error::SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF must be configured."
+            exit 1
+          fi
+
+          ask() {
+            curl -s -X POST \
+              "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query:$q}')"
+          }
+
+          block() { say ""; say "## $1"; say '```json'; ask "$2" | tee -a "$GITHUB_STEP_SUMMARY"; echo; say '```'; }
+
+          say "# VX deploy — production reading"
+          say ""
+          say "Read-only. Counts, sums and booleans only — this log is world-readable."
+
+          # ── Which side of the deploy is this? ─────────────────────────────
+          #
+          # Read first, because every other answer is interpreted through it,
+          # and because the counted-rows queries below name tables that do not
+          # exist yet on the before-reading. Before the deploy every count here
+          # is 0, and that is the correct answer rather than a failure.
+          DEPLOYED_Q="select
+               (select count(*) from information_schema.tables
+                 where table_schema='public' and table_name in
+                 ('central_pricing_registry','vx_usage_ledger'))::int as n"
+          DEPLOYED=$(ask "$DEPLOYED_Q" | jq -r '.[0].n // 0' 2>/dev/null || echo 0)
+
+          block "0. Is the branch deployed yet?" \
+            "select
+               (select count(*) from information_schema.tables
+                 where table_schema='public' and table_name in
+                 ('central_pricing_registry','central_pricing_audit','vx_usage_ledger',
+                  'vx_wallet_migrations','ph_provider_audit'))::int as new_tables_of_5,
+               (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                 where n.nspname='public' and p.proname in
+                 ('vx_balance','vx_reserve','vx_settle','vx_release','vx_reap_stale_reservations',
+                  'vx_price_list','my_vx_usage','vx_usage_analytics','admin_set_service_pricing',
+                  'vx_wallet_parity_report','vx_account_parity_detail','vx_reserve_for_whatsapp',
+                  'vx_migrate_wallet_balances','vx_revert_wallet_migration'))::int as new_functions_of_14,
+               (select count(*) from information_schema.columns
+                 where table_schema='public' and table_name='ai_budgets'
+                   and column_name='daily_vx_limit')::int as daily_vx_limit_column"
+
+          # ── The invariant ────────────────────────────────────────────────
+          #
+          # These numbers must be identical before and after. Nothing in the
+          # eight migrations writes to user_points at migration time; this is
+          # how that is demonstrated rather than asserted.
+          block "1. The balance ledger — must not move" \
+            "select count(*)::bigint as user_points_rows,
+                    count(distinct user_id)::bigint as accounts,
+                    coalesce(sum(points),0)::bigint as total_vx,
+                    coalesce(min(points),0)::bigint as smallest_entry,
+                    coalesce(max(points),0)::bigint as largest_entry
+               from public.user_points"
+
+          # ── Nothing legacy was dropped ───────────────────────────────────
+          block "2. The legacy tables survive, with their contents" \
+            "select
+               (select count(*) from information_schema.tables where table_schema='public'
+                 and table_name in ('credit_wallets','credit_transactions','billing_plans',
+                                    'usage_logs','whatsapp_entitlements'))::int as tables_of_5,
+               (select count(*) from public.credit_wallets)::bigint as wallets,
+               (select coalesce(sum(balance_vx),0) from public.credit_wallets)::bigint as vx_in_wallets,
+               (select count(*) from public.credit_transactions)::bigint as credit_transactions,
+               (select count(*) from public.usage_logs)::bigint as usage_logs"
+
+          # ── Inert, by the only measure that matters ──────────────────────
+          #
+          # vx_reserve refuses a disabled service before it reads a balance, so
+          # `services_enabled = 0` is the whole safety argument. An empty ledger
+          # is the evidence that it held.
+          if [ "$DEPLOYED" -eq 2 ]; then
+            block "3. Every service disabled, ledger empty, no VX ceiling" \
+              "select
+                 (select count(*) from public.central_pricing_registry)::bigint as services,
+                 (select count(*) from public.central_pricing_registry where enabled)::bigint as services_enabled,
+                 (select count(*) from public.vx_usage_ledger)::bigint as ledger_rows,
+                 (select count(*) from public.ai_budgets)::bigint as budgets,
+                 (select count(*) from public.ai_budgets where daily_vx_limit is not null)::bigint as budgets_with_vx_ceiling"
+          else
+            say ""
+            say "## 3. Every service disabled, ledger empty, no VX ceiling"
+            say ""
+            say "Skipped: this is the **before** reading — \`central_pricing_registry\` and"
+            say "\`vx_usage_ledger\` do not exist yet, so the query would fail on the table"
+            say "name rather than tell you anything. Section 0 is the evidence for that."
+          fi
+
+          # ── The hard gate ────────────────────────────────────────────────
+          #
+          # The reaper is what makes a crash mid-job non-destructive: it returns
+          # abandoned holds. A deploy without it schedules nothing to undo a
+          # stuck reservation, so no service may be enabled until this row is
+          # present and active. The command is printed so it can be read — it
+          # must call vx_reap_stale_reservations and nothing else, and it takes
+          # no argument, so it cannot be pointed at a chosen account.
+          block "4. HARD GATE — the reaper is scheduled" \
+            "select jobname, schedule, active, command
+               from cron.job where jobname = 'vx-reap-stale-reservations'"
+
+          block "4b. And it is the only VX job" \
+            "select count(*)::bigint as vx_jobs,
+                    count(*) filter (where active)::bigint as active_vx_jobs
+               from cron.job where command ilike '%vx_%'"
+
+          # ── Who can read, and who can spend ──────────────────────────────
+          block "5. What each browser role is granted on the new and provider tables" \
+            "select grantee, count(*)::bigint as grants
+               from information_schema.role_table_grants
+              where table_schema='public'
+                and table_name in ('central_pricing_registry','central_pricing_audit',
+                                   'vx_usage_ledger','vx_wallet_migrations','ph_provider_audit',
+                                   'ph_providers','ph_metrics','ph_logs','ph_configs','ph_failovers')
+                and grantee in ('anon','authenticated','service_role')
+              group by grantee order by grantee"
+
+          block "6. Every read policy on those tables is admin-only" \
+            "select tablename, policyname, cmd,
+                    qual ilike '%has_role%' and qual ilike '%admin%' as admin_gated
+               from pg_policies
+              where schemaname='public'
+                and tablename in ('central_pricing_registry','central_pricing_audit',
+                                  'vx_usage_ledger','vx_wallet_migrations','ph_provider_audit',
+                                  'ph_providers','ph_metrics','ph_logs','ph_configs','ph_failovers')
+              order by tablename, policyname"
+
+          block "7. No spending function is callable from a browser role" \
+            "select p.proname,
+                    has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
+                    has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated
+               from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+              where n.nspname='public'
+                and p.proname in ('vx_reserve','vx_settle','vx_release','vx_balance',
+                                  'vx_reap_stale_reservations','vx_reserve_for_whatsapp',
+                                  'vx_migrate_wallet_balances','vx_revert_wallet_migration',
+                                  'admin_set_service_pricing','vx_usage_analytics',
+                                  'vx_price_list','my_vx_usage')
+              order by p.proname"
+
+          # ── The one function that was removed ────────────────────────────
+          block "8. admin_give_vx is gone; admin_adjust_vx remains" \
+            "select
+               (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                 where n.nspname='public' and p.proname='admin_give_vx')::int as admin_give_vx,
+               (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                 where n.nspname='public' and p.proname='admin_adjust_vx')::int as admin_adjust_vx,
+               (select count(*) from information_schema.columns
+                 where table_schema='public' and table_name='profiles'
+                   and column_name='vx_balance')::int as profiles_vx_balance"
+
+          # ── Nothing half-applied ─────────────────────────────────────────
+          block "9. Which of the eight migrations production has recorded" \
+            "select version from supabase_migrations.schema_migrations
+              where version between '20261022000000' and '20261029000000'
+              order by version"
+
+          say ""
+          say "Nothing above modified anything: every statement is a SELECT."
