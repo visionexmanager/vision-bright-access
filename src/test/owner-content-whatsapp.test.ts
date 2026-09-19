@@ -195,7 +195,7 @@ describe("wiring", () => {
     expect(daily).toBeGreaterThan(secret);
     const workflow = readFileSync(".github/workflows/content-proposals-cron.yml", "utf8");
     expect(workflow).toMatch(/cron: "0 6 \* \* \*"/);
-    expect(workflow).toContain("jq '{ok, proposed, failed, indexed, notified, reason}'");
+    expect(workflow).toContain("jq '{ok, proposed, failed, indexed, media, notified, reason}'");
   });
 });
 
