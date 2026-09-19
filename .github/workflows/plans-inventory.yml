@@ -95,5 +95,24 @@ jobs:
                (select count(*) from public.user_subscriptions where status = 'active')::bigint as active_subs,
                (select count(*) from public.user_subscriptions where status <> 'active')::bigint as other_subs"
 
+          block "9. Which policies let a session write a profile row" \
+            "select policyname, cmd, qual, with_check
+               from pg_policies
+              where schemaname='public' and tablename='profiles' and cmd in ('UPDATE','INSERT','ALL')
+              order by policyname"
+
+          block "9b. Column-level UPDATE privileges authenticated holds on profiles" \
+            "select count(*)::bigint as columns_writable,
+                    bool_or(column_name = 'trial_expires_at') as can_write_trial
+               from information_schema.column_privileges
+              where table_schema='public' and table_name='profiles'
+                and grantee='authenticated' and privilege_type='UPDATE'"
+
+          block "9c. Every column profiles has" \
+            "select column_name
+               from information_schema.columns
+              where table_schema='public' and table_name='profiles'
+              order by ordinal_position"
+
           say ""
           say "Nothing above modified anything: every statement is a SELECT."
