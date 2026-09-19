@@ -66,24 +66,75 @@ describe("an unknown plan falls to the free set, never to everything", () => {
   });
 });
 
-describe("the Business-only generator checks before it works", () => {
-  it("asks about the media studio", () => {
-    expect(imageGenerate).toContain('maySeeSection(serviceClient, user.id, "mediaStudio")');
-    expect(imageGenerate).toContain("sectionRefusal(");
-  });
+/**
+ * The AI Media Studio endpoints, each of which says so in its own header.
+ *
+ * The section is read off the code rather than guessed: `image-tools-generate`
+ * calls itself "AI Media Studio Image Studio extension", `text-tools-generate`
+ * the "Text Tools Studio endpoint", `document-generate` the "Document Studio
+ * endpoint", and `video-studio` is the studio's text-to-video generator. The
+ * studio lives at /services/ai-media-studio, which `sectionForPath` resolves to
+ * `mediaStudio`, which only Business opens.
+ */
+const MEDIA_STUDIO = [
+  "image-generate",
+  "image-tools-generate",
+  "text-tools-generate",
+  "document-generate",
+  "video-studio",
+] as const;
 
-  it("asks after the session is verified and before the body is read", () => {
-    const auth = imageGenerate.indexOf("auth.getUser()");
-    const gate = imageGenerate.indexOf("maySeeSection(");
-    const body = imageGenerate.indexOf("await req.json()");
-    expect(auth).toBeGreaterThan(-1);
-    expect(gate).toBeGreaterThan(auth);
-    expect(gate).toBeLessThan(body);
-  });
+/**
+ * Expensive functions that are deliberately NOT gated to a section, and why.
+ *
+ * Each is reached from more than one section, so gating it to the most
+ * expensive one would break the cheaper caller. Fixing that needs a product
+ * decision about which section governs, not a guess in a test file — so it is
+ * recorded here rather than silently left undone.
+ */
+const DELIBERATELY_UNGATED: Readonly<Record<string, string>> = {
+  "voice-studio": "also called from VisionKids ProjectCard — gating to mediaStudio would break Kids",
+  "ocr-scan": "also called from the Library reader's AccessibilityDescribePanel — gating it would break an accessibility feature",
+  "speech-generate": "serves Library read-aloud as well as the studio",
+  "file-convert": "no verified frontend caller; gating an unverified path risks breaking one that is not obvious",
+};
 
-  it("uses the service client, because the resolver is revoked from a session", () => {
-    expect(imageGenerate).toContain("maySeeSection(serviceClient");
-    expect(imageGenerate).not.toContain("maySeeSection(userClient");
+describe("the Business-only generators check before they work", () => {
+  for (const fn of MEDIA_STUDIO) {
+    const src = readFileSync(`supabase/functions/${fn}/index.ts`, "utf8");
+
+    it(`${fn} asks about the media studio`, () => {
+      expect(src).toContain('maySeeSection(');
+      expect(src).toContain('"mediaStudio"');
+      expect(src).toContain("sectionRefusal(");
+    });
+
+    it(`${fn} asks after the session is verified and before the body is read`, () => {
+      const auth = src.indexOf("auth.getUser()");
+      const gate = src.indexOf("maySeeSection(");
+      const body = src.indexOf("await req.json()");
+      expect(auth, "no session check at all").toBeGreaterThan(-1);
+      expect(gate, "gate runs before the session is verified").toBeGreaterThan(auth);
+      if (body > -1) expect(gate, "gate runs after the body is read").toBeLessThan(body);
+    });
+
+    it(`${fn} uses a service client, because the resolver is revoked from a session`, () => {
+      expect(src).not.toContain("maySeeSection(userClient");
+      expect(src).toMatch(/maySeeSection\((serviceClient|dbService)/);
+    });
+  }
+});
+
+describe("what is deliberately left ungated is written down", () => {
+  it("names a reason for every one, and none of them is gated by accident", () => {
+    for (const [fn, reason] of Object.entries(DELIBERATELY_UNGATED)) {
+      expect(reason.length, `${fn} has no stated reason`).toBeGreaterThan(20);
+      const src = readFileSync(`supabase/functions/${fn}/index.ts`, "utf8");
+      // If one of these ever does get a gate, this fails and the list is
+      // updated on purpose rather than drifting out of date.
+      expect(src, `${fn} is now gated — move it out of DELIBERATELY_UNGATED`)
+        .not.toContain("maySeeSection(");
+    }
   });
 });
 
