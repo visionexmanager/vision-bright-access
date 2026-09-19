@@ -86,7 +86,14 @@ export type ReserveRefusal =
   | "admin_only"
   | "daily_ceiling_reached"
   | "plan_allowance_reached"
-  | "insufficient_vx";
+  | "insufficient_vx"
+  /**
+   * Only from `vx_reserve_for_whatsapp`: the number has no linked account, so
+   * there is no balance to reserve against. It is the commonest answer on that
+   * channel and it is not a fault — the caller takes the legacy count-based
+   * quota, which is what an unlinked number has always had.
+   */
+  | "not_linked";
 
 /** What `vx_settle` and `vx_release` answer. */
 export interface SettleResult {

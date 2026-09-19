@@ -1,6 +1,37 @@
-// Shared Provider Router — imported by speech-generate, voice-studio, video-studio
-// Provides smart provider selection, result recording, and failover support
-// without duplicating logic across edge functions.
+// Provider selection — which vendor serves a job, and nothing else.
+//
+// The header here used to say "imported by speech-generate, voice-studio,
+// video-studio". None of them imported it; it has been dead since it was
+// written, while each of those functions hardcoded its own vendor. That is the
+// gap this file is meant to close, and the claim is removed rather than
+// repeated: a comment naming importers that do not exist is worse than no
+// comment, because it reads as an invariant.
+//
+// ── The three layers, and why they are three ────────────────────────────────
+//
+//   providerRouter  — chooses a provider from `ph_providers`, by capability,
+//                     health, latency, cost and priority. Knows no billing.
+//   _shared/vx/meter — reserves, runs, settles. Knows no provider.
+//   the adapter      — speaks one vendor's dialect. Knows neither.
+//
+// Keeping them apart is what lets a new execution target be added without
+// touching billing, and a price to change without touching execution. It is
+// also why `meter()` takes the work as a promise: the thing being metered is
+// opaque to it on purpose.
+//
+// ── What this is NOT ────────────────────────────────────────────────────────
+//
+// It is not the text/LLM router. `aiProvider.ts` + `assistants.ts` choose a
+// chat model through a code-defined fallback chain, that path is in production
+// on every surface, and it stays exactly as it is. This file is for jobs with
+// a provider *row* — media, OCR, speech, and whatever execution target comes
+// later. Merging the two would put a chat outage and a media outage on the
+// same switch.
+//
+// No RunPod provider row, secret or endpoint exists, and none is referenced
+// here. A future one is a row in `ph_providers` with a `type` and an
+// `api_key_ref`; nothing in this file changes to accommodate it, which is the
+// point of writing it this way now.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
