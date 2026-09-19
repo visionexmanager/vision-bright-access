@@ -9,7 +9,7 @@
 // The SQL in this migration was executed against real PostgreSQL before it
 // landed; this file pins the decisions that a future edit could quietly undo.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -250,8 +250,7 @@ describe("moving credit_wallets onto user_points", () => {
   it("is not reachable from the admin screen", () => {
     // Running it is a reviewed operational step with a report read first, not
     // a button somebody can reach past on a Tuesday.
-    const fn = readFileSync("supabase/functions/vx-admin/index.ts", "utf8");
-    expect(fn).toContain('case "migrate_wallets":');
+    const fn = readFileSync("supabase/functions/billing-engine/index.ts", "utf8");
     expect(fn).toContain("reviewed operational step");
     // In the code, not in the comment that explains why it is absent.
     const code = fn.split("\n").filter((line) => !line.trimStart().startsWith("//")).join("\n");
@@ -260,14 +259,21 @@ describe("moving credit_wallets onto user_points", () => {
 });
 
 describe("the operator's door", () => {
-  const fn = readFileSync("supabase/functions/vx-admin/index.ts", "utf8");
+  const fn = readFileSync("supabase/functions/billing-engine/index.ts", "utf8");
   const api = readFileSync("supabase/migrations/20261025000000_vx_pricing_admin_api.sql", "utf8");
   const app = readFileSync("src/App.tsx", "utf8");
 
-  it("checks the role before it reads the body, and records a refusal", () => {
-    expect(fn.indexOf('_role: "admin"')).toBeLessThan(fn.indexOf("await req.json()"));
-    expect(fn).toContain('_kind: "vx_admin_forbidden"');
-    expect(fn).toContain('return err("Forbidden", 403);');
+  it("gates every operator action on the role, and records a refusal", () => {
+    // These live inside the billing authority rather than a function of their
+    // own: a second endpoint that reads and writes prices would be the second
+    // billing system Phase 1 exists to remove — and content-engine's suite
+    // holds the project two functions below the Supabase ceiling.
+    expect(existsSync("supabase/functions/vx-admin")).toBe(false);
+    for (const action of ["pricing_list", "set_pricing", "usage_analytics", "migration_report"]) {
+      expect(fn, action).toContain(`case "${action}":`);
+    }
+    expect(fn).toContain("if (!(await requireAdmin(user.id))) return err(\"Forbidden\", 403);");
+    expect(fn).toContain('_kind: "vx_pricing_forbidden"');
   });
 
   it("refuses a price that would mint VX", () => {
@@ -288,7 +294,7 @@ describe("the operator's door", () => {
     // `.returns<T>()` in a service collapses. The types are regenerated after a
     // migration deploys, so the screen goes through an Edge Function instead.
     const page = readFileSync("src/pages/admin/AdminVXPricing.tsx", "utf8");
-    expect(page).toContain('callEdge({ fn: "vx-admin"');
+    expect(page).toContain('callEdge({ fn: "billing-engine"');
     expect(page).not.toContain("as any");
     expect(page).not.toContain("from(\"central_pricing_registry\")");
   });

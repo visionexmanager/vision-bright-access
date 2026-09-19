@@ -74,8 +74,7 @@ export type EdgeFunctionName =
   | "document-generate"
   | "text-tools-generate"
   | "health-check"
-  | "vx-coin-review"
-  | "vx-admin";
+  | "vx-coin-review";
 
 export type AuthMode = "anon" | "user-jwt" | "admin-jwt" | "cron-secret";
 

@@ -207,6 +207,88 @@ async function handleGrantCredits(userId: string, body: Record<string, unknown>)
   return json(data);
 }
 
+// ── The operator's actions ────────────────────────────────────────────────────
+//
+// The VX price list, what the one ledger recorded, and the wallet-migration
+// report. They live here rather than in a function of their own for two
+// reasons that point the same way.
+//
+// This *is* the billing authority — a second endpoint that reads and writes
+// prices would be the second billing system Phase 1 exists to remove. And the
+// project sits two functions below the Supabase ceiling, where the 101st is
+// rejected with a 402 that reads like a bundling error; `content-engine`'s
+// suite asks every addition to argue for itself first, and this one cannot.
+//
+// The screen calls these rather than PostgREST because
+// `src/integrations/supabase/types.ts` is regenerated from the live schema
+// after a migration deploys, and `kidsSupabase.ts` records at length why
+// casting around that drift is the wrong answer.
+
+async function requireAdmin(userId: string): Promise<boolean> {
+  const db = serviceDb();
+  const { data } = await db.rpc("has_role", { _user_id: userId, _role: "admin" });
+  if (data === true) return true;
+  // Recorded, not just refused: somebody probing the price list is worth
+  // seeing in the security feed.
+  await db.rpc("record_security_event", {
+    _kind: "vx_pricing_forbidden",
+    _source: "billing-engine",
+    _subject_hash: null,
+    _detail: { user_id: userId },
+  }).catch(() => {});
+  return false;
+}
+
+async function handlePricingList() {
+  const db = serviceDb();
+  // The whole row, cost and provider included, because this response only ever
+  // reaches an admin. A user asking what something costs calls vx_price_list().
+  const { data, error } = await db
+    .from("central_pricing_registry").select("*").order("display_name");
+  if (error) return json({ ok: false, error: error.message }, 500);
+  return json({ ok: true, data });
+}
+
+async function handleSetPricing(body: Record<string, unknown>) {
+  const serviceId = body.service_id;
+  if (typeof serviceId !== "string" || !serviceId) return err("service_id required");
+  const patch = (body.patch ?? {}) as Record<string, unknown>;
+
+  // Every field passes through as given, or null meaning "leave it". The
+  // validation that matters — no negative price, no non-object plan_limits —
+  // is in the SQL function, where a second caller cannot skip it.
+  const db = serviceDb();
+  const { data, error } = await db.rpc("admin_set_service_pricing", {
+    _service_id: serviceId,
+    _vx_price: patch.vx_price ?? null,
+    _free_limit: patch.free_limit ?? null,
+    _max_daily_usage: patch.max_daily_usage ?? null,
+    _plan_limits: patch.plan_limits ?? null,
+    _enabled: patch.enabled ?? null,
+    _admin_only: patch.admin_only ?? null,
+    _base_cost: patch.base_cost ?? null,
+    _provider: patch.provider ?? null,
+  });
+  if (error) return json({ ok: false, error: error.message }, 500);
+  const result = data as { ok?: boolean; error?: string };
+  return result?.ok ? json(result) : json(result ?? { ok: false }, 409);
+}
+
+async function handleUsageAnalytics(body: Record<string, unknown>) {
+  const days = Math.min(Math.max(Number(body.days ?? 30), 1), 365);
+  const db = serviceDb();
+  const { data, error } = await db.rpc("vx_usage_analytics", { _days: days });
+  if (error) return json({ ok: false, error: error.message }, 500);
+  return json({ ok: true, data });
+}
+
+async function handleMigrationReport() {
+  const db = serviceDb();
+  const { data, error } = await db.rpc("vx_wallet_migration_report");
+  if (error) return json({ ok: false, error: error.message }, 500);
+  return json({ ok: true, data });
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 serve(async (req) => {
@@ -234,6 +316,22 @@ serve(async (req) => {
     case "get_history":     return handleGetHistory(user.id, body);
     case "get_usage_logs":  return handleGetUsageLogs(user.id, body);
     case "get_plans":       return handleGetPlans();
+
+    // Admin-gated, each one checked against the caller's role before it runs.
+    // `vx_migrate_wallet_balances` is deliberately absent: it moves real
+    // balances, it is granted to the service role only, and running it is a
+    // reviewed operational step with the report above read first — not a
+    // button somebody can reach past on a Tuesday.
+    case "pricing_list":
+    case "set_pricing":
+    case "usage_analytics":
+    case "migration_report": {
+      if (!(await requireAdmin(user.id))) return err("Forbidden", 403);
+      if (action === "pricing_list")    return handlePricingList();
+      if (action === "set_pricing")     return handleSetPricing(body);
+      if (action === "usage_analytics") return handleUsageAnalytics(body);
+      return handleMigrationReport();
+    }
     // "upgrade" is not reachable from a user JWT either, for the same reason:
     // it inserted an active subscription to any plan the caller named, and
     // Gold opens every section, so any signed-in account could take it for

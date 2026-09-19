@@ -56,7 +56,7 @@ export default function AdminVXPricing() {
   const pricing = useQuery({
     queryKey: ["vx-pricing"],
     queryFn: async () => {
-      const result = await callEdge({ fn: "vx-admin", body: { action: "pricing_list" }, auth: "user-jwt" }) as
+      const result = await callEdge({ fn: "billing-engine", body: { action: "pricing_list" }, auth: "user-jwt" }) as
         { ok?: boolean; error?: string; data?: PricingRow[] };
       if (!result?.ok) throw new Error(result?.error ?? "The price list could not be read.");
       return result.data ?? [];
@@ -66,7 +66,7 @@ export default function AdminVXPricing() {
   const analytics = useQuery({
     queryKey: ["vx-usage-analytics"],
     queryFn: async () => {
-      const result = await callEdge({ fn: "vx-admin", body: { action: "usage_analytics", days: 30 }, auth: "user-jwt" }) as
+      const result = await callEdge({ fn: "billing-engine", body: { action: "usage_analytics", days: 30 }, auth: "user-jwt" }) as
         { ok?: boolean; error?: string; data?: AnalyticsRow[] };
       if (!result?.ok) throw new Error(result?.error ?? "Usage could not be read.");
       return result.data ?? [];
@@ -79,7 +79,7 @@ export default function AdminVXPricing() {
       // left as it was — the SQL function treats null as "leave it".
       const patch = draft[service.service_id] ?? {};
       const result = await callEdge({
-        fn: "vx-admin",
+        fn: "billing-engine",
         body: { action: "set_pricing", service_id: service.service_id, patch },
         auth: "user-jwt",
       }) as { ok?: boolean; error?: string };
