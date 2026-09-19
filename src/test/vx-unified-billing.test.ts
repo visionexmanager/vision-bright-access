@@ -299,3 +299,81 @@ describe("the operator's door", () => {
     expect(page).not.toContain("from(\"central_pricing_registry\")");
   });
 });
+
+// ── The parity report ───────────────────────────────────────────────────────
+//
+// Read-only, and the input to a decision rather than a step in it. Its
+// classifier was driven against seeded fixtures containing all seven failure
+// shapes before this landed; these pin the properties.
+
+describe("the credit_wallets parity report", () => {
+  const parity = readFileSync("supabase/migrations/20261026000000_vx_wallet_parity_report.sql", "utf8");
+  const code = parity.split("\n").filter((l) => !l.trimStart().startsWith("--")).join("\n");
+
+  it("writes nothing, in any statement", () => {
+    expect(code).not.toMatch(/\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER TABLE)\b/i);
+    expect((code.match(/\nSTABLE\n/g) ?? []).length).toBe(2);
+  });
+
+  it("classifies all seven buckets the migration can go wrong in", () => {
+    for (const bucket of ["a_exact_match", "b_mismatch", "c_wallet_without_points",
+                          "d_points_without_wallet", "e_negative_balance",
+                          "f_duplicate_grants", "g_ambiguous"]) {
+      expect(parity, bucket).toContain(bucket);
+    }
+  });
+
+  it("tests provenance, not just equality", () => {
+    // A wallet whose own transaction history cannot explain its balance was
+    // written by something other than the billing functions, and migrating it
+    // 1:1 would be inventing VX.
+    expect(parity).toContain("credit_wallets.balance_vx = SUM(credit_transactions.amount_vx)");
+    expect(parity).toContain("ledger_disagrees");
+    expect(parity).toContain("no_provenance");
+  });
+
+  it("refuses 1:1 unless everything is explained, signed and unduplicated", () => {
+    const verdict = parity.slice(parity.indexOf("'safe_1to1'"), parity.indexOf("-- Bounded samples"));
+    expect(verdict).toContain("ledger_disagrees) = 0");
+    expect(verdict).toContain("WHERE negative) = 0");
+    expect(verdict).toContain("FROM dupes) = 0");
+  });
+
+  it("reports whether profiles.vx_balance exists at all", () => {
+    // admin_give_vx writes that column. If it is absent, every grant made
+    // through that function raised an error rather than landing anywhere.
+    expect(parity).toContain("table_name = 'profiles' AND column_name = 'vx_balance'");
+  });
+
+  it("keeps samples bounded and free of personal detail", () => {
+    expect(parity).toContain("LEAST(GREATEST(COALESCE(_sample, 25), 1), 200)");
+    const samples = parity.slice(parity.indexOf("'samples'"), parity.indexOf("COMMENT ON FUNCTION public.vx_wallet_parity_report"));
+    expect(samples).not.toMatch(/\bemail\b/);
+    expect(samples).not.toMatch(/display_name/);
+  });
+
+  it("is admin-only, like everything else that can see a balance", () => {
+    expect(parity).toContain("REVOKE ALL ON FUNCTION public.vx_wallet_parity_report(integer) FROM PUBLIC, anon;");
+    expect(parity).toContain("REVOKE ALL ON FUNCTION public.vx_account_parity_detail(uuid) FROM PUBLIC, anon;");
+    expect((parity.match(/NOT public\.has_role\(auth\.uid\(\), 'admin'\)/g) ?? []).length).toBe(2);
+  });
+});
+
+describe("the WhatsApp decision is written down where it is implemented", () => {
+  const doc = readFileSync(".claude/references/vx-architecture.md", "utf8");
+
+  it("says a linked number shares the website's balance", () => {
+    expect(doc).toContain("source = 'whatsapp'");
+    expect(doc).toContain("`user_points`, via `vx_balance()`");
+  });
+
+  it("says an unlinked number keeps its count-based quota and gets no wallet", () => {
+    expect(doc).toContain("whatsapp_entitlements");
+    expect(doc).toMatch(/not.*given a VX wallet, an anonymous balance, a placeholder/);
+    expect(doc).toContain("a stranger's phone number is not an account");
+  });
+
+  it("records that nothing is enabled or migrated", () => {
+    expect(doc).toContain("built, disabled, unmigrated");
+  });
+});
