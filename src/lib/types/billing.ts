@@ -43,10 +43,10 @@ export interface CreditTransaction {
   operation_type:  OperationType | null;
   job_id:          string | null;
   project_id:      string | null;
-  provider_slug:   string | null;
-  idempotency_key: string | null;
-  meta:            Record<string, unknown>;
   created_at:      string;
+  // `provider_slug`, `idempotency_key` and `meta` are deliberately absent: the
+  // row has them, and billing-engine no longer sends them. Which vendor served
+  // a generation is Visionex's commercial detail, not the customer's receipt.
 }
 
 // ── Subscription ──────────────────────────────────────────────────────────────

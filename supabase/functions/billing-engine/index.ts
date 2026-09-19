@@ -118,10 +118,14 @@ async function handleGetHistory(userId: string, body: Record<string, unknown>) {
   const offset = Number(body.offset ?? 0);
   const type   = body.type as string | undefined;
 
+  // Named columns, not `*`. The row also carries `provider_slug`, which names
+  // the vendor behind a generation, and `idempotency_key`, which is a
+  // server-side control the account holder has no use for. A customer's
+  // history is what they spent and on what, not who Visionex bought it from.
   const db = serviceDb();
   let q = db
     .from("credit_transactions")
-    .select("*")
+    .select("id, user_id, type, amount_vx, balance_after, description, operation_type, job_id, project_id, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -138,10 +142,11 @@ async function handleGetUsageLogs(userId: string, body: Record<string, unknown>)
   const hours  = Number(body.hours ?? 720);
   const opType = body.operation_type as string | undefined;
 
+  // Same rule as the history above: no `provider_slug`, no `meta`.
   const db = serviceDb();
   let q = db
     .from("usage_logs")
-    .select("*")
+    .select("id, user_id, operation_type, credits_used, status, project_id, job_id, billing_mode, plan_id, created_at")
     .eq("user_id", userId)
     .gte("created_at", new Date(Date.now() - hours * 3_600_000).toISOString())
     .order("created_at", { ascending: false })
