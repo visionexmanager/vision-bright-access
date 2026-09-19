@@ -7,6 +7,7 @@ import type {
   CreditTransaction,
   UsageLog,
   OperationType,
+  VxUsageRow,
 } from "@/lib/types/billing";
 
 // ── Initialization ─────────────────────────────────────────────────────────────
@@ -36,26 +37,14 @@ export async function getBalance(): Promise<{
 }
 
 // ── Consume / Refund ──────────────────────────────────────────────────────────
-
-export async function consumeCredits(params: {
-  operation_type:   OperationType;
-  job_id?:          string;
-  project_id?:      string;
-  provider_slug?:   string;
-  idempotency_key?: string;
-  meta?:            Record<string, unknown>;
-}): Promise<BillingConsumeResult> {
-  const res = await callBillingEngine({ action: "consume", ...params });
-  return res as BillingConsumeResult;
-}
-
-export async function refundCredits(params: {
-  job_id: string;
-  reason?: string;
-}): Promise<{ ok: boolean; refunded: boolean; amount_vx?: number }> {
-  const res = await callBillingEngine({ action: "refund", ...params });
-  return res as { ok: boolean; refunded: boolean; amount_vx?: number };
-}
+//
+// Gone. `consumeCredits` and `refundCredits` charged `credit_wallets` from the
+// browser, and no screen ever called them — `billing_consume` has never run in
+// production, which is why `usage_logs` is empty. Charging VX is now
+// `vx_reserve`/`vx_settle` behind `_shared/vx/meter.ts`, server-side only,
+// because the decision to charge is not one a client should be able to skip.
+//
+// See .claude/references/vx-deprecations.md.
 
 // ── History & Logs ────────────────────────────────────────────────────────────
 
@@ -99,3 +88,18 @@ export async function cancelSubscription(): Promise<void> {
 // billing-engine's "grant_credits" action, but that action grants an
 // arbitrary caller-supplied amount with no payment verification and is now
 // intentionally rejected server-side (see billing-engine/index.ts).
+
+// ── The unified usage ledger ──────────────────────────────────────────────────
+//
+// `getUsageLogs` above reads `usage_logs`, which is empty and always was —
+// `billing_consume` never ran in production. This reads `vx_usage_ledger`
+// through `my_vx_usage()`, the column list that leaves `provider` and
+// `actual_cost_usd` on the admin side.
+
+export async function getMyVxUsage(params: {
+  limit?:  number;
+  offset?: number;
+} = {}): Promise<VxUsageRow[]> {
+  const res = await callBillingEngine<VxUsageRow[]>({ action: "my_usage", ...params });
+  return (res as { data?: VxUsageRow[] })?.data ?? [];
+}

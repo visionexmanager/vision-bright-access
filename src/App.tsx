@@ -438,6 +438,7 @@ const AdminEmails = lazyWithRetry(() => import("./pages/admin/AdminEmails"));
 const AdminDatabase = lazyWithRetry(() => import("./pages/admin/AdminDatabase"));
 const AdminLogs = lazyWithRetry(() => import("./pages/admin/AdminLogs"));
 const AdminVX   = lazyWithRetry(() => import("./pages/admin/AdminVX"));
+const AdminVXPricing = lazyWithRetry(() => import("./pages/admin/AdminVXPricing"));
 const AdminVXCoinOrders = lazyWithRetry(() => import("./pages/admin/AdminVXCoinOrders"));
 const AdminSubscriptionOrders = lazyWithRetry(() => import("./pages/admin/AdminSubscriptionOrders"));
 const AdminSimulations = lazyWithRetry(() => import("./pages/admin/AdminSimulations"));
@@ -1104,7 +1105,10 @@ function AppRoutes() {
                     <Route path="/services/ai-media-studio/speech" element={<AuthGuard><AIMediaStudioSpeech /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/voice"  element={<AuthGuard><AIMediaStudioVoice /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/video"        element={<AuthGuard><AIMediaStudioVideo /></AuthGuard>} />
-                    <Route path="/services/ai-media-studio/provider-hub" element={<AuthGuard><AIMediaStudioProviderHub /></AuthGuard>} />
+                    {/* Operator screen: the provider inventory, their keys' names and
+                        their per-request costs. AuthGuard let any signed-in customer
+                        open it. */}
+                    <Route path="/services/ai-media-studio/provider-hub" element={<AdminRoute><AIMediaStudioProviderHub /></AdminRoute>} />
                     <Route path="/services/ai-media-studio/billing"      element={<AuthGuard><AIMediaStudioBilling /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/image"       element={<AuthGuard><AIMediaStudioImage /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/diagnostics" element={<AuthGuard><AIMediaStudioDiagnostics /></AuthGuard>} />
@@ -1187,6 +1191,7 @@ function AppRoutes() {
                     <Route path="/admin/emails" element={<AdminRoute><AdminEmails /></AdminRoute>} />
                     <Route path="/admin/database" element={<AdminRoute><AdminDatabase /></AdminRoute>} />
                     <Route path="/admin/vx" element={<AdminRoute><AdminVX /></AdminRoute>} />
+                    <Route path="/admin/vx-pricing" element={<AdminRoute><AdminVXPricing /></AdminRoute>} />
                     <Route path="/admin/vx-coin-orders" element={<AdminRoute><AdminVXCoinOrders /></AdminRoute>} />
                     <Route path="/admin/subscription-orders" element={<AdminRoute><AdminSubscriptionOrders /></AdminRoute>} />
                     <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
