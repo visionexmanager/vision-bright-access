@@ -136,11 +136,26 @@ async function handleGetUsageLogs(userId: string, body: Record<string, unknown>)
 // carries `provider` and `actual_cost_usd`, and "users read their own rows"
 // would hand both over. What comes back is what they spent, on what, when, and
 // from which surface.
-async function handleMyUsage(body: Record<string, unknown>) {
+// Through the caller's own token, not the service role. `my_vx_usage()`
+// filters on `auth.uid()`, which is NULL for the service role — so calling it
+// as the service role returned an empty list for everybody, always. The ledger
+// has no rows yet, so the screen showed its empty state and looked right; the
+// first enabled service would have made it look broken.
+async function handleMyUsage(authHeader: string, body: Record<string, unknown>) {
   const limit  = Math.min(Math.max(Number(body.limit ?? 50), 1), 200);
   const offset = Math.max(Number(body.offset ?? 0), 0);
-  const db = serviceDb();
+  const db = userDb(authHeader);
   const { data, error } = await db.rpc("my_vx_usage", { _limit: limit, _offset: offset });
+  if (error) return json({ ok: false, error: error.message }, 500);
+  return json({ ok: true, data });
+}
+
+// The header of the same screen: balance, plan, allowance, today and this
+// month. Same reasoning about the token, and the function takes no argument at
+// all — there is no id to tamper with, so one account cannot ask about another.
+async function handleMySummary(authHeader: string) {
+  const db = userDb(authHeader);
+  const { data, error } = await db.rpc("my_vx_summary");
   if (error) return json({ ok: false, error: error.message }, 500);
   return json({ ok: true, data });
 }
@@ -304,7 +319,8 @@ serve(async (req) => {
     // The new usage view, beside the legacy one. `get_usage_logs` reads
     // `usage_logs`, which is empty and always was; this reads the ledger the
     // platform now bills through.
-    case "my_usage":        return handleMyUsage(body);
+    case "my_usage":        return handleMyUsage(authHeader, body);
+    case "my_summary":      return handleMySummary(authHeader);
 
     // Admin-gated, each one checked against the caller's role before it runs.
     // `vx_migrate_wallet_balances` is deliberately absent: it moves real

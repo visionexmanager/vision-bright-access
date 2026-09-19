@@ -14,8 +14,8 @@
 
 import { useMemo } from "react";
 
-import { useMyVxUsage } from "@/hooks/useCredits";
-import type { VxUsageRow, VxUsageStatus } from "@/lib/types/billing";
+import { useMyVxSummary, useMyVxUsage } from "@/hooks/useCredits";
+import type { VxSummary, VxUsageRow, VxUsageStatus } from "@/lib/types/billing";
 import { cn } from "@/lib/utils";
 
 const STATUS: Record<VxUsageStatus, { label: string; tone: string }> = {
@@ -45,8 +45,106 @@ function StatCard({ label, value, sub, tone }: {
   );
 }
 
+/**
+ * The balance, the plan and what the period has cost.
+ *
+ * Rendered as a description list rather than a grid of divs so a screen reader
+ * reads "VX balance, 6,123" as a pair instead of two loose numbers, and every
+ * figure carries its unit in the text — nothing here is communicated by colour
+ * or position alone.
+ */
+function PlanSummary({ summary }: { summary: VxSummary }) {
+  const { plan, balance_vx, today, month } = summary;
+  const allowance = plan.monthly_vx;
+  const remaining = allowance === null ? null : Math.max(0, allowance - month.consumed_vx);
+
+  return (
+    <section aria-labelledby="vx-plan-heading" className="rounded-xl border border-border bg-card p-4">
+      <h3 id="vx-plan-heading" className="text-xs font-medium text-muted-foreground">
+        Your plan
+      </h3>
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Plan</dt>
+          <dd className="mt-0.5 text-lg font-bold">
+            {plan.name}
+            {plan.is_trial && plan.trial_ends_at && (
+              <span className="ms-2 align-middle text-xs font-normal text-muted-foreground">
+                free week — ends{" "}
+                <time dateTime={plan.trial_ends_at}>
+                  {new Date(plan.trial_ends_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                </time>
+              </span>
+            )}
+          </dd>
+        </div>
+
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">VX balance</dt>
+          <dd className="mt-0.5 text-lg font-bold tabular-nums" dir="ltr">
+            {balance_vx.toLocaleString()} VX
+          </dd>
+        </div>
+
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            Monthly allowance
+          </dt>
+          <dd className="mt-0.5 text-lg font-bold tabular-nums" dir="ltr">
+            {allowance === null ? (
+              <span className="text-base font-medium text-muted-foreground">
+                None on this plan
+              </span>
+            ) : (
+              `${allowance.toLocaleString()} VX`
+            )}
+          </dd>
+        </div>
+
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            Remaining this month
+          </dt>
+          <dd className="mt-0.5 text-lg font-bold tabular-nums" dir="ltr">
+            {remaining === null ? (
+              <span className="text-base font-medium text-muted-foreground">Not metered</span>
+            ) : (
+              `${remaining.toLocaleString()} VX`
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t pt-3 text-sm">
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted-foreground">Today</dt>
+          <dd className="tabular-nums" dir="ltr">
+            {today.consumed_vx.toLocaleString()} VX · {today.requests.toLocaleString()} requests
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted-foreground">This month</dt>
+          <dd className="tabular-nums" dir="ltr">
+            {month.consumed_vx.toLocaleString()} VX · {month.requests.toLocaleString()} requests
+          </dd>
+        </div>
+      </dl>
+
+      {plan.whatsapp_daily !== null && (
+        <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
+          {plan.whatsapp_daily === 0
+            ? "WhatsApp assistant: no daily limit on this plan."
+            : `WhatsApp assistant: up to ${plan.whatsapp_daily.toLocaleString()} requests a day.`}
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function UsageChart() {
   const { data: rows = [], isLoading, isError, error } = useMyVxUsage({ limit: 200 });
+  const { data: planSummary } = useMyVxSummary();
 
   const summary = useMemo(() => {
     const spent = rows.reduce((total, row) => total + row.consumed_vx, 0);
@@ -101,18 +199,22 @@ export function UsageChart() {
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-card p-10 text-center">
-        <p className="font-medium">No VX spent yet</p>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-          When you use a service that costs VX, it appears here — what it was, when, what it
-          cost, and anything that came back.
-        </p>
+      <div className="space-y-5">
+        {planSummary?.ok && <PlanSummary summary={planSummary} />}
+        <div className="rounded-xl border border-border bg-card p-10 text-center">
+          <p className="font-medium">No VX spent yet</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+            When you use a service that costs VX, it appears here — what it was, when, what it
+            cost, and anything that came back.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
+      {planSummary?.ok && <PlanSummary summary={planSummary} />}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="VX spent" value={summary.spent.toLocaleString()} sub="across all requests" tone="text-amber-500" />
         <StatCard label="VX returned" value={summary.returned.toLocaleString()}

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  getMyVxUsage,
+  getMyVxUsage, getMyVxSummary,
   getTransactionHistory,
   getUsageLogs,
 } from "@/services/ai-media-studio/billingService";
@@ -45,6 +45,14 @@ export function useUsageLogs(params: {
 // `useUsageLogs` above reads `usage_logs`, which has never had a row in it.
 // This reads `vx_usage_ledger` through `my_vx_usage()` — the account's own
 // spending, with the provider and the internal cost left on the admin side.
+
+export function useMyVxSummary() {
+  return useQuery({
+    queryKey: ["billing", "vx-summary"],
+    queryFn:  getMyVxSummary,
+    staleTime: 30_000,
+  });
+}
 
 export function useMyVxUsage(params: { limit?: number; offset?: number } = {}) {
   return useQuery({

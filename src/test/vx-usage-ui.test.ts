@@ -17,6 +17,7 @@ const hook = readFileSync("src/hooks/useCredits.ts", "utf8");
 const billing = readFileSync("supabase/functions/billing-engine/index.ts", "utf8");
 const types = readFileSync("src/lib/types/billing.ts", "utf8");
 const ledger = readFileSync("supabase/migrations/20261023000000_vx_central_pricing_and_ledger.sql", "utf8");
+const ledgerSummary = readFileSync("supabase/migrations/20261033000000_my_vx_summary.sql", "utf8");
 
 describe("the Usage view reads the ledger, not the empty table", () => {
   it("no longer touches usage_logs or the browser price map", () => {
@@ -88,15 +89,82 @@ describe("every state the screen can be in", () => {
   });
 });
 
+describe("the screen shows a balance, a plan and a period", () => {
+  it("reads the summary from a call that takes no id", () => {
+    expect(chart).toContain("useMyVxSummary");
+    expect(service).toContain('action: "my_summary"');
+    expect(billing).toContain('db.rpc("my_vx_summary")');
+    // No argument at all: there is nothing to tamper with, which is a stronger
+    // guarantee than validating an id would be.
+    expect(ledgerSummary).toContain("CREATE OR REPLACE FUNCTION public.my_vx_summary()");
+    expect(ledgerSummary).toContain("_user_id  uuid := auth.uid();");
+  });
+
+  it("goes through the caller's own token, not the service role", () => {
+    // my_vx_usage and my_vx_summary both filter on auth.uid(), which is NULL
+    // for the service role — calling them as the service role returns an empty
+    // answer for everybody, always.
+    expect(billing).toContain("async function handleMyUsage(authHeader: string");
+    expect(billing).toContain("async function handleMySummary(authHeader: string");
+    expect(billing).toMatch(/handleMyUsage[\s\S]{0,400}userDb\(authHeader\)/);
+    expect(billing).toMatch(/handleMySummary[\s\S]{0,300}userDb\(authHeader\)/);
+  });
+
+  it("names balance, allowance, remaining and both periods", () => {
+    for (const label of ["VX balance", "Monthly allowance", "Remaining this month", "Today", "This month"]) {
+      expect(chart, label).toContain(label);
+    }
+  });
+
+  it("says a plan grants no allowance rather than showing zero left", () => {
+    expect(chart).toContain("None on this plan");
+    expect(chart).toContain("Not metered");
+  });
+
+  it("shows the trial and its end date when the account is on one", () => {
+    expect(chart).toContain("plan.is_trial");
+    expect(chart).toContain("trial_ends_at");
+  });
+
+  it("carries the unit in the text, so nothing depends on position or colour", () => {
+    const summaryBlock = chart.slice(chart.indexOf("function PlanSummary"), chart.indexOf("export function UsageChart"));
+    expect(summaryBlock).toContain("VX`");
+    expect(summaryBlock).toContain("<dl");
+    expect(summaryBlock).toContain("<dt");
+    expect(summaryBlock).toContain("<dd");
+    expect(summaryBlock).toContain('aria-labelledby="vx-plan-heading"');
+  });
+
+  it("still shows the plan when there is no usage yet", () => {
+    const empty = chart.slice(chart.indexOf("rows.length === 0"));
+    expect(empty.slice(0, 400)).toContain("<PlanSummary summary={planSummary} />");
+  });
+
+  it("the summary type declares no cost field", () => {
+    const shape = types.slice(types.indexOf("export interface VxSummary"));
+    const body = shape.slice(0, shape.indexOf("\n}"));
+    for (const leak of ["actual_cost", "base_cost", "cost_usd", "provider", "margin"]) {
+      expect(body, leak).not.toContain(leak);
+    }
+    for (const field of ["balance_vx", "monthly_vx", "is_trial", "today", "month"]) {
+      expect(body, field).toContain(field);
+    }
+  });
+});
+
 describe("the client type matches the RPC, not the table", () => {
   it("declares only the columns my_vx_usage returns", () => {
-    const shape = types.slice(types.indexOf("export interface VxUsageRow"));
+    // Bounded to the interface body: past the closing brace sits VxSummary,
+    // whose comment explains at length which cost fields it does not carry —
+    // and a negative assertion that reads a comment is not a check.
+    const tail = types.slice(types.indexOf("export interface VxUsageRow"));
+    const shape = tail.slice(0, tail.indexOf("\n}"));
     for (const column of ["service_id", "display_name", "units", "reserved_vx",
                           "consumed_vx", "refunded_vx", "status", "source"]) {
       expect(shape, column).toContain(column);
     }
     expect(shape).not.toContain("actual_cost_usd");
-    expect(shape.slice(0, shape.indexOf("}"))).not.toContain("provider");
+    expect(shape).not.toContain("provider");
   });
 
   it("matches what the SQL function actually selects", () => {
