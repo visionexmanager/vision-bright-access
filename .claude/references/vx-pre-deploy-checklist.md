@@ -158,3 +158,44 @@ run against production, in the order given under *After the deploy*.
 Production carried no migration backlog when this was written: the last
 successful Deploy was `2ce9d66a`, which was `origin/main`'s head, so
 `--include-all` applies these eight and nothing else.
+
+## The before-reading, 2026-09-19
+
+Taken from production by `vx-deploy-verify.yml`, read-only. The after-reading
+runs the same workflow; every number in the first group must be identical.
+
+**Must not move**
+
+| | |
+| --- | --- |
+| `user_points` rows | 1,124 |
+| accounts holding VX | 17 |
+| total VX | 6,123 |
+| entry range | −250 … 1,000 |
+| `credit_wallets` | 6 rows, 0 VX |
+| `credit_transactions`, `usage_logs` | 0, 0 |
+| legacy tables / WhatsApp functions | 4 of 4 / 2 of 2 |
+
+**Must change**
+
+| | before | after |
+| --- | --- | --- |
+| new tables | 0 of 5 | 5 of 5 |
+| new functions | 0 of 14 | 14 of 14 |
+| `ai_budgets.daily_vx_limit` column | absent | present, NULL everywhere |
+| `ph_*` read policies admin-gated | **0 of 5** | 5 of 5, plus the audit table |
+| `anon` grants on those ten tables | **35** | 0 |
+| reaper `cron.job` row | none | present, active, `*/10 * * * *` |
+| `admin_give_vx` | present | gone |
+| migrations recorded | none of 8 | all 8 |
+
+**Two things the before-reading settles that the files could only claim.**
+
+`ph_providers`, `ph_metrics`, `ph_logs`, `ph_configs` and `ph_failovers` each
+still carry their `*_read_auth` policy with `admin_gated: false`, and `anon`
+holds 35 grants across them. So the Phase 0 exposure is live right now: any
+signed-in account can read `api_key_ref` — the platform's whole secret-name
+inventory — and `cost_per_request`. It is not a hypothetical being pre-empted.
+
+And `admin_give_vx` exists in production while `profiles.vx_balance` does not,
+so it does raise on every call, exactly as the retirement migration says.
