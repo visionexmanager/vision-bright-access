@@ -30,10 +30,20 @@ DECLARE
 BEGIN
   FOREACH _table IN ARRAY ARRAY['ph_providers', 'ph_metrics', 'ph_logs', 'ph_configs', 'ph_failovers']
   LOOP
-    EXECUTE format(
-      'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING ((select public.has_role(auth.uid(), ''admin'')))',
-      _table || '_read_admin', _table
-    );
+    -- Guarded, like every other policy in this branch. `db push` tracks what
+    -- it has applied and would not normally re-run this, but a migration that
+    -- cannot be applied twice is a migration that cannot be retried — and a
+    -- retry is exactly what happens when a deploy fails halfway.
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+       WHERE schemaname = 'public' AND tablename = _table
+         AND policyname = _table || '_read_admin'
+    ) THEN
+      EXECUTE format(
+        'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING ((select public.has_role(auth.uid(), ''admin'')))',
+        _table || '_read_admin', _table
+      );
+    END IF;
   END LOOP;
 END $$;
 

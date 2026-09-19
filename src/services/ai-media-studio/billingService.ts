@@ -7,6 +7,7 @@ import type {
   CreditTransaction,
   UsageLog,
   OperationType,
+  VxUsageRow,
 } from "@/lib/types/billing";
 
 // ── Initialization ─────────────────────────────────────────────────────────────
@@ -87,3 +88,18 @@ export async function cancelSubscription(): Promise<void> {
 // billing-engine's "grant_credits" action, but that action grants an
 // arbitrary caller-supplied amount with no payment verification and is now
 // intentionally rejected server-side (see billing-engine/index.ts).
+
+// ── The unified usage ledger ──────────────────────────────────────────────────
+//
+// `getUsageLogs` above reads `usage_logs`, which is empty and always was —
+// `billing_consume` never ran in production. This reads `vx_usage_ledger`
+// through `my_vx_usage()`, the column list that leaves `provider` and
+// `actual_cost_usd` on the admin side.
+
+export async function getMyVxUsage(params: {
+  limit?:  number;
+  offset?: number;
+} = {}): Promise<VxUsageRow[]> {
+  const res = await callBillingEngine<VxUsageRow[]>({ action: "my_usage", ...params });
+  return (res as { data?: VxUsageRow[] })?.data ?? [];
+}
