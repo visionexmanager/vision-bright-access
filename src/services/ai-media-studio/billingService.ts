@@ -36,26 +36,14 @@ export async function getBalance(): Promise<{
 }
 
 // ── Consume / Refund ──────────────────────────────────────────────────────────
-
-export async function consumeCredits(params: {
-  operation_type:   OperationType;
-  job_id?:          string;
-  project_id?:      string;
-  provider_slug?:   string;
-  idempotency_key?: string;
-  meta?:            Record<string, unknown>;
-}): Promise<BillingConsumeResult> {
-  const res = await callBillingEngine({ action: "consume", ...params });
-  return res as BillingConsumeResult;
-}
-
-export async function refundCredits(params: {
-  job_id: string;
-  reason?: string;
-}): Promise<{ ok: boolean; refunded: boolean; amount_vx?: number }> {
-  const res = await callBillingEngine({ action: "refund", ...params });
-  return res as { ok: boolean; refunded: boolean; amount_vx?: number };
-}
+//
+// Gone. `consumeCredits` and `refundCredits` charged `credit_wallets` from the
+// browser, and no screen ever called them — `billing_consume` has never run in
+// production, which is why `usage_logs` is empty. Charging VX is now
+// `vx_reserve`/`vx_settle` behind `_shared/vx/meter.ts`, server-side only,
+// because the decision to charge is not one a client should be able to skip.
+//
+// See .claude/references/vx-deprecations.md.
 
 // ── History & Logs ────────────────────────────────────────────────────────────
 

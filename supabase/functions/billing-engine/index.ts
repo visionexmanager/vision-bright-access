@@ -46,43 +46,14 @@ async function handleInitialize(userId: string, email?: string) {
   return json({ ok: true, data });
 }
 
-async function handleConsume(userId: string, body: Record<string, unknown>) {
-  const {
-    operation_type, job_id, project_id,
-    provider_slug, idempotency_key, meta,
-  } = body;
-
-  if (!operation_type) return err("operation_type required");
-
-  const db = serviceDb();
-  const { data, error } = await db.rpc("billing_consume", {
-    p_user_id:         userId,
-    p_operation_type:  operation_type,
-    p_job_id:          job_id ?? null,
-    p_project_id:      project_id ?? null,
-    p_provider_slug:   provider_slug ?? null,
-    p_idempotency_key: idempotency_key ?? null,
-    p_meta:            meta ?? {},
-  });
-
-  if (error) return json({ ok: false, error: error.message });
-  return json(data);
-}
-
-async function handleRefund(userId: string, body: Record<string, unknown>) {
-  const { job_id, reason } = body;
-  if (!job_id) return err("job_id required");
-
-  const db = serviceDb();
-  const { data, error } = await db.rpc("billing_refund", {
-    p_user_id: userId,
-    p_job_id:  job_id,
-    p_reason:  reason ?? "generation_failed",
-  });
-
-  if (error) return json({ ok: false, error: error.message });
-  return json(data);
-}
+// `handleConsume` and `handleRefund` used to be here. They called
+// `billing_consume` / `billing_refund` against `credit_wallets`, and neither
+// has ever run in production: six zero-balance wallets, no transactions, no
+// usage rows. Charging VX is now `vx_reserve`/`vx_settle` behind
+// `_shared/vx/meter.ts`, server-side, where a client cannot skip the decision.
+//
+// The SQL functions are deliberately still there — see
+// .claude/references/vx-deprecations.md for what stays and why.
 
 async function handleGetStatus(userId: string) {
   const db = serviceDb();
@@ -191,21 +162,10 @@ async function handleCancel(userId: string) {
   return json({ ok: true });
 }
 
-async function handleGrantCredits(userId: string, body: Record<string, unknown>) {
-  const { amount_vx, description } = body;
-  if (!amount_vx || Number(amount_vx) <= 0) return err("amount_vx required and must be positive");
-
-  const db = serviceDb();
-  const { data, error } = await db.rpc("billing_grant_credits", {
-    p_user_id:    userId,
-    p_amount_vx:  Number(amount_vx),
-    p_type:       "purchase",
-    p_description: description ?? `Purchased ${amount_vx} VX`,
-  });
-
-  if (error) return json({ ok: false, error: error.message });
-  return json(data);
-}
+// `handleGrantCredits` was here and was already unreachable: the dispatcher
+// closed `grant_credits` because it granted a caller-supplied amount to any
+// authenticated user with no payment verification. Unreachable code that still
+// reads as live is worse than none, so it is gone with the rest.
 
 // ── The operator's actions ────────────────────────────────────────────────────
 //
@@ -308,9 +268,19 @@ serve(async (req) => {
 
   switch (action) {
     case "initialize":      return handleInitialize(user.id, user.email ?? undefined);
+    // Superseded, and named rather than dropped: an unknown action invites a
+    // retry, and one that says what replaced it does not. `grant_credits` was
+    // already closed for granting a caller-supplied amount with no payment
+    // verification; `consume` and `refund` charged `credit_wallets` from a
+    // client, which is the shape this phase removes.
     case "check_and_consume":
-    case "consume":         return handleConsume(user.id, body);
-    case "refund":          return handleRefund(user.id, body);
+    case "consume":
+    case "refund":
+    case "grant_credits":
+      return err(
+        "Superseded by vx_reserve / vx_settle through _shared/vx/meter.ts. See .claude/references/vx-deprecations.md.",
+        410,
+      );
     case "get_status":      return handleGetStatus(user.id);
     case "get_balance":     return handleGetBalance(user.id);
     case "get_history":     return handleGetHistory(user.id, body);
@@ -339,11 +309,6 @@ serve(async (req) => {
     // server-side — never because the account holder asked for one.
     case "upgrade":         return err("A plan is activated after payment is confirmed.", 403);
     case "cancel":          return handleCancel(user.id);
-    // "grant_credits" is intentionally not reachable here: it granted an
-    // arbitrary, caller-supplied VX amount to any authenticated user with no
-    // payment verification. It's only safe to call from a trusted
-    // server-to-server context (e.g. a verified payment webhook) using the
-    // service-role key, not from a user JWT.
     default:                return err(`Unknown action: ${action}`);
   }
 });
