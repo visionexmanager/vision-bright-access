@@ -197,3 +197,99 @@ describe("the shared vocabulary the three surfaces agree on", () => {
     expect(isServiceId("")).toBe(false);
   });
 });
+
+// ── The wallet migration ────────────────────────────────────────────────────
+//
+// `credit_wallets.balance_vx` is the balance a complete billing authority was
+// built around and nothing ever spent, so whatever is in those rows was
+// granted and stranded. Moving it is the one genuinely destructive step in
+// Phase 1, and these pin the properties that make it safe to run.
+
+describe("moving credit_wallets onto user_points", () => {
+  const tools = readFileSync("supabase/migrations/20261024000000_vx_wallet_migration_tools.sql", "utf8");
+
+  it("drops nothing and leaves credit_wallets standing", () => {
+    const code = tools.split("\n").filter((l) => !l.trimStart().startsWith("--")).join("\n");
+    expect(code).not.toMatch(/DROP\s+(TABLE|FUNCTION|COLUMN)/i);
+    expect(code).not.toMatch(/DELETE FROM public\.credit_wallets/i);
+    expect(code).not.toMatch(/UPDATE public\.credit_wallets/i);
+  });
+
+  it("is dry by default, on the way out and on the way back", () => {
+    expect(tools).toContain("_dry_run   boolean DEFAULT true");
+    expect(tools).toContain("vx_revert_wallet_migration(_dry_run boolean DEFAULT true)");
+    expect(tools).toContain("CONTINUE WHEN _dry_run;");
+  });
+
+  it("credits each account at most once", () => {
+    // The PRIMARY KEY is the guard: a second pass finds the row and skips.
+    expect(tools).toContain("user_id       uuid PRIMARY KEY REFERENCES auth.users(id)");
+    expect(tools).toContain("NOT EXISTS (SELECT 1 FROM public.vx_wallet_migrations m WHERE m.user_id = w.user_id)");
+  });
+
+  it("records enough to undo it", () => {
+    for (const column of ["wallet_balance_before", "points_balance_before", "credited_vx", "points_balance_after"]) {
+      expect(tools, column).toContain(column);
+    }
+  });
+
+  it("refuses to claw back from somebody who has already spent it", () => {
+    // user_points has no non-negative constraint, so a blind reversal would
+    // push a balance below what the person has used.
+    expect(tools).toContain("IF _balance - _row.credited_vx < 0 THEN");
+    expect(tools).toContain("skipped_would_go_negative");
+  });
+
+  it("keeps the report read-only and the move service-role only", () => {
+    expect(tools).toContain("RETURNS jsonb\nLANGUAGE plpgsql\nSTABLE");
+    expect(tools).toContain("GRANT EXECUTE ON FUNCTION public.vx_wallet_migration_report() TO authenticated, service_role;");
+    expect(tools).toContain("REVOKE ALL ON FUNCTION public.vx_migrate_wallet_balances(boolean, integer) FROM PUBLIC, anon, authenticated;");
+    expect(tools).not.toMatch(/GRANT EXECUTE ON FUNCTION public\.vx_migrate_wallet_balances\([^)]*\) TO authenticated/);
+  });
+
+  it("is not reachable from the admin screen", () => {
+    // Running it is a reviewed operational step with a report read first, not
+    // a button somebody can reach past on a Tuesday.
+    const fn = readFileSync("supabase/functions/vx-admin/index.ts", "utf8");
+    expect(fn).toContain('case "migrate_wallets":');
+    expect(fn).toContain("reviewed operational step");
+    // In the code, not in the comment that explains why it is absent.
+    const code = fn.split("\n").filter((line) => !line.trimStart().startsWith("//")).join("\n");
+    expect(code).not.toContain("vx_migrate_wallet_balances");
+  });
+});
+
+describe("the operator's door", () => {
+  const fn = readFileSync("supabase/functions/vx-admin/index.ts", "utf8");
+  const api = readFileSync("supabase/migrations/20261025000000_vx_pricing_admin_api.sql", "utf8");
+  const app = readFileSync("src/App.tsx", "utf8");
+
+  it("checks the role before it reads the body, and records a refusal", () => {
+    expect(fn.indexOf('_role: "admin"')).toBeLessThan(fn.indexOf("await req.json()"));
+    expect(fn).toContain('_kind: "vx_admin_forbidden"');
+    expect(fn).toContain('return err("Forbidden", 403);');
+  });
+
+  it("refuses a price that would mint VX", () => {
+    expect(api).toContain("negative_price");
+    expect(api).toContain("negative_free_limit");
+    expect(api).toContain("plan_limits_must_be_an_object");
+    // And the check is in SQL, where a second caller cannot skip it.
+    expect(api).toContain("IF NOT public.has_role(auth.uid(), 'admin') THEN");
+  });
+
+  it("is behind an admin route", () => {
+    const route = app.slice(app.indexOf('path="/admin/vx-pricing"'));
+    expect(route.slice(0, 120)).toContain("<AdminRoute>");
+  });
+
+  it("reaches the new objects through the function, not around the generated types", () => {
+    // kidsSupabase.ts records why: casting around a stale types.ts is how every
+    // `.returns<T>()` in a service collapses. The types are regenerated after a
+    // migration deploys, so the screen goes through an Edge Function instead.
+    const page = readFileSync("src/pages/admin/AdminVXPricing.tsx", "utf8");
+    expect(page).toContain('callEdge({ fn: "vx-admin"');
+    expect(page).not.toContain("as any");
+    expect(page).not.toContain("from(\"central_pricing_registry\")");
+  });
+});

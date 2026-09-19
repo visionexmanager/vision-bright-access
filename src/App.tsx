@@ -438,6 +438,7 @@ const AdminEmails = lazyWithRetry(() => import("./pages/admin/AdminEmails"));
 const AdminDatabase = lazyWithRetry(() => import("./pages/admin/AdminDatabase"));
 const AdminLogs = lazyWithRetry(() => import("./pages/admin/AdminLogs"));
 const AdminVX   = lazyWithRetry(() => import("./pages/admin/AdminVX"));
+const AdminVXPricing = lazyWithRetry(() => import("./pages/admin/AdminVXPricing"));
 const AdminVXCoinOrders = lazyWithRetry(() => import("./pages/admin/AdminVXCoinOrders"));
 const AdminSubscriptionOrders = lazyWithRetry(() => import("./pages/admin/AdminSubscriptionOrders"));
 const AdminSimulations = lazyWithRetry(() => import("./pages/admin/AdminSimulations"));
@@ -1190,6 +1191,7 @@ function AppRoutes() {
                     <Route path="/admin/emails" element={<AdminRoute><AdminEmails /></AdminRoute>} />
                     <Route path="/admin/database" element={<AdminRoute><AdminDatabase /></AdminRoute>} />
                     <Route path="/admin/vx" element={<AdminRoute><AdminVX /></AdminRoute>} />
+                    <Route path="/admin/vx-pricing" element={<AdminRoute><AdminVXPricing /></AdminRoute>} />
                     <Route path="/admin/vx-coin-orders" element={<AdminRoute><AdminVXCoinOrders /></AdminRoute>} />
                     <Route path="/admin/subscription-orders" element={<AdminRoute><AdminSubscriptionOrders /></AdminRoute>} />
                     <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
