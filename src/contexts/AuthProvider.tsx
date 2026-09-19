@@ -3,15 +3,16 @@ import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { AuthContext } from "./AuthContext";
-import { TRIAL_DAYS } from "@/lib/billing/plans";
 
 // The week itself lives in `src/lib/billing/plans.ts` and in
 // `public.trial_period_days()`; the column default does this server-side for
 // rows `handle_new_user` creates, and this is the client-side backfill for a
 // profile that predates it.
 
-const trialExpiresFrom = (registeredAt: string | Date) =>
-  new Date(new Date(registeredAt).getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+// Nothing here computes the trial any more. `profiles_anchor_trial` sets
+// `trial_expires_at` from `auth.users.created_at`, and `authenticated` no
+// longer holds the privilege to write that column — an account that can set
+// its own trial can unlock every section of every tier.
 
 async function ensureUserEntitlements(user: User) {
   const displayName =
@@ -20,9 +21,6 @@ async function ensureUserEntitlements(user: User) {
     user.email ||
     "Player";
 
-  // created_at from auth.users comes through user.created_at
-  const registeredAt = user.created_at ?? new Date().toISOString();
-
   const { data } = await supabase
     .from("profiles")
     .select("user_id, display_name, trial_expires_at, created_at")
@@ -30,11 +28,15 @@ async function ensureUserEntitlements(user: User) {
     .maybeSingle();
 
   if (!data) {
+    // No trial_expires_at: the database sets it, from auth.users.created_at,
+    // in the `profiles_anchor_trial` trigger. It used to be sent from here —
+    // anchored to the registration time so an existing session could not win
+    // extra days, which was the right intent on the wrong side of the wire.
+    // `authenticated` no longer holds the privilege to write that column at
+    // all, so sending it would fail rather than be ignored.
     await supabase.from("profiles").insert({
       user_id: user.id,
       display_name: displayName,
-      // Anchor trial to auth registration time so existing sessions don't get extra time
-      trial_expires_at: trialExpiresFrom(registeredAt),
     });
     return;
   }
@@ -44,11 +46,9 @@ async function ensureUserEntitlements(user: User) {
   // that does not exist.
   const updates: Database["public"]["Tables"]["profiles"]["Update"] = {};
   if (!data.display_name) updates.display_name = displayName;
-  if (!data.trial_expires_at) {
-    // Use profile created_at (or auth created_at) — never Date.now() for existing users
-    const anchor = data.created_at ?? registeredAt;
-    updates.trial_expires_at = trialExpiresFrom(anchor);
-  }
+  // The trial backfill that used to live here is gone with the privilege: a row
+  // with a null trial_expires_at can only predate the column's default, and
+  // repairing one is a migration's job, not a signed-in browser's.
 
   if (Object.keys(updates).length > 0) {
     await supabase.from("profiles").update(updates).eq("user_id", user.id);
