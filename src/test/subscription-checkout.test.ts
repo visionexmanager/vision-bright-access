@@ -47,7 +47,7 @@ describe("the WhatsApp link", () => {
   });
 
   it("carries Arabic and line breaks through wa.me intact", () => {
-    const message = "الطلب: VX-ABC123\nالخطة: Gold & more?";
+    const message = "الطلب: VX-ABC123\nالخطة: Business & more?";
     const link = paymentWhatsAppLink("96170123456", message);
     expect(link.startsWith("https://wa.me/96170123456?text=")).toBe(true);
     expect(link).not.toMatch(/\s/);
@@ -56,12 +56,12 @@ describe("the WhatsApp link", () => {
   });
 
   it("fills named placeholders and leaves an unknown one visible", () => {
-    expect(fillTemplate("Order {reference} for {plan} {missing}", { reference: "VX-1", plan: "Gold" }))
-      .toBe("Order VX-1 for Gold {missing}");
+    expect(fillTemplate("Order {reference} for {plan} {missing}", { reference: "VX-1", plan: "Business" }))
+      .toBe("Order VX-1 for Business {missing}");
   });
 
   it("names the checkout path by plan", () => {
-    expect(checkoutPath("gold")).toBe("/pricing/checkout/gold");
+    expect(checkoutPath("business")).toBe("/pricing/checkout/business");
   });
 
   it("sends OMT and Whish to a number and a card to a link", () => {

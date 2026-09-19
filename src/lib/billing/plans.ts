@@ -2,23 +2,24 @@
 // boundary between them falls.
 //
 // Before this file the platform had one economic rule — thirty days of
-// everything, then pay in VX credits for the few operations that cost money —
-// and four plans (`basic`, `pro`, `enterprise`) that only ever described the
-// AI Media Studio. Nothing said which *section* a subscriber could open, so
-// every section was open to everyone and the plans were priced against credits
-// nobody could relate to a feature.
+// everything, then pay in VX for the few operations that cost money — and four
+// plans that only ever described the AI Media Studio. Nothing said which
+// *section* a subscriber could open, so every section was open to everyone and
+// the plans were priced against a unit nobody could relate to a feature.
 //
 // The model here is deliberately small:
 //
 //   • One free week from registration, with every section open — on the site
 //     and on WhatsApp. Long enough to see what Visionex is, short enough that
 //     it is a trial rather than a free product.
-//   • Three tiers afterwards, nested: Bronze ⊂ Silver ⊂ Gold. Nesting is the
+//   • Three tiers afterwards, nested: Basic ⊂ Pro ⊂ Business. Nesting is the
 //     whole point — nobody upgrading ever loses a section they had, and the
-//     pricing page can say "everything in Bronze, plus…" truthfully.
+//     pricing page can say "everything in Basic, plus…" truthfully.
 //   • A handful of sections that never need a plan, so an expired account is
 //     still an account: the news, the community, the assistive-product
-//     catalogue, and everything this file does not name.
+//     catalogue, and everything this file does not name. That set is what the
+//     pricing page shows as FREE — it is a real level of access rather than a
+//     row in `billing_plans`, which is why no plan id spells it.
 //
 // This module is pure and framework-free so the rules can be tested without a
 // browser or a database, and `subscription-tiers.test.ts` pins it against the
@@ -54,7 +55,7 @@ export type SectionKey =
   | "professional"
   | "finance";
 
-export type TierId = "bronze" | "silver" | "gold";
+export type TierId = "basic" | "pro" | "business";
 
 /** Every plan somebody pays for: the three nested tiers, and Kids beside them. */
 export type PaidPlanId = TierId | "kids";
@@ -126,7 +127,7 @@ export interface TierDef {
   sections: readonly SectionKey[];
 }
 
-const BRONZE_SECTIONS: readonly SectionKey[] = [
+const BASIC_SECTIONS: readonly SectionKey[] = [
   ...FREE_SECTIONS,
   "assistant",
   "academy",
@@ -135,8 +136,8 @@ const BRONZE_SECTIONS: readonly SectionKey[] = [
   "marketplace",
 ];
 
-const SILVER_SECTIONS: readonly SectionKey[] = [
-  ...BRONZE_SECTIONS,
+const PRO_SECTIONS: readonly SectionKey[] = [
+  ...BASIC_SECTIONS,
   "kids",
   "career",
   "tv",
@@ -145,8 +146,8 @@ const SILVER_SECTIONS: readonly SectionKey[] = [
   "simulations",
 ];
 
-const GOLD_SECTIONS: readonly SectionKey[] = [
-  ...SILVER_SECTIONS,
+const BUSINESS_SECTIONS: readonly SectionKey[] = [
+  ...PRO_SECTIONS,
   "mediaStudio",
   "studio",
   "professional",
@@ -156,28 +157,31 @@ const GOLD_SECTIONS: readonly SectionKey[] = [
 /**
  * The three tiers, cheapest first.
  *
- * Bronze is the reading-and-learning platform: the assistant, the academy, the
- * library, the arcade, the bazaar. Silver adds the things a household uses —
- * the children's world, the career hub, television, radio, voice rooms, the
- * simulators. Gold adds the tools that cost real money to run: media
+ * Basic is the reading-and-learning platform: the assistant, the academy, the
+ * library, the arcade, the bazaar. Pro adds the things a household uses — the
+ * children's world, the career hub, television, radio, voice rooms, the
+ * simulators. Business adds the tools that cost real money to run: media
  * generation, publishing, the file studio, the finance hub — which is also why
- * it carries the credits and the uncapped WhatsApp allowance.
+ * it carries the most VX and the uncapped WhatsApp allowance.
+ *
+ * The prices and monthly VX are the ones already live in `billing_plans`; this
+ * rename moved the names, not the economics.
  */
 export const TIERS: Readonly<Record<TierId, TierDef>> = {
-  bronze: { id: "bronze", price: 5,  vxMonthly: 5_000,  whatsappDaily: 150, sections: BRONZE_SECTIONS },
-  silver: { id: "silver", price: 7,  vxMonthly: 12_000, whatsappDaily: 400, sections: SILVER_SECTIONS },
-  gold:   { id: "gold",   price: 10, vxMonthly: 30_000, whatsappDaily: 0,   sections: GOLD_SECTIONS },
+  basic:    { id: "basic",    price: 5,  vxMonthly: 5_000,  whatsappDaily: 150, sections: BASIC_SECTIONS },
+  pro:      { id: "pro",      price: 7,  vxMonthly: 12_000, whatsappDaily: 400, sections: PRO_SECTIONS },
+  business: { id: "business", price: 10, vxMonthly: 30_000, whatsappDaily: 0,   sections: BUSINESS_SECTIONS },
 };
 
 /** Cheapest first — the nested tiers. */
-export const TIER_ORDER: readonly TierId[] = ["bronze", "silver", "gold"] as const;
+export const TIER_ORDER: readonly TierId[] = ["basic", "pro", "business"] as const;
 
 /**
  * Kids: VisionKids and nothing else, for three dollars.
  *
  * Beside the tiers, not inside them. A parent who wants the children's world
  * should not have to buy the assistant, the academy and the bazaar to get it —
- * and Kids does not open those, so it cannot undercut Bronze. Silver and Gold
+ * and Kids does not open those, so it cannot undercut Basic. Pro and Business
  * still include VisionKids, so nobody upgrading from Kids loses it.
  */
 export const KIDS_PLAN: TierDef = {
@@ -198,7 +202,7 @@ export const PAID_PLAN_ORDER: readonly PaidPlanId[] = ["kids", ...TIER_ORDER] as
 export const TRIAL_WHATSAPP_DAILY = 200;
 
 function isPaidPlan(planId: string): planId is PaidPlanId {
-  return planId === "kids" || planId === "bronze" || planId === "silver" || planId === "gold";
+  return planId === "kids" || planId === "basic" || planId === "pro" || planId === "business";
 }
 
 /**
