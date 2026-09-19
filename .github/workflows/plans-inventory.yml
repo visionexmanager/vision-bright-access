@@ -1,0 +1,93 @@
+name: Plans — inventory
+
+# What the subscription system actually looks like in production, as opposed to
+# what the repository says it should look like. Read before changing a plan id,
+# because a rename moves live subscriptions and historical orders.
+#
+# Every statement is a SELECT. Nothing is created, updated or deleted.
+#
+# ── This repository is PUBLIC ───────────────────────────────────────────────
+#
+# Counts, sums, plan identifiers and prices only — never a user id, never an
+# email, never a phone number, never an order reference.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [audit-base, chore/plan-inventory]
+    paths: [.github/workflows/plans-inventory.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    name: Read the plan system
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read it
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          ask() {
+            curl -s -X POST \
+              "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query:$q}')"
+          }
+          block() { say ""; say "## $1"; say '```json'; ask "$2" | tee -a "$GITHUB_STEP_SUMMARY"; echo; say '```'; }
+
+          say "# The subscription system in production"
+          say ""
+          say "Read-only. Identifiers, counts and prices — no personal data."
+
+          block "1. Every plan row" \
+            "select id, name, price_usd, vx_monthly, whatsapp_daily, is_active
+               from public.billing_plans order by price_usd nulls first, id"
+
+          block "2. Live subscriptions by plan and status" \
+            "select plan_id, status, count(*)::bigint as subs
+               from public.user_subscriptions group by 1,2 order by 1,2"
+
+          block "3. Do any subscriptions point at a plan that no longer exists?" \
+            "select s.plan_id, count(*)::bigint as orphaned
+               from public.user_subscriptions s
+               left join public.billing_plans p on p.id = s.plan_id
+              where s.plan_id is not null and p.id is null
+              group by 1"
+
+          block "4. Historical orders by plan (financial records — do not rewrite)" \
+            "select plan_id, status, count(*)::bigint as orders
+               from public.subscription_orders group by 1,2 order by 1,2"
+
+          block "5. Profiles carrying an active plan id" \
+            "select active_plan_id, count(*)::bigint as profiles
+               from public.profiles where active_plan_id is not null
+              group by 1 order by 1"
+
+          block "6. WhatsApp side: identities, and how many are linked" \
+            "select
+               (select count(*) from public.whatsapp_identities)::bigint as identities,
+               (select count(*) from public.whatsapp_identities where user_id is not null)::bigint as linked,
+               (select count(*) from public.whatsapp_conversations)::bigint as conversations"
+
+          block "7. The columns billing_plans actually has" \
+            "select column_name, data_type
+               from information_schema.columns
+              where table_schema='public' and table_name='billing_plans'
+              order by ordinal_position"
+
+          block "8. Trial state — how many accounts are inside the free week" \
+            "select
+               (select count(*) from public.profiles)::bigint as profiles_total,
+               (select count(*) from public.user_subscriptions where status = 'active')::bigint as active_subs,
+               (select count(*) from public.user_subscriptions where status <> 'active')::bigint as other_subs"
+
+          say ""
+          say "Nothing above modified anything: every statement is a SELECT."
