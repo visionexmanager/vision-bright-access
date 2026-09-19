@@ -48,8 +48,12 @@ jobs:
           say "Read-only. Identifiers, counts and prices — no personal data."
 
           block "1. Every plan row" \
-            "select id, name, price_usd, vx_monthly, whatsapp_daily, is_active
-               from public.billing_plans order by price_usd nulls first, id"
+            "select id, name, price_monthly_usd, vx_credits_monthly, is_unlimited,
+                    is_active, sort_order
+               from public.billing_plans order by sort_order nulls last, id"
+
+          block "1b. What each plan's limits jsonb holds" \
+            "select id, limits from public.billing_plans order by sort_order nulls last, id"
 
           block "2. Live subscriptions by plan and status" \
             "select plan_id, status, count(*)::bigint as subs
@@ -66,10 +70,12 @@ jobs:
             "select plan_id, status, count(*)::bigint as orders
                from public.subscription_orders group by 1,2 order by 1,2"
 
-          block "5. Profiles carrying an active plan id" \
-            "select active_plan_id, count(*)::bigint as profiles
-               from public.profiles where active_plan_id is not null
-              group by 1 order by 1"
+          block "5. Which plan-related columns profiles actually has" \
+            "select column_name from information_schema.columns
+              where table_schema='public' and table_name='profiles'
+                and (column_name like '%plan%' or column_name like '%trial%'
+                     or column_name like '%subscription%')
+              order by column_name"
 
           block "6. WhatsApp side: identities, and how many are linked" \
             "select
