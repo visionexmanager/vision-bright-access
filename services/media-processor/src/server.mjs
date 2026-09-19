@@ -33,6 +33,7 @@
 // where it can be reviewed as a deployment decision rather than a code one.
 
 import { createServer } from "node:http";
+import { checkOverpassQuery, relayOverpass } from "./overpass.mjs";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
@@ -757,6 +758,42 @@ async function handleOffice(req, res, correlation) {
   }
 }
 
+/** The largest request body /overpass accepts: a JSON object with one short query. */
+const MAX_OVERPASS_BODY = 4_096;
+
+async function handleOverpass(req, res, correlation) {
+  const startedAt = Date.now();
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > MAX_OVERPASS_BODY) {
+      log("overpass", { correlation, outcome: "body_too_large" });
+      return send(res, 413, { ok: false, reason: "body_too_large" });
+    }
+    chunks.push(chunk);
+  }
+  let query;
+  try {
+    query = JSON.parse(Buffer.concat(chunks).toString("utf8"))?.query;
+  } catch {
+    return send(res, 400, { ok: false, reason: "bad_json" });
+  }
+  const refused = checkOverpassQuery(query);
+  if (refused) {
+    log("overpass", { correlation, outcome: "refused", reason: refused });
+    return send(res, 422, { ok: false, reason: refused });
+  }
+  const answer = await relayOverpass(query);
+  if (!answer) {
+    log("overpass", { correlation, outcome: "unavailable", ms: Date.now() - startedAt });
+    return send(res, 502, { ok: false, reason: "overpass_unavailable" });
+  }
+  // A count, never coordinates or names: the query carries where somebody is.
+  log("overpass", { correlation, outcome: "ok", count: answer.body.elements.length, ms: Date.now() - startedAt });
+  return send(res, 200, { ok: true, elements: answer.body.elements });
+}
+
 const server = createServer(async (req, res) => {
   const correlation = randomUUID().replace(/-/g, "").slice(0, 16);
   const url = new URL(req.url ?? "/", "http://internal");
@@ -798,6 +835,7 @@ const server = createServer(async (req, res) => {
           max_output_bytes: MAX_OUTPUT_BYTES,
         },
         probe: true,
+        overpass: true,
         concurrency: MAX_CONCURRENT,
       });
     }
@@ -820,6 +858,10 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/convert") {
       return await handleConvert(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/overpass") {
+      return await handleOverpass(req, res, correlation);
     }
 
     return send(res, 404, { ok: false, reason: "not_found" });

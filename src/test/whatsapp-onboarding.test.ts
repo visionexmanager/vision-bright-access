@@ -344,7 +344,10 @@ describe("state, across separate deliveries", () => {
 // ── 20–22: voice, before and after ──────────────────────────────────────────
 
 describe("voice and onboarding", () => {
-  it("20. does not let a voice note bypass the questions", () => {
+  // The gate itself still refuses to read a profile field out of a recording.
+  // What the webhook then does with the voice note — answer it, rather than
+  // re-ask — is `onboardingYieldsTo`, pinned in whatsapp-converse-first.test.ts.
+  it("20. never takes a profile answer from a voice note", () => {
     const outcome = step("profile_name", { text: "", kind: "audio" });
     expect(outcome.state).toBe("profile_name");
     expect(outcome.columns).toEqual({});
@@ -394,14 +397,17 @@ describe("the menu a sender is shown", () => {
     // features live one step inside them. Both halves are checked, because a
     // group whose menu names nothing is a row nobody has a reason to open.
     const main = idsOf(interactive.menuMessage(catalog.ROOT_ID, "en")!);
-    for (const id of ["assistant", "ocr", "listen", "bazaar", "services", "explore", "support", "more"]) {
+    for (const id of ["assistant", "ocr", "explore", "headlines", "listen", "health", "services", "bazaar", "support", "more"]) {
       expect(main, id).toContain(id);
     }
+    // Each thing under the group it belongs to: learning is not with the news.
     const inside: Record<string, string[]> = {
-      listen: ["services.radio", "services.songs"],
-      bazaar: ["services.bazaar", "services.sell", "services.orders"],
+      ocr: ["ocr.read", "ocr.document", "services.convert"],
+      explore: ["academy", "kids"],
+      headlines: ["news", "sports"],
+      listen: ["listen.tv", "services.radio", "services.songs", "explore.games"],
+      bazaar: ["services.bazaar", "services.sell", "services.orders", "explore.services"],
       services: ["services.weather", "services.where", "services.nearby"],
-      explore: ["academy", "kids", "news", "sports"],
     };
     for (const [group, features] of Object.entries(inside)) {
       const rows = idsOf(interactive.menuMessage(group, "en")!);

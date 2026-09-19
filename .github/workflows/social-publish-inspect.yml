@@ -139,6 +139,39 @@ jobs:
                left join public.social_account_tokens t on t.account_id = a.id
               order by a.platform, a.priority"
 
+          # ── The four conditions between "connected" and "publishing" ──────
+          #
+          # set_social_account_status() refuses `active` unless all four hold,
+          # and the refusal code names only the first one it meets. Reading
+          # them together is the difference between one fix and four rounds of
+          # click-read-click. `external_account_id` is not one of the four, but
+          # a publish request cannot be addressed without it, so a slot would
+          # be claimed and then refused at readiness — worth seeing here.
+          block "4b. What still stands between each account and publishing" \
+            "select a.platform,
+                    a.status,
+                    (a.review_completed_at is not null) as review_recorded,
+                    a.publishing_permission_granted    as publish_scope_granted,
+                    (a.api_key_ref is not null)        as api_key_ref_set,
+                    public.social_account_has_live_grant(a.id) as live_grant,
+                    (a.external_account_id is not null) as addressable,
+                    -- In the order an operator has to do them, which is not the
+                    -- order set_social_account_status() checks them in. That
+                    -- function reports whichever condition it meets first, and
+                    -- its first is `record_review` — a step that cannot be the
+                    -- real next move on an account nobody has connected yet.
+                    -- record_review also fills api_key_ref, so the two are one
+                    -- step here rather than two.
+                    case
+                      when a.status = 'active' then 'ready'
+                      when not public.social_account_has_live_grant(a.id) then 'connect'
+                      when not a.publishing_permission_granted then 'reconnect_and_accept_the_publish_scope'
+                      when a.review_completed_at is null or a.api_key_ref is null then 'record_review'
+                      else 'set_status_active'
+                    end as next_step
+               from public.social_accounts a
+              order by a.platform"
+
           block "5. Publication attempts so far, by state" \
             "select state, platform, count(*) as attempts,
                     count(*) filter (where external_post_id is not null) as with_external_id,

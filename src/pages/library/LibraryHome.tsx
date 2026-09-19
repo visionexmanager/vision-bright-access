@@ -160,7 +160,7 @@ export default function LibraryHome() {
       <LibraryLayout title={t("library.nav.home")}>
         {/* ── Hero ─────────────────────────────────────────────────────────── */}
         <section className="mb-10 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 sm:p-10">
-          <h1 className="text-2xl font-bold sm:text-3xl">{t("library.home.heroTitle")}</h1>
+          <h2 className="text-2xl font-bold sm:text-3xl">{t("library.home.heroTitle")}</h2>
           <p className="mt-2 max-w-xl text-muted-foreground">{t("library.home.heroSubtitle")}</p>
 
           <div className="mt-6">

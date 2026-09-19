@@ -43,10 +43,10 @@ export interface CreditTransaction {
   operation_type:  OperationType | null;
   job_id:          string | null;
   project_id:      string | null;
-  provider_slug:   string | null;
-  idempotency_key: string | null;
-  meta:            Record<string, unknown>;
   created_at:      string;
+  // `provider_slug`, `idempotency_key` and `meta` are deliberately absent: the
+  // row has them, and billing-engine no longer sends them. Which vendor served
+  // a generation is Visionex's commercial detail, not the customer's receipt.
 }
 
 // ── Subscription ──────────────────────────────────────────────────────────────
@@ -190,3 +190,37 @@ export const PLAN_BADGE_COLORS: Record<PlanId, string> = {
 
 export const TRIAL_DAYS = 5;
 export const TRIAL_WARNING_HOURS = 24;
+
+// ── The unified VX usage ledger ───────────────────────────────────────────────
+//
+// What `my_vx_usage()` returns, which is deliberately narrower than the row it
+// reads. `vx_usage_ledger` also carries `provider` and `actual_cost_usd`; the
+// function is the column list that keeps both on the admin side of the wall,
+// which is why the page calls it rather than the table.
+
+/** Where the request came from. Shown only when an account has used more than one. */
+export type VxUsageSource = "website" | "whatsapp" | "api" | "system";
+
+/**
+ * How a reservation ended.
+ *
+ * `reserved` is a job still in flight. `settled` consumed some or all of the
+ * hold. `refunded`, `failed` and `expired` all returned it — they are told
+ * apart because "we could not do it", "you cancelled" and "nobody ever
+ * finished it" are different things to read on your own statement.
+ */
+export type VxUsageStatus = "reserved" | "settled" | "refunded" | "failed" | "expired";
+
+export interface VxUsageRow {
+  id:           string;
+  service_id:   string;
+  display_name: string;
+  units:        number;
+  reserved_vx:  number;
+  consumed_vx:  number;
+  refunded_vx:  number;
+  status:       VxUsageStatus;
+  source:       VxUsageSource;
+  created_at:   string;
+  settled_at:   string | null;
+}

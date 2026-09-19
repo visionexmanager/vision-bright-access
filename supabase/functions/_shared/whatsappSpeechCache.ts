@@ -99,6 +99,8 @@ export async function speechCacheKey(params: {
   provider?: string;
   format?: string;
   language?: string;
+  /** Style direction the audio was made under; part of the audio, so part of the key. */
+  instructions?: string;
 }): Promise<string> {
   // Delegated to `voice/cache.ts`, which every voice caller now derives keys
   // from. This function keeps its name and its shape because the WhatsApp path
@@ -117,6 +119,7 @@ export async function speechCacheKey(params: {
     voice: params.voice,
     format: params.format ?? "opus",
     language: params.language,
+    params: params.instructions ? { instructions: params.instructions } : undefined,
   });
 }
 

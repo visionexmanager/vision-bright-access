@@ -146,6 +146,20 @@ describe("locale generation cannot loop on a finished batch", () => {
   it("no longer decides completion by diffing the branch against main", () => {
     expect(generateLocales).not.toMatch(/git diff --quiet origin\/main HEAD/);
   });
+
+  it("finds the batch branch instead of naming one that merging deletes", () => {
+    // The */15 poller checked out a hard-coded `agent/add-...-locales`. That
+    // branch is deleted when its batch merges, so every run afterwards died in
+    // eleven seconds on "A branch or tag with the name ... could not be found"
+    // — a failure e-mail four times an hour for work already on main.
+    expect(generateLocales).not.toContain("agent/add-nl-pl-vi-bn-fa-locales");
+    expect(generateLocales).toContain('test("^agent/add-.*-locales$")');
+  });
+
+  it("passes quietly when no batch is in flight", () => {
+    // No batch branch is the normal resting state, not an error.
+    expect(generateLocales).toContain("if: needs.resolve.outputs.branch != ''");
+  });
 });
 
 describe("secret scanning", () => {

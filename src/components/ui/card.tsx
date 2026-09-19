@@ -14,11 +14,15 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardHeader.displayName = "CardHeader";
 
-const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("text-xl font-semibold leading-tight tracking-tight", className)} {...props} />
-  ),
-);
+const CardTitle = React.forwardRef<
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement> & {
+    /** Heading level. A card that is the page itself (sign-in, sign-up) is its h1. */
+    as?: "h1" | "h2" | "h3";
+  }
+>(({ className, as: Heading = "h3", ...props }, ref) => (
+  <Heading ref={ref} className={cn("text-xl font-semibold leading-tight tracking-tight", className)} {...props} />
+));
 CardTitle.displayName = "CardTitle";
 
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(

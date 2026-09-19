@@ -128,7 +128,7 @@ describe("trusted sources", () => {
   });
 
   it("trusts exactly the tables the indexer writes", () => {
-    const indexer = readFileSync("supabase/functions/embed-content/index.ts", "utf8");
+    const indexer = readFileSync("supabase/functions/embed-content/index.ts", "utf8") + readFileSync("supabase/functions/_shared/contentIndex.ts", "utf8");
     for (const source of knowledge.TRUSTED_SOURCES) {
       expect(indexer).toContain(source);
     }

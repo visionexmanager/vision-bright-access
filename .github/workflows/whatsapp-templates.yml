@@ -1,0 +1,64 @@
+name: WhatsApp Message Templates
+
+# Submits the message templates the server needs to Meta, and reports their
+# review status.
+#
+# A business may only start a WhatsApp conversation with an approved template —
+# which is exactly what a reminder the day before a plan ends is. The wording
+# lives in supabase/functions/_shared/whatsappPlanReminder.ts, beside the code
+# that fills its variables.
+#
+# Every six hours in create mode, and by hand. `create` submits only what is
+# missing and changes nothing that exists, so running it again is safe. The
+# Business Account id comes from the webhook, which remembers it from the first
+# signed delivery; until then the scheduled run reports that it is waiting and
+# stays green. It runs here rather than on a laptop for the reason
+# whatsapp-profile.yml gives: WHATSAPP_TOKEN stays in the secret store.
+
+on:
+  schedule:
+    - cron: "41 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check reports each template's review status; create submits the missing ones."
+        type: choice
+        default: check
+        options:
+          - check
+          - create
+      waba_id:
+        description: "WhatsApp Business Account ID, if the token cannot find it on its own (digits; not a secret)."
+        type: string
+        required: false
+        default: ""
+
+concurrency:
+  group: whatsapp-templates
+  cancel-in-progress: false
+
+jobs:
+  templates:
+    name: ${{ (inputs.mode || 'create') == 'create' && 'Submit the templates' || 'Check the templates' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      # No `npm ci`: the script uses fetch and node:fs, and reads the template
+      # wording from a TypeScript module with Node's own type stripping.
+      - name: Submit or report
+        env:
+          WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MODE: ${{ inputs.mode || 'create' }}
+          PENDING_OK: ${{ github.event_name == 'schedule' && '--pending-ok' || '' }}
+          WHATSAPP_BUSINESS_ACCOUNT_ID: ${{ inputs.waba_id }}
+        run: node --experimental-strip-types scripts/whatsapp-templates.mjs "--$MODE" $PENDING_OK

@@ -377,7 +377,9 @@ describe("the door on the menu", () => {
     expect(node!.hidden).toBeFalsy();
     // Offered, not merely declared: a row past its parent's ten-row ceiling has
     // never been rendered and cannot have been tapped.
-    const offered = catalog.offeredChildrenOf("explore").map((child) => child.id);
+    // Under Shop & services since the menu was regrouped: asking Visionex for a
+    // service sits with buying and selling, not with the Academy.
+    const offered = catalog.offeredChildrenOf("bazaar").map((child) => child.id);
     expect(offered).toContain("explore.services");
   });
 

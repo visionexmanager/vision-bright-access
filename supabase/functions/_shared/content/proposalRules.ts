@@ -254,6 +254,21 @@ export function renderSourcesForPrompt(
 }
 
 /** A future timestamp, defaulting when the model returns something unusable. */
+/**
+ * Years a draft mentions that are before the current one and that the
+ * retrieved records do not themselves contain. A post that talks about 2023 in
+ * 2026 reads as abandoned; a record that genuinely says "founded in 2019" may
+ * still be quoted.
+ */
+export function staleYears(draftText: string, sourcesText: string, currentYear: number): number[] {
+  const years = new Set<number>();
+  for (const match of draftText.matchAll(/(?<![\d])((?:19|20)\d{2})(?![\d])/g)) {
+    const year = Number(match[1]);
+    if (year < currentYear && !sourcesText.includes(match[1])) years.add(year);
+  }
+  return [...years].sort();
+}
+
 export function normalizeProposedTime(value: unknown, fallbackHoursAhead = 24): string {
   const parsed = typeof value === "string" ? Date.parse(value) : NaN;
   if (Number.isFinite(parsed) && parsed > Date.now()) return new Date(parsed).toISOString();

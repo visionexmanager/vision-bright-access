@@ -236,8 +236,8 @@ describe("speaking a reply with a cache in the way", () => {
     // These were defaults inside the synthesis call until the cache needed
     // them. A default buried in a call site is exactly what changes one day and
     // starts silently returning the previous voice from cache.
-    expect(SPEECH_MODEL).toBe("tts-1");
-    expect(DEFAULT_VOICE).toBe("alloy");
+    expect(SPEECH_MODEL).toBe("gpt-4o-mini-tts");
+    expect(DEFAULT_VOICE).toBe("marin");
   });
 
   it("is wired into the webhook with the cache, at every call site", async () => {

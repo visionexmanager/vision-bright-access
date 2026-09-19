@@ -152,6 +152,23 @@ export function replyLanguage(
   return isSupportedLanguage(preference) ? preference : detected;
 }
 
+/** The `site_settings` key the Business Account id is remembered under. */
+export const BUSINESS_ACCOUNT_SETTING = "whatsapp_business_account_id";
+
+/**
+ * The WhatsApp Business Account a signed delivery belongs to.
+ *
+ * Meta puts it on every webhook envelope as `entry[].id`. It names Visionex's
+ * own account, never a sender, and it is the one thing the template workflow
+ * needs that the send token has no permission to look up for itself.
+ */
+export function businessAccountIdOf(payload: unknown): string | null {
+  const body = payload as { object?: unknown; entry?: Array<{ id?: unknown }> } | null;
+  if (!body || body.object !== "whatsapp_business_account" || !Array.isArray(body.entry)) return null;
+  const id = body.entry[0]?.id;
+  return typeof id === "string" && /^\d{5,25}$/.test(id) ? id : null;
+}
+
 export function welcomeFor(language: "ar" | "en"): string {
   return language === "ar" ? WELCOME_AR : WELCOME_EN;
 }
@@ -324,10 +341,24 @@ export function failureNotice(language: Language): string {
  * Explicit requests for a person, in both languages. Matched on the user's
  * message rather than on the model's reply, so a user can always escape the
  * bot even when the model is confident it can help.
+ *
+ * A request, never a noun. The old patterns matched the bare words — "human",
+ * "agent", «موظف», «انسان» — so "are you human?", "human rights", "a travel
+ * agent", «حقوق الانسان» and «كيف اكتب رسالة لموظف» each handed the
+ * conversation to the team and silenced the assistant. Those are among the
+ * first things anybody asks a bot. Every pattern here now needs the asking:
+ * a verb of talking or wanting, a transfer, or the word on its own.
  */
+const PERSON_EN = "(?:a |an |the )?(?:real |live |actual )?(?:human(?: being)?|person|agent|representative|someone|somebody|staff|operator|customer service|support team|the team)";
+const PERSON_AR = "(?:موظف|موظفة|حدا|أحد|احد|شخص|انسان|إنسان|بشر|بني ?آدم|ممثل|الدعم|الفريق|خدمة العملاء)";
 const HUMAN_REQUEST = [
-  /\b(human|agent|real person|speak to (someone|a person)|customer service|representative)\b/i,
-  /(موظف|شخص حقيقي|بدي احكي مع حدا|بدي أحكي مع حدا|خدمة العملاء|ممثل خدمة|حدا من الفريق|انسان)/,
+  new RegExp(`\\b(?:speak|talk|chat)\\s+(?:to|with)\\s+${PERSON_EN}\\b`, "i"),
+  new RegExp(`\\b(?:connect|transfer|put)\\s+me\\s+(?:to|with|through to)\\s+${PERSON_EN}\\b`, "i"),
+  /\b(?:i\s+(?:want|need)|get\s+me|give\s+me)\s+(?:a\s+|an\s+)?(?:real\s+|live\s+)?(?:human|agent|representative|person)\b/i,
+  /^\s*(?:human|agent|representative|customer service|real person)\s*[.!?]*\s*$/i,
+  new RegExp(`(?:احكي|أحكي|احچي|اتكلم|أتكلم|اتحدث|أتحدث|اتواصل|أتواصل|اكلم|أكلم|كلم|تكلم|التحدث|التكلم|التواصل|الحديث)\\s+(?:مع\\s+)?${PERSON_AR}`),
+  /(?:بدي|بدّي|اريد|أريد|ابغى|أبغى|ابي|أبي|عايز|عاوز|بغيت|حولني|حوّلني|حولوني|وصلني|وصّلني)\s+(?:على\s+|الى\s+|إلى\s+|ل)?(?:موظف|موظفة|ممثل خدمة|خدمة العملاء|شخص حقيقي|انسان حقيقي|إنسان حقيقي|(?:حدا|أحد|احد) من الفريق)/,
+  /^\s*(?:موظف|موظف بشري|خدمة العملاء)\s*[.!؟?]*\s*$/,
 ];
 
 /**
@@ -855,6 +886,51 @@ export async function collectStream(stream: ReadableStream<Uint8Array>): Promise
  * and carries a filename instead — Meta requires one, and it is the first thing
  * read out about the attachment.
  */
+/**
+ * Send a picture or a clip that already lives at a public URL.
+ *
+ * The sibling below uploads bytes to Meta first and sends the id it gets back.
+ * This one hands Meta the address and lets it fetch — which is right when the
+ * file is already public because another platform has to fetch it too, and
+ * wrong for anything private, since the link is what makes it work.
+ *
+ * The caption is the accessible part: a picture with no caption is nothing at
+ * all to a screen reader, so it is a required argument rather than an option.
+ */
+export async function sendWhatsAppMediaByLink(params: {
+  phoneNumberId: string;
+  token: string;
+  to: string;
+  link: string;
+  kind: "image" | "video";
+  caption: string;
+  fetchImpl?: typeof fetch;
+}): Promise<boolean> {
+  const doFetch = params.fetchImpl ?? fetch;
+  try {
+    const res = await doFetch(`${GRAPH_BASE}/${params.phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${params.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: params.to,
+        type: params.kind,
+        [params.kind]: { link: params.link, caption: params.caption },
+      }),
+    });
+    // A status, never the body. Meta echoes the recipient's number in an error.
+    if (!res.ok) console.error(`[whatsapp] ${params.kind} link send rejected:`, res.status);
+    return res.ok;
+  } catch {
+    console.error(`[whatsapp] ${params.kind} link send transport error`);
+    return false;
+  }
+}
+
 export async function sendWhatsAppMediaById(params: {
   phoneNumberId: string;
   token: string;

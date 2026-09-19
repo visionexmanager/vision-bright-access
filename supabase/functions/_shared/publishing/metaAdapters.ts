@@ -325,14 +325,15 @@ export function createThreadsAdapter(deps: AdapterDeps): PublishAdapter {
  * Instagram has no text-only post. Every publication is a media container, and
  * the container needs a publicly reachable image or video URL.
  *
- * `content_proposals` has no media column — the content engine produces hook,
- * body and hashtags and nothing else — so there is no image to attach and this
- * adapter refuses at readiness, which costs no dispatch and parks no slot.
+ * The content engine now generates one — a square picture for a feed post, a
+ * vertical clip for a reel — and stores it in a public bucket, because Meta
+ * fetches the file itself from its own network. A proposal that still has no
+ * media is refused at readiness, which costs no dispatch and parks no slot.
  *
- * The publishing path below is written out in full rather than left as a stub,
- * because it is the documented workflow and the only thing missing is the URL.
- * When the content engine gains media, `mediaUrl` on the request is where it
- * arrives and nothing else here changes.
+ * A clip is a REELS container with a `video_url`; a picture is the default
+ * container with an `image_url`. Which one is decided by `mediaKind` on the
+ * request rather than by the URL's extension, because a storage URL need not
+ * have one.
  */
 export function createInstagramAdapter(deps: AdapterDeps): PublishAdapter {
   const throttle: Throttle = { hit: false };
@@ -359,9 +360,11 @@ export function createInstagramAdapter(deps: AdapterDeps): PublishAdapter {
       const igId = request.account.externalAccountId!;
 
       // 1. The container. Accepted immediately; not yet a post.
+      const fields: Record<string, string> = request.mediaKind === "video"
+        ? { media_type: "REELS", video_url: request.mediaUrl!, caption: composeMessage(request) }
+        : { image_url: request.mediaUrl!, caption: composeMessage(request) };
       const container = await readAnswer(() => post(
-        deps, `${GRAPH_BASE}/${igId}/media`, token,
-        { image_url: request.mediaUrl!, caption: composeMessage(request) },
+        deps, `${GRAPH_BASE}/${igId}/media`, token, fields,
       ));
       if (!container.ok) return failure(container, throttle);
 
@@ -371,7 +374,10 @@ export function createInstagramAdapter(deps: AdapterDeps): PublishAdapter {
       // 2. Wait for Meta to finish fetching the media. This is a poll of a
       //    status field, not a retry of the publish: nothing has been published
       //    yet, and the container id is stable across reads.
-      const deadline = now() + 60_000;
+      // A picture is fetched and checked in seconds; a clip is transcoded, and
+      // one minute is not enough for it. Waiting longer costs nothing but
+      // time — the container is not a post, and polling it creates nothing.
+      const deadline = now() + (request.mediaKind === "video" ? 300_000 : 60_000);
       let state = "IN_PROGRESS";
       while (state === "IN_PROGRESS" && now() < deadline) {
         const status = await readAnswer(() => deps.fetchImpl(

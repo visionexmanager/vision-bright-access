@@ -387,11 +387,31 @@ const AMENITIES = [
   // project could maintain would have.
   "pharmacy", "hospital", "clinic", "doctors", "bank", "atm", "restaurant",
   "cafe", "fuel", "police", "post_office", "school", "place_of_worship",
+  // Added 2026-09-17: a sender asked for a school, a university, a hotel —
+  // everything a person standing somewhere unfamiliar wants to know about,
+  // not only medicine and money.
+  "kindergarten", "university", "college", "library", "dentist", "veterinary",
+  "parking", "fast_food", "marketplace", "bureau_de_change", "taxi", "cinema",
+  "fire_station", "car_wash",
 ];
-const SHOPS = ["supermarket", "bakery", "convenience"];
+const SHOPS = [
+  "supermarket", "bakery", "convenience",
+  "mall", "clothes", "mobile_phone", "hairdresser", "car_repair", "books", "optician", "laundry",
+];
+const TOURISM = ["hotel", "museum"];
+const LEISURE = ["park", "fitness_centre", "playground"];
+
+/** The OpenStreetMap key a category is written under. */
+function osmKeyOf(category: string): "amenity" | "shop" | "tourism" | "leisure" | null {
+  if (AMENITIES.includes(category)) return "amenity";
+  if (SHOPS.includes(category)) return "shop";
+  if (TOURISM.includes(category)) return "tourism";
+  if (LEISURE.includes(category)) return "leisure";
+  return null;
+}
 
 /** Everything above, as the set the results are filtered against. */
-const NEARBY_CATEGORY_SET = new Set([...AMENITIES, ...SHOPS, "bus_stop", "station"]);
+const NEARBY_CATEGORY_SET = new Set([...AMENITIES, ...SHOPS, ...TOURISM, ...LEISURE, "bus_stop", "station"]);
 
 /** One place, as either provider ends up describing it. */
 function toNearbyPlace(
@@ -419,64 +439,90 @@ function toNearbyPlace(
  * `out center` gives a way its centroid, so the arithmetic downstream — bearing
  * and distance — never has to know the difference.
  */
+/**
+ * Somewhere else to send an Overpass query from.
+ *
+ * overpass-api.de answers 406 to Supabase's network, so the webhook hands in a
+ * relay through Visionex's own server. It lives outside this module so this
+ * module stays keyless: without a relay, or when it fails, Overpass is asked
+ * directly, as it always was.
+ */
+export type OverpassRelay = (query: string) => Promise<OverpassElement[] | null>;
+
+type OverpassElement = {
+  lat?: number; lon?: number;
+  center?: { lat?: number; lon?: number };
+  tags?: Record<string, string>;
+};
+
 async function nearbyViaOverpass(
   latitude: number,
   longitude: number,
   language: Language,
   category: string | null,
+  radiusM: number = NEARBY_RADIUS_M,
+  relay?: OverpassRelay,
 ): Promise<NearbyPlace[] | null> {
-  const around = `${NEARBY_RADIUS_M},${latitude},${longitude}`;
+  const around = `${radiusM},${latitude},${longitude}`;
   // Asked of the map rather than filtered afterwards. Somebody who typed
   // "صيدلية" wants the nearest pharmacy even at 900 m, and filtering a list
   // that was capped at the eight nearest of everything would hand them the
   // restaurants across the road and nothing else.
-  const amenity = (values: readonly string[]) =>
-    `nwr(around:${around})["amenity"~"^(${values.join("|")})$"]["name"];`;
-  const shop = (values: readonly string[]) =>
-    `nwr(around:${around})["shop"~"^(${values.join("|")})$"]["name"];`;
+  const tagged = (key: string, values: readonly string[]) =>
+    `nwr(around:${around})["${key}"~"^(${values.join("|")})$"]["name"];`;
   const busStop = () => `node(around:${around})["highway"="bus_stop"]["name"];`;
 
   // A category this query cannot express narrows nothing rather than returning
   // an empty set: asking for everything and letting the sender read past it is
   // a worse answer, never a wrong one.
+  const key = category ? osmKeyOf(category) : null;
   let parts: string[];
-  if (category && AMENITIES.includes(category)) parts = [amenity([category])];
-  else if (category && SHOPS.includes(category)) parts = [shop([category])];
+  if (category && key) parts = [tagged(key, [category])];
   else if (category === "bus_stop") parts = [busStop()];
-  else parts = [amenity(AMENITIES), shop(SHOPS), busStop()];
+  else {
+    parts = [
+      tagged("amenity", AMENITIES),
+      tagged("shop", SHOPS),
+      tagged("tourism", TOURISM),
+      tagged("leisure", LEISURE),
+      busStop(),
+    ];
+  }
 
-  const query = `[out:json][timeout:8];(${parts.join("")});out center ${NEARBY_LIMIT * 6};`;
+  // A browse asks for more than it shows: the list is cut to a few of each kind
+  // afterwards, and a busy street would otherwise be all restaurants.
+  const fetchLimit = category ? NEARBY_LIMIT * 6 : NEARBY_LIMIT * 25;
+  const query = `[out:json][timeout:8];(${parts.join("")});out center ${fetchLimit};`;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS);
-  let data: {
-    elements?: Array<{
-      lat?: number; lon?: number;
-      center?: { lat?: number; lon?: number };
-      tags?: Record<string, string>;
-    }>;
-  } | null = null;
-  try {
-    const response = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "User-Agent": USER_AGENT, "Content-Type": "application/x-www-form-urlencoded" },
-      body: `data=${encodeURIComponent(query)}`,
-    });
-    if (!response.ok) {
-      // 429 and 504 are what a volunteer cluster says when it is busy, and this
-      // channel reaches it from a shared datacenter address. That is the
-      // ordinary case rather than an incident, which is why there is a second
-      // route below instead of a sentence apologising to the sender.
-      console.error(`[whatsapp-geo] overpass responded ${response.status}`);
+  let data: { elements?: OverpassElement[] } | null = null;
+  const relayed = relay ? await relay(query).catch(() => null) : null;
+  if (relayed) data = { elements: relayed };
+
+  if (!data) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS);
+    try {
+      const response = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "User-Agent": USER_AGENT, "Content-Type": "application/x-www-form-urlencoded" },
+        body: `data=${encodeURIComponent(query)}`,
+      });
+      if (!response.ok) {
+        // 429 and 504 are what a volunteer cluster says when it is busy, and this
+        // channel reaches it from a shared datacenter address. That is the
+        // ordinary case rather than an incident, which is why there is a second
+        // route below instead of a sentence apologising to the sender.
+        console.error(`[whatsapp-geo] overpass responded ${response.status}`);
+        return null;
+      }
+      data = await response.json();
+    } catch (e) {
+      console.error(`[whatsapp-geo] overpass failed: ${describeError(e)}`);
       return null;
+    } finally {
+      clearTimeout(timer);
     }
-    data = await response.json();
-  } catch (e) {
-    console.error(`[whatsapp-geo] overpass failed: ${describeError(e)}`);
-    return null;
-  } finally {
-    clearTimeout(timer);
   }
 
   const places: NearbyPlace[] = [];
@@ -489,7 +535,9 @@ async function nearbyViaOverpass(
     // nothing else — and English remains the step before the raw tag, because
     // for most of the world it is the likelier of the two to be readable.
     const name = tags[`name:${language}`] || tags["name:en"] || tags.name;
-    const category = tags.amenity ?? tags.shop ?? (tags.highway === "bus_stop" ? "bus_stop" : null);
+    const category = [tags.amenity, tags.shop, tags.tourism, tags.leisure]
+      .find((value) => value && NEARBY_CATEGORY_SET.has(value)) ??
+      (tags.highway === "bus_stop" ? "bus_stop" : null);
     const place = toNearbyPlace(
       name,
       category,
@@ -515,19 +563,21 @@ async function nearbyViaPhoton(
   longitude: number,
   language: Language,
   category: string | null,
+  radiusM: number = NEARBY_RADIUS_M,
 ): Promise<NearbyPlace[] | null> {
   const lang = PHOTON_LANGUAGES.has(language) ? language : "en";
   // Photon filters on the tag key, not its value, so a category narrows this
   // request only as far as "an amenity" or "a shop"; `fetchNearby` does the
   // rest. Narrowing it this far is still worth doing — the result limit gets
   // spent on the right kind of place rather than on whatever is closest.
-  const tags = category && SHOPS.includes(category)
-    ? "&osm_tag=shop"
+  const key = category ? osmKeyOf(category) : null;
+  const tags = category && key
+    ? `&osm_tag=${key}:${category}`
     : category === "bus_stop"
     ? "&osm_tag=highway:bus_stop"
     : category
     ? "&osm_tag=amenity"
-    : "&osm_tag=amenity&osm_tag=shop&osm_tag=highway:bus_stop";
+    : "&osm_tag=amenity&osm_tag=shop&osm_tag=tourism&osm_tag=leisure&osm_tag=highway:bus_stop";
   const data = await getJson<{
     features?: Array<{
       properties?: Record<string, string>;
@@ -535,7 +585,7 @@ async function nearbyViaPhoton(
     }>;
   }>(
     `https://photon.komoot.io/reverse?lat=${latitude}&lon=${longitude}` +
-    `&radius=${NEARBY_RADIUS_M / 1000}&limit=${NEARBY_LIMIT * 6}&lang=${lang}` + tags,
+    `&radius=${radiusM / 1000}&limit=${NEARBY_LIMIT * 6}&lang=${lang}` + tags,
     PHOTON_NEARBY_TIMEOUT_MS,
   );
   if (!data?.features) return null;
@@ -559,12 +609,15 @@ async function nearbyViaPhoton(
 function orderNearby(
   origin: { latitude: number; longitude: number },
   places: NearbyPlace[],
+  radiusM: number = NEARBY_RADIUS_M,
+  perKind: number = Number.POSITIVE_INFINITY,
 ): NearbyPlace[] {
   const seen = new Set<string>();
+  const kinds = new Map<string, number>();
   return places
     // Photon treats its radius as a hint rather than a promise, and a "near me"
     // list that reaches into the next district is not one.
-    .filter((place) => distanceMetres(origin, place) <= NEARBY_RADIUS_M)
+    .filter((place) => distanceMetres(origin, place) <= radiusM)
     // Neither provider answers in distance order, and nearest first is the only
     // order that makes sense when the list is read aloud and the listener will
     // act on the first thing they hear.
@@ -577,8 +630,20 @@ function orderNearby(
       seen.add(key);
       return true;
     })
+    // "What is around me" is answered with a few of each kind, so the list
+    // describes the neighbourhood — a school, a park, a pharmacy — rather than
+    // the eight restaurants that happen to be closest.
+    .filter((place) => {
+      const count = kinds.get(place.category) ?? 0;
+      if (count >= perKind) return false;
+      kinds.set(place.category, count + 1);
+      return true;
+    })
     .slice(0, NEARBY_LIMIT);
 }
+
+/** How many of one kind a browse lists. */
+const BROWSE_PER_KIND = 2;
 
 /**
  * What is around a coordinate.
@@ -608,12 +673,14 @@ export async function fetchNearby(
   longitude: number,
   language: Language,
   category: string | null = null,
+  options: { relay?: OverpassRelay } = {},
 ): Promise<NearbyPlace[] | null> {
   const origin = { latitude, longitude };
   const [overpass, photon] = await Promise.all([
-    nearbyViaOverpass(latitude, longitude, language, category),
+    nearbyViaOverpass(latitude, longitude, language, category, NEARBY_RADIUS_M, options.relay),
     nearbyViaPhoton(latitude, longitude, language, category),
   ]);
+  let answered = overpass !== null || photon !== null;
 
   // Neither provider can be asked precisely enough to be trusted on its own —
   // Overpass can, Photon filters on the tag key only — so the promise that a
@@ -623,12 +690,149 @@ export async function fetchNearby(
 
   for (const found of [overpass, photon]) {
     if (found === null) continue;
-    const ordered = orderNearby(origin, only(found));
+    const ordered = orderNearby(origin, only(found), NEARBY_RADIUS_M, category ? Number.POSITIVE_INFINITY : BROWSE_PER_KIND);
     if (ordered.length > 0) return ordered;
   }
 
-  if (overpass === null && photon === null) {
+  // A named kind with nothing inside a walk — the nearest university is rarely
+  // twelve hundred metres away — is looked for further out, once. A browse is
+  // not: "what is around me" means around me.
+  if (category) {
+    const [widerOverpass, widerPhoton] = await Promise.all([
+      nearbyViaOverpass(latitude, longitude, language, category, SEARCH_RADIUS_M, options.relay),
+      nearbyViaPhoton(latitude, longitude, language, category, SEARCH_RADIUS_M),
+    ]);
+    answered = answered || widerOverpass !== null || widerPhoton !== null;
+    for (const found of [widerOverpass, widerPhoton]) {
+      if (found === null) continue;
+      const ordered = orderNearby(origin, only(found), SEARCH_RADIUS_M);
+      if (ordered.length > 0) return ordered;
+    }
+  }
+
+  if (!answered) {
     console.error("[whatsapp-geo] every nearby provider declined");
+    return null;
+  }
+  return [];
+}
+
+/**
+ * How far a free search looks.
+ *
+ * Wider than a browse. Somebody asking for a university or a toy shop is
+ * asking for something a neighbourhood may not have within a walk, and the
+ * nearest one three kilometres away is still the answer they wanted.
+ */
+export const SEARCH_RADIUS_M = 5_000;
+
+/** Nominatim's own ceiling on results per request. */
+const SEARCH_FETCH_LIMIT = 40;
+
+/** The gap Nominatim's usage policy asks for between two requests. */
+const NOMINATIM_SPACING_MS = 1_100;
+
+/** A square around a point, as the west, south, east and north edges. */
+function boxAround(latitude: number, longitude: number, radiusM: number): [number, number, number, number] {
+  const dLat = radiusM / 111_320;
+  const dLon = radiusM / (111_320 * Math.max(Math.cos((latitude * Math.PI) / 180), 0.01));
+  return [longitude - dLon, latitude - dLat, longitude + dLon, latitude + dLat];
+}
+
+/**
+ * Anything near a coordinate, by the words the sender used.
+ *
+ * The category table above cannot name everything a person looks for — a toy
+ * shop, a tailor, a notary, a mosque by name. Nominatim understands category
+ * words in many languages ("مدرسة", "hotel", "Apotheke") and names alike, and
+ * answers inside a box when asked to; Photon, asked the same words with the
+ * point as a bias, covers the times Nominatim is busy. Both are keyless.
+ *
+ * Every result carries the sender's own words as its label, so nothing is
+ * shown that needs a translation this module does not have. `null` means no
+ * provider answered; `[]` means nothing by those words is mapped nearby, and
+ * the caller hands the question to the assistant rather than saying "nothing".
+ */
+export async function searchNearby(
+  latitude: number,
+  longitude: number,
+  language: Language,
+  query: string,
+): Promise<NearbyPlace[] | null> {
+  const term = query.trim().slice(0, 80);
+  if (!term) return [];
+  const [west, south, east, north] = boxAround(latitude, longitude, SEARCH_RADIUS_M);
+
+  type NominatimHit = {
+    lat?: string; lon?: string; name?: string; type?: string;
+    namedetails?: Record<string, string>;
+  };
+  type PhotonHit = {
+    properties?: Record<string, string>;
+    geometry?: { coordinates?: number[] };
+  };
+
+  const [nominatim, photon] = await Promise.all([
+    getJson<NominatimHit[]>(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(term)}` +
+      `&format=jsonv2&limit=${SEARCH_FETCH_LIMIT}&bounded=1&namedetails=1` +
+      `&viewbox=${west},${north},${east},${south}&accept-language=${encodeURIComponent(language)}`,
+    ),
+    getJson<{ features?: PhotonHit[] }>(
+      `https://photon.komoot.io/api?q=${encodeURIComponent(term)}` +
+      `&lat=${latitude}&lon=${longitude}&limit=${SEARCH_FETCH_LIMIT}` +
+      `&bbox=${west},${south},${east},${north}` +
+      `&lang=${PHOTON_LANGUAGES.has(language) ? language : "en"}`,
+      PHOTON_NEARBY_TIMEOUT_MS,
+    ),
+  ]);
+
+  // The sender's words label only what this module has no name for. A result
+  // the map calls a place of worship is shown as one, even when the search was
+  // for "مسجد" and the place is a church.
+  const labelled = (category: string): string | undefined => (NEARBY_CATEGORY_SET.has(category) ? undefined : term);
+  const hits = [...(nominatim ?? [])];
+  // Nominatim knows "متجر ألعاب" and not "محل ألعاب". One retry with the word
+  // its phrase list uses, and only when the first answer was empty.
+  const standard = term.replace(/^(?:محل|محلات|دكان|دكانة|بياع)[\s]+/u, "متجر ");
+  if (hits.length === 0 && standard !== term) {
+    // Nominatim's usage policy is one request a second.
+    await new Promise((resolve) => setTimeout(resolve, NOMINATIM_SPACING_MS));
+    hits.push(...((await getJson<NominatimHit[]>(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(standard)}` +
+      `&format=jsonv2&limit=${SEARCH_FETCH_LIMIT}&bounded=1&namedetails=1` +
+      `&viewbox=${west},${north},${east},${south}&accept-language=${encodeURIComponent(language)}`,
+    )) ?? []));
+  }
+  const fromNominatim: NearbyPlace[] = [];
+  for (const hit of hits) {
+    const lat = Number(hit.lat);
+    const lon = Number(hit.lon);
+    const name = hit.namedetails?.[`name:${language}`] || hit.name || hit.namedetails?.name;
+    if (!name || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const category = hit.type || "search";
+    fromNominatim.push({ name, category, latitude: lat, longitude: lon, label: labelled(category) });
+  }
+
+  const fromPhoton: NearbyPlace[] = [];
+  for (const feature of photon?.features ?? []) {
+    const properties = feature.properties ?? {};
+    const [lon, lat] = feature.geometry?.coordinates ?? [];
+    // Streets, towns and postcodes share names with what people look for and
+    // are never the answer to "where is the nearest one".
+    if (["highway", "place", "boundary"].includes(properties.osm_key ?? "") && properties.osm_value !== "bus_stop") continue;
+    if (!properties.name || typeof lat !== "number" || typeof lon !== "number") continue;
+    const category = properties.osm_value || "search";
+    fromPhoton.push({ name: properties.name, category, latitude: lat, longitude: lon, label: labelled(category) });
+  }
+
+  const origin = { latitude, longitude };
+  for (const found of [fromNominatim, fromPhoton]) {
+    const ordered = orderNearby(origin, found, SEARCH_RADIUS_M);
+    if (ordered.length > 0) return ordered;
+  }
+  if (nominatim === null && photon === null) {
+    console.error("[whatsapp-geo] every search provider declined");
     return null;
   }
   return [];

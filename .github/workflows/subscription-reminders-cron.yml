@@ -1,0 +1,45 @@
+name: Plan Expiry Reminders
+
+# Every hour, tells anybody whose plan or free week ends within the next 24
+# hours — on WhatsApp, by email and in the app. The daily Trial Billing Cron runs
+# the same step; hourly is what makes "within 24 hours" true for a plan that
+# ends at any time of day rather than only just after 06:00 UTC.
+#
+# The response is about people, and this repository is public, so the log shows
+# counts and nothing else.
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: plan-expiry-reminders
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Send the reminders that are due
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SUPABASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::Required repository secrets SUPABASE_URL and CRON_SECRET must be configured."
+            exit 1
+          fi
+
+          status=$(curl -sS -o response.json -w '%{http_code}' -X POST \
+            "$SUPABASE_URL/functions/v1/trial-billing" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"task":"reminders"}')
+
+          echo "HTTP $status"
+          jq -c '{reminded, whatsapp, whatsappFailed, errors: (.errors | length)}' response.json || echo "unreadable response"
+          rm -f response.json
+          test "$status" = "200"

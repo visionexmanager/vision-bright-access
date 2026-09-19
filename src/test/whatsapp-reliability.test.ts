@@ -528,18 +528,20 @@ describe("when the assistant must stay quiet", () => {
     }
   });
 
-  it("stays silent for every escalation that is about the conversation", () => {
+  it("holds back for a conversation escalation, then answers again if nobody took it", () => {
     // Somebody asked for a person, or complained, or said something about a
-    // payment. A second voice in any of those is worse than one.
+    // payment. A person gets the window to pick it up. Past it the flag is
+    // only a flag: the production thread silenced on 2026-09-12 by a
+    // user_request dropped every question for two days with nobody on the
+    // other side.
     for (const reason of ["user_request", "assistant_handover", "complaint", "repeated_failure", "sensitive"]) {
-      expect(
-        triage.assistantIsSilenced(
-          { escalated: true, escalation_reason: reason, escalated_at: at(60 * 24 * 7) },
-          NOW,
-        ),
-        reason,
-      ).toBe(true);
+      const row = (minutesAgo: number) => ({ escalated: true, escalation_reason: reason, escalated_at: at(minutesAgo) });
+      expect(triage.assistantIsSilenced(row(1), NOW), `${reason} 1m`).toBe(true);
+      expect(triage.assistantIsSilenced(row(29), NOW), `${reason} 29m`).toBe(true);
+      expect(triage.assistantIsSilenced(row(31), NOW), `${reason} 31m`).toBe(false);
+      expect(triage.assistantIsSilenced(row(60 * 24 * 7), NOW), `${reason} a week`).toBe(false);
     }
+    expect(triage.HANDOVER_HOLD_MS).toBe(30 * 60 * 1000);
   });
 
   it("answers again once a provider outage is over", () => {
@@ -575,33 +577,34 @@ describe("when the assistant must stay quiet", () => {
 
     it("does not call a provider outage a person", () => {
       // Inside the cooldown and outside it: nobody is typing either way.
-      expect(triage.personOwnsConversation(outage(1))).toBe(false);
-      expect(triage.personOwnsConversation(outage(29))).toBe(false);
-      expect(triage.personOwnsConversation(outage(31))).toBe(false);
+      expect(triage.personOwnsConversation(outage(1), NOW)).toBe(false);
+      expect(triage.personOwnsConversation(outage(29), NOW)).toBe(false);
+      expect(triage.personOwnsConversation(outage(31), NOW)).toBe(false);
     });
 
     it("still calls a takeover a person, however long it has been", () => {
       for (const minutes of [0, 60, 60 * 24 * 30]) {
         expect(
-          triage.personOwnsConversation({ control: "human", escalated: false, escalated_at: at(minutes) }),
+          triage.personOwnsConversation({ control: "human", escalated: false, escalated_at: at(minutes) }, NOW),
           `${minutes} minutes`,
         ).toBe(true);
       }
     });
 
-    it("calls every escalation about the conversation a person", () => {
+    it("calls an escalation about the conversation a person only while it holds", () => {
       for (const reason of ["user_request", "assistant_handover", "complaint", "repeated_failure", "sensitive"]) {
-        expect(
-          triage.personOwnsConversation({ escalated: true, escalation_reason: reason }),
-          reason,
-        ).toBe(true);
+        const row = (minutesAgo: number) => ({ escalated: true, escalation_reason: reason, escalated_at: at(minutesAgo) });
+        expect(triage.personOwnsConversation(row(29), NOW), `${reason} 29m`).toBe(true);
+        expect(triage.personOwnsConversation(row(31), NOW), `${reason} 31m`).toBe(false);
+        // Nobody can date it, so nobody can say the window is over.
+        expect(triage.personOwnsConversation({ escalated: true, escalation_reason: reason }, NOW), reason).toBe(true);
       }
     });
 
     it("leaves an ordinary conversation alone", () => {
-      expect(triage.personOwnsConversation({ control: "ai", escalated: false })).toBe(false);
-      expect(triage.personOwnsConversation(null)).toBe(false);
-      expect(triage.personOwnsConversation(undefined)).toBe(false);
+      expect(triage.personOwnsConversation({ control: "ai", escalated: false }, NOW)).toBe(false);
+      expect(triage.personOwnsConversation(null, NOW)).toBe(false);
+      expect(triage.personOwnsConversation(undefined, NOW)).toBe(false);
     });
 
     it("keeps the assistant quiet during the cooldown even so", () => {
@@ -609,7 +612,7 @@ describe("when the assistant must stay quiet", () => {
       // the features may speak, the model may not, and the sender is told why
       // rather than left with nothing.
       expect(triage.assistantIsSilenced(outage(1), NOW)).toBe(true);
-      expect(triage.personOwnsConversation(outage(1))).toBe(false);
+      expect(triage.personOwnsConversation(outage(1), NOW)).toBe(false);
     });
   });
 

@@ -71,6 +71,26 @@ describe("handing over to a person", () => {
     expect(userAskedForHuman("بدي احكي مع حدا من الفريق")).toBe(true);
     expect(userAskedForHuman("بدي موظف")).toBe(true);
     expect(userAskedForHuman("how much does a course cost?")).toBe(false);
+    expect(userAskedForHuman("بدي أحكي مع موظف")).toBe(true);
+    expect(userAskedForHuman("حولني لموظف")).toBe(true);
+    expect(userAskedForHuman("اريد التحدث مع خدمة العملاء")).toBe(true);
+    expect(userAskedForHuman("please connect me to a real person")).toBe(true);
+    expect(userAskedForHuman("agent")).toBe(true);
+    expect(userAskedForHuman("موظف")).toBe(true);
+    // The first things anybody asks a bot, and each used to silence it.
+    for (const question of [
+      "are you human?",
+      "what are human rights?",
+      "how do I find a travel agent?",
+      "is your customer service good?",
+      "هل انت انسان؟",
+      "شو هي حقوق الانسان",
+      "كيف اكتب رسالة لموظف البنك",
+      "هل انت شخص حقيقي؟",
+      "بدي حدا يشرحلي درس الرياضيات",
+    ]) {
+      expect(userAskedForHuman(question), question).toBe(false);
+    }
   });
 
   it("detects the assistant's own handover sentence", async () => {
@@ -1434,7 +1454,7 @@ describe("voice replies", () => {
 
   it("picks the cheaper synthesiser, since this is an optional extra", () => {
     const source = readFileSync("supabase/functions/_shared/whatsappVoiceReply.ts", "utf8");
-    expect(source).toContain("tts-1");
+    expect(source).toContain("gpt-4o-mini-tts");
     expect(source).toMatch(/cost/i);
   });
 });
@@ -2475,7 +2495,7 @@ describe("PDFs, which are now actually read", () => {
   // photo feature — switching that off would have taken documents with it.
   it("gates a document translation on the document row", () => {
     expect(webhook).toContain('featureOn("ocr.document")');
-    expect(catalog.nodeById("ocr.document")?.parent).toBe("files");
+    expect(catalog.nodeById("ocr.document")?.parent).toBe("ocr");
   });
 
   it("routes every document failure to its own reply", () => {
@@ -2513,15 +2533,18 @@ describe("announcing what the assistant can do", () => {
     // above proves the menu agrees with itself, and this is the second pair of
     // eyes on what those words actually are. "OCR and photos", "Visionex
     // Services" and "More" were all names for where the code had got to.
+    // Regrouped so that nothing sits beside something it has nothing to do
+    // with: the Academy no longer shares a row with the news.
     for (
       const area of [
         "AI Assistant",
-        "Photos",
-        "Files & documents",
+        "Photos & files",
+        "Learning",
+        "News & sports",
+        "Entertainment",
+        "Health",
         "Weather & places",
-        "VXBazaar",
-        "Watch & listen",
-        "Learn & explore",
+        "Shop & services",
         "Support",
         "Settings",
       ]
@@ -2531,11 +2554,13 @@ describe("announcing what the assistant can do", () => {
     for (
       const area of [
         "المساعد الذكي",
-        "الصور",
-        "الملفات والمستندات",
+        "الصور والملفات",
+        "التعلّم",
+        "الأخبار والرياضة",
+        "الترفيه",
+        "الصحة",
         "الطقس والأماكن",
-        "شاهد واستمع",
-        "تعلّم واستكشف",
+        "السوق والخدمات",
         "الدعم",
         "الإعدادات",
       ]
@@ -2564,14 +2589,14 @@ describe("announcing what the assistant can do", () => {
     // -1 for a call that is not in the file, and -1 is less than everything, so
     // an ordering check on a deleted call would pass while proving nothing.
     for (const call of [
-      "asksWhatIsNearby(questionText)",
+      "parseNearbyRequest(questionText, answerLanguage)",
       "parseWeatherRequest(questionText)",
       "parseVisionMode(questionText)",
       "parseBazaarRequest(questionText)",
     ]) {
       expect(webhook, call).toContain(call);
     }
-    expect(webhook.indexOf("asksWhatIsNearby(questionText)"))
+    expect(webhook.indexOf("parseNearbyRequest(questionText, answerLanguage)"))
       .toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));
     expect(webhook.indexOf("parseWeatherRequest(questionText)"))
       .toBeLessThan(webhook.indexOf("parseVisionMode(questionText)"));
@@ -2587,7 +2612,7 @@ describe("announcing what the assistant can do", () => {
     const afterTranscription = webhook.slice(webhook.indexOf("transcribeVoice"));
     for (const call of [
       "asksWhereAmI(questionText)",
-      "asksWhatIsNearby(questionText)",
+      "parseNearbyRequest(questionText, answerLanguage)",
       "parseWeatherRequest(questionText)",
       "parseBazaarRequest(questionText)",
     ]) {

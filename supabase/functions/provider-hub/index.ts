@@ -215,6 +215,34 @@ serve(async (req) => {
   const { data: { user }, error: authErr } = await db.auth.getUser();
   if (authErr || !user) return err("Unauthorized", 401);
 
+  // ── Admins only, and not by RLS alone ─────────────────────────────────────
+  //
+  // Every action below is an operator action: the provider inventory, the
+  // routing strategy, the cost metrics, and `health_check`, which spends real
+  // upstream quota on real keys through the service role. Until now the only
+  // thing standing between a signed-in customer and any of it was a write
+  // policy that 20260829 happened to drop — the function itself asked nothing.
+  // Defence in depth means the gate is here too, and it is checked once,
+  // before the body is even read.
+  const serviceKeyForRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const roleDb = createClient(supabaseUrl, serviceKeyForRole);
+  const { data: isAdmin } = await (roleDb as any).rpc("has_role", {
+    _user_id: user.id,
+    _role: "admin",
+  });
+  if (isAdmin !== true) {
+    // Recorded, not just refused: somebody probing the provider inventory is
+    // worth seeing in the security feed. No identifier beyond the user id,
+    // which this table already scopes to admins.
+    await (roleDb as any).rpc("record_security_event", {
+      _kind: "provider_hub_forbidden",
+      _source: "provider-hub",
+      _subject_hash: null,
+      _detail: { user_id: user.id },
+    }).catch(() => {});
+    return err("Forbidden", 403);
+  }
+
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* empty body */ }
 
