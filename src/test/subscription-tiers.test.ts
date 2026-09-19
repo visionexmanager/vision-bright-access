@@ -24,10 +24,26 @@ const english = readFileSync("src/i18n/en.ts", "utf8");
 const edgeFunction = readFileSync("supabase/functions/trial-billing/index.ts", "utf8");
 
 /**
+ * 20261030 renamed the tiers to Basic, Pro and Business. The seed that owns
+ * the section lists and the allowances still lives in 20261012, written with
+ * the names of the day, and the rename copies those columns forward rather
+ * than restating them. So this file looks the old name up rather than
+ * rewriting a migration that has already run — the drift it exists to catch is
+ * between `plans.ts` and the SQL that actually seeded the row, whatever that
+ * row was called at the time.
+ */
+const SEEDED_AS: Readonly<Record<string, string>> = {
+  basic: "bronze",
+  pro: "silver",
+  business: "gold",
+};
+
+/**
  * The statement that seeds a plan: the INSERT tuple for a tier, and the UPDATE
  * for `free_trial`, whose id appears in its WHERE clause at the *end*.
  */
-function planStatement(planId: string): string {
+function planStatement(tierId: string): string {
+  const planId = SEEDED_AS[tierId] ?? tierId;
   const insert = sql.indexOf(`('${planId}', '`);
   if (insert >= 0) return sql.slice(insert);
   const where = sql.indexOf(`WHERE id = '${planId}'`);
@@ -76,13 +92,14 @@ describe("the three tiers", () => {
   it("prices at five, seven and ten dollars", () => {
     expect(TIER_ORDER.map((tier) => TIERS[tier].price)).toEqual([5, 7, 10]);
     for (const tier of TIER_ORDER) {
-      const row = sql.slice(sql.indexOf(`('${tier}', '`));
-      expect(row.slice(0, 400)).toContain(`\n    ${TIERS[tier].price}, ${TIERS[tier].vxMonthly},`);
+      const row = planStatement(tier);
+      expect(row.slice(0, 400), `${tier} price or monthly VX drifted from the seed`)
+        .toContain(`\n    ${TIERS[tier].price}, ${TIERS[tier].vxMonthly},`);
     }
   });
 
   it("nests, so an upgrade never takes a section away", () => {
-    for (const [cheaper, dearer] of [["bronze", "silver"], ["silver", "gold"]] as const) {
+    for (const [cheaper, dearer] of [["basic", "pro"], ["pro", "business"]] as const) {
       const missing = TIERS[cheaper].sections.filter((s) => !TIERS[dearer].sections.includes(s));
       expect(missing, `${dearer} drops sections that ${cheaper} opens`).toEqual([]);
     }
@@ -117,18 +134,18 @@ describe("the three tiers", () => {
         .toBe(TIERS[tier].whatsappDaily);
     }
     // Zero is the table's existing convention for "no ceiling", which the
-    // entitlement reader already understands — Gold, and nothing cheaper.
-    expect(TIERS.gold.whatsappDaily).toBe(0);
-    expect(TIERS.bronze.whatsappDaily).toBeGreaterThan(0);
-    expect(TIERS.silver.whatsappDaily).toBeGreaterThan(TIERS.bronze.whatsappDaily);
+    // entitlement reader already understands — Business, and nothing cheaper.
+    expect(TIERS.business.whatsappDaily).toBe(0);
+    expect(TIERS.basic.whatsappDaily).toBeGreaterThan(0);
+    expect(TIERS.pro.whatsappDaily).toBeGreaterThan(TIERS.basic.whatsappDaily);
   });
 
   it("names the cheapest plan that opens a section", () => {
-    expect(cheapestTierFor("academy")).toBe("bronze");
+    expect(cheapestTierFor("academy")).toBe("basic");
     // VisionKids alone costs three dollars now, so that is what a closed
-    // children's section offers — not Silver.
+    // children's section offers — not Pro.
     expect(cheapestTierFor("kids")).toBe("kids");
-    expect(cheapestTierFor("mediaStudio")).toBe("gold");
+    expect(cheapestTierFor("mediaStudio")).toBe("business");
   });
 });
 
