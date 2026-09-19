@@ -181,6 +181,19 @@ export default function AdminVXPricing() {
 
                   {row.notes && <p className="text-xs text-muted-foreground">{row.notes}</p>}
 
+                  {/* Per-plan daily allowances, shown rather than edited here.
+                      They are a map keyed on billing_plans.id and a free-text
+                      JSON box on an admin screen is a way to write a price by
+                      accident — `admin_set_service_pricing` takes them, and a
+                      form that understands plans is its own change. */}
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Plan allowances: </span>
+                    {Object.keys(row.plan_limits ?? {}).length === 0
+                      ? "none — the free allowance and the daily ceiling apply to every plan"
+                      : Object.entries(row.plan_limits).map(([plan, limit]) =>
+                          `${plan}: ${limit === 0 ? "unlimited" : `${limit}/day`}`).join(" · ")}
+                  </p>
+
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="space-y-1.5">
                       <Label htmlFor={`price-${row.service_id}`}>VX price</Label>

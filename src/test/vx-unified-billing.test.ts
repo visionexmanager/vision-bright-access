@@ -377,3 +377,34 @@ describe("the WhatsApp decision is written down where it is implemented", () => 
     expect(doc).toContain("built, disabled, unmigrated");
   });
 });
+
+describe("what each audience sees", () => {
+  const page = readFileSync("src/pages/admin/AdminVXPricing.tsx", "utf8");
+  const billing = readFileSync("supabase/functions/billing-engine/index.ts", "utf8");
+
+  it("shows an admin every lever, including the plan allowances", () => {
+    for (const field of ["display_name", "vx_price", "free_limit", "plan_limits",
+                         "max_daily_usage", "enabled", "admin_only"]) {
+      expect(page, field).toContain(field);
+    }
+    expect(page).toContain("Plan allowances");
+    expect(page).toContain("unlimited");
+  });
+
+  it("gives a user their own spending and nothing commercial", () => {
+    expect(billing).toContain('case "my_usage":');
+    expect(billing).toContain('db.rpc("my_vx_usage"');
+    // The handler must not reach the ledger table directly — that row carries
+    // provider and cost, and the function is the column list that does not.
+    const handler = billing.slice(billing.indexOf("async function handleMyUsage"), billing.indexOf("async function handleGetPlans"));
+    expect(handler).not.toContain("vx_usage_ledger");
+  });
+
+  it("keeps cost and provider on the admin side of the wall", () => {
+    // The admin page may show them; nothing a user calls may.
+    expect(page).toContain("base_cost");
+    const userFacing = billing.slice(billing.indexOf("async function handleMyUsage"), billing.indexOf("// ── The operator's actions"));
+    expect(userFacing).not.toContain("actual_cost_usd");
+    expect(userFacing).not.toContain("base_cost");
+  });
+});

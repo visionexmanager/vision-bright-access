@@ -130,6 +130,21 @@ async function handleGetUsageLogs(userId: string, body: Record<string, unknown>)
   return json({ ok: true, data });
 }
 
+// The user's own VX spending, from the one ledger.
+//
+// `my_vx_usage()` is a column list rather than a policy: the ledger row also
+// carries `provider` and `actual_cost_usd`, and "users read their own rows"
+// would hand both over. What comes back is what they spent, on what, when, and
+// from which surface.
+async function handleMyUsage(body: Record<string, unknown>) {
+  const limit  = Math.min(Math.max(Number(body.limit ?? 50), 1), 200);
+  const offset = Math.max(Number(body.offset ?? 0), 0);
+  const db = serviceDb();
+  const { data, error } = await db.rpc("my_vx_usage", { _limit: limit, _offset: offset });
+  if (error) return json({ ok: false, error: error.message }, 500);
+  return json({ ok: true, data });
+}
+
 async function handleGetPlans() {
   const db = serviceDb();
   const { data, error } = await db
@@ -286,6 +301,10 @@ serve(async (req) => {
     case "get_history":     return handleGetHistory(user.id, body);
     case "get_usage_logs":  return handleGetUsageLogs(user.id, body);
     case "get_plans":       return handleGetPlans();
+    // The new usage view, beside the legacy one. `get_usage_logs` reads
+    // `usage_logs`, which is empty and always was; this reads the ledger the
+    // platform now bills through.
+    case "my_usage":        return handleMyUsage(body);
 
     // Admin-gated, each one checked against the caller's role before it runs.
     // `vx_migrate_wallet_balances` is deliberately absent: it moves real
