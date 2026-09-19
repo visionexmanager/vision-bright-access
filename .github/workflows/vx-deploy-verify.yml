@@ -107,11 +107,19 @@ jobs:
                from public.user_points"
 
           # ── Nothing legacy was dropped ───────────────────────────────────
-          block "2. The legacy tables survive, with their contents" \
+          #
+          # `whatsapp_entitlements` is counted among the functions, not the
+          # tables: it is a function of one argument. Counting it as a table
+          # made this section report 4 of 5 on a perfectly healthy database,
+          # which is the kind of answer that gets read as a missing table.
+          block "2. The legacy tables and the entitlement function survive" \
             "select
                (select count(*) from information_schema.tables where table_schema='public'
                  and table_name in ('credit_wallets','credit_transactions','billing_plans',
-                                    'usage_logs','whatsapp_entitlements'))::int as tables_of_5,
+                                    'usage_logs'))::int as legacy_tables_of_4,
+               (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                 where n.nspname='public'
+                   and p.proname in ('whatsapp_entitlements','whatsapp_meter'))::int as whatsapp_functions_of_2,
                (select count(*) from public.credit_wallets)::bigint as wallets,
                (select coalesce(sum(balance_vx),0) from public.credit_wallets)::bigint as vx_in_wallets,
                (select count(*) from public.credit_transactions)::bigint as credit_transactions,
