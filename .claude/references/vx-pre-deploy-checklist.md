@@ -128,3 +128,33 @@ clears the backlog and adds the new objects together.
 Until then the admin screen and the Usage screen both reach the new objects
 through `billing-engine` rather than PostgREST, which is why they type-check
 today.
+
+## How this actually reaches production
+
+`deploy.yml` is the only workflow in the repository that runs
+`supabase db push`, and it deploys **main and nothing else**:
+
+- the `workflow_run` trigger carries `branches: [main]`;
+- the dispatch gate's first step is
+  `if [ "$GITHUB_REF" != "refs/heads/main" ] … exit 1`;
+- every job has `needs: gate`, so a dispatch on a feature branch fails in
+  seconds and no job starts;
+- there is no "migrations only" input — one run does SPA, Edge Functions,
+  migrations and the stream-proxy image together;
+- the VPS webhook resets its checkout to `origin/main` whatever ref dispatched
+  it, so a branch deploy could not put branch SPA code on the site even if the
+  gate allowed it.
+
+So **merging to main is the deploy**. There is no "deploy the branch first,
+merge afterwards" order available, and improvising one would mean a second
+deployment mechanism.
+
+This is safe to do in one step *because* the deploy is inert: all eight
+migrations ship every service disabled, `daily_vx_limit` NULL and no balance
+moved, and the Edge Function and SPA changes are read paths plus the removal of
+endpoints that were never reachable. The verification steps in this file then
+run against production, in the order given under *After the deploy*.
+
+Production carried no migration backlog when this was written: the last
+successful Deploy was `2ce9d66a`, which was `origin/main`'s head, so
+`--include-all` applies these eight and nothing else.
