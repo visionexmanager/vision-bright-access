@@ -8,6 +8,8 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -187,6 +189,14 @@ Deno.serve(async (req: Request) => {
 
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return jsonError("Unauthorized: Invalid or expired session. Please sign in again.", 401);
+
+  // Signed in is not the same as entitled. The AI Media Studio is a Business
+  // section, and until this check existed a valid session on any plan reached
+  // the generator. Asked before the body is read, so an unentitled caller
+  // cannot spend a provider call, a VX reservation or a storage write on the
+  // way to being refused.
+  const entitled = await maySeeSection(serviceClient, user.id, "mediaStudio");
+  if (!entitled.allowed) return sectionRefusal("mediaStudio", entitled.unavailable);
 
   let body: RequestBody;
   try {
