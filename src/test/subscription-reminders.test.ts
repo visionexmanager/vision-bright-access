@@ -21,7 +21,7 @@ const read = (path: string) => readFileSync(path, "utf8");
 const migration = read("supabase/migrations/20261014000000_kids_plan_and_expiry_reminders.sql");
 const trialBilling = read("supabase/functions/trial-billing/index.ts");
 
-const row = { plan_id: "gold", plan_name: "Gold", ends_at: "2026-09-15T18:00:00Z" };
+const row = { plan_id: "business", plan_name: "Business", ends_at: "2026-09-15T18:00:00Z" };
 
 describe("the Kids plan", () => {
   it("costs three dollars and opens VisionKids, and nothing a tier sells", () => {
@@ -33,12 +33,12 @@ describe("the Kids plan", () => {
     expect(planAllows("kids", "kids")).toBe(true);
   });
 
-  it("is the cheapest paid plan, and every tier above it still has VisionKids except Bronze", () => {
+  it("is the cheapest paid plan, and every tier above it still has VisionKids except Basic", () => {
     expect(PAID_PLAN_ORDER[0]).toBe("kids");
     const prices = PAID_PLAN_ORDER.map((plan) => PAID_PLANS[plan].price);
     expect(prices).toEqual([...prices].sort((a, b) => a - b));
-    expect(planAllows("silver", "kids")).toBe(true);
-    expect(planAllows("gold", "kids")).toBe(true);
+    expect(planAllows("pro", "kids")).toBe(true);
+    expect(planAllows("business", "kids")).toBe(true);
   });
 
   it("matches what the migration seeds", () => {
@@ -82,8 +82,8 @@ describe("the reminder template", () => {
       const [plan, endsAt] = reminderVariables(row, language);
       expect(text.indexOf(plan), language).toBeLessThan(text.indexOf(endsAt));
     }
-    expect(reminderText(row, "en")).toContain("Your Gold plan ends on");
-    expect(reminderText(row, "ar")).toContain("تنتهي باقة Gold");
+    expect(reminderText(row, "en")).toContain("Your Business plan ends on");
+    expect(reminderText(row, "ar")).toContain("تنتهي باقة الأعمال");
   });
 
   it("says when in Beirut time, with digits every phone reads", () => {

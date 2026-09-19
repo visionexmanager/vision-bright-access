@@ -99,6 +99,11 @@ export default function Pricing() {
               return (
                 <li
                   key={plan.id}
+                  // The ring says "this is yours" to someone who can see it.
+                  // `aria-current` says the same thing to someone who cannot,
+                  // and the "current plan" line below says it in words — three
+                  // ways, none of them colour alone.
+                  aria-current={isCurrent ? "true" : undefined}
                   className={`flex flex-col rounded-2xl border bg-card p-6 shadow-sm ${
                     isCurrent ? "border-primary ring-2 ring-primary/30" : "border-border"
                   }`}
@@ -171,6 +176,13 @@ export default function Pricing() {
                         to={plan.price_monthly_usd > 0
                           ? checkoutPath(plan.id)
                           : user ? "/services/ai-media-studio/billing" : "/signup"}
+                        // Five cards, five buttons, and without this they all
+                        // read "Choose" to a screen reader — the word on the
+                        // button is the only thing announced, and it does not
+                        // say which plan it chooses.
+                        aria-label={`${
+                          plan.price_monthly_usd > 0 ? t("plans.choose") : t("plans.startFree")
+                        } — ${translateText(plan.name)}`}
                       >
                         {plan.price_monthly_usd > 0
                           ? t("plans.choose")

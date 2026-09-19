@@ -13,6 +13,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 
+import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+
 const MAX_CHARS = 60_000; // roughly the safe input budget for a single completion
 
 const RESULT_SCHEMA = {
@@ -72,6 +74,13 @@ Deno.serve(async (req: Request) => {
 
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
+
+  // Signed in is not entitled. The AI Media Studio is a Business section,
+  // and a valid session on any plan reached this generator until now. Asked
+  // before the body is read, so an unentitled caller cannot spend a provider
+  // call, a VX reservation or a job row on the way to being refused.
+  const entitled = await maySeeSection(serviceClient, user.id, "mediaStudio");
+  if (!entitled.allowed) return sectionRefusal("mediaStudio", entitled.unavailable);
 
   let body: RequestBody;
   try {

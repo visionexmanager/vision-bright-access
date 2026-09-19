@@ -8,6 +8,7 @@ import type {
   UsageLog,
   OperationType,
   VxUsageRow,
+  VxSummary,
 } from "@/lib/types/billing";
 
 // ── Initialization ─────────────────────────────────────────────────────────────
@@ -95,6 +96,12 @@ export async function cancelSubscription(): Promise<void> {
 // `billing_consume` never ran in production. This reads `vx_usage_ledger`
 // through `my_vx_usage()`, the column list that leaves `provider` and
 // `actual_cost_usd` on the admin side.
+
+/** Balance, plan and period totals for the signed-in account. */
+export async function getMyVxSummary(): Promise<VxSummary | null> {
+  const res = await callBillingEngine<VxSummary>({ action: "my_summary" });
+  return (res as { data?: VxSummary })?.data ?? null;
+}
 
 export async function getMyVxUsage(params: {
   limit?:  number;

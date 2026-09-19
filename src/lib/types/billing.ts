@@ -224,3 +224,26 @@ export interface VxUsageRow {
   created_at:   string;
   settled_at:   string | null;
 }
+
+/**
+ * The Usage screen's header, from `my_vx_summary()`.
+ *
+ * Deliberately narrow: a balance, a plan and two totals. No provider, no
+ * `base_cost`, no `actual_cost_usd`, no margin — which vendor served a
+ * request, and what it cost Visionex, is not on a customer's statement.
+ */
+export interface VxSummary {
+  ok: boolean;
+  balance_vx: number;
+  plan: {
+    id: string;
+    name: string;
+    /** Monthly VX the plan grants, or null when it grants none (Free, Kids). */
+    monthly_vx: number | null;
+    whatsapp_daily: number | null;
+    is_trial: boolean;
+    trial_ends_at: string | null;
+  };
+  today: { consumed_vx: number; refunded_vx: number; requests: number };
+  month: { consumed_vx: number; refunded_vx: number; requests: number };
+}

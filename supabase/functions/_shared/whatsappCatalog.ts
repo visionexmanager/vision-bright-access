@@ -167,8 +167,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     requires: ["ai"],
     accepts: ["text", "audio"],
     intro: {
-      ar: "تفضل، اكتب سؤالك. أنا أتذكر سياق حديثنا، و«0» للرجوع.",
-      en: "Go ahead — send me your question. I'll keep the thread in mind. Send 0 to go back.",
+      ar: "تفضل، اكتب سؤالك. أنا أتذكر سياق حديثنا، و«رجوع» يعيدك للقائمة.",
+      en: "Go ahead — send me your question. I'll keep the thread in mind, and *Back* returns you to the menu.",
     },
   },
   {
@@ -183,8 +183,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     requires: ["ai", "speech_to_text"],
     accepts: ["audio", "text"],
     intro: {
-      ar: "أرسل سؤالك برسالة صوتية وسأسمعه وأجيبك. «0» للرجوع.",
-      en: "Send your question as a voice note and I'll listen and answer. Send 0 to go back.",
+      ar: "أرسل سؤالك برسالة صوتية وسأسمعه وأجيبك. «رجوع» يعيدك للقائمة.",
+      en: "Send your question as a voice note and I'll listen and answer. *Back* returns you to the menu.",
     },
   },
   {
