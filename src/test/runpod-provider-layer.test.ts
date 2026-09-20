@@ -193,6 +193,120 @@ describe("three independent switches, all off", () => {
   });
 });
 
+/**
+ * The first workload: Video Studio.
+ *
+ * Chosen because the fit is already there rather than because video is
+ * impressive — `video-studio` has had `generate | poll | cancel | delete` and a
+ * `VideoProvider` interface since it shipped, which is the same asynchronous
+ * shape RunPod's `/run` + `/status` gives. RunPod becomes a third
+ * implementation of that interface beside Luma and OpenAI, so the job table,
+ * the storage path and the handlers are untouched.
+ */
+const videoStudio = readFileSync("supabase/functions/video-studio/index.ts", "utf8");
+
+describe("RunPod is a third VideoProvider, not a second architecture", () => {
+  it("implements the interface video-studio already had", () => {
+    expect(videoStudio).toContain("class RunPodVideoProvider implements VideoProvider");
+    for (const method of ["generateVideo", "pollJob", "cancelJob", "fetchAsset"]) {
+      expect(videoStudio, method).toContain(method);
+    }
+  });
+
+  it("delegates to the shared adapter rather than speaking RunPod itself", () => {
+    expect(videoStudio).toContain('from "../_shared/providers/runpod.ts"');
+    expect(videoStudio).toContain("runpodAdapter(");
+    // The vendor's URL belongs to the adapter; this file must not build one.
+    expect(code(videoStudio)).not.toContain("api.runpod.ai");
+  });
+
+  it("leaves the existing providers and the job table alone", () => {
+    expect(videoStudio).toContain("class LumaProvider");
+    expect(videoStudio).toContain("class OpenAISoraProvider");
+    expect(videoStudio).toContain("vx_video_jobs");
+  });
+});
+
+describe("the output lands in Visionex storage, not on a worker", () => {
+  it("declares its asset URLs non-public, which forces the download path", () => {
+    const cls = videoStudio.slice(videoStudio.indexOf("class RunPodVideoProvider"));
+    expect(cls.slice(0, cls.indexOf("\n}"))).toContain("publicAssetUrls = false");
+  });
+
+  it("treats a completed job with unreadable output as a failure", () => {
+    // Marking it complete would settle the reservation for something the user
+    // never receives.
+    expect(videoStudio).toContain("the result could not be read");
+  });
+});
+
+describe("the worker's output is not trusted", () => {
+  const cls = videoStudio.slice(
+    videoStudio.indexOf("class RunPodVideoProvider"),
+    videoStudio.indexOf("function getProvider"));
+
+  it("accepts exactly one shape, over https, on an allow-listed host", () => {
+    expect(cls).toContain("video_url");
+    expect(cls).toContain('url.protocol !== "https:"');
+    expect(cls).toContain("allowedHosts.some");
+  });
+
+  it("fails closed when no host is allow-listed", () => {
+    // `.some` on an empty array is false, and the comment says so — an
+    // unconfigured deployment must not fetch arbitrary hosts.
+    expect(cls).toContain("An empty allowlist means nothing is accepted");
+  });
+
+  it("re-checks the host at the fetch, because that is the call that leaves", () => {
+    expect(cls).toMatch(/async fetchAsset[\s\S]{0,200}isAllowed\(url\)/);
+  });
+
+  it("forwards named fields only, so no worker argument can be smuggled", () => {
+    for (const field of ["prompt:", "duration_sec:", "aspect_ratio:", "resolution:", "fps:", "seed:"]) {
+      expect(cls, field).toContain(field);
+    }
+    expect(cls).not.toContain("...params");
+    expect(cls).not.toContain("...body");
+  });
+});
+
+describe("selection is the server's, and RunPod is never the default", () => {
+  it("auto resolves to openai or luma, never runpod", () => {
+    expect(videoStudio).toContain('requested = openaiKey ? "openai" : lumaKey ? "luma" : ""');
+    expect(videoStudio).toContain("\"auto\" never resolves to RunPod");
+  });
+
+  it("reads endpoint and allowed hosts from the server environment", () => {
+    expect(videoStudio).toContain('Deno.env.get("RUNPOD_VIDEO_ENDPOINT_ID")');
+    expect(videoStudio).toContain('Deno.env.get("RUNPOD_VIDEO_ASSET_HOSTS")');
+    expect(videoStudio).toContain('Deno.env.get("RUNPOD_API_KEY")');
+  });
+
+  it("refuses before building a request when any switch is off", () => {
+    expect(videoStudio).toContain("runpodReadiness(endpointId)");
+    expect(videoStudio).toMatch(/if \(!readiness\.ready\)[\s\S]{0,200}throw new Error/);
+    // The normalized sentence, not the reason: disabled and misconfigured look
+    // the same to a user and different to an operator.
+    expect(videoStudio).toContain("readiness.reason?.message");
+  });
+});
+
+describe("idempotency is Visionex's, and exists before the provider is called", () => {
+  it("passes the job row id, which is created before the provider call", () => {
+    expect(videoStudio).toContain("idempotencyKey:  job.id");
+    const insertAt = videoStudio.indexOf('.from("vx_video_jobs")');
+    const submitAt = videoStudio.indexOf("provider.generateVideo(");
+    expect(insertAt).toBeGreaterThan(-1);
+    expect(submitAt, "the provider is called before the job row exists")
+      .toBeGreaterThan(insertAt);
+  });
+
+  it("requires the key rather than letting a caller omit it", () => {
+    const params = videoStudio.slice(videoStudio.indexOf("interface VideoGenerateParams"));
+    expect(params.slice(0, params.indexOf("\n}"))).toContain("idempotencyKey: string;");
+  });
+});
+
 describe("it changes no existing billing or entitlement rule", () => {
   it("adds one row and creates no table", () => {
     expect(migration).toContain("INSERT INTO public.ph_providers");
