@@ -32,6 +32,8 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+
+import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import {
   convertMediaLocally,
   MAX_CONVERT_UPLOAD_BYTES,
@@ -90,13 +92,43 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  if (!supabaseUrl || !anonKey) return json({ error: "Not configured" }, 503, cors);
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!supabaseUrl || !anonKey || !serviceKey) return json({ error: "Not configured" }, 503, cors);
 
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
+  // The entitlement resolver and the rate counter are both revoked from a
+  // session — a browser that could call them would be reading other people's
+  // plans and writing other people's counters — so both go through the service
+  // role, which only this function holds.
+  const serviceClient = createClient(supabaseUrl, serviceKey);
+
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
+
+  // The File Studio is a `professional` section, which only Business opens.
+  // Authentication was the protection this function was given; it is the right
+  // protection against strangers and no protection at all against a signed-in
+  // account on the free tier.
+  const entitled = await maySeeSection(serviceClient, user.id, "professional");
+  if (!entitled.allowed) return sectionRefusal("professional", entitled.unavailable);
+
+  // ── Ten a day ───────────────────────────────────────────────────────────
+  //
+  // The tightest band in the table, beside `generate-diet-plan` and
+  // `realtime-session`, because this is the only one of the four that spends
+  // *our* CPU rather than a provider's: sixteen megabytes per request, video
+  // and archive targets included, on the shared box that also serves the site.
+  // Ten full-size transcodes a day is well beyond any real File Studio session
+  // and well short of what would hurt the machine.
+  const { data: withinLimit } = await serviceClient.rpc("check_ai_rate_limit", {
+    _user_id: user.id,
+    _function_name: "file-convert",
+  });
+  if (withinLimit === false) {
+    return json({ error: "Daily limit reached (10 conversions/day). Try again tomorrow." }, 429, cors);
+  }
 
   if (!processorConfig()) return json({ error: "Conversion is unavailable" }, 503, cors);
 
