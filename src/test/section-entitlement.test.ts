@@ -82,21 +82,29 @@ const MEDIA_STUDIO = [
   "text-tools-generate",
   "document-generate",
   "video-studio",
+  // Added after tracing real call sites rather than headers. `voice-studio` is
+  // reached only from the studio's VoiceStudio page and VoiceProfileDetail —
+  // VisionKids' ProjectCard entry is a route-slug map, and the Kids voice page
+  // calls `text-to-speech` and `speech-transcribe` instead. `speech-generate`
+  // has exactly one caller, SpeechStudio; it does not serve Library read-aloud.
+  "voice-studio",
+  "speech-generate",
 ] as const;
 
+/** The File Studio's server-side converter. `/services/file-studio` is `professional`. */
+const PROFESSIONAL = ["file-convert"] as const;
+
 /**
- * Expensive functions that are deliberately NOT gated to a section, and why.
+ * Deliberately NOT gated, and why.
  *
- * Each is reached from more than one section, so gating it to the most
- * expensive one would break the cheaper caller. Fixing that needs a product
- * decision about which section governs, not a guess in a test file — so it is
- * recorded here rather than silently left undone.
+ * `ocr-scan` appears in no SECTIONS entry, so `/services/ocr-scan` resolves to
+ * no section and is free by construction — and the Library reader's
+ * AccessibilityDescribePanel calls it to describe an image for somebody who
+ * cannot see it. Gating it would put an accessibility feature behind a paid
+ * plan. It carries a 20/day ceiling instead.
  */
 const DELIBERATELY_UNGATED: Readonly<Record<string, string>> = {
-  "voice-studio": "also called from VisionKids ProjectCard — gating to mediaStudio would break Kids",
-  "ocr-scan": "also called from the Library reader's AccessibilityDescribePanel — gating it would break an accessibility feature",
-  "speech-generate": "serves Library read-aloud as well as the studio",
-  "file-convert": "no verified frontend caller; gating an unverified path risks breaking one that is not obvious",
+  "ocr-scan": "free by construction — in no SECTIONS entry — and called by the Library reader's accessibility panel; rate-limited at 20/day instead",
 };
 
 describe("the Business-only generators check before they work", () => {
@@ -123,6 +131,114 @@ describe("the Business-only generators check before they work", () => {
       expect(src).toMatch(/maySeeSection\((serviceClient|dbService)/);
     });
   }
+});
+
+describe("the File Studio's converter checks the professional section", () => {
+  const src = readFileSync("supabase/functions/file-convert/index.ts", "utf8");
+
+  it("asks about professional, not mediaStudio", () => {
+    expect(src).toContain('maySeeSection(serviceClient, user.id, "professional")');
+    expect(src).toContain('sectionRefusal("professional"');
+    expect(src).not.toContain('"mediaStudio"');
+  });
+
+  it("asks after the session is verified and before the body is read", () => {
+    const auth = src.indexOf("auth.getUser()");
+    const gate = src.indexOf("maySeeSection(");
+    const body = src.indexOf("await req.json()");
+    expect(gate).toBeGreaterThan(auth);
+    expect(gate).toBeLessThan(body);
+  });
+
+  it("counts against the shared rate limiter rather than a new one", () => {
+    expect(src).toContain('_function_name: "file-convert"');
+    expect(src).toContain('db.rpc("check_ai_rate_limit"'.replace("db", "serviceClient"));
+    expect(src).toContain("429");
+  });
+});
+
+describe("voice-studio gates people without gating the cron", () => {
+  const src = readFileSync("supabase/functions/voice-studio/index.ts", "utf8");
+
+  it("handles drain_retention before the entitlement check", () => {
+    const cron = src.indexOf('cronBody.action === "drain_retention"');
+    const gate = src.indexOf("maySeeSection(");
+    expect(cron, "no cron branch").toBeGreaterThan(-1);
+    expect(gate, "the gate runs before the cron branch — the sweep would be asked for a subscription")
+      .toBeGreaterThan(cron);
+  });
+
+  it("returns from inside the cron branch, so it can never fall through", () => {
+    const cron = src.indexOf('cronBody.action === "drain_retention"');
+    const gate = src.indexOf("maySeeSection(");
+    const between = src.slice(cron, gate);
+    expect(between).toContain("return handleDrainRetention(");
+  });
+
+  it("still authenticates the cron with CRON_SECRET, failing closed", () => {
+    expect(src).toContain('Deno.env.get("CRON_SECRET")');
+    expect(src).toContain('if (!cronSecret) return json({ ok: false, error: "not_configured" }, 503);');
+    expect(src).toContain("if (authHeader !== `Bearer ${cronSecret}`) return jsonError(\"Unauthorized\", 401);");
+  });
+});
+
+describe("speech-generate is gated and metered", () => {
+  const src = readFileSync("supabase/functions/speech-generate/index.ts", "utf8");
+
+  it("counts against the shared limiter under its own name", () => {
+    expect(src).toContain('_function_name: "speech-generate"');
+    expect(src).toContain("429");
+  });
+
+  it("keeps the 4,096-character cap as well as the ceiling", () => {
+    expect(src).toContain("text.length > 4096");
+  });
+});
+
+describe("the rate-limit ceilings are the ones the audit chose", () => {
+  const migration = readFileSync(
+    "supabase/migrations/20261035000000_rate_limits_speech_and_convert.sql", "utf8");
+
+  it("adds twenty for speech-generate and ten for file-convert", () => {
+    expect(migration).toMatch(/WHEN 'speech-generate'\s+THEN 20/);
+    expect(migration).toMatch(/WHEN 'file-convert'\s+THEN 10/);
+  });
+
+  it("leaves every existing ceiling where it was", () => {
+    for (const [fn, limit] of [["ocr-scan", 20], ["voice-studio-clone", 5], ["ai-chat", 60],
+                               ["generate-diet-plan", 10], ["enrich-product", 50]] as const) {
+      expect(migration, fn).toMatch(new RegExp(`WHEN '${fn}'\\s+THEN ${limit}`));
+    }
+    expect(migration).toContain("ELSE 30");
+  });
+
+  it("extends the existing counter rather than building a second one", () => {
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION public.check_ai_rate_limit");
+    expect(migration).toContain("public.ai_usage_log");
+    expect(migration).toContain("GRANT EXECUTE ON FUNCTION public.check_ai_rate_limit(UUID, TEXT) TO service_role;");
+    expect(migration).toMatch(/REVOKE ALL ON FUNCTION public\.check_ai_rate_limit\(UUID, TEXT\) FROM PUBLIC, anon, authenticated;/);
+  });
+});
+
+describe("the two JWT lists cannot drift apart for voice-studio", () => {
+  const script = readFileSync("scripts/deploy-changed-supabase-functions.sh", "utf8");
+  const toml = readFileSync("supabase/config.toml", "utf8");
+
+  it("voice-studio is exempt in both, because the cron uses a secret and not a JWT", () => {
+    // The script is what the deploy applies; config.toml is what `functions
+    // serve` reads locally. An exemption in one and not the other is how the
+    // retention cron would start failing on a redeploy nobody connected to it.
+    expect(script, "missing from the deploy script").toMatch(/^\s*\[voice-studio\]=1/m);
+    const section = toml.slice(toml.indexOf("[functions.voice-studio]"));
+    expect(section.slice(0, section.indexOf("\n[") + 1 || undefined))
+      .toMatch(/verify_jwt\s*=\s*false/);
+  });
+
+  it("and the exemption is still narrow — the gate is in the function, not absent", () => {
+    const src = readFileSync("supabase/functions/voice-studio/index.ts", "utf8");
+    expect(src).toContain("auth.getUser()");
+    expect(src).toContain("maySeeSection(");
+  });
 });
 
 describe("what is deliberately left ungated is written down", () => {

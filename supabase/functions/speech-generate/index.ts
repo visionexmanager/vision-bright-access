@@ -11,6 +11,8 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+
+import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import {
   describeTtsFailure,
   mimeFor,
@@ -95,6 +97,28 @@ Deno.serve(async (req: Request) => {
 
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
+
+  // Signed in is not entitled. The Speech Studio is part of the AI Media
+  // Studio, which only Business opens, and a valid session on any plan reached
+  // the generator until now. Asked before the body is read, so an unentitled
+  // caller cannot spend a provider call or a storage write on the way to a
+  // refusal.
+  const entitled = await maySeeSection(serviceClient, user.id, "mediaStudio");
+  if (!entitled.allowed) return sectionRefusal("mediaStudio", entitled.unavailable);
+
+  // ── Twenty a day ────────────────────────────────────────────────────────
+  //
+  // The same counter every other metered function uses, in the same band as
+  // `ocr-scan` and `radar-ai`: one provider call producing one stored asset,
+  // bounded here at 4,096 characters. Not the band voice *cloning* sits in —
+  // that trains a model and is capped at five.
+  const { data: withinLimit } = await serviceClient.rpc("check_ai_rate_limit", {
+    _user_id: user.id,
+    _function_name: "speech-generate",
+  });
+  if (withinLimit === false) {
+    return json({ error: "Daily limit reached (20 generations/day). Try again tomorrow." }, 429, cors);
+  }
 
   // Parse body
   let body: RequestBody;
