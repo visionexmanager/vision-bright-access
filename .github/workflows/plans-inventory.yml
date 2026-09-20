@@ -1,0 +1,118 @@
+name: Plans — inventory
+
+# What the subscription system actually looks like in production, as opposed to
+# what the repository says it should look like. Read before changing a plan id,
+# because a rename moves live subscriptions and historical orders.
+#
+# Every statement is a SELECT. Nothing is created, updated or deleted.
+#
+# ── This repository is PUBLIC ───────────────────────────────────────────────
+#
+# Counts, sums, plan identifiers and prices only — never a user id, never an
+# email, never a phone number, never an order reference.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [audit-base, chore/plan-inventory]
+    paths: [.github/workflows/plans-inventory.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    name: Read the plan system
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read it
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          ask() {
+            curl -s -X POST \
+              "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query:$q}')"
+          }
+          block() { say ""; say "## $1"; say '```json'; ask "$2" | tee -a "$GITHUB_STEP_SUMMARY"; echo; say '```'; }
+
+          say "# The subscription system in production"
+          say ""
+          say "Read-only. Identifiers, counts and prices — no personal data."
+
+          block "1. Every plan row" \
+            "select id, name, price_monthly_usd, vx_credits_monthly, is_unlimited,
+                    is_active, sort_order
+               from public.billing_plans order by sort_order nulls last, id"
+
+          block "1b. What each plan's limits jsonb holds" \
+            "select id, limits from public.billing_plans order by sort_order nulls last, id"
+
+          block "2. Live subscriptions by plan and status" \
+            "select plan_id, status, count(*)::bigint as subs
+               from public.user_subscriptions group by 1,2 order by 1,2"
+
+          block "3. Do any subscriptions point at a plan that no longer exists?" \
+            "select s.plan_id, count(*)::bigint as orphaned
+               from public.user_subscriptions s
+               left join public.billing_plans p on p.id = s.plan_id
+              where s.plan_id is not null and p.id is null
+              group by 1"
+
+          block "4. Historical orders by plan (financial records — do not rewrite)" \
+            "select plan_id, status, count(*)::bigint as orders
+               from public.subscription_orders group by 1,2 order by 1,2"
+
+          block "5. Which plan-related columns profiles actually has" \
+            "select column_name from information_schema.columns
+              where table_schema='public' and table_name='profiles'
+                and (column_name like '%plan%' or column_name like '%trial%'
+                     or column_name like '%subscription%')
+              order by column_name"
+
+          block "6. WhatsApp side: identities, and how many are linked" \
+            "select
+               (select count(*) from public.whatsapp_identities)::bigint as identities,
+               (select count(*) from public.whatsapp_identities where user_id is not null)::bigint as linked,
+               (select count(*) from public.whatsapp_conversations)::bigint as conversations"
+
+          block "7. The columns billing_plans actually has" \
+            "select column_name, data_type
+               from information_schema.columns
+              where table_schema='public' and table_name='billing_plans'
+              order by ordinal_position"
+
+          block "8. Trial state — how many accounts are inside the free week" \
+            "select
+               (select count(*) from public.profiles)::bigint as profiles_total,
+               (select count(*) from public.user_subscriptions where status = 'active')::bigint as active_subs,
+               (select count(*) from public.user_subscriptions where status <> 'active')::bigint as other_subs"
+
+          block "9. Which policies let a session write a profile row" \
+            "select policyname, cmd, qual, with_check
+               from pg_policies
+              where schemaname='public' and tablename='profiles' and cmd in ('UPDATE','INSERT','ALL')
+              order by policyname"
+
+          block "9b. Column-level UPDATE privileges authenticated holds on profiles" \
+            "select count(*)::bigint as columns_writable,
+                    bool_or(column_name = 'trial_expires_at') as can_write_trial
+               from information_schema.column_privileges
+              where table_schema='public' and table_name='profiles'
+                and grantee='authenticated' and privilege_type='UPDATE'"
+
+          block "9c. Every column profiles has" \
+            "select column_name
+               from information_schema.columns
+              where table_schema='public' and table_name='profiles'
+              order by ordinal_position"
+
+          say ""
+          say "Nothing above modified anything: every statement is a SELECT."
