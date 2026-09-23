@@ -13,6 +13,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { providerBySlug, recordResult, resolveProvider } from "../_shared/providerRouter.ts";
 import {
   describeTtsFailure,
   mimeFor,
@@ -33,6 +34,71 @@ import {
 function speechProviderOf(name: string): TtsProvider {
   if (name === "openai" || name === "elevenlabs") return name;
   throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs`);
+}
+
+/** The `ph_providers` row each provider is known by. */
+const TTS_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts" };
+const SLUG_TO_TTS_PROVIDER: Partial<Record<string, TtsProvider>> = {
+  "openai-tts": "openai",
+  "elevenlabs-tts": "elevenlabs",
+};
+
+/**
+ * The provider to use when the caller did not name one.
+ *
+ * This was a hardcoded `"openai"` default. The router already scores exactly
+ * this: which configured `tts` provider is eligible, healthiest and cheapest
+ * right now — `openai-tts` today, by construction, since it is the only
+ * `active` row. Routed rather than hardcoded so the default follows the
+ * router's own health tracking as it changes, without this file noticing.
+ *
+ * An explicit `provider` in the request is never touched by this — a user's
+ * own choice is honoured exactly as it always was, including when the router
+ * would have picked something else.
+ */
+async function defaultTtsProvider(): Promise<TtsProvider> {
+  try {
+    const routed = await resolveProvider("tts");
+    const mapped = routed && SLUG_TO_TTS_PROVIDER[routed.provider.slug];
+    if (mapped) return mapped;
+  } catch {
+    // The router is best-effort here: a database hiccup must not be the
+    // reason Speech Studio cannot generate audio.
+  }
+  return "openai";
+}
+
+/**
+ * Feed the provider health/scoring table from a real request, success or
+ * failure — the router's own `ph_metrics`/`ph_logs`, updated by the traffic
+ * this endpoint already sends, rather than a synthetic probe that would cost
+ * a call of its own to learn the same thing.
+ *
+ * Looked up by slug rather than trusted from `resolveProvider`'s return: that
+ * call answers "which provider should serve this job", and a caller who named
+ * their own provider bypasses it entirely — recording against the row that
+ * was actually used is a second, deliberately simpler lookup.
+ */
+async function recordTtsResult(params: {
+  provider: TtsProvider;
+  ms: number;
+  success: boolean;
+  errorMessage?: string;
+}): Promise<void> {
+  try {
+    const row = await providerBySlug(TTS_SLUG[params.provider]);
+    if (!row) return;
+    await recordResult({
+      provider_id: row.id,
+      provider_slug: row.slug,
+      job_type: "tts",
+      success: params.success,
+      latency_ms: params.ms,
+      error_message: params.errorMessage,
+    });
+  } catch {
+    // Best-effort. The response to the sender must never depend on this.
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -133,7 +199,7 @@ Deno.serve(async (req: Request) => {
     voice_id,
     provider_voice_id,
     voice_name,
-    provider   = "openai",
+    provider: requestedProvider,
     model      = "tts-1",
     language   = "en",
     emotion    = "neutral",
@@ -148,6 +214,12 @@ Deno.serve(async (req: Request) => {
   if (!text?.trim()) return json({ error: "text is required" }, 400, cors);
   if (!voice_id || !provider_voice_id) return json({ error: "voice_id and provider_voice_id are required" }, 400, cors);
   if (text.length > 4096) return json({ error: "Text exceeds 4096 character limit" }, 400, cors);
+
+  // A caller's own choice is honoured exactly as named; only the previously
+  // hardcoded default now comes from the provider router.
+  const provider: TtsProvider = requestedProvider
+    ? speechProviderOf(requestedProvider)
+    : await defaultTtsProvider();
 
   // Create job record
   const { data: jobRow, error: jobErr } = await serviceClient
@@ -185,6 +257,7 @@ Deno.serve(async (req: Request) => {
 
   // Generate
   try {
+    const startedAt = Date.now();
     const result = await synthesize({
       provider: speechProviderOf(provider),
       voice: provider_voice_id,
@@ -193,10 +266,16 @@ Deno.serve(async (req: Request) => {
       format: output_format as TtsFormat,
       model,
     });
-    // Thrown, not returned: this endpoint's error path already turns a thrown
-    // message into the JSON body the studio shows, and the wording is the
-    // wording it has always shown.
-    if (result.outcome === "failed") throw new Error(describeTtsFailure(result.failure));
+    const elapsedMs = Date.now() - startedAt;
+
+    if (result.outcome === "failed") {
+      await recordTtsResult({ provider, ms: elapsedMs, success: false, errorMessage: describeTtsFailure(result.failure) });
+      // Thrown, not returned: this endpoint's error path already turns a
+      // thrown message into the JSON body the studio shows, and the wording
+      // is the wording it has always shown.
+      throw new Error(describeTtsFailure(result.failure));
+    }
+    await recordTtsResult({ provider, ms: elapsedMs, success: true });
 
     const audioBase64 = bufferToBase64(result.bytes.buffer as ArrayBuffer);
     const durationSec = estimateDuration(text, speed);

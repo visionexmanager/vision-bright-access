@@ -1,24 +1,20 @@
 // Speech to text for WhatsApp voice notes.
 //
-// Groq first, OpenAI second. Both keys are already synced by deploy.yml, so
-// this adds no vendor and no new credential. The order is a cost decision:
+// The provider chain itself — Groq first, OpenAI second — now lives in
+// `_shared/voice/stt.ts`, the seam this channel shares with `speech-transcribe`.
 // Groq serves whisper-large-v3-turbo at a small fraction of OpenAI's per-minute
 // price and is markedly faster, which matters when a person is waiting on a
-// reply. OpenAI's whisper-1 is the fallback, and is what the rest of the
-// project already uses (`speech-transcribe`), so behaviour degrades to
-// something known rather than to nothing.
+// reply; OpenAI's whisper-1 is the fallback. What stays here is WhatsApp's own
+// channel policy: the audio-length ceiling (checked before a provider is ever
+// asked, so a hopeless clip costs nothing), and this channel's four-outcome
+// vocabulary with a sentence in twenty languages for each.
 
-import { toBlob } from "./whatsappAttachments.ts";
+import { channelFailureOf, transcribe } from "./voice/stt.ts";
 import type { Language } from "./whatsappCatalog.ts";
 import { say } from "./whatsappStrings.ts";
 import { trace } from "./whatsappTelemetry.ts";
 
-function env(name: string): string | undefined {
-  const deno = (globalThis as {
-    Deno?: { env?: { get(key: string): string | undefined } };
-  }).Deno;
-  return deno?.env?.get(name);
-}
+export { filenameForMime } from "./voice/stt.ts";
 
 /** Voice notes longer than this are declined rather than billed for. */
 export const MAX_AUDIO_SECONDS = 300;
@@ -70,45 +66,6 @@ export type TranscriptionResult =
   | { ok: true; text: string; provider: "groq" | "openai" }
   | { ok: false; reason: TranscriptionFailure };
 
-interface Provider {
-  name: "groq" | "openai";
-  endpoint: string;
-  model: string;
-  envKey: string;
-}
-
-const PROVIDERS: readonly Provider[] = [
-  {
-    name: "groq",
-    endpoint: "https://api.groq.com/openai/v1/audio/transcriptions",
-    model: "whisper-large-v3-turbo",
-    envKey: "GROQ_API_KEY",
-  },
-  {
-    name: "openai",
-    endpoint: "https://api.openai.com/v1/audio/transcriptions",
-    model: "whisper-1",
-    envKey: "OPENAI_API_KEY",
-  },
-];
-
-/** A filename is required by the multipart API and decides how it is decoded. */
-export function filenameForMime(mime: string): string {
-  const base = mime.split(";")[0].trim().toLowerCase();
-  const map: Record<string, string> = {
-    "audio/ogg": "voice.ogg",
-    "audio/opus": "voice.opus",
-    "audio/mpeg": "voice.mp3",
-    "audio/mp4": "voice.m4a",
-    "audio/aac": "voice.aac",
-    "audio/amr": "voice.amr",
-    "audio/wav": "voice.wav",
-    "audio/x-wav": "voice.wav",
-    "audio/webm": "voice.webm",
-  };
-  return map[base] ?? "voice.ogg";
-}
-
 /**
  * Transcribe a voice note.
  *
@@ -116,6 +73,11 @@ export function filenameForMime(mime: string): string {
  * a hint would be a guess made from the *typed* language of earlier messages,
  * and people switch. An empty transcript is a real outcome — silence, or noise
  * — and is reported rather than sent to the model as an empty question.
+ *
+ * The provider chain (Groq, then OpenAI) is `_shared/voice/stt.ts`'s — this
+ * function's own job is entirely the two things `stt.ts` deliberately does not
+ * own: the length ceiling below, and turning its four-way `VoiceFailure` into
+ * the four sentences this channel already has, in twenty languages.
  */
 export async function transcribeVoice(params: {
   bytes: Uint8Array;
@@ -136,47 +98,36 @@ export async function transcribeVoice(params: {
     return { ok: false, reason: "too_long" };
   }
 
-  const doFetch = params.fetchImpl ?? fetch;
-  const available = PROVIDERS.filter((p) => !!env(p.envKey));
-  if (available.length === 0) {
-    console.error(`[whatsapp-stt] no transcription provider is configured${trace(params.trace)}`);
-    return { ok: false, reason: "no_provider" };
-  }
+  const heard = await transcribe({
+    bytes: params.bytes,
+    mimeType: params.mimeType,
+    fetchImpl: params.fetchImpl,
+  });
 
-  for (const provider of available) {
-    try {
-      const form = new FormData();
-      form.append(
-        "file",
-        toBlob(params.bytes, params.mimeType),
-        filenameForMime(params.mimeType),
-      );
-      form.append("model", provider.model);
-      form.append("response_format", "text");
-
-      const res = await doFetch(provider.endpoint, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${env(provider.envKey)}` },
-        body: form,
-      });
-
-      if (!res.ok) {
-        // Never log the body: it can echo request content.
-        console.error(`[whatsapp-stt] ${provider.name} rejected: ${res.status}${trace(params.trace)}`);
-        continue;
-      }
-
-      const text = (await res.text()).trim();
-      if (!text) {
-        console.error(`[whatsapp-stt] ${provider.name} heard nothing${trace(params.trace)}`);
-        return { ok: false, reason: "empty" };
-      }
-      return { ok: true, text, provider: provider.name };
-    } catch {
-      console.error(`[whatsapp-stt] ${provider.name} transport error${trace(params.trace)}`);
+  if (heard.outcome === "transcript") {
+    // An attempt before the one that answered may be a real failure (logged,
+    // so a fallback is visible) or just an unconfigured provider (not worth a
+    // line — it was never tried).
+    for (const attempt of heard.attempts) {
+      if (attempt.failure.reason === "no_key") continue;
+      console.error(`[whatsapp-stt] ${attempt.provider} ${attempt.failure.reason}, falling back${trace(params.trace)}`);
     }
+    return { ok: true, text: heard.text, provider: heard.provider };
   }
-  return { ok: false, reason: "provider_error" };
+
+  for (const attempt of heard.attempts) {
+    if (attempt.failure.reason === "no_key") continue; // never attempted; nothing failed
+    console.error(`[whatsapp-stt] ${attempt.provider} ${attempt.failure.reason}${trace(params.trace)}`);
+  }
+  if (heard.attempts.length > 0 && heard.attempts.every((a) => a.failure.reason === "no_key")) {
+    console.error(`[whatsapp-stt] no transcription provider is configured${trace(params.trace)}`);
+  }
+
+  // `invalid_input` (empty bytes) has no counterpart in this channel's
+  // four-way vocabulary; "empty" is the sentence a sender with nothing
+  // transcribable should read either way.
+  const mapped = channelFailureOf(heard.failure);
+  return { ok: false, reason: mapped === "invalid_input" ? "empty" : mapped };
 }
 
 /** Told to the user when their voice note could not be turned into text. */
