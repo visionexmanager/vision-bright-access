@@ -345,10 +345,22 @@ export async function uploadDatasetFile(
 
 // ── Training Jobs ─────────────────────────────────────────────────────────────
 
+// Every vs_training_jobs column the browser may read, except provider_job_id
+// — ElevenLabs's own training-job id, which no component reads and which
+// has no product purpose on this screen. Same rule as videoStudioService.ts's
+// VIDEO_JOB_COLUMNS.
+const TRAINING_JOB_COLUMNS = [
+  "id", "profile_id", "user_id",
+  "status", "progress",
+  "provider", "provider_voice_id",
+  "error_message", "error_code", "retry_count",
+  "created_at", "started_at", "completed_at", "estimated_duration_sec",
+].join(", ");
+
 export async function getLatestTrainingJob(profileId: string): Promise<TrainingJob | null> {
   const { data, error } = await supabase
     .from("vs_training_jobs")
-    .select("*")
+    .select(TRAINING_JOB_COLUMNS)
     .eq("profile_id", profileId)
     .order("created_at", { ascending: false })
     .limit(1)

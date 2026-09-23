@@ -1111,7 +1111,9 @@ function AppRoutes() {
                     <Route path="/services/ai-media-studio/provider-hub" element={<AdminRoute><AIMediaStudioProviderHub /></AdminRoute>} />
                     <Route path="/services/ai-media-studio/billing"      element={<AuthGuard><AIMediaStudioBilling /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/image"       element={<AuthGuard><AIMediaStudioImage /></AuthGuard>} />
-                    <Route path="/services/ai-media-studio/diagnostics" element={<AuthGuard><AIMediaStudioDiagnostics /></AuthGuard>} />
+                    {/* Same information as provider-hub above — per-provider key presence
+                        and validity — so it gets the same gate. */}
+                    <Route path="/services/ai-media-studio/diagnostics" element={<AdminRoute><AIMediaStudioDiagnostics /></AdminRoute>} />
                     <Route path="/services/ai-media-studio/document"    element={<AuthGuard><AIMediaStudioDocument /></AuthGuard>} />
                     <Route path="/services/ai-media-studio/text-tools"  element={<AuthGuard><AIMediaStudioTextTools /></AuthGuard>} />
                     <Route path="/games/hangman" element={<GameEconomyGate gameTitle="Hangman"><Hangman /></GameEconomyGate>} />

@@ -108,7 +108,8 @@ export interface TrainingJob {
   status:           TrainingJobStatus;
   progress:         number;
   provider:         string;
-  provider_job_id:  string | null;
+  // provider_job_id deliberately not selected client-side — see
+  // voiceStudioService.ts's TRAINING_JOB_COLUMNS.
   provider_voice_id: string | null;
   error_message:    string | null;
   error_code:       string | null;
