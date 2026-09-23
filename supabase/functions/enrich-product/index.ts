@@ -38,6 +38,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // The comment above has always claimed this endpoint is admin-only, but
+    // nothing before this line ever checked a role — any authenticated user
+    // could reach it. Same has_role() RPC kids-course-generate and
+    // library-embed-book already gate their admin-only paths with.
+    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
+    if (isAdmin !== true) {
+      return new Response(JSON.stringify({ error: "Admin role required" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { name, category, store_type, description } = await req.json();
 
     if (!name) {
