@@ -48,7 +48,17 @@ export interface SttInput {
 }
 
 export type SttOutcome =
-  | { outcome: "transcript"; text: string; provider: SttProviderName; model: string; ms: number }
+  | {
+    outcome: "transcript";
+    text: string;
+    provider: SttProviderName;
+    model: string;
+    ms: number;
+    /** Whisper's own language guess, when the wire format carried one. */
+    language?: string;
+    /** Audio duration in seconds, when the wire format carried one. */
+    duration?: number;
+  }
   | { outcome: "failed"; failure: VoiceFailure; ms: number };
 
 export interface SttAdapter {

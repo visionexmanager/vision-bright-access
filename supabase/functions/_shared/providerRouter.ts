@@ -174,6 +174,28 @@ export async function recordResult(params: {
   }
 }
 
+// ── Known-provider lookup ─────────────────────────────────────────────────────
+
+/**
+ * A provider row by slug, for recording a result against the provider that was
+ * actually used — not a selection.
+ *
+ * `resolveProvider` answers "which eligible provider should serve this job",
+ * and a `preferredSlug` that is not eligible falls through to its own scored
+ * choice — the right behaviour for *picking* a provider, and the wrong one for
+ * *recording against* a provider that was already used regardless of its
+ * current health. Recording a real outcome against a different provider's row
+ * would corrupt that other provider's health score with an unrelated result.
+ */
+export async function providerBySlug(slug: string): Promise<RouterProvider | null> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const db          = createClient(supabaseUrl, serviceKey);
+
+  const { data } = await (db as any).from("ph_providers").select("*").eq("slug", slug).maybeSingle();
+  return (data as RouterProvider) ?? null;
+}
+
 // ── API key resolver ──────────────────────────────────────────────────────────
 
 export function resolveApiKey(provider: RouterProvider): string | null {

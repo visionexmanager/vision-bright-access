@@ -1,7 +1,10 @@
 /**
  * speech-transcribe — AI Media Studio Speech-to-Text endpoint
  *
- * Provider: OpenAI Whisper (reuses existing OPENAI_API_KEY)
+ * Provider: the shared STT seam (`_shared/voice/stt.ts`) — Groq Whisper first,
+ * OpenAI Whisper fallback. Previously called OpenAI directly; this endpoint
+ * now shares its provider chain with WhatsApp's voice-note transcription
+ * instead of duplicating it, per the provider-allocation audit's Phase 1.
  * Auth: user-jwt required
  * Input: JSON { audio_base64, mime_type, filename, language_hint?, project_id? }
  * Returns: JSON { ok, job_id, transcript_text, detected_language, duration_sec }
@@ -9,6 +12,9 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { isSupportedLanguage } from "../_shared/voice/capabilities.ts";
+import { transcribe } from "../_shared/voice/stt.ts";
+import type { VoiceFailure } from "../_shared/voice/providers/types.ts";
 
 const MAX_BYTES = 25 * 1024 * 1024; // OpenAI Whisper's hard limit
 
@@ -34,49 +40,57 @@ interface RequestBody {
   project_id?:   string;
 }
 
+/**
+ * The provider's own vocabulary, turned into the sentence this endpoint has
+ * always shown — the status-code mapping OpenAI's error responses justified,
+ * now keyed by whichever provider in the chain produced the failure that
+ * matters (the seam already picks the most informative one when every
+ * provider was tried and none answered).
+ */
+function describeSttFailure(failure: VoiceFailure): string {
+  switch (failure.reason) {
+    case "invalid_input":
+      return "Audio file is empty or invalid.";
+    case "no_key":
+    case "no_capable_provider":
+      return "No speech-to-text provider is configured.";
+    case "empty":
+      return "No speech was detected in the audio file.";
+    case "transport":
+      return `${failure.provider} is temporarily unavailable. Please retry shortly.`;
+    case "rejected": {
+      const { provider, status, detail } = failure;
+      const statusMap: Record<number, string> = {
+        400: `Unsupported or corrupt audio file: ${detail}`,
+        401: `${provider} API key is invalid or revoked. Check Supabase secrets.`,
+        413: "Audio file is too large for transcription (25 MB limit).",
+        429: `${provider} rate limit reached. Please wait a moment and try again.`,
+        500: `${provider} service error. This is temporary — please retry in a few seconds.`,
+        503: `${provider} is temporarily unavailable. Please retry shortly.`,
+      };
+      return statusMap[status] ?? `Transcription error (${status}): ${detail}`;
+    }
+  }
+}
+
 async function transcribeWithWhisper(
   bytes: Uint8Array,
   filename: string,
   mimeType: string,
   languageHint?: string
 ): Promise<{ text: string; language?: string; duration?: number }> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured in Supabase Edge Function secrets.");
-
-  const form = new FormData();
-  form.append("file", new Blob([bytes], { type: mimeType }), filename);
-  form.append("model", "whisper-1");
-  form.append("response_format", "verbose_json");
-  if (languageHint) form.append("language", languageHint);
-
-  const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: form,
+  const heard = await transcribe({
+    bytes,
+    mimeType,
+    filename,
+    // Only a canonical code is passed on: an unrecognised hint is safer
+    // omitted than sent to a provider that would silently ignore or
+    // mishandle it — Whisper detects the language itself either way.
+    language: isSupportedLanguage(languageHint) ? languageHint : undefined,
   });
 
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const errJson = await res.json();
-      detail = errJson?.error?.message ?? detail;
-    } catch {
-      const text = await res.text().catch(() => "");
-      if (text) detail = text.slice(0, 200);
-    }
-    const statusMap: Record<number, string> = {
-      400: `Unsupported or corrupt audio file: ${detail}`,
-      401: "OpenAI API key is invalid or revoked. Check OPENAI_API_KEY in Supabase secrets.",
-      413: "Audio file is too large for transcription (25 MB limit).",
-      429: "OpenAI rate limit reached. Please wait a moment and try again.",
-      500: "OpenAI service error. This is temporary — please retry in a few seconds.",
-      503: "OpenAI is temporarily unavailable. Please retry shortly.",
-    };
-    throw new Error(statusMap[res.status] ?? `Whisper transcription error (${res.status}): ${detail}`);
-  }
-
-  const data = await res.json();
-  return { text: data.text ?? "", language: data.language, duration: data.duration };
+  if (heard.outcome !== "transcript") throw new Error(describeSttFailure(heard.failure));
+  return { text: heard.text, language: heard.language, duration: heard.duration };
 }
 
 Deno.serve(async (req: Request) => {

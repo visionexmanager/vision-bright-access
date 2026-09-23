@@ -87,6 +87,10 @@ export type TranscribeResult =
     provider: SttProviderName;
     model: string;
     ms: number;
+    /** Whisper's own language guess, when the wire format carried one. */
+    language?: string;
+    /** Audio duration in seconds, when the wire format carried one. */
+    duration?: number;
     /** Providers that failed before this one succeeded. Usually empty. */
     attempts: TranscribeAttempt[];
   }
@@ -169,6 +173,8 @@ export async function transcribe(request: TranscribeRequest): Promise<Transcribe
         provider: heard.provider,
         model: heard.model,
         ms: heard.ms,
+        language: heard.language,
+        duration: heard.duration,
         attempts,
       };
     }
