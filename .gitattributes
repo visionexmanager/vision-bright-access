@@ -17,6 +17,13 @@
 *.mjs text eol=lf
 *.cjs text eol=lf
 
+# Same failure, one file type wider: several tests read a migration's raw SQL
+# text and assert on it with `\n`-joined string literals (e.g. `REVOKE ALL ON
+# FUNCTION ... \n  FROM PUBLIC, anon, authenticated;`). A CRLF checkout makes
+# every such assertion fail on Windows while the same migration passes in CI —
+# not a bug in the migration or the test, just the same checkout mismatch.
+*.sql  text eol=lf
+
 # The same rule, for the files that are copied to the server and run there.
 #
 # `site-block.awk` is executed by awk on the VPS and its output is written back
