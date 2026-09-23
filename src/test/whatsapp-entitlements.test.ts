@@ -21,6 +21,11 @@ const migration = readFileSync(
   "supabase/migrations/20261004000000_whatsapp_entitlements.sql",
   "utf8",
 );
+const exemptions = readFileSync(
+  "supabase/migrations/20261020000000_whatsapp_owner_unmetered.sql",
+  "utf8",
+);
+const ownerControl_shared = readFileSync("supabase/functions/_shared/ownerControl.ts", "utf8");
 
 function entitlement(overrides: Partial<Entitlement> = {}): Entitlement {
   return {
@@ -245,6 +250,64 @@ describe("the gate is where the money is", () => {
     ]) {
       expect(migration, line).toContain(line);
     }
+  });
+});
+
+// ── The number that runs the service is not a customer of it ────────────────
+//
+// The owner was metered on the free twenty-a-day floor, so a day of testing
+// ended with their own assistant answering "you have used today's allowance"
+// to every further question. The abuse limiter had had an owner exemption
+// since Phase 4; the allowance never did.
+
+describe("who is never metered", () => {
+  it("exempts the configured owner handset and every linked admin", () => {
+    expect(exemptions).toContain("public.whatsapp_is_owner_number(_wa_phone)");
+    expect(exemptions).toContain("public.has_role(_user_id, 'admin')");
+    // The shape an unlimited plan already returns, so no caller needs a new branch.
+    expect(exemptions).toMatch(/'plan', 'owner'[\s\S]{0,120}'remaining', -1, 'allowed', true/);
+    expect(exemptions).toMatch(/'plan', 'admin'[\s\S]{0,120}'remaining', -1, 'allowed', true/);
+    // Read before the plan lookup, or a spent allowance would still refuse.
+    expect(exemptions.indexOf("whatsapp_is_owner_number(_wa_phone) THEN"))
+      .toBeLessThan(exemptions.indexOf("SELECT s.plan_id INTO _plan_id"));
+  });
+
+  it("reads the owner number from settings, never from a constant", () => {
+    expect(exemptions).toContain("s.key = 'owner_contact'");
+    expect(exemptions).toContain("s.value ->> 'whatsapp_number'");
+    expect(exemptions).not.toMatch(/'\+?\d{7,}'/);
+  });
+
+  it("compares numbers the way the webhook does, not a new way", () => {
+    // isOwner() takes the trailing significant digits, capped at twelve and
+    // floored at eight. Two places deciding "is this the owner" differently is
+    // the bug this pins.
+    expect(ownerControl_shared).toContain("Math.min(sender.length, owner.length, 12)");
+    expect(exemptions).toContain("LEAST(length(_left), length(_right), 12)");
+    expect(exemptions).toContain("IF _significant < 8 THEN RETURN false; END IF;");
+    expect(exemptions).toContain("Mirrors isOwner() in _shared/ownerControl.ts");
+  });
+
+  it("still carries no identity, and still locks the functions to the service role", () => {
+    expect(exemptions).not.toMatch(/RETURN jsonb_build_object\([^)]*'user_id'/);
+    expect(exemptions).not.toMatch(/'email'/);
+    for (const line of [
+      "GRANT EXECUTE ON FUNCTION public.whatsapp_entitlements(text) TO service_role;",
+      "REVOKE ALL ON FUNCTION public.whatsapp_is_owner_number(text) FROM anon;",
+      "REVOKE ALL ON FUNCTION public.whatsapp_is_owner_number(text) FROM authenticated;",
+      "REVOKE ALL ON FUNCTION public.whatsapp_same_number(text, text) FROM PUBLIC;",
+    ]) {
+      expect(exemptions, line).toContain(line);
+    }
+  });
+
+  it("leaves everybody else on the allowance they had", () => {
+    // The free floor, the trial week and a paid plan are all still read from
+    // the tables rather than restated: a price change stays a row update.
+    expect(exemptions).toContain("public.whatsapp_free_daily_allowance()");
+    expect(exemptions).toContain("whatsapp_daily_messages");
+    expect(exemptions).toContain("p.trial_expires_at");
+    expect(exemptions).toMatch(/'allowed',\s+_limit = 0 OR _used < _limit/);
   });
 });
 

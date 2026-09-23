@@ -19,6 +19,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+
 import {
   deletionOutcome,
   mayStartCloning,
@@ -672,6 +674,19 @@ serve(async (req) => {
 
   const { data: { user }, error: authErr } = await db.auth.getUser();
   if (authErr || !user) return jsonError("Unauthorized", 401);
+
+  // ── Entitlement, for people only ────────────────────────────────────────
+  //
+  // Below the cron branch on purpose: `drain_retention` returns from inside
+  // the block above, so the scheduled sweep never reaches this and is never
+  // asked for a subscription it could not have. Deleting expired recordings is
+  // the platform's own housekeeping, not a customer's feature.
+  //
+  // Voice Studio is a Business section, and until now a valid session on any
+  // plan reached the trainer. Asked before the body is parsed, so an
+  // unentitled caller cannot start a training job on the way to a refusal.
+  const entitled = await maySeeSection(dbService, user.id, "mediaStudio");
+  if (!entitled.allowed) return sectionRefusal("mediaStudio", entitled.unavailable);
 
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* empty body */ }

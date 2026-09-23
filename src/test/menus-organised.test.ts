@@ -30,7 +30,7 @@ describe("the WhatsApp menu", () => {
   });
 
   it("puts the games with television, radio and songs", () => {
-    expect(ids("listen")).toEqual(["services.radio", "services.songs", "listen.tv", "explore.games"]);
+    expect(ids("listen")).toEqual(["services.radio", "services.songs", "listen.tv", "explore.games", "services.media"]);
   });
 
   it("puts everything that reads what you hand over in one place", () => {
@@ -47,7 +47,7 @@ describe("the WhatsApp menu", () => {
   });
 
   it("puts Visionex's services with the shop", () => {
-    expect(ids("bazaar")).toEqual(["services.bazaar", "services.sell", "services.orders", "explore.services"]);
+    expect(ids("bazaar")).toEqual(["services.bazaar", "services.sell", "services.orders", "explore.services", "services.books"]);
   });
 
   it("fits every group inside a WhatsApp list", () => {

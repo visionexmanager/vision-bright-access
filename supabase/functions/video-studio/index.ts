@@ -5,6 +5,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import type { ComputeAdapter } from "../_shared/providers/compute.ts";
+import { runpodAdapter, runpodReadiness } from "../_shared/providers/runpod.ts";
+
+import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -13,6 +18,15 @@ const CORS = {
 // ── Provider interface ─────────────────────────────────────────────────────────
 
 interface VideoGenerateParams {
+  /**
+   * Visionex's own key for this request — the `vx_video_jobs` row id, which
+   * exists before any provider is called. A vendor's job id cannot serve here:
+   * it does not exist until after the call a duplicate would repeat.
+   *
+   * Required rather than optional, so a future caller cannot omit it and get
+   * an unkeyed request. There is one call site and it already has the id.
+   */
+  idempotencyKey: string;
   prompt:        string;
   negativePrompt?: string;
   style:         string;
@@ -323,6 +337,122 @@ class OpenAISoraProvider implements VideoProvider {
 // No mock/fake provider: if the requested provider's API key isn't configured,
 // callers must see a clear "not configured" error rather than a fake completed
 // job pointing at a canned stock video.
+
+// ── RunPod Serverless ─────────────────────────────────────────────────────────
+//
+// A third implementation of the interface above, not a second architecture.
+// Luma and OpenAI each speak their own vendor; this one speaks RunPod through
+// `_shared/providers/runpod.ts`, which is the transport. The domain shape —
+// generate, poll, cancel, fetch — stays the one this file already defines, so
+// `handleGenerate`, `handlePoll` and the storage path below are untouched.
+//
+// `publicAssetUrls = false` deliberately, and it is the important line. A
+// worker's output URL is a temporary artifact of a container that scales to
+// zero; treating it as durable would hand users a link that dies. False routes
+// it through the same "download into our storage before completing" path
+// OpenAI already uses, which is also what keeps the output owned by Visionex.
+class RunPodVideoProvider implements VideoProvider {
+  name = "runpod";
+  publicAssetUrls = false;
+
+  constructor(private adapter: ComputeAdapter, private allowedHosts: string[]) {}
+
+  async generateVideo(params: VideoGenerateParams): Promise<VideoGenerateResult> {
+    const job = await this.adapter.submit({
+      operation: "generateVideo",
+      // Named fields only. The client's request reached here through
+      // handleGenerate, which already validated and bounded each one; nothing
+      // is forwarded wholesale, so a caller cannot smuggle a worker argument
+      // the studio never offered.
+      input: {
+        prompt: params.prompt,
+        negative_prompt: params.negativePrompt ?? "",
+        duration_sec: params.durationSec,
+        aspect_ratio: params.aspectRatio,
+        resolution: params.resolution,
+        fps: params.fps,
+        seed: params.seed ?? null,
+      },
+      idempotencyKey: params.idempotencyKey,
+      timeoutMs: 60_000,
+    });
+
+    if (job.error || !job.providerJobId) {
+      return { ok: false, error: job.error?.message ?? "The video could not be started." };
+    }
+    return { ok: true, providerJobId: job.providerJobId };
+  }
+
+  async pollJob(providerJobId: string): Promise<VideoPollResult> {
+    const job = await this.adapter.poll(providerJobId);
+
+    if (job.status === "queued")  return { ok: true, state: "pending", progress: 5 };
+    if (job.status === "running") return { ok: true, state: "processing", progress: 50 };
+
+    if (job.status !== "completed") {
+      // cancelled, failed and timed_out all land here. The message is the
+      // normalized one — never the worker's, which can name a container, a
+      // model or a quota.
+      return { ok: true, state: "failed", progress: 0, error: job.error?.message ?? "The video could not be completed." };
+    }
+
+    const url = this.videoUrlFrom(job.output);
+    if (!url) {
+      // A completed job whose output we cannot read is a failure, not a
+      // success with a missing file: marking it complete would settle the
+      // reservation for something the user never receives.
+      return { ok: true, state: "failed", progress: 0, error: "That finished but the result could not be read." };
+    }
+    return { ok: true, state: "completed", progress: 100, videoUrl: url };
+  }
+
+  async cancelJob(providerJobId: string): Promise<void> {
+    await this.adapter.cancel(providerJobId);
+  }
+
+  /**
+   * Fetch the worker's output, with the host checked again at the last moment.
+   *
+   * `videoUrlFrom` already refused anything off the allowlist, but this is the
+   * call that actually leaves the network, and a server-side fetch of a
+   * caller-influenced URL is the shape of an SSRF. Checking twice costs a
+   * string comparison.
+   */
+  async fetchAsset(url: string): Promise<Response> {
+    if (!this.isAllowed(url)) {
+      throw new Error("The video could not be retrieved.");
+    }
+    return fetch(url);
+  }
+
+  /**
+   * The one output shape this provider accepts.
+   *
+   * A worker could return anything; only `{ video_url }` over https, on a host
+   * this deployment has allow-listed, is treated as a result. Everything else
+   * — a data URI, a file path, an http URL, a link-local address, a host we do
+   * not know — reads as no output at all, which fails the job and releases the
+   * reservation rather than handing a user something unverified.
+   */
+  private videoUrlFrom(output: unknown): string | null {
+    if (!output || typeof output !== "object") return null;
+    const candidate = (output as Record<string, unknown>).video_url;
+    if (typeof candidate !== "string" || !candidate) return null;
+    return this.isAllowed(candidate) ? candidate : null;
+  }
+
+  private isAllowed(raw: string): boolean {
+    let url: URL;
+    try { url = new URL(raw); } catch { return false; }
+    if (url.protocol !== "https:") return false;
+    // An empty allowlist means nothing is accepted. Failing closed is right
+    // here: an unconfigured deployment should not fetch arbitrary hosts.
+    return this.allowedHosts.some(
+      (host) => url.hostname === host || url.hostname.endsWith(`.${host}`),
+    );
+  }
+}
+
 //
 // "auto" (the client default) picks whichever provider actually has a key, so
 // Text-to-Video runs on the OPENAI_API_KEY the rest of the studio already uses
@@ -333,7 +463,30 @@ function getProvider(name?: string): VideoProvider {
   const lumaKey   = Deno.env.get("LUMA_API_KEY");
 
   let requested = name && name !== "auto" ? name : "";
+  // "auto" never resolves to RunPod. It is chosen explicitly or not at all:
+  // an execution target that can be selected by default is one that starts
+  // serving traffic the day its key is added, which is the opposite of a
+  // staged rollout.
   if (!requested) requested = openaiKey ? "openai" : lumaKey ? "luma" : "";
+
+  if (requested === "runpod") {
+    // Configuration comes from the server, never from the caller. The client
+    // may ask for the RunPod *provider*; it may not say which endpoint, which
+    // hosts are trusted, or what the timeout is.
+    const endpointId = Deno.env.get("RUNPOD_VIDEO_ENDPOINT_ID") ?? null;
+    const readiness  = runpodReadiness(endpointId);
+    if (!readiness.ready) {
+      // The normalized sentence, not the reason. "Disabled" and "not
+      // configured" are different to an operator and identical to a user.
+      throw new Error(readiness.reason?.message ?? "This service is not available yet.");
+    }
+    const allowedHosts = (Deno.env.get("RUNPOD_VIDEO_ASSET_HOSTS") ?? "")
+      .split(",").map((h) => h.trim()).filter(Boolean);
+    return new RunPodVideoProvider(
+      runpodAdapter({ endpointId: endpointId!, apiKey: Deno.env.get("RUNPOD_API_KEY")! }),
+      allowedHosts,
+    );
+  }
 
   if (requested === "openai") {
     if (!openaiKey) {
@@ -457,6 +610,7 @@ async function handleGenerate(
     creativity:      job.creativity,
     seed:            job.seed ?? undefined,
     model:           job.provider_model,
+    idempotencyKey:  job.id,
   });
 
   if (!result.ok) {
@@ -745,6 +899,13 @@ serve(async (req) => {
 
   const { data: { user }, error: authErr } = await db.auth.getUser();
   if (authErr || !user) return jsonError("Unauthorized", 401);
+
+  // Signed in is not entitled. The AI Media Studio is a Business section,
+  // and a valid session on any plan reached this generator until now. Asked
+  // before the body is read, so an unentitled caller cannot spend a provider
+  // call, a VX reservation or a job row on the way to being refused.
+  const entitled = await maySeeSection(dbService, user.id, "mediaStudio");
+  if (!entitled.allowed) return sectionRefusal("mediaStudio", entitled.unavailable);
 
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* empty */ }

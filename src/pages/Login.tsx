@@ -51,7 +51,7 @@ export default function Login() {
       <div className="flex min-h-[70vh] items-center justify-center px-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-3xl">{t("auth.loginTitle")}</CardTitle>
+            <CardTitle as="h1" className="text-3xl">{t("auth.loginTitle")}</CardTitle>
             <CardDescription className="text-base">{t("auth.loginSubtitle")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">

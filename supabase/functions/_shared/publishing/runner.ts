@@ -92,6 +92,7 @@ export async function runPublishAttempt(
   const base = {
     publicationId: request.publicationId,
     calendarId: request.calendarId,
+    proposalRef: request.proposalRef,
     platform: request.platform,
     attempt: request.attempt,
   };

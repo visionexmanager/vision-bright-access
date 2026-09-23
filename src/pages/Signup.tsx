@@ -191,7 +191,7 @@ export default function Signup() {
           {/* Form */}
           <Card className="w-full max-w-md mx-auto">
           <CardHeader className="text-center">
-            <CardTitle className="text-3xl">{t("auth.signupTitle")}</CardTitle>
+            <CardTitle as="h1" className="text-3xl">{t("auth.signupTitle")}</CardTitle>
             <CardDescription className="text-base">{t("auth.signupSubtitle")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">

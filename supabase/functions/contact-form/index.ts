@@ -8,6 +8,18 @@ import {
   type ContactDepartmentId,
 } from "../_shared/contactRouting.ts";
 import { handleSourcingRequest } from "../_shared/sourcingRequest.ts";
+import { allowCaller } from "../_shared/securityGuard.ts";
+
+/**
+ * An attachment is only ever a file this site uploaded to contact-attachments.
+ * Anything else would put a caller-chosen link in front of the team.
+ */
+function isOwnAttachmentUrl(url: string): boolean {
+  const base = Deno.env.get("SUPABASE_URL");
+  if (!base) return false;
+  const prefix = `${base.replace(/\/+$/, "")}/storage/v1/object/public/contact-attachments/`;
+  return url.startsWith(prefix) && /^[A-Za-z0-9._-]+$/.test(url.slice(prefix.length));
+}
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -96,6 +108,20 @@ Deno.serve(async (req) => {
     const peek = await req.clone().json().catch(() => ({}));
     const action = typeof peek.action === "string" ? peek.action : "contact";
 
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Both actions are open to strangers and both send mail, so both are
+    // metered: without this the auto-reply was a free way to mail anyone.
+    if ((action === "contact" || action === "request_sourcing") && !(await allowCaller(serviceClient, req, "contact-form"))) {
+      return new Response(
+        JSON.stringify({ error: "Too many requests from this connection today. Please try again tomorrow or write to us directly." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Two actions, compared literally. Both are anon-callable customer→human
     // handoffs that create a support record; neither can reach the privileged
     // approval engine, which stays behind owner-control.
@@ -110,7 +136,7 @@ Deno.serve(async (req) => {
     }
 
     const body = peek;
-    const { full_name, email, phone, service_type, message, user_id, attachment_url } = body;
+    const { full_name, email, phone, service_type, message, attachment_url } = body;
 
     // Unknown or absent values fall back to General rather than being rejected:
     // an unroutable message must still reach a human.
@@ -147,13 +173,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    if (attachment_url && !isOwnAttachmentUrl(attachment_url)) {
+      return new Response(JSON.stringify({ error: "Invalid attachment" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // The account comes from the caller's token, never from the body: a body
+    // field would let anyone file a request under someone else's name.
+    let userId: string | null = null;
+    const bearer = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
+    if (bearer) {
+      const { data } = await serviceClient.auth.getUser(bearer).catch(() => ({ data: { user: null } }));
+      userId = data?.user?.id ?? null;
+    }
 
     const { error } = await serviceClient.from("service_requests").insert({
-      user_id:      user_id   ?? null,
+      user_id:      userId,
       full_name:    full_name.trim(),
       email:        email.trim().toLowerCase(),
       phone:        phone?.trim() || null,

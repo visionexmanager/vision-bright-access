@@ -167,8 +167,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     requires: ["ai"],
     accepts: ["text", "audio"],
     intro: {
-      ar: "تفضل، اكتب سؤالك. أنا أتذكر سياق حديثنا، و«0» للرجوع.",
-      en: "Go ahead — send me your question. I'll keep the thread in mind. Send 0 to go back.",
+      ar: "تفضل، اكتب سؤالك. أنا أتذكر سياق حديثنا، و«رجوع» يعيدك للقائمة.",
+      en: "Go ahead — send me your question. I'll keep the thread in mind, and *Back* returns you to the menu.",
     },
   },
   {
@@ -183,8 +183,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     requires: ["ai", "speech_to_text"],
     accepts: ["audio", "text"],
     intro: {
-      ar: "أرسل سؤالك برسالة صوتية وسأسمعه وأجيبك. «0» للرجوع.",
-      en: "Send your question as a voice note and I'll listen and answer. Send 0 to go back.",
+      ar: "أرسل سؤالك برسالة صوتية وسأسمعه وأجيبك. «رجوع» يعيدك للقائمة.",
+      en: "Send your question as a voice note and I'll listen and answer. *Back* returns you to the menu.",
     },
   },
   {
@@ -815,6 +815,33 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     aliases: { ar: ["البازار", "المتجر"], en: ["bazaar", "the shop"] },
     phrase: { ar: "السوق", en: "the bazaar" },
     requires: ["bazaar"],
+    accepts: ["text"],
+  },
+  {
+    id: "services.media",
+    parent: "listen",
+    order: 5,
+    kind: "action",
+    enabled: true,
+    title: { ar: "فيديو وبودكاست", en: "Videos & podcasts" },
+    description: { ar: "فيديوهات وبودكاست وكتب صوتية من مصادر مفتوحة", en: "Videos, podcasts and audiobooks from open sources" },
+    aliases: { ar: ["فيديو", "بودكاست", "كتاب صوتي"], en: ["video", "podcast", "audiobook"] },
+    // Tapped, the phrase is the word alone, which is answered by asking what to find.
+    phrase: { ar: "فيديو", en: "video" },
+    accepts: ["text"],
+  },
+  {
+    id: "services.books",
+    parent: "bazaar",
+    order: 5,
+    kind: "action",
+    enabled: true,
+    title: { ar: "طلب كتاب", en: "Find a book" },
+    description: { ar: "من مكتبة Visionex أو من مصادر خارجية", en: "From the Visionex library or outside sources" },
+    aliases: { ar: ["كتاب", "كتب", "رواية"], en: ["book", "books", "novel"] },
+    // Tapped, the phrase is the book word alone, which is answered by asking
+    // for the title.
+    phrase: { ar: "كتاب", en: "book" },
     accepts: ["text"],
   },
   {

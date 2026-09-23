@@ -40,6 +40,8 @@ const helpers = await import("../../supabase/functions/_shared/whatsapp.ts");
 const identity = await import("../../supabase/functions/_shared/whatsappIdentity.ts");
 const news = await import("../../supabase/functions/_shared/whatsappNews.ts");
 const songs = await import("../../supabase/functions/_shared/whatsappSongs.ts");
+const books = await import("../../supabase/functions/_shared/whatsappBooks.ts");
+const media = await import("../../supabase/functions/_shared/whatsappFreeMedia.ts");
 
 const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
 
@@ -453,6 +455,9 @@ describe("the catalog", () => {
       // answering, not a message falling through to something else.
       "services.songs": (p) => songs.parseSongRequest(p) !== null,
       "services.orders": (p) => identity.parseAccountIntent(p) === "orders",
+      // The book word alone: answered with "which book?", like the songs row.
+      "services.books": (p) => books.parseBookRequest(p) !== null,
+      "services.media": (p) => media.parseMediaRequest(p) !== null,
       "support.human": (p) => helpers.userAskedForHuman(p),
       // The stories, which the row now actually opens.
       "kids": (p) => kids.parseKidsRequest(p),

@@ -1,0 +1,163 @@
+# Are Facebook, Instagram, Threads and YouTube actually able to publish?
+#
+# Read-only. Asks Meta about the tokens Visionex already holds and reports
+# what each can do: token type, validity, the publishing permissions granted,
+# the Page and the Instagram account it reaches. It changes nothing — no
+# secret is written, no post is made — and prints names and permission names
+# only, never a token, because this repository's logs are public.
+
+name: Social accounts — check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Ask the platforms
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Meta (Facebook Page and Instagram)
+        shell: bash
+        env:
+          GRAPH: "https://graph.facebook.com/v26.0"
+          PAGE_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          IG_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          APP_ID: ${{ secrets.META_APP_ID }}
+          APP_SECRET: ${{ secrets.META_APP_SECRET }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          [ -n "$PAGE_TOKEN" ] && echo "::add-mask::$PAGE_TOKEN"
+          [ -n "$IG_TOKEN" ] && echo "::add-mask::$IG_TOKEN"
+
+          debug() {
+            curl -s -G "$GRAPH/debug_token" \
+              --data-urlencode "input_token=$1" \
+              --data-urlencode "access_token=$APP_ID|$APP_SECRET" |
+              jq -c '.data | {type, application, is_valid, expires_at, data_access_expires_at, scopes, error: .error.message}'
+          }
+
+          say "## Facebook Page token"
+          if [ -z "$PAGE_TOKEN" ]; then say "not configured"; else
+            say '```'; debug "$PAGE_TOKEN" | tee -a "$GITHUB_STEP_SUMMARY"; echo
+            curl -s -G "$GRAPH/me" --data-urlencode "fields=id,name,category,instagram_business_account{id,username},connected_instagram_account{id,username}" \
+              --data-urlencode "access_token=$PAGE_TOKEN" |
+              jq -c '{page: .name, category, instagram_business: .instagram_business_account.username, connected_instagram: .connected_instagram_account.username, error: .error.message}' | tee -a "$GITHUB_STEP_SUMMARY"
+            # The pages this token can manage, when it is a user token.
+            curl -s -G "$GRAPH/me/accounts" --data-urlencode "fields=name,tasks,instagram_business_account{username}" \
+              --data-urlencode "access_token=$PAGE_TOKEN" |
+              jq -c '{pages: [.data[]? | {name, tasks, instagram: .instagram_business_account.username}], error: .error.message}' | tee -a "$GITHUB_STEP_SUMMARY"
+            say '```'
+          fi
+
+          say "## Instagram token"
+          if [ -z "$IG_TOKEN" ]; then say "not configured"; else
+            say '```'; debug "$IG_TOKEN" | tee -a "$GITHUB_STEP_SUMMARY"; echo
+            curl -s -G "https://graph.instagram.com/me" --data-urlencode "fields=id,username,account_type" \
+              --data-urlencode "access_token=$IG_TOKEN" |
+              jq -c '{username, account_type, error: .error.message}' | tee -a "$GITHUB_STEP_SUMMARY"
+            say '```'
+          fi
+
+          say ""
+          say "Publishing needs: pages_manage_posts + pages_read_engagement (Facebook), instagram_content_publish (Instagram)."
+
+      # ── Can the operator connect at all? ──────────────────────────────────
+      #
+      # Everything above asks what the tokens Visionex *already holds* can do.
+      # Those tokens were pasted in by hand and cannot publish. The way to a
+      # token that can is the Connect button on /admin/social-connections, and
+      # that button fails for three reasons that are invisible from the screen:
+      # the Meta app does not have the callback allowlisted, the Edge Function
+      # has no app credentials, or it has no key to encrypt the token with.
+      #
+      # All three are checked here, before anybody clicks. Names only: the
+      # secrets API returns values, and this log is world-readable.
+      - name: Can the Connect button work?
+        shell: bash
+        env:
+          APP_ID: ${{ secrets.META_APP_ID }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          say ""
+          say "## The Connect button"
+
+          if [ -z "$SUPABASE_PROJECT_REF" ]; then
+            say "SUPABASE_PROJECT_REF is not configured — cannot derive the callback URL."
+            exit 0
+          fi
+          REDIRECT="https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1/social-oauth"
+          say "Callback the Meta app must allowlist: \`$REDIRECT\`"
+
+          # 1. Does the Edge Function have what it needs? Names only, never values.
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
+            NAMES=$(curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/secrets" \
+                      -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" | jq -r '.[].name' 2>/dev/null)
+            for secret in META_APP_ID META_APP_SECRET SOCIAL_TOKEN_ENCRYPTION_KEY; do
+              if grep -qx "$secret" <<<"$NAMES"; then
+                say "- \`$secret\` — present in Supabase"
+              else
+                say "- \`$secret\` — **missing in Supabase**, so Connect answers not_configured"
+              fi
+            done
+          else
+            say "- SUPABASE_ACCESS_TOKEN not set; cannot list the function's secrets."
+          fi
+
+          # 2. Is the callback allowlisted? Meta renders "URL Blocked" on the
+          #    consent page itself, before any login, when it is not — so this
+          #    is answerable without an account and without granting anything.
+          if [ -z "$APP_ID" ]; then
+            say "- META_APP_ID not set here; cannot test the consent page."
+            exit 0
+          fi
+          dialog() {
+            curl -s -G -L -A "Mozilla/5.0" "https://www.facebook.com/v26.0/dialog/oauth" \
+              --data-urlencode "client_id=$APP_ID" \
+              --data-urlencode "redirect_uri=$1" \
+              --data-urlencode "response_type=code" \
+              --data-urlencode "scope=pages_manage_posts,pages_read_engagement" \
+              --data-urlencode "state=probe"
+          }
+          blocked() { grep -qi "URL Blocked\|redirect_uri.*not allowed\|isn.t allowed" <<<"$1"; }
+
+          # A green light here is worth nothing unless a red one is reachable.
+          # Facebook could answer every unauthenticated request with a login
+          # page, in which case "the consent page loads" would be true of a
+          # callback that is not allowlisted at all — a check that cannot fail.
+          # So the probe is first pointed at a URL that certainly is not on the
+          # list, and its own verdict decides whether the real one is reported.
+          CONTROL=$(dialog "https://example.com/definitely-not-allowlisted")
+          if ! blocked "$CONTROL"; then
+            say "- ⚠️ This probe cannot tell an allowlisted callback from a blocked one"
+            say "  today — a deliberately invalid URL was not refused either. Open the"
+            say "  Connect button and read the screen instead of trusting this line."
+            exit 0
+          fi
+
+          if blocked "$(dialog "$REDIRECT")"; then
+            say "- ❌ **The callback is not allowlisted.** Add it under the Meta app →"
+            say "  Facebook Login → Settings → Valid OAuth Redirect URIs, then run this again."
+          else
+            say "- ✅ The callback is allowlisted: the consent page loads for it, and the"
+            say "  same probe refused a deliberately invalid URL a moment earlier."
+          fi
+
+      - name: Threads and YouTube
+        shell: bash
+        env:
+          THREADS_APP_ID: ${{ secrets.THREADS_APP_ID }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+        run: |
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          say "## Threads"
+          [ -n "$THREADS_APP_ID" ] && say "THREADS_APP_ID configured" || say "THREADS_APP_ID / THREADS_APP_SECRET are not configured — Threads cannot be connected yet."
+          say "## YouTube"
+          [ -n "$GOOGLE_OAUTH_CLIENT_ID" ] && say "GOOGLE_OAUTH_CLIENT_ID configured" || say "GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET are not configured — YouTube cannot be connected yet."

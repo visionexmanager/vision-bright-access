@@ -46,43 +46,14 @@ async function handleInitialize(userId: string, email?: string) {
   return json({ ok: true, data });
 }
 
-async function handleConsume(userId: string, body: Record<string, unknown>) {
-  const {
-    operation_type, job_id, project_id,
-    provider_slug, idempotency_key, meta,
-  } = body;
-
-  if (!operation_type) return err("operation_type required");
-
-  const db = serviceDb();
-  const { data, error } = await db.rpc("billing_consume", {
-    p_user_id:         userId,
-    p_operation_type:  operation_type,
-    p_job_id:          job_id ?? null,
-    p_project_id:      project_id ?? null,
-    p_provider_slug:   provider_slug ?? null,
-    p_idempotency_key: idempotency_key ?? null,
-    p_meta:            meta ?? {},
-  });
-
-  if (error) return json({ ok: false, error: error.message });
-  return json(data);
-}
-
-async function handleRefund(userId: string, body: Record<string, unknown>) {
-  const { job_id, reason } = body;
-  if (!job_id) return err("job_id required");
-
-  const db = serviceDb();
-  const { data, error } = await db.rpc("billing_refund", {
-    p_user_id: userId,
-    p_job_id:  job_id,
-    p_reason:  reason ?? "generation_failed",
-  });
-
-  if (error) return json({ ok: false, error: error.message });
-  return json(data);
-}
+// `handleConsume` and `handleRefund` used to be here. They called
+// `billing_consume` / `billing_refund` against `credit_wallets`, and neither
+// has ever run in production: six zero-balance wallets, no transactions, no
+// usage rows. Charging VX is now `vx_reserve`/`vx_settle` behind
+// `_shared/vx/meter.ts`, server-side, where a client cannot skip the decision.
+//
+// The SQL functions are deliberately still there — see
+// .claude/references/vx-deprecations.md for what stays and why.
 
 async function handleGetStatus(userId: string) {
   const db = serviceDb();
@@ -118,10 +89,14 @@ async function handleGetHistory(userId: string, body: Record<string, unknown>) {
   const offset = Number(body.offset ?? 0);
   const type   = body.type as string | undefined;
 
+  // Named columns, not `*`. The row also carries `provider_slug`, which names
+  // the vendor behind a generation, and `idempotency_key`, which is a
+  // server-side control the account holder has no use for. A customer's
+  // history is what they spent and on what, not who Visionex bought it from.
   const db = serviceDb();
   let q = db
     .from("credit_transactions")
-    .select("*")
+    .select("id, user_id, type, amount_vx, balance_after, description, operation_type, job_id, project_id, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -138,10 +113,11 @@ async function handleGetUsageLogs(userId: string, body: Record<string, unknown>)
   const hours  = Number(body.hours ?? 720);
   const opType = body.operation_type as string | undefined;
 
+  // Same rule as the history above: no `provider_slug`, no `meta`.
   const db = serviceDb();
   let q = db
     .from("usage_logs")
-    .select("*")
+    .select("id, user_id, operation_type, credits_used, status, project_id, job_id, billing_mode, plan_id, created_at")
     .eq("user_id", userId)
     .gte("created_at", new Date(Date.now() - hours * 3_600_000).toISOString())
     .order("created_at", { ascending: false })
@@ -151,6 +127,36 @@ async function handleGetUsageLogs(userId: string, body: Record<string, unknown>)
 
   const { data, error } = await q;
   if (error) return json({ ok: false, error: error.message });
+  return json({ ok: true, data });
+}
+
+// The user's own VX spending, from the one ledger.
+//
+// `my_vx_usage()` is a column list rather than a policy: the ledger row also
+// carries `provider` and `actual_cost_usd`, and "users read their own rows"
+// would hand both over. What comes back is what they spent, on what, when, and
+// from which surface.
+// Through the caller's own token, not the service role. `my_vx_usage()`
+// filters on `auth.uid()`, which is NULL for the service role — so calling it
+// as the service role returned an empty list for everybody, always. The ledger
+// has no rows yet, so the screen showed its empty state and looked right; the
+// first enabled service would have made it look broken.
+async function handleMyUsage(authHeader: string, body: Record<string, unknown>) {
+  const limit  = Math.min(Math.max(Number(body.limit ?? 50), 1), 200);
+  const offset = Math.max(Number(body.offset ?? 0), 0);
+  const db = userDb(authHeader);
+  const { data, error } = await db.rpc("my_vx_usage", { _limit: limit, _offset: offset });
+  if (error) return json({ ok: false, error: error.message }, 500);
+  return json({ ok: true, data });
+}
+
+// The header of the same screen: balance, plan, allowance, today and this
+// month. Same reasoning about the token, and the function takes no argument at
+// all — there is no id to tamper with, so one account cannot ask about another.
+async function handleMySummary(authHeader: string) {
+  const db = userDb(authHeader);
+  const { data, error } = await db.rpc("my_vx_summary");
+  if (error) return json({ ok: false, error: error.message }, 500);
   return json({ ok: true, data });
 }
 
@@ -186,20 +192,91 @@ async function handleCancel(userId: string) {
   return json({ ok: true });
 }
 
-async function handleGrantCredits(userId: string, body: Record<string, unknown>) {
-  const { amount_vx, description } = body;
-  if (!amount_vx || Number(amount_vx) <= 0) return err("amount_vx required and must be positive");
+// `handleGrantCredits` was here and was already unreachable: the dispatcher
+// closed `grant_credits` because it granted a caller-supplied amount to any
+// authenticated user with no payment verification. Unreachable code that still
+// reads as live is worse than none, so it is gone with the rest.
 
+// ── The operator's actions ────────────────────────────────────────────────────
+//
+// The VX price list, what the one ledger recorded, and the wallet-migration
+// report. They live here rather than in a function of their own for two
+// reasons that point the same way.
+//
+// This *is* the billing authority — a second endpoint that reads and writes
+// prices would be the second billing system Phase 1 exists to remove. And the
+// project sits two functions below the Supabase ceiling, where the 101st is
+// rejected with a 402 that reads like a bundling error; `content-engine`'s
+// suite asks every addition to argue for itself first, and this one cannot.
+//
+// The screen calls these rather than PostgREST because
+// `src/integrations/supabase/types.ts` is regenerated from the live schema
+// after a migration deploys, and `kidsSupabase.ts` records at length why
+// casting around that drift is the wrong answer.
+
+async function requireAdmin(userId: string): Promise<boolean> {
   const db = serviceDb();
-  const { data, error } = await db.rpc("billing_grant_credits", {
-    p_user_id:    userId,
-    p_amount_vx:  Number(amount_vx),
-    p_type:       "purchase",
-    p_description: description ?? `Purchased ${amount_vx} VX`,
-  });
+  const { data } = await db.rpc("has_role", { _user_id: userId, _role: "admin" });
+  if (data === true) return true;
+  // Recorded, not just refused: somebody probing the price list is worth
+  // seeing in the security feed.
+  await db.rpc("record_security_event", {
+    _kind: "vx_pricing_forbidden",
+    _source: "billing-engine",
+    _subject_hash: null,
+    _detail: { user_id: userId },
+  }).catch(() => {});
+  return false;
+}
 
-  if (error) return json({ ok: false, error: error.message });
-  return json(data);
+async function handlePricingList() {
+  const db = serviceDb();
+  // The whole row, cost and provider included, because this response only ever
+  // reaches an admin. A user asking what something costs calls vx_price_list().
+  const { data, error } = await db
+    .from("central_pricing_registry").select("*").order("display_name");
+  if (error) return json({ ok: false, error: error.message }, 500);
+  return json({ ok: true, data });
+}
+
+async function handleSetPricing(body: Record<string, unknown>) {
+  const serviceId = body.service_id;
+  if (typeof serviceId !== "string" || !serviceId) return err("service_id required");
+  const patch = (body.patch ?? {}) as Record<string, unknown>;
+
+  // Every field passes through as given, or null meaning "leave it". The
+  // validation that matters — no negative price, no non-object plan_limits —
+  // is in the SQL function, where a second caller cannot skip it.
+  const db = serviceDb();
+  const { data, error } = await db.rpc("admin_set_service_pricing", {
+    _service_id: serviceId,
+    _vx_price: patch.vx_price ?? null,
+    _free_limit: patch.free_limit ?? null,
+    _max_daily_usage: patch.max_daily_usage ?? null,
+    _plan_limits: patch.plan_limits ?? null,
+    _enabled: patch.enabled ?? null,
+    _admin_only: patch.admin_only ?? null,
+    _base_cost: patch.base_cost ?? null,
+    _provider: patch.provider ?? null,
+  });
+  if (error) return json({ ok: false, error: error.message }, 500);
+  const result = data as { ok?: boolean; error?: string };
+  return result?.ok ? json(result) : json(result ?? { ok: false }, 409);
+}
+
+async function handleUsageAnalytics(body: Record<string, unknown>) {
+  const days = Math.min(Math.max(Number(body.days ?? 30), 1), 365);
+  const db = serviceDb();
+  const { data, error } = await db.rpc("vx_usage_analytics", { _days: days });
+  if (error) return json({ ok: false, error: error.message }, 500);
+  return json({ ok: true, data });
+}
+
+async function handleMigrationReport() {
+  const db = serviceDb();
+  const { data, error } = await db.rpc("vx_wallet_migration_report");
+  if (error) return json({ ok: false, error: error.message }, 500);
+  return json({ ok: true, data });
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -221,14 +298,45 @@ serve(async (req) => {
 
   switch (action) {
     case "initialize":      return handleInitialize(user.id, user.email ?? undefined);
+    // Superseded, and named rather than dropped: an unknown action invites a
+    // retry, and one that says what replaced it does not. `grant_credits` was
+    // already closed for granting a caller-supplied amount with no payment
+    // verification; `consume` and `refund` charged `credit_wallets` from a
+    // client, which is the shape this phase removes.
     case "check_and_consume":
-    case "consume":         return handleConsume(user.id, body);
-    case "refund":          return handleRefund(user.id, body);
+    case "consume":
+    case "refund":
+    case "grant_credits":
+      return err(
+        "Superseded by vx_reserve / vx_settle through _shared/vx/meter.ts. See .claude/references/vx-deprecations.md.",
+        410,
+      );
     case "get_status":      return handleGetStatus(user.id);
     case "get_balance":     return handleGetBalance(user.id);
     case "get_history":     return handleGetHistory(user.id, body);
     case "get_usage_logs":  return handleGetUsageLogs(user.id, body);
     case "get_plans":       return handleGetPlans();
+    // The new usage view, beside the legacy one. `get_usage_logs` reads
+    // `usage_logs`, which is empty and always was; this reads the ledger the
+    // platform now bills through.
+    case "my_usage":        return handleMyUsage(authHeader, body);
+    case "my_summary":      return handleMySummary(authHeader);
+
+    // Admin-gated, each one checked against the caller's role before it runs.
+    // `vx_migrate_wallet_balances` is deliberately absent: it moves real
+    // balances, it is granted to the service role only, and running it is a
+    // reviewed operational step with the report above read first — not a
+    // button somebody can reach past on a Tuesday.
+    case "pricing_list":
+    case "set_pricing":
+    case "usage_analytics":
+    case "migration_report": {
+      if (!(await requireAdmin(user.id))) return err("Forbidden", 403);
+      if (action === "pricing_list")    return handlePricingList();
+      if (action === "set_pricing")     return handleSetPricing(body);
+      if (action === "usage_analytics") return handleUsageAnalytics(body);
+      return handleMigrationReport();
+    }
     // "upgrade" is not reachable from a user JWT either, for the same reason:
     // it inserted an active subscription to any plan the caller named, and
     // Gold opens every section, so any signed-in account could take it for
@@ -236,11 +344,6 @@ serve(async (req) => {
     // server-side — never because the account holder asked for one.
     case "upgrade":         return err("A plan is activated after payment is confirmed.", 403);
     case "cancel":          return handleCancel(user.id);
-    // "grant_credits" is intentionally not reachable here: it granted an
-    // arbitrary, caller-supplied VX amount to any authenticated user with no
-    // payment verification. It's only safe to call from a trusted
-    // server-to-server context (e.g. a verified payment webhook) using the
-    // service-role key, not from a user JWT.
     default:                return err(`Unknown action: ${action}`);
   }
 });

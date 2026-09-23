@@ -78,7 +78,7 @@ describe("PlanGate", () => {
     renderAt("/services/ai-media-studio/video");
 
     expect(screen.getByText(/AI Media Studio/)).toBeTruthy();
-    expect(screen.getByText(/Gold/)).toBeTruthy();
+    expect(screen.getByText(/Business/)).toBeTruthy();
     expect(screen.getByText(/\$?10/)).toBeTruthy();
   });
 

@@ -206,3 +206,53 @@ export const sourcingNoneNotice = (language: Language): string =>
 /** The agent could not be reached. Distinct from "there is nothing". */
 export const sourcingUnavailableNotice = (language: Language): string =>
   say("sourcingUnavailable", language).replace("{url}", CATALOGUE_URL);
+
+/**
+ * The big stores, searched for the words the sender used.
+ *
+ * None of them offers a product search without a paid or approved API key
+ * (Amazon PA-API, eBay Browse, AliExpress Open Platform — adapters for all
+ * three already exist and switch on when their keys are set). A search link is
+ * what is honest to send without one: it lands on that store's real, current
+ * results for the item, in the sender's own browser.
+ */
+export const STORE_SEARCHES: Array<{ name: string; url: (q: string) => string }> = [
+  { name: "Amazon", url: (q) => `https://www.amazon.com/s?k=${q}` },
+  { name: "AliExpress", url: (q) => `https://www.aliexpress.com/wholesale?SearchText=${q}` },
+  { name: "eBay", url: (q) => `https://www.ebay.com/sch/i.html?_nkw=${q}` },
+  { name: "Noon", url: (q) => `https://www.noon.com/uae-en/search/?q=${q}` },
+  { name: "Google Shopping", url: (q) => `https://www.google.com/search?tbm=shop&q=${q}` },
+];
+
+export function storeSearchLinks(item: string, language: Language): string {
+  const query = item.replace(/\s+/g, " ").trim().slice(0, 100);
+  const encoded = encodeURIComponent(query);
+  return [
+    say("storesHeading", language).replace("{query}", query),
+    "",
+    ...STORE_SEARCHES.map((store) => `• ${store.name}: ${store.url(encoded)}`),
+    "",
+    say("storesHint", language),
+  ].join("\n");
+}
+
+/**
+ * For the assistant, when neither the bazaar nor the catalogue has the item.
+ *
+ * A bare "not found" left somebody who asked for a product with nothing to do.
+ * The assistant answers about the item instead — and because no Visionex
+ * listing exists, it may give a typical market price, as an estimate, which
+ * the general rule against quoting bazaar prices from memory would otherwise
+ * forbid. It never claims stock and never names a supplier: the owner sources
+ * items through the team, so the way forward it offers is that request.
+ */
+export function productNotFoundDirective(item: string): string {
+  const named = item.replace(/["\n]/g, " ").trim().slice(0, 120);
+  return [
+    `The sender is looking for this product: "${named}".`,
+    "Visionex has no listing for it in the bazaar or the catalogue right now; this was just checked.",
+    "Do not answer only that it was not found. Briefly say what the item is and what to look for when buying it, and give a typical market price range if you reliably know one, clearly marked as an approximate estimate, not a Visionex price.",
+    "Never claim Visionex has it in stock and never write links yourself: the sender has just been sent search links for the big stores, so do not repeat them.",
+    "End by saying the Visionex team can try to source it for them: they only need to write «بدي أحكي مع موظف» (in Arabic) or \"I want to speak to a person\" and describe what they need.",
+  ].join(" ");
+}

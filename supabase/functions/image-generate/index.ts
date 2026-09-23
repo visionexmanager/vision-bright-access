@@ -8,6 +8,8 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -24,25 +26,65 @@ function jsonError(message: string, status = 500, code?: string): Response {
   return json({ ok: false, error: message, code }, status);
 }
 
-// ── DALL·E Provider ───────────────────────────────────────────────────────────
+// ── The image provider ────────────────────────────────────────────────────────
+//
+// This function asked for `dall-e-3` until 2026-09-19, and the account's key
+// answers "The model 'dall-e-3' does not exist" — the DALL·E family has been
+// retired. Every image the studio tried to make failed with a message that
+// read like a configuration mistake, and the fault was a model name.
+//
+// Two consequences beyond the name. The current models answer in base64 and
+// never with a link, so `response_format: "url"` and reading `.url` produced
+// nothing even where the call succeeded; and they reject `style` outright,
+// which would have turned a fixed model name into a 400.
 
-interface ImageGenerateParams {
-  prompt:      string;
-  model:       "dall-e-3" | "dall-e-2";
-  size:        "1024x1024" | "1024x1792" | "1792x1024" | "512x512" | "256x256";
-  quality:     "standard" | "hd";
-  style:       "vivid" | "natural";
-  n:           number;
+/** The models this account actually has, in preference order. */
+const IMAGE_MODELS = ["gpt-image-1", "gpt-image-1-mini"] as const;
+
+/** The shapes the current family accepts. The DALL·E sizes are not among them. */
+const SIZES = ["1024x1024", "1024x1536", "1536x1024"] as const;
+type ImageSize = (typeof SIZES)[number];
+
+/**
+ * A size the model will accept, from whatever the caller asked for.
+ *
+ * The studio's buttons still say 1024x1792 and 512x512; rejecting those would
+ * break a screen over a vocabulary change nobody outside this file caused.
+ * Portrait maps to portrait and landscape to landscape.
+ */
+function normaliseSize(requested: string): ImageSize {
+  if ((SIZES as readonly string[]).includes(requested)) return requested as ImageSize;
+  const [w, h] = requested.split("x").map((n) => parseInt(n, 10));
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w === h) return "1024x1024";
+  return h > w ? "1024x1536" : "1536x1024";
+}
+
+/** `standard`/`hd` in the old vocabulary; `low`/`medium`/`high` in the new one. */
+function normaliseQuality(requested: string): "medium" | "high" {
+  return requested === "hd" || requested === "high" ? "high" : "medium";
 }
 
 interface ImageGenerateResult {
-  ok:            boolean;
-  imageUrl?:     string;
+  ok:             boolean;
+  /** PNG bytes. The caller stores them; there is no provider URL to keep. */
+  bytes?:         Uint8Array;
   revisedPrompt?: string;
-  error?:        string;
+  model?:         string;
+  error?:         string;
 }
 
-async function generateWithDALLE(params: ImageGenerateParams): Promise<ImageGenerateResult> {
+function decodeBase64(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function generateImage(params: {
+  prompt: string;
+  size: ImageSize;
+  quality: "medium" | "high";
+}): Promise<ImageGenerateResult> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) {
     return {
@@ -51,54 +93,68 @@ async function generateWithDALLE(params: ImageGenerateParams): Promise<ImageGene
     };
   }
 
-  const body: Record<string, unknown> = {
-    model:   params.model,
-    prompt:  params.prompt,
-    n:       params.n,
-    size:    params.size,
-    quality: params.quality,
-    style:   params.style,
-    response_format: "url",
-  };
+  let lastError = "Image generation failed.";
 
-  const res = await fetch("https://api.openai.com/v1/images/generations", {
-    method:  "POST",
-    headers: {
-      Authorization:  `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+  for (const model of IMAGE_MODELS) {
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
+      method:  "POST",
+      headers: {
+        Authorization:  `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      // No `style`, and no `response_format`: this family rejects the first and
+      // ignores the second, always answering in base64.
+      body: JSON.stringify({
+        model,
+        prompt:  params.prompt,
+        n:       1,
+        size:    params.size,
+        quality: params.quality,
+      }),
+    });
 
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const errJson = await res.json();
-      detail = errJson?.error?.message ?? detail;
-    } catch { /* ignore */ }
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      let code = "";
+      try {
+        const errJson = await res.json();
+        detail = errJson?.error?.message ?? detail;
+        code = errJson?.error?.code ?? errJson?.error?.type ?? "";
+      } catch { /* ignore */ }
 
-    const statusMap: Record<number, string> = {
-      400: `Invalid request: ${detail}`,
-      401: "OPENAI_API_KEY is invalid or revoked. Update the secret in Supabase dashboard.",
-      403: "OpenAI API key lacks permission for image generation.",
-      429: "OpenAI rate limit reached. Please wait a moment and try again.",
-      500: "OpenAI service error — please retry in a few seconds.",
-      503: "OpenAI is temporarily unavailable. Please retry shortly.",
+      // A model this key does not have is the one failure worth trying the
+      // next name for — which is exactly how this function broke.
+      if (/does not exist|model_not_found/i.test(`${code} ${detail}`)) {
+        lastError = `No image model on this key accepted the request (last tried ${model}).`;
+        continue;
+      }
+
+      const statusMap: Record<number, string> = {
+        400: `Invalid request: ${detail}`,
+        401: "OPENAI_API_KEY is invalid or revoked. Update the secret in Supabase dashboard.",
+        403: "OpenAI API key lacks permission for image generation.",
+        429: "OpenAI rate limit reached. Please wait a moment and try again.",
+        500: "OpenAI service error — please retry in a few seconds.",
+        503: "OpenAI is temporarily unavailable. Please retry shortly.",
+      };
+      return { ok: false, error: statusMap[res.status] ?? `OpenAI image error (${res.status}): ${detail}` };
+    }
+
+    const data = await res.json();
+    const image = data.data?.[0];
+    if (!image?.b64_json) {
+      return { ok: false, error: "OpenAI returned no image. The prompt may have been rejected by content policy." };
+    }
+
+    return {
+      ok:            true,
+      bytes:         decodeBase64(image.b64_json),
+      revisedPrompt: image.revised_prompt ?? params.prompt,
+      model,
     };
-    return { ok: false, error: statusMap[res.status] ?? `OpenAI DALL·E error (${res.status}): ${detail}` };
   }
 
-  const data = await res.json();
-  const image = data.data?.[0];
-  if (!image?.url) {
-    return { ok: false, error: "OpenAI returned no image URL. The prompt may have been rejected by content policy." };
-  }
-
-  return {
-    ok:            true,
-    imageUrl:      image.url,
-    revisedPrompt: image.revised_prompt ?? params.prompt,
-  };
+  return { ok: false, error: lastError };
 }
 
 // ── Request interface ─────────────────────────────────────────────────────────
@@ -134,6 +190,14 @@ Deno.serve(async (req: Request) => {
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return jsonError("Unauthorized: Invalid or expired session. Please sign in again.", 401);
 
+  // Signed in is not the same as entitled. The AI Media Studio is a Business
+  // section, and until this check existed a valid session on any plan reached
+  // the generator. Asked before the body is read, so an unentitled caller
+  // cannot spend a provider call, a VX reservation or a storage write on the
+  // way to being refused.
+  const entitled = await maySeeSection(serviceClient, user.id, "mediaStudio");
+  if (!entitled.allowed) return sectionRefusal("mediaStudio", entitled.unavailable);
+
   let body: RequestBody;
   try {
     body = await req.json();
@@ -143,22 +207,27 @@ Deno.serve(async (req: Request) => {
 
   const {
     prompt,
-    model      = "dall-e-3",
     size       = "1024x1024",
     quality    = "standard",
+    // Recorded on the job and echoed back, but never sent: this family rejects
+    // it. Callers still pass it, and dropping it from the record would lose the
+    // only trace of what the operator chose.
     style      = "vivid",
     project_id,
   } = body;
+  // The caller's `model` is deliberately ignored. Every name it can carry names
+  // a retired model, and honouring one would reinstate the bug this fixes.
+  const model = IMAGE_MODELS[0];
 
   if (!prompt?.trim())           return jsonError("prompt is required", 400);
   if (prompt.trim().length < 3)  return jsonError("Prompt must be at least 3 characters", 400);
   if (prompt.length > 4000)      return jsonError("Prompt exceeds 4000 character limit", 400);
 
-  // Validate size for DALL-E 3 (different allowed sizes than DALL-E 2)
-  const dalle3Sizes = ["1024x1024", "1024x1792", "1792x1024"];
-  if (model === "dall-e-3" && !dalle3Sizes.includes(size)) {
-    return jsonError(`Invalid size '${size}' for DALL·E 3. Allowed: ${dalle3Sizes.join(", ")}`, 400);
-  }
+  // The caller's vocabulary is translated rather than refused: the studio's
+  // buttons predate this model family and a 400 here would be a screen broken
+  // by a rename.
+  const wantedSize = normaliseSize(size);
+  const wantedQuality = normaliseQuality(quality);
 
   // Create job record in DB
   const { data: jobRow, error: jobErr } = await serviceClient
@@ -189,13 +258,10 @@ Deno.serve(async (req: Request) => {
 
   // Generate the image
   try {
-    const result = await generateWithDALLE({
+    const result = await generateImage({
       prompt:  prompt.trim(),
-      model:   model as "dall-e-3" | "dall-e-2",
-      size:    size as ImageGenerateParams["size"],
-      quality: quality as "standard" | "hd",
-      style:   style as "vivid" | "natural",
-      n:       1,
+      size:    wantedSize,
+      quality: wantedQuality,
     });
 
     if (!result.ok) {
@@ -209,10 +275,39 @@ Deno.serve(async (req: Request) => {
       return json({ ok: false, error: result.error, job_id: jobId }, 500);
     }
 
-    // Parse dimensions from size string
-    const [widthStr, heightStr] = size.split("x");
+    // Parse dimensions from the size actually asked of the model.
+    const [widthStr, heightStr] = wantedSize.split("x");
     const width  = parseInt(widthStr ?? "1024", 10);
     const height = parseInt(heightStr ?? "1024", 10);
+
+    // ── Where the picture lives ────────────────────────────────────────
+    //
+    // The old code handed back OpenAI's own link, which expires within the
+    // hour — so an image saved to a project was a dead URL by the afternoon.
+    // The current models return no link at all, so the bytes are stored in
+    // the studio's own bucket, under the owner's folder as its policies
+    // require, and the caller gets a signed URL for them.
+    const objectPath = `${user.id}/${jobId}.png`;
+    const { error: uploadErr } = await serviceClient.storage
+      .from("image-outputs")
+      .upload(objectPath, result.bytes!, { contentType: "image/png", upsert: true });
+    if (uploadErr) {
+      console.error("Image upload failed:", uploadErr.message);
+      if (jobRow) {
+        await serviceClient.from("ams_image_jobs").update({
+          status: "failed", error_message: "Storage upload failed", completed_at: new Date().toISOString(),
+        }).eq("id", jobId);
+      }
+      return json({ ok: false, error: "The image was generated but could not be saved.", job_id: jobId }, 500);
+    }
+
+    const { data: signed } = await serviceClient.storage
+      .from("image-outputs")
+      .createSignedUrl(objectPath, 60 * 60 * 24 * 7);
+    const imageUrl = signed?.signedUrl ?? null;
+    if (!imageUrl) {
+      return json({ ok: false, error: "The image was saved but could not be linked.", job_id: jobId }, 500);
+    }
 
     // Create asset record (best-effort)
     let assetId: string | null = null;
@@ -227,8 +322,8 @@ Deno.serve(async (req: Request) => {
           original_name: filename,
           asset_type:    "image",
           mime_type:     "image/png",
-          size_bytes:    0,
-          public_url:    result.imageUrl!,
+          size_bytes:    result.bytes!.byteLength,
+          public_url:    imageUrl,
           status:        "ready",
           metadata: {
             source:         "image-studio",
@@ -250,7 +345,7 @@ Deno.serve(async (req: Request) => {
     if (jobRow) {
       await serviceClient.from("ams_image_jobs").update({
         status:         "completed",
-        image_url:      result.imageUrl,
+        image_url:      imageUrl,
         revised_prompt: result.revisedPrompt,
         asset_id:       assetId,
         width,
@@ -263,7 +358,7 @@ Deno.serve(async (req: Request) => {
       ok:             true,
       job_id:         jobId,
       asset_id:       assetId,
-      image_url:      result.imageUrl,
+      image_url:      imageUrl,
       revised_prompt: result.revisedPrompt,
       width,
       height,

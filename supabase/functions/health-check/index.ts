@@ -8,6 +8,7 @@
  *   { ok, timestamp, components: { [name]: { ok, status, detail } } }
  */
 
+import { overpassViaProcessor, processorAvailable } from "../_shared/whatsappProcessor.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const CORS = {
@@ -752,14 +753,30 @@ Deno.serve(async (req: Request) => {
     results[`map_${service.key}`] = mapProbes[i];
   });
 
+  // Overpass through Visionex's own server, which is how the assistant asks it:
+  // overpass-api.de refuses this runtime's network with a 406.
+  const relayElements = processorAvailable()
+    ? await overpassViaProcessor(
+      `[out:json][timeout:10];(nwr(around:1200,${MAP_PROBE.lat},${MAP_PROBE.lon})["amenity"]["name"];);out center 3;`,
+    )
+    : null;
+  const relayName = relayElements?.find((element) => element.tags?.name)?.tags?.name ?? null;
+  const relayProbe: ComponentStatus = !processorAvailable()
+    ? { ok: false, status: "warning", detail: "Overpass relay is not configured (MEDIA_PROCESSOR_URL / MEDIA_PROCESSOR_TOKEN)." }
+    : relayName
+    ? { ok: true, status: "ok", detail: `Overpass via the Visionex server reachable and answering ("${relayName}").` }
+    : { ok: false, status: "warning", detail: "Overpass via the Visionex server did not answer — the processor may need action=deploy." };
+  results.map_overpass_relay = relayProbe;
+
   // What the sender actually experiences, one line per question they can ask.
   // A question is answerable if any one service in its group answered, and
   // broken only if none did. These are the lines to read when somebody reports
   // that sharing their location, or asking what is near them, stopped working.
   for (const group of ["reverse", "nearby", "weather"] as MapGroup[]) {
     const inGroup = MAP_SERVICES
-      .map((service, i) => ({ service, probe: mapProbes[i] }))
-      .filter(({ service }) => service.group === group);
+      .map((service, i) => ({ service: { label: service.label, group: service.group }, probe: mapProbes[i] }))
+      .filter(({ service }) => service.group === group)
+      .concat(group === "nearby" ? [{ service: { label: "Overpass via Visionex server", group }, probe: relayProbe }] : []);
     const up = inGroup.filter(({ probe }) => probe.ok).map(({ service }) => service.label);
 
     results[`map_${group}_lookup`] = up.length > 0

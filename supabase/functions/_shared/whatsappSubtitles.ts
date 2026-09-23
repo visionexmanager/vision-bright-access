@@ -71,7 +71,7 @@ export const isTimingLine = (line: string): boolean => TIMING.test(line);
  * SRT, and that is what it is treated as.
  */
 export function detectSubtitleFormat(source: string): SubtitleFormat {
-  if (/^﻿?\s*WEBVTT/.test(source)) return "vtt";
+  if (/^\uFEFF?\s*WEBVTT/.test(source)) return "vtt";
   return "srt";
 }
 
@@ -85,7 +85,7 @@ export function detectSubtitleFormat(source: string): SubtitleFormat {
 export function parseSubtitles(source: string): ParsedSubtitles {
   const format = detectSubtitleFormat(source);
   // Every line ending, and the byte-order mark a Windows editor leaves behind.
-  const lines = source.replace(/^﻿/, "").split(/\r\n|\r|\n/);
+  const lines = source.replace(/^\uFEFF/, "").split(/\r\n|\r|\n/);
 
   const cues: SubtitleCue[] = [];
   let pendingIndex: number | null = null;

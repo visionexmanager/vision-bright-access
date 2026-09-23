@@ -15,6 +15,7 @@
 //   WHATSAPP_PHONE_NUMBER_ID- the Cloud API phone number id
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import {
   createEmbedding,
@@ -74,6 +75,8 @@ import {
 } from "../_shared/whatsappAttachments.ts";
 import {
   fetchNearby,
+  searchNearby,
+  SEARCH_RADIUS_M,
   fetchWeather,
   geocodePlace,
   NEARBY_RADIUS_M,
@@ -97,7 +100,6 @@ import {
   withDisclaimer,
 } from "../_shared/whatsappMedicines.ts";
 import {
-  asksWhatIsNearby,
   asksWhereAmI,
   formatNearby,
   formatWhereYouAre,
@@ -108,7 +110,7 @@ import {
   nearbyHint,
   nearbyRowSubtitle,
   parseFindPlaceRequest,
-  parseNearbyCategory,
+  parseNearbyRequest,
   parsePlaceSelection,
   type PlaceDescription,
   placeLabel,
@@ -159,8 +161,8 @@ import {
 import {
   formatSourcedOffers,
   readSourcedOffers,
-  sourcingNoneNotice,
-  sourcingUnavailableNotice,
+  productNotFoundDirective,
+  storeSearchLinks,
 } from "../_shared/whatsappSourcing.ts";
 import { handleSourceProducts } from "../_shared/sourcing/handler.ts";
 import {
@@ -291,6 +293,24 @@ import {
 } from "../_shared/whatsappVoiceReply.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
+  bookAskNotice,
+  bookNotFoundDirective,
+  formatBooks,
+  type FoundBook,
+  libraryBook,
+  parseBookRequest,
+  searchArchiveTexts,
+  searchOpenLibrary,
+} from "../_shared/whatsappBooks.ts";
+import {
+  formatMedia,
+  mediaAskNotice,
+  mediaNotFoundDirective,
+  type MediaKind,
+  parseMediaRequest,
+  searchMedia,
+} from "../_shared/whatsappFreeMedia.ts";
+import {
   type Capability,
   type CatalogNode,
   childrenOf,
@@ -391,7 +411,7 @@ import { messageKindFor, runMediaJob, runTranslateJob } from "../_shared/whatsap
 import { extractDocumentText } from "../_shared/whatsappDocumentText.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { readOfficeLocally } from "../_shared/whatsappOffice.ts";
-import { convertMediaLocally } from "../_shared/whatsappProcessor.ts";
+import { convertMediaLocally, overpassViaProcessor } from "../_shared/whatsappProcessor.ts";
 
 // The Supabase edge runtime keeps a promise alive past the response. Declared
 // rather than imported because it is a global the runtime provides and the
@@ -471,6 +491,19 @@ import {
   parseOwnerCommand,
   type PendingApproval,
 } from "../_shared/ownerControl.ts";
+import {
+  formatWhichProposal,
+  isBareContentReply,
+  parseBareDecision,
+  parseContentCommand,
+} from "../_shared/ownerContent.ts";
+import {
+  type ContentCommandContext,
+  decidableProposals,
+  decideProposal,
+  findProposal,
+  runContentCommand,
+} from "../_shared/ownerContentActions.ts";
 
 /** How much prior conversation the model sees. Enough for context, bounded. */
 const HISTORY_LIMIT = 12;
@@ -569,18 +602,73 @@ async function readFeatureConfig(db: ReturnType<typeof service>): Promise<Featur
  * is an ordinary message and gets the ordinary answer, so the number that runs
  * the service is also the number that can test it.
  */
+/**
+ * Decide the content proposal the owner means, when they named no reference.
+ *
+ * Null means "I could not tell", and the caller carries on as though this had
+ * never been asked — which is what keeps an ordinary «نعم» in an ordinary
+ * conversation an ordinary «نعم». Two proposals waiting is also "I could not
+ * tell": it asks which, rather than deciding the newer one and telling the
+ * owner afterwards.
+ */
+async function decideWaitingProposal(
+  db: ReturnType<typeof service>,
+  from: string,
+  approve: boolean,
+  note: string | null,
+): Promise<string | null> {
+  const waiting = await decidableProposals(db);
+  if (waiting.length === 0) return null;
+  // The owner has spoken, so the daily run may send whole proposals again.
+  await db.from("whatsapp_conversations").update({ last_message_at: new Date().toISOString() }).eq("wa_phone", from);
+  if (waiting.length > 1) return formatWhichProposal(waiting, approve);
+  return await decideProposal(db, waiting[0].proposal_ref, approve, note);
+}
+
 async function handleOwnerCommand(
   db: ReturnType<typeof service>,
   from: string,
-  text: string,
+  rawText: string,
+  context: ContentCommandContext = {},
 ): Promise<string | null> {
+  // The content template asks the owner to reply «محتوى»; that word alone is
+  // the list, so the owner never has to know about the slash to answer it.
+  const text = isBareContentReply(rawText) ? "/content" : rawText;
   const command = parseOwnerCommand(text);
+
+  // ── Answering a proposal the way anybody answers a message ──────────────
+  //
+  // The proposal ends with `/approve AB2CD`, and the owner replied «وافقت
+  // عليه» — which is what a person does. Without the slash that was not a
+  // command at all, so it went to the customer assistant, which discussed the
+  // idea pleasantly and moved nothing. A short message that says only yes or
+  // no, while exactly one proposal is undecided, is an answer to that
+  // proposal. Everything else still needs the slash, and this resolves against
+  // content proposals only — a customer escalation is still decided by its
+  // reference, because there the wrong guess reaches a stranger.
+  const bare = parseBareDecision(rawText);
+  if (bare) {
+    const decided = await decideWaitingProposal(db, from, bare.approve, bare.note);
+    if (decided) return decided;
+  }
+
   // No prefix, no command. The owner is a customer here, which is the only way
   // they can see what a customer sees.
   if (ownerCommandBody(text) === null) return null;
+
+  // Social media content: listed, shown, edited, redone, scheduled and
+  // proposed from here. Read before the help fallback below, which would
+  // otherwise answer "/content" with the list of commands. Decisions still go
+  // through decide_content_proposal, which moves a proposal and its approval
+  // together.
+  const contentCommand = parseContentCommand(ownerCommandBody(text) ?? "");
+  const contentProposal = !contentCommand && command.reference &&
+      (command.kind === "approve" || command.kind === "reject")
+    ? await findProposal(db, command.reference)
+    : null;
   // A slash is always a command attempt, so a mistyped one is answered with the
   // list rather than handed to the assistant, which would treat it as a question.
-  if (command.kind === "help" || (command.kind === "unknown" && !command.reference)) {
+  if (command.kind === "help" || (command.kind === "unknown" && !command.reference && !contentCommand)) {
     return formatOwnerHelp();
   }
 
@@ -588,11 +676,10 @@ async function handleOwnerCommand(
   // row. It is a list of words, and answering it is never a decision.
   if (command.kind === "help") return formatOwnerHelp();
 
-  // Content proposals are decided in the Owner Control Centre, where the
-  // proposal and its approval move together. Excluding them here is what keeps
-  // that true over this channel: a reference the listing never surfaced cannot
-  // be found below, so the existing "no pending decision" reply answers it and
-  // the engine is never reached. No branch, and nothing else changes.
+  // Content approvals are left out of this generic list on purpose: deciding
+  // one through decide_owner_approval would move the approval without its
+  // proposal. They are decided above, by proposal reference, through
+  // decide_content_proposal, which moves both.
   //
   // Read *before* the rate limit and the audit row rather than after, which is
   // what the gate below needs — see it for why.
@@ -615,13 +702,11 @@ async function handleOwnerCommand(
   // for a decision right now." in the middle of a conversation about something
   // else entirely.
   //
-  // A slash is always a command. Without one, the words act only while a
-  // decision is actually waiting — which is the only moment they are
-  // unambiguous, and the moment the notification asked for them. Otherwise this
-  // returns null and the message carries on to the assistant, untouched.
-  //
-  // A named reference is a command either way: nobody types "ABCDE" by accident.
-  if (!command.explicit && !command.reference && pending.length === 0) return null;
+  // The slash is what settles it, and it is settled above: an unprefixed
+  // message has already returned null or decided the one proposal waiting for
+  // an answer. Everything from here down started with a slash and gets a real
+  // reply — including `/approve` on a day when nothing is pending, which used
+  // to be handed to the assistant as though the owner had asked it a question.
 
   // Rate limit: an owner handset that has been taken over should not be able
   // to churn through every pending decision unchecked.
@@ -636,13 +721,33 @@ async function handleOwnerCommand(
   }
 
   await db.from("audit_logs").insert({
-    action: `owner_command_${command.kind}`,
+    action: `owner_command_${contentCommand ? `content_${contentCommand.kind}` : command.kind}`,
     entity_type: "owner_command",
     entity_id: null,
-    metadata: { kind: command.kind, reference: command.reference, choice: command.choice },
+    metadata: { kind: contentCommand?.kind ?? command.kind, reference: command.reference, choice: command.choice },
   });
 
+  // The owner's own messages keep the 24-hour window measurable, so the daily
+  // proposals know whether they may be sent whole.
+  await db.from("whatsapp_conversations").update({ last_message_at: new Date().toISOString() }).eq("wa_phone", from);
+
+  if (contentCommand) return await runContentCommand(db, contentCommand, new Date(), context);
+  if (contentProposal) {
+    return await decideProposal(db, contentProposal.proposal_ref, command.kind === "approve", command.note);
+  }
+
   if (command.kind === "list_pending") return formatPendingList(pending);
+
+  // `/approve` with no reference, while no customer decision is outstanding:
+  // the proposal waiting is the one they mean. Same rule as the bare «موافق»
+  // above — one waiting proposal decides, two ask which.
+  if (
+    (command.kind === "approve" || command.kind === "reject") &&
+    !command.reference && pending.length === 0
+  ) {
+    const decided = await decideWaitingProposal(db, from, command.kind === "approve", command.note);
+    if (decided) return decided;
+  }
 
   // A bare number carries no reference. It is only safe when exactly one
   // decision is outstanding; otherwise we ask rather than guess, because
@@ -810,6 +915,7 @@ Deno.serve(async (req) => {
     if (verifyToken && mode === "subscribe" && token === verifyToken && challenge) {
       return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain" } });
     }
+    await recordSecurityEvent(service(), req, "webhook.verify_failed", "whatsapp-webhook");
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -830,6 +936,7 @@ Deno.serve(async (req) => {
   const signed = await verifySignature(rawBody, req.headers.get("x-hub-signature-256"), appSecret);
   if (!signed) {
     console.error("[whatsapp] signature verification failed.");
+    await recordSecurityEvent(service(), req, "webhook.signature_failed", "whatsapp-webhook");
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -1015,7 +1122,15 @@ Deno.serve(async (req) => {
       // A message from any other number is a customer message and is never
       // interpreted as a command, whatever it says.
       if (incoming.text && isOwner(incoming.from, configuredOwner)) {
-        const reply = await handleOwnerCommand(db, incoming.from, incoming.text);
+        // Artwork takes fifteen seconds for a picture and a couple of minutes
+        // for a clip. `background` is how `/image` and `/video` answer first
+        // and render afterwards — the same seam the media jobs already use,
+        // and without it the owner would watch a delivered message go
+        // unanswered while Meta retried it.
+        const reply = await handleOwnerCommand(db, incoming.from, incoming.text, {
+          whatsapp: { token, phoneNumberId, to: incoming.from },
+          background: (work) => EdgeRuntime.waitUntil(work),
+        });
         if (reply) {
           if (token && phoneNumberId) {
             await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: reply });
@@ -4224,13 +4339,19 @@ Deno.serve(async (req) => {
       const emergency = !humanOwnsThis && !aiFocused &&
         featureOn("health.emergency") && asksForEmergencyCare(questionText);
 
-      const nearbyCategory = emergency
-        ? EMERGENCY_CATEGORY
+      // What the question names: a category the map can be asked for
+      // precisely, the sender's own words for anything else ("محل ألعاب",
+      // "toy shop"), or neither — a browse. Null when it is not a nearby
+      // question at all, which leaves "أقرب طريقة لـ…" to the assistant.
+      const nearbyRequest = emergency
+        ? { category: EMERGENCY_CATEGORY, query: null }
         : humanOwnsThis || aiFocused
         ? null
-        : parseNearbyCategory(questionText, answerLanguage);
+        : parseNearbyRequest(questionText, answerLanguage);
+      const nearbyCategory = nearbyRequest?.category ?? null;
+      const nearbyQuery = nearbyRequest?.query ?? null;
 
-      const asksNearby = nearbyCategory !== null || asksWhatIsNearby(questionText);
+      const asksNearby = nearbyRequest !== null;
       if (
         asksNearby && !humanOwnsThis && !aiFocused &&
         featureOn(emergency ? "health.emergency" : "services.nearby")
@@ -4247,22 +4368,43 @@ Deno.serve(async (req) => {
         // and the one sentence that might matter more than the list must not be
         // the thing that fails to arrive.
         if (emergency) await reply(say("emergencyCallFirst", answerLanguage), "reply");
-        const nearby = await viaCache(
-          nearbyKey(
-            rememberedLocation.latitude,
-            rememberedLocation.longitude,
-            answerLanguage,
-            NEARBY_RADIUS_M,
-            nearbyCategory,
-          ),
-          "nearby",
-          () => fetchNearby(
-            rememberedLocation.latitude,
-            rememberedLocation.longitude,
-            answerLanguage,
-            nearbyCategory,
-          ),
-        );
+        const nearby = nearbyQuery
+          ? await viaCache(
+            nearbyKey(
+              rememberedLocation.latitude,
+              rememberedLocation.longitude,
+              answerLanguage,
+              SEARCH_RADIUS_M,
+              // The words themselves are part of the answer, so part of the key —
+              // folded, so "Hotel" and "hotel " are one entry.
+              `q:${nearbyQuery.toLowerCase().replace(/s+/g, " ").trim().slice(0, 60)}`,
+            ),
+            "nearby",
+            () => searchNearby(
+              rememberedLocation.latitude,
+              rememberedLocation.longitude,
+              answerLanguage,
+              nearbyQuery,
+            ),
+          )
+          : await viaCache(
+            nearbyKey(
+              rememberedLocation.latitude,
+              rememberedLocation.longitude,
+              answerLanguage,
+              NEARBY_RADIUS_M,
+              nearbyCategory,
+            ),
+            "nearby",
+            () => fetchNearby(
+              rememberedLocation.latitude,
+              rememberedLocation.longitude,
+              answerLanguage,
+              nearbyCategory,
+              // Overpass refuses Supabase's network; Visionex's server asks for us.
+              { relay: (query) => overpassViaProcessor(query) },
+            ),
+          );
         // `null` is a failed lookup; `[]` is a genuinely unmapped area. Telling
         // somebody standing outside a pharmacy that nothing is near them is
         // false in a way they cannot check for themselves.
@@ -4271,41 +4413,49 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const written = formatNearby({
-          language: answerLanguage,
-          origin: rememberedLocation,
-          places: nearby,
-          ...(emergency ? { heading: `🚨 ${say("emergencyHeading", answerLanguage)}` } : {}),
-        });
-
-        // Each place is a row now, and tapping one sends its pin. The bullets
-        // stay as the text twin, so a voice sender hears the same list and a
-        // client that refuses interactive messages still gets the answer.
-        const list = nearbyMessage({
-          language: answerLanguage,
-          heading: say(emergency ? "emergencyHeading" : "nearbyHeading", answerLanguage),
-          places: nearby.map((found) => ({
-            id: placeRowId(found),
-            title: found.name,
-            description: nearbyRowSubtitle({
-              language: answerLanguage,
-              origin: rememberedLocation,
-              place: found,
-            }),
-          })),
-        });
-
-        if (list) {
-          await reply(written, "reply");
-          await sendChoices(list, "reply");
-          if (emergency) log("emergency", { outcome: "listed", count: nearby.length });
+        // Nothing mapped by those words. "Nothing near you" would be a guess
+        // about a word the map may simply not know, so the question goes on to
+        // the assistant, which can still say something useful about it.
+        const fallThrough = nearbyQuery !== null && nearby.length === 0;
+        if (fallThrough) {
+          log("nearby", { outcome: "search_empty" });
         } else {
-          // Nothing mapped out here. `formatNearby` already says so truthfully,
-          // and an empty list under it would say it a second time with nothing
-          // to tap.
-          await reply(written, "unsupported");
+          const written = formatNearby({
+            language: answerLanguage,
+            origin: rememberedLocation,
+            places: nearby,
+            ...(emergency ? { heading: `🚨 ${say("emergencyHeading", answerLanguage)}` } : {}),
+          });
+
+          // Each place is a row now, and tapping one sends its pin. The bullets
+          // stay as the text twin, so a voice sender hears the same list and a
+          // client that refuses interactive messages still gets the answer.
+          const list = nearbyMessage({
+            language: answerLanguage,
+            heading: say(emergency ? "emergencyHeading" : "nearbyHeading", answerLanguage),
+            places: nearby.map((found) => ({
+              id: placeRowId(found),
+              title: found.name,
+              description: nearbyRowSubtitle({
+                language: answerLanguage,
+                origin: rememberedLocation,
+                place: found,
+              }),
+            })),
+          });
+
+          if (list) {
+            await reply(written, "reply");
+            await sendChoices(list, "reply");
+            if (emergency) log("emergency", { outcome: "listed", count: nearby.length });
+          } else {
+            // Nothing mapped out here. `formatNearby` already says so truthfully,
+            // and an empty list under it would say it a second time with nothing
+            // to tap.
+            await reply(written, "unsupported");
+          }
+          continue;
         }
-        continue;
       }
 
       // A tapped place: send where it is, which is the part a list of names
@@ -4886,7 +5036,107 @@ Deno.serve(async (req) => {
         }
       }
 
-      const bazaarRequest = aiFocused || !featureOn("services.bazaar") ? null : parseBazaarRequest(questionText);
+      // ── Videos, podcasts and audiobooks ──────────────────────────────────
+      //
+      // Open, keyless catalogues: Dailymotion and the Internet Archive for
+      // video, iTunes for podcasts, LibriVox and iTunes for audiobooks. A video
+      // answer always ends with a YouTube search, so it is never empty; a
+      // podcast or audiobook nobody lists goes to the assistant instead.
+      // Checked before books, because «كتاب صوتي» starts with «كتاب».
+      /** A podcast or audiobook no catalogue had; the assistant is told so. */
+      let mediaNotFound: { kind: MediaKind; query: string } | null = null;
+      const mediaRequest = aiFocused || humanOwnsThis || !featureOn("services.media")
+        ? null
+        : parseMediaRequest(questionText);
+      if (mediaRequest && !mediaRequest.query) {
+        await reply(mediaAskNotice(answerLanguage), "reply");
+        continue;
+      }
+      if (mediaRequest?.query) {
+        const request = { kind: mediaRequest.kind, query: mediaRequest.query };
+        const found = await searchMedia(request);
+        if (found.items.length > 0 || request.kind === "video") {
+          log("media", { kind: request.kind, outcome: found.unreachable ? "unreachable" : "listed", count: found.items.length });
+          await reply(formatMedia({ language: answerLanguage, request, items: found.items }), "reply");
+          continue;
+        }
+        log("media", { kind: request.kind, outcome: found.unreachable ? "unreachable" : "empty" });
+        mediaNotFound = request;
+      }
+
+      // ── Books ────────────────────────────────────────────────────────────
+      //
+      // The Visionex library first, then Open Library — an open catalogue of
+      // tens of millions of books that also says which are free to read. A
+      // book neither holds still gets an answer: the assistant is told so and
+      // says what it knows, rather than the sender being told "not found".
+      /** A book no catalogue had; the assistant is told so. */
+      let bookNotFound: string | null = null;
+      /** A product neither the bazaar nor the catalogue had; likewise. */
+      let productNotFound: string | null = null;
+      const bookRequest = aiFocused || humanOwnsThis || mediaNotFound || !featureOn("services.books")
+        ? null
+        : parseBookRequest(questionText);
+      if (bookRequest && !bookRequest.query) {
+        await reply(bookAskNotice(answerLanguage), "reply");
+        continue;
+      }
+      if (bookRequest?.query) {
+        const query = bookRequest.query;
+        let library: FoundBook[] = [];
+        try {
+          // Letters, digits and spaces only, which is what makes interpolating
+          // the words into a PostgREST filter safe — the same rule the bazaar
+          // search keeps.
+          const terms = query
+            .replace(/[^\p{L}\p{N}\s]/gu, " ")
+            .split(/\s+/u)
+            .filter((term) => term.length >= 2)
+            .slice(0, 4);
+          if (terms.length > 0) {
+            const { data: rows, error } = await db
+              .from("library_books")
+              .select("id, title, published_date, library_authors(name)")
+              .eq("publish_status", "published")
+              .or(terms.map((term) => `title.ilike.%${term}%`).join(","))
+              .limit(25);
+            if (error) throw error;
+            type BookRow = {
+              id: string; title: string; published_date: string | null;
+              library_authors: { name: string | null } | { name: string | null }[] | null;
+            };
+            library = ((rows ?? []) as BookRow[])
+              .map((row) => {
+                const hits = terms.filter((term) => row.title.toLowerCase().includes(term.toLowerCase())).length;
+                const author = Array.isArray(row.library_authors) ? row.library_authors[0] : row.library_authors;
+                return { hits, book: libraryBook({ ...row, author: author?.name ?? null }) };
+              })
+              // Every word of a two-word title, or it is somebody else's book.
+              .filter((entry) => entry.hits >= Math.min(terms.length, 2))
+              .sort((a, b) => b.hits - a.hits)
+              .map((entry) => entry.book);
+          }
+        } catch (e) {
+          console.error("[whatsapp] library lookup failed:", describeError(e));
+        }
+
+        // Open Library for the catalogue, the Internet Archive for free full texts.
+        const [outside, archive] = await Promise.all([searchOpenLibrary(query), searchArchiveTexts(query)]);
+        if (library.length > 0 || (outside?.length ?? 0) > 0 || (archive?.length ?? 0) > 0) {
+          log("books", { outcome: library.length > 0 ? "library" : "outside", count: library.length + (outside?.length ?? 0) + (archive?.length ?? 0) });
+          await reply(
+            formatBooks({ language: answerLanguage, query, library, outside: outside ?? [], archive: archive ?? [] }),
+            "reply",
+          );
+          continue;
+        }
+        log("books", { outcome: outside === null && archive === null ? "unreachable" : "empty" });
+        bookNotFound = query;
+      }
+
+      const bazaarRequest = aiFocused || bookNotFound || mediaNotFound || !featureOn("services.bazaar")
+        ? null
+        : parseBazaarRequest(questionText);
       /**
        * Set when a weak shopping guess found nothing, so the message falls
        * through to the ordinary assistant instead of being answered.
@@ -4980,14 +5230,20 @@ Deno.serve(async (req) => {
             // said "do you have a minute" is worse than not searching.
             const offers = await sourceFromCatalogue(bazaarRequest.terms.join(" "));
 
-            if (offers === null) {
-              await reply(sourcingUnavailableNotice(answerLanguage), "unsupported");
-            } else if (offers.length > 0) {
+            if (offers !== null && offers.length > 0) {
               log("sourcing", { outcome: "offered", count: offers.length });
               await reply(formatSourcedOffers({ language: answerLanguage, offers }), "reply");
             } else {
-              log("sourcing", { outcome: "empty" });
-              await reply(sourcingNoneNotice(answerLanguage), "unsupported");
+              // Not stocked, or the agent could not be reached. Either way a bare
+              // "not found" is a dead end, so the assistant answers instead: what
+              // the item is and what it usually costs, marked as an estimate, and
+              // that the Visionex team can source it.
+              log("sourcing", { outcome: offers === null ? "unreachable" : "empty" });
+              productNotFound = bazaarRequest.terms.join(" ");
+              // The big stores first — a real place to look right now — then
+              // the assistant's explanation of the item.
+              await reply(storeSearchLinks(productNotFound, answerLanguage), "reply");
+              bazaarFellThrough = true;
             }
           } else {
             console.log("[whatsapp] weak bazaar guess found nothing — handing back to the assistant");
@@ -5386,6 +5642,11 @@ Deno.serve(async (req) => {
             HANDLER_AUTHORITY_DIRECTIVE,
             knowledgeDirective(passages),
             verbosityDirective(existing?.verbosity as string | null),
+            // What a search just failed to find, so the answer is about the
+            // thing asked for rather than an apology for an empty list.
+            bookNotFound ? bookNotFoundDirective(bookNotFound) : null,
+            mediaNotFound ? mediaNotFoundDirective(mediaNotFound) : null,
+            productNotFound ? productNotFoundDirective(productNotFound) : null,
           ],
           summary,
           turns,

@@ -1,0 +1,143 @@
+# Hourly look at what the security log and the caller limiter recorded.
+#
+# ── What it reads ───────────────────────────────────────────────────────────
+#
+# security_event_summary(hours) — kind, source, event count, distinct callers
+# and last time, from 20261018000000. Nothing else: no caller hash, no detail,
+# no address. This repository is public and its logs are world-readable.
+#
+# ai_anon_usage — how much of each public endpoint's daily ceiling is used,
+# which is where AI spend by strangers shows up first.
+#
+# ── What makes it fail ──────────────────────────────────────────────────────
+#
+# A failed scheduled run is what notifies the owner, so the job fails when:
+#   - any platform-wide ceiling was reached in the last hour (a public feature
+#     is now refusing everyone),
+#   - forged webhook deliveries exceed FORGED_PER_HOUR,
+#   - more than CALLERS_PER_HOUR distinct callers were refused on one endpoint,
+#   - an endpoint has used more than 80% of its daily ceiling.
+#
+# It never changes anything. Containment is by hand: see the runbook comment
+# at the end of this file.
+
+name: Security monitor
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "How many hours to summarise"
+        required: false
+        default: "1"
+
+concurrency:
+  group: security-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    name: Summarise security events
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read the summary and check thresholds
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+          HOURS: ${{ inputs.hours || '1' }}
+          FORGED_PER_HOUR: "50"
+          CALLERS_PER_HOUR: "30"
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [[ -z "$SUPABASE_ACCESS_TOKEN" || -z "$SUPABASE_PROJECT_REF" ]]; then
+            say "::error::SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF must be configured."
+            exit 1
+          fi
+          if ! [[ "$HOURS" =~ ^[0-9]{1,3}$ ]]; then
+            say "::error::hours must be a whole number."
+            exit 1
+          fi
+
+          ask() {
+            curl -sS -X POST \
+              "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query:$q}')"
+          }
+
+          events=$(ask "select kind, source, events, callers, last_at from public.security_event_summary($HOURS)")
+          if ! jq -e 'type == "array"' >/dev/null <<<"$events"; then
+            say "::error::The summary query did not return rows. Has 20261018000000 been applied?"
+            jq -c 'if type == "object" then {message} else . end' <<<"$events" 2>/dev/null | head -c 500
+            exit 1
+          fi
+
+          usage=$(ask "select function_name,
+                              count(*) as used_today
+                         from public.ai_anon_usage
+                        where created_at >= now() - interval '1 day'
+                        group by 1 order by 2 desc")
+          jq -e 'type == "array"' >/dev/null <<<"$usage" || usage='[]'
+
+          say "# Security events, last $HOURS hour(s)"
+          say ""
+          say "| kind | source | events | callers | last |"
+          say "| --- | --- | ---: | ---: | --- |"
+          jq -r '.[] | "| \(.kind) | \(.source) | \(.events) | \(.callers) | \(.last_at) |"' <<<"$events" | while IFS= read -r line; do say "$line"; done
+          [[ $(jq length <<<"$events") -eq 0 ]] && say "| _none_ | | | | |"
+
+          # The ceilings from check_ai_anon_rate_limit; unknown names get its default.
+          ceilings='{"ai-chat":3000,"contact-form":500,"ai-search":30000,"library-semantic-search":30000,"newsletter-signup":1000}'
+          say ""
+          say "# Public endpoint use, last 24 hours"
+          say ""
+          say "| endpoint | used | ceiling | share |"
+          say "| --- | ---: | ---: | ---: |"
+          jq -r --argjson c "$ceilings" '.[] | (.used_today|tonumber) as $u | ($c[.function_name] // 500) as $max
+                 | "| \(.function_name) | \($u) | \($max) | \(($u * 100 / $max) | floor)% |"' <<<"$usage" | while IFS= read -r line; do say "$line"; done
+
+          alerts=$(jq -r --argjson forged "$FORGED_PER_HOUR" --argjson callers "$CALLERS_PER_HOUR" --arg hours "$HOURS" '
+            .[] | (.events|tonumber) as $e | (.callers|tonumber) as $n | ($hours|tonumber) as $h
+            | if .kind == "rate_limit.platform" then "\(.source): the platform-wide ceiling was reached; every visitor is being refused"
+              elif (.kind | startswith("webhook.")) and $e > ($forged * $h) then "\(.source): \($e) rejected webhook deliveries (\(.kind))"
+              elif .kind == "rate_limit.caller" and $n > ($callers * $h) then "\(.source): \($n) distinct callers hit their limit"
+              else empty end' <<<"$events")
+          spend=$(jq -r --argjson c "$ceilings" '.[] | (.used_today|tonumber) as $u | ($c[.function_name] // 500) as $max
+                  | select($u * 100 > $max * 80) | "\(.function_name): \($u) of \($max) daily public calls used"' <<<"$usage")
+
+          all=$(printf '%s\n%s\n' "$alerts" "$spend" | sed '/^$/d')
+          if [[ -n "$all" ]]; then
+            say ""
+            say "# Alerts"
+            while IFS= read -r line; do say "- $line"; echo "::error::$line"; done <<<"$all"
+            exit 1
+          fi
+          say ""
+          say "No thresholds crossed."
+
+# ── Containment runbook ─────────────────────────────────────────────────────
+#
+# A public endpoint is being drained     lower its ceiling in
+#                                        check_ai_anon_rate_limit (a migration),
+#                                        or remove the function from the deploy
+#                                        manifest to take only it offline.
+# A webhook secret may be known          rotate it at the provider and in
+#                                        Supabase secrets; the webhook fails
+#                                        closed until both match.
+# A WhatsApp number is abusive           the assistant's escalation/block list
+#                                        silences one number without touching
+#                                        anyone else.
+# A user account is compromised          ban it from the Supabase dashboard;
+#                                        that revokes its refresh tokens.
+# A provider key leaked                  rotate at the provider, update the
+#                                        Supabase secret, redeploy functions.

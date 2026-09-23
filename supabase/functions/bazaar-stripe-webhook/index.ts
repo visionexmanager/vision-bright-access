@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 
 const encoder = new TextEncoder();
 
@@ -39,6 +40,12 @@ Deno.serve(async (req) => {
     const signature = req.headers.get("stripe-signature");
     const body = await req.text();
     if (!webhookSecret || !signature || !(await verifyStripeSignature(body, signature, webhookSecret))) {
+      await recordSecurityEvent(
+        createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!),
+        req,
+        "webhook.signature_failed",
+        "bazaar-stripe-webhook",
+      );
       return new Response("Invalid signature", { status: 400 });
     }
 

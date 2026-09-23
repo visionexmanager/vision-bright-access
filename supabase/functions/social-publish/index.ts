@@ -28,6 +28,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { defaultAdapters } from "../_shared/publishing/adapters.ts";
 import { metaAdapters, type PublishFetch } from "../_shared/publishing/metaAdapters.ts";
 import { runPublishBatch } from "../_shared/publishing/runner.ts";
+import { reportPublishRun, runDailyProposals } from "../_shared/ownerContentActions.ts";
 import type {
   ClaimResult,
   Platform,
@@ -76,8 +77,10 @@ function toRequest(row: Record<string, unknown>): PublishRequest {
     hook: String(row.hook ?? ""),
     body: String(row.body ?? ""),
     hashtags: Array.isArray(row.hashtags) ? row.hashtags.map(String) : [],
-    // Absent from every proposal today; see PublishRequest.mediaUrl.
+    // Generated when the proposal was drafted, or by the owner's /image and
+    // /video commands. Absent is still ordinary for Facebook, which takes text.
     mediaUrl: typeof row.media_url === "string" ? row.media_url : undefined,
+    mediaKind: row.media_kind === "video" || row.media_kind === "image" ? row.media_kind : undefined,
     attempt: Number(row.attempt ?? 1),
     maxAttempts: Number(row.max_attempts ?? 1),
     account: {
@@ -202,6 +205,34 @@ Deno.serve(async (req) => {
     return json({ error: "Unauthorized" }, 401);
   }
 
+  // Read once: the body decides which of the two jobs this call is.
+  const body = await req.json().catch(() => ({}));
+
+  // ── Daily content proposals ────────────────────────────────────────────
+  //
+  // The other half of the pipeline: draft today's proposals and tell the
+  // owner on WhatsApp, where they approve, edit or reject them. Nothing is
+  // published here — publishing is the job below, and only for approved,
+  // scheduled proposals on a connected account. Behind the same secret.
+  if (body.action === "propose_daily") {
+    try {
+      const count = Math.min(Math.max(Number(body.count) || 2, 1), 4);
+      const report = await runDailyProposals(
+        serviceClient(),
+        { token: env("WHATSAPP_TOKEN"), phoneNumberId: env("WHATSAPP_PHONE_NUMBER_ID") },
+        new Date(),
+        count,
+        // Artwork for the platforms that refuse a text-only post. Without it
+        // the run still drafts, and says so per reference in `media`.
+        env("OPENAI_API_KEY"),
+      );
+      // References and reason codes only — never a draft's text.
+      return json({ ok: true, ...report });
+    } catch {
+      return json({ ok: false, error: "internal_error" }, 500);
+    }
+  }
+
   const encryptionKey = env("SOCIAL_TOKEN_ENCRYPTION_KEY");
   if (!encryptionKey) {
     // Without it no grant can be decrypted, so every attempt would refuse at
@@ -212,7 +243,6 @@ Deno.serve(async (req) => {
   try {
     const service = serviceClient();
 
-    const body = await req.json().catch(() => ({}));
     const platform = typeof body.platform === "string" ? body.platform as Platform : null;
     const limit = Number.isFinite(body.limit) ? Number(body.limit) : DEFAULT_LIMIT;
 
@@ -239,11 +269,36 @@ Deno.serve(async (req) => {
     const needsReview = reports.filter((report) => report.needsManualReview).length;
     const idle = reports.find((report) => report.status === "idle");
 
+    // ── The owner hears what happened ──────────────────────────────────
+    //
+    // The queue drains on a schedule nobody watches, and until now the only
+    // record of a run was this response in a workflow log. From a phone, a
+    // post that went out and a post that failed four times looked identical:
+    // silence. Codes and reference codes only — no post text, no provider
+    // string — and never fatal, because a notification that did not send is
+    // not a reason to record a successful publish as a failure.
+    const notified = await reportPublishRun(
+      service,
+      { token: env("WHATSAPP_TOKEN"), phoneNumberId: env("WHATSAPP_PHONE_NUMBER_ID") },
+      reports
+        .filter((report) => report.status !== "idle" && report.publicationId)
+        .map((report) => ({
+          published: report.ok,
+          platform: report.platform,
+          proposalRef: report.proposalRef,
+          errorCode: report.errorCode,
+          needsManualReview: report.needsManualReview,
+        })),
+      idle?.withheldForConnection ?? 0,
+      idle?.awaitingConnection ?? [],
+    );
+
     return json({
       ok: true,
       attempted: reports.length,
       published,
       needs_manual_review: needsReview,
+      owner_notified: notified,
       // Surfaced at the top level because it is the one operational fact that
       // looks identical to an empty queue and is not one.
       withheld_for_connection: idle?.withheldForConnection ?? 0,

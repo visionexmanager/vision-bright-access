@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { AILearningPanel } from "./AILearningPanel";
 import { toast } from "@/hooks/use-toast";
 import {
   useOwnerControl,
@@ -755,6 +756,8 @@ export default function OwnerControlCenter() {
             </Table>
           </CardContent></Card>
         </section>
+
+        <AILearningPanel />
 
         {/* ── Feedback ────────────────────────────────────────────────── */}
         <section aria-labelledby="owner-feedback-heading">

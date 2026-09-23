@@ -298,12 +298,15 @@ export type SpeechResult =
   | { ok: false };
 
 /**
- * Synthesise speech with OpenAI `tts-1`.
+ * Synthesise speech with OpenAI `gpt-4o-mini-tts`.
  *
- * Chosen over ElevenLabs purely on cost — both keys exist, and this is an
- * optional extra on top of a reply that has already been delivered, so the
- * cheaper one is the right default. Opus in an OGG container is what WhatsApp
- * wants for a voice note.
+ * Chosen over ElevenLabs on cost — both keys exist, and this is an optional
+ * extra on top of a reply that has already been delivered, so the cheaper one
+ * is the right default. `gpt-4o-mini-tts` is priced at about the same per
+ * minute of audio as `tts-1`, which this path used until 2026-09-17; it was
+ * adopted for the `marin` voice and for style instructions, neither of which
+ * `tts-1` accepts. Opus in an OGG container is what WhatsApp wants for a
+ * voice note.
  */
 /**
  * The model and the voice, named rather than repeated.
@@ -313,13 +316,37 @@ export type SpeechResult =
  * default buried in a call site is exactly the kind of thing that changes one
  * day and silently starts returning the old voice from cache.
  */
-export const SPEECH_MODEL = "tts-1";
-export const DEFAULT_VOICE = "alloy";
+export const SPEECH_MODEL = "gpt-4o-mini-tts";
+
+/**
+ * A calm, warm, professional female voice.
+ *
+ * `marin` is one of the two voices OpenAI recommends for best quality, and
+ * the female one of the pair; it is only offered by `gpt-4o-mini-tts`. It
+ * replaced `alloy`, a neutral voice, on 2026-09-17.
+ */
+export const DEFAULT_VOICE = "marin";
+
+/**
+ * How the default voice speaks.
+ *
+ * Written once, in English, because it directs delivery rather than being
+ * spoken. The language line matters most: replies go out in twenty languages,
+ * and the model must pronounce each in its own way rather than read Arabic or
+ * Hindi with English rules. The cache key includes this text, so changing it
+ * cannot serve audio made under the old direction.
+ */
+export const SPEECH_STYLE = [
+  "Voice: a calm, warm, friendly and professional female personal assistant.",
+  "Pace: relaxed and unhurried, with clear articulation and natural pauses between sentences, comfortable to listen to for a long time.",
+  "Tone: reassuring and attentive; never robotic, never overly energetic or dramatic.",
+  "Language: speak in the language the text is written in, with that language's native pronunciation and intonation. Do not apply English pronunciation to other languages, and do not translate or add words.",
+].join(" ");
 
 /**
  * The voice a segment is spoken in.
  *
- * Null is the default — `tts-1`/`alloy` at OpenAI — and is what every sender
+ * Null is the default — `gpt-4o-mini-tts`/`marin` at OpenAI — and is what every sender
  * gets unless they have deliberately chosen one of their own cloned voices and
  * that voice still passes its consent and lifecycle checks. Nothing about the
  * default path changed when cloning arrived.
@@ -328,9 +355,14 @@ export const defaultSpokenVoice = (): SpokenVoice => ({
   provider: "openai",
   voice: DEFAULT_VOICE,
   model: SPEECH_MODEL,
+  instructions: SPEECH_STYLE,
 });
 
-export type SpokenVoice = { provider: "openai" | "elevenlabs"; voice: string; model: string };
+/**
+ * `instructions` is OpenAI style direction and belongs to the default voice
+ * only. A cloned voice has none: it already sounds like its owner.
+ */
+export type SpokenVoice = { provider: "openai" | "elevenlabs"; voice: string; model: string; instructions?: string };
 
 /** A resolved cloned voice, or the default when there is none. */
 export const spokenVoiceOf = (resolved: ResolvedVoice | null | undefined): SpokenVoice =>
@@ -363,6 +395,7 @@ export async function synthesiseSpeech(params: {
     provider: spoken.provider,
     model: spoken.model,
     voice: spoken.voice,
+    instructions: spoken.provider === "openai" ? spoken.instructions : undefined,
     format: "opus",
     fetchImpl: params.fetchImpl,
     read: env,
@@ -570,6 +603,7 @@ export async function speakReply(params: {
           provider: chosenVoice.provider,
           voice: chosenVoice.voice,
           model: chosenVoice.model,
+          instructions: chosenVoice.instructions,
           text: segment,
         })
       : null;

@@ -36,11 +36,11 @@ export const PLAN_REMINDER_TEMPLATE: MessageTemplate = {
   translations: {
     ar: {
       body: "مرحبًا من Visionex 👋\nتنتهي {{1}} يوم {{2}}.\nلتجديد اشتراكك أو تغيير باقتك ادخل إلى https://visionex.app/pricing أو ردّ على هذه الرسالة وسنساعدك.",
-      example: ["باقة Gold", "الثلاثاء، 15 أيلول في 9:00 م"],
+      example: ["باقة الأعمال", "الثلاثاء، 15 أيلول في 9:00 م"],
     },
     en: {
       body: "Hello from Visionex 👋\nYour {{1}} ends on {{2}}.\nTo renew your subscription or change your plan, go to https://visionex.app/pricing or reply to this message and we will help you.",
-      example: ["Gold plan", "Tuesday 15 September at 21:00"],
+      example: ["Business plan", "Tuesday 15 September at 21:00"],
     },
   },
 };
@@ -75,21 +75,21 @@ export function reminderLanguage(conversationLanguage: string | null | undefined
 const PLAN_LABELS: Record<ReminderLanguage, Record<string, string>> = {
   ar: {
     kids: "باقة الأطفال",
-    bronze: "باقة Bronze",
-    silver: "باقة Silver",
-    gold: "باقة Gold",
+    basic: "الباقة الأساسية",
+    pro: "الباقة الاحترافية",
+    business: "باقة الأعمال",
     free_trial: "تجربتك المجانية",
   },
   en: {
     kids: "Kids plan",
-    bronze: "Bronze plan",
-    silver: "Silver plan",
-    gold: "Gold plan",
+    basic: "Basic plan",
+    pro: "Pro plan",
+    business: "Business plan",
     free_trial: "free week",
   },
 };
 
-/** "باقة Gold" / "Gold plan", and a plan this file does not know by its name. */
+/** "باقة الأعمال" / "Business plan", and a plan this file does not know by its name. */
 export function planLabel(planId: string, planName: string | null, language: ReminderLanguage): string {
   const known = PLAN_LABELS[language][planId];
   if (known) return known;
