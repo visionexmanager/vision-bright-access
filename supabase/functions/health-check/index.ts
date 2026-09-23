@@ -310,7 +310,7 @@ const LIVE_PROBES: Record<string, ProbeTarget> = {
     body: (model) => ({ model, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
   },
   groq: {
-    model: "llama-3.1-8b-instant",
+    model: "openai/gpt-oss-20b",
     envKey: "GROQ_API_KEY",
     url: "https://api.groq.com/openai/v1/chat/completions",
     headers: (key) => ({ Authorization: `Bearer ${key}`, "Content-Type": "application/json" }),

@@ -1489,7 +1489,7 @@ describe("message classification", () => {
 
   it("uses the cheapest model for a label", () => {
     expect(webhook).toContain("CLASSIFY_TARGETS");
-    expect(webhook).toMatch(/llama-3\.1-8b-instant/);
+    expect(webhook).toMatch(/openai\/gpt-oss-20b/);
   });
 
   it("never lets a classification failure block the reply", () => {
@@ -1623,8 +1623,8 @@ describe("video", () => {
 
 describe("cost routing", () => {
   it("uses the smallest model for a label and a bigger one only for the answer", () => {
-    const classifyAt = webhook.indexOf("llama-3.1-8b-instant");
-    const summaryAt = webhook.indexOf("llama-3.3-70b-versatile");
+    const classifyAt = webhook.indexOf("openai/gpt-oss-20b");
+    const summaryAt = webhook.indexOf("openai/gpt-oss-120b");
     expect(classifyAt).toBeGreaterThan(-1);
     expect(summaryAt).toBeGreaterThan(-1);
     // The customer-facing reply uses the registry's own targets, not a literal.

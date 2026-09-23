@@ -14,7 +14,7 @@ describe("site-wide AI provider routing", () => {
     expect(assistants).toContain('if (MISTRAL_FIRST.has(id)) return [MISTRAL, GEMINI, GROQ, OPENAI]');
     expect(assistants).toContain('return [GROQ, GEMINI, MISTRAL, OPENAI]');
     expect(assistants).toContain('model: "gemini-flash-latest"');
-    expect(assistants).toContain('model: "llama-3.1-8b-instant"');
+    expect(assistants).toContain('model: "openai/gpt-oss-20b"');
     expect(assistants).toContain('model: "mistral-small-latest"');
   });
 
