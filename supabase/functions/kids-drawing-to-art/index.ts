@@ -19,6 +19,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
+import { generateImage } from "../_shared/contentMedia.ts";
 
 function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
@@ -28,26 +29,38 @@ interface RequestBody {
   image: string;
 }
 
+// gpt-image-1 (and its gpt-image-1-mini fallback) always answer in base64,
+// never a hosted link — the same reason `_shared/contentMedia.ts` stores the
+// bytes rather than a provider URL. This result is only ever held in the
+// browser's own state and rendered once (never persisted), so a data: URI
+// keeps this function's contract without adding a storage bucket it never
+// needed before.
+function encodeBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
 async function generateStylizedImage(description: string): Promise<string | null> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: `A warm, colorful, child-friendly storybook illustration (no text or words) turning this child's drawing into a polished piece of art: ${description}. Whimsical, soft, safe-for-kids art style.`,
-        n: 1,
-        size: "1024x1024",
-        quality: "standard",
-        style: "vivid",
-        response_format: "url",
-      }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.data?.[0]?.url ?? null;
+    const result = await generateImage(
+      {
+        apiKey,
+        fetchImpl: fetch,
+        async upload(_path, bytes, contentType) {
+          return `data:${contentType};base64,${encodeBase64(bytes)}`;
+        },
+      },
+      `A warm, colorful, child-friendly storybook illustration (no text or words) turning this child's drawing into a polished piece of art: ${description}. Whimsical, soft, safe-for-kids art style.`,
+      "1024x1024",
+      "kids-drawing-art",
+    );
+    return result.ok ? result.url ?? null : null;
   } catch {
     return null;
   }
