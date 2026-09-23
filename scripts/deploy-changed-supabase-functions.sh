@@ -20,6 +20,10 @@ declare -A NO_VERIFY_JWT=(
   # delivery with a 401 it cannot see. Listing them keeps a redeploy faithful
   # to what is already live.
   [bazaar-stripe-webhook]=1
+  # Same pattern as bazaar-stripe-webhook: verifies stripe-signature itself.
+  # Was missing from both this list and config.toml, so production rejected
+  # every real Stripe delivery with 401 before the function ever ran.
+  [career-billing-webhook]=1
   [newsletter-preferences]=1
   [ai-chat]=1
   [health-check]=1
