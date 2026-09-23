@@ -451,6 +451,55 @@ async function checkOpenAI(): Promise<ComponentStatus> {
   }
 }
 
+/**
+ * Groq's key, the same free-listing check `checkOpenAI` runs — proves the key
+ * exists, is not revoked, and the API is reachable, never that a real
+ * transcription or completion will succeed. Groq now backs the shared STT
+ * seam's first attempt (`_shared/voice/stt.ts`, used by WhatsApp voice notes
+ * and `speech-transcribe`) as well as WhatsApp's classify/summary chat calls,
+ * so a silently dead key here would degrade both quietly rather than failing
+ * loudly at whichever caller happened to need it next.
+ */
+async function checkGroq(): Promise<ComponentStatus> {
+  const apiKey = Deno.env.get("GROQ_API_KEY");
+  if (!apiKey) {
+    return {
+      ok:     false,
+      status: "missing",
+      detail: "GROQ_API_KEY not configured. WhatsApp classification/summary and the Groq-first speech-to-text chain will fall back to OpenAI on every call.",
+    };
+  }
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (res.status === 401) {
+      return {
+        ok:     false,
+        status: "error",
+        detail: "GROQ_API_KEY is invalid or revoked. Update the secret in Supabase dashboard.",
+      };
+    }
+    if (res.status === 429) {
+      return {
+        ok:     false,
+        status: "warning",
+        detail: "Groq rate limited. Key is valid but requests are being throttled.",
+      };
+    }
+    if (!res.ok) {
+      return {
+        ok:     false,
+        status: "error",
+        detail: `Groq returned HTTP ${res.status}. Check API status at groqstatus.com.`,
+      };
+    }
+    return { ok: true, status: "ok", detail: "Groq key valid and API reachable (generation not verified here)." };
+  } catch (e) {
+    return { ok: false, status: "error", detail: `Cannot reach api.groq.com: ${e}` };
+  }
+}
+
 async function checkLuma(): Promise<ComponentStatus> {
   const apiKey = Deno.env.get("LUMA_API_KEY");
   if (!apiKey) {
@@ -681,6 +730,7 @@ Deno.serve(async (req: Request) => {
   // ── AI Provider API keys ──────────────────────────────────────────────────────
 
   results.openai = await checkOpenAI();
+  results.groq   = await checkGroq();
   results.luma   = await checkLuma();
   results.elevenlabs = await checkElevenLabs();
 

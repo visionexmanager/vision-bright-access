@@ -45,6 +45,11 @@ export function whisperAdapter(config: WhisperConfig): SttAdapter {
       // the one helper that copies it into a plain `ArrayBuffer`.
       form.append("file", toBlob(input.bytes, input.mimeType), input.filename);
       form.append("model", config.model);
+      // `verbose_json` rather than the default: it still carries `text`, and
+      // additionally the language Whisper itself detected and the audio's
+      // duration — both optional on the result, and both something a caller
+      // may want without this seam growing a second response shape per caller.
+      form.append("response_format", "verbose_json");
       // Sent only when the caller genuinely knows. See the note on `language`
       // in `SttInput`: a wrong hint is worse than none, because it makes the
       // model force what it heard into the language it was told to expect.
@@ -73,14 +78,22 @@ export function whisperAdapter(config: WhisperConfig): SttAdapter {
           };
         }
 
-        const body = await response.json() as { text?: string };
+        const body = await response.json() as { text?: string; language?: string; duration?: number };
         const text = (body.text ?? "").trim();
         // An empty transcript is a real outcome — silence, or noise — and is
         // reported as such rather than passed on as an empty question.
         if (!text) {
           return { outcome: "failed", failure: { reason: "empty", provider: config.provider }, ms: since() };
         }
-        return { outcome: "transcript", text, provider: config.provider, model: config.model, ms: since() };
+        return {
+          outcome: "transcript",
+          text,
+          provider: config.provider,
+          model: config.model,
+          ms: since(),
+          language: body.language,
+          duration: body.duration,
+        };
       } catch {
         return { outcome: "failed", failure: { reason: "transport", provider: config.provider }, ms: since() };
       }

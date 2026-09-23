@@ -742,9 +742,15 @@ describe("voice transcription", () => {
   });
 
   it("prefers Groq over OpenAI, which is the cost decision", () => {
+    // The chain itself now lives in the shared STT seam, which this channel
+    // delegates to rather than duplicating.
     const source = readFileSync("supabase/functions/_shared/whatsappTranscribe.ts", "utf8");
-    expect(source.indexOf("groq")).toBeLessThan(source.indexOf('name: "openai"'));
-    expect(source).toMatch(/whisper-large-v3-turbo/);
+    expect(source).toMatch(/from "\.\/voice\/stt\.ts"/);
+
+    const order = readFileSync("supabase/functions/_shared/voice/capabilities.ts", "utf8");
+    expect(order.indexOf('"groq"')).toBeLessThan(order.indexOf('"openai"'));
+    const groqAdapter = readFileSync("supabase/functions/_shared/voice/providers/groq.ts", "utf8");
+    expect(groqAdapter).toMatch(/whisper-large-v3-turbo/);
   });
 
   it("tells a user with an unusable voice note what to do instead", () => {

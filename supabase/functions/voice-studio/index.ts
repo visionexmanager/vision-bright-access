@@ -20,6 +20,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
 
 import {
   deletionOutcome,
@@ -168,6 +169,30 @@ function getProvider(): VoiceProvider {
   return new ElevenLabsVoiceProvider(apiKey);
 }
 
+/**
+ * Feed the provider health table from a real clone, success or failure.
+ *
+ * ElevenLabs is the only `voice_cloning` provider — nothing is selected here,
+ * only recorded, against the router's `elevenlabs-vc` row. Best-effort: a
+ * training job's outcome must never hinge on this.
+ */
+async function recordCloneResult(params: { ms: number; success: boolean; errorMessage?: string }): Promise<void> {
+  try {
+    const row = await providerBySlug("elevenlabs-vc");
+    if (!row) return;
+    await recordResult({
+      provider_id: row.id,
+      provider_slug: row.slug,
+      job_type: "voice_cloning",
+      success: params.success,
+      latency_ms: params.ms,
+      error_message: params.errorMessage,
+    });
+  } catch {
+    // Best-effort.
+  }
+}
+
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
 async function handleStartTraining(
@@ -289,6 +314,7 @@ async function runTraining(
     await updateProfile({ training_status: "uploading" });
     await logEvent("info", "Uploading samples to voice provider…");
 
+    const cloneStartedAt = Date.now();
     const result = await provider.cloneVoice({
       profileId:         profile.id as string,
       profileName:       profile.name as string,
@@ -298,13 +324,16 @@ async function runTraining(
       supabaseUrl,
       supabaseServiceKey: serviceKey,
     });
+    const cloneMs = Date.now() - cloneStartedAt;
 
     if (!result.ok) {
+      await recordCloneResult({ ms: cloneMs, success: false, errorMessage: result.error });
       await updateJob({ status: "failed", progress: 0, error_message: result.error, completed_at: new Date().toISOString() });
       await updateProfile({ status: "failed", training_status: "failed" });
       await logEvent("error", result.error ?? "Training failed");
       return;
     }
+    await recordCloneResult({ ms: cloneMs, success: true });
 
     await updateJob({ status: "optimizing", progress: 90, provider_voice_id: result.providerVoiceId });
     await updateProfile({ training_status: "optimizing" });
