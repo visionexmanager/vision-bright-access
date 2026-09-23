@@ -477,7 +477,7 @@ const HISTORY_LIMIT = 12;
 
 /** Classification is a routing label, so it runs on the smallest model. */
 const CLASSIFY_TARGETS = [
-  { provider: "groq" as const, model: "llama-3.1-8b-instant" },
+  { provider: "groq" as const, model: "openai/gpt-oss-20b" },
   { provider: "openai" as const, model: "gpt-4o-mini" },
 ];
 
@@ -486,7 +486,7 @@ const CLASSIFY_TARGETS = [
  * to the cheapest capable provider rather than the one answering the customer.
  */
 const SUMMARY_TARGETS = [
-  { provider: "groq" as const, model: "llama-3.3-70b-versatile" },
+  { provider: "groq" as const, model: "openai/gpt-oss-120b" },
   { provider: "openai" as const, model: "gpt-4o-mini" },
 ];
 

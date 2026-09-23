@@ -36,7 +36,7 @@ const DEFAULT_PROVIDER: AIProvider = "openai";
 const DEFAULT_MODEL = "gpt-4.1";
 const OPENAI = { provider: "openai", model: "gpt-4.1" } as const;
 const GEMINI = { provider: "gemini", model: "gemini-flash-latest" } as const;
-const GROQ = { provider: "groq", model: "llama-3.1-8b-instant" } as const;
+const GROQ = { provider: "groq", model: "openai/gpt-oss-20b" } as const;
 const MISTRAL = { provider: "mistral", model: "mistral-small-latest" } as const;
 
 // Safety-sensitive domains keep the strongest established model first. Fast
