@@ -9,6 +9,29 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
+
+// ── Provider Registry recording (Phase 2D) ─────────────────────────────────
+//
+// The `openai-image` row Phase 2C seeded. Recording only, mirroring
+// speech-generate's recordTtsResult(): the gpt-image-1 -> gpt-image-1-mini
+// fallback inside generateImage() below stays exactly as it is. It is a
+// same-vendor MODEL fallback (the 20261037000000 migration's own reasoning),
+// not a provider choice the registry models — openai-image has one row
+// because there is genuinely one vendor here, and recordResult() logs what
+// that one vendor actually did without gating whether it ran.
+async function recordImageResult(params: { ms: number; success: boolean; errorMessage?: string }): Promise<void> {
+  try {
+    const row = await providerBySlug("openai-image");
+    if (!row) return;
+    await recordResult({
+      provider_id: row.id, provider_slug: row.slug, job_type: "image",
+      success: params.success, latency_ms: params.ms, error_message: params.errorMessage,
+    });
+  } catch {
+    // Best-effort. The response to the studio must never depend on this.
+  }
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -258,13 +281,16 @@ Deno.serve(async (req: Request) => {
 
   // Generate the image
   try {
+    const startedAt = Date.now();
     const result = await generateImage({
       prompt:  prompt.trim(),
       size:    wantedSize,
       quality: wantedQuality,
     });
+    const elapsedMs = Date.now() - startedAt;
 
     if (!result.ok) {
+      await recordImageResult({ ms: elapsedMs, success: false, errorMessage: result.error });
       if (jobRow) {
         await serviceClient.from("ams_image_jobs").update({
           status:        "failed",
@@ -274,6 +300,7 @@ Deno.serve(async (req: Request) => {
       }
       return json({ ok: false, error: result.error, job_id: jobId }, 500);
     }
+    await recordImageResult({ ms: elapsedMs, success: true });
 
     // Parse dimensions from the size actually asked of the model.
     const [widthStr, heightStr] = wantedSize.split("x");

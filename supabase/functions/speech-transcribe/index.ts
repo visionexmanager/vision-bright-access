@@ -13,8 +13,53 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { isSupportedLanguage } from "../_shared/voice/capabilities.ts";
-import { transcribe } from "../_shared/voice/stt.ts";
+import { transcribe, type SttProviderName, type TranscribeAttempt } from "../_shared/voice/stt.ts";
 import type { VoiceFailure } from "../_shared/voice/providers/types.ts";
+import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
+
+// ── Provider Registry recording (Phase 2D) ─────────────────────────────────
+//
+// The `groq-stt`/`openai-stt` rows Phase 2C seeded. Recording only — the
+// fallback order, per-language capability filtering, skip-on-no-key and
+// retry-on-empty-transcript behavior all stay exactly as `_shared/voice/stt.ts`
+// already implements them (and WhatsApp's voice notes already rely on). That
+// chain is more sophisticated than a single resolveProvider() pick — it is
+// capability-aware and cannot regress to something the registry does not yet
+// model. Wiring it in as a real dependency of the transcription itself would
+// also mean a Supabase hiccup could break transcription that works today; a
+// best-effort recording call after the fact carries none of that risk.
+const STT_SLUG: Record<SttProviderName, string> = { groq: "groq-stt", openai: "openai-stt" };
+
+/**
+ * Record every attempt `transcribe()` actually made against a network — a
+ * provider skipped for a missing key never reached the wire and is excluded,
+ * so it cannot be mistaken for a real failure in that provider's health score.
+ */
+async function recordSttAttempts(
+  attempts: TranscribeAttempt[],
+  final?: { provider: SttProviderName; ms: number },
+): Promise<void> {
+  const real = attempts.filter((a) => a.failure.reason !== "no_key");
+  try {
+    for (const attempt of real) {
+      const row = await providerBySlug(STT_SLUG[attempt.provider]);
+      if (!row) continue;
+      await recordResult({
+        provider_id: row.id, provider_slug: row.slug, job_type: "stt",
+        success: false, latency_ms: attempt.ms,
+        error_message: attempt.failure.reason === "rejected" ? attempt.failure.detail : attempt.failure.reason,
+      });
+    }
+    if (final) {
+      const row = await providerBySlug(STT_SLUG[final.provider]);
+      if (row) {
+        await recordResult({ provider_id: row.id, provider_slug: row.slug, job_type: "stt", success: true, latency_ms: final.ms });
+      }
+    }
+  } catch {
+    // Best-effort. The transcript the sender already has must never depend on this.
+  }
+}
 
 const MAX_BYTES = 25 * 1024 * 1024; // OpenAI Whisper's hard limit
 
@@ -89,7 +134,11 @@ async function transcribeWithWhisper(
     language: isSupportedLanguage(languageHint) ? languageHint : undefined,
   });
 
-  if (heard.outcome !== "transcript") throw new Error(describeSttFailure(heard.failure));
+  if (heard.outcome !== "transcript") {
+    await recordSttAttempts(heard.attempts);
+    throw new Error(describeSttFailure(heard.failure));
+  }
+  await recordSttAttempts(heard.attempts, { provider: heard.provider, ms: heard.ms });
   return { text: heard.text, language: heard.language, duration: heard.duration };
 }
 
