@@ -6,6 +6,24 @@ import type {
   VideoTemplate,
   VideoLibraryFilters,
 } from "@/lib/types/video-studio";
+
+// Every vx_video_jobs column the browser may read, except provider_job_id —
+// the vendor's own tracking id, which has no product purpose here and no
+// component reads it. _shared/providers/compute.ts's ComputeJob already
+// keeps this out of the RunPod path by design; these two queries are the
+// pre-existing Luma/OpenAI path catching up to that same rule.
+const VIDEO_JOB_COLUMNS = [
+  "id", "user_id", "project_id", "asset_id",
+  "title", "prompt", "negative_prompt", "style", "duration_sec",
+  "aspect_ratio", "resolution", "fps", "camera_motion", "creativity", "seed",
+  "audio_asset_id", "audio_mode", "template_id",
+  "provider", "provider_model",
+  "video_url", "storage_path", "thumbnail_url", "thumbnail_path",
+  "duration_actual_sec", "file_size_bytes", "width", "height",
+  "status", "progress", "error_message", "retry_count", "generation_time_ms",
+  "is_favorite", "is_archived",
+  "created_at", "updated_at", "started_at", "completed_at", "estimated_complete",
+].join(", ");
 async function requireUserId(): Promise<string> {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) throw new Error("Not authenticated");
@@ -15,7 +33,7 @@ async function requireUserId(): Promise<string> {
 // ── Video Jobs ────────────────────────────────────────────────────────────────
 
 export async function listVideoJobs(filters: VideoLibraryFilters = {}): Promise<VideoJob[]> {
-  let q = supabase.from("vx_video_jobs").select("*");
+  let q = supabase.from("vx_video_jobs").select(VIDEO_JOB_COLUMNS);
 
   if (filters.status === "active") {
     q = q.in("status", ["queued", "preparing", "generating", "rendering", "optimizing", "uploading"]);
@@ -52,7 +70,7 @@ export async function listVideoJobs(filters: VideoLibraryFilters = {}): Promise<
 export async function getVideoJob(id: string): Promise<VideoJob | null> {
   const { data, error } = await supabase
     .from("vx_video_jobs")
-    .select("*")
+    .select(VIDEO_JOB_COLUMNS)
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;

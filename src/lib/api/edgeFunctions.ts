@@ -507,7 +507,6 @@ export interface VideoStudioRequest {
 export interface VideoStudioResponse {
   ok:              boolean;
   job_id?:         string;
-  provider_job_id?: string;
   status?:         string;
   progress?:       number;
   video_url?:      string;

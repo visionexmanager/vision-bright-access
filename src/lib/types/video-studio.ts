@@ -35,7 +35,8 @@ export interface VideoJob {
   template_id:         string | null;
   provider:            string;
   provider_model:      string | null;
-  provider_job_id:     string | null;
+  // provider_job_id deliberately not selected client-side — see
+  // videoStudioService.ts's VIDEO_JOB_COLUMNS.
   video_url:           string | null;
   storage_path:        string | null;
   thumbnail_url:       string | null;

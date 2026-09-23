@@ -630,7 +630,10 @@ async function handleGenerate(
     estimated_complete: estimatedComplete,
   }).eq("id", job.id);
 
-  return json({ ok: true, job_id: job.id, provider_job_id: result.providerJobId });
+  // The vendor's own job id is internal plumbing — _shared/providers/compute.ts's
+  // ComputeJob deliberately keeps it out of any response a browser receives.
+  // This older, pre-RunPod path returned it anyway; brought in line here.
+  return json({ ok: true, job_id: job.id });
 }
 
 async function handlePoll(
