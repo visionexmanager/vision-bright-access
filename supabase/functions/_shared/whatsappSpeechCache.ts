@@ -201,16 +201,20 @@ export function neverThrows(store: SpeechCacheStore): SpeechCacheStore {
  * cache read failing except synthesise, which is what a miss already means.
  */
 export function speechCacheStore(db: {
+  // `PromiseLike`, not `Promise`: the real `SupabaseClient`'s query builder
+  // methods return a `PostgrestFilterBuilder` — awaitable but not structurally
+  // a `Promise` — so this narrow shape must ask for what they actually give,
+  // the same fix `EntitlementDb` needed for the same reason.
   from(table: string): {
     select(columns: string): {
       eq(column: string, value: string): {
         gt(column: string, value: string): {
-          maybeSingle(): Promise<{ data: unknown; error: unknown }>;
+          maybeSingle(): PromiseLike<{ data: unknown; error: unknown }>;
         };
       };
     };
-    upsert(values: Record<string, unknown>, options?: Record<string, unknown>): Promise<{ error: unknown }>;
-    delete(): { eq(column: string, value: string): Promise<{ error: unknown }> };
+    upsert(values: Record<string, unknown>, options?: Record<string, unknown>): PromiseLike<{ error: unknown }>;
+    delete(): { eq(column: string, value: string): PromiseLike<{ error: unknown }> };
   };
 }): SpeechCacheStore {
   const TABLE = "whatsapp_speech_cache";

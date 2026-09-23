@@ -15,12 +15,14 @@ name: WhatsApp — Deno type check
 # `_shared/whatsapp*.ts` module the day this workflow was added — so a failure
 # here is a regression, not a pre-existing backlog to ignore.
 #
-# The webhook's own `index.ts` is deliberately **not** checked: it has 34
-# pre-existing errors, all the same shape (`Property 'x' does not exist on type
-# 'GenericStringError'`, from an untyped `.select()`), and a gate that is red
-# from the first day is a gate people learn to ignore. Typing that client is its
-# own piece of work; until then this covers the pure modules, which is where the
-# logic lives.
+# The webhook's own `index.ts` used to be excluded from this: it carried 41
+# pre-existing errors, all the same shape (`Property 'x' does not exist on
+# type 'GenericStringError'`, from `.select()` calls built with `+` instead
+# of a template literal, which loses the string-literal type Supabase's
+# client needs to infer a row shape) and a gate that is red from the first
+# day is a gate people learn to ignore. Those are fixed now — the file is
+# genuinely clean — so it is checked here like every other module, not
+# excluded on the strength of a history that no longer holds.
 
 on:
   pull_request:
@@ -32,6 +34,9 @@ on:
       # ai-search, so a parse error in one of them stops those functions
       # from booting, and nothing else parse-checks them.
       - "supabase/functions/_shared/sourcing/**/*.ts"
+      # Now genuinely checked below, not just parsed — a PR touching only
+      # this file must still run the gate that covers it.
+      - "supabase/functions/whatsapp-webhook/index.ts"
       - ".github/workflows/whatsapp-deno-check.yml"
   push:
     branches: [main]
@@ -42,6 +47,9 @@ on:
       # ai-search, so a parse error in one of them stops those functions
       # from booting, and nothing else parse-checks them.
       - "supabase/functions/_shared/sourcing/**/*.ts"
+      # Now genuinely checked below, not just parsed — a PR touching only
+      # this file must still run the gate that covers it.
+      - "supabase/functions/whatsapp-webhook/index.ts"
       - ".github/workflows/whatsapp-deno-check.yml"
 
 concurrency:
@@ -63,7 +71,12 @@ jobs:
           # `-maxdepth 1` on the whatsapp glob, unbounded on voice: the voice
           # directory has a `providers/` subdirectory, and a provider that is
           # not type-checked is exactly the file a future local model lands in.
-          mapfile -t SHARED < <({ find supabase/functions/_shared -maxdepth 1 -type f -name "whatsapp*.ts"; find supabase/functions/_shared/voice -type f -name "*.ts"; } | sort)
+          #
+          # The webhook's own entry point joins this list now that its 41
+          # pre-existing errors are fixed — it is no longer excluded, and a
+          # future error in it should fail this gate the same way one in any
+          # shared module already does.
+          mapfile -t SHARED < <({ find supabase/functions/_shared -maxdepth 1 -type f -name "whatsapp*.ts"; find supabase/functions/_shared/voice -type f -name "*.ts"; echo "supabase/functions/whatsapp-webhook/index.ts"; } | sort)
           if [ "${#SHARED[@]}" -eq 0 ]; then
             echo "No shared WhatsApp modules found — nothing to check."
             exit 0
