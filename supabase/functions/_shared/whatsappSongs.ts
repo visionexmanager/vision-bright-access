@@ -475,6 +475,22 @@ export const songSubtitle = (song: Song): string =>
   [song.artist, song.album].filter(Boolean).join(" — ");
 
 /**
+ * A YouTube search for this track, built from its title and artist.
+ *
+ * Not a lookup against YouTube's API — that needs a key, and a key is exactly
+ * what this file's own rule forbids. A search URL needs none: it is
+ * constructed, never fetched, so there is nothing here for a quota or a
+ * revoked credential to break. It is sent beside the Apple link rather than
+ * instead of it, because the two answer different questions — where the
+ * rights holder sells the track, and where somebody can actually watch or
+ * hear it for free right now.
+ */
+export const songYoutubeSearchUrl = (song: Song): string =>
+  `https://www.youtube.com/results?search_query=${encodeURIComponent(
+    [song.title, song.artist].filter(Boolean).join(" "),
+  )}`;
+
+/**
  * The sentence sent beside a thirty-second preview.
  *
  * It says what the audio is before it says where the rest is, because somebody
@@ -489,6 +505,7 @@ export function formatPreview(params: { song: Song; language: Language }): strin
   lines.push("");
   lines.push(say("songPreviewNote", language));
   if (song.trackUrl) lines.push(say("songFullLink", language).replace("{url}", song.trackUrl));
+  lines.push(say("songYoutubeLink", language).replace("{url}", songYoutubeSearchUrl(song)));
   return lines.join("\n");
 }
 
@@ -507,6 +524,7 @@ export function formatFreeRecording(params: {
   if (recording.pageUrl) {
     lines.push(say("songFreeLicence", language).replace("{url}", recording.pageUrl));
   }
+  lines.push(say("songYoutubeLink", language).replace("{url}", songYoutubeSearchUrl(song)));
   return lines.join("\n");
 }
 
@@ -521,9 +539,10 @@ export function formatLinkOnly(params: { song: Song; language: Language }): stri
   const lines = [`🎵 *${song.title}*`];
   const subtitle = songSubtitle(song);
   if (subtitle) lines.push(subtitle);
+  lines.push("");
   if (song.trackUrl) {
-    lines.push("");
     lines.push(say("songFullLink", language).replace("{url}", song.trackUrl));
   }
+  lines.push(say("songYoutubeLink", language).replace("{url}", songYoutubeSearchUrl(song)));
   return lines.join("\n");
 }
