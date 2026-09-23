@@ -672,9 +672,9 @@ async function handleOwnerCommand(
     return formatOwnerHelp();
   }
 
-  // `/help` needs nothing: not a lookup, not a rate-limit slot, not an audit
-  // row. It is a list of words, and answering it is never a decision.
-  if (command.kind === "help") return formatOwnerHelp();
+  // `/help` needs nothing — not a lookup, not a rate-limit slot, not an audit
+  // row — which is already handled above: the check a few lines up returns on
+  // `command.kind === "help"` before any of that runs.
 
   // Content approvals are left out of this generic list on purpose: deciding
   // one through decide_owner_approval would move the approval without its
@@ -984,7 +984,15 @@ Deno.serve(async (req) => {
    * the whole policy stays testable without a Postgres. Every failure inside it
    * is a cache miss, which is the behaviour that existed before it.
    */
-  const speechCache = speechCacheStore(db);
+  // The cast is the recursion depth, not the shape: `db`'s methods already
+  // satisfy `speechCacheStore`'s narrow interface (proved by the identical,
+  // now-fixed `PromiseLike` mismatch `maySeeSection`/`EntitlementDb` had for
+  // the same reason). What TypeScript cannot do is finish *structurally
+  // comparing* the real client's postgrest-js builder generics against a
+  // hand-written object type without exceeding its instantiation-depth limit
+  // — a known compiler limitation against Supabase's generated builder
+  // chains, independent of whether the comparison would succeed.
+  const speechCache = speechCacheStore(db as unknown as Parameters<typeof speechCacheStore>[0]);
 
   /**
    * Ask the Commerce Agent what the catalogue has.
@@ -1159,15 +1167,21 @@ Deno.serve(async (req) => {
        * migration lands. The fallback costs one extra round trip on a path that
        * should never be taken twice in the lifetime of a deploy.
        */
+      // Template literals, not `+`: Supabase's typed client reads the row
+      // shape out of `.select()`'s argument at the type level, which only
+      // works when TypeScript keeps it a string *literal* type. The `+`
+      // operator always widens the result to plain `string`, which is why
+      // every column read off `existing` below used to type as
+      // `GenericStringError` — a supabase-js fallback for "the select
+      // couldn't be parsed", not a sign the columns themselves were wrong.
       const SESSION_COLUMNS =
-        "id, language, voice_mode, menu_sent_at, ai_thread_id, ai_thread_started_at, nav_path, current_feature, current_step, pending_operation, session_context, session_updated_at, " +
-        PROFILE_COLUMNS + ", ";
+        `id, language, voice_mode, menu_sent_at, ai_thread_id, ai_thread_started_at, nav_path, current_feature, current_step, pending_operation, session_context, session_updated_at, ${PROFILE_COLUMNS}, `;
       const ESTABLISHED_COLUMNS =
         "escalated, escalated_at, escalation_reason, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at";
 
       const firstRead = await db
         .from("whatsapp_conversations")
-        .select(SESSION_COLUMNS + ESTABLISHED_COLUMNS)
+        .select(`${SESSION_COLUMNS}${ESTABLISHED_COLUMNS}`)
         .eq("wa_phone", incoming.from)
         .maybeSingle();
       let existing = firstRead.data;
@@ -1189,7 +1203,7 @@ Deno.serve(async (req) => {
         console.error("[whatsapp] reading the session columns failed:", firstRead.error.code ?? "unknown");
         ({ data: existing } = await db
           .from("whatsapp_conversations")
-          .select("id, " + ESTABLISHED_COLUMNS)
+          .select(`id, ${ESTABLISHED_COLUMNS}`)
           .eq("wa_phone", incoming.from)
           .maybeSingle());
       }
@@ -1745,12 +1759,19 @@ Deno.serve(async (req) => {
                   readOffice: (input, mime) => readOfficeLocally({ bytes: input, mimeType: mime }),
                 }),
                 translate: async (text, target) => {
-                  const answer = await askAssistant({
-                    question: `${translateTextPrompt(LANGUAGE_ENDONYM[jobLanguage], target)}\n\n${text}`,
-                    languageName: LANGUAGE_ENDONYM[jobLanguage],
-                    provider: chainProvider(),
-                  });
-                  return answer.ok ? answer.text : null;
+                  // `askAssistant` takes the input and the provider as two
+                  // separate arguments, and its instruction belongs in
+                  // `systemParts`, not folded into the question text — the
+                  // same shape the other translation call site in this file
+                  // already uses via `streamChatCompletionWithFallback`.
+                  const answer = await askAssistant(
+                    {
+                      systemParts: [translateTextPrompt(LANGUAGE_ENDONYM[jobLanguage], target)],
+                      question: text,
+                    },
+                    chainProvider(),
+                  );
+                  return answer.status === "answered" ? answer.text : null;
                 },
                 sendText: async (text) => {
                   await reply(text, "reply");
@@ -2091,14 +2112,20 @@ Deno.serve(async (req) => {
         const sendAudioFrom = async (url: string): Promise<boolean> => {
           const audio = await fetchAudio(url).catch(() => null);
           if (!audio) return false;
+          // Narrowed at the top of the handler (`if (!token || !phoneNumberId)`);
+          // every other call site in this file relies on the same guarantee,
+          // and TypeScript's narrowing does not carry into a doubly-nested
+          // closure stored in a variable rather than invoked inline. Asserted,
+          // not re-checked, so a missing-credentials delivery still logs and
+          // continues exactly as it does everywhere else in this function.
           const mediaId = await uploadWhatsAppMedia({
-            phoneNumberId,
-            token,
+            phoneNumberId: phoneNumberId!,
+            token: token!,
             bytes: audio.bytes,
             mimeType: audio.mimeType,
           });
           if (!mediaId) return false;
-          return await sendWhatsAppAudio({ phoneNumberId, token, to: incoming.from, mediaId });
+          return await sendWhatsAppAudio({ phoneNumberId: phoneNumberId!, token: token!, to: incoming.from, mediaId });
         };
 
         // The free recording is tried first and is allowed to fail all the way

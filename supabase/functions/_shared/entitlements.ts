@@ -24,7 +24,12 @@ export type Section =
 
 /** Just enough of a Supabase client to ask, so this stays testable. */
 export interface EntitlementDb {
-  rpc(fn: string, args: Record<string, unknown>): Promise<{ data: unknown; error: unknown }>;
+  // `PromiseLike`, not `Promise`: the real `SupabaseClient.rpc()` returns a
+  // `PostgrestFilterBuilder` — awaitable (it implements `.then()`, which is
+  // all `PromiseLike` requires) but not structurally a `Promise` (it has no
+  // `.catch`/`.finally`/`[Symbol.toStringTag]`). `Promise` here rejected the
+  // real client at the type level while working fine at runtime.
+  rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }>;
 }
 
 export interface SectionVerdict {

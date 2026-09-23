@@ -1418,7 +1418,7 @@ describe("voice replies", () => {
     }
     // And the fallback keeps the assistant answering if those columns are not
     // there yet, rather than treating every conversation as brand new.
-    expect(webhook).toContain('.select("id, " + ESTABLISHED_COLUMNS)');
+    expect(webhook).toContain(".select(`id, ${ESTABLISHED_COLUMNS}`)");
   });
 
   it("strips what does not survive being read aloud", () => {
