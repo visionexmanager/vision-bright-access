@@ -1321,6 +1321,7 @@ const BASE_STRINGS = {
   },
   /** Carries `{url}`, the shop where the whole track plays. */
   songFullLink: { ar: "اسمعها كاملة: {url}", en: "Listen in full: {url}" },
+  songYoutubeLink: { ar: "استمعها على يوتيوب: {url}", en: "Also on YouTube: {url}" },
   songFreeNote: {
     ar: "هذه نسخة كاملة بترخيص حر — أداء آخر، وليس التسجيل التجاري.",
     en: "This is a complete, freely licensed recording — another performance, not the commercial one.",
