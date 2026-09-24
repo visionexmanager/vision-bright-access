@@ -118,6 +118,93 @@ export async function streamChatCompletion(
   return streamOpenAICompatible(params);
 }
 
+// ── Attempt recording (Phase 2K-4) ──────────────────────────────────────────
+//
+// The two fallback loops below report each provider attempt — every one that
+// failed and the one that answered — to a recorder the entry point installs
+// (`chatRecorder.ts`). Recording only: the loops try `targets` in exactly the
+// order they are given, and nothing here reads the registry to choose one.
+//
+// An attempt carries the provider and model it was sent to, its position in
+// the chain, whether it succeeded, how long it took, and on failure one code
+// from ATTEMPT_ERROR_CODES. Never the prompt, the answer, the image, a secret
+// or a provider's error text.
+//
+// `kind` is decided by the request: a structured request carrying an image is
+// "vision"; everything else — including a text document sent down a
+// vision-capable chain — is "chat". A stream is always "chat": its messages
+// are text.
+//
+// Streaming: a stream attempt succeeds when the provider accepts the request
+// (a 2xx response with a body). A stream that breaks after that is not
+// visible at this layer, and is not recorded as a failure.
+
+export type AttemptKind = "chat" | "vision";
+
+export const ATTEMPT_ERROR_CODES = [
+  "not_configured",
+  "http_400", "http_401", "http_403", "http_404", "http_408", "http_413", "http_422", "http_429",
+  "http_4xx", "http_5xx",
+  "invalid_response", "timeout", "network", "unknown",
+] as const;
+export type AttemptErrorCode = typeof ATTEMPT_ERROR_CODES[number];
+
+export interface ProviderAttempt {
+  kind: AttemptKind;
+  mode: "stream" | "structured";
+  provider: AIProvider;
+  model: string;
+  /** 1 for the chain's first target, 2 for the first fallback, … */
+  attempt: number;
+  success: boolean;
+  ms: number;
+  error?: AttemptErrorCode;
+}
+
+export type AttemptRecorder = (attempt: ProviderAttempt) => void;
+
+/** Longer than any request an edge function can hold open. */
+export const MAX_RECORDED_ATTEMPT_MS = 600_000;
+
+let attemptRecorder: AttemptRecorder | null = null;
+
+/** Installed once per function by `installChatAttemptRecording()`; null removes it. */
+export function setProviderAttemptRecorder(recorder: AttemptRecorder | null): void {
+  attemptRecorder = recorder;
+}
+
+const SPECIFIC_4XX = new Set([400, 401, 403, 404, 408, 413, 422, 429]);
+
+/** The one code an attempt's error is recorded as. Reads the error's type and status, never records its text. */
+export function attemptErrorCode(error: unknown): AttemptErrorCode {
+  if (error instanceof ProviderError) {
+    if (/ is not configured$/.test(error.message)) return "not_configured";
+    if (error.message === "No structured response from AI") return "invalid_response";
+    if (SPECIFIC_4XX.has(error.status)) return `http_${error.status}` as AttemptErrorCode;
+    if (error.status >= 400 && error.status < 500) return "http_4xx";
+    if (error.status >= 500 && error.status < 600) return "http_5xx";
+    return "unknown";
+  }
+  if (error instanceof SyntaxError) return "invalid_response";
+  if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) return "timeout";
+  if (error instanceof TypeError) return "network";
+  return "unknown";
+}
+
+function reportAttempt(attempt: ProviderAttempt): void {
+  const recorder = attemptRecorder;
+  if (!recorder) return;
+  try {
+    recorder(attempt);
+  } catch {
+    // Recording never reaches the request.
+  }
+}
+
+function elapsedMs(start: number): number {
+  return Math.min(MAX_RECORDED_ATTEMPT_MS, Math.max(0, Math.round(Date.now() - start)));
+}
+
 /** Try providers in order until one accepts the streaming request. */
 export async function streamChatCompletionWithFallback(
   params: Omit<ProviderChatParams, "provider" | "model"> & { targets: ProviderTarget[] },
@@ -125,11 +212,15 @@ export async function streamChatCompletionWithFallback(
   if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
 
   let lastError: unknown;
-  for (const target of params.targets) {
+  for (const [index, target] of params.targets.entries()) {
+    const start = Date.now();
+    const base = { kind: "chat", mode: "stream", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
       const result = await streamChatCompletion({ ...params, ...target });
+      reportAttempt({ ...base, success: true, ms: elapsedMs(start) });
       return { ...target, result };
     } catch (error) {
+      reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: attemptErrorCode(error) });
       lastError = error;
       console.warn(`[ai-provider] ${target.provider}/${target.model} unavailable; trying fallback`);
     }
@@ -296,12 +387,17 @@ export async function structuredCompletionWithFallback(
 ): Promise<ProviderResult<unknown>> {
   if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
 
+  const kind: AttemptKind = params.image ? "vision" : "chat";
   let lastError: unknown;
-  for (const target of params.targets) {
+  for (const [index, target] of params.targets.entries()) {
+    const start = Date.now();
+    const base = { kind, mode: "structured", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
       const result = await structuredCompletion({ ...params, ...target });
+      reportAttempt({ ...base, success: true, ms: elapsedMs(start) });
       return { ...target, result };
     } catch (error) {
+      reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: attemptErrorCode(error) });
       lastError = error;
       console.warn(`[ai-provider] ${target.provider}/${target.model} structured request failed; trying fallback`);
     }

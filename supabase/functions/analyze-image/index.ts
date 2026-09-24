@@ -3,6 +3,10 @@ import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getVisionAnalyst, VISION_SCHEMA } from "../_shared/visionAnalysts.ts";
 import { structuredCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
+import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+
+// Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
+installChatAttemptRecording();
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);

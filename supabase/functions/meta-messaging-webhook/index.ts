@@ -78,6 +78,10 @@ import {
   type Channel,
   type NormalizedMessage,
 } from "../_shared/messaging/types.ts";
+import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+
+// Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
+installChatAttemptRecording();
 
 const env = (name: string) => Deno.env.get(name);
 

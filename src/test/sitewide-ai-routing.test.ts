@@ -49,7 +49,8 @@ describe("site-wide AI provider routing", () => {
 
     expect(provider).toContain("streamChatCompletionWithFallback");
     expect(provider).toContain("structuredCompletionWithFallback");
-    expect(provider).toContain("for (const target of params.targets)");
+    // Both loops walk the targets in the order given (Phase 2K-4 added the index for recording).
+    expect(provider.match(/for \(const \[index, target\] of params\.targets\.entries\(\)\)/g)).toHaveLength(2);
     expect(consumers).toContain("streamChatCompletionWithFallback");
     expect(consumers).toContain("structuredCompletionWithFallback");
   });

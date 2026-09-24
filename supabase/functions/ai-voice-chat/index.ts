@@ -7,6 +7,10 @@ import {
   streamChatCompletionWithFallback,
   type ProviderTarget,
 } from "../_shared/aiProvider.ts";
+import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+
+// Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
+installChatAttemptRecording();
 
 async function collectText(stream: ReadableStream<Uint8Array>): Promise<string> {
   const payload = await new Response(stream).text();

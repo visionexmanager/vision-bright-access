@@ -9,7 +9,7 @@ import { useProviders } from "@/hooks/useProviders";
 import { useAllProviderStats } from "@/hooks/useProviderMetrics";
 import { useHealthCheck } from "@/hooks/useProviderHealth";
 import { PROVIDER_TYPE_LABELS, STATUS_BG } from "@/lib/types/provider-hub";
-import type { Provider } from "@/lib/types/provider-hub";
+import type { Provider, ProviderType } from "@/lib/types/provider-hub";
 
 interface TrafficBarProps {
   providers: Provider[];
@@ -188,7 +188,7 @@ export function ProviderHealthDashboard() {
       <div className="rounded-xl border border-border bg-card p-4 space-y-3">
         <h3 className="text-sm font-semibold">Traffic Distribution (24h)</h3>
         {/* Group by type */}
-        {(["tts", "voice_cloning", "text_to_video"] as const).map((type) => {
+        {(Object.keys(PROVIDER_TYPE_LABELS) as ProviderType[]).map((type) => {
           const group = providers.filter((p) => p.type === type);
           if (group.length === 0) return null;
           return (

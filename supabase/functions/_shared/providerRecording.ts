@@ -15,6 +15,7 @@
 import type { MediaKind, MediaOutcome } from "./contentMedia.ts";
 import type { SttProviderName, TranscribeAttempt } from "./voice/stt.ts";
 import type { TtsExecution, TtsProvider } from "./voice/tts.ts";
+import type { AIProvider, ProviderAttempt } from "./aiProvider.ts";
 
 // deno-lint-ignore no-explicit-any
 export type RecordingDb = any;
@@ -215,4 +216,45 @@ export async function recordTtsExecution(db: RecordingDb, execution: TtsExecutio
   const slug = TTS_PROVIDER_SLUG[execution.provider];
   if (!slug) return;
   await recordProviderOutcome(db, slug, "tts", { success: true, ms: execution.ms }, { model: execution.model });
+}
+
+// ── Chat and vision attempts (Phase 2K-4) ────────────────────────────────────
+//
+// Recording only. The two fallback loops in `aiProvider.ts` report each
+// attempt; this writes it against the row for that provider and kind. One
+// attempt is one `ph_logs` row: `failover_to` is never set, so no
+// `ph_failovers` row is written either — a fallback shows as the next row's
+// `request_meta.attempt` being above 1. The model travels in `request_meta`;
+// rows are per provider, not per model.
+//
+// A provider with no row for a kind records nothing. Anthropic is reachable
+// only outside the two loops today (career-ai, news-generate), so it has no
+// chat row; Groq and Mistral take no images in any recorded chain, so they
+// have no vision row.
+
+/** The chat rows seeded in 20261042000000. */
+export const CHAT_PROVIDER_SLUG: Partial<Record<AIProvider, string>> = {
+  openai: "openai-chat",
+  groq: "groq-chat",
+  mistral: "mistral-chat",
+  gemini: "gemini-chat",
+};
+
+/** The vision rows seeded in 20261042000000. */
+export const VISION_PROVIDER_SLUG: Partial<Record<AIProvider, string>> = {
+  openai: "openai-vision",
+  gemini: "gemini-vision",
+};
+
+/** One chat or vision attempt: a metric and a log row. Never throws. */
+export async function recordProviderAttempt(db: RecordingDb, attempt: ProviderAttempt): Promise<void> {
+  const slug = (attempt.kind === "vision" ? VISION_PROVIDER_SLUG : CHAT_PROVIDER_SLUG)[attempt.provider];
+  if (!slug) return;
+  await recordProviderOutcome(
+    db,
+    slug,
+    attempt.kind,
+    { success: attempt.success, ms: attempt.ms, error: attempt.error },
+    { model: attempt.model, attempt: attempt.attempt, mode: attempt.mode },
+  );
 }
