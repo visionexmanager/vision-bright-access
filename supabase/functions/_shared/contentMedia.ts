@@ -165,6 +165,32 @@ export interface MediaDeps {
   now?: () => number;
   /** Test seam: the poll interval while a video renders. */
   sleep?: (ms: number) => Promise<void>;
+  /**
+   * Told what the provider did, once per generation — never the prompt, the
+   * bytes or a provider's sentence, only the short code. Optional and
+   * best-effort: a recorder that throws changes nothing about the result
+   * (Phase 2H; see providerRecording.ts).
+   */
+  record?: (outcome: MediaOutcome) => Promise<void>;
+}
+
+/** What one generation told the provider registry. */
+export interface MediaOutcome {
+  kind: MediaKind;
+  /** The provider produced the media — whether or not storing it then worked. */
+  success: boolean;
+  ms: number;
+  /** A short code from `classify` and friends, only when `success` is false. */
+  error?: string;
+}
+
+async function report(deps: MediaDeps, outcome: MediaOutcome): Promise<void> {
+  if (!deps.record) return;
+  try {
+    await deps.record(outcome);
+  } catch {
+    // Recording is never allowed to cost the caller its picture.
+  }
 }
 
 export interface MediaResult {
@@ -211,6 +237,19 @@ export async function generateImage(
   size: string,
   pathPrefix: string,
 ): Promise<MediaResult> {
+  const now = deps.now ?? (() => Date.now());
+  const started = now();
+  // Every exit reports once: `providerOk` is whether the provider produced a
+  // picture, so a storage failure is not held against the provider.
+  const done = async (result: MediaResult, providerOk: boolean): Promise<MediaResult> => {
+    await report(deps, {
+      kind: "image",
+      success: providerOk,
+      ms: now() - started,
+      error: providerOk ? undefined : result.error,
+    });
+    return result;
+  };
   let lastError = "provider_rejected";
 
   for (const model of IMAGE_MODELS) {
@@ -222,7 +261,7 @@ export async function generateImage(
         body: JSON.stringify({ model, prompt, size, n: 1 }),
       });
     } catch {
-      return { ok: false, error: "provider_unreachable" };
+      return done({ ok: false, error: "provider_unreachable" }, false);
     }
 
     const payload = await response.json().catch(() => null);
@@ -232,7 +271,7 @@ export async function generateImage(
       // or a policy refusal would answer identically every time, and asking
       // again is a second charge for the same answer.
       if (lastError === "model_unavailable") continue;
-      return { ok: false, error: lastError };
+      return done({ ok: false, error: lastError }, false);
     }
 
     const first = (payload as { data?: Array<{ b64_json?: string; url?: string }> } | null)?.data?.[0];
@@ -240,14 +279,14 @@ export async function generateImage(
       // The current models answer in base64 and never with a link. A link here
       // would mean the API changed shape, which is worth failing loudly for
       // rather than storing a URL that expires within the hour.
-      return { ok: false, error: first?.url ? "unexpected_url_response" : "no_image_returned" };
+      return done({ ok: false, error: first?.url ? "unexpected_url_response" : "no_image_returned" }, false);
     }
 
     const url = await deps.upload(`${pathPrefix}.png`, decodeBase64(first.b64_json), "image/png");
-    return url ? { ok: true, kind: "image", url, prompt } : { ok: false, error: "upload_failed" };
+    return done(url ? { ok: true, kind: "image", url, prompt } : { ok: false, error: "upload_failed" }, true);
   }
 
-  return { ok: false, error: lastError };
+  return done({ ok: false, error: lastError }, false);
 }
 
 /**

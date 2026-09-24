@@ -17,6 +17,7 @@ import {
   type MediaResult,
 } from "./contentMedia.ts";
 import { isOwner, normalizePhone } from "./ownerControl.ts";
+import { recordMediaOutcome } from "./providerRecording.ts";
 import {
   type Brief,
   type ContentCommand,
@@ -85,6 +86,8 @@ export async function attachProposalMedia(
       const { data } = db.storage.from(MEDIA_BUCKET).getPublicUrl(path);
       return (data as { publicUrl?: string } | null)?.publicUrl ?? null;
     },
+    // What the image model did, in the provider registry (Phase 2H).
+    record: (outcome) => recordMediaOutcome(db, outcome),
   }, proposal, kind);
 
   if (!result.ok || !result.url) return result;

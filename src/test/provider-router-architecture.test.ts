@@ -68,9 +68,16 @@ describe("recordResult takes a provider identity; it never re-derives one", () =
     const fn = router.slice(router.indexOf("export async function recordResult"));
     const sig = fn.slice(0, fn.indexOf(")"));
     const body = fn.slice(0, fn.indexOf("\n}\n"));
-    expect(sig).toContain("provider_id");
-    expect(sig).toContain("provider_slug");
+    // Since Phase 2H the parameter type and the body live in
+    // providerRecording.ts; recordResult builds a client and delegates.
+    expect(sig).toContain("RecordResultParams");
+    expect(body).toContain("recordResultIn(");
     expect(body).not.toContain("resolveProvider(");
+    const recording = readFileSync("supabase/functions/_shared/providerRecording.ts", "utf8");
+    const params = recording.slice(recording.indexOf("export interface RecordResultParams"));
+    expect(params.slice(0, params.indexOf("}"))).toContain("provider_id:");
+    expect(params.slice(0, params.indexOf("}"))).toContain("provider_slug:");
+    expect(recording).not.toContain("resolveProvider(");
   });
 });
 
