@@ -52,9 +52,12 @@ describe("ph_record_metric: automatic recovery, administrative states untouched"
     expect(migration).toContain("GRANT EXECUTE ON FUNCTION public.ph_record_metric(uuid, boolean, integer, numeric) TO service_role;");
   });
 
-  it("is the newest migration", () => {
+  it("comes after every migration that was on main before it, with a unique version", () => {
+    // Later phases add migrations after it (2K-2 did), so "newest" is not the
+    // invariant; ordering after 20261039 and a unique version are.
     const files = readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
-    expect(files.at(-1)).toBe(MIGRATION);
+    expect(files.indexOf(MIGRATION)).toBeGreaterThan(files.indexOf("20261039000000_openai_video_provider_row.sql"));
+    expect(files.filter((f) => f.startsWith("20261040000000_"))).toHaveLength(1);
   });
 });
 
