@@ -45,6 +45,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { describeTtsFailure, KEY_FOR, synthesize } from "../_shared/voice/tts.ts";
 
 const MAX_CHAPTER_CHARS = 48000;
 const CHUNK_TARGET_CHARS = 3900;
@@ -108,18 +109,24 @@ function buildInstructions(dialect?: string, emotion?: string): string {
   return instructions;
 }
 
-async function synthesizeSegment(apiKey: string, text: string, voice: string, instructions: string, speed: number): Promise<Uint8Array> {
-  const res = await fetch("https://api.openai.com/v1/audio/speech", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "gpt-4o-mini-tts", input: text, voice, instructions, speed, response_format: "mp3" }),
+/** One segment through the shared TTS module (Phase 2G) — same model, voice,
+ *  instructions, speed and mp3 format this function always asked OpenAI for. */
+async function synthesizeSegment(text: string, voice: string, instructions: string, speed: number): Promise<Uint8Array> {
+  const result = await synthesize({
+    text,
+    provider: "openai",
+    model: "gpt-4o-mini-tts",
+    voice,
+    format: "mp3",
+    speed,
+    instructions,
   });
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    console.error("library-generate-narration: TTS segment failed:", res.status, errText);
-    throw new Error(`Narration synthesis failed (${res.status})`);
+  if (result.outcome === "failed") {
+    console.error("library-generate-narration: TTS segment failed:", describeTtsFailure(result.failure));
+    const status = result.failure.reason === "rejected" ? result.failure.status : "no audio";
+    throw new Error(`Narration synthesis failed (${status})`);
   }
-  return new Uint8Array(await res.arrayBuffer());
+  return result.bytes;
 }
 
 function concatBuffers(buffers: Uint8Array[]): Uint8Array {
@@ -141,8 +148,7 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "Unauthorized" }, 401, cors);
 
-  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-  if (!OPENAI_API_KEY) return json({ error: "OPENAI_API_KEY is not configured" }, 500, cors);
+  if (!Deno.env.get(KEY_FOR.openai)) return json({ error: "OPENAI_API_KEY is not configured" }, 500, cors);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -197,7 +203,7 @@ Deno.serve(async (req: Request) => {
 
     const buffers: Uint8Array[] = [];
     for (const segment of segments) {
-      buffers.push(await synthesizeSegment(OPENAI_API_KEY, segment, voice, instructions, speed));
+      buffers.push(await synthesizeSegment(segment, voice, instructions, speed));
     }
     const audioBytes = concatBuffers(buffers);
 
