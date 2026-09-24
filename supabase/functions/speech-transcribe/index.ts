@@ -16,6 +16,7 @@ import { isSupportedLanguage } from "../_shared/voice/capabilities.ts";
 import { transcribe, type SttProviderName, type TranscribeAttempt } from "../_shared/voice/stt.ts";
 import type { VoiceFailure } from "../_shared/voice/providers/types.ts";
 import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
+import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 
 // ── Provider Registry recording (Phase 2D) ─────────────────────────────────
 //
@@ -159,6 +160,10 @@ Deno.serve(async (req: Request) => {
 
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
+
+  // Per-user daily ceiling, before the body is read or a provider called (Phase 2F-2).
+  const limited = await chargeDailyLimit(serviceClient, user.id, "speech-transcribe", cors);
+  if (limited) return limited;
 
   let body: RequestBody;
   try {

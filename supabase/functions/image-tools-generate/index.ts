@@ -12,6 +12,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 
 type ImageMode = "img2img" | "upscale" | "bg-remove" | "restore" | "avatar";
 
@@ -207,6 +208,11 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Start a new job ────────────────────────────────────────────────────────
+  // Only starting a job is charged against the daily ceiling; polling one is
+  // free, so a client waiting on a prediction never exhausts it (Phase 2F-2).
+  const limited = await chargeDailyLimit(serviceClient, user.id, "image-tools-generate", cors);
+  if (limited) return limited;
+
   const { mode, image_url, prompt, project_id } = body;
   const VALID_MODES: ImageMode[] = ["img2img", "upscale", "bg-remove", "restore", "avatar"];
   if (!VALID_MODES.includes(mode)) {
