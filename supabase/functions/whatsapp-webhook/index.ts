@@ -57,6 +57,7 @@ import {
 } from "../_shared/whatsapp.ts";
 import { downloadMedia, mediaFailureNotice } from "../_shared/whatsappMedia.ts";
 import { transcribeVoice, transcriptionFailureNotice } from "../_shared/whatsappTranscribe.ts";
+import { recordSttAttempts } from "../_shared/providerRecording.ts";
 import {
   understandDocument,
   understandImage,
@@ -3109,7 +3110,12 @@ Deno.serve(async (req) => {
           stage = "transcribe";
           const turn = await voiceToText(incoming.media.id, {
             download: (mediaId) => downloadMedia({ mediaId, kind: "audio", token, trace: correlationId }),
-            transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),
+            transcribe: (input) => transcribeVoice({
+              ...input,
+              trace: correlationId,
+              // Provider registry, after the fact and off the reply path (Phase 2I).
+              record: (attempts, final) => EdgeRuntime.waitUntil(recordSttAttempts(db, attempts, final)),
+            }),
           });
 
           if (turn.status === "media_failed") {

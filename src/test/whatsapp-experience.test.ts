@@ -533,7 +533,9 @@ describe("nothing regressed and nothing was duplicated", () => {
 
   it("29. leaves the voice pipeline alone", () => {
     expect(webhook.match(/voiceToText\(/g)?.length).toBe(1);
-    expect(webhook).toContain("transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),");
+    // By its parts: Phase 2I added a `record` hook and wrapped the call; the
+    // input and the trace it protects are unchanged.
+    expect(webhook).toMatch(/transcribe: \(input\) => transcribeVoice\(\{\s*\.\.\.input,\s*trace: correlationId,/);
     // The assistant's own ask is still one ask. The IVX tutor is the second
     // `askAssistant` in this file and it never touches transcription or
     // speech — a voice message is transcribed once and answered once,

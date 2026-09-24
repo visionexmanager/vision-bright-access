@@ -275,8 +275,10 @@ describe("the webhook logs through the allowlist", () => {
     // Routing, retrieval and the provider call report through `log`, which
     // carries it. Transcription, media and delivery print lines of their own,
     // so they are handed it explicitly.
+    // Transcription wrapped onto several lines when Phase 2I added its
+    // `record` hook, so that leg is asserted by its parts.
+    expect(webhook).toMatch(/transcribe: \(input\) => transcribeVoice\(\{\s*\.\.\.input,\s*trace: correlationId,/);
     for (const leg of [
-      "transcribe: (input) => transcribeVoice({ ...input, trace: correlationId })",
       'download: (mediaId) => downloadMedia({ mediaId, kind: "audio", token, trace: correlationId })',
       // No closing brace: the call now also carries `cache`, and what this
       // leg is about is that the correlation id reaches it.

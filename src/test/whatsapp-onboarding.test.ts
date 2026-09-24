@@ -364,7 +364,8 @@ describe("voice and onboarding", () => {
   it("22. leaves the voice pipeline itself untouched, and behind the gate", () => {
     // One transcription call, as before — and the gate returns before it.
     expect(webhook.match(/voiceToText\(/g)?.length).toBe(1);
-    expect(webhook).toContain("transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),");
+    // By its parts: Phase 2I added a `record` hook and wrapped the call.
+    expect(webhook).toMatch(/transcribe: \(input\) => transcribeVoice\(\{\s*\.\.\.input,\s*trace: correlationId,/);
     const gateAt = webhook.indexOf("if (isOnboarding(onboardingState))");
     const voiceAt = webhook.indexOf("const turn = await voiceToText(");
     expect(gateAt).toBeGreaterThan(0);

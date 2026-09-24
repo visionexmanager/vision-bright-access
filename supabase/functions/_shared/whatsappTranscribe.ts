@@ -9,7 +9,8 @@
 // asked, so a hopeless clip costs nothing), and this channel's four-outcome
 // vocabulary with a sentence in twenty languages for each.
 
-import { channelFailureOf, transcribe } from "./voice/stt.ts";
+import { channelFailureOf, transcribe, type TranscribeAttempt } from "./voice/stt.ts";
+import type { SttProviderName } from "./voice/capabilities.ts";
 import type { Language } from "./whatsappCatalog.ts";
 import { say } from "./whatsappStrings.ts";
 import { trace } from "./whatsappTelemetry.ts";
@@ -91,6 +92,13 @@ export async function transcribeVoice(params: {
    * for it, without the log line naming the person who sent it.
    */
   trace?: string;
+  /**
+   * Told which providers were tried and which one answered, once the
+   * transcription is over (Phase 2I). Fire-and-forget: the webhook hands it
+   * to `EdgeRuntime.waitUntil`, so the sender's reply never waits on the
+   * registry, and a recorder that throws changes nothing here.
+   */
+  record?: (attempts: TranscribeAttempt[], final?: { provider: SttProviderName; ms: number }) => void;
 }): Promise<TranscriptionResult> {
   const seconds = estimateAudioSeconds(params.bytes.byteLength, params.mimeType);
   if (seconds > MAX_AUDIO_SECONDS) {
@@ -103,6 +111,15 @@ export async function transcribeVoice(params: {
     mimeType: params.mimeType,
     fetchImpl: params.fetchImpl,
   });
+
+  try {
+    params.record?.(
+      heard.attempts,
+      heard.outcome === "transcript" ? { provider: heard.provider, ms: heard.ms } : undefined,
+    );
+  } catch {
+    // Recording is never allowed to cost a sender their transcript.
+  }
 
   if (heard.outcome === "transcript") {
     // An attempt before the one that answered may be a real failure (logged,
