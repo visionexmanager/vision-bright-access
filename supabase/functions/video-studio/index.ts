@@ -9,6 +9,7 @@ import type { ComputeAdapter } from "../_shared/providers/compute.ts";
 import { runpodAdapter, runpodReadiness } from "../_shared/providers/runpod.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -916,7 +917,14 @@ serve(async (req) => {
   const action = body.action as string;
 
   switch (action) {
-    case "generate": return handleGenerate(body, user.id, db);
+    case "generate": {
+      // Only submitting a job is charged against the daily ceiling — the most
+      // expensive thing Visionex submits. Poll, cancel and delete are free
+      // (Phase 2F-2).
+      const limited = await chargeDailyLimit(dbService, user.id, "video-studio", CORS);
+      if (limited) return limited;
+      return handleGenerate(body, user.id, db);
+    }
     case "poll":     return handlePoll(body, user.id, db, dbService);
     case "cancel":   return handleCancel(body, user.id, db);
     case "delete":   return handleDelete(body, user.id, db);

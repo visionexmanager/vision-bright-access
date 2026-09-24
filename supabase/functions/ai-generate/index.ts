@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getGenerator, GENERATION_SCHEMA } from "../_shared/generators.ts";
 import { structuredCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
@@ -27,6 +28,13 @@ Deno.serve(async (req) => {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Per-user daily ceiling, before anything reaches a provider (Phase 2F-2).
+    const limited = await chargeDailyLimit(
+      createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!),
+      user.id, "ai-generate", corsHeaders,
+    );
+    if (limited) return limited;
 
     const { generatorId, params = {}, lang = "en" } = await req.json();
 

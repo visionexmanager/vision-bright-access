@@ -9,6 +9,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
 
 // ── Provider Registry recording (Phase 2D) ─────────────────────────────────
@@ -220,6 +221,10 @@ Deno.serve(async (req: Request) => {
   // way to being refused.
   const entitled = await maySeeSection(serviceClient, user.id, "mediaStudio");
   if (!entitled.allowed) return sectionRefusal("mediaStudio", entitled.unavailable);
+
+  // Per-user daily ceiling, before the body is read or a provider called (Phase 2F-2).
+  const limited = await chargeDailyLimit(serviceClient, user.id, "image-generate", CORS);
+  if (limited) return limited;
 
   let body: RequestBody;
   try {
