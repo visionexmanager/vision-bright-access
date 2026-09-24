@@ -86,14 +86,31 @@ const CONFIDENCE_STYLE: Record<ConfidenceLevel, string> = {
   Low:    "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30",
 };
 
+/**
+ * The JSON body of a non-2xx edge-function answer. `functions.invoke` leaves
+ * `data` null for those and puts the Response on the error's `context`.
+ */
+async function functionErrorBody(error: unknown): Promise<{ error?: string; code?: string } | null> {
+  const context = (error as { context?: { clone?: () => Response } } | null)?.context;
+  if (!context?.clone) return null;
+  try {
+    return await context.clone().json();
+  } catch {
+    return null;
+  }
+}
+
 // ── Component ─────────────────────────────────────────────────────────────
 export default function OCRScan() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
-  const { spendVX, balance } = useVXWallet();
+  const { spendVX, balance, canSpendVX } = useVXWallet();
 
   const [mode, setMode] = useState<OCRMode>("single");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // A PDF has no preview, and the file input is cleared on selection, so the
+  // file itself is kept until it is scanned.
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<OCRResult | null>(null);
@@ -138,8 +155,10 @@ export default function OCRScan() {
     if (file.type !== "application/pdf") {
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
+      setPdfFile(null);
     } else {
       setPreviewUrl(null);
+      setPdfFile(file);
     }
   }, [mode, t]);
 
@@ -156,9 +175,90 @@ export default function OCRScan() {
   };
 
   // ── Scan ─────────────────────────────────────────────────────────────
+  /** Everything a successful scan does, whichever path produced it. */
+  const finishScan = (ocrResult: OCRResult) => {
+    setResult(ocrResult);
+
+    // Auto-speak if audio mode
+    if (mode === "single_audio") {
+      speak(ocrResult.extracted_text, lang);
+      setIsSpeaking(true);
+    }
+
+    // Update bundle count
+    if (bundleActive) {
+      const newUsed = bundleUsed + 1;
+      setBundleUsed(newUsed);
+      if (newUsed >= 10) setBundleActive(false);
+    }
+
+    // Save to history
+    const entry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      fileName,
+      text: ocrResult.extracted_text,
+      language: ocrResult.detected_language,
+      confidence: ocrResult.confidence,
+      wordCount: ocrResult.word_count,
+      createdAt: new Date().toISOString(),
+      mode,
+    };
+    const updated = [entry, ...history];
+    setHistory(updated);
+    saveHistory(updated);
+
+    toast.success(t("ocr.scanComplete"));
+  };
+
+  /**
+   * A PDF: its text is read on the server with no model call. It is charged
+   * only once there is text to give — a PDF with no text layer (a scan) cannot
+   * be read, and used to cost VX anyway.
+   */
+  const handlePdfScan = async (file: File) => {
+    const price = bundleActive ? 0 : OCR_PRICES.pdfDocument;
+    if (price > 0 && !canSpendVX(price)) {
+      toast.error(t("vx.insufficientBalance"));
+      return;
+    }
+
+    setScanning(true);
+    try {
+      const base64 = await new Promise<string>((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result as string);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke("ocr-scan", {
+        body: { image: base64, lang, hint },
+      });
+
+      if (error || data?.error) {
+        const body = error ? await functionErrorBody(error) : data;
+        toast.error(body?.code === "pdf_no_text" ? t("ocr.errPdfNoText") : t("ocr.errScanFailed"));
+        return;
+      }
+
+      if (price > 0) {
+        const ok = await spendVX(price, "ocr_scan", t("ocr.pkgPdf"), file.name);
+        if (!ok) return;
+      }
+
+      finishScan(data.result as OCRResult);
+    } catch (e) {
+      console.error(e);
+      toast.error(t("ocr.errScanFailed"));
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const handleScan = async () => {
     if (!fileName) { toast.error(t("ocr.errNoFile")); return; }
     if (!user)      { toast.error(t("vx.loginRequired")); return; }
+    if (pdfFile)    { await handlePdfScan(pdfFile); return; }
 
     // Determine price
     const price = bundleActive ? 0 : currentPrice;
@@ -212,38 +312,7 @@ export default function OCRScan() {
         throw new Error(data?.error || error?.message || "OCR failed");
       }
 
-      const ocrResult: OCRResult = data.result;
-      setResult(ocrResult);
-
-      // Auto-speak if audio mode
-      if (mode === "single_audio") {
-        speak(ocrResult.extracted_text, lang);
-        setIsSpeaking(true);
-      }
-
-      // Update bundle count
-      if (bundleActive) {
-        const newUsed = bundleUsed + 1;
-        setBundleUsed(newUsed);
-        if (newUsed >= 10) setBundleActive(false);
-      }
-
-      // Save to history
-      const entry: HistoryEntry = {
-        id: crypto.randomUUID(),
-        fileName,
-        text: ocrResult.extracted_text,
-        language: ocrResult.detected_language,
-        confidence: ocrResult.confidence,
-        wordCount: ocrResult.word_count,
-        createdAt: new Date().toISOString(),
-        mode,
-      };
-      const updated = [entry, ...history];
-      setHistory(updated);
-      saveHistory(updated);
-
-      toast.success(t("ocr.scanComplete"));
+      finishScan(data.result as OCRResult);
     } catch (e) {
       console.error(e);
       toast.error(t("ocr.errScanFailed"));

@@ -70,5 +70,16 @@ export function useVXWallet() {
     [user, isOnTrial, balance, queryClient, t]
   );
 
-  return { balance, isLoading, spendVX };
+  /**
+   * Whether `spendVX(amount)` would succeed, without spending or showing
+   * anything — the same three rules, for a caller that must charge only
+   * after the work has succeeded (the OCR page's PDF scan).
+   */
+  const canSpendVX = useCallback(
+    (amount: number, options?: { chargeDuringTrial?: boolean }) =>
+      !!user && ((isOnTrial && !options?.chargeDuringTrial) || balance >= amount),
+    [user, isOnTrial, balance]
+  );
+
+  return { balance, isLoading, spendVX, canSpendVX };
 }

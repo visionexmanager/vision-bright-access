@@ -2358,6 +2358,7 @@ export const translations: Record<string, string> = {
   "ocr.errFileType": "Tipo di file non supportato. Usa JPG, PNG, WEBP o PDF",
   "ocr.errFileSize": "Il file è troppo grande. La dimensione massima è 20 MB",
   "ocr.errScanFailed": "Scansione non riuscita. Riprova.",
+  "ocr.errPdfNoText": "Questo PDF non contiene testo leggibile: potrebbe essere una scansione o essere protetto da password. Carica invece le foto delle pagine.",
   "vx.balance": "Saldo:",
   "trial.active": "Prova gratuita attiva — restano {days} giorni, goditi tutte le funzioni senza costi",
   "trial.endingSoon": "La prova gratuita termina tra {days} giorno/i — al momento della scadenza, tutti i servizi della piattaforma verranno addebitati dal tuo saldo VX",

@@ -2353,6 +2353,7 @@ export const translations: Record<string, string> = {
   "ocr.errFileType": "Jenis file tidak didukung. Gunakan JPG, PNG, WEBP, atau PDF",
   "ocr.errFileSize": "File terlalu besar. Ukuran maksimum 20 MB",
   "ocr.errScanFailed": "Pemindaian gagal. Silakan coba lagi.",
+  "ocr.errPdfNoText": "PDF ini tidak memiliki teks yang dapat dibaca — mungkin hasil pindaian atau dilindungi kata sandi. Unggah foto halamannya sebagai gantinya.",
   "vx.balance": "Saldo:",
   "trial.active": "Masa uji coba gratis aktif — tersisa {days} hari, nikmati semua fitur tanpa biaya",
   "trial.endingSoon": "Masa uji coba gratis berakhir dalam {days} hari — setelah berakhir, semua layanan platform akan ditagih dari saldo VX Anda",

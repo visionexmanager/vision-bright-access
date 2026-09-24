@@ -2353,6 +2353,7 @@ export const translations: Record<string, string> = {
   "ocr.errFileType": "Loại tệp không được hỗ trợ. Hãy dùng JPG, PNG, WEBP hoặc PDF",
   "ocr.errFileSize": "Tệp quá lớn. Giới hạn tối đa là 20 MB",
   "ocr.errScanFailed": "Quét thất bại. Vui lòng thử lại.",
+  "ocr.errPdfNoText": "Tệp PDF này không có văn bản đọc được — có thể là bản quét hoặc được bảo vệ bằng mật khẩu. Hãy tải lên ảnh các trang của tệp thay vào đó.",
   "vx.balance": "Số dư:",
   "trial.active": "Đang dùng gói thử miễn phí — còn {days} ngày, tận hưởng mọi tính năng miễn phí",
   "trial.endingSoon": "Gói thử miễn phí kết thúc sau {days} ngày — khi hết hạn, mọi dịch vụ nền tảng sẽ được tính từ số dư VX của bạn",

@@ -2353,6 +2353,7 @@ export const translations: Record<string, string> = {
   "ocr.errFileType": "不支持该文件类型。请使用 JPG、PNG、WEBP 或 PDF",
   "ocr.errFileSize": "文件太大。最大为 20 MB",
   "ocr.errScanFailed": "扫描失败。请重试。",
+  "ocr.errPdfNoText": "此 PDF 没有可读取的文字，可能是扫描件或受密码保护。请改为上传各页的照片。",
   "vx.balance": "余额：",
   "trial.active": "免费试用已激活——还剩 {days} 天，所有功能免费使用",
   "trial.endingSoon": "免费试用将在 {days} 天后结束——到期后，所有平台服务费用将从你的 VX 余额中扣除",
