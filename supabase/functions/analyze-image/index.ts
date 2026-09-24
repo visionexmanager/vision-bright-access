@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       : "Analyze this photo and provide a structured assessment.";
 
     try {
-      const { value: analysis } = await structuredCompletionWithFallback({
+      const { result: analysis } = await structuredCompletionWithFallback({
         targets: analyst.targets,
         system: `${analyst.systemPrompt}\n\nUser's language: ${lang}.`,
         userText,

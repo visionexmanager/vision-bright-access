@@ -19,10 +19,12 @@ type ServiceRequest = {
   message: string;
   status: string;
   created_at: string;
+  vx_paid: number | null;
+  paid_via: string | null;
 };
 
 export default function AdminRequests() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
 
   useEffect(() => {
@@ -51,6 +53,7 @@ export default function AdminRequests() {
                   <TableHead>{t("admin.requests.service")}</TableHead>
                   <TableHead>{t("contact.department")}</TableHead>
                   <TableHead>{t("admin.requests.message")}</TableHead>
+                  <TableHead>{t("admin.requests.payment")}</TableHead>
                   <TableHead>{t("admin.requests.status")}</TableHead>
                   <TableHead>{t("admin.requests.date")}</TableHead>
                 </TableRow>
@@ -63,6 +66,11 @@ export default function AdminRequests() {
                     <TableCell>{r.service_type}</TableCell>
                     <TableCell><Badge variant="outline">{r.department}</Badge></TableCell>
                     <TableCell className="max-w-[200px] truncate">{r.message}</TableCell>
+                    <TableCell>
+                      {r.paid_via === "vx" && r.vx_paid ? `${r.vx_paid.toLocaleString(lang)} VX`
+                        : r.paid_via === "trial" ? t("admin.requests.paidTrial")
+                        : t("admin.requests.unpaid")}
+                    </TableCell>
                     <TableCell><Badge variant={r.status === "pending" ? "secondary" : "default"}>{r.status}</Badge></TableCell>
                     <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
                   </TableRow>
