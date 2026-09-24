@@ -8,7 +8,9 @@
  * book_owner) OR admin — this is an AUTHORING action (same gating pattern
  * as library-embed-book), not a per-listener one; unbounded per-reader TTS
  * generation would be an uncontrolled OpenAI-cost/abuse vector.
- * Rate-limited (20/day) via check_ai_rate_limit("library-generate-narration").
+ * Rate-limited via check_ai_rate_limit("library-generate-narration"), failing
+ * closed. The 20/day ceiling added in 20260726 was dropped by 20260728, so the
+ * default of 30 applies until a migration restores it.
  *
  * Chunking: OpenAI's /v1/audio/speech silently truncates long input, so the
  * chapter's content_text is split into <=4000-char, sentence-boundary-aware
@@ -46,10 +48,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { describeTtsFailure, KEY_FOR, synthesize } from "../_shared/voice/tts.ts";
+import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { boundedText } from "../_shared/providerInput.ts";
 
 const MAX_CHAPTER_CHARS = 48000;
 const CHUNK_TARGET_CHARS = 3900;
 const CHARS_PER_SECOND = 12.5; // ~150 wpm * ~5 chars/word / 60s, at speed=1
+// Longest dialect or emotion written into the narration instructions.
+const MAX_STYLE_CHARS = 60;
 
 const ALLOWED_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer", "coral"]);
 
@@ -101,10 +107,14 @@ function chunkForNarration(text: string, maxChars: number): string[] {
   return chunks;
 }
 
-function buildInstructions(dialect?: string, emotion?: string): string {
+function buildInstructions(rawDialect?: unknown, rawEmotion?: unknown): string {
+  // Bounded before they reach the provider's instructions; a short phrase is
+  // all either field is for.
+  const dialect = boundedText(rawDialect, MAX_STYLE_CHARS);
+  const emotion = boundedText(rawEmotion, MAX_STYLE_CHARS);
   let instructions = "Narrate this audiobook chapter clearly and naturally, like a professional audiobook narrator.";
-  if (dialect?.trim()) instructions += ` Use a ${dialect.trim()} accent.`;
-  if (emotion?.trim()) instructions += ` Speak with a ${emotion.trim()} tone.`;
+  if (dialect) instructions += ` Use a ${dialect} accent.`;
+  if (emotion) instructions += ` Speak with a ${emotion} tone.`;
   instructions += " Use natural pauses between sentences and paragraphs.";
   return instructions;
 }
@@ -176,8 +186,9 @@ Deno.serve(async (req: Request) => {
 
     const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "library-generate-narration" });
-    if (allowed === false) return json({ error: "Daily narration-generation limit reached (20/day). Try again tomorrow." }, 429, cors);
+    // Fails closed: a limiter that cannot answer is not a free narration.
+    const limited = await chargeDailyLimit(serviceClient, user.id, "library-generate-narration", cors);
+    if (limited) return limited;
 
     const { data: chapter, error: chapterErr } = await serviceClient
       .from("library_chapters")
@@ -262,8 +273,10 @@ Deno.serve(async (req: Request) => {
 
     return json({ ok: true, audiobook_id: audiobookId, chapter: chapterRow }, 200, cors);
   } catch (err) {
+    // The detail — provider status, database or storage error — stays in the
+    // log; the caller gets one sentence that names none of it.
     const msg = err instanceof Error ? err.message : String(err);
     console.error("library-generate-narration error:", msg);
-    return json({ error: msg }, 500, cors);
+    return json({ error: "Narration could not be generated. Please try again later." }, 500, cors);
   }
 });

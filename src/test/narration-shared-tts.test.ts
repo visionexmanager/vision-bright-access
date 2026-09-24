@@ -114,7 +114,7 @@ describe("library-generate-narration's wiring", () => {
     expect(src).toContain("const CHUNK_TARGET_CHARS = 3900;");
     expect(src).toContain("const MAX_CHAPTER_CHARS = 48000;");
     expect(src).toContain("Math.min(2, Math.max(0.5, body.speed ?? 1))");
-    expect(src).toContain('_function_name: "library-generate-narration"');
+    expect(src).toContain('chargeDailyLimit(serviceClient, user.id, "library-generate-narration", cors)');
     expect(src).toContain('rpc("is_library_book_owner"');
   });
 });
