@@ -1,5 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { boundedText, checkImageDataUrl } from "../_shared/providerInput.ts";
+import { decodePdfDataUrl, isPdfDataUrl, PDF_NO_TEXT_CODE, PDF_NO_TEXT_MESSAGE, pdfScanResult } from "../_shared/ocrDocument.ts";
+import { extractPdfText } from "../_shared/whatsappPdfText.ts";
+import { detectLanguage } from "../_shared/whatsappLanguageDetect.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -93,6 +96,31 @@ Deno.serve(async (req) => {
 
     const { image, lang = "en", hint: rawHint } = await req.json();
     const hint = boundedText(rawHint, 500);
+
+    // A PDF's text is in the file: read it locally, with no provider call.
+    // The page's "PDF Scan" package used to send it to the vision model, which
+    // cannot read a PDF, so every PDF scan failed.
+    if (isPdfDataUrl(image)) {
+      const upload = decodePdfDataUrl(image);
+      if (upload.outcome === "refused") {
+        return new Response(
+          JSON.stringify({ error: upload.error }),
+          { status: upload.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const pdf = await extractPdfText(upload.bytes);
+      if (!pdf.ok) {
+        console.error(`[ocr-scan] pdf: ${pdf.reason}`);
+        return new Response(
+          JSON.stringify({ error: PDF_NO_TEXT_MESSAGE, code: PDF_NO_TEXT_CODE }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const result = pdfScanResult(pdf.text, detectLanguage(pdf.text)?.language ?? null);
+      return new Response(JSON.stringify({ result }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Inline images only, bounded — never a URL for the provider to fetch (Phase 2F-3).
     const checked = checkImageDataUrl(image);

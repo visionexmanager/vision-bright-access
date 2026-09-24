@@ -2358,6 +2358,7 @@ export const translations: Record<string, string> = {
   "ocr.errFileType": "Dosya türü desteklenmiyor. JPG, PNG, WEBP veya PDF kullanın",
   "ocr.errFileSize": "Dosya çok büyük. Maksimum boyut 20 MB",
   "ocr.errScanFailed": "Tarama başarısız oldu. Lütfen tekrar deneyin.",
+  "ocr.errPdfNoText": "Bu PDF'te okunabilir metin yok; taranmış ya da parola korumalı olabilir. Bunun yerine sayfalarının fotoğraflarını yükleyin.",
   "vx.balance": "Bakiye:",
   "trial.active": "Ücretsiz deneme etkin — {days} gün kaldı, tüm özelliklerin keyfini ücretsiz çıkarın",
   "trial.endingSoon": "Ücretsiz deneme {days} gün sonra bitecek — sona erdiğinde, tüm platform hizmetleri VX bakiyenizden ücretlendirilecektir",

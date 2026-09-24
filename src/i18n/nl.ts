@@ -2358,6 +2358,7 @@ export const translations: Record<string, string> = {
   "ocr.errFileType": "Bestandstype wordt niet ondersteund. Gebruik JPG, PNG, WEBP of PDF",
   "ocr.errFileSize": "Bestand is te groot. Maximaal 20 MB",
   "ocr.errScanFailed": "Scan mislukt. Probeer het opnieuw.",
+  "ocr.errPdfNoText": "Deze pdf bevat geen leesbare tekst — mogelijk is het een scan of is hij met een wachtwoord beveiligd. Upload in plaats daarvan foto's van de pagina's.",
   "vx.balance": "Saldo:",
   "trial.active": "Gratis proefperiode actief — nog {days} dagen, geniet van alle functies zonder kosten",
   "trial.endingSoon": "Gratis proefperiode eindigt over {days} dag(en) — bij afloop worden alle platformsservices in rekening gebracht vanaf je VX-saldo",
