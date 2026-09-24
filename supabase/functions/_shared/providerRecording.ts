@@ -26,6 +26,7 @@ export interface RecordResultParams {
   latency_ms?:    number;
   cost_usd?:      number;
   error_message?: string;
+  /** The SLUG of the provider the caller fell back to. */
   failover_to?:   string;
 }
 
@@ -48,6 +49,20 @@ export async function recordResultIn(db: RecordingDb, params: RecordResultParams
     p_cost_usd:    params.cost_usd ?? 0,
   });
 
+  // `failover_to` arrives as a slug, but ph_logs.failover_to and
+  // ph_failovers.to_provider_id are uuid columns. Writing the slug into the
+  // log made the whole insert fail — silently, since supabase-js reports an
+  // error rather than throwing — so the log row was lost. Resolved once here,
+  // before either write; an unknown slug records null, as the failover row
+  // always did.
+  const toProvider = params.failover_to
+    ? (await db
+        .from("ph_providers")
+        .select("id, slug")
+        .eq("slug", params.failover_to)
+        .maybeSingle()).data
+    : null;
+
   // Insert log entry
   await db.from("ph_logs").insert({
     provider_id:   params.provider_id,
@@ -58,17 +73,11 @@ export async function recordResultIn(db: RecordingDb, params: RecordResultParams
     latency_ms:    params.latency_ms ?? null,
     cost_usd:      params.cost_usd ?? null,
     error_message: params.error_message ?? null,
-    failover_to:   params.failover_to ?? null,
+    failover_to:   toProvider?.id ?? null,
   });
 
   // Record failover event
   if (!params.success && params.failover_to) {
-    const { data: toProvider } = await db
-      .from("ph_providers")
-      .select("id, slug")
-      .eq("slug", params.failover_to)
-      .maybeSingle();
-
     await db.from("ph_failovers").insert({
       from_provider_id: params.provider_id,
       to_provider_id:   toProvider?.id ?? null,

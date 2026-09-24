@@ -243,10 +243,29 @@ describe("recordResultIn keeps recordResult's behaviour", () => {
       provider_id: "prov-1", provider_slug: "groq-stt", job_type: "stt",
       success: false, latency_ms: 10, error_message: "timeout", failover_to: "openai-stt",
     });
+    // The slug is resolved before either write, so both uuid columns get an id.
     expect(calls.map((c) => `${c.op}:${c.table}`)).toEqual([
-      "rpc:ph_record_metric", "insert:ph_logs", "select:ph_providers", "insert:ph_failovers",
+      "rpc:ph_record_metric", "select:ph_providers", "insert:ph_logs", "insert:ph_failovers",
     ]);
+    expect(calls.find((c) => c.table === "ph_logs")?.args).toMatchObject({ failover_to: "prov-2" });
     expect(calls.at(-1)?.args).toMatchObject({ from_slug: "groq-stt", to_slug: "openai-stt", to_provider_id: "prov-2" });
+  });
+
+  it("never writes a slug into the uuid failover_to column", async () => {
+    const { db, calls } = fakeDb({ id: "prov-2", slug: "openai-stt" });
+    await recordResultIn(db, {
+      provider_id: "prov-1", provider_slug: "groq-stt", job_type: "stt", success: false, failover_to: "no-such-provider",
+    });
+    // An unknown slug resolves to nothing: null in both uuid columns, the slug kept as text.
+    expect(calls.find((c) => c.table === "ph_logs")?.args).toMatchObject({ failover_to: null });
+    expect(calls.at(-1)?.args).toMatchObject({ to_provider_id: null, to_slug: "no-such-provider" });
+  });
+
+  it("without a failover, looks nothing up and writes null", async () => {
+    const { db, calls } = fakeDb();
+    await recordResultIn(db, { provider_id: "prov-1", provider_slug: "openai-image", job_type: "image", success: true });
+    expect(calls.map((c) => `${c.op}:${c.table}`)).toEqual(["rpc:ph_record_metric", "insert:ph_logs"]);
+    expect(calls[1].args).toMatchObject({ failover_to: null });
   });
 
   it("providerBySlugIn returns the row or null", async () => {
