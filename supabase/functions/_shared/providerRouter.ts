@@ -35,6 +35,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { providerBySlugIn, recordResultIn, type RecordResultParams } from "./providerRecording.ts";
+import { rankProviders } from "./providerSelection.ts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -66,15 +67,10 @@ export interface RouteResult {
   alternatives: RouterProvider[];
 }
 
-// ── Scoring ───────────────────────────────────────────────────────────────────
-
-function scoreProvider(p: RouterProvider): number {
-  const latencyScore  = Math.max(0, 100 - (p.avg_latency_ms / 20));
-  const costScore     = Math.max(0, 100 - (p.cost_per_request * 500));
-  const healthScore   = p.health_score;
-  const priorityScore = Math.max(0, 100 - p.priority);
-  return latencyScore * 0.25 + costScore * 0.20 + healthScore * 0.40 + priorityScore * 0.15;
-}
+// ── Scoring ──────────────────────────────────────────────────────────────────
+//
+// Moved unchanged to providerSelection.ts (Phase 2J-2) so shadow mode ranks
+// with the same code, and so the ranking can be tested without a database.
 
 // ── Main router ───────────────────────────────────────────────────────────────
 
@@ -95,27 +91,9 @@ export async function resolveProvider(
 
   if (!providers?.length) return null;
 
-  let eligible: RouterProvider[] = providers.filter((p: RouterProvider) =>
-    p.health_score > 20 &&
-    !(prefs?.excludeSlugs?.includes(p.slug))
-  );
-
-  if (prefs?.requireCapabilities?.length) {
-    const req = prefs.requireCapabilities;
-    eligible = eligible.filter((p) => req.every((c) => p.capabilities.includes(c)));
-  }
-
-  if (!eligible.length) return null;
-
-  if (prefs?.preferredSlug) {
-    const preferred = eligible.find((p) => p.slug === prefs!.preferredSlug);
-    if (preferred) {
-      return { provider: preferred, alternatives: eligible.filter((p) => p.slug !== prefs!.preferredSlug) };
-    }
-  }
-
-  eligible.sort((a, b) => scoreProvider(b) - scoreProvider(a));
-  return { provider: eligible[0], alternatives: eligible.slice(1) };
+  // Eligibility, capabilities, preferred slug, score — one implementation,
+  // shared with shadow mode (Phase 2J-2).
+  return rankProviders(providers as RouterProvider[], prefs);
 }
 
 // ── Result recorder ───────────────────────────────────────────────────────────

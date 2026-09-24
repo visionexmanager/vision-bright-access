@@ -12,6 +12,7 @@ import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { publicMediaFailure } from "../_shared/providerInput.ts";
 import { recordProviderOutcome, VIDEO_PROVIDER_SLUG } from "../_shared/providerRecording.ts";
+import { observeShadow, shadowEnabled } from "../_shared/providerSelection.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -540,6 +541,33 @@ async function recordVideoOutcome(
   await recordProviderOutcome(dbService, slug, "text_to_video", outcome);
 }
 
+// ── Registry shadow mode (Phase 2J-2) ──────────────────────────────────────
+//
+// Off unless PROVIDER_REGISTRY_SHADOW=true. When on, an "auto" request also
+// asks, after its job exists and in the background, what the registry would
+// have chosen — and writes that down beside what getProvider() actually chose.
+// Nothing here is awaited or read back: the provider, the request sent to it,
+// the response and the job are exactly what they would be with it off.
+function shadowAutoChoice(
+  dbService: ReturnType<typeof createClient>,
+  actualProvider: string,
+  jobId: string,
+): void {
+  if (!shadowEnabled()) return;
+  try {
+    const observation = observeShadow(dbService, {
+      service:       "video-studio",
+      jobType:       "text_to_video",
+      routingMode:   "auto",
+      actualSlug:    VIDEO_PROVIDER_SLUG[actualProvider] ?? null,
+      correlationId: jobId,
+    }).catch(() => undefined);
+    (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime?.waitUntil(observation);
+  } catch {
+    // Telemetry never reaches the request.
+  }
+}
+
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
 async function handleGenerate(
@@ -623,6 +651,9 @@ async function handleGenerate(
   if (template_id) {
     await (db as any).rpc("vx_use_template", { p_template_id: template_id });
   }
+
+  // Observation only, in the background; see shadowAutoChoice.
+  if (!providerName || providerName === "auto") shadowAutoChoice(dbService, provider.name, job.id);
 
   // Submit to provider
   const submitStarted = Date.now();

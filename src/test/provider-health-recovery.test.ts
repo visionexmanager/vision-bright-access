@@ -126,7 +126,10 @@ describe("provider selection is unchanged", () => {
   it("both routers still exclude only inactive rows and health at or below 20", () => {
     const router = readFileSync("supabase/functions/_shared/providerRouter.ts", "utf8");
     expect(router).toContain('.neq("status", "inactive")');
-    expect(router).toContain("p.health_score > 20 &&");
+    // Since Phase 2J-2 resolveProvider's ranking lives in providerSelection.ts.
+    const ranking = readFileSync("supabase/functions/_shared/providerSelection.ts", "utf8");
+    expect(router).toContain("return rankProviders(providers as RouterProvider[], prefs);");
+    expect(ranking).toContain("p.health_score > 20 &&");
     expect(hub).toContain('p.status !== "inactive" &&');
     expect(hub).toContain("p.health_score > 20 &&");
   });

@@ -11,6 +11,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const router = readFileSync("supabase/functions/_shared/providerRouter.ts", "utf8");
+// Phase 2J-2 moved the ranking (eligibility, preference, score) unchanged into
+// providerSelection.ts; resolveProvider queries and delegates to it.
+const ranking = readFileSync("supabase/functions/_shared/providerSelection.ts", "utf8");
 const speechGenerate = readFileSync("supabase/functions/speech-generate/index.ts", "utf8");
 const voiceStudio = readFileSync("supabase/functions/voice-studio/index.ts", "utf8");
 
@@ -21,20 +24,21 @@ describe("resolveProvider selects a row; it does not execute a request", () => {
   });
 
   it("treats only a healthy row as eligible", () => {
-    expect(router).toContain("p.health_score > 20");
+    expect(router).toContain("return rankProviders(providers as RouterProvider[], prefs);");
+    expect(ranking).toContain("p.health_score > 20");
   });
 
   it("honours an eligible preferredSlug outright, without scoring it against the rest", () => {
-    const at = router.indexOf("if (prefs?.preferredSlug)");
-    const block = router.slice(at, router.indexOf("eligible.sort", at));
+    const at = ranking.indexOf("if (prefs?.preferredSlug)");
+    const block = ranking.slice(at, ranking.indexOf("eligible.sort", at));
     expect(at).toBeGreaterThan(-1);
     expect(block).toContain("eligible.find");
     expect(block).not.toContain("scoreProvider");
   });
 
   it("falls through to scoring only once no preference was honoured", () => {
-    const prefAt = router.indexOf("if (prefs?.preferredSlug)");
-    const scoreAt = router.indexOf("eligible.sort((a, b) => scoreProvider(b) - scoreProvider(a))");
+    const prefAt = ranking.indexOf("if (prefs?.preferredSlug)");
+    const scoreAt = ranking.indexOf("eligible.sort((a, b) => scoreProvider(b) - scoreProvider(a))");
     expect(scoreAt).toBeGreaterThan(prefAt);
   });
 
