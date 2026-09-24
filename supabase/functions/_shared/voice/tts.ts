@@ -52,6 +52,21 @@ export interface TtsRequest {
   instructions?: string;
   fetchImpl?: typeof fetch;
   read?: EnvReader;
+  /**
+   * Told about a successful execution, once — never the text, the audio or the
+   * voice (Phase 2K-1). Optional and best-effort: it is not awaited, and one
+   * that throws changes nothing about the result. The provider registry's
+   * recorder is the only caller that passes one; see `ttsRecorder.ts`.
+   */
+  record?: (execution: TtsExecution) => void;
+}
+
+/** What one successful synthesis tells the recorder. */
+export interface TtsExecution {
+  provider: TtsProvider;
+  /** The model id actually sent to the provider. */
+  model: string;
+  ms: number;
 }
 
 /**
@@ -121,6 +136,19 @@ function elevenLabsMime(format: TtsFormat): string {
   return ELEVENLABS_MIME[format] ?? "audio/mpeg";
 }
 
+/**
+ * The model id a request sends. For ElevenLabs, the one rule that looks like a
+ * bug and is not: `tts-1` reaching this provider means "the caller did not
+ * choose an ElevenLabs model", because `tts-1` is the OpenAI default that
+ * flows through the shared config.
+ */
+export function providerModel(request: Pick<TtsRequest, "provider" | "model">): string {
+  if (request.provider === "elevenlabs") {
+    return request.model && request.model !== "tts-1" ? request.model : "eleven_multilingual_v2";
+  }
+  return request.model;
+}
+
 /** One provider call, as a URL and an init. Pure: builds, never sends. */
 export function ttsRequestFor(
   request: TtsRequest,
@@ -130,9 +158,7 @@ export function ttsRequestFor(
     // The one rule that looks like a bug and is not: `tts-1` reaching this
     // provider means "the caller did not choose an ElevenLabs model", because
     // `tts-1` is the OpenAI default that flows through the shared config.
-    const model = request.model && request.model !== "tts-1"
-      ? request.model
-      : "eleven_multilingual_v2";
+    const model = providerModel(request);
     const outputFormat = request.format === "wav" ? "pcm_16000" : "mp3_44100_128";
     return {
       url: `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(request.voice)}?output_format=${outputFormat}`,
@@ -208,6 +234,26 @@ async function detailOf(response: Response): Promise<string> {
 export async function synthesizeResponse(
   request: TtsRequest,
 ): Promise<{ outcome: "response"; response: Response } | { outcome: "failed"; failure: TtsFailure }> {
+  const started = Date.now();
+  const call = await callProvider(request);
+  // The provider answered with audio; the body is the caller's to stream.
+  if (call.outcome === "response") reportExecution(request, started);
+  return call;
+}
+
+/** Tell the recorder, if there is one, about a successful execution. Never throws. */
+function reportExecution(request: TtsRequest, started: number): void {
+  if (!request.record) return;
+  try {
+    request.record({ provider: request.provider, model: providerModel(request), ms: Date.now() - started });
+  } catch {
+    // Recording is never allowed to cost anyone their audio.
+  }
+}
+
+async function callProvider(
+  request: TtsRequest,
+): Promise<{ outcome: "response"; response: Response } | { outcome: "failed"; failure: TtsFailure }> {
   if (!request.text.trim()) return { outcome: "failed", failure: { reason: "invalid_input" } };
 
   const read = request.read ?? denoEnv;
@@ -236,7 +282,8 @@ export async function synthesizeResponse(
 
 /** Call the provider and buffer the audio. The shape three of the four want. */
 export async function synthesize(request: TtsRequest): Promise<TtsResult> {
-  const call = await synthesizeResponse(request);
+  const started = Date.now();
+  const call = await callProvider(request);
   if (call.outcome === "failed") return { outcome: "failed", failure: call.failure };
 
   let bytes: Uint8Array;
@@ -248,6 +295,9 @@ export async function synthesize(request: TtsRequest): Promise<TtsResult> {
   if (bytes.byteLength === 0) {
     return { outcome: "failed", failure: { reason: "empty", provider: request.provider } };
   }
+
+  // Only now is it a success: audio came back and was not empty.
+  reportExecution(request, started);
 
   return {
     outcome: "audio",

@@ -24,6 +24,7 @@
 
 import { GRAPH_BASE } from "./meta.ts";
 import { synthesize } from "./voice/tts.ts";
+import type { TtsExecution } from "./voice/tts.ts";
 import type { ResolvedVoice } from "./whatsappVoiceChoice.ts";
 import { toBlob } from "./whatsappAttachments.ts";
 import { clampUnits } from "./whatsappSafety.ts";
@@ -380,6 +381,12 @@ export async function synthesiseSpeech(params: {
    */
   spoken?: SpokenVoice;
   fetchImpl?: typeof fetch;
+  /**
+   * Told about a successful synthesis (Phase 2K-1): provider, model and
+   * duration — never the words. The webhook hands it the registry recorder;
+   * omitted, nothing is recorded, which is what every test and default does.
+   */
+  record?: (execution: TtsExecution) => void;
 }): Promise<SpeechResult> {
   // The call itself moved to `voice/tts.ts`, which every other synthesising
   // path now uses as well. What stays here is this channel's policy — the
@@ -399,6 +406,7 @@ export async function synthesiseSpeech(params: {
     format: "opus",
     fetchImpl: params.fetchImpl,
     read: env,
+    record: params.record,
   });
 
   if (result.outcome === "audio") return { ok: true, bytes: result.bytes, mimeType: result.mimeType };

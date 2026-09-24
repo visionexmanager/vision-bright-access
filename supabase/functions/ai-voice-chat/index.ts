@@ -1,5 +1,6 @@
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { synthesize } from "../_shared/voice/tts.ts";
+import { recordTtsInBackground } from "../_shared/ttsRecorder.ts";
 import { guardVoiceRequest, refusalResponse } from "../_shared/voice/guard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import {
@@ -167,6 +168,8 @@ Deno.serve(async (req) => {
     voice,
     instructions: voiceStyle,
     format: "mp3",
+    // Provider registry, after success and off the response path (Phase 2K-1).
+    record: (execution) => recordTtsInBackground(execution),
   });
 
   if (spoken.outcome === "failed") {

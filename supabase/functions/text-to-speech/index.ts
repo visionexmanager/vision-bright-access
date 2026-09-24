@@ -1,4 +1,5 @@
 import { synthesizeResponse } from "../_shared/voice/tts.ts";
+import { recordTtsInBackground } from "../_shared/ttsRecorder.ts";
 import { guardVoiceRequest, refusalResponse } from "../_shared/voice/guard.ts";
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -86,6 +87,8 @@ Deno.serve(async (req) => {
     voice,
     instructions,
     format: "mp3",
+    // Provider registry, after success and off the response path (Phase 2K-1).
+    record: (execution) => recordTtsInBackground(execution),
   });
 
   if (call.outcome === "failed") {
