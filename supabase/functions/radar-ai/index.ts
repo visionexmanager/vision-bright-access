@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { checkImageDataUrl } from "../_shared/providerInput.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
@@ -83,10 +84,12 @@ Deno.serve(async (req) => {
 
     const { image, lang = "en" } = await req.json();
 
-    if (!image || typeof image !== "string") {
+    // Inline images only, bounded — never a URL for the provider to fetch (Phase 2F-3).
+    const checked = checkImageDataUrl(image);
+    if (checked.outcome === "refused") {
       return new Response(
-        JSON.stringify({ error: "Image data is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: checked.error }),
+        { status: checked.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
