@@ -363,7 +363,7 @@ export const defaultSpokenVoice = (): SpokenVoice => ({
  * `instructions` is OpenAI style direction and belongs to the default voice
  * only. A cloned voice has none: it already sounds like its owner.
  */
-export type SpokenVoice = { provider: "openai" | "elevenlabs"; voice: string; model: string; instructions?: string };
+export type SpokenVoice = { provider: "openai" | "elevenlabs" | "mistral"; voice: string; model: string; instructions?: string };
 
 /** A resolved cloned voice, or the default when there is none. */
 export const spokenVoiceOf = (resolved: ResolvedVoice | null | undefined): SpokenVoice =>

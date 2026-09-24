@@ -9,7 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 // governed by the same retention, sharing and deletion terms below.
 const DATA_COLLECTED = ["account", "marketplace", "vx", "ai", "voice", "messaging", "community", "technical", "newsletter", "tools", "radar", "finance", "payments"];
 const DATA_USE = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const THIRD_PARTIES = ["supabase", "openai", "anthropic", "meta", "adsense", "livekit", "resend", "stripe", "coingecko"];
+const THIRD_PARTIES = ["supabase", "openai", "anthropic", "mistral", "groq", "luma", "meta", "adsense", "livekit", "resend", "stripe", "coingecko"];
 const USER_RIGHTS = [
   { icon: Eye, key: "access" },
   { icon: UserCheck, key: "correction" },

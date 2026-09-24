@@ -138,7 +138,8 @@ function fakeDb(rows: Record<string, { id: string; slug: string }> = {
 
 describe("recordTtsExecution writes a success against the existing tts rows", () => {
   it("maps each provider to the row Phase 2C seeded", () => {
-    expect(TTS_PROVIDER_SLUG).toEqual({ openai: "openai-tts", elevenlabs: "elevenlabs-tts" });
+    // mistral-tts added by 20261047000000, for voices cloned with Voxtral.
+    expect(TTS_PROVIDER_SLUG).toEqual({ openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts" });
   });
 
   it("OpenAI: a metric and a log row, with the model and nothing else", async () => {

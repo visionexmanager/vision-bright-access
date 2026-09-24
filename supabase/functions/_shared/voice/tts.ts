@@ -30,8 +30,13 @@
 // `read` are injectable so the suite can drive every branch without a network
 // or a Deno environment.
 
-/** The two providers this repository has keys for. No third is introduced. */
-export type TtsProvider = "openai" | "elevenlabs";
+/**
+ * The providers this repository has keys for. Mistral (Voxtral) was added on
+ * 2026-09-25 as the voice-cloning provider while ELEVENLABS_API_KEY is unset:
+ * it clones from a short sample and speaks Arabic, on the MISTRAL_API_KEY the
+ * chat fallback already uses.
+ */
+export type TtsProvider = "openai" | "elevenlabs" | "mistral";
 
 /** Container formats a caller may ask for. */
 export type TtsFormat = "mp3" | "opus" | "wav" | "flac" | "aac" | "ogg";
@@ -43,7 +48,7 @@ export interface TtsRequest {
   provider: TtsProvider;
   /** The provider's model id. Named by the caller; never defaulted here. */
   model: string;
-  /** OpenAI voice name, or an ElevenLabs voice id. */
+  /** OpenAI voice name, or an ElevenLabs or Mistral voice id. */
   voice: string;
   format: TtsFormat;
   /** Omitted from the request when undefined, so a body stays byte-identical. */
@@ -102,6 +107,19 @@ const denoEnv: EnvReader = (name) =>
 export const KEY_FOR: Record<TtsProvider, string> = {
   openai: "OPENAI_API_KEY",
   elevenlabs: "ELEVENLABS_API_KEY",
+  mistral: "MISTRAL_API_KEY",
+};
+
+/** Voxtral's model id (docs.mistral.ai, read 2026-09-25). */
+export const MISTRAL_TTS_MODEL = "voxtral-mini-tts-2603";
+
+/** What Mistral calls each format: it has no aac, and opus comes in an Ogg container. */
+const MISTRAL_FORMAT: Record<TtsFormat, string> = {
+  mp3: "mp3", wav: "wav", flac: "flac", opus: "opus", ogg: "opus", aac: "mp3",
+};
+
+const MISTRAL_MIME: Record<string, string> = {
+  mp3: "audio/mpeg", wav: "audio/wav", flac: "audio/flac", opus: "audio/ogg",
 };
 
 /**
@@ -146,6 +164,11 @@ export function providerModel(request: Pick<TtsRequest, "provider" | "model">): 
   if (request.provider === "elevenlabs") {
     return request.model && request.model !== "tts-1" ? request.model : "eleven_multilingual_v2";
   }
+  // Same rule for Mistral: anything that is not a Voxtral id is the shared
+  // OpenAI default flowing through, not a choice.
+  if (request.provider === "mistral") {
+    return request.model?.startsWith("voxtral") ? request.model : MISTRAL_TTS_MODEL;
+  }
   return request.model;
 }
 
@@ -178,6 +201,24 @@ export function ttsRequestFor(
     };
   }
 
+  if (request.provider === "mistral") {
+    // POST /v1/audio/speech answers JSON: { audio_data: <base64> }. It refuses
+    // `speed` and `instructions`, so neither is sent.
+    return {
+      url: "https://api.mistral.ai/v1/audio/speech",
+      init: {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          model: providerModel(request),
+          input: request.text,
+          voice_id: request.voice,
+          response_format: MISTRAL_FORMAT[request.format],
+        }),
+      },
+    };
+  }
+
   // Every optional field is omitted rather than sent as a default: a body that
   // gains a `speed` or an `instructions` field is a different request, and the
   // WhatsApp path has never sent either.
@@ -202,9 +243,26 @@ export function ttsRequestFor(
 
 /** The mime type a successful call yields, for the provider and format asked for. */
 export function mimeFor(provider: TtsProvider, format: TtsFormat): string {
-  return provider === "elevenlabs"
-    ? elevenLabsMime(format)
-    : OPENAI_MIME[OPENAI_FORMAT[format]] ?? "audio/mpeg";
+  if (provider === "elevenlabs") return elevenLabsMime(format);
+  if (provider === "mistral") return MISTRAL_MIME[MISTRAL_FORMAT[format]] ?? "audio/mpeg";
+  return OPENAI_MIME[OPENAI_FORMAT[format]] ?? "audio/mpeg";
+}
+
+/**
+ * The audio bytes in a successful response.
+ *
+ * OpenAI and ElevenLabs send the audio itself. Mistral sends JSON with the
+ * audio base64-encoded in `audio_data` (its SDK's SpeechResponse), so that one
+ * is decoded here — once, for every caller.
+ */
+async function audioBytesOf(provider: TtsProvider, response: Response): Promise<Uint8Array> {
+  if (provider !== "mistral") return new Uint8Array(await response.arrayBuffer());
+  const body = await response.json() as { audio_data?: unknown };
+  if (typeof body?.audio_data !== "string") return new Uint8Array(0);
+  const binary = atob(body.audio_data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 /** What the provider said went wrong, in as much detail as it offered. */
@@ -236,8 +294,25 @@ export async function synthesizeResponse(
 ): Promise<{ outcome: "response"; response: Response } | { outcome: "failed"; failure: TtsFailure }> {
   const started = Date.now();
   const call = await callProvider(request);
+  if (call.outcome !== "response") return call;
+  if (request.provider === "mistral") {
+    // Mistral's body is JSON, not audio, so it cannot be streamed onward as-is;
+    // it is decoded and handed back as an audio response instead.
+    let bytes: Uint8Array;
+    try {
+      bytes = await audioBytesOf("mistral", call.response);
+    } catch {
+      return { outcome: "failed", failure: { reason: "transport", provider: "mistral" } };
+    }
+    if (bytes.byteLength === 0) return { outcome: "failed", failure: { reason: "empty", provider: "mistral" } };
+    reportExecution(request, started);
+    return {
+      outcome: "response",
+      response: new Response(bytes.slice().buffer, { headers: { "Content-Type": mimeFor("mistral", request.format) } }),
+    };
+  }
   // The provider answered with audio; the body is the caller's to stream.
-  if (call.outcome === "response") reportExecution(request, started);
+  reportExecution(request, started);
   return call;
 }
 
@@ -288,7 +363,7 @@ export async function synthesize(request: TtsRequest): Promise<TtsResult> {
 
   let bytes: Uint8Array;
   try {
-    bytes = new Uint8Array(await call.response.arrayBuffer());
+    bytes = await audioBytesOf(request.provider, call.response);
   } catch {
     return { outcome: "failed", failure: { reason: "transport", provider: request.provider } };
   }
@@ -322,10 +397,13 @@ export function describeTtsFailure(failure: TtsFailure): string {
   if (failure.reason === "invalid_input") return "text is required";
 
   if (failure.reason === "no_key") {
-    return failure.provider === "openai"
-      ? "OPENAI_API_KEY not configured"
-      : "ELEVENLABS_API_KEY is not configured in Supabase Edge Function secrets. " +
-        "This voice was cloned via ElevenLabs and needs that key to speak — add it in Project Settings → Edge Functions → Secrets.";
+    if (failure.provider === "openai") return "OPENAI_API_KEY not configured";
+    if (failure.provider === "mistral") {
+      return "MISTRAL_API_KEY is not configured in Supabase Edge Function secrets. " +
+        "This voice was cloned via Mistral and needs that key to speak.";
+    }
+    return "ELEVENLABS_API_KEY is not configured in Supabase Edge Function secrets. " +
+      "This voice was cloned via ElevenLabs and needs that key to speak — add it in Project Settings → Edge Functions → Secrets.";
   }
 
   if (failure.reason === "rejected") {
@@ -340,6 +418,16 @@ export function describeTtsFailure(failure: TtsFailure): string {
       };
       return map[status] ?? `OpenAI TTS error (${status}): ${detail}`;
     }
+    if (provider === "mistral") {
+      const map: Record<number, string> = {
+        401: "Mistral API key is invalid or revoked. Check MISTRAL_API_KEY in Supabase secrets.",
+        403: "Mistral declined this text (content moderation) or the key lacks access to Voxtral.",
+        404: "This voice no longer exists at Mistral — it may have been deleted or wasn't cloned successfully.",
+        422: `Invalid request to Mistral: ${detail}`,
+        429: "Mistral rate limit reached. Please wait a moment and try again.",
+      };
+      return map[status] ?? `Mistral TTS error (${status}): ${detail}`;
+    }
     const map: Record<number, string> = {
       401: "ElevenLabs API key is invalid or revoked. Check ELEVENLABS_API_KEY in Supabase secrets.",
       403: "ElevenLabs API key lacks permission for this voice.",
@@ -350,7 +438,7 @@ export function describeTtsFailure(failure: TtsFailure): string {
     return map[status] ?? `ElevenLabs TTS error (${status}): ${detail}`;
   }
 
-  const name = failure.provider === "openai" ? "OpenAI" : "ElevenLabs";
+  const name = failure.provider === "openai" ? "OpenAI" : failure.provider === "mistral" ? "Mistral" : "ElevenLabs";
   return failure.reason === "empty"
     ? `${name} returned no audio.`
     : `${name} could not be reached. Please retry shortly.`;

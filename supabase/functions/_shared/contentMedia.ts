@@ -33,11 +33,16 @@ import type { ProposalView } from "./ownerContent.ts";
  */
 export const IMAGE_MODELS = ["gpt-image-1", "gpt-image-1-mini"] as const;
 
-/** Sora, for the vertical clips Instagram calls reels. */
-export const VIDEO_MODEL = "sora-2";
+/**
+ * Luma Ray 2, for the vertical clips Instagram calls reels. OpenAI removed
+ * Sora and its Videos API on 2026-09-24; Luma is the video provider since.
+ */
+export const VIDEO_MODEL = "ray-2";
 
-/** Seconds of video. Short on purpose: a reel is watched, not sat through. */
-export const VIDEO_SECONDS = 8;
+/** Luma's shorter clip length. Short on purpose: a reel is watched, not sat through. */
+export const VIDEO_DURATION = "5s";
+
+const LUMA = "https://api.lumalabs.ai/dream-machine/v1";
 
 /** How long a video job may take before it is abandoned. */
 export const VIDEO_TIMEOUT_MS = 8 * 60_000;
@@ -60,6 +65,15 @@ export function mediaApiKey(): string | undefined {
   const runtime = (globalThis as any).Deno;
   return typeof runtime?.env?.get === "function"
     ? runtime.env.get("OPENAI_API_KEY") ?? undefined
+    : undefined;
+}
+
+/** The video key (Luma), read here for the same reason as mediaApiKey. */
+export function mediaVideoKey(): string | undefined {
+  // deno-lint-ignore no-explicit-any
+  const runtime = (globalThis as any).Deno;
+  return typeof runtime?.env?.get === "function"
+    ? runtime.env.get("LUMA_API_KEY") ?? undefined
     : undefined;
 }
 
@@ -158,7 +172,10 @@ export type MediaFetch = (
 }>;
 
 export interface MediaDeps {
+  /** OpenAI, for images. */
   apiKey: string;
+  /** Luma, for video. Separate because it is a separate account. */
+  videoKey?: string;
   fetchImpl: MediaFetch;
   /** Store the bytes and hand back a URL anyone can fetch. */
   upload(path: string, bytes: Uint8Array, contentType: string): Promise<string | null>;
@@ -307,7 +324,7 @@ export async function generateVideo(
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const started = now();
   // Every exit reports once, as generateImage's do (Phase 2J-0): `providerOk`
-  // is whether Sora produced the clip, so a storage failure is not held
+  // is whether Luma produced the clip, so a storage failure is not held
   // against it.
   const done = async (result: MediaResult, providerOk: boolean): Promise<MediaResult> => {
     await report(deps, {
@@ -319,18 +336,24 @@ export async function generateVideo(
     return result;
   };
 
-  const form = new FormData();
-  form.append("model", VIDEO_MODEL);
-  form.append("prompt", prompt);
-  form.append("size", size);
-  form.append("seconds", String(VIDEO_SECONDS));
+  const key = deps.videoKey;
+  if (!key) return done({ ok: false, error: "no_video_key" }, false);
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json", Accept: "application/json" };
+  const [w, h] = size.split("x").map(Number);
 
   let created;
   try {
-    created = await deps.fetchImpl(`${OPENAI}/videos`, {
+    created = await deps.fetchImpl(`${LUMA}/generations`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${deps.apiKey}` },
-      body: form,
+      headers,
+      body: JSON.stringify({
+        model: VIDEO_MODEL,
+        prompt,
+        aspect_ratio: h > w ? "9:16" : w > h ? "16:9" : "1:1",
+        duration: VIDEO_DURATION,
+        resolution: "720p",
+        loop: false,
+      }),
     });
   } catch {
     return done({ ok: false, error: "provider_unreachable" }, false);
@@ -342,34 +365,33 @@ export async function generateVideo(
   const id = (createdBody as { id?: string } | null)?.id;
   if (!id) return done({ ok: false, error: "no_job_returned" }, false);
 
+  // Luma's states are queued → dreaming → completed | failed.
   const deadline = now() + VIDEO_TIMEOUT_MS;
   let state = "queued";
+  let videoUrl: string | undefined;
   while (state !== "completed" && state !== "failed" && now() < deadline) {
     await sleep(Math.min(15_000, Math.max(0, deadline - now())));
     let polled;
     try {
-      polled = await deps.fetchImpl(`${OPENAI}/videos/${id}`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${deps.apiKey}` },
-      });
+      polled = await deps.fetchImpl(`${LUMA}/generations/${id}`, { method: "GET", headers });
     } catch {
       return done({ ok: false, error: "provider_unreachable" }, false);
     }
-    const body = await polled.json().catch(() => null);
+    const body = await polled.json().catch(() => null) as { state?: string; assets?: { video?: string } } | null;
     if (!polled.ok) return done({ ok: false, error: await classify(polled.status, body) }, false);
-    state = (body as { status?: string } | null)?.status ?? "failed";
+    state = body?.state ?? "failed";
+    videoUrl = body?.assets?.video;
   }
 
   if (state !== "completed") {
     return done({ ok: false, error: state === "failed" ? "video_failed" : "video_timeout" }, false);
   }
+  if (!videoUrl) return done({ ok: false, error: "video_download_failed" }, false);
 
+  // Luma serves the finished clip from a public CDN URL; no credential is sent.
   let content;
   try {
-    content = await deps.fetchImpl(`${OPENAI}/videos/${id}/content`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${deps.apiKey}` },
-    });
+    content = await deps.fetchImpl(videoUrl, { method: "GET" });
   } catch {
     return done({ ok: false, error: "provider_unreachable" }, false);
   }
@@ -390,7 +412,9 @@ export async function generateProposalMedia(
 ): Promise<MediaResult> {
   const kind = force ?? mediaKindFor(proposal.content_type, proposal.platform);
   if (!kind) return { ok: false, error: "no_media_needed" };
-  if (!deps.apiKey) return { ok: false, error: "no_api_key" };
+  if (kind === "video" ? !deps.videoKey : !deps.apiKey) {
+    return { ok: false, error: kind === "video" ? "no_video_key" : "no_api_key" };
+  }
 
   const prompt = buildMediaPrompt(proposal, kind);
   const size = mediaSizeFor(kind, proposal.content_type);
@@ -406,6 +430,7 @@ export async function generateProposalMedia(
 /** Why it did not work, in words the owner can act on. */
 export const MEDIA_ERROR_AR: Record<string, string> = {
   no_api_key: "مفتاح التوليد غير مضبوط على الخادم.",
+  no_video_key: "مفتاح الفيديو (LUMA_API_KEY) غير مضبوط على الخادم.",
   no_media_needed: "هذا النوع من المنشورات لا يحتاج صورة.",
   content_policy: "رُفض الوصف لأسباب تتعلق بسياسة المحتوى. جرّب /again لصياغة أخرى.",
   model_unavailable: "نموذج التوليد غير متاح على هذا المفتاح.",

@@ -102,11 +102,12 @@ describe("callers record against the provider actually used, not the one first s
     expect(fn.slice(0, fn.indexOf("\n}"))).toMatch(/catch\s*\{/);
   });
 
-  it("voice-studio has exactly one active provider today, so it records without ever calling resolveProvider", () => {
-    // Not a gap: with a single eligible row, selection is a constant, and
-    // recording is still real. This documents that as intentional so a future
-    // reader does not "fix" a resolveProvider call back in for its own sake.
+  it("voice-studio chooses by environment key and records against the provider that cloned", () => {
+    // Not a gap: ElevenLabs when its key is set, otherwise Mistral — a rule on
+    // configuration, not a ranking — and recording is still real, against the
+    // row of whichever provider actually cloned. This documents that as
+    // intentional so a future reader does not "fix" a resolveProvider call in.
     expect(voiceStudio).not.toContain("resolveProvider(");
-    expect(voiceStudio).toContain('providerBySlug("elevenlabs-vc")');
+    expect(voiceStudio).toContain('providerBySlug(params.provider === "mistral" ? "mistral-vc" : "elevenlabs-vc")');
   });
 });

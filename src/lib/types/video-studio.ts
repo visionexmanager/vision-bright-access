@@ -116,7 +116,7 @@ export const DEFAULT_FORM: VideoGenerateForm = {
   prompt:          "",
   negativePrompt:  "",
   style:           "realistic",
-  durationSec:     4,
+  durationSec:     5,
   aspectRatio:     "16:9",
   resolution:      "720p",
   fps:             24,
@@ -247,28 +247,20 @@ export interface VideoProviderConfig {
   allowedAspectRatios?: VideoAspectRatio[];
 }
 
+// OpenAI Sora was removed on 2026-09-24 (the Videos API with it), so Luma is
+// the only provider. Its API takes exactly "5s" or "9s" and these two models.
 export const VIDEO_PROVIDERS: VideoProviderConfig[] = [
   {
-    id:          "openai",
-    name:        "OpenAI Sora",
-    models:      [
-      { id: "sora-2",     name: "Sora 2",     maxDuration: 12 },
-      { id: "sora-2-pro", name: "Sora 2 Pro", maxDuration: 12 },
-    ],
-    maxDuration: 12,
-    features:    ["text-to-video", "shared-openai-key", "audio"],
-    requiresKey: "OPENAI_API_KEY",
-    // The Videos API accepts only these three clip lengths and two orientations.
-    allowedDurations:    [4, 8, 12],
-    allowedAspectRatios: ["16:9", "9:16"],
-  },
-  {
     id:          "luma",
-    name:        "Luma Dream Machine",
-    models:      [{ id: "dream-machine", name: "Dream Machine v1.5", maxDuration: 10 }],
-    maxDuration: 10,
+    name:        "Luma Ray 2",
+    models:      [
+      { id: "ray-2",       name: "Ray 2",       maxDuration: 9 },
+      { id: "ray-flash-2", name: "Ray 2 Flash", maxDuration: 9 },
+    ],
+    maxDuration: 9,
     features:    ["text-to-video", "high-quality", "fast"],
     requiresKey: "LUMA_API_KEY",
+    allowedDurations: [5, 9],
   },
 ];
 

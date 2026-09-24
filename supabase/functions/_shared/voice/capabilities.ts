@@ -33,7 +33,7 @@ export type VendorClaim = "documented" | "unknown" | "unsupported";
 export type Evidence = "measured" | "unmeasured";
 
 export type SttProviderName = "groq" | "openai";
-export type TtsProviderName = "openai" | "elevenlabs";
+export type TtsProviderName = "openai" | "elevenlabs" | "mistral";
 
 export interface LanguageCapability {
   language: SupportedLanguage;
@@ -64,12 +64,20 @@ const WHISPER_ALL: Record<SttProviderName, VendorClaim> = { groq: "documented", 
  */
 const ELEVENLABS_UNKNOWN: ReadonlySet<string> = new Set(["fa", "ur", "bn", "vi"]);
 
+/**
+ * Mistral Voxtral TTS documents nine languages (docs.mistral.ai, read
+ * 2026-09-25): English, French, Spanish, Portuguese, Italian, Dutch, German,
+ * Hindi and Arabic. The other Visionex locales are `unknown`, not guessed.
+ */
+const MISTRAL_DOCUMENTED: ReadonlySet<string> = new Set(["en", "fr", "es", "pt", "it", "nl", "de", "hi", "ar"]);
+
 function capabilityFor(language: SupportedLanguage): LanguageCapability {
   const elevenlabs: VendorClaim = ELEVENLABS_UNKNOWN.has(language) ? "unknown" : "documented";
+  const mistral: VendorClaim = MISTRAL_DOCUMENTED.has(language) ? "documented" : "unknown";
   return {
     language,
     stt: WHISPER_ALL,
-    ttsClaim: { openai: "documented", elevenlabs },
+    ttsClaim: { openai: "documented", elevenlabs, mistral },
     evidence: { stt: "unmeasured", tts: "unmeasured" },
     ...(elevenlabs === "unknown"
       ? { note: "ElevenLabs coverage unconfirmed; OpenAI is the defined provider for this language." }
@@ -118,8 +126,10 @@ export function ttsProviderFor(
   language?: string | null,
   preferred?: TtsProviderName,
 ): TtsProviderName | null {
-  const order: TtsProviderName[] = preferred === "elevenlabs"
-    ? ["elevenlabs", "openai"]
+  // A cloned voice lives at one provider; preferring it puts it first and keeps
+  // OpenAI as the capable fallback. Nothing is preferred into by default.
+  const order: TtsProviderName[] = preferred === "elevenlabs" || preferred === "mistral"
+    ? [preferred, "openai"]
     : ["openai", "elevenlabs"];
   if (!isSupportedLanguage(language)) {
     // No language named: the caller's preference stands, defaulting to OpenAI,

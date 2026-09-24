@@ -41,14 +41,18 @@ describe("video provider capabilities", () => {
     }
   });
 
-  it("declares OpenAI Sora with exactly the durations and sizes the API accepts", () => {
-    const openai = VIDEO_PROVIDERS.find((p) => p.id === "openai");
-    expect(openai).toBeDefined();
-    expect(openai!.requiresKey).toBe("OPENAI_API_KEY");
-    expect(openai!.allowedDurations).toEqual([4, 8, 12]);
-    // Sora renders landscape or portrait only — no square or ultrawide.
-    expect(openai!.allowedAspectRatios).toEqual(["16:9", "9:16"]);
-    expect(openai!.models.map((m) => m.id)).toEqual(["sora-2", "sora-2-pro"]);
+  it("declares Luma with exactly the durations and models its API accepts", () => {
+    const luma = VIDEO_PROVIDERS.find((p) => p.id === "luma");
+    expect(luma).toBeDefined();
+    expect(luma!.requiresKey).toBe("LUMA_API_KEY");
+    // docs.lumalabs.ai/reference/creategeneration: duration is "5s" | "9s".
+    expect(luma!.allowedDurations).toEqual([5, 9]);
+    expect(luma!.models.map((m) => m.id)).toEqual(["ray-2", "ray-flash-2"]);
+  });
+
+  it("no longer offers OpenAI Sora, which was removed on 2026-09-24", () => {
+    expect(VIDEO_PROVIDERS.map((p) => p.id)).toEqual(["luma"]);
+    expect(VIDEO_PROVIDERS.flatMap((p) => p.models.map((m) => m.id)).some((id) => id.startsWith("sora"))).toBe(false);
   });
 
   it("keeps every provider's allowed values within the shared option tables", () => {
@@ -63,11 +67,4 @@ describe("video provider capabilities", () => {
     }
   });
 
-  it("still offers Luma as the migration path off the deprecated Videos API", () => {
-    // OpenAI removes the Videos API on 2026-09-24 — see
-    // docs/video-studio-providers.md. Luma must stay wired as the fallback.
-    const luma = VIDEO_PROVIDERS.find((p) => p.id === "luma");
-    expect(luma).toBeDefined();
-    expect(luma!.requiresKey).toBe("LUMA_API_KEY");
-  });
 });

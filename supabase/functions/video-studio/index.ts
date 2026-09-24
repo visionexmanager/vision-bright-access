@@ -96,6 +96,24 @@ function buildPrompt(params: VideoGenerateParams): string {
 }
 
 // ── Luma Dream Machine Provider ───────────────────────────────────────────────
+//
+// The production video provider since OpenAI removed Sora and its Videos API
+// on 2026-09-24. Request shape per docs.lumalabs.ai/reference/creategeneration
+// (read 2026-09-25): `model` is required and is "ray-2" or "ray-flash-2";
+// `duration` is "5s" or "9s"; `resolution` is 540p/720p/1080p/4k. The
+// adapter used to send none of the three, so Luma would have refused every
+// request the day it became the fallback.
+
+export const LUMA_MODELS = ["ray-2", "ray-flash-2"] as const;
+const LUMA_RESOLUTIONS = new Set(["540p", "720p", "1080p", "4k"]);
+
+export function lumaRequestShape(params: Pick<VideoGenerateParams, "model" | "durationSec" | "resolution">) {
+  return {
+    model:      (LUMA_MODELS as readonly string[]).includes(params.model) ? params.model : "ray-2",
+    duration:   params.durationSec >= 7 ? "9s" : "5s",
+    resolution: LUMA_RESOLUTIONS.has(params.resolution) ? params.resolution : "720p",
+  };
+}
 
 class LumaProvider implements VideoProvider {
   name = "luma";
@@ -119,7 +137,7 @@ class LumaProvider implements VideoProvider {
     // Map aspect_ratio to Luma supported values
     const aspectMap: Record<string, string> = {
       "16:9": "16:9", "9:16": "9:16", "1:1": "1:1",
-      "4:3":  "4:3",  "3:4":  "3:4",  "21:9": "21:9",
+      "4:3":  "4:3",  "3:4":  "3:4",  "21:9": "21:9", "9:21": "9:21",
     };
     const aspect = aspectMap[params.aspectRatio] ?? "16:9";
 
@@ -128,6 +146,7 @@ class LumaProvider implements VideoProvider {
       prompt: buildPrompt(params),
       aspect_ratio: aspect,
       loop: false,
+      ...lumaRequestShape(params),
     };
 
     const res = await fetch(`${this.baseUrl}/generations`, {
@@ -192,147 +211,6 @@ class LumaProvider implements VideoProvider {
   fetchAsset(url: string): Promise<Response> {
     // Luma returns public CDN URLs — no auth needed.
     return fetch(url);
-  }
-}
-
-// ── OpenAI Sora Provider ──────────────────────────────────────────────────────
-//
-// Uses the same OPENAI_API_KEY secret that Speech Studio and Image Studio
-// already run on, so Text-to-Video needs no additional provider account.
-//
-// ⚠️ OpenAI announced on 2026-03-24 that the Videos API and every sora-2 model
-// alias are removed on 2026-09-24, with no announced successor. When that lands,
-// generation here starts failing and the studio must be pointed at another
-// provider — set LUMA_API_KEY (the Luma path below is already wired) or add a
-// new provider class. See docs/video-studio-providers.md.
-
-const SORA_ALLOWED_SECONDS = [4, 8, 12];
-
-class OpenAISoraProvider implements VideoProvider {
-  name = "openai";
-  publicAssetUrls = false;   // /content downloads require the API key
-  private apiKey: string;
-  private baseUrl = "https://api.openai.com/v1";
-
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
-  }
-
-  private get authHeader() {
-    return { "Authorization": `Bearer ${this.apiKey}` };
-  }
-
-  private resolveModel(model?: string): string {
-    return model === "sora-2-pro" ? "sora-2-pro" : "sora-2";
-  }
-
-  /** Sora accepts only 4, 8 or 12 second clips — snap to the nearest. */
-  private resolveSeconds(durationSec: number): string {
-    const nearest = SORA_ALLOWED_SECONDS.reduce(
-      (best, v) => (Math.abs(v - durationSec) < Math.abs(best - durationSec) ? v : best),
-      SORA_ALLOWED_SECONDS[0],
-    );
-    return String(nearest);
-  }
-
-  /** Sora accepts exactly four sizes; the wide ones are sora-2-pro only. */
-  private resolveSize(params: VideoGenerateParams, model: string): string {
-    const [w, h] = params.aspectRatio.split(":").map(Number);
-    const portrait  = Number.isFinite(w) && Number.isFinite(h) && h > w;
-    const highRes   = model === "sora-2-pro" &&
-      (params.resolution === "1080p" || params.resolution === "4k");
-
-    if (portrait) return highRes ? "1024x1792" : "720x1280";
-    return highRes ? "1792x1024" : "1280x720";
-  }
-
-  private async errorMessage(res: Response, fallback: string): Promise<string> {
-    const body = await res.json().catch(() => null);
-    const detail = body?.error?.message ?? body?.message;
-    if (detail) return detail;
-    if (res.status === 401) return "OpenAI API key is invalid or revoked. Check OPENAI_API_KEY in Supabase secrets.";
-    if (res.status === 429) return "OpenAI rate limit reached. Try again shortly.";
-    if (res.status === 404) return "The OpenAI Videos API is unavailable. It was scheduled for removal on 2026-09-24 — configure another video provider.";
-    return `${fallback} (HTTP ${res.status})`;
-  }
-
-  async generateVideo(params: VideoGenerateParams): Promise<VideoGenerateResult> {
-    const model = this.resolveModel(params.model);
-
-    const res = await fetch(`${this.baseUrl}/videos`, {
-      method:  "POST",
-      headers: { ...this.authHeader, "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        model,
-        prompt:  buildPrompt(params),
-        seconds: this.resolveSeconds(params.durationSec),
-        size:    this.resolveSize(params, model),
-      }),
-    });
-
-    if (!res.ok) {
-      return { ok: false, error: await this.errorMessage(res, "Sora generation failed") };
-    }
-
-    const data = await res.json();
-    if (!data?.id) return { ok: false, error: "OpenAI returned no video id." };
-    return { ok: true, providerJobId: data.id };
-  }
-
-  async pollJob(providerJobId: string): Promise<VideoPollResult> {
-    const res = await fetch(`${this.baseUrl}/videos/${providerJobId}`, {
-      headers: this.authHeader,
-    });
-
-    if (!res.ok) {
-      return {
-        ok: false, state: "failed", progress: 0,
-        error: await this.errorMessage(res, "Sora poll failed"),
-      };
-    }
-
-    const data = await res.json();
-
-    if (data.status === "completed") {
-      return {
-        ok:            true,
-        state:         "completed",
-        progress:      100,
-        videoUrl:      `${this.baseUrl}/videos/${providerJobId}/content?variant=video`,
-        thumbnailUrl:  `${this.baseUrl}/videos/${providerJobId}/content?variant=thumbnail`,
-        thumbnailMime: "image/webp",
-      };
-    }
-
-    if (data.status === "failed") {
-      return {
-        ok:       false,
-        state:    "failed",
-        progress: 0,
-        error:    data.error?.message ?? "Sora reported a failed generation.",
-      };
-    }
-
-    // queued | in_progress — hold below 100 so the UI never claims completion early.
-    const reported = typeof data.progress === "number" ? data.progress : 0;
-    return {
-      ok:       true,
-      state:    data.status === "in_progress" ? "processing" : "pending",
-      progress: Math.max(5, Math.min(95, Math.round(reported))),
-    };
-  }
-
-  async cancelJob(providerJobId: string): Promise<void> {
-    // Sora has no cancel endpoint. The user explicitly abandoned this job, so
-    // delete the generation rather than leaving it to occupy their quota.
-    await fetch(`${this.baseUrl}/videos/${providerJobId}`, {
-      method:  "DELETE",
-      headers: this.authHeader,
-    });
-  }
-
-  fetchAsset(url: string): Promise<Response> {
-    return fetch(url, { headers: this.authHeader });
   }
 }
 
@@ -458,12 +336,11 @@ class RunPodVideoProvider implements VideoProvider {
 }
 
 //
-// "auto" (the client default) picks whichever provider actually has a key, so
-// Text-to-Video runs on the OPENAI_API_KEY the rest of the studio already uses
-// and can be moved to Luma by setting LUMA_API_KEY — no code change needed.
+// "auto" (the client default) is Luma: since 2026-09-24 it is the only
+// provider that can serve a request. OpenAI Sora is retired and refused by
+// name, so a template saved against it gets a sentence instead of a 404.
 
 function getProvider(name?: string): VideoProvider {
-  const openaiKey = Deno.env.get("OPENAI_API_KEY");
   const lumaKey   = Deno.env.get("LUMA_API_KEY");
 
   let requested = name && name !== "auto" ? name : "";
@@ -471,7 +348,7 @@ function getProvider(name?: string): VideoProvider {
   // an execution target that can be selected by default is one that starts
   // serving traffic the day its key is added, which is the opposite of a
   // staged rollout.
-  if (!requested) requested = openaiKey ? "openai" : lumaKey ? "luma" : "";
+  if (!requested) requested = "luma";
 
   if (requested === "runpod") {
     // Configuration comes from the server, never from the caller. The client
@@ -493,34 +370,21 @@ function getProvider(name?: string): VideoProvider {
   }
 
   if (requested === "openai") {
-    if (!openaiKey) {
-      throw new Error(
-        "OPENAI_API_KEY is not configured in Supabase Edge Function secrets. " +
-        "Add it in Project Settings → Edge Functions → Secrets, or set LUMA_API_KEY to use Luma instead."
-      );
-    }
-    return new OpenAISoraProvider(openaiKey);
+    throw new Error("OpenAI Sora was retired on 2026-09-24. Video runs on Luma (LUMA_API_KEY).");
   }
 
   if (requested === "luma") {
     if (!lumaKey) {
       throw new Error(
         "LUMA_API_KEY is not configured in Supabase Edge Function secrets. " +
-        "Add it in Project Settings → Edge Functions → Secrets, or set OPENAI_API_KEY to use OpenAI Sora instead."
+        "Add it in Project Settings → Edge Functions → Secrets."
       );
     }
     return new LumaProvider(lumaKey);
   }
 
-  if (!requested) {
-    throw new Error(
-      "No video provider is configured. Set OPENAI_API_KEY (OpenAI Sora) or LUMA_API_KEY " +
-      "(Luma Dream Machine) in Supabase Project Settings → Edge Functions → Secrets."
-    );
-  }
-
   // Add more providers here: RunwayML, Kling, Pika, Veo, etc.
-  throw new Error(`Unknown video provider: "${requested}". Supported: openai, luma`);
+  throw new Error(`Unknown video provider: "${requested}". Supported: luma, runpod`);
 }
 
 // ── Provider registry recording (Phase 2J-0) ────────────────────────────────
@@ -604,13 +468,12 @@ async function handleGenerate(
 
   // A model saved against a different provider (e.g. a template built on Luma)
   // must not leak through to the provider actually running the job.
-  const isOpenAI       = provider.name === "openai";
-  const defaultModel   = isOpenAI ? "sora-2" : "dream-machine";
+  // Templates saved before 2026-09-24 still name sora-2; those, and anything
+  // else Luma does not offer, run on ray-2.
   const requestedModel = typeof provider_model === "string" ? provider_model.trim() : "";
-  const resolvedModel  =
-    requestedModel && isOpenAI === requestedModel.startsWith("sora")
-      ? requestedModel
-      : defaultModel;
+  const resolvedModel  = provider.name === "luma"
+    ? lumaRequestShape({ model: requestedModel, durationSec: 5, resolution: "720p" }).model
+    : requestedModel || "default";
 
   // Create job record
   const { data: job, error: jobErr } = await (db as any)

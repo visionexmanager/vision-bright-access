@@ -42,6 +42,7 @@ function deps(responses: Array<ReturnType<typeof reply> | Error>, extra: Partial
   let t = 1_000;
   const d: MediaDeps = {
     apiKey: "sk-test",
+    videoKey: "luma-test",
     fetchImpl,
     upload: async () => "https://cdn.example/x.png",
     now: () => (t += 250),
@@ -125,7 +126,7 @@ describe("generateImage records exactly one outcome per generation", () => {
   });
 });
 
-// Phase 2J-0 added the `openai-video` (Sora) row, so video is recorded too.
+// Video is recorded against `luma-video` since Sora was retired on 2026-09-24.
 describe("generateVideo records exactly one outcome per clip", () => {
   const clipBytes = () => ({
     ok: true, status: 200, json: async () => ({}), arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
@@ -140,7 +141,7 @@ describe("generateVideo records exactly one outcome per clip", () => {
 
   it("a finished clip: one success record, the result untouched", async () => {
     const { d, recorded } = deps(
-      [reply(200, { id: "vid_1" }), reply(200, { status: "completed" }), clipBytes()],
+      [reply(200, { id: "vid_1" }), reply(200, { state: "completed", assets: { video: "https://cdn.luma/v.mp4" } }), clipBytes()],
       { sleep: async () => {}, upload: async () => "https://cdn.example/v.mp4" },
     );
     const result = await generateVideo(d, "a clip", "720x1280", "p/v");
@@ -149,14 +150,14 @@ describe("generateVideo records exactly one outcome per clip", () => {
   });
 
   it("a failed render: one failure record", async () => {
-    const { d, recorded } = deps([reply(200, { id: "vid_1" }), reply(200, { status: "failed" })], { sleep: async () => {} });
+    const { d, recorded } = deps([reply(200, { id: "vid_1" }), reply(200, { state: "failed" })], { sleep: async () => {} });
     expect(await generateVideo(d, "a clip", "720x1280", "p/v")).toEqual({ ok: false, error: "video_failed" });
     expect(recorded).toEqual([expect.objectContaining({ success: false, error: "video_failed" })]);
   });
 
-  it("a storage failure is not held against Sora", async () => {
+  it("a storage failure is not held against Luma", async () => {
     const { d, recorded } = deps(
-      [reply(200, { id: "vid_1" }), reply(200, { status: "completed" }), clipBytes()],
+      [reply(200, { id: "vid_1" }), reply(200, { state: "completed", assets: { video: "https://cdn.luma/v.mp4" } }), clipBytes()],
       { sleep: async () => {}, upload: async () => null },
     );
     expect(await generateVideo(d, "a clip", "720x1280", "p/v")).toEqual({ ok: false, error: "upload_failed" });
@@ -168,8 +169,8 @@ describe("generateVideo records exactly one outcome per clip", () => {
     expect(await generateVideo(d, "a clip", "720x1280", "p/v")).toEqual({ ok: false, error: "provider_unavailable" });
   });
 
-  it("the slug map names the Sora row", () => {
-    expect(MEDIA_PROVIDER_SLUG).toEqual({ image: "openai-image", video: "openai-video" });
+  it("the slug map names the Luma row", () => {
+    expect(MEDIA_PROVIDER_SLUG).toEqual({ image: "openai-image", video: "luma-video" });
   });
 });
 
@@ -215,12 +216,12 @@ describe("recordMediaOutcome writes what image-generate writes", () => {
     expect(calls.find((c) => c.table === "ph_logs")?.args).toMatchObject({ status: "failure", error_message: "content_policy" });
   });
 
-  it("a video outcome is recorded against the Sora row as text_to_video", async () => {
-    const { db, calls } = fakeDb({ id: "vid-1", slug: "openai-video" });
+  it("a video outcome is recorded against the Luma row as text_to_video", async () => {
+    const { db, calls } = fakeDb({ id: "vid-1", slug: "luma-video" });
     await recordMediaOutcome(db, { kind: "video", success: false, ms: 9, error: "video_timeout" });
-    expect(calls[0]).toEqual({ op: "select", table: "ph_providers", args: "openai-video" });
+    expect(calls[0]).toEqual({ op: "select", table: "ph_providers", args: "luma-video" });
     expect(calls.find((c) => c.table === "ph_logs")?.args).toMatchObject({
-      provider_slug: "openai-video", job_type: "text_to_video", status: "failure", error_message: "video_timeout",
+      provider_slug: "luma-video", job_type: "text_to_video", status: "failure", error_message: "video_timeout",
     });
   });
 
@@ -302,13 +303,14 @@ describe("the wiring", () => {
     });
   }
 
-  it("generateVideo reports from every exit and sends Sora the same request", () => {
+  it("generateVideo reports from every exit and sends Luma its required fields", () => {
     const media = read("supabase/functions/_shared/contentMedia.ts");
     const video = media.slice(media.indexOf("export async function generateVideo"), media.indexOf("export async function generateProposalMedia"));
     expect(video).not.toMatch(/return \{ ok:/);
-    for (const field of ['form.append("model", VIDEO_MODEL);', 'form.append("prompt", prompt);', 'form.append("size", size);', 'form.append("seconds", String(VIDEO_SECONDS));']) {
+    for (const field of ["model: VIDEO_MODEL,", "prompt,", "duration: VIDEO_DURATION,", 'resolution: "720p",']) {
       expect(video, field).toContain(field);
     }
-    expect(media).toContain('export const VIDEO_MODEL = "sora-2";');
+    expect(media).toContain('export const VIDEO_MODEL = "ray-2";');
+    expect(media).not.toContain("/videos");
   });
 });

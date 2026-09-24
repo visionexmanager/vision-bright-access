@@ -503,16 +503,12 @@ async function checkGroq(): Promise<ComponentStatus> {
 async function checkLuma(): Promise<ComponentStatus> {
   const apiKey = Deno.env.get("LUMA_API_KEY");
   if (!apiKey) {
-    const hasOpenAI = !!Deno.env.get("OPENAI_API_KEY");
+    // Luma is the only video provider since OpenAI removed Sora and its
+    // Videos API on 2026-09-24, so without this key no video can be made.
     return {
-      // Luma is the fallback provider; video generation runs on OpenAI Sora
-      // while OPENAI_API_KEY is set, so a missing Luma key is only a problem
-      // once OpenAI's Videos API shuts down (announced for 2026-09-24).
-      ok:     hasOpenAI,
-      status: hasOpenAI ? "ok" : "warning",
-      detail: hasOpenAI
-        ? "LUMA_API_KEY not configured. Video generation is running on OpenAI Sora. Set LUMA_API_KEY before the OpenAI Videos API shuts down on 2026-09-24."
-        : "Neither LUMA_API_KEY nor OPENAI_API_KEY is configured. Video generation will fail.",
+      ok:     false,
+      status: "missing",
+      detail: "LUMA_API_KEY not configured. Video generation (Video Studio and the owner's /video) is unavailable — OpenAI Sora was retired on 2026-09-24.",
     };
   }
   try {
@@ -523,7 +519,7 @@ async function checkLuma(): Promise<ComponentStatus> {
       return {
         ok:     false,
         status: "error",
-        detail: "LUMA_API_KEY is invalid. Video generation cannot fall back to Luma.",
+        detail: "LUMA_API_KEY is invalid or revoked. Video generation is unavailable.",
       };
     }
     if (!res.ok) {
@@ -542,10 +538,15 @@ async function checkLuma(): Promise<ComponentStatus> {
 async function checkElevenLabs(): Promise<ComponentStatus> {
   const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
   if (!apiKey) {
+    // Optional since 2026-09-25: voice-studio clones with Mistral (Voxtral)
+    // when this key is absent, so only the absence of both is an outage.
+    const hasMistral = !!Deno.env.get("MISTRAL_API_KEY");
     return {
-      ok:     false,
-      status: "warning",
-      detail: "ELEVENLABS_API_KEY not configured. Voice cloning is unavailable until a real provider key is added.",
+      ok:     hasMistral,
+      status: hasMistral ? "ok" : "warning",
+      detail: hasMistral
+        ? "ELEVENLABS_API_KEY not configured. Voice cloning runs on Mistral Voxtral (MISTRAL_API_KEY)."
+        : "Neither ELEVENLABS_API_KEY nor MISTRAL_API_KEY is configured. Voice cloning is unavailable.",
     };
   }
   try {
@@ -591,9 +592,9 @@ const PLATFORM_SECRETS: { name: string; impact: string }[] = [
   { name: "ANTHROPIC_API_KEY",    impact: "Any assistant configured with provider 'anthropic'. Those return 500 without it; OpenAI-backed assistants are unaffected." },
   { name: "GEMINI_API_KEY",       impact: "Opt-in Gemini assistants. Kept out of automatic routing until billing and model access pass a live generation probe." },
   { name: "GROQ_API_KEY",         impact: "Low-cost text fallback for Career Center assistants when OpenAI is unavailable." },
-  { name: "MISTRAL_API_KEY",      impact: "Second low-cost text fallback for Career Center assistants when OpenAI and Groq are unavailable." },
-  { name: "ELEVENLABS_API_KEY",   impact: "Voice Studio voice cloning and ElevenLabs speech voices." },
-  { name: "LUMA_API_KEY",         impact: "Fallback video provider. Only needed once OpenAI's Videos API shuts down on 2026-09-24." },
+  { name: "MISTRAL_API_KEY",      impact: "Voice cloning (Voxtral) when ELEVENLABS_API_KEY is unset, and a low-cost text fallback for assistants." },
+  { name: "ELEVENLABS_API_KEY",   impact: "Optional. ElevenLabs voice cloning and speech voices; without it voice cloning runs on Mistral." },
+  { name: "LUMA_API_KEY",         impact: "The video provider (Luma Ray 2). Without it no video can be generated — OpenAI Sora was retired on 2026-09-24." },
   { name: "REPLICATE_API_TOKEN",  impact: "Image Tools (image-tools-generate): upscale, background removal, variations." },
   { name: "STRIPE_SECRET_KEY",    impact: "Bazaar checkout, Library checkout and Career billing." },
   { name: "STRIPE_WEBHOOK_SECRET", impact: "Bazaar payment confirmation. Orders stay unconfirmed without it." },
