@@ -38,9 +38,11 @@ describe("1. the Sora registry row", () => {
     expect(migration).not.toMatch(/\b(ALTER|CREATE|DROP|GRANT|REVOKE)\b/);
   });
 
-  it("is the newest migration, after every version already on main", () => {
+  it("comes after every version that was on main before it, with a unique version", () => {
+    // Later phases add migrations after it (2J-1 did), so "newest" is not the
+    // invariant; ordering after 20261038 and a unique version are.
     const files = readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
-    expect(files.at(-1)).toBe(MIGRATION);
+    expect(files.indexOf(MIGRATION)).toBeGreaterThan(files.indexOf("20261038000000_ai_rate_limit_serialised_and_media.sql"));
     expect(files.filter((f) => f.startsWith("20261039000000_"))).toHaveLength(1);
   });
 });
@@ -115,7 +117,10 @@ describe("3. a failed job insert is generic to the caller", () => {
 
 describe("4. a health probe never switches a provider on", () => {
   it("keeps an inactive row inactive whatever the probe says", () => {
-    expect(hub).toContain('const newStatus = provider.status === "inactive" ? "inactive" : healthy ? "active" : "degraded";');
+    // Phase 2J-1 generalised the 2J-0 rule to every administrative status; the
+    // evaluated matrix lives in provider-health-recovery.test.ts.
+    expect(hub).toContain('const automatic = provider.status === "active" || provider.status === "degraded";');
+    expect(hub).toContain('const newStatus = automatic ? (healthy ? "active" : "degraded") : provider.status;');
     expect(hub).not.toContain('const newStatus = healthy ? "active" : "degraded";');
   });
 });
