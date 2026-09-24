@@ -10,6 +10,10 @@ import {
 import { assistantTargets } from "../_shared/assistants.ts";
 import { boundMessages, callerAddress, callerHash, type ChatTurn } from "./limits.ts";
 import { sanitizeContext, UNTRUSTED_CONTEXT_RULES, untrustedContextBlock } from "./context.ts";
+import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+
+// Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
+installChatAttemptRecording();
 
 type UserMemory = {
   memory_enabled?: boolean;

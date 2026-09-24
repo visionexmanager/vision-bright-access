@@ -29,6 +29,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletionWithFallback, ProviderError, type ProviderTarget } from "../_shared/aiProvider.ts";
+import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+
+// Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
+installChatAttemptRecording();
 
 function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });

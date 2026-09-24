@@ -14,6 +14,10 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { proposeContent } from "../_shared/contentEngine.ts";
 import { decideUnlessContentApproval } from "../_shared/content/proposalRules.ts";
 import { normalizePhone } from "../_shared/ownerControl.ts";
+import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+
+// Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
+installChatAttemptRecording();
 
 type Action =
   | "decide_approval"

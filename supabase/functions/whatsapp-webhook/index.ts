@@ -415,6 +415,10 @@ import { extractDocumentText } from "../_shared/whatsappDocumentText.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { readOfficeLocally } from "../_shared/whatsappOffice.ts";
 import { convertMediaLocally, overpassViaProcessor } from "../_shared/whatsappProcessor.ts";
+import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+
+// Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
+installChatAttemptRecording();
 
 // The Supabase edge runtime keeps a promise alive past the response. Declared
 // rather than imported because it is a global the runtime provides and the

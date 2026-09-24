@@ -2,7 +2,7 @@
 
 // ── Provider types ────────────────────────────────────────────────────────────
 
-export type ProviderType    = "tts" | "voice_cloning" | "text_to_video";
+export type ProviderType    = "tts" | "voice_cloning" | "text_to_video" | "stt" | "image" | "chat" | "vision";
 export type ProviderStatus  = "active" | "inactive" | "degraded" | "error";
 export type RoutingStrategy = "smart" | "priority" | "round_robin" | "least_latency" | "cheapest";
 
@@ -201,12 +201,20 @@ export const PROVIDER_TYPE_LABELS: Record<ProviderType, string> = {
   tts:            "Text to Speech",
   voice_cloning:  "Voice Cloning",
   text_to_video:  "Text to Video",
+  stt:            "Speech to Text",
+  image:          "Image Generation",
+  chat:           "Chat",
+  vision:         "Vision",
 };
 
 export const PROVIDER_TYPE_ICONS: Record<ProviderType, string> = {
   tts:            "🎙️",
   voice_cloning:  "🧬",
   text_to_video:  "🎬",
+  stt:            "📝",
+  image:          "🖼️",
+  chat:           "💬",
+  vision:         "👁️",
 };
 
 export const STATUS_COLORS: Record<ProviderStatus, string> = {

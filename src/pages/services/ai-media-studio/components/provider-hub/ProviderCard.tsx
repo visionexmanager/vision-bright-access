@@ -71,7 +71,7 @@ export function ProviderCard({
       {/* Header */}
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="flex items-start gap-2.5">
-          <span className="text-2xl leading-none mt-0.5">
+          <span aria-hidden="true" className="text-2xl leading-none mt-0.5">
             {PROVIDER_TYPE_ICONS[provider.type]}
           </span>
           <div>
