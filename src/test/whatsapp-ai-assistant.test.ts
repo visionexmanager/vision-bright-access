@@ -246,7 +246,9 @@ describe("voice", () => {
     // ones that answer. Since the voice phase both steps are composed by
     // `voiceToText`, which calls the same two functions and adds a clock.
     expect(webhook).toContain("transcriptionFailureNotice(answerLanguage, noticeReasonFor(turn.reason))");
-    expect(webhook).toContain("transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),");
+    // By its parts: Phase 2I added a `record` hook and wrapped the call; the
+    // input and the trace it protects are unchanged.
+    expect(webhook).toMatch(/transcribe: \(input\) => transcribeVoice\(\{\s*\.\.\.input,\s*trace: correlationId,/);
     expect(webhook.indexOf("voiceToText(")).toBeLessThan(webhook.indexOf("const outcome = runEngine("));
     // A failed transcription never reaches the provider.
     const audioBlock = webhook.slice(

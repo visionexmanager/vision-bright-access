@@ -11,36 +11,40 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const fn = readFileSync("supabase/functions/speech-transcribe/index.ts", "utf8");
+// Phase 2I moved the recorder into the shared module so WhatsApp's voice notes
+// record through the same code; the guarantees below follow it there.
+const recording = readFileSync("supabase/functions/_shared/providerRecording.ts", "utf8");
+const rec = recording.slice(recording.indexOf("export async function recordSttAttempts"));
 
 describe("recording is wired to the seeded registry rows", () => {
   it("maps groq and openai to the exact slugs Phase 2C seeded", () => {
-    expect(fn).toContain('const STT_SLUG: Record<SttProviderName, string> = { groq: "groq-stt", openai: "openai-stt" };');
+    expect(recording).toContain('export const STT_PROVIDER_SLUG: Record<SttProviderName, string> = { groq: "groq-stt", openai: "openai-stt" };');
   });
 
-  it("imports providerBySlug/recordResult from the same router speech-generate uses", () => {
-    expect(fn).toContain('import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";');
+  it("records through the one shared implementation providerRouter also delegates to", () => {
+    expect(fn).toContain('import { recordSttAttempts, type RecordingDb } from "../_shared/providerRecording.ts";');
+    expect(rec).toContain("providerBySlugIn(db,");
+    expect(rec).toContain("recordResultIn(db,");
+    expect(fn).not.toContain("async function recordSttAttempts");
   });
 });
 
 describe("only real attempts are recorded", () => {
   it("excludes no_key skips — no network call means no health signal to log", () => {
-    const rec = fn.slice(fn.indexOf("async function recordSttAttempts"));
     expect(rec).toContain('attempts.filter((a) => a.failure.reason !== "no_key")');
   });
 
   it("records job_type stt, matching the migration's seeded type", () => {
-    expect(fn).toContain('job_type: "stt"');
+    expect(rec).toContain('job_type: "stt"');
   });
 });
 
 describe("recording never gates or breaks the transcription response", () => {
   it("wraps every registry call in try/catch", () => {
-    const rec = fn.slice(fn.indexOf("async function recordSttAttempts"), fn.indexOf("// ── Helpers"));
     expect(rec).toMatch(/try\s*\{[\s\S]*\}\s*catch\s*\{/);
   });
 
   it("skips recording rather than crashing when the registry row is missing or the type was never seeded", () => {
-    const rec = fn.slice(fn.indexOf("async function recordSttAttempts"), fn.indexOf("// ── Helpers"));
     expect(rec).toContain("if (!row) continue;");
     expect(rec).toContain("if (row) {");
   });
@@ -48,8 +52,9 @@ describe("recording never gates or breaks the transcription response", () => {
   it("records on both the success and failure path, before returning or throwing", () => {
     const caller = fn.slice(fn.indexOf("async function transcribeWithWhisper"));
     const body = caller.slice(0, caller.indexOf("\n}\n"));
-    expect(body).toMatch(/await recordSttAttempts\(heard\.attempts\);\s*\n\s*throw new Error/);
-    expect(body).toContain("await recordSttAttempts(heard.attempts, { provider: heard.provider, ms: heard.ms });");
+    expect(body).toMatch(/await recordSttAttempts\(db, heard\.attempts\);\s*\n\s*throw new Error/);
+    expect(body).toContain("await recordSttAttempts(db, heard.attempts, { provider: heard.provider, ms: heard.ms });");
+    expect(fn).toContain("await transcribeWithWhisper(serviceClient, bytes, filename, mime_type, language_hint);");
   });
 
   it("still throws the same describeSttFailure sentence a caller already expects", () => {

@@ -13,6 +13,7 @@
 // Pure: no imports but types, no Deno, no environment.
 
 import type { MediaKind, MediaOutcome } from "./contentMedia.ts";
+import type { SttProviderName, TranscribeAttempt } from "./voice/stt.ts";
 
 // deno-lint-ignore no-explicit-any
 export type RecordingDb = any;
@@ -113,5 +114,48 @@ export async function recordMediaOutcome(db: RecordingDb, outcome: MediaOutcome)
     });
   } catch {
     // Best-effort. The caller's result must never depend on this.
+  }
+}
+
+// ── Speech to text (Phase 2I) ─────────────────────────────────────────────────
+//
+// Moved unchanged from `speech-transcribe`, where Phase 2D wrote it, so the
+// WhatsApp voice-note path records through the same code instead of a copy.
+// Recording only: the Groq-then-OpenAI order, capability filtering,
+// skip-on-no-key and retry-on-empty all stay in `_shared/voice/stt.ts`.
+
+/** The `groq-stt`/`openai-stt` rows Phase 2C seeded. */
+export const STT_PROVIDER_SLUG: Record<SttProviderName, string> = { groq: "groq-stt", openai: "openai-stt" };
+
+/**
+ * Record every attempt `transcribe()` actually made against a network — a
+ * provider skipped for a missing key never reached the wire and is excluded,
+ * so it cannot be mistaken for a real failure in that provider's health score.
+ * Best-effort: never throws.
+ */
+export async function recordSttAttempts(
+  db: RecordingDb,
+  attempts: TranscribeAttempt[],
+  final?: { provider: SttProviderName; ms: number },
+): Promise<void> {
+  const real = attempts.filter((a) => a.failure.reason !== "no_key");
+  try {
+    for (const attempt of real) {
+      const row = await providerBySlugIn(db, STT_PROVIDER_SLUG[attempt.provider]);
+      if (!row) continue;
+      await recordResultIn(db, {
+        provider_id: row.id, provider_slug: row.slug, job_type: "stt",
+        success: false, latency_ms: attempt.ms,
+        error_message: attempt.failure.reason === "rejected" ? attempt.failure.detail : attempt.failure.reason,
+      });
+    }
+    if (final) {
+      const row = await providerBySlugIn(db, STT_PROVIDER_SLUG[final.provider]);
+      if (row) {
+        await recordResultIn(db, { provider_id: row.id, provider_slug: row.slug, job_type: "stt", success: true, latency_ms: final.ms });
+      }
+    }
+  } catch {
+    // Best-effort. The transcript the sender already has must never depend on this.
   }
 }

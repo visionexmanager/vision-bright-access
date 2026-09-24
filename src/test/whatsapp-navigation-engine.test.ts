@@ -745,7 +745,9 @@ describe("the webhook stays thin", () => {
   it("keeps the existing voice path in front of the engine, untouched", () => {
     // The engine must see the transcript, so transcription runs first — and
     // the voice reply still happens inside reply(), for every route.
-    expect(webhook).toContain("transcribe: (input) => transcribeVoice({ ...input, trace: correlationId }),");
+    // By its parts: Phase 2I added a `record` hook and wrapped the call; the
+    // input and the trace it protects are unchanged.
+    expect(webhook).toMatch(/transcribe: \(input\) => transcribeVoice\(\{\s*\.\.\.input,\s*trace: correlationId,/);
     // Asserted by its parts rather than as one literal line. The call gained
     // a `cache` argument and wrapped onto two lines, which broke this without
     // changing anything it was protecting.
