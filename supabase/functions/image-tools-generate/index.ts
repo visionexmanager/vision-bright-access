@@ -13,6 +13,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { boundedText, isOwnStorageUpload, publicMediaFailure } from "../_shared/providerInput.ts";
 
 type ImageMode = "img2img" | "upscale" | "bg-remove" | "restore" | "avatar";
 
@@ -179,10 +180,11 @@ Deno.serve(async (req: Request) => {
 
     const poll = await pollPrediction(jobRow.provider_job_id);
     if (!poll.ok) {
+      const failure = publicMediaFailure(poll.error, "image", "image-tools-generate");
       await serviceClient.from("ams_image_jobs").update({
-        status: "failed", error_message: poll.error, completed_at: new Date().toISOString(),
+        status: "failed", error_message: failure, completed_at: new Date().toISOString(),
       }).eq("id", job_id);
-      return json({ ok: true, status: "failed", error: poll.error });
+      return json({ ok: true, status: "failed", error: failure });
     }
     if (poll.status === "succeeded" && poll.outputUrl) {
       let assetId: string | null = null;
@@ -213,12 +215,18 @@ Deno.serve(async (req: Request) => {
   const limited = await chargeDailyLimit(serviceClient, user.id, "image-tools-generate", cors);
   if (limited) return limited;
 
-  const { mode, image_url, prompt, project_id } = body;
+  const { mode, image_url, project_id } = body;
+  const prompt = boundedText(body.prompt, 1000) || undefined;
   const VALID_MODES: ImageMode[] = ["img2img", "upscale", "bg-remove", "restore", "avatar"];
   if (!VALID_MODES.includes(mode)) {
     return json({ error: `Unsupported mode "${mode}". Use one of: ${VALID_MODES.join(", ")}` }, 400);
   }
   if (!image_url?.trim()) return json({ error: "image_url is required (upload the source image first)" }, 400);
+  // Replicate fetches this URL itself, on Visionex's account — so only the
+  // caller's own upload to the tool's bucket is accepted (Phase 2F-3).
+  if (!isOwnStorageUpload(image_url, supabaseUrl, "image-tool-inputs", user.id)) {
+    return json({ error: "Upload the source image first, then try again." }, 400);
+  }
 
   const { data: jobRow, error: jobErr } = await serviceClient
     .from("ams_image_jobs")
@@ -231,20 +239,18 @@ Deno.serve(async (req: Request) => {
     .single();
 
   if (jobErr || !jobRow) {
-    const detail = jobErr?.message ?? "unknown reason";
-    const msg = detail.includes("does not exist") || detail.includes("column")
-      ? "Database schema for Image Studio tools is out of date. Run the latest Supabase migrations."
-      : `Failed to create image job: ${detail}`;
-    return json({ error: msg, code: "DB_ERROR" }, 500);
+    console.error("[image-tools-generate] job insert failed:", jobErr?.code ?? "unknown", jobErr?.message ?? "");
+    return json({ error: "The image job could not be started. Please try again later.", code: "DB_ERROR" }, 500);
   }
   const jobId: string = jobRow.id;
 
   const result = await createPrediction(mode, image_url, prompt);
   if (!result.ok) {
+    const failure = publicMediaFailure(result.error, "image", "image-tools-generate");
     await serviceClient.from("ams_image_jobs").update({
-      status: "failed", error_message: result.error, completed_at: new Date().toISOString(),
+      status: "failed", error_message: failure, completed_at: new Date().toISOString(),
     }).eq("id", jobId);
-    return json({ ok: false, job_id: jobId, error: result.error }, 503);
+    return json({ ok: false, job_id: jobId, error: failure }, 503);
   }
 
   await serviceClient.from("ams_image_jobs").update({

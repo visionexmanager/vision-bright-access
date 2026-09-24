@@ -10,6 +10,7 @@ import { runpodAdapter, runpodReadiness } from "../_shared/providers/runpod.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { publicMediaFailure } from "../_shared/providerInput.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -537,6 +538,10 @@ async function handleGenerate(
   if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
     return jsonError("Prompt is required", 400);
   }
+  // Bounded before it reaches a provider (Phase 2F-3).
+  if (prompt.length > 4000 || (typeof negative_prompt === "string" && negative_prompt.length > 2000)) {
+    return jsonError("The prompt is too long. Please shorten it and try again.", 400);
+  }
 
   // Resolve the provider before touching the DB — fail fast with a clear
   // "not configured" message instead of creating a job that can never succeed.
@@ -544,7 +549,9 @@ async function handleGenerate(
   try {
     provider = getProvider((providerName as string) || "auto");
   } catch (err) {
-    return jsonError(err instanceof Error ? err.message : "Video provider unavailable", 503);
+    // Which provider, which secret and the caller's own provider string stay
+    // in the log; the caller is told only that video is unavailable (Phase 2F-3).
+    return jsonError(publicMediaFailure(err, "video", "video-studio"), 503);
   }
 
   // A model saved against a different provider (e.g. a template built on Luma)
@@ -615,10 +622,11 @@ async function handleGenerate(
   });
 
   if (!result.ok) {
+    const failure = publicMediaFailure(result.error, "video", "video-studio");
     await (db as any).from("vx_video_jobs").update({
-      status: "failed", error_message: result.error,
+      status: "failed", error_message: failure,
     }).eq("id", job.id);
-    return json({ ok: false, job_id: job.id, error: result.error });
+    return json({ ok: false, job_id: job.id, error: failure });
   }
 
   // Update with provider job ID
@@ -663,7 +671,7 @@ async function handlePoll(
   try {
     provider = getProvider(job.provider);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Video provider unavailable";
+    const msg = publicMediaFailure(err, "video", "video-studio");
     await (db as any).from("vx_video_jobs").update({
       status: "failed", error_message: msg, completed_at: new Date().toISOString(),
     }).eq("id", job_id);
@@ -672,12 +680,13 @@ async function handlePoll(
   const pollResult = await provider.pollJob(job.provider_job_id);
 
   if (!pollResult.ok || pollResult.state === "failed") {
+    const failure = publicMediaFailure(pollResult.error, "video", "video-studio");
     await (db as any).from("vx_video_jobs").update({
       status:        "failed",
-      error_message: pollResult.error ?? "Provider reported failure",
+      error_message: failure,
       completed_at:  new Date().toISOString(),
     }).eq("id", job_id);
-    return json({ ok: true, status: "failed", error: pollResult.error });
+    return json({ ok: true, status: "failed", error: failure });
   }
 
   if (pollResult.state === "completed" && pollResult.videoUrl) {

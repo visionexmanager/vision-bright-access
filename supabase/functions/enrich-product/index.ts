@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { boundedText } from "../_shared/providerInput.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -49,7 +50,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { name, category, store_type, description } = await req.json();
+    // Bounded before they are written into the prompt (Phase 2F-3).
+    const body = await req.json();
+    const name = boundedText(body?.name, 200);
+    const category = boundedText(body?.category, 100);
+    const store_type = boundedText(body?.store_type, 100);
+    const description = boundedText(body?.description, 4000);
 
     if (!name) {
       return new Response(

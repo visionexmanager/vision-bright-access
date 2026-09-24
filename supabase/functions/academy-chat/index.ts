@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { boundedChatMessages, boundedText } from "../_shared/providerInput.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -45,9 +46,12 @@ Deno.serve(async (req) => {
     );
     if (limited) return limited;
 
-    const { messages, studentProfile, language } = await req.json();
+    const { messages: rawMessages, studentProfile, language } = await req.json();
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    // Only user and assistant turns, bounded in count and length — a caller's
+    // own "system" turn would otherwise sit beside the prompt below (Phase 2F-3).
+    const messages = boundedChatMessages(rawMessages);
+    if (messages.length === 0) {
       return new Response(
         JSON.stringify({ error: "Messages array is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -77,10 +81,10 @@ Deno.serve(async (req) => {
     };
     const responseLang = LANG_NAMES[lang] ?? "English";
 
-    const name = studentProfile?.name || "Student";
+    const name = boundedText(studentProfile?.name, 80) || "Student";
     const gender = studentProfile?.gender || "male";
-    const country = studentProfile?.country || "";
-    const level = studentProfile?.level || "";
+    const country = boundedText(studentProfile?.country, 80);
+    const level = boundedText(studentProfile?.level, 80);
 
     const systemPrompt = `أنت "منير" — مساعد أكاديمي ذكي ومرح في أكاديمية VisionEx العالمية.
 

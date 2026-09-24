@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { boundedText, checkImageDataUrl } from "../_shared/providerInput.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -90,12 +91,15 @@ Deno.serve(async (req) => {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
-    const { image, lang = "en", hint = "" } = await req.json();
+    const { image, lang = "en", hint: rawHint } = await req.json();
+    const hint = boundedText(rawHint, 500);
 
-    if (!image || typeof image !== "string") {
+    // Inline images only, bounded — never a URL for the provider to fetch (Phase 2F-3).
+    const checked = checkImageDataUrl(image);
+    if (checked.outcome === "refused") {
       return new Response(
-        JSON.stringify({ error: "Image data is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: checked.error }),
+        { status: checked.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
