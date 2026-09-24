@@ -125,17 +125,51 @@ describe("generateImage records exactly one outcome per generation", () => {
   });
 });
 
-describe("video is not recorded — Sora has no registry row", () => {
-  it("generateVideo never calls the recorder", async () => {
-    const record = vi.fn();
-    const { d } = deps([reply(500, {})], { record, sleep: async () => {} });
-    const result = await generateVideo(d, "a clip", "720x1280", "p/v");
-    expect(result.ok).toBe(false);
-    expect(record).not.toHaveBeenCalled();
+// Phase 2J-0 added the `openai-video` (Sora) row, so video is recorded too.
+describe("generateVideo records exactly one outcome per clip", () => {
+  const clipBytes = () => ({
+    ok: true, status: 200, json: async () => ({}), arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
   });
 
-  it("the slug map says so explicitly", () => {
-    expect(MEDIA_PROVIDER_SLUG).toEqual({ image: "openai-image", video: null });
+  it("a rejected submission: one failure record with the short code", async () => {
+    const { d, recorded } = deps([reply(500, {})], { sleep: async () => {} });
+    const result = await generateVideo(d, "a clip", "720x1280", "p/v");
+    expect(result).toEqual({ ok: false, error: "provider_unavailable" });
+    expect(recorded).toEqual([expect.objectContaining({ kind: "video", success: false, error: "provider_unavailable" })]);
+  });
+
+  it("a finished clip: one success record, the result untouched", async () => {
+    const { d, recorded } = deps(
+      [reply(200, { id: "vid_1" }), reply(200, { status: "completed" }), clipBytes()],
+      { sleep: async () => {}, upload: async () => "https://cdn.example/v.mp4" },
+    );
+    const result = await generateVideo(d, "a clip", "720x1280", "p/v");
+    expect(result).toEqual({ ok: true, kind: "video", url: "https://cdn.example/v.mp4", prompt: "a clip" });
+    expect(recorded).toEqual([expect.objectContaining({ kind: "video", success: true, error: undefined })]);
+  });
+
+  it("a failed render: one failure record", async () => {
+    const { d, recorded } = deps([reply(200, { id: "vid_1" }), reply(200, { status: "failed" })], { sleep: async () => {} });
+    expect(await generateVideo(d, "a clip", "720x1280", "p/v")).toEqual({ ok: false, error: "video_failed" });
+    expect(recorded).toEqual([expect.objectContaining({ success: false, error: "video_failed" })]);
+  });
+
+  it("a storage failure is not held against Sora", async () => {
+    const { d, recorded } = deps(
+      [reply(200, { id: "vid_1" }), reply(200, { status: "completed" }), clipBytes()],
+      { sleep: async () => {}, upload: async () => null },
+    );
+    expect(await generateVideo(d, "a clip", "720x1280", "p/v")).toEqual({ ok: false, error: "upload_failed" });
+    expect(recorded).toEqual([expect.objectContaining({ success: true })]);
+  });
+
+  it("a recorder that throws changes nothing about the clip", async () => {
+    const { d } = deps([reply(500, {})], { sleep: async () => {}, record: async () => { throw new Error("down"); } });
+    expect(await generateVideo(d, "a clip", "720x1280", "p/v")).toEqual({ ok: false, error: "provider_unavailable" });
+  });
+
+  it("the slug map names the Sora row", () => {
+    expect(MEDIA_PROVIDER_SLUG).toEqual({ image: "openai-image", video: "openai-video" });
   });
 });
 
@@ -181,10 +215,13 @@ describe("recordMediaOutcome writes what image-generate writes", () => {
     expect(calls.find((c) => c.table === "ph_logs")?.args).toMatchObject({ status: "failure", error_message: "content_policy" });
   });
 
-  it("a video outcome touches nothing", async () => {
-    const { db, calls } = fakeDb();
-    await recordMediaOutcome(db, { kind: "video", success: true, ms: 1 });
-    expect(calls).toEqual([]);
+  it("a video outcome is recorded against the Sora row as text_to_video", async () => {
+    const { db, calls } = fakeDb({ id: "vid-1", slug: "openai-video" });
+    await recordMediaOutcome(db, { kind: "video", success: false, ms: 9, error: "video_timeout" });
+    expect(calls[0]).toEqual({ op: "select", table: "ph_providers", args: "openai-video" });
+    expect(calls.find((c) => c.table === "ph_logs")?.args).toMatchObject({
+      provider_slug: "openai-video", job_type: "text_to_video", status: "failure", error_message: "video_timeout",
+    });
   });
 
   it("a missing row records nothing and does not throw", async () => {
@@ -246,10 +283,13 @@ describe("the wiring", () => {
     });
   }
 
-  it("generateVideo and generateProposalMedia are otherwise unchanged", () => {
+  it("generateVideo reports from every exit and sends Sora the same request", () => {
     const media = read("supabase/functions/_shared/contentMedia.ts");
     const video = media.slice(media.indexOf("export async function generateVideo"), media.indexOf("export async function generateProposalMedia"));
-    expect(video).not.toContain("report(");
-    expect(video).not.toContain("done(");
+    expect(video).not.toMatch(/return \{ ok:/);
+    for (const field of ['form.append("model", VIDEO_MODEL);', 'form.append("prompt", prompt);', 'form.append("size", size);', 'form.append("seconds", String(VIDEO_SECONDS));']) {
+      expect(video, field).toContain(field);
+    }
+    expect(media).toContain('export const VIDEO_MODEL = "sora-2";');
   });
 });

@@ -305,6 +305,19 @@ export async function generateVideo(
 ): Promise<MediaResult> {
   const now = deps.now ?? (() => Date.now());
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const started = now();
+  // Every exit reports once, as generateImage's do (Phase 2J-0): `providerOk`
+  // is whether Sora produced the clip, so a storage failure is not held
+  // against it.
+  const done = async (result: MediaResult, providerOk: boolean): Promise<MediaResult> => {
+    await report(deps, {
+      kind: "video",
+      success: providerOk,
+      ms: now() - started,
+      error: providerOk ? undefined : result.error,
+    });
+    return result;
+  };
 
   const form = new FormData();
   form.append("model", VIDEO_MODEL);
@@ -320,14 +333,14 @@ export async function generateVideo(
       body: form,
     });
   } catch {
-    return { ok: false, error: "provider_unreachable" };
+    return done({ ok: false, error: "provider_unreachable" }, false);
   }
 
   const createdBody = await created.json().catch(() => null);
-  if (!created.ok) return { ok: false, error: await classify(created.status, createdBody) };
+  if (!created.ok) return done({ ok: false, error: await classify(created.status, createdBody) }, false);
 
   const id = (createdBody as { id?: string } | null)?.id;
-  if (!id) return { ok: false, error: "no_job_returned" };
+  if (!id) return done({ ok: false, error: "no_job_returned" }, false);
 
   const deadline = now() + VIDEO_TIMEOUT_MS;
   let state = "queued";
@@ -340,15 +353,15 @@ export async function generateVideo(
         headers: { Authorization: `Bearer ${deps.apiKey}` },
       });
     } catch {
-      return { ok: false, error: "provider_unreachable" };
+      return done({ ok: false, error: "provider_unreachable" }, false);
     }
     const body = await polled.json().catch(() => null);
-    if (!polled.ok) return { ok: false, error: await classify(polled.status, body) };
+    if (!polled.ok) return done({ ok: false, error: await classify(polled.status, body) }, false);
     state = (body as { status?: string } | null)?.status ?? "failed";
   }
 
   if (state !== "completed") {
-    return { ok: false, error: state === "failed" ? "video_failed" : "video_timeout" };
+    return done({ ok: false, error: state === "failed" ? "video_failed" : "video_timeout" }, false);
   }
 
   let content;
@@ -358,15 +371,15 @@ export async function generateVideo(
       headers: { Authorization: `Bearer ${deps.apiKey}` },
     });
   } catch {
-    return { ok: false, error: "provider_unreachable" };
+    return done({ ok: false, error: "provider_unreachable" }, false);
   }
-  if (!content.ok) return { ok: false, error: "video_download_failed" };
+  if (!content.ok) return done({ ok: false, error: "video_download_failed" }, false);
 
   const bytes = new Uint8Array(await content.arrayBuffer());
-  if (bytes.byteLength === 0) return { ok: false, error: "video_download_failed" };
+  if (bytes.byteLength === 0) return done({ ok: false, error: "video_download_failed" }, false);
 
   const url = await deps.upload(`${pathPrefix}.mp4`, bytes, "video/mp4");
-  return url ? { ok: true, kind: "video", url, prompt } : { ok: false, error: "upload_failed" };
+  return done(url ? { ok: true, kind: "video", url, prompt } : { ok: false, error: "upload_failed" }, true);
 }
 
 /** The whole thing, for one proposal: decide, prompt, generate, store. */

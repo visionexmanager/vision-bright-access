@@ -82,32 +82,25 @@ export async function recordResultIn(db: RecordingDb, params: RecordResultParams
 }
 
 /**
- * The registry row each kind of content-media generation is recorded against.
+ * One outcome against one registry row, by slug. Best-effort: it never
+ * throws, and a slug with no row records nothing.
  *
- * `image` is the `openai-image` row Phase 2C seeded, which `image-generate`
- * already records against. `video` has none — Sora is not in `ph_providers`,
- * and adding it is a migration and a decision, not a side effect of this — so
- * a video outcome is not recorded.
+ * `error` must be a short code chosen by the caller — never a provider's own
+ * sentence, a prompt, a URL or anything that identifies a person.
  */
-export const MEDIA_PROVIDER_SLUG: Record<MediaKind, string | null> = {
-  image: "openai-image",
-  video: null,
-};
-
-/**
- * Record one content-media outcome. Best-effort: it never throws, so a
- * registry that is down cannot cost anyone a picture.
- */
-export async function recordMediaOutcome(db: RecordingDb, outcome: MediaOutcome): Promise<void> {
-  const slug = MEDIA_PROVIDER_SLUG[outcome.kind];
-  if (!slug) return;
+export async function recordProviderOutcome(
+  db: RecordingDb,
+  slug: string,
+  jobType: string,
+  outcome: { success: boolean; ms: number; error?: string },
+): Promise<void> {
   try {
     const row = await providerBySlugIn(db, slug);
     if (!row) return;
     await recordResultIn(db, {
       provider_id:   row.id,
       provider_slug: row.slug,
-      job_type:      outcome.kind,
+      job_type:      jobType,
       success:       outcome.success,
       latency_ms:    outcome.ms,
       error_message: outcome.error,
@@ -116,6 +109,37 @@ export async function recordMediaOutcome(db: RecordingDb, outcome: MediaOutcome)
     // Best-effort. The caller's result must never depend on this.
   }
 }
+
+/**
+ * The registry row each kind of content-media generation is recorded against.
+ *
+ * `image` is the `openai-image` row Phase 2C seeded, which `image-generate`
+ * already records against. `video` is `openai-video`, the Sora row added in
+ * Phase 2J-0 (20261039000000) — contentMedia renders video with Sora only.
+ */
+export const MEDIA_PROVIDER_SLUG: Record<MediaKind, string> = {
+  image: "openai-image",
+  video: "openai-video",
+};
+
+/**
+ * Record one content-media outcome. Best-effort: it never throws, so a
+ * registry that is down cannot cost anyone a picture or a clip.
+ */
+export async function recordMediaOutcome(db: RecordingDb, outcome: MediaOutcome): Promise<void> {
+  await recordProviderOutcome(db, MEDIA_PROVIDER_SLUG[outcome.kind], outcome.kind === "video" ? "text_to_video" : "image", outcome);
+}
+
+/**
+ * `video-studio`'s provider names, mapped to their registry rows. Recording
+ * only: `video-studio` chooses its provider from environment keys, never from
+ * these rows (Phase 2J-0).
+ */
+export const VIDEO_PROVIDER_SLUG: Readonly<Record<string, string>> = {
+  openai: "openai-video",
+  luma: "luma-video",
+  runpod: "runpod-video",
+};
 
 // ── Speech to text (Phase 2I) ─────────────────────────────────────────────────
 //
