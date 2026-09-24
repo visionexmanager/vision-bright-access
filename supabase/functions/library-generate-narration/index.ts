@@ -48,6 +48,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { describeTtsFailure, KEY_FOR, synthesize } from "../_shared/voice/tts.ts";
+import { recordTtsInBackground } from "../_shared/ttsRecorder.ts";
+import type { RecordingDb } from "../_shared/providerRecording.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { boundedText } from "../_shared/providerInput.ts";
 
@@ -121,7 +123,7 @@ function buildInstructions(rawDialect?: unknown, rawEmotion?: unknown): string {
 
 /** One segment through the shared TTS module (Phase 2G) — same model, voice,
  *  instructions, speed and mp3 format this function always asked OpenAI for. */
-async function synthesizeSegment(text: string, voice: string, instructions: string, speed: number): Promise<Uint8Array> {
+async function synthesizeSegment(text: string, voice: string, instructions: string, speed: number, db: RecordingDb): Promise<Uint8Array> {
   const result = await synthesize({
     text,
     provider: "openai",
@@ -130,6 +132,8 @@ async function synthesizeSegment(text: string, voice: string, instructions: stri
     format: "mp3",
     speed,
     instructions,
+    // Provider registry, per segment, after success and in the background (Phase 2K-1).
+    record: (execution) => recordTtsInBackground(execution, db),
   });
   if (result.outcome === "failed") {
     console.error("library-generate-narration: TTS segment failed:", describeTtsFailure(result.failure));
@@ -214,7 +218,7 @@ Deno.serve(async (req: Request) => {
 
     const buffers: Uint8Array[] = [];
     for (const segment of segments) {
-      buffers.push(await synthesizeSegment(segment, voice, instructions, speed));
+      buffers.push(await synthesizeSegment(segment, voice, instructions, speed, serviceClient));
     }
     const audioBytes = concatBuffers(buffers);
 

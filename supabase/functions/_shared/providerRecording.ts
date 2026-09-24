@@ -14,6 +14,7 @@
 
 import type { MediaKind, MediaOutcome } from "./contentMedia.ts";
 import type { SttProviderName, TranscribeAttempt } from "./voice/stt.ts";
+import type { TtsExecution, TtsProvider } from "./voice/tts.ts";
 
 // deno-lint-ignore no-explicit-any
 export type RecordingDb = any;
@@ -28,6 +29,8 @@ export interface RecordResultParams {
   error_message?: string;
   /** The SLUG of the provider the caller fell back to. */
   failover_to?:   string;
+  /** Operational metadata only (e.g. the model id). Written only when given. */
+  request_meta?:  Record<string, unknown>;
 }
 
 /** A `ph_providers` row by slug — for recording against it, not for choosing it. */
@@ -74,6 +77,8 @@ export async function recordResultIn(db: RecordingDb, params: RecordResultParams
     cost_usd:      params.cost_usd ?? null,
     error_message: params.error_message ?? null,
     failover_to:   toProvider?.id ?? null,
+    // Omitted rather than defaulted, so every other recorder's row is unchanged.
+    ...(params.request_meta ? { request_meta: params.request_meta } : {}),
   });
 
   // Record failover event
@@ -102,6 +107,7 @@ export async function recordProviderOutcome(
   slug: string,
   jobType: string,
   outcome: { success: boolean; ms: number; error?: string },
+  meta?: Record<string, unknown>,
 ): Promise<void> {
   try {
     const row = await providerBySlugIn(db, slug);
@@ -113,6 +119,7 @@ export async function recordProviderOutcome(
       success:       outcome.success,
       latency_ms:    outcome.ms,
       error_message: outcome.error,
+      ...(meta ? { request_meta: meta } : {}),
     });
   } catch {
     // Best-effort. The caller's result must never depend on this.
@@ -191,4 +198,21 @@ export async function recordSttAttempts(
   } catch {
     // Best-effort. The transcript the sender already has must never depend on this.
   }
+}
+
+// ── Text to speech (Phase 2K-1) ──────────────────────────────────────────────
+//
+// Recording only. Which provider, voice and model speak is decided exactly as
+// before by each caller; this writes what then succeeded against the tts rows
+// Phase 2C seeded. `speech-generate` records through its own code and is not
+// wired to this, so nothing is recorded twice.
+
+/** The `openai-tts` / `elevenlabs-tts` rows. */
+export const TTS_PROVIDER_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts" };
+
+/** One successful synthesis: a metric and a log row with the model id. Never throws. */
+export async function recordTtsExecution(db: RecordingDb, execution: TtsExecution): Promise<void> {
+  const slug = TTS_PROVIDER_SLUG[execution.provider];
+  if (!slug) return;
+  await recordProviderOutcome(db, slug, "tts", { success: true, ms: execution.ms }, { model: execution.model });
 }

@@ -289,9 +289,11 @@ import {
   replyMedium,
   sendWhatsAppAudio,
   speakReply,
+  synthesiseSpeech,
   uploadWhatsAppMedia,
   wantsSpokenReply,
 } from "../_shared/whatsappVoiceReply.ts";
+import { recordTtsInBackground } from "../_shared/ttsRecorder.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
   bookAskNotice,
@@ -1532,7 +1534,7 @@ Deno.serve(async (req) => {
           {
             sendText: (text) => sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text }),
             speak: async (text) =>
-              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, voice: await resolveSenderVoice(incoming.from) }),
+              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, voice: await resolveSenderVoice(incoming.from), ops: { synthesise: (text, spoken) => synthesiseSpeech({ text, spoken, record: (execution) => recordTtsInBackground(execution, db) }) } }),
           },
         );
 
@@ -1641,7 +1643,7 @@ Deno.serve(async (req) => {
           {
             tap: (tappable) => sendTappable(delivery, tappable),
             speak: async (text) =>
-              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, voice: await resolveSenderVoice(incoming.from) }),
+              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, voice: await resolveSenderVoice(incoming.from), ops: { synthesise: (text, spoken) => synthesiseSpeech({ text, spoken, record: (execution) => recordTtsInBackground(execution, db) }) } }),
           },
         );
         // A message that could not be spoken went out as a tappable one
