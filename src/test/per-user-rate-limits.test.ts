@@ -281,7 +281,9 @@ describe("the wiring in each function", () => {
   it("the per-user charge uses the service client, never the caller's", () => {
     for (const fn of Object.keys(PROVIDER_MARKER)) {
       const h = handler(fn);
-      const call = h.slice(h.indexOf("chargeDailyLimit("), h.indexOf("chargeDailyLimit(") + 200);
+      // The call's own arguments only — the next statement may name `db`.
+      const start = h.indexOf("chargeDailyLimit(");
+      const call = h.slice(start, h.indexOf(");", start));
       expect(call, fn).toMatch(/SERVICE_ROLE_KEY|serviceClient|dbService/);
       expect(call, fn).not.toMatch(/userClient|\bdb\b,|ANON_KEY/);
     }

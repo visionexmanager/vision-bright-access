@@ -173,7 +173,10 @@ async function runHealthCheck(
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const adminDb = createClient(supabaseUrl, serviceKey);
 
-  const newStatus = healthy ? "active" : "degraded";
+  // A probe reports health; it never switches a provider on. An `inactive` row
+  // is off on purpose (RunPod, Luma), and a successful probe used to flip it to
+  // `active`, making it routable without anyone deciding so (Phase 2J-0).
+  const newStatus = provider.status === "inactive" ? "inactive" : healthy ? "active" : "degraded";
   await (adminDb as any).from("ph_providers").update({
     status:            newStatus,
     health_score:      healthy ? Math.min(100, provider.health_score + 5) : Math.max(0, provider.health_score - 15),

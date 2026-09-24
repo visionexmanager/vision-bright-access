@@ -11,6 +11,7 @@ import { runpodAdapter, runpodReadiness } from "../_shared/providers/runpod.ts";
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { publicMediaFailure } from "../_shared/providerInput.ts";
+import { recordProviderOutcome, VIDEO_PROVIDER_SLUG } from "../_shared/providerRecording.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -521,12 +522,31 @@ function getProvider(name?: string): VideoProvider {
   throw new Error(`Unknown video provider: "${requested}". Supported: openai, luma`);
 }
 
+// ── Provider registry recording (Phase 2J-0) ────────────────────────────────
+//
+// Recording only. The provider was already chosen by getProvider() from the
+// environment; this writes what it then did, against its registry row, so the
+// registry finally sees the vendor serving production video. Nothing here is
+// read back to choose anything. Best-effort: recordProviderOutcome never
+// throws, and only short codes are written — never the prompt, a URL or a
+// provider's own sentence.
+async function recordVideoOutcome(
+  dbService: ReturnType<typeof createClient>,
+  providerName: string,
+  outcome: { success: boolean; ms: number; error?: string },
+): Promise<void> {
+  const slug = VIDEO_PROVIDER_SLUG[providerName];
+  if (!slug) return;
+  await recordProviderOutcome(dbService, slug, "text_to_video", outcome);
+}
+
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
 async function handleGenerate(
   body: Record<string, unknown>,
   userId: string,
-  db: ReturnType<typeof createClient>
+  db: ReturnType<typeof createClient>,
+  dbService: ReturnType<typeof createClient>,
 ): Promise<Response> {
   const {
     prompt, negative_prompt, style, duration_sec, aspect_ratio,
@@ -593,11 +613,10 @@ async function handleGenerate(
     .single();
 
   if (jobErr) {
-    const detail = (jobErr as any)?.message ?? "unknown";
-    const msg = detail.includes("does not exist")
-      ? "Database table 'vx_video_jobs' not found. Run Supabase migrations to set up the Video Studio schema."
-      : `Failed to create video job: ${detail}`;
-    return jsonError(msg, 500);
+    // The database's own wording stays in the log (Phase 2J-0): it named a
+    // table, a column or a constraint to whoever sent the request.
+    console.error("[video-studio] job insert failed:", (jobErr as any)?.code ?? "unknown", (jobErr as any)?.message ?? "");
+    return jsonError("The video job could not be started. Please try again later.", 500);
   }
 
   // Increment template use_count if used
@@ -606,6 +625,7 @@ async function handleGenerate(
   }
 
   // Submit to provider
+  const submitStarted = Date.now();
   const result = await provider.generateVideo({
     prompt:          job.prompt,
     negativePrompt:  job.negative_prompt ?? undefined,
@@ -622,6 +642,9 @@ async function handleGenerate(
   });
 
   if (!result.ok) {
+    await recordVideoOutcome(dbService, provider.name, {
+      success: false, ms: Date.now() - submitStarted, error: "submit_rejected",
+    });
     const failure = publicMediaFailure(result.error, "video", "video-studio");
     await (db as any).from("vx_video_jobs").update({
       status: "failed", error_message: failure,
@@ -680,6 +703,11 @@ async function handlePoll(
   const pollResult = await provider.pollJob(job.provider_job_id);
 
   if (!pollResult.ok || pollResult.state === "failed") {
+    await recordVideoOutcome(dbService, provider.name, {
+      success: false,
+      ms: job.started_at ? Date.now() - new Date(job.started_at).getTime() : 0,
+      error: "generation_failed",
+    });
     const failure = publicMediaFailure(pollResult.error, "video", "video-studio");
     await (db as any).from("vx_video_jobs").update({
       status:        "failed",
@@ -695,6 +723,9 @@ async function handlePoll(
     const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const startTime   = job.started_at ? new Date(job.started_at).getTime() : Date.now();
     const genTime     = Date.now() - startTime;
+
+    // The provider produced the video; whether storing it then works is ours.
+    await recordVideoOutcome(dbService, provider.name, { success: true, ms: genTime });
 
     let storagePath: string | null = null;
     let thumbPath: string | null   = null;
@@ -932,7 +963,7 @@ serve(async (req) => {
       // (Phase 2F-2).
       const limited = await chargeDailyLimit(dbService, user.id, "video-studio", CORS);
       if (limited) return limited;
-      return handleGenerate(body, user.id, db);
+      return handleGenerate(body, user.id, db, dbService);
     }
     case "poll":     return handlePoll(body, user.id, db, dbService);
     case "cancel":   return handleCancel(body, user.id, db);
