@@ -2,7 +2,7 @@
 // the registry *would* choose and writes it down; it never changes what is
 // chosen, what is sent, what is returned or what is billed.
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   observeShadow,
@@ -249,5 +249,53 @@ describe("6. the request a caller makes is the request that runs, with shadow on
     const off = await generate("off");
     expect(await generate("disagrees")).toEqual(off);
     expect(await generate("throws")).toEqual(off);
+  });
+});
+
+describe("7. a client can neither turn it on nor see it", () => {
+  // Follow-up to #336. Its tests proved the switch is off by default and that
+  // shadow never changes the request — but nothing stopped a later edit from
+  // running an observation because the *request* asked for one. The switch is
+  // a server environment variable; these pin that it is the only one.
+  const generate = studio.slice(studio.indexOf("async function handleGenerate("), studio.indexOf("async function handlePoll("));
+  const gate = studio.slice(studio.indexOf("function shadowAutoChoice("), studio.indexOf("// ── Handlers"));
+  const code = (s: string) => s.replace(/\/\/.*$/gm, "");
+
+  it("the only observation in video-studio goes through the server-side switch", () => {
+    expect(code(studio).match(/observeShadow\(/g)).toHaveLength(1);
+    expect(code(gate)).toContain("observeShadow(");
+    expect(code(generate)).not.toContain("observeShadow(");
+    expect(code(generate).match(/shadowAutoChoice\(/g)).toHaveLength(1);
+  });
+
+  it("the switch reads the environment and nothing the caller sent", () => {
+    expect(code(gate)).toContain("if (!shadowEnabled()) return;");
+    expect(code(gate)).not.toMatch(/\bbody\b|\breq\b|headers|searchParams|params\./);
+    expect(code(selection)).toMatch(/export function shadowEnabled\(read: EnvReader = denoEnv\): boolean/);
+    // shadowEnabled's only input is an environment reader: no request type reaches it.
+    expect(code(selection).slice(code(selection).indexOf("export function shadowEnabled"), code(selection).indexOf("export function shadowEnabled") + 200))
+      .not.toMatch(/Request|body|header/i);
+  });
+
+  it("no request field anywhere in video-studio mentions shadow or the registry switch", () => {
+    expect(code(studio)).not.toMatch(/body\??\.\s*shadow|\(body as [^)]*\)\.shadow|\["shadow"\]|registry_shadow|PROVIDER_REGISTRY_SHADOW\s*[:=]/i);
+    // The call site passes exactly the job's own facts, nothing from the body.
+    expect(generate).toContain('if (!providerName || providerName === "auto") shadowAutoChoice(dbService, provider.name, job.id);');
+  });
+
+  it("only video-studio observes; no other edge function wires it in", () => {
+    const readdir = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+        e.isDirectory() ? readdir(`${dir}/${e.name}`) : e.name.endsWith(".ts") ? [`${dir}/${e.name}`] : []);
+    const users = readdir("supabase/functions")
+      .filter((f) => !f.endsWith("_shared/providerSelection.ts"))
+      .filter((f) => /observeShadow|shadowEnabled/.test(readFileSync(f, "utf8")));
+    expect(users).toEqual(["supabase/functions/video-studio/index.ts"]);
+  });
+
+  it("no response in video-studio carries shadow or registry data", () => {
+    for (const line of code(studio).split("\n").filter((l) => /\bjson(Error)?\(/.test(l))) {
+      expect(line, line.trim()).not.toMatch(/shadow|registry|observ|rankProviders|health_score|cost_per_request/i);
+    }
   });
 });
