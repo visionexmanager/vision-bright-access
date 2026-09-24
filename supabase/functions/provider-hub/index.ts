@@ -112,6 +112,9 @@ function selectProviders(
 
 // ── Health checker ────────────────────────────────────────────────────────────
 
+/** Health a passing probe restores at least — above the routers' cut-off of 20 (Phase 2J-1). */
+const HEALTH_AFTER_PASSING_PROBE = 50;
+
 async function runHealthCheck(
   provider: Provider,
   db: ReturnType<typeof createClient>
@@ -176,10 +179,20 @@ async function runHealthCheck(
   // A probe reports health; it never switches a provider on. An `inactive` row
   // is off on purpose (RunPod, Luma), and a successful probe used to flip it to
   // `active`, making it routable without anyone deciding so (Phase 2J-0).
-  const newStatus = provider.status === "inactive" ? "inactive" : healthy ? "active" : "degraded";
+  // Phase 2J-1 states the whole rule: automation moves a row only between the
+  // two automatic states, `active` and `degraded`. `inactive` and `error` are
+  // an admin's, and a probe leaves them exactly as it found them.
+  const automatic = provider.status === "active" || provider.status === "degraded";
+  const newStatus = automatic ? (healthy ? "active" : "degraded") : provider.status;
+  // A passing probe is evidence the provider works now. Without a floor, a row
+  // that had fallen to the routers' cut-off (health ≤ 20) came back `active`
+  // yet still excluded, and — excluded, so sent no traffic — could only climb
+  // back five points per manual probe. The floor puts it just back in play,
+  // well below a provider with a clean record.
+  const recoveredHealth = Math.max(HEALTH_AFTER_PASSING_PROBE, Math.min(100, provider.health_score + 5));
   await (adminDb as any).from("ph_providers").update({
     status:            newStatus,
-    health_score:      healthy ? Math.min(100, provider.health_score + 5) : Math.max(0, provider.health_score - 15),
+    health_score:      healthy ? recoveredHealth : Math.max(0, provider.health_score - 15),
     avg_latency_ms:    healthy ? Math.round((provider.avg_latency_ms * 9 + latency_ms) / 10) : provider.avg_latency_ms,
     last_health_check: new Date().toISOString(),
     updated_at:        new Date().toISOString(),
