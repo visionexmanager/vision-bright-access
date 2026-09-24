@@ -26,6 +26,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { generateImage } from "../_shared/contentMedia.ts";
+import { recordMediaOutcome, type RecordingDb } from "../_shared/providerRecording.ts";
 
 function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
@@ -107,7 +108,7 @@ function encodeBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-async function generateCoverImage(prompt: string): Promise<string | null> {
+async function generateCoverImage(prompt: string, db: RecordingDb): Promise<string | null> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return null;
   try {
@@ -118,6 +119,8 @@ async function generateCoverImage(prompt: string): Promise<string | null> {
         async upload(_path, bytes, contentType) {
           return `data:${contentType};base64,${encodeBase64(bytes)}`;
         },
+        // What the image model did, in the provider registry (Phase 2H).
+        record: (outcome) => recordMediaOutcome(db, outcome),
       },
       `A warm, colorful, child-friendly storybook illustration (no text or words in the image) of: ${prompt}. Whimsical, soft, safe-for-kids art style.`,
       "1024x1024",
@@ -181,7 +184,7 @@ Deno.serve(async (req: Request) => {
       maxTokens: 2500,
     })) as GeneratedStory;
 
-    const coverImageUrl = await generateCoverImage(`${result.title}. ${body.prompt.trim()}`);
+    const coverImageUrl = await generateCoverImage(`${result.title}. ${body.prompt.trim()}`, serviceClient);
 
     return json(
       {

@@ -34,6 +34,7 @@
 // point of writing it this way now.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { providerBySlugIn, recordResultIn, type RecordResultParams } from "./providerRecording.ts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -119,59 +120,12 @@ export async function resolveProvider(
 
 // ── Result recorder ───────────────────────────────────────────────────────────
 
-export async function recordResult(params: {
-  provider_id:    string;
-  provider_slug:  string;
-  job_type:       string;
-  success:        boolean;
-  latency_ms?:    number;
-  cost_usd?:      number;
-  error_message?: string;
-  failover_to?:   string;
-}): Promise<void> {
+export async function recordResult(params: RecordResultParams): Promise<void> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  const db          = createClient(supabaseUrl, serviceKey);
-
-  // Upsert metrics
-  await (db as any).rpc("ph_record_metric", {
-    p_provider_id: params.provider_id,
-    p_success:     params.success,
-    p_latency_ms:  params.latency_ms ?? null,
-    p_cost_usd:    params.cost_usd ?? 0,
-  });
-
-  // Insert log entry
-  await (db as any).from("ph_logs").insert({
-    provider_id:   params.provider_id,
-    provider_slug: params.provider_slug,
-    job_type:      params.job_type,
-    action:        "generation",
-    status:        params.success ? "success" : "failure",
-    latency_ms:    params.latency_ms ?? null,
-    cost_usd:      params.cost_usd ?? null,
-    error_message: params.error_message ?? null,
-    failover_to:   params.failover_to ?? null,
-  });
-
-  // Record failover event
-  if (!params.success && params.failover_to) {
-    const { data: toProvider } = await (db as any)
-      .from("ph_providers")
-      .select("id, slug")
-      .eq("slug", params.failover_to)
-      .maybeSingle();
-
-    await (db as any).from("ph_failovers").insert({
-      from_provider_id: params.provider_id,
-      to_provider_id:   toProvider?.id ?? null,
-      from_slug:        params.provider_slug,
-      to_slug:          params.failover_to,
-      job_type:         params.job_type,
-      reason:           "generation_failure",
-      error_message:    params.error_message,
-    });
-  }
+  // The body lives in providerRecording.ts so modules that cannot import
+  // supabase-js can record too (Phase 2H). Same queries, same order.
+  await recordResultIn(createClient(supabaseUrl, serviceKey), params);
 }
 
 // ── Known-provider lookup ─────────────────────────────────────────────────────
@@ -192,8 +146,7 @@ export async function providerBySlug(slug: string): Promise<RouterProvider | nul
   const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const db          = createClient(supabaseUrl, serviceKey);
 
-  const { data } = await (db as any).from("ph_providers").select("*").eq("slug", slug).maybeSingle();
-  return (data as RouterProvider) ?? null;
+  return (await providerBySlugIn(db, slug)) as RouterProvider | null;
 }
 
 // ── API key resolver ──────────────────────────────────────────────────────────

@@ -24,7 +24,8 @@ describe("kids-story-generate's cover art", () => {
   it("keeps the best-effort contract: a failure returns null, never throws", () => {
     // The story itself must still be returned even when the cover fails —
     // this was always true and must stay true with the new provider call.
-    expect(story).toContain("async function generateCoverImage(prompt: string): Promise<string | null>");
+    // Phase 2H added the service client it records the outcome through.
+    expect(story).toContain("async function generateCoverImage(prompt: string, db: RecordingDb): Promise<string | null>");
     expect(story).toContain("result.ok ? result.url ?? null : null");
     expect(story).toMatch(/catch\s*\{\s*return null;\s*\}/);
   });
