@@ -1,0 +1,72 @@
+# Type checks every Edge Function entry point, not only the WhatsApp and
+# career ones the older workflows cover.
+#
+# Why this exists: analyze-image read `.value` from a result whose field is
+# `.result` (TS2339). Every image analysis came back as an empty 200 from
+# 2026-08-13 until 2026-09-25, and `deno check` rejects the line outright — it
+# simply never ran on that function.
+#
+# KNOWN_FAILING lists the entry points that did not type-check when this gate
+# was added. They are type complaints, not boot errors (the WhatsApp workflow's
+# parse gate already fails the build on those). The list may only shrink: a
+# listed function that starts passing fails the job until it is removed, so the
+# exemption can never outlive its reason.
+name: Edge Functions — Deno type check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/**/*.ts"
+      - ".github/workflows/edge-functions-deno-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**/*.ts"
+      - ".github/workflows/edge-functions-deno-check.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deno-check:
+    name: deno check (all entry points)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type check every entry point
+        shell: bash
+        env:
+          NO_COLOR: "1"
+        run: |
+          KNOWN_FAILING=" ai-search library-build-knowledge-graph library-process-background-jobs library-recommend-books livekit-token meta-messaging-webhook mobility owner-control provider-hub video-studio vx-coin-review "
+          failed=0
+          checked=0
+          for f in supabase/functions/*/index.ts; do
+            name=$(basename "$(dirname "$f")")
+            checked=$((checked + 1))
+            if deno check --no-lock --node-modules-dir=none "$f" > /tmp/out.txt 2>&1; then
+              if [[ "$KNOWN_FAILING" == *" $name "* ]]; then
+                echo "::error file=$f::$name now type-checks — remove it from KNOWN_FAILING in this workflow"
+                failed=1
+              fi
+            else
+              if [[ "$KNOWN_FAILING" == *" $name "* ]]; then
+                echo "known failing: $name ($(grep -cE '^TS[0-9]+' /tmp/out.txt) errors)"
+              else
+                echo "::error file=$f::$name does not type-check"
+                grep -E -A4 '^TS[0-9]+' /tmp/out.txt | head -30
+                failed=1
+              fi
+            fi
+          done
+          echo "checked $checked entry points"
+          if [ "$checked" -lt 50 ]; then
+            echo "::error::found only $checked entry points — the glob is wrong, not the code"
+            failed=1
+          fi
+          exit "$failed"

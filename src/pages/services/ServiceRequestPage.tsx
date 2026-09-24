@@ -72,23 +72,17 @@ export default function ServiceRequestPage({
 
     setSubmitting(true);
     try {
-      if (!isOnTrial) {
-        const { error: deductErr } = await supabase.rpc("spend_vx", {
-          _amount: selectedPkg.vx,
-          _item_type: "service",
-          _item_name: `${serviceType} — ${selectedPkg.name}`,
-        });
-        if (deductErr) throw deductErr;
-      }
-
-      const { error: reqErr } = await supabase.from("service_requests").insert({
-        user_id: user.id,
-        full_name: form.name,
-        email: form.email,
-        phone: form.phone || null,
-        service_type: `${serviceType} — ${selectedPkg.name}`,
-        message: form.message,
-        status: "pending",
+      // One call: the server charges the package (or files it free on a trial)
+      // and files the request in the same transaction, so a failure can never
+      // leave VX spent without a request.
+      const { error: reqErr } = await supabase.rpc("submit_paid_service_request", {
+        _service_type: serviceType,
+        _package_name: selectedPkg.name,
+        _vx: selectedPkg.vx,
+        _full_name: form.name,
+        _email: form.email,
+        _phone: form.phone,
+        _message: form.message,
       });
       if (reqErr) throw reqErr;
 
@@ -96,8 +90,9 @@ export default function ServiceRequestPage({
       playSound("success");
       setSubmitted(true);
       toast.success(t("svcReq.successToast"));
-    } catch {
-      toast.error(t("svcReq.errGeneric"));
+    } catch (err) {
+      const message = (err as { message?: string } | null)?.message ?? "";
+      toast.error(t(message.includes("free week already includes") ? "svcReq.errTrialUsed" : "svcReq.errGeneric"));
     } finally {
       setSubmitting(false);
     }

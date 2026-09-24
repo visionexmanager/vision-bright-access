@@ -23660,12 +23660,14 @@ export type Database = {
       service_requests: {
         Row: {
           attachment_url: string | null
+          vx_paid: number | null
           created_at: string
           department: string
           email: string
           full_name: string
           id: string
           message: string
+          paid_via: string | null
           phone: string | null
           service_type: string
           status: string
@@ -23673,12 +23675,14 @@ export type Database = {
         }
         Insert: {
           attachment_url?: string | null
+          vx_paid?: number | null
           created_at?: string
           department?: string
           email: string
           full_name: string
           id?: string
           message: string
+          paid_via?: string | null
           phone?: string | null
           service_type: string
           status?: string
@@ -23686,12 +23690,14 @@ export type Database = {
         }
         Update: {
           attachment_url?: string | null
+          vx_paid?: number | null
           created_at?: string
           department?: string
           email?: string
           full_name?: string
           id?: string
           message?: string
+          paid_via?: string | null
           phone?: string | null
           service_type?: string
           status?: string
@@ -29211,6 +29217,18 @@ export type Database = {
           _token_type?: string
         }
         Returns: Json
+      }
+      submit_paid_service_request: {
+        Args: {
+          _email: string
+          _full_name: string
+          _message: string
+          _package_name: string
+          _phone: string
+          _service_type: string
+          _vx: number
+        }
+        Returns: string
       }
       submit_kids_innovation: {
         Args: {

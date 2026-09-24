@@ -35,6 +35,9 @@ describe("site-wide AI provider routing", () => {
     expect(analysts).toContain('{ provider: "openai", model: "gpt-4o" }');
     expect(analyzeImage).toContain("structuredCompletionWithFallback");
     expect(analyzeImage).toContain("targets: analyst.targets");
+    // The fallback returns { provider, model, result }. Reading `value` made
+    // every analysis an empty 200 from 2026-08-13 until this was pinned.
+    expect(analyzeImage).toContain("const { result: analysis } = await structuredCompletionWithFallback(");
   });
 
   it("uses automatic fallback in chat, generation, content, and WhatsApp", () => {
@@ -59,5 +62,19 @@ describe("site-wide AI provider routing", () => {
     const provider = source("supabase/functions/_shared/aiProvider.ts");
     expect(provider).toContain('export const EMBEDDING_MODEL = "text-embedding-3-small"');
     expect(provider).toContain('fetch("https://api.openai.com/v1/embeddings"');
+  });
+});
+
+describe("fallback results are read by the field the fallback returns", () => {
+  it("no Edge Function destructures `value` from a *WithFallback call", async () => {
+    const { readdirSync, statSync } = await import("node:fs");
+    const walk = (dir: string): string[] => readdirSync(dir).flatMap((name) => {
+      const path = `${dir}/${name}`;
+      return statSync(path).isDirectory() ? walk(path) : path.endsWith(".ts") ? [path] : [];
+    });
+    const offenders = walk("supabase/functions").filter((file) =>
+      /\{\s*value\b[^}]*\}\s*=\s*await\s+\w*WithFallback\s*\(/.test(readFileSync(file, "utf8")),
+    );
+    expect(offenders).toEqual([]);
   });
 });
