@@ -96,7 +96,15 @@ describe("2. observeShadow records what the registry would choose", () => {
       provider_id: "id-openai-video", provider_slug: "openai-video", job_type: "text_to_video",
       action: "shadow_selection", status: "skipped", error_code: "match",
       error_message: "shadow observation — not executed",
-      request_meta: { service: "video-studio", routing_mode: "auto", actual_provider: "openai-video", correlation_id: "job-1" },
+      request_meta: {
+        service: "video-studio", routing_mode: "auto", actual_provider: "openai-video", correlation_id: "job-1",
+        // Since the 2J-2 hardening: what was considered, ranked (see section 8).
+        candidates: [
+          { slug: "openai-video", status: null, eligible: true, rank: 1, health_score: 100, priority: 10, avg_latency_ms: 0 },
+          { slug: "luma-video", status: null, eligible: true, rank: 2, health_score: 100, priority: 50, avg_latency_ms: 0 },
+        ],
+        candidate_count: 2,
+      },
     }]);
   });
 
@@ -113,9 +121,10 @@ describe("2. observeShadow records what the registry would choose", () => {
   });
 
   it.each([
-    ["registry_error", () => Promise.resolve({ data: null, error: { message: "permission denied" } })],
+    // `registry_error` was split in the 2J-2 hardening; see section 8.
+    ["query_error", () => Promise.resolve({ data: null, error: { message: "permission denied" } })],
     ["malformed", () => Promise.resolve({ data: [{ id: 1, slug: null }], error: null })],
-    ["registry_error", () => Promise.reject(new Error("socket"))],
+    ["query_error", () => Promise.reject(new Error("socket"))],
   ])("a bad registry answer is recorded as %s and never thrown", async (code, answer) => {
     const { db, inserts } = fakeDb(answer());
     await expect(observeShadow(db, REQUEST)).resolves.toBe(code);
@@ -132,9 +141,11 @@ describe("2. observeShadow records what the registry would choose", () => {
   });
 
   it("a database that throws, or a log write that fails, never escapes", async () => {
-    await expect(observeShadow(fakeDb(null, { fromThrows: true }).db, REQUEST)).resolves.toBe("registry_error");
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(observeShadow(fakeDb(null, { fromThrows: true }).db, REQUEST)).resolves.toBe("unexpected_error");
     const good = Promise.resolve({ data: [row("openai-video")], error: null });
     await expect(observeShadow(fakeDb(good, { insertThrows: true }).db, REQUEST)).resolves.toBe("match");
+    quiet.mockRestore();
   });
 });
 
@@ -142,19 +153,23 @@ describe("3. nothing sensitive is read into it or written out of it", () => {
   it("selects only the ranking columns — no key reference, config or URL", async () => {
     const { db, selects } = fakeDb(Promise.resolve({ data: [row("openai-video")], error: null }));
     await observeShadow(db, REQUEST);
-    expect(selects).toEqual(["id, slug, priority, health_score, avg_latency_ms, cost_per_request, capabilities"]);
+    // `status` joined in the 2J-2 hardening, read only to be recorded.
+    expect(selects).toEqual(["id, slug, status, priority, health_score, avg_latency_ms, cost_per_request, capabilities"]);
     expect(selects[0]).not.toMatch(/api_key_ref|config|base_url|\*/);
   });
 
-  it("writes no cost, latency, key, prompt or user field", async () => {
+  it("writes no cost, key, prompt or user field", async () => {
     const { db, inserts } = fakeDb(Promise.resolve({ data: [row("openai-video", { cost_per_request: 0.2, avg_latency_ms: 900 })], error: null }));
     await observeShadow(db, REQUEST);
     const text = JSON.stringify(inserts);
     expect(Object.keys(inserts[0]).sort()).toEqual(
       ["action", "error_code", "error_message", "job_type", "provider_id", "provider_slug", "request_meta", "status"]);
-    expect(Object.keys(inserts[0].request_meta as object).sort()).toEqual(["actual_provider", "correlation_id", "routing_mode", "service"]);
-    // The slug "openai-video" is the one provider name it may carry; no secret name or figure.
-    expect(text).not.toMatch(/cost|0\.2|900|api_key|OPENAI_API_KEY|prompt|user_id/i);
+    expect(Object.keys(inserts[0].request_meta as object).sort()).toEqual(
+      ["actual_provider", "candidate_count", "candidates", "correlation_id", "routing_mode", "service"]);
+    // Latency is recorded on purpose since the hardening — a ranking input that
+    // explains a choice. Cost never is: not as a field, not as a score.
+    // The slug "openai-video" is the one provider name it may carry; no secret name.
+    expect(text).not.toMatch(/cost|0\.2|"score"|api_key|OPENAI_API_KEY|prompt|user_id/i);
   });
 
   it("never touches metrics or health", () => {
@@ -297,5 +312,161 @@ describe("7. a client can neither turn it on nor see it", () => {
     for (const line of code(studio).split("\n").filter((l) => /\bjson(Error)?\(/.test(l))) {
       expect(line, line.trim()).not.toMatch(/shadow|registry|observ|rankProviders|health_score|cost_per_request/i);
     }
+  });
+});
+
+describe("8. observations are trustworthy: failed writes, explained mismatches, distinct errors", () => {
+  // The Phase 2J-2 readiness audit found three gaps before shadow mode could
+  // be relied on: a failed ph_logs write vanished without a trace, a mismatch
+  // said nothing about why, and `registry_error` covered three different
+  // causes. These pin the fixes.
+
+  /** A service client whose ph_logs insert resolves with `insertResult`. */
+  function dbWithInsert(answer: unknown, insertResult: unknown) {
+    const inserts: Record<string, unknown>[] = [];
+    const db = {
+      from(table: string) {
+        if (table === "ph_logs") return { insert: async (r: Record<string, unknown>) => { inserts.push(r); return insertResult; } };
+        const chain = { select: () => chain, eq: () => chain, neq: () => chain, order: () => answer };
+        return chain;
+      },
+    };
+    return { db, inserts };
+  }
+  const rows = () => Promise.resolve({ data: [
+    { ...row("openai-video", { health_score: 30, priority: 10, avg_latency_ms: 900, cost_per_request: 0.2 }), status: "degraded" },
+    { ...row("luma-video", { priority: 5 }), status: "active" },
+    { ...row("mock-video", { health_score: 10 }), status: "error" },
+  ], error: null });
+
+  describe("gap 1: a failed shadow-log write is detected", () => {
+    it("a successful write logs nothing", async () => {
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { db, inserts } = dbWithInsert(Promise.resolve({ data: [row("openai-video")], error: null }), { error: null });
+      await observeShadow(db, REQUEST);
+      expect(inserts).toHaveLength(1);
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("a write that returns an error is reported with a short code, never the database's words", async () => {
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { db } = dbWithInsert(
+        Promise.resolve({ data: [row("openai-video")], error: null }),
+        { error: { code: "42501", message: "permission denied for table ph_logs", details: "secret detail" } },
+      );
+      await expect(observeShadow(db, REQUEST)).resolves.toBe("match");
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0]).toEqual(["[provider-shadow] log_write_failed", "42501"]);
+      expect(JSON.stringify(spy.mock.calls)).not.toMatch(/permission denied|secret detail/);
+      spy.mockRestore();
+    });
+
+    it("a write that throws is reported too, and still never escapes", async () => {
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { db } = fakeDb(Promise.resolve({ data: [row("openai-video")], error: null }), { insertThrows: true });
+      await expect(observeShadow(db, REQUEST)).resolves.toBe("match");
+      expect(spy.mock.calls).toEqual([["[provider-shadow] log_write_threw"]]);
+      spy.mockRestore();
+    });
+  });
+
+  describe("gap 2: a mismatch says what was considered", () => {
+    it("records every candidate, in ranked order, with only the inputs that explain the choice", async () => {
+      const { db, inserts } = dbWithInsert(rows(), { error: null });
+      expect(await observeShadow(db, REQUEST)).toBe("mismatch");
+      const meta = inserts[0].request_meta as Record<string, unknown>;
+      expect(meta.actual_provider).toBe("openai-video");
+      expect(inserts[0].provider_slug).toBe("luma-video");
+      expect(meta.candidates).toEqual([
+        { slug: "luma-video", status: "active", eligible: true, rank: 1, health_score: 100, priority: 5, avg_latency_ms: 0 },
+        { slug: "openai-video", status: "degraded", eligible: true, rank: 2, health_score: 30, priority: 10, avg_latency_ms: 900 },
+        { slug: "mock-video", status: "error", eligible: false, rank: null, health_score: 10, priority: 10, avg_latency_ms: 0 },
+      ]);
+      expect(meta.candidate_count).toBe(3);
+    });
+
+    it("never records cost, a score (which would reveal cost), keys, config or content", async () => {
+      const { db, inserts } = dbWithInsert(rows(), { error: null });
+      await observeShadow(db, REQUEST);
+      for (const c of (inserts[0].request_meta as { candidates: Record<string, unknown>[] }).candidates) {
+        expect(Object.keys(c).sort()).toEqual(["avg_latency_ms", "eligible", "health_score", "priority", "rank", "slug", "status"]);
+      }
+      expect(JSON.stringify(inserts[0])).not.toMatch(/cost|"score"|api_key|config|base_url|prompt|user_id|0\.2\b/i);
+    });
+
+    it("explains no_candidate too: the rows were there, none was eligible", async () => {
+      const { db, inserts } = dbWithInsert(
+        Promise.resolve({ data: [{ ...row("openai-video", { health_score: 5 }), status: "degraded" }], error: null }),
+        { error: null },
+      );
+      expect(await observeShadow(db, REQUEST)).toBe("no_candidate");
+      expect((inserts[0].request_meta as { candidates: unknown[] }).candidates).toEqual([
+        { slug: "openai-video", status: "degraded", eligible: false, rank: null, health_score: 5, priority: 10, avg_latency_ms: 0 },
+      ]);
+    });
+
+    it("keeps the list bounded, and says how many there were", async () => {
+      const many = Array.from({ length: 25 }, (_, i) => ({ ...row(`p${i}`), status: "active" }));
+      const { db, inserts } = dbWithInsert(Promise.resolve({ data: many, error: null }), { error: null });
+      await observeShadow(db, REQUEST);
+      const meta = inserts[0].request_meta as { candidates: unknown[]; candidate_count: number };
+      expect(meta.candidates).toHaveLength(10);
+      expect(meta.candidate_count).toBe(25);
+    });
+
+    it("an observation with no rows read records an empty list", async () => {
+      const { db, inserts } = dbWithInsert(Promise.resolve({ data: null, error: { message: "x" } }), { error: null });
+      await observeShadow(db, REQUEST);
+      expect(inserts[0].request_meta).toMatchObject({ candidates: [], candidate_count: 0 });
+    });
+
+    it("reads status to record it, and still reads no key reference, config or URL", async () => {
+      const { db, selects } = fakeDb(Promise.resolve({ data: [row("openai-video")], error: null }));
+      await observeShadow(db, REQUEST);
+      expect(selects).toEqual(["id, slug, status, priority, health_score, avg_latency_ms, cost_per_request, capabilities"]);
+    });
+
+    it("recording candidates does not change the choice", async () => {
+      const data = [row("a", { priority: 50 }), row("b", { priority: 1, health_score: 60 }), row("c", { health_score: 15 })];
+      const { db, inserts } = dbWithInsert(Promise.resolve({ data: data.map((r) => ({ ...r, status: "active" })), error: null }), { error: null });
+      await observeShadow(db, REQUEST);
+      expect(inserts[0].provider_slug).toBe(rankProviders(data.map((r) => ({ ...r })))?.provider.slug);
+    });
+  });
+
+  describe("gap 3: each failure has its own code", () => {
+    it.each([
+      ["query_error", "the query answered with an error", () => Promise.resolve({ data: null, error: { message: "relation does not exist" } })],
+      ["query_error", "the query answered without rows", () => Promise.resolve({ data: "nope", error: null })],
+      ["query_error", "the query itself rejected", () => Promise.reject(new Error("fetch failed"))],
+      ["malformed", "a row failed the shape check", () => Promise.resolve({ data: [{ id: 1, slug: null }], error: null })],
+    ])("%s when %s", async (code, _why, answer) => {
+      const { db, inserts } = dbWithInsert(answer(), { error: null });
+      await expect(observeShadow(db, REQUEST)).resolves.toBe(code);
+      expect(inserts[0]).toMatchObject({ error_code: code, provider_slug: null });
+      expect(JSON.stringify(inserts[0])).not.toMatch(/relation does not exist|fetch failed/);
+    });
+
+    it("unexpected_error when something else throws", async () => {
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { db, inserts } = fakeDb(null, { fromThrows: true });
+      await expect(observeShadow(db, REQUEST)).resolves.toBe("unexpected_error");
+      expect(inserts).toEqual([]);
+      spy.mockRestore();
+    });
+
+    it("timeout stays its own code", async () => {
+      vi.useFakeTimers();
+      const { db, inserts } = dbWithInsert(new Promise(() => {}), { error: null });
+      const pending = observeShadow(db, REQUEST, { timeoutMs: 50 });
+      await vi.advanceTimersByTimeAsync(60);
+      expect(await pending).toBe("timeout");
+      expect(inserts[0]).toMatchObject({ error_code: "timeout" });
+    });
+
+    it("the old catch-all code is gone", () => {
+      expect(selection.replace(/\/\/.*$/gm, "")).not.toContain('"registry_error"');
+    });
   });
 });

@@ -110,13 +110,33 @@ export interface ShadowRequest {
   correlationId?: string | null;
 }
 
-export type ShadowOutcome = "match" | "mismatch" | "no_candidate" | "timeout" | "registry_error" | "malformed";
+
+/**
+ * What one observation concluded. Every failure has its own code (Phase 2J-2
+ * hardening) — `registry_error` used to cover three different causes:
+ *
+ *   query_error       the registry query answered with an error, answered
+ *                     without rows, or itself rejected
+ *   malformed         the rows came back, and at least one failed the shape
+ *                     check (the whole observation is dropped, as before)
+ *   unexpected_error  anything else threw
+ *   timeout           the query took longer than the budget
+ */
+export type ShadowOutcome =
+  | "match" | "mismatch" | "no_candidate"
+  | "timeout" | "query_error" | "malformed" | "unexpected_error";
 
 // deno-lint-ignore no-explicit-any
 export type ShadowDb = any;
 
-/** The columns ranking needs and nothing more — no key reference, no config. */
-const RANKING_COLUMNS = "id, slug, priority, health_score, avg_latency_ms, cost_per_request, capabilities";
+/**
+ * The columns ranking needs, plus `status` — read only so it can be recorded,
+ * never used to rank. No key reference, no config, no URL.
+ */
+const RANKING_COLUMNS = "id, slug, status, priority, health_score, avg_latency_ms, cost_per_request, capabilities";
+
+/** How many candidates one observation records; `candidate_count` says how many there were. */
+const MAX_RECORDED_CANDIDATES = 10;
 
 function wellFormed(row: unknown): row is RankableProvider {
   const r = row as Record<string, unknown> | null;
@@ -127,6 +147,47 @@ function wellFormed(row: unknown): row is RankableProvider {
     Number.isFinite(Number(r.avg_latency_ms ?? 0)) &&
     Number.isFinite(Number(r.cost_per_request ?? 0)) &&
     (r.capabilities == null || Array.isArray(r.capabilities));
+}
+
+/** One considered row, as recorded: what explains a choice and nothing else. */
+export interface ShadowCandidate {
+  slug: string;
+  status: string | null;
+  /** Passed rankProviders' eligibility (health above its threshold). */
+  eligible: boolean;
+  /** 1 for the registry's choice; null when not eligible. */
+  rank: number | null;
+  health_score: number;
+  priority: number;
+  avg_latency_ms: number;
+}
+
+/**
+ * The considered rows, ranked the way rankProviders ranked them, then the
+ * ineligible ones. Derived from rankProviders' own answer — the ranking is
+ * not recomputed or changed here. Deliberately without `cost_per_request`,
+ * and without a score, which would reveal it.
+ */
+function describeCandidates(
+  rows: (RankableProvider & { status?: unknown })[],
+  ranked: { provider: RankableProvider; alternatives: RankableProvider[] } | null,
+): ShadowCandidate[] {
+  const order = ranked ? [ranked.provider, ...ranked.alternatives] : [];
+  const rankOf = new Map(order.map((p, i) => [p.slug, i + 1]));
+  const shape = (r: RankableProvider & { status?: unknown }): ShadowCandidate => ({
+    slug: r.slug,
+    status: typeof r.status === "string" ? r.status : null,
+    eligible: rankOf.has(r.slug),
+    rank: rankOf.get(r.slug) ?? null,
+    health_score: r.health_score,
+    priority: r.priority,
+    avg_latency_ms: r.avg_latency_ms,
+  });
+  const bySlug = new Map(rows.map((r) => [r.slug, r]));
+  return [
+    ...order.map((p) => shape(bySlug.get(p.slug) ?? p)),
+    ...rows.filter((r) => !rankOf.has(r.slug)).map(shape),
+  ];
 }
 
 /**
@@ -141,6 +202,8 @@ export async function observeShadow(
 ): Promise<ShadowOutcome> {
   let outcome: ShadowOutcome;
   let chosen: RankableProvider | null = null;
+  let candidates: ShadowCandidate[] = [];
+  let candidateCount = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   try {
@@ -150,37 +213,52 @@ export async function observeShadow(
       .eq("type", request.jobType)
       .neq("status", "inactive")
       .order("priority");
+    // A rejected query is the registry failing, not this code: it is mapped
+    // to query_error here so the catch below means only "something else".
+    type QueryAnswer = { rejected?: boolean; error?: unknown; data?: unknown };
+    const answered: Promise<QueryAnswer> = Promise.resolve(query).then(
+      (a: unknown) => (a ?? {}) as QueryAnswer,
+      () => ({ rejected: true }),
+    );
     const timeout = new Promise<"timeout">((resolve) => {
       timer = setTimeout(() => resolve("timeout"), options.timeoutMs ?? 2_000);
     });
-    const answer = await Promise.race([Promise.resolve(query), timeout]);
+    const answer = await Promise.race([answered, timeout]);
     clearTimeout(timer);
+
+    const data = answer !== "timeout" && Array.isArray(answer.data) ? answer.data as unknown[] : null;
 
     if (answer === "timeout") {
       outcome = "timeout";
-    } else if (answer?.error || !Array.isArray(answer?.data)) {
-      outcome = "registry_error";
-    } else if (!answer.data.every(wellFormed)) {
+    } else if (answer.rejected || answer.error || !data) {
+      outcome = "query_error";
+    } else if (!data.every(wellFormed)) {
       outcome = "malformed";
     } else {
-      const rows = answer.data.map((r: RankableProvider) => ({
+      const rows = (data as (RankableProvider & { status?: unknown })[]).map((r) => ({
         ...r,
         health_score: Number(r.health_score),
         avg_latency_ms: Number(r.avg_latency_ms ?? 0),
         cost_per_request: Number(r.cost_per_request ?? 0),
         capabilities: r.capabilities ?? [],
       }));
-      chosen = rankProviders(rows)?.provider ?? null;
+      // rankProviders sorts its own copy's order in place; give it a copy so
+      // the rows kept for the record stay as they came.
+      const ranked = rankProviders(rows.map((r: RankableProvider) => ({ ...r })));
+      chosen = ranked?.provider ?? null;
+      const described = describeCandidates(rows, ranked);
+      candidateCount = described.length;
+      candidates = described.slice(0, MAX_RECORDED_CANDIDATES);
       outcome = !chosen ? "no_candidate" : chosen.slug === request.actualSlug ? "match" : "mismatch";
     }
   } catch {
-    outcome = "registry_error";
+    outcome = "unexpected_error";
   } finally {
     clearTimeout(timer);
   }
 
   try {
-    await db.from("ph_logs").insert({
+    const written = await db.from("ph_logs").insert({
       provider_id:   chosen?.id ?? null,
       provider_slug: chosen?.slug ?? null,
       job_type:      request.jobType,
@@ -195,10 +273,21 @@ export async function observeShadow(
         routing_mode:    request.routingMode,
         actual_provider: request.actualSlug,
         correlation_id:  request.correlationId ?? null,
+        candidates,
+        candidate_count: candidateCount,
       },
     });
+    // supabase-js reports a failed insert instead of throwing. It used to be
+    // ignored, so a broken write left no trace at all. The code is a short
+    // SQLSTATE; the message and details, which can quote the database, are
+    // never logged.
+    const error = (written as { error?: { code?: unknown } | null } | null)?.error;
+    if (error) {
+      console.error("[provider-shadow] log_write_failed", typeof error.code === "string" ? error.code : "unknown");
+    }
   } catch {
     // Telemetry. Losing one observation is always preferable to anything else.
+    console.error("[provider-shadow] log_write_threw");
   }
 
   return outcome;
